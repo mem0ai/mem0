@@ -10,6 +10,9 @@ importers:
       "@anthropic-ai/sdk":
         specifier: ^0.40.1
         version: 0.40.1(encoding@0.1.13)
+      "@cloudflare/workers-types":
+        specifier: ^4.20250504.0
+        version: 4.20250606.0
       "@google/genai":
         specifier: ^1.2.0
         version: 1.2.0(@modelcontextprotocol/sdk@1.12.1)(encoding@0.1.13)
@@ -37,6 +40,9 @@ importers:
       axios:
         specifier: 1.7.7
         version: 1.7.7
+      cloudflare:
+        specifier: ^4.2.0
+        version: 4.3.0(encoding@0.1.13)
       groq-sdk:
         specifier: 0.3.0
         version: 0.3.0(encoding@0.1.13)
@@ -383,6 +389,12 @@ packages:
     resolution:
       {
         integrity: sha512-gAmrUZSGtKc3AiBL71iNWxDsyUC5uMaKKGdvzYsBoTW/xi42JQHl7eKV2OYzCUqvc+D2RCcf7EXY2iCyFIk6og==,
+      }
+
+  "@cloudflare/workers-types@4.20250606.0":
+    resolution:
+      {
+        integrity: sha512-9T/Y/Mxe57UVzqgfjJKheiMplnStj/3CmCHlgoZNLU8JW2waRbXvpY3EEeliiYAJfeHZTjeAaKO2pCabxAoyCw==,
       }
 
   "@cspotcode/source-map-support@0.8.1":
@@ -1810,6 +1822,12 @@ packages:
         integrity: sha512-BSeNnyus75C4//NQ9gQt1/csTXyo/8Sb+afLAkzAptFuMsod9HFokGNudZpi/oQV73hnVK+sR+5PVRMd+Dr7YQ==,
       }
     engines: { node: ">=12" }
+
+  cloudflare@4.3.0:
+    resolution:
+      {
+        integrity: sha512-C+4Jhsl/OY4V5sykRB1yJxComDld5BkKW1xd3s0MDJ1yYamT2sFAoC2FEUQg5zipyxMaaGU4N7hZ6il+gfJxZg==,
+      }
 
   cluster-key-slot@1.1.2:
     resolution:
@@ -5465,6 +5483,8 @@ snapshots:
 
   "@cfworker/json-schema@4.1.1": {}
 
+  "@cloudflare/workers-types@4.20250606.0": {}
+
   "@cspotcode/source-map-support@0.8.1":
     dependencies:
       "@jridgewell/trace-mapping": 0.3.9
@@ -6396,6 +6416,18 @@ snapshots:
       string-width: 4.2.3
       strip-ansi: 6.0.1
       wrap-ansi: 7.0.0
+
+  cloudflare@4.3.0(encoding@0.1.13):
+    dependencies:
+      "@types/node": 18.19.76
+      "@types/node-fetch": 2.6.12
+      abort-controller: 3.0.0
+      agentkeepalive: 4.6.0
+      form-data-encoder: 1.7.2
+      formdata-node: 4.4.1
+      node-fetch: 2.7.0(encoding@0.1.13)
+    transitivePeerDependencies:
+      - encoding
 
   cluster-key-slot@1.1.2: {}
 

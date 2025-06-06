@@ -32,7 +32,7 @@ export class VectorizeDB implements VectorStore {
   async insert(
     vectors: number[][],
     ids: string[],
-    payloads: Record<string, any>[]
+    payloads: Record<string, any>[],
   ): Promise<void> {
     try {
       const vectorObjects: CloudflareVector[] = vectors.map(
@@ -40,7 +40,7 @@ export class VectorizeDB implements VectorStore {
           id: ids[index],
           values: vector,
           metadata: payloads[index] || {},
-        })
+        }),
       );
 
       const ndjsonPayload = vectorObjects
@@ -56,19 +56,19 @@ export class VectorizeDB implements VectorStore {
             Authorization: `Bearer ${this.client?.apiToken}`,
           },
           body: ndjsonPayload,
-        }
+        },
       );
 
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(
-          `Failed to insert vectors: ${response.status} ${errorText}`
+          `Failed to insert vectors: ${response.status} ${errorText}`,
         );
       }
     } catch (error) {
       console.error("Error inserting vectors:", error);
       throw new Error(
-        `Failed to insert vectors: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to insert vectors: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -76,7 +76,7 @@ export class VectorizeDB implements VectorStore {
   async search(
     query: number[],
     limit: number = 5,
-    filters?: SearchFilters
+    filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
     try {
       const result = await this.client?.vectorize.indexes.query(
@@ -87,7 +87,7 @@ export class VectorizeDB implements VectorStore {
           filter: filters,
           returnMetadata: "all",
           topK: limit,
-        }
+        },
       );
 
       return (
@@ -100,7 +100,7 @@ export class VectorizeDB implements VectorStore {
     } catch (error) {
       console.error("Error searching vectors:", error);
       throw new Error(
-        `Failed to search vectors: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to search vectors: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -112,7 +112,7 @@ export class VectorizeDB implements VectorStore {
         {
           account_id: this.accountId,
           ids: [vectorId],
-        }
+        },
       )) as any;
 
       if (!result?.length) return null;
@@ -124,7 +124,7 @@ export class VectorizeDB implements VectorStore {
     } catch (error) {
       console.error("Error getting vector:", error);
       throw new Error(
-        `Failed to get vector: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to get vector: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -132,7 +132,7 @@ export class VectorizeDB implements VectorStore {
   async update(
     vectorId: string,
     vector: number[],
-    payload: Record<string, any>
+    payload: Record<string, any>,
   ): Promise<void> {
     try {
       const data: VectorizeVector = {
@@ -150,19 +150,19 @@ export class VectorizeDB implements VectorStore {
             Authorization: `Bearer ${this.client?.apiToken}`,
           },
           body: JSON.stringify(data) + "\n", // ndjson format
-        }
+        },
       );
 
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(
-          `Failed to update vector: ${response.status} ${errorText}`
+          `Failed to update vector: ${response.status} ${errorText}`,
         );
       }
     } catch (error) {
       console.error("Error updating vector:", error);
       throw new Error(
-        `Failed to update vector: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to update vector: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -176,7 +176,7 @@ export class VectorizeDB implements VectorStore {
     } catch (error) {
       console.error("Error deleting vector:", error);
       throw new Error(
-        `Failed to delete vector: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to delete vector: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -189,14 +189,14 @@ export class VectorizeDB implements VectorStore {
     } catch (error) {
       console.error("Error deleting collection:", error);
       throw new Error(
-        `Failed to delete collection: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to delete collection: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
 
   async list(
     filters?: SearchFilters,
-    limit: number = 20
+    limit: number = 20,
   ): Promise<[VectorStoreResult[], number]> {
     try {
       const result = await this.client?.vectorize.indexes.query(
@@ -207,7 +207,7 @@ export class VectorizeDB implements VectorStore {
           filter: filters,
           topK: limit,
           returnMetadata: "all",
-        }
+        },
       );
 
       const matches =
@@ -221,7 +221,7 @@ export class VectorizeDB implements VectorStore {
     } catch (error) {
       console.error("Error listing vectors:", error);
       throw new Error(
-        `Failed to list vectors: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to list vectors: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -233,7 +233,7 @@ export class VectorizeDB implements VectorStore {
         const r = (Math.random() * 16) | 0;
         const v = c === "x" ? r : (r & 0x3) | 0x8;
         return v.toString(16);
-      }
+      },
     );
   }
 
@@ -267,7 +267,7 @@ export class VectorizeDB implements VectorStore {
           vector: [0],
           topK: 1,
           returnMetadata: "all",
-        }
+        },
       );
       if (result.matches.length > 0) {
         return result.matches[0].metadata.userId as string;
@@ -292,13 +292,13 @@ export class VectorizeDB implements VectorStore {
             Authorization: `Bearer ${this.client?.apiToken}`,
           },
           body: JSON.stringify(data) + "\n", // ndjson format
-        }
+        },
       );
       return randomUserId;
     } catch (error) {
       console.error("Error getting user ID:", error);
       throw new Error(
-        `Failed to get user ID: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to get user ID: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -313,7 +313,7 @@ export class VectorizeDB implements VectorStore {
           vector: [0],
           topK: 1,
           returnMetadata: "all",
-        }
+        },
       );
       const pointId =
         result.matches.length > 0 ? result.matches[0].id : this.generateUUID();
@@ -332,12 +332,12 @@ export class VectorizeDB implements VectorStore {
             Authorization: `Bearer ${this.client?.apiToken}`,
           },
           body: JSON.stringify(data) + "\n", // ndjson format
-        }
+        },
       );
     } catch (error) {
       console.error("Error setting user ID:", error);
       throw new Error(
-        `Failed to set user ID: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to set user ID: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -375,7 +375,7 @@ export class VectorizeDB implements VectorStore {
                 account_id: this.accountId,
                 indexType: "string",
                 propertyName,
-              }
+              },
             );
           }
         } catch (err: any) {
@@ -389,7 +389,7 @@ export class VectorizeDB implements VectorStore {
           this.indexName,
           {
             account_id: this.accountId,
-          }
+          },
         );
       const existingMetadataIndexes = new Set<string>();
       for (const metadataIndex of metadataIndexes?.metadataIndexes || []) {
@@ -404,7 +404,7 @@ export class VectorizeDB implements VectorStore {
               account_id: this.accountId,
               indexType: "string",
               propertyName,
-            }
+            },
           );
         }
       }
