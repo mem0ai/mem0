@@ -212,7 +212,8 @@ async def create_memory(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     # Get or create app
-    app_obj = db.query(App).filter(App.name == request.app).first()
+    app_obj = db.query(App).filter(App.name == request.app,
+                                   App.owner_id == user.id).first()
     if not app_obj:
         app_obj = App(name=request.app, owner_id=user.id)
         db.add(app_obj)
