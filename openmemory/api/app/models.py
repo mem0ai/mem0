@@ -1,6 +1,7 @@
 import enum
 import uuid
 import datetime
+import sqlalchemy as sa
 from sqlalchemy import (
     Column, String, Boolean, ForeignKey, Enum, Table,
     DateTime, JSON, Integer, UUID, Index, event
@@ -54,6 +55,10 @@ class App(Base):
 
     owner = relationship("User", back_populates="apps")
     memories = relationship("Memory", back_populates="app")
+
+    __table_args__ = (
+        sa.UniqueConstraint('owner_id', 'name', name='idx_app_owner_name'),
+    )
 
 
 class Config(Base):
