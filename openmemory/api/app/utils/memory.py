@@ -137,27 +137,48 @@ def reset_memory_client():
 def get_default_memory_config():
     """Get default memory client configuration with sensible defaults."""
     return {
-        "vector_store": {
-            "provider": "qdrant",
-            "config": {
-                "collection_name": "openmemory",
-                "host": "mem0_store",
-                "port": 6333,
-            }
-        },
         "llm": {
             "provider": "openai",
             "config": {
-                "model": "gpt-4o-mini",
-                "temperature": 0.1,
-                "max_tokens": 2000,
-                "api_key": "env:OPENAI_API_KEY"
+                "model": "qwen-32b",
+                "openai_base_url": "https://1api.mynameqx.top:5003/v1",
+                "api_key": "env:OPENAI_API_KEY",
+                "temperature": 0.6,
+                "max_tokens": 32768
+            }
+        },
+        "graph_store": {
+            "provider": "neo4j",
+            "config": {
+                "url": "neo4j://n1.mynameqx.top:7687",
+                "username": "neo4j",
+                "password": "i2EYPRi5FQsGxLNviL6T"
+            },
+            "llm" : {
+                "provider": "openai",
+                "config": {
+                    "model": "qwen-32b",
+                    "openai_base_url": "https://1api.mynameqx.top:5003/v1",
+                    "api_key": "env:OPENAI_API_KEY",
+                    "temperature": 0.6,
+                    "max_tokens": 32768
+                }
+            }
+        },
+        "vector_store": {
+            "provider": "milvus",
+            "config": {
+                "collection_name": "cursor",
+                "url": "http://n1.mynameqx.top:19530",
+                "embedding_model_dims": 5376,
+                "token": "env:MILVUS_TOKEN"
             }
         },
         "embedder": {
             "provider": "openai",
             "config": {
-                "model": "text-embedding-3-small",
+                "openai_base_url": "https://1api.mynameqx.top:5003/v1",
+                "model": "gemma3-27b",
                 "api_key": "env:OPENAI_API_KEY"
             }
         },

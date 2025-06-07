@@ -25,4 +25,6 @@ Guidelines:
 - Return only the categories under 'categories' key in the JSON format.
 - If you cannot categorize the memory, return an empty list with key 'categories'.
 - Don't limit yourself to the categories listed above only. Feel free to create new categories based on the memory. Make sure that it is a single phrase.
+
+/no_think
 """

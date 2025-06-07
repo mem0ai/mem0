@@ -16,6 +16,7 @@ class LLMConfig(BaseModel):
     max_tokens: int = Field(..., description="Maximum tokens to generate")
     api_key: Optional[str] = Field(None, description="API key or 'env:API_KEY' to use environment variable")
     ollama_base_url: Optional[str] = Field(None, description="Base URL for Ollama server (e.g., http://host.docker.internal:11434)")
+    openai_base_url: Optional[str] = Field(None, description="Base URL for OpenAI-compatible API (e.g., https://api.openai.com/v1)")
 
 class LLMProvider(BaseModel):
     provider: str = Field(..., description="LLM provider name")
@@ -25,6 +26,7 @@ class EmbedderConfig(BaseModel):
     model: str = Field(..., description="Embedder model name")
     api_key: Optional[str] = Field(None, description="API key or 'env:API_KEY' to use environment variable")
     ollama_base_url: Optional[str] = Field(None, description="Base URL for Ollama server (e.g., http://host.docker.internal:11434)")
+    openai_base_url: Optional[str] = Field(None, description="Base URL for OpenAI-compatible API (e.g., https://api.openai.com/v1)")
 
 class EmbedderProvider(BaseModel):
     provider: str = Field(..., description="Embedder provider name")
@@ -33,9 +35,32 @@ class EmbedderProvider(BaseModel):
 class OpenMemoryConfig(BaseModel):
     custom_instructions: Optional[str] = Field(None, description="Custom instructions for memory management and fact extraction")
 
+class GraphStoreConfig(BaseModel):
+    url: str = Field(..., description="Neo4j database URL")
+    username: str = Field(..., description="Neo4j username")
+    password: str = Field(..., description="Neo4j password")
+
+class GraphStoreProvider(BaseModel):
+    provider: str = Field(..., description="Graph store provider name")
+    config: GraphStoreConfig
+    llm: Optional[LLMProvider] = Field(None, description="LLM configuration for graph store")
+
+class VectorStoreConfig(BaseModel):
+    collection_name: str = Field(..., description="Collection name")
+    url: str = Field(..., description="Vector store URL")
+    embedding_model_dims: int = Field(..., description="Embedding model dimensions")
+    token: Optional[str] = Field(None, description="Access token or 'env:TOKEN' to use environment variable")
+
+class VectorStoreProvider(BaseModel):
+    provider: str = Field(..., description="Vector store provider name")
+    config: VectorStoreConfig
+
 class Mem0Config(BaseModel):
     llm: Optional[LLMProvider] = None
     embedder: Optional[EmbedderProvider] = None
+    graph_store: Optional[GraphStoreProvider] = None
+    vector_store: Optional[VectorStoreProvider] = None
+    version: Optional[str] = None
 
 class ConfigSchema(BaseModel):
     openmemory: Optional[OpenMemoryConfig] = None
@@ -51,21 +76,71 @@ def get_default_configuration():
             "llm": {
                 "provider": "openai",
                 "config": {
-                    "model": "gpt-4o-mini",
-                    "temperature": 0.1,
-                    "max_tokens": 2000,
-                    "api_key": "env:OPENAI_API_KEY"
+                    "model": "qwen-32b",
+                    "openai_base_url": "https://1api.mynameqx.top:5003/v1",
+                    "api_key": "env:OPENAI_API_KEY",
+                    "temperature": 0.6,
+                    "max_tokens": 32768
+                }
+            },
+            "graph_store": {
+                "provider": "neo4j",
+                "config": {
+                    "url": "neo4j://n1.mynameqx.top:7687",
+                    "username": "neo4j",
+                    "password": "i2EYPRi5FQsGxLNviL6T"
+                },
+                "llm" : {
+                    "provider": "openai",
+                    "config": {
+                        "model": "qwen-32b",
+                        "openai_base_url": "https://1api.mynameqx.top:5003/v1",
+                        "api_key": "env:OPENAI_API_KEY",
+                        "temperature": 0.6,
+                        "max_tokens": 32768
+                    }
+                }
+            },
+            "vector_store": {
+                "provider": "milvus",
+                "config": {
+                    "collection_name": "cursor",
+                    "url": "http://n1.mynameqx.top:19530",
+                    "embedding_model_dims": 5376,
+                    "token": "env:MILVUS_TOKEN"
                 }
             },
             "embedder": {
                 "provider": "openai",
                 "config": {
-                    "model": "text-embedding-3-small",
+                    "openai_base_url": "https://1api.mynameqx.top:5003/v1",
+                    "model": "gemma3-27b",
                     "api_key": "env:OPENAI_API_KEY"
                 }
-            }
+            },
+            "version": "v1.1"
         }
     }
+
+def get_frontend_default_configuration(include_advanced: bool = False):
+    """Get the filtered default configuration for frontend display."""
+    full_config = get_default_configuration()
+    
+    if include_advanced:
+        # Return full configuration for advanced view
+        return {
+            "openmemory": full_config.get("openmemory", {}),
+            "mem0": full_config.get("mem0", {})
+        }
+    else:
+        # Return basic configuration for standard view
+        return {
+            "openmemory": full_config.get("openmemory", {}),
+            "mem0": {
+                "llm": full_config.get("mem0", {}).get("llm"),
+                "embedder": full_config.get("mem0", {}).get("embedder")
+            }
+        }
 
 def get_config_from_db(db: Session, key: str = "main"):
     """Get configuration from database."""
@@ -123,10 +198,27 @@ def save_config_to_db(db: Session, config: Dict[str, Any], key: str = "main"):
     return db_config.value
 
 @router.get("/", response_model=ConfigSchema)
-async def get_configuration(db: Session = Depends(get_db)):
+async def get_configuration(advanced: bool = False, db: Session = Depends(get_db)):
     """Get the current configuration."""
     config = get_config_from_db(db)
-    return config
+    
+    if advanced:
+        # Return full configuration for advanced view
+        return {
+            "openmemory": config.get("openmemory", {}),
+            "mem0": config.get("mem0", {})
+        }
+    else:
+        # Filter the configuration to only return fields that the frontend expects
+        filtered_config = {
+            "openmemory": config.get("openmemory", {}),
+            "mem0": {
+                "llm": config.get("mem0", {}).get("llm"),
+                "embedder": config.get("mem0", {}).get("embedder")
+            }
+        }
+        
+        return filtered_config
 
 @router.put("/", response_model=ConfigSchema)
 async def update_configuration(config: ConfigSchema, db: Session = Depends(get_db)):
@@ -142,13 +234,30 @@ async def update_configuration(config: ConfigSchema, db: Session = Depends(get_d
             updated_config["openmemory"] = {}
         updated_config["openmemory"].update(config.openmemory.dict(exclude_none=True))
     
-    # Update mem0 settings
-    updated_config["mem0"] = config.mem0.dict(exclude_none=True)
+    # Update mem0 settings - merge with existing mem0 config to preserve other fields
+    if "mem0" not in updated_config:
+        updated_config["mem0"] = {}
+    
+    mem0_update = config.mem0.dict(exclude_none=True)
+    if "llm" in mem0_update:
+        updated_config["mem0"]["llm"] = mem0_update["llm"]
+    if "embedder" in mem0_update:
+        updated_config["mem0"]["embedder"] = mem0_update["embedder"]
     
     # Save the configuration to database
     save_config_to_db(db, updated_config)
     reset_memory_client()
-    return updated_config
+    
+    # Return filtered configuration for frontend
+    filtered_config = {
+        "openmemory": updated_config.get("openmemory", {}),
+        "mem0": {
+            "llm": updated_config.get("mem0", {}).get("llm"),
+            "embedder": updated_config.get("mem0", {}).get("embedder")
+        }
+    }
+    
+    return filtered_config
 
 @router.post("/reset", response_model=ConfigSchema)
 async def reset_configuration(db: Session = Depends(get_db)):
@@ -160,7 +269,9 @@ async def reset_configuration(db: Session = Depends(get_db)):
         # Save it as the current configuration in the database
         save_config_to_db(db, default_config)
         reset_memory_client()
-        return default_config
+        
+        # Return filtered configuration for frontend
+        return get_frontend_default_configuration()
     except Exception as e:
         raise HTTPException(
             status_code=500, 

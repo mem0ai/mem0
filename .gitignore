@@ -186,3 +186,5 @@ eval/
 qdrant_storage/
 .crossnote
 testing.ipynb
+.cursor/rules/always.mdc
+openmemory/sync_to_server.sh

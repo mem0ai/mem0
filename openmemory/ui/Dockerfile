@@ -3,16 +3,23 @@
 # Base stage for common setup
 FROM node:18-alpine AS base
 
+LABEL org.opencontainers.image.name="n1:1024/openmemory-ui"
+
 # Install dependencies for pnpm
+    # corepack enable && \
+    # corepack prepare pnpm@latest --activate
 RUN apk add --no-cache libc6-compat curl && \
-    corepack enable && \
-    corepack prepare pnpm@latest --activate
+    npm config set registry https://registry.npmmirror.com/ && \
+    npm install -g pnpm@latest
 
 WORKDIR /app
 
 FROM base AS deps
 
 COPY package.json pnpm-lock.yaml ./
+
+# 配置淘宝源
+RUN pnpm config set registry https://registry.npmmirror.com/
 
 RUN pnpm install --frozen-lockfile
 
@@ -22,6 +29,9 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/pnpm-lock.yaml ./pnpm-lock.yaml
 COPY . .
+
+# 确保builder阶段也使用淘宝源
+RUN pnpm config set registry https://registry.npmmirror.com/
 
 RUN cp next.config.dev.mjs next.config.mjs
 RUN cp .env.example .env

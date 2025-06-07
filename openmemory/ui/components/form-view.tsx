@@ -20,6 +20,7 @@ export function FormView({ settings, onChange }: FormViewProps) {
   const [showLlmAdvanced, setShowLlmAdvanced] = useState(false)
   const [showLlmApiKey, setShowLlmApiKey] = useState(false)
   const [showEmbedderApiKey, setShowEmbedderApiKey] = useState(false)
+  const [showAdvancedConfig, setShowAdvancedConfig] = useState(false)
 
   const handleOpenMemoryChange = (key: string, value: any) => {
     onChange({
@@ -82,6 +83,38 @@ export function FormView({ settings, onChange }: FormViewProps) {
           ...settings.mem0.embedder,
           config: {
             ...settings.mem0.embedder.config,
+            [key]: value,
+          },
+        },
+      },
+    })
+  }
+
+  const handleGraphStoreConfigChange = (key: string, value: any) => {
+    onChange({
+      ...settings,
+      mem0: {
+        ...settings.mem0,
+        graph_store: {
+          ...settings.mem0.graph_store,
+          config: {
+            ...settings.mem0.graph_store?.config,
+            [key]: value,
+          },
+        },
+      },
+    })
+  }
+
+  const handleVectorStoreConfigChange = (key: string, value: any) => {
+    onChange({
+      ...settings,
+      mem0: {
+        ...settings.mem0,
+        vector_store: {
+          ...settings.mem0.vector_store,
+          config: {
+            ...settings.mem0.vector_store?.config,
             [key]: value,
           },
         },
@@ -201,6 +234,21 @@ export function FormView({ settings, onChange }: FormViewProps) {
             </div>
           )}
 
+          {!isLlmOllama && (
+            <div className="space-y-2">
+              <Label htmlFor="llm-openai-url">OpenAI Base URL</Label>
+              <Input
+                id="llm-openai-url"
+                placeholder="https://api.openai.com/v1"
+                value={settings.mem0?.llm?.config?.openai_base_url || ""}
+                onChange={(e) => handleLlmConfigChange("openai_base_url", e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Custom OpenAI-compatible API endpoint (leave empty for default)
+              </p>
+            </div>
+          )}
+
           {needsLlmApiKey && (
             <div className="space-y-2">
               <Label htmlFor="llm-api-key">API Key</Label>
@@ -315,6 +363,21 @@ export function FormView({ settings, onChange }: FormViewProps) {
             </div>
           )}
 
+          {!isEmbedderOllama && (
+            <div className="space-y-2">
+              <Label htmlFor="embedder-openai-url">OpenAI Base URL</Label>
+              <Input
+                id="embedder-openai-url"
+                placeholder="https://api.openai.com/v1"
+                value={settings.mem0?.embedder?.config?.openai_base_url || ""}
+                onChange={(e) => handleEmbedderConfigChange("openai_base_url", e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Custom OpenAI-compatible API endpoint (leave empty for default)
+              </p>
+            </div>
+          )}
+
           {needsEmbedderApiKey && (
             <div className="space-y-2">
               <Label htmlFor="embedder-api-key">API Key</Label>
@@ -343,6 +406,147 @@ export function FormView({ settings, onChange }: FormViewProps) {
           )}
         </CardContent>
       </Card>
+
+      {/* Advanced Configuration Toggle */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Advanced Configuration</CardTitle>
+          <CardDescription>Configure advanced settings for graph store, vector store, and other options</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center space-x-2">
+            <Switch id="advanced-config" checked={showAdvancedConfig} onCheckedChange={setShowAdvancedConfig} />
+            <Label htmlFor="advanced-config">Show advanced configuration options</Label>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Advanced Configuration Sections */}
+      {showAdvancedConfig && (
+        <>
+          {/* Graph Store Settings */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Graph Store Settings</CardTitle>
+              <CardDescription>Configure your Neo4j graph database connection</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="graph-store-url">Neo4j URL</Label>
+                <Input
+                  id="graph-store-url"
+                  placeholder="neo4j://localhost:7687"
+                  value={settings.mem0?.graph_store?.config?.url || ""}
+                  onChange={(e) => handleGraphStoreConfigChange("url", e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="graph-store-username">Username</Label>
+                <Input
+                  id="graph-store-username"
+                  placeholder="neo4j"
+                  value={settings.mem0?.graph_store?.config?.username || ""}
+                  onChange={(e) => handleGraphStoreConfigChange("username", e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="graph-store-password">Password</Label>
+                <Input
+                  id="graph-store-password"
+                  type="password"
+                  placeholder="password"
+                  value={settings.mem0?.graph_store?.config?.password || ""}
+                  onChange={(e) => handleGraphStoreConfigChange("password", e.target.value)}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Vector Store Settings */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Vector Store Settings</CardTitle>
+              <CardDescription>Configure your Milvus vector database connection</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="vector-store-url">Milvus URL</Label>
+                <Input
+                  id="vector-store-url"
+                  placeholder="http://localhost:19530"
+                  value={settings.mem0?.vector_store?.config?.url || ""}
+                  onChange={(e) => handleVectorStoreConfigChange("url", e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="vector-store-collection">Collection Name</Label>
+                <Input
+                  id="vector-store-collection"
+                  placeholder="cursor"
+                  value={settings.mem0?.vector_store?.config?.collection_name || ""}
+                  onChange={(e) => handleVectorStoreConfigChange("collection_name", e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="vector-store-dims">Embedding Model Dimensions</Label>
+                <Input
+                  id="vector-store-dims"
+                  type="number"
+                  placeholder="5376"
+                  value={settings.mem0?.vector_store?.config?.embedding_model_dims || ""}
+                  onChange={(e) => handleVectorStoreConfigChange("embedding_model_dims", Number.parseInt(e.target.value) || "")}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="vector-store-token">Access Token</Label>
+                <Input
+                  id="vector-store-token"
+                  type="password"
+                  placeholder="env:MILVUS_TOKEN"
+                  value={settings.mem0?.vector_store?.config?.token || ""}
+                  onChange={(e) => handleVectorStoreConfigChange("token", e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Use "env:MILVUS_TOKEN" to load from environment variable, or enter directly
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Version Settings */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Version Information</CardTitle>
+              <CardDescription>Mem0 configuration version</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <Label htmlFor="mem0-version">Version</Label>
+                <Input
+                  id="mem0-version"
+                  placeholder="v1.1"
+                  value={settings.mem0?.version || ""}
+                  onChange={(e) => onChange({
+                    ...settings,
+                    mem0: {
+                      ...settings.mem0,
+                      version: e.target.value
+                    }
+                  })}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Mem0 configuration version identifier
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   )
 } 

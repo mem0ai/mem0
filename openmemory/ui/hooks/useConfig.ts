@@ -17,7 +17,7 @@ import {
 } from '@/store/configSlice';
 
 interface UseConfigApiReturn {
-  fetchConfig: () => Promise<void>;
+  fetchConfig: (advanced?: boolean) => Promise<void>;
   saveConfig: (config: { openmemory?: OpenMemoryConfig; mem0: Mem0Config }) => Promise<void>;
   saveLLMConfig: (llmConfig: LLMProvider) => Promise<void>;
   saveEmbedderConfig: (embedderConfig: EmbedderProvider) => Promise<void>;
@@ -32,12 +32,14 @@ export const useConfig = (): UseConfigApiReturn => {
   const dispatch = useDispatch<AppDispatch>();
   const URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8765";
   
-  const fetchConfig = async () => {
+  const fetchConfig = async (advanced: boolean = false) => {
     setIsLoading(true);
     dispatch(setConfigLoading());
     
     try {
-      const response = await axios.get(`${URL}/api/v1/config`);
+      const response = await axios.get(`${URL}/api/v1/config`, {
+        params: { advanced }
+      });
       dispatch(setConfigSuccess(response.data));
       setIsLoading(false);
     } catch (err: any) {
