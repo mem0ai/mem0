@@ -1,9 +1,8 @@
-import json
 import logging
-
-from openai import OpenAI
 from typing import List
+
 from dotenv import load_dotenv
+from openai import OpenAI
 from pydantic import BaseModel
 from tenacity import retry, stop_after_attempt, wait_exponential
 from app.utils.prompts import MEMORY_CATEGORIZATION_PROMPT
@@ -24,21 +23,22 @@ def get_categories_for_memory(memory: str) -> List[str]:
             {"role": "user", "content": memory}
         ]
 
-        response = openai_client.chat.completions.create(
+        # Let OpenAI handle the pydantic parsing directly
+        completion = openai_client.chat.completions.with_response_format(
+            response_format=MemoryCategories
+        ).create(
             model="gpt-4o",
             messages=messages,
-            temperature=0,
-            response_format="json"  # Ensures output is valid JSON
+            temperature=0
         )
 
-        # Parse response directly as JSON using pydantic
-        parsed = MemoryCategories.parse_raw(response.choices[0].message.content)
+        parsed: MemoryCategories = completion.choices[0].message.parsed
         return [cat.strip().lower() for cat in parsed.categories]
 
     except Exception as e:
         logging.error(f"[ERROR] Failed to get categories: {e}")
         try:
-            logging.debug(f"[DEBUG] Raw response: {response.choices[0].message.content}")
+            logging.debug(f"[DEBUG] Raw response: {completion.choices[0].message.content}")
         except Exception as debug_e:
             logging.debug(f"[DEBUG] Could not extract raw response: {debug_e}")
         raise
