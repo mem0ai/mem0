@@ -94,36 +94,37 @@ export function FormView({ settings, onChange }: FormViewProps) {
   const isLlmOllama = settings.mem0?.llm?.provider?.toLowerCase() === "ollama"
   const isEmbedderOllama = settings.mem0?.embedder?.provider?.toLowerCase() === "ollama"
 
-  const LLM_PROVIDERS = [
-    "OpenAI",
-    "Anthropic",
-    "Azure OpenAI",
-    "Ollama",
-    "Together",
-    "Groq",
-    "Litellm",
-    "Mistral AI",
-    "Google AI",
-    "AWS Bedrock",
-    "Gemini",
-    "DeepSeek",
-    "xAI",
-    "LM Studio",
-    "LangChain",
-  ]
+  const LLM_PROVIDERS = {
+    "OpenAI": "openai",
+    "Anthropic": "anthropic",
+    "Azure OpenAI": "azure_openai",
+    "Ollama": "ollama",
+    "Together": "together",
+    "Groq": "groq",
+    "Litellm": "litellm",
+    "Mistral AI": "litellm",
+    "Google AI": "litellm",
+    "Gemini": "gemini",
+    "DeepSeek": "deepseek",
+    "Sarvam": "sarvam",
+    "LM Studio": "lmstudio",
+    "LangChain": "langchain",
+    "AWS Bedrock": "aws_bedrock",
+  }
+  
 
-  const EMBEDDER_PROVIDERS = [
-    "OpenAI",
-    "Azure OpenAI",
-    "Ollama",
-    "Hugging Face",
-    "Vertexai",
-    "Gemini",
-    "Lmstudio",
-    "Together",
-    "LangChain",
-    "AWS Bedrock",
-  ]
+  const EMBEDDER_PROVIDERS = {
+    "OpenAI": "openai",
+    "Azure OpenAI": "azure_openai",
+    "Ollama": "ollama",
+    "Hugging Face": "huggingface",
+    "Vertexai": "vertexai",
+    "Gemini": "gemini",
+    "Lmstudio": "lmstudio",
+    "Together": "together",
+    "LangChain": "langchain",
+    "AWS Bedrock": "aws_bedrock",
+  }
 
   return (
     <div className="space-y-8">
@@ -167,8 +168,8 @@ export function FormView({ settings, onChange }: FormViewProps) {
                 <SelectValue placeholder="Select a provider" />
               </SelectTrigger>
               <SelectContent>
-                {LLM_PROVIDERS.map((provider) => (
-                  <SelectItem key={provider} value={provider.toLowerCase()}>
+                {Object.entries(LLM_PROVIDERS).map(([provider, value]) => (
+                  <SelectItem key={value} value={value}>
                     {provider}
                   </SelectItem>
                 ))}
@@ -259,6 +260,24 @@ export function FormView({ settings, onChange }: FormViewProps) {
                   onChange={(e) => handleLlmConfigChange("max_tokens", Number.parseInt(e.target.value) || "")}
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="lmstudio-base-url">LM Studio Base URL</Label>
+                <Input
+                  id="lmstudio-base-url"
+                  placeholder="http://localhost:1234/v1"
+                  value={settings.mem0?.llm?.config?.lmstudio_base_url || ""}
+                  onChange={(e) => handleLlmConfigChange("lmstudio_base_url", e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lmstudio-base-url">LM Studio Base URL</Label>
+                <Input
+                  id="ollama-base-url"
+                  placeholder="http://localhost:11434"
+                  value={settings.mem0?.llm?.config?.ollama_base_url || ""}
+                  onChange={(e) => handleLlmConfigChange("ollama_base_url", e.target.value)}
+                />
+                </div>
             </div>
           )}
         </CardContent>
@@ -281,8 +300,8 @@ export function FormView({ settings, onChange }: FormViewProps) {
                 <SelectValue placeholder="Select a provider" />
               </SelectTrigger>
               <SelectContent>
-                {EMBEDDER_PROVIDERS.map((provider) => (
-                  <SelectItem key={provider} value={provider.toLowerCase()}>
+                {Object.entries(EMBEDDER_PROVIDERS).map(([provider, value]) => (
+                  <SelectItem key={value} value={value}>
                     {provider}
                   </SelectItem>
                 ))}
