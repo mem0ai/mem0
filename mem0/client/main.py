@@ -526,7 +526,13 @@ class MemoryClient:
         if not (self.org_id and self.project_id):
             raise ValueError("org_id and project_id must be set to update instructions or categories")
 
-        if custom_instructions is None and custom_categories is None and retrieval_criteria is None and enable_graph is None and version is None:
+        if (
+            custom_instructions is None
+            and custom_categories is None
+            and retrieval_criteria is None
+            and enable_graph is None
+            and version is None
+        ):
             raise ValueError(
                 "Currently we only support updating custom_instructions or custom_categories or retrieval_criteria, so you must provide at least one of them"
             )
@@ -675,9 +681,7 @@ class MemoryClient:
         capture_client_event("client.feedback", self, data, {"sync_type": "sync"})
         return response.json()
 
-    def _prepare_payload(
-        self, messages: List[Dict[str, str]], kwargs: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def _prepare_payload(self, messages: List[Dict[str, str]], kwargs: Dict[str, Any]) -> Dict[str, Any]:
         """Prepare the payload for API requests.
 
         Args:
@@ -803,9 +807,7 @@ class AsyncMemoryClient:
                 error_message = str(e)
             raise ValueError(f"Error: {error_message}")
 
-    def _prepare_payload(
-        self, messages: List[Dict[str, str]], kwargs: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def _prepare_payload(self, messages: List[Dict[str, str]], kwargs: Dict[str, Any]) -> Dict[str, Any]:
         """Prepare the payload for API requests.
 
         Args:
@@ -1115,7 +1117,13 @@ class AsyncMemoryClient:
         if not (self.org_id and self.project_id):
             raise ValueError("org_id and project_id must be set to update instructions or categories")
 
-        if custom_instructions is None and custom_categories is None and retrieval_criteria is None and enable_graph is None and version is None:
+        if (
+            custom_instructions is None
+            and custom_categories is None
+            and retrieval_criteria is None
+            and enable_graph is None
+            and version is None
+        ):
             raise ValueError(
                 "Currently we only support updating custom_instructions or custom_categories or retrieval_criteria, so you must provide at least one of them"
             )
