@@ -1,0 +1,9 @@
+llm:
+  provider: openai
+  config:
+    model: 'deepseek-reasoner'
+    temperature: 0.5
+    max_tokens: 1000
+    top_p: 1
+    stream: false
+    base_url: 'https://api.deepseek.com'
