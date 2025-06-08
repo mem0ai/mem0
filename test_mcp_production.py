@@ -45,27 +45,27 @@ def test_production_mcp_connection():
         print(f"-> Sending 'test_connection' command...")
         ws.send(json.dumps(test_command))
 
-        print("<- Waiting for acknowledgement...")
+        print("<- Waiting for response...")
         
-        # The first message is an acknowledgement
-        ack = ws.recv()
-        print(f"✓ Received acknowledgement: {ack}")
-
-        print("<- Waiting for tool result...")
-
-        # The second message should be the actual tool result
+        # The new stateless architecture returns the full result in a single message.
         result = ws.recv()
-        print("✓ Received tool result from server.")
+        print("✓ Received response from server.")
         
         try:
             response_data = json.loads(result)
             print("\n--- Response Data ---")
-            # The response from the 'test_connection' tool is a long string, let's pretty print it.
+            
             if 'result' in response_data:
-                # The result itself is a JSON string, so we parse it again for pretty printing
-                result_content = json.loads(response_data['result'])
-                print(json.dumps(result_content, indent=2))
-                if "All systems operational" in result_content:
+                # The result itself can be a JSON string, so we can try to parse it for pretty printing.
+                try:
+                    result_content = json.loads(response_data['result'])
+                    print(json.dumps(result_content, indent=2))
+                except (json.JSONDecodeError, TypeError):
+                    # If it's not a JSON string, just print it.
+                    result_content = response_data['result']
+                    print(result_content)
+
+                if "All systems operational" in str(result_content):
                     print("\n✅ SUCCESS: The backend reported a healthy status through the persistent connection.")
                 else:
                     print("\n❌ FAILED: Backend responded, but did not report a healthy status.")
