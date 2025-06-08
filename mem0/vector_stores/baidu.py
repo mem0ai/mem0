@@ -1,4 +1,3 @@
-import dis
 import logging
 import time
 from typing import Dict, Optional
@@ -75,7 +74,6 @@ class BaiduDB(VectorStoreBase):
             # Check if database exists
             databases = self.client.list_databases()
             db_exists = any(db.database_name == self.database_name for db in databases)
-
             if not db_exists:
                 self._database = self.client.create_database(self.database_name)
                 logger.info(f"Created database: {self.database_name}")
@@ -96,8 +94,8 @@ class BaiduDB(VectorStoreBase):
         """
         # Check if table already exists
         try:
-            tables = self._database.list_tables()
-            table_exists = any(table.name == name for table in tables)
+            tables = self._database.list_table()
+            table_exists = any(table.table_name == name for table in tables)
             if table_exists:
                 logger.info(f"Table {name} already exists. Skipping creation.")
                 self._table = self._database.describe_table(name)
@@ -197,7 +195,8 @@ class BaiduDB(VectorStoreBase):
         )
 
         # Perform search
-        res = self._table.vector_search(request=request)
+        projections = ["id", "metadata"]
+        res = self._table.vector_search(request=request, projections=projections)
 
         # Parse results
         output = []
@@ -241,7 +240,8 @@ class BaiduDB(VectorStoreBase):
         Returns:
             OutputData: Retrieved vector.
         """
-        result = self._table.query(primary_key={"id": vector_id})
+        projections = ["id", "metadata"]
+        result = self._table.query(primary_key={"id": vector_id}, projections=projections)
         row = result.row
         return OutputData(id=row.get("id"), score=None, payload=row.get("metadata", {}))
 
@@ -258,13 +258,33 @@ class BaiduDB(VectorStoreBase):
     def delete_col(self):
         """Delete the table."""
         try:
+            tables = self._database.list_table()
+
+            # skip drop table if table not exists
+            table_exists = any(table.table_name == self.table_name for table in tables)
+            if not table_exists:
+                logger.info(f"Table {self.table_name} does not exist, skipping deletion")
+                return
+
+            # Delete the table
             self._database.drop_table(self.table_name)
-        except ServerError as e:
-            if e.code == ServerErrCode.TABLE_NOT_EXIST:
-                pass
-            else:
-                logger.debug("drop table error {}".format(e))
-                raise
+            logger.info(f"Initiated deletion of table {self.table_name}")
+
+            # Wait for table to be completely deleted
+            while True:
+                time.sleep(2)
+                try:
+                    self._database.describe_table(self.table_name)
+                    logger.info(f"Waiting for table {self.table_name} to be deleted...")
+                except ServerError as e:
+                    if e.code == ServerErrCode.TABLE_NOT_EXIST:
+                        logger.info(f"Table {self.table_name} has been completely deleted")
+                        break
+                    logger.error(f"Error checking table status: {e}")
+                    raise
+        except Exception as e:
+            logger.error(f"Error deleting table: {e}")
+            raise
 
     def col_info(self):
         """
