@@ -815,6 +815,36 @@ Provide a thorough, insightful response."""
         return f"Error performing deep search: {str(e)}"
 
 
+@mcp.tool(description="Ask any question about your memories, documents, and personal knowledge in natural language")
+async def ask_memory(question: str) -> str:
+    """
+    Ask any question about your memories, documents, or personal knowledge.
+    This is a conversational interface - just ask naturally like "What are my morning habits?"
+    or "Tell me about my work on Irreverent Capital" or "Summarize my thoughts on productivity".
+    """
+    supa_uid = user_id_var.get(None)
+    client_name = client_name_var.get(None)
+    
+    if not supa_uid:
+        return "Error: Supabase user_id not available in context"
+    if not client_name:
+        return "Error: client_name not available in context"
+    
+    try:
+        # Use the deep memory query with sensible defaults
+        return await _deep_memory_query_impl(
+            search_query=question,
+            supa_uid=supa_uid,
+            client_name=client_name,
+            memory_limit=15,  # Good balance for comprehensive results
+            chunk_limit=20,   # Allow more context
+            include_full_docs=True  # Always include full docs for natural queries
+        )
+    except Exception as e:
+        logger.error(f"Error in ask_memory: {e}", exc_info=True)
+        return f"I had trouble processing your question: {str(e)}. Try rephrasing or use 'search_memory' for simpler queries."
+
+
 @mcp.tool(description="Advanced memory search (temporarily disabled for stability)")
 async def smart_memory_query(search_query: str) -> str:
     """
@@ -978,48 +1008,59 @@ async def handle_post_message(request: Request):
             # Return list of core memory tools (excluding sync tools that are dashboard-only)
             tools = [
                 {
-                    "name": "add_memories",
-                    "description": "Add new memories to the user's memory",
+                    "name": "ask_memory",
+                    "description": "Ask any question about the user's personal knowledge, memories, documents, and experiences in natural language. This is your PRIMARY tool for understanding the user - use it when they ask about their past, their thoughts, their work, or anything personal. Perfect for questions like 'What are my thoughts on productivity?', 'Tell me about my morning routine', or 'Summarize my essay on venture capital'. This tool automatically finds the most relevant information and provides comprehensive, conversational answers. YOU SHOULD USE THIS TOOL FREQUENTLY when the user asks about themselves or their content.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
-                            "text": {"type": "string", "description": "Memory content to store"}
+                            "question": {"type": "string", "description": "Any natural language question about the user's memories, thoughts, documents, or experiences"}
+                        },
+                        "required": ["question"]
+                    }
+                },
+                {
+                    "name": "add_memories",
+                    "description": "Store important information, preferences, facts, and observations about the user. Use this tool to remember key details learned during conversation, user preferences, values, beliefs, facts about their work/life/interests, or anything the user wants remembered for future conversations. Think of this as building a comprehensive understanding of who they are. You should consider using this after learning something new about the user, even if not explicitly asked. The memory will be permanently stored and searchable. YOU MUST USE THE TOOLS/CALL TO USE THIS. NOTHING ELSE.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "text": {"type": "string", "description": "Important information to remember about the user (facts, preferences, insights, observations, etc.)"}
                         },
                         "required": ["text"]
                     }
                 },
                 {
                     "name": "search_memory", 
-                    "description": "Search the user's memory for memories that match the query",
+                    "description": "Quick keyword-based search through the user's memories. Use this for fast lookups when you need specific information or when ask_memory might be too comprehensive. Perfect for finding specific facts, dates, names, or simple queries. If you need just a quick fact-check or simple lookup, this is faster than ask_memory. Use when you need raw memory data rather than a conversational response.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
-                            "query": {"type": "string", "description": "Search query"},
-                            "limit": {"type": "integer", "description": "Maximum number of results", "default": 10}
+                            "query": {"type": "string", "description": "Keywords or phrases to search for"},
+                            "limit": {"type": "integer", "description": "Maximum number of results to return", "default": 10}
                         },
                         "required": ["query"]
                     }
                 },
                 {
                     "name": "list_memories",
-                    "description": "List all memories in the user's memory", 
+                    "description": "Browse through the user's stored memories to get an overview of what you know about them. Use this when you want to understand the breadth of information available, or when the user asks 'what do you know about me?' or wants to see their stored memories. This gives you raw memory data without analysis - good for getting oriented or checking what's stored.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
-                            "limit": {"type": "integer", "description": "Maximum number of results", "default": 20}
+                            "limit": {"type": "integer", "description": "Maximum number of memories to show", "default": 20}
                         }
                     }
                 },
                 {
                     "name": "deep_memory_query", 
-                    "description": "Deep memory search with automatic full document inclusion for comprehensive queries",
+                    "description": "Advanced comprehensive search for complex analysis across all user content including full documents, essays, and detailed memories. Use this when ask_memory isn't sufficient and you need maximum context - for complex questions requiring analysis across multiple documents, personality insights, or when you need to understand patterns across the user's entire knowledge base. This tool includes full document content and is slower but more thorough than ask_memory.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
-                            "search_query": {"type": "string", "description": "Search query"},
-                            "memory_limit": {"type": "integer", "description": "Memory limit", "default": 10},
-                            "chunk_limit": {"type": "integer", "description": "Chunk limit", "default": 10},
-                            "include_full_docs": {"type": "boolean", "description": "Include full documents", "default": True}
+                            "search_query": {"type": "string", "description": "Complex question or analysis request"},
+                            "memory_limit": {"type": "integer", "description": "Number of memories to include", "default": 10},
+                            "chunk_limit": {"type": "integer", "description": "Number of document chunks to include", "default": 10},
+                            "include_full_docs": {"type": "boolean", "description": "Whether to include complete documents", "default": true}
                         },
                         "required": ["search_query"]
                     }
@@ -1121,6 +1162,7 @@ tool_registry = {
     "add_memories": add_memories,
     "search_memory": search_memory,
     "list_memories": list_memories,
+    "ask_memory": ask_memory,
     "sync_substack_posts": sync_substack_posts,
     "deep_memory_query": deep_memory_query,
 }
