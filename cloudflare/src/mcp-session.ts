@@ -63,12 +63,19 @@ export class McpSession implements DurableObject {
                 console.log("SSE TransformStream started");
             },
             transform(chunk, controller) {
-                console.log("SSE transform:", chunk);
+                console.log("SSE transform:", new TextDecoder().decode(chunk));
                 controller.enqueue(chunk);
+            },
+            flush(controller) {
+                console.log("SSE transform flushed");
             }
         });
 
         this.sseWriter = writable.getWriter();
+
+        // Mark session as ready immediately after creating writer
+        this.sessionReady = true;
+        console.log("SSE session ready");
 
         // Handle client disconnection using request signal
         request.signal?.addEventListener('abort', () => {
@@ -89,14 +96,13 @@ export class McpSession implements DurableObject {
         const encoder = new TextEncoder();
         const initialMessage = "data: {\"type\":\"connection\",\"status\":\"connected\"}\n\n";
         
-        // Write immediately without await to avoid blocking
-        this.sseWriter.write(encoder.encode(initialMessage)).then(() => {
-            // Mark session as ready
-            this.sessionReady = true;
-            console.log("SSE session ready");
-        }).catch((e) => {
+        // Write and flush immediately
+        try {
+            await this.sseWriter.write(encoder.encode(initialMessage));
+            console.log("Initial SSE message written successfully");
+        } catch (e) {
             console.error("Failed to write initial SSE message:", e);
-        });
+        }
 
         // Return a streaming response that will be held open.
         return new Response(readable, {
@@ -106,6 +112,8 @@ export class McpSession implements DurableObject {
                 'Connection': 'keep-alive',
                 'Access-Control-Allow-Origin': '*',
                 'Access-Control-Allow-Headers': 'Cache-Control',
+                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                'X-Accel-Buffering': 'no', // Disable nginx buffering
             },
         });
     }

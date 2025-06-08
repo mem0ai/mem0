@@ -10,9 +10,9 @@ export default {
 		const url = new URL(request.url);
 		const pathParts = url.pathname.split('/').filter(Boolean);
 
-		// Support both formats:
+		// Support multiple formats:
 		// New format: /mcp/{user_id}/sse or /mcp/{user_id}/messages  
-		// Old format: /mcp/{client_name}/sse/{user_id}
+		// Old format: /mcp/{client_name}/sse/{user_id} or /mcp/{client_name}/messages/{user_id}
 		let user_id: string;
 		let client_name: string = 'claude'; // default client
 		let endpoint: string;
@@ -24,13 +24,16 @@ export default {
 			if (endpoint !== 'sse' && endpoint !== 'messages') {
 				return new Response('Invalid endpoint. Expected /mcp/{user_id}/sse or /mcp/{user_id}/messages', { status: 400 });
 			}
-		} else if (pathParts.length === 4 && pathParts[0] === 'mcp' && pathParts[2] === 'sse') {
-			// Old format: /mcp/{client_name}/sse/{user_id}
+		} else if (pathParts.length === 4 && pathParts[0] === 'mcp') {
+			// Old format: /mcp/{client_name}/sse/{user_id} or /mcp/{client_name}/messages/{user_id}
 			client_name = pathParts[1];
+			endpoint = pathParts[2];
 			user_id = pathParts[3];  
-			endpoint = 'sse';
+			if (endpoint !== 'sse' && endpoint !== 'messages') {
+				return new Response('Invalid endpoint. Expected sse or messages', { status: 400 });
+			}
 		} else {
-			return new Response('Invalid MCP URL format. Expected /mcp/{user_id}/sse, /mcp/{user_id}/messages, or /mcp/{client_name}/sse/{user_id}', { status: 400 });
+			return new Response('Invalid MCP URL format. Expected /mcp/{user_id}/sse, /mcp/{user_id}/messages, /mcp/{client_name}/sse/{user_id}, or /mcp/{client_name}/messages/{user_id}', { status: 400 });
 		}
 
 		// Create Durable Object ID from user_id and client_name
