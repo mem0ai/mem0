@@ -49,14 +49,19 @@ class MemoryCategories(BaseModel):
 def get_categories_for_memory(memory: str) -> List[str]:
     """Get categories for a memory."""
     try:
-        response = openai_client.responses.parse(
+        response = openai_client.chat.completions.create(
             model=CATEGORIZATION_OPENAI_MODEL,
-            instructions=MEMORY_CATEGORIZATION_PROMPT,
-            input=memory,
+            messages=[
+                {"role": "system", "content": MEMORY_CATEGORIZATION_PROMPT},
+                {"role": "user", "content": memory},
+            ],
             temperature=0,
-            text_format=MemoryCategories,
+            response_format={"type": "json_object"},
         )
-        response_json = json.loads(response.output[0].content[0].text)
+
+        # parse the response
+        content = response.choices[0].message.content
+        response_json = json.loads(content)
         categories = response_json["categories"]
         categories = [cat.strip().lower() for cat in categories]
         # TODO: Validate categories later may be
