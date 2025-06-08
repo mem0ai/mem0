@@ -11,5 +11,8 @@
     "@cloudflare/workers-types": "^4.20240512.0",
     "typescript": "^5.0.4",
     "wrangler": "^3.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1"
   }
 }
