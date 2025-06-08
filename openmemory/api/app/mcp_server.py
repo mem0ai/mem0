@@ -1040,7 +1040,7 @@ async def handle_post_message(request: Request):
         logger.info(f"Executing tool '{method_name}' for user '{user_id_from_header}' with params: {params}")
 
         # Find the tool in the MCP registry
-        tool_function = mcp._mcp_server.tools.get(method_name)
+        tool_function = mcp.tools.get(method_name)
 
         if not tool_function:
             return JSONResponse(status_code=404, content={"error": f"Tool '{method_name}' not found"})
