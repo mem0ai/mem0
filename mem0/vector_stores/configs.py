@@ -16,6 +16,7 @@ class VectorStoreConfig(BaseModel):
         "pgvector": "PGVectorConfig",
         "pinecone": "PineconeConfig",
         "milvus": "MilvusDBConfig",
+        "mochow": "BaiduDBConfig",
         "upstash_vector": "UpstashVectorConfig",
         "azure_ai_search": "AzureAISearchConfig",
         "redis": "RedisDBConfig",
