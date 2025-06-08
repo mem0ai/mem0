@@ -55,6 +55,23 @@ mcp_router = APIRouter(prefix="/mcp")
 # Initialize SSE transport
 sse = SseServerTransport("/mcp/messages/")
 
+# --- Our Own Simple Tool Registry ---
+# This bypasses the need to access the mcp library's internal structure,
+# providing a robust, direct way to call our tool functions.
+tool_registry = {
+    "add_memories": add_memories,
+    "add_observation": add_observation,
+    "search_memory": search_memory,
+    "list_memories": list_memories,
+    "delete_all_memories": delete_all_memories,
+    "get_memory_details": get_memory_details,
+    "sync_substack_posts": sync_substack_posts,
+    "deep_memory_query": deep_memory_query,
+    "smart_memory_query": smart_memory_query,
+    "test_connection": test_connection,
+}
+# --- End of Tool Registry ---
+
 @mcp.tool(description="Add new memories to the user's memory")
 async def add_memories(text: str) -> str:
     """
@@ -932,14 +949,14 @@ async def handle_post_message(request: Request):
 
         logger.info(f"Executing tool '{method_name}' for user '{user_id_from_header}' with params: {params}")
 
-        # Find the tool in the MCP registry
-        tool_function = mcp.tool_manager.get_tool(method_name)
+        # Find the tool in our OWN registry, not the mcp library's internals
+        tool_function = tool_registry.get(method_name)
 
         if not tool_function:
             return JSONResponse(status_code=404, content={"error": f"Tool '{method_name}' not found"})
         
         # Execute the tool and await its result
-        result = await tool_function.callable(**params)
+        result = await tool_function(**params)
 
         # Format the response as a JSON-RPC result
         response_payload = {
@@ -957,443 +974,9 @@ async def handle_post_message(request: Request):
         user_id_var.reset(user_token)
         client_name_var.reset(client_token)
 
-
-@mcp_router.post("/{client_name}/sse/{user_id}/messages")
-async def handle_post_message_with_path(request: Request):
-    """Handle POST messages for SSE when the client appends /messages to the SSE URL"""
-    # Just forward to the main handler
-    return await handle_post_message(request)
-
-@mcp_router.get("/{client_name}/sse/{user_id}")
-async def handle_sse(request: Request):
-    # Check for headers from Cloudflare Worker first.
-    supa_user_id_from_header = request.headers.get("x-user-id")
-    client_name_from_header = request.headers.get("x-client-name")
-
-    if supa_user_id_from_header and client_name_from_header:
-        supa_user_id_from_path = supa_user_id_from_header
-        client_name = client_name_from_header
-        logger.info(f"SSE connection using headers from Worker: user {supa_user_id_from_path}, client {client_name}")
-    else:
-        supa_user_id_from_path = request.path_params.get("user_id")
-        client_name = request.path_params.get("client_name")
-        logger.info(f"SSE connection using path params: user {supa_user_id_from_path}, client {client_name}")
-
-    # Log connection attempt with more details
-    logging.info(f"Request headers: {dict(request.headers)}")
-    logging.info(f"MCP server name: {mcp._mcp_server.name}")
-    
-    # 🚨 CRITICAL FIX: Set context variables with proper isolation using tokens
-    user_token = user_id_var.set(supa_user_id_from_path or "")
-    client_token = client_name_var.set(client_name or "")
-    
-    logger.info(f"🔒 CONTEXT VARS SET - User: {supa_user_id_from_path}, Client: {client_name}")
-
-    try:
-        # Create a proper send function that handles ASGI correctly
-        async def send_wrapper(message):
-            try:
-                await request._send(message)
-            except Exception as e:
-                logging.warning(f"ASGI send error (expected during disconnect): {e}")
-        
-        # Add error handling and proper initialization
-        async with sse.connect_sse(
-            request.scope,
-            request.receive,
-            send_wrapper,  # Use wrapper instead of direct _send
-        ) as (read_stream, write_stream):
-            # Log successful connection
-            logging.info(f"SSE connection established for user {supa_user_id_from_path}")
-            
-            # 🚨 CRITICAL FIX: Verify context variables are correct before running MCP
-            current_user = user_id_var.get(None)
-            current_client = client_name_var.get(None) 
-            if current_user != supa_user_id_from_path or current_client != client_name:
-                logger.error(f"🚨 CONTEXT MISMATCH DETECTED! Expected: {supa_user_id_from_path}/{client_name}, Got: {current_user}/{current_client}")
-                raise Exception(f"Context variable bleeding detected - aborting connection")
-            
-            try:
-                await mcp._mcp_server.run(
-                    read_stream,
-                    write_stream,
-                    mcp._mcp_server.create_initialization_options(),
-                )
-            except Exception as e:
-                # Check if it's a normal disconnect
-                if "disconnect" in str(e).lower() or "closed" in str(e).lower():
-                    logging.info(f"SSE connection closed normally for user {supa_user_id_from_path}")
-                else:
-                    logging.error(f"MCP server run error for user {supa_user_id_from_path}: {e}", exc_info=True)
-                # Don't re-raise, let the connection close gracefully
-            
-    except Exception as e:
-        # Check if it's a normal disconnect
-        if "disconnect" in str(e).lower() or "closed" in str(e).lower():
-            logging.info(f"SSE connection closed normally for user {supa_user_id_from_path}")
-        else:
-            logging.error(f"MCP SSE connection error for user {supa_user_id_from_path}: {e}", exc_info=True)
-    finally:
-        # 🚨 CRITICAL FIX: Always reset context variables using tokens
-        try:
-            user_id_var.reset(user_token)
-            client_name_var.reset(client_token)
-            logger.info(f"🔒 CONTEXT VARS RESET - User: {supa_user_id_from_path}")
-        except Exception as e:
-            logger.error(f"🚨 ERROR RESETTING CONTEXT VARS: {e}")
-        
-        # Log connection closure
-        logging.info(f"SSE connection closed for user {supa_user_id_from_path}")
-
-
-# Add a health check endpoint specifically for MCP connections
-@mcp_router.get("/health/{client_name}/{user_id}")
-async def mcp_health_check(client_name: str, user_id: str):
-    """Health check endpoint for MCP connections"""
-    try:
-        import psutil
-        import os
-        
-        # Get memory usage
-        process = psutil.Process(os.getpid())
-        memory_info = process.memory_info()
-        memory_usage_mb = memory_info.rss / 1024 / 1024  # Convert to MB
-        memory_percent = process.memory_percent()
-        
-        # Basic validation
-        if not user_id or not client_name:
-            return {"status": "error", "message": "Missing user_id or client_name"}
-        
-        # Try to get user from database
-        db = SessionLocal()
-        try:
-            user = get_or_create_user(db, user_id, None)
-            if user:
-                return {
-                    "status": "healthy", 
-                    "user_id": user_id, 
-                    "client_name": client_name,
-                    "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
-                    "memory_usage_mb": round(memory_usage_mb, 2),
-                    "memory_percent": round(memory_percent, 2),
-                    "warning": "high_memory_usage" if memory_percent > 80 else None
-                }
-            else:
-                return {"status": "error", "message": "User not found"}
-        finally:
-            db.close()
-            
-    except ImportError:
-        # If psutil is not available, still return basic health
-        try:
-            db = SessionLocal()
-            try:
-                user = get_or_create_user(db, user_id, None)
-                if user:
-                    return {
-                        "status": "healthy", 
-                        "user_id": user_id, 
-                        "client_name": client_name,
-                        "timestamp": datetime.datetime.now(datetime.UTC).isoformat()
-                    }
-                else:
-                    return {"status": "error", "message": "User not found"}
-            finally:
-                db.close()
-        except Exception as e:
-            logging.error(f"MCP health check error: {e}")
-            return {"status": "error", "message": str(e)}
-    except Exception as e:
-        logging.error(f"MCP health check error: {e}")
-        return {"status": "error", "message": str(e)}
-
-
-# @mcp.tool(description="Perform security audit to check memory isolation and detect potential data leakage")
-async def audit_memory_security_ADMIN_ONLY() -> str:
-    """
-    ADMIN-ONLY Comprehensive security audit to detect memory isolation issues.
-    Checks for cross-user data leakage and validates user boundaries.
-    This tool has been removed from user-facing MCP interface.
-    """
-    supa_uid = user_id_var.get(None)
-    client_name = client_name_var.get(None)
-    
-    if not supa_uid:
-        return "Error: Supabase user_id not available in context"
-    if not client_name:
-        return "Error: client_name not available in context"
-    
-    try:
-        from app.utils.memory import get_memory_client
-        memory_client = get_memory_client()
-        db = SessionLocal()
-        
-        try:
-            # Get user info
-            user = get_or_create_user(db, supa_uid, None)
-            logger.info(f"🔍 SECURITY AUDIT - User {supa_uid} (DB ID: {user.id})")
-            
-            audit_report = []
-            audit_report.append(f"🔒 SECURITY AUDIT REPORT")
-            audit_report.append(f"User ID: {supa_uid}")
-            audit_report.append(f"Client: {client_name}")
-            audit_report.append(f"Database User ID: {user.id}")
-            audit_report.append(f"User email: {user.email}")
-            audit_report.append("")
-            
-            # 1. Check SQL database isolation
-            sql_memories = db.query(Memory).filter(Memory.user_id == user.id).limit(10).all()
-            audit_report.append(f"📊 SQL Database Check:")
-            audit_report.append(f"  - Found {len(sql_memories)} memories in SQL DB")
-            
-            suspicious_sql_count = 0
-            for mem in sql_memories:
-                content_lower = mem.content.lower()
-                if any(s in content_lower for s in ['pralayb', '/users/pralayb', 'faircopyfolder']):
-                    suspicious_sql_count += 1
-                    audit_report.append(f"  ⚠️ SUSPICIOUS SQL MEMORY: {mem.content[:50]}...")
-            
-            audit_report.append(f"  - Suspicious SQL memories: {suspicious_sql_count}")
-            audit_report.append("")
-            
-            # 2. Check vector store isolation
-            vector_memories = memory_client.get_all(user_id=supa_uid, limit=20)
-            vector_list = vector_memories.get('results', []) if isinstance(vector_memories, dict) else vector_memories if isinstance(vector_memories, list) else []
-            
-            audit_report.append(f"🔍 Vector Store Check:")
-            audit_report.append(f"  - Found {len(vector_list)} memories in vector store")
-            
-            suspicious_vector_count = 0
-            cross_user_memories = []
-            
-            for mem in vector_list:
-                content = mem.get('memory', mem.get('content', ''))
-                content_lower = content.lower()
-                
-                if any(s in content_lower for s in ['pralayb', '/users/pralayb', 'faircopyfolder']):
-                    suspicious_vector_count += 1
-                    cross_user_memories.append(content[:100])
-                    audit_report.append(f"  🚨 CROSS-USER MEMORY DETECTED: {content[:50]}...")
-                    
-                    # Log metadata for debugging
-                    metadata = mem.get('metadata', {})
-                    audit_report.append(f"    Metadata: {metadata}")
-            
-            audit_report.append(f"  - Suspicious vector memories: {suspicious_vector_count}")
-            audit_report.append("")
-            
-            # 3. Database integrity checks
-            total_db_memories = db.query(Memory).filter(Memory.user_id == user.id).count()
-            total_other_users = db.query(Memory).filter(Memory.user_id != user.id).count()
-            
-            audit_report.append(f"📈 Database Statistics:")
-            audit_report.append(f"  - Your memories in DB: {total_db_memories}")
-            audit_report.append(f"  - Other users' memories: {total_other_users}")
-            audit_report.append("")
-            
-            # 4. Security assessment
-            security_issues = []
-            if suspicious_sql_count > 0:
-                security_issues.append("Cross-user data in SQL database")
-            if suspicious_vector_count > 0:
-                security_issues.append("Cross-user data in vector store")
-            
-            if security_issues:
-                audit_report.append("🚨 CRITICAL SECURITY ISSUES DETECTED:")
-                for issue in security_issues:
-                    audit_report.append(f"  - {issue}")
-                audit_report.append("")
-                audit_report.append("🛡️ IMMEDIATE ACTIONS TAKEN:")
-                audit_report.append("  - Suspicious memories blocked from results")
-                audit_report.append("  - Security team notified")
-                audit_report.append("  - Enhanced logging enabled")
-            else:
-                audit_report.append("✅ SECURITY STATUS: GOOD")
-                audit_report.append("  - No cross-user data leakage detected")
-                audit_report.append("  - Memory isolation working properly")
-            
-            audit_report.append("")
-            audit_report.append(f"⏰ Audit completed at: {datetime.datetime.now(datetime.UTC).strftime('%Y-%m-%d %H:%M:%S UTC')}")
-            
-            return "\n".join(audit_report)
-            
-        finally:
-            db.close()
-            
-    except Exception as e:
-        logger.error(f"Error in audit_memory_security: {e}", exc_info=True)
-        return f"❌ Security audit failed: {str(e)}"
-
-
-# @mcp.tool(description="Clean up contaminated cross-user memories that were incorrectly stored with your user ID")
-async def cleanup_contaminated_memories_ADMIN_ONLY() -> str:
-    """
-    ADMIN-ONLY Emergency cleanup tool to remove memories that clearly belong to other users
-    but were incorrectly stored with your user ID due to a previous bug.
-    This tool has been removed from user-facing MCP interface.
-    """
-    supa_uid = user_id_var.get(None)
-    client_name = client_name_var.get(None)
-    
-    if not supa_uid:
-        return "Error: Supabase user_id not available in context"
-    if not client_name:
-        return "Error: client_name not available in context"
-    
-    try:
-        from app.utils.memory import get_memory_client
-        memory_client = get_memory_client()
-        db = SessionLocal()
-        
-        try:
-            # Get user info
-            user = get_or_create_user(db, supa_uid, None)
-            logger.info(f"🧹 CLEANUP - Starting contaminated memory cleanup for user {supa_uid}")
-            
-            cleanup_report = []
-            cleanup_report.append(f"🧹 CONTAMINATED MEMORY CLEANUP")
-            cleanup_report.append(f"User ID: {supa_uid}")
-            cleanup_report.append(f"Starting cleanup process...")
-            cleanup_report.append("")
-            
-            # Define patterns that indicate cross-user contamination
-            contamination_patterns = [
-                'pralayb',
-                '/users/pralayb',
-                'faircopyfolder',
-                'fair copy folder',
-                'pick-planning-manager',
-                'PickGroup',
-                'AbstractEntityId',
-                'CenterIdTest',
-                'PickGroupTest',
-                'java test',
-                'junit',
-                'assertEquals'
-            ]
-            
-            # 1. Clean up SQL database
-            sql_cleanup_count = 0
-            contaminated_sql_memories = db.query(Memory).filter(
-                Memory.user_id == user.id,
-                Memory.state != MemoryState.deleted
-            ).all()
-            
-            contaminated_ids_to_delete = []
-            for mem in contaminated_sql_memories:
-                content_lower = mem.content.lower()
-                if any(pattern in content_lower for pattern in contamination_patterns):
-                    contaminated_ids_to_delete.append(mem.id)
-                    cleanup_report.append(f"  📋 Found contaminated SQL memory: {mem.content[:60]}...")
-                    sql_cleanup_count += 1
-            
-            # Delete contaminated SQL memories
-            if contaminated_ids_to_delete:
-                now = datetime.datetime.now(datetime.UTC)
-                for mem_id in contaminated_ids_to_delete:
-                    mem_record = db.query(Memory).filter(Memory.id == mem_id).first()
-                    if mem_record:
-                        # Mark as deleted
-                        history = MemoryStatusHistory(
-                            memory_id=mem_record.id,
-                            changed_by=user.id,
-                            old_state=mem_record.state,
-                            new_state=MemoryState.deleted
-                        )
-                        db.add(history)
-                        mem_record.state = MemoryState.deleted
-                        mem_record.deleted_at = now
-                        
-                        # Add access log for cleanup
-                        access_log = MemoryAccessLog(
-                            memory_id=mem_record.id,
-                            app_id=mem_record.app_id,
-                            access_type="contamination_cleanup",
-                            metadata_={
-                                "operation": "cross_user_cleanup",
-                                "cleanup_reason": "contaminated_memory",
-                                "original_user": "pralayb_suspected"
-                            }
-                        )
-                        db.add(access_log)
-            
-            cleanup_report.append(f"🗑️ SQL Database: {sql_cleanup_count} contaminated memories marked for deletion")
-            cleanup_report.append("")
-            
-            # 2. Clean up vector store
-            vector_cleanup_count = 0
-            
-            # Get all memories from vector store for this user
-            try:
-                all_vector_memories = memory_client.get_all(user_id=supa_uid, limit=1000)
-                vector_list = all_vector_memories.get('results', []) if isinstance(all_vector_memories, dict) else all_vector_memories if isinstance(all_vector_memories, list) else []
-                
-                contaminated_vector_ids = []
-                for mem in vector_list:
-                    content = mem.get('memory', mem.get('content', ''))
-                    content_lower = content.lower()
-                    
-                    if any(pattern in content_lower for pattern in contamination_patterns):
-                        mem_id = mem.get('id')
-                        if mem_id:
-                            contaminated_vector_ids.append(mem_id)
-                            cleanup_report.append(f"  🔍 Found contaminated vector memory: {content[:60]}...")
-                            vector_cleanup_count += 1
-                
-                # Delete contaminated vector memories
-                if contaminated_vector_ids:
-                    for mem_id in contaminated_vector_ids:
-                        try:
-                            memory_client.delete(memory_id=mem_id)
-                        except Exception as e:
-                            logger.error(f"Error deleting vector memory {mem_id}: {e}")
-                            cleanup_report.append(f"  ❌ Failed to delete vector memory {mem_id}: {e}")
-                
-            except Exception as e:
-                logger.error(f"Error cleaning vector store: {e}")
-                cleanup_report.append(f"  ❌ Error cleaning vector store: {e}")
-            
-            cleanup_report.append(f"🗑️ Vector Store: {vector_cleanup_count} contaminated memories deleted")
-            cleanup_report.append("")
-            
-            # Commit the SQL changes
-            try:
-                db.commit()
-                cleanup_report.append("✅ SQL changes committed successfully")
-            except Exception as e:
-                db.rollback()
-                cleanup_report.append(f"❌ Error committing SQL changes: {e}")
-                return "\n".join(cleanup_report)
-            
-            # 3. Summary
-            total_cleaned = sql_cleanup_count + vector_cleanup_count
-            cleanup_report.append("="*50)
-            cleanup_report.append(f"🎉 CLEANUP COMPLETE")
-            cleanup_report.append(f"Total contaminated memories removed: {total_cleaned}")
-            cleanup_report.append(f"  - SQL Database: {sql_cleanup_count}")
-            cleanup_report.append(f"  - Vector Store: {vector_cleanup_count}")
-            cleanup_report.append("")
-            cleanup_report.append("✨ Your memory system should now be clean!")
-            cleanup_report.append(f"⏰ Cleanup completed at: {datetime.datetime.now(datetime.UTC).strftime('%Y-%m-%d %H:%M:%S UTC')}")
-            
-            return "\n".join(cleanup_report)
-            
-        finally:
-            db.close()
-            
-    except Exception as e:
-        logger.error(f"Error in cleanup_contaminated_memories: {e}", exc_info=True)
-        return f"❌ Cleanup failed: {str(e)}"
-
 def setup_mcp_server(app: FastAPI):
     """Setup MCP server with the FastAPI application"""
-    # Set the server name to match what Claude expects
-    mcp._mcp_server.name = "jean-memory-api"
-    
-    # Add logging to help debug initialization
-    logger.info(f"Setting up MCP server with name: {mcp._mcp_server.name}")
-    
-    # Include MCP router in the FastAPI app
+    # The new stateless /messages endpoint is the primary way to interact.
+    # The old SSE endpoints are no longer needed with the Cloudflare Worker architecture.
     app.include_router(mcp_router)
-    
-    logger.info("MCP server setup complete - router included in FastAPI app")
+    logger.info("MCP server setup complete - stateless router included.")
