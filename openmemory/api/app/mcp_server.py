@@ -436,66 +436,74 @@ async def get_memory_details(memory_id: str) -> str:
         return "Error: client_name not available in context"
     
     try:
-        db = SessionLocal()
-        try:
-            # Get user
-            user = get_or_create_user(db, supa_uid, None)
-            
-            # First try to find the memory in our SQL database
-            sql_memory = db.query(Memory).filter(
-                Memory.id == memory_id,
-                Memory.user_id == user.id,
-                Memory.state != MemoryState.deleted
-            ).first()
-            
-            if sql_memory:
-                # Found in SQL database
-                memory_details = {
-                    "id": str(sql_memory.id),
-                    "content": sql_memory.content,
-                    "created_at": sql_memory.created_at.isoformat() if sql_memory.created_at else None,
-                    "updated_at": sql_memory.updated_at.isoformat() if sql_memory.updated_at else None,
-                    "state": sql_memory.state.value if sql_memory.state else None,
-                    "metadata": sql_memory.metadata_ or {},
-                    "app_name": sql_memory.app.name if sql_memory.app else None,
-                    "categories": [cat.name for cat in sql_memory.categories] if sql_memory.categories else [],
-                    "source": "sql_database"
-                }
-                
-                return json.dumps(memory_details, indent=2)
-            
-            # If not found in SQL, try searching mem0 by ID
-            memory_client = get_memory_client()
-            all_memories = memory_client.get_all(user_id=supa_uid)
-            
-            # Handle different response formats
-            memories_list = []
-            if isinstance(all_memories, dict) and 'results' in all_memories:
-                memories_list = all_memories['results']
-            elif isinstance(all_memories, list):
-                memories_list = all_memories
-            
-            # Look for the specific memory ID
-            for mem in memories_list:
-                if isinstance(mem, dict) and mem.get('id') == memory_id:
-                    return json.dumps({
-                        "id": mem.get('id'),
-                        "content": mem.get('memory', mem.get('content', 'No content available')),
-                        "metadata": mem.get('metadata', {}),
-                        "created_at": mem.get('created_at'),
-                        "updated_at": mem.get('updated_at'),
-                        "source": "mem0_vector_store"
-                    }, indent=2)
-            
-            # Memory not found
-            return f"Memory with ID '{memory_id}' not found. This could mean:\n1. The memory doesn't exist\n2. It belongs to a different user\n3. It has been deleted\n4. The ID format is incorrect"
-            
-        finally:
-            db.close()
-            
+        # Add timeout to prevent hanging
+        return await asyncio.wait_for(_get_memory_details_impl(memory_id, supa_uid, client_name), timeout=10.0)
+    except asyncio.TimeoutError:
+        return f"Memory lookup timed out. Try again or check if memory ID '{memory_id}' is correct."
     except Exception as e:
         logging.error(f"Error in get_memory_details MCP tool: {e}", exc_info=True)
         return f"Error retrieving memory details: {e}"
+
+
+async def _get_memory_details_impl(memory_id: str, supa_uid: str, client_name: str) -> str:
+    """Optimized implementation of get_memory_details"""
+    from app.utils.memory import get_memory_client
+    
+    db = SessionLocal()
+    try:
+        # Get user quickly
+        user = get_or_create_user(db, supa_uid, None)
+        
+        # First try SQL database (fastest)
+        sql_memory = db.query(Memory).filter(
+            Memory.id == memory_id,
+            Memory.user_id == user.id,
+            Memory.state != MemoryState.deleted
+        ).first()
+        
+        if sql_memory:
+            memory_details = {
+                "id": str(sql_memory.id),
+                "content": sql_memory.content,
+                "created_at": sql_memory.created_at.isoformat() if sql_memory.created_at else None,
+                "updated_at": sql_memory.updated_at.isoformat() if sql_memory.updated_at else None,
+                "state": sql_memory.state.value if sql_memory.state else None,
+                "metadata": sql_memory.metadata_ or {},
+                "app_name": sql_memory.app.name if sql_memory.app else None,
+                "categories": [cat.name for cat in sql_memory.categories] if sql_memory.categories else [],
+                "source": "sql_database"
+            }
+            return json.dumps(memory_details, indent=2)
+        
+        # Try mem0 with direct search instead of getting all memories
+        memory_client = get_memory_client()
+        
+        # Use search with the exact ID as query - much faster than get_all()
+        search_result = memory_client.search(query=memory_id, user_id=supa_uid, limit=20)
+        
+        memories_list = []
+        if isinstance(search_result, dict) and 'results' in search_result:
+            memories_list = search_result['results']
+        elif isinstance(search_result, list):
+            memories_list = search_result
+        
+        # Look for exact ID match
+        for mem in memories_list:
+            if isinstance(mem, dict) and mem.get('id') == memory_id:
+                return json.dumps({
+                    "id": mem.get('id'),
+                    "content": mem.get('memory', mem.get('content', 'No content available')),
+                    "metadata": mem.get('metadata', {}),
+                    "created_at": mem.get('created_at'),
+                    "updated_at": mem.get('updated_at'),
+                    "score": mem.get('score'),
+                    "source": "mem0_vector_store"
+                }, indent=2)
+        
+        return f"Memory with ID '{memory_id}' not found. Possible reasons:\n1. Memory doesn't exist\n2. Belongs to different user\n3. Has been deleted\n4. ID format incorrect"
+        
+    finally:
+        db.close()
 
 
 @mcp.tool(description="Sync Substack posts for the user. Provide the Substack URL (e.g., https://username.substack.com or username.substack.com). Note: This process may take 30-60 seconds depending on the number of posts being processed.")
@@ -545,14 +553,8 @@ async def deep_memory_query(search_query: str, memory_limit: int = None, chunk_l
     """
     Performs a deep, comprehensive search across ALL user content using Gemini.
     Automatically detects when specific documents/essays are referenced and includes their full content.
-    This is thorough but slower - use smart_memory_query for speed.
+    This is thorough but slower - use search_memory for simple queries.
     """
-    # Lazy imports
-    from app.utils.memory import get_memory_client
-    from app.utils.gemini import GeminiService
-    from app.services.chunking_service import ChunkingService
-    import google.generativeai as genai
-    
     supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
     
@@ -560,6 +562,27 @@ async def deep_memory_query(search_query: str, memory_limit: int = None, chunk_l
         return "Error: Supabase user_id not available in context"
     if not client_name:
         return "Error: client_name not available in context"
+    
+    try:
+        # Add timeout to prevent hanging - 45 seconds max
+        return await asyncio.wait_for(
+            _deep_memory_query_impl(search_query, supa_uid, client_name, memory_limit, chunk_limit, include_full_docs),
+            timeout=45.0
+        )
+    except asyncio.TimeoutError:
+        return f"Deep memory search timed out for query '{search_query}'. Try using 'search_memory' for faster results, or simplify your query."
+    except Exception as e:
+        logger.error(f"Error in deep_memory_query: {e}", exc_info=True)
+        return f"Error performing deep search: {str(e)}"
+
+
+async def _deep_memory_query_impl(search_query: str, supa_uid: str, client_name: str, memory_limit: int = None, chunk_limit: int = None, include_full_docs: bool = True) -> str:
+    """Optimized implementation of deep_memory_query"""
+    # Lazy imports
+    from app.utils.memory import get_memory_client
+    from app.utils.gemini import GeminiService
+    from app.services.chunking_service import ChunkingService
+    import google.generativeai as genai
     
     # Use comprehensive limits for thorough analysis
     if memory_limit is None:
@@ -952,7 +975,7 @@ async def handle_post_message(request: Request):
             return JSONResponse(content=response_payload)
         
         elif method_name == "tools/list":
-            # Return list of available tools
+            # Return list of core memory tools only
             tools = [
                 {
                     "name": "add_memories",
@@ -988,51 +1011,18 @@ async def handle_post_message(request: Request):
                     }
                 },
                 {
-                    "name": "delete_all_memories",
-                    "description": "Delete all memories in the user's memory",
-                    "inputSchema": {"type": "object", "properties": {}}
-                },
-                {
-                    "name": "get_memory_details",
-                    "description": "Get detailed information about a specific memory by its ID",
-                    "inputSchema": {
-                        "type": "object", 
-                        "properties": {
-                            "memory_id": {"type": "string", "description": "Memory ID to retrieve"}
-                        },
-                        "required": ["memory_id"]
-                    }
-                },
-                {
-                    "name": "sync_substack_posts",
-                    "description": "Sync Substack posts for the user",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "substack_url": {"type": "string", "description": "Substack URL to sync"},
-                            "max_posts": {"type": "integer", "description": "Maximum posts to sync", "default": 20}
-                        },
-                        "required": ["substack_url"]
-                    }
-                },
-                {
                     "name": "deep_memory_query", 
-                    "description": "Deep memory search with automatic full document inclusion",
+                    "description": "Deep memory search with automatic full document inclusion for comprehensive queries",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "search_query": {"type": "string", "description": "Search query"},
-                            "memory_limit": {"type": "integer", "description": "Memory limit"},
-                            "chunk_limit": {"type": "integer", "description": "Chunk limit"},
+                            "memory_limit": {"type": "integer", "description": "Memory limit", "default": 10},
+                            "chunk_limit": {"type": "integer", "description": "Chunk limit", "default": 10},
                             "include_full_docs": {"type": "boolean", "description": "Include full documents", "default": True}
                         },
                         "required": ["search_query"]
                     }
-                },
-                {
-                    "name": "test_connection",
-                    "description": "Test MCP connection and verify all systems are working",
-                    "inputSchema": {"type": "object", "properties": {}}
                 }
             ]
             
@@ -1126,18 +1116,12 @@ async def handle_post_message(request: Request):
         user_id_var.reset(user_token)
         client_name_var.reset(client_token)
 
-# This must be defined *after* all the tool functions have been defined.
+# Core memory tools registry - simplified for better performance
 tool_registry = {
     "add_memories": add_memories,
-    "add_observation": add_observation,
     "search_memory": search_memory,
     "list_memories": list_memories,
-    "delete_all_memories": delete_all_memories,
-    "get_memory_details": get_memory_details,
-    "sync_substack_posts": sync_substack_posts,
     "deep_memory_query": deep_memory_query,
-    "smart_memory_query": smart_memory_query,
-    "test_connection": test_connection,
 }
 
 def setup_mcp_server(app: FastAPI):
