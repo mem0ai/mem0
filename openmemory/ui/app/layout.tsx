@@ -7,6 +7,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Providers } from "./providers";
 import { AuthProvider } from "../contexts/AuthContext";
 import type { Metadata } from 'next';
+import { Toaster as SonnerToaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { Inter } from "next/font/google";
+
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: {
