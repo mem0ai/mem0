@@ -79,9 +79,9 @@ services:
       # Link the environment group for Supabase public keys
       - fromGroup: frontend-public-env 
       
-      # Explicitly set the Backend API URL
+      # FIXED: Point to the actual backend API server, not the MCP-only Cloudflare Worker
       - key: NEXT_PUBLIC_API_URL
-        value: "https://api.jeanmemory.com"
+        value: "https://jean-memory-api.onrender.com"
       
       # Runtime
       - key: NODE_ENV
