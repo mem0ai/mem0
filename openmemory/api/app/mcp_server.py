@@ -180,120 +180,13 @@ async def add_memories(text: str) -> str:
 
 
 @mcp.tool(description="Add new memory/fact/observation about the user. Use this to save: 1) Important information learned in conversation, 2) User preferences/values/beliefs, 3) Facts about their work/life/interests, 4) Anything the user wants remembered. The memory will be permanently stored and searchable.")
-async def add_memories(text: str) -> str:
-    supa_uid = user_id_var.get(None)
-    client_name = client_name_var.get(None)
-    
-    # 🚨 CRITICAL: Add comprehensive logging to detect contamination
-    logger.error(f"🔍 ADD_MEMORIES DEBUG (2nd function) - User ID from context: {supa_uid}")
-    logger.error(f"🔍 ADD_MEMORIES DEBUG (2nd function) - Client name from context: {client_name}")
-    logger.error(f"🔍 ADD_MEMORIES DEBUG (2nd function) - Memory content preview: {text[:100]}...")
-    
-    # 🚨 CONTAMINATION DETECTION: Check for suspicious Java patterns
-    if any(pattern in text.lower() for pattern in [
-        'planningcontext', 'java', 'compilation', 'pickgroup', 'defaultgroup',
-        'constructor', 'factory', 'junit', '.class', 'import ', 'public class'
-    ]):
-        logger.error(f"🚨 POTENTIAL CONTAMINATION DETECTED!")
-        logger.error(f"🚨 User {supa_uid} trying to add Java content: {text[:150]}...")
-        logger.error(f"🚨 This may indicate context variable bleeding!")
-        
-        # Let's also log current context info
-        import contextvars
-        logger.error(f"🚨 Current context vars: user_id_var={user_id_var}, client_name_var={client_name_var}")
-        
-        # 🚨 EMERGENCY: Block suspicious Java content completely to prevent contamination
-        return f"❌ BLOCKED: Suspicious Java development content detected. This appears to be contaminated memory from another user. Content blocked for security."
-    
-    # 🚨 ADDITIONAL SAFETY: Validate user_id format and detect known contaminated user patterns
-    if supa_uid and any(suspicious_user in supa_uid.lower() for suspicious_user in ['pralayb', 'test', 'debug']):
-        logger.error(f"🚨 SUSPICIOUS USER ID DETECTED: {supa_uid}")
-        return f"❌ BLOCKED: Suspicious user ID pattern detected. Operation blocked for security."
-    
-    memory_client = get_memory_client() # Initialize client when tool is called
-
-    if not supa_uid:
-        return "Error: Supabase user_id not available in context"
-    if not client_name:
-        return "Error: client_name not available in context"
-
-    try:
-        db = SessionLocal()
-        try:
-            user, app = get_user_and_app(db, supabase_user_id=supa_uid, app_name=client_name, email=None)
-
-            if not app.is_active:
-                return f"Error: App {app.name} is currently paused. Cannot create new memories."
-
-            response = memory_client.add(
-                messages=text,
-                user_id=supa_uid,
-                metadata={
-                    "source_app": "openmemory_mcp",
-                    "mcp_client": client_name,
-                    "app_db_id": str(app.id)
-                }
-            )
-
-            if isinstance(response, dict) and 'results' in response:
-                added_count = 0
-                updated_count = 0
-                for result in response['results']:
-                    mem0_memory_id_str = result['id']
-                    mem0_content = result.get('memory', text)
-
-                    if result.get('event') == 'ADD':
-                        sql_memory_record = Memory(
-                            user_id=user.id,
-                            app_id=app.id,
-                            content=mem0_content,
-                            state=MemoryState.active,
-                            metadata_={**result.get('metadata', {}), "mem0_id": mem0_memory_id_str}
-                        )
-                        db.add(sql_memory_record)
-                        db.flush()  # Flush to get the memory ID before creating history
-                        added_count += 1
-                        
-                        # Don't create history for initial creation since old_state cannot be NULL
-                        # The memory is created with state=active, which is sufficient
-                        # History tracking starts from the first state change
-                    elif result.get('event') == 'DELETE':
-                        # Find the existing SQL memory record by mem0_id
-                        sql_memory_record = db.query(Memory).filter(
-                            text("metadata_->>'mem0_id' = :mem0_id"),
-                            Memory.user_id == user.id
-                        ).params(mem0_id=mem0_memory_id_str).first()
-                        
-                        if sql_memory_record:
-                            sql_memory_record.state = MemoryState.deleted
-                            sql_memory_record.deleted_at = datetime.datetime.now(datetime.UTC)
-                            history = MemoryStatusHistory(
-                                memory_id=sql_memory_record.id,
-                                changed_by=user.id,
-                                old_state=MemoryState.active,
-                                new_state=MemoryState.deleted
-                            )
-                            db.add(history)
-                    elif result.get('event') == 'UPDATE':
-                        updated_count += 1
-                        
-                db.commit()
-                
-                # Return a meaningful string response
-                if added_count > 0:
-                    return f"Successfully added {added_count} new memory(ies). Content: {text[:100]}{'...' if len(text) > 100 else ''}"
-                elif updated_count > 0:
-                    return f"Updated {updated_count} existing memory(ies) with new information. Content: {text[:100]}{'...' if len(text) > 100 else ''}"
-                else:
-                    return f"Memory processed but no changes made (possibly duplicate). Content: {text[:100]}{'...' if len(text) > 100 else ''}"
-            else:
-                # Handle case where response doesn't have expected format
-                return f"Memory processed successfully. Response: {str(response)[:200]}{'...' if len(str(response)) > 200 else ''}"
-        finally:
-            db.close()
-    except Exception as e:
-        logging.error(f"Error in add_memories MCP tool: {e}", exc_info=True)
-        return f"Error adding to memory: {e}"
+async def add_observation(text: str) -> str:
+    """
+    This is an alias for the add_memories tool with a more descriptive prompt for the agent.
+    Functionally, it performs the same action.
+    """
+    # This function now simply calls the other one to avoid code duplication.
+    return await add_memories(text)
 
 
 @mcp.tool(description="Search the user's memory for memories that match the query")
@@ -1040,7 +933,7 @@ async def handle_post_message(request: Request):
         logger.info(f"Executing tool '{method_name}' for user '{user_id_from_header}' with params: {params}")
 
         # Find the tool in the MCP registry
-        tool_function = mcp.tools.get(method_name)
+        tool_function = mcp._mcp_server.tool_manager.get_tool(method_name)
 
         if not tool_function:
             return JSONResponse(status_code=404, content={"error": f"Tool '{method_name}' not found"})
