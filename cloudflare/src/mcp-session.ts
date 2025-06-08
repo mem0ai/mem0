@@ -11,6 +11,15 @@ export class McpSession implements DurableObject {
 		this.state = state;
 	}
 
+    private cleanupWriter() {
+        if (this.sseWriter) {
+            this.sseWriter.close().catch((e) => {
+                console.log("Error closing writer during cleanup:", e);
+            });
+            this.sseWriter = undefined;
+        }
+    }
+
 	async fetch(request: Request): Promise<Response> {
 		this.backendUrl = request.headers.get('X-Backend-Url')!;
 		this.clientName = request.headers.get('X-Client-Name')!;
@@ -36,8 +45,15 @@ export class McpSession implements DurableObject {
 	}
 
     async handleSseRequest(request: Request): Promise<Response> {
+        // If there's an existing writer, try to close it first
         if (this.sseWriter) {
-            return new Response("Session already active", { status: 409 });
+            console.log("Cleaning up existing SSE session before creating new one");
+            try {
+                await this.sseWriter.close();
+            } catch (e) {
+                console.log("Error closing existing writer:", e);
+            }
+            this.sseWriter = undefined;
         }
 
         const { readable, writable } = new TransformStream({
@@ -55,19 +71,16 @@ export class McpSession implements DurableObject {
         // Handle client disconnection using request signal
         request.signal?.addEventListener('abort', () => {
             console.log("SSE stream aborted by client. Releasing writer.");
-            if (this.sseWriter) {
-                this.sseWriter.close().catch(() => {});
-                this.sseWriter = undefined;
-            }
+            this.cleanupWriter();
         });
 
         // Handle stream errors
         this.sseWriter.closed.then(() => {
-            console.log("SSE writer closed. Releasing writer.");
+            console.log("SSE writer closed normally. Releasing writer.");
             this.sseWriter = undefined;
         }).catch((err: Error) => {
             console.log("SSE writer error. Releasing writer.", err.message);
-            this.sseWriter = undefined;
+            this.cleanupWriter();
         });
 
         // Send initial connection confirmation immediately
