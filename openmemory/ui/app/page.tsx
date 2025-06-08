@@ -233,7 +233,7 @@ export default function LandingPage() {
               href="/test"
               className="group relative inline-flex items-center gap-2 sm:gap-3 px-6 sm:px-10 py-3 sm:py-5 text-base sm:text-xl font-bold rounded-full bg-gradient-to-r from-cyan-600 to-green-600 hover:from-cyan-700 hover:to-green-700 transition-all duration-300 shadow-2xl hover:shadow-cyan-500/25 hover:scale-105"
             >
-              <span>Try Demo</span>
+              <span>Try It</span>
               <ArrowRight className="w-4 h-4 sm:w-6 sm:h-6 group-hover:translate-x-1 transition-transform" />
               
               {/* Button Glow Effect */}
