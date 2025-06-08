@@ -975,7 +975,7 @@ async def handle_post_message(request: Request):
             return JSONResponse(content=response_payload)
         
         elif method_name == "tools/list":
-            # Return list of core memory tools only
+            # Return list of core memory tools + sync
             tools = [
                 {
                     "name": "add_memories",
@@ -1008,6 +1008,18 @@ async def handle_post_message(request: Request):
                         "properties": {
                             "limit": {"type": "integer", "description": "Maximum number of results", "default": 20}
                         }
+                    }
+                },
+                {
+                    "name": "sync_substack_posts",
+                    "description": "Sync Substack posts to memory system",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "substack_url": {"type": "string", "description": "Substack URL to sync"},
+                            "max_posts": {"type": "integer", "description": "Maximum posts to sync", "default": 20}
+                        },
+                        "required": ["substack_url"]
                     }
                 },
                 {
@@ -1121,6 +1133,7 @@ tool_registry = {
     "add_memories": add_memories,
     "search_memory": search_memory,
     "list_memories": list_memories,
+    "sync_substack_posts": sync_substack_posts,
     "deep_memory_query": deep_memory_query,
 }
 
