@@ -6,6 +6,7 @@ export class McpSession implements DurableObject {
 	clientName!: string;
 	userId!: string;
     sseWriter?: WritableStreamDefaultWriter;
+    sessionReady: boolean = false;
 
 	constructor(state: DurableObjectState) {
 		this.state = state;
@@ -18,6 +19,7 @@ export class McpSession implements DurableObject {
             });
             this.sseWriter = undefined;
         }
+        this.sessionReady = false;
     }
 
 	async fetch(request: Request): Promise<Response> {
@@ -88,7 +90,11 @@ export class McpSession implements DurableObject {
         const initialMessage = "data: {\"type\":\"connection\",\"status\":\"connected\"}\n\n";
         
         // Write immediately without await to avoid blocking
-        this.sseWriter.write(encoder.encode(initialMessage)).catch((e) => {
+        this.sseWriter.write(encoder.encode(initialMessage)).then(() => {
+            // Mark session as ready
+            this.sessionReady = true;
+            console.log("SSE session ready");
+        }).catch((e) => {
             console.error("Failed to write initial SSE message:", e);
         });
 
@@ -105,8 +111,23 @@ export class McpSession implements DurableObject {
     }
 
     async handlePostMessage(request: Request): Promise<Response> {
+        // Simple retry mechanism - wait for session to be ready
+        let retries = 0;
+        while ((!this.sessionReady || !this.sseWriter) && retries < 50) {
+            console.log("Session not ready, waiting...", retries);
+            await new Promise(resolve => setTimeout(resolve, 100)); // Wait 100ms
+            retries++;
+        }
+
+        if (!this.sessionReady || !this.sseWriter) {
+            return new Response("Session initialization timeout", { status: 408 });
+        }
+
+        return this.processMessage(request);
+    }
+
+    private async processMessage(request: Request): Promise<Response> {
         if (!this.sseWriter) {
-            // This can happen if a POST arrives before the GET has established the SSE connection.
             return new Response("No active SSE session for this client.", { status: 400 });
         }
 
@@ -126,7 +147,7 @@ export class McpSession implements DurableObject {
             return new Response(JSON.stringify({status: "ok"}), { status: 200, headers: {'Content-Type': 'application/json'} });
 
         } catch (e: any) {
-            console.error("Error in handlePostMessage:", e);
+            console.error("Error in processMessage:", e);
             if (this.sseWriter) {
                 try {
                     // Try to inform the client of the error via the SSE stream.
