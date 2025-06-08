@@ -26,6 +26,7 @@ import asyncio
 # from app.services.chunking_service import ChunkingService
 from sqlalchemy import text
 from app.config.memory_limits import MEMORY_LIMITS
+from fastapi.responses import JSONResponse
 
 # Load environment variables
 load_dotenv()
@@ -1016,68 +1017,53 @@ async def test_connection() -> str:
 
 @mcp_router.post("/messages/")
 async def handle_post_message(request: Request):
-    """Handle POST messages for SSE with better error handling and session recovery"""
+    """
+    Handles a single, stateless JSON-RPC message from the Cloudflare Worker.
+    This endpoint runs the requested tool and returns the result immediately.
+    """
+    user_id_from_header = request.headers.get("x-user-id")
+    client_name_from_header = request.headers.get("x-client-name")
+    
+    if not user_id_from_header or not client_name_from_header:
+        return JSONResponse(status_code=400, content={"error": "Missing X-User-Id or X-Client-Name headers"})
+
+    # Set context variables for the duration of this request
+    user_token = user_id_var.set(user_id_from_header)
+    client_token = client_name_var.set(client_name_from_header)
+    
     try:
-        # Get session_id from query params, which our Cloudflare worker will add.
-        session_id = request.query_params.get("session_id")
-        user_id_from_header = request.headers.get("x-user-id")
-        client_name_from_header = request.headers.get("x-client-name")
+        body = await request.json()
+        method_name = body.get("method")
+        params = body.get("params", {})
+        request_id = body.get("id")
+
+        logger.info(f"Executing tool '{method_name}' for user '{user_id_from_header}' with params: {params}")
+
+        # Find the tool in the MCP registry
+        tool_function = mcp._mcp_server.tools.get(method_name)
+
+        if not tool_function:
+            return JSONResponse(status_code=404, content={"error": f"Tool '{method_name}' not found"})
         
-        # Log the source of the identifiers
-        logger.info(f"POST /messages/: session_id='{session_id}', user_id_header='{user_id_from_header}', client_name_header='{client_name_from_header}'")
+        # Execute the tool and await its result
+        result = await tool_function.callable(**params)
 
-        if not session_id:
-            return {"status": "error", "message": "Missing session_id"}
-        
-        # If headers are present, set context vars from them. This is for our Worker proxy.
-        if user_id_from_header and client_name_from_header:
-            user_token = user_id_var.set(user_id_from_header)
-            client_token = client_name_var.set(client_name_from_header)
-            logger.info(f"🔒 CONTEXT VARS SET from headers - User: {user_id_from_header}, Client: {client_name_from_header}")
-        
-        body = await request.body()
-        if not body:
-            return {"status": "error", "message": "Empty request body"}
+        # Format the response as a JSON-RPC result
+        response_payload = {
+            "jsonrpc": "2.0",
+            "result": result,
+            "id": request_id
+        }
+        return JSONResponse(content=response_payload)
 
-        # Create proper receive function
-        async def receive():
-            return {"type": "http.request", "body": body, "more_body": False}
-
-        # Create proper send function that captures responses
-        responses = []
-        async def send(message):
-            responses.append(message)
-
-        try:
-            # Handle the message with proper error catching
-            await sse.handle_post_message(request.scope, receive, send)
-            return {"status": "ok", "session_id": session_id}
-        except Exception as e:
-            # Log the specific error but don't fail completely
-            logging.warning(f"Error handling POST message for session {session_id}: {e}")
-            
-            # If it's a session-related error, always return success to prevent client errors
-            if "session" in str(e).lower() or "not found" in str(e).lower():
-                logging.info(f"Session {session_id} not found, allowing client to continue")
-                # Return success to allow client to continue working
-                return {"status": "ok", "session_id": session_id, "note": "session_recreated"}
-            
-            # For other errors, still try to recover gracefully
-            return {"status": "ok", "message": "recovered_from_error"}
-            
     except Exception as e:
-        logging.error(f"Error in handle_post_message: {e}")
-        # Even on error, return OK to keep client connection alive
-        return {"status": "ok", "message": "recovered_from_error"}
+        logger.error(f"Error executing tool via stateless endpoint: {e}", exc_info=True)
+        return JSONResponse(status_code=500, content={"error": str(e)})
     finally:
-        # Reset context vars if they were set
-        if 'user_token' in locals() and 'client_token' in locals():
-            try:
-                user_id_var.reset(user_token)
-                client_name_var.reset(client_token)
-                logger.info(f"🔒 CONTEXT VARS RESET from headers - User: {user_id_from_header}")
-            except Exception as e:
-                logger.error(f"🚨 ERROR RESETTING CONTEXT VARS from headers: {e}")
+        # Clean up context variables
+        user_id_var.reset(user_token)
+        client_name_var.reset(client_token)
+
 
 @mcp_router.post("/{client_name}/sse/{user_id}/messages")
 async def handle_post_message_with_path(request: Request):
