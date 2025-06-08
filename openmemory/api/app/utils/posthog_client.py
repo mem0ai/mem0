@@ -18,11 +18,11 @@ class PostHogClient:
         self.posthog = None
         if POSTHOG_AVAILABLE:
             api_key = os.getenv('POSTHOG_API_KEY') or os.getenv('NEXT_PUBLIC_POSTHOG_KEY')
-            host = os.getenv('POSTHOG_HOST') or os.getenv('NEXT_PUBLIC_POSTHOG_HOST', 'https://us.i.posthog.com')
+            host = os.getenv('POSTHOG_HOST') or os.getenv('NEXT_PUBLIC_POSTHOG_HOST', 'https://app.posthog.com')
             
             if api_key:
                 self.posthog = Posthog(
-                    project_api_key=api_key,
+                    api_key=api_key,
                     host=host
                 )
                 logger.info("PostHog client initialized successfully")
