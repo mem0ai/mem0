@@ -1060,7 +1060,7 @@ async def handle_post_message(request: Request):
                             "search_query": {"type": "string", "description": "Complex question or analysis request"},
                             "memory_limit": {"type": "integer", "description": "Number of memories to include", "default": 10},
                             "chunk_limit": {"type": "integer", "description": "Number of document chunks to include", "default": 10},
-                            "include_full_docs": {"type": "boolean", "description": "Whether to include complete documents", "default": true}
+                            "include_full_docs": {"type": "boolean", "description": "Whether to include complete documents", "default": True}
                         },
                         "required": ["search_query"]
                     }
