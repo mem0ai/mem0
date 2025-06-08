@@ -5,19 +5,24 @@ export class McpSession implements DurableObject {
 	backendUrl!: string;
 	clientName!: string;
 	userId!: string;
-    sseWriter?: WritableStreamDefaultWriter;
+    sseController?: ReadableStreamDefaultController;
     sessionReady: boolean = false;
 
 	constructor(state: DurableObjectState) {
 		this.state = state;
 	}
 
-    private cleanupWriter() {
-        if (this.sseWriter) {
-            this.sseWriter.close().catch((e) => {
-                console.log("Error closing writer during cleanup:", e);
-            });
-            this.sseWriter = undefined;
+    private cleanupSession() {
+        if (this.sseController) {
+            try {
+                if (this.sseController.desiredSize !== null) {
+                    this.sseController.close();
+                }
+            } catch (e) {
+                // Stream already closed, ignore the error
+                console.log("Stream already closed during cleanup");
+            }
+            this.sseController = undefined;
         }
         this.sessionReady = false;
     }
@@ -47,73 +52,54 @@ export class McpSession implements DurableObject {
 	}
 
     async handleSseRequest(request: Request): Promise<Response> {
-        // If there's an existing writer, try to close it first
-        if (this.sseWriter) {
+        // Clean up any existing session
+        if (this.sseController) {
             console.log("Cleaning up existing SSE session before creating new one");
-            try {
-                await this.sseWriter.close();
-            } catch (e) {
-                console.log("Error closing existing writer:", e);
-            }
-            this.sseWriter = undefined;
+            this.cleanupSession();
         }
 
-        const { readable, writable } = new TransformStream({
-            start() {
-                console.log("SSE TransformStream started");
-            },
-            transform(chunk, controller) {
-                console.log("SSE transform:", new TextDecoder().decode(chunk));
-                controller.enqueue(chunk);
-            },
-            flush(controller) {
-                console.log("SSE transform flushed");
-            }
-        });
-
-        this.sseWriter = writable.getWriter();
-
-        // Mark session as ready immediately after creating writer
-        this.sessionReady = true;
-        console.log("SSE session ready");
-
-        // Handle client disconnection using request signal
-        request.signal?.addEventListener('abort', () => {
-            console.log("SSE stream aborted by client. Releasing writer.");
-            this.cleanupWriter();
-        });
-
-        // Handle stream errors
-        this.sseWriter.closed.then(() => {
-            console.log("SSE writer closed normally. Releasing writer.");
-            this.sseWriter = undefined;
-        }).catch((err: Error) => {
-            console.log("SSE writer error. Releasing writer.", err.message);
-            this.cleanupWriter();
-        });
-
-        // Send initial connection confirmation immediately
         const encoder = new TextEncoder();
-        const initialMessage = "data: {\"type\":\"connection\",\"status\":\"connected\"}\n\n";
-        
-        // Write and flush immediately
-        try {
-            await this.sseWriter.write(encoder.encode(initialMessage));
-            console.log("Initial SSE message written successfully");
-        } catch (e) {
-            console.error("Failed to write initial SSE message:", e);
-        }
 
-        // Return a streaming response that will be held open.
+        // Create a ReadableStream for SSE
+        const readable = new ReadableStream({
+            start: (controller) => {
+                console.log("SSE ReadableStream started");
+                this.sseController = controller;
+                this.sessionReady = true;
+                console.log("SSE session ready");
+
+                // Send initial connection confirmation immediately
+                const initialMessage = "data: " + JSON.stringify({type: "connection", status: "connected"}) + "\n\n";
+                try {
+                    controller.enqueue(encoder.encode(initialMessage));
+                    console.log("Initial SSE message sent successfully");
+                } catch (e) {
+                    console.error("Failed to send initial SSE message:", e);
+                }
+
+                // Handle client disconnection
+                request.signal?.addEventListener('abort', () => {
+                    console.log("SSE stream aborted by client. Releasing controller.");
+                    this.cleanupSession();
+                });
+            },
+            cancel: () => {
+                console.log("SSE stream cancelled");
+                this.cleanupSession();
+            }
+        });
+
+        // Return SSE response with proper headers
         return new Response(readable, {
             headers: {
                 'Content-Type': 'text/event-stream',
-                'Cache-Control': 'no-cache',
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
                 'Connection': 'keep-alive',
                 'Access-Control-Allow-Origin': '*',
                 'Access-Control-Allow-Headers': 'Cache-Control',
                 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
                 'X-Accel-Buffering': 'no', // Disable nginx buffering
+                'Transfer-Encoding': 'chunked',
             },
         });
     }
@@ -121,13 +107,13 @@ export class McpSession implements DurableObject {
     async handlePostMessage(request: Request): Promise<Response> {
         // Simple retry mechanism - wait for session to be ready
         let retries = 0;
-        while ((!this.sessionReady || !this.sseWriter) && retries < 50) {
+        while ((!this.sessionReady || !this.sseController) && retries < 50) {
             console.log("Session not ready, waiting...", retries);
             await new Promise(resolve => setTimeout(resolve, 100)); // Wait 100ms
             retries++;
         }
 
-        if (!this.sessionReady || !this.sseWriter) {
+        if (!this.sessionReady || !this.sseController) {
             return new Response("Session initialization timeout", { status: 408 });
         }
 
@@ -135,34 +121,39 @@ export class McpSession implements DurableObject {
     }
 
     private async processMessage(request: Request): Promise<Response> {
-        if (!this.sseWriter) {
+        if (!this.sseController) {
             return new Response("No active SSE session for this client.", { status: 400 });
         }
 
         try {
             const message = await request.text();
+            console.log("Processing message:", message.substring(0, 200) + "...");
             
-            // Proxy the POST request to the backend. The backend will run the tool.
+            // Proxy the POST request to the backend
             const backendResponseJson = await this.proxyToBackend(message);
+            console.log("Backend response:", JSON.stringify(backendResponseJson).substring(0, 200) + "...");
 
-            // Format the backend's response as an SSE 'data' event and write it to the open stream.
-            const sseMessage = `data: ${JSON.stringify(backendResponseJson)}\n\n`;
+            // Send the backend's response via SSE
             const encoder = new TextEncoder();
-            await this.sseWriter.write(encoder.encode(sseMessage));
+            const sseMessage = "data: " + JSON.stringify(backendResponseJson) + "\n\n";
+            this.sseController.enqueue(encoder.encode(sseMessage));
+            console.log("Response sent via SSE successfully");
 
-            // The client is listening on the SSE stream, not for this POST response.
-            // Return a simple success acknowledgement for the POST request itself.
-            return new Response(JSON.stringify({status: "ok"}), { status: 200, headers: {'Content-Type': 'application/json'} });
+            // Return success acknowledgement for the POST request
+            return new Response(JSON.stringify({status: "ok"}), { 
+                status: 200, 
+                headers: {'Content-Type': 'application/json'} 
+            });
 
         } catch (e: any) {
             console.error("Error in processMessage:", e);
-            if (this.sseWriter) {
+            if (this.sseController) {
                 try {
-                    // Try to inform the client of the error via the SSE stream.
+                    // Send error via SSE stream
                     const errorPayload = { jsonrpc: "2.0", error: { code: -32603, message: e.message } };
-                    const errorSseMessage = `data: ${JSON.stringify(errorPayload)}\n\n`;
                     const encoder = new TextEncoder();
-                    await this.sseWriter.write(encoder.encode(errorSseMessage));
+                    const errorMessage = "data: " + JSON.stringify(errorPayload) + "\n\n";
+                    this.sseController.enqueue(encoder.encode(errorMessage));
                 } catch (writeError) {
                     console.error("Failed to write error to SSE stream:", writeError);
                 }
