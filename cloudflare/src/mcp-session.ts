@@ -84,7 +84,8 @@ export class McpSession implements DurableObject {
                 this.sessionReady = true;
 
                 // Send endpoint event (official MCP SSE protocol requirement)
-                const endpointEvent = `event: endpoint\ndata: /messages\n\n`;
+                // The endpoint should match our routing pattern: /mcp/{client_name}/messages/{user_id}
+                const endpointEvent = `event: endpoint\ndata: /mcp/${this.clientName}/messages/${this.userId}\n\n`;
                 controller.enqueue(encoder.encode(endpointEvent));
                 console.log("Sent MCP endpoint event");
 
