@@ -1069,6 +1069,38 @@ async def handle_post_message(request: Request):
             }
             return JSONResponse(content=response_payload)
         
+        elif method_name == "notifications/initialized":
+            # Handle MCP initialization notification - no response needed
+            logger.info(f"Received initialization notification from client '{client_name_from_header}'")
+            return JSONResponse(content={"status": "acknowledged"})
+        
+        elif method_name == "notifications/cancelled":
+            # Handle MCP cancellation notification - no response needed
+            logger.info(f"Received cancellation notification for request {params.get('requestId', 'unknown')}")
+            return JSONResponse(content={"status": "acknowledged"})
+        
+        elif method_name == "resources/list":
+            # Return empty resources list - we don't have any resources
+            response_payload = {
+                "jsonrpc": "2.0",
+                "result": {
+                    "resources": []
+                },
+                "id": request_id
+            }
+            return JSONResponse(content=response_payload)
+        
+        elif method_name == "prompts/list":
+            # Return empty prompts list - we don't have any prompts
+            response_payload = {
+                "jsonrpc": "2.0", 
+                "result": {
+                    "prompts": []
+                },
+                "id": request_id
+            }
+            return JSONResponse(content=response_payload)
+        
         else:
             # Handle direct tool calls (legacy support)
             tool_function = tool_registry.get(method_name)
