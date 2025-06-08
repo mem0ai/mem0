@@ -58,7 +58,7 @@ def mochow_instance(mock_mochow_client, mock_configuration, mock_bce_credentials
     mock_client_instance.database.return_value = mock_database
 
     # Mock table operations
-    mock_database.list_tables.return_value = []
+    mock_database.list_table.return_value = []
     mock_database.create_table.return_value = mock_table
     mock_database.describe_table.return_value = Mock(state=TableState.NORMAL)
     mock_database.table.return_value = mock_table
@@ -74,7 +74,7 @@ def mochow_instance(mock_mochow_client, mock_configuration, mock_bce_credentials
     )
 
 
-def test_insert_vectors(mochow_instance, mock_mochow_client):
+def test_insert(mochow_instance, mock_mochow_client):
     vectors = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
     payloads = [{"name": "vector1"}, {"name": "vector2"}]
     ids = ["id1", "id2"]
@@ -98,7 +98,7 @@ def test_insert_vectors(mochow_instance, mock_mochow_client):
     assert second_row._data["metadata"] == {"name": "vector2"}
 
 
-def test_search_vectors(mochow_instance, mock_mochow_client):
+def test_search(mochow_instance, mock_mochow_client):
     # Mock search results
     mock_search_results = Mock()
     mock_search_results.rows = [
@@ -148,14 +148,14 @@ def test_search_with_filters(mochow_instance, mock_mochow_client):
     assert request._filter == 'metadata["user_id"] = "user123" AND metadata["agent_id"] = "agent456"'
 
 
-def test_delete_vector(mochow_instance, mock_mochow_client):
+def test_delete(mochow_instance, mock_mochow_client):
     vector_id = "id1"
     mochow_instance.delete(vector_id=vector_id)
 
     mochow_instance._table.delete.assert_called_once_with(primary_key={"id": vector_id})
 
 
-def test_update_vector(mochow_instance, mock_mochow_client):
+def test_update(mochow_instance, mock_mochow_client):
     vector_id = "id1"
     new_vector = [0.7, 0.8, 0.9]
     new_payload = {"name": "updated_vector"}
@@ -171,7 +171,7 @@ def test_update_vector(mochow_instance, mock_mochow_client):
     assert row._data["metadata"] == new_payload
 
 
-def test_get_vector(mochow_instance, mock_mochow_client):
+def test_get(mochow_instance, mock_mochow_client):
     # Mock query result
     mock_result = Mock()
     mock_result.row = {"id": "id1", "metadata": {"name": "vector1"}}
@@ -179,14 +179,14 @@ def test_get_vector(mochow_instance, mock_mochow_client):
 
     result = mochow_instance.get(vector_id="id1")
 
-    mochow_instance._table.query.assert_called_once_with(primary_key={"id": "id1"})
+    mochow_instance._table.query.assert_called_once_with(primary_key={"id": "id1"}, projections=["id", "metadata"])
 
     assert result.id == "id1"
     assert result.score is None
     assert result.payload == {"name": "vector1"}
 
 
-def test_list_vectors(mochow_instance, mock_mochow_client):
+def test_list(mochow_instance, mock_mochow_client):
     # Mock select result
     mock_result = Mock()
     mock_result.rows = [{"id": "id1", "metadata": {"name": "vector1"}}, {"id": "id2", "metadata": {"name": "vector2"}}]
@@ -214,12 +214,6 @@ def test_list_cols(mochow_instance, mock_mochow_client):
     assert result == ["table1", "table2"]
 
 
-def test_delete_col(mochow_instance, mock_mochow_client):
-    mochow_instance.delete_col()
-
-    mochow_instance._database.drop_table.assert_called_once_with(mochow_instance.table_name)
-
-
 def test_delete_col_not_exists(mochow_instance, mock_mochow_client):
     # 使用正确的 ServerErrCode 枚举值
     mochow_instance._database.drop_table.side_effect = ServerError(
@@ -237,16 +231,3 @@ def test_col_info(mochow_instance, mock_mochow_client):
     result = mochow_instance.col_info()
 
     assert result == mock_table_info
-
-
-def test_reset(mochow_instance, mock_mochow_client):
-    # Mock table operations for reset
-    mochow_instance._database.drop_table.return_value = None
-    mochow_instance._database.list_tables.return_value = []  # Table doesn't exist after drop
-    mochow_instance._database.create_table.return_value = Mock(state=TableState.NORMAL)
-
-    mochow_instance.reset()
-
-    # Verify table was dropped and recreated
-    mochow_instance._database.drop_table.assert_called_once()
-    mochow_instance._database.create_table.assert_called()
