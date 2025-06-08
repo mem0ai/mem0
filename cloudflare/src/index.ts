@@ -10,23 +10,46 @@ export default {
 		const url = new URL(request.url);
 		const pathParts = url.pathname.split('/').filter(Boolean);
 
-		// Expected URL format: /mcp/{client_name}/sse/{user_id}
-		if (pathParts.length < 4 || pathParts[0] !== 'mcp' || pathParts[2] !== 'sse') {
-			return new Response('Invalid MCP URL format. Expected /mcp/{client_name}/sse/{user_id}', { status: 400 });
+		// Support both formats:
+		// New format: /mcp/{user_id}/sse or /mcp/{user_id}/messages  
+		// Old format: /mcp/{client_name}/sse/{user_id}
+		let user_id: string;
+		let client_name: string = 'claude'; // default client
+		let endpoint: string;
+
+		if (pathParts.length === 3 && pathParts[0] === 'mcp') {
+			// New format: /mcp/{user_id}/sse or /mcp/{user_id}/messages
+			user_id = pathParts[1];
+			endpoint = pathParts[2];
+			if (endpoint !== 'sse' && endpoint !== 'messages') {
+				return new Response('Invalid endpoint. Expected /mcp/{user_id}/sse or /mcp/{user_id}/messages', { status: 400 });
+			}
+		} else if (pathParts.length === 4 && pathParts[0] === 'mcp' && pathParts[2] === 'sse') {
+			// Old format: /mcp/{client_name}/sse/{user_id}
+			client_name = pathParts[1];
+			user_id = pathParts[3];  
+			endpoint = 'sse';
+		} else {
+			return new Response('Invalid MCP URL format. Expected /mcp/{user_id}/sse, /mcp/{user_id}/messages, or /mcp/{client_name}/sse/{user_id}', { status: 400 });
 		}
 
-		const client_name = pathParts[1];
-		const user_id = pathParts[3];
-
-		// We use a combination of user_id and client_name to create a unique durable object.
-		// This ensures that a user can have separate sessions for different clients (e.g., claude, cursor).
+		// Create Durable Object ID from user_id and client_name
 		const doId = `${user_id}::${client_name}`;
 		const id = env.MCP_SESSION.idFromName(doId);
 		const stub = env.MCP_SESSION.get(id);
 
-		// Pass the backend URL to the durable object via a header.
-		// This makes the durable object more portable and easier to test.
-		const requestWithBackendUrl = new Request(request.url, request);
+		// Create a new request with the correct path for the Durable Object
+		let newPath: string;
+		if (endpoint === 'sse') {
+			newPath = '/sse';
+		} else {
+			newPath = '/messages';
+		}
+
+		const newUrl = new URL(request.url);
+		newUrl.pathname = newPath;
+		
+		const requestWithBackendUrl = new Request(newUrl.toString(), request);
 		requestWithBackendUrl.headers.set('X-Backend-Url', env.BACKEND_URL);
 		requestWithBackendUrl.headers.set('X-Client-Name', client_name);
 		requestWithBackendUrl.headers.set('X-User-Id', user_id);

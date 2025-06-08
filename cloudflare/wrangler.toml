@@ -1,7 +1,7 @@
 name = "mcp-worker"
 main = "src/index.ts"
 compatibility_date = "2024-05-20"
-node_compat = true
+compatibility_flags = ["nodejs_compat"]
 
 routes = [
 	{ pattern = "api.jeanmemory.com", custom_domain = true }

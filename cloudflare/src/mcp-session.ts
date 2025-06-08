@@ -5,18 +5,13 @@ export class McpSession implements DurableObject {
 	backendUrl!: string;
 	clientName!: string;
 	userId!: string;
-	webSocket?: WebSocket;
+    sseWriter?: WritableStreamDefaultWriter;
 
-	constructor(state: DurableObjectState, env: Env) {
+	constructor(state: DurableObjectState) {
 		this.state = state;
-		// `blockConcurrencyWhile()` ensures that no other events are delivered until the promise resolves.
-		this.state.blockConcurrencyWhile(async () => {
-			// Restore any necessary state from storage.
-		});
 	}
 
 	async fetch(request: Request): Promise<Response> {
-		const url = new URL(request.url);
 		this.backendUrl = request.headers.get('X-Backend-Url')!;
 		this.clientName = request.headers.get('X-Client-Name')!;
 		this.userId = request.headers.get('X-User-Id')!;
@@ -25,70 +20,119 @@ export class McpSession implements DurableObject {
 			return new Response('Internal error: Missing backend URL or client identifiers.', { status: 500 });
 		}
 
-		// The original server supports both GET for SSE and POST for messages.
-		// We are upgrading to WebSockets for the primary connection for better stability.
-		if (request.method === 'POST' && url.pathname.endsWith('/messages')) {
-			return this.handlePostMessage(request);
-		} else if (request.method === 'GET') {
-			return this.handleWebSocketConnection(request);
-		} else {
-			return new Response('Unsupported request type.', { status: 405 });
-		}
+		const url = new URL(request.url);
+		const path = url.pathname;
+
+        if (path === '/sse' && request.method === 'GET') {
+            return this.handleSseRequest(request);
+        } else if (path === '/messages' && request.method === 'POST') {
+            return this.handlePostMessage(request);
+        } else if (path === '/sse' && request.method === 'POST') {
+            // Support legacy POST to SSE endpoint
+            return this.handlePostMessage(request);
+        }
+
+        return new Response(`Method ${request.method} not allowed for path ${path}`, { status: 405 });
 	}
 
-	async handleWebSocketConnection(request: Request): Promise<Response> {
-		if (request.headers.get('Upgrade') !== 'websocket') {
-			return new Response('Expected a WebSocket upgrade request.', { status: 426 });
-		}
+    async handleSseRequest(request: Request): Promise<Response> {
+        if (this.sseWriter) {
+            return new Response("Session already active", { status: 409 });
+        }
 
-		const { 0: client, 1: server } = new WebSocketPair();
+        const { readable, writable } = new TransformStream({
+            start() {
+                console.log("SSE TransformStream started");
+            },
+            transform(chunk, controller) {
+                console.log("SSE transform:", chunk);
+                controller.enqueue(chunk);
+            }
+        });
 
-		this.webSocket = server;
-		this.webSocket.accept();
+        this.sseWriter = writable.getWriter();
 
-		this.webSocket.addEventListener('message', async (event) => {
-			const message = event.data;
-			const backendResponse = await this.proxyToBackend(message);
-			if (backendResponse && this.webSocket) {
-				// The backend already stringifies its response, so we send it directly.
-				this.webSocket.send(backendResponse);
-			}
-		});
+        // Handle client disconnection using request signal
+        request.signal?.addEventListener('abort', () => {
+            console.log("SSE stream aborted by client. Releasing writer.");
+            if (this.sseWriter) {
+                this.sseWriter.close().catch(() => {});
+                this.sseWriter = undefined;
+            }
+        });
 
-		this.webSocket.addEventListener('close', (event) => {
-			console.log(`WebSocket closed: code=${event.code}, reason=${event.reason}`);
-			this.webSocket = undefined;
-		});
+        // Handle stream errors
+        this.sseWriter.closed.then(() => {
+            console.log("SSE writer closed. Releasing writer.");
+            this.sseWriter = undefined;
+        }).catch((err: Error) => {
+            console.log("SSE writer error. Releasing writer.", err.message);
+            this.sseWriter = undefined;
+        });
 
-		this.webSocket.addEventListener('error', (err) => {
-			console.error('WebSocket error:', err);
-		});
+        // Send initial connection confirmation immediately
+        const encoder = new TextEncoder();
+        const initialMessage = "data: {\"type\":\"connection\",\"status\":\"connected\"}\n\n";
+        
+        // Write immediately without await to avoid blocking
+        this.sseWriter.write(encoder.encode(initialMessage)).catch((e) => {
+            console.error("Failed to write initial SSE message:", e);
+        });
 
-		return new Response(null, { status: 101, webSocket: client });
-	}
+        // Return a streaming response that will be held open.
+        return new Response(readable, {
+            headers: {
+                'Content-Type': 'text/event-stream',
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Headers': 'Cache-Control',
+            },
+        });
+    }
 
-	async handlePostMessage(request: Request): Promise<Response> {
-		const message = await request.text();
-		const response = await this.proxyToBackend(message);
-		return new Response(response, {
-			headers: { 'Content-Type': 'application/json' },
-		});
-	}
+    async handlePostMessage(request: Request): Promise<Response> {
+        if (!this.sseWriter) {
+            // This can happen if a POST arrives before the GET has established the SSE connection.
+            return new Response("No active SSE session for this client.", { status: 400 });
+        }
+
+        try {
+            const message = await request.text();
+            
+            // Proxy the POST request to the backend. The backend will run the tool.
+            const backendResponseJson = await this.proxyToBackend(message);
+
+            // Format the backend's response as an SSE 'data' event and write it to the open stream.
+            const sseMessage = `data: ${JSON.stringify(backendResponseJson)}\n\n`;
+            const encoder = new TextEncoder();
+            await this.sseWriter.write(encoder.encode(sseMessage));
+
+            // The client is listening on the SSE stream, not for this POST response.
+            // Return a simple success acknowledgement for the POST request itself.
+            return new Response(JSON.stringify({status: "ok"}), { status: 200, headers: {'Content-Type': 'application/json'} });
+
+        } catch (e: any) {
+            console.error("Error in handlePostMessage:", e);
+            if (this.sseWriter) {
+                try {
+                    // Try to inform the client of the error via the SSE stream.
+                    const errorPayload = { jsonrpc: "2.0", error: { code: -32603, message: e.message } };
+                    const errorSseMessage = `data: ${JSON.stringify(errorPayload)}\n\n`;
+                    const encoder = new TextEncoder();
+                    await this.sseWriter.write(encoder.encode(errorSseMessage));
+                } catch (writeError) {
+                    console.error("Failed to write error to SSE stream:", writeError);
+                }
+            }
+            return new Response("Internal Server Error", { status: 500 });
+        }
+    }
 
 	async proxyToBackend(message: string | ArrayBuffer) {
 		const url = `${this.backendUrl}/mcp/messages/`;
 		try {
-			// We need to pass the session_id to the python backend.
-			// The original python server seems to get it from a query param. Let's create one.
-			const sessionId = this.userId + "::" + this.clientName;
-			const urlWithSession = new URL(url);
-			urlWithSession.searchParams.set('session_id', sessionId);
-
-
-			// The python server also expects the user and client context.
-			// The original server sets this via contextvars based on the URL.
-			// We will emulate this by passing them in headers that the backend can be modified to read.
-			const response = await fetch(urlWithSession.toString(), {
+			const response = await fetch(url, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
@@ -102,14 +146,13 @@ export class McpSession implements DurableObject {
 			if (!response.ok) {
 				const errorText = await response.text();
 				console.error(`Backend error: ${response.status} ${errorText}`);
-				return JSON.stringify({ error: `Backend error: ${response.status}`, details: errorText });
+				return { jsonrpc: "2.0", error: { code: response.status, message: "Backend Error", data: errorText }};
 			}
 
-			const data = await response.text();
-			return data;
-		} catch (error) {
+			return await response.json();
+		} catch (error: any) {
 			console.error('Error proxying to backend:', error);
-			return JSON.stringify({ error: 'Failed to connect to backend' });
+			return { jsonrpc: "2.0", error: { code: -32000, message: "Proxy Error", data: error.message }};
 		}
 	}
 }
