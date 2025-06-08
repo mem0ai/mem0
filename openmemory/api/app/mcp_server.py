@@ -815,12 +815,12 @@ Provide a thorough, insightful response."""
         return f"Error performing deep search: {str(e)}"
 
 
-@mcp.tool(description="Ask any question about your memories, documents, and personal knowledge in natural language")
+@mcp.tool(description="Fast memory search for simple questions - try this first before using heavier tools")
 async def ask_memory(question: str) -> str:
     """
-    Ask any question about your memories, documents, or personal knowledge.
-    This is a conversational interface - just ask naturally like "What are my morning habits?"
-    or "Tell me about my work on Irreverent Capital" or "Summarize my thoughts on productivity".
+    Fast memory search for simple questions about the user.
+    This searches stored memories only (not full documents) and returns quick, conversational answers.
+    Perfect for everyday questions like "What are my preferences?" or "What do you know about me?"
     """
     supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
@@ -831,18 +831,112 @@ async def ask_memory(question: str) -> str:
         return "Error: client_name not available in context"
     
     try:
-        # Use the deep memory query with sensible defaults
-        return await _deep_memory_query_impl(
-            search_query=question,
-            supa_uid=supa_uid,
-            client_name=client_name,
-            memory_limit=15,  # Good balance for comprehensive results
-            chunk_limit=20,   # Allow more context
-            include_full_docs=True  # Always include full docs for natural queries
-        )
+        # Lightweight version for better performance
+        return await _lightweight_ask_memory_impl(question, supa_uid, client_name)
     except Exception as e:
         logger.error(f"Error in ask_memory: {e}", exc_info=True)
         return f"I had trouble processing your question: {str(e)}. Try rephrasing or use 'search_memory' for simpler queries."
+
+
+async def _lightweight_ask_memory_impl(question: str, supa_uid: str, client_name: str) -> str:
+    """Fast, lightweight memory search optimized for simple questions"""
+    # Lazy imports
+    from app.utils.memory import get_memory_client
+    from app.utils.gemini import GeminiService
+    import google.generativeai as genai
+    
+    import time
+    start_time = time.time()
+    
+    try:
+        db = SessionLocal()
+        try:
+            # Get user quickly
+            user = get_or_create_user(db, supa_uid, None)
+            
+            # SECURITY CHECK: Verify user ID matches
+            if user.user_id != supa_uid:
+                logger.error(f"🚨 USER ID MISMATCH: Expected {supa_uid}, got {user.user_id}")
+                return f"Error: User ID validation failed. Security issue detected."
+
+            # Initialize services
+            memory_client = get_memory_client()
+            gemini_service = GeminiService()
+            
+            # 1. Quick memory search (limit to 10 for speed)
+            search_result = memory_client.search(
+                query=question,
+                user_id=supa_uid,
+                limit=10  # Much smaller for speed
+            )
+            
+            # Process results
+            memories = []
+            if isinstance(search_result, dict) and 'results' in search_result:
+                memories = search_result['results'][:10]
+            elif isinstance(search_result, list):
+                memories = search_result[:10]
+            
+            # Filter out contaminated memories
+            clean_memories = []
+            for mem in memories:
+                if isinstance(mem, dict):
+                    memory_content = mem.get('memory', mem.get('content', ''))
+                    # Skip suspicious content
+                    if any(suspicious in memory_content.lower() for suspicious in ['pralayb', '/users/pralayb', 'faircopyfolder']):
+                        logger.error(f"🚨 SUSPICIOUS MEMORY DETECTED - User {supa_uid} got memory: {memory_content[:100]}...")
+                        continue
+                    clean_memories.append(mem)
+            
+            # 2. Build simple context (no heavy document processing)
+            if not clean_memories:
+                return "I don't have any relevant memories stored about this topic yet. You can use 'add_memories' to store information for me to remember."
+            
+            context = "Here are the relevant memories I found:\n\n"
+            for i, mem in enumerate(clean_memories, 1):
+                memory_text = mem.get('memory', mem.get('content', ''))
+                created_at = mem.get('created_at', 'Unknown date')
+                context += f"{i}. {memory_text}\n"
+                if created_at != 'Unknown date':
+                    context += f"   (from {created_at})\n"
+                context += "\n"
+            
+            # 3. Simple, safe prompt for Gemini
+            prompt = f"""Based on the user's stored memories, answer their question conversationally and helpfully.
+
+Question: {question}
+
+Available memories:
+{context}
+
+Instructions:
+- Answer based only on the provided memories
+- Be conversational and helpful
+- If memories don't fully answer the question, say what you do know and suggest they add more information
+- Keep your response concise but informative
+- Do not make up information not in the memories"""
+            
+            # 4. Generate response with safety settings
+            response = gemini_service.model.generate_content(
+                prompt,
+                generation_config=genai.GenerationConfig(
+                    temperature=0.2,  # Lower temperature for more focused responses
+                    max_output_tokens=1024  # Shorter responses for speed
+                )
+            )
+            
+            processing_time = time.time() - start_time
+            result = response.text
+            result += f"\n\n💡 Quick search: {processing_time:.1f}s | {len(clean_memories)} memories"
+            
+            return result
+            
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logger.error(f"Error in lightweight ask_memory: {e}", exc_info=True)
+        return f"I had trouble processing your question: {str(e)}. For complex questions, try 'deep_memory_query' instead."
 
 
 @mcp.tool(description="Advanced memory search (temporarily disabled for stability)")
@@ -1009,7 +1103,7 @@ async def handle_post_message(request: Request):
             tools = [
                 {
                     "name": "ask_memory",
-                    "description": "Ask any question about the user's personal knowledge, memories, documents, and experiences in natural language. This is your PRIMARY tool for understanding the user - use it when they ask about their past, their thoughts, their work, or anything personal. Perfect for questions like 'What are my thoughts on productivity?', 'Tell me about my morning routine', or 'Summarize my essay on venture capital'. This tool automatically finds the most relevant information and provides comprehensive, conversational answers. YOU SHOULD USE THIS TOOL FREQUENTLY when the user asks about themselves or their content.",
+                    "description": "FAST memory search for simple questions about the user. Use this for quick, everyday questions like 'What are my preferences?', 'What do you know about me?', or 'Tell me about my work'. This tool searches stored memories only (not full documents) and gives conversational answers in under 5 seconds. Perfect for most questions - try this FIRST before using heavier tools.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -1053,7 +1147,7 @@ async def handle_post_message(request: Request):
                 },
                 {
                     "name": "deep_memory_query", 
-                    "description": "Advanced comprehensive search for complex analysis across all user content including full documents, essays, and detailed memories. Use this when ask_memory isn't sufficient and you need maximum context - for complex questions requiring analysis across multiple documents, personality insights, or when you need to understand patterns across the user's entire knowledge base. This tool includes full document content and is slower but more thorough than ask_memory.",
+                    "description": "COMPREHENSIVE search that analyzes ALL user content including full documents and essays. Use this ONLY when ask_memory isn't sufficient and you need to analyze entire documents, find patterns across multiple sources, or do complex research. Takes 30-60 seconds and processes everything. Use sparingly for complex questions like 'Analyze my writing style across all essays' or 'Find patterns in my thinking over time'.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
