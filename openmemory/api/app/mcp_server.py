@@ -55,23 +55,6 @@ mcp_router = APIRouter(prefix="/mcp")
 # Initialize SSE transport
 sse = SseServerTransport("/mcp/messages/")
 
-# --- Our Own Simple Tool Registry ---
-# This bypasses the need to access the mcp library's internal structure,
-# providing a robust, direct way to call our tool functions.
-tool_registry = {
-    "add_memories": add_memories,
-    "add_observation": add_observation,
-    "search_memory": search_memory,
-    "list_memories": list_memories,
-    "delete_all_memories": delete_all_memories,
-    "get_memory_details": get_memory_details,
-    "sync_substack_posts": sync_substack_posts,
-    "deep_memory_query": deep_memory_query,
-    "smart_memory_query": smart_memory_query,
-    "test_connection": test_connection,
-}
-# --- End of Tool Registry ---
-
 @mcp.tool(description="Add new memories to the user's memory")
 async def add_memories(text: str) -> str:
     """
@@ -936,7 +919,7 @@ async def handle_post_message(request: Request):
     
     if not user_id_from_header or not client_name_from_header:
         return JSONResponse(status_code=400, content={"error": "Missing X-User-Id or X-Client-Name headers"})
-
+            
     # Set context variables for the duration of this request
     user_token = user_id_var.set(user_id_from_header)
     client_token = client_name_var.set(client_name_from_header)
@@ -973,6 +956,20 @@ async def handle_post_message(request: Request):
         # Clean up context variables
         user_id_var.reset(user_token)
         client_name_var.reset(client_token)
+
+# This must be defined *after* all the tool functions have been defined.
+tool_registry = {
+    "add_memories": add_memories,
+    "add_observation": add_observation,
+    "search_memory": search_memory,
+    "list_memories": list_memories,
+    "delete_all_memories": delete_all_memories,
+    "get_memory_details": get_memory_details,
+    "sync_substack_posts": sync_substack_posts,
+    "deep_memory_query": deep_memory_query,
+    "smart_memory_query": smart_memory_query,
+    "test_connection": test_connection,
+}
 
 def setup_mcp_server(app: FastAPI):
     """Setup MCP server with the FastAPI application"""
