@@ -930,24 +930,161 @@ async def handle_post_message(request: Request):
         params = body.get("params", {})
         request_id = body.get("id")
 
-        logger.info(f"Executing tool '{method_name}' for user '{user_id_from_header}' with params: {params}")
+        logger.info(f"Handling MCP method '{method_name}' for user '{user_id_from_header}' with params: {params}")
 
-        # Find the tool in our OWN registry, not the mcp library's internals
-        tool_function = tool_registry.get(method_name)
-
-        if not tool_function:
-            return JSONResponse(status_code=404, content={"error": f"Tool '{method_name}' not found"})
+        # Handle MCP protocol methods
+        if method_name == "initialize":
+            # MCP initialization handshake
+            response_payload = {
+                "jsonrpc": "2.0",
+                "result": {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {
+                        "tools": {}
+                    },
+                    "serverInfo": {
+                        "name": "jean-memory-api",
+                        "version": "1.0.0"
+                    }
+                },
+                "id": request_id
+            }
+            return JSONResponse(content=response_payload)
         
-        # Execute the tool and await its result
-        result = await tool_function(**params)
+        elif method_name == "tools/list":
+            # Return list of available tools
+            tools = [
+                {
+                    "name": "add_memories",
+                    "description": "Add new memories to the user's memory",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "text": {"type": "string", "description": "Memory content to store"}
+                        },
+                        "required": ["text"]
+                    }
+                },
+                {
+                    "name": "search_memory", 
+                    "description": "Search the user's memory for memories that match the query",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "query": {"type": "string", "description": "Search query"},
+                            "limit": {"type": "integer", "description": "Maximum number of results", "default": 10}
+                        },
+                        "required": ["query"]
+                    }
+                },
+                {
+                    "name": "list_memories",
+                    "description": "List all memories in the user's memory", 
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "limit": {"type": "integer", "description": "Maximum number of results", "default": 20}
+                        }
+                    }
+                },
+                {
+                    "name": "delete_all_memories",
+                    "description": "Delete all memories in the user's memory",
+                    "inputSchema": {"type": "object", "properties": {}}
+                },
+                {
+                    "name": "get_memory_details",
+                    "description": "Get detailed information about a specific memory by its ID",
+                    "inputSchema": {
+                        "type": "object", 
+                        "properties": {
+                            "memory_id": {"type": "string", "description": "Memory ID to retrieve"}
+                        },
+                        "required": ["memory_id"]
+                    }
+                },
+                {
+                    "name": "sync_substack_posts",
+                    "description": "Sync Substack posts for the user",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "substack_url": {"type": "string", "description": "Substack URL to sync"},
+                            "max_posts": {"type": "integer", "description": "Maximum posts to sync", "default": 20}
+                        },
+                        "required": ["substack_url"]
+                    }
+                },
+                {
+                    "name": "deep_memory_query", 
+                    "description": "Deep memory search with automatic full document inclusion",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "search_query": {"type": "string", "description": "Search query"},
+                            "memory_limit": {"type": "integer", "description": "Memory limit"},
+                            "chunk_limit": {"type": "integer", "description": "Chunk limit"},
+                            "include_full_docs": {"type": "boolean", "description": "Include full documents", "default": True}
+                        },
+                        "required": ["search_query"]
+                    }
+                },
+                {
+                    "name": "test_connection",
+                    "description": "Test MCP connection and verify all systems are working",
+                    "inputSchema": {"type": "object", "properties": {}}
+                }
+            ]
+            
+            response_payload = {
+                "jsonrpc": "2.0",
+                "result": {"tools": tools},
+                "id": request_id
+            }
+            return JSONResponse(content=response_payload)
+        
+        elif method_name == "tools/call":
+            # Handle tool execution
+            tool_name = params.get("name")
+            tool_args = params.get("arguments", {})
+            
+            tool_function = tool_registry.get(tool_name)
+            if not tool_function:
+                return JSONResponse(status_code=404, content={"error": f"Tool '{tool_name}' not found"})
+            
+            # Execute the tool and await its result
+            result = await tool_function(**tool_args)
+            
+            response_payload = {
+                "jsonrpc": "2.0",
+                "result": {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": result
+                        }
+                    ]
+                },
+                "id": request_id
+            }
+            return JSONResponse(content=response_payload)
+        
+        else:
+            # Handle direct tool calls (legacy support)
+            tool_function = tool_registry.get(method_name)
+            if not tool_function:
+                return JSONResponse(status_code=404, content={"error": f"Method '{method_name}' not found"})
+            
+            # Execute the tool and await its result  
+            result = await tool_function(**params)
 
-        # Format the response as a JSON-RPC result
-        response_payload = {
-            "jsonrpc": "2.0",
-            "result": result,
-            "id": request_id
-        }
-        return JSONResponse(content=response_payload)
+            # Format the response as a JSON-RPC result
+            response_payload = {
+                "jsonrpc": "2.0",
+                "result": result,
+                "id": request_id
+            }
+            return JSONResponse(content=response_payload)
 
     except Exception as e:
         logger.error(f"Error executing tool via stateless endpoint: {e}", exc_info=True)
