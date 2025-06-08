@@ -1018,10 +1018,22 @@ async def test_connection() -> str:
 async def handle_post_message(request: Request):
     """Handle POST messages for SSE with better error handling and session recovery"""
     try:
-        # Get session_id from query params
+        # Get session_id from query params, which our Cloudflare worker will add.
         session_id = request.query_params.get("session_id")
+        user_id_from_header = request.headers.get("x-user-id")
+        client_name_from_header = request.headers.get("x-client-name")
+        
+        # Log the source of the identifiers
+        logger.info(f"POST /messages/: session_id='{session_id}', user_id_header='{user_id_from_header}', client_name_header='{client_name_from_header}'")
+
         if not session_id:
             return {"status": "error", "message": "Missing session_id"}
+        
+        # If headers are present, set context vars from them. This is for our Worker proxy.
+        if user_id_from_header and client_name_from_header:
+            user_token = user_id_var.set(user_id_from_header)
+            client_token = client_name_var.set(client_name_from_header)
+            logger.info(f"🔒 CONTEXT VARS SET from headers - User: {user_id_from_header}, Client: {client_name_from_header}")
         
         body = await request.body()
         if not body:
@@ -1057,7 +1069,15 @@ async def handle_post_message(request: Request):
         logging.error(f"Error in handle_post_message: {e}")
         # Even on error, return OK to keep client connection alive
         return {"status": "ok", "message": "recovered_from_error"}
-
+    finally:
+        # Reset context vars if they were set
+        if 'user_token' in locals() and 'client_token' in locals():
+            try:
+                user_id_var.reset(user_token)
+                client_name_var.reset(client_token)
+                logger.info(f"🔒 CONTEXT VARS RESET from headers - User: {user_id_from_header}")
+            except Exception as e:
+                logger.error(f"🚨 ERROR RESETTING CONTEXT VARS from headers: {e}")
 
 @mcp_router.post("/{client_name}/sse/{user_id}/messages")
 async def handle_post_message_with_path(request: Request):
@@ -1065,14 +1085,22 @@ async def handle_post_message_with_path(request: Request):
     # Just forward to the main handler
     return await handle_post_message(request)
 
-
 @mcp_router.get("/{client_name}/sse/{user_id}")
 async def handle_sse(request: Request):
-    supa_user_id_from_path = request.path_params.get("user_id")
-    client_name = request.path_params.get("client_name")
-    
+    # Check for headers from Cloudflare Worker first.
+    supa_user_id_from_header = request.headers.get("x-user-id")
+    client_name_from_header = request.headers.get("x-client-name")
+
+    if supa_user_id_from_header and client_name_from_header:
+        supa_user_id_from_path = supa_user_id_from_header
+        client_name = client_name_from_header
+        logger.info(f"SSE connection using headers from Worker: user {supa_user_id_from_path}, client {client_name}")
+    else:
+        supa_user_id_from_path = request.path_params.get("user_id")
+        client_name = request.path_params.get("client_name")
+        logger.info(f"SSE connection using path params: user {supa_user_id_from_path}, client {client_name}")
+
     # Log connection attempt with more details
-    logging.info(f"SSE connection attempt for user {supa_user_id_from_path}, client {client_name}")
     logging.info(f"Request headers: {dict(request.headers)}")
     logging.info(f"MCP server name: {mcp._mcp_server.name}")
     

@@ -1,0 +1,17 @@
+name = "mcp-worker"
+main = "src/index.ts"
+compatibility_date = "2024-05-20"
+node_compat = true
+
+[vars]
+# This should be the URL of your production or staging API on Render
+BACKEND_URL = "https://api.jeanmemory.com"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["McpSession"]
+
+[durable_objects]
+bindings = [
+  { name = "MCP_SESSION", class_name = "McpSession" }
+] 
