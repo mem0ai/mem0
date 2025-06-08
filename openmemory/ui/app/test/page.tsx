@@ -103,13 +103,42 @@ export default function TestPage() {
     let response = "";
     
     if (action === "add_memory") {
-      setMemories(prev => [...prev, input]);
-      response = `✅ Memory stored successfully! I've remembered: "${input.length > 80 ? input.substring(0, 80) + "..." : input}"\n\nThis information is now part of your demo memory bank and can be searched or referenced in future queries.\n\n💡 In the full Jean Memory system, this would be stored securely and shared across all your AI applications.`;
+      const trimmedInput = input.trim();
+      if (memories.some(m => m.toLowerCase() === trimmedInput.toLowerCase())) {
+        response = `🤔 I already have a memory very similar to that: "${trimmedInput}"`;
+      } else if (trimmedInput.length < 5) {
+        response = `🤔 That's a very short memory. Could you please provide more details?`;
+      } else {
+        setMemories(prev => [...prev, trimmedInput]);
+        response = `✅ Memory stored successfully! I've remembered: "${trimmedInput.length > 80 ? trimmedInput.substring(0, 80) + "..." : trimmedInput}"\n\nThis information is now part of your demo memory bank and can be searched or referenced in future queries.\n\n💡 In the full Jean Memory system, this would be automatically categorized and linked to related concepts for deeper insights.`;
+      }
     } else if (action === "search_memory") {
       const query = input.toLowerCase();
-      const matchingMemories = memories.filter(memory => 
-        memory.toLowerCase().includes(query.split(' ').find(word => word.length > 2) || query)
-      );
+      const stopWords = ['a', 'an', 'the', 'is', 'are', 'was', 'were', 'for', 'about', 'in', 'on', 'my', 'of', 'to'];
+      const queryWords = query.split(' ').filter(word => word.length > 2 && !stopWords.includes(word));
+
+      let matchingMemories: string[] = [];
+
+      if (queryWords.length > 0) {
+        // 1. Try with "every" for more precise matches
+        matchingMemories = memories.filter(memory => {
+          const memoryLower = memory.toLowerCase();
+          return queryWords.every(word => memoryLower.includes(word));
+        });
+
+        // 2. If no precise matches, try with "some" for broader matches
+        if (matchingMemories.length === 0) {
+          matchingMemories = memories.filter(memory => {
+            const memoryLower = memory.toLowerCase();
+            return queryWords.some(word => memoryLower.includes(word));
+          });
+        }
+      }
+
+      // 3. Fallback to searching for the whole query string if no word-based matches found
+      if (matchingMemories.length === 0 && query.length > 0) {
+        matchingMemories = memories.filter(memory => memory.toLowerCase().includes(query));
+      }
       
       if (matchingMemories.length === 0) {
         if (memories.length === 0) {
@@ -126,14 +155,32 @@ export default function TestPage() {
         if (matchingMemories.length > 5) {
           response += `\n\n... and ${matchingMemories.length - 5} more results`;
         }
+        response += `\n\n💡 The full Jean Memory system uses advanced AI to analyze content and context, providing more relevant results than simple keyword matching.`
       }
     } else if (action === "ask_memory") {
       if (memories.length === 0) {
         response = `🤔 I don't have any memories stored yet for this demo session. Try adding some information about yourself first!\n\nExamples:\n• "Remember that I'm a software developer"\n• "Store that I love hiking and outdoor activities"\n• "I work at a tech startup in San Francisco"`;
       } else {
-        response = `🤔 Based on your ${memories.length} stored memor${memories.length === 1 ? 'y' : 'ies'}, here's what I know:\n\n`;
-        response += memories.map(memory => `• ${memory}`).join('\n');
-        response += `\n\n💡 This is a simplified demo response. The full Jean Memory system uses advanced AI to provide sophisticated analysis and insights based on your complete memory bank.`;
+        // Use the same search logic as "search_memory" for asking questions
+        const query = input.toLowerCase();
+        const stopWords = ['what', 'who', 'where', 'when', 'why', 'how', 'do', 'a', 'an', 'the', 'is', 'are', 'was', 'were', 'for', 'about', 'in', 'on', 'my', 'of', 'to'];
+        const queryWords = query.split(' ').filter(word => word.length > 2 && !stopWords.includes(word));
+        
+        let relevantMemories: string[] = [];
+        if (queryWords.length > 0) {
+          relevantMemories = memories.filter(memory => {
+            const memoryLower = memory.toLowerCase();
+            return queryWords.some(word => memoryLower.includes(word));
+          });
+        }
+
+        if (relevantMemories.length === 0) {
+           response = `🤔 Based on your stored memories, I don't have any specific information about "${input}".\n\n💡 The full Jean Memory system could infer relationships and provide a more nuanced answer even without a direct match.`;
+        } else {
+          response = `🤔 Based on your memories, here's what I found related to "${input}":\n\n`;
+          response += relevantMemories.map(memory => `• ${memory}`).join('\n');
+          response += `\n\n💡 This is a simplified demo response. The full Jean Memory system uses advanced AI to synthesize a comprehensive answer from your complete memory bank, not just list related items.`;
+        }
       }
     }
 
@@ -155,15 +202,28 @@ export default function TestPage() {
     addMessage(userInput, 'user');
     setInput("");
 
-    // Determine action based on input keywords
-    let action = 'ask_memory'; // default
-    if (userInput.toLowerCase().includes('remember') || userInput.toLowerCase().includes('store') || userInput.toLowerCase().includes('add')) {
-      action = 'add_memory';
-    } else if (userInput.toLowerCase().includes('search') || userInput.toLowerCase().includes('find')) {
-      action = 'search_memory';
-    }
+    // Determine action and clean input
+    const lowerUserInput = userInput.toLowerCase();
+    let action = 'ask_memory'; // default action
+    let cleanInput = userInput;
 
-    await simulateMemoryAction(action, userInput);
+    const addKeywords = ['remember', 'store', 'add'];
+    const searchKeywords = ['search', 'find'];
+    
+    const startsWithKeyword = (keywords: string[]) => keywords.some(kw => lowerUserInput.startsWith(kw));
+
+    if (startsWithKeyword(addKeywords)) {
+      action = 'add_memory';
+      const regex = new RegExp(`^(${addKeywords.join('|')})( that|:)?\\s*`, 'i');
+      cleanInput = userInput.replace(regex, '');
+    } else if (startsWithKeyword(searchKeywords)) {
+      action = 'search_memory';
+      const regex = new RegExp(`^(${searchKeywords.join('|')})( for| about)?:?\\s*`, 'i');
+      cleanInput = userInput.replace(regex, '');
+    }
+    // All other inputs are treated as questions by default
+
+    await simulateMemoryAction(action, cleanInput);
   };
 
   const handleSuggestionClick = (suggestion: SuggestionCard) => {
