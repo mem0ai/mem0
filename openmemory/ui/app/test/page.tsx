@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Send, Sparkles, Brain, MessageSquare, Plus, Search, BookOpen, Shield } from "lucide-react";
+import { Send, Sparkles, Brain, MessageSquare, Plus, Search, BookOpen, Shield, Info } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 
@@ -214,19 +214,18 @@ export default function TestPage() {
               </CardContent>
             </Card>
 
-            {/* Privacy Notice */}
-            <Card className="bg-green-900/20 border-green-700/50 mt-6">
+            {/* Demo Vault Notice */}
+            <Card className="bg-blue-900/20 border-blue-700/50 mt-6">
               <CardHeader>
-                <CardTitle className="text-green-300 text-sm flex items-center space-x-2">
-                  <Shield className="w-4 h-4" />
-                  <span>Demo Mode - Privacy First</span>
+                <CardTitle className="text-blue-300 text-sm flex items-center space-x-2">
+                  <Info className="w-4 h-4" />
+                  <span>Demo Vault</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2 text-xs text-green-200">
-                <div>• This demo runs entirely in your browser</div>
-                <div>• No data is sent to any server</div>
-                <div>• Everything is cleared when you close the tab</div>
-                <div>• Full version offers cloud sync & encryption</div>
+              <CardContent className="space-y-2 text-xs text-blue-200">
+                <div>• This is a temporary vault for the demo session.</div>
+                <div>• All data is cleared when you close the tab.</div>
+                <div>• The full version offers permanent, encrypted cloud storage.</div>
               </CardContent>
             </Card>
 
