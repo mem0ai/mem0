@@ -41,6 +41,22 @@ from app.models import Config as ConfigModel
 _memory_client = None
 _config_hash = None
 
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
+OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+
+
+OPENAI_EMBEDDING_MODEL_BASE_URL = os.environ.get(
+    "OPENAI_EMBEDDING_MODEL_BASE_URL", "https://api.openai.com/v1"
+)
+OPENAI_EMBEDDING_MODEL_API_KEY = os.environ.get(
+    "OPENAI_EMBEDDING_MODEL_API_KEY", OPENAI_API_KEY
+)
+OPENAI_EMBEDDING_MODEL = os.environ.get(
+    "OPENAI_EMBEDDING_MODEL", "text-embedding-3-small"
+)
+OPENAI_EMBEDDING_MODEL_DIMS = int(os.environ.get("OPENAI_EMBEDDING_MODEL_DIMS", 1536))
+
 
 def _get_config_hash(config_dict):
     """Generate a hash of the config to detect changes."""
@@ -54,35 +70,35 @@ def _get_docker_host_url():
     Returns the best available option for reaching the host from inside a container.
     """
     # Check for custom environment variable first
-    custom_host = os.environ.get('OLLAMA_HOST')
+    custom_host = os.environ.get("OLLAMA_HOST")
     if custom_host:
         print(f"Using custom Ollama host from OLLAMA_HOST: {custom_host}")
-        return custom_host.replace('http://', '').replace('https://', '').split(':')[0]
-    
+        return custom_host.replace("http://", "").replace("https://", "").split(":")[0]
+
     # Check if we're running inside Docker
-    if not os.path.exists('/.dockerenv'):
+    if not os.path.exists("/.dockerenv"):
         # Not in Docker, return localhost as-is
         return "localhost"
-    
+
     print("Detected Docker environment, adjusting host URL for Ollama...")
-    
+
     # Try different host resolution strategies
     host_candidates = []
-    
+
     # 1. host.docker.internal (works on Docker Desktop for Mac/Windows)
     try:
-        socket.gethostbyname('host.docker.internal')
-        host_candidates.append('host.docker.internal')
+        socket.gethostbyname("host.docker.internal")
+        host_candidates.append("host.docker.internal")
         print("Found host.docker.internal")
     except socket.gaierror:
         pass
-    
+
     # 2. Docker bridge gateway (typically 172.17.0.1 on Linux)
     try:
-        with open('/proc/net/route', 'r') as f:
+        with open("/proc/net/route", "r") as f:
             for line in f:
                 fields = line.strip().split()
-                if fields[1] == '00000000':  # Default route
+                if fields[1] == "00000000":  # Default route
                     gateway_hex = fields[2]
                     gateway_ip = socket.inet_ntoa(bytes.fromhex(gateway_hex)[::-1])
                     host_candidates.append(gateway_ip)
@@ -90,12 +106,12 @@ def _get_docker_host_url():
                     break
     except (FileNotFoundError, IndexError, ValueError):
         pass
-    
+
     # 3. Fallback to common Docker bridge IP
     if not host_candidates:
-        host_candidates.append('172.17.0.1')
+        host_candidates.append("172.17.0.1")
         print("Using fallback Docker bridge IP: 172.17.0.1")
-    
+
     # Return the first available candidate
     return host_candidates[0]
 
@@ -108,9 +124,9 @@ def _fix_ollama_urls(config_section):
     """
     if not config_section or "config" not in config_section:
         return config_section
-    
+
     ollama_config = config_section["config"]
-    
+
     # Set default ollama_base_url if not provided
     if "ollama_base_url" not in ollama_config:
         ollama_config["ollama_base_url"] = "http://host.docker.internal:11434"
@@ -120,10 +136,12 @@ def _fix_ollama_urls(config_section):
         if "localhost" in url or "127.0.0.1" in url:
             docker_host = _get_docker_host_url()
             if docker_host != "localhost":
-                new_url = url.replace("localhost", docker_host).replace("127.0.0.1", docker_host)
+                new_url = url.replace("localhost", docker_host).replace(
+                    "127.0.0.1", docker_host
+                )
                 ollama_config["ollama_base_url"] = new_url
                 print(f"Adjusted Ollama URL from {url} to {new_url}")
-    
+
     return config_section
 
 
@@ -136,6 +154,20 @@ def reset_memory_client():
 
 def get_default_memory_config():
     """Get default memory client configuration with sensible defaults."""
+
+    print(f"✅ Memory Configuration initialized:")
+    print(f"   📍 LLM Base URL: {OPENAI_BASE_URL}")
+    print(f"   🤖 LLM Model: {OPENAI_MODEL}")
+    print(
+        f"   🔑 LLM API Key: {'***' + OPENAI_API_KEY[-4:] if len(OPENAI_API_KEY) > 4 else '***'}"
+    )
+    print(f"   📍 Embedding Base URL: {OPENAI_EMBEDDING_MODEL_BASE_URL}")
+    print(f"   🎯 Embedding Model: {OPENAI_EMBEDDING_MODEL}")
+    print(f"   📊 Embedding Dims: {OPENAI_EMBEDDING_MODEL_DIMS}")
+    print(
+        f"   🔑 Embedding API Key: {'***' + OPENAI_EMBEDDING_MODEL_API_KEY[-4:] if len(OPENAI_EMBEDDING_MODEL_API_KEY) > 4 else '***'}"
+    )
+
     return {
         "vector_store": {
             "provider": "qdrant",
@@ -143,25 +175,29 @@ def get_default_memory_config():
                 "collection_name": "openmemory",
                 "host": "mem0_store",
                 "port": 6333,
-            }
+                "embedding_model_dims": OPENAI_EMBEDDING_MODEL_DIMS,
+            },
         },
         "llm": {
             "provider": "openai",
             "config": {
-                "model": "gpt-4o-mini",
+                "openai_base_url": OPENAI_BASE_URL,
+                "api_key": OPENAI_API_KEY,
+                "model": OPENAI_MODEL,
                 "temperature": 0.1,
                 "max_tokens": 2000,
-                "api_key": "env:OPENAI_API_KEY"
-            }
+            },
         },
         "embedder": {
             "provider": "openai",
             "config": {
-                "model": "text-embedding-3-small",
-                "api_key": "env:OPENAI_API_KEY"
-            }
+                "openai_base_url": OPENAI_EMBEDDING_MODEL_BASE_URL,
+                "api_key": OPENAI_EMBEDDING_MODEL_API_KEY,
+                "model": OPENAI_EMBEDDING_MODEL,
+                "embedding_dims": OPENAI_EMBEDDING_MODEL_DIMS,
+            },
         },
-        "version": "v1.1"
+        "version": "v1.1",
     }
 
 
@@ -180,7 +216,9 @@ def _parse_environment_variables(config_dict):
                     parsed_config[key] = env_value
                     print(f"Loaded {env_var} from environment for {key}")
                 else:
-                    print(f"Warning: Environment variable {env_var} not found, keeping original value")
+                    print(
+                        f"Warning: Environment variable {env_var} not found, keeping original value"
+                    )
                     parsed_config[key] = value
             elif isinstance(value, dict):
                 parsed_config[key] = _parse_environment_variables(value)
@@ -208,46 +246,54 @@ def get_memory_client(custom_instructions: str = None):
     try:
         # Start with default configuration
         config = get_default_memory_config()
-        
+
         # Variable to track custom instructions
         db_custom_instructions = None
-        
+
         # Load configuration from database
         try:
             db = SessionLocal()
             db_config = db.query(ConfigModel).filter(ConfigModel.key == "main").first()
-            
+
             if db_config:
                 json_config = db_config.value
-                
+
                 # Extract custom instructions from openmemory settings
-                if "openmemory" in json_config and "custom_instructions" in json_config["openmemory"]:
-                    db_custom_instructions = json_config["openmemory"]["custom_instructions"]
-                
+                if (
+                    "openmemory" in json_config
+                    and "custom_instructions" in json_config["openmemory"]
+                ):
+                    db_custom_instructions = json_config["openmemory"][
+                        "custom_instructions"
+                    ]
+
                 # Override defaults with configurations from the database
                 if "mem0" in json_config:
                     mem0_config = json_config["mem0"]
-                    
+
                     # Update LLM configuration if available
                     if "llm" in mem0_config and mem0_config["llm"] is not None:
                         config["llm"] = mem0_config["llm"]
-                        
+
                         # Fix Ollama URLs for Docker if needed
                         if config["llm"].get("provider") == "ollama":
                             config["llm"] = _fix_ollama_urls(config["llm"])
-                    
+
                     # Update Embedder configuration if available
-                    if "embedder" in mem0_config and mem0_config["embedder"] is not None:
+                    if (
+                        "embedder" in mem0_config
+                        and mem0_config["embedder"] is not None
+                    ):
                         config["embedder"] = mem0_config["embedder"]
-                        
+
                         # Fix Ollama URLs for Docker if needed
                         if config["embedder"].get("provider") == "ollama":
                             config["embedder"] = _fix_ollama_urls(config["embedder"])
             else:
                 print("No configuration found in database, using defaults")
-                    
+
             db.close()
-                            
+
         except Exception as e:
             print(f"Warning: Error loading configuration from database: {e}")
             print("Using default configuration")
@@ -265,7 +311,7 @@ def get_memory_client(custom_instructions: str = None):
 
         # Check if config has changed by comparing hashes
         current_config_hash = _get_config_hash(config)
-        
+
         # Only reinitialize if config changed or client doesn't exist
         if _memory_client is None or _config_hash != current_config_hash:
             print(f"Initializing memory client with config hash: {current_config_hash}")
@@ -279,9 +325,9 @@ def get_memory_client(custom_instructions: str = None):
                 _memory_client = None
                 _config_hash = None
                 return None
-        
+
         return _memory_client
-        
+
     except Exception as e:
         print(f"Warning: Exception occurred while initializing memory client: {e}")
         print("Server will continue running with limited memory functionality")
