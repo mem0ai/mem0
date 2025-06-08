@@ -3,9 +3,13 @@ main = "src/index.ts"
 compatibility_date = "2024-05-20"
 node_compat = true
 
+routes = [
+	{ pattern = "api.jeanmemory.com", custom_domain = true }
+]
+
 [vars]
 # This should be the URL of your production or staging API on Render
-BACKEND_URL = "https://api.jeanmemory.com"
+BACKEND_URL = "https://jean-memory-api.onrender.com"
 
 [[migrations]]
 tag = "v1"
