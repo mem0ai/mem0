@@ -27,7 +27,7 @@ def get_categories_for_memory(memory: str) -> List[str]:
         completion = openai_client.chat.completions.with_response_format(
             response_format=MemoryCategories
         ).create(
-            model="gpt-4o",
+            model="gpt-4o-mini",
             messages=messages,
             temperature=0
         )
