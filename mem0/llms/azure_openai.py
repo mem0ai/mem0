@@ -103,7 +103,7 @@ class AzureOpenAILLM(LLMBase):
                 "max_tokens": self.config.max_tokens,
                 "top_p": self.config.top_p,
             }
-        if response_format == "json_schema":
+        if response_format["type"] == "json_object":
             json_data = dict()
             json_data["name"] = "ResponseObj"
             json_data["schema"] = ResponseObj.model_json_schema()
