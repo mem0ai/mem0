@@ -47,7 +47,7 @@ class KuzuConfig(BaseModel):
 
 class GraphStoreConfig(BaseModel):
     provider: str = Field(description="Provider of the data store (e.g., 'neo4j')", default="neo4j")
-    config: Dict = Field(description="Configuration for the specific data store", default=None)
+    config: Dict = Field(description="Configuration for the specific data store", default={})
     llm: Optional[LlmConfig] = Field(description="LLM configuration for querying the graph store", default=None)
     custom_prompt: Optional[str] = Field(
         description="Custom prompt to fetch entities from the given text", default=None
