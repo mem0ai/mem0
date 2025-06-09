@@ -3,10 +3,18 @@ import os
 from typing import Dict, List, Optional
 
 from openai import AzureOpenAI
+from pydantic import BaseModel, Field
 
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.llms.base import LLMBase
 
+
+class ResponseObj(BaseModel):
+    id: str
+    facts: List[str] = Field(
+        default_factory=list,
+        description="List of facts extracted from the response.",
+    )
 
 class AzureOpenAILLM(LLMBase):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
@@ -95,8 +103,13 @@ class AzureOpenAILLM(LLMBase):
                 "max_tokens": self.config.max_tokens,
                 "top_p": self.config.top_p,
             }
-        if response_format:
-            params["response_format"] = response_format
+        if response_format == "json_schema":
+            json_data = dict()
+            json_data["name"] = "ResponseObj"
+            json_data["schema"] = ResponseObj.model_json_schema()
+            json_data["schema"]["additionalProperties"] = False
+            res_frmt = { "type": "json_schema", "json_schema": json_data }
+            params["response_format"] = res_frmt
         if tools:  # TODO: Remove tools if no issues found with new memory addition logic
             params["tools"] = tools
             params["tool_choice"] = tool_choice
