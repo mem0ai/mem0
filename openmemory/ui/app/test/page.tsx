@@ -214,28 +214,13 @@ export default function TestPage() {
               </CardContent>
             </Card>
 
-            {/* Demo Vault Notice */}
-            <Card className="bg-blue-900/20 border-blue-700/50 mt-6">
-              <CardHeader>
-                <CardTitle className="text-blue-300 text-sm flex items-center space-x-2">
-                  <Info className="w-4 h-4" />
-                  <span>Demo Vault</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-xs text-blue-200">
-                <div>• This is a temporary vault for the demo session.</div>
-                <div>• All data is cleared when you close the tab.</div>
-                <div>• The full version offers permanent, encrypted cloud storage.</div>
-              </CardContent>
-            </Card>
-
           </div>
 
           {/* Chat Interface */}
           <div className="lg:col-span-2">
             <Card className="bg-zinc-900/30 border-zinc-700/50 h-[70vh] flex flex-col">
               <CardHeader className="flex-shrink-0 pb-3">
-                <CardTitle className="text-white text-lg">Memory Assistant (Demo)</CardTitle>
+                <CardTitle className="text-white text-lg">Memory Vault (Demo)</CardTitle>
                 <CardDescription className="text-sm text-zinc-400">
                   {sessionId ? `Session: ${sessionId.split('_')[1]} • ${memories.length} memories stored` : 'Loading...'}
                 </CardDescription>
