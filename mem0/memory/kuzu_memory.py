@@ -55,41 +55,32 @@ class MemoryGraph:
         self.user_id = None
         self.threshold = 0.7
 
-    def kuzu_sanitize_table_name(self, table_str):
-        return re.sub(r"[^a-z0-9_]", "_", table_str.lower())
-
     def kuzu_create_node_table(self, node_label):
-        assert node_label[0] == ":", f"Node label does not beging with colon: {node_label}"
+        assert node_label[0] == ":", f"Node label does not begin with colon: {node_label}"
         assert len(node_label) > 1, "Node label is empty"
 
         if node_label not in self.node_labels:
             self.kuzu_execute(
-                f"CREATE NODE TABLE {node_label[1:]}(id SERIAL PRIMARY KEY, user_id STRING, name STRING, mentions INT64, created TIMESTAMP, embedding FLOAT[{self.embedding_dims}]);"
+                f"CREATE NODE TABLE IF NOT EXISTS {node_label[1:]}(id SERIAL PRIMARY KEY, user_id STRING, name STRING, mentions INT64, created TIMESTAMP, embedding FLOAT[{self.embedding_dims}]);"
             )
             self.node_labels.add(node_label)
 
     def kuzu_create_rel_table(self, rel_label, src_table, dst_table):
         assert len(rel_label) > 0, "Rel label is empty"
-        assert src_table[0] == ":", f"Src label does not beging with colon: {dst_table}"
+        assert src_table[0] == ":", f"Src label does not begin with colon: {dst_table}"
         assert len(src_table) > 1, "Src label is empty"
-        assert dst_table[0] == ":", f"Dst label does not beging with colon: {dst_table}"
+        assert dst_table[0] == ":", f"Dst label does not begin with colon: {dst_table}"
         assert len(dst_table) > 1, "Dst label is empty"
 
         if rel_label not in self.rel_labels:
             self.kuzu_execute(
-                f"CREATE REL TABLE {rel_label}(FROM {src_table[1:]} TO {dst_table[1:]}, mentions INT64, created TIMESTAMP, updated TIMESTAMP);"
+                f"CREATE REL TABLE IF NOT EXISTS {rel_label}(FROM {src_table[1:]} TO {dst_table[1:]}, mentions INT64, created TIMESTAMP, updated TIMESTAMP);"
             )
             self.rel_labels.add(rel_label)
 
     def kuzu_execute(self, query, parameters=None):
-        results_obj = self.graph.execute(query, parameters)
-
-        results = []
-        col_names = results_obj.get_column_names()
-        while results_obj.has_next():
-            results.append({key: val for key, val in zip(col_names, results_obj.get_next())})
-
-        return results
+        results = self.graph.execute(query, parameters)
+        return list(results.rows_as_dict())
 
     def add(self, data, filters):
         """
@@ -373,7 +364,7 @@ class MemoryGraph:
             destination = item["destination"]
             destination_label = self.node_label
 
-            relationship = self.kuzu_sanitize_table_name(item["relationship"])
+            relationship = kuzu_sanitize_table_name(item["relationship"])
             self.kuzu_create_rel_table(relationship, source_label, destination_label)
 
             # embeddings
@@ -566,3 +557,7 @@ class MemoryGraph:
         }
 
         return self.kuzu_execute(cypher, parameters=params)
+
+
+def kuzu_sanitize_table_name(table_str):
+    return re.sub(r"[^a-z0-9_]", "_", table_str.lower())

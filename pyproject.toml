@@ -27,7 +27,7 @@ graph = [
     "langchain-aws>=0.2.23",
     "neo4j>=5.23.1",
     "rank-bm25>=0.2.2",
-    "kuzu>=0.10.0",
+    "kuzu>=0.11.0",
 ]
 vector_stores = [
     "vecs>=0.4.0",
