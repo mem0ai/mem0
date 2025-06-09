@@ -4,7 +4,7 @@ from mem0.configs.prompts import FACT_RETRIEVAL_PROMPT
 
 
 def get_fact_retrieval_messages(message):
-    return FACT_RETRIEVAL_PROMPT, f"Input:\n{message}"
+    return FACT_RETRIEVAL_PROMPT, message#f"Input:\n{message}"
 
 
 def parse_messages(messages):
@@ -13,9 +13,9 @@ def parse_messages(messages):
         if msg["role"] == "system":
             response += f"system: {msg['content']}\n"
         if msg["role"] == "user":
-            response += f"user: {msg['content']}\n"
+            response += f"user_1: {msg['content']}\n"
         if msg["role"] == "assistant":
-            response += f"assistant: {msg['content']}\n"
+            response += f"user_2: {msg['content']}\n"
     return response
 
 
