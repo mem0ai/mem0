@@ -9,10 +9,10 @@ import uuid
 import warnings
 from copy import deepcopy
 from datetime import datetime
-from typing import Any, Dict, Optional, TypedDict
+from typing import Any, Dict, Optional
 
 import pytz
-from pydantic import Field, ValidationError
+from pydantic import ValidationError
 
 from mem0.configs.base import MemoryConfig, MemoryItem
 from mem0.configs.enums import MemoryType
@@ -108,11 +108,8 @@ def _build_filters_and_metadata(
 setup_config()
 logger = logging.getLogger(__name__)
 
-class ResponseObj(TypedDict):
-        facts: list[str] = Field(description="Write some facts about the given memory")
-
 class Memory(MemoryBase):
-    def __init__(self, config: MemoryConfig = MemoryConfig()):
+    def __init__(self, config: MemoryConfig = MemoryConfig(), enable_azureopenai = True):
         self.config = config
 
         self.custom_fact_extraction_prompt = self.config.custom_fact_extraction_prompt
@@ -150,7 +147,7 @@ class Memory(MemoryBase):
         self._telemetry_vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config
         )
-        self.enable_azureopenai = False
+        self.enable_azureopenai = enable_azureopenai
         capture_event("mem0.init", self, {"sync_type": "sync"})
 
     @classmethod
@@ -318,7 +315,8 @@ class Memory(MemoryBase):
 
         if self.config.custom_fact_extraction_prompt:
             system_prompt = self.config.custom_fact_extraction_prompt
-            user_prompt = f"Input:\n{parsed_messages}"
+            # user_prompt = f"Input:\n{parsed_messages}"
+            user_prompt = "A conversation between the user & the AI agent:\n" + parsed_messages
         else:
             system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages)
 
@@ -328,8 +326,9 @@ class Memory(MemoryBase):
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
-                response_format={"type": "json_schema", "json_schema": {"strict": True, "schema": ResponseObj}},
-            )
+                # response_format={"type": "json_schema", "json_schema": {"name": "ResponseObj", "description": "Write the facts in a structured format", "strict": True, "schema": ResponseObj.model_json_schema(), "additionalProperties" : False, "required": ["facts"]}}
+                response_format="json_schema",
+          )
         else:
             response = self.llm.generate_response(
                 messages=[
@@ -384,7 +383,7 @@ class Memory(MemoryBase):
             if self.enable_azureopenai:
                 response: str = self.llm.generate_response(
                     messages=[{"role": "user", "content": function_calling_prompt}],
-                    response_format={"type": "json_schema", "json_schema": {"strict": True, "schema": ResponseObj}},
+                    response_format="json_schema",
                 )
             else:
                 response: str = self.llm.generate_response(
@@ -584,7 +583,6 @@ class Memory(MemoryBase):
         actual_memories = (
             memories_result[0] if isinstance(memories_result, tuple) and len(memories_result) > 0 else memories_result
         )
-
         promoted_payload_keys = [
             "user_id",
             "agent_id",
@@ -593,9 +591,9 @@ class Memory(MemoryBase):
             "role",
         ]
         core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", *promoted_payload_keys}
-
+        extract_mem = [j for i in actual_memories for j in i]
         formatted_memories = []
-        for mem in actual_memories:
+        for mem in extract_mem:
             memory_item_dict = MemoryItem(
                 id=mem.id,
                 memory=mem.payload["data"],
