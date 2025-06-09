@@ -12,8 +12,7 @@ Before you begin, make sure you have:
 
 1. Installed Livekit Agents SDK with voice dependencies of silero and deepgram:
 ```bash
-pip install livekit \
-livekit-agents \
+pip install livekit-agents[voice] \
 livekit-plugins-silero \
 livekit-plugins-deepgram \
 livekit-plugins-openai
@@ -38,7 +37,7 @@ OPENAI_API_KEY=your_openai_api_key
 
 ## Code Breakdown
 
-Let's break down the key components of this implementation:
+Let's break down the key components of this implementation using LiveKit Agents:
 
 ### 1. Setting Up Dependencies and Environment
 
@@ -51,17 +50,19 @@ from typing import List, Dict, Any, Annotated
 import aiohttp
 from dotenv import load_dotenv
 from livekit.agents import (
+    Agent,
+    AgentSession,
     AutoSubscribe,
     JobContext,
-    JobProcess,
-    WorkerOptions,
-    cli,
     llm,
-    metrics,
+    function_tool,
+    RunContext,
+    cli,
+    WorkerOptions,
+    ModelSettings,
 )
-from livekit import rtc, api
-from livekit.agents.pipeline import VoicePipelineAgent
 from livekit.plugins import deepgram, openai, silero
+from livekit.plugins.turn_detector.multilingual import MultilingualModel
 from mem0 import AsyncMemoryClient
 
 # Load environment variables
@@ -88,36 +89,45 @@ This section handles:
 ### 2. Memory Enrichment Function
 
 ```python
-async def _enrich_with_memory(agent: VoicePipelineAgent, chat_ctx: llm.ChatContext):
-    """Add memories and Augment chat context with relevant memories"""
+async def _enrich_with_memory(chat_ctx: llm.ChatContext):
+    """Add memories and augment chat context with relevant memories"""
     if not chat_ctx.messages:
         return
-    
-    # Store user message in Mem0
+
+    # Get the latest user message
     user_msg = chat_ctx.messages[-1]
+    if user_msg.role != "user":
+        return
+
+    user_content = user_msg.text_content()
+    if not user_content:
+        return
+
+    # Store user message in Mem0
     await mem0.add(
-        [{"role": "user", "content": user_msg.content}], 
+        [{"role": "user", "content": user_content}],
         user_id=USER_ID
     )
-    
+
     # Search for relevant memories
     results = await mem0.search(
-        user_msg.content, 
+        user_content,
         user_id=USER_ID,
     )
-    
+
     # Augment context with retrieved memories
     if results:
         memories = ' '.join([result["memory"] for result in results])
         logger.info(f"Enriching with memory: {memories}")
-        
-        rag_msg = llm.ChatMessage.create(
+
+        # Add memory context as a assistant message
+        memory_msg = llm.ChatMessage.create(
             text=f"Relevant Memory: {memories}\n",
             role="assistant",
         )
-        
+
         # Modify chat context with retrieved memories
-        chat_ctx.messages[-1] = rag_msg
+        chat_ctx.messages[-1] = memory_msg
         chat_ctx.messages.append(user_msg)
 ```
 
@@ -130,62 +140,45 @@ This function:
 ### 3. Prewarm and Entrypoint Functions
 
 ```python
-def prewarm_process(proc: JobProcess):
-    # Preload silero VAD in memory to speed up session start
+def prewarm_process(proc):
+    """Preload components to speed up session start"""
     proc.userdata["vad"] = silero.VAD.load()
 
 async def entrypoint(ctx: JobContext):
+    """Main entrypoint for the memory-enabled voice agent"""
+
     # Connect to LiveKit room
     await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
-    
-    # Wait for participant
-    participant = await ctx.wait_for_participant()
-    
-    # Initialize Mem0 client
-    mem0 = AsyncMemoryClient()
 
-    # Define initial system context
-    initial_ctx = llm.ChatContext().append(
-        role="system",
-        text=(
-            """
-            You are a helpful voice assistant.
-            You are a travel guide named George and will help the user to plan a travel trip of their dreams. 
-            You should help the user plan for various adventures like work retreats, family vacations or solo backpacking trips. 
-            You should be careful to not suggest anything that would be dangerous, illegal or inappropriate.
-            You can remember past interactions and use them to inform your answers.
-            Use semantic memory retrieval to provide contextually relevant responses. 
-            """
-        ),
-    )
-
-    # Create VoicePipelineAgent with memory capabilities
-    agent = VoicePipelineAgent(
-        chat_ctx=initial_ctx,
-        vad=silero.VAD.load(),
+    # Create agent session with modern 1.0 architecture
+    session = AgentSession(
         stt=deepgram.STT(),
         llm=openai.LLM(model="gpt-4o-mini"),
         tts=openai.TTS(),
-        before_llm_cb=_enrich_with_memory,
+        vad=silero.VAD.load(),
+        turn_detection=MultilingualModel(),
     )
 
-    # Start agent and initial greeting
-    agent.start(ctx.room, participant)
-    await agent.say(
-        "Hello! I'm George. Can I help you plan an upcoming trip? ",
-        allow_interruptions=True
+    # Create memory-enabled agent
+    agent = MemoryEnabledAgent()
+
+    # Start the session
+    await session.start(
+        room=ctx.room,
+        agent=agent,
     )
 
-# Run the application
-if __name__ == "__main__":
-    cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm_process))
+    # Initial greeting
+    await session.generate_reply(
+        instructions="Greet the user warmly as George the travel guide and ask how you can help them plan their next adventure."
+    )
 ```
 
 The entrypoint function:
 - Connects to LiveKit room
 - Initializes Mem0 memory client
-- Sets up initial system context
-- Creates a VoicePipelineAgent with memory enrichment
+- Create agent session using `AgentSession` orchestrator with memory enrichment
+- Uses modern turn detection with `MultilingualModel()`
 - Starts the agent with an initial greeting
 
 ## Create a Memory-Enabled Voice Agent
@@ -196,22 +189,22 @@ Now that we've explained each component, here's the complete implementation that
 import asyncio
 import logging
 import os
-from typing import List, Dict, Any, Annotated
+from typing import AsyncIterable, Any
 
-import aiohttp
 from dotenv import load_dotenv
 from livekit.agents import (
-    AutoSubscribe,
+    Agent,
+    AgentSession,
     JobContext,
-    JobProcess,
-    WorkerOptions,
-    cli,
     llm,
-    metrics,
+    function_tool,
+    RunContext,
+    cli,
+    WorkerOptions,
+    ModelSettings,
 )
-from livekit import rtc, api
-from livekit.agents.pipeline import VoicePipelineAgent
 from livekit.plugins import deepgram, openai, silero
+from livekit.plugins.turn_detector.multilingual import MultilingualModel
 from mem0 import AsyncMemoryClient
 
 # Load environment variables
@@ -227,92 +220,129 @@ USER_ID = "voice_user"
 # Initialize Mem0 memory client
 mem0 = AsyncMemoryClient()
 
-def prewarm_process(proc: JobProcess):
-    # Preload silero VAD in memory to speed up session start
-    proc.userdata["vad"] = silero.VAD.load()
+class MemoryEnabledAgent(Agent):
+    """Travel guide agent with Mem0 memory integration"""
 
-async def entrypoint(ctx: JobContext):
-    # Connect to LiveKit room
-    await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
-    
-    # Wait for participant
-    participant = await ctx.wait_for_participant()
-    
-    async def _enrich_with_memory(agent: VoicePipelineAgent, chat_ctx: llm.ChatContext):
-        """Add memories and Augment chat context with relevant memories"""
+    def __init__(self):
+        super().__init__(
+            instructions="""
+            You are a helpful voice assistant.
+            You are a travel guide named George and will help the user to plan a travel trip of their dreams.
+            You should help the user plan for various adventures like work retreats, family vacations or solo backpacking trips.
+            You should be careful to not suggest anything that would be dangerous, illegal or inappropriate.
+            You can remember past interactions and use them to inform your answers.
+            Use semantic memory retrieval to provide contextually relevant responses.
+            """
+        )
+
+    async def llm_node(
+        self,
+        chat_ctx: llm.ChatContext,
+        tools: list[llm.FunctionTool],
+        model_settings: ModelSettings,
+    ) -> AsyncIterable[llm.ChatChunk]:
+        """Override LLM node to add memory enrichment before inference"""
+
+        # Enrich context with memory before LLM inference
+        await self._enrich_with_memory(chat_ctx)
+
+        # Call default LLM node with enriched context
+        async for chunk in Agent.default.llm_node(self, chat_ctx, tools, model_settings):
+            yield chunk
+
+    async def _enrich_with_memory(self, chat_ctx: llm.ChatContext):
+        """Add memories and augment chat context with relevant memories"""
         if not chat_ctx.messages:
             return
-        
-        # Store user message in Mem0
+
+        # Get the latest user message
         user_msg = chat_ctx.messages[-1]
+        if user_msg.role != "user":
+            return
+
+        user_content = user_msg.text_content()
+        if not user_content:
+            return
+
+        # Store user message in Mem0
         await mem0.add(
-            [{"role": "user", "content": user_msg.content}], 
+            [{"role": "user", "content": user_content}],
             user_id=USER_ID
         )
-        
+
         # Search for relevant memories
         results = await mem0.search(
-            user_msg.content, 
+            user_content,
             user_id=USER_ID,
         )
-        
+
         # Augment context with retrieved memories
         if results:
             memories = ' '.join([result["memory"] for result in results])
             logger.info(f"Enriching with memory: {memories}")
-            
-            rag_msg = llm.ChatMessage.create(
+
+            # Add memory context as a assistant message
+            memory_msg = llm.ChatMessage.create(
                 text=f"Relevant Memory: {memories}\n",
                 role="assistant",
             )
-            
+
             # Modify chat context with retrieved memories
-            chat_ctx.messages[-1] = rag_msg
+            chat_ctx.messages[-1] = memory_msg
             chat_ctx.messages.append(user_msg)
 
-    # Define initial system context
-    initial_ctx = llm.ChatContext().append(
-        role="system",
-        text=(
-            """
-            You are a helpful voice assistant.
-            You are a travel guide named George and will help the user to plan a travel trip of their dreams. 
-            You should help the user plan for various adventures like work retreats, family vacations or solo backpacking trips. 
-            You should be careful to not suggest anything that would be dangerous, illegal or inappropriate.
-            You can remember past interactions and use them to inform your answers.
-            Use semantic memory retrieval to provide contextually relevant responses. 
-            """
-        ),
-    )
+def prewarm_process(proc):
+    """Preload components to speed up session start"""
+    proc.userdata["vad"] = silero.VAD.load()
 
-    # Create VoicePipelineAgent with memory capabilities
-    agent = VoicePipelineAgent(
-        chat_ctx=initial_ctx,
-        vad=silero.VAD.load(),
+async def entrypoint(ctx: JobContext):
+    """Main entrypoint for the memory-enabled voice agent"""
+
+    # Connect to LiveKit room
+    await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
+
+    # Initialize Mem0 client
+    mem0 = AsyncMemoryClient()
+
+    # Create agent session with modern 1.0 architecture
+    session = AgentSession(
         stt=deepgram.STT(),
         llm=openai.LLM(model="gpt-4o-mini"),
         tts=openai.TTS(),
-        before_llm_cb=_enrich_with_memory,
+        vad=silero.VAD.load(),
+        turn_detection=MultilingualModel(),
     )
 
-    # Start agent and initial greeting
-    agent.start(ctx.room, participant)
-    await agent.say(
-        "Hello! I'm George. Can I help you plan an upcoming trip? ",
+    # Create memory-enabled agent
+    agent = MemoryEnabledAgent()
+
+    # Start the session
+    await session.start(
+        room=ctx.room,
+        agent=agent,
+    )
+
+    # Initial greeting
+    await session.generate_reply(
+        instructions="Greet the user warmly as George the travel guide and ask how you can help them plan their next adventure.",
         allow_interruptions=True
     )
 
 # Run the application
 if __name__ == "__main__":
-    cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm_process))
+    cli.run_app(WorkerOptions(
+        entrypoint_fnc=entrypoint,
+        prewarm_fnc=prewarm_process
+    ))
 ```
 
 ## Key Features of This Implementation
 
 1. **Semantic Memory Retrieval**: Uses Mem0 to store and retrieve contextually relevant memories
-2. **Voice Interaction**: Leverages LiveKit for voice communication
+2. **Voice Interaction**: Leverages LiveKit for voice communication with proper turn detection
 3. **Intelligent Context Management**: Augments conversations with past interactions
 4. **Travel Planning Specialization**: Focused on creating a helpful travel guide assistant
+5. **Function Tools**: Modern tool definition for enhanced capabilities
 
 ## Running the Example
 
@@ -325,13 +355,13 @@ To run this example:
 ```sh
 python mem0-livekit-voice-agent.py start
 ```
-5. After the script starts, you can interact with the voice agent using [Livekit's Agent Platform](https://agents-playground.livekit.io/) and Connect to the agent inorder to start conversations. 
+5. After the script starts, you can interact with the voice agent using [Livekit's Agent Platform](https://agents-playground.livekit.io/) and connect to the agent inorder to start conversations.
 
 ## Best Practices for Voice Agents with Memory
 
 1. **Context Preservation**: Store enough context with each memory for effective retrieval
 2. **Privacy Considerations**: Implement secure memory management
-3. **Relevant Memory Filtering**: Use semantic search to retrieve only the most pertinent memories
+3. **Relevant Memory Filtering**: Use semantic search to retrieve only the most relevant memories
 4. **Error Handling**: Implement robust error handling for memory operations
 
 ## Debugging Function Tools
