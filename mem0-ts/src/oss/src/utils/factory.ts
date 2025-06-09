@@ -31,6 +31,9 @@ import { AzureOpenAIEmbedder } from "../embeddings/azure";
 import { LangchainLLM } from "../llms/langchain";
 import { LangchainEmbedder } from "../embeddings/langchain";
 import { LangchainVectorStore } from "../vector_stores/langchain";
+import { DeepInfraEmbedder } from "../embeddings/deepinfra";
+import { DeepInfraLLM } from "../llms/deepinfra";
+import { OpenRouterLLM } from "../llms/openrouter";
 
 export class EmbedderFactory {
   static create(provider: string, config: EmbeddingConfig): Embedder {
@@ -45,6 +48,8 @@ export class EmbedderFactory {
         return new AzureOpenAIEmbedder(config);
       case "langchain":
         return new LangchainEmbedder(config);
+      case "deepinfra":
+        return new DeepInfraEmbedder(config);
       default:
         throw new Error(`Unsupported embedder provider: ${provider}`);
     }
@@ -72,6 +77,10 @@ export class LLMFactory {
         return new MistralLLM(config);
       case "langchain":
         return new LangchainLLM(config);
+      case "deepinfra":
+        return new DeepInfraLLM(config);
+      case "openrouter":
+        return new OpenRouterLLM(config);
       default:
         throw new Error(`Unsupported LLM provider: ${provider}`);
     }

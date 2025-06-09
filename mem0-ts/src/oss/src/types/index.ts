@@ -44,6 +44,7 @@ export interface LLMConfig {
   apiKey?: string;
   model?: string | any;
   modelProperties?: Record<string, any>;
+  baseUrl?: string;
 }
 
 export interface Neo4jConfig {
