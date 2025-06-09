@@ -109,7 +109,7 @@ setup_config()
 logger = logging.getLogger(__name__)
 
 class Memory(MemoryBase):
-    def __init__(self, config: MemoryConfig = MemoryConfig(), enable_azureopenai = True):
+    def __init__(self, config: MemoryConfig = MemoryConfig()):
         self.config = config
 
         self.custom_fact_extraction_prompt = self.config.custom_fact_extraction_prompt
@@ -147,7 +147,7 @@ class Memory(MemoryBase):
         self._telemetry_vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config
         )
-        self.enable_azureopenai = enable_azureopenai
+
         capture_event("mem0.init", self, {"sync_type": "sync"})
 
     @classmethod
@@ -320,23 +320,13 @@ class Memory(MemoryBase):
         else:
             system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages)
 
-        if self.enable_azureopenai:
-            response = self.llm.generate_response(
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                # response_format={"type": "json_schema", "json_schema": {"name": "ResponseObj", "description": "Write the facts in a structured format", "strict": True, "schema": ResponseObj.model_json_schema(), "additionalProperties" : False, "required": ["facts"]}}
-                response_format="json_schema",
-          )
-        else:
-            response = self.llm.generate_response(
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                response_format={"type": "json_object"},
-            )
+        response = self.llm.generate_response(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            response_format={"type": "json_object"},
+        )
 
         try:
             response = remove_code_blocks(response)
@@ -380,16 +370,10 @@ class Memory(MemoryBase):
         )
 
         try:
-            if self.enable_azureopenai:
-                response: str = self.llm.generate_response(
-                    messages=[{"role": "user", "content": function_calling_prompt}],
-                    response_format="json_schema",
-                )
-            else:
-                response: str = self.llm.generate_response(
-                    messages=[{"role": "user", "content": function_calling_prompt}],
-                    response_format={"type": "json_object"},
-                )
+            response: str = self.llm.generate_response(
+                messages=[{"role": "user", "content": function_calling_prompt}],
+                response_format={"type": "json_object"},
+            )
         except Exception as e:
             logging.error(f"Error in new memory actions response: {e}")
             response = ""
