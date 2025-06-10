@@ -50,16 +50,69 @@ Take your AI memory to the next level with **Jean Memory Pro** - advanced featur
 
 Join our Pro community and help shape the future of AI memory management! 🚀
 
-## Local Development
+## 🧠 Local Development Setup
 
-For local development, we now offer two options:
+This project is configured for a hybrid development model, where the backend services (API, database) run in Docker, and the frontend UI runs on your local machine. This provides a fast and efficient development experience.
 
-1. **Hybrid Mode** (Recommended): Backend in Docker, UI running locally
-2. **Full Docker Mode**: All services in Docker containers
+Follow these steps for a first-time setup:
 
-See [LOCAL_DEVELOPMENT.md](./LOCAL_DEVELOPMENT.md) for detailed instructions on setting up and running the application locally.
+### Step 1: Initial Setup
 
-## 📁 Project Structure
+First, run the setup command. This will check for prerequisites (like Docker and Node.js) and create the necessary `.env` files for you.
+
+```bash
+make setup
+```
+
+### Step 2: Add Your API Keys
+
+After the setup command completes, you need to add your API keys to the backend environment file.
+
+1.  Open `openmemory/api/.env` in your editor.
+2.  Find the following lines and replace the placeholder text with your actual keys:
+    ```
+    OPENAI_API_KEY="your-openai-api-key-here"
+    GEMINI_API_KEY="your-gemini-api-key-here"
+    ```
+    You can get your keys from:
+    - [OpenAI API Keys](https://platform.openai.com/api-keys)
+    - [Google AI Studio](https://makersuite.google.com/app/apikey)
+
+### Step 3: Build the Environment
+
+Now, build the Docker images and install frontend dependencies. This command validates your API keys, installs `pnpm` packages for the UI, and builds the Docker containers.
+
+```bash
+make build
+```
+
+### Step 4: Run the Application
+
+Once the build is complete, you can start the application. You'll need two separate terminal windows for this.
+
+**In your first terminal**, start the backend services:
+
+```bash
+make backend
+```
+This will start the API, PostgreSQL database, and Qdrant vector database in Docker containers.
+
+**In your second terminal**, start the local UI development server:
+
+```bash
+make ui-local
+```
+
+### Step 5: Open in Your Browser
+
+That's it! Once both processes are running, you can access the application in your browser:
+
+- **Frontend UI:** [http://localhost:3000](http://localhost:3000)
+- **Backend API:** [http://localhost:8765/docs](http://localhost:8765/docs)
+
+You are now ready to develop locally!
+
+## �� Project Structure
 
 ```
 openmemory/
