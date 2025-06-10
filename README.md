@@ -114,18 +114,45 @@ Watch this 5-minute step-by-step tutorial to get Jean Memory working with your A
 
 ### Option 2: Local Development
 
-Run Jean Memory completely locally:
+Set up and run Jean Memory on your local machine for development. For a detailed guide, please see the [local development README](/openmemory/README.md).
 
+**1. Clone the repository:**
 ```bash
 git clone https://github.com/jonathan-politzki/your-memory.git
-cd your-memory/openmemory
-make build
-make up
+cd your-memory
 ```
 
-Access at:
-- **API**: `http://localhost:8765`
+**2. Run initial setup:**
+This command creates your environment files.
+```bash
+make setup
+```
+
+**3. Add API Keys:**
+Edit `openmemory/api/.env` and add your `OPENAI_API_KEY` and `GEMINI_API_KEY`.
+
+**4. Build the environment:**
+This installs dependencies and builds the Docker containers.
+```bash
+make build
+```
+
+**5. Start the services:**
+You'll need two separate terminals for this.
+
+*In terminal 1, start the backend:*
+```bash
+make backend
+```
+
+*In terminal 2, start the frontend:*
+```bash
+make ui-local
+```
+
+**6. Access the application:**
 - **UI**: `http://localhost:3000`
+- **API Docs**: `http://localhost:8765/docs`
 
 ## ⭐ Upgrade to Jean Memory Pro
 
