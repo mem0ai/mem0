@@ -1,9 +1,5 @@
 name: OpenMemory Docker Build and Deploy
 
-permissions:
-  id-token: write
-  contents: read  
-  
 on:
   push:
     branches: [implementation/school-law]
@@ -23,6 +19,9 @@ env:
 
 jobs:
   check_changes:
+    permissions:
+      id-token: write
+      contents: read    
     runs-on: ubuntu-latest
     outputs:
       openmemory_changed: ${{ steps.filter.outputs.openmemory }}
@@ -42,6 +41,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
     strategy:
       matrix:
         include:
