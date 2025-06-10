@@ -1,7 +1,7 @@
 {
   "mem0": {
     "llm": {
-      "provider": "azure openai",
+      "provider": "azure_openai",
       "config": {
         "model": "gpt-4o-mini",
         "temperature": 0.1,
@@ -10,7 +10,31 @@
       }
     },
     "embedder": {
-      "provider": "azure openai",
+      "provider": "azure_openai",
+      "config": {
+        "model": "text-embedding-3-small",
+        "api_key": "env:OPENAI_API_KEY"
+      }
+    },
+    "vector_store": {
+      "provider": "pgvector",
+      "config": {
+        "diskann": true
+      }
+    }
+  },
+  "openmemory": {
+    "llm": {
+      "provider": "azure_openai",
+      "config": {
+        "model": "gpt-4o-mini",
+        "temperature": 0.1,
+        "max_tokens": 2000,
+        "api_key": "env:OPENAI_API_KEY"
+      }
+    },
+    "embedder": {
+      "provider": "azure_openai",
       "config": {
         "model": "text-embedding-3-small",
         "api_key": "env:OPENAI_API_KEY"
