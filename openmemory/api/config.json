@@ -10,7 +10,7 @@
       }
     },
     "embedder": {
-      "provider": "azure azure_openai",
+      "provider": "azure_openai",
       "config": {
         "model": "text-embedding-3-small",
         "api_key": "env:OPENAI_API_KEY"
