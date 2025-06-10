@@ -1,5 +1,9 @@
 name: OpenMemory Docker Build and Deploy
 
+permissions:
+  id-token: write
+  contents: read  
+  
 on:
   push:
     branches: [implementation/school-law]
@@ -10,9 +14,7 @@ on:
       - 'openmemory/**'
   workflow_dispatch:
 
-permissions:
-  id-token: write
-  contents: read  
+
 
 env:
   REGISTRY: schoollawregistry.azurecr.io
