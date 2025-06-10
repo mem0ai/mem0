@@ -1,7 +1,7 @@
 {
   "mem0": {
     "llm": {
-      "provider": "azure_openai",
+      "provider": "azure openai",
       "config": {
         "model": "gpt-4o-mini",
         "temperature": 0.1,
@@ -10,10 +10,16 @@
       }
     },
     "embedder": {
-      "provider": "azure_openai",
+      "provider": "azure openai",
       "config": {
         "model": "text-embedding-3-small",
         "api_key": "env:OPENAI_API_KEY"
+      }
+    },
+    "vector_store": {
+      "provider": "pgvector",
+      "config": {
+        "diskann": true
       }
     }
   }

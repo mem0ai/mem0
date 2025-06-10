@@ -81,7 +81,8 @@ class PGVector(VectorStoreBase):
 
         if self.use_diskann and embedding_model_dims < 2000:
             # Check if vectorscale extension is installed
-            self.cur.execute("SELECT * FROM pg_extension WHERE extname = 'vectorscale'")
+            # self.cur.execute("SELECT * FROM pg_extension WHERE extname = 'vectorscale'")
+            self.cur.execute("SELECT * FROM pg_extension WHERE extname = 'vectorscale' OR extname = 'pgdiskann'")
             if self.cur.fetchone():
                 # Create DiskANN index if extension is installed for faster search
                 self.cur.execute(
