@@ -1,0 +1,41 @@
+version: '3'
+
+services:
+  postgres_db:
+    image: postgres:15
+    container_name: jeanmemory_postgres_service
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=jean_memory
+      - POSTGRES_PASSWORD=memory_password
+      - POSTGRES_DB=jean_memory_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - memory_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jean_memory -d jean_memory_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      
+  qdrant_db:
+    image: qdrant/qdrant:latest
+    container_name: jeanmemory_qdrant_service
+    ports:
+      - "6333:6333" # gRPC
+      - "6334:6334" # HTTP
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - memory_network
+
+volumes:
+  postgres_data:
+  qdrant_data:
+
+networks:
+  memory_network:
+    driver: bridge

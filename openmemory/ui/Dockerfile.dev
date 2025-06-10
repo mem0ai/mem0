@@ -1,0 +1,37 @@
+# Local Development Dockerfile for UI with minimized memory usage
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Install only essential dependencies
+RUN apk add --no-cache libc6-compat
+
+# Copy configuration files first
+COPY package.json package-lock.json* tsconfig.json .npmrc ./
+
+# Remove packageManager field to prevent Next.js from detecting pnpm
+RUN node -e "const fs=require('fs'); const pkg=JSON.parse(fs.readFileSync('package.json')); delete pkg.packageManager; delete pkg.pnpm; fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));"
+
+# Install dependencies using the .npmrc configuration
+RUN npm install
+
+# Copy the rest of the application
+COPY . .
+
+# Use the optimized development Next.js config
+RUN cp next.config.dev.js next.config.js
+
+# Cleanup unnecessary files to reduce image size
+RUN rm -rf .git .github .vscode tests
+
+# Expose the development server port
+EXPOSE 3000
+
+# Set development environment with memory limits
+ENV NODE_ENV=development
+ENV HOSTNAME="0.0.0.0"
+ENV NODE_OPTIONS="--max-old-space-size=2048"
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Run the development server
+CMD ["npm", "run", "dev"] 

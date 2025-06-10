@@ -196,3 +196,4 @@ admin_contamination_*.py
 admin_contamination_*.sql
 *_contamination_*
 contamination_report_* 
+backups/

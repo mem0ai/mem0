@@ -98,15 +98,26 @@ export default function ChatInterface({ selectedMemory }: ChatInterfaceProps) {
 
   const callGeminiAPI = async (userMessage: string, memoriesContext: any[], selectedMemory: any) => {
     try {
-      // Get auth token from Supabase
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-      const supabase = createClient(supabaseUrl, supabaseAnonKey);
+      // Check if we're in local development mode
+      const localUserId = process.env.NEXT_PUBLIC_USER_ID;
+      let accessToken;
       
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !session?.access_token) {
-        throw new Error('Unable to get authentication token');
+      if (localUserId) {
+        console.log('ChatInterface: Local development mode detected, using local token');
+        accessToken = 'local-dev-token';
+      } else {
+        // Production mode - get token from Supabase
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+        const supabase = createClient(supabaseUrl, supabaseAnonKey);
+        
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError || !session?.access_token) {
+          throw new Error('Unable to get authentication token');
+        }
+        
+        accessToken = session.access_token;
       }
 
       // Prepare context from memories
@@ -141,7 +152,7 @@ Provide a focused, concise response (2-3 paragraphs max). If discussing a specif
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
+          'Authorization': `Bearer ${accessToken}`
         },
         body: JSON.stringify({
           prompt,

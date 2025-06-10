@@ -60,13 +60,46 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     setIsLoading(true);
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-      setSession(currentSession);
-      updateTokenAndProfile(currentSession);
+    
+    // Check for local development mode using NEXT_PUBLIC_USER_ID
+    const localUserId = process.env.NEXT_PUBLIC_USER_ID;
+    
+    if (localUserId) {
+      console.log('AuthContext: Local development mode detected, using USER_ID:', localUserId);
+      
+      // Create a mock user and session for local development
+      const mockUser: User = {
+        id: localUserId,
+        app_metadata: { provider: 'local' },
+        user_metadata: { name: 'Local User' },
+        aud: 'local',
+        created_at: new Date().toISOString(),
+        email: 'local@example.com',
+      } as User;
+      
+      const mockSession: Session = {
+        access_token: 'local-dev-token',
+        refresh_token: 'local-dev-refresh-token',
+        expires_in: 3600,
+        expires_at: new Date().getTime() + 3600000,
+        user: mockUser,
+      } as Session;
+      
+      // Set the mock session and user
+      setSession(mockSession);
+      updateTokenAndProfile(mockSession);
       setIsLoading(false);
-    });
+    } else {
+      // Normal Supabase authentication for production
+      supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+        setSession(currentSession);
+        updateTokenAndProfile(currentSession);
+        setIsLoading(false);
+      });
+    }
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(
+    // Only set up auth listener if not in local development mode
+    const { data: authListener } = localUserId ? { data: { subscription: null } } : supabase.auth.onAuthStateChange(
       (event: AuthChangeEvent, currentSession: Session | null) => {
         setSession(currentSession);
         updateTokenAndProfile(currentSession);

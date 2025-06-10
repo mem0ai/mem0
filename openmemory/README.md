@@ -50,63 +50,14 @@ Take your AI memory to the next level with **Jean Memory Pro** - advanced featur
 
 Join our Pro community and help shape the future of AI memory management! 🚀
 
-## 🔧 Local Development Setup
+## Local Development
 
-If you wish to run Jean Memory locally for development or complete privacy, follow these steps:
+For local development, we now offer two options:
 
-### Prerequisites (Local Development)
+1. **Hybrid Mode** (Recommended): Backend in Docker, UI running locally
+2. **Full Docker Mode**: All services in Docker containers
 
-- **Docker and Docker Compose** - For containerized deployment
-- **Python 3.9+** - If modifying backend outside Docker
-- **Node.js 18+** - If modifying frontend outside Docker
-- **OpenAI API Key** - Set in `openmemory/api/.env` for LLM functionality
-- **Supabase Project** - For authentication and user management:
-    - Set up a free [Supabase project](https://supabase.com)
-    - Configure `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` in `openmemory/api/.env`
-    - Configure `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in `openmemory/ui/.env.local`
-- **Qdrant Vector Database** - For memory storage:
-    - The `docker-compose.yml` includes a local Qdrant service
-    - Or use [Qdrant Cloud](https://cloud.qdrant.io/) by configuring `QDRANT_HOST` and `QDRANT_API_KEY`
-
-### Quickstart (Local Development)
-
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/jonathan-politzki/your-memory.git
-    cd your-memory/openmemory
-    ```
-
-2.  **Set up Environment Variables:**
-    
-    **Backend Configuration:**
-    ```bash
-    cp api/.env.example api/.env
-    ```
-    Edit `api/.env` with your:
-    - `OPENAI_API_KEY` - Your OpenAI API key
-    - `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` - From your Supabase project
-    - `QDRANT_HOST` and `QDRANT_API_KEY` - If using Qdrant Cloud (optional)
-    
-    **Frontend Configuration:**
-    ```bash
-    # Create ui/.env.local if it doesn't exist
-    touch ui/.env.local
-    ```
-    Edit `ui/.env.local` with your:
-    - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` - From your Supabase project
-    - `NEXT_PUBLIC_API_URL=http://localhost:8765` - For local development
-
-3.  **Build and Run with Docker Compose:**
-    ```bash
-    make build  # or docker compose build
-    make up     # or docker compose up -d
-    ```
-
-4.  **Access Local Services:**
-    - **Jean Memory UI:** `http://localhost:3000`
-    - **Jean Memory API:** `http://localhost:8765`
-    - **API Documentation:** `http://localhost:8765/docs`
-    - **Qdrant Dashboard:** `http://localhost:6333/dashboard`
+See [LOCAL_DEVELOPMENT.md](./LOCAL_DEVELOPMENT.md) for detailed instructions on setting up and running the application locally.
 
 ## 📁 Project Structure
 

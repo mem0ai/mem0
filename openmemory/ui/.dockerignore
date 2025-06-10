@@ -1,0 +1,30 @@
+# Ignore pnpm files for local development
+pnpm-lock.yaml
+.pnpm-store/
+
+# Ignore node_modules and build outputs
+node_modules/
+.next/
+out/
+build/
+
+# Ignore environment files
+.env
+.env.local
+.env.production
+
+# Ignore git and IDE files
+.git/
+.gitignore
+.vscode/
+.idea/
+
+# Ignore logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Ignore OS files
+.DS_Store
+Thumbs.db 

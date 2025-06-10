@@ -15,6 +15,8 @@ from app.auth import get_current_supa_user
 from app.middleware.memory_monitor import MemoryMonitorMiddleware
 from app.background_tasks import cleanup_old_tasks
 from app.services.background_processor import background_processor
+from app.settings import config
+from app.db_init import init_database, check_database_health
 import asyncio
 
 # Configure logging
@@ -30,8 +32,17 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Application startup...")
-    # Base.metadata.create_all(bind=engine) # Alembic handles this
-    logger.info("Database and services initialization (if any at startup beyond Supabase client)." )
+    logger.info(f"Running in {'local development' if config.is_local_development else 'production'} mode")
+    
+    # Initialize database for local development
+    if config.is_local_development:
+        init_database()
+    
+    # Check database health
+    if not check_database_health():
+        logger.error("Database health check failed - application may not work properly")
+    
+    logger.info("Database and services initialization completed.")
     
     # Start periodic cleanup task
     async def periodic_cleanup():
@@ -69,8 +80,8 @@ async def lifespan(app: FastAPI):
     logger.info("Application shutdown.")
 
 app = FastAPI(
-    title="Jonathan's Memory API (Supabase Auth)", 
-    version="1.0.0",
+    title=f"{config.APP_NAME} API {'(Local Dev)' if config.is_local_development else '(Production)'}", 
+    version=config.API_VERSION,
     lifespan=lifespan
 )
 
