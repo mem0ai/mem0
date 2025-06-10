@@ -2,6 +2,15 @@
 
 Jean Memory is your personal memory layer for AI applications, available as both a cloud-hosted service and for local development. It allows you to build AI applications with personalized memories while giving you complete control over your data.
 
+## Features
+
+- 🧠 **Personal Memory Storage**: Add and organize your thoughts, preferences, and experiences
+- 🔍 **Smart Search**: Find relevant memories using natural language queries
+- 💬 **Conversational Interface**: Ask questions about yourself and get personalized responses
+- 📄 **Document Integration**: Upload and analyze documents, PDFs, and text files
+- 🔗 **Substack Integration**: Sync your Substack posts for comprehensive memory building
+- 🎯 **MCP Compatible**: Works with Claude Desktop via Model Context Protocol
+
 ## 🚀 Quick Start
 
 ### Cloud Service (Recommended)
@@ -56,120 +65,113 @@ This project is configured for a hybrid development model, where the backend ser
 
 Follow these steps for a first-time setup:
 
-### Step 1: Initial Setup
+### Prerequisites
+- Docker Desktop
+- Node.js (v18+)
+- Python 3.8+
+- OpenAI API key
 
-First, run the setup command. This will check for prerequisites (like Docker and Node.js) and create the necessary `.env` files for you.
+### One-Command Setup
 
 ```bash
+# Clone and setup everything automatically
+git clone <repository-url>
+cd mem0/openmemory
 make setup
 ```
 
-### Step 2: Add Your API Keys
+This will:
+- Create all necessary environment files
+- Start Docker containers (PostgreSQL + Qdrant)
+- Install dependencies
+- Initialize database
+- **Automatically configure for local development** (clears QDRANT_API_KEY for Docker compatibility)
 
-After the setup command completes, you need to add your API keys to the backend environment file.
+### 🔧 Configuration
 
-1.  Open `openmemory/api/.env` in your editor.
-2.  Find the following lines and replace the placeholder text with your actual keys:
-    ```
-    OPENAI_API_KEY="your-openai-api-key-here"
-    GEMINI_API_KEY="your-gemini-api-key-here"
-    ```
-    You can get your keys from:
-    - [OpenAI API Keys](https://platform.openai.com/api-keys)
-    - [Google AI Studio](https://makersuite.google.com/app/apikey)
-
-### Step 3: Build the Environment
-
-Now, build the Docker images and install frontend dependencies. This command validates your API keys, installs `pnpm` packages for the UI, and builds the Docker containers.
-
-```bash
-make build
-```
-
-### Step 4: Run the Application
-
-Once the build is complete, you can start the application. You'll need two separate terminal windows for this.
-
-**In your first terminal**, start the backend services:
-
-```bash
-make backend
-```
-This will start the API, PostgreSQL database, and Qdrant vector database in Docker containers.
-
-**In your second terminal**, start the local UI development server:
-
-```bash
-make ui-local
-```
-
-### Step 5: Open in Your Browser
-
-That's it! Once both processes are running, you can access the application in your browser:
-
-- **Frontend UI:** [http://localhost:3000](http://localhost:3000)
-- **Backend API:** [http://localhost:8765/docs](http://localhost:8765/docs)
-
-You are now ready to develop locally!
-
-## �� Project Structure
-
-```
-openmemory/
-├── api/          # Backend APIs + MCP server
-│   ├── app/      # FastAPI application
-│   ├── Dockerfile
-│   └── requirements.txt
-├── ui/           # Frontend React application
-│   ├── app/      # Next.js pages
-│   ├── components/
-│   ├── Dockerfile
-│   └── package.json
-├── docker-compose.yml
-└── Makefile
-```
-
-## 🔗 MCP Integration
-
-Jean Memory provides MCP (Model Context Protocol) endpoints for connecting to AI applications:
-
-### Supported Clients
-- **Claude Desktop** - Anthropic's AI assistant
-- **Cursor** - AI-powered code editor
-- **Windsurf** - Codeium's AI editor
-- **Cline** - VS Code AI extension
-- **Any MCP-compatible application**
-
-### Connection Setup
-1. Sign up at [jeanmemory.com](https://jeanmemory.com)
-2. Get your personalized MCP command from the dashboard
-3. Run the command to connect your AI tool:
+1. **Add your OpenAI API key**:
    ```bash
-   npx install-mcp i https://api.jeanmemory.com/mcp/claude/sse/your-user-id --client claude
+   # Edit the API configuration
+   nano api/.env
+   
+   # Update this line:
+   OPENAI_API_KEY=your_actual_openai_api_key_here
    ```
-4. Restart your AI application
+
+2. **Start the services**:
+   ```bash
+   # Start backend services (API + Database)
+   make backend
+   
+   # In another terminal, start the UI
+   make ui-local
+   ```
+
+3. **Access the application**:
+   - **API**: http://localhost:8765
+   - **UI**: http://localhost:3000
+
+### 🤖 Claude Desktop Integration (MCP)
+
+After setup, connect Claude Desktop to your local Jean Memory:
+
+1. **Install supergateway** (if not already installed):
+   ```bash
+   npm install -g supergateway
+   ```
+
+2. **Configure Claude Desktop**:
+   Add to `~/.anthropic/claude_desktop_config.json`:
+   ```json
+   {
+     "mcpServers": {
+       "local-memory": {
+         "command": "npx",
+         "args": ["supergateway", "sse://http://localhost:8765/mcp/claude/sse/local_dev_user"]
+       }
+     }
+   }
+   ```
+
+3. **Restart Claude Desktop** and you'll have access to these tools:
+   - `ask_memory` - Fast conversational memory search
+   - `add_memories` - Store new information about yourself
+   - `search_memory` - Quick keyword-based search
+   - `list_memories` - Browse your stored memories
+   - `deep_memory_query` - Comprehensive analysis of all content
+
+### 🔧 Local vs Production Configuration
+
+The setup scripts automatically handle the key differences:
+
+**Local Development** (Docker):
+- `QDRANT_API_KEY=""` (empty - no SSL/auth needed)
+- `QDRANT_HOST=localhost`
+- `DATABASE_URL=postgresql://...@localhost:5432/...`
+
+**Production** (Cloud):
+- `QDRANT_API_KEY=your_cloud_api_key`
+- `QDRANT_HOST=your-cluster.cloud.qdrant.io`
+- `DATABASE_URL=postgresql://...@production-host/...`
+
+**Important**: The setup process ensures your local environment won't have SSL connection issues with Docker Qdrant.
 
 ## 🛠️ Development Commands
 
 ```bash
-# Build containers
-make build
+# Start all services
+make up                    # Full Docker mode
+make backend              # Backend only (recommended)
+make ui-local             # UI development mode
 
-# Start services
-make up
+# Management
+make down                 # Stop all services
+make status              # Check service status
+make restart-backend     # Restart backend services
 
-# Stop services
-make down
-
-# View logs
-make logs
-
-# Clean up
-make clean
-
-# Restart specific service
-docker compose restart api
-docker compose restart ui
+# Setup & troubleshooting
+make setup               # Initial setup
+make help               # Show all commands
 ```
 
 ## 🧪 Testing
@@ -248,3 +250,55 @@ A copy of the proprietary notice can be found in the `LICENSE-JEAN.md` file in t
   <strong>Building the future of personalized AI, one memory at a time.</strong><br>
   Built with ❤️ by <a href="https://jeanmemory.com">Jean Technologies</a>
 </p>
+
+## Architecture
+
+- **Backend**: FastAPI + PostgreSQL + Qdrant vector database
+- **Frontend**: Next.js + React + Tailwind CSS
+- **Memory**: mem0 library for intelligent memory management
+- **AI**: OpenAI GPT models for processing and responses
+- **MCP**: Server-Sent Events (SSE) endpoints for Claude Desktop integration
+
+## Troubleshooting
+
+### Memory Tools Show SSL Errors
+If you see `[SSL: WRONG_VERSION_NUMBER]` errors:
+1. Check that `QDRANT_API_KEY=""` (empty) in `api/.env`
+2. Restart backend: `make restart-backend`
+3. Local Docker Qdrant doesn't use SSL authentication
+
+### MCP Connection Issues
+1. Ensure services are running: `make status`
+2. Check Claude Desktop config syntax
+3. Restart Claude Desktop after config changes
+4. Verify endpoint: `curl http://localhost:8765/mcp/claude/sse/local_dev_user`
+
+### Port Conflicts
+```bash
+# Kill processes on common ports
+lsof -ti:8765 | xargs kill -9  # API port
+lsof -ti:3000 | xargs kill -9  # UI port
+lsof -ti:5432 | xargs kill -9  # PostgreSQL port
+```
+
+## Production Deployment
+
+For production deployment, see [DEPLOYMENT_GUIDE.md](../DEPLOYMENT_GUIDE.md).
+
+Key differences:
+- Use cloud Qdrant with API key
+- Set up Supabase authentication
+- Configure proper environment variables
+- Use production-grade database
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test locally with `make setup && make backend && make ui-local`
+5. Submit a pull request
+
+## License
+
+[Add your license here]
