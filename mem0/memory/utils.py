@@ -1,5 +1,5 @@
-import re
 import hashlib
+import re
 
 from mem0.configs.prompts import FACT_RETRIEVAL_PROMPT
 
@@ -16,7 +16,7 @@ def parse_messages(messages):
         if msg["role"] == "user":
             response += f"user: {msg['content']}\n"
         if msg["role"] == "assistant":
-            response += f"assistant: {msg['content']}\n"
+            response += f"secretary: {msg['content']}\n"
     return response
 
 
