@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   postgres_db:
     image: postgres:15
@@ -40,7 +42,8 @@ services:
     ports:
       - "8765:8765"
     environment:
-      - USER_ID=${USER_ID:-local_dev_user}
+      # LOCAL DEVELOPMENT ONLY - Production uses different user management
+      - USER_ID=00000000-0000-0000-0000-000000000001
       - DATABASE_URL=postgresql://jean_memory:memory_password@postgres_db:5432/jean_memory_db
       - QDRANT_HOST=qdrant_db
       - QDRANT_PORT=6333
@@ -76,7 +79,7 @@ services:
       - "3000:3000"
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8765
-      - NEXT_PUBLIC_USER_ID=${USER_ID:-local_dev_user}
+      - NEXT_PUBLIC_USER_ID=${USER_ID:-00000000-0000-0000-0000-000000000001}
       - NODE_OPTIONS=--max-old-space-size=2048
       - NEXT_TELEMETRY_DISABLED=1
       - NODE_ENV=development
