@@ -102,6 +102,16 @@ pnpm dev
 - `api/` - Backend APIs + MCP server
 - `ui/` - Frontend React application
 
+## Azure Deployment
+
+For production deployment to Azure Container Registry and Azure Container Apps, see the [Azure CI/CD Setup Guide](../docs/openmemory-azure-cicd.md).
+
+The guide covers:
+- Setting up GitHub Actions for automated Docker builds
+- Configuring Azure Container Registry authentication
+- Deploying to Azure Container Apps
+- Environment configuration and security considerations
+
 ## Contributing
 
 We are a team of developers passionate about the future of AI and open-source software. With years of experience in both fields, we believe in the power of community-driven development and are excited to build tools that make AI more accessible and personalized.
