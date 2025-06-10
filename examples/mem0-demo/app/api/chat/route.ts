@@ -70,7 +70,7 @@ const retrieveMemories = (memories: any) => {
 export async function POST(req: Request) {
   const { messages, system, tools, userId } = await req.json();
 
-  const memories = await getMemories(messages, { user_id: userId, rerank: true, threshold: 0.1 });
+  const memories = await getMemories(messages, { user_id: userId, rerank: true, threshold: 0.1, output_format: "v1.0" });
   const mem0Instructions = retrieveMemories(memories);
 
   const result = streamText({

@@ -14,6 +14,7 @@ from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
 
+
 class OutputData(BaseModel):
     id: Optional[str]  # memory id
     score: Optional[float]  # distance
@@ -143,7 +144,6 @@ class Langchain(VectorStoreBase):
         elif hasattr(self.client, "reset_collection"):
             self.client.reset_collection()
         else:
-            # Fallback to the generic delete method
             self.client.delete(ids=None)
 
     def col_info(self):
@@ -163,10 +163,7 @@ class Langchain(VectorStoreBase):
                 if filters and "user_id" in filters:
                     where_clause = {"user_id": filters["user_id"]}
 
-                result = self.client._collection.get(
-                    where=where_clause,
-                    limit=limit
-                )
+                result = self.client._collection.get(where=where_clause, limit=limit)
 
                 # Convert the result to the expected format
                 if result and isinstance(result, dict):

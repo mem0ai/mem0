@@ -27,6 +27,7 @@ class LlmFactory:
         "gemini": "mem0.llms.gemini.GeminiLLM",
         "deepseek": "mem0.llms.deepseek.DeepSeekLLM",
         "xai": "mem0.llms.xai.XAILLM",
+        "sarvam": "mem0.llms.sarvam.SarvamLLM",
         "lmstudio": "mem0.llms.lmstudio.LMStudioLLM",
         "langchain": "mem0.llms.langchain.LangchainLLM",
     }
@@ -53,6 +54,7 @@ class EmbedderFactory:
         "together": "mem0.embeddings.together.TogetherEmbedding",
         "lmstudio": "mem0.embeddings.lmstudio.LMStudioEmbedding",
         "langchain": "mem0.embeddings.langchain.LangchainEmbedding",
+        "aws_bedrock": "mem0.embeddings.aws_bedrock.AWSBedrockEmbedding",
     }
 
     @classmethod
@@ -98,9 +100,8 @@ class VectorStoreFactory:
             return vector_store_instance(**config)
         else:
             raise ValueError(f"Unsupported VectorStore provider: {provider_name}")
-        
+
     @classmethod
     def reset(cls, instance):
         instance.reset()
         return instance
-        

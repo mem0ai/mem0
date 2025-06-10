@@ -1,0 +1,205 @@
+---
+title: Memory Export
+description: 'Export memories in a structured format using customizable Pydantic schemas'
+icon: "file-export"
+iconType: "solid"
+---
+
+<Snippet file="paper-release.mdx" />
+
+## Overview
+
+The Memory Export feature allows you to create structured exports of memories using customizable Pydantic schemas. This process enables you to transform your stored memories into specific data formats that match your needs. You can apply various filters to narrow down which memories to export and define exactly how the data should be structured.
+
+## Creating a Memory Export
+
+To create a memory export, you'll need to:
+1. Define your schema structure
+2. Submit an export job
+3. Retrieve the exported data
+
+### Define Schema
+
+Here's an example schema for extracting professional profile information:
+
+```json
+{
+    "$defs": {
+        "EducationLevel": {
+            "enum": ["high_school", "bachelors", "masters"],
+            "title": "EducationLevel",
+            "type": "string"
+        },
+        "EmploymentStatus": {
+            "enum": ["full_time", "part_time", "student"],
+            "title": "EmploymentStatus", 
+            "type": "string"
+        }
+    },
+    "properties": {
+        "full_name": {
+            "anyOf": [
+                {
+                    "maxLength": 100,
+                    "minLength": 2,
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": null,
+            "description": "The professional's full name",
+            "title": "Full Name"
+        },
+        "current_role": {
+            "anyOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": null,
+            "description": "Current job title or role",
+            "title": "Current Role"
+        }
+    },
+    "title": "ProfessionalProfile",
+    "type": "object"
+}
+```
+
+### Submit Export Job
+
+You can optionally provide additional instructions to guide how memories are processed and structured during export using the `export_instructions` parameter.
+
+<CodeGroup>
+
+```python Python
+# Basic export request
+response = client.create_memory_export(
+    schema=json_schema,
+    user_id="alice"
+)
+
+# Export with custom instructions
+export_instructions = """
+1. Create a comprehensive profile with detailed information in each category
+2. Only mark fields as "None" when absolutely no relevant information exists
+3. Base all information directly on the user's memories
+4. When contradictions exist, prioritize the most recent information
+5. Clearly distinguish between factual statements and inferences
+"""
+
+# For create operation, using only user_id filter as requested
+filters = {
+    "AND": [
+        {"user_id": "alex"}
+    ]
+}
+
+response = client.create_memory_export(
+    schema=json_schema,
+    filters=filters,
+    export_instructions=export_instructions  # Optional
+)
+
+print(response)
+```
+
+```bash cURL
+curl -X POST "https://api.mem0.ai/v1/memories/export/" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "schema": {json_schema},
+         "user_id": "alice",
+         "export_instructions": "1. Create a comprehensive profile with detailed information\n2. Only mark fields as \"None\" when absolutely no relevant information exists"
+     }'
+```
+
+```json Output
+{
+    "message": "Memory export request received. The export will be ready in a few seconds.",
+    "id": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+</CodeGroup>
+
+### Retrieve Export
+
+Once the export job is complete, you can retrieve the structured data in two ways:
+
+#### Using Filters
+
+<CodeGroup>
+
+```python Python
+# Retrieve using filters
+filters = {
+    "AND": [
+        {"created_at": {"gte": "2024-07-10", "lte": "2024-07-20"}},
+        {"user_id": "alex"}
+    ]
+}
+
+response = client.get_memory_export(filters=filters)
+print(response)
+```
+
+```json Output
+{
+    "full_name": "John Doe",
+    "current_role": "Senior Software Engineer",
+    "years_experience": 8,
+    "employment_status": "full_time",
+    "education_level": "masters",
+    "skills": ["Python", "AWS", "Machine Learning"]
+}
+```
+
+</CodeGroup>
+
+#### Using Export ID
+
+<CodeGroup>
+
+```python Python
+# Retrieve using export ID
+response = client.get_memory_export(memory_export_id="550e8400-e29b-41d4-a716-446655440000")
+print(response)
+```
+
+```json Output
+{
+    "full_name": "John Doe",
+    "current_role": "Senior Software Engineer",
+    "years_experience": 8,
+    "employment_status": "full_time",
+    "education_level": "masters",
+    "skills": ["Python", "AWS", "Machine Learning"]
+}
+```
+
+</CodeGroup>
+
+## Available Filters
+
+You can apply various filters to customize which memories are included in the export:
+
+- `user_id`: Filter memories by specific user
+- `agent_id`: Filter memories by specific agent
+- `run_id`: Filter memories by specific run
+- `session_id`: Filter memories by specific session
+- `created_at`: Filter memories by date
+
+<Note>
+The export process may take some time to complete, especially when dealing with a large number of memories or complex schemas.
+</Note>
+
+If you have any questions, please feel free to reach out to us using one of the following methods:
+
+<Snippet file="get-help.mdx" />

@@ -1,0 +1,207 @@
+---
+title: Contextual Add (ADD v2)
+icon: "square-plus"
+iconType: "solid"
+---
+
+<Snippet file="paper-release.mdx" />
+
+Mem0 now supports an contextual add version (v2). To use it, set `version="v2"` during the add call. The default version is v1, which is deprecated now. We recommend migrating to `v2` for new applications.
+
+## Key Differences Between v1 and v2
+
+### Version 1 (Legacy)
+In v1 (default), users needed to pass either the entire conversation history or past k messages with each new message to generate properly contextualized memories. This approach required:
+
+- Manually tracking and sending previous messages using a sliding window approach
+- Increased payload sizes as conversations grew longer, requiring careful window size management
+
+<CodeGroup>
+
+```python Python
+# First interaction
+messages1 = [
+    {"role": "user", "content": "Hi, I'm Alex and I live in San Francisco."},
+    {"role": "assistant", "content": "Hello Alex! Nice to meet you. San Francisco is a beautiful city."}
+]
+client.add(messages1, user_id="alex")
+
+# Second interaction - must include previous messages for context
+messages2 = [
+    {"role": "user", "content": "Hi, I'm Alex and I live in San Francisco."},
+    {"role": "assistant", "content": "Hello Alex! Nice to meet you. San Francisco is a beautiful city."},
+    {"role": "user", "content": "I like to eat sushi, and yesterday I went to Sunnyvale to eat sushi with my friends."},
+    {"role": "assistant", "content": "Sushi is really a tasty choice. What did you do this weekend?"}
+]
+client.add(messages2, user_id="alex")
+```
+
+```javascript JavaScript
+// First interaction
+const messages1 = [
+    {"role": "user", "content": "Hi, I'm Alex and I live in San Francisco."},
+    {"role": "assistant", "content": "Hello Alex! Nice to meet you. San Francisco is a beautiful city."}
+];
+client.add(messages1, { user_id: "alex" })
+    .then(response => console.log(response))
+    .catch(error => console.error(error));
+
+// Second interaction - must include previous messages for context
+const messages2 = [
+    {"role": "user", "content": "Hi, I'm Alex and I live in San Francisco."},
+    {"role": "assistant", "content": "Hello Alex! Nice to meet you. San Francisco is a beautiful city."},
+    {"role": "user", "content": "I like to eat sushi, and yesterday I went to Sunnyvale to eat sushi with my friends."},
+    {"role": "assistant", "content": "Sushi is really a tasty choice. What did you do this weekend?"}
+];
+client.add(messages2, { user_id: "alex" })
+    .then(response => console.log(response))
+    .catch(error => console.error(error));
+```
+
+</CodeGroup>
+
+### Version 2 (Recommended)
+In v2, Mem0 automatically manages conversation context. Users only need to send new messages, and the system will:
+
+- Automatically retrieve relevant conversation history
+- Generate properly contextualized memories
+- Reduce payload sizes and simplify integration
+
+<CodeGroup>
+
+```python Python
+# First interaction
+messages1 = [
+    {"role": "user", "content": "Hi, I'm Alex and I live in San Francisco."},
+    {"role": "assistant", "content": "Hello Alex! Nice to meet you. San Francisco is a beautiful city."}
+]
+client.add(messages1, user_id="alex", version="v2")
+
+# Second interaction - only need to send new messages
+messages2 = [
+    {"role": "user", "content": "I like to eat sushi, and yesterday I went to Sunnyvale to eat sushi with my friends."},
+    {"role": "assistant", "content": "Sushi is really a tasty choice. What did you do this weekend?"}
+]
+client.add(messages2, user_id="alex", version="v2")
+```
+
+```javascript JavaScript
+// First interaction
+const messages1 = [
+    {"role": "user", "content": "Hi, I'm Alex and I live in San Francisco."},
+    {"role": "assistant", "content": "Hello Alex! Nice to meet you. San Francisco is a beautiful city."}
+];
+client.add(messages1, { user_id: "alex", version: "v2" })
+    .then(response => console.log(response))
+    .catch(error => console.error(error));
+
+// Second interaction - only need to send new messages
+const messages2 = [
+    {"role": "user", "content": "I like to eat sushi, and yesterday I went to Sunnyvale to eat sushi with my friends."},
+    {"role": "assistant", "content": "Sushi is really a tasty choice. What did you do this weekend?"}
+];
+client.add(messages2, { user_id: "alex", version: "v2" })
+    .then(response => console.log(response))
+    .catch(error => console.error(error));
+```
+
+</CodeGroup>
+
+## Benefits of Using v2
+
+1. **Simplified Integration**: No need to track and manage conversation history
+2. **Reduced Payload Size**: Only send new messages, not the entire conversation
+3. **Improved Memory Quality**: Automatic context retrieval ensures better memory generation
+
+## Understanding ID Parameters in v2
+
+When using contextual add v2, you have different options for how to organize and retrieve memories:
+
+### Using Only `user_id`
+
+When you provide only a `user_id`:
+
+- Memories are associated with this user's long-term memory store
+- The system will automatically retrieve relevant context from all of the user's previous conversations
+- These memories persist indefinitely across all of the user's sessions
+- Ideal for maintaining persistent user information (preferences, personal details, etc.)
+
+<CodeGroup>
+
+```python Python
+# Adding to long-term user memory
+messages = [
+    {"role": "user", "content": "I'm allergic to peanuts and shellfish."},
+    {"role": "assistant", "content": "I've noted your allergies to peanuts and shellfish."}
+]
+client.add(messages, user_id="alex", version="v2")
+```
+
+```javascript JavaScript
+// Adding to long-term user memory
+const messages = [
+    {"role": "user", "content": "I'm allergic to peanuts and shellfish."},
+    {"role": "assistant", "content": "I've noted your allergies to peanuts and shellfish."}
+];
+client.add(messages, { user_id: "alex", version: "v2" })
+    .then(response => console.log(response))
+    .catch(error => console.error(error));
+```
+
+</CodeGroup>
+
+### Using `user_id` with `run_id`
+
+When you provide both `user_id` and `run_id`:
+
+- Memories are associated with a specific conversation session or interaction
+- The system will retrieve context primarily from this specific session
+- These memories are still tied to the user but are organized by the specific session
+- Ideal for maintaining context within a specific conversation flow or task
+- Helps prevent context from different conversations from interfering with each other
+
+<CodeGroup>
+
+```python Python
+# Adding to a specific conversation session
+messages = [
+    {"role": "user", "content": "For this trip to Paris, I want to focus on art museums."},
+    {"role": "assistant", "content": "Great! I'll help you plan your Paris trip with a focus on art museums."}
+]
+client.add(messages, user_id="alex", run_id="paris-trip-2024", version="v2")
+
+# Later in the same conversation session
+messages2 = [
+    {"role": "user", "content": "I'd like to visit the Louvre on Monday."},
+    {"role": "assistant", "content": "The Louvre is a great choice for Monday. Would you like information about opening hours?"}
+]
+client.add(messages2, user_id="alex", run_id="paris-trip-2024", version="v2")
+```
+
+```javascript JavaScript
+// Adding to a specific conversation session
+const messages = [
+    {"role": "user", "content": "For this trip to Paris, I want to focus on art museums."},
+    {"role": "assistant", "content": "Great! I'll help you plan your Paris trip with a focus on art museums."}
+];
+client.add(messages, { user_id: "alex", run_id: "paris-trip-2024", version: "v2" })
+    .then(response => console.log(response))
+    .catch(error => console.error(error));
+
+// Later in the same conversation session
+const messages2 = [
+    {"role": "user", "content": "I'd like to visit the Louvre on Monday."},
+    {"role": "assistant", "content": "The Louvre is a great choice for Monday. Would you like information about opening hours?"}
+];
+client.add(messages2, { user_id: "alex", run_id: "paris-trip-2024", version: "v2" })
+    .then(response => console.log(response))
+    .catch(error => console.error(error));
+```
+
+</CodeGroup>
+
+Using `run_id` helps you organize memories into logical sessions or tasks, making it easier to maintain context for specific interactions while still associating everything with the user's overall profile.
+
+If you have any questions, please feel free to reach out to us using one of the following methods:
+
+<Snippet file="get-help.mdx" />

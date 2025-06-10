@@ -1,6 +1,7 @@
 import os
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 MEM0_TELEMETRY = os.environ.get("MEM0_TELEMETRY", "True")
 

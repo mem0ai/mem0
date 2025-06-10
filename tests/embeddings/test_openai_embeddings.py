@@ -1,7 +1,9 @@
-import pytest
 from unittest.mock import Mock, patch
-from mem0.embeddings.openai import OpenAIEmbedding
+
+import pytest
+
 from mem0.configs.embeddings.base import BaseEmbedderConfig
+from mem0.embeddings.openai import OpenAIEmbedding
 
 
 @pytest.fixture
@@ -21,7 +23,9 @@ def test_embed_default_model(mock_openai_client):
 
     result = embedder.embed("Hello world")
 
-    mock_openai_client.embeddings.create.assert_called_once_with(input=["Hello world"], model="text-embedding-3-small", dimensions = 1536)
+    mock_openai_client.embeddings.create.assert_called_once_with(
+        input=["Hello world"], model="text-embedding-3-small", dimensions=1536
+    )
     assert result == [0.1, 0.2, 0.3]
 
 
@@ -35,7 +39,7 @@ def test_embed_custom_model(mock_openai_client):
     result = embedder.embed("Test embedding")
 
     mock_openai_client.embeddings.create.assert_called_once_with(
-        input=["Test embedding"], model="text-embedding-2-medium", dimensions = 1024
+        input=["Test embedding"], model="text-embedding-2-medium", dimensions=1024
     )
     assert result == [0.4, 0.5, 0.6]
 
@@ -49,7 +53,9 @@ def test_embed_removes_newlines(mock_openai_client):
 
     result = embedder.embed("Hello\nworld")
 
-    mock_openai_client.embeddings.create.assert_called_once_with(input=["Hello world"], model="text-embedding-3-small", dimensions = 1536)
+    mock_openai_client.embeddings.create.assert_called_once_with(
+        input=["Hello world"], model="text-embedding-3-small", dimensions=1536
+    )
     assert result == [0.7, 0.8, 0.9]
 
 
@@ -63,7 +69,7 @@ def test_embed_without_api_key_env_var(mock_openai_client):
     result = embedder.embed("Testing API key")
 
     mock_openai_client.embeddings.create.assert_called_once_with(
-        input=["Testing API key"], model="text-embedding-3-small", dimensions = 1536
+        input=["Testing API key"], model="text-embedding-3-small", dimensions=1536
     )
     assert result == [1.0, 1.1, 1.2]
 
@@ -79,6 +85,6 @@ def test_embed_uses_environment_api_key(mock_openai_client, monkeypatch):
     result = embedder.embed("Environment key test")
 
     mock_openai_client.embeddings.create.assert_called_once_with(
-        input=["Environment key test"], model="text-embedding-3-small", dimensions = 1536
+        input=["Environment key test"], model="text-embedding-3-small", dimensions=1536
     )
     assert result == [1.3, 1.4, 1.5]
