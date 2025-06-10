@@ -268,22 +268,6 @@ cd your-memory
 # See /openmemory/README.md for detailed setup
 ```
 
-## 👥 Contributors
-
-Thanks to these amazing people who have contributed to Jean Memory:
-
-<a href="https://github.com/jonathan-politzki/your-memory/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=jonathan-politzki/your-memory" />
-</a>
-
-Made with [contrib.rocks](https://contrib.rocks).
-
-**Special Thanks:**
-- Built on top of [mem0ai/mem0](https://github.com/mem0ai/mem0) - Thanks to the mem0 team for the foundation!
-- Community contributors who help make Jean Memory better every day
-
-Want to see your face here? Check out our [contributing guide](#-contributing) above!
-
 ## 🔒 Privacy & Security
 
 - **End-to-end encryption** available for sensitive data
