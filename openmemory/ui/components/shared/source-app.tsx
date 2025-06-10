@@ -36,8 +36,8 @@ export const constants = {
     icon: <Icon source="/images/cline.png" />,
     iconImage: "/images/cline.png",
   },
-  roocline: {
-    name: "Roo Cline",
+  roocode: {
+    name: "Roo Code",
     icon: <Icon source="/images/roocline.png" />,
     iconImage: "/images/roocline.png",
   },

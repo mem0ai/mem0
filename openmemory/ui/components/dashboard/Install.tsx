@@ -28,7 +28,7 @@ const mainApps = [
 // Additional apps in the dropdown
 const additionalApps = [
   { key: "cline", label: "Cline", icon: "/images/cline.png" },
-  { key: "roocline", label: "Roo Cline", icon: "/images/roocline.png" },
+  { key: "roocode", label: "Roo Code", icon: "/images/roocline.png" },
   { key: "witsy", label: "Witsy", icon: "/images/witsy.png" },
   { key: "enconvo", label: "Enconvo", icon: "/images/enconvo.png" },
 ];
