@@ -43,7 +43,10 @@ const colorGradientMap: { [key: string]: string } = {
   more: "data-[state=active]:bg-gradient-to-t data-[state=active]:from-zinc-500/20 data-[state=active]:to-transparent data-[state=active]:border-zinc-500",
 };
 
-const API_URL_ON_LOAD = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8765";
+const API_URL_ON_LOAD = 
+  process.env.NODE_ENV === 'production' 
+    ? "https://api.jeanmemory.com" 
+    : process.env.NEXT_PUBLIC_API_URL || "http://localhost:8765";
 
 export const Install = () => {
   const [copiedTab, setCopiedTab] = useState<string | null>(null);
