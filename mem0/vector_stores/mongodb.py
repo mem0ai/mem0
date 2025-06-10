@@ -31,10 +31,7 @@ class MongoVector(VectorStoreBase):
         db_name: str,
         collection_name: str,
         embedding_model_dims: int,
-        user: Optional[str] = None,
-        password: Optional[str] = None,
-        host: str = "localhost",
-        port: int = 27017,
+        mongo_uri: str
     ):
         """
         Initialize the MongoDB vector store with vector search capabilities.
@@ -43,25 +40,15 @@ class MongoVector(VectorStoreBase):
             db_name (str): Database name
             collection_name (str): Collection name
             embedding_model_dims (int): Dimension of the embedding vector
-            user (str, optional): Database user
-            password (str, optional): Database password
-            host (str, optional): Database host
-            port (int, optional): Database port
+            mongo_uri (str): MongoDB connection URI
         """
         self.collection_name = collection_name
         self.embedding_model_dims = embedding_model_dims
         self.db_name = db_name
 
-        if user and password:
-            self.client = MongoClient(
-                host=host,
-                port=port,
-                username=user,
-                password=password,
-            )
-        else:
-            self.client = MongoClient(host=host, port=port)
-
+        self.client = MongoClient(
+            mongo_uri
+        )
         self.db = self.client[db_name]
         self.collection = self.create_col()
 
@@ -93,7 +80,7 @@ class MongoVector(VectorStoreBase):
                             "fields": {
                                 "embedding": {
                                     "type": self.VECTOR_TYPE,
-                                    "d": self.embedding_model_dims,
+                                    "dimensions": self.embedding_model_dims,
                                     "similarity": self.SIMILARITY_METRIC,
                                 }
                             },
