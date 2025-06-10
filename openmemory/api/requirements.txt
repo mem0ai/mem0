@@ -15,3 +15,4 @@ pytest-cov>=4.0.0
 tenacity==9.1.2
 anthropic==0.51.0
 ollama==0.4.8
+pymysql>=1.0.2
