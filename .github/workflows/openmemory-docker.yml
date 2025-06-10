@@ -2,7 +2,7 @@ name: OpenMemory Docker Build and Deploy
 
 on:
   push:
-    branches: [main]
+    branches: [implementation/school-law]
     paths:
       - 'openmemory/**'
   pull_request:
@@ -71,7 +71,7 @@ jobs:
           type=ref,event=branch
           type=ref,event=pr
           type=sha,prefix={{branch}}-
-          type=raw,value=latest,enable={{is_default_branch}}
+          type=raw,value=latest,enable=${{ github.ref == 'refs/heads/implementation/school-law' }}
 
     - name: Build and push Docker image
       id: build

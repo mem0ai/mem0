@@ -71,6 +71,68 @@ This will output:
 }
 ```
 
+### 3. Alternative: Managed Identity Authentication (Most Secure)
+
+For the highest security, you can use GitHub OIDC with Azure Managed Identity. This eliminates the need to store long-lived credentials in GitHub secrets.
+
+#### Setup Steps:
+
+1. **Create a User-Assigned Managed Identity**:
+```bash
+# Create managed identity
+az identity create \
+  --name "openmemory-github-actions" \
+  --resource-group "<resource-group>"
+
+# Get the client ID and subscription ID
+az identity show \
+  --name "openmemory-github-actions" \
+  --resource-group "<resource-group>" \
+  --query '{clientId: clientId, subscriptionId: id}'
+```
+
+2. **Grant ACR Push permissions to the Managed Identity**:
+```bash
+# Get the managed identity principal ID
+PRINCIPAL_ID=$(az identity show \
+  --name "openmemory-github-actions" \
+  --resource-group "<resource-group>" \
+  --query principalId \
+  --output tsv)
+
+# Assign AcrPush role to the managed identity
+az role assignment create \
+  --assignee $PRINCIPAL_ID \
+  --role "AcrPush" \
+  --scope "/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.ContainerRegistry/registries/schoollawregistry"
+```
+
+3. **Configure GitHub OIDC Provider in Azure**:
+```bash
+# Create federated credential for the managed identity
+az identity federated-credential create \
+  --name "github-actions-federated-credential" \
+  --identity-name "openmemory-github-actions" \
+  --resource-group "<resource-group>" \
+  --issuer "https://token.actions.githubusercontent.com" \
+  --subject "repo:seanmobrien/mem0:ref:refs/heads/implementation/school-law" \
+  --audience "api://AzureADTokenExchange"
+```
+
+4. **Update the GitHub Actions workflow** to use Azure login with OIDC:
+```yaml
+# Replace the Azure Container Registry login step with:
+- name: Azure Login
+  uses: azure/login@v1
+  with:
+    client-id: ${{ secrets.AZURE_CLIENT_ID }}
+    tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+    subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+- name: Log in to Azure Container Registry
+  run: az acr login --name schoollawregistry
+```
+
 ## GitHub Secrets Configuration
 
 Navigate to your GitHub repository → Settings → Secrets and variables → Actions, and add the following secrets:
@@ -83,21 +145,26 @@ Navigate to your GitHub repository → Settings → Secrets and variables → Ac
 - **AZURE_REGISTRY_USERNAME**: `service-principal-id` (appId from service principal creation)
 - **AZURE_REGISTRY_PASSWORD**: `service-principal-password` (password from service principal creation)
 
+### Option 3: Using Managed Identity with OIDC (Most Secure)
+- **AZURE_CLIENT_ID**: `client-id` (from managed identity creation)
+- **AZURE_TENANT_ID**: `tenant-id` (your Azure tenant ID)
+- **AZURE_SUBSCRIPTION_ID**: `subscription-id` (your Azure subscription ID)
+
 ## Workflow Triggers
 
 The workflow is triggered by:
 
-1. **Push to main branch** with changes in `openmemory/` directory
+1. **Push to implementation/school-law branch** with changes in `openmemory/` directory
 2. **Pull requests** with changes in `openmemory/` directory  
 3. **Manual trigger** via GitHub Actions UI
 
 ## Image Tagging Strategy
 
 Images are tagged with:
-- **Branch name** for branch pushes (e.g., `main`)
+- **Branch name** for branch pushes (e.g., `implementation/school-law`)
 - **PR number** for pull requests (e.g., `pr-123`)
-- **Git SHA** with branch prefix (e.g., `main-a1b2c3d`)
-- **latest** tag for main branch pushes
+- **Git SHA** with branch prefix (e.g., `implementation/school-law-a1b2c3d`)
+- **latest** tag for implementation/school-law branch pushes
 
 ## Built Images
 
