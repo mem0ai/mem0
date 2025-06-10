@@ -2,6 +2,8 @@ version: "3.9"
 
 services:
   backend:
+    security_opt:
+      - no-new-privileges:true
     container_name: embedchain-backend
     restart: unless-stopped
     build:
