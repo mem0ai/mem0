@@ -15,27 +15,44 @@ export async function POST(request: NextRequest) {
 
     const token = authHeader.split(' ')[1];
     
-    // Verify token with Supabase
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    // Check for local development mode first
+    const localUserId = process.env.NEXT_PUBLIC_USER_ID;
+    let user;
     
-    if (!supabaseUrl || !supabaseAnonKey) {
-      console.error('Missing Supabase configuration');
-      return NextResponse.json(
-        { error: 'Server configuration error' },
-        { status: 500 }
-      );
-    }
+    if (localUserId && token === 'local-dev-token') {
+      console.log('Gemini API: Local development mode detected, using local user ID:', localUserId);
+      // Create a mock user for local development
+      user = {
+        id: localUserId,
+        email: 'local@example.com',
+        app_metadata: { provider: 'local' },
+        user_metadata: { name: 'Local User' }
+      };
+    } else {
+      // Normal production flow - verify token with Supabase
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      
+      if (!supabaseUrl || !supabaseAnonKey) {
+        console.error('Missing Supabase configuration');
+        return NextResponse.json(
+          { error: 'Server configuration error' },
+          { status: 500 }
+        );
+      }
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+      const supabase = createClient(supabaseUrl, supabaseAnonKey);
+      const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser(token);
 
-    if (authError || !user) {
-      console.warn('Authentication failed:', authError?.message);
-      return NextResponse.json(
-        { error: 'Unauthorized - Invalid token' },
-        { status: 401 }
-      );
+      if (authError || !supabaseUser) {
+        console.warn('Authentication failed:', authError?.message);
+        return NextResponse.json(
+          { error: 'Unauthorized - Invalid token' },
+          { status: 401 }
+        );
+      }
+      
+      user = supabaseUser;
     }
 
     // **SECURITY: Rate limiting check (basic implementation)**
@@ -45,14 +62,32 @@ export async function POST(request: NextRequest) {
     const { prompt, memories, selectedMemory } = await request.json();
 
     // Get Gemini API key from environment variables
-    const apiKey = process.env.GEMINI_API_KEY;
+    console.log('Checking for GEMINI_API_KEY in environment');
+    console.log('Available env keys:', Object.keys(process.env).filter(key => !key.includes('SECRET') && !key.includes('KEY')).join(', '));
+    
+    // Try multiple possible environment variable names
+    const apiKey = process.env.GEMINI_API_KEY || 
+                  process.env.NEXT_PUBLIC_GEMINI_API_KEY || 
+                  process.env.GOOGLE_API_KEY || 
+                  process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
     
     if (!apiKey) {
-      console.warn('GEMINI_API_KEY not found in environment variables');
+      console.error('GEMINI_API_KEY not found in environment variables');
+      // Create a detailed error message
+      const envDebug = {
+        hasGeminiKey: !!process.env.GEMINI_API_KEY,
+        nodeEnv: process.env.NODE_ENV,
+        hasUserID: !!process.env.NEXT_PUBLIC_USER_ID,
+        memoryCount: memories?.length || 0
+      };
+      console.log('Environment debug info:', envDebug);
+      
       return NextResponse.json({
-        response: `I'm currently unable to access my full capabilities. To enable Gemini AI integration, please add your GEMINI_API_KEY to the environment variables. For now, I can see you have ${memories?.length || 0} memories to analyze.`
+        response: `I'm currently unable to access my full capabilities. Debugging info: The server can't find the GEMINI_API_KEY in the environment variables. For now, I can see you have ${memories?.length || 0} memories to analyze.`
       });
     }
+    
+    console.log('GEMINI_API_KEY found, length:', apiKey.length);
 
     // Build context with selected memory highlighted
     let contextText = `You are a personal AI assistant with access to the user's memory collection. You have access to ${memories?.length || 0} memories.`;

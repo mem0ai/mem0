@@ -212,7 +212,7 @@ class DocumentChunk(Base):
     chunk_index = Column(Integer, nullable=False)
     content = Column(Text, nullable=False)
     embedding = Column(ARRAY(Float), nullable=True)  # For future vector search
-    metadata_ = Column('metadata_', JSONB, nullable=True)  # Use actual column name
+    metadata_ = Column('metadata', JSONB, nullable=True)  # Mapped to 'metadata' DB column
     created_at = Column(DateTime(timezone=True), default=get_current_utc_time, nullable=False)
     
     # Relationships
