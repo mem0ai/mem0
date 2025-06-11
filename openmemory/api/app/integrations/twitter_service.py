@@ -196,66 +196,11 @@ async def sync_twitter_to_memory(username: str, user_id: str, app_id: str, db_se
     Sync a Twitter user's recent tweets to memory.
     This can be called from an API endpoint or MCP tool.
     """
-    from app.models import Memory, App, User
     from app.utils.memory import get_memory_client
-    from sqlalchemy.sql import exists
+    from app.models import Memory, App
     from uuid import UUID
-    
-    def safe_uuid(id_str):
-        """Convert string to UUID, handling local development IDs"""
-        try:
-            return UUID(id_str)
-        except ValueError:
-            # For local development mode
-            if id_str == 'default_user':
-                logger.info(f"Local development mode detected, using mock UUID for user {id_str}")
-                return UUID('00000000-0000-0000-0000-000000000001')  # Fixed UUID for local dev
-            # For app ID in local development
-            if id_str == 'twitter':
-                logger.info(f"Local development mode detected, using mock UUID for app {id_str}")
-                return UUID('00000000-0000-0000-0000-000000000002')  # Fixed UUID for local dev app
-            # For any other non-UUID string
-            logger.warning(f"Invalid UUID format: {id_str}, using fallback UUID")
-            return UUID('00000000-0000-0000-0000-000000000099')  # Generic fallback UUID
     service = TwitterService()
     memory_client = get_memory_client()
-    
-    # For local development, ensure the user and app exist in the database
-    user_uuid = safe_uuid(user_id)
-    app_uuid = safe_uuid(app_id)
-    
-    # Check if this is local development mode
-    if user_id == 'default_user' or app_id == 'twitter':
-        logger.info("Local development mode detected, ensuring user and app exist in database")
-        
-        # Check if the user exists, create if not
-        user_exists = db_session.query(exists().where(User.id == user_uuid)).scalar()
-        if not user_exists:
-            logger.info(f"Creating mock user for local development with id {user_uuid}")
-            mock_user = User(
-                id=user_uuid,
-                email='local-dev@example.com',
-                display_name='Local Dev User',
-                is_active=True
-            )
-            db_session.add(mock_user)
-        
-        # Check if the Twitter app exists, create if not
-        app_exists = db_session.query(exists().where(App.id == app_uuid)).scalar()
-        if not app_exists:
-            logger.info(f"Creating Twitter app for local development with id {app_uuid}")
-            twitter_app = App(
-                id=app_uuid,
-                name='Twitter',
-                description='Twitter Integration',
-                owner_id=user_uuid,  # Set the mock user as owner
-                is_active=True
-            )
-            db_session.add(twitter_app)
-            
-        # Commit these changes before proceeding with tweet processing
-        db_session.commit()
-        logger.info("Ensured user and app exist in database for local development")
     
     try:
         logger.info(f"Starting Twitter sync for @{username}")
@@ -299,8 +244,8 @@ async def sync_twitter_to_memory(username: str, user_id: str, app_id: str, db_se
                     
                     # Create database record
                     db_memory = Memory(
-                        user_id=safe_uuid(user_id),
-                        app_id=safe_uuid(app_id),
+                        user_id=UUID(user_id),
+                        app_id=UUID(app_id),
                         content=content,
                         metadata_=memory_metadata
                     )

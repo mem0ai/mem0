@@ -4,46 +4,25 @@ import logging
 from fastapi import Depends, HTTPException, Request
 from supabase import create_client, Client as SupabaseClient
 from starlette.status import HTTP_401_UNAUTHORIZED, HTTP_403_FORBIDDEN
-from typing import Union
 
-# Import local auth module for development mode
-from .local_auth import get_local_dev_user, MockSupabaseUser
-from .settings import config
-
-# Type alias for both real and mock user types
-SupabaseUser = Union[MockSupabaseUser, 'supabase.lib.auth.user.User']
-
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__) # Assuming logger is configured in main or here
 
 # Supabase Client Initialization
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
+
 supabase_service_client: SupabaseClient = None
-
-# Only initialize Supabase client if not in local development mode
-if config.requires_supabase_auth:
-    if not config.SUPABASE_URL or not config.SUPABASE_ANON_KEY:
-        logger.error("Supabase URL and Anon Key must be set in environment variables for production.")
-    else:
-        try:
-            supabase_service_client = create_client(config.SUPABASE_URL, config.SUPABASE_ANON_KEY)
-            logger.info("Supabase client initialized in auth module.")
-        except Exception as e:
-            logger.error(f"Failed to initialize Supabase client in auth module: {e}", exc_info=True)
+if not SUPABASE_URL or not SUPABASE_ANON_KEY:
+    logger.error("Supabase URL and Anon Key must be set in environment variables for auth module.")
+    # Depending on desired behavior, could raise error or allow None client for offline/testing
 else:
-    logger.info("Running in local development mode - Supabase auth disabled")
+    try:
+        supabase_service_client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+        logger.info("Supabase client initialized in auth module.")
+    except Exception as e:
+        logger.error(f"Failed to initialize Supabase client in auth module: {e}", exc_info=True)
 
-async def get_current_supa_user(request: Request) -> SupabaseUser:
-    """
-    Authentication dependency that handles both production and local development.
-    
-    In production: Validates the JWT token against Supabase
-    In dev mode: Returns a mock user with USER_ID from environment variables
-    """
-    # Check if local development mode is active
-    if config.is_local_development:
-        logger.debug(f"Using local authentication with USER_ID: {config.USER_ID}")
-        return await get_local_dev_user(request)
-    
-    # Regular Supabase authentication flow for production
+async def get_current_supa_user(request: Request):
     if not supabase_service_client:
         logger.error("Supabase client not initialized in auth module. Cannot authenticate user.")
         raise HTTPException(
