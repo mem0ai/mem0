@@ -903,7 +903,7 @@ async def _lightweight_ask_memory_impl(question: str, supa_uid: str, client_name
             Answer concisely based only on the provided memories."""
             
             try:
-                response = llm.generate_response(prompt)
+                response = llm.generate_response([{"role": "user", "content": prompt}])
                 # Access response.text safely
                 result = response
                 result += f"\\n\\n💡 Quick search: {round(time.time() - start_time, 2)}s | {len(clean_memories)} memories"
