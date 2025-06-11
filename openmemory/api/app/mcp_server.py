@@ -327,6 +327,10 @@ async def list_memories(limit: int = None) -> str:
 async def _list_memories_impl(supa_uid: str, client_name: str, limit: int = 20) -> str:
     """Implementation of list_memories with timeout protection"""
     from app.utils.memory import get_memory_client
+    import time
+    start_time = time.time()
+    logger.info(f"list_memories: Starting for user {supa_uid}")
+
     memory_client = get_memory_client()
     db = SessionLocal()
     try:
@@ -342,10 +346,12 @@ async def _list_memories_impl(supa_uid: str, client_name: str, limit: int = 20) 
             return f"Error: User ID validation failed. Security issue detected."
 
         # Get ALL memories for this user across all apps with limit
+        fetch_start_time = time.time()
         all_mem0_memories = memory_client.get_all(user_id=supa_uid, limit=limit)
+        fetch_duration = time.time() - fetch_start_time
         
-        # 🚨 CRITICAL: Log the results for debugging
-        logger.info(f"📋 LIST DEBUG - Results count: {len(all_mem0_memories.get('results', [])) if isinstance(all_mem0_memories, dict) else len(all_mem0_memories) if isinstance(all_mem0_memories, list) else 0}")
+        results_count = len(all_mem0_memories.get('results', [])) if isinstance(all_mem0_memories, dict) else len(all_mem0_memories) if isinstance(all_mem0_memories, list) else 0
+        logger.info(f"list_memories: mem0.get_all took {fetch_duration:.2f}s, found {results_count} results for user {supa_uid}")
 
         processed_results = []
         actual_results_list = []
@@ -372,8 +378,14 @@ async def _list_memories_impl(supa_uid: str, client_name: str, limit: int = 20) 
         # 🚨 Log final results count
         logger.info(f"📋 LIST FINAL - User {supa_uid}: {len(processed_results)} memories returned after filtering")
         
-        db.commit()
-        return json.dumps(processed_results, indent=2)
+        json_start_time = time.time()
+        response_json = json.dumps(processed_results)
+        json_duration = time.time() - json_start_time
+        
+        total_duration = time.time() - start_time
+        logger.info(f"list_memories: Completed for user {supa_uid} in {total_duration:.2f}s (fetch: {fetch_duration:.2f}s, json: {json_duration:.2f}s)")
+        
+        return response_json
     finally:
         db.close()
 
@@ -628,7 +640,7 @@ async def _deep_memory_query_impl(search_query: str, supa_uid: str, client_name:
             
             # 1. Get ALL memories for comprehensive context
             mem_fetch_start_time = time.time()
-            all_memories_result = memory_client.get_all(user_id=supa_uid, limit=memory_limit * 2)
+            all_memories_result = memory_client.get_all(user_id=supa_uid, limit=memory_limit)
             search_memories_result = memory_client.search(
                 query=search_query,
                 user_id=supa_uid,
@@ -673,7 +685,7 @@ async def _deep_memory_query_impl(search_query: str, supa_uid: str, client_name:
             doc_fetch_start_time = time.time()
             all_db_documents = db.query(Document).filter(
                 Document.user_id == user.id
-            ).order_by(Document.created_at.desc()).all()
+            ).order_by(Document.created_at.desc()).limit(20).all()
             doc_fetch_duration = time.time() - doc_fetch_start_time
             logger.info(f"deep_memory_query: Document fetching for user {supa_uid} took {doc_fetch_duration:.2f}s. Found {len(all_db_documents)} documents.")
             
@@ -767,8 +779,8 @@ async def _deep_memory_query_impl(search_query: str, supa_uid: str, client_name:
                     context += f"Created: {doc.created_at}\n"
                     
                     if doc.content:
-                        if len(doc.content) > 500:
-                            context += f"Preview: {doc.content[:500]}...\n"
+                        if len(doc.content) > 200:
+                            context += f"Preview: {doc.content[:200]}...\n"
                         else:
                             context += f"Content: {doc.content}\n"
                     context += "\n"
@@ -790,7 +802,7 @@ async def _deep_memory_query_impl(search_query: str, supa_uid: str, client_name:
                 
                 docs_included = 0
                 for doc, score, reasons in selected_documents:
-                    if docs_included >= 10:  # Reasonable limit
+                    if docs_included >= 3:  # Reasonable limit
                         break
                         
                     context += f"=== FULL CONTENT: {doc.title} ===\n"
@@ -950,7 +962,7 @@ async def _lightweight_ask_memory_impl(question: str, supa_uid: str, client_name
                 # Access response.text safely
                 result = response
                 total_duration = time.time() - start_time
-                result += f"\\n\\n💡 Timings: search={search_duration:.2f}s, llm={llm_duration:.2f}s, total={total_duration:.2f}s | {len(clean_memories)} memories"
+                result += f"\n\n💡 Timings: search={search_duration:.2f}s, llm={llm_duration:.2f}s, total={total_duration:.2f}s | {len(clean_memories)} memories"
                 
                 return result
             except ValueError as e:
