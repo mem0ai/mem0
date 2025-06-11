@@ -4,9 +4,12 @@ from typing import Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+import logging
 from app.database import get_db
 from app.models import Config as ConfigModel
 from app.utils.memory import reset_memory_client
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/config", tags=["config"])
 
@@ -43,13 +46,33 @@ class ConfigSchema(BaseModel):
 
 def get_default_configuration():
     """Get the default configuration with sensible defaults for LLM and embedder."""
+#    return {
+#        "openmemory": {
+#            "custom_instructions": None
+#        },
+#        "mem0": {
+#            "llm": {
+#                "provider": "openai",
+#                "config": {
+#                    "model": "gpt-4o-mini",
+#                    "temperature": 0.1,
+#                    "max_tokens": 2000,
+#                    "api_key": "env:OPENAI_API_KEY"
+#                }
+#            },
+#            "embedder": {
+#                "provider": "openai",
+#                "config": {
+#                    "model": "text-embedding-3-small",
+#                    "api_key": "env:OPENAI_API_KEY"
+#                }
+#            }
+#        }
+#    }
     return {
-        "openmemory": {
-            "custom_instructions": None
-        },
         "mem0": {
             "llm": {
-                "provider": "openai",
+                "provider": "azure_openai",
                 "config": {
                     "model": "gpt-4o-mini",
                     "temperature": 0.1,
@@ -58,10 +81,41 @@ def get_default_configuration():
                 }
             },
             "embedder": {
-                "provider": "openai",
+                "provider": "azure_openai",
                 "config": {
                     "model": "text-embedding-3-small",
                     "api_key": "env:OPENAI_API_KEY"
+                }
+            },
+            "vector_store": {
+                "provider": "pgvector",
+                "config": {
+                    "diskann": True
+                }
+            }
+        },
+        "openmemory": {
+            "custom_instructions": None,
+            "llm": {
+                "provider": "azure_openai",
+                "config": {
+                    "model": "gpt-4o-mini",
+                    "temperature": 0.1,
+                    "max_tokens": 2000,
+                    "api_key": "env:OPENAI_API_KEY"
+                }
+            },
+            "embedder": {
+                "provider": "azure_openai",
+                "config": {
+                    "model": "text-embedding-3-small",
+                    "api_key": "env:OPENAI_API_KEY"
+                }
+            },
+            "vector_store": {
+                "provider": "pgvector",
+                "config": {
+                    "diskann": True
                 }
             }
         }
@@ -105,6 +159,8 @@ def get_config_from_db(db: Session, key: str = "main"):
         db.commit()
         db.refresh(config)
     
+    logger.info(f"Configuration loaded from database: {config_value}")
+
     return config_value
 
 def save_config_to_db(db: Session, config: Dict[str, Any], key: str = "main"):

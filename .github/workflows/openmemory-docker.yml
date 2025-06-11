@@ -1,3 +1,5 @@
+# @format
+
 name: OpenMemory Docker Build and Deploy
 
 on:
@@ -5,34 +7,34 @@ on:
     branches: [implementation/school-law]
     paths:
       - 'openmemory/**'
-  pull_request:
-    paths:
-      - 'openmemory/**'
+      - 'server/**'
+  #pull_request:
+  #  paths:
+  #    - 'openmemory/**'
   workflow_dispatch:
-
-
 
 env:
   REGISTRY: schoollawregistry.azurecr.io
   API_IMAGE_NAME: openmemory-api
   UI_IMAGE_NAME: openmemory-ui
+  SRV_IMAGE_NAME: openmemory-mem0
 
 jobs:
   check_changes:
     permissions:
       id-token: write
-      contents: read    
+      contents: read
     runs-on: ubuntu-latest
     outputs:
       openmemory_changed: ${{ steps.filter.outputs.openmemory }}
     steps:
-    - uses: actions/checkout@v4
-    - uses: dorny/paths-filter@v2
-      id: filter
-      with:
-        filters: |
-          openmemory:
-            - 'openmemory/**'
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            openmemory:
+              - '{openmemory,server}/**'
 
   build-and-push:
     needs: check_changes
@@ -53,48 +55,52 @@ jobs:
             dockerfile: openmemory/ui/Dockerfile
             context: openmemory/ui
             image: openmemory-ui
-    
+          - service: mem0
+            dockerfile: server/Dockerfile
+            context: server
+            image: openmemory-mem0
+
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-    - name: Azure Login
-      uses: azure/login@v2
-      with:
-        client-id: ${{ secrets.AZURE_CLIENT_ID }}
-        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-        enable-AzPSSession: true
-        
-    - name: Log in to Azure Container Registry
-      run: az acr login --name schoollawregistry
-  
-    - name: Extract metadata
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: ${{ env.REGISTRY }}/${{ matrix.image }}
-        tags: |
-          type=ref,event=branch
-          type=ref,event=pr
-          type=sha,prefix={{branch}}-
-          type=raw,value=latest,enable=${{ github.ref == 'refs/heads/implementation/school-law' }}
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          enable-AzPSSession: true
 
-    - name: Build and push Docker image
-      id: build
-      uses: docker/build-push-action@v5
-      with:
-        context: ${{ matrix.context }}
-        file: ${{ matrix.dockerfile }}
-        push: true
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-        platforms: linux/amd64
+      - name: Log in to Azure Container Registry
+        run: az acr login --name schoollawregistry
 
-    - name: Output image digest
-      run: echo "Image digest for ${{ matrix.service }} built successfully"
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ matrix.image }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/implementation/school-law' }}
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+      - name: Output image digest
+        run: echo "Image digest for ${{ matrix.service }} built successfully"
