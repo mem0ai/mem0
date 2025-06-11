@@ -118,21 +118,22 @@ export class McpSession implements DurableObject {
             return new Response("MCP session not ready", { status: 408 });
         }
 
+        let message: JSONRPCRequest | undefined;
         try {
             const messageText = await request.text();
-            const message = JSON.parse(messageText) as JSONRPCRequest;
+            message = JSON.parse(messageText) as JSONRPCRequest;
             
-            console.log("Processing MCP message:", message.method);
+            console.log("Processing MCP message:", message.method, "ID:", message.id);
 
-            // Proxy the request to backend (our backend now handles MCP protocol correctly)
-            const backendResponseJson = await this.proxyToBackend(messageText);
+            // Proxy the request to backend, passing the request ID
+            const backendResponseJson = await this.proxyToBackend(messageText, message.id);
 
             // Send response via SSE using proper MCP SSE format
             const encoder = new TextEncoder();
             const sseMessage = `event: message\ndata: ${JSON.stringify(backendResponseJson)}\n\n`;
             this.sseController.enqueue(encoder.encode(sseMessage));
             
-            console.log("MCP response sent via SSE");
+            console.log("MCP response sent via SSE for ID:", message.id);
 
             return new Response(JSON.stringify({status: "ok"}), { 
                 status: 200, 
@@ -145,7 +146,7 @@ export class McpSession implements DurableObject {
             if (this.sseController) {
                 const errorResponse: JSONRPCResponse = {
                     jsonrpc: "2.0",
-                    id: null,
+                    id: message?.id ?? null,
                     error: {
                         code: -32603,
                         message: error.message
@@ -161,8 +162,17 @@ export class McpSession implements DurableObject {
         }
     }
 
-    async proxyToBackend(message: string) {
+    async proxyToBackend(message: string, requestId: number | string | null) {
         const url = `${this.backendUrl}/mcp/messages/`;
+        console.log(`Proxying to backend: ${url} for request ID: ${requestId}`);
+        const startTime = Date.now();
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+            console.error(`Backend request timed out from worker for ID: ${requestId}`);
+            controller.abort()
+        }, 55000); // 55s timeout, less than client's 60s
+
         try {
             const response = await fetch(url, {
                 method: 'POST',
@@ -173,18 +183,42 @@ export class McpSession implements DurableObject {
                     'X-Client-Name': this.clientName,
                 },
                 body: message,
+                signal: controller.signal,
             });
+
+            const duration = Date.now() - startTime;
+            console.log(`Backend responded for ID ${requestId} in ${duration}ms with status ${response.status}`);
 
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error(`Backend error: ${response.status} ${errorText}`);
-                return { jsonrpc: "2.0", error: { code: response.status, message: "Backend Error", data: errorText }};
+                console.error(`Backend error for ID ${requestId}: ${response.status} ${errorText}`);
+                return { jsonrpc: "2.0", id: requestId, error: { code: response.status, message: "Backend Error", data: errorText }};
             }
 
-            return await response.json();
+            const responseText = await response.text();
+            try {
+                const jsonResponse = JSON.parse(responseText);
+                if (!('id' in jsonResponse) || jsonResponse.id !== requestId) {
+                    console.log(`Backend response for ID ${requestId} had mismatched or missing ID. Original ID: ${jsonResponse.id}. Patching to ${requestId}.`);
+                    jsonResponse.id = requestId;
+                }
+                return jsonResponse;
+            } catch (e: any) {
+                console.error(`Failed to parse backend response as JSON for ID ${requestId}. Error:`, e.message);
+                console.error(`Raw backend response text for ID ${requestId}:`, responseText);
+                return { jsonrpc: "2.0", id: requestId, error: { code: -32002, message: "Backend response is not valid JSON", data: responseText }};
+            }
+
         } catch (error: any) {
-            console.error('Error proxying to backend:', error);
-            return { jsonrpc: "2.0", error: { code: -32000, message: "Proxy Error", data: error.message }};
+            const duration = Date.now() - startTime;
+            if (error.name === 'AbortError') {
+                console.error(`Error proxying to backend: fetch aborted after ${duration}ms for ID ${requestId}.`);
+                return { jsonrpc: "2.0", id: requestId, error: { code: -32000, message: "Proxy Timeout", data: `Request to backend timed out after ${duration}ms` }};
+            }
+            console.error(`Error proxying to backend after ${duration}ms for ID ${requestId}:`, error);
+            return { jsonrpc: "2.0", id: requestId, error: { code: -32000, message: "Proxy Error", data: error.message }};
+        } finally {
+            clearTimeout(timeoutId);
         }
     }
 }
