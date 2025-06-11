@@ -25,6 +25,7 @@ export class McpSession implements DurableObject {
 	userId!: string;
     sseController?: ReadableStreamDefaultController;
     sessionReady: boolean = false;
+    keepAliveInterval?: any;
 
 	constructor(state: DurableObjectState) {
 		this.state = state;
@@ -40,6 +41,10 @@ export class McpSession implements DurableObject {
                 console.log("Stream already closed during cleanup");
             }
             this.sseController = undefined;
+        }
+        if (this.keepAliveInterval) {
+            clearInterval(this.keepAliveInterval);
+            this.keepAliveInterval = undefined;
         }
         this.sessionReady = false;
     }
@@ -88,6 +93,19 @@ export class McpSession implements DurableObject {
                 const endpointEvent = `event: endpoint\ndata: /mcp/${this.clientName}/messages/${this.userId}\n\n`;
                 controller.enqueue(encoder.encode(endpointEvent));
                 console.log("Sent MCP endpoint event");
+
+                // Start sending keep-alive pings every 30 seconds
+                this.keepAliveInterval = setInterval(() => {
+                    if (this.sseController) {
+                        try {
+                            const keepAliveComment = ': keep-alive\\n\\n';
+                            this.sseController.enqueue(encoder.encode(keepAliveComment));
+                        } catch(e) {
+                            console.error("Error sending keep-alive, closing session:", e);
+                            this.cleanupSession();
+                        }
+                    }
+                }, 30000); // 30 seconds
 
                 // Handle client disconnection
                 request.signal?.addEventListener('abort', () => {
