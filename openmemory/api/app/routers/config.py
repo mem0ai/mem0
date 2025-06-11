@@ -22,7 +22,7 @@ class LLMConfig(BaseModel):
     deployment: Optional[str] = Field(None, description="Deployment name for Azure OpenAI")
     deployment_name: Optional[str] = Field(None, description="Deployment name for Azure OpenAI")
     api_version: Optional[str] = Field(None, description="API version for Azure OpenAI")
-    endpoint: Optional[str] = Field(None, description="Endpoint URL for Azure OpenAI or Ollama server")
+    azure_endpoint: Optional[str] = Field(None, description="Endpoint URL for Azure OpenAI or Ollama server")
 
 class LLMProvider(BaseModel):
     provider: str = Field(..., description="LLM provider name")
@@ -32,8 +32,7 @@ class EmbedderConfig(BaseModel):
     model: str = Field(..., description="Embedder model name")
     azure_api_key: Optional[str] = Field(None, description="Azure API key or 'env:AZURE_API_KEY' to use environment variable")
     api_key: Optional[str] = Field(None, description="API key or 'env:API_KEY' to use environment variable")
-    api_version: Optional[str] = Field(None, description="API version for Azure OpenAI")
-    endpoint: Optional[str] = Field(None, description="Endpoint URL for Azure OpenAI or Ollama server")
+    azure_endpoint: Optional[str] = Field(None, description="Endpoint URL for Azure OpenAI or Ollama server")
 
 class EmbedderProvider(BaseModel):
     provider: str = Field(..., description="Embedder provider name")
@@ -111,7 +110,7 @@ def get_default_configuration():
                 "api_version": "env:OPENAI_API_VERSION",
                 "deployment": "env:AZURE_DEPLOYMENT",
                 "deployment_name": "env:AZURE_DEPLOYMENT",
-                "endpoint": "env:AZURE_ENDPOINT"
+                "azure_endpoint": "env:AZURE_ENDPOINT"
             }
             },
             "embedder": {
@@ -123,14 +122,14 @@ def get_default_configuration():
                 "api_version": "env:OPENAI_API_VERSION",
                 "deployment": "env:AZURE_DEPLOYMENT",
                 "deployment_name": "text-embedding-3-small",
-                "endpoint": "env:EMBEDDER_ENDPOINT"
+                "azure_endpoint": "env:EMBEDDER_ENDPOINT"
             }
             },
             "vector_store": {
             "provider": "pgvector",
             "config": {
                 "host": "env:POSTGRES_HOST",
-                "port": "int(env:POSTGRES_PORT)",
+                "port": 8432,
                 "dbname": "env:POSTGRES_DB",
                 "user": "env:POSTGRES_USER",
                 "password": "env:POSTGRES_PASSWORD",
@@ -147,52 +146,7 @@ def get_default_configuration():
             }
         },
         "openmemory": {
-            "custom_instructions": None,
-            "llm": {
-            "provider": "azure_openai",
-            "config": {
-                "model": "gpt-4o-mini",
-                "temperature": 0.1,
-                "max_tokens": 2000,
-                "azure_api_key":"env:OPENAI_API_KEY", 
-                "api_key": "env:OPENAI_API_KEY",
-                "api_version": "env:OPENAI_API_VERSION",
-                "deployment": "env:AZURE_DEPLOYMENT",
-                "deployment_name": "env:AZURE_DEPLOYMENT",
-                "endpoint": "env:AZURE_ENDPOINT"
-            }
-            },
-            "embedder": {
-            "provider": "azure_openai",
-            "config": {
-                "model": "text-embedding-3-small",
-                "azure_api_key":"env:OPENAI_API_KEY", 
-                "api_key": "env:OPENAI_API_KEY",
-                "api_version": "env:OPENAI_API_VERSION",
-                "deployment": "env:AZURE_DEPLOYMENT",
-                "deployment_name": "text-embedding-3-small",
-                "endpoint": "env:EMBEDDER_ENDPOINT"
-            }
-            },
-            "vector_store": {
-                "provider": "pgvector",
-                "config": {
-                    "host": "env:POSTGRES_HOST",
-                    "port": "int(env:POSTGRES_PORT)",
-                    "dbname": "env:POSTGRES_DB",
-                    "user": "env:POSTGRES_USER",
-                    "password": "env:POSTGRES_PASSWORD",
-                    "collection_name": "env:POSTGRES_COLLECTION_NAME"
-                }
-            },
-            "graph_store": {
-                "provider": "neo4j",
-                "config": {
-                    "url": "env:NEO4J_URI",
-                    "username": "env:NEO4J_USERNAME",
-                    "password": "env:NEO4J_PASSWORD"
-                }            
-            }
+            "custom_instructions": None,           
         }
     }
 def get_config_from_db(db: Session, key: str = "main"):
