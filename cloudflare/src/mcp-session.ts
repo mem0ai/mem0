@@ -136,69 +136,57 @@ export class McpSession implements DurableObject {
             return new Response("MCP session not ready", { status: 408 });
         }
 
-        let message: JSONRPCRequest | undefined;
         try {
             const messageText = await request.text();
-            message = JSON.parse(messageText) as JSONRPCRequest;
+            const message = JSON.parse(messageText) as JSONRPCRequest;
             
-            console.log("Processing MCP message:", message.method, "ID:", message.id);
+            console.log(`[${this.userId}] Received message ID: ${message.id}, method: ${message.method}`);
 
-            // Start backend request immediately
-            const backendPromise = this.proxyToBackend(messageText, message.id);
-            
-            // Return 200 immediately to client to prevent client-side timeout
-            const immediateResponse = new Response(JSON.stringify({status: "processing"}), { 
+            // IMPORTANT: Do not await the long-running task.
+            // Use waitUntil to ensure the task runs to completion in the background
+            // without blocking the Durable Object from processing other requests.
+            this.state.waitUntil(
+                this.processAndRespond(messageText, message)
+            );
+
+            // Immediately return a success response for the HTTP POST.
+            // This unblocks the client. The actual result will be sent via SSE.
+            return new Response(JSON.stringify({status: "ok"}), { 
                 status: 200, 
                 headers: {'Content-Type': 'application/json'} 
             });
 
-            // Handle backend response asynchronously
-            backendPromise.then(backendResponseJson => {
-                if (this.sseController) {
-                    const encoder = new TextEncoder();
-                    const sseMessage = `event: message\ndata: ${JSON.stringify(backendResponseJson)}\n\n`;
-                    this.sseController.enqueue(encoder.encode(sseMessage));
-                    console.log("MCP response sent via SSE for ID:", message?.id);
-                }
-            }).catch(error => {
-                console.error("Error in backend promise:", error);
-                if (this.sseController) {
-                    const errorResponse: JSONRPCResponse = {
-                        jsonrpc: "2.0",
-                        id: message?.id ?? null,
-                        error: {
-                            code: -32603,
-                            message: error.message
-                        }
-                    };
-                    
-                    const encoder = new TextEncoder();
-                    const errorSseMessage = `event: message\ndata: ${JSON.stringify(errorResponse)}\n\n`;
-                    this.sseController.enqueue(encoder.encode(errorSseMessage));
-                }
-            });
-
-            return immediateResponse;
-
         } catch (error: any) {
-            console.error("Error processing MCP message:", error);
-            
+            console.error(`[${this.userId}] Failed to parse incoming message:`, error);
+            return new Response("Invalid JSON in request body", { status: 400 });
+        }
+    }
+
+    async processAndRespond(messageText: string, message: JSONRPCRequest): Promise<void> {
+        console.log(`[${this.userId}] Starting background processing for ID: ${message.id}`);
+        try {
+            const backendResponseJson = await this.proxyToBackend(messageText, message.id);
+
+            if (this.sseController) {
+                const encoder = new TextEncoder();
+                const sseMessage = `event: message\ndata: ${JSON.stringify(backendResponseJson)}\n\n`;
+                this.sseController.enqueue(encoder.encode(sseMessage));
+                console.log(`[${this.userId}] Successfully enqueued SSE response for ID: ${message.id}`);
+            } else {
+                console.error(`[${this.userId}] SSE Controller not available for ID: ${message.id}. Session may have been closed.`);
+            }
+        } catch (error: any) {
+            console.error(`[${this.userId}] Error during background processing for ID ${message.id}:`, error);
             if (this.sseController) {
                 const errorResponse: JSONRPCResponse = {
                     jsonrpc: "2.0",
-                    id: message?.id ?? null,
-                    error: {
-                        code: -32603,
-                        message: error.message
-                    }
+                    id: message.id,
+                    error: { code: -32603, message: `Backend task failed: ${error.message}` }
                 };
-                
                 const encoder = new TextEncoder();
                 const errorSseMessage = `event: message\ndata: ${JSON.stringify(errorResponse)}\n\n`;
                 this.sseController.enqueue(encoder.encode(errorSseMessage));
             }
-            
-            return new Response("Internal Server Error", { status: 500 });
         }
     }
 

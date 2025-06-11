@@ -1,6 +1,8 @@
 import logging
 import json
 import gc  # Add garbage collection
+import functools
+import asyncio
 from mcp.server.fastmcp import FastMCP
 from mcp.server.sse import SseServerTransport
 # Defer heavy imports
@@ -117,7 +119,11 @@ async def add_memories(text: str) -> str:
 
             mem0_start_time = time.time()
             logger.info(f"add_memories: Starting mem0 client call for user {supa_uid}")
-            response = memory_client.add(
+
+            # Run blocking I/O in a separate thread to not block the event loop
+            loop = asyncio.get_running_loop()
+            add_call = functools.partial(
+                memory_client.add,
                 messages=[{"role": "user", "content": text}],
                 user_id=supa_uid,
                 metadata={
@@ -126,6 +132,8 @@ async def add_memories(text: str) -> str:
                     "app_db_id": str(app.id)
                 }
             )
+            response = await loop.run_in_executor(None, add_call)
+
             mem0_duration = time.time() - mem0_start_time
             logger.info(f"add_memories: mem0 client call for user {supa_uid} took {mem0_duration:.2f}s")
 
@@ -241,6 +249,8 @@ async def search_memory(query: str, limit: int = None) -> str:
 async def _search_memory_impl(query: str, supa_uid: str, client_name: str, limit: int = 10) -> str:
     """Implementation of search memory with error handling and timeout"""
     from app.utils.memory import get_memory_client
+    import asyncio
+    import functools
     memory_client = get_memory_client()
     db = SessionLocal()
     try:
@@ -255,8 +265,10 @@ async def _search_memory_impl(query: str, supa_uid: str, client_name: str, limit
             logger.error(f"🚨 USER ID MISMATCH: Expected {supa_uid}, got {user.user_id}")
             return f"Error: User ID validation failed. Security issue detected."
 
-        # Search ALL memories for this user across all apps with limit
-        mem0_search_results = memory_client.search(query=query, user_id=supa_uid, limit=limit)
+        # Run blocking I/O in a separate thread
+        loop = asyncio.get_running_loop()
+        search_call = functools.partial(memory_client.search, query=query, user_id=supa_uid, limit=limit)
+        mem0_search_results = await loop.run_in_executor(None, search_call)
         
         # 🚨 CRITICAL: Log the search results for debugging
         logger.info(f"🔍 SEARCH DEBUG - Query: {query}, Results count: {len(mem0_search_results.get('results', [])) if isinstance(mem0_search_results, dict) else len(mem0_search_results) if isinstance(mem0_search_results, list) else 0}")
@@ -327,6 +339,8 @@ async def _list_memories_impl(supa_uid: str, client_name: str, limit: int = 20) 
     """Implementation of list_memories with timeout protection"""
     from app.utils.memory import get_memory_client
     import time
+    import asyncio
+    import functools
     start_time = time.time()
     logger.info(f"list_memories: Starting for user {supa_uid}")
 
@@ -346,7 +360,12 @@ async def _list_memories_impl(supa_uid: str, client_name: str, limit: int = 20) 
 
         # Get ALL memories for this user across all apps with limit
         fetch_start_time = time.time()
-        all_mem0_memories = memory_client.get_all(user_id=supa_uid, limit=limit)
+        
+        # Run blocking I/O in a separate thread
+        loop = asyncio.get_running_loop()
+        get_all_call = functools.partial(memory_client.get_all, user_id=supa_uid, limit=limit)
+        all_mem0_memories = await loop.run_in_executor(None, get_all_call)
+
         fetch_duration = time.time() - fetch_start_time
         
         results_count = len(all_mem0_memories.get('results', [])) if isinstance(all_mem0_memories, dict) else len(all_mem0_memories) if isinstance(all_mem0_memories, list) else 0
@@ -888,6 +907,8 @@ async def _lightweight_ask_memory_impl(question: str, supa_uid: str, client_name
     from mem0.configs.llms.base import BaseLlmConfig
     
     import time
+    import asyncio # Import asyncio for timeout
+    import functools
     start_time = time.time()
     logger.info(f"ask_memory: Starting for user {supa_uid}")
     
@@ -909,11 +930,12 @@ async def _lightweight_ask_memory_impl(question: str, supa_uid: str, client_name
             # 1. Quick memory search (limit to 10 for speed)
             search_start_time = time.time()
             logger.info(f"ask_memory: Starting memory search for user {supa_uid}")
-            search_result = memory_client.search(
-                query=question,
-                user_id=supa_uid,
-                limit=10  # Much smaller for speed
-            )
+            
+            # Run blocking I/O in a separate thread
+            loop = asyncio.get_running_loop()
+            search_call = functools.partial(memory_client.search, query=question, user_id=supa_uid, limit=10)
+            search_result = await loop.run_in_executor(None, search_call)
+
             search_duration = time.time() - search_start_time
             
             # Process results
@@ -954,15 +976,24 @@ async def _lightweight_ask_memory_impl(question: str, supa_uid: str, client_name
             try:
                 llm_start_time = time.time()
                 logger.info(f"ask_memory: Starting LLM call for user {supa_uid}")
-                response = llm.generate_response([{"role": "user", "content": prompt}])
+                
+                # Enforce a 25-second timeout on the LLM call to prevent hangs
+                response = await asyncio.wait_for(
+                    llm.generate_response([{"role": "user", "content": prompt}]),
+                    timeout=25.0
+                )
+
                 llm_duration = time.time() - llm_start_time
                 logger.info(f"ask_memory: LLM call for user {supa_uid} took {llm_duration:.2f}s")
                 # Access response.text safely
                 result = response
                 total_duration = time.time() - start_time
-                result += f"\n\n💡 Timings: search={search_duration:.2f}s, llm={llm_duration:.2f}s, total={total_duration:.2f}s | {len(clean_memories)} memories"
+                result += f"\\n\\n💡 Timings: search={search_duration:.2f}s, llm={llm_duration:.2f}s, total={total_duration:.2f}s | {len(clean_memories)} memories"
                 
                 return result
+            except asyncio.TimeoutError:
+                logger.error(f"LLM call for ask_memory timed out after 25s for user {supa_uid}.")
+                return "I'm sorry, my connection to my thinking process was interrupted. Please try again."
             except ValueError as e:
                 # Handle cases where the response is blocked or has no content
                 if "finish_reason" in str(e):
