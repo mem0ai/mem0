@@ -49,6 +49,25 @@ export class McpSession implements DurableObject {
         this.sessionReady = false;
     }
 
+    async alarm() {
+        // List all pending messages from storage.
+        const messages = await this.state.storage.list<string>({ prefix: "msg_" });
+    
+        // Process each message.
+        for (const [key, value] of messages.entries()) {
+            try {
+                console.log(`Processing alarm for key: ${key}`);
+                const message = JSON.parse(value) as JSONRPCRequest;
+                await this.processAndRespond(value, message);
+            } catch (e) {
+                console.error(`Failed to process message for key ${key}:`, e);
+            } finally {
+                // Delete the message from storage after processing.
+                await this.state.storage.delete(key);
+            }
+        }
+    }
+
 	async fetch(request: Request): Promise<Response> {
 		this.backendUrl = request.headers.get('X-Backend-Url')!;
 		this.clientName = request.headers.get('X-Client-Name')!;
@@ -132,32 +151,34 @@ export class McpSession implements DurableObject {
     }
 
     async handlePostMessage(request: Request): Promise<Response> {
-        if (!this.sessionReady || !this.sseController) {
+        if (!this.sessionReady) {
             return new Response("MCP session not ready", { status: 408 });
         }
 
         try {
             const messageText = await request.text();
-            const message = JSON.parse(messageText) as JSONRPCRequest;
+            // Basic validation to ensure it's a JSON object with an ID.
+            const message = JSON.parse(messageText);
+            if (typeof message !== 'object' || message === null || !('id' in message)) {
+                return new Response("Invalid JSON-RPC message", { status: 400 });
+            }
             
-            console.log(`[${this.userId}] Received message ID: ${message.id}, method: ${message.method}`);
+            // Store the message and set an alarm to process it immediately.
+            // This is non-blocking and returns instantly.
+            const key = `msg_${Date.now()}_${message.id}`;
+            await this.state.storage.put(key, messageText);
+            await this.state.storage.setAlarm(Date.now());
 
-            // IMPORTANT: Do not await the long-running task.
-            // Use waitUntil to ensure the task runs to completion in the background
-            // without blocking the Durable Object from processing other requests.
-            this.state.waitUntil(
-                this.processAndRespond(messageText, message)
-            );
+            console.log(`[${this.userId}] Queued message ID: ${message.id} with key ${key}`);
 
             // Immediately return a success response for the HTTP POST.
-            // This unblocks the client. The actual result will be sent via SSE.
-            return new Response(JSON.stringify({status: "ok"}), { 
+            return new Response(JSON.stringify({status: "queued"}), { 
                 status: 200, 
                 headers: {'Content-Type': 'application/json'} 
             });
 
         } catch (error: any) {
-            console.error(`[${this.userId}] Failed to parse incoming message:`, error);
+            console.error(`[${this.userId}] Failed to parse or queue incoming message:`, error);
             return new Response("Invalid JSON in request body", { status: 400 });
         }
     }
@@ -199,7 +220,7 @@ export class McpSession implements DurableObject {
         const timeoutId = setTimeout(() => {
             console.error(`Backend request timed out from worker for ID: ${requestId}`);
             controller.abort()
-        }, 90000); // Increased to 90s timeout for deep_memory_query
+        }, 90000); // 90s timeout
 
         try {
             const response = await fetch(url, {
