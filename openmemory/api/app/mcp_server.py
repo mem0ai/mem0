@@ -977,9 +977,11 @@ async def _lightweight_ask_memory_impl(question: str, supa_uid: str, client_name
                 llm_start_time = time.time()
                 logger.info(f"ask_memory: Starting LLM call for user {supa_uid}")
                 
-                # Enforce a 25-second timeout on the LLM call to prevent hangs
+                # Enforce a 25-second timeout on the LLM call and run it in a separate thread
+                loop = asyncio.get_running_loop()
+                llm_call = functools.partial(llm.generate_response, [{"role": "user", "content": prompt}])
                 response = await asyncio.wait_for(
-                    llm.generate_response([{"role": "user", "content": prompt}]),
+                    loop.run_in_executor(None, llm_call),
                     timeout=25.0
                 )
 
