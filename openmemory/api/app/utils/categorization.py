@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 
 from openai import OpenAI
 from typing import List
@@ -9,8 +10,16 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 from app.utils.prompts import MEMORY_CATEGORIZATION_PROMPT
 
 load_dotenv()
+LM_STUDIO_API_KEY = os.getenv("LM_STUDIO_API_KEY")
+LM_STUDIO_BASE_URL = os.getenv("LM_STUDIO_BASE_URL")
+LM_STUDIO_MODEL = os.getenv("LM_STUDIO_MODEL")
 
-openai_client = OpenAI()
+if LM_STUDIO_API_KEY and LM_STUDIO_BASE_URL:
+    openai_client = OpenAI(base_url=LM_STUDIO_BASE_URL,api_key=LM_STUDIO_API_KEY)
+    model = LM_STUDIO_MODEL
+else:
+    openai_client = OpenAI()
+    model = "gpt-4o-mini"
 
 
 class MemoryCategories(BaseModel):
@@ -22,7 +31,7 @@ def get_categories_for_memory(memory: str) -> List[str]:
     """Get categories for a memory."""
     try:
         response = openai_client.responses.parse(
-            model="gpt-4o-mini",
+            model=model,
             instructions=MEMORY_CATEGORIZATION_PROMPT,
             input=memory,
             temperature=0,

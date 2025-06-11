@@ -6,6 +6,7 @@ export interface LLMConfig {
   max_tokens: number;
   api_key?: string;
   ollama_base_url?: string;
+  lmstudio_base_url?: string;
 }
 
 export interface LLMProvider {
@@ -17,6 +18,7 @@ export interface EmbedderConfig {
   model: string;
   api_key?: string;
   ollama_base_url?: string;
+  lmstudio_base_url?: string;
 }
 
 export interface EmbedderProvider {
@@ -52,6 +54,8 @@ const initialState: ConfigState = {
         temperature: 0.1,
         max_tokens: 2000,
         api_key: 'env:OPENAI_API_KEY',
+        lmstudio_base_url: 'http://localhost:1234/v1',
+        ollama_base_url: 'http://localhost:11434',
       },
     },
     embedder: {
@@ -59,6 +63,8 @@ const initialState: ConfigState = {
       config: {
         model: 'text-embedding-3-small',
         api_key: 'env:OPENAI_API_KEY',
+        lmstudio_base_url: 'http://localhost:1234/v1',
+        ollama_base_url: 'http://localhost:11434',
       },
     },
   },
