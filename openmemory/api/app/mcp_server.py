@@ -63,10 +63,14 @@ async def add_memories(text: str) -> str:
     """
     # Lazy import
     from app.utils.memory import get_memory_client
+    import time
+    start_time = time.time()
     
     supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
     
+    logger.info(f"add_memories: Starting for user {supa_uid}")
+
     # 🚨 CRITICAL: Add comprehensive logging to detect contamination
     logger.error(f"🔍 ADD_MEMORIES DEBUG - User ID from context: {supa_uid}")
     logger.error(f"🔍 ADD_MEMORIES DEBUG - Client name from context: {client_name}")
@@ -101,13 +105,18 @@ async def add_memories(text: str) -> str:
         return "Error: client_name not available in context"
 
     try:
+        db_start_time = time.time()
         db = SessionLocal()
+        db_duration = time.time() - db_start_time
+        logger.info(f"add_memories: DB connection for user {supa_uid} took {db_duration:.2f}s")
         try:
             user, app = get_user_and_app(db, supabase_user_id=supa_uid, app_name=client_name, email=None)
 
             if not app.is_active:
                 return f"Error: App {app.name} is currently paused. Cannot create new memories."
 
+            mem0_start_time = time.time()
+            logger.info(f"add_memories: Starting mem0 client call for user {supa_uid}")
             response = memory_client.add(
                 messages=[{"role": "user", "content": text}],
                 user_id=supa_uid,
@@ -117,6 +126,8 @@ async def add_memories(text: str) -> str:
                     "app_db_id": str(app.id)
                 }
             )
+            mem0_duration = time.time() - mem0_start_time
+            logger.info(f"add_memories: mem0 client call for user {supa_uid} took {mem0_duration:.2f}s")
 
             if isinstance(response, dict) and 'results' in response:
                 added_count = 0
@@ -160,22 +171,28 @@ async def add_memories(text: str) -> str:
                     elif result.get('event') == 'UPDATE':
                         updated_count += 1
                         
+                db_commit_start_time = time.time()
                 db.commit()
+                db_commit_duration = time.time() - db_commit_start_time
+                logger.info(f"add_memories: DB commit for user {supa_uid} took {db_commit_duration:.2f}s")
                 
                 # Return a meaningful string response
+                total_duration = time.time() - start_time
                 if added_count > 0:
-                    return f"Successfully added {added_count} new memory(ies). Content: {text[:100]}{'...' if len(text) > 100 else ''}"
+                    return f"Successfully added {added_count} new memory(ies). Total time: {total_duration:.2f}s. Content: {text[:100]}{'...' if len(text) > 100 else ''}"
                 elif updated_count > 0:
-                    return f"Updated {updated_count} existing memory(ies) with new information. Content: {text[:100]}{'...' if len(text) > 100 else ''}"
+                    return f"Updated {updated_count} existing memory(ies) with new information. Total time: {total_duration:.2f}s. Content: {text[:100]}{'...' if len(text) > 100 else ''}"
                 else:
-                    return f"Memory processed but no changes made (possibly duplicate). Content: {text[:100]}{'...' if len(text) > 100 else ''}"
+                    return f"Memory processed but no changes made (possibly duplicate). Total time: {total_duration:.2f}s. Content: {text[:100]}{'...' if len(text) > 100 else ''}"
             else:
                 # Handle case where response doesn't have expected format
-                return f"Memory processed successfully. Response: {str(response)[:200]}{'...' if len(str(response)) > 200 else ''}"
+                total_duration = time.time() - start_time
+                return f"Memory processed successfully in {total_duration:.2f}s. Response: {str(response)[:200]}{'...' if len(str(response)) > 200 else ''}"
         finally:
             db.close()
     except Exception as e:
-        logging.error(f"Error in add_memories MCP tool: {e}", exc_info=True)
+        total_duration = time.time() - start_time
+        logging.error(f"Error in add_memories MCP tool after {total_duration:.2f}s: {e}", exc_info=True)
         return f"Error adding to memory: {e}"
 
 
@@ -846,6 +863,7 @@ async def _lightweight_ask_memory_impl(question: str, supa_uid: str, client_name
     
     import time
     start_time = time.time()
+    logger.info(f"ask_memory: Starting for user {supa_uid}")
     
     try:
         db = SessionLocal()
@@ -863,11 +881,14 @@ async def _lightweight_ask_memory_impl(question: str, supa_uid: str, client_name
             llm = OpenAILLM(config=BaseLlmConfig(model="gpt-4o-mini"))
             
             # 1. Quick memory search (limit to 10 for speed)
+            search_start_time = time.time()
+            logger.info(f"ask_memory: Starting memory search for user {supa_uid}")
             search_result = memory_client.search(
                 query=question,
                 user_id=supa_uid,
                 limit=10  # Much smaller for speed
             )
+            search_duration = time.time() - search_start_time
             
             # Process results
             memories = []
@@ -875,6 +896,8 @@ async def _lightweight_ask_memory_impl(question: str, supa_uid: str, client_name
                 memories = search_result['results'][:10]
             elif isinstance(search_result, list):
                 memories = search_result[:10]
+            
+            logger.info(f"ask_memory: Memory search for user {supa_uid} took {search_duration:.2f}s. Found {len(memories)} results.")
             
             # Filter out contaminated memories and limit token usage
             clean_memories = []
@@ -903,10 +926,15 @@ async def _lightweight_ask_memory_impl(question: str, supa_uid: str, client_name
             Answer concisely based only on the provided memories."""
             
             try:
+                llm_start_time = time.time()
+                logger.info(f"ask_memory: Starting LLM call for user {supa_uid}")
                 response = llm.generate_response([{"role": "user", "content": prompt}])
+                llm_duration = time.time() - llm_start_time
+                logger.info(f"ask_memory: LLM call for user {supa_uid} took {llm_duration:.2f}s")
                 # Access response.text safely
                 result = response
-                result += f"\\n\\n💡 Quick search: {round(time.time() - start_time, 2)}s | {len(clean_memories)} memories"
+                total_duration = time.time() - start_time
+                result += f"\\n\\n💡 Timings: search={search_duration:.2f}s, llm={llm_duration:.2f}s, total={total_duration:.2f}s | {len(clean_memories)} memories"
                 
                 return result
             except ValueError as e:
@@ -926,6 +954,8 @@ async def _lightweight_ask_memory_impl(question: str, supa_uid: str, client_name
             
     except Exception as e:
         logger.error(f"Error in lightweight ask_memory: {e}", exc_info=True)
+        total_duration = time.time() - start_time
+        logger.error(f"ask_memory: Failed after {total_duration:.2f}s for user {supa_uid}")
         return f"An unexpected error occurred in ask_memory: {e}"
 
 
