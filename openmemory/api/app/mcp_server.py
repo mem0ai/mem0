@@ -611,6 +611,7 @@ async def _deep_memory_query_impl(search_query: str, supa_uid: str, client_name:
     
     import time
     start_time = time.time()
+    logger.info(f"deep_memory_query: Starting for user {supa_uid}")
     
     try:
         db = SessionLocal()
@@ -626,12 +627,14 @@ async def _deep_memory_query_impl(search_query: str, supa_uid: str, client_name:
             chunking_service = ChunkingService()
             
             # 1. Get ALL memories for comprehensive context
+            mem_fetch_start_time = time.time()
             all_memories_result = memory_client.get_all(user_id=supa_uid, limit=memory_limit * 2)
             search_memories_result = memory_client.search(
                 query=search_query,
                 user_id=supa_uid,
                 limit=memory_limit
             )
+            mem_fetch_duration = time.time() - mem_fetch_start_time
             
             # Combine and prioritize memories
             all_memories = []
@@ -664,10 +667,15 @@ async def _deep_memory_query_impl(search_query: str, supa_uid: str, client_name:
                 if isinstance(mem, dict) and mem.get('id') and mem['id'] not in memory_ids_seen:
                     prioritized_memories.append(mem)
             
+            logger.info(f"deep_memory_query: Memory fetching for user {supa_uid} took {mem_fetch_duration:.2f}s. Found {len(prioritized_memories)} memories.")
+
             # 2. Get ALL documents for comprehensive analysis
+            doc_fetch_start_time = time.time()
             all_db_documents = db.query(Document).filter(
                 Document.user_id == user.id
             ).order_by(Document.created_at.desc()).all()
+            doc_fetch_duration = time.time() - doc_fetch_start_time
+            logger.info(f"deep_memory_query: Document fetching for user {supa_uid} took {doc_fetch_duration:.2f}s. Found {len(all_db_documents)} documents.")
             
             # Smart document selection based on query
             query_lower = search_query.lower()
@@ -715,6 +723,7 @@ async def _deep_memory_query_impl(search_query: str, supa_uid: str, client_name:
                 selected_documents = [(doc, 1, ["recent"]) for doc in all_db_documents[:5]]
             
             # 3. Search document chunks
+            chunk_search_start_time = time.time()
             relevant_chunks = []
             semantic_chunks = chunking_service.search_chunks(
                 db=db,
@@ -723,6 +732,8 @@ async def _deep_memory_query_impl(search_query: str, supa_uid: str, client_name:
                 limit=chunk_limit
             )
             relevant_chunks.extend(semantic_chunks)
+            chunk_search_duration = time.time() - chunk_search_start_time
+            logger.info(f"deep_memory_query: Chunk searching for user {supa_uid} took {chunk_search_duration:.2f}s. Found {len(relevant_chunks)} chunks.")
             
             # 4. Build comprehensive context
             context = "=== USER'S COMPLETE KNOWLEDGE BASE ===\n\n"
@@ -810,6 +821,8 @@ INSTRUCTIONS:
 Provide a thorough, insightful response."""
             
             # 7. Generate response (direct call for speed)
+            gemini_start_time = time.time()
+            logger.info(f"deep_memory_query: Starting Gemini call for user {supa_uid}")
             response = gemini_service.model.generate_content(
                 prompt,
                 generation_config=genai.GenerationConfig(
@@ -817,10 +830,12 @@ Provide a thorough, insightful response."""
                     max_output_tokens=4096
                 )
             )
+            gemini_duration = time.time() - gemini_start_time
+            logger.info(f"deep_memory_query: Gemini call for user {supa_uid} took {gemini_duration:.2f}s")
             
             processing_time = time.time() - start_time
             result = response.text
-            result += f"\n\n📊 Deep Analysis: {processing_time:.2f}s | {len(prioritized_memories)} memories, {len(all_db_documents)} docs, {len(selected_documents)} full docs"
+            result += f"\n\n📊 Deep Analysis: total={processing_time:.2f}s, mem_fetch={mem_fetch_duration:.2f}s, doc_fetch={doc_fetch_duration:.2f}s, chunk_search={chunk_search_duration:.2f}s, gemini={gemini_duration:.2f}s"
             
             return result
             
@@ -828,7 +843,8 @@ Provide a thorough, insightful response."""
             db.close()
             
     except Exception as e:
-        logger.error(f"Error in deep_memory_query: {e}", exc_info=True)
+        processing_time = time.time() - start_time
+        logger.error(f"Error in deep_memory_query after {processing_time:.2f}s: {e}", exc_info=True)
         return f"Error performing deep search: {str(e)}"
 
 
