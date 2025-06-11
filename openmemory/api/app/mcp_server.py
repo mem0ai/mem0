@@ -818,11 +818,10 @@ Provide a thorough, insightful response."""
 @mcp.tool(description="Fast memory search for simple questions - try this first before using heavier tools")
 async def ask_memory(question: str) -> str:
     """
-    Asks a question to the user's memory.
-    This is a lightweight tool that uses a faster, less powerful model for quick answers.
+    Fast memory search for simple questions about the user.
+    This searches stored memories only (not full documents) and returns quick, conversational answers.
+    Perfect for everyday questions like "What are my preferences?" or "What do you know about me?"
     """
-    from app.utils.memory import get_memory_client
-
     supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
 
@@ -832,13 +831,101 @@ async def ask_memory(question: str) -> str:
         return "Error: client_name not available in context"
 
     try:
-        # Use the memory client's built-in ask function
-        memory_client = get_memory_client()
-        answer = memory_client.ask(question=question, user_id=supa_uid)
-        return answer
+        # Lightweight version for better performance
+        return await _lightweight_ask_memory_impl(question, supa_uid, client_name)
     except Exception as e:
         logger.error(f"Error in ask_memory: {e}", exc_info=True)
-        return f"I had trouble processing your question: {e}. Try rephrasing or use 'search_memory' for simpler queries."
+        return f"I had trouble processing your question: {str(e)}. Try rephrasing or use 'search_memory' for simpler queries."
+
+
+async def _lightweight_ask_memory_impl(question: str, supa_uid: str, client_name: str) -> str:
+    """Lightweight ask_memory implementation for quick answers"""
+    from app.utils.memory import get_memory_client
+    from mem0.llms.openai import OpenAILLM
+    
+    import time
+    start_time = time.time()
+    
+    try:
+        db = SessionLocal()
+        try:
+            # Get user quickly
+            user = get_or_create_user(db, supa_uid, None)
+            
+            # SECURITY CHECK: Verify user ID matches
+            if user.user_id != supa_uid:
+                logger.error(f"🚨 USER ID MISMATCH: Expected {supa_uid}, got {user.user_id}")
+                return f"Error: User ID validation failed. Security issue detected."
+
+            # Initialize services
+            memory_client = get_memory_client()
+            llm = OpenAILLM(api_key=os.getenv("OPENAI_API_KEY"), model="gpt-4o-mini")
+            
+            # 1. Quick memory search (limit to 10 for speed)
+            search_result = memory_client.search(
+                query=question,
+                user_id=supa_uid,
+                limit=10  # Much smaller for speed
+            )
+            
+            # Process results
+            memories = []
+            if isinstance(search_result, dict) and 'results' in search_result:
+                memories = search_result['results'][:10]
+            elif isinstance(search_result, list):
+                memories = search_result[:10]
+            
+            # Filter out contaminated memories and limit token usage
+            clean_memories = []
+            total_chars = 0
+            max_chars = 8000  # Conservative limit to avoid token issues
+            
+            for idx, mem in enumerate(memories):
+                memory_text = mem.get('memory', mem.get('content', ''))
+                memory_line = f"Memory {idx+1}: {memory_text}"
+                
+                # Stop adding memories if we're approaching token limits
+                if total_chars + len(memory_line) > max_chars:
+                    break
+                    
+                clean_memories.append(memory_line)
+                total_chars += len(memory_line)
+            
+            # Use LLM for fast, cheap synthesis with safer prompt
+            prompt = f"""Based on the user's memories below, please answer their question.
+            
+            Memories:
+            {chr(10).join(clean_memories)}
+            
+            Question: {question}
+            
+            Answer concisely based only on the provided memories."""
+            
+            try:
+                response = llm.generate_response(prompt)
+                # Access response.text safely
+                result = response
+                result += f"\\n\\n💡 Quick search: {round(time.time() - start_time, 2)}s | {len(clean_memories)} memories"
+                
+                return result
+            except ValueError as e:
+                # Handle cases where the response is blocked or has no content
+                if "finish_reason" in str(e):
+                    logger.error(f"LLM response for ask_memory was blocked or invalid. Query: '{question}'. Error: {e}")
+                    return "The response to your question could not be generated, possibly due to safety filters or an invalid request. Please try rephrasing your question."
+                else:
+                    logger.error(f"Error processing LLM response in ask_memory: {e}", exc_info=True)
+                    return f"An error occurred while generating the response: {e}"
+            except Exception as e:
+                logger.error(f"Error in lightweight ask_memory: {e}", exc_info=True)
+                return f"An unexpected error occurred in ask_memory: {e}"
+            
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logger.error(f"Error in lightweight ask_memory: {e}", exc_info=True)
+        return f"An unexpected error occurred in ask_memory: {e}"
 
 
 @mcp.tool(description="Advanced memory search (temporarily disabled for stability)")
