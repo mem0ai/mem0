@@ -94,18 +94,18 @@ export class McpSession implements DurableObject {
                 controller.enqueue(encoder.encode(endpointEvent));
                 console.log("Sent MCP endpoint event");
 
-                // Start sending keep-alive pings every 30 seconds
+                // Start sending keep-alive pings every 45 seconds
                 this.keepAliveInterval = setInterval(() => {
                     if (this.sseController) {
                         try {
-                            const keepAliveComment = ': keep-alive\\n\\n';
+                            const keepAliveComment = ': keep-alive\n\n';
                             this.sseController.enqueue(encoder.encode(keepAliveComment));
                         } catch(e) {
                             console.error("Error sending keep-alive, closing session:", e);
                             this.cleanupSession();
                         }
                     }
-                }, 30000); // 30 seconds
+                }, 45000); // Reduced frequency to 45 seconds for better performance
 
                 // Handle client disconnection
                 request.signal?.addEventListener('abort', () => {
@@ -143,20 +143,42 @@ export class McpSession implements DurableObject {
             
             console.log("Processing MCP message:", message.method, "ID:", message.id);
 
-            // Proxy the request to backend, passing the request ID
-            const backendResponseJson = await this.proxyToBackend(messageText, message.id);
-
-            // Send response via SSE using proper MCP SSE format
-            const encoder = new TextEncoder();
-            const sseMessage = `event: message\ndata: ${JSON.stringify(backendResponseJson)}\n\n`;
-            this.sseController.enqueue(encoder.encode(sseMessage));
+            // Start backend request immediately
+            const backendPromise = this.proxyToBackend(messageText, message.id);
             
-            console.log("MCP response sent via SSE for ID:", message.id);
-
-            return new Response(JSON.stringify({status: "ok"}), { 
+            // Return 200 immediately to client to prevent client-side timeout
+            const immediateResponse = new Response(JSON.stringify({status: "processing"}), { 
                 status: 200, 
                 headers: {'Content-Type': 'application/json'} 
             });
+
+            // Handle backend response asynchronously
+            backendPromise.then(backendResponseJson => {
+                if (this.sseController) {
+                    const encoder = new TextEncoder();
+                    const sseMessage = `event: message\ndata: ${JSON.stringify(backendResponseJson)}\n\n`;
+                    this.sseController.enqueue(encoder.encode(sseMessage));
+                    console.log("MCP response sent via SSE for ID:", message?.id);
+                }
+            }).catch(error => {
+                console.error("Error in backend promise:", error);
+                if (this.sseController) {
+                    const errorResponse: JSONRPCResponse = {
+                        jsonrpc: "2.0",
+                        id: message?.id ?? null,
+                        error: {
+                            code: -32603,
+                            message: error.message
+                        }
+                    };
+                    
+                    const encoder = new TextEncoder();
+                    const errorSseMessage = `event: message\ndata: ${JSON.stringify(errorResponse)}\n\n`;
+                    this.sseController.enqueue(encoder.encode(errorSseMessage));
+                }
+            });
+
+            return immediateResponse;
 
         } catch (error: any) {
             console.error("Error processing MCP message:", error);
@@ -189,7 +211,7 @@ export class McpSession implements DurableObject {
         const timeoutId = setTimeout(() => {
             console.error(`Backend request timed out from worker for ID: ${requestId}`);
             controller.abort()
-        }, 55000); // 55s timeout, less than client's 60s
+        }, 90000); // Increased to 90s timeout for deep_memory_query
 
         try {
             const response = await fetch(url, {
@@ -216,15 +238,14 @@ export class McpSession implements DurableObject {
             const responseText = await response.text();
             try {
                 const jsonResponse = JSON.parse(responseText);
-                if (!('id' in jsonResponse) || jsonResponse.id !== requestId) {
-                    console.log(`Backend response for ID ${requestId} had mismatched or missing ID. Original ID: ${jsonResponse.id}. Patching to ${requestId}.`);
+                // Simple ID check without unnecessary logging for performance
+                if (jsonResponse.id !== requestId) {
                     jsonResponse.id = requestId;
                 }
                 return jsonResponse;
             } catch (e: any) {
                 console.error(`Failed to parse backend response as JSON for ID ${requestId}. Error:`, e.message);
-                console.error(`Raw backend response text for ID ${requestId}:`, responseText);
-                return { jsonrpc: "2.0", id: requestId, error: { code: -32002, message: "Backend response is not valid JSON", data: responseText }};
+                return { jsonrpc: "2.0", id: requestId, error: { code: -32002, message: "Backend response is not valid JSON", data: responseText.substring(0, 500) }}; // Truncate large responses
             }
 
         } catch (error: any) {
