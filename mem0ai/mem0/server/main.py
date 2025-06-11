@@ -36,23 +36,21 @@ HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/history/history.db")
 DEFAULT_CONFIG = {
     "version": "v1.1",
     "vector_store": {
-        "provider": "pgvector",
+        "provider": "faiss",
+        "config": {}
+    },
+    # 'graph_store': {...},
+    # 'neo4j': {...},
+    # 'pgvector': {...},
+    "llm": {
+        "provider": "groq",
         "config": {
-            "host": POSTGRES_HOST,
-            "port": int(POSTGRES_PORT),
-            "dbname": POSTGRES_DB,
-            "user": POSTGRES_USER,
-            "password": POSTGRES_PASSWORD,
-            "collection_name": POSTGRES_COLLECTION_NAME,
-        },
+            "api_key": "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",
+            "model": "llama3-8b-8192"
+        }
     },
-    "graph_store": {
-        "provider": "neo4j",
-        "config": {"url": NEO4J_URI, "username": NEO4J_USERNAME, "password": NEO4J_PASSWORD},
-    },
-    "llm": {"provider": "openai", "config": {"api_key": OPENAI_API_KEY, "temperature": 0.2, "model": "gpt-4o"}},
-    "embedder": {"provider": "openai", "config": {"api_key": OPENAI_API_KEY, "model": "text-embedding-3-small"}},
-    "history_db_path": HISTORY_DB_PATH,
+    "embedder": {"provider": "huggingface", "config": {"model": "all-MiniLM-L6-v2"}},
+    "history_db_path": "./mem0_history.db",
 }
 
 
