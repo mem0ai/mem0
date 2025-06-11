@@ -10,7 +10,7 @@ interface OpenSearchConfig {
   useSSL?: boolean;
   verifyCerts?: boolean;
   collectionName: string;
-  embeddingModelDims: number;
+  embeddingModelDims?: number;
 }
 
 export class OpenSearchVectorStore implements VectorStore {
@@ -41,7 +41,7 @@ export class OpenSearchVectorStore implements VectorStore {
     });
 
     this.collectionName = config.collectionName;
-    this.embeddingModelDims = config.embeddingModelDims;
+    this.embeddingModelDims = config.embeddingModelDims || 1536;
 
     this.init().catch(console.error);
   }
@@ -52,7 +52,6 @@ export class OpenSearchVectorStore implements VectorStore {
   }
 
   public async init(): Promise<void> {
-    console.log('*initialize*',)
     await this.createCol(this.collectionName, this.embeddingModelDims);
   }
 
@@ -76,7 +75,7 @@ export class OpenSearchVectorStore implements VectorStore {
       };
 
       await this.client.indices.create({ index: name, body: indexSettings });
-      console.info(`Created index ${name}`);
+      console.debug(`mem0 OpenSearchVectorStore Created index ${name}`);
 
       // Wait for index to be searchable
       const maxRetries = 60;
@@ -87,7 +86,7 @@ export class OpenSearchVectorStore implements VectorStore {
             index: name,
             body: { query: { match_all: {} }, size: 1 },
           });
-          console.info(`Index ${name} is ready`);
+          console.debug(`mem0 OpenSearchVectorStore Index ${name} is ready`);
           return;
         } catch {
           retryCount += 1;
@@ -98,7 +97,7 @@ export class OpenSearchVectorStore implements VectorStore {
         }
       }
     } else {
-      console.info(`Index ${name} already exists`);
+      console.debug(`mem0 OpenSearchVectorStore Index ${name} already exists`);
     }
   }
 
@@ -236,7 +235,7 @@ export class OpenSearchVectorStore implements VectorStore {
           body: { doc },
         });
       } catch (err) {
-        console.error(`Error updating document ${vectorId}:`, err);
+        console.error(`mem0 OpenSearchVectorStore Error updating document ${vectorId}:`, err);
       }
     }
   }
