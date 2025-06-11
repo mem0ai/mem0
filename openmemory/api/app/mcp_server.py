@@ -839,11 +839,9 @@ async def ask_memory(question: str) -> str:
 
 
 async def _lightweight_ask_memory_impl(question: str, supa_uid: str, client_name: str) -> str:
-    """Fast, lightweight memory search optimized for simple questions"""
-    # Lazy imports
+    """Lightweight ask_memory implementation for quick answers"""
     from app.utils.memory import get_memory_client
-    from app.utils.gemini import GeminiService
-    import google.generativeai as genai
+    from app.services.llm_service import get_default_llm, get_gemini_llm
     
     import time
     start_time = time.time()
@@ -861,7 +859,7 @@ async def _lightweight_ask_memory_impl(question: str, supa_uid: str, client_name
 
             # Initialize services
             memory_client = get_memory_client()
-            gemini_service = GeminiService()
+            gemini_llm = get_gemini_llm()
             
             # 1. Quick memory search (limit to 10 for speed)
             search_result = memory_client.search(
@@ -877,66 +875,57 @@ async def _lightweight_ask_memory_impl(question: str, supa_uid: str, client_name
             elif isinstance(search_result, list):
                 memories = search_result[:10]
             
-            # Filter out contaminated memories
+            # Filter out contaminated memories and limit token usage
             clean_memories = []
-            for mem in memories:
-                if isinstance(mem, dict):
-                    memory_content = mem.get('memory', mem.get('content', ''))
-                    # Skip suspicious content
-                    if any(suspicious in memory_content.lower() for suspicious in ['pralayb', '/users/pralayb', 'faircopyfolder']):
-                        logger.error(f"🚨 SUSPICIOUS MEMORY DETECTED - User {supa_uid} got memory: {memory_content[:100]}...")
-                        continue
-                    clean_memories.append(mem)
+            total_chars = 0
+            max_chars = 8000  # Conservative limit to avoid token issues
             
-            # 2. Build simple context (no heavy document processing)
-            if not clean_memories:
-                return "I don't have any relevant memories stored about this topic yet. You can use 'add_memories' to store information for me to remember."
-            
-            context = "Here are the relevant memories I found:\n\n"
-            for i, mem in enumerate(clean_memories, 1):
+            for idx, mem in enumerate(memories):
                 memory_text = mem.get('memory', mem.get('content', ''))
-                created_at = mem.get('created_at', 'Unknown date')
-                context += f"{i}. {memory_text}\n"
-                if created_at != 'Unknown date':
-                    context += f"   (from {created_at})\n"
-                context += "\n"
+                memory_line = f"Memory {idx+1}: {memory_text}"
+                
+                # Stop adding memories if we're approaching token limits
+                if total_chars + len(memory_line) > max_chars:
+                    break
+                    
+                clean_memories.append(memory_line)
+                total_chars += len(memory_line)
             
-            # 3. Simple, safe prompt for Gemini
-            prompt = f"""Based on the user's stored memories, answer their question conversationally and helpfully.
-
-Question: {question}
-
-Available memories:
-{context}
-
-Instructions:
-- Answer based only on the provided memories
-- Be conversational and helpful
-- If memories don't fully answer the question, say what you do know and suggest they add more information
-- Keep your response concise but informative
-- Do not make up information not in the memories"""
+            # Use Gemini for fast, cheap synthesis with safer prompt
+            prompt = f"""Based on the user's memories below, please answer their question.
             
-            # 4. Generate response with safety settings
-            response = gemini_service.model.generate_content(
-                prompt,
-                generation_config=genai.GenerationConfig(
-                    temperature=0.2,  # Lower temperature for more focused responses
-                    max_output_tokens=1024  # Shorter responses for speed
-                )
-            )
+            Memories:
+            {chr(10).join(clean_memories)}
             
-            processing_time = time.time() - start_time
-            result = response.text
-            result += f"\n\n💡 Quick search: {processing_time:.1f}s | {len(clean_memories)} memories"
+            Question: {question}
             
-            return result
+            Answer concisely based only on the provided memories."""
+            
+            try:
+                response = gemini_llm.generate_content(prompt)
+                # Access response.text safely
+                result = response.text
+                result += f"\n\n💡 Quick search: {round(time.time() - start_time, 2)}s | {len(clean_memories)} memories"
+                
+                return result
+            except ValueError as e:
+                # Handle cases where the response is blocked or has no content
+                if "finish_reason" in str(e):
+                    logger.error(f"Gemini response for ask_memory was blocked or invalid. Query: '{question}'. Error: {e}")
+                    return "The response to your question could not be generated, possibly due to safety filters or an invalid request. Please try rephrasing your question."
+                else:
+                    logger.error(f"Error processing Gemini response in ask_memory: {e}", exc_info=True)
+                    return f"An error occurred while generating the response: {e}"
+            except Exception as e:
+                logger.error(f"Error in lightweight ask_memory: {e}", exc_info=True)
+                return f"An unexpected error occurred in ask_memory: {e}"
             
         finally:
             db.close()
             
     except Exception as e:
         logger.error(f"Error in lightweight ask_memory: {e}", exc_info=True)
-        return f"I had trouble processing your question: {str(e)}. For complex questions, try 'deep_memory_query' instead."
+        return f"An unexpected error occurred in ask_memory: {e}"
 
 
 @mcp.tool(description="Advanced memory search (temporarily disabled for stability)")
