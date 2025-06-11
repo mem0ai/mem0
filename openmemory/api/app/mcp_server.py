@@ -842,6 +842,7 @@ async def _lightweight_ask_memory_impl(question: str, supa_uid: str, client_name
     """Lightweight ask_memory implementation for quick answers"""
     from app.utils.memory import get_memory_client
     from mem0.llms.openai import OpenAILLM
+    from mem0.configs.llms.base import BaseLlmConfig
     
     import time
     start_time = time.time()
@@ -859,7 +860,7 @@ async def _lightweight_ask_memory_impl(question: str, supa_uid: str, client_name
 
             # Initialize services
             memory_client = get_memory_client()
-            llm = OpenAILLM(api_key=os.getenv("OPENAI_API_KEY"), model="gpt-4o-mini")
+            llm = OpenAILLM(config=BaseLlmConfig(model="gpt-4o-mini"))
             
             # 1. Quick memory search (limit to 10 for speed)
             search_result = memory_client.search(
