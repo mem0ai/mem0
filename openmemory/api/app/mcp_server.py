@@ -286,8 +286,7 @@ async def _search_memory_impl(query: str, supa_uid: str, client_name: str, limit
         # 🚨 Log final results count
         logger.info(f"🔍 SEARCH FINAL - User {supa_uid}: {len(processed_results)} memories returned after filtering")
         
-        db.commit()
-        return json.dumps(processed_results, indent=2)
+        return json.dumps(processed_results)
     finally:
         db.close()
 
@@ -438,7 +437,6 @@ async def delete_all_memories() -> str:
                     )
                     db.add(access_log)
             
-            db.commit()
             return f"Successfully initiated deletion of all memories for user {supa_uid} via mem0 and updated SQL records."
         finally:
             db.close()
@@ -593,10 +591,10 @@ async def deep_memory_query(search_query: str, memory_limit: int = None, chunk_l
         return "Error: client_name not available in context"
     
     try:
-        # Add timeout to prevent hanging - 45 seconds max
+        # Add timeout to prevent hanging - 60 seconds max
         return await asyncio.wait_for(
             _deep_memory_query_impl(search_query, supa_uid, client_name, memory_limit, chunk_limit, include_full_docs),
-            timeout=45.0
+            timeout=60.0
         )
     except asyncio.TimeoutError:
         return f"Deep memory search timed out for query '{search_query}'. Try using 'search_memory' for faster results, or simplify your query."
@@ -613,13 +611,13 @@ async def _deep_memory_query_impl(search_query: str, supa_uid: str, client_name:
     from app.services.chunking_service import ChunkingService
     import google.generativeai as genai
     
-    # Use comprehensive limits for thorough analysis
+    # Use conservative limits to prevent timeouts
     if memory_limit is None:
-        memory_limit = MEMORY_LIMITS.deep_memory_default
+        memory_limit = min(10, MEMORY_LIMITS.deep_memory_default)  # Cap at 10 for timeout prevention
     if chunk_limit is None:
-        chunk_limit = MEMORY_LIMITS.deep_chunk_default
-    memory_limit = min(max(1, memory_limit), MEMORY_LIMITS.deep_memory_max)
-    chunk_limit = min(max(1, chunk_limit), MEMORY_LIMITS.deep_chunk_max)
+        chunk_limit = min(8, MEMORY_LIMITS.deep_chunk_default)   # Cap at 8 for timeout prevention
+    memory_limit = min(max(1, memory_limit), min(15, MEMORY_LIMITS.deep_memory_max))  # Hard cap at 15
+    chunk_limit = min(max(1, chunk_limit), min(10, MEMORY_LIMITS.deep_chunk_max))    # Hard cap at 10
     
     import time
     start_time = time.time()
@@ -732,7 +730,7 @@ async def _deep_memory_query_impl(search_query: str, supa_uid: str, client_name:
             
             # If no documents matched but query seems to want documents, include recent ones
             if not selected_documents and any(word in query_lower for word in ["essay", "document", "post"]):
-                selected_documents = [(doc, 1, ["recent"]) for doc in all_db_documents[:5]]
+                selected_documents = [(doc, 1, ["recent"]) for doc in all_db_documents[:3]]
             
             # 3. Search document chunks
             chunk_search_start_time = time.time()
