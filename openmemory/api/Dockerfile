@@ -2,7 +2,7 @@ FROM python:3.12-slim
 
 LABEL org.opencontainers.image.name="mem0/openmemory-mcp"
 
-RUN apt-get install -y vim
+RUN apk add -y vim
 
 WORKDIR /usr/src/openmemory
 
