@@ -11,11 +11,13 @@ export interface AddMemoryOptions extends Entity {
   metadata?: Record<string, any>;
   filters?: SearchFilters;
   infer?: boolean;
+  enableGraph?: boolean
 }
 
 export interface SearchMemoryOptions extends Entity {
   limit?: number;
   filters?: SearchFilters;
+  enableGraph?: boolean
 }
 
 export interface GetAllMemoryOptions extends Entity {

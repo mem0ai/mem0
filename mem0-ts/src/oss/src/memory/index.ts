@@ -169,6 +169,7 @@ export class Memory {
       metadata = {},
       filters = {},
       infer = true,
+      enableGraph = true,
     } = config;
 
     if (userId) filters.userId = metadata.userId = userId;
@@ -197,7 +198,7 @@ export class Memory {
 
     // Add to graph store if available
     let graphResult;
-    if (this.graphMemory) {
+    if (this.graphMemory && enableGraph) {
       try {
         graphResult = await this.graphMemory.add(
           final_parsedMessages.map((m) => m.content).join("\n"),
@@ -421,7 +422,7 @@ export class Memory {
       limit: config.limit,
       has_filters: !!config.filters,
     });
-    const { userId, agentId, runId, limit = 100, filters = {} } = config;
+    const { userId, agentId, runId, limit = 100, filters = {}, enableGraph = true } = config;
 
     if (userId) filters.userId = userId;
     if (agentId) filters.agentId = agentId;
@@ -443,7 +444,7 @@ export class Memory {
 
     // Search graph store if available
     let graphResults;
-    if (this.graphMemory) {
+    if (this.graphMemory && enableGraph) {
       try {
         graphResults = await this.graphMemory.search(query, filters);
       } catch (error) {
