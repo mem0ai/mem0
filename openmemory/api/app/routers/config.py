@@ -28,11 +28,11 @@ class LLMProvider(BaseModel):
 
 class EmbedderConfig(BaseModel):
     model: str = Field(..., description="Embedder model name")
-    api_key: Optional[str] = Field(..., description="Embedding API key or 'env:EMBEDDING_AZURE_OPENAI_API_KEY'")    
-    azure_deployment: Optional[str] = Field(...,description="Embedding deployment if not loaded from EMBEDDING_AZURE_DEPLOYMENT")
-    azure_endpoint: Optional[str] = Field(..., description="Azure endpoint if not loaded from EMBEDDING_AZURE_ENDPOINT")
-    api_version: Optional[str] = Field(..., description="Azure embedding API version if not loadedf from EMBEDDING_AZURE_API_VERSION")
-
+    azure_kwargs: Optional[Dict[str, Any]] = Field(
+        default_factory=dict, 
+        description="Azure-specific parameters for the embedder, such as api_key, azure_deployment, azure_endpoint, and api_version"
+    )
+    
 class EmbedderProvider(BaseModel):
     provider: str = Field(..., description="Embedder provider name")
     config: EmbedderConfig
@@ -99,11 +99,13 @@ def get_default_configuration():
       "embedder": {
         "provider": "azure_openai",
         "config": {
-          "model": "text-embedding-3-small",
-          "api_key": "env:OPENAI_API_KEY",
-          "azure_deployment": "text-embedding-3-small",
-          "azure_endpoint": "https://schoollawbot1000.openai.azure.com/",
-          "api_version": "2025-04-01-preview"
+          "model": "text-embedding-3-small",          
+          "azure_kwargs": {
+            "api_key": "env:OPENAI_API_KEY",
+            "azure_deployment": "text-embedding-3-small",
+            "azure_endpoint": "https://schoollawbot1000.openai.azure.com/",
+            "api_version": "2025-04-01-preview"    
+          }          
         }
       },
       "vector_store": {
