@@ -1,9 +1,16 @@
+/** @format */
+
 import { useState, useCallback } from 'react';
 import axios from 'axios';
 import { Memory, Client, Category } from '@/components/types';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '@/store/store';
-import { setAccessLogs, setMemoriesSuccess, setSelectedMemory, setRelatedMemories } from '@/store/memoriesSlice';
+import {
+  setAccessLogs,
+  setMemoriesSuccess,
+  setSelectedMemory,
+  setRelatedMemories,
+} from '@/store/memoriesSlice';
 
 // Define the new simplified memory type
 export interface SimpleMemory {
@@ -82,7 +89,11 @@ interface UseMemoriesApiReturn {
     }
   ) => Promise<{ memories: Memory[]; total: number; pages: number }>;
   fetchMemoryById: (memoryId: string) => Promise<void>;
-  fetchAccessLogs: (memoryId: string, page?: number, pageSize?: number) => Promise<void>;
+  fetchAccessLogs: (
+    memoryId: string,
+    page?: number,
+    pageSize?: number
+  ) => Promise<void>;
   fetchRelatedMemories: (memoryId: string) => Promise<void>;
   createMemory: (text: string) => Promise<void>;
   deleteMemories: (memoryIds: string[]) => Promise<void>;
@@ -102,64 +113,71 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
   const dispatch = useDispatch<AppDispatch>();
   const user_id = useSelector((state: RootState) => state.profile.userId);
   const memories = useSelector((state: RootState) => state.memories.memories);
-  const selectedMemory = useSelector((state: RootState) => state.memories.selectedMemory);
+  const selectedMemory = useSelector(
+    (state: RootState) => state.memories.selectedMemory
+  );
 
-  const URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8765";
+  const URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8765';
 
-  const fetchMemories = useCallback(async (
-    query?: string,
-    page: number = 1,
-    size: number = 10,
-    filters?: {
-      apps?: string[];
-      categories?: string[];
-      sortColumn?: string;
-      sortDirection?: 'asc' | 'desc';
-      showArchived?: boolean;
-    }
-  ): Promise<{ memories: Memory[], total: number, pages: number }> => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await axios.post<ApiResponse>(
-        `${URL}/api/v1/memories/filter`,
-        {
-          user_id: user_id,
-          page: page,
-          size: size,
-          search_query: query,
-          app_ids: filters?.apps,
-          category_ids: filters?.categories,
-          sort_column: filters?.sortColumn?.toLowerCase(),
-          sort_direction: filters?.sortDirection,
-          show_archived: filters?.showArchived
-        }
-      );
+  const fetchMemories = useCallback(
+    async (
+      query?: string,
+      page: number = 1,
+      size: number = 10,
+      filters?: {
+        apps?: string[];
+        categories?: string[];
+        sortColumn?: string;
+        sortDirection?: 'asc' | 'desc';
+        showArchived?: boolean;
+      }
+    ): Promise<{ memories: Memory[]; total: number; pages: number }> => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await axios.post<ApiResponse>(
+          `${URL}/api/v1/memories/filter/`,
+          {
+            user_id: user_id,
+            page: page,
+            size: size,
+            search_query: query,
+            app_ids: filters?.apps,
+            category_ids: filters?.categories,
+            sort_column: filters?.sortColumn?.toLowerCase(),
+            sort_direction: filters?.sortDirection,
+            show_archived: filters?.showArchived,
+          }
+        );
 
-      const adaptedMemories: Memory[] = response.data.items.map((item: ApiMemoryItem) => ({
-        id: item.id,
-        memory: item.content,
-        created_at: new Date(item.created_at).getTime(),
-        state: item.state as "active" | "paused" | "archived" | "deleted",
-        metadata: item.metadata_,
-        categories: item.categories as Category[],
-        client: 'api',
-        app_name: item.app_name
-      }));
-      setIsLoading(false);
-      dispatch(setMemoriesSuccess(adaptedMemories));
-      return {
-        memories: adaptedMemories,
-        total: response.data.total,
-        pages: response.data.pages
-      };
-    } catch (err: any) {
-      const errorMessage = err.message || 'Failed to fetch memories';
-      setError(errorMessage);
-      setIsLoading(false);
-      throw new Error(errorMessage);
-    }
-  }, [user_id, dispatch]);
+        const adaptedMemories: Memory[] = response.data.items.map(
+          (item: ApiMemoryItem) => ({
+            id: item.id,
+            memory: item.content,
+            created_at: new Date(item.created_at).getTime(),
+            state: item.state as 'active' | 'paused' | 'archived' | 'deleted',
+            metadata: item.metadata_,
+            categories: item.categories as Category[],
+            client: 'api',
+            app_name: item.app_name,
+          })
+        );
+        setIsLoading(false);
+        dispatch(setMemoriesSuccess(adaptedMemories));
+        return {
+          memories: adaptedMemories,
+          total: response.data.total,
+          pages: response.data.pages,
+        };
+      } catch (err: any) {
+        const errorMessage = err.message || 'Failed to fetch memories';
+        setError(errorMessage);
+        setIsLoading(false);
+        throw new Error(errorMessage);
+      }
+    },
+    [user_id, dispatch]
+  );
 
   const createMemory = async (text: string): Promise<void> => {
     try {
@@ -167,8 +185,8 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
         user_id: user_id,
         text: text,
         infer: false,
-        app: "openmemory",
-      }
+        app: 'openmemory',
+      };
       await axios.post<ApiMemoryItem>(`${URL}/api/v1/memories/`, memoryData);
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to create memory';
@@ -181,9 +199,13 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
   const deleteMemories = async (memory_ids: string[]) => {
     try {
       await axios.delete(`${URL}/api/v1/memories/`, {
-        data: { memory_ids, user_id }
+        data: { memory_ids, user_id },
       });
-      dispatch(setMemoriesSuccess(memories.filter((memory: Memory) => !memory_ids.includes(memory.id))));
+      dispatch(
+        setMemoriesSuccess(
+          memories.filter((memory: Memory) => !memory_ids.includes(memory.id))
+        )
+      );
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to delete memories';
       setError(errorMessage);
@@ -193,7 +215,7 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
   };
 
   const fetchMemoryById = async (memoryId: string): Promise<void> => {
-    if (memoryId === "") {
+    if (memoryId === '') {
       return;
     }
     setIsLoading(true);
@@ -212,8 +234,12 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
     }
   };
 
-  const fetchAccessLogs = async (memoryId: string, page: number = 1, pageSize: number = 10): Promise<void> => {
-    if (memoryId === "") {
+  const fetchAccessLogs = async (
+    memoryId: string,
+    page: number = 1,
+    pageSize: number = 10
+  ): Promise<void> => {
+    if (memoryId === '') {
       return;
     }
     setIsLoading(true);
@@ -233,7 +259,7 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
   };
 
   const fetchRelatedMemories = async (memoryId: string): Promise<void> => {
-    if (memoryId === "") {
+    if (memoryId === '') {
       return;
     }
     setIsLoading(true);
@@ -243,16 +269,18 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
         `${URL}/api/v1/memories/${memoryId}/related?user_id=${user_id}`
       );
 
-      const adaptedMemories: Memory[] = response.data.items.map((item: RelatedMemoryItem) => ({
-        id: item.id,
-        memory: item.content,
-        created_at: item.created_at,
-        state: item.state as "active" | "paused" | "archived" | "deleted",
-        metadata: item.metadata_,
-        categories: item.categories as Category[],
-        client: 'api',
-        app_name: item.app_name
-      }));
+      const adaptedMemories: Memory[] = response.data.items.map(
+        (item: RelatedMemoryItem) => ({
+          id: item.id,
+          memory: item.content,
+          created_at: item.created_at,
+          state: item.state as 'active' | 'paused' | 'archived' | 'deleted',
+          metadata: item.metadata_,
+          categories: item.categories as Category[],
+          client: 'api',
+          app_name: item.app_name,
+        })
+      );
 
       setIsLoading(false);
       dispatch(setRelatedMemories(adaptedMemories));
@@ -264,8 +292,11 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
     }
   };
 
-  const updateMemory = async (memoryId: string, content: string): Promise<void> => {
-    if (memoryId === "") {
+  const updateMemory = async (
+    memoryId: string,
+    content: string
+  ): Promise<void> => {
+    if (memoryId === '') {
       return;
     }
     setIsLoading(true);
@@ -274,7 +305,7 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
       await axios.put(`${URL}/api/v1/memories/${memoryId}`, {
         memory_id: memoryId,
         memory_content: content,
-        user_id: user_id
+        user_id: user_id,
       });
       setIsLoading(false);
       setHasUpdates(hasUpdates + 1);
@@ -286,7 +317,10 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
     }
   };
 
-  const updateMemoryState = async (memoryIds: string[], state: string): Promise<void> => {
+  const updateMemoryState = async (
+    memoryIds: string[],
+    state: string
+  ): Promise<void> => {
     if (memoryIds.length === 0) {
       return;
     }
@@ -297,23 +331,39 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
         memory_ids: memoryIds,
         all_for_app: true,
         state: state,
-        user_id: user_id
+        user_id: user_id,
       });
-      dispatch(setMemoriesSuccess(memories.map((memory: Memory) => {
-        if (memoryIds.includes(memory.id)) {
-          return { ...memory, state: state as "active" | "paused" | "archived" | "deleted" };
-        }
-        return memory;
-      })));
+      dispatch(
+        setMemoriesSuccess(
+          memories.map((memory: Memory) => {
+            if (memoryIds.includes(memory.id)) {
+              return {
+                ...memory,
+                state: state as 'active' | 'paused' | 'archived' | 'deleted',
+              };
+            }
+            return memory;
+          })
+        )
+      );
 
       // If archive, delete the memory
-      if (state === "archived") {
-        dispatch(setMemoriesSuccess(memories.filter((memory: Memory) => !memoryIds.includes(memory.id))));
+      if (state === 'archived') {
+        dispatch(
+          setMemoriesSuccess(
+            memories.filter((memory: Memory) => !memoryIds.includes(memory.id))
+          )
+        );
       }
 
       // if selected memory, update it
       if (selectedMemory?.id && memoryIds.includes(selectedMemory.id)) {
-        dispatch(setSelectedMemory({ ...selectedMemory, state: state as "active" | "paused" | "archived" | "deleted" }));
+        dispatch(
+          setSelectedMemory({
+            ...selectedMemory,
+            state: state as 'active' | 'paused' | 'archived' | 'deleted',
+          })
+        );
       }
 
       setIsLoading(false);
@@ -339,6 +389,6 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
     error,
     hasUpdates,
     memories,
-    selectedMemory
+    selectedMemory,
   };
 };
