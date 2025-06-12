@@ -159,16 +159,9 @@ export default class MemoryClient {
     return jsonResponse;
   }
 
-  _preparePayload(
-    messages: string | Array<Message>,
-    options: MemoryOptions,
-  ): object {
+  _preparePayload(messages: Array<Message>, options: MemoryOptions): object {
     const payload: any = {};
-    if (typeof messages === "string") {
-      payload.messages = [{ role: "user", content: messages }];
-    } else if (Array.isArray(messages)) {
-      payload.messages = messages;
-    }
+    payload.messages = messages;
     return { ...payload, ...options };
   }
 
@@ -217,7 +210,7 @@ export default class MemoryClient {
   }
 
   async add(
-    messages: string | Array<Message>,
+    messages: Array<Message>,
     options: MemoryOptions = {},
   ): Promise<Array<Memory>> {
     if (this.telemetryId === "") await this.ping();

@@ -59,7 +59,10 @@ five_days_ago = current_time - timedelta(days=5)
 unix_timestamp = int(five_days_ago.timestamp())
 
 # Add memory with custom timestamp
-client.add("I'm travelling to SF", user_id="user1", timestamp=unix_timestamp)
+messages = [
+    {"role": "user", "content": "I'm travelling to SF"}
+]
+client.add(messages, user_id="user1", timestamp=unix_timestamp)
 ```
 
 ```javascript JavaScript
@@ -77,7 +80,10 @@ fiveDaysAgo.setDate(currentTime.getDate() - 5);
 const unixTimestamp = Math.floor(fiveDaysAgo.getTime() / 1000);
 
 // Add memory with custom timestamp
-client.add("I'm travelling to SF", { user_id: "user1", timestamp: unixTimestamp })
+const messages = [
+    {"role": "user", "content": "I'm travelling to SF"}
+]
+client.add(messages, { user_id: "user1", timestamp: unixTimestamp })
     .then(response => console.log(response))
     .catch(error => console.error(error));
 ```
@@ -119,14 +125,20 @@ For example, to create a memory with a timestamp of January 1, 2023:
 # January 1, 2023 timestamp
 january_2023_timestamp = 1672531200  # Unix timestamp for 2023-01-01 00:00:00 UTC
 
-client.add("Important historical information", user_id="user1", timestamp=january_2023_timestamp)
+messages = [
+    {"role": "user", "content": "I'm travelling to SF"}
+]
+client.add(messages, user_id="user1", timestamp=january_2023_timestamp)
 ```
 
 ```javascript JavaScript
 // January 1, 2023 timestamp
 const january2023Timestamp = 1672531200;  // Unix timestamp for 2023-01-01 00:00:00 UTC
 
-client.add("Important historical information", { user_id: "user1", timestamp: january2023Timestamp })
+const messages = [
+    {"role": "user", "content": "I'm travelling to SF"}
+]
+client.add(messages, { user_id: "user1", timestamp: january2023Timestamp })
     .then(response => console.log(response))
     .catch(error => console.error(error));
 ```

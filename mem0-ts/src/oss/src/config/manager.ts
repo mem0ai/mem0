@@ -80,6 +80,7 @@ export class ConfigManager {
           }
 
           return {
+            baseURL: userConf?.baseURL || defaultConf.baseURL,
             apiKey:
               userConf?.apiKey !== undefined
                 ? userConf.apiKey

@@ -39,6 +39,7 @@ export interface HistoryStoreConfig {
 
 export interface LLMConfig {
   provider?: string;
+  baseURL?: string;
   config?: Record<string, any>;
   apiKey?: string;
   model?: string | any;
@@ -116,6 +117,7 @@ export const MemoryConfigSchema = z.object({
       modelProperties: z.record(z.string(), z.any()).optional(),
       apiKey: z.string().optional(),
       model: z.union([z.string(), z.any()]).optional(),
+      baseURL: z.string().optional(),
     }),
   }),
   vectorStore: z.object({
@@ -134,6 +136,7 @@ export const MemoryConfigSchema = z.object({
       apiKey: z.string().optional(),
       model: z.union([z.string(), z.any()]).optional(),
       modelProperties: z.record(z.string(), z.any()).optional(),
+      baseURL: z.string().optional(),
     }),
   }),
   historyDbPath: z.string().optional(),
