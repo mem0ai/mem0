@@ -47,8 +47,8 @@ class VectorProvider(BaseModel):
     user: Optional[str] = Field(..., description="User for the vector store")
     password: Optional[str] = Field(..., description="Password for the vector store")
     collectionName: Optional[str] = Field(..., description="Collection name for the vector store")
-    dimension: Optional[int] = Field(1536, ..., description="Dimension for the vector store")
-    embeddingModelDims: Optional[int] = Field(1536, ..., description="Embedding model dimension for the vector store")
+    dimension: Optional[int] = Field(..., description="Dimension for the vector store")
+    embeddingModelDims: Optional[int] = Field(..., description="Embedding model dimension for the vector store")
     hnsw: Optional[bool] = Field( ..., description="If HNSW indexing is available, defaults to True")
     diskMan: Optional[bool] = Field(..., description="If Diskman algorithm is available, defaults to False")
 
