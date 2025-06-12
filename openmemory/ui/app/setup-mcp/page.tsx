@@ -470,7 +470,7 @@ export default function SetupMCPPage() {
               </div>
               <div className="flex items-center gap-4">
                 <a
-                  href="https://discord.gg/NYru6Wbr"
+                  href="https://discord.gg/2Qn4xgU9tn"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center"

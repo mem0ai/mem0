@@ -92,7 +92,7 @@ export function Navbar() {
               
               {/* Discord Link */}
               <a
-                href="https://discord.gg/NYru6Wbr"
+                href="https://discord.gg/2Qn4xgU9tn"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center"
@@ -210,7 +210,7 @@ export function Navbar() {
                     
                     {/* Discord Link - Mobile */}
                     <a
-                      href="https://discord.gg/NYru6Wbr"
+                      href="https://discord.gg/2Qn4xgU9tn"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="block"

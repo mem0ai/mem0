@@ -12,9 +12,9 @@
 <p align="center">
   <a href="https://jeanmemory.com">Learn more</a>
   ·
-  <a href="https://app.jeanmemory.com">Try Jean Memory</a>
+  <a href="https://jeanmemory.com">Try Jean Memory</a>
   ·
-  <a href="https://api.jeanmemory.com/docs">API Docs</a>
+  <a href="https://jeanmemory.com/docs">API Docs</a>
   ·
   <a href="/openmemory">OpenMemory</a>
 </p>
