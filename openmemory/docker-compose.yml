@@ -5,32 +5,89 @@ services:
       - "6333:6333"
     volumes:
       - mem0_storage:/mem0/storage
-  openmemory-mcp:
+    networks:
+      - mem0-network
+  mem0:
     image: mem0/openmemory-mcp
     build: api/
     environment:
       - USER
       - API_KEY
+      - QDRANT_HOST=mem0_store
+      - QDRANT_PORT=6333
     env_file:
-      - api/.env
+      - .env
     depends_on:
       - mem0_store
+      - neo4j
     ports:
-      - "8765:8765"
+      - "8050:8050"
     volumes:
       - ./api:/usr/src/openmemory
-    command: >
-      sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --reload --workers 4"
-  openmemory-ui:
+    networks:
+      - mem0-network
+      - n8n-network
+      - chakra-network
+  mem0-ui:
     build:
       context: ui/
       dockerfile: Dockerfile
     image: mem0/openmemory-ui:latest
     ports:
-      - "3000:3000"
+      - "3333:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+      - NEXT_PUBLIC_API_URL=http://localhost:8050
       - NEXT_PUBLIC_USER_ID=${USER}
+    networks:
+      - mem0-network
+
+  neo4j:
+    image: neo4j:latest
+    container_name: neo4j-mem0
+    volumes:
+        - neo4j_data:/data
+        - neo4j_logs:/logs
+        - neo4j_config:/config
+        # - ./plugins:/plugins
+    env_file:
+      - .env
+    environment:
+      # - NEO4J_AUTH=neo4j/taketheredpillNe0
+      - NEO4J_server_memory_heap_initial__size=1G
+      - NEO4J_server_memory_heap_max__size=2G
+      - NEO4J_server_memory_pagecache_size=1G
+      - NEO4J_apoc_export_file_enabled=true
+      - NEO4J_apoc_import_file_enabled=true
+      - NEO4J_apoc_import_file_use__neo4j__config=true
+      # - NEO4J_dbms_security_procedures_unrestricted=apoc.*
+      - NEO4J_PLUGINS=["apoc"]
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    restart: always
+    networks:
+      - mem0-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7687"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
 volumes:
   mem0_storage:
+  neo4j_data:
+    driver: local
+  neo4j_logs:
+  neo4j_config:
+  neo4j_plugins:
+
+networks:
+  mem0-network:
+    driver: bridge
+    external: true
+  n8n-network:
+    driver: bridge
+    external: true
+  chakra-network:
+    driver: bridge
+    external: true

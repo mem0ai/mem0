@@ -145,6 +145,16 @@ def get_default_memory_config():
                 "port": 6333,
             }
         },
+        "graph_store": {
+            "provider": "neo4j",
+            "config": {
+                "url": "neo4j://neo4j-mem0",
+                "username": "neo4j",
+                "password": "env:NEO4J_PASSWORD",
+                "database": "neo4j",
+            },
+        },
+
         "llm": {
             "provider": "openai",
             "config": {

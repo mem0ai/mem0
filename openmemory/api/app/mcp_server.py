@@ -37,7 +37,17 @@ from qdrant_client import models as qdrant_models
 load_dotenv()
 
 # Initialize MCP
-mcp = FastMCP("mem0-mcp-server")
+mcp = FastMCP(
+    name="mem0",
+    version="0.1.0",
+    description="OpenMemory MCP Server",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
+    request_timeout=60,
+    max_request_timeout=120
+    
+)
 
 # Don't initialize memory client at import time - do it lazily when needed
 def get_memory_client_safe():
