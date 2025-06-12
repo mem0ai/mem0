@@ -102,7 +102,7 @@ class TestAsyncAddToVectorStoreErrors:
 
         with caplog.at_level(logging.ERROR):
             result = await mock_async_memory._add_to_vector_store(
-                messages=[{"role": "user", "content": "test"}], metadata={}, filters={}, infer=True
+                messages=[{"role": "user", "content": "test"}], metadata={}, effective_filters={}, infer=True
             )
         assert mock_async_memory.llm.generate_response.call_count == 1
         assert result == []
@@ -119,7 +119,7 @@ class TestAsyncAddToVectorStoreErrors:
 
         with caplog.at_level(logging.ERROR):
             result = await mock_async_memory._add_to_vector_store(
-                messages=[{"role": "user", "content": "test"}], metadata={}, filters={}, infer=True
+                messages=[{"role": "user", "content": "test"}], metadata={}, effective_filters={}, infer=True
             )
 
         assert result == []
