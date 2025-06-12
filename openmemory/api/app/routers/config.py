@@ -97,7 +97,6 @@ def get_default_configuration():
                 "provider": "openai",
                 "config": {
                     "model": "text-embedding-3-small",
-                    "api_key": "env:EMBEDDING_OPENAI_API_KEY",
                 }
             }
         }
