@@ -23,6 +23,7 @@ export interface MemoryOptions {
   custom_instructions?: string;
   timestamp?: number;
   output_format?: string | OutputFormat;
+  async_mode?: boolean;
 }
 
 export interface ProjectOptions {

@@ -29,6 +29,7 @@ from mem0.memory.utils import (
     parse_messages,
     parse_vision_messages,
     remove_code_blocks,
+    process_telemetry_filters,
 )
 from mem0.utils.factory import EmbedderFactory, LlmFactory, VectorStoreFactory
 
@@ -45,13 +46,13 @@ def _build_filters_and_metadata(
     """
     Constructs metadata for storage and filters for querying based on session and actor identifiers.
 
-    This helper ties every memory/query to exactly one session id (`user_id`, `agent_id`, or `run_id`) and optionally narrows queries to a specific `actor_id`.  It returns two dicts:
-
+    This helper supports multiple session identifiers (`user_id`, `agent_id`, and/or `run_id`)
+    for flexible session scoping and optionally narrows queries to a specific `actor_id`. It returns two dicts:
 
     1. `base_metadata_template`: Used as a template for metadata when storing new memories.
-       It includes the primary session identifier(s) and any `input_metadata`.
-    2. `effective_query_filters`: Used for querying existing memories. It includes the
-       primary session identifier(s), any `input_filters`, and a resolved actor
+       It includes all provided session identifier(s) and any `input_metadata`.
+    2. `effective_query_filters`: Used for querying existing memories. It includes all
+       provided session identifier(s), any `input_filters`, and a resolved actor
        identifier for targeted filtering if specified by any actor-related inputs.
 
     Actor filtering precedence: explicit `actor_id` arg → `filters["actor_id"]`
@@ -59,11 +60,9 @@ def _build_filters_and_metadata(
     as the actor for storage is typically derived from message content at a later stage.
 
     Args:
-        user_id (Optional[str]): User identifier, primarily for Classic Mode session scoping.
-        agent_id (Optional[str]): Agent identifier, for Classic Mode session scoping or
-            as auxiliary information in Group Mode.
-        run_id (Optional[str]): Run identifier, for Classic Mode session scoping or
-            as auxiliary information in Group Mode.
+        user_id (Optional[str]): User identifier, for session scoping.
+        agent_id (Optional[str]): Agent identifier, for session scoping.
+        run_id (Optional[str]): Run identifier, for session scoping.
         actor_id (Optional[str]): Explicit actor identifier, used as a potential source for
             actor-specific filtering. See actor resolution precedence in the main description.
         input_metadata (Optional[Dict[str, Any]]): Base dictionary to be augmented with
@@ -74,28 +73,34 @@ def _build_filters_and_metadata(
     Returns:
         tuple[Dict[str, Any], Dict[str, Any]]: A tuple containing:
             - base_metadata_template (Dict[str, Any]): Metadata template for storing memories,
-              scoped to the determined session.
+              scoped to the provided session(s).
             - effective_query_filters (Dict[str, Any]): Filters for querying memories,
-              scoped to the determined session and potentially a resolved actor.
+              scoped to the provided session(s) and potentially a resolved actor.
     """
 
     base_metadata_template = deepcopy(input_metadata) if input_metadata else {}
     effective_query_filters = deepcopy(input_filters) if input_filters else {}
 
-    # ---------- resolve session id (mandatory) ----------
-    session_key, session_val = None, None
+    # ---------- add all provided session ids ----------
+    session_ids_provided = []
+
     if user_id:
-        session_key, session_val = "user_id", user_id
-    elif agent_id:
-        session_key, session_val = "agent_id", agent_id
-    elif run_id:
-        session_key, session_val = "run_id", run_id
+        base_metadata_template["user_id"] = user_id
+        effective_query_filters["user_id"] = user_id
+        session_ids_provided.append("user_id")
 
-    if session_key is None:
-        raise ValueError("One of 'user_id', 'agent_id', or 'run_id' must be provided.")
+    if agent_id:
+        base_metadata_template["agent_id"] = agent_id
+        effective_query_filters["agent_id"] = agent_id
+        session_ids_provided.append("agent_id")
 
-    base_metadata_template[session_key] = session_val
-    effective_query_filters[session_key] = session_val
+    if run_id:
+        base_metadata_template["run_id"] = run_id
+        effective_query_filters["run_id"] = run_id
+        session_ids_provided.append("run_id")
+
+    if not session_ids_provided:
+        raise ValueError("At least one of 'user_id', 'agent_id', or 'run_id' must be provided.")
 
     # ---------- optional actor filter ----------
     resolved_actor_id = actor_id or effective_query_filters.get("actor_id")
@@ -433,10 +438,11 @@ class Memory(MemoryBase):
         except Exception as e:
             logging.error(f"Error iterating new_memories_with_actions: {e}")
 
+        keys, encoded_ids = process_telemetry_filters(filters)
         capture_event(
             "mem0.add",
             self,
-            {"version": self.api_version, "keys": list(filters.keys()), "sync_type": "sync"},
+            {"version": self.api_version, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"},
         )
         return returned_memories
 
@@ -529,8 +535,9 @@ class Memory(MemoryBase):
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError("At least one of 'user_id', 'agent_id', or 'run_id' must be specified.")
 
+        keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
-            "mem0.get_all", self, {"limit": limit, "keys": list(effective_filters.keys()), "sync_type": "sync"}
+            "mem0.get_all", self, {"limit": limit, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"}
         )
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -564,7 +571,9 @@ class Memory(MemoryBase):
     def _get_all_from_vector_store(self, filters, limit):
         memories_result = self.vector_store.list(filters=filters, limit=limit)
         actual_memories = (
-            memories_result[0] if isinstance(memories_result, tuple) and len(memories_result) > 0 else memories_result
+            memories_result[0]
+            if isinstance(memories_result, (tuple, list)) and len(memories_result) > 0
+            else memories_result
         )
 
         promoted_payload_keys = [
@@ -607,6 +616,7 @@ class Memory(MemoryBase):
         run_id: Optional[str] = None,
         limit: int = 100,
         filters: Optional[Dict[str, Any]] = None,
+        threshold: Optional[float] = None,
     ):
         """
         Searches for memories based on a query
@@ -617,6 +627,7 @@ class Memory(MemoryBase):
             run_id (str, optional): ID of the run to search for. Defaults to None.
             limit (int, optional): Limit the number of results. Defaults to 100.
             filters (dict, optional): Filters to apply to the search. Defaults to None..
+            threshold (float, optional): Minimum score for a memory to be included in the results. Defaults to None.
 
         Returns:
             dict: A dictionary containing the search results, typically under a "results" key,
@@ -630,14 +641,22 @@ class Memory(MemoryBase):
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError("At least one of 'user_id', 'agent_id', or 'run_id' must be specified.")
 
+        keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
             "mem0.search",
             self,
-            {"limit": limit, "version": self.api_version, "keys": list(effective_filters.keys()), "sync_type": "sync"},
+            {
+                "limit": limit,
+                "version": self.api_version,
+                "keys": keys,
+                "encoded_ids": encoded_ids,
+                "sync_type": "sync",
+                "threshold": threshold,
+            },
         )
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            future_memories = executor.submit(self._search_vector_store, query, effective_filters, limit)
+            future_memories = executor.submit(self._search_vector_store, query, effective_filters, limit, threshold)
             future_graph_entities = (
                 executor.submit(self.graph.search, query, effective_filters, limit) if self.enable_graph else None
             )
@@ -664,7 +683,7 @@ class Memory(MemoryBase):
         else:
             return {"results": original_memories}
 
-    def _search_vector_store(self, query, filters, limit):
+    def _search_vector_store(self, query, filters, limit, threshold: Optional[float] = None):
         embeddings = self.embedding_model.embed(query, "search")
         memories = self.vector_store.search(query=query, vectors=embeddings, limit=limit, filters=filters)
 
@@ -697,7 +716,8 @@ class Memory(MemoryBase):
             if additional_metadata:
                 memory_item_dict["metadata"] = additional_metadata
 
-            original_memories.append(memory_item_dict)
+            if threshold is None or mem.score >= threshold:
+                original_memories.append(memory_item_dict)
 
         return original_memories
 
@@ -752,7 +772,8 @@ class Memory(MemoryBase):
                 "At least one filter is required to delete all memories. If you want to delete all memories, use the `reset()` method."
             )
 
-        capture_event("mem0.delete_all", self, {"keys": list(filters.keys()), "sync_type": "sync"})
+        keys, encoded_ids = process_telemetry_filters(filters)
+        capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"})
         memories = self.vector_store.list(filters=filters)[0]
         for memory in memories:
             self._delete_memory(memory.id)
@@ -1086,7 +1107,7 @@ class AsyncMemory(MemoryBase):
         self,
         messages: list,
         metadata: dict,
-        filters: dict,
+        effective_filters: dict,
         infer: bool,
     ):
         if not infer:
@@ -1160,7 +1181,7 @@ class AsyncMemory(MemoryBase):
                 query=new_mem_content,
                 vectors=embeddings,
                 limit=5,
-                filters=filters,  # 'filters' is query_filters_for_inference
+                filters=effective_filters,  # 'filters' is query_filters_for_inference
             )
             return [{"id": mem.id, "text": mem.payload["data"]} for mem in existing_mems]
 
@@ -1189,7 +1210,6 @@ class AsyncMemory(MemoryBase):
                 response_format={"type": "json_object"},
             )
         except Exception as e:
-
             response = ""
             logging.error(f"Error in new memory actions response: {e}")
             response = ""
@@ -1197,7 +1217,6 @@ class AsyncMemory(MemoryBase):
             response = remove_code_blocks(response)
             new_memories_with_actions = json.loads(response)
         except Exception as e:
-
             new_memories_with_actions = {}
 
         if not new_memories_with_actions:
@@ -1206,7 +1225,6 @@ class AsyncMemory(MemoryBase):
 
             logging.error(f"Invalid JSON response: {e}")
             new_memories_with_actions = {}
-
 
         returned_memories = []
         try:
@@ -1267,8 +1285,11 @@ class AsyncMemory(MemoryBase):
         except Exception as e:
             logging.error(f"Error in memory processing loop (async): {e}")
 
+        keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
-            "mem0.add", self, {"version": self.api_version, "keys": list(filters.keys()), "sync_type": "async"}
+            "mem0.add",
+            self,
+            {"version": self.api_version, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"},
         )
         return returned_memories
 
@@ -1364,8 +1385,9 @@ class AsyncMemory(MemoryBase):
                 "at least one of 'user_id', 'agent_id', or 'run_id' must be specified for get_all."
             )
 
+        keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
-            "mem0.get_all", self, {"limit": limit, "keys": list(effective_filters.keys()), "sync_type": "async"}
+            "mem0.get_all", self, {"limit": limit, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"}
         )
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -1442,6 +1464,7 @@ class AsyncMemory(MemoryBase):
         run_id: Optional[str] = None,
         limit: int = 100,
         filters: Optional[Dict[str, Any]] = None,
+        threshold: Optional[float] = None,
     ):
         """
         Searches for memories based on a query
@@ -1451,7 +1474,8 @@ class AsyncMemory(MemoryBase):
             agent_id (str, optional): ID of the agent to search for. Defaults to None.
             run_id (str, optional): ID of the run to search for. Defaults to None.
             limit (int, optional): Limit the number of results. Defaults to 100.
-            filters (dict, optional): Filters to apply to the search. Defaults to None..
+            filters (dict, optional): Filters to apply to the search. Defaults to None.
+            threshold (float, optional): Minimum score for a memory to be included in the results. Defaults to None.
 
         Returns:
             dict: A dictionary containing the search results, typically under a "results" key,
@@ -1466,13 +1490,21 @@ class AsyncMemory(MemoryBase):
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError("at least one of 'user_id', 'agent_id', or 'run_id' must be specified ")
 
+        keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
             "mem0.search",
             self,
-            {"limit": limit, "version": self.api_version, "keys": list(effective_filters.keys()), "sync_type": "async"},
+            {
+                "limit": limit,
+                "version": self.api_version,
+                "keys": keys,
+                "encoded_ids": encoded_ids,
+                "sync_type": "async",
+                "threshold": threshold,
+            },
         )
 
-        vector_store_task = asyncio.create_task(self._search_vector_store(query, effective_filters, limit))
+        vector_store_task = asyncio.create_task(self._search_vector_store(query, effective_filters, limit, threshold))
 
         graph_task = None
         if self.enable_graph:
@@ -1502,7 +1534,7 @@ class AsyncMemory(MemoryBase):
         else:
             return {"results": original_memories}
 
-    async def _search_vector_store(self, query, filters, limit):
+    async def _search_vector_store(self, query, filters, limit, threshold: Optional[float] = None):
         embeddings = await asyncio.to_thread(self.embedding_model.embed, query, "search")
         memories = await asyncio.to_thread(
             self.vector_store.search, query=query, vectors=embeddings, limit=limit, filters=filters
@@ -1537,7 +1569,8 @@ class AsyncMemory(MemoryBase):
             if additional_metadata:
                 memory_item_dict["metadata"] = additional_metadata
 
-            original_memories.append(memory_item_dict)
+            if threshold is None or mem.score >= threshold:
+                original_memories.append(memory_item_dict)
 
         return original_memories
 
@@ -1593,7 +1626,8 @@ class AsyncMemory(MemoryBase):
                 "At least one filter is required to delete all memories. If you want to delete all memories, use the `reset()` method."
             )
 
-        capture_event("mem0.delete_all", self, {"keys": list(filters.keys()), "sync_type": "async"})
+        keys, encoded_ids = process_telemetry_filters(filters)
+        capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"})
         memories = await asyncio.to_thread(self.vector_store.list, filters=filters)
 
         delete_tasks = []
