@@ -153,6 +153,13 @@ export class OpenSearchVectorStore implements VectorStore {
           filterClauses.push({ term: { [`payload.${key}.keyword`]: value } });
         }
       }
+      if (filters.categories && Array.isArray(filters.categories)) {
+        for (const category of filters.categories) {
+          if (category) {
+            filterClauses.push({ term: { [`payload.categories.keyword`]: category } });
+          }
+        }
+      }
     }
 
     const queryBody: any = {

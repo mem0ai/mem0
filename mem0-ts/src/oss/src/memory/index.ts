@@ -15,6 +15,10 @@ import {
   HistoryManagerFactory,
 } from "../utils/factory";
 import {
+  buildCategorizationInput,
+  categorizationResponseFormat,
+  categorizationSystemPrompt,
+  defaultCategories,
   getFactRetrievalMessages,
   getUpdateMemoryMessages,
   parseMessages,
@@ -38,6 +42,7 @@ import { captureClientEvent } from "../utils/telemetry";
 
 export class Memory {
   private config: MemoryConfig;
+  private customCategories: Map<string, string>
   private customPrompt: string | undefined;
   private embedder: Embedder;
   private vectorStore: VectorStore;
@@ -53,6 +58,10 @@ export class Memory {
     // Merge and validate config
     this.config = ConfigManager.mergeConfig(config);
 
+    this.customCategories = new Map<string, string>()
+    for (const name of Object.keys(defaultCategories) as (keyof typeof defaultCategories)[]) {
+      this.customCategories.set(name, defaultCategories[name])
+    }
     this.customPrompt = this.config.customPrompt;
     this.embedder = EmbedderFactory.create(
       this.config.embedder.provider,
@@ -326,10 +335,11 @@ export class Memory {
       try {
         switch (action.event) {
           case "ADD": {
+            const categories = metadata.categories || await this.guessCategories(action.text)
             const memoryId = await this.createMemory(
               action.text,
               newMessageEmbeddings,
-              metadata,
+              { categories, ...metadata },
             );
             results.push({
               id: memoryId,
@@ -373,6 +383,22 @@ export class Memory {
     }
 
     return results;
+  }
+  async guessCategories(text: string): Promise<string[]> {
+    const response = await this.llm.generateResponse(
+      buildCategorizationInput(text, this.customCategories),
+      categorizationResponseFormat,
+    );
+    try {
+      const json = JSON.parse(response)
+      if (response && json.categories && Array.isArray(json.categories)) {
+        return json.categories as string[]
+      } else {
+      }
+    } catch (e) {
+      console.warn('mem0 guessCategories error', e)
+    }
+    return []
   }
 
   async get(memoryId: string): Promise<MemoryItem | null> {

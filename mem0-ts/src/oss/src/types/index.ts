@@ -95,6 +95,7 @@ export interface SearchFilters {
   userId?: string;
   agentId?: string;
   runId?: string;
+  categories?: string[];
   [key: string]: any;
 }
 
