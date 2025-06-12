@@ -17,10 +17,10 @@ class LLMConfig(BaseModel):
     model: str = Field(..., description="LLM model name")
     temperature: Optional[float] = Field(..., description="Temperature setting for the model")
     max_tokens: Optional[int] = Field(..., description="Maximum tokens to generate")
-    api_key: Optional[str] = Field(None, description="API key or 'env:LLM_AZURE_OPENAI_API_KEY' to use environment variable")    
-    azure_deployment: Optional[str] = Field(None, description="Deployment name for Azure OpenAI, othewise loaded from LLM_AZURE_DEPLOYMENT")
-    api_version: Optional[str] = Field(None, description="API version for Azure OpenAI, otherwise loaded from LLM_AZURE_OPENAI_API_KEY")
-    azure_endpoint: Optional[str] = Field(None, description="Endpoint URL for Azure OpenAI or Ollama server, otherwise loaded from LLM_AZURE_ENDPOINT")
+    api_key: Optional[str] = Field(..., description="API key or 'env:LLM_AZURE_OPENAI_API_KEY' to use environment variable")    
+    azure_deployment: Optional[str] = Field(..., description="Deployment name for Azure OpenAI, othewise loaded from LLM_AZURE_DEPLOYMENT")
+    api_version: Optional[str] = Field(..., description="API version for Azure OpenAI, otherwise loaded from LLM_AZURE_OPENAI_API_KEY")
+    azure_endpoint: Optional[str] = Field(..., description="Endpoint URL for Azure OpenAI or Ollama server, otherwise loaded from LLM_AZURE_ENDPOINT")
 
 class LLMProvider(BaseModel):
     provider: str = Field(..., description="LLM provider name")
@@ -28,17 +28,17 @@ class LLMProvider(BaseModel):
 
 class EmbedderConfig(BaseModel):
     model: str = Field(..., description="Embedder model name")
-    api_key = Optional[str] = Field(None, description="Embedding API key or 'env:EMBEDDING_AZURE_OPENAI_API_KEY'")    
-    azure_deployment = Optional[str] = Field(None,"Embedding deployment if not loaded from EMBEDDING_AZURE_DEPLOYMENT")
-    azure_endpoint = Optional[str] = Field(None, description="Azure endpoint if not loaded from EMBEDDING_AZURE_ENDPOINT")
-    api_version = Optional[str] = Field(None, description="Azure embedding API version if not loadedf from EMBEDDING_AZURE_API_VERSION")
+    api_key: Optional[str] = Field(..., description="Embedding API key or 'env:EMBEDDING_AZURE_OPENAI_API_KEY'")    
+    azure_deployment: Optional[str] = Field(...,"Embedding deployment if not loaded from EMBEDDING_AZURE_DEPLOYMENT")
+    azure_endpoint: Optional[str] = Field(..., description="Azure endpoint if not loaded from EMBEDDING_AZURE_ENDPOINT")
+    api_version: Optional[str] = Field(..., description="Azure embedding API version if not loadedf from EMBEDDING_AZURE_API_VERSION")
 
 class EmbedderProvider(BaseModel):
     provider: str = Field(..., description="Embedder provider name")
     config: EmbedderConfig
 
 class OpenMemoryConfig(BaseModel):
-    custom_instructions: Optional[str] = Field(None, description="Custom instructions for memory management and fact extraction")
+    custom_instructions: Optional[str] = Field(..., description="Custom instructions for memory management and fact extraction")
 
 class VectorProvider(BaseModel):
     host: Optional[str] = Field(..., description="Host for the vector store")
@@ -49,8 +49,8 @@ class VectorProvider(BaseModel):
     collectionName: Optional[str] = Field(..., description="Collection name for the vector store")
     dimension: Optional[int] = Field(1536, ..., description="Dimension for the vector store")
     embeddingModelDims: Optional[int] = Field(1536, ..., description="Embedding model dimension for the vector store")
-    hnsw: Optional[bool] = Field(True, ..., description="If HNSW indexing is available, defaults to True")
-    diskMan: Optional[bool] = Field(False, ..., description="If Diskman algorithm is available, defaults to False")
+    hnsw: Optional[bool] = Field( ..., description="If HNSW indexing is available, defaults to True")
+    diskMan: Optional[bool] = Field(..., description="If Diskman algorithm is available, defaults to False")
 
 class VectorStoreConfig(BaseModel):
     provider: str = Field(..., description="Vector store provider name")
@@ -60,8 +60,8 @@ class GraphProvider(BaseModel):
     url: Optional[str] = Field(..., description="URL for the graph store")
     username: Optional[str] = Field(..., description="Username for the graph store")
     password: Optional[str] = Field(..., description="Password for the graph store")
-    llm: Optional[LLMConfig] = Field(None, description="LLM configuration for querying the graph store")
-    custom_prompt: Optional[str] = Field(None, description="Custom prompt to fetch entities from the given text")
+    llm: Optional[LLMConfig] = Field(..., description="LLM configuration for querying the graph store")
+    custom_prompt: Optional[str] = Field(..., description="Custom prompt to fetch entities from the given text")
     
 class GraphStoreConfig(BaseModel):
     provider: str = Field(..., description="Graph store provider name")
@@ -80,28 +80,28 @@ class ConfigSchema(BaseModel):
 def get_default_configuration():
     """Get the default configuration with sensible defaults for LLM and embedder."""
     return {
-        "openmemory": {
-            "custom_instructions": None
-        },
-        "mem0": {
-            "llm": {
-                "provider": "openai",
-                "config": {
-                    "model": "gpt-4o-mini",
-                    "temperature": 0.1,
-                    "max_tokens": 2000,
-                    "api_key": "env:OPENAI_API_KEY"
-                }
-            },
-            "embedder": {
-                "provider": "openai",
-                "config": {
-                    "model": "text-embedding-3-small",
-                    "api_key": "env:OPENAI_API_KEY"
-                }
-            }
-        }
+  "openmemory": {
+    "custom_instructions": None
+  },
+  "mem0": {
+    "llm": {
+      "provider": "openai",
+      "config": {
+        "model": "gpt-4o-mini",
+        "temperature": 0.1,
+        "max_tokens": 2000,
+        "api_key": "env:OPENAI_API_KEY"
+      }
+    },
+    "embedder": {
+      "provider": "openai",
+      "config": {
+        "model": "text-embedding-3-small",
+        "api_key": "env:OPENAI_API_KEY"
+      }
     }
+  }
+}
     
     #defaultValue =  {
     #    "mem0": {
