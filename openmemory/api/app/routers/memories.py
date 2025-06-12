@@ -1,4 +1,10 @@
-from datetime import datetime, UTC
+import datetime
+# Python 3.10 compatibility for datetime.UTC
+try:
+    from datetime import UTC
+except ImportError:
+    from datetime import timezone
+    UTC = timezone.utc
 from typing import List, Optional, Set
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query

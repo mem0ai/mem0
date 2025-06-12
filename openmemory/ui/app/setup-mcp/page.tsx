@@ -247,7 +247,7 @@ export default function SetupMCPPage() {
                     <div className="text-zinc-300">npx clear-npx-cache</div>
                     
                     <div className="text-green-400 mb-1 mt-3">3. Try install command again:</div>
-                    <div className="text-zinc-300">npx install-mcp i https://api.jeanmemory.com/mcp/...</div>
+                    <div className="text-zinc-300">npx install-mcp https://api.jeanmemory.com/mcp/...</div>
                   </div>
                   
                   <p className="text-xs text-orange-700 dark:text-orange-300">
@@ -374,15 +374,15 @@ export default function SetupMCPPage() {
                 <div className="grid gap-2 text-sm">
                   <div className="bg-zinc-800/50 p-3 rounded">
                     <strong className="text-green-400">Claude:</strong>
-                    <code className="ml-2 text-xs">npx install-mcp i https://api.jeanmemory.com/mcp/claude/sse/YOUR_ID --client claude</code>
+                    <code className="ml-2 text-xs">npx install-mcp https://api.jeanmemory.com/mcp/claude/sse/YOUR_ID --client claude</code>
                   </div>
                   <div className="bg-zinc-800/50 p-3 rounded">
                     <strong className="text-blue-400">Cursor:</strong>
-                    <code className="ml-2 text-xs">npx install-mcp i https://api.jeanmemory.com/mcp/cursor/sse/YOUR_ID --client cursor</code>
+                    <code className="ml-2 text-xs">npx install-mcp https://api.jeanmemory.com/mcp/cursor/sse/YOUR_ID --client cursor</code>
                   </div>
                   <div className="bg-zinc-800/50 p-3 rounded">
                     <strong className="text-purple-400">Windsurf:</strong>
-                    <code className="ml-2 text-xs">npx install-mcp i https://api.jeanmemory.com/mcp/windsurf/sse/YOUR_ID --client windsurf</code>
+                    <code className="ml-2 text-xs">npx install-mcp https://api.jeanmemory.com/mcp/windsurf/sse/YOUR_ID --client windsurf</code>
                   </div>
                 </div>
               </div>

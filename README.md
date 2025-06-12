@@ -93,7 +93,7 @@ Get started in seconds with our hosted service:
 3. **Run one command** to connect your AI tools:
 
 ```bash
-npx install-mcp i https://api.jeanmemory.com/mcp/claude/sse/your-user-id --client claude
+npx install-mcp https://api.jeanmemory.com/mcp/claude/sse/your-user-id --client claude
 ```
 
 4. **Restart your AI app** and start using memory!

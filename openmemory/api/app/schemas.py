@@ -62,3 +62,12 @@ class PaginatedMemoryResponse(BaseModel):
     page: int
     size: int
     pages: int
+
+# --- Agent API Schemas ---
+
+class AgentMemoryCreate(BaseModel):
+    text: str
+    metadata: Optional[dict] = Field(default_factory=dict)
+
+class AgentMemorySearch(BaseModel):
+    filter: dict

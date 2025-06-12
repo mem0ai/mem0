@@ -8,6 +8,7 @@ from app.database import engine, Base, SessionLocal
 from app.mcp_server import setup_mcp_server
 from app.routers import memories_router, apps_router, stats_router, integrations_router, mcp_tools_router
 from app.routers.admin import router as admin_router
+from app.agent_api import router as agent_router
 from fastapi_pagination import add_pagination
 from fastapi.middleware.cors import CORSMiddleware
 from app.models import User, App
@@ -133,6 +134,11 @@ app.include_router(stats_router, prefix="/api/v1", dependencies=[Depends(get_cur
 app.include_router(integrations_router, dependencies=[Depends(get_current_supa_user)])
 app.include_router(mcp_tools_router, dependencies=[Depends(get_current_supa_user)])
 app.include_router(admin_router)  # Admin router has its own authentication
+
+# Register the new Agent API, gated by a feature flag for safety
+if os.environ.get("ENABLE_AGENT_API", "false").lower() == "true":
+    app.include_router(agent_router, prefix="/agent")
+    logger.info("✅ Jean Memory Agent API enabled.")
 
 # Setup MCP server after routers but outside of lifespan to ensure it doesn't block health checks
 setup_mcp_server(app)

@@ -57,16 +57,17 @@ export const Install = () => {
   const URL = API_URL_ON_LOAD;
 
   const handleCopy = async (tab: string, isMcp: boolean = false) => {
-    const text = isMcp
-      ? `${URL}/mcp/openmemory/sse/${userId}`
-      : `npx install-mcp i ${URL}/mcp/${tab}/sse/${userId} --client ${tab}`;
+    const textToCopy =
+      tab === 'openmemory'
+        ? `${URL}/mcp/openmemory/sse/${userId}`
+        : `npx install-mcp ${URL}/mcp/${tab}/sse/${userId} --client ${tab}`;
 
     try {
       if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text);
+        await navigator.clipboard.writeText(textToCopy);
       } else {
         const textarea = document.createElement("textarea");
-        textarea.value = text;
+        textarea.value = textToCopy;
         textarea.style.position = "fixed";
         textarea.style.opacity = "0";
         document.body.appendChild(textarea);
@@ -95,7 +96,7 @@ export const Install = () => {
             <code className="text-zinc-300">
               {isMcp 
                 ? `${URL}/mcp/openmemory/sse/${userId}`
-                : `npx install-mcp i ${URL}/mcp/${appKey}/sse/${userId} --client ${appKey}`
+                : `npx install-mcp ${URL}/mcp/${appKey}/sse/${userId} --client ${appKey}`
               }
             </code>
           </pre>
