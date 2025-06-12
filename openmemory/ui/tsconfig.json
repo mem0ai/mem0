@@ -2,7 +2,7 @@
   "compilerOptions": {
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
-    "target": "ES6",
+    "target": "ES2017",
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
@@ -12,6 +12,7 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
+    "forceConsistentCasingInFileNames": true,
     "incremental": true,
     "plugins": [
       {

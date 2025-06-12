@@ -101,6 +101,7 @@ app.add_middleware(
         "https://jeanmemory.com", # New custom domain
         "https://www.jeanmemory.com", # New custom domain with www
         "https://jean-memory-ui.onrender.com", # Render.com frontend URL
+        "https://api.jeanmemory.com", # API domain used by some components
     ],  
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"], # Added PATCH

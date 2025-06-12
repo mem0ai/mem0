@@ -44,9 +44,10 @@ const colorGradientMap: { [key: string]: string } = {
 };
 
 const API_URL_ON_LOAD = 
-  process.env.NODE_ENV === 'production' 
-    ? "https://api.jeanmemory.com" 
-    : process.env.NEXT_PUBLIC_API_URL || "http://localhost:8765";
+  process.env.NEXT_PUBLIC_API_URL || 
+  (process.env.NODE_ENV === 'production' 
+    ? "https://jean-memory-api.onrender.com" 
+    : "http://localhost:8765");
 
 export const Install = () => {
   const [copiedTab, setCopiedTab] = useState<string | null>(null);
