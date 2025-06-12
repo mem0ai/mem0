@@ -80,162 +80,68 @@ class ConfigSchema(BaseModel):
 def get_default_configuration():
     """Get the default configuration with sensible defaults for LLM and embedder."""
     return {
-  "openmemory": {
-    "custom_instructions": None
-  },
-  "mem0": {
-    "llm": {
-      "provider": "openai",
-      "config": {
-        "model": "gpt-4o-mini",
-        "temperature": 0.1,
-        "max_tokens": 2000,
-        "api_key": "env:OPENAI_API_KEY"
-      }
+    "openmemory": {
+      "custom_instructions": None
     },
-    "embedder": {
-      "provider": "openai",
-      "config": {
-        "model": "text-embedding-3-small",
-        "api_key": "env:OPENAI_API_KEY"
+    "mem0": {
+      "llm": {
+        "provider": "azure_openai",
+        "config": {
+          "model": "gpt-4o-mini",
+          "temperature": 0.1,
+          "max_tokens": 2000,
+          "api_key": "env:OPENAI_API_KEY",
+          "azure_deployment": "gpt-4o-mini",
+          "api_version": "2025-04-01-preview",
+          "azure_endpoint": "https://schoollaw-1000-eastus096943908820.openai.azure.com/"
+        }
+      },
+      "embedder": {
+        "provider": "azure_openai",
+        "config": {
+          "model": "text-embedding-3-small",
+          "api_key": "env:OPENAI_API_KEY",
+          "azure_deployment": "text-embedding-3-small",
+          "azure_endpoint": "https://schoollawbot1000.openai.azure.com/",
+          "api_version": "2025-04-01-preview"
+        }
+      },
+      "vector_store": {
+        "provider": "pgvector",
+        "config": {
+          "host": "env:PGVECTOR_HOST",
+          "port": 8432,
+          "dbname": "env:PGVECTOR_DB",
+          "user": "env:PGVECTOR_USER",
+          "password": "env:PGVECTOR_PASSWORD",
+          "collectionName": "env:PGVECTOR_COLLECTION_NAME",
+          "dimension": 1536,
+          "embeddingModelDims": 1536,
+          "hnsw": True,
+          "diskMan": False
+        }
+      },
+      "graph_store": {
+        "provider": "neo4j",
+        "config": {
+          "url": "env:NEO4J_URI",
+          "username": "env:NEO4J_USERNAME",
+          "password": "env:NEO4J_PASSWORD",
+          "llm": {
+            "model": "gpt-4o-mini",
+            "temperature": 0.1,
+            "max_tokens": 2000,
+            "api_key": "env:OPENAI_API_KEY",
+            "azure_deployment": "gpt-4o-mini",
+            "api_version": "2025-04-01-preview",
+            "azure_endpoint": "https://schoollaw-1000-eastus096943908820.openai.azure.com/"
+          },
+          "custom_prompt": "Please focus extraction on people, statements, and actions that could have relevance within the context of investigations into educational malfeanse or record cover-up"
+        }
       }
     }
   }
-}
-    
-    #defaultValue =  {
-    #    "mem0": {
-    ##       "provider": "azure_openai",
-     #       "config": {
-     ####         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ##          "azure_deployment": "env:LLM_AZURE_DEPLOYMENT",
-        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ##        "azure_endpoint": "env:LLM_AZURE_ENDPOINT"
-        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ##    }
-        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ##    },
-        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ###         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ###         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ###         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ##    "embedder": {
-        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ##        "provider": "azure_openai",
-        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ##        "config": {
-        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ##            "model": "env:EMBEDDING_AZURE_DEPLOYMENT",
-        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ###         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ###         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ##            "deployment": "env:EMBEDDING_AZURE_DEPLOYMENT",
-        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ###         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ###         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ##            "endpoint": "env:EMBEDDING_AZURE_ENDPOINT"
-        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ##        }
-        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ##    },
-        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ##v    "vector_store": {
-         #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ###         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ##       "provider": "pgvector",
-        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ##        "config": {
-        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ##            "host": "env:PGVECTOR_HOST",
-        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ###         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ###         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ###         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ##            "port": 8432,                    
-        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ##            "collectionName": "env:PGVECTOR_COLLECTION_NAME"
-        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ###         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ###         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ###         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ##        }
-            #},
-        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ##    "graph_store": {
-        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ###         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ##v        "provider": "neo4j",
-         #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ##       "config": {
-        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ##            "url": "env:NEO4J_URI",
-        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ##            "username": "env:NEO4J_USERNAME",
-        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ##            "password": "env:NEO4J_PASSWORD"
-        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ##        }
-        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ##    }
-        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ##},
-        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ##"openmemory": {
-        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ##    "custom_instructions": None,           
-        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-      #          "api_version": "env:LLM_AZURE_API_VERSION",
-      ##}        
-    #}    
-    #customInstructions = os.getenv("OPENMEMORY_CUSTOM_INSTRUCTIONS")
-    #if customInstructions:
-    #    defaultValue["openmemory"]["custom_instructions"] = customInstructions
-    #return defaultValue*/
+      
 
 def get_config_from_db(db: Session, key: str = "main"):
     """Get configuration from database."""
