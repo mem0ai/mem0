@@ -145,10 +145,6 @@ def get_default_configuration():
             "custom_instructions": None,           
         }        
     }    
-    pgPort = parseInt(process.env.PGVECTOR_PORT || "-1")
-    if (pgPort > 0) {
-        defaultValue["mem0"]["vector_store"]["config"]["port"] = pgPort        
-    }
     customInstructions = os.getenv("OPENMEMORY_CUSTOM_INSTRUCTIONS")
     if customInstructions:
         defaultValue["openmemory"]["custom_instructions"] = customInstructions
