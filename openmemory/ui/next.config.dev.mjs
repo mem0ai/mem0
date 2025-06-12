@@ -1,6 +1,10 @@
-/** @type {import('next').NextConfig} */
+/**
+ * @format
+ * @type {import('next').NextConfig}
+ */
+
 const nextConfig = {
-  output: "standalone",
+  output: 'standalone',
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -10,6 +14,9 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-}
+  publicRuntimeConfig: {
+    hostname: process.env.NEXT_PUBLIC_URL,
+  },
+};
 
-export default nextConfig
+export default nextConfig;
