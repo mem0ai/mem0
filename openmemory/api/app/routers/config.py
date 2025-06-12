@@ -14,9 +14,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/config", tags=["config"])
 
 class LLMConfig(BaseModel):
-    model: str = Field(..., description="LLM model name")
-    temperature: float = Field(..., description="Temperature setting for the model")
-    max_tokens: int = Field(..., description="Maximum tokens to generate")
+    model: s = Field(..., description="LLM model name")
+    temperature: Optional[float] = Field(..., description="Temperature setting for the model")
+    max_tokens: Optional[int] = Field(..., description="Maximum tokens to generate")
     api_key: Optional[str] = Field(None, description="API key or 'env:LLM_AZURE_OPENAI_API_KEY' to use environment variable")    
     azure_deployment: Optional[str] = Field(None, description="Deployment name for Azure OpenAI, othewise loaded from LLM_AZURE_DEPLOYMENT")
     api_version: Optional[str] = Field(None, description="API version for Azure OpenAI, otherwise loaded from LLM_AZURE_OPENAI_API_KEY")
@@ -41,12 +41,12 @@ class OpenMemoryConfig(BaseModel):
     custom_instructions: Optional[str] = Field(None, description="Custom instructions for memory management and fact extraction")
 
 class VectorProvider(BaseModel):
-    host: str = Field(..., description="Host for the vector store")
-    port: int = Field(..., description="Port for the vector store")
-    dbname: str = Field(..., description="Database name for the vector store")
-    user: str = Field(..., description="User for the vector store")
-    password: str = Field(..., description="Password for the vector store")
-    collectionName: str = Field(..., description="Collection name for the vector store")
+    host: Optional[str] = Field(..., description="Host for the vector store")
+    port: Optional[int] = Field(..., description="Port for the vector store")
+    dbname: Optional[str] = Field(..., description="Database name for the vector store")
+    user: Optional[str] = Field(..., description="User for the vector store")
+    password: Optional[str] = Field(..., description="Password for the vector store")
+    collectionName: Optional[str] = Field(..., description="Collection name for the vector store")
     dimension: Optional[int] = Field(1536, ..., description="Dimension for the vector store")
     embeddingModelDims: Optional[int] = Field(1536, ..., description="Embedding model dimension for the vector store")
     hnsw: Optional[bool] = Field(True, ..., description="If HNSW indexing is available, defaults to True")
@@ -57,9 +57,9 @@ class VectorStoreConfig(BaseModel):
     config: VectorProvider
 
 class GraphProvider(BaseModel):
-    url: str = Field(..., description="URL for the graph store")
-    username: str = Field(..., description="Username for the graph store")
-    password: str = Field(..., description="Password for the graph store")
+    url: Optional[str] = Field(..., description="URL for the graph store")
+    username: Optional[str] = Field(..., description="Username for the graph store")
+    password: Optional[str] = Field(..., description="Password for the graph store")
     llm: Optional[LLMConfig] = Field(None, description="LLM configuration for querying the graph store")
     custom_prompt: Optional[str] = Field(None, description="Custom prompt to fetch entities from the given text")
     
@@ -75,122 +75,221 @@ class Mem0Config(BaseModel):
 
 class ConfigSchema(BaseModel):
     openmemory: Optional[OpenMemoryConfig] = None
-    mem0: Mem0Config
+    mem0: Optional[Mem0Config] = None
 
 def get_default_configuration():
     """Get the default configuration with sensible defaults for LLM and embedder."""
-#    return {
-#        "openmemory": {
-#            "custom_instructions": None
-#        },
-#        "mem0": {
-#            "llm": {
-#                "provider": "openai",
-#                "config": {
-#                    "model": "gpt-4o-mini",
-#                    "temperature": 0.1,
-#                    "max_tokens": 2000,
-#                    "api_key": "env:OPENAI_API_KEY"
-#                }
-#            },
-#            "embedder": {
-#                "provider": "openai",
-#                "config": {
-#                    "model": "text-embedding-3-small",
-#                    "api_key": "env:OPENAI_API_KEY"
-#                }
-#            }
-#        }
-#    }
-    defaultValue =  {
+    return {
+        "openmemory": {
+            "custom_instructions": None
+        },
         "mem0": {
             "llm": {
-            "provider": "azure_openai",
-            "config": {
-                "model": "env:LLM_AZURE_DEPLOYMENT",
-                "temperature": 0.1,
-                "max_tokens": 2000,
-                "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
-                "api_version": "env:LLM_AZURE_API_VERSION",
-                "azure_deployment": "env:LLM_AZURE_DEPLOYMENT",
-                "azure_endpoint": "env:LLM_AZURE_ENDPOINT"
-            }
+                "provider": "openai",
+                "config": {
+                    "model": "gpt-4o-mini",
+                    "temperature": 0.1,
+                    "max_tokens": 2000,
+                    "api_key": "env:OPENAI_API_KEY"
+                }
             },
             "embedder": {
-                "provider": "azure_openai",
+                "provider": "openai",
                 "config": {
-                    "model": "env:EMBEDDING_AZURE_DEPLOYMENT",
-                    "deployment": "env:EMBEDDING_AZURE_DEPLOYMENT",
-                    "endpoint": "env:EMBEDDING_AZURE_ENDPOINT"
-                }
-            },
-            "vector_store": {
-                "provider": "pgvector",
-                "config": {
-                    "host": "env:PGVECTOR_HOST",
-                    "port": 8432,                    
-                    "collectionName": "env:PGVECTOR_COLLECTION_NAME"
-                }
-            },
-            "graph_store": {
-                "provider": "neo4j",
-                "config": {
-                    "url": "env:NEO4J_URI",
-                    "username": "env:NEO4J_USERNAME",
-                    "password": "env:NEO4J_PASSWORD"
+                    "model": "text-embedding-3-small",
+                    "api_key": "env:EMBEDDING_OPENAI_API_KEY",
                 }
             }
-        },
-        "openmemory": {
-            "custom_instructions": None,           
-        }        
-    }    
-    customInstructions = os.getenv("OPENMEMORY_CUSTOM_INSTRUCTIONS")
-    if customInstructions:
-        defaultValue["openmemory"]["custom_instructions"] = customInstructions
-    return defaultValue
+        }
+    }
+    
+    #defaultValue =  {
+    #    "mem0": {
+    ##       "provider": "azure_openai",
+     #       "config": {
+     ####         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ##          "azure_deployment": "env:LLM_AZURE_DEPLOYMENT",
+        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ##        "azure_endpoint": "env:LLM_AZURE_ENDPOINT"
+        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ##    }
+        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ##    },
+        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ###         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ###         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ###         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ##    "embedder": {
+        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ##        "provider": "azure_openai",
+        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ##        "config": {
+        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ##            "model": "env:EMBEDDING_AZURE_DEPLOYMENT",
+        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ###         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ###         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ##            "deployment": "env:EMBEDDING_AZURE_DEPLOYMENT",
+        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ###         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ###         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ##            "endpoint": "env:EMBEDDING_AZURE_ENDPOINT"
+        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ##        }
+        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ##    },
+        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ##v    "vector_store": {
+         #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ###         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ##       "provider": "pgvector",
+        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ##        "config": {
+        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ##            "host": "env:PGVECTOR_HOST",
+        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ###         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ###         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ###         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ##            "port": 8432,                    
+        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ##            "collectionName": "env:PGVECTOR_COLLECTION_NAME"
+        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ###         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ###         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ###         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ##        }
+            #},
+        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ##    "graph_store": {
+        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ###         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ##v        "provider": "neo4j",
+         #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ##       "config": {
+        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ##            "url": "env:NEO4J_URI",
+        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ##            "username": "env:NEO4J_USERNAME",
+        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ##            "password": "env:NEO4J_PASSWORD"
+        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ##        }
+        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ##    }
+        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ##},
+        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ##"openmemory": {
+        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ##    "custom_instructions": None,           
+        #         "api_key": "env:LLM_AZURE_OPENAI_API_KEY",
+      #          "api_version": "env:LLM_AZURE_API_VERSION",
+      ##}        
+    #}    
+    #customInstructions = os.getenv("OPENMEMORY_CUSTOM_INSTRUCTIONS")
+    #if customInstructions:
+    #    defaultValue["openmemory"]["custom_instructions"] = customInstructions
+    #return defaultValue*/
 
 def get_config_from_db(db: Session, key: str = "main"):
     """Get configuration from database."""
-    config = db.query(ConfigModel).filter(ConfigModel.key == key).first()
-    
-    if not config:
-        # Create default config with proper provider configurations
-        default_config = get_default_configuration()
-        db_config = ConfigModel(key=key, value=default_config)
-        db.add(db_config)
-        db.commit()
-        db.refresh(db_config)
-        return default_config
-    
-    # Ensure the config has all required sections with defaults
-    config_value = config.value
-    default_config = get_default_configuration()
-    
-    # Merge with defaults to ensure all required fields exist
-    if "openmemory" not in config_value:
-        config_value["openmemory"] = default_config["openmemory"]
-    
-    if "mem0" not in config_value:
-        config_value["mem0"] = default_config["mem0"]
-    else:
-        # Ensure LLM config exists with defaults
-        if "llm" not in config_value["mem0"] or config_value["mem0"]["llm"] is None:
-            config_value["mem0"]["llm"] = default_config["mem0"]["llm"]
+    try:
+        config = db.query(ConfigModel).filter(ConfigModel.key == key).first()
         
-        # Ensure embedder config exists with defaults
-        if "embedder" not in config_value["mem0"] or config_value["mem0"]["embedder"] is None:
-            config_value["mem0"]["embedder"] = default_config["mem0"]["embedder"]
-    
-    # Save the updated config back to database if it was modified
-    if config_value != config.value:
-        config.value = config_value
-        db.commit()
-        db.refresh(config)
-    
-    logger.info(f"Configuration loaded from database: {config_value}")
+        if not config:
+            # Create default config with proper provider configurations
+            default_config = get_default_configuration()
+            db_config = ConfigModel(key=key, value=default_config)
+            db.add(db_config)
+            db.commit()
+            db.refresh(db_config)
+            return default_config
+        
+        # Ensure the config has all required sections with defaults
+        config_value = config.value
+        default_config = get_default_configuration()
+        
+        # Merge with defaults to ensure all required fields exist
+        if "openmemory" not in config_value:
+            config_value["openmemory"] = default_config["openmemory"]
+        
+        if "mem0" not in config_value:
+            config_value["mem0"] = default_config["mem0"]
+        else:
+            # Ensure LLM config exists with defaults
+            if "llm" not in config_value["mem0"] or config_value["mem0"]["llm"] is None:
+                config_value["mem0"]["llm"] = default_config["mem0"]["llm"]
+            
+            # Ensure embedder config exists with defaults
+            if "embedder" not in config_value["mem0"] or config_value["mem0"]["embedder"] is None:
+                config_value["mem0"]["embedder"] = default_config["mem0"]["embedder"]
+        
+        # Save the updated config back to database if it was modified
+        if config_value != config.value:
+            config.value = config_value
+            db.commit()
+            db.refresh(config)
+        
+        logger.info(f"Configuration loaded from database: {config_value}")
 
-    return config_value
+        return config_value
+    except Exception as e:
+        logger.error(f"Error loading configuration from database: {str(e)}")
+        save_config_to_db(db, get_default_configuration())
+        try:
+            db_config = ConfigModel(key=key, value=config)
+            db.add(db_config)
+        except Exception as e:            
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to load configuration: {str(e)}"
+            )
 
 def save_config_to_db(db: Session, config: Dict[str, Any], key: str = "main"):
     """Save configuration to database."""
