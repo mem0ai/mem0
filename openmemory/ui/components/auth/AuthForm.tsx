@@ -14,7 +14,7 @@ export const AuthForm = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
-  const { signInWithPassword, signUpWithPassword, signInWithGoogle, signInWithGitHub, error, isLoading, user } = useAuth();
+  const { signInWithPassword, signUpWithPassword, signInWithGoogle, signInWithGitHub, signInLocalDev, error, isLoading, user, isLocalDev } = useAuth();
   const router = useRouter();
 
   // Redirect to dashboard when user becomes authenticated
@@ -28,6 +28,13 @@ export const AuthForm = () => {
     e.preventDefault();
     setMessage('');
     let authError = null;
+
+    if (isLocalDev) {
+      // In local development mode, any form submission triggers local sign-in
+      await signInLocalDev();
+      setMessage('Local development sign-in successful! Redirecting...');
+      return;
+    }
 
     if (isLogin) {
       const { error: signInError } = await signInWithPassword({ email, password });
@@ -51,12 +58,20 @@ export const AuthForm = () => {
   
   const handleGoogleSignIn = async () => {
     setMessage('');
-    await signInWithGoogle();
+    if (isLocalDev) {
+      await signInLocalDev();
+    } else {
+      await signInWithGoogle();
+    }
   };
 
   const handleGitHubSignIn = async () => {
     setMessage('');
-    await signInWithGitHub();
+    if (isLocalDev) {
+      await signInLocalDev();
+    } else {
+      await signInWithGitHub();
+    }
   };
 
   React.useEffect(() => {
@@ -86,6 +101,13 @@ export const AuthForm = () => {
           <p className="text-zinc-400">
             {isLogin ? 'Sign in to access your memories' : 'Create your account in seconds'}
           </p>
+          {isLocalDev && (
+            <div className="mt-3 p-2 bg-orange-500/10 border border-orange-500/20 rounded-md">
+              <p className="text-xs text-orange-300 font-medium">
+                🧪 Local Development Mode - Any button will sign you in
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Google Sign In - Make this prominent */}
