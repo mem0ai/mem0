@@ -138,6 +138,8 @@ class Memory(MemoryBase):
         if self.config.graph_store.config:
             if self.config.graph_store.provider == "memgraph":
                 from mem0.memory.memgraph_memory import MemoryGraph
+            elif self.config.graph_store.provider == "neptune":
+                from mem0.memory.neptune_memory import MemoryGraph
             else:
                 from mem0.memory.graph_memory import MemoryGraph
 
