@@ -29,7 +29,7 @@ class LLMProvider(BaseModel):
 class EmbedderConfig(BaseModel):
     model: str = Field(..., description="Embedder model name")
     api_key: Optional[str] = Field(..., description="Embedding API key or 'env:EMBEDDING_AZURE_OPENAI_API_KEY'")    
-    azure_deployment: Optional[str] = Field(...,"Embedding deployment if not loaded from EMBEDDING_AZURE_DEPLOYMENT")
+    azure_deployment: Optional[str] = Field(...,description="Embedding deployment if not loaded from EMBEDDING_AZURE_DEPLOYMENT")
     azure_endpoint: Optional[str] = Field(..., description="Azure endpoint if not loaded from EMBEDDING_AZURE_ENDPOINT")
     api_version: Optional[str] = Field(..., description="Azure embedding API version if not loadedf from EMBEDDING_AZURE_API_VERSION")
 
