@@ -21,6 +21,7 @@
     "@types/redis": "^4.0.10",
     "@types/sqlite3": "^3.1.11",
     "@types/uuid": "^9.0.8",
+    "cloudflare": "^4.2.0",
     "dotenv": "^16.4.4",
     "groq-sdk": "^0.3.0",
     "openai": "^4.28.0",
@@ -31,6 +32,7 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250504.0",
     "@types/jest": "^29.5.12",
     "jest": "^29.7.0",
     "rimraf": "^5.0.5",
