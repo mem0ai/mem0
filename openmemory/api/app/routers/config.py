@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/config", tags=["config"])
 
 class LLMConfig(BaseModel):
-    model: s = Field(..., description="LLM model name")
+    model: str = Field(..., description="LLM model name")
     temperature: Optional[float] = Field(..., description="Temperature setting for the model")
     max_tokens: Optional[int] = Field(..., description="Maximum tokens to generate")
     api_key: Optional[str] = Field(None, description="API key or 'env:LLM_AZURE_OPENAI_API_KEY' to use environment variable")    
@@ -97,6 +97,7 @@ def get_default_configuration():
                 "provider": "openai",
                 "config": {
                     "model": "text-embedding-3-small",
+                    "api_key": "env:OPENAI_API_KEY"
                 }
             }
         }
