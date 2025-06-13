@@ -23,7 +23,7 @@ const CodeBlock = ({ code, lang = 'bash' }: { code: string, lang?: string }) => 
       </div>
       <div className="p-4 pr-12 text-sm font-mono overflow-x-auto">
         {lines.map((line, i) => {
-          let styledLine = line;
+          let styledLine: string = line;
           if (lang === 'bash' || lang === 'http') {
               styledLine = line.replace(/curl/g, '<span class="text-pink-400">curl</span>');
               styledLine = styledLine.replace(/(-X POST|-H|-d)/g, '<span class="text-cyan-400">$&</span>');
@@ -32,7 +32,7 @@ const CodeBlock = ({ code, lang = 'bash' }: { code: string, lang?: string }) => 
           } else if (lang === 'python') {
               styledLine = styledLine.replace(/(#.*$)/g, '<span class="text-slate-500">$&</span>');
               styledLine = styledLine.replace(/(".*?"|'.*?')/g, '<span class="text-emerald-400">$&</span>');
-              styled_line = styledLine.replace(/\b(from|import|def|return|print|if|for|in|not|try|except|raise|as)\b/g, '<span class="text-pink-400">$&</span>');
+              styledLine = styledLine.replace(/\b(from|import|def|return|print|if|for|in|not|try|except|raise|as)\b/g, '<span class="text-pink-400">$&</span>');
               styledLine = styledLine.replace(/\b(requests|json|os)\b/g, '<span class="text-sky-400">$&</span>');
           } else if (lang === 'mermaid') {
               return <div key={i}><pre className="text-slate-200 whitespace-pre-wrap">{line}</pre></div>;
