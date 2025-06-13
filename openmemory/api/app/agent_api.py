@@ -23,7 +23,7 @@ def add_tagged_memory(
     This endpoint is thread-safe for use with SQLite in local testing.
     """
     with db_lock:
-        user, app = get_user_and_app(db, supa_user.id, x_client_name)
+        user, app = get_user_and_app(db, supa_user.user.id, x_client_name)
 
         if not app.is_active:
             raise HTTPException(
@@ -55,7 +55,7 @@ def search_by_tags(
     Searches for memories based on metadata tags.
     This query is cross-database compatible (PostgreSQL & SQLite).
     """
-    query = db.query(models.Memory).filter(models.Memory.user.has(user_id=supa_user.id))
+    query = db.query(models.Memory).filter(models.Memory.user.has(user_id=supa_user.user.id))
 
     if x_client_name:
         query = query.filter(models.Memory.app.has(name=x_client_name))

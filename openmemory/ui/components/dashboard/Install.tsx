@@ -46,7 +46,7 @@ const colorGradientMap: { [key: string]: string } = {
 const API_URL_ON_LOAD = 
   process.env.NEXT_PUBLIC_API_URL || 
   (process.env.NODE_ENV === 'production' 
-    ? "https://jean-memory-api.onrender.com" 
+    ? "https://api.jeanmemory.com" 
     : "http://localhost:8765");
 
 export const Install = () => {

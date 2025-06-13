@@ -51,14 +51,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     globalAccessToken = token;
     console.log('AuthContext: globalAccessToken updated:', globalAccessToken);
 
-    const supabaseUser = currentSession?.user ?? null;
-    setUser(supabaseUser);
-    if (supabaseUser) {
-      dispatch(setUserId(supabaseUser.id));
+    // This handles the nested user object from Supabase vs the flat one in local dev
+    const userObject = currentSession?.user && 'user' in currentSession.user ? (currentSession.user as any).user : currentSession?.user;
+    setUser(userObject ?? null);
+    
+    if (userObject) {
+      dispatch(setUserId(userObject.id));
     } else {
       dispatch(setUserId(null as any)); 
     }
-  }, [dispatch]); // Added dispatch to dependency array
+  }, [dispatch]);
 
   // Check if we're in local development mode
   const isLocalDev = Boolean(process.env.NEXT_PUBLIC_USER_ID);

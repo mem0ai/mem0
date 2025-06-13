@@ -124,8 +124,8 @@ async def list_memories(
     sort_direction: Optional[str] = Query(None, description="Sort direction (asc or desc)"),
     db: Session = Depends(get_db)
 ):
-    supabase_user_id_str = str(current_supa_user.id)
-    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
+    supabase_user_id_str = str(current_supa_user.user.id)
+    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.user.email)
     if not user:
         raise HTTPException(status_code=404, detail="User not found or could not be created")
 
@@ -232,8 +232,8 @@ async def get_categories(
     current_supa_user: SupabaseUser = Depends(get_current_supa_user),
     db: Session = Depends(get_db)
 ):
-    supabase_user_id_str = str(current_supa_user.id)
-    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
+    supabase_user_id_str = str(current_supa_user.user.id)
+    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.user.email)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -263,9 +263,9 @@ async def create_memory(
     current_supa_user: SupabaseUser = Depends(get_current_supa_user),
     db: Session = Depends(get_db)
 ):
-    supabase_user_id_str = str(current_supa_user.id)
+    supabase_user_id_str = str(current_supa_user.user.id)
     
-    user, app_obj = get_user_and_app(db, supabase_user_id_str, request.app_name, current_supa_user.email)
+    user, app_obj = get_user_and_app(db, supabase_user_id_str, request.app_name, current_supa_user.user.email)
 
     if not app_obj.is_active:
         raise HTTPException(status_code=403, detail=f"App {request.app_name} is currently paused. Cannot create new memories.")
@@ -303,8 +303,8 @@ async def get_memory(
     current_supa_user: SupabaseUser = Depends(get_current_supa_user),
     db: Session = Depends(get_db)
 ):
-    supabase_user_id_str = str(current_supa_user.id)
-    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
+    supabase_user_id_str = str(current_supa_user.user.id)
+    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.user.email)
 
     memory = get_memory_or_404(db, memory_id)
     
@@ -334,8 +334,8 @@ async def delete_memories(
     current_supa_user: SupabaseUser = Depends(get_current_supa_user),
     db: Session = Depends(get_db)
 ):
-    supabase_user_id_str = str(current_supa_user.id)
-    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
+    supabase_user_id_str = str(current_supa_user.user.id)
+    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.user.email)
 
     deleted_count = 0
     not_found_count = 0
@@ -371,7 +371,7 @@ async def archive_memories(
     current_supa_user: SupabaseUser = Depends(get_current_supa_user),
     db: Session = Depends(get_db)
 ):
-    supabase_user_id_str = str(current_supa_user.id)
+    supabase_user_id_str = str(current_supa_user.user.id)
     archived_count = 0
     not_found_count = 0
     not_authorized_count = 0
@@ -412,8 +412,8 @@ async def pause_memories(
     current_supa_user: SupabaseUser = Depends(get_current_supa_user),
     db: Session = Depends(get_db)
 ):
-    supabase_user_id_str = str(current_supa_user.id)
-    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
+    supabase_user_id_str = str(current_supa_user.user.id)
+    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.user.email)
 
     state_to_set = request.state or MemoryState.paused
 
@@ -477,8 +477,8 @@ async def get_memory_access_log(
     page_size: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
-    supabase_user_id_str = str(current_supa_user.id)
-    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
+    supabase_user_id_str = str(current_supa_user.user.id)
+    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.user.email)
 
     memory_owner_check = get_memory_or_404(db, memory_id)
     if memory_owner_check.user_id != user.id:
@@ -512,8 +512,8 @@ async def update_memory(
     current_supa_user: SupabaseUser = Depends(get_current_supa_user),
     db: Session = Depends(get_db)
 ):
-    supabase_user_id_str = str(current_supa_user.id)
-    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
+    supabase_user_id_str = str(current_supa_user.user.id)
+    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.user.email)
     
     memory_to_update = get_memory_or_404(db, memory_id)
 
