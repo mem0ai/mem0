@@ -35,14 +35,13 @@ export function Navbar() {
   };
 
   const activeClass = "bg-zinc-800 text-white";
-  const inactiveClass = "text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-50";
+  const inactiveClass = "text-zinc-300";
 
   const navLinks = [
     { href: "/dashboard", icon: <HiHome />, label: "Dashboard" },
     { href: "/memories", icon: <HiMiniRectangleStack />, label: "Memories" },
     { href: "/my-life", icon: <Brain className="w-4 h-4" />, label: "Life Graph" },
     { href: "/apps", icon: <RiApps2AddFill />, label: "Apps" },
-    { href: "/api-docs", icon: <Book className="w-4 h-4" />, label: "API Docs" },
   ];
 
   return (

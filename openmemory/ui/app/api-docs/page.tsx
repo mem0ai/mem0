@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { GitBranch, Shield, BookOpen, Puzzle, Terminal, Code, Server, Key, BrainCircuit, Copy, Check, LucideIcon } from 'lucide-react';
+import { GitBranch, Shield, BookOpen, Puzzle, Terminal, Code, Server, Key, BrainCircuit, Copy, Check, LucideIcon, ListTree } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 
 // A simple syntax-highlighted code block component with a copy button
@@ -185,18 +185,51 @@ const navItems = [
   { href: '#authentication', label: 'Authentication', icon: Shield },
   { href: '#endpoints', label: 'API Endpoint', icon: GitBranch },
   { href: '#mcp-methods', label: 'MCP Methods', icon: BrainCircuit },
+  { href: '#available-tools', label: 'Available Tools', icon: ListTree },
   { href: '#python-example', label: 'Python Example', icon: Puzzle },
   { href: '#curl-example', label: 'cURL Example', icon: Terminal },
 ];
 
+// Modal for displaying the diagram
+const DiagramModal = ({ chart, onClose }: { chart: string; onClose: () => void }) => {
+  useEffect(() => {
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => {
+      window.removeEventListener('keydown', handleEsc);
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6 md:p-8"
+      onClick={onClose}
+    >
+      <div
+        className="bg-slate-950 p-6 sm:p-8 rounded-xl border border-slate-700 max-w-6xl w-full max-h-full overflow-auto shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="h-full w-full">
+          <MermaidDiagram chart={chart} />
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const ApiDocsPage = () => {
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://jean-memory-api.onrender.com";
+  const [isDiagramModalOpen, setIsDiagramModalOpen] = useState(false);
 
   const architectureDiagram = `
-  graph TD
+graph TD
     subgraph "Existing Production Auth (Unchanged & Safe)"
-        A["UI Request (jeanmemory.com)"] --> B{JWT in Header};
-        C["Claude \\\`supergateway\\\` Request"] --> D{"x-user-id" in Header};
+        A["UI Request<br/>(jeanmemory.com)"] --> B{JWT in Header};
+        C["Claude 'supergateway' Request"] --> D{"x-user-id" in Header};
 
         B --> E["GET /api/v1/*"];
         D --> F["POST /mcp/messages/"];
@@ -206,16 +239,19 @@ const ApiDocsPage = () => {
     end
 
     subgraph "New Agent API (Isolated System)"
-        H["Agent Request"] --> I{"API Key \\\`jean_sk_...\\\` in Header"};
+        H["Agent Request"] --> I{"API Key<br/>'jean_sk_...' in Header"};
         I --> J["POST /agent/v1/mcp/messages/"];
         J -- "Uses get_current_agent" --> K["✅ Validated"];
         K -- "Forwards to main MCP handler" --> F;
     end
-
-    style F fill:#cde4da,stroke:#155724
-    style G fill:#cde4da,stroke:#155724
-    style J fill:#d4e4f7,stroke:#0c5460
-    style K fill:#d4e4f7,stroke:#0c5460
+    
+    classDef existing fill:#18181b,stroke:#a1a1aa,color:#fafafa,stroke-width:1px
+    classDef new fill:#172554,stroke:#60a5fa,color:#fafafa,stroke-width:1px
+    classDef validated fill:#166534,stroke:#4ade80,color:#fafafa,stroke-width:1px
+    
+    class A,B,C,D,E,F existing
+    class H,I,J new
+    class G,K validated
   `;
 
   return (
@@ -268,6 +304,76 @@ const ApiDocsPage = () => {
           <div className="p-4 border border-sky-700/80 bg-sky-900/50 rounded-lg text-sky-300 text-sm">
               The architecture has been unified. The agent endpoint is a fully-featured MCP server, providing the same capabilities as the internal system used by Claude.
           </div>
+      </section>
+
+      <section id="available-tools">
+        <h2 className="text-3xl font-bold text-slate-100 mb-4 flex items-center"><ListTree className="w-7 h-7 mr-3 text-purple-400"/>Available Tools</h2>
+        <p className="text-slate-400 mb-6">
+          The Agent API exposes several powerful tools to interact with the user's memory. You call these tools using the <code className="font-mono text-sm">tools/call</code> MCP method.
+        </p>
+        <div className="space-y-8">
+          {/* add_memories tool */}
+          <div className="p-6 border border-slate-700/50 rounded-lg bg-slate-900/40">
+            <h3 className="font-mono text-lg text-pink-400 mb-2">add_memories</h3>
+            <p className="text-slate-400 mb-4">
+              Adds one or more new memories to the user's memory store. Each memory should be a distinct piece of information.
+            </p>
+            <h4 className="font-semibold text-slate-200 mb-2">Input Schema:</h4>
+            <CodeBlock lang="json" code={`
+{
+  "text": {
+    "type": "string",
+    "description": "The memory text to add. For multiple, use a newline-separated string."
+  }
+}
+            `} />
+            <h4 className="font-semibold text-slate-200 mt-4 mb-2">Example Payload:</h4>
+            <CodeBlock lang="json" code={`
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+      "name": "add_memories",
+      "arguments": {
+          "text": "The user is interested in learning about generative adversarial networks (GANs)."
+      }
+  },
+  "id": 1
+}
+            `} />
+          </div>
+
+          {/* search_memories tool */}
+          <div className="p-6 border border-slate-700/50 rounded-lg bg-slate-900/40">
+            <h3 className="font-mono text-lg text-pink-400 mb-2">search_memories</h3>
+            <p className="text-slate-400 mb-4">
+              Performs a semantic search over the user's memories and returns the most relevant results.
+            </p>
+            <h4 className="font-semibold text-slate-200 mb-2">Input Schema:</h4>
+            <CodeBlock lang="json" code={`
+{
+  "query": {
+    "type": "string",
+    "description": "The query to search for."
+  }
+}
+            `} />
+            <h4 className="font-semibold text-slate-200 mt-4 mb-2">Example Payload:</h4>
+            <CodeBlock lang="json" code={`
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+      "name": "search_memories",
+      "arguments": {
+          "query": "What are my project preferences?"
+      }
+  },
+  "id": 2
+}
+            `} />
+          </div>
+        </div>
       </section>
 
       <section id="python-example">
@@ -390,8 +496,15 @@ curl -X POST ${API_URL}/agent/v1/mcp/messages/ \\
           <h2 className="text-3xl font-bold text-slate-100 mb-4 flex items-center"><Server className="w-7 h-7 mr-3 text-purple-400"/>Architecture</h2>
           <p className="text-slate-400 mb-4">
             The final architecture ensures that production UI and Claude integrations are completely isolated from the new Agent API path, which now has its own dedicated, fully-featured MCP handler.
+            <span className="block text-sm text-slate-500 mt-1">Click the diagram to expand.</span>
           </p>
-          <MermaidDiagram chart={architectureDiagram} />
+          <div className="cursor-zoom-in" onClick={() => setIsDiagramModalOpen(true)}>
+            <MermaidDiagram chart={architectureDiagram} />
+          </div>
+
+          {isDiagramModalOpen && (
+            <DiagramModal chart={architectureDiagram} onClose={() => setIsDiagramModalOpen(false)} />
+          )}
       </section>
 
     </DocsLayout>

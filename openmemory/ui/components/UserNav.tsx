@@ -52,7 +52,7 @@ export function UserNav() {
               <span>Settings</span>
             </DropdownMenuItem>
           </Link>
-          <Link href="/mcp-docs">
+          <Link href="/api-docs">
             <DropdownMenuItem>
               <Book className="mr-2 h-4 w-4" />
               <span>API Docs</span>
