@@ -474,10 +474,9 @@ class MemoryClient:
 
     @api_error_handler
     def get_summary(self, filters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Get the status of a memory export.
+        """Get the summary of a memory export.
 
         Args:
-            export_id: The ID of the export to get status for
             filters: Optional filters to apply to the summary request
 
         Returns:
