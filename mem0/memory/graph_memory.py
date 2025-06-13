@@ -528,3 +528,12 @@ class MemoryGraph:
 
         result = self.graph.query(cypher, params=params)
         return result
+
+    # TODO: reset is not defined in base.py
+    def reset(self):
+        """Reset the graph by clearing all nodes and relationships."""
+        logger.warning("Clearing graph...")
+        cypher_query = """
+        MATCH (n) DETACH DELETE n
+        """
+        return self.graph.query(cypher_query)
