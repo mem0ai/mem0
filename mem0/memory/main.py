@@ -25,11 +25,13 @@ from mem0.memory.setup import mem0_dir, setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import capture_event
 from mem0.memory.utils import (
+    create_uuid_mapping,
     get_fact_retrieval_messages,
     parse_messages,
     parse_vision_messages,
-    remove_code_blocks,
     process_telemetry_filters,
+    remove_code_blocks,
+    unique_old_memory,
 )
 from mem0.utils.factory import EmbedderFactory, LlmFactory, VectorStoreFactory
 
@@ -338,10 +340,9 @@ class Memory(MemoryBase):
         except Exception as e:
             logging.error(f"Error in new_retrieved_facts: {e}")
             new_retrieved_facts = []
-
+        
         if not new_retrieved_facts:
             logger.debug("No new facts retrieved from input. Skipping memory update LLM call.")
-            return []
 
         retrieved_old_memory = []
         new_message_embeddings = {}
@@ -356,37 +357,33 @@ class Memory(MemoryBase):
             )
             for mem in existing_memories:
                 retrieved_old_memory.append({"id": mem.id, "text": mem.payload["data"]})
-
-        unique_data = {}
-        for item in retrieved_old_memory:
-            unique_data[item["id"]] = item
-        retrieved_old_memory = list(unique_data.values())
+        retrieved_old_memory = unique_old_memory(retrieved_old_memory)
         logging.info(f"Total existing memories: {len(retrieved_old_memory)}")
 
-        # mapping UUIDs with integers for handling UUID hallucinations
-        temp_uuid_mapping = {}
-        for idx, item in enumerate(retrieved_old_memory):
-            temp_uuid_mapping[str(idx)] = item["id"]
-            retrieved_old_memory[idx]["id"] = str(idx)
+        # Create temporary mapping between UUIDs and integers for handling UUID hallucinations
+        retrieved_old_memory, temp_uuid_mapping = create_uuid_mapping(retrieved_old_memory)
 
-        function_calling_prompt = get_update_memory_messages(
-            retrieved_old_memory, new_retrieved_facts, self.config.custom_update_memory_prompt
-        )
-
-        try:
-            response: str = self.llm.generate_response(
-                messages=[{"role": "user", "content": function_calling_prompt}],
-                response_format={"type": "json_object"},
+        if new_retrieved_facts:
+            function_calling_prompt = get_update_memory_messages(
+                retrieved_old_memory, new_retrieved_facts, self.config.custom_update_memory_prompt
             )
-        except Exception as e:
-            logging.error(f"Error in new memory actions response: {e}")
-            response = ""
 
-        try:
-            response = remove_code_blocks(response)
-            new_memories_with_actions = json.loads(response)
-        except Exception as e:
-            logging.error(f"Invalid JSON response: {e}")
+            try:
+                response: str = self.llm.generate_response(
+                    messages=[{"role": "user", "content": function_calling_prompt}],
+                    response_format={"type": "json_object"},
+                )
+            except Exception as e:
+                logging.error(f"Error in new memory actions response: {e}")
+                response = ""
+
+            try:
+                response = remove_code_blocks(response)
+                new_memories_with_actions = json.loads(response)
+            except Exception as e:
+                logging.error(f"Invalid JSON response: {e}")
+                new_memories_with_actions = {}
+        else:
             new_memories_with_actions = {}
 
         returned_memories = []
@@ -798,14 +795,17 @@ class Memory(MemoryBase):
         capture_event("mem0.history", self, {"memory_id": memory_id, "sync_type": "sync"})
         return self.db.get_history(memory_id)
 
-    def _create_memory(self, data, existing_embeddings, metadata=None):
+    def _create_memory(self, data, existing_embeddings, metadata: Optional[Dict[str, Any]] = None):
         logging.debug(f"Creating memory with {data=}")
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
         else:
             embeddings = self.embedding_model.embed(data, memory_action="add")
         memory_id = str(uuid.uuid4())
-        metadata = metadata or {}
+        if metadata is None:
+            metadata = {}
+        else:
+            metadata = deepcopy(metadata)
         metadata["data"] = data
         metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
         metadata["created_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
@@ -827,7 +827,7 @@ class Memory(MemoryBase):
         capture_event("mem0._create_memory", self, {"memory_id": memory_id, "sync_type": "sync"})
         return memory_id
 
-    def _create_procedural_memory(self, messages, metadata=None, prompt=None):
+    def _create_procedural_memory(self, messages, metadata: Optional[Dict[str, Any]] = None, prompt=None):
         """
         Create a procedural memory
 
@@ -855,6 +855,7 @@ class Memory(MemoryBase):
 
         if metadata is None:
             raise ValueError("Metadata cannot be done for procedural memory.")
+        metadata = deepcopy(metadata)
 
         metadata["memory_type"] = MemoryType.PROCEDURAL.value
         embeddings = self.embedding_model.embed(procedural_memory, memory_action="add")
@@ -865,7 +866,7 @@ class Memory(MemoryBase):
 
         return result
 
-    def _update_memory(self, memory_id, data, existing_embeddings, metadata=None):
+    def _update_memory(self, memory_id, data, existing_embeddings, metadata: Optional[Dict[str, Any]] = None):
         logger.info(f"Updating memory with {data=}")
 
         try:
@@ -1162,13 +1163,11 @@ class AsyncMemory(MemoryBase):
             response = remove_code_blocks(response)
             new_retrieved_facts = json.loads(response)["facts"]
         except Exception as e:
-            new_retrieved_facts = []
-
-        if not new_retrieved_facts:
-            logger.info("No new facts retrieved from input. Skipping memory update LLM call.")
-            return []
             logging.error(f"Error in new_retrieved_facts: {e}")
             new_retrieved_facts = []
+        
+        if not new_retrieved_facts:
+            logger.debug("No new facts retrieved from input. Skipping memory update LLM call.")
 
         retrieved_old_memory = []
         new_message_embeddings = {}
@@ -1183,48 +1182,40 @@ class AsyncMemory(MemoryBase):
                 limit=5,
                 filters=effective_filters,  # 'filters' is query_filters_for_inference
             )
-            return [{"id": mem.id, "text": mem.payload["data"]} for mem in existing_mems]
+            return (new_mem_content, embeddings, [{"id": mem.id, "text": mem.payload["data"]} for mem in existing_mems])
 
         search_tasks = [process_fact_for_search(fact) for fact in new_retrieved_facts]
         search_results_list = await asyncio.gather(*search_tasks)
-        for result_group in search_results_list:
+        # Process results and build retrieved_old_memory and embeddings
+        for new_mem, embeddings, result_group in search_results_list:
+            new_message_embeddings[new_mem] = embeddings
             retrieved_old_memory.extend(result_group)
 
-        unique_data = {}
-        for item in retrieved_old_memory:
-            unique_data[item["id"]] = item
-        retrieved_old_memory = list(unique_data.values())
+        retrieved_old_memory = unique_old_memory(retrieved_old_memory)
         logging.info(f"Total existing memories: {len(retrieved_old_memory)}")
-        temp_uuid_mapping = {}
-        for idx, item in enumerate(retrieved_old_memory):
-            temp_uuid_mapping[str(idx)] = item["id"]
-            retrieved_old_memory[idx]["id"] = str(idx)
 
-        function_calling_prompt = get_update_memory_messages(
-            retrieved_old_memory, new_retrieved_facts, self.config.custom_update_memory_prompt
-        )
-        try:
-            response = await asyncio.to_thread(
-                self.llm.generate_response,
-                messages=[{"role": "user", "content": function_calling_prompt}],
-                response_format={"type": "json_object"},
+        # Create temporary mapping between UUIDs and integers for handling UUID hallucinations
+        retrieved_old_memory, temp_uuid_mapping = create_uuid_mapping(retrieved_old_memory)
+
+        if new_retrieved_facts:
+            function_calling_prompt = get_update_memory_messages(
+                retrieved_old_memory, new_retrieved_facts, self.config.custom_update_memory_prompt
             )
-        except Exception as e:
-            response = ""
-            logging.error(f"Error in new memory actions response: {e}")
-            response = ""
-        try:
-            response = remove_code_blocks(response)
-            new_memories_with_actions = json.loads(response)
-        except Exception as e:
-            new_memories_with_actions = {}
-
-        if not new_memories_with_actions:
-            logger.info("No new facts retrieved from input (async). Skipping memory update LLM call.")
-            return []
-
-            logging.error(f"Invalid JSON response: {e}")
-            new_memories_with_actions = {}
+            try:
+                response = await asyncio.to_thread(
+                    self.llm.generate_response,
+                    messages=[{"role": "user", "content": function_calling_prompt}],
+                    response_format={"type": "json_object"},
+                )
+            except Exception as e:
+                logging.error(f"Error in new memory actions response: {e}")
+                response = ""
+            try:
+                response = remove_code_blocks(response)
+                new_memories_with_actions = json.loads(response)
+            except Exception as e:
+                logging.error(f"Invalid JSON response: {e}")
+                new_memories_with_actions = {}
 
         returned_memories = []
         try:
@@ -1656,7 +1647,7 @@ class AsyncMemory(MemoryBase):
         capture_event("mem0.history", self, {"memory_id": memory_id, "sync_type": "async"})
         return await asyncio.to_thread(self.db.get_history, memory_id)
 
-    async def _create_memory(self, data, existing_embeddings, metadata=None):
+    async def _create_memory(self, data, existing_embeddings, metadata: Optional[Dict[str, Any]] = None):
         logging.debug(f"Creating memory with {data=}")
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
@@ -1664,7 +1655,10 @@ class AsyncMemory(MemoryBase):
             embeddings = await asyncio.to_thread(self.embedding_model.embed, data, memory_action="add")
 
         memory_id = str(uuid.uuid4())
-        metadata = metadata or {}
+        if metadata is None:
+            metadata = {}
+        else:
+            metadata = deepcopy(metadata)
         metadata["data"] = data
         metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
         metadata["created_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
@@ -1690,7 +1684,9 @@ class AsyncMemory(MemoryBase):
         capture_event("mem0._create_memory", self, {"memory_id": memory_id, "sync_type": "async"})
         return memory_id
 
-    async def _create_procedural_memory(self, messages, metadata=None, llm=None, prompt=None):
+    async def _create_procedural_memory(
+        self, messages, metadata: Optional[Dict[str, Any]] = None, llm=None, prompt=None
+    ):
         """
         Create a procedural memory asynchronously
 
@@ -1731,6 +1727,7 @@ class AsyncMemory(MemoryBase):
 
         if metadata is None:
             raise ValueError("Metadata cannot be done for procedural memory.")
+        metadata = deepcopy(metadata)
 
         metadata["memory_type"] = MemoryType.PROCEDURAL.value
         embeddings = await asyncio.to_thread(self.embedding_model.embed, procedural_memory, memory_action="add")
@@ -1741,7 +1738,7 @@ class AsyncMemory(MemoryBase):
 
         return result
 
-    async def _update_memory(self, memory_id, data, existing_embeddings, metadata=None):
+    async def _update_memory(self, memory_id, data, existing_embeddings, metadata: Optional[Dict[str, Any]] = None):
         logger.info(f"Updating memory with {data=}")
 
         try:
