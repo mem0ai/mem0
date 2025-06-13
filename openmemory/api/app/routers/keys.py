@@ -50,10 +50,10 @@ def create_api_key(
     Generate a new API key for the current user.
     The key is returned in plaintext only once.
     """
-    logger.info(f"User {supa_user.user.id} requesting to create a new API key with name: '{key_create.name}'")
-    db_user = db.query(User).filter(User.user_id == str(supa_user.user.id)).first()
+    logger.info(f"User {supa_user.id} requesting to create a new API key with name: '{key_create.name}'")
+    db_user = db.query(User).filter(User.user_id == str(supa_user.id)).first()
     if not db_user:
-        logger.error(f"User with Supabase ID {supa_user.user.id} not found in our database.")
+        logger.error(f"User with Supabase ID {supa_user.id} not found in our database.")
         raise HTTPException(status_code=404, detail="User not found")
 
     # 1. Generate a new plaintext key and its metadata
@@ -89,10 +89,10 @@ def get_api_keys(
     """
     List all active API keys for the current user.
     """
-    logger.info(f"User {supa_user.user.id} requesting to list their API keys.")
-    db_user = db.query(User).filter(User.user_id == str(supa_user.user.id)).first()
+    logger.info(f"User {supa_user.id} requesting to list their API keys.")
+    db_user = db.query(User).filter(User.user_id == str(supa_user.id)).first()
     if not db_user:
-        logger.error(f"User with Supabase ID {supa_user.user.id} not found in our database during key listing.")
+        logger.error(f"User with Supabase ID {supa_user.id} not found in our database during key listing.")
         raise HTTPException(status_code=404, detail="User not found")
         
     keys = db.query(ApiKey).filter(ApiKey.user_id == db_user.id, ApiKey.is_active == True).all()
@@ -108,10 +108,10 @@ def revoke_api_key(
     """
     Revoke (deactivate) an API key.
     """
-    logger.info(f"User {supa_user.user.id} requesting to revoke API key ID: {key_id}")
-    db_user = db.query(User).filter(User.user_id == str(supa_user.user.id)).first()
+    logger.info(f"User {supa_user.id} requesting to revoke API key ID: {key_id}")
+    db_user = db.query(User).filter(User.user_id == str(supa_user.id)).first()
     if not db_user:
-        logger.error(f"User with Supabase ID {supa_user.user.id} not found when trying to revoke key {key_id}.")
+        logger.error(f"User with Supabase ID {supa_user.id} not found when trying to revoke key {key_id}.")
         raise HTTPException(status_code=404, detail="User not found")
 
     db_key = db.query(ApiKey).filter(ApiKey.id == key_id, ApiKey.user_id == db_user.id).first()
