@@ -55,13 +55,13 @@ export const Install = () => {
   const { user } = useAuth();
   
   const userId = user?.id || "user";
-  const URL = API_URL_ON_LOAD;
+  const MCP_URL = "https://api.jeanmemory.com"; // Always use the correct public URL for installs
 
   const handleCopy = async (tab: string, isMcp: boolean = false) => {
     const textToCopy =
       tab === 'openmemory'
-        ? `${URL}/mcp/openmemory/sse/${userId}`
-        : `npx install-mcp ${URL}/mcp/${tab}/sse/${userId} --client ${tab}`;
+        ? `${MCP_URL}/mcp/openmemory/sse/${userId}`
+        : `npx install-mcp ${MCP_URL}/mcp/${tab}/sse/${userId} --client ${tab}`;
 
     try {
       if (navigator?.clipboard?.writeText) {
@@ -96,8 +96,8 @@ export const Install = () => {
           <pre className="bg-zinc-950/50 border border-zinc-800 px-4 py-3 rounded-lg overflow-x-auto text-sm font-mono">
             <code className="text-zinc-300">
               {isMcp 
-                ? `${URL}/mcp/openmemory/sse/${userId}`
-                : `npx install-mcp ${URL}/mcp/${appKey}/sse/${userId} --client ${appKey}`
+                ? `${MCP_URL}/mcp/openmemory/sse/${userId}`
+                : `npx install-mcp ${MCP_URL}/mcp/${appKey}/sse/${userId} --client ${appKey}`
               }
             </code>
           </pre>
