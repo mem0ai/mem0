@@ -136,7 +136,7 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
       setError(null);
       try {
         const response = await axios.post<ApiResponse>(
-          `${URL}/api/v1/memories/filter/`,
+          `${URL}/api/v1/memories/filter`,
           {
             user_id: user_id,
             page: page,
@@ -187,7 +187,7 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
         infer: false,
         app: 'openmemory',
       };
-      await axios.post<ApiMemoryItem>(`${URL}/api/v1/memories/`, memoryData);
+      await axios.post<ApiMemoryItem>(`${URL}/api/v1/memories`, memoryData);
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to create memory';
       setError(errorMessage);
@@ -302,7 +302,7 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
     setIsLoading(true);
     setError(null);
     try {
-      await axios.put(`${URL}/api/v1/memories/${memoryId}`, {
+      await axios.put(`${URL}/api/v1/memories${memoryId}`, {
         memory_id: memoryId,
         memory_content: content,
         user_id: user_id,

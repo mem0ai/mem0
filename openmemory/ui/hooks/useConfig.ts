@@ -65,7 +65,7 @@ export const useConfig = (): UseConfigApiReturn => {
     setError(null);
 
     try {
-      const response = await axios.put(`${URL}/api/v1/config/`, config);
+      const response = await axios.put(`${URL}/api/v1/config`, config);
       dispatch(setConfigSuccess(response.data));
       setIsLoading(false);
       return response.data;
@@ -86,7 +86,7 @@ export const useConfig = (): UseConfigApiReturn => {
     setError(null);
 
     try {
-      const response = await axios.post(`${URL}/api/v1/config/reset/`);
+      const response = await axios.post(`${URL}/api/v1/config/reset`);
       dispatch(setConfigSuccess(response.data));
       setIsLoading(false);
       return response.data;
@@ -108,7 +108,7 @@ export const useConfig = (): UseConfigApiReturn => {
 
     try {
       const response = await axios.put(
-        `${URL}/api/v1/config/mem0/llm/`,
+        `${URL}/api/v1/config/mem0/llm`,
         llmConfig
       );
       dispatch(updateLLM(response.data));
@@ -131,7 +131,7 @@ export const useConfig = (): UseConfigApiReturn => {
 
     try {
       const response = await axios.put(
-        `${URL}/api/v1/config/mem0/embedder/`,
+        `${URL}/api/v1/config/mem0/embedder`,
         embedderConfig
       );
       dispatch(updateEmbedder(response.data));

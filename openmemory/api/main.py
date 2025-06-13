@@ -9,15 +9,17 @@ from app.models import User, App
 from uuid import uuid4
 from app.config import USER_ID, DEFAULT_APP_ID
 
-app = FastAPI(title="OpenMemory API")
+server = process.env.get("NEXT_PUBLIC_URL", "http://localhost:8000")
 
-#app.add_middleware(
-#    CORSMiddleware,
-#    allow_origins=["*"],
-#    allow_credentials=True,
-#    allow_methods=["*"],
-#    allow_headers=["*"],
-#)
+app = FastAPI(title="OpenMemory API", servers=[{"url": server }], root_path_in_servers=False)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Create all tables
 Base.metadata.create_all(bind=engine)

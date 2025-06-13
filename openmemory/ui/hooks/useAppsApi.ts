@@ -221,7 +221,7 @@ export const useAppsApi = (): UseAppsApiReturn => {
     setIsLoading(true);
     try {
       const response = await axios.put(
-        `${URL}/api/v1/apps/${appId}/?is_active=${details.is_active}`
+        `${URL}/api/v1/apps/${appId}?is_active=${details.is_active}`
       );
       setIsLoading(false);
       return response.data;
