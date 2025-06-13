@@ -19,6 +19,7 @@ from app.background_tasks import cleanup_old_tasks
 from app.services.background_processor import background_processor
 from app.settings import config
 from app.db_init import init_database, check_database_health
+from app.routers.agent_mcp import agent_mcp_router
 import asyncio
 
 # Configure logging
@@ -137,6 +138,7 @@ app.include_router(stats_router, prefix="/api/v1", dependencies=[Depends(get_cur
 app.include_router(integrations_router, dependencies=[Depends(get_current_supa_user)])
 app.include_router(mcp_tools_router, dependencies=[Depends(get_current_supa_user)])
 app.include_router(admin_router)  # Admin router has its own authentication
+app.include_router(agent_mcp_router) # New secure agent endpoint
 
 # Register the new Agent API, gated by a feature flag for safety
 if os.environ.get("ENABLE_AGENT_API", "false").lower() == "true":
