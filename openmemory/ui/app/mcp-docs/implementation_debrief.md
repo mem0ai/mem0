@@ -117,3 +117,33 @@ graph TD
 The system is now stable, and the new API key feature for agents is fully functional and accessible at the new, dedicated `/agent/v1/mcp/messages/` endpoint. The production UI and Claude integrations are restored and are completely isolated from this new functionality.
 
 The key learning from this experience is profound: **modifying shared, production-critical code—especially authentication—is exceptionally high-risk.** New features of this nature must be built in parallel, isolated systems to guarantee stability. I failed to adhere to this principle initially, and the result was a severe and unacceptable outage. The final architecture now correctly follows this principle. 
+
+---
+
+## 6. Post-Mortem: Production Deployment Issues
+
+After merging the stable, isolated architecture into the `main` branch, the subsequent deployment to the production environment on Render failed, revealing a series of new, distinct issues that were not apparent in local development.
+
+### Issue 1: `ModuleNotFoundError` on Startup
+
+*   **Symptom:** The API server failed to start, crashing immediately with a `ModuleNotFoundError: No module named 'app.utils.auth_utils'`.
+*   **Root Cause:** During development, I had created several helper functions for API key generation and hashing within the API router file itself. While refactoring, I moved the calls to a new utility file (`app.utils.auth_utils.py`) but neglected to create and commit the file itself. The API router was trying to import a file that did not exist in the repository.
+*   **Resolution:** I created the missing `app.utils.auth_utils.py` file, placed the key generation and hashing functions inside it, and committed it to the repository.
+
+### Issue 2: `AttributeError` on Startup
+
+*   **Symptom:** After fixing the first error, the API server crashed again, this time with an `AttributeError: 'Config' object has no attribute 'SUPABASE_SERVICE_ROLE_KEY'`.
+*   **Root Cause:** This was a typo on my part. While fixing the authentication logic to use the correct Supabase admin key, I referenced `config.SUPABASE_SERVICE_ROLE_KEY` in `auth.py`. However, the actual variable defined in the `settings.py` configuration file was named `config.SUPABASE_SERVICE_KEY`.
+*   **Resolution:** I corrected the variable name in `auth.py` to match the one defined in the settings, ensuring the application could load the correct key.
+
+### Issue 3: `502 Bad Gateway` and API Server Crash
+
+*   **Symptom:** With the startup errors fixed, the UI dashboard was still broken, showing `502 Bad Gateway` errors for API calls to `/api/v1/memories/` and other endpoints. The API server logs showed crashes related to database integrity.
+*   **Root Cause:** A critical data integrity bug was discovered in the `get_or_create_user` database utility. When a user logged in, the function would try to update their profile with their email address. However, if a different user account already existed with that same email (due to data inconsistencies), the function would raise an unhandled `IntegrityError`, crashing the entire API server. The UI became functional only after a fresh login that didn't trigger this specific conflict.
+*   **Resolution:** I rewrote the `get_or_create_user` function to be more resilient. The new logic now correctly handles email conflicts by logging a warning and gracefully proceeding without attempting the conflicting database update, thus preventing the server crash.
+
+### Issue 4: `401 Unauthorized` on Settings Page
+
+*   **Symptom:** The new `/settings` page, which is meant to manage API keys, was failing with `401 Unauthorized` errors.
+*   **Root Cause:** The frontend code for the settings page was attempting to fetch data from the `/api/v1/keys/` endpoint but was failing to include the user's JWT `Authorization` header in the request. The API, correctly secured, was rejecting the unauthenticated request.
+*   **Resolution:** The frontend code was corrected to use the `accessToken` provided by the `useAuth` React context and include it in the `Authorization` header for all API calls from that page. This satisfied the API's security requirements. 

@@ -123,7 +123,7 @@ async def root():
 async def health_check():
     """Health check endpoint for deployment services"""
     # Keep it simple for fast response
-    return {"status": "healthy", "timestamp": datetime.datetime.utcnow().isoformat()}
+    return {"status": "healthy", "timestamp": datetime.datetime.now(datetime.UTC).isoformat()}
 
 # Include routers - Now using get_current_supa_user from app.auth
 app.include_router(keys_router.router, dependencies=[Depends(get_current_supa_user)])

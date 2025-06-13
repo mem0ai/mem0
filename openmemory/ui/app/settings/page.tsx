@@ -62,7 +62,7 @@ const Button: FC<ButtonProps> = ({ children, onClick, variant = 'primary', ...pr
 // --- Main Page Component ---
 
 export default function ApiKeysPage() {
-  const { user } = useAuth();
+  const { user, accessToken } = useAuth();
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -78,12 +78,22 @@ export default function ApiKeysPage() {
   const [keyToRevoke, setKeyToRevoke] = useState<ApiKey | null>(null);
 
   const fetchKeys = async () => {
+    if (!accessToken) {
+      setError("Authentication token not available.");
+      setIsLoading(false);
+      return;
+    }
     try {
       setIsLoading(true);
-      // NOTE: We need a way to get the auth token here.
-      // Assuming useAuth context provides a method or the fetch client handles it.
-      const response = await fetch("/api/v1/keys");
-      if (!response.ok) throw new Error("Failed to fetch API keys.");
+      const response = await fetch("/api/v1/keys/", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Failed to fetch API keys.");
+      }
       const data = await response.json();
       setKeys(data);
     } catch (err: any) {
@@ -94,22 +104,28 @@ export default function ApiKeysPage() {
   };
 
   useEffect(() => {
-    if (user) {
+    if (user && accessToken) {
       fetchKeys();
     }
-  }, [user]);
+  }, [user, accessToken]);
 
   const handleGenerateKey = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newKeyName.trim()) return;
+    if (!newKeyName.trim() || !accessToken) return;
 
     try {
-      const response = await fetch("/api/v1/keys", {
+      const response = await fetch("/api/v1/keys/", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
         body: JSON.stringify({ name: newKeyName }),
       });
-      if (!response.ok) throw new Error("Failed to generate key.");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Failed to generate key.");
+      }
       
       const data = await response.json();
       setNewlyGeneratedKey(data);
@@ -123,10 +139,21 @@ export default function ApiKeysPage() {
   };
 
   const handleRevokeKey = async () => {
-    if (!keyToRevoke) return;
+    if (!keyToRevoke || !accessToken) return;
 
     try {
-      await fetch(`/api/v1/keys/${keyToRevoke.id}`, { method: "DELETE" });
+      const response = await fetch(`/api/v1/keys/${keyToRevoke.id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Failed to revoke key.");
+      }
+
       setKeys(keys.filter(k => k.id !== keyToRevoke.id));
       setIsConfirmModalOpen(false);
       setKeyToRevoke(null);
