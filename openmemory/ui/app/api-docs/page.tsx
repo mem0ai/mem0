@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { GitBranch, Shield, BookOpen, Puzzle, Terminal, Code, Server, Key, BrainCircuit, Copy, Check, LucideIcon, ListTree } from 'lucide-react';
+import { GitBranch, Shield, BookOpen, Puzzle, Terminal, Code, Server, Key, BrainCircuit, Copy, Check, LucideIcon, ListTree, Bot, Lightbulb, Briefcase, Share2, Component } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 // A simple syntax-highlighted code block component with a copy button
 const CodeBlock = ({ code, lang = 'bash' }: { code: string, lang?: string }) => {
@@ -184,6 +185,9 @@ const navItems = [
   { href: '#introduction', label: 'Introduction', icon: BookOpen },
   { href: '#authentication', label: 'Authentication', icon: Shield },
   { href: '#endpoints', label: 'API Endpoint', icon: GitBranch },
+  { href: '#dynamic-agents', label: 'Dynamic Agents', icon: Bot },
+  { href: '#capabilities', label: 'Building Capabilities', icon: Component },
+  { href: '#example-use-cases', label: 'Example Use Cases', icon: Lightbulb },
   { href: '#mcp-methods', label: 'MCP Methods', icon: BrainCircuit },
   { href: '#available-tools', label: 'Available Tools', icon: ListTree },
   { href: '#python-example', label: 'Python Example', icon: Puzzle },
@@ -296,6 +300,158 @@ graph TD
         </div>
       </section>
       
+      <section id="dynamic-agents">
+        <h2 className="text-3xl font-bold text-slate-100 mb-4 flex items-center"><Bot className="w-7 h-7 mr-3 text-purple-400"/>Building Dynamic Agents</h2>
+        <p className="text-slate-400 mb-4">
+          The Jean Memory Agent API is not designed for static, hardcoded calls. It is built to be used as a dynamic tool provider (MCP) within an LLM application, allowing you to create agents that can reason and decide when to access memory.
+        </p>
+        <div className="space-y-4">
+          <div>
+            <h3 className="font-semibold text-slate-200 text-lg">The Agentic Loop</h3>
+            <p className="text-slate-400 mt-1">
+              The core workflow involves prompting your LLM with the available tools. The LLM then dynamically generates a JSON-RPC payload to call a tool based on the conversational context. Your application executes this call and feeds the result back to the LLM.
+            </p>
+          </div>
+          <div className="p-4 border border-teal-700/80 bg-teal-900/50 rounded-lg text-teal-300 text-sm">
+            This architecture enables your agent to intelligently decide when to add a new memory using <code className="font-mono text-sm">add_memories</code> or retrieve context using <code className="font-mono text-sm">search_memories</code>.
+          </div>
+        </div>
+      </section>
+
+      <section id="capabilities">
+        <h2 className="text-3xl font-bold text-slate-100 mb-4 flex items-center"><Component className="w-7 h-7 mr-3 text-purple-400"/>Building Capabilities: Tools vs. Workflows</h2>
+        <p className="text-slate-400 mb-4">
+          A critical concept for building advanced agents is understanding the difference between the foundational tools provided by the API and the complex capabilities you can build with them.
+        </p>
+        <Alert className="border-sky-700/80 bg-sky-900/50 rounded-lg text-sky-200 text-sm mb-6">
+          <p>
+            Capabilities like "asking a question of your memory" (i.e., `ask_memory`) are not single tools. They are **emergent workflows** that an agent executes by chaining the foundational tools together.
+          </p>
+        </Alert>
+        <div className="space-y-4">
+          <div>
+            <h3 className="font-semibold text-slate-200 text-lg">Example: How an Agent "Asks Memory"</h3>
+            <p className="text-slate-400 mt-1 mb-4">
+              The API does not have a single `ask_memory` tool. Here's how an agent performs that capability using the real tools:
+            </p>
+            <div className="bg-slate-800/50 p-4 rounded text-sm">
+               <ol className="list-decimal list-inside space-y-3 text-slate-300">
+                <li>
+                  <strong>User Asks:</strong> "What is my relationship with Project Phoenix?"
+                </li>
+                <li>
+                  <strong>Agent Plans:</strong> The LLM powering the agent deconstructs the request. It forms a plan: "The user wants relationships. I will query the knowledge graph for the 'Project Phoenix' node."
+                </li>
+                <li>
+                  <strong>Agent Executes Foundational Tools:</strong> The agent makes one or more calls to the tools you have, like `search_memories` or a direct graph query.
+                </li>
+                <li>
+                  <strong>Agent Receives Structured Data:</strong> The API returns raw data, e.g., `[(User, IS_LEAD_ON, Project Phoenix), (Project Phoenix, USES_TECHNOLOGY, Python)]`.
+                </li>
+                <li>
+                  <strong>Agent Synthesizes Answer:</strong> The LLM receives this structured data and formulates a human-readable response: "You are the lead on Project Phoenix, which uses Python."
+                </li>
+              </ol>
+            </div>
+             <p className="text-slate-400 mt-4 text-sm">
+              This architecture is intentional. It provides you with the powerful, low-level building blocks (`add_memories`, `add_graph_memory`, etc.) to create your own custom, sophisticated reasoning workflows, rather than limiting you to a few predefined capabilities.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="example-use-cases">
+        <h2 className="text-3xl font-bold text-slate-100 mb-4 flex items-center"><Lightbulb className="w-7 h-7 mr-3 text-purple-400"/>Example Use Cases</h2>
+        <p className="text-slate-400 mb-6">
+          The Jean Memory API is versatile. By giving your agents a reliable memory, you can unlock a wide range of powerful applications. Here are a few examples to inspire you.
+        </p>
+        <div className="space-y-8">
+
+          {/* Programmatic Content Creation */}
+          <div className="p-6 border border-slate-700/50 rounded-lg bg-slate-900/40">
+            <h3 className="text-lg font-semibold text-teal-400 mb-2">Programmatic Content Creation</h3>
+            <p className="text-slate-400 mb-4">
+              Create agents that act as writing assistants, maintaining a consistent voice, style, and context across numerous documents. The agent can remember key arguments from past essays, a user's specific tone, or technical details about a project.
+            </p>
+            <div className="bg-slate-800/50 p-3 rounded text-sm">
+              <strong className="text-slate-300">Example Flow:</strong>
+              <ol className="list-decimal list-inside mt-2 space-y-1 text-slate-400">
+                <li>User: "Remember my startup is called 'InnovateAI' and it uses a custom reinforcement learning model."</li>
+                <li>Agent: (Calls <code className="font-mono text-xs">add_memories</code>) "Got it."</li>
+                <li>User: "Help me draft an investor update email."</li>
+                <li>Agent: (Calls <code className="font-mono text-xs">search_memories</code> for project details) "Of course. Here is a draft for 'InnovateAI' that highlights your unique RL model..."</li>
+              </ol>
+            </div>
+          </div>
+
+          {/* Personal Digital Assistant */}
+          <div className="p-6 border border-slate-700/50 rounded-lg bg-slate-900/40">
+            <h3 className="text-lg font-semibold text-teal-400 mb-2">Personal Digital Assistant</h3>
+            <p className="text-slate-400 mb-4">
+              Build a truly personal agent that understands a user's life. By remembering personal preferences, important relationships, career goals, and even inside jokes, the agent can provide deeply contextual assistance, manage schedules, and act on the user's behalf with genuine understanding.
+            </p>
+             <div className="bg-slate-800/50 p-3 rounded text-sm">
+              <strong className="text-slate-300">Example Flow:</strong>
+              <ol className="list-decimal list-inside mt-2 space-y-1 text-slate-400">
+                <li>User: "My wife's name is Sarah and her birthday is March 15th. Remind me a week before."</li>
+                <li>Agent: (Calls <code className="font-mono text-xs">add_memories</code>) "I'll remember that for you."</li>
+                <li>(A week before March 15th) User: "What's on my plate this week?"</li>
+                <li>Agent: (Calls <code className="font-mono text-xs">search_memories</code>) "You have your usual meetings, and a reminder that Sarah's birthday is next week. Would you like help finding a gift based on your past conversations about her interests?"</li>
+              </ol>
+            </div>
+          </div>
+
+          {/* Corporate Knowledge Agent */}
+          <div className="p-6 border border-slate-700/50 rounded-lg bg-slate-900/40">
+            <h3 className="text-lg font-semibold text-teal-400 mb-2">Corporate Knowledge Agent</h3>
+            <p className="text-slate-400 mb-4">
+              Deploy agents within a company that have a secure, shared memory of internal knowledge. This can include project histories, technical documentation, team roles, and meeting summaries. This is perfect for onboarding new employees or answering complex questions that would normally require interrupting a senior developer.
+            </p>
+             <div className="bg-slate-800/50 p-3 rounded text-sm">
+              <strong className="text-slate-300">Example Flow:</strong>
+              <ol className="list-decimal list-inside mt-2 space-y-1 text-slate-400">
+                <li>(Admin): Uploads all of Q1 project documentation into the agent's memory.</li>
+                <li>New Employee: "What was the main outcome of the 'Project Phoenix' initiative last quarter?"</li>
+                <li>Agent: (Calls <code className="font-mono text-xs">search_memories</code>) "Project Phoenix concluded with the successful deployment of the new user authentication service, which reduced login times by 40%. The project lead was Alice."</li>
+              </ol>
+            </div>
+          </div>
+
+          {/* Cross-Application Agentic Automation */}
+          <div className="p-6 border border-slate-700/50 rounded-lg bg-slate-900/40">
+            <h3 className="text-lg font-semibold text-teal-400 mb-2 flex items-center gap-2">
+              <Briefcase className="w-5 h-5" />
+              Cross-Application Agentic Automation
+            </h3>
+            <p className="text-slate-400 mb-4">
+              Orchestrate a swarm of specialized agents that collaborate across different applications, using a shared memory context to automate complex workflows.
+            </p>
+             <div className="bg-slate-800/50 p-3 rounded text-sm">
+              <strong className="text-slate-300">Example Flow:</strong>
+              <ol className="list-decimal list-inside mt-2 space-y-2 text-slate-400">
+                <li>
+                  <strong>A user reports a bug in Slack:</strong><br/>
+                  A 'Slack Monitor' agent sees the message. It calls <code className="font-mono text-xs">add_memories</code> with the bug report, `source_app: 'slack'`, and `metadata: &lbrace;'status': 'reported'&rbrace;`.
+                </li>
+                <li>
+                  <strong>A 'Jira Agent' springs into action:</strong><br/>
+                  This agent periodically searches for memories where `source_app: 'slack'` and `metadata.status: 'reported'`. It finds the new bug, creates a Jira ticket, then calls <code className="font-mono text-xs">add_memories</code> with the Jira ticket info, `source_app: 'jira'`, and links it to the original Slack memory.
+                </li>
+                <li>
+                  <strong>A developer asks for context:</strong><br/>
+                  A 'Developer Assistant' agent in the IDE is asked, "What's the context on ticket JIRA-123?". It calls <code className="font-mono text-xs">search_memories</code> for "JIRA-123", finds both the Jira and Slack memories, and provides the full history, including the original user conversation.
+                </li>
+                 <li>
+                  <strong>The agent automates a PR:</strong><br/>
+                  After the fix is committed, the Developer Assistant agent creates a pull request, using the shared memory to automatically populate the PR description with the details from both the Jira ticket and the original Slack conversation.
+                </li>
+              </ol>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
       <section id="mcp-methods">
           <h2 className="text-3xl font-bold text-slate-100 mb-4 flex items-center"><BrainCircuit className="w-7 h-7 mr-3 text-purple-400"/>MCP Methods</h2>
           <p className="text-slate-400 mb-4">
@@ -303,6 +459,8 @@ graph TD
           </p>
           <div className="p-4 border border-sky-700/80 bg-sky-900/50 rounded-lg text-sky-300 text-sm">
               The architecture has been unified. The agent endpoint is a fully-featured MCP server, providing the same capabilities as the internal system used by Claude.
+              <br/><br/>
+              The public API provides access to the core, high-performance tools like <code className="font-mono text-sm">add_memories</code> and <code className="font-mono text-sm">search_memories</code>. More resource-intensive analytical tools, such as those for processing entire documents, remain internal to ensure speed and reliability for all agents.
           </div>
       </section>
 
@@ -316,63 +474,152 @@ graph TD
           <div className="p-6 border border-slate-700/50 rounded-lg bg-slate-900/40">
             <h3 className="font-mono text-lg text-pink-400 mb-2">add_memories</h3>
             <p className="text-slate-400 mb-4">
-              Adds one or more new memories to the user's memory store. Each memory should be a distinct piece of information.
+              Adds one or more new memories to the user's memory store. Can optionally include a source and structured metadata.
             </p>
             <h4 className="font-semibold text-slate-200 mb-2">Input Schema:</h4>
-            <CodeBlock lang="json" code={`
-{
-  "text": {
-    "type": "string",
-    "description": "The memory text to add. For multiple, use a newline-separated string."
-  }
-}
-            `} />
+            <CodeBlock lang="json" code={JSON.stringify({
+              text: {
+                type: "string",
+                description: "The memory text to add. For multiple, use a newline-separated string."
+              },
+              source_app: {
+                type: "string",
+                description: "(Optional) The source of the memory, e.g., 'slack', 'jira', or an agent ID."
+              },
+              metadata: {
+                type: "object",
+                description: "(Optional) A JSON object for structured data."
+              }
+            }, null, 2)} />
             <h4 className="font-semibold text-slate-200 mt-4 mb-2">Example Payload:</h4>
-            <CodeBlock lang="json" code={`
-{
-  "jsonrpc": "2.0",
-  "method": "tools/call",
-  "params": {
-      "name": "add_memories",
-      "arguments": {
-          "text": "The user is interested in learning about generative adversarial networks (GANs)."
-      }
-  },
-  "id": 1
-}
-            `} />
+            <CodeBlock lang="json" code={JSON.stringify({
+              jsonrpc: "2.0",
+              method: "tools/call",
+              params: {
+                name: "add_memories",
+                arguments: {
+                  text: "User reported a bug in the login flow related to password resets.",
+                  source_app: "slack",
+                  metadata: { project_id: "PROJ-456", user: "dave" }
+                }
+              },
+              id: 1
+            }, null, 2)} />
           </div>
 
           {/* search_memories tool */}
           <div className="p-6 border border-slate-700/50 rounded-lg bg-slate-900/40">
             <h3 className="font-mono text-lg text-pink-400 mb-2">search_memories</h3>
             <p className="text-slate-400 mb-4">
-              Performs a semantic search over the user's memories and returns the most relevant results.
+              Performs a semantic search over memories. Can be filtered by one or more source applications.
             </p>
             <h4 className="font-semibold text-slate-200 mb-2">Input Schema:</h4>
-            <CodeBlock lang="json" code={`
-{
-  "query": {
-    "type": "string",
-    "description": "The query to search for."
-  }
-}
-            `} />
+            <CodeBlock lang="json" code={JSON.stringify({
+              query: {
+                type: "string",
+                description: "The query to search for."
+              },
+              source_app: {
+                type: "string",
+                description: "(Optional) A single source or comma-separated list of sources to filter by."
+              }
+            }, null, 2)} />
             <h4 className="font-semibold text-slate-200 mt-4 mb-2">Example Payload:</h4>
-            <CodeBlock lang="json" code={`
-{
+            <CodeBlock lang="json" code={JSON.stringify({
+              jsonrpc: "2.0",
+              method: "tools/call",
+              params: {
+                name: "search_memories",
+                arguments: {
+                  query: "What are the latest bugs reported for the login system?",
+                  source_app: "slack,jira"
+                }
+              },
+              id: 2
+            }, null, 2)} />
+          </div>
+
+          {/* list_memories tool */}
+          <div className="p-6 border border-slate-700/50 rounded-lg bg-slate-900/40">
+            <h3 className="font-mono text-lg text-pink-400 mb-2">list_memories</h3>
+            <p className="text-slate-400 mb-4">
+              Lists recent memories, paginated by a limit.
+            </p>
+            <h4 className="font-semibold text-slate-200 mb-2">Input Schema:</h4>
+            <CodeBlock lang="json" code={`{
+  "limit": {
+    "type": "integer",
+    "description": "(Optional) The maximum number of memories to return. Defaults to 20."
+  }
+}`} />
+            <h4 className="font-semibold text-slate-200 mt-4 mb-2">Example Payload:</h4>
+            <CodeBlock lang="json" code={`{
   "jsonrpc": "2.0",
   "method": "tools/call",
   "params": {
-      "name": "search_memories",
-      "arguments": {
-          "query": "What are my project preferences?"
-      }
+    "name": "list_memories",
+    "arguments": {
+      "limit": 10
+    }
   },
-  "id": 2
-}
-            `} />
+  "id": 3
+}`} />
           </div>
+
+          {/* chunk_documents tool */}
+          <div className="p-6 border border-slate-700/50 rounded-lg bg-slate-900/40">
+            <h3 className="font-mono text-lg text-pink-400 mb-2">chunk_documents</h3>
+            <p className="text-slate-400 mb-4">
+              Processes and chunks all existing documents (e.g., from Substack or file uploads) into memory. This improves search speed and relevance. It's a good practice to run this after adding new documents.
+            </p>
+            <h4 className="font-semibold text-slate-200 mb-2">Input Schema:</h4>
+            <CodeBlock lang="json" code={`{
+  "description": "No parameters are required."
+}`} />
+            <h4 className="font-semibold text-slate-200 mt-4 mb-2">Example Payload:</h4>
+            <CodeBlock lang="json" code={`{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "chunk_documents",
+    "arguments": {}
+  },
+  "id": 4
+}`} />
+          </div>
+
+          {/* sync_substack tool */}
+          <div className="p-6 border border-slate-700/50 rounded-lg bg-slate-900/40">
+            <h3 className="font-mono text-lg text-pink-400 mb-2">sync_substack</h3>
+            <p className="text-slate-400 mb-4">
+              Syncs posts from a Substack publication and ingests them as documents, which can then be chunked into memory.
+            </p>
+            <h4 className="font-semibold text-slate-200 mb-2">Input Schema:</h4>
+            <CodeBlock lang="json" code={`{
+  "substack_url": {
+    "type": "string",
+    "description": "The URL of the Substack publication."
+  },
+  "max_posts": {
+    "type": "integer",
+    "description": "(Optional) The maximum number of recent posts to sync. Defaults to 20."
+  }
+}`} />
+            <h4 className="font-semibold text-slate-200 mt-4 mb-2">Example Payload:</h4>
+            <CodeBlock lang="json" code={`{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "sync_substack",
+    "arguments": {
+      "substack_url": "https://www.lennyrachitsky.com/",
+      "max_posts": 5
+    }
+  },
+  "id": 5
+}`} />
+          </div>
+
         </div>
       </section>
 
