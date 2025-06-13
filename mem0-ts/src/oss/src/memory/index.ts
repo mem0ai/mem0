@@ -17,7 +17,6 @@ import {
 import {
   buildCategorizationInput,
   categorizationResponseFormat,
-  categorizationSystemPrompt,
   defaultCategories,
   getFactRetrievalMessages,
   getUpdateMemoryMessages,

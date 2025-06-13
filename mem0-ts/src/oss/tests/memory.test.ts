@@ -35,7 +35,7 @@ describe("Memory Class", () => {
         provider: "openai",
         config: {
           apiKey: process.env.OPENAI_API_KEY || "",
-          model: "gpt-4-turbo-preview",
+          model: "gpt-4o-mini",
         },
       },
       historyDbPath: ":memory:", // Use in-memory SQLite for tests
@@ -188,6 +188,26 @@ describe("Memory Class", () => {
       const result = await memory.get(memoryId);
       expect(result).toBeNull();
     });
+
+    it("should set categories", async () => {
+      await memory.add("I love programming in Python", { userId });
+      await memory.add("JavaScript is my favorite language", { userId });
+
+      const result = (await memory.getAll({ userId })) as SearchResult;
+
+      expect(result.results[0].metadata).toEqual({ categories: ['professional_details', 'technology'] })
+    });
+
+    it("should return memories by specified categories", async () => {
+      await memory.add("I love programming in Python", { userId });
+      await memory.add("I love to drink vodka in summers", { userId });
+
+      const result = (await memory.search('I', { userId, filters: { categories: ['technology']} })) as SearchResult;
+
+      expect(result.results.length).toBe(1)
+      expect(result.results[0].memory).toContain('Python')
+    });
+
   });
 
   describe("Memory with Custom Configuration", () => {
@@ -214,7 +234,7 @@ describe("Memory Class", () => {
           provider: "openai",
           config: {
             apiKey: process.env.OPENAI_API_KEY || "",
-            model: "gpt-4-turbo-preview",
+            model: "gpt-4o-mini",
           },
         },
         historyDbPath: ":memory:", // Use in-memory SQLite for tests

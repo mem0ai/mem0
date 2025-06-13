@@ -155,6 +155,28 @@ describe("OpenSearchVectorStore", () => {
         term: { "payload.userId.keyword": "user1" },
       });
     });
+
+    it("applies categories filters when provided", async () => {
+      const fakeHits: any[] = [];
+      (mockedClient.search as jest.Mock).mockResolvedValue({
+        body: { hits: { hits: fakeHits } },
+      });
+
+      const filters: SearchFilters = { userId: "user1", categories: ['personal_details', 'technology'] };
+      await db.search([0, 0, 0, 0], 2, filters);
+
+      const call = (mockedClient.search as jest.Mock).mock.lastCall[0].body;
+      expect(call.query).toHaveProperty("bool");
+      expect(call.query.bool.filter).toContainEqual({
+        term: { "payload.userId.keyword": "user1" },
+      });
+      expect(call.query.bool.filter).toContainEqual({
+        term: { "payload.categories.keyword": "personal_details" },
+      });
+      expect(call.query.bool.filter).toContainEqual({
+        term: { "payload.categories.keyword": "technology" },
+      });
+    });    
   });
 
   describe("get", () => {
