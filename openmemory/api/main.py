@@ -37,9 +37,8 @@ async def lifespan(app: FastAPI):
     logger.info("Application startup...")
     logger.info(f"Running in {'local development' if config.is_local_development else 'production'} mode")
     
-    # Initialize database for local development
-    if config.is_local_development:
-        init_database()
+    # Initialize database - THIS MUST RUN IN ALL ENVIRONMENTS
+    init_database()
     
     # Check database health
     if not check_database_health():
