@@ -434,33 +434,21 @@ graph TD
             </div>
           </div>
 
-          {/* Agentic Coding */}
-          <div className="p-6 border border-slate-700/50 rounded-lg bg-slate-900/40">
-            <h3 className="text-lg font-semibold text-teal-400 mb-2">Agentic Coding & Productivity</h3>
-            <p className="text-slate-400 mb-4">
-              Build agents that live in your development environment, automating tedious tasks by drawing on a shared memory of your work across different applications.
-            </p>
-             <div className="bg-slate-800/50 p-3 rounded text-sm">
-              <strong className="text-slate-300">Example Flow:</strong>
-              <ol className="list-decimal list-inside mt-2 space-y-2 text-slate-400">
-                <li>A 'Slack' agent remembers a conversation with a designer about a required UI change.</li>
-                <li>A 'Linear' agent remembers the feature ticket associated with that change.</li>
-                <li>When a developer works on the code, a 'Coding' agent can search the shared memory for the Slack conversation and Linear ticket, providing the full context without the developer ever leaving their IDE.</li>
-                <li>Once the code is pushed, the agent can use that same context to draft a detailed pull request description, linking to the original Linear ticket.</li>
-              </ol>
-            </div>
-          </div>
-          
           {/* Hyper-Personalized Content Generation */}
           <div className="p-6 border border-slate-700/50 rounded-lg bg-slate-900/40">
             <h3 className="text-lg font-semibold text-teal-400 mb-2">Hyper-Personalized Content Generation</h3>
             <p className="text-slate-400 mb-4">
-              By building an advanced workflow that performs a deep analysis of all a user's memories and documents, an agent can generate rich, biographical content that captures the subject's unique voice, history, and philosophical outlook.
+              While the API does not expose a single "deep query" tool, you can build advanced agents that perform deep analysis by creating an **emergent workflow**. This involves chaining the available foundational tools to analyze a large corpus of documents and generate rich, biographical content.
             </p>
             <Alert>
-              <AlertTitle className="flex items-center gap-2"><Lightbulb className="w-4 h-4" />Note</AlertTitle>
+              <AlertTitle className="flex items-center gap-2"><Lightbulb className="w-4 h-4" />Advanced Workflow Example</AlertTitle>
               <AlertDescription>
-                This is an example of an advanced, **emergent capability**. It is not a single tool call, but the result of a sophisticated agent chaining together multiple graph and search tools to synthesize a complex response.
+                This is not a single tool call. It is a sophisticated agent workflow that you build in your own application:
+                <ol className="list-decimal list-inside mt-2 space-y-1">
+                  <li><strong>Ingest Documents:</strong> Use a tool like `sync_substack` or `chunk_documents` to load the user's writings (e.g., 2 million tokens across 20+ documents) into the memory system.</li>
+                  <li><strong>Iterative Search:</strong> The agent makes a series of targeted `search_memories` calls to extract key themes. For example: `search_memories(query="early career motivations")` followed by `search_memories(query="perspectives on AI ethics")`.</li>
+                  <li><strong>Synthesize Narrative:</strong> The agent's controlling LLM takes the structured data from all search results and synthesizes it into a coherent, human-readable narrative, like the novella example below.</li>
+                </ol>
               </AlertDescription>
             </Alert>
             <div className="mt-4 bg-slate-800/50 p-4 rounded text-sm">
@@ -469,14 +457,14 @@ graph TD
             </div>
           </div>
 
-          {/* Cross-Application Agentic Automation */}
+          {/* Agentic Coding: A Cross-Application Workflow */}
           <div className="p-6 border border-slate-700/50 rounded-lg bg-slate-900/40">
             <h3 className="text-lg font-semibold text-teal-400 mb-2 flex items-center gap-2">
-              <Briefcase className="w-5 h-5" />
-              Cross-Application Agentic Automation
+              <Share2 className="w-5 h-5" />
+              Agentic Coding: A Cross-Application Workflow
             </h3>
             <p className="text-slate-400 mb-4">
-              Orchestrate a swarm of specialized agents that collaborate across different applications, using a shared memory context to automate complex workflows.
+              Orchestrate a swarm of specialized agents that collaborate across different applications, using a shared memory context to automate complex developer workflows.
             </p>
              <div className="bg-slate-800/50 p-3 rounded text-sm">
               <strong className="text-slate-300">Example Flow:</strong>
