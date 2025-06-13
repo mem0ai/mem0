@@ -191,6 +191,7 @@ const navItems = [
   { href: '#mcp-methods', label: 'MCP Methods', icon: BrainCircuit },
   { href: '#available-tools', label: 'Available Tools', icon: ListTree },
   { href: '#python-example', label: 'Python Example', icon: Puzzle },
+  { href: '#advanced-python-example', label: 'Advanced Example', icon: Puzzle },
   { href: '#curl-example', label: 'cURL Example', icon: Terminal },
 ];
 
@@ -228,6 +229,22 @@ const DiagramModal = ({ chart, onClose }: { chart: string; onClose: () => void }
 const ApiDocsPage = () => {
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://jean-memory-api.onrender.com";
   const [isDiagramModalOpen, setIsDiagramModalOpen] = useState(false);
+
+  const novellaTitle = "The Irreverent Journey: A Life in Progress";
+  const novellaDescription = `I've crafted a biographical novela based on the deep analysis of your memories and documents. The story traces your journey from a questioning child in the Midwest through your current work building Jean and exploring AI personalization.
+
+The narrative captures key themes that emerged from your memories:
+
+- Your natural "psychological reactance" to arbitrary rules and authority
+- The evolution from banking to entrepreneurship via the "zero plan" leap in June 2024
+- Your breakthrough insight about "General Personal Embeddings" and AI understanding human complexity
+- The systematic, technical approach you take to building (evidenced by your memory tools testing)
+- The philosophical framework of "irreverence" as a creative force
+- Your current work on Jean, the personal memory layer, and Model Context Protocol
+
+The novela is structured as a journey of becoming - someone learning to trust their instincts, build their own path, and create technology that serves human complexity rather than reducing it. It weaves together the technical, personal, and philosophical threads that define your approach to life and work.
+
+The tone balances the introspective quality of your essays with the practical energy of your entrepreneurial ventures, ending with the understanding that this is very much a story in progress - you're still building, still exploring, still following that inner "blue note" wherever it leads.`;
 
   const architectureDiagram = `
 graph TD
@@ -414,6 +431,41 @@ graph TD
                 <li>New Employee: "What was the main outcome of the 'Project Phoenix' initiative last quarter?"</li>
                 <li>Agent: (Calls <code className="font-mono text-xs">search_memories</code>) "Project Phoenix concluded with the successful deployment of the new user authentication service, which reduced login times by 40%. The project lead was Alice."</li>
               </ol>
+            </div>
+          </div>
+
+          {/* Agentic Coding */}
+          <div className="p-6 border border-slate-700/50 rounded-lg bg-slate-900/40">
+            <h3 className="text-lg font-semibold text-teal-400 mb-2">Agentic Coding & Productivity</h3>
+            <p className="text-slate-400 mb-4">
+              Build agents that live in your development environment, automating tedious tasks by drawing on a shared memory of your work across different applications.
+            </p>
+             <div className="bg-slate-800/50 p-3 rounded text-sm">
+              <strong className="text-slate-300">Example Flow:</strong>
+              <ol className="list-decimal list-inside mt-2 space-y-2 text-slate-400">
+                <li>A 'Slack' agent remembers a conversation with a designer about a required UI change.</li>
+                <li>A 'Linear' agent remembers the feature ticket associated with that change.</li>
+                <li>When a developer works on the code, a 'Coding' agent can search the shared memory for the Slack conversation and Linear ticket, providing the full context without the developer ever leaving their IDE.</li>
+                <li>Once the code is pushed, the agent can use that same context to draft a detailed pull request description, linking to the original Linear ticket.</li>
+              </ol>
+            </div>
+          </div>
+          
+          {/* Hyper-Personalized Content Generation */}
+          <div className="p-6 border border-slate-700/50 rounded-lg bg-slate-900/40">
+            <h3 className="text-lg font-semibold text-teal-400 mb-2">Hyper-Personalized Content Generation</h3>
+            <p className="text-slate-400 mb-4">
+              By building an advanced workflow that performs a deep analysis of all a user's memories and documents, an agent can generate rich, biographical content that captures the subject's unique voice, history, and philosophical outlook.
+            </p>
+            <Alert>
+              <AlertTitle className="flex items-center gap-2"><Lightbulb className="w-4 h-4" />Note</AlertTitle>
+              <AlertDescription>
+                This is an example of an advanced, **emergent capability**. It is not a single tool call, but the result of a sophisticated agent chaining together multiple graph and search tools to synthesize a complex response.
+              </AlertDescription>
+            </Alert>
+            <div className="mt-4 bg-slate-800/50 p-4 rounded text-sm">
+              <h4 className="font-bold text-slate-200 text-base mb-2">{novellaTitle}</h4>
+              <p className="text-slate-300 whitespace-pre-wrap">{novellaDescription}</p>
             </div>
           </div>
 
@@ -678,6 +730,112 @@ except requests.exceptions.RequestException as e:
   }
 }
 `} />
+      </section>
+
+      <section id="advanced-python-example">
+        <h2 className="text-3xl font-bold text-slate-100 mb-4 flex items-center"><Puzzle className="w-7 h-7 mr-3 text-purple-400"/>Advanced Python Example</h2>
+        <p className="text-slate-400 mb-4">
+          This example demonstrates a more complex, realistic workflow where an agent uses shared memory to answer a question that requires context from multiple applications (Slack and Jira).
+        </p>
+        <CodeBlock lang="python" code={`
+import requests
+import json
+import os
+
+API_KEY = os.environ.get("JEAN_API_KEY")
+API_URL = "${API_URL}/agent/v1/mcp/messages/"
+
+def call_jean_api(payload):
+    """Helper function to call the Jean Memory API."""
+    if not API_KEY:
+        raise ValueError("JEAN_API_KEY environment variable not set!")
+    
+    headers = {
+        "Authorization": f"Bearer {API_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    try:
+        response = requests.post(API_URL, headers=headers, data=json.dumps(payload))
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"API call failed: {e}")
+        return None
+
+# --- Step 1: An agent adds memories from different sources ---
+
+# A 'Slack Monitor' agent captures a user report
+print("Step 1: Ingesting memories from Slack and Jira...")
+slack_payload = {
+    "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+    "params": {
+        "name": "add_memories",
+        "arguments": {
+            "text": "User 'dave' reported in #bugs: 'Can't reset my password, the link is broken.'",
+            "source_app": "slack",
+            "metadata": {"channel": "#bugs", "status": "reported"}
+        }
+    }
+}
+call_jean_api(slack_payload)
+
+# A 'Jira Monitor' agent sees a new ticket is created
+jira_payload = {
+    "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+    "params": {
+        "name": "add_memories",
+        "arguments": {
+            "text": "Jira Ticket JIRA-123 created: 'Password reset link broken'",
+            "source_app": "jira",
+            "metadata": {"ticket_id": "JIRA-123", "status": "open"}
+        }
+    }
+}
+call_jean_api(jira_payload)
+print("Memories added.")
+
+# --- Step 2: A developer's agent seeks context ---
+
+print("\\nStep 2: A developer asks for context on a Jira ticket.")
+dev_question = "What's the full context for ticket JIRA-123?"
+
+# --- Step 3: The agent plans and executes a search ---
+
+# The agent's LLM would determine it needs to search for the ticket ID
+# across all relevant applications.
+print("Step 3: Agent searching for 'JIRA-123' across Slack and Jira...")
+search_payload = {
+    "jsonrpc": "2.0", "id": 3, "method": "tools/call",
+    "params": {
+        "name": "search_memories",
+        "arguments": {
+            "query": "JIRA-123",
+            "source_app": "slack,jira" # Filter search to specific apps
+        }
+    }
+}
+search_results = call_jean_api(search_payload)
+
+# --- Step 4: The agent synthesizes the results ---
+
+print("\\nStep 4: Agent synthesizes a response from the search results.")
+if search_results and search_results.get('result', {}).get('results'):
+    context = ""
+    for res in search_results['result']['results']:
+        context += f"- {res['text']} (Source: {res['metadata'].get('source_app', 'N/A')})\\n"
+    
+    final_answer = f"""
+Here is the context for ticket JIRA-123:
+
+{context}
+This allows you to see the original user report from Slack alongside the formal Jira ticket.
+"""
+    print(final_answer)
+else:
+    print("Could not find any context for that ticket.")
+
+        `} />
       </section>
 
       <section id="curl-example">
