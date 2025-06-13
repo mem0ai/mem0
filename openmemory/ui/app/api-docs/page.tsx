@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { GitBranch, Shield, BookOpen, Puzzle, Terminal, DownloadCloud, Copy, Check, Code } from 'lucide-react';
+import { GitBranch, Shield, BookOpen, Puzzle, Terminal, Code, Server, Key, BrainCircuit, Copy, Check } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 
 // A simple syntax-highlighted code block component with a copy button
@@ -24,16 +24,18 @@ const CodeBlock = ({ code, lang = 'bash' }: { code: string, lang?: string }) => 
       <div className="p-4 pr-12 text-sm font-mono overflow-x-auto">
         {lines.map((line, i) => {
           let styledLine = line;
-          if (lang === 'bash') {
+          if (lang === 'bash' || lang === 'http') {
               styledLine = line.replace(/curl/g, '<span class="text-pink-400">curl</span>');
               styledLine = styledLine.replace(/(-X POST|-H|-d)/g, '<span class="text-cyan-400">$&</span>');
               styledLine = styledLine.replace(/(https:\/\/[^\s]+)/g, '<span class="text-amber-400">$&</span>');
+              styledLine = styledLine.replace(/Authorization:/g, '<span class="text-sky-400">$&</span>');
           } else if (lang === 'python') {
               styledLine = styledLine.replace(/(#.*$)/g, '<span class="text-slate-500">$&</span>');
-              styledLine = styledLine.replace(/(".*?")/g, '<span class="text-emerald-400">$&</span>');
-              styledLine = styledLine.replace(/\b(from|import|def|return|print|if|for|in|not)\b/g, '<span class="text-pink-400">$&</span>');
-              styledLine = styledLine.replace(/\b(JeanMemoryClient|add_tagged_memory|search_by_tags|OpenAI)\b/g, '<span class="text-yellow-400">$&</span>');
-              styledLine = styledLine.replace(/\b(True|False|None)\b/g, '<span class="text-sky-400">$&</span>');
+              styledLine = styledLine.replace(/(".*?"|'.*?')/g, '<span class="text-emerald-400">$&</span>');
+              styled_line = styledLine.replace(/\b(from|import|def|return|print|if|for|in|not|try|except|raise|as)\b/g, '<span class="text-pink-400">$&</span>');
+              styledLine = styledLine.replace(/\b(requests|json|os)\b/g, '<span class="text-sky-400">$&</span>');
+          } else if (lang === 'mermaid') {
+              return <div key={i}><pre className="text-slate-200 whitespace-pre-wrap">{line}</pre></div>;
           }
           return (
             <div key={i} className="flex items-start">
@@ -60,17 +62,8 @@ const CodeBlock = ({ code, lang = 'bash' }: { code: string, lang?: string }) => 
   );
 };
 
-// Navigation items
-const navItems = [
-  { href: '#introduction', label: 'Introduction', icon: BookOpen },
-  { href: '#authentication', label: 'Authentication', icon: Shield },
-  { href: '#endpoints', label: 'API Endpoints', icon: GitBranch },
-  { href: '#sdk', label: 'Python SDK', icon: Puzzle },
-  { href: '#example', label: 'Example', icon: Code },
-];
-
-const DocsPage = () => {
-  const API_URL = "https://api.jeanmemory.com";
+// Layout component for documentation pages
+const DocsLayout = ({ children, navItems }: { children: React.ReactNode, navItems: { href: string, label: string, icon: React.ElementType }[] }) => {
   const [activeId, setActiveId] = useState('introduction');
   const router = useRouter();
   const pathname = usePathname();
@@ -91,7 +84,7 @@ const DocsPage = () => {
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [navItems]);
 
   const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
     e.preventDefault();
@@ -100,26 +93,23 @@ const DocsPage = () => {
       behavior: 'smooth',
       block: 'start'
     });
-    // Update URL without page reload
     router.push(`${pathname}${href}`, { scroll: false });
   };
-  
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-300">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col lg:flex-row">
-
-          {/* Sidebar */}
           <aside className="w-full lg:w-64 lg:pr-8 lg:sticky lg:top-16 self-start py-8">
             <nav className="space-y-2">
               {navItems.map(({ href, label, icon: Icon }) => (
-                <a 
-                  key={href} 
+                <a
+                  key={href}
                   href={href}
                   onClick={(e) => handleNavClick(e, href)}
                   className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                     activeId === href.substring(1)
-                      ? 'bg-slate-800 text-purple-300' 
+                      ? 'bg-slate-800 text-purple-300'
                       : 'text-slate-400 hover:bg-slate-900 hover:text-white'
                   }`}
                 >
@@ -129,188 +119,9 @@ const DocsPage = () => {
               ))}
             </nav>
           </aside>
-
-          {/* Main Content */}
           <main className="w-full lg:pl-8 py-16">
             <div className="max-w-3xl mx-auto space-y-16">
-              
-              <div className="p-4 border border-yellow-700 bg-yellow-900/50 rounded-lg text-yellow-300">
-                <h3 className="font-semibold flex items-center"><Terminal className="w-5 h-5 mr-2"/>Under Construction</h3>
-                <p className="text-sm mt-1">
-                  These REST API docs are currently being revised. For the recommended agent integration, please see our new <a href="/mcp-docs" className="underline hover:text-yellow-200">MCP Agent Docs</a>.
-                </p>
-              </div>
-
-              <section id="introduction">
-                <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500 mb-4">Agent API Introduction</h1>
-                <p className="text-lg text-slate-400">
-                  The Jean Memory Agent API provides a robust, isolated, and easy-to-use memory layer for your AI applications. It's designed for production use cases where multiple AI agents need to collaborate by sharing a common context.
-                </p>
-                <div className="mt-6 p-4 border border-slate-800 rounded-lg bg-slate-900/50">
-                  <h3 className="font-semibold text-slate-100 flex items-center"><Terminal className="w-5 h-5 mr-2 text-slate-400"/>What can you do with it?</h3>
-                  <ul className="mt-2 ml-2 space-y-2 text-sm text-slate-400 list-disc list-inside">
-                    <li>Give an agent swarm a shared "scratchpad" for collaboration.</li>
-                    <li>Persist logs and findings from autonomous agents.</li>
-                    <li>Isolate memory between different tasks using metadata tags.</li>
-                    <li>Build complex workflows where one agent's output is another's input.</li>
-                  </ul>
-                </div>
-              </section>
-
-              <section id="authentication">
-                <h2 className="text-3xl font-bold text-slate-100 mb-4">Authentication</h2>
-                <p>All endpoints are protected. You need a <code className="text-sm font-mono bg-slate-800 px-1 rounded">Bearer Token</code> for your user account and an <code className="text-sm font-mono bg-slate-800 px-1 rounded">X-Client-Name</code> header to scope memories to a specific application or agent swarm.</p>
-                <CodeBlock lang="http" code={`
-Authorization: Bearer <YOUR_JWT_TOKEN>
-X-Client-Name: <your-unique-app-name>
-                `} />
-              </section>
-
-              <section id="endpoints">
-                <h2 className="text-3xl font-bold text-slate-100 mb-4">API Endpoints</h2>
-                <div className="space-y-10">
-                  <div>
-                    <h3 className="text-xl font-semibold text-slate-200">Add Tagged Memory</h3>
-                    <p className="mt-1 text-slate-400">Adds a new memory with associated metadata tags.</p>
-                    <div className="flex items-center gap-2 mt-3">
-                      <span className="font-mono text-xs font-bold text-green-400 bg-green-900/50 px-2 py-1 rounded">POST</span>
-                      <span className="font-mono text-sm text-slate-400">/agent/v1/memory/add_tagged</span>
-                    </div>
-                    <h4 className="font-semibold text-slate-300 mt-4 mb-2">Example Request:</h4>
-                    <CodeBlock code={`
-curl -X POST ${API_URL}/agent/v1/memory/add_tagged \\
-  -H "Authorization: Bearer <YOUR_TOKEN>" \\
-  -H "X-Client-Name: research_swarm_alpha" \\
-  -d '{
-    "text": "Fact: Mars is also known as the Red Planet.",
-    "metadata": {"task_id": "mars_research_101"}
-  }'
-                    `} />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-semibold text-slate-200">Search by Tags</h3>
-                    <p className="mt-1 text-slate-400">Searches for memories matching all key-value pairs in the filter.</p>
-                     <div className="flex items-center gap-2 mt-3">
-                      <span className="font-mono text-xs font-bold text-green-400 bg-green-900/50 px-2 py-1 rounded">POST</span>
-                      <span className="font-mono text-sm text-slate-400">/agent/v1/memory/search_by_tags</span>
-                    </div>
-                    <h4 className="font-semibold text-slate-300 mt-4 mb-2">Example Request:</h4>
-                    <CodeBlock code={`
-curl -X POST ${API_URL}/agent/v1/memory/search_by_tags \\
-  -H "Authorization: Bearer <YOUR_TOKEN>" \\
-  -H "X-Client-Name: research_swarm_alpha" \\
-  -d '{"filter": {"task_id": "mars_research_101"}}'
-                    `} />
-                  </div>
-                </div>
-              </section>
-
-              <section id="sdk">
-                <h2 className="text-3xl font-bold text-slate-100 mb-4">Python SDK</h2>
-                <p>For easier integration, we provide a Python client. It's located in the <code className="text-sm font-mono bg-slate-800 px-1 rounded">openmemory/sdk</code> directory of the repository.</p>
-                <div className="mt-4 p-4 border border-slate-800 rounded-lg bg-slate-900/50 text-sm">
-                  <div className="flex items-center text-amber-300"><DownloadCloud className="w-4 h-4 mr-2"/>Note on Installation</div>
-                  <p className="text-slate-400 mt-1">To use the SDK, you don't need to install it from a package manager. Simply copy the <code className="text-xs font-mono bg-slate-800 px-1 rounded">openmemory/sdk</code> directory into your project or add it to your Python path.</p>
-                </div>
-                <h4 className="font-semibold text-slate-300 mt-6 mb-2">Example Usage:</h4>
-                <CodeBlock lang="python" code={`
-from openmemory.sdk.client import JeanMemoryClient
-
-# Reads JEAN_API_TOKEN from environment variables
-client = JeanMemoryClient()
-
-# Add a memory, scoped to your app
-client.add_tagged_memory(
-    text="This is a finding from our research agent.",
-    metadata={"task_id": "koii_task_123"},
-    client_name="koii_swarm_app"
-)
-
-# Retrieve memories for that task
-memories = client.search_by_tags(
-    filters={"task_id": "koii_task_123"},
-    client_name="koii_swarm_app"
-)
-print(memories)
-                `} />
-              </section>
-
-              <section id="example">
-                <h2 className="text-3xl font-bold text-slate-100 mb-4">Example: Agent Collaboration</h2>
-                <p>This example demonstrates a common pattern where a <strong className="text-slate-200">Researcher</strong> agent gathers information, and a <strong className="text-slate-200">Summarizer</strong> agent processes it. Both agents use the same <code className="text-sm font-mono bg-slate-800 px-1 rounded">task_id</code> to share context.</p>
-
-                <h4 className="font-semibold text-slate-300 mt-6 mb-2">1. Researcher Agent</h4>
-                <p className="text-sm text-slate-400 mb-2">This agent discovers facts on a topic and stores them as individual memories tagged with the task ID.</p>
-                <CodeBlock lang="python" code={`
-import os
-from openmemory.sdk.client import JeanMemoryClient
-
-def research_agent(task_id: str, topic: str):
-    """Agent 1: Discovers facts and adds them to memory."""
-    print(f"--- [Research Agent] discovering facts about '{topic}' ---")
-    
-    # In a real scenario, this would come from a web search or document analysis
-    facts = [
-        f"{topic} are a type of flowering plant in the nightshade family Solanaceae.",
-        "The tomato is the edible berry of the plant Solanum lycopersicum.",
-        "Tomatoes are a significant source of umami flavor.",
-    ]
-    
-    client = JeanMemoryClient()
-    for i, fact in enumerate(facts):
-        metadata = {"task_id": task_id, "type": "fact", "step": i + 1}
-        client.add_tagged_memory(text=fact, metadata=metadata, client_name="collaboration_app")
-        print(f"  - Added fact #{i+1}")
-
-    print("--- ✅ Research complete ---")
-                `} />
-
-                <h4 className="font-semibold text-slate-300 mt-6 mb-2">2. Summarizer Agent</h4>
-                <p className="text-sm text-slate-400 mb-2">After the researcher is done, this agent retrieves all the facts for the task, uses an LLM to create a summary, and stores the final result back into memory.</p>
-                <CodeBlock lang="python" code={`
-import os
-import time
-from openai import OpenAI
-from openmemory.sdk.client import JeanMemoryClient
-
-def summarizer_agent(task_id: str, topic: str):
-    """Agent 2: Finds facts, uses an LLM to summarize, and stores the summary."""
-    print(f"--- [Summarizer Agent] creating a summary for '{topic}' ---")
-    
-    client = JeanMemoryClient()
-    llm_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-
-    # Search for all facts related to this specific task
-    time.sleep(1) # Give a moment for DB to be consistent
-    facts = client.search_by_tags(
-        filters={"task_id": task_id, "type": "fact"},
-        client_name="collaboration_app"
-    )
-    
-    if not facts:
-        print("--- ❌ ERROR: No facts found to summarize. ---")
-        return
-
-    # Prepare context for the LLM
-    fact_list = "\\n".join([f"- {mem.get('content', '')}" for mem in facts])
-    prompt = f"Please synthesize the following facts about {topic} into a single, concise paragraph:\\n\\n{fact_list}"
-    
-    # Generate summary
-    response = llm_client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    summary = response.choices[0].message.content
-    
-    # Store the final product
-    metadata = {"task_id": task_id, "type": "summary"}
-    client.add_tagged_memory(text=summary, metadata=metadata, client_name="collaboration_app")
-
-    print("--- ✅ Summary complete and stored ---")
-                `} />
-
-              </section>
-
+              {children}
             </div>
           </main>
         </div>
@@ -319,4 +130,169 @@ def summarizer_agent(task_id: str, topic: str):
   );
 };
 
-export default DocsPage; 
+const navItems = [
+  { href: '#introduction', label: 'Introduction', icon: BookOpen },
+  { href: '#authentication', label: 'Authentication', icon: Shield },
+  { href: '#endpoints', label: 'API Endpoint', icon: GitBranch },
+  { href: '#mcp-methods', label: 'MCP Methods', icon: BrainCircuit },
+  { href: '#python-example', label: 'Python Example', icon: Puzzle },
+  { href: '#curl-example', label: 'cURL Example', icon: Terminal },
+];
+
+const ApiDocsPage = () => {
+  const API_URL = "https://jean-memory-api.onrender.com";
+
+  return (
+    <DocsLayout navItems={navItems}>
+      <section id="introduction">
+        <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500 mb-4">Agent API Documentation</h1>
+        <p className="text-lg text-slate-400">
+          The Jean Memory Agent API provides a robust, isolated, and easy-to-use memory layer for your AI applications. It's designed for production use cases where multiple AI agents or services need to interact with a user's memory store via a secure, key-based authentication system.
+        </p>
+      </section>
+
+      <section id="authentication">
+        <h2 className="text-3xl font-bold text-slate-100 mb-4 flex items-center"><Shield className="w-7 h-7 mr-3 text-purple-400"/>Authentication</h2>
+        <p className="text-slate-400 mb-4">
+          All agent endpoints are protected and require an API key. Keys are generated from the Jean Memory UI and must be passed in the <code className="font-mono text-sm">Authorization</code> header as a Bearer token.
+        </p>
+        <div className="space-y-4">
+          <div>
+            <h3 className="font-semibold text-slate-200 text-lg flex items-center"><Key className="w-5 h-5 mr-2 text-slate-400"/>Step 1: Generate an API Key</h3>
+            <p className="text-slate-400 mt-1">
+              Navigate to the <a href="/settings" className="text-purple-400 underline hover:text-purple-300">Settings page</a> in the Jean Memory dashboard. From there, you can generate, view, and revoke API keys.
+            </p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-slate-200 text-lg flex items-center"><Code className="w-5 h-5 mr-2 text-slate-400"/>Step 2: Use the API Key</h3>
+            <p className="text-slate-400 mt-1">
+              When making a request to the agent API, include your key in the <code className="font-mono text-sm">Authorization</code> header. The key must be prefixed with <code className="font-mono text-sm">Bearer </code>.
+            </p>
+            <CodeBlock lang="http" code={`Authorization: Bearer jean_sk_...`} />
+          </div>
+        </div>
+      </section>
+
+      <section id="endpoints">
+        <h2 className="text-3xl font-bold text-slate-100 mb-4 flex items-center"><GitBranch className="w-7 h-7 mr-3 text-purple-400"/>API Endpoint</h2>
+        <p className="text-slate-400 mb-4">
+          All agent-based interactions use a single, unified MCP endpoint. This endpoint accepts POST requests with a standard JSON-RPC 2.0 payload.
+        </p>
+        <div className="flex items-center gap-2 mt-3">
+          <span className="font-mono text-xs font-bold text-green-400 bg-green-900/50 px-2 py-1 rounded">POST</span>
+          <span className="font-mono text-sm text-slate-300">{API_URL}/agent/v1/mcp/messages/</span>
+        </div>
+      </section>
+      
+      <section id="mcp-methods">
+          <h2 className="text-3xl font-bold text-slate-100 mb-4 flex items-center"><BrainCircuit className="w-7 h-7 mr-3 text-purple-400"/>MCP Methods</h2>
+          <p className="text-slate-400 mb-4">
+            The agent endpoint supports all standard MCP methods, including tool calls. You can interact with the memory system using methods like <code className="font-mono text-sm">tools/list</code>, <code className="font-mono text-sm">resources/list</code>, and <code className="font-mono text-sm">tools/call</code>.
+          </p>
+          <div className="p-4 border border-sky-700/80 bg-sky-900/50 rounded-lg text-sky-300 text-sm">
+              The architecture has been unified. The agent endpoint is a fully-featured MCP server, providing the same capabilities as the internal system used by Claude.
+          </div>
+      </section>
+
+      <section id="python-example">
+        <h2 className="text-3xl font-bold text-slate-100 mb-4 flex items-center"><Puzzle className="w-7 h-7 mr-3 text-purple-400"/>Python Example</h2>
+        <p className="text-slate-400 mb-4">
+          Here is a simple example of how to use the API with Python's <code className="font-mono text-sm">requests</code> library to add a new memory.
+        </p>
+        <CodeBlock lang="python" code={`
+import requests
+import json
+import os
+
+# It's best practice to load your key from an environment variable
+API_KEY = os.environ.get("JEAN_API_KEY")
+API_URL = "${API_URL}/agent/v1/mcp/messages/"
+
+if not API_KEY:
+    raise ValueError("JEAN_API_KEY environment variable not set!")
+
+headers = {
+    "Authorization": f"Bearer {API_KEY}",
+    "Content-Type": "application/json"
+}
+
+payload = {
+    "jsonrpc": "2.0",
+    "method": "tools/call",
+    "params": {
+        "name": "add_memories",
+        "arguments": {
+            "text": "The user is interested in learning about generative adversarial networks (GANs)."
+        }
+    },
+    "id": 1
+}
+
+try:
+    response = requests.post(API_URL, headers=headers, data=json.dumps(payload))
+    response.raise_for_status()  # Raises an exception for bad status codes
+    
+    print("Response:", response.json())
+
+except requests.exceptions.RequestException as e:
+    print(f"An error occurred: {e}")
+        `} />
+      </section>
+
+      <section id="curl-example">
+        <h2 className="text-3xl font-bold text-slate-100 mb-4 flex items-center"><Terminal className="w-7 h-7 mr-3 text-purple-400"/>cURL Example</h2>
+        <p className="text-slate-400 mb-4">
+          You can also interact with the API directly from your terminal using cURL. This example lists the available tools.
+        </p>
+        <CodeBlock lang="bash" code={`
+curl -X POST ${API_URL}/agent/v1/mcp/messages/ \\
+  -H "Authorization: Bearer YOUR_JEAN_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "tools/list",
+    "params": {},
+    "id": 1
+  }'
+        `} />
+      </section>
+      
+      <section id="architecture-diagram">
+          <h2 className="text-3xl font-bold text-slate-100 mb-4 flex items-center"><Server className="w-7 h-7 mr-3 text-purple-400"/>Architecture</h2>
+          <p className="text-slate-400 mb-4">
+            The final architecture ensures that production UI and Claude integrations are completely isolated from the new Agent API path, which now has its own dedicated, fully-featured MCP handler.
+          </p>
+          <div className="p-4 bg-slate-900/70 rounded-lg border border-slate-700/50">
+            <CodeBlock lang="mermaid" code={`
+graph TD
+    subgraph "Existing Production Auth (Unchanged & Safe)"
+        A["UI Request (jeanmemory.com)"] --> B{JWT in Header};
+        C["Claude \\\`supergateway\\\` Request"] --> D{"x-user-id" in Header};
+
+        B --> E["GET /api/v1/*"];
+        D --> F["POST /mcp/messages/"];
+        
+        E -- "Uses get_current_supa_user" --> G["✅ Validated"];
+        F -- "Uses main MCP handler" --> G;
+    end
+
+    subgraph "New Agent API (Isolated System)"
+        H["Agent Request"] --> I{"API Key \\\`jean_sk_...\\\` in Header"};
+        I --> J["POST /agent/v1/mcp/messages/"];
+        J -- "Uses get_current_agent" --> K["✅ Validated"];
+        K -- "Forwards to main MCP handler" --> F;
+    end
+
+    style F fill:#cde4da,stroke:#155724
+    style G fill:#cde4da,stroke:#155724
+    style J fill:#d4e4f7,stroke:#0c5460
+    style K fill:#d4e4f7,stroke:#0c5460
+            `} />
+          </div>
+      </section>
+
+    </DocsLayout>
+  );
+};
+
+export default ApiDocsPage; 
