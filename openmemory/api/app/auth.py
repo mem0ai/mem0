@@ -118,6 +118,11 @@ async def get_current_user(
 
 # This is the original, untouched dependency for the UI and production services.
 async def get_current_supa_user(request: Request) -> SupabaseUser:
+    # --- TEMPORARY DEBUG LOGGING ---
+    logger.info(f"get_current_supa_user: Received request for path: {request.url.path}")
+    logger.info(f"get_current_supa_user: Request headers: {request.headers}")
+    # --- END TEMPORARY DEBUG LOGGING ---
+
     if config.is_local_development:
         logger.debug(f"Using local authentication with USER_ID: {config.USER_ID}")
         return await get_local_dev_user(request)

@@ -40,7 +40,7 @@ class NewApiKeyResponse(BaseModel):
     key: str
     info: ApiKeyInfo
 
-@router.post("/", response_model=NewApiKeyResponse, status_code=201)
+@router.post("", response_model=NewApiKeyResponse, status_code=201)
 def create_api_key(
     key_create: ApiKeyCreate,
     db: Session = Depends(get_db),
@@ -81,7 +81,7 @@ def create_api_key(
         info=ApiKeyInfo.from_orm(db_api_key)
     )
 
-@router.get("/", response_model=List[ApiKeyInfo])
+@router.get("", response_model=List[ApiKeyInfo])
 def get_api_keys(
     db: Session = Depends(get_db),
     supa_user: SupabaseUser = Depends(get_current_supa_user)
