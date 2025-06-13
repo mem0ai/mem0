@@ -13,11 +13,12 @@ logger = logging.getLogger(__name__)
 
 def init_database():
     """Initialize the database with required extensions and base data"""
+    logger.info("Ensuring all tables are created in the database...")
+    Base.metadata.create_all(bind=engine)
+    logger.info("Table check complete.")
+
     if config.is_local_development:
         logger.info("Initializing database for local development")
-        
-        # Create all tables
-        Base.metadata.create_all(bind=engine)
         
         # Initialize PostgreSQL extensions if using PostgreSQL
         if config.DATABASE_URL.startswith("postgresql"):
