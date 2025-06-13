@@ -1139,14 +1139,29 @@ async def test_connection() -> str:
 @mcp_router.post("/messages/")
 async def handle_post_message(request: Request):
     """
-    Handles a single, stateless JSON-RPC message from the Cloudflare Worker.
+    Handles a single, stateless JSON-RPC message.
     This endpoint runs the requested tool and returns the result immediately.
+    It can be called by the Cloudflare Worker (using headers) or by an authenticated
+    agent router (which injects user into request.state).
     """
-    user_id_from_header = request.headers.get("x-user-id")
-    client_name_from_header = request.headers.get("x-client-name")
+    user_id_from_header = None
+    client_name_from_header = None
     
+    # Unified authentication check
+    if hasattr(request.state, 'user') and request.state.user:
+        # Authenticated via agent router (Depends)
+        user: User = request.state.user
+        user_id_from_header = str(user.user_id)
+        client_name_from_header = request.headers.get("x-client-name", "default_agent_app")
+        logger.info(f"Handling message for user authenticated via Agent API: {user_id_from_header}")
+    else:
+        # Fallback to header-based auth for Cloudflare Worker
+        user_id_from_header = request.headers.get("x-user-id")
+        client_name_from_header = request.headers.get("x-client-name")
+        logger.info(f"Handling message for user authenticated via headers: {user_id_from_header}")
+
     if not user_id_from_header or not client_name_from_header:
-        return JSONResponse(status_code=400, content={"error": "Missing X-User-Id or X-Client-Name headers"})
+        return JSONResponse(status_code=400, content={"error": "Missing user authentication details"})
             
     # Set context variables for the duration of this request
     user_token = user_id_var.set(user_id_from_header)
