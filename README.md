@@ -114,7 +114,12 @@ Watch this 5-minute step-by-step tutorial to get Jean Memory working with your A
 
 ### Option 2: Local Development
 
-Set up and run Jean Memory on your local machine for development. For a detailed guide, please see the [local development README](/openmemory/README.md).
+Set up and run Jean Memory on your local machine for development with **real Supabase authentication**. The system automatically detects local development and uses Supabase CLI for authentication.
+
+**Prerequisites:**
+- Node.js 18+ and npm
+- Docker and Docker Compose
+- Git
 
 **1. Clone the repository:**
 ```bash
@@ -123,29 +128,31 @@ cd your-memory
 ```
 
 **2. Run initial setup:**
-This command creates your environment files.
+This creates environment files and starts all services:
 ```bash
 make setup
 ```
 
-**3. Add API Keys:**
-Edit `openmemory/api/.env` and add your `OPENAI_API_KEY` and `GEMINI_API_KEY`.
+**3. Add your API keys:**
+When prompted during setup, add your API keys:
+- `OPENAI_API_KEY` (required) - Get from [OpenAI Platform](https://platform.openai.com/api-keys)
+- `GEMINI_API_KEY` (optional) - Get from [Google AI Studio](https://makersuite.google.com/app/apikey)
 
 **4. Build the environment:**
-This installs dependencies and builds the Docker containers.
+After adding API keys, build the environment:
 ```bash
 make build
 ```
 
 **5. Start the services:**
-You'll need two separate terminals for this.
+You'll need two separate terminals:
 
-*In terminal 1, start the backend:*
+*Terminal 1 - Start backend (includes Supabase):*
 ```bash
 make backend
 ```
 
-*In terminal 2, start the frontend:*
+*Terminal 2 - Start frontend:*
 ```bash
 make ui-local
 ```
@@ -153,6 +160,21 @@ make ui-local
 **6. Access the application:**
 - **UI**: `http://localhost:3000`
 - **API Docs**: `http://localhost:8765/docs`
+- **Supabase Studio**: `http://localhost:54323`
+
+**7. Create an account:**
+- Go to `http://localhost:3000`
+- Click "Sign Up" and create a local account
+- The system uses real Supabase authentication locally
+
+**Features:**
+- ✅ Real user authentication with Supabase
+- ✅ Full memory creation and management
+- ✅ AI chat with memory integration
+- ✅ Production-ready deployment setup
+- ✅ Out-of-the-box local development
+
+For detailed troubleshooting, see the [local development guide](/openmemory/LOCAL_DEVELOPMENT_SETUP.md).
 
 ## ⭐ Upgrade to Jean Memory Pro
 
