@@ -134,6 +134,13 @@ const DocsPage = () => {
           <main className="w-full lg:pl-8 py-16">
             <div className="max-w-3xl mx-auto space-y-16">
               
+              <div className="p-4 border border-yellow-700 bg-yellow-900/50 rounded-lg text-yellow-300">
+                <h3 className="font-semibold flex items-center"><Terminal className="w-5 h-5 mr-2"/>Under Construction</h3>
+                <p className="text-sm mt-1">
+                  These REST API docs are currently being revised. For the recommended agent integration, please see our new <a href="/mcp-docs" className="underline hover:text-yellow-200">MCP Agent Docs</a>.
+                </p>
+              </div>
+
               <section id="introduction">
                 <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500 mb-4">Agent API Introduction</h1>
                 <p className="text-lg text-slate-400">
