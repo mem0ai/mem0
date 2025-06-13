@@ -239,6 +239,7 @@ Mem0 now supports Amazon Neptune Analytics as a graph store provider. This integ
 #### Instance Setup
 
 Create an Amazon Neptune Analytics instance in your AWS account following the [AWS documentation](https://docs.aws.amazon.com/neptune-analytics/latest/userguide/get-started.html).
+- Public connectivity is not enabled by default, and if accessing from outside a VPC, it needs to be enabled.
 - Once the Amazon Neptune Analytics instance is available, you will need the graph-identifier to connect.
 - The Neptune Analytics instance must be created using the same vector dimensions as the embedding model creates. See: https://docs.aws.amazon.com/neptune-analytics/latest/userguide/vector-index.html
 
