@@ -93,6 +93,45 @@ async def get_current_user(
     Works with both local Supabase CLI and production Supabase Cloud.
     No more authentication bypass - always uses real Supabase auth.
     """
+    # Bypass auth for local development
+    if config.is_local_development:
+        local_user = await get_local_dev_user(request)
+        db_user = db.query(User).filter(User.user_id == local_user.id).first()
+        if not db_user:
+            # Create user if it doesn't exist for local dev
+            db_user = User(user_id=local_user.id, email="dev@example.com")
+            db.add(db_user)
+            db.commit()
+            db.refresh(db_user)
+        return db_user
+
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="Invalid Authorization header format")
+    
+    token = auth_header.replace("Bearer ", "")
+
+    user = None
+    # Try API Key auth first
+    if token.startswith("jean_sk_"):
+        user = await _get_user_from_api_key(token, db)
+    # Fallback to Supabase JWT auth
+    else:
+        user = await _get_user_from_supabase_jwt(token, db)
+
+    if user:
+        return user
+
+    raise HTTPException(
+        status_code=HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+    )
+
+# This is the original, untouched dependency for the UI and production services.
+async def get_current_supa_user(request: Request) -> SupabaseUser:
+    if config.is_local_development:
+        logger.debug(f"Using local authentication with USER_ID: {config.USER_ID}")
+        return await get_local_dev_user(request)
+    
     if not supabase_service_client:
         logger.error("Supabase client not initialized. Cannot authenticate user.")
         raise HTTPException(

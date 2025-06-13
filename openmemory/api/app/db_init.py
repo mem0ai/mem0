@@ -13,11 +13,14 @@ logger = logging.getLogger(__name__)
 
 def init_database():
     """Initialize the database with required extensions and base data"""
+    logger.info("Ensuring all tables are created in the database...")
+    Base.metadata.create_all(bind=engine)
+    logger.info("Table check complete.")
+
     if config.is_local_development:
         logger.info("Initializing database for local development (using Supabase CLI)")
         
-        # For local development with Supabase CLI, the schema is managed by Supabase migrations
-        # We only need to ensure extensions are available
+        # Initialize PostgreSQL extensions if using PostgreSQL
         if config.DATABASE_URL.startswith("postgresql"):
             try:
                 with engine.connect() as conn:
