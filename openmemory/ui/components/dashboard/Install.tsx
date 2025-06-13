@@ -51,7 +51,7 @@ export const Install = () => {
   const handleCopy = async (tab: string, isMcp: boolean = false) => {
     const text = isMcp
       ? `${URL}/mcp/openmemory/sse/${user}`
-      : `npx install-mcp i ${URL}/mcp/${tab}/sse/${user} --client ${tab}`;
+      : `npx install-mcp ${URL}/mcp/${tab}/sse/${user} --client ${tab}`;
 
     try {
       // Try using the Clipboard API first
@@ -167,7 +167,7 @@ export const Install = () => {
                 <div className="relative">
                   <pre className="bg-zinc-800 px-4 py-3 rounded-md overflow-x-auto text-sm">
                     <code className="text-gray-300">
-                      {`npx install-mcp i ${URL}/mcp/${key}/sse/${user} --client ${key}`}
+                      {`npx install-mcp ${URL}/mcp/${key}/sse/${user} --client ${key}`}
                     </code>
                   </pre>
                   <div>
