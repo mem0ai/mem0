@@ -2,6 +2,7 @@
 .env*
 !.env.example
 !.env.dev
+!env.local.example
 !ui/lib
 .venv/
 __pycache__
@@ -11,3 +12,6 @@ node_modules/
 api/.openmemory*
 **/.next
 .openmemory/
+
+# Supabase
+.supabase/

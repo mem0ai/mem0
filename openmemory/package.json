@@ -1,0 +1,20 @@
+{
+  "name": "openmemory",
+  "version": "1.0.0",
+  "description": "OpenMemory local development environment",
+  "private": true,
+  "scripts": {
+    "dev": "supabase start && echo 'Supabase started. Run your app now.'",
+    "db:reset": "supabase db reset",
+    "db:migrate": "supabase db push",
+    "stop": "supabase stop",
+    "setup": "npm install && supabase start",
+    "logs": "supabase logs"
+  },
+  "devDependencies": {
+    "supabase": "^1.200.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+} 

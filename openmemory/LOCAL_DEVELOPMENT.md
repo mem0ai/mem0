@@ -1,248 +1,333 @@
-# Jean Memory Local Development Guide
+# OpenMemory Local Development Guide
 
-This guide explains how to set up and run Jean Memory for local development, optimized for speed and efficiency.
+This guide explains how to set up and run OpenMemory for local development using Supabase CLI for complete production parity.
+
+## 🏗️ Architecture Overview
+
+Our new local development setup provides **complete production parity** by using:
+
+- **Supabase CLI**: Complete local Supabase instance (Auth, Database, Storage)
+- **Qdrant Docker**: Vector database for embeddings
+- **Native API & UI**: Fast development with hot-reload
+
+### Why This Approach?
+
+✅ **Production Parity**: Same services as production, just running locally  
+✅ **Real Authentication**: No more auth bypass - test real flows  
+✅ **Persistent Data**: Your local data persists across sessions  
+✅ **Isolated Environment**: Never affects production data  
+✅ **Simplified Setup**: One-time setup, then just `make dev`  
 
 ## 🚀 Quick Start
 
-We offer two development approaches:
-
-1. **Hybrid Mode** (Recommended): Backend in Docker, Frontend running locally
-   ```bash
-   # Start only backend services in Docker and run UI locally
-   make backend
-   make ui-local
-   ```
-
-2. **Full Docker Mode**: All services in Docker (slower for UI development)
-   ```bash
-   # Start all services in Docker
-   make up
-   ```
-
-## 🛠️ Setup
-
-First-time setup:
+### First-Time Setup
 
 ```bash
-make setup
+# 1. Clone the repository
+git clone <repository-url>
+cd your-memory/openmemory
+
+# 2. Run the automated setup script
+./scripts/setup-dev-environment.sh
 ```
 
-This will:
-- Create necessary environment files
-- Build Docker images
-- Set up the database
-- Install dependencies
+The setup script will:
+- Check prerequisites (Node.js, Python, Docker)
+- Install Supabase CLI
+- Create environment configuration
+- Start local Supabase
+- Configure authentication keys
+- Start Qdrant vector database
 
-## 🧩 Development Workflows
+### Daily Development
 
-### Recommended Workflow (Hybrid Mode)
-
-For the fastest development experience:
-
-1. Start backend services in Docker:
-   ```bash
-   make backend
-   ```
-
-2. Run the UI locally:
-   ```bash
-   make ui-local
-   ```
-
-This approach gives you:
-- Fast UI hot-reloading with Next.js running natively
-- Backend services (API, PostgreSQL, Qdrant) running in isolated Docker containers
-- Auto-connection between UI and API
-
-### Checking Status
-
-To check the status of all services:
+After initial setup, just run:
 
 ```bash
-make status
+make dev      # Start everything
+make stop     # Stop everything
+make status   # Check what's running
 ```
 
-### Stopping Services
+## 📋 Prerequisites
 
-To stop all services:
+Before running the setup, ensure you have:
+
+- **Node.js 18+** - [Download](https://nodejs.org/)
+- **Python 3.8+** - [Download](https://python.org/)
+- **Docker Desktop** - [Download](https://docker.com/products/docker-desktop)
+- **OpenAI API Key** - [Get one](https://platform.openai.com/api-keys)
+
+## 🔧 Manual Setup (Alternative)
+
+If you prefer manual setup:
+
+### 1. Install Dependencies
 
 ```bash
-make down
+# Install Supabase CLI
+npm install
+
+# Create environment file
+cp env.local.example .env.local
 ```
 
-### Viewing Logs
+### 2. Configure Environment
+
+Edit `.env.local` with your OpenAI API key:
 
 ```bash
-# View all logs
-make logs
-
-# View only API logs
-make logs-api
+OPENAI_API_KEY=your_openai_api_key_here
 ```
 
-## 🔧 Troubleshooting
-
-### UI Issues
-
-If you encounter UI issues:
-
-1. Try clearing the Next.js cache:
-   ```bash
-   cd ui
-   rm -rf .next
-   ```
-
-2. Check dependencies:
-   ```bash
-   cd ui
-   npm install --legacy-peer-deps
-   ```
-
-3. Make sure your Node.js version is compatible (recommended: v18+)
-
-### Backend Issues
-
-If backend services aren't working:
-
-1. Check Docker status:
-   ```bash
-   docker ps
-   ```
-
-2. Restart backend services:
-   ```bash
-   make restart-backend
-   ```
-
-3. Check logs for errors:
-   ```bash
-   make logs-api
-   ```
-
-## 📝 Notes on Performance
-
-- The UI running locally will be significantly faster than in Docker
-- We use an optimized Next.js configuration for local development
-- Memory usage is controlled with Node options to prevent crashes
-- Turbopack is used when available for faster compilation
-
-## 🔄 Switching Between Modes
-
-You can easily switch between development modes:
-
-- To switch from hybrid to full Docker:
-  ```bash
-  make down
-  make up
-  ```
-
-- To switch from full Docker to hybrid:
-  ```bash
-  make down
-  make backend
-  make ui-local
-  ```
-
-## Prerequisites
-
-- Docker Desktop installed and running
-- Python 3.8+ installed
-- Node.js and npm installed
-- An OpenAI API key
-
-## Architecture
-
-The local development environment consists of:
-
-- **PostgreSQL**: Database for metadata and user data
-- **Qdrant**: Vector database for embeddings
-- **API**: FastAPI backend service
-- **UI**: Next.js frontend application
-
-All services run in Docker containers for consistency.
-
-## Environment Configuration
-
-### API Configuration (`api/.env`)
-
-Key variables:
-- `USER_ID`: Your local user ID (automatically set to your system username)
-- `DATABASE_URL`: PostgreSQL connection string (pre-configured for Docker)
-- `OPENAI_API_KEY`: Your OpenAI API key (required)
-- `QDRANT_HOST`: Qdrant hostname (set to `localhost` for local dev)
-
-### UI Configuration (`ui/.env`)
-
-Key variables:
-- `NEXT_PUBLIC_API_URL`: API endpoint (http://localhost:8765)
-- `NEXT_PUBLIC_USER_ID`: Your local user ID
-
-## Local vs Production
-
-The application automatically detects local development mode when:
-- `USER_ID` environment variable is set
-- Supabase configuration is missing or empty
-
-In local development mode:
-- Authentication is bypassed (no Supabase required)
-- A default user and app are created automatically
-- All API endpoints accept any token or no token
-
-## Common Commands
+### 3. Start Services
 
 ```bash
-# Start all services
-make up
+# Start Supabase
+npx supabase start
 
-# Stop all services
-make down
+# Copy the output keys to .env.local:
+# NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+# NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key>
+# SUPABASE_SERVICE_KEY=<service-key>
 
-# View logs
-make logs
+# Start Qdrant
+docker-compose up -d qdrant_db
 
-# Check service status
-make status
+# Start API
+cd api && python -m uvicorn main:app --reload --port 8765
 
-# Run database migrations
+# Start UI
+cd ui && npm run dev
+```
+
+## 🌐 Available Services
+
+Once running, you'll have access to:
+
+| Service | URL | Description |
+|---------|-----|-------------|
+| **UI** | http://localhost:3000 | Next.js frontend |
+| **API** | http://localhost:8765 | FastAPI backend |
+| **Supabase Studio** | http://localhost:54323 | Database admin panel |
+| **Qdrant Dashboard** | http://localhost:6333/dashboard | Vector database UI |
+
+## 🔑 Authentication Setup
+
+### Local User Creation
+
+With the new setup, you'll need to create users through the actual Supabase Auth system:
+
+1. **Open UI**: Navigate to http://localhost:3000
+2. **Sign Up**: Use the sign-up form to create a test account
+3. **Verify Email**: Check the Supabase Inbucket at http://localhost:54324
+4. **Sign In**: Use your new account to access the application
+
+### Testing Different Users
+
+You can create multiple test accounts to test different user scenarios:
+
+```bash
+# View all local users in Supabase Studio
+open http://localhost:54323
+# Navigate to Authentication > Users
+```
+
+## 🗄️ Database Management
+
+### Migrations
+
+The database schema is managed by Supabase migrations:
+
+```bash
+# Apply migrations
 make migrate
 
-# Open shell in API container
-make shell
+# Reset database to fresh state
+make db-reset
 
-# Run tests
+# View database logs
+make db-logs
+```
+
+### Database Access
+
+```bash
+# Connect to local PostgreSQL
+psql postgresql://postgres:postgres@localhost:54322/postgres
+
+# Or use Supabase Studio
+make studio
+```
+
+### Seed Data
+
+Create seed data by:
+1. Using the application normally to create content
+2. Or adding SQL seed files to `supabase/seed.sql`
+
+## 🔍 Vector Database (Qdrant)
+
+Qdrant runs separately for vector operations:
+
+```bash
+# View collections
+curl http://localhost:6333/collections
+
+# Dashboard
+open http://localhost:6333/dashboard
+```
+
+## 🧪 Testing
+
+```bash
+# Run all tests
 make test
 
-# Clean everything and start fresh
-make clean
-make setup
+# Run specific test file
+cd api && python -m pytest tests/test_auth.py
+
+# Run with coverage
+cd api && python -m pytest --cov=app tests/
 ```
 
-## Testing
+## 🔧 Useful Commands
 
-Run the comprehensive test suite:
 ```bash
-python test-local-setup.py
+# Development
+make dev          # Start everything
+make stop         # Stop everything  
+make restart      # Restart everything
+make status       # Check service status
+
+# Database
+make migrate      # Apply migrations
+make db-reset     # Reset database
+make db-logs      # View DB logs
+
+# Tools
+make studio       # Open Supabase Studio
+make logs         # View all logs
+make clean        # Reset everything
+make env          # Show configuration
 ```
 
-This will verify:
-- All Docker containers are running
-- PostgreSQL is accessible and has correct schema
-- Qdrant is accessible
-- API is responding
-- UI is accessible
-- Authentication bypass is working
-- Environment is properly configured
+## 🐛 Troubleshooting
 
-## Data Persistence
+### "Supabase not running"
 
-- PostgreSQL data: Stored in Docker volume `postgres_data`
-- Qdrant data: Stored in Docker volume `qdrant_data`
-- Data persists between container restarts
-- Use `make clean` to remove all data
+```bash
+# Check if Docker is running
+docker ps
 
-## Security Notes
+# Restart Supabase
+npx supabase stop
+npx supabase start
+```
 
-- The local setup bypasses authentication for convenience
-- Never use local development configuration in production
-- Keep your `.env` files out of version control
-- The default PostgreSQL password is only for local development 
+### "Port already in use"
+
+```bash
+# Find what's using the port
+lsof -i :54321
+
+# Kill the process
+kill -9 <PID>
+```
+
+### "Authentication failed"
+
+1. Check `.env.local` has correct Supabase keys
+2. Ensure Supabase is running: `npx supabase status`
+3. Try resetting: `make clean` then `make dev`
+
+### "Database connection failed"
+
+```bash
+# Check database status
+npx supabase status
+
+# Reset database
+make db-reset
+```
+
+### "Missing API key"
+
+Edit `.env.local` and add your OpenAI API key:
+```bash
+OPENAI_API_KEY=sk-your-key-here
+```
+
+## 📊 Performance Tips
+
+### Faster Startup
+
+After initial setup, subsequent starts are much faster:
+- Supabase CLI caches Docker images
+- Database data persists between sessions
+- Only API/UI need to restart
+
+### Resource Usage
+
+The new setup is more efficient:
+- Single PostgreSQL instance (vs separate Docker container)
+- Shared Supabase services
+- Only Qdrant runs in Docker
+
+### Development Workflow
+
+```bash
+# Daily routine
+make dev      # Start everything (30 seconds)
+# ... develop ...
+make stop     # Stop everything (5 seconds)
+
+# When switching branches
+make db-reset  # Reset DB if schema changed
+make dev       # Restart
+```
+
+## 🔄 Data Persistence
+
+### What Persists
+
+- **Database**: All data persists across restarts
+- **Auth Users**: Test accounts remain
+- **Vector Data**: Qdrant collections persist
+
+### Clean Slate
+
+```bash
+make clean  # Removes ALL data, starts fresh
+```
+
+## 🚢 Production Comparison
+
+| Feature | Local Development | Production |
+|---------|------------------|------------|
+| **Database** | Local PostgreSQL (Supabase CLI) | Render PostgreSQL |
+| **Auth** | Local Supabase Auth | Supabase Cloud |
+| **Storage** | Local Supabase Storage | Supabase Cloud |
+| **Vector DB** | Docker Qdrant | Qdrant Cloud |
+| **API** | Local FastAPI | Render FastAPI |
+| **UI** | Local Next.js | Render Next.js |
+
+**Key Benefit**: Same authentication flows, database schema, and API behavior in both environments!
+
+## 📚 Next Steps
+
+- [API Documentation](./api/README.md)
+- [UI Development](./ui/README.md)
+- [Database Schema](./supabase/migrations/)
+- [Deployment Guide](../DEPLOYMENT_GUIDE.md)
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Run `./scripts/setup-dev-environment.sh`
+3. Create your feature branch
+4. Make your changes
+5. Test locally with `make test`
+6. Submit a pull request
+
+The new development setup ensures your local environment matches production exactly, reducing "works on my machine" issues significantly! 

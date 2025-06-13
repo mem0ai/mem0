@@ -1,29 +1,10 @@
 version: '3.8'
 
 services:
-  postgres_db:
-    image: postgres:15
-    container_name: jeanmemory_postgres_service
-    restart: always
-    ports:
-      - "5432:5432"
-    environment:
-      - POSTGRES_USER=jean_memory
-      - POSTGRES_PASSWORD=memory_password
-      - POSTGRES_DB=jean_memory_db
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - memory_network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U jean_memory -d jean_memory_db"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      
+  # Qdrant Vector Database - Still needed as Supabase doesn't provide vector storage
   qdrant_db:
     image: qdrant/qdrant:latest
-    container_name: jeanmemory_qdrant_service
+    container_name: openmemory_qdrant_service
     restart: always
     ports:
       - "6333:6333" # HTTP/REST API
@@ -32,78 +13,14 @@ services:
       - qdrant_data:/qdrant/storage
     networks:
       - memory_network
-
-  api:
-    build:
-      context: ./api
-      dockerfile: Dockerfile
-    container_name: jeanmemory_api_service
-    restart: always
-    ports:
-      - "8765:8765"
-    environment:
-      # LOCAL DEVELOPMENT ONLY - Production uses different user management
-      - USER_ID=00000000-0000-0000-0000-000000000001
-      - DATABASE_URL=postgresql://jean_memory:memory_password@postgres_db:5432/jean_memory_db
-      - QDRANT_HOST=qdrant_db
-      - QDRANT_PORT=6333
-      - PYTHONUNBUFFERED=1
-    env_file:
-      - ./api/.env
-    depends_on:
-      - postgres_db
-      - qdrant_db
-    volumes:
-      - ./api:/usr/src/app
-    networks:
-      - memory_network
-    command: >
-      sh -c "
-        echo 'Waiting for database...' &&
-        sleep 10 &&
-        echo 'Running migrations...' &&
-        alembic upgrade head &&
-        echo 'Starting API server...' &&
-        uvicorn main:app --host 0.0.0.0 --port 8765 --reload
-      "
-
-  # Optional Docker UI service - only used for "make up" (full Docker mode)
-  # For local development, use "make ui-local" instead
-  ui:
-    build:
-      context: ./ui
-      dockerfile: Dockerfile.dev
-    container_name: jeanmemory_ui_service
-    restart: always
-    ports:
-      - "3000:3000"
-    environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8765
-      - NEXT_PUBLIC_USER_ID=${USER_ID:-00000000-0000-0000-0000-000000000001}
-      - NODE_OPTIONS=--max-old-space-size=2048
-      - NEXT_TELEMETRY_DISABLED=1
-      - NODE_ENV=development
-      - HOSTNAME=0.0.0.0
-    env_file:
-      - ./ui/.env.local
-    depends_on:
-      - api
-    volumes:
-      - ./ui:/app
-      - ui_node_modules:/app/node_modules
-      - ui_next_cache:/app/.next
-    networks:
-      - memory_network
-    mem_limit: 2g
-    cpus: 1.0
-    profiles:
-      - full  # Only start when using profile "full" (e.g., docker-compose --profile full up)
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 volumes:
-  postgres_data:
   qdrant_data:
-  ui_node_modules:
-  ui_next_cache:
 
 networks:
   memory_network:
