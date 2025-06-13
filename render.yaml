@@ -14,6 +14,10 @@ services:
     startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
     healthCheckPath: "/health"
     envVars:
+      # Environment Detection (Critical for proper configuration)
+      - key: ENVIRONMENT
+        value: "production"
+      
       # Database Configuration - Will be automatically set from the database
       - key: DATABASE_URL
         fromDatabase:
@@ -76,6 +80,10 @@ services:
     buildCommand: "pnpm install && pnpm build"
     startCommand: "pnpm start"
     envVars:
+      # Environment Detection
+      - key: ENVIRONMENT
+        value: "production"
+      
       # Link the environment group for Supabase public keys
       - fromGroup: frontend-public-env 
       

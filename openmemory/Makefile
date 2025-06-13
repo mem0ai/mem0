@@ -1,11 +1,12 @@
-.PHONY: help setup dev dev-api dev-ui stop restart status clean studio logs migrate db-reset test configure-env validate
+.PHONY: help setup dev dev-api dev-ui stop restart status clean studio logs migrate db-reset test configure-env validate build
 
 # Default target
 help:
 	@echo "🚀 OpenMemory Development Commands"
 	@echo ""
 	@echo "Setup:"
-	@echo "  setup       - One-time setup (run this first)"
+	@echo "  setup       - One-time setup with API key collection"
+	@echo "  build       - Complete build and environment setup"
 	@echo "  configure-env - Update environment with current Supabase keys"
 	@echo "  validate    - Check if environment is properly configured"
 	@echo ""
@@ -27,11 +28,33 @@ help:
 	@echo "  test        - Run tests"
 	@echo "  clean       - Stop and reset everything"
 
-# One-time setup
+# One-time setup with API key collection
 setup:
-	@echo "🏗️  Running one-time setup..."
+	@echo "🏗️  Setting up OpenMemory development environment..."
+	@echo "This will collect your API keys and set up everything needed."
 	@chmod +x scripts/setup-dev-environment.sh
 	@./scripts/setup-dev-environment.sh
+
+# Complete build after setup (for when user wants to rebuild)
+build:
+	@echo "🔨 Building OpenMemory environment..."
+	@$(MAKE) -s _check-setup
+	@echo "🔧 Configuring environment with latest keys..."
+	@$(MAKE) -s configure-env
+	@echo "📦 Installing/updating dependencies..."
+	@if [ -d "ui" ] && [ -f "ui/package.json" ]; then \
+		cd ui && npm install --silent; \
+		echo "✅ UI dependencies updated"; \
+	fi
+	@if [ -d "api" ] && [ -f "api/requirements.txt" ]; then \
+		cd api && pip install -r requirements.txt --quiet; \
+		echo "✅ API dependencies updated"; \
+	fi
+	@echo "🚀 Starting services..."
+	@$(MAKE) -s _ensure-supabase
+	@$(MAKE) -s _ensure-qdrant
+	@$(MAKE) -s validate
+	@echo "✅ Build complete! Run 'make dev' to start development."
 
 # Configure environment with current Supabase keys
 configure-env:
@@ -183,11 +206,16 @@ test:
 clean:
 	@echo "🧹 Cleaning everything..."
 	@echo "⚠️  This will remove all local data!"
-	@read -p "Are you sure? (y/N): " confirm; \
+	@printf "Are you sure? (y/N): "; \
+	read confirm; \
 	if [ "$$confirm" = "y" ] || [ "$$confirm" = "Y" ]; then \
+		echo "🛑 Stopping all services..."; \
 		$(MAKE) -s stop; \
+		echo "🗑️  Removing Docker volumes and containers..."; \
 		docker-compose down -v 2>/dev/null || true; \
+		echo "🗑️  Stopping Supabase..."; \
 		npx supabase stop 2>/dev/null || true; \
+		echo "🗑️  Cleaning Docker system..."; \
 		docker system prune -f 2>/dev/null || true; \
 		echo "✅ Clean complete"; \
 	else \
@@ -198,6 +226,12 @@ clean:
 _check-env:
 	@if [ ! -f ".env.local" ]; then \
 		echo "❌ Environment not configured. Run 'make setup' first."; \
+		exit 1; \
+	fi
+
+_check-setup:
+	@if [ ! -f ".env.local" ] || [ ! -f "api/.env" ] || [ ! -f "ui/.env.local" ]; then \
+		echo "❌ Setup not complete. Run 'make setup' first to collect API keys and configure environment."; \
 		exit 1; \
 	fi
 

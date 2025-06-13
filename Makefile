@@ -61,17 +61,17 @@ check-prereqs:
 # Setup environment files
 env:
 	@echo "🔧 Setting up environment files..."
+	@if [ ! -f openmemory/.env.local ]; then \
+		cp openmemory/env.local.example openmemory/.env.local; \
+		echo "✅ Created openmemory/.env.local from example"; \
+	else \
+		echo "⚠️ openmemory/.env.local already exists, skipping"; \
+	fi
 	@if [ ! -f openmemory/api/.env ]; then \
-		cp openmemory/api/.env.example openmemory/api/.env; \
+		cp openmemory/env.example openmemory/api/.env; \
 		echo "✅ Created openmemory/api/.env from example"; \
 	else \
 		echo "⚠️ openmemory/api/.env already exists, skipping"; \
-	fi
-	@if [ ! -f openmemory/ui/.env.local ]; then \
-		cp openmemory/ui/.env.example openmemory/ui/.env.local; \
-		echo "✅ Created openmemory/ui/.env.local from example"; \
-	else \
-		echo "⚠️ openmemory/ui/.env.local already exists, skipping"; \
 	fi
 
 # Validate that required API keys are set
@@ -81,32 +81,41 @@ validate-env:
 		echo "❌ openmemory/api/.env not found. Run 'make env' first."; \
 		exit 1; \
 	fi
-	@if grep -q "your-openai-api-key-here" openmemory/api/.env; then \
+	@if grep -q "your_openai_api_key_here" openmemory/api/.env; then \
 		echo "❌ OPENAI_API_KEY not set in openmemory/api/.env"; \
-		echo "   Edit the file and replace 'your-openai-api-key-here' with your actual key"; \
+		echo "   Edit the file and replace 'your_openai_api_key_here' with your actual key"; \
 		echo "   Get your key from: https://platform.openai.com/api-keys"; \
 		exit 1; \
 	fi
-	@if grep -q "your-gemini-api-key-here" openmemory/api/.env; then \
-		echo "❌ GEMINI_API_KEY not set in openmemory/api/.env"; \
-		echo "   Edit the file and replace 'your-gemini-api-key-here' with your actual key"; \
-		echo "   Get your key from: https://makersuite.google.com/app/apikey"; \
+	@if grep -q "auto-generated-by-setup" openmemory/.env.local 2>/dev/null; then \
+		echo "❌ Supabase keys not configured. Run 'cd openmemory && make setup' first."; \
 		exit 1; \
 	fi
 	@echo "✅ Environment validation passed!"
 
-# Complete setup for new users  
-setup: check-prereqs env
+# Complete setup for new users - delegate to the proper setup script
+setup: check-prereqs
 	@echo ""
-	@echo "🚨 SETUP REQUIRES YOUR API KEYS 🚨"
+	@echo "🚨 RUNNING COMPREHENSIVE SETUP 🚨"
 	@echo ""
-	@echo "Before continuing, you need to edit openmemory/api/.env and add:"
-	@echo "  • OPENAI_API_KEY (get from: https://platform.openai.com/api-keys)"
-	@echo "  • GEMINI_API_KEY (get from: https://makersuite.google.com/app/apikey)"
+	@echo "This will:"
+	@echo "  • Create environment files"
+	@echo "  • Install all dependencies" 
+	@echo "  • Start Supabase and configure it automatically"
+	@echo "  • Start Qdrant vector database"
+	@echo "  • Prompt you for API keys"
 	@echo ""
-	@echo "After adding your keys, run 'make build' to continue setup."
+	@echo "You'll only need to provide:"
+	@echo "  • OPENAI_API_KEY (required)"
+	@echo "  • GEMINI_API_KEY (optional)"
 	@echo ""
-	@echo "💡 TIP: Everything else is auto-configured for local development!"
+	@read -p "Continue with full setup? (Y/n): " -n 1 -r; \
+	echo; \
+	if [[ ! $$REPLY =~ ^[Nn]$$ ]]; then \
+		cd openmemory && make setup; \
+	else \
+		echo "Setup cancelled. Run 'make env' to create basic environment files."; \
+	fi
 
 # Build and install after environment is configured
 build: validate-env
@@ -121,37 +130,30 @@ build: validate-env
 	@echo "  • Run 'make ui-local' to start UI development server"
 
 # HYBRID DEVELOPMENT COMMANDS (Recommended)
-# Start backend services in Docker
+# Start backend services - delegate to openmemory Makefile
 backend:
-	@echo "🐳 Starting backend services in Docker..."
-	@cd openmemory && docker-compose up -d api postgres_db qdrant_db
-	@echo "✅ Backend services started. API available at http://localhost:8765"
+	@echo "🐳 Starting backend services..."
+	@cd openmemory && make dev-api
 
 # Run UI locally for faster development
 ui-local:
 	@echo "🚀 Starting UI locally for development..."
-	@chmod +x scripts/local-dev/local-dev-ui.sh
-	@scripts/local-dev/local-dev-ui.sh
+	@cd openmemory && make dev-ui
 
 # Show status of all services
 status:
-	@echo "📊 Docker services status:"
-	@cd openmemory && docker-compose ps
-	@echo ""
-	@echo "🖥️ UI local development status:"
-	@ps aux | grep "pnpm dev\|npm run dev" | grep -v grep || echo "UI is not running locally"
+	@echo "📊 Development environment status:"
+	@cd openmemory && make status
 
 # Restart only the backend
 restart-backend:
 	@echo "🔄 Restarting backend services..."
-	@cd openmemory && docker-compose restart api postgres_db qdrant_db
-	@echo "✅ Backend services restarted"
+	@cd openmemory && make restart
 
 # Restart only the local UI
 restart-ui-local:
 	@echo "🔄 Restarting local UI development server..."
-	@chmod +x scripts/local-dev/restart-ui-local.sh
-	@scripts/local-dev/restart-ui-local.sh
+	@cd openmemory && make dev-ui
 
 # FULL DOCKER MODE (Alternative)
 # Start all services in Docker
@@ -172,19 +174,13 @@ logs:
 # Clean up everything - reset to pristine state
 clean:
 	@echo "🧹 Resetting to clean state (like fresh git clone)..."
-	@echo "Stopping and removing all Docker containers..."
-	@cd openmemory && $(DOCKER_COMPOSE) down -v --remove-orphans 2>/dev/null || true
-	@echo "Removing Docker images..."
-	@cd openmemory && docker-compose down --rmi all 2>/dev/null || true
-	@echo "Cleaning UI dependencies and build files..."
-	@cd openmemory/ui && rm -rf node_modules .next .pnpm-store pnpm-lock.yaml 2>/dev/null || true
-	@echo "Removing environment files..."
-	@rm -f openmemory/api/.env openmemory/ui/.env.local 2>/dev/null || true
-	@echo "Cleaning Docker build cache..."
-	@docker builder prune -f 2>/dev/null || true
+	@echo "Stopping and removing all services..."
+	@cd openmemory && make clean 2>/dev/null || true
+	@echo "Cleaning root-level dependencies..."
+	@rm -rf node_modules .pnpm-store 2>/dev/null || true
 	@echo "✅ Clean complete! Ready for 'make setup' to start fresh"
 
 # Run tests
 test:
 	@echo "🧪 Running tests..."
-	@cd openmemory && $(DOCKER_COMPOSE) exec -T api python -m pytest || echo "❌ Failed to run tests"
+	@cd openmemory && make test

@@ -3,20 +3,20 @@ from fastapi import APIRouter, Depends, Request
 
 from app.mcp_server import handle_post_message as mcp_message_handler
 from app.models import User
-from app.auth import get_current_agent
+from app.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 
 agent_mcp_router = APIRouter(
     prefix="/agent/v1/mcp",
     tags=["agent-mcp"],
-    dependencies=[Depends(get_current_agent)]
+    dependencies=[Depends(get_current_user)]
 )
 
 @agent_mcp_router.post("/messages/")
 async def handle_agent_message(
     request: Request, 
-    user: User = Depends(get_current_agent)
+    user: User = Depends(get_current_user)
 ):
     """
     Handles authenticated agent requests by forwarding them to the main MCP message handler.

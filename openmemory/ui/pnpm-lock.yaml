@@ -133,7 +133,7 @@ importers:
         version: 8.5.1(react@18.3.1)
       framer-motion:
         specifier: ^12.12.2
-        version: 12.17.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 12.18.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       input-otp:
         specifier: 1.4.1
         version: 1.4.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -154,7 +154,7 @@ importers:
         version: 0.4.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       openai:
         specifier: ^5.1.1
-        version: 5.3.0(ws@8.18.2)(zod@3.25.63)
+        version: 5.3.0(ws@8.18.2)(zod@3.25.64)
       posthog-js:
         specifier: ^1.249.0
         version: 1.252.0
@@ -217,7 +217,7 @@ importers:
         version: 0.9.9(@types/react-dom@18.3.7(@types/react@18.3.23))(@types/react@18.3.23)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       zod:
         specifier: ^3.24.1
-        version: 3.25.63
+        version: 3.25.64
     devDependencies:
       '@types/lodash':
         specifier: ^4.17.16
@@ -1749,8 +1749,8 @@ packages:
     peerDependencies:
       three: '>=0.126.1'
 
-  caniuse-lite@1.0.30001722:
-    resolution: {integrity: sha512-DCQHBBZtiK6JVkAGw7drvAMK0Q0POD/xZvEmDp6baiMMP6QXXk9HpD6mNYBZWhOPG6LvIDb82ITqtWjhDckHCA==}
+  caniuse-lite@1.0.30001723:
+    resolution: {integrity: sha512-1R/elMjtehrFejxwmexeXAtae5UO9iSyFn6G/I806CYC/BLyyBk1EPhrKBkWhy6wM6Xnm47dSJQec+tLJ39WHw==}
 
   ccount@2.0.1:
     resolution: {integrity: sha512-eyrF0jiFpY+3drT6383f1qhkbGsLSifNAjA61IUjZjmLCWjItY6LB9ft9YhoDgwfmclB2zhu51Lc7+95b8NRAg==}
@@ -2233,8 +2233,8 @@ packages:
   fraction.js@4.3.7:
     resolution: {integrity: sha512-ZsDfxO51wGAXREY55a7la9LScWpwv9RxIrYABrlvOFBlH/ShPnrtsXeuUIfXKKOVicNxQ+o8JTbJvjS4M89yew==}
 
-  framer-motion@12.17.3:
-    resolution: {integrity: sha512-+1GMxQvZGUu20clzYdUWQY+iUWGBFc6UmpxvZBJjWu++rPdj7imXcQITzVs+QLKyjOpLoPOOar2KAOeYL88YQg==}
+  framer-motion@12.18.1:
+    resolution: {integrity: sha512-6o4EDuRPLk4LSZ1kRnnEOurbQ86MklVk+Y1rFBUKiF+d2pCdvMjWVu0ZkyMVCTwl5UyTH2n/zJEJx+jvTYuxow==}
     peerDependencies:
       '@emotion/is-prop-valid': '*'
       react: ^18.0.0 || ^19.0.0
@@ -2645,11 +2645,11 @@ packages:
   mlly@1.7.4:
     resolution: {integrity: sha512-qmdSIPC4bDJXgZTCR7XosJiNKySV7O215tsPtDN9iEO/7q/76b/ijtgRu/+epFXSJhijtTCCGp3DWS549P3xKw==}
 
-  motion-dom@12.17.3:
-    resolution: {integrity: sha512-nJrH4O9Z6lBSgllD5t+2lF1O8LkBxOq9QSUUmygHJVzHiTLaYpZRgd+U70919IL0CMbFBaFGEJ8hDSwnrmcyZw==}
+  motion-dom@12.18.1:
+    resolution: {integrity: sha512-dR/4EYT23Snd+eUSLrde63Ws3oXQtJNw/krgautvTfwrN/2cHfCZMdu6CeTxVfRRWREW3Fy1f5vobRDiBb/q+w==}
 
-  motion-utils@12.12.1:
-    resolution: {integrity: sha512-f9qiqUHm7hWSLlNW8gS9pisnsN7CRFRD58vNjptKdsqFLpkVnX00TNeD6Q0d27V9KzT7ySFyK1TZ/DShfVOv6w==}
+  motion-utils@12.18.1:
+    resolution: {integrity: sha512-az26YDU4WoDP0ueAkUtABLk2BIxe28d8NH1qWT8jPGhPyf44XTdDUh8pDk9OPphaSrR9McgpcJlgwSOIw/sfkA==}
 
   ms@2.1.3:
     resolution: {integrity: sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==}
@@ -3437,8 +3437,8 @@ packages:
     engines: {node: '>= 14.6'}
     hasBin: true
 
-  zod@3.25.63:
-    resolution: {integrity: sha512-3ttCkqhtpncYXfP0f6dsyabbYV/nEUW+Xlu89jiXbTBifUfjaSqXOG6JnQPLtqt87n7KAmnMqcjay6c0Wq0Vbw==}
+  zod@3.25.64:
+    resolution: {integrity: sha512-hbP9FpSZf7pkS7hRVUrOjhwKJNyampPgtXKc3AN6DsWtoHsg2Sb4SQaS4Tcay380zSwd2VPo9G9180emBACp5g==}
 
   zustand@4.5.7:
     resolution: {integrity: sha512-CHOUy7mu3lbD6o6LJLfllpjkzhHXSBlX8B9+qPddUsIfeF5S/UZ5q0kmCsnRqT1UHFQZchNFDDzMbQsuesHWlw==}
@@ -5042,7 +5042,7 @@ snapshots:
   autoprefixer@10.4.21(postcss@8.5.5):
     dependencies:
       browserslist: 4.25.0
-      caniuse-lite: 1.0.30001722
+      caniuse-lite: 1.0.30001723
       fraction.js: 4.3.7
       normalize-range: 0.1.2
       picocolors: 1.1.1
@@ -5079,7 +5079,7 @@ snapshots:
 
   browserslist@4.25.0:
     dependencies:
-      caniuse-lite: 1.0.30001722
+      caniuse-lite: 1.0.30001723
       electron-to-chromium: 1.5.167
       node-releases: 2.0.19
       update-browserslist-db: 1.1.3(browserslist@4.25.0)
@@ -5104,7 +5104,7 @@ snapshots:
     dependencies:
       three: 0.176.0
 
-  caniuse-lite@1.0.30001722: {}
+  caniuse-lite@1.0.30001723: {}
 
   ccount@2.0.1: {}
 
@@ -5591,10 +5591,10 @@ snapshots:
 
   fraction.js@4.3.7: {}
 
-  framer-motion@12.17.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+  framer-motion@12.18.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
-      motion-dom: 12.17.3
-      motion-utils: 12.12.1
+      motion-dom: 12.18.1
+      motion-utils: 12.18.1
       tslib: 2.8.1
     optionalDependencies:
       react: 18.3.1
@@ -6151,11 +6151,11 @@ snapshots:
       pkg-types: 1.3.1
       ufo: 1.6.1
 
-  motion-dom@12.17.3:
+  motion-dom@12.18.1:
     dependencies:
-      motion-utils: 12.12.1
+      motion-utils: 12.18.1
 
-  motion-utils@12.12.1: {}
+  motion-utils@12.18.1: {}
 
   ms@2.1.3: {}
 
@@ -6178,7 +6178,7 @@ snapshots:
       '@swc/counter': 0.1.3
       '@swc/helpers': 0.5.15
       busboy: 1.6.0
-      caniuse-lite: 1.0.30001722
+      caniuse-lite: 1.0.30001723
       postcss: 8.4.31
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
@@ -6211,10 +6211,10 @@ snapshots:
 
   object-hash@3.0.0: {}
 
-  openai@5.3.0(ws@8.18.2)(zod@3.25.63):
+  openai@5.3.0(ws@8.18.2)(zod@3.25.64):
     optionalDependencies:
       ws: 8.18.2
-      zod: 3.25.63
+      zod: 3.25.64
 
   package-json-from-dist@1.0.1: {}
 
@@ -7005,7 +7005,7 @@ snapshots:
 
   yaml@2.8.0: {}
 
-  zod@3.25.63: {}
+  zod@3.25.64: {}
 
   zustand@4.5.7(@types/react@18.3.23)(immer@10.1.1)(react@18.3.1):
     dependencies:
