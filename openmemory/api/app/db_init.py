@@ -14,36 +14,34 @@ logger = logging.getLogger(__name__)
 def init_database():
     """Initialize the database with required extensions and base data"""
     if config.is_local_development:
-        logger.info("Initializing database for local development")
+        logger.info("Initializing database for local development (using Supabase CLI)")
         
-        # Create all tables
-        Base.metadata.create_all(bind=engine)
-        
-        # Initialize PostgreSQL extensions if using PostgreSQL
+        # For local development with Supabase CLI, the schema is managed by Supabase migrations
+        # We only need to ensure extensions are available
         if config.DATABASE_URL.startswith("postgresql"):
             try:
                 with engine.connect() as conn:
-                    # Enable UUID extension
+                    # Enable UUID extension (usually already available in Supabase)
                     conn.execute(text("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\""))
                     conn.commit()
-                    logger.info("PostgreSQL extensions initialized")
+                    logger.info("PostgreSQL extensions verified")
             except Exception as e:
-                logger.warning(f"Could not create PostgreSQL extensions: {e}")
+                logger.warning(f"Could not verify PostgreSQL extensions: {e}")
         
-        # Create default user and app for local development
-        create_default_user_and_app()
+        # Skip creating default users - we use real Supabase authentication
+        logger.info("Local database initialization complete (schema managed by Supabase)")
     else:
-        logger.info("Running in production mode - skipping local database initialization")
+        logger.info("Running in production mode - database managed by Alembic migrations")
 
 def create_default_user_and_app():
     """Create default user and app for local development"""
     db = SessionLocal()
     try:
         # Check if default user exists
-        default_user_id = config.get_default_user_id()
-        if not default_user_id:
-            logger.warning("No default user ID configured for local development")
-            return
+        # For local development, we'll skip creating default users since we use real Supabase auth
+        # This function is kept for compatibility but doesn't create users in local development
+        logger.info("Skipping default user creation - using real Supabase authentication")
+        return
         
         existing_user = db.query(User).filter(User.user_id == default_user_id).first()
         

@@ -22,7 +22,7 @@ Our new local development setup provides **complete production parity** by using
 
 ### First-Time Setup
 
-```bash
+   ```bash
 # 1. Clone the repository
 git clone <repository-url>
 cd your-memory/openmemory
@@ -43,11 +43,11 @@ The setup script will:
 
 After initial setup, just run:
 
-```bash
+   ```bash
 make dev      # Start everything
 make stop     # Stop everything
 make status   # Check what's running
-```
+   ```
 
 ## 📋 Prerequisites
 
@@ -76,13 +76,13 @@ cp env.local.example .env.local
 
 Edit `.env.local` with your OpenAI API key:
 
-```bash
+   ```bash
 OPENAI_API_KEY=your_openai_api_key_here
-```
+   ```
 
 ### 3. Start Services
 
-```bash
+   ```bash
 # Start Supabase
 npx supabase start
 
@@ -170,7 +170,7 @@ Create seed data by:
 
 Qdrant runs separately for vector operations:
 
-```bash
+   ```bash
 # View collections
 curl http://localhost:6333/collections
 
@@ -180,7 +180,7 @@ open http://localhost:6333/dashboard
 
 ## 🧪 Testing
 
-```bash
+   ```bash
 # Run all tests
 make test
 
@@ -193,7 +193,7 @@ cd api && python -m pytest --cov=app tests/
 
 ## 🔧 Useful Commands
 
-```bash
+   ```bash
 # Development
 make dev          # Start everything
 make stop         # Stop everything  
@@ -216,7 +216,7 @@ make env          # Show configuration
 
 ### "Supabase not running"
 
-```bash
+   ```bash
 # Check if Docker is running
 docker ps
 
@@ -227,7 +227,7 @@ npx supabase start
 
 ### "Port already in use"
 
-```bash
+   ```bash
 # Find what's using the port
 lsof -i :54321
 
@@ -243,20 +243,20 @@ kill -9 <PID>
 
 ### "Database connection failed"
 
-```bash
+  ```bash
 # Check database status
 npx supabase status
 
 # Reset database
 make db-reset
-```
+  ```
 
 ### "Missing API key"
 
 Edit `.env.local` and add your OpenAI API key:
-```bash
+  ```bash
 OPENAI_API_KEY=sk-your-key-here
-```
+  ```
 
 ## 📊 Performance Tips
 

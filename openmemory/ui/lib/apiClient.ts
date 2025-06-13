@@ -13,18 +13,14 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = getGlobalAccessToken(); 
-    console.log('API Client Interceptor: Token being used:', token); // DEBUG LINE
+    console.log('API Client Interceptor: Token being used:', token ? 'Token present' : 'No token'); // DEBUG LINE
     console.log('API Client Interceptor: Request URL:', config.url); // DEBUG LINE
     
-    // For local development with USER_ID environment variable
-    const localUserId = process.env.NEXT_PUBLIC_USER_ID;
-    if (localUserId) {
-      console.log('API Client: Local development detected, using local token');
-      // In local development, we'll use our special local token
-      config.headers.Authorization = `Bearer local-dev-token`;
-    } else if (token) {
-      // Normal flow for production
+    if (token) {
+      // Always use the real Supabase token (local or production)
       config.headers.Authorization = `Bearer ${token}`;
+    } else {
+      console.warn('API Client: No authentication token available');
     }
     return config;
   },

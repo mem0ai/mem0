@@ -27,7 +27,7 @@ interface AuthContextType {
   signUpWithPassword: (credentials: SignUpWithPasswordCredentials) => Promise<AuthResponse>;
   signInWithGoogle: () => Promise<void>; // signInWithOAuth doesn't have a straightforward return to type here for data
   signInWithGitHub: () => Promise<void>; // Adding GitHub sign-in
-  signInLocalDev: () => Promise<void>; // Local development sign-in
+
   signOut: () => Promise<{ error: AuthError | null }>; // signOut returns { error }
   accessToken: string | null;
   isLocalDev: boolean; // Flag to indicate if we're in local development mode
@@ -62,27 +62,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [dispatch]);
 
-  // Check if we're in local development mode
-  const isLocalDev = Boolean(process.env.NEXT_PUBLIC_USER_ID);
+  // Always use real Supabase authentication (local and production)
+  const isLocalDev = false; // Disabled local dev mode - always use real auth
 
   useEffect(() => {
     setIsLoading(true);
     
-    if (isLocalDev) {
-      console.log('AuthContext: Local development mode detected - not auto-logging in');
-      // In local dev mode, don't auto-login, just set loading to false
+    // Always use Supabase authentication
+    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      setSession(currentSession);
+      updateTokenAndProfile(currentSession);
       setIsLoading(false);
-    } else {
-      // Normal Supabase authentication for production
-      supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-        setSession(currentSession);
-        updateTokenAndProfile(currentSession);
-        setIsLoading(false);
-      });
-    }
+    });
 
-    // Only set up auth listener if not in local development mode
-    const { data: authListener } = isLocalDev ? { data: { subscription: null } } : supabase.auth.onAuthStateChange(
+    // Always set up auth listener
+    const { data: authListener } = supabase.auth.onAuthStateChange(
       (event: AuthChangeEvent, currentSession: Session | null) => {
         setSession(currentSession);
         updateTokenAndProfile(currentSession);
@@ -184,41 +178,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // No explicit data return here, session updates via onAuthStateChange
   };
 
-  const signInLocalDev = async (): Promise<void> => {
-    if (!isLocalDev) {
-      setError({ message: 'Local development sign-in only available in development mode' } as AuthError);
-      return;
-    }
 
-    setIsLoading(true);
-    setError(null);
-    
-    const localUserId = process.env.NEXT_PUBLIC_USER_ID;
-    console.log('AuthContext: Signing in local dev user:', localUserId);
-    
-    // Create a mock user and session for local development
-    const mockUser: User = {
-      id: localUserId!,
-      app_metadata: { provider: 'local' },
-      user_metadata: { name: 'Local Dev User' },
-      aud: 'local',
-      created_at: new Date().toISOString(),
-      email: 'local@example.com',
-    } as User;
-    
-    const mockSession: Session = {
-      access_token: 'local-dev-token',
-      refresh_token: 'local-dev-refresh-token',
-      expires_in: 3600,
-      expires_at: new Date().getTime() + 3600000,
-      user: mockUser,
-    } as Session;
-    
-    // Set the mock session and user
-    setSession(mockSession);
-    updateTokenAndProfile(mockSession);
-    setIsLoading(false);
-  };
 
   const signOut = async (): Promise<{ error: AuthError | null }> => {
     setIsLoading(true);
@@ -232,22 +192,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
     }
     
-    if (isLocalDev) {
-      // In local dev mode, just clear the session
-      updateTokenAndProfile(null);
-      setIsLoading(false);
-      return { error: null };
+    // Always use Supabase sign out
+    const { error: signOutError } = await supabase.auth.signOut();
+    if (signOutError) {
+      setError(signOutError);
     } else {
-      // Normal Supabase sign out for production
-      const { error: signOutError } = await supabase.auth.signOut();
-      if (signOutError) {
-        setError(signOutError);
-      } else {
-        updateTokenAndProfile(null); // Now callable here
-      }
-      setIsLoading(false);
-      return { error: signOutError };
+      updateTokenAndProfile(null);
     }
+    setIsLoading(false);
+    return { error: signOutError };
   };
 
   const value: AuthContextType = {
@@ -259,7 +212,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     signUpWithPassword,
     signInWithGoogle,
     signInWithGitHub,
-    signInLocalDev,
     signOut,
     accessToken: localAccessToken, // Corrected: use the state variable here
     isLocalDev,

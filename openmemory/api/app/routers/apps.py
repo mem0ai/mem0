@@ -33,8 +33,8 @@ async def list_apps(
     page_size: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
-    supabase_user_id_str = str(current_supa_user.user.id)
-    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.user.email)
+    supabase_user_id_str = str(current_supa_user.id)
+    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
 
     # Create a subquery for memory counts, specific to user's apps
     memory_counts_subquery = (
@@ -128,8 +128,8 @@ async def get_app_details(
     current_supa_user: SupabaseUser = Depends(get_current_supa_user),
     db: Session = Depends(get_db)
 ):
-    supabase_user_id_str = str(current_supa_user.user.id)
-    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.user.email)
+    supabase_user_id_str = str(current_supa_user.id)
+    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
     app = get_user_app_or_40x(db, app_id, user.id) # user.id is the UUID PK
 
     access_stats = db.query(
@@ -159,8 +159,8 @@ async def list_app_memories(
     page_size: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
-    supabase_user_id_str = str(current_supa_user.user.id)
-    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.user.email)
+    supabase_user_id_str = str(current_supa_user.id)
+    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
     app = get_user_app_or_40x(db, app_id, user.id)
 
     query = db.query(Memory).filter(
@@ -200,8 +200,8 @@ async def list_app_accessed_memories(
     page_size: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
-    supabase_user_id_str = str(current_supa_user.user.id)
-    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.user.email)
+    supabase_user_id_str = str(current_supa_user.id)
+    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
     app = get_user_app_or_40x(db, app_id, user.id)
     
     query = db.query(
@@ -258,8 +258,8 @@ async def update_app_details(
     current_supa_user: SupabaseUser = Depends(get_current_supa_user),
     db: Session = Depends(get_db)
 ):
-    supabase_user_id_str = str(current_supa_user.user.id)
-    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.user.email)
+    supabase_user_id_str = str(current_supa_user.id)
+    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
     app = get_user_app_or_40x(db, app_id, user.id)
     
     app.is_active = is_active
@@ -276,5 +276,5 @@ async def update_app_details(
 # It seems to be handled implicitly in memories_router.create_memory.
 # If a dedicated app creation endpoint is needed, it should also use:
 # current_supa_user: SupabaseUser = Depends(get_current_supa_user)
-# user = get_or_create_user(db, str(current_supa_user.user.id), current_supa_user.user.email)
+# user = get_or_create_user(db, str(current_supa_user.id), current_supa_user.email)
 # new_app = App(owner_id=user.id, name=request.name, ...)

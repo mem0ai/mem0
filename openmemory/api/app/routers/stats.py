@@ -15,8 +15,8 @@ async def get_user_stats(
     current_supa_user: SupabaseUser = Depends(get_current_supa_user),
     db: Session = Depends(get_db)
 ):
-    supabase_user_id_str = str(current_supa_user.user.id)
-    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.user.email)
+    supabase_user_id_str = str(current_supa_user.id)
+    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
     if not user:
         raise HTTPException(status_code=404, detail="User not found or could not be processed")
     

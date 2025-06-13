@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # OpenMemory Development Environment Setup Script
-# This script helps new contributors set up the development environment
+# One-command setup for local development with minimal user input
 
 set -e  # Exit on any error
 
@@ -49,10 +49,10 @@ check_command() {
 
 # Main setup function
 main() {
-    print_header "🚀 OpenMemory Development Environment Setup"
+    print_header "🚀 OpenMemory One-Command Setup"
     
-    echo "This script will help you set up a complete local development environment"
-    echo "that uses Supabase CLI for authentication and database management."
+    echo "This script will set up your complete development environment."
+    echo "You only need to provide your OpenAI API key - everything else is automatic!"
     echo ""
     
     # Check prerequisites
@@ -86,6 +86,13 @@ main() {
         missing_deps+=("Docker Desktop (https://docker.com/products/docker-desktop)")
     else
         print_success "Docker found: $(docker --version)"
+        
+        # Check if Docker is running
+        if ! docker info >/dev/null 2>&1; then
+            print_error "Docker is installed but not running. Please start Docker Desktop."
+            exit 1
+        fi
+        print_success "Docker is running"
     fi
     
     if [ ${#missing_deps[@]} -ne 0 ]; then
@@ -99,120 +106,128 @@ main() {
     # Change to project directory
     cd "$PROJECT_ROOT"
     
-    # Install Supabase CLI
-    print_header "📦 Installing Supabase CLI"
+    # Install dependencies
+    print_header "📦 Installing Dependencies"
     
     if [ ! -f "package.json" ]; then
         print_error "package.json not found. Are you in the correct directory?"
         exit 1
     fi
     
-    npm install
+    npm install --silent
     print_success "Supabase CLI installed"
     
-    # Create environment file
-    print_header "🔧 Setting up Environment"
-    
-    if [ ! -f "$ENV_TEMPLATE" ]; then
-        print_error "Environment template not found at $ENV_TEMPLATE"
-        exit 1
+    # Install Python dependencies
+    if [ -d "api" ] && [ -f "api/requirements.txt" ]; then
+        print_info "Installing Python dependencies..."
+        cd api && pip install -r requirements.txt --quiet && cd ..
+        print_success "Python dependencies installed"
     fi
     
-    if [ -f "$ENV_FILE" ]; then
-        print_warning "Environment file already exists at $ENV_FILE"
-        read -p "Do you want to overwrite it? (y/N): " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            print_info "Keeping existing environment file"
-        else
-            cp "$ENV_TEMPLATE" "$ENV_FILE"
-            print_success "Environment file updated"
-        fi
-    else
-        cp "$ENV_TEMPLATE" "$ENV_FILE"
-        print_success "Environment file created at $ENV_FILE"
-    fi
-    
-    # Get OpenAI API Key
+    # Create environment file with user input
     print_header "🔑 API Key Configuration"
     
-    echo "You'll need an OpenAI API key to use the AI features."
+    echo "You need an OpenAI API key to use the AI features."
     echo "Get one from: https://platform.openai.com/api-keys"
     echo ""
     
-    if grep -q "your_openai_api_key_here" "$ENV_FILE"; then
-        read -p "Enter your OpenAI API key (or press Enter to set it later): " openai_key
-        if [ -n "$openai_key" ]; then
-            if [[ "$OSTYPE" == "darwin"* ]]; then
-                # macOS
-                sed -i '' "s/your_openai_api_key_here/$openai_key/" "$ENV_FILE"
-            else
-                # Linux
-                sed -i "s/your_openai_api_key_here/$openai_key/" "$ENV_FILE"
-            fi
-            print_success "OpenAI API key configured"
-        else
-            print_warning "OpenAI API key not set. You'll need to edit $ENV_FILE later"
+    # Get OpenAI API Key (required)
+    local openai_key=""
+    while [ -z "$openai_key" ]; do
+        read -p "Enter your OpenAI API key: " openai_key
+        if [ -z "$openai_key" ]; then
+            print_warning "OpenAI API key is required to continue."
+        fi
+    done
+    
+    # Get Gemini API Key (optional)
+    echo ""
+    echo "Gemini API key is optional but recommended for better AI responses."
+    echo "Get one from: https://makersuite.google.com/app/apikey"
+    read -p "Enter your Gemini API key (or press Enter to skip): " gemini_key
+    
+    # Create environment file from template
+    cp "$ENV_TEMPLATE" "$ENV_FILE"
+    
+    # Update API keys
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS
+        sed -i '' "s/your_openai_api_key_here/$openai_key/" "$ENV_FILE"
+        if [ -n "$gemini_key" ]; then
+            sed -i '' "s/GEMINI_API_KEY=/GEMINI_API_KEY=$gemini_key/" "$ENV_FILE"
         fi
     else
-        print_info "OpenAI API key appears to be already configured"
+        # Linux
+        sed -i "s/your_openai_api_key_here/$openai_key/" "$ENV_FILE"
+        if [ -n "$gemini_key" ]; then
+            sed -i "s/GEMINI_API_KEY=/GEMINI_API_KEY=$gemini_key/" "$ENV_FILE"
+        fi
     fi
     
-    # Start Supabase and get keys
+    print_success "API keys configured"
+    
+    # Start Supabase and auto-configure
     print_header "🗄️ Starting Local Supabase"
     
-    echo "Starting local Supabase services..."
+    echo "Starting local Supabase services (this may take a moment)..."
     npx supabase start
     
     print_success "Supabase started successfully!"
-    echo ""
     
-    # Extract Supabase configuration
-    print_header "📝 Configuring Supabase Keys"
+    # Auto-extract and configure Supabase keys using dedicated script
+    print_header "🔧 Auto-Configuring Supabase"
     
-    echo "Extracting Supabase configuration..."
+    echo "Running environment configuration script..."
+    chmod +x "$PROJECT_ROOT/scripts/configure-env.sh"
     
-    # Get Supabase status in JSON format
-    local supabase_status
-    supabase_status=$(npx supabase status --output json)
-    
-    # Extract values using simple grep/sed (more portable than jq)
-    local api_url
-    local anon_key  
-    local service_key
-    
-    api_url=$(echo "$supabase_status" | grep -o '"API URL":"[^"]*"' | cut -d'"' -f4)
-    anon_key=$(echo "$supabase_status" | grep -o '"anon key":"[^"]*"' | cut -d'"' -f4)
-    service_key=$(echo "$supabase_status" | grep -o '"service_role key":"[^"]*"' | cut -d'"' -f4)
-    
-    if [ -n "$api_url" ] && [ -n "$anon_key" ] && [ -n "$service_key" ]; then
-        # Update environment file with Supabase keys
-        if [[ "$OSTYPE" == "darwin"* ]]; then
-            # macOS
-            sed -i '' "s|NEXT_PUBLIC_SUPABASE_URL=.*|NEXT_PUBLIC_SUPABASE_URL=$api_url|" "$ENV_FILE"
-            sed -i '' "s|NEXT_PUBLIC_SUPABASE_ANON_KEY=.*|NEXT_PUBLIC_SUPABASE_ANON_KEY=$anon_key|" "$ENV_FILE"
-            sed -i '' "s|SUPABASE_SERVICE_KEY=.*|SUPABASE_SERVICE_KEY=$service_key|" "$ENV_FILE"
-        else
-            # Linux
-            sed -i "s|NEXT_PUBLIC_SUPABASE_URL=.*|NEXT_PUBLIC_SUPABASE_URL=$api_url|" "$ENV_FILE"
-            sed -i "s|NEXT_PUBLIC_SUPABASE_ANON_KEY=.*|NEXT_PUBLIC_SUPABASE_ANON_KEY=$anon_key|" "$ENV_FILE"
-            sed -i "s|SUPABASE_SERVICE_KEY=.*|SUPABASE_SERVICE_KEY=$service_key|" "$ENV_FILE"
-        fi
-        
-        print_success "Supabase keys automatically configured!"
+    if "$PROJECT_ROOT/scripts/configure-env.sh"; then
+        print_success "Environment automatically configured!"
     else
-        print_warning "Could not automatically extract Supabase keys"
-        echo "Please manually copy the keys from the output above to $ENV_FILE"
+        print_error "Failed to configure environment automatically."
+        echo "Please run 'make configure-env' manually after setup completes."
     fi
     
     # Start Qdrant
     print_header "🔍 Starting Qdrant Vector Database"
     
     echo "Starting Qdrant in Docker..."
-    docker-compose up -d qdrant_db
-    print_success "Qdrant started successfully!"
     
-    # Final instructions
+    # Stop any existing Qdrant containers
+    docker-compose down qdrant_db 2>/dev/null || true
+    
+    # Start Qdrant
+    docker-compose up -d qdrant_db
+    
+    # Wait a moment for Qdrant to start
+    sleep 3
+    
+    if docker ps | grep -q qdrant; then
+        print_success "Qdrant started successfully!"
+    else
+        print_warning "Qdrant may not have started properly. Check Docker logs if needed."
+    fi
+    
+    # Final verification
+    print_header "🧪 Verifying Setup"
+    
+    # Check if services are responding
+    echo "Checking service health..."
+    
+    # Check Supabase
+    if curl -s "http://localhost:54321/health" >/dev/null; then
+        print_success "Supabase API is responding"
+    else
+        print_warning "Supabase API not responding (may still be starting)"
+    fi
+    
+    # Check Qdrant
+    if curl -s "http://localhost:6333/health" >/dev/null; then
+        print_success "Qdrant is responding"
+    else
+        print_warning "Qdrant not responding (may still be starting)"
+    fi
+    
+    # Final success message
     print_header "🎉 Setup Complete!"
     
     echo "Your OpenMemory development environment is ready!"
@@ -221,31 +236,34 @@ main() {
     echo "   • Supabase Studio:  http://localhost:54323"
     echo "   • Qdrant Dashboard: http://localhost:6333/dashboard"
     echo ""
-    echo "📁 Environment file: $ENV_FILE"
+    echo "📁 Configuration saved to: $ENV_FILE"
     echo ""
-    echo "🚀 Next steps:"
-    echo "   1. Run 'make dev' to start the full development environment"
-    echo "   2. The API will be available at http://localhost:8765"
-    echo "   3. The UI will be available at http://localhost:3000"
+    echo "🚀 Quick start:"
+    echo "   make dev      # Start API and UI servers"
+    echo "   make stop     # Stop all services"
+    echo "   make status   # Check what's running"
+    echo ""
+    echo "💡 The API will run on http://localhost:8765"
+    echo "💡 The UI will run on http://localhost:3000"
     echo ""
     echo "🔧 Useful commands:"
-    echo "   • make dev      - Start development environment"
-    echo "   • make stop     - Stop all services"
-    echo "   • make status   - Check service status"
-    echo "   • make studio   - Open Supabase Studio"
-    echo "   • make clean    - Reset everything"
+    echo "   make studio   # Open Supabase Studio"
+    echo "   make logs     # View service logs"
+    echo "   make clean    # Reset everything"
     echo ""
-    echo "📚 For more help, see the documentation or run 'make help'"
     
-    # Optional: Start the development environment
+    # Ask if user wants to start development servers
     echo ""
-    read -p "Would you like to start the development environment now? (y/N): " -n 1 -r
+    read -p "Start the development servers now? (Y/n): " -n 1 -r
     echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        print_info "Starting development environment..."
+    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+        print_info "Starting development servers..."
         make dev
+        echo ""
+        print_success "Development environment is running!"
+        echo "🎯 Open http://localhost:3000 to start using OpenMemory"
     else
-        print_info "Setup complete. Run 'make dev' when ready to start developing!"
+        print_info "Setup complete! Run 'make dev' when ready to start developing."
     fi
 }
 

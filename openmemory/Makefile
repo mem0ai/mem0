@@ -1,186 +1,238 @@
-.PHONY: help setup dev stop status restart logs clean env migrate test db-reset db-logs studio
+.PHONY: help setup dev dev-api dev-ui stop restart status clean studio logs migrate db-reset test configure-env validate
 
 # Default target
 help:
-	@echo "OpenMemory Development Commands:"
-	@echo "  make setup             - Complete first-time setup"
-	@echo "  make dev               - Start development environment (Supabase + Qdrant + API + UI)"
-	@echo "  make stop              - Stop all services"
-	@echo "  make status            - Show status of all services"
-	@echo "  make restart           - Restart all services"
-	@echo "  make logs              - View logs from all services"
-	@echo "  make clean             - Clean all data and reset to fresh state"
-	@echo "  make env               - Show current environment configuration"
+	@echo "🚀 OpenMemory Development Commands"
 	@echo ""
-	@echo "Database Commands:"
-	@echo "  make migrate           - Apply database migrations"
-	@echo "  make db-reset          - Reset database to fresh state"
-	@echo "  make db-logs           - View database logs"
+	@echo "Setup:"
+	@echo "  setup       - One-time setup (run this first)"
+	@echo "  configure-env - Update environment with current Supabase keys"
+	@echo "  validate    - Check if environment is properly configured"
 	@echo ""
-	@echo "Development Tools:"
-	@echo "  make studio            - Open Supabase Studio"
-	@echo "  make test              - Run tests"
+	@echo "Development:"
+	@echo "  dev         - Start complete development environment"
+	@echo "  dev-api     - Start only the API server"
+	@echo "  dev-ui      - Start only the UI server"
+	@echo "  stop        - Stop all services"
+	@echo "  restart     - Restart everything"
+	@echo "  status      - Check what's running"
+	@echo ""
+	@echo "Database:"
+	@echo "  migrate     - Apply database migrations"
+	@echo "  db-reset    - Reset database to clean state"
+	@echo "  studio      - Open Supabase Studio"
+	@echo ""
+	@echo "Utilities:"
+	@echo "  logs        - View service logs"
+	@echo "  test        - Run tests"
+	@echo "  clean       - Stop and reset everything"
 
-# Complete setup for first time contributors
+# One-time setup
 setup:
-	@echo "🚀 Setting up OpenMemory development environment..."
-	@echo ""
-	@echo "📦 Installing Supabase CLI..."
-	@npm install
-	@echo ""
-	@echo "🔧 Creating environment files..."
-	@if [ ! -f .env.local ]; then \
-		echo "Copying environment template..."; \
-		cp env.local.example .env.local; \
-		echo "⚠️  Please edit .env.local with your API keys before proceeding"; \
-		echo "   Required: OPENAI_API_KEY"; \
-		echo "   After running 'make dev', copy Supabase keys from the output"; \
-	else \
-		echo "✓ .env.local already exists"; \
-	fi
-	@echo ""
-	@echo "✅ Setup complete!"
-	@echo ""
-	@echo "Next steps:"
-	@echo "  1. Edit .env.local with your OPENAI_API_KEY"
-	@echo "  2. Run 'make dev' to start the development environment"
-	@echo "  3. Copy Supabase keys from the output to .env.local"
+	@echo "🏗️  Running one-time setup..."
+	@chmod +x scripts/setup-dev-environment.sh
+	@./scripts/setup-dev-environment.sh
+
+# Configure environment with current Supabase keys
+configure-env:
+	@echo "🔧 Configuring environment..."
+	@chmod +x scripts/configure-env.sh
+	@./scripts/configure-env.sh
+
+# Validate environment configuration
+validate:
+	@chmod +x scripts/validate-env.sh
+	@./scripts/validate-env.sh
 
 # Start complete development environment
 dev:
 	@echo "🚀 Starting OpenMemory development environment..."
+	@$(MAKE) -s validate
+	@$(MAKE) -s _check-env
+	@echo "📊 Checking service status..."
+	@if ! npx supabase status >/dev/null 2>&1; then \
+		echo "🗄️  Starting Supabase..."; \
+		npx supabase start; \
+		echo "🔧 Configuring environment with latest keys..."; \
+		$(MAKE) -s configure-env; \
+	else \
+		echo "✅ Supabase is running"; \
+	fi
+	@if ! docker ps | grep -q qdrant; then \
+		echo "🔍 Starting Qdrant..."; \
+		docker-compose up -d qdrant_db; \
+	else \
+		echo "✅ Qdrant is running"; \
+	fi
+	@echo "🌐 Starting servers..."
+	@echo "   API: http://localhost:8765"
+	@echo "   UI:  http://localhost:3000"
 	@echo ""
-	@echo "📊 Starting Qdrant vector database..."
-	@docker-compose up -d qdrant_db
-	@echo ""
-	@echo "🗄️ Starting local Supabase..."
-	@npx supabase start
-	@echo ""
-	@echo "📋 Current Supabase configuration:"
-	@npx supabase status
-	@echo ""
-	@echo "⚠️  Copy the above Supabase URLs and keys to your .env.local file!"
-	@echo ""
-	@echo "🔥 Starting API server..."
-	@cd api && python -m uvicorn main:app --reload --host 0.0.0.0 --port 8765 &
-	@echo ""
-	@echo "🌐 Starting UI development server..."
-	@cd ui && npm run dev &
-	@echo ""
-	@echo "✅ Development environment started!"
-	@echo ""
-	@echo "🌐 Services available at:"
-	@echo "   UI:               http://localhost:3000"
-	@echo "   API:              http://localhost:8765"
-	@echo "   Supabase Studio:  http://localhost:54323"
-	@echo "   Qdrant Dashboard: http://localhost:6333/dashboard"
+	@echo "Press Ctrl+C to stop all servers..."
+	@trap 'echo "\n🛑 Stopping servers..."; $(MAKE) -s _stop-servers; exit 0' INT; \
+	$(MAKE) -s _start-servers
+
+# Start only API server
+dev-api:
+	@echo "🔧 Starting API server..."
+	@$(MAKE) -s _check-env
+	@$(MAKE) -s _ensure-supabase
+	@$(MAKE) -s _ensure-qdrant
+	@echo "🌐 API server starting at http://localhost:8765"
+	@cd api && python -m uvicorn main:app --reload --port 8765 --host 0.0.0.0
+
+# Start only UI server  
+dev-ui:
+	@echo "🎨 Starting UI server..."
+	@$(MAKE) -s _check-env
+	@if [ ! -d "ui/node_modules" ]; then \
+		echo "📦 Installing UI dependencies..."; \
+		cd ui && npm install; \
+	fi
+	@echo "🌐 UI server starting at http://localhost:3000"
+	@cd ui && npm run dev
 
 # Stop all services
 stop:
 	@echo "🛑 Stopping all services..."
-	@echo "Stopping UI..."
-	@pkill -f "npm run dev" || true
-	@echo "Stopping API..."
-	@pkill -f "uvicorn main:app" || true
-	@echo "Stopping Supabase..."
-	@npx supabase stop
-	@echo "Stopping Qdrant..."
-	@docker-compose down
+	@$(MAKE) -s _stop-servers
+	@docker-compose down 2>/dev/null || true
+	@npx supabase stop 2>/dev/null || true
 	@echo "✅ All services stopped"
 
-# Show status of all services
-status:
-	@echo "📊 OpenMemory Service Status"
-	@echo "=========================="
-	@echo ""
-	@echo "🗄️ Supabase Status:"
-	@npx supabase status || echo "❌ Supabase not running"
-	@echo ""
-	@echo "🔍 Qdrant Status:"
-	@docker-compose ps qdrant_db || echo "❌ Qdrant not running"
-	@echo ""
-	@echo "🚀 API Status:"
-	@curl -s http://localhost:8765/health > /dev/null && echo "✅ API running on http://localhost:8765" || echo "❌ API not responding"
-	@echo ""
-	@echo "🌐 UI Status:"
-	@curl -s http://localhost:3000 > /dev/null && echo "✅ UI running on http://localhost:3000" || echo "❌ UI not responding"
-
-# Restart all services
+# Restart everything
 restart:
-	@echo "🔄 Restarting all services..."
-	@make stop
+	@$(MAKE) -s stop
 	@sleep 2
-	@make dev
+	@$(MAKE) -s dev
 
-# View logs from all services
-logs:
-	@echo "📋 Viewing logs from all services..."
-	@echo "Use Ctrl+C to stop viewing logs"
+# Check status of all services
+status:
+	@echo "📊 Service Status:"
 	@echo ""
-	@npx supabase logs &
-	@docker-compose logs -f qdrant_db &
-	@wait
-
-# Reset everything to fresh state
-clean:
-	@echo "🧹 Cleaning all data and containers..."
-	@read -p "This will delete ALL local data. Are you sure? (y/N) " -n 1 -r; \
-	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
-		echo ""; \
-		echo "Stopping all services..."; \
-		make stop; \
-		echo "Removing Qdrant data..."; \
-		docker-compose down -v; \
-		echo "Resetting Supabase..."; \
-		npx supabase db reset; \
-		echo "✅ Clean complete. Run 'make dev' to restart."; \
+	@echo "🗄️  Supabase:"
+	@if npx supabase status >/dev/null 2>&1; then \
+		echo "   ✅ Running"; \
+		npx supabase status | grep -E "(API URL|Studio URL)"; \
 	else \
-		echo ""; \
-		echo "❌ Clean cancelled."; \
+		echo "   ❌ Not running"; \
+	fi
+	@echo ""
+	@echo "🔍 Qdrant:"
+	@if docker ps | grep -q qdrant; then \
+		echo "   ✅ Running at http://localhost:6333"; \
+	else \
+		echo "   ❌ Not running"; \
+	fi
+	@echo ""
+	@echo "🔧 API Server:"
+	@if curl -s http://localhost:8765/health >/dev/null 2>&1; then \
+		echo "   ✅ Running at http://localhost:8765"; \
+	else \
+		echo "   ❌ Not running"; \
+	fi
+	@echo ""
+	@echo "🎨 UI Server:"
+	@if curl -s http://localhost:3000 >/dev/null 2>&1; then \
+		echo "   ✅ Running at http://localhost:3000"; \
+	else \
+		echo "   ❌ Not running"; \
 	fi
 
-# Show current environment configuration
-env:
-	@echo "🔧 Current Environment Configuration"
-	@echo "==================================="
-	@echo ""
-	@if [ -f .env.local ]; then \
-		echo "📄 Environment file: .env.local"; \
-		echo ""; \
-		grep -E '^[A-Z_]' .env.local | grep -v '_KEY' | grep -v '_SECRET' || true; \
-		echo ""; \
-		echo "🔐 API Keys configured:"; \
-		grep -E 'API_KEY|SECRET|TOKEN' .env.local | sed 's/=.*/=***hidden***/' || echo "   No API keys found"; \
-	else \
-		echo "❌ No .env.local file found. Run 'make setup' first."; \
-	fi
-
-# Database operations
+# Apply database migrations
 migrate:
-	@echo "📊 Applying database migrations..."
-	@npx supabase db push
-
-db-reset:
-	@echo "🗄️ Resetting database..."
+	@echo "🗄️  Applying database migrations..."
+	@$(MAKE) -s _ensure-supabase
 	@npx supabase db reset
+	@echo "✅ Migrations applied"
 
-db-logs:
-	@echo "📋 Database logs:"
-	@npx supabase logs db
+# Reset database
+db-reset:
+	@echo "🗄️  Resetting database..."
+	@$(MAKE) -s _ensure-supabase
+	@npx supabase db reset
+	@echo "✅ Database reset complete"
 
 # Open Supabase Studio
 studio:
-	@echo "🎨 Opening Supabase Studio..."
-	@open http://localhost:54323 || xdg-open http://localhost:54323 || echo "Open http://localhost:54323 in your browser"
+	@echo "🎛️  Opening Supabase Studio..."
+	@$(MAKE) -s _ensure-supabase
+	@open http://localhost:54323 || echo "Visit: http://localhost:54323"
+
+# View logs
+logs:
+	@echo "📄 Service logs:"
+	@echo ""
+	@echo "🗄️  Supabase logs:"
+	@npx supabase logs 2>/dev/null || echo "Supabase not running"
+	@echo ""
+	@echo "🔍 Qdrant logs:"
+	@docker-compose logs qdrant_db 2>/dev/null || echo "Qdrant not running"
 
 # Run tests
 test:
 	@echo "🧪 Running tests..."
-	@cd api && python -m pytest
+	@if [ -d "api" ]; then \
+		cd api && python -m pytest tests/ -v; \
+	fi
+	@if [ -d "ui" ]; then \
+		cd ui && npm test; \
+	fi
 
-# Quick status check
-quick-status:
-	@npx supabase status --output json | jq -r '.[] | select(.name == "API") | "Supabase: " + .status'
-	@docker-compose ps --format "table {{.Service}}\t{{.Status}}" qdrant_db
-	@curl -s http://localhost:8765/health | jq -r '"API: healthy"' || echo "API: not responding"
-	@curl -s http://localhost:3000 > /dev/null && echo "UI: running" || echo "UI: not responding"
+# Clean everything (nuclear option)
+clean:
+	@echo "🧹 Cleaning everything..."
+	@echo "⚠️  This will remove all local data!"
+	@read -p "Are you sure? (y/N): " confirm; \
+	if [ "$$confirm" = "y" ] || [ "$$confirm" = "Y" ]; then \
+		$(MAKE) -s stop; \
+		docker-compose down -v 2>/dev/null || true; \
+		npx supabase stop 2>/dev/null || true; \
+		docker system prune -f 2>/dev/null || true; \
+		echo "✅ Clean complete"; \
+	else \
+		echo "❌ Clean cancelled"; \
+	fi
+
+# Internal helper targets (prefixed with _)
+_check-env:
+	@if [ ! -f ".env.local" ]; then \
+		echo "❌ Environment not configured. Run 'make setup' first."; \
+		exit 1; \
+	fi
+
+_ensure-supabase:
+	@if ! npx supabase status >/dev/null 2>&1; then \
+		echo "🗄️  Starting Supabase..."; \
+		npx supabase start; \
+	fi
+
+_ensure-qdrant:
+	@if ! docker ps | grep -q qdrant; then \
+		echo "🔍 Starting Qdrant..."; \
+		docker-compose up -d qdrant_db; \
+		sleep 3; \
+	fi
+
+_start-servers:
+	@{ \
+		cd api && python -m uvicorn main:app --reload --port 8765 --host 0.0.0.0 & \
+		API_PID=$$!; \
+		echo $$API_PID > .api.pid; \
+		cd ui && npm run dev & \
+		UI_PID=$$!; \
+		echo $$UI_PID > .ui.pid; \
+		wait; \
+	}
+
+_stop-servers:
+	@if [ -f ".api.pid" ]; then \
+		kill `cat .api.pid` 2>/dev/null || true; \
+		rm -f .api.pid; \
+	fi
+	@if [ -f ".ui.pid" ]; then \
+		kill `cat .ui.pid` 2>/dev/null || true; \
+		rm -f .ui.pid; \
+	fi
+	@pkill -f "uvicorn main:app" 2>/dev/null || true
+	@pkill -f "next-server" 2>/dev/null || true

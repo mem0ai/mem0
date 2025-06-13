@@ -160,4 +160,4 @@ def create_client_for_user(user_token: str) -> SupabaseClient:
         raise HTTPException(
             status_code=HTTP_401_UNAUTHORIZED,
             detail="Failed to create authenticated client"
-        )
+        ) 

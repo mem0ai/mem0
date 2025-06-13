@@ -7,8 +7,12 @@ import os
 from typing import Optional
 from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+# Load environment variables - prioritize .env.local for development
+# Use absolute path to ensure we find .env.local regardless of working directory
+import pathlib
+project_root = pathlib.Path(__file__).parent.parent.parent
+load_dotenv(project_root / ".env.local")  # Load local development environment first
+load_dotenv()  # Load default .env as fallback
 
 class Config:
     """Central configuration class for the application"""
@@ -58,7 +62,7 @@ class Config:
         
         # Development settings
         self.PYTHONUNBUFFERED = os.getenv("PYTHONUNBUFFERED", "1")
-    
+        
     @property
     def is_local_development(self) -> bool:
         """Check if we're running with local Supabase CLI"""
@@ -107,6 +111,11 @@ class Config:
             raise ValueError(f"Configuration errors: {', '.join(errors)}")
         
         return True
+    
+    @property
+    def uses_alembic_migrations(self) -> bool:
+        """Check if this environment should use Alembic migrations (production)"""
+        return not self.is_local_development
     
     def log_configuration(self):
         """Log the current configuration (safely, without secrets)"""
