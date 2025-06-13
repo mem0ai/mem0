@@ -473,6 +473,22 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
+    def get_summary(self, filters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Get the summary of a memory export.
+
+        Args:
+            filters: Optional filters to apply to the summary request
+
+        Returns:
+            Dict containing the export status and summary data
+        """
+
+        response = self.client.post("/v1/summary/", json=self._prepare_params({"filters": filters}))
+        response.raise_for_status()
+        capture_client_event("client.get_summary", self, {"sync_type": "sync"})
+        return response.json()
+
+    @api_error_handler
     def get_project(self, fields: Optional[List[str]] = None) -> Dict[str, Any]:
         """Get instructions or categories for the current project.
 
@@ -504,12 +520,17 @@ class MemoryClient:
         custom_instructions: Optional[str] = None,
         custom_categories: Optional[List[str]] = None,
         retrieval_criteria: Optional[List[Dict[str, Any]]] = None,
+        enable_graph: Optional[bool] = None,
+        version: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Update the project settings.
 
         Args:
             custom_instructions: New instructions for the project
             custom_categories: New categories for the project
+            retrieval_criteria: New retrieval criteria for the project
+            enable_graph: Enable or disable the graph for the project
+            version: Version of the project
 
         Returns:
             Dictionary containing the API response.
@@ -521,7 +542,13 @@ class MemoryClient:
         if not (self.org_id and self.project_id):
             raise ValueError("org_id and project_id must be set to update instructions or categories")
 
-        if custom_instructions is None and custom_categories is None and retrieval_criteria is None:
+        if (
+            custom_instructions is None
+            and custom_categories is None
+            and retrieval_criteria is None
+            and enable_graph is None
+            and version is None
+        ):
             raise ValueError(
                 "Currently we only support updating custom_instructions or custom_categories or retrieval_criteria, so you must provide at least one of them"
             )
@@ -531,6 +558,8 @@ class MemoryClient:
                 "custom_instructions": custom_instructions,
                 "custom_categories": custom_categories,
                 "retrieval_criteria": retrieval_criteria,
+                "enable_graph": enable_graph,
+                "version": version,
             }
         )
         response = self.client.patch(
@@ -545,6 +574,8 @@ class MemoryClient:
                 "custom_instructions": custom_instructions,
                 "custom_categories": custom_categories,
                 "retrieval_criteria": retrieval_criteria,
+                "enable_graph": enable_graph,
+                "version": version,
                 "sync_type": "sync",
             },
         )
@@ -784,7 +815,7 @@ class AsyncMemoryClient:
 
             return data.get("user_email")
 
-        except requests.HTTPStatusError as e:
+        except requests.exceptions.HTTPError as e:
             try:
                 error_data = e.response.json()
                 error_message = error_data.get("detail", str(e))
@@ -1096,11 +1127,19 @@ class AsyncMemoryClient:
         custom_instructions: Optional[str] = None,
         custom_categories: Optional[List[str]] = None,
         retrieval_criteria: Optional[List[Dict[str, Any]]] = None,
+        enable_graph: Optional[bool] = None,
+        version: Optional[str] = None,
     ) -> Dict[str, Any]:
         if not (self.org_id and self.project_id):
             raise ValueError("org_id and project_id must be set to update instructions or categories")
 
-        if custom_instructions is None and custom_categories is None and retrieval_criteria is None:
+        if (
+            custom_instructions is None
+            and custom_categories is None
+            and retrieval_criteria is None
+            and enable_graph is None
+            and version is None
+        ):
             raise ValueError(
                 "Currently we only support updating custom_instructions or custom_categories or retrieval_criteria, so you must provide at least one of them"
             )
@@ -1110,6 +1149,8 @@ class AsyncMemoryClient:
                 "custom_instructions": custom_instructions,
                 "custom_categories": custom_categories,
                 "retrieval_criteria": retrieval_criteria,
+                "enable_graph": enable_graph,
+                "version": version,
             }
         )
         response = await self.async_client.patch(
@@ -1124,6 +1165,8 @@ class AsyncMemoryClient:
                 "custom_instructions": custom_instructions,
                 "custom_categories": custom_categories,
                 "retrieval_criteria": retrieval_criteria,
+                "enable_graph": enable_graph,
+                "version": version,
                 "sync_type": "async",
             },
         )
