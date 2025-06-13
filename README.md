@@ -174,8 +174,6 @@ make ui-local
 - ✅ Production-ready deployment setup
 - ✅ Out-of-the-box local development
 
-For detailed troubleshooting, see the [local development guide](/openmemory/LOCAL_DEVELOPMENT_SETUP.md).
-
 ## ⭐ Upgrade to Jean Memory Pro
 
 Take your AI memory to the next level with **Jean Memory Pro** - advanced features for power users and developers who demand more from their AI tools.
