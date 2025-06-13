@@ -1,12 +1,12 @@
 import logging
 import json
 from fastapi import APIRouter, Depends, Request, Header
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from typing import Optional
 
-from app.mcp_server import tool_registry, user_id_var, client_name_var
+from app.mcp_server import tool_registry, user_id_var, client_name_var, handle_sse_connection
 from app.models import User
-from app.auth import get_current_user
+from app.auth import get_current_agent
 
 logger = logging.getLogger(__name__)
 
@@ -14,13 +14,13 @@ logger = logging.getLogger(__name__)
 agent_mcp_router = APIRouter(
     prefix="/agent/v1/mcp",
     tags=["agent-mcp"],
-    dependencies=[Depends(get_current_user)]
+    dependencies=[Depends(get_current_agent)]
 )
 
 @agent_mcp_router.post("/messages/")
 async def handle_agent_post_message(
     request: Request, 
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_current_agent),
     x_client_name: Optional[str] = Header("default_agent_app", alias="X-Client-Name")
 ):
     """
@@ -31,7 +31,10 @@ async def handle_agent_post_message(
     user_id_from_auth = str(user.user_id)
     client_name_from_header = x_client_name
     
+    logger.info(f"Agent request received for user_id: {user_id_from_auth}")
+
     if not user_id_from_auth or not client_name_from_header:
+        logger.warning(f"Agent request for user {user_id_from_auth} failed: Missing X-Client-Name header.")
         return JSONResponse(status_code=400, content={"error": "Missing user authentication or X-Client-Name header"})
             
     user_token = user_id_var.set(user_id_from_auth)
@@ -63,4 +66,23 @@ async def handle_agent_post_message(
         return JSONResponse(status_code=500, content={"error": str(e)})
     finally:
         user_id_var.reset(user_token)
-        client_name_var.reset(client_token) 
+        client_name_var.reset(client_token)
+
+@agent_mcp_router.post("/messages/stream")
+async def agent_message_stream(
+    request: Request, 
+    agent_user: User = Depends(get_current_agent)
+):
+    """
+    This is the new, isolated endpoint for agent connections.
+    It uses the `get_current_agent` dependency to ensure only valid API keys can connect.
+    The user ID is taken from the `agent_user` object returned by the dependency.
+    """
+    user_id = agent_user.user_id
+    logger.info(f"Agent streaming connection established for user_id: {user_id} via API key.")
+    
+    # The original SSE handler can be reused, as it's parameterized by user_id
+    return StreamingResponse(
+        handle_sse_connection(user_id=user_id, request=request),
+        media_type="text/event-stream"
+    ) 

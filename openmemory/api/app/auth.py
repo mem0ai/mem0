@@ -116,18 +116,12 @@ async def get_current_user(
         detail="Could not validate credentials",
     )
 
-# The original dependency, kept for compatibility where only Supabase auth is needed.
-# For new endpoints, prefer `get_current_user`.
+# This is the original, untouched dependency for the UI and production services.
 async def get_current_supa_user(request: Request) -> SupabaseUser:
-    """
-    Authentication dependency that handles both production and local development.
-    In production: Validates the JWT token against Supabase.
-    In dev mode: Returns a mock user with USER_ID from environment variables.
-    """
     if config.is_local_development:
         logger.debug(f"Using local authentication with USER_ID: {config.USER_ID}")
         return await get_local_dev_user(request)
-
+    
     if not supabase_service_client:
         logger.error("Supabase client not initialized in auth module. Cannot authenticate user.")
         raise HTTPException(
@@ -138,9 +132,9 @@ async def get_current_supa_user(request: Request) -> SupabaseUser:
     auth_header = request.headers.get("Authorization")
     if not auth_header:
         raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="Authorization header missing")
-
+    
     token = auth_header.replace("Bearer ", "")
-
+    
     try:
         start_time = time.time()
         logger.info("Attempting to authenticate user with Supabase...")
@@ -148,12 +142,64 @@ async def get_current_supa_user(request: Request) -> SupabaseUser:
         end_time = time.time()
         duration = (end_time - start_time) * 1000
         logger.info(f"Supabase authentication successful for user: {user.user.id}. Call took {duration:.2f}ms.")
-
+        
         if not user:
-            raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="Invalid token")
+            # This case might happen if Supabase is down or the JWT is invalid in a way that doesn't raise an exception
+            logger.warning("get_current_supa_user: No user object returned from Supabase despite valid token.")
+            raise HTTPException(status_code=401, detail="Could not validate credentials, no user returned")
         return user
     except Exception as e:
         end_time = time.time()
         duration = (end_time - start_time) * 1000
         logger.error(f"Supabase authentication failed after {duration:.2f}ms. Error: {e}", exc_info=True)
         raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail=f"Could not validate credentials: {e}")
+
+# This is the NEW, ISOLATED dependency for agent API keys.
+# It is only used by the new /agent/* endpoints.
+api_key_header_scheme = APIKeyHeader(name="Authorization", auto_error=False)
+
+async def get_current_agent(
+    api_key: str = Depends(api_key_header_scheme),
+    db: Session = Depends(get_db)
+) -> User:
+    """
+    Authentication dependency that validates an API key for AGENT access.
+    """
+    if config.is_local_development:
+        # In local dev, an agent can use the default local user
+        logger.info("get_current_agent: Bypassing key auth for local development.")
+        local_user = await get_local_dev_user(Request(scope={"type": "http", "headers": []}))
+        db_user = db.query(User).filter(User.user_id == local_user.id).first()
+        if not db_user:
+            logger.error("get_current_agent: Local dev user not found in database.")
+            raise HTTPException(status_code=404, detail="Local dev user not found in database.")
+        return db_user
+
+    if not api_key or not api_key.startswith("Bearer "):
+        logger.warning("get_current_agent: Invalid or missing Authorization header format.")
+        raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="Invalid or missing Authorization header for API key.")
+    
+    key = api_key.replace("Bearer ", "")
+    
+    if not key.startswith("jean_sk_"):
+        logger.warning(f"get_current_agent: Invalid API key format for key starting with '{key[:12]}...'")
+        raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="Invalid API key format.")
+
+    logger.debug(f"get_current_agent: Attempting to authenticate with key starting with '{key[:12]}...'")
+    hashed_key = hash_api_key(key)
+    
+    db_api_key = db.query(ApiKey).filter(ApiKey.key_hash == hashed_key).first()
+    
+    if not db_api_key:
+        logger.warning(f"get_current_agent: No API key found for hash of key starting with '{key[:12]}...'")
+        raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="Invalid or inactive API key.")
+
+    if not db_api_key.is_active:
+        logger.warning(f"get_current_agent: Authentication attempt with inactive key ID: {db_api_key.id}")
+        raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="Invalid or inactive API key.")
+    
+    db_api_key.last_used_at = datetime.datetime.now(datetime.UTC)
+    db.commit()
+    
+    logger.info(f"get_current_agent: Successfully authenticated user {db_api_key.user.id} via API key ID {db_api_key.id}")
+    return db_api_key.user
