@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { GitBranch, Shield, BookOpen, Puzzle, Terminal, Code, Server, Key, BrainCircuit, Copy, Check } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { GitBranch, Shield, BookOpen, Puzzle, Terminal, Code, Server, Key, BrainCircuit, Copy, Check, LucideIcon } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 
 // A simple syntax-highlighted code block component with a copy button
@@ -36,6 +36,8 @@ const CodeBlock = ({ code, lang = 'bash' }: { code: string, lang?: string }) => 
               styledLine = styledLine.replace(/\b(requests|json|os)\b/g, '<span class="text-sky-400">$&</span>');
           } else if (lang === 'mermaid') {
               return <div key={i}><pre className="text-slate-200 whitespace-pre-wrap">{line}</pre></div>;
+          } else if (lang === 'json') {
+              styledLine = code.replace(/(".*?")/g, '<span class="text-emerald-400">$&</span>');
           }
           return (
             <div key={i} className="flex items-start">
@@ -62,8 +64,56 @@ const CodeBlock = ({ code, lang = 'bash' }: { code: string, lang?: string }) => 
   );
 };
 
+// Component to render Mermaid diagrams
+const MermaidDiagram = ({ chart }: { chart: string }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [isRendered, setIsRendered] = useState(false);
+
+  useEffect(() => {
+    const renderMermaid = async () => {
+      // Dynamically import mermaid only on the client-side
+      const mermaid = (await import('mermaid')).default;
+      mermaid.initialize({ 
+        startOnLoad: false,
+        theme: 'dark',
+        darkMode: true,
+        themeVariables: {
+            background: '#0f172a',
+            primaryColor: '#1e293b',
+            primaryTextColor: '#d1d5db',
+            lineColor: '#4b5563',
+            textColor: '#d1d5db',
+            fontSize: '14px',
+        }
+       });
+
+      if (ref.current) {
+        const { svg } = await mermaid.render(`mermaid-graph-${Math.random().toString(36).substring(7)}`, chart);
+        ref.current.innerHTML = svg;
+        setIsRendered(true);
+      }
+    };
+
+    renderMermaid();
+  }, [chart]);
+
+  return (
+    <div className="flex justify-center items-center p-4 bg-slate-900/70 rounded-lg border border-slate-700/50 min-h-[300px]">
+       <div 
+        ref={ref} 
+        className={`mermaid-container ${isRendered ? 'opacity-100' : 'opacity-0'} transition-opacity duration-500`}
+        // The raw chart is kept for accessibility and for mermaid to process
+        style={{ display: isRendered ? 'block' : 'none' }}
+      >
+        {chart}
+      </div>
+      {!isRendered && <div className="text-slate-400">Loading diagram...</div>}
+    </div>
+  );
+};
+
 // Layout component for documentation pages
-const DocsLayout = ({ children, navItems }: { children: React.ReactNode, navItems: { href: string, label: string, icon: React.ElementType }[] }) => {
+const DocsLayout = ({ children, navItems }: { children: React.ReactNode, navItems: { href: string, label: string, icon: LucideIcon }[] }) => {
   const [activeId, setActiveId] = useState('introduction');
   const router = useRouter();
   const pathname = usePathname();
@@ -140,7 +190,33 @@ const navItems = [
 ];
 
 const ApiDocsPage = () => {
-  const API_URL = "https://jean-memory-api.onrender.com";
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://jean-memory-api.onrender.com";
+
+  const architectureDiagram = `
+  graph TD
+    subgraph "Existing Production Auth (Unchanged & Safe)"
+        A["UI Request (jeanmemory.com)"] --> B{JWT in Header};
+        C["Claude \\\`supergateway\\\` Request"] --> D{"x-user-id" in Header};
+
+        B --> E["GET /api/v1/*"];
+        D --> F["POST /mcp/messages/"];
+        
+        E -- "Uses get_current_supa_user" --> G["✅ Validated"];
+        F -- "Uses main MCP handler" --> G;
+    end
+
+    subgraph "New Agent API (Isolated System)"
+        H["Agent Request"] --> I{"API Key \\\`jean_sk_...\\\` in Header"};
+        I --> J["POST /agent/v1/mcp/messages/"];
+        J -- "Uses get_current_agent" --> K["✅ Validated"];
+        K -- "Forwards to main MCP handler" --> F;
+    end
+
+    style F fill:#cde4da,stroke:#155724
+    style G fill:#cde4da,stroke:#155724
+    style J fill:#d4e4f7,stroke:#0c5460
+    style K fill:#d4e4f7,stroke:#0c5460
+  `;
 
   return (
     <DocsLayout navItems={navItems}>
@@ -237,6 +313,18 @@ try:
 except requests.exceptions.RequestException as e:
     print(f"An error occurred: {e}")
         `} />
+        <p className="text-slate-400 mt-4">
+          A successful call to <code className="font-mono text-sm">add_memories</code> will return a confirmation message.
+        </p>
+        <CodeBlock lang="json" code={`
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "content": "Successfully added 1 new memory."
+  }
+}
+`} />
       </section>
 
       <section id="curl-example">
@@ -255,6 +343,47 @@ curl -X POST ${API_URL}/agent/v1/mcp/messages/ \\
     "id": 1
   }'
         `} />
+        <p className="text-slate-400 mt-4">
+          A successful request will return a JSON object with a list of available tools:
+        </p>
+        <CodeBlock lang="json" code={`
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "tools": [
+      {
+        "name": "add_memories",
+        "description": "Add one or more memories. The input is a list of strings, where each string is a memory.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "description": "The memory text to add. For multiple, use a newline-separated string."
+            }
+          },
+          "required": ["text"]
+        }
+      },
+      {
+        "name": "search_memories",
+        "description": "Searches for memories based on a query string.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "The query to search for."
+            }
+          },
+          "required": ["query"]
+        }
+      }
+    ]
+  }
+}
+`} />
       </section>
       
       <section id="architecture-diagram">
@@ -262,33 +391,7 @@ curl -X POST ${API_URL}/agent/v1/mcp/messages/ \\
           <p className="text-slate-400 mb-4">
             The final architecture ensures that production UI and Claude integrations are completely isolated from the new Agent API path, which now has its own dedicated, fully-featured MCP handler.
           </p>
-          <div className="p-4 bg-slate-900/70 rounded-lg border border-slate-700/50">
-            <CodeBlock lang="mermaid" code={`
-graph TD
-    subgraph "Existing Production Auth (Unchanged & Safe)"
-        A["UI Request (jeanmemory.com)"] --> B{JWT in Header};
-        C["Claude \\\`supergateway\\\` Request"] --> D{"x-user-id" in Header};
-
-        B --> E["GET /api/v1/*"];
-        D --> F["POST /mcp/messages/"];
-        
-        E -- "Uses get_current_supa_user" --> G["✅ Validated"];
-        F -- "Uses main MCP handler" --> G;
-    end
-
-    subgraph "New Agent API (Isolated System)"
-        H["Agent Request"] --> I{"API Key \\\`jean_sk_...\\\` in Header"};
-        I --> J["POST /agent/v1/mcp/messages/"];
-        J -- "Uses get_current_agent" --> K["✅ Validated"];
-        K -- "Forwards to main MCP handler" --> F;
-    end
-
-    style F fill:#cde4da,stroke:#155724
-    style G fill:#cde4da,stroke:#155724
-    style J fill:#d4e4f7,stroke:#0c5460
-    style K fill:#d4e4f7,stroke:#0c5460
-            `} />
-          </div>
+          <MermaidDiagram chart={architectureDiagram} />
       </section>
 
     </DocsLayout>

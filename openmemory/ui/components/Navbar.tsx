@@ -34,15 +34,15 @@ export function Navbar() {
     return pathname.startsWith(href);
   };
 
-  const activeClass = "bg-zinc-800 text-white border-zinc-600";
-  const inactiveClass = "text-zinc-300";
+  const activeClass = "bg-zinc-800 text-white";
+  const inactiveClass = "text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-50";
 
   const navLinks = [
     { href: "/dashboard", icon: <HiHome />, label: "Dashboard" },
     { href: "/memories", icon: <HiMiniRectangleStack />, label: "Memories" },
     { href: "/my-life", icon: <Brain className="w-4 h-4" />, label: "Life Graph" },
     { href: "/apps", icon: <RiApps2AddFill />, label: "Apps" },
-    { href: "/setup-mcp", icon: <Settings2 className="w-4 h-4" />, label: "How to Use" },
+    { href: "/api-docs", icon: <Book className="w-4 h-4" />, label: "API Docs" },
   ];
 
   return (
@@ -58,9 +58,9 @@ export function Navbar() {
           {navLinks.map((link) => (
             <Link key={link.href} href={link.href}>
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
-                className={`flex items-center gap-2 border-none ${
+                className={`flex items-center gap-2 ${
                   isActive(link.href) ? activeClass : inactiveClass
                 }`}
               >
@@ -155,7 +155,7 @@ export function Navbar() {
                         Settings
                       </Button>
                     </Link>
-                    <Link href="/mcp-docs">
+                    <Link href="/api-docs">
                       <Button
                         variant="ghost"
                         className="w-full justify-start gap-2 text-zinc-300 hover:text-white"
