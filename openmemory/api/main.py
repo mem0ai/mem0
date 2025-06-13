@@ -7,6 +7,7 @@ from fastapi.security import OAuth2PasswordBearer
 from app.database import engine, Base, SessionLocal
 from app.mcp_server import setup_mcp_server
 from app.routers import memories_router, apps_router, stats_router, integrations_router, mcp_tools_router
+from app.routers import keys as keys_router
 from app.routers.admin import router as admin_router
 from app.agent_api import router as agent_router
 from fastapi_pagination import add_pagination
@@ -18,6 +19,7 @@ from app.background_tasks import cleanup_old_tasks
 from app.services.background_processor import background_processor
 from app.settings import config
 from app.db_init import init_database, check_database_health
+from app.routers.agent_mcp import agent_mcp_router
 import asyncio
 
 # Configure logging
@@ -121,9 +123,10 @@ async def root():
 async def health_check():
     """Health check endpoint for deployment services"""
     # Keep it simple for fast response
-    return {"status": "healthy", "timestamp": datetime.datetime.utcnow().isoformat()}
+    return {"status": "healthy", "timestamp": datetime.datetime.now(datetime.UTC).isoformat()}
 
 # Include routers - Now using get_current_supa_user from app.auth
+app.include_router(keys_router.router, dependencies=[Depends(get_current_supa_user)])
 app.include_router(memories_router, prefix="/api/v1", dependencies=[Depends(get_current_supa_user)])
 app.include_router(apps_router, prefix="/api/v1", dependencies=[Depends(get_current_supa_user)])
 # Conditionally include other routers if they exist and are set up
@@ -135,6 +138,7 @@ app.include_router(stats_router, prefix="/api/v1", dependencies=[Depends(get_cur
 app.include_router(integrations_router, dependencies=[Depends(get_current_supa_user)])
 app.include_router(mcp_tools_router, dependencies=[Depends(get_current_supa_user)])
 app.include_router(admin_router)  # Admin router has its own authentication
+app.include_router(agent_mcp_router) # New secure agent endpoint
 
 # Register the new Agent API, gated by a feature flag for safety
 if os.environ.get("ENABLE_AGENT_API", "false").lower() == "true":

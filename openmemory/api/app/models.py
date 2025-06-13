@@ -10,6 +10,8 @@ from sqlalchemy.orm import relationship
 from app.database import Base
 from sqlalchemy.orm import Session
 from app.utils.categorization import get_categories_for_memory
+from sqlalchemy.schema import DDL
+import os
 
 # Python 3.10 compatibility
 try:
@@ -66,6 +68,31 @@ class App(Base):
 
     __table_args__ = (UniqueConstraint('owner_id', 'name', name='uq_user_app_name'),)
 
+
+class ApiKey(Base):
+    __tablename__ = 'api_keys'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    key_hash = Column(String, nullable=False, unique=True, index=True) # Store the hash of the key, not the key itself
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False, index=True)
+    name = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=get_current_utc_time)
+    last_used_at = Column(DateTime(timezone=True), nullable=True)
+    is_active = Column(Boolean, default=True, index=True)
+
+    user = relationship("User")
+
+    __table_args__ = (
+        Index('idx_apikey_user_id', 'user_id'),
+    )
+
+# Grant permissions for the new table only when using PostgreSQL
+@event.listens_for(ApiKey.__table__, "after_create")
+def grant_permissions(target, connection, **kw):
+    if connection.dialect.name == 'postgresql':
+        user = os.environ.get("POSTGRES_USER")
+        if user:
+            connection.execute(text(f'ALTER TABLE {target.name} OWNER TO "{user}";'))
 
 class Memory(Base):
     __tablename__ = "memories"
@@ -266,7 +293,6 @@ def after_memory_insert(mapper, connection, target):
     """Trigger categorization after a memory is inserted."""
     db = Session(bind=connection)
     categorize_memory(target, db)
-    db.close()
 
 
 @event.listens_for(Memory, 'after_update')
@@ -274,4 +300,8 @@ def after_memory_update(mapper, connection, target):
     """Trigger categorization after a memory is updated."""
     db = Session(bind=connection)
     categorize_memory(target, db)
-    db.close()
+
+
+# For local SQLite development, we don't need to set ownership.
+# However, if you have a specific user for your production database,
+# you would set it here. The os.environ.get is a safeguard.

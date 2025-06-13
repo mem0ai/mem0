@@ -7,17 +7,19 @@ from mcp.server.fastmcp import FastMCP
 from mcp.server.sse import SseServerTransport
 # Defer heavy imports
 # from app.utils.memory import get_memory_client
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends, Header
 from fastapi.routing import APIRouter
 import contextvars
 import os
 from dotenv import load_dotenv
 from app.database import SessionLocal
-from app.models import Memory, MemoryState, MemoryStatusHistory, MemoryAccessLog, Document, DocumentChunk
+from app.models import Memory, MemoryState, MemoryStatusHistory, MemoryAccessLog, Document, DocumentChunk, User
 from app.utils.db import get_user_and_app, get_or_create_user
 import uuid
 import datetime
 from app.utils.permissions import check_memory_access_permissions
+from app.auth import get_current_user
+from typing import Optional
 # Defer heavy imports
 # from qdrant_client import models as qdrant_models
 # from app.integrations.substack_service import SubstackService

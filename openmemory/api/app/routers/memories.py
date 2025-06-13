@@ -31,21 +31,16 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/memories", tags=["memories"])
 
 
-def get_memory_or_404(db: Session, memory_id: UUID) -> Memory:
-    memory = db.query(Memory).filter(Memory.id == memory_id).first()
+def get_memory_or_404(db: Session, memory_id: UUID, user_id: UUID) -> Memory:
+    memory = db.query(Memory).filter(Memory.id == memory_id, Memory.user_id == user_id).first()
     if not memory:
-        raise HTTPException(status_code=404, detail="Memory not found")
+        raise HTTPException(status_code=404, detail="Memory not found or you do not have permission")
     return memory
 
 
-def update_memory_state(db: Session, memory_id: UUID, new_state: MemoryState, changed_by_supa_user_id: str):
-    memory = get_memory_or_404(db, memory_id)
-    changed_by_user_record = db.query(User).filter(User.id == UUID(changed_by_supa_user_id)).first()
-    if not changed_by_user_record:
-        raise HTTPException(status_code=404, detail="User performing action not found in local DB")
-
-    internal_user_pk = changed_by_user_record.id
-
+def update_memory_state(db: Session, memory_id: UUID, new_state: MemoryState, changed_by_user_id: UUID):
+    memory = get_memory_or_404(db, memory_id, changed_by_user_id)
+    
     old_state = memory.state
     memory.state = new_state
     if new_state == MemoryState.archived:
@@ -55,7 +50,7 @@ def update_memory_state(db: Session, memory_id: UUID, new_state: MemoryState, ch
 
     history = MemoryStatusHistory(
         memory_id=memory_id,
-        changed_by=internal_user_pk,
+        changed_by=changed_by_user_id,
         old_state=old_state,
         new_state=new_state
     )
@@ -306,11 +301,8 @@ async def get_memory(
     supabase_user_id_str = str(current_supa_user.id)
     user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
 
-    memory = get_memory_or_404(db, memory_id)
+    memory = get_memory_or_404(db, memory_id, user.id)
     
-    if memory.user_id != user.id:
-        raise HTTPException(status_code=403, detail="Not authorized to access this memory")
-
     return MemoryResponse(
         id=memory.id,
         content=memory.content,
@@ -339,21 +331,16 @@ async def delete_memories(
 
     deleted_count = 0
     not_found_count = 0
-    not_authorized_count = 0
-
-    user_internal_id = UUID(supabase_user_id_str)
 
     for memory_id_to_delete in request.memory_ids:
-        memory_to_delete = db.query(Memory).filter(Memory.id == memory_id_to_delete).first()
-        if not memory_to_delete:
-            not_found_count += 1
-            continue
-        if memory_to_delete.user_id != user_internal_id:
-            not_authorized_count += 1
-            continue
-        
-        update_memory_state(db, memory_id_to_delete, MemoryState.deleted, supabase_user_id_str)
-        deleted_count += 1
+        try:
+            update_memory_state(db, memory_id_to_delete, MemoryState.deleted, user.id)
+            deleted_count += 1
+        except HTTPException as e:
+            if e.status_code == 404:
+                not_found_count += 1
+            else:
+                raise e # Re-raise other exceptions
     
     try:
         db.commit()
@@ -361,7 +348,7 @@ async def delete_memories(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error committing deletions: {e}")
 
-    return {"message": f"Successfully deleted {deleted_count} memories. Not found: {not_found_count}. Not authorized: {not_authorized_count}."}
+    return {"message": f"Successfully deleted {deleted_count} memories. Not found: {not_found_count}."}
 
 
 # Archive memories
@@ -374,27 +361,23 @@ async def archive_memories(
     supabase_user_id_str = str(current_supa_user.id)
     archived_count = 0
     not_found_count = 0
-    not_authorized_count = 0
-    user_internal_id = UUID(supabase_user_id_str)
 
     for memory_id_to_archive in memory_ids:
-        memory_to_archive = db.query(Memory).filter(Memory.id == memory_id_to_archive).first()
-        if not memory_to_archive:
-            not_found_count += 1
-            continue
-        if memory_to_archive.user_id != user_internal_id:
-            not_authorized_count += 1
-            continue
-        update_memory_state(db, memory_id_to_archive, MemoryState.archived, supabase_user_id_str)
-        archived_count += 1
-
+        try:
+            update_memory_state(db, memory_id_to_archive, MemoryState.archived, user.id)
+            archived_count += 1
+        except HTTPException as e:
+            if e.status_code == 404:
+                not_found_count += 1
+            else:
+                raise e
     try:
         db.commit()
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error committing archival: {e}")
     
-    return {"message": f"Successfully archived {archived_count} memories. Not found: {not_found_count}. Not authorized: {not_authorized_count}."}
+    return {"message": f"Successfully archived {archived_count} memories. Not found: {not_found_count}."}
 
 
 class PauseMemoriesRequestData(BaseModel):
@@ -423,7 +406,7 @@ async def pause_memories(
             Memory.user_id == user.id,
         ).all()
         for memory_item in memories_to_update:
-            update_memory_state(db, memory_item.id, state_to_set, supabase_user_id_str)
+            update_memory_state(db, memory_item.id, state_to_set, user.id)
             count += 1
         message = f"Successfully set state for all {count} accessible memories for user."
 
@@ -433,7 +416,7 @@ async def pause_memories(
             Memory.user_id == user.id,
         ).all()
         for memory_item in memories_to_update:
-            update_memory_state(db, memory_item.id, state_to_set, supabase_user_id_str)
+            update_memory_state(db, memory_item.id, state_to_set, user.id)
             count += 1
         message = f"Successfully set state for {count} memories for app {request.app_id}."
     
@@ -441,7 +424,7 @@ async def pause_memories(
         for mem_id in request.memory_ids:
             memory_to_update = db.query(Memory).filter(Memory.id == mem_id, Memory.user_id == user.id).first()
             if memory_to_update:
-                 update_memory_state(db, mem_id, state_to_set, supabase_user_id_str)
+                 update_memory_state(db, mem_id, state_to_set, user.id)
                  count += 1
         message = f"Successfully set state for {count} specified memories."
 
@@ -452,7 +435,7 @@ async def pause_memories(
             Memory.state != MemoryState.deleted,
         ).distinct().all()
         for memory_item in memories_to_update:
-            update_memory_state(db, memory_item.id, state_to_set, supabase_user_id_str)
+            update_memory_state(db, memory_item.id, state_to_set, user.id)
             count += 1
         message = f"Successfully set state for {count} memories in {len(request.category_ids)} categories."
     else:
@@ -480,7 +463,7 @@ async def get_memory_access_log(
     supabase_user_id_str = str(current_supa_user.id)
     user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
 
-    memory_owner_check = get_memory_or_404(db, memory_id)
+    memory_owner_check = get_memory_or_404(db, memory_id, user.id)
     if memory_owner_check.user_id != user.id:
         raise HTTPException(status_code=403, detail="Not authorized to access logs for this memory")
 
@@ -515,7 +498,7 @@ async def update_memory(
     supabase_user_id_str = str(current_supa_user.id)
     user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
     
-    memory_to_update = get_memory_or_404(db, memory_id)
+    memory_to_update = get_memory_or_404(db, memory_id, user.id)
 
     if memory_to_update.user_id != user.id:
         raise HTTPException(status_code=403, detail="Not authorized to update this memory")
@@ -649,7 +632,7 @@ async def get_related_memories(
     supabase_user_id_str = str(current_supa_user.id)
     user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
     
-    source_memory = get_memory_or_404(db, memory_id)
+    source_memory = get_memory_or_404(db, memory_id, user.id)
     if source_memory.user_id != user.id:
         raise HTTPException(status_code=403, detail="Not authorized to access related memories for this item.")
         

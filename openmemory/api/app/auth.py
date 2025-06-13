@@ -6,6 +6,10 @@ from supabase import create_client, Client as SupabaseClient
 from starlette.status import HTTP_401_UNAUTHORIZED, HTTP_403_FORBIDDEN, HTTP_500_INTERNAL_SERVER_ERROR
 from gotrue.types import User as SupabaseUser
 import time
+import hashlib
+import datetime
+from fastapi.security import APIKeyHeader
+from sqlalchemy.orm import Session
 
 from .settings import config
 
@@ -42,7 +46,47 @@ except Exception as e:
     logger.error(f"Failed to initialize Supabase during module load: {e}")
     # Don't raise here to allow the app to start, but auth will fail
 
-async def get_current_supa_user(request: Request) -> SupabaseUser:
+def hash_api_key(api_key: str) -> str:
+    """Hashes the API key using SHA-256."""
+    return hashlib.sha256(api_key.encode()).hexdigest()
+
+async def _get_user_from_api_key(api_key: str, db: Session) -> User:
+    """Validates an API key and returns the associated user."""
+    if not api_key.startswith("jean_sk_"):
+        return None
+
+    hashed_key = hash_api_key(api_key)
+    db_api_key = db.query(ApiKey).filter(ApiKey.key_hash == hashed_key).first()
+
+    if not db_api_key or not db_api_key.is_active:
+        return None
+
+    db_api_key.last_used_at = datetime.datetime.now(datetime.UTC)
+    db.commit()
+    return db_api_key.user
+
+async def _get_user_from_supabase_jwt(token: str, db: Session) -> User:
+    """Validates a Supabase JWT and returns the internal user."""
+    if not supabase_service_client:
+        raise HTTPException(status_code=500, detail="Supabase client not initialized.")
+    try:
+        supa_user = supabase_service_client.auth.get_user(token)
+        if not supa_user:
+            return None
+        
+        # Get the internal User object
+        db_user = db.query(User).filter(User.user_id == str(supa_user.user.id)).first()
+        return db_user
+    except Exception:
+        return None
+
+api_key_header_scheme = APIKeyHeader(name="Authorization", auto_error=True)
+
+async def get_current_user(
+    request: Request,
+    auth_header: str = Depends(api_key_header_scheme),
+    db: Session = Depends(get_db)
+) -> User:
     """
     Authentication dependency that validates JWT tokens against Supabase.
     

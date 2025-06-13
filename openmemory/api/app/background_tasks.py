@@ -3,7 +3,7 @@ Background task management system for handling long-running operations.
 """
 import asyncio
 import uuid
-from datetime import datetime
+from datetime import datetime, UTC
 from enum import Enum
 from typing import Dict, Optional, Any, Callable
 from pydantic import BaseModel
@@ -96,7 +96,7 @@ def create_task(task_type: str, user_id: str) -> str:
         task_type=task_type,
         user_id=user_id,
         status=TaskStatus.PENDING,
-        created_at=datetime.utcnow()
+        created_at=datetime.now(UTC)
     )
     save_task(task)
     logger.info(f"Created background task {task_id} of type {task_type} for user {user_id}")
@@ -120,7 +120,7 @@ def mark_task_started(task_id: str):
     task = load_task(task_id)
     if task:
         task.status = TaskStatus.RUNNING
-        task.started_at = datetime.utcnow()
+        task.started_at = datetime.now(UTC)
         save_task(task)
 
 def mark_task_completed(task_id: str, result: Dict = None):
@@ -128,7 +128,7 @@ def mark_task_completed(task_id: str, result: Dict = None):
     task = load_task(task_id)
     if task:
         task.status = TaskStatus.COMPLETED
-        task.completed_at = datetime.utcnow()
+        task.completed_at = datetime.now(UTC)
         task.progress = 100
         task.progress_message = "Completed"
         if result:
@@ -141,7 +141,7 @@ def mark_task_failed(task_id: str, error: str):
     task = load_task(task_id)
     if task:
         task.status = TaskStatus.FAILED
-        task.completed_at = datetime.utcnow()
+        task.completed_at = datetime.now(UTC)
         task.error = error
         save_task(task)
         logger.error(f"Task {task_id} failed: {error}")
@@ -180,8 +180,8 @@ async def cleanup_task_after_delay(task_id: str, delay_seconds: int):
 def cleanup_old_tasks():
     """Clean up tasks older than 24 hours on startup and recover stuck tasks"""
     try:
-        cutoff_time = datetime.utcnow().timestamp() - (24 * 60 * 60)  # 24 hours ago
-        stuck_cutoff = datetime.utcnow().timestamp() - (2 * 60 * 60)  # 2 hours ago
+        cutoff_time = datetime.now(UTC).timestamp() - (24 * 60 * 60)  # 24 hours ago
+        stuck_cutoff = datetime.now(UTC).timestamp() - (2 * 60 * 60)  # 2 hours ago
         
         cleaned_count = 0
         recovered_count = 0
@@ -206,7 +206,7 @@ def cleanup_old_tasks():
                             # Mark stuck tasks as failed
                             data['status'] = 'failed'
                             data['error'] = 'Task recovery: Marked as failed due to system restart'
-                            data['completed_at'] = datetime.utcnow().isoformat()
+                            data['completed_at'] = datetime.now(UTC).isoformat()
                             
                             with open(task_file, 'w') as f:
                                 json.dump(data, f, default=str)
@@ -247,7 +247,7 @@ def get_task_health_status() -> dict:
         stuck_tasks = []
         old_tasks = []
         
-        current_time = datetime.utcnow().timestamp()
+        current_time = datetime.now(UTC).timestamp()
         
         for task_file in task_files:
             try:
