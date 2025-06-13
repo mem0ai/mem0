@@ -7,17 +7,19 @@ from mcp.server.fastmcp import FastMCP
 from mcp.server.sse import SseServerTransport
 # Defer heavy imports
 # from app.utils.memory import get_memory_client
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends, Header
 from fastapi.routing import APIRouter
 import contextvars
 import os
 from dotenv import load_dotenv
 from app.database import SessionLocal
-from app.models import Memory, MemoryState, MemoryStatusHistory, MemoryAccessLog, Document, DocumentChunk
+from app.models import Memory, MemoryState, MemoryStatusHistory, MemoryAccessLog, Document, DocumentChunk, User
 from app.utils.db import get_user_and_app, get_or_create_user
 import uuid
 import datetime
 from app.utils.permissions import check_memory_access_permissions
+from app.auth import get_current_user
+from typing import Optional
 # Defer heavy imports
 # from qdrant_client import models as qdrant_models
 # from app.integrations.substack_service import SubstackService
@@ -1135,19 +1137,24 @@ async def test_connection() -> str:
 
 
 @mcp_router.post("/messages/")
-async def handle_post_message(request: Request):
+async def handle_post_message(
+    request: Request, 
+    user: User = Depends(get_current_user),
+    x_client_name: Optional[str] = Header("default_agent_app", alias="X-Client-Name")
+):
     """
     Handles a single, stateless JSON-RPC message from the Cloudflare Worker.
     This endpoint runs the requested tool and returns the result immediately.
+    Authenticates using either Supabase JWT or a Jean API Key.
     """
-    user_id_from_header = request.headers.get("x-user-id")
-    client_name_from_header = request.headers.get("x-client-name")
+    user_id_from_auth = str(user.user_id)
+    client_name_from_header = x_client_name
     
-    if not user_id_from_header or not client_name_from_header:
-        return JSONResponse(status_code=400, content={"error": "Missing X-User-Id or X-Client-Name headers"})
+    if not user_id_from_auth or not client_name_from_header:
+        return JSONResponse(status_code=400, content={"error": "Missing user authentication or X-Client-Name header"})
             
     # Set context variables for the duration of this request
-    user_token = user_id_var.set(user_id_from_header)
+    user_token = user_id_var.set(user_id_from_auth)
     client_token = client_name_var.set(client_name_from_header)
     
     try:
@@ -1156,7 +1163,7 @@ async def handle_post_message(request: Request):
         params = body.get("params", {})
         request_id = body.get("id")
 
-        logger.info(f"Handling MCP method '{method_name}' for user '{user_id_from_header}' with params: {params}")
+        logger.info(f"Handling MCP method '{method_name}' for user '{user_id_from_auth}' with params: {params}")
 
         # Handle MCP protocol methods
         if method_name == "initialize":
