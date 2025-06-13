@@ -473,6 +473,22 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
+    def get_summary(self, filters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Get the summary of a memory export.
+
+        Args:
+            filters: Optional filters to apply to the summary request
+
+        Returns:
+            Dict containing the export status and summary data
+        """
+
+        response = self.client.post("/v1/summary/", json=self._prepare_params({"filters": filters}))
+        response.raise_for_status()
+        capture_client_event("client.get_summary", self, {"sync_type": "sync"})
+        return response.json()
+
+    @api_error_handler
     def get_project(self, fields: Optional[List[str]] = None) -> Dict[str, Any]:
         """Get instructions or categories for the current project.
 
