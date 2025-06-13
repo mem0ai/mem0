@@ -1,6 +1,60 @@
-version: '3.8'
-
 services:
+  # API Service - FastAPI backend
+  api:
+    build: 
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: openmemory_api_service
+    restart: always
+    ports:
+      - "8765:8765"
+    environment:
+      - POSTGRES_HOST=postgres_db
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=jean_memory
+      - POSTGRES_PASSWORD=memory_password
+      - POSTGRES_DB=jean_memory_db
+      - QDRANT_HOST=qdrant_db
+      - QDRANT_PORT=6333
+    env_file:
+      - ./api/.env
+    volumes:
+      - ./api:/usr/src/app
+      - /usr/src/app/__pycache__
+    networks:
+      - memory_network
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+      qdrant_db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8765/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # PostgreSQL Database - Main app database
+  postgres_db:
+    image: postgres:15
+    container_name: openmemory_postgres_service
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=jean_memory
+      - POSTGRES_PASSWORD=memory_password
+      - POSTGRES_DB=jean_memory_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - memory_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jean_memory -d jean_memory_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # Qdrant Vector Database - Still needed as Supabase doesn't provide vector storage
   qdrant_db:
     image: qdrant/qdrant:latest
@@ -14,12 +68,13 @@ services:
     networks:
       - memory_network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/6333"]
       interval: 30s
       timeout: 10s
       retries: 3
 
 volumes:
+  postgres_data:
   qdrant_data:
 
 networks:

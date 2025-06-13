@@ -12,6 +12,9 @@ from fastapi.security import APIKeyHeader
 from sqlalchemy.orm import Session
 
 from .settings import config
+from .database import get_db
+from .models import User, ApiKey
+from .local_auth_helper import get_local_dev_user
 
 logger = logging.getLogger(__name__)
 
@@ -95,11 +98,11 @@ async def get_current_user(
     """
     # Bypass auth for local development
     if config.is_local_development:
-        local_user = await get_local_dev_user(request)
+        local_user = await get_local_dev_user(request, supabase_service_client, config)
         db_user = db.query(User).filter(User.user_id == local_user.id).first()
         if not db_user:
             # Create user if it doesn't exist for local dev
-            db_user = User(user_id=local_user.id, email="dev@example.com")
+            db_user = User(user_id=local_user.id, email=local_user.email or "dev@example.com")
             db.add(db_user)
             db.commit()
             db.refresh(db_user)
@@ -130,7 +133,7 @@ async def get_current_user(
 async def get_current_supa_user(request: Request) -> SupabaseUser:
     if config.is_local_development:
         logger.debug(f"Using local authentication with USER_ID: {config.USER_ID}")
-        return await get_local_dev_user(request)
+        return await get_local_dev_user(request, supabase_service_client, config)
     
     if not supabase_service_client:
         logger.error("Supabase client not initialized. Cannot authenticate user.")

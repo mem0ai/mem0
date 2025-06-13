@@ -20,6 +20,7 @@ from app.services.background_processor import background_processor
 from app.settings import config
 from app.db_init import init_database, check_database_health
 from app.routers.agent_mcp import agent_mcp_router
+from app.routers.local_auth import router as local_auth_router
 import asyncio
 
 # Configure logging
@@ -126,6 +127,8 @@ async def health_check():
 
 # Include routers - Now using get_current_supa_user from app.auth
 app.include_router(keys_router.router, dependencies=[Depends(get_current_supa_user)])
+# Local Auth Router (only active in local development)
+app.include_router(local_auth_router, prefix="/api/v1")
 app.include_router(memories_router, prefix="/api/v1", dependencies=[Depends(get_current_supa_user)])
 app.include_router(apps_router, prefix="/api/v1", dependencies=[Depends(get_current_supa_user)])
 # Conditionally include other routers if they exist and are set up
