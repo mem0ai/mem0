@@ -27,11 +27,11 @@ supabase_service_client: SupabaseClient = None
 
 # Only initialize Supabase client if not in local development mode
 if config.requires_supabase_auth:
-    if not config.SUPABASE_URL or not config.SUPABASE_SERVICE_ROLE_KEY:
+    if not config.SUPABASE_URL or not config.SUPABASE_SERVICE_KEY:
         logger.error("Supabase URL and Service Role Key must be set in environment variables for production.")
     else:
         try:
-            supabase_service_client = create_client(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY)
+            supabase_service_client = create_client(config.SUPABASE_URL, config.SUPABASE_SERVICE_KEY)
             logger.info("Supabase client initialized in auth module with service role.")
         except Exception as e:
             logger.error(f"Failed to initialize Supabase client in auth module: {e}", exc_info=True)
