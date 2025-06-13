@@ -44,9 +44,9 @@ def update_memory_state(db: Session, memory_id: UUID, new_state: MemoryState, ch
     old_state = memory.state
     memory.state = new_state
     if new_state == MemoryState.archived:
-        memory.archived_at = datetime.now(UTC)
+        memory.archived_at = datetime.datetime.now(UTC)
     elif new_state == MemoryState.deleted:
-        memory.deleted_at = datetime.now(UTC)
+        memory.deleted_at = datetime.datetime.now(UTC)
 
     history = MemoryStatusHistory(
         memory_id=memory_id,
