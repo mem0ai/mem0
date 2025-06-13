@@ -236,25 +236,30 @@ m = Memory.from_config(config_dict=config)
 
 Mem0 now supports Amazon Neptune Analytics as a graph store provider. This integration allows you to use Neptune Analytics for storing and querying graph-based memories.
 
-#### Setup
+#### Instance Setup
 
-1. Create a Neptune Analytics instance in your AWS account following the [AWS documentation](https://docs.aws.amazon.com/neptune-analytics/latest/userguide/get-started.html).
-2. Configure your AWS credentials with access to your Neptune Analytics resources using [Configuration and credentials precedence](https://docs.aws.amazon.com/cli/v1/userguide/cli-chap-configure.html#configure-precedence).
+Create an Amazon Neptune Analytics instance in your AWS account following the [AWS documentation](https://docs.aws.amazon.com/neptune-analytics/latest/userguide/get-started.html).
+- Once the Amazon Neptune Analytics instance is available, you will need the graph-identifier to connect.
+- The Neptune Analytics instance must be created using the same vector dimensions as the embedding model creates. See: https://docs.aws.amazon.com/neptune-analytics/latest/userguide/vector-index.html
 
-***Note***: The Neptune Analytics instance must be created using the same vector dimension as the vectors the embedding model creates. See: https://docs.aws.amazon.com/neptune-analytics/latest/userguide/vector-index.html
+#### Attach Credentials
 
-For example, set the following environment variables:
-<CodeGroup>
+ Configure your AWS credentials with access to your Amazon Neptune Analytics resources by following the [Configuration and credentials precedence](https://docs.aws.amazon.com/cli/v1/userguide/cli-chap-configure.html#configure-precedence).
+- For example, add your SSH access key session token via environment variables:
 ```bash
 export AWS_ACCESS_KEY_ID=your-access-key
 export AWS_SECRET_ACCESS_KEY=your-secret-key
+export AWS_SESSION_TOKEN=your-session-token
 export AWS_DEFAULT_REGION=your-region
 ```
-</CodeGroup>
+- The IAM user or role making the request must have a policy attached that allows one of the following IAM actions in that neptune-graph:
+  - neptune-graph:ReadDataViaQuery
+  - neptune-graph:WriteDataViaQuery
+  - neptune-graph:DeleteDataViaQuery
 
 #### Usage
 
-The Neptune memory store uses AWS LangChain Python API to connect to Neptune instances.  For additional configuration see [AWS LangChain API documentation](https://python.langchain.com/api_reference/aws/graphs/langchain_aws.graphs.neptune_graph.NeptuneAnalyticsGraph.html).
+The Neptune memory store uses AWS LangChain Python API to connect to Neptune instances.  For additional configuration options for connecting to your Amazon Neptune Analytics instance see [AWS LangChain API documentation](https://python.langchain.com/api_reference/aws/graphs/langchain_aws.graphs.neptune_graph.NeptuneAnalyticsGraph.html).
 
 <CodeGroup>
 ```python Python
@@ -278,7 +283,13 @@ m = Memory.from_config(config_dict=config)
 ```
 </CodeGroup>
 
-For more details, see the [Neptune Analytics example notebook](examples/graph-db-demo/neptune-analytics-example.ipynb).
+#### Troubleshooting
+
+- For issues connecting to Amazon Neptune Analytics, please refer to the [Connecting to a graph guide](https://docs.aws.amazon.com/neptune-analytics/latest/userguide/gettingStarted-connecting.html).
+
+- For issues related to authentication, refer to the [boto3 client configuration options](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html).
+
+- For more details on how to connect, configure, and use the graph_memory graph store, see the [Neptune Analytics example notebook](examples/graph-db-demo/neptune-analytics-example.ipynb).
 
 ## Graph Operations
 The Mem0's graph supports the following operations:

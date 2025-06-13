@@ -2,7 +2,7 @@ import logging
 from .neptune_base import NeptuneBase
 
 try:
-    from langchain_aws import NeptuneAnalyticsGraph
+    from langchain_aws import NeptuneAnalyticsGraph, NeptuneGraph
 except ImportError:
     raise ImportError("langchain_aws is not installed. Please install it using 'make install_all'.")
 
@@ -13,15 +13,16 @@ class MemoryGraph(NeptuneBase):
     def __init__(self, config):
         self.config = config
 
+        self.graph = None
         endpoint = self.config.graph_store.config.endpoint
-        if endpoint.startswith("neptune-graph://"):
+        if endpoint and endpoint.startswith("neptune-graph://"):
             graph_identifier = endpoint.replace("neptune-graph://", "")
             self.graph = NeptuneAnalyticsGraph(graph_identifier)
 
-        self.node_label = ":`__Entity__`" if self.config.graph_store.config.base_label else ""
-
         if not self.graph:
             raise ValueError("Unable to create a Neptune client: missing 'endpoint' in config")
+
+        self.node_label = ":`__Entity__`" if self.config.graph_store.config.base_label else ""
 
         self.embedding_model = NeptuneBase._create_embedding_model(self.config)
 

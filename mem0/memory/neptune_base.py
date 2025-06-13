@@ -291,7 +291,6 @@ class NeptuneBase(ABC):
 
         tokenized_query = query.split(" ")
         reranked_results = bm25.get_top_n(tokenized_query, search_outputs_sequence, n=5)
-        print(f"reranked_results={reranked_results}")
 
         search_results = []
         for item in reranked_results:
