@@ -56,14 +56,14 @@ def create_api_key(
         logger.error(f"User with Supabase ID {supa_user.id} not found in our database.")
         raise HTTPException(status_code=404, detail="User not found")
 
-    # 1. Generate a secure, random key string
-    plaintext_key = f"jean_sk_{secrets.token_urlsafe(32)}"
+    # 1. Generate a new plaintext key and its metadata
+    plaintext_key = generate_api_key()
     
-    # 2. Hash the key for storage
+    # 2. Hash the key and get its prefix for storage
     hashed_key = get_key_hash(plaintext_key)
     key_prefix = plaintext_key.split('_')[-1][:8]
     
-    # 3. Store the hashed key in the database
+    # 3. Create the database record
     db_api_key = ApiKey(
         name=key_create.name,
         key_hash=hashed_key,
