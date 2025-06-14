@@ -2,9 +2,9 @@
 
 import { motion } from "framer-motion";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 
-export default function Template({ children }: { children: React.ReactNode }) {
+function TemplateContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [shouldAnimate, setShouldAnimate] = useState(false);
@@ -40,4 +40,12 @@ export default function Template({ children }: { children: React.ReactNode }) {
   console.log('No animation - rendering instantly');
   // For all other transitions, render instantly without animation
   return <>{children}</>;
+}
+
+export default function Template({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={<>{children}</>}>
+      <TemplateContent>{children}</TemplateContent>
+    </Suspense>
+  );
 } 
