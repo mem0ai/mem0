@@ -123,7 +123,7 @@ export default function LandingPage() {
             >
               <Link
                 ref={buttonRef}
-                href="/auth"
+                href="/auth?animate=true"
                 className="group relative inline-flex items-center justify-center gap-3 px-12 py-4 text-xl font-bold rounded-md bg-black text-white border border-gray-600 hover:bg-gray-800 transition-all duration-300 shadow-lg hover:shadow-xl hover:shadow-slate-500/10 hover:scale-105"
               >
                 <Key className="w-5 h-5 group-hover:-rotate-12 transition-transform" />
@@ -155,25 +155,31 @@ export default function LandingPage() {
 
           {/* Features */}
           <motion.div
-            className="grid grid-cols-1 sm:grid-cols-3 gap-8 my-16 sm:my-20"
+            className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6 my-6 sm:my-12"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.9 }}
           >
-            <div className="flex flex-col items-center text-center p-4">
-              <Shield className="w-8 h-8 text-blue-400 mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Secure & Private</h3>
-              <p className="text-sm text-gray-400 max-w-xs">You own your data—forever.</p>
+            <div className="flex flex-col items-center text-center p-1 sm:p-3">
+              <div className="flex items-center gap-2 sm:flex-col sm:gap-0 mb-1 sm:mb-3">
+                <Shield className="w-5 h-5 sm:w-7 sm:h-7 text-blue-400 shrink-0" />
+                <h3 className="text-sm sm:text-base font-semibold">Secure & Private</h3>
+              </div>
+              <p className="text-xs text-gray-400 max-w-xs">You own your data—forever</p>
             </div>
-            <div className="flex flex-col items-center text-center p-4">
-              <Zap className="w-8 h-8 text-blue-400 mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Lightning Fast</h3>
-              <p className="text-sm text-gray-400 max-w-xs">Instant access to your context across all AI tools.</p>
+            <div className="flex flex-col items-center text-center p-1 sm:p-3">
+              <div className="flex items-center gap-2 sm:flex-col sm:gap-0 mb-1 sm:mb-3">
+                <Zap className="w-5 h-5 sm:w-7 sm:h-7 text-blue-400 shrink-0" />
+                <h3 className="text-sm sm:text-base font-semibold">Lightning Fast</h3>
+              </div>
+              <p className="text-xs text-gray-400 max-w-xs">Instant access to your context across all AI tools.</p>
             </div>
-            <div className="flex flex-col items-center text-center p-4">
-              <Globe className="w-8 h-8 text-blue-400 mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Universal</h3>
-              <p className="text-sm text-gray-400 max-w-xs">Claude, Cursor, ChatGPT (soon), etc.</p>
+            <div className="flex flex-col items-center text-center p-1 sm:p-3">
+              <div className="flex items-center gap-2 sm:flex-col sm:gap-0 mb-1 sm:mb-3">
+                <Globe className="w-5 h-5 sm:w-7 sm:h-7 text-blue-400 shrink-0" />
+                <h3 className="text-sm sm:text-base font-semibold">Universal</h3>
+              </div>
+              <p className="text-xs text-gray-400 max-w-xs">Claude, Cursor, ChatGPT (soon), etc.</p>
             </div>
           </motion.div>
 
