@@ -62,8 +62,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [dispatch]);
 
-  // Always use real Supabase authentication (local and production)
-  const isLocalDev = false; // Disabled local dev mode - always use real auth
+  // Set local dev mode based on environment variable
+  const isLocalDev = process.env.NODE_ENV === 'development';
 
   useEffect(() => {
     setIsLoading(true);
@@ -105,7 +105,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       authListener.subscription?.unsubscribe();
     };
-  }, [updateTokenAndProfile, posthog, isLocalDev]);
+  }, [updateTokenAndProfile, posthog]);
 
   const signInWithPassword = async (
     credentials: SignInWithPasswordCredentials
@@ -177,8 +177,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
     // No explicit data return here, session updates via onAuthStateChange
   };
-
-
 
   const signOut = async (): Promise<{ error: AuthError | null }> => {
     setIsLoading(true);

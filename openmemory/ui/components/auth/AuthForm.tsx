@@ -14,7 +14,7 @@ export const AuthForm = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
-  const { signInWithPassword, signUpWithPassword, signInWithGoogle, signInWithGitHub, signInLocalDev, error, isLoading, user, isLocalDev } = useAuth();
+  const { signInWithPassword, signUpWithPassword, signInWithGoogle, signInWithGitHub, error, isLoading, user, isLocalDev } = useAuth();
   const router = useRouter();
 
   // Redirect to dashboard when user becomes authenticated
@@ -28,13 +28,6 @@ export const AuthForm = () => {
     e.preventDefault();
     setMessage('');
     let authError = null;
-
-    if (isLocalDev) {
-      // In local development mode, any form submission triggers local sign-in
-      await signInLocalDev();
-      setMessage('Local development sign-in successful! Redirecting...');
-      return;
-    }
 
     if (isLogin) {
       const { error: signInError } = await signInWithPassword({ email, password });
@@ -58,20 +51,12 @@ export const AuthForm = () => {
   
   const handleGoogleSignIn = async () => {
     setMessage('');
-    if (isLocalDev) {
-      await signInLocalDev();
-    } else {
-      await signInWithGoogle();
-    }
+    await signInWithGoogle();
   };
 
   const handleGitHubSignIn = async () => {
     setMessage('');
-    if (isLocalDev) {
-      await signInLocalDev();
-    } else {
-      await signInWithGitHub();
-    }
+    await signInWithGitHub();
   };
 
   React.useEffect(() => {
@@ -104,67 +89,71 @@ export const AuthForm = () => {
           {isLocalDev && (
             <div className="mt-3 p-2 bg-orange-500/10 border border-orange-500/20 rounded-md">
               <p className="text-xs text-orange-300 font-medium">
-                🧪 Local Development Mode - Any button will sign you in
+                🧪 Local Development Mode - OAuth disabled, use email/password
               </p>
             </div>
           )}
         </div>
 
-        {/* Google Sign In - Make this prominent */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.1 }}
-          className="mb-6"
-        >
-          <div className="mb-3 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-            <p className="text-xs text-blue-300 text-center font-medium">
-              ⚡ Recommended: Sign in with Google or GitHub for the fastest setup
-            </p>
-          </div>
-          <Button 
-            variant="outline" 
-            type="button" 
-            disabled={isLoading} 
-            onClick={handleGoogleSignIn} 
-            className="w-full h-12 bg-white hover:bg-gray-50 text-gray-900 border-gray-300 font-medium text-base relative overflow-hidden group"
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-            {isLoading ? (
-              <Icons.spinner className="mr-3 h-5 w-5 animate-spin" />
-            ) : (
-              <Icons.google className="mr-3 h-5 w-5" />
-            )}
-            Continue with Google
-          </Button>
-          <Button 
-            variant="outline" 
-            type="button" 
-            disabled={isLoading} 
-            onClick={handleGitHubSignIn} 
-            className="w-full h-12 bg-zinc-900 hover:bg-zinc-800 text-white border-zinc-700 font-medium text-base relative overflow-hidden group mt-3"
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-gray-500/10 to-zinc-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-            {isLoading ? (
-              <Icons.spinner className="mr-3 h-5 w-5 animate-spin" />
-            ) : (
-              <Icons.github className="mr-3 h-5 w-5" />
-            )}
-            Continue with GitHub
-          </Button>
-        </motion.div>
+        {!isLocalDev && (
+          <>
+            {/* Google Sign In - Make this prominent */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.1 }}
+              className="mb-6"
+            >
+              <div className="mb-3 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <p className="text-xs text-blue-300 text-center font-medium">
+                  ⚡ Recommended: Sign in with Google or GitHub for the fastest setup
+                </p>
+              </div>
+              <Button 
+                variant="outline" 
+                type="button" 
+                disabled={isLoading} 
+                onClick={handleGoogleSignIn} 
+                className="w-full h-12 bg-white hover:bg-gray-50 text-gray-900 border-gray-300 font-medium text-base relative overflow-hidden group"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                {isLoading ? (
+                  <Icons.spinner className="mr-3 h-5 w-5 animate-spin" />
+                ) : (
+                  <Icons.google className="mr-3 h-5 w-5" />
+                )}
+                Continue with Google
+              </Button>
+              <Button 
+                variant="outline" 
+                type="button" 
+                disabled={isLoading} 
+                onClick={handleGitHubSignIn} 
+                className="w-full h-12 bg-zinc-900 hover:bg-zinc-800 text-white border-zinc-700 font-medium text-base relative overflow-hidden group mt-3"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-gray-500/10 to-zinc-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                {isLoading ? (
+                  <Icons.spinner className="mr-3 h-5 w-5 animate-spin" />
+                ) : (
+                  <Icons.github className="mr-3 h-5 w-5" />
+                )}
+                Continue with GitHub
+              </Button>
+            </motion.div>
 
-        {/* Divider */}
-        <div className="relative mb-6">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-zinc-700" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-zinc-900 px-3 text-zinc-500 font-medium">
-              Or continue with email
-            </span>
-          </div>
-        </div>
+            {/* Divider */}
+            <div className="relative mb-6">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-zinc-700" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-zinc-900 px-3 text-zinc-500 font-medium">
+                  Or continue with email
+                </span>
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Email/Password Form */}
         <motion.form 
