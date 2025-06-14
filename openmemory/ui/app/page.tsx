@@ -5,8 +5,8 @@ import { motion } from "framer-motion";
 import { ArrowRight, Shield, Zap, Globe, Key, Github, Star } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import ParticleNetwork from "@/components/landing/ParticleNetwork";
-import AnimatedIcons from "@/components/landing/AnimatedIcons";
 import MouseFollowArrow from "@/components/landing/MouseFollowArrow";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -73,7 +73,6 @@ export default function LandingPage() {
       <div className="absolute inset-0">
         <ParticleNetwork id="landing-particles" />
       </div>
-      <AnimatedIcons />
 
       {/* Mouse Follow Arrow */}
       <MouseFollowArrow targetRef={buttonRef} />
@@ -92,7 +91,7 @@ export default function LandingPage() {
         >
           {/* Logo/Title */}
           <motion.h1
-            className="text-5xl sm:text-6xl md:text-8xl font-extrabold mb-4 sm:mb-6 text-gray-100 tracking-tighter"
+            className="text-6xl sm:text-7xl md:text-8xl font-semibold mb-6 text-gray-200 tracking-tight"
             initial={{ scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.2 }}
@@ -102,12 +101,12 @@ export default function LandingPage() {
 
           {/* Subtitle */}
           <motion.p
-            className="text-lg sm:text-xl md:text-2xl text-gray-300 mb-8 sm:mb-12 max-w-2xl mx-auto px-4 font-medium tracking-wider"
+            className="text-lg sm:text-xl text-gray-400 mb-10 max-w-xl mx-auto"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.4 }}
           >
-            Your secure, unified memory layer across all AI applications
+            Your secure memory across AI applications
           </motion.p>
 
           <div className="my-12 sm:my-16 flex flex-col items-center justify-center gap-6">
