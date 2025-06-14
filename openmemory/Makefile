@@ -102,7 +102,7 @@ dev-api:
 	@$(MAKE) -s _ensure-supabase
 	@$(MAKE) -s _ensure-qdrant
 	@echo "🌐 API server starting at http://localhost:8765"
-	@cd api && python -m uvicorn main:app --reload --port 8765 --host 0.0.0.0
+	@cd api && ../.venv/bin/python -m uvicorn main:app --reload --port 8765 --host 0.0.0.0
 
 # Start only UI server  
 dev-ui:
@@ -196,7 +196,7 @@ logs:
 test:
 	@echo "🧪 Running tests..."
 	@if [ -d "api" ]; then \
-		cd api && python -m pytest tests/ -v; \
+		cd api && ../.venv/bin/python -m pytest tests/ -v; \
 	fi
 	@if [ -d "ui" ]; then \
 		cd ui && npm test; \
