@@ -2,12 +2,11 @@ import os
 from typing import Dict, List, Optional
 
 try:
-    import google.generativeai as genai
-    from google.generativeai import GenerativeModel, protos
-    from google.generativeai.types import content_types
+    import google.genai as genai
+    from google.genai.types import content_types
 except ImportError:
     raise ImportError(
-        "The 'google-generativeai' library is required. Please install it using 'pip install google-generativeai'."
+        "The 'google-genai' library is required. Please install it using 'pip install google-genai'."
     )
 
 from mem0.configs.llms.base import BaseLlmConfig
@@ -19,11 +18,11 @@ class GeminiLLM(LLMBase):
         super().__init__(config)
 
         if not self.config.model:
-            self.config.model = "gemini-1.5-flash-latest"
+            self.config.model = "gemini-2.0-flash-lite"
 
         api_key = self.config.api_key or os.getenv("GEMINI_API_KEY")
         genai.configure(api_key=api_key)
-        self.client = GenerativeModel(model_name=self.config.model)
+        self.model = genai.GenerativeModel(model_name=self.config.model)
 
     def _parse_response(self, response, tools):
         """
@@ -38,21 +37,22 @@ class GeminiLLM(LLMBase):
         """
         if tools:
             processed_response = {
-                "content": (content if (content := response.candidates[0].content.parts[0].text) else None),
+                "content": response.text,
                 "tool_calls": [],
             }
 
-            for part in response.candidates[0].content.parts:
-                if fn := part.function_call:
-                    if isinstance(fn, protos.FunctionCall):
-                        fn_call = type(fn).to_dict(fn)
-                        processed_response["tool_calls"].append({"name": fn_call["name"], "arguments": fn_call["args"]})
-                        continue
-                    processed_response["tool_calls"].append({"name": fn.name, "arguments": fn.args})
+            if response.candidates and response.candidates[0].content:
+                for part in response.candidates[0].content.parts:
+                    if hasattr(part, 'function_call'):
+                        fn_call = part.function_call
+                        processed_response["tool_calls"].append({
+                            "name": fn_call.name,
+                            "arguments": fn_call.args
+                        })
 
             return processed_response
         else:
-            return response.candidates[0].content.parts[0].text
+            return response.text
 
     def _reformat_messages(self, messages: List[Dict[str, str]]):
         """
@@ -69,14 +69,13 @@ class GeminiLLM(LLMBase):
         for message in messages:
             if message["role"] == "system":
                 content = "THIS IS A SYSTEM PROMPT. YOU MUST OBEY THIS: " + message["content"]
-
             else:
                 content = message["content"]
 
             new_messages.append(
                 {
-                    "parts": content,
                     "role": "model" if message["role"] == "model" else "user",
+                    "parts": [{"text": content}]
                 }
             )
 
@@ -92,32 +91,18 @@ class GeminiLLM(LLMBase):
         Returns:
             list: The list of tools in the required format.
         """
-
-        def remove_additional_properties(data):
-            """Recursively removes 'additionalProperties' from nested dictionaries."""
-
-            if isinstance(data, dict):
-                filtered_dict = {
-                    key: remove_additional_properties(value)
-                    for key, value in data.items()
-                    if not (key == "additionalProperties")
-                }
-                return filtered_dict
-            else:
-                return data
+        if not tools:
+            return None
 
         new_tools = []
-        if tools:
-            for tool in tools:
-                func = tool["function"].copy()
-                new_tools.append({"function_declarations": [remove_additional_properties(func)]})
+        for tool in tools:
+            func = tool["function"].copy()
+            # Remove any additionalProperties as they're not supported
+            if "additionalProperties" in func:
+                del func["additionalProperties"]
+            new_tools.append({"function_declarations": [func]})
 
-            # TODO: temporarily ignore it to pass tests, will come back to update according to standards later.
-            # return content_types.to_function_library(new_tools)
-
-            return new_tools
-        else:
-            return None
+        return new_tools
 
     def generate_response(
         self,
@@ -138,33 +123,32 @@ class GeminiLLM(LLMBase):
         Returns:
             str: The generated response.
         """
-
-        params = {
+        generation_config = {
             "temperature": self.config.temperature,
             "max_output_tokens": self.config.max_tokens,
             "top_p": self.config.top_p,
         }
 
         if response_format is not None and response_format["type"] == "json_object":
-            params["response_mime_type"] = "application/json"
+            generation_config["response_mime_type"] = "application/json"
             if "schema" in response_format:
-                params["response_schema"] = response_format["schema"]
-        if tool_choice:
-            tool_config = content_types.to_tool_config(
-                {
-                    "function_calling_config": {
-                        "mode": tool_choice,
-                        "allowed_function_names": (
-                            [tool["function"]["name"] for tool in tools] if tool_choice == "any" else None
-                        ),
-                    }
-                }
-            )
+                generation_config["response_schema"] = response_format["schema"]
 
-        response = self.client.generate_content(
+        tool_config = None
+        if tools:
+            tool_config = {
+                "function_calling_config": {
+                    "mode": tool_choice,
+                    "allowed_function_names": (
+                        [tool["function"]["name"] for tool in tools] if tool_choice == "any" else None
+                    ),
+                }
+            }
+
+        response = self.model.generate_content(
             contents=self._reformat_messages(messages),
             tools=self._reformat_tools(tools),
-            generation_config=genai.GenerationConfig(**params),
+            generation_config=generation_config,
             tool_config=tool_config,
         )
 
