@@ -72,98 +72,18 @@ Be specific and cite document titles when referencing information."""
             logger.error(f"Error querying Gemini: {e}")
             return f"Error querying documents with Gemini: {str(e)}"
     
-    async def deep_query(self, memories: List[Dict], documents: List[Document], query: str) -> str:
-        """
-        Perform a deep, comprehensive query across all user content.
-        This is the core innovation - using long-context models to understand everything.
-        """
-        
-        # Build comprehensive context
-        context = "=== USER'S KNOWLEDGE BASE ===\n\n"
-        
-        # Add regular memories first
-        if memories:
-            context += "--- MEMORIES ---\n\n"
-            for i, mem in enumerate(memories, 1):
-                memory_text = mem.get('memory', mem.get('content', ''))
-                context += f"Memory {i}: {memory_text}\n"
-                
-                # Add relevant metadata
-                metadata = mem.get('metadata', {})
-                if metadata:
-                    if 'source_app' in metadata:
-                        context += f"  Source: {metadata['source_app']}\n"
-                    if 'created_at' in mem:
-                        context += f"  Created: {mem['created_at']}\n"
-                context += "\n"
-        
-        # Add documents with smart truncation
-        if documents:
-            context += "\n--- DOCUMENTS ---\n\n"
-            for i, doc in enumerate(documents, 1):
-                context += f"Document {i}: {doc.title}\n"
-                context += f"  Type: {doc.document_type}\n"
-                context += f"  Source: {doc.source_url}\n"
-                if doc.metadata_.get('published_date'):
-                    context += f"  Published: {doc.metadata_['published_date']}\n"
-                
-                # Smart truncation for very long documents
-                doc_content = doc.content
-                if len(doc_content) > 50000:  # If document is over 50K chars
-                    # Take first 25K and last 5K chars with indicator
-                    doc_content = doc_content[:25000] + "\n\n[... content truncated for length ...]\n\n" + doc_content[-5000:]
-                    context += f"  Content ({len(doc.content)} chars, truncated):\n"
-                else:
-                    context += f"  Content ({len(doc.content)} chars):\n"
-                
-                context += f"  {doc_content}\n"
-                context += "\n--- End of Document ---\n\n"
-        
-        # Check total context size and truncate if needed
-        if len(context) > 800000:  # 800K chars limit
-            logger.warning(f"Context too large ({len(context)} chars), using fallback")
-            return await self._fallback_query(memories[:5], documents[:2], query)
-        
-        # Create the comprehensive prompt
-        prompt = f"""You are an advanced AI assistant with access to a user's complete knowledge base, including their memories and saved documents.
-
-{context}
-
-=== USER QUERY ===
-{query}
-
-=== YOUR TASK ===
-Analyze ALL the content above to provide a comprehensive, intelligent response to the user's query.
-
-Guidelines:
-1. Draw connections between different memories and documents
-2. Synthesize information from multiple sources
-3. Identify patterns and insights that might not be obvious from individual pieces
-4. If the query asks about specific topics, cite which memories/documents contain that information
-5. Be specific and reference actual content when making points
-6. If there are contradictions or evolution of thoughts over time, note them
-
-Provide a thoughtful, comprehensive response that demonstrates deep understanding of the user's knowledge base."""
-
+    async def deep_query(self, documents: List[str], query: str) -> str:
+        """Query documents using Gemini's long context capabilities"""
         try:
-            # Use async generation with longer output for comprehensive responses
-            response = await asyncio.to_thread(
-                self.model.generate_content,
-                prompt,
-                generation_config=genai.GenerationConfig(
-                    temperature=0.7,
-                    max_output_tokens=4096,  # Longer responses for deep queries
-                )
-            )
+            full_text = "\n".join(documents)
+            prompt = f"Based on the following documents, answer the question: {query}\n\n{full_text}"
+            
+            response = await self.model.generate_content_async(prompt)
             
             return response.text
-            
         except Exception as e:
-            logger.error(f"Error in deep query: {e}")
-            # Fallback to a simpler query if the full context is too large
-            if "context length" in str(e).lower() or "too long" in str(e).lower():
-                return await self._fallback_query(memories[:10], documents[:3], query)
-            return f"Error performing deep query: {str(e)}"
+            logger.error(f"Error querying Gemini: {e}")
+            return f"Error querying documents with Gemini: {str(e)}"
     
     async def _fallback_query(self, memories: List[Dict], documents: List[Document], query: str) -> str:
         """Fallback for when context is too large"""
@@ -232,3 +152,25 @@ Return only the insights, one per line, without numbering or bullet points."""
         except Exception as e:
             logger.error(f"Error extracting insights: {e}")
             return [] 
+
+    async def generate_narrative(self, memories: List[str]) -> str:
+        """Generate a user narrative from a list of memories."""
+        try:
+            if not memories:
+                return "No memories provided to generate a narrative."
+
+            full_text = "\n".join(memories)
+            prompt = (
+                "You are an expert biographer. Based on the following memories, write a brief, "
+                "insightful, and coherent narrative about this person's life, focusing on key themes, "
+                "growth, and recurring ideas. The narrative should be in the third person.\n\n"
+                "Memories:\n"
+                f"{full_text}"
+            )
+            
+            response = await self.model.generate_content_async(prompt)
+            
+            return response.text
+        except Exception as e:
+            logger.error(f"Error generating narrative with Gemini: {e}")
+            raise Exception(f"Failed to generate narrative with Gemini: {str(e)}") 

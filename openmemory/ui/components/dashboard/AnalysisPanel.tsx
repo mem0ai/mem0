@@ -12,35 +12,11 @@ export function AnalysisPanel() {
   const { accessToken } = useAuth();
   const { toast } = useToast();
   const [narrative, setNarrative] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const fetchNarrative = async () => {
-      if (!accessToken) {
-        setIsLoading(false);
-        return;
-      }
-      
-      setIsLoading(true);
-      try {
-        const response = await apiClient.get('/api/v1/user/narrative');
-        
-        if (response.data && response.data.narrative) {
-          setNarrative(response.data.narrative);
-        }
-      } catch (err: any) {
-        if (err.response && err.response.status === 404) {
-          console.log("No existing narrative found.");
-        } else {
-          console.error("Failed to fetch existing narrative:", err);
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchNarrative();
+    // Removed the logic that fetches a pre-existing narrative
   }, [accessToken]);
 
   const handleGenerateNarrative = async () => {
@@ -48,19 +24,42 @@ export function AnalysisPanel() {
     setError('');
 
     try {
-      const response = await apiClient.post('/api/v1/user/narrative');
+      // Step 1: Fetch all memories from the backend
+      const memoriesResponse = await apiClient.get('/api/v1/memories/?page=1&size=1000'); // Fetch up to 1000 memories
+      const memories = memoriesResponse.data.items;
 
-      if (response.data && response.data.narrative) {
-        setNarrative(response.data.narrative);
+      if (!memories || memories.length === 0) {
+        throw new Error("You don't have any memories yet to generate a narrative.");
+      }
+
+      // Step 2: Call the local UI route to generate the narrative
+      const narrativeResponse = await fetch('/api/narrative/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ memories }),
+      });
+
+      if (!narrativeResponse.ok) {
+        const errorData = await narrativeResponse.json();
+        throw new Error(errorData.detail || 'Failed to generate narrative.');
+      }
+
+      const { narrative } = await narrativeResponse.json();
+
+      if (narrative) {
+        setNarrative(narrative);
         toast({
-          title: narrative ? 'Narrative Regenerated' : 'Narrative Generated',
-          description: 'Your life narrative has been updated.',
+          title: 'Narrative Generated',
+          description: 'Your life narrative has been generated.',
         });
       } else {
         throw new Error('Invalid response from server.');
       }
     } catch (err: any) {
-      const errorMessage = err.response?.data?.error || err.message || 'Failed to generate narrative.';
+      const errorMessage = err.message || 'An unknown error occurred.';
       setError(errorMessage);
       toast({
         variant: 'destructive',
