@@ -40,10 +40,12 @@ class TestAddToVectorStoreErrors:
 
         return memory
 
-    def test_empty_llm_response_fact_extraction(self, mock_memory, caplog):
+    def test_empty_llm_response_fact_extraction(self, mocker, mock_memory, caplog):
         """Test empty response from LLM during fact extraction"""
         # Setup
         mock_memory.llm.generate_response.return_value = ""
+        mock_capture_event = mocker.MagicMock()
+        mocker.patch("mem0.memory.main.capture_event", mock_capture_event)
 
         # Execute
         with caplog.at_level(logging.ERROR):
@@ -52,9 +54,10 @@ class TestAddToVectorStoreErrors:
             )
 
         # Verify
-        assert mock_memory.llm.generate_response.call_count == 2
+        assert mock_memory.llm.generate_response.call_count == 1
         assert result == []  # Should return empty list when no memories processed
         assert "Error in new_retrieved_facts" in caplog.text
+        assert mock_capture_event.call_count == 1
 
     def test_empty_llm_response_memory_actions(self, mock_memory, caplog):
         """Test empty response from LLM during memory actions"""
@@ -94,25 +97,31 @@ class TestAsyncAddToVectorStoreErrors:
         """Test empty response in AsyncMemory._add_to_vector_store"""
         mocker.patch("mem0.utils.factory.EmbedderFactory.create", return_value=MagicMock())
         mock_async_memory.llm.generate_response.return_value = ""
+        mock_capture_event = mocker.MagicMock()
+        mocker.patch("mem0.memory.main.capture_event", mock_capture_event)
 
         with caplog.at_level(logging.ERROR):
             result = await mock_async_memory._add_to_vector_store(
-                messages=[{"role": "user", "content": "test"}], metadata={}, filters={}, infer=True
+                messages=[{"role": "user", "content": "test"}], metadata={}, effective_filters={}, infer=True
             )
-
+        assert mock_async_memory.llm.generate_response.call_count == 1
         assert result == []
         assert "Error in new_retrieved_facts" in caplog.text
+        assert mock_capture_event.call_count == 1
 
     @pytest.mark.asyncio
     async def test_async_empty_llm_response_memory_actions(self, mock_async_memory, caplog, mocker):
         """Test empty response in AsyncMemory._add_to_vector_store"""
         mocker.patch("mem0.utils.factory.EmbedderFactory.create", return_value=MagicMock())
         mock_async_memory.llm.generate_response.side_effect = ['{"facts": ["test fact"]}', ""]
+        mock_capture_event = mocker.MagicMock()
+        mocker.patch("mem0.memory.main.capture_event", mock_capture_event)
 
         with caplog.at_level(logging.ERROR):
             result = await mock_async_memory._add_to_vector_store(
-                messages=[{"role": "user", "content": "test"}], metadata={}, filters={}, infer=True
+                messages=[{"role": "user", "content": "test"}], metadata={}, effective_filters={}, infer=True
             )
 
         assert result == []
         assert "Invalid JSON response" in caplog.text
+        assert mock_capture_event.call_count == 1
