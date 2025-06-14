@@ -83,7 +83,7 @@ class OpenSearchDB(VectorStoreBase):
             },
         }
 
-        logger.info(f"Creating index {name}, it might take 1-2 minutes...")
+        logger.warning(f"Creating index {name}, it might take 1-2 minutes...")
         if not self.client.indices.exists(index=name):
             self.client.indices.create(index=name, body=index_settings)
 
@@ -120,7 +120,6 @@ class OpenSearchDB(VectorStoreBase):
                 "id": id_,
             }
             self.client.index(index=self.collection_name, body=body)
-        logger.info(f"Inserted {len(vectors)} vectors into {self.collection_name}")
 
         results = []
 
@@ -166,7 +165,6 @@ class OpenSearchDB(VectorStoreBase):
             OutputData(id=hit["_source"].get("id"), score=hit["_score"], payload=hit["_source"].get("payload", {}))
             for hit in hits
         ]
-        logger.info(f"Searched for {len(vectors)} vectors in {self.collection_name}")
         return results
 
     def delete(self, vector_id: str) -> None:
@@ -184,7 +182,6 @@ class OpenSearchDB(VectorStoreBase):
 
         # Delete using the actual document ID
         self.client.delete(index=self.collection_name, id=opensearch_id)
-        logger.info(f"Deleted vector {vector_id} from {self.collection_name}")
 
     def update(self, vector_id: str, vector: Optional[List[float]] = None, payload: Optional[Dict] = None) -> None:
         """Update a vector and its payload using the custom 'id' field."""
@@ -210,7 +207,6 @@ class OpenSearchDB(VectorStoreBase):
         if doc:
             try:
                 response = self.client.update(index=self.collection_name, id=opensearch_id, body={"doc": doc})
-                logger.info(f"Updated vector {vector_id} in {self.collection_name}")
             except Exception:
                 pass
 
@@ -231,7 +227,6 @@ class OpenSearchDB(VectorStoreBase):
             if not hits:
                 return None
 
-            logger.info(f"Retrieved vector {vector_id} from {self.collection_name}")
             return OutputData(id=hits[0]["_source"].get("id"), score=1.0, payload=hits[0]["_source"].get("payload", {}))
         except Exception as e:
             logger.error(f"Error retrieving vector {vector_id}: {str(e)}")
