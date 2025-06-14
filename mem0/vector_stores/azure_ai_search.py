@@ -13,16 +13,9 @@ try:
     from azure.search.documents import SearchClient
     from azure.search.documents.indexes import SearchIndexClient
     from azure.search.documents.indexes.models import (
-        BinaryQuantizationCompression,
-        HnswAlgorithmConfiguration,
-        ScalarQuantizationCompression,
-        SearchField,
-        SearchFieldDataType,
-        SearchIndex,
-        SimpleField,
-        VectorSearch,
-        VectorSearchProfile,
-    )
+        BinaryQuantizationCompression, HnswAlgorithmConfiguration,
+        ScalarQuantizationCompression, SearchField, SearchFieldDataType,
+        SearchIndex, SimpleField, VectorSearch, VectorSearchProfile)
     from azure.search.documents.models import VectorizedQuery
 except ImportError:
     raise ImportError(
@@ -317,7 +310,7 @@ class AzureAISearch(VectorStoreBase):
         index = self.index_client.get_index(self.index_name)
         return {"name": index.name, "fields": index.fields}
 
-    def list(self, filters=None, limit=100):
+    def list(self, filters=None, limit=100) -> list[list[OutputData]]:
         """
         List all vectors in the index.
 
