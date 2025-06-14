@@ -4,6 +4,33 @@ import { useState, useEffect, FC, ReactNode } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { Key, Plus, Trash2, Copy, AlertTriangle, X } from 'lucide-react';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import { Button, buttonVariants } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 
 // --- Type Definitions ---
 
@@ -164,108 +191,147 @@ export default function ApiKeysPage() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    // Maybe show a "Copied!" toast/message
+    // TODO: show a "Copied!" toast/message
   };
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-background text-foreground">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
+        <div
           className="flex justify-between items-center mb-8"
         >
           <div>
-            <h1 className="text-3xl font-bold text-white mb-2 flex items-center"><Key className="mr-3" /> API Keys</h1>
-            <p className="text-zinc-400">
-              Manage your API keys for connecting applications and agents to Jean.
+            <h1 className="text-3xl font-bold text-foreground mb-2 flex items-center"><Key className="mr-3" /> API Keys</h1>
+            <p className="text-muted-foreground">
+              Build agents with memory.
             </p>
           </div>
-          <Button onClick={() => setIsGenerateModalOpen(true)}>
+          <Button variant="outline" onClick={() => setIsGenerateModalOpen(true)}>
             <Plus size={20} className="mr-2" />
             Generate New Key
           </Button>
-        </motion.div>
+        </div>
 
         {isLoading && <p>Loading keys...</p>}
-        {error && <p className="text-red-500">{error}</p>}
+        {error && <p className="text-destructive">{error}</p>}
 
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="bg-zinc-900 border border-zinc-800 rounded-lg shadow-md"
-        >
-          <ul className="divide-y divide-zinc-800">
-            {keys.map((key) => (
-              <li key={key.id} className="p-4 flex justify-between items-center">
-                <div>
-                  <p className="font-semibold text-lg">{key.name}</p>
-                  <p className="text-sm text-zinc-400">
-                    Created on: {new Date(key.created_at).toLocaleDateString()}
+        {!isLoading && !error && (
+          <Card>
+            <CardContent className="p-0">
+              {keys.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead>Last Used</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {keys.map((key) => (
+                      <TableRow key={key.id}>
+                        <TableCell className="font-medium">{key.name}</TableCell>
+                        <TableCell>{new Date(key.created_at).toLocaleDateString()}</TableCell>
+                        <TableCell>{key.last_used_at ? new Date(key.last_used_at).toLocaleDateString() : 'Never'}</TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" onClick={() => { setKeyToRevoke(key); setIsConfirmModalOpen(true); }}>
+                            <Trash2 size={16} className="mr-2" />
+                            Revoke
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="flex flex-col items-center justify-center p-12 text-center">
+                  <Key className="w-12 h-12 text-muted-foreground mb-4" />
+                  <h3 className="text-xl font-semibold mb-2">No API Keys Yet</h3>
+                  <p className="text-muted-foreground mb-6">
+                    Generate your first key to connect your agents and applications.
                   </p>
+                  <Button onClick={() => setIsGenerateModalOpen(true)}>
+                    <Plus size={20} className="mr-2" />
+                    Generate New Key
+                  </Button>
                 </div>
-                <Button variant="danger" onClick={() => { setKeyToRevoke(key); setIsConfirmModalOpen(true); }}>
-                  <Trash2 size={16} className="mr-2" />
-                  Revoke
-                </Button>
-              </li>
-            ))}
-            {!isLoading && keys.length === 0 && (
-              <p className="p-4 text-zinc-400">No API keys found. Generate one to get started.</p>
-            )}
-          </ul>
-        </motion.div>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
 
-      {isGenerateModalOpen && (
-        <Modal onClose={() => setIsGenerateModalOpen(false)}>
-          <h2 className="text-2xl font-bold mb-4">Generate New API Key</h2>
+      <Dialog open={isGenerateModalOpen} onOpenChange={setIsGenerateModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Generate New API Key</DialogTitle>
+          </DialogHeader>
           <form onSubmit={handleGenerateKey}>
-            <label htmlFor="keyName" className="block text-zinc-400 mb-2">Key Name</label>
-            <input
+            <label htmlFor="keyName" className="block text-muted-foreground mb-2">Key Name</label>
+            <Input
               id="keyName"
               type="text"
               value={newKeyName}
               onChange={(e) => setNewKeyName(e.target.value)}
               placeholder="e.g., My Personal Agent"
-              className="w-full bg-zinc-800 border border-zinc-600 rounded-md px-3 py-2 mb-4 focus:ring-indigo-500 focus:border-indigo-500"
+              className="mb-4"
             />
-            <div className="flex justify-end gap-3">
-              <Button type="button" variant="secondary" onClick={() => setIsGenerateModalOpen(false)}>Cancel</Button>
+            <DialogFooter className="gap-2">
+              <DialogClose asChild>
+                <Button type="button" variant="secondary">Cancel</Button>
+              </DialogClose>
               <Button type="submit" disabled={!newKeyName.trim()}>Generate</Button>
-            </div>
+            </DialogFooter>
           </form>
-        </Modal>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isNewKeyModalOpen} onOpenChange={setIsNewKeyModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>API Key Generated</DialogTitle>
+          </DialogHeader>
+            <div className="bg-yellow-900/10 border border-yellow-700/20 text-yellow-600 dark:text-yellow-300 p-3 rounded-md mb-4 flex items-center">
+              <AlertTriangle className="mr-3 flex-shrink-0" />
+              <p>Please copy this key and store it securely. You will not be able to see it again.</p>
+            </div>
+            <div className="bg-muted p-3 rounded-md flex items-center justify-between">
+              <pre className="text-sm overflow-x-auto"><code>{newlyGeneratedKey?.key}</code></pre>
+              <Button variant="secondary" onClick={() => copyToClipboard(newlyGeneratedKey?.key || '')}>
+                <Copy size={16} />
+              </Button>
+            </div>
+          <DialogFooter>
+            <DialogClose asChild>
+                <Button type="button" onClick={() => setIsNewKeyModalOpen(false)}>Close</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {keyToRevoke && (
+        <Dialog open={isConfirmModalOpen} onOpenChange={setIsConfirmModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Are you sure?</DialogTitle>
+              <DialogDescription>
+                Revoking this key is irreversible. Any applications using it will no longer be able to access Jean.
+              </DialogDescription>
+            </DialogHeader>
+            <p className="font-semibold">{keyToRevoke.name}</p>
+            <DialogFooter className="gap-2">
+              <DialogClose asChild>
+                <Button type="button" variant="secondary">Cancel</Button>
+              </DialogClose>
+              <Button variant="destructive" onClick={handleRevokeKey}>
+                Yes, Revoke Key
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
 
-      {isNewKeyModalOpen && newlyGeneratedKey && (
-        <Modal onClose={() => setIsNewKeyModalOpen(false)}>
-          <h2 className="text-2xl font-bold mb-4">API Key Generated</h2>
-          <div className="bg-yellow-900/30 border border-yellow-700 text-yellow-300 p-3 rounded-md mb-4 flex items-center">
-            <AlertTriangle className="mr-3 flex-shrink-0" />
-            <p>Please copy this key and store it securely. You will not be able to see it again.</p>
-          </div>
-          <div className="bg-zinc-800 p-3 rounded-md flex items-center justify-between">
-            <pre className="text-sm overflow-x-auto"><code>{newlyGeneratedKey.key}</code></pre>
-            <Button variant="secondary" onClick={() => copyToClipboard(newlyGeneratedKey.key)}>
-              <Copy size={16} />
-            </Button>
-          </div>
-        </Modal>
-      )}
-      
-      {isConfirmModalOpen && keyToRevoke && (
-        <Modal onClose={() => setIsConfirmModalOpen(false)}>
-          <h2 className="text-2xl font-bold mb-4">Confirm Revoke</h2>
-          <p className="text-zinc-300 mb-6">
-            Are you sure you want to revoke the key "{keyToRevoke.name}"? This action cannot be undone.
-          </p>
-          <div className="flex justify-end gap-3">
-            <Button type="button" variant="secondary" onClick={() => setIsConfirmModalOpen(false)}>Cancel</Button>
-            <Button type="button" variant="danger" onClick={handleRevokeKey}>Revoke Key</Button>
-          </div>
-        </Modal>
-      )}
     </div>
   );
 } 

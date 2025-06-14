@@ -76,35 +76,35 @@ export function AnalysisPanel() {
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.5, delay: 0.2 }}
-      className="bg-zinc-900/20 backdrop-blur-sm border border-zinc-800 rounded-xl p-6 h-full flex flex-col"
+      className="bg-card/20 backdrop-blur-sm border border-border rounded-xl p-6 h-full flex flex-col"
     >
       <div className="mb-4">
-        <h2 className="text-xl font-bold text-white">Your Life's Narrative</h2>
-         <p className="text-sm text-zinc-400">
+        <h2 className="text-xl font-bold text-foreground">Your Life's Narrative</h2>
+         <p className="text-sm text-muted-foreground">
           A summary of your life based on your memories.
         </p>
       </div>
       <div className="flex-grow flex flex-col items-center justify-center min-h-[150px]">
         {isLoading ? (
           <div className="text-center">
-            <div className="animate-pulse text-blue-400 mb-2 font-medium">
+            <div className="animate-pulse text-primary mb-2 font-medium">
               Loading Narrative...
             </div>
           </div>
         ) : error ? (
             <div className='text-center'>
-                <p className="text-red-400 mb-4">{error}</p>
+                <p className="text-destructive mb-4">{error}</p>
                 <Button onClick={handleGenerateNarrative} disabled={isLoading}>
                     {isLoading ? 'Generating...' : 'Try Again'}
                 </Button>
             </div>
         ) : narrative ? (
-          <div className="text-zinc-300 text-sm prose prose-invert prose-sm max-w-none h-full overflow-y-auto pr-2">
+          <div className="text-muted-foreground text-sm prose dark:prose-invert prose-sm max-w-none h-full overflow-y-auto pr-2">
             <ReactMarkdown>{narrative}</ReactMarkdown>
           </div>
         ) : (
           <div className="text-center">
-            <p className="text-zinc-400 mb-4">
+            <p className="text-muted-foreground mb-4">
               Click the button to generate a narrative from your memories.
             </p>
             <Button onClick={handleGenerateNarrative} disabled={isLoading}>
@@ -115,7 +115,7 @@ export function AnalysisPanel() {
       </div>
       {/* Regenerate Button - always visible if a narrative exists */}
       {!isLoading && !error && narrative && (
-        <div className="mt-4 pt-4 border-t border-zinc-800/50 flex justify-end">
+        <div className="mt-4 pt-4 border-t border-border/50 flex justify-end">
             <Button onClick={handleGenerateNarrative} disabled={isLoading} variant="ghost" size="sm">
               {isLoading ? 'Regenerating...' : 'Regenerate Narrative'}
             </Button>

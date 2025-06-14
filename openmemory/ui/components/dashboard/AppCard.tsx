@@ -34,6 +34,7 @@ export function AppCard({ app, onConnect, index, isSyncing, onSyncStart }: AppCa
   const { user, accessToken } = useAuth();
   const { toast } = useToast();
   const [inputValue, setInputValue] = useState("");
+  const [showConnectInput, setShowConnectInput] = useState(false);
   const appConfig = useAppConfig(app);
   const { isLoading, handleSync: performSync } = useAppSync({ app, onSyncStart });
 
@@ -48,6 +49,8 @@ export function AppCard({ app, onConnect, index, isSyncing, onSyncStart }: AppCa
     }
   };
 
+  const isSpecialFlow = app.id === 'twitter' || app.id === 'substack';
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -55,9 +58,9 @@ export function AppCard({ app, onConnect, index, isSyncing, onSyncStart }: AppCa
       transition={{ duration: 0.5, delay: 0.2 + index * 0.1 }}
       className="group h-full"
     >
-      <div className="relative bg-zinc-900/80 backdrop-blur-sm rounded-lg border border-zinc-800 p-4 h-full flex flex-col justify-between hover:border-zinc-700 transition-all duration-300">
+      <div className="relative bg-card rounded-lg border border-border p-4 h-full flex flex-col justify-between hover:border-primary/50 transition-all duration-300">
         {app.is_connected && (
-            <div className="absolute top-2 right-2 text-xs text-zinc-500">
+            <div className="absolute top-2 right-2 text-xs text-muted-foreground">
                 {(app.total_memories_created || 0).toLocaleString()}
             </div>
         )}
@@ -65,45 +68,45 @@ export function AppCard({ app, onConnect, index, isSyncing, onSyncStart }: AppCa
           {/* App Icon & Name */}
           <div className="flex items-center gap-3 mb-3">
             <div className="relative">
-              <div className="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center overflow-hidden">
+              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
                 {appConfig.iconImage ? (
                   <img
                     src={appConfig.iconImage}
                     alt={app.name}
-                    className={`w-6 h-6 object-cover ${app.id === 'twitter' ? 'text-white' : ''}`}
+                    className={`w-6 h-6 object-cover ${app.id === 'twitter' ? 'dark:text-white' : ''}`}
                   />
                 ) : (
-                  <div className="w-6 h-6 flex items-center justify-center text-zinc-400">
+                  <div className="w-6 h-6 flex items-center justify-center text-muted-foreground">
                     {appConfig.icon}
                   </div>
                 )}
               </div>
               {app.is_connected && (
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 border-2 border-zinc-900 rounded-full flex items-center justify-center">
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 border-2 border-card rounded-full flex items-center justify-center">
                   <Check className="w-2.5 h-2.5 text-white" />
                 </div>
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="font-medium text-white text-sm truncate">{app.name}</h3>
+              <h3 className="font-medium text-foreground text-sm truncate">{app.name}</h3>
               {!app.isComingSoon && (
-                <p className="text-xs text-zinc-500 truncate">{app.description}</p>
+                <p className="text-xs text-muted-foreground truncate">{app.description}</p>
               )}
             </div>
           </div>
 
-          {/* Special UI for connected apps */}
-          {app.is_connected && (app.id === 'twitter' || app.id === 'substack') && (
+          {/* Special UI for connected apps OR for special connection flow */}
+          {(app.is_connected || (isSpecialFlow && showConnectInput)) && isSpecialFlow && (
             <div className="mb-3 space-y-2">
                 <div className="flex gap-1.5">
                     <Input 
                         type="text"
-                        placeholder={app.id === 'twitter' ? '@username' : 'username.substack.com'}
-                        className="bg-black border-zinc-700 text-xs h-8"
+                        placeholder={app.id === 'twitter' ? '@username or URL' : 'username.substack.com'}
+                        className="bg-background border-border text-xs h-8"
                         value={inputValue}
                         onChange={(e) => setInputValue(e.target.value)}
                     />
-                    <Button onClick={handleSyncClick} disabled={isLoading} className="bg-zinc-800 hover:bg-zinc-700 text-white text-xs h-8 px-3">
+                    <Button onClick={handleSyncClick} disabled={isLoading} className="text-xs h-8 px-3">
                         {isLoading ? 'Syncing...' : 'Sync'}
                     </Button>
                 </div>
@@ -115,8 +118,14 @@ export function AppCard({ app, onConnect, index, isSyncing, onSyncStart }: AppCa
         <div className="flex items-center gap-1.5">
           {!app.is_connected ? (
             <Button
-              onClick={() => onConnect(app)}
-              className="w-full bg-black text-white border border-gray-600 hover:bg-gray-800 hover:border-blue-500 text-xs h-8"
+              onClick={() => {
+                if (isSpecialFlow) {
+                  setShowConnectInput(true);
+                } else {
+                  onConnect(app);
+                }
+              }}
+              className="w-full text-xs h-8"
               variant="outline"
               disabled={app.isComingSoon || isSyncing}
             >
@@ -145,7 +154,7 @@ export function AppCard({ app, onConnect, index, isSyncing, onSyncStart }: AppCa
               {/* View Memories Button */}
               <Button
                 onClick={handleNavigateToMemories}
-                className="bg-transparent border border-zinc-700 hover:bg-zinc-800 hover:border-zinc-600 text-zinc-300 hover:text-white text-xs h-7 px-2"
+                className="text-xs h-7 px-2"
                 variant="outline"
                 size="sm"
               >

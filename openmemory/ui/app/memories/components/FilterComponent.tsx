@@ -201,7 +201,7 @@ export default function FilterComponent() {
         <DialogTrigger asChild>
           <Button
             variant="outline"
-            className={`h-9 px-4 border-zinc-700/50 bg-zinc-900 hover:bg-zinc-800 ${
+            className={`h-9 px-4 ${
               hasActiveFilters ? "border-primary" : ""
             }`}
           >
@@ -218,29 +218,26 @@ export default function FilterComponent() {
             )}
           </Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-[425px] bg-zinc-900 border-zinc-800 text-zinc-100">
+        <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle className="text-zinc-100 flex justify-between items-center">
+            <DialogTitle className="flex justify-between items-center">
               <span>Filters</span>
             </DialogTitle>
           </DialogHeader>
           <Tabs defaultValue="apps" className="w-full">
-            <TabsList className="grid grid-cols-3 bg-zinc-800">
+            <TabsList className="grid grid-cols-3">
               <TabsTrigger
                 value="apps"
-                className="data-[state=active]:bg-zinc-700"
               >
                 Apps
               </TabsTrigger>
               <TabsTrigger
                 value="categories"
-                className="data-[state=active]:bg-zinc-700"
               >
                 Categories
               </TabsTrigger>
               <TabsTrigger
                 value="archived"
-                className="data-[state=active]:bg-zinc-700"
               >
                 Archived
               </TabsTrigger>
@@ -371,36 +368,40 @@ export default function FilterComponent() {
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button
-            variant="outline"
-            className="h-9 px-4 border-zinc-700/50 bg-zinc-900 hover:bg-zinc-800"
-          >
+          <Button variant="outline" className="h-9 px-4">
             {filters.sortDirection === "asc" ? (
               <SortAsc className="h-4 w-4" />
             ) : (
               <SortDesc className="h-4 w-4" />
             )}
-            Sort: {columns.find((c) => c.value === filters.sortColumn)?.label}
+            <span className="ml-2">
+              Sort:{" "}
+              {columns.find((c) => c.value === filters.sortColumn)?.label ||
+                "Created On"}
+            </span>
             <ChevronDown className="h-4 w-4 ml-2" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56 bg-zinc-900 border-zinc-800 text-zinc-100">
+        <DropdownMenuContent>
           <DropdownMenuLabel>Sort by</DropdownMenuLabel>
-          <DropdownMenuSeparator className="bg-zinc-800" />
+          <DropdownMenuSeparator />
           <DropdownMenuGroup>
             {columns.map((column) => (
               <DropdownMenuItem
                 key={column.value}
                 onClick={() => setSorting(column.value)}
-                className="cursor-pointer flex justify-between items-center"
+                className="cursor-pointer"
               >
                 {column.label}
-                {filters.sortColumn === column.value &&
-                  (filters.sortDirection === "asc" ? (
-                    <SortAsc className="h-4 w-4 text-primary" />
-                  ) : (
-                    <SortDesc className="h-4 w-4 text-primary" />
-                  ))}
+                {filters.sortColumn === column.value && (
+                  <>
+                    {filters.sortDirection === "asc" ? (
+                      <SortAsc className="h-4 w-4 ml-auto" />
+                    ) : (
+                      <SortDesc className="h-4 w-4 ml-auto" />
+                    )}
+                  </>
+                )}
               </DropdownMenuItem>
             ))}
           </DropdownMenuGroup>

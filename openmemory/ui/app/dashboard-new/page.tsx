@@ -225,6 +225,12 @@ export default function DashboardNew() {
 
   const handleConnectApp = (app: DashboardApp) => {
     if (app.is_connected || app.isComingSoon) return;
+
+    // Twitter and Substack have their own connection flow within the AppCard
+    if (app.id === 'twitter' || app.id === 'substack') {
+      // The AppCard component will handle the UI for these
+      return;
+    }
     
     setSelectedApp(app);
     setIsInstallModalOpen(true);
@@ -240,7 +246,7 @@ export default function DashboardNew() {
   };
 
   return (
-    <div className="relative min-h-screen bg-black text-white">
+    <div className="relative min-h-screen bg-background text-foreground">
       {/* Background Animation */}
       <div className="absolute inset-0 z-0 h-full w-full">
         <ParticleNetwork id="dashboard-particles" className="h-full w-full" interactive={false} particleCount={80} />
@@ -249,97 +255,98 @@ export default function DashboardNew() {
       {/* Main Content */}
       <div className="relative z-10 container mx-auto px-4 py-8 max-w-7xl">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column: App Connections */}
+          {/* Left Side */}
           <div className="lg:col-span-2">
-            {/* Header */}
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="text-center lg:text-left mb-12"
+              className="mb-8"
             >
-              <h1 className="text-4xl sm:text-5xl font-bold text-white mb-4">
+              <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground">
                 Connect Your Universe
               </h1>
-              
-              <p className="text-lg text-zinc-400 max-w-2xl mx-auto lg:mx-0">
+              <p className="mt-3 text-lg text-muted-foreground">
                 A single, unified memory layer for all your AI applications.
               </p>
             </motion.div>
 
-            {/* Connection Progress Bar */}
-            <div className="bg-zinc-900/80 backdrop-blur-sm rounded-xl border border-zinc-800 p-4 mb-8">
-              <div className="flex justify-between items-center mb-2">
-                <p className="text-sm font-medium text-zinc-200">
-                  {connectedCount} of {availableApps.filter(a => !a.isComingSoon).length} Apps Connected
-                </p>
-                <p className="text-sm text-zinc-400">
-                  {totalMemories.toLocaleString()} Memories Created
-                </p>
+            {/* Connection Status */}
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              className="mb-8"
+            >
+              <div className="bg-card border border-border rounded-lg p-4">
+                <div className="flex justify-between items-center mb-2">
+                  <p className="text-sm font-medium text-foreground">
+                    {connectedCount} of {availableApps.filter(a => !a.isComingSoon).length} Apps Connected
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {totalMemories.toLocaleString()} Memories Created
+                  </p>
+                </div>
+                <div className="w-full bg-muted rounded-full h-2">
+                  <div 
+                    className="bg-primary h-2 rounded-full" 
+                    style={{ width: `${(connectedCount / availableApps.filter(a => !a.isComingSoon).length) * 100}%` }}
+                  ></div>
+                </div>
               </div>
-              <div className="w-full bg-zinc-700/50 rounded-full h-1.5">
-                <motion.div
-                  className="bg-blue-500 h-1.5 rounded-full"
-                  initial={{ width: '0%' }}
-                  animate={{ width: `${(connectedCount / availableApps.filter(a => !a.isComingSoon).length) * 100}%` }}
-                />
+            </motion.div>
+
+            {/* App Grid */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                {displayedApps.map((app, index) => (
+                  <AppCard
+                    key={app.id || index}
+                    app={app}
+                    onConnect={handleConnectApp}
+                    index={index}
+                    isSyncing={syncingApps[app.id] || !!appTaskIds[app.id]}
+                    onSyncStart={(appId, taskId) => {
+                      setSyncingApps(prev => ({ ...prev, [appId]: true }));
+                      setAppTaskIds(prev => ({ ...prev, [appId]: taskId }));
+                    }}
+                  />
+                ))}
               </div>
-            </div>
-
-            {/* Apps Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-              {displayedApps.map((app, index) => (
-                <AppCard
-                  key={app.id}
-                  app={app}
-                  onConnect={handleConnectApp}
-                  index={index}
-                  isSyncing={syncingApps[app.id] || false}
-                  onSyncStart={(appId, taskId) => {
-                    setSyncingApps(prev => ({ ...prev, [appId]: true }));
-                    setAppTaskIds(prev => ({ ...prev, [appId]: taskId }));
-                  }}
-                />
-              ))}
-            </div>
-
+            </motion.div>
+            
             {!showAllApps && sortedApps.length > 6 && (
-              <div className="text-center">
-                <Button
-                  onClick={() => setShowAllApps(true)}
-                  variant="ghost"
-                  className="text-zinc-300 hover:text-white"
-                >
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+                className="text-center mt-8"
+              >
+                <Button variant="ghost" onClick={() => setShowAllApps(true)}>
                   Show {sortedApps.length - 6} more apps <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
-              </div>
+              </motion.div>
             )}
-
-            {/* Request Integration */}
-            <div className="text-center mt-12 pt-8 border-t border-zinc-800/50">
-                <p className="text-zinc-400 mb-4">Don't see your favorite tool?</p>
-                <Button variant="outline" className="border-zinc-700 hover:border-zinc-500 hover:bg-zinc-800/50">
-                    Request an Integration
-                </Button>
-            </div>
           </div>
 
-          {/* Right Column: Analysis Panel */}
+          {/* Right Side */}
           <div className="lg:col-span-1">
             <AnalysisPanel />
           </div>
         </div>
-
-        <InstallModal 
-          app={selectedApp}
+      </div>
+      
+      {selectedApp && (
+        <InstallModal
           open={isInstallModalOpen}
           onOpenChange={handleModalClose}
-          onSyncStart={(appId, taskId) => {
-            setSyncingApps(prev => ({ ...prev, [appId]: true }));
-            setAppTaskIds(prev => ({ ...prev, [appId]: taskId }));
-          }}
+          app={selectedApp}
         />
-      </div>
+      )}
     </div>
   );
 } 

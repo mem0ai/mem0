@@ -91,11 +91,11 @@ export function MemoryFilters() {
   return (
     <div className="flex flex-col md:flex-row gap-4 mb-4">
       <div className="relative flex-1">
-        <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+        <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           ref={inputRef}
           placeholder="Search memories..."
-          className="pl-8 bg-zinc-950 border-zinc-800 max-w-[500px]"
+          className="pl-8 bg-background border-border max-w-[500px]"
           onChange={(e) => handleSearch(e.target.value)}
         />
       </div>
@@ -104,7 +104,6 @@ export function MemoryFilters() {
         {hasActiveFilters && (
           <Button
             variant="outline"
-            className="bg-zinc-900 text-zinc-300 hover:bg-zinc-800"
             onClick={handleClearAllFilters}
           >
             Clear Filters
@@ -116,14 +115,12 @@ export function MemoryFilters() {
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="outline"
-                  className="border-zinc-700/50 bg-zinc-900 hover:bg-zinc-800"
                 >
                   Actions
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="end"
-                className="bg-zinc-900 border-zinc-800"
               >
                 <DropdownMenuItem onClick={handleArchiveSelected}>
                   <Archive className="mr-2 h-4 w-4" />

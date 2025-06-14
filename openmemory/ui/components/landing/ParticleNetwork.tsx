@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Particles, { initParticlesEngine } from "@tsparticles/react";
 import { loadFull } from "tsparticles";
+import { useTheme } from "next-themes";
 
 interface ParticleNetworkProps {
   id: string;
@@ -19,6 +20,7 @@ export default function ParticleNetwork({
 }: ParticleNetworkProps) {
   const [init, setInit] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const { theme } = useTheme();
 
   useEffect(() => {
     const checkMobile = () => {
@@ -41,6 +43,12 @@ export default function ParticleNetwork({
   const particlesLoaded = useCallback(async (container: any) => {
     // Optional callback
   }, []);
+
+  const particleColors = theme === 'light' 
+    ? ["#718096", "#a0aec0", "#cbd5e0"] // Steel gray palette for light mode
+    : ["#9ca3af", "#6b7280", "#4b5563"]; // Original palette for dark mode
+  
+  const linkColor = theme === 'light' ? "#a0aec0" : "#6b7280";
 
   // Desktop: Full interactive experience
   // Mobile: Simplified but visible
@@ -81,11 +89,11 @@ export default function ParticleNetwork({
     particles: {
       color: {
         value: isMobile 
-          ? "#9ca3af"  // Bright and visible on mobile
-          : ["#9ca3af", "#6b7280", "#4b5563"], // Original varied colors on desktop
+          ? particleColors[1] // a mid-range color for mobile
+          : particleColors,
       },
               links: {
-          color: "#6b7280",
+          color: linkColor,
           distance: 150,
           enable: true,
           opacity: isMobile ? 0.7 : 0.4, // Even higher opacity on mobile for visibility

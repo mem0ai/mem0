@@ -13,12 +13,15 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Icons } from "@/components/icons";
 import { UserNav } from "./UserNav";
+import { ThemeToggle } from "./ThemeToggle";
+import { useTheme } from "next-themes";
 
 export function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { theme } = useTheme();
 
   // Check for reduced motion preference
   const prefersReducedMotion = typeof window !== 'undefined' && 
@@ -34,8 +37,8 @@ export function Navbar() {
     return pathname.startsWith(href);
   };
 
-  const activeClass = "bg-zinc-800 text-white";
-  const inactiveClass = "text-zinc-300";
+  const activeClass = "bg-secondary text-secondary-foreground";
+  const inactiveClass = "text-muted-foreground";
 
   const navLinks = [
     { href: "/dashboard-new", icon: <HiHome />, label: "Dashboard" },
@@ -44,10 +47,15 @@ export function Navbar() {
   ];
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-zinc-800 bg-zinc-950/95 backdrop-blur supports-[backdrop-filter]:bg-zinc-950/60">
+    <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 items-center justify-between px-4">
         <Link href="/dashboard-new" className="flex items-center gap-2">
-          <Image src="/images/jean-bug.png" alt="Jean Memory" width={26} height={26} />
+          <Image 
+            src={theme === 'light' ? "/images/jean-white-theme-bug.png" : "/images/jean-bug.png"} 
+            alt="Jean Memory" 
+            width={26} 
+            height={26} 
+          />
           <span className="text-lg sm:text-xl font-medium">Jean Memory</span>
         </Link>
         
@@ -74,6 +82,7 @@ export function Navbar() {
           {user ? (
             <>
               <CreateMemoryDialog />
+              <ThemeToggle />
               <UserNav />
             </>
           ) : (
@@ -81,7 +90,6 @@ export function Navbar() {
               <Button
                 variant="outline"
                 size="sm"
-                className="border-zinc-700/50 bg-zinc-900 hover:bg-zinc-800"
               >
                 Login
               </Button>
@@ -98,7 +106,6 @@ export function Navbar() {
               <Button
                 variant="outline"
                 size="sm"
-                className="border-zinc-700/50 bg-zinc-900 hover:bg-zinc-800"
               >
                 Login
               </Button>
@@ -122,7 +129,7 @@ export function Navbar() {
             animate={prefersReducedMotion ? undefined : { opacity: 1, height: "auto" }}
             exit={prefersReducedMotion ? undefined : { opacity: 0, height: 0 }}
             transition={{ duration: 0.2 }}
-            className="md:hidden border-t border-zinc-800 bg-zinc-950"
+            className="md:hidden border-t border-border bg-background"
           >
             <div className="container px-4 py-4 space-y-2">
               {navLinks.map((link) => (
@@ -130,7 +137,7 @@ export function Navbar() {
                   <Button
                     variant="ghost"
                     className={`w-full justify-start gap-2 ${
-                      isActive(link.href) ? "bg-zinc-800 text-white" : "text-zinc-300"
+                      isActive(link.href) ? activeClass : inactiveClass
                     }`}
                     onClick={() => setMobileMenuOpen(false)}
                   >
@@ -140,13 +147,18 @@ export function Navbar() {
                 </Link>
               ))}
               
-              <div className="pt-2 border-t border-zinc-800 space-y-2">
+              <div className="pt-2 border-t border-border space-y-2">
+                 <div className="flex items-center justify-between px-3 py-2">
+                    <div className="text-sm font-medium text-muted-foreground">Theme</div>
+                    <ThemeToggle />
+                </div>
                 {user ? (
                   <>
+                    <div className="pt-2 border-t border-border" />
                     <Link href="/settings">
                       <Button
                         variant="ghost"
-                        className="w-full justify-start gap-2 text-zinc-300 hover:text-white"
+                        className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
                         onClick={() => setMobileMenuOpen(false)}
                       >
                         <Settings2 className="w-4 h-4" />
@@ -156,7 +168,7 @@ export function Navbar() {
                     <Link href="/api-docs">
                       <Button
                         variant="ghost"
-                        className="w-full justify-start gap-2 text-zinc-300 hover:text-white"
+                        className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
                         onClick={() => setMobileMenuOpen(false)}
                       >
                         <Book className="w-4 h-4" />
@@ -172,7 +184,7 @@ export function Navbar() {
                     >
                       <Button
                         variant="ghost"
-                        className="w-full justify-start gap-2 text-zinc-300 hover:text-white"
+                        className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
                       >
                         <Icons.github className="w-4 h-4" />
                         GitHub

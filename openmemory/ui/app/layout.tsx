@@ -54,7 +54,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="min-h-screen font-sans antialiased flex flex-col bg-zinc-950">
+      <body className="min-h-screen font-sans antialiased flex flex-col bg-background text-foreground">
         <Providers>
           <AuthProvider>
             <ThemeProvider
