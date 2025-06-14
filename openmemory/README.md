@@ -96,6 +96,16 @@ pnpm install
 pnpm dev
 ```
 
+### MCP Client Setup
+
+Use the `install-mcp` utility to connect a client. The general command format is as follows:
+
+```bash
+npx install-mcp http://localhost:8765/mcp/<client-name>/sse/<user-id> --client <client-name>
+```
+
+Replace `<client-name>` with the desired client name and `<user-id>` with the value specified in your environment variables.
+
 
 ## Project Structure
 
