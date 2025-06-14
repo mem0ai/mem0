@@ -1,0 +1,307 @@
+---
+title: Multimodal Support
+description: Integrate images and documents into your interactions with Mem0
+icon: "image"
+iconType: "solid"
+---
+
+<Snippet file="paper-release.mdx" />
+
+Mem0 extends its capabilities beyond text by supporting multimodal data, including images and documents. With this feature, users can seamlessly integrate visual and document content into their interactions—allowing Mem0 to extract relevant information from various media types and enrich the memory system.
+
+## How It Works
+
+When a user submits an image or document, Mem0 processes it to extract textual information and other pertinent details. These details are then added to the user's memory, enhancing the system's ability to understand and recall multimodal inputs.
+
+<CodeGroup>
+```python Python
+import os
+from mem0 import MemoryClient
+
+os.environ["MEM0_API_KEY"] = "your-api-key"
+
+client = MemoryClient()
+
+messages = [
+    {
+        "role": "user",
+        "content": "Hi, my name is Alice."
+    },
+    {
+        "role": "assistant",
+        "content": "Nice to meet you, Alice! What do you like to eat?"
+    },
+    {
+        "role": "user",
+        "content": {
+            "type": "image_url",
+            "image_url": {
+                "url": "https://www.superhealthykids.com/wp-content/uploads/2021/10/best-veggie-pizza-featured-image-square-2.jpg"
+            }
+        }
+    },
+]
+
+# Calling the add method to ingest messages into the memory system
+client.add(messages, user_id="alice")
+```
+
+```typescript TypeScript
+import MemoryClient from "mem0ai";
+
+const client = new MemoryClient();
+
+const messages = [
+    {
+        role: "user",
+        content: "Hi, my name is Alice."
+    },
+    {
+        role: "assistant",
+        content: "Nice to meet you, Alice! What do you like to eat?"
+    },
+    {
+        role: "user",
+        content: {
+            type: "image_url",
+            image_url: {
+                url: "https://www.superhealthykids.com/wp-content/uploads/2021/10/best-veggie-pizza-featured-image-square-2.jpg"
+            }
+        }
+    },
+]
+
+await client.add(messages, { user_id: "alice" })
+```
+
+```json Output
+{
+  "results": [
+    {
+      "memory": "Name is Alice",
+      "event": "ADD",
+      "id": "7ae113a3-3cb5-46e9-b6f7-486c36391847"
+    },
+    {
+      "memory": "Likes large pizza with toppings including cherry tomatoes, black olives, green spinach, yellow bell peppers, diced ham, and sliced mushrooms",
+      "event": "ADD",
+      "id": "56545065-7dee-4acf-8bf2-a5b2535aabb3"
+    }
+  ]
+}
+```
+</CodeGroup>
+
+## Supported Media Types
+
+Mem0 currently supports the following media types:
+
+1. **Images** - JPG, PNG, and other common image formats
+2. **Documents** - MDX, TXT, and PDF files
+
+## Integration Methods
+
+### 1. Images
+
+#### Using an Image URL (Recommended)
+
+You can include an image by providing its direct URL. This method is simple and efficient for online images.
+
+```python {2, 5-13}
+# Define the image URL
+image_url = "https://www.superhealthykids.com/wp-content/uploads/2021/10/best-veggie-pizza-featured-image-square-2.jpg"
+
+# Create the message dictionary with the image URL
+image_message = {
+    "role": "user",
+    "content": {
+        "type": "image_url",
+        "image_url": {
+            "url": image_url
+        }
+    }
+}
+client.add([image_message], user_id="alice")
+```
+
+#### Using Base64 Image Encoding for Local Files
+
+For local images—or when embedding the image directly is preferable—you can use a Base64-encoded string.
+
+<CodeGroup>
+```python Python
+import base64
+
+# Path to the image file
+image_path = "path/to/your/image.jpg"
+
+# Encode the image in Base64
+with open(image_path, "rb") as image_file:
+    base64_image = base64.b64encode(image_file.read()).decode("utf-8")
+
+# Create the message dictionary with the Base64-encoded image
+image_message = {
+    "role": "user",
+    "content": {
+        "type": "image_url",
+        "image_url": {
+            "url": f"data:image/jpeg;base64,{base64_image}"
+        }
+    }
+}
+client.add([image_message], user_id="alice")
+```
+
+```typescript TypeScript
+import MemoryClient from "mem0ai";
+import fs from 'fs';
+
+const imagePath = 'path/to/your/image.jpg';
+
+const base64Image = fs.readFileSync(imagePath, { encoding: 'base64' });
+
+const imageMessage = {
+    role: "user",
+    content: {
+        type: "image_url",
+        image_url: {
+            url: `data:image/jpeg;base64,${base64Image}`
+        }
+    }
+};
+
+await client.add([imageMessage], { user_id: "alice" })
+```
+</CodeGroup>
+
+### 2. Text Documents (MDX/TXT)
+
+Mem0 supports both online and local text documents in MDX or TXT format.
+
+#### Using a Document URL
+
+```python
+# Define the document URL
+document_url = "https://www.w3.org/TR/2003/REC-PNG-20031110/iso_8859-1.txt"
+
+# Create the message dictionary with the document URL
+document_message = {
+    "role": "user",
+    "content": {
+        "type": "mdx_url",
+        "mdx_url": {
+            "url": document_url
+        }
+    }
+}
+client.add([document_message], user_id="alice")
+```
+
+#### Using Base64 Encoding for Local Documents
+
+```python
+import base64
+
+# Path to the document file
+document_path = "path/to/your/document.txt"
+
+# Function to convert file to Base64
+def file_to_base64(file_path):
+    with open(file_path, "rb") as file:
+        return base64.b64encode(file.read()).decode('utf-8')
+
+# Encode the document in Base64
+base64_document = file_to_base64(document_path)
+
+# Create the message dictionary with the Base64-encoded document
+document_message = {
+    "role": "user",
+    "content": {
+        "type": "mdx_url",
+        "mdx_url": {
+            "url": base64_document
+        }
+    }
+}
+client.add([document_message], user_id="alice")
+```
+
+### 3. PDF Documents
+
+Mem0 supports PDF documents via URL.
+
+```python
+# Define the PDF URL
+pdf_url = "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
+
+# Create the message dictionary with the PDF URL
+pdf_message = {
+    "role": "user",
+    "content": {
+        "type": "pdf_url",
+        "pdf_url": {
+            "url": pdf_url
+        }
+    }
+}
+client.add([pdf_message], user_id="alice")
+```
+
+## Complete Example with Multiple File Types
+
+Here's a comprehensive example showing how to work with different file types:
+
+```python
+import base64
+from mem0 import MemoryClient
+
+client = MemoryClient()
+
+def file_to_base64(file_path):
+    with open(file_path, "rb") as file:
+        return base64.b64encode(file.read()).decode('utf-8')
+
+# Example 1: Using an image URL
+image_message = {
+    "role": "user",
+    "content": {
+        "type": "image_url",
+        "image_url": {
+            "url": "https://example.com/sample-image.jpg"
+        }
+    }
+}
+
+# Example 2: Using a text document URL
+text_message = {
+    "role": "user",
+    "content": {
+        "type": "mdx_url",
+        "mdx_url": {
+            "url": "https://www.w3.org/TR/2003/REC-PNG-20031110/iso_8859-1.txt"
+        }
+    }
+}
+
+# Example 3: Using a PDF URL
+pdf_message = {
+    "role": "user",
+    "content": {
+        "type": "pdf_url",
+        "pdf_url": {
+            "url": "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
+        }
+    }
+}
+
+# Add each message to the memory system
+client.add([image_message], user_id="alice")
+client.add([text_message], user_id="alice")
+client.add([pdf_message], user_id="alice")
+```
+
+Using these methods, you can seamlessly incorporate various media types into your interactions, further enhancing Mem0's multimodal capabilities.
+
+If you have any questions, please feel free to reach out to us using one of the following methods:
+
+<Snippet file="get-help.mdx" />

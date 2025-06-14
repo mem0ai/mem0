@@ -70,6 +70,9 @@ cache:
   config:
     similarity_threshold: 0.8
     auto_flush: 50
+
+memory:
+  top_k: 10
 ```
 
 ```json config.json
@@ -92,7 +95,7 @@ cache:
       "api_key": "sk-xxx",
       "model_kwargs": {"response_format": {"type": "json_object"}},
       "api_version": "2024-02-01",
-      "http_client_proxies": "http://testproxy.mem0.net:8000",
+      "http_client_proxies": "http://testproxy.mem0.net:8000"
     }
   },
   "vectordb": {
@@ -108,7 +111,7 @@ cache:
     "config": {
       "model": "text-embedding-ada-002",
       "api_key": "sk-xxx",
-      "http_client_proxies": "http://testproxy.mem0.net:8000",
+      "http_client_proxies": "http://testproxy.mem0.net:8000"
     }
   },
   "chunker": {
@@ -119,14 +122,17 @@ cache:
   },
   "cache": {
     "similarity_evaluation": {
-        "strategy": "distance",
-        "max_distance": 1.0,
+      "strategy": "distance",
+      "max_distance": 1.0
     },
     "config": {
-        "similarity_threshold": 0.8,
-        "auto_flush": 50,
-    },
+      "similarity_threshold": 0.8,
+      "auto_flush": 50
+    }
   },
+  "memory": {
+    "top_k": 10
+  }
 }
 ```
 
@@ -181,14 +187,17 @@ config = {
         'min_chunk_size': 0
     },
     'cache': {
-      'similarity_evaluation': {
-          'strategy': 'distance',
-          'max_distance': 1.0,
-      },
-      'config': {
-          'similarity_threshold': 0.8,
-          'auto_flush': 50,
-      },
+        'similarity_evaluation': {
+            'strategy': 'distance',
+            'max_distance': 1.0,
+        },
+        'config': {
+            'similarity_threshold': 0.8,
+            'auto_flush': 50,
+        },
+    },
+    'memory': {
+        'top_k': 10,
     },
 }
 ```

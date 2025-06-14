@@ -1,10 +1,13 @@
 // @ts-nocheck
 import type { TelemetryClient, TelemetryOptions } from "./telemetry.types";
 
-let version = "2.1.12";
+let version = "2.1.26";
 
 // Safely check for process.env in different environments
-const MEM0_TELEMETRY = process?.env?.MEM0_TELEMETRY === "false" ? false : true;
+let MEM0_TELEMETRY = true;
+try {
+  MEM0_TELEMETRY = process?.env?.MEM0_TELEMETRY === "false" ? false : true;
+} catch (error) {}
 const POSTHOG_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX";
 const POSTHOG_HOST = "https://us.i.posthog.com/i/v0/e/";
 

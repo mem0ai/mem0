@@ -1,0 +1,78 @@
+---
+title: Custom Instructions
+description: 'Enhance your product experience by adding custom instructions tailored to your needs'
+icon: "pencil"
+iconType: "solid"
+---
+
+<Snippet file="paper-release.mdx" />
+
+## Introduction to Custom Instructions
+
+Custom instructions allow you to define specific guidelines for your project. This feature helps ensure consistency and provides clear direction for handling project-specific requirements.
+
+Custom instructions are particularly useful when you want to:
+- Define how information should be extracted from conversations
+- Specify what types of data should be captured or ignored
+- Set rules for categorizing and organizing memories
+- Maintain consistent handling of project-specific requirements
+
+When custom instructions are set at the project level, they will be applied to all new memories added within that project. This ensures that your data is processed according to your defined guidelines across your entire project.
+
+## Setting Custom Instructions
+
+You can set custom instructions for your project using the following method:
+
+<CodeGroup>
+```python Code
+# Update custom instructions
+prompt ="""
+Your Task: Extract ONLY health-related information from conversations, focusing on the following areas:
+
+1. Medical Conditions, Symptoms, and Diagnoses:
+   - Illnesses, disorders, or symptoms (e.g., fever, diabetes).
+   - Confirmed or suspected diagnoses.
+
+2. Medications, Treatments, and Procedures:
+   - Prescription or OTC medications (names, dosages).
+   - Treatments, therapies, or medical procedures.
+
+3. Diet, Exercise, and Sleep:
+   - Dietary habits, fitness routines, and sleep patterns.
+
+4. Doctor Visits and Appointments:
+   - Past, upcoming, or regular medical visits.
+
+5. Health Metrics:
+   - Data like weight, BP, cholesterol, or sugar levels.
+
+Guidelines:
+- Focus solely on health-related content.
+- Maintain clarity and context accuracy while recording.
+"""
+response = client.update_project(custom_instructions=prompt)
+print(response)
+```
+
+```json Output
+{
+    "message": "Updated custom instructions"
+}
+```
+</CodeGroup>
+
+You can also retrieve the current custom instructions:
+
+<CodeGroup>
+```python Code
+# Retrieve current custom instructions
+response = client.get_project(fields=["custom_instructions"])
+print(response)
+```
+
+```json Output
+{
+    "custom_instructions": "Your Task: Extract ONLY health-related information from conversations, focusing on the following areas:\n1. Medical Conditions, Symptoms, and Diagnoses - illnesses, disorders, or symptoms (e.g., fever, diabetes), confirmed or suspected diagnoses.\n2. Medications, Treatments, and Procedures - prescription or OTC medications (names, dosages), treatments, therapies, or medical procedures.\n3. Diet, Exercise, and Sleep - dietary habits, fitness routines, and sleep patterns.\n4. Doctor Visits and Appointments - past, upcoming, or regular medical visits.\n5. Health Metrics - data like weight, BP, cholesterol, or sugar levels.\n\nGuidelines: Focus solely on health-related content. Maintain clarity and context accuracy while recording."
+}
+```
+</CodeGroup>

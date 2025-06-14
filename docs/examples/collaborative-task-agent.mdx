@@ -1,0 +1,125 @@
+---
+title: Multi-User Collaboration with Mem0
+---
+
+<Snippet file="paper-release.mdx" />
+
+## Overview
+
+Build a multi-user collaborative chat or task management system with Mem0. Each message is attributed to its author, and all messages are stored in a shared project space. Mem0 makes it easy to track contributions, sort and group messages, and collaborate in real time.
+
+## Setup
+
+Install the required packages:
+
+```bash
+pip install openai mem0ai
+```
+
+## Full Code Example
+
+```python
+from openai import OpenAI
+from mem0 import Memory
+import os
+from datetime import datetime
+from collections import defaultdict
+
+# Set your OpenAI API key
+os.environ["OPENAI_API_KEY"] = "sk-your-key"
+
+# Shared project context
+RUN_ID = "project-demo"
+
+# Initialize Mem0
+mem = Memory()
+
+class CollaborativeAgent:
+    def __init__(self, run_id):
+        self.run_id = run_id
+        self.mem = mem
+
+    def add_message(self, role, name, content):
+        msg = {"role": role, "name": name, "content": content}
+        self.mem.add([msg], run_id=self.run_id, infer=False)
+
+    def brainstorm(self, prompt):
+        # Get recent messages for context
+        memories = self.mem.search(prompt, run_id=self.run_id, limit=5)["results"]
+        context = "\n".join(f"- {m['memory']} (by {m.get('actor_id', 'Unknown')})" for m in memories)
+        client = OpenAI()
+        messages = [
+            {"role": "system", "content": "You are a helpful project assistant."},
+            {"role": "user", "content": f"Prompt: {prompt}\nContext:\n{context}"}
+        ]
+        reply = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages
+        ).choices[0].message.content.strip()
+        self.add_message("assistant", "assistant", reply)
+        return reply
+
+    def get_all_messages(self):
+        return self.mem.get_all(run_id=self.run_id)["results"]
+
+    def print_sorted_by_time(self):
+        messages = self.get_all_messages()
+        messages.sort(key=lambda m: m.get('created_at', ''))
+        print("\n--- Messages (sorted by time) ---")
+        for m in messages:
+            who = m.get("actor_id") or "Unknown"
+            ts = m.get('created_at', 'Timestamp N/A')
+            try:
+                dt = datetime.fromisoformat(ts.replace('Z', '+00:00'))
+                ts_fmt = dt.strftime('%Y-%m-%d %H:%M:%S')
+            except Exception:
+                ts_fmt = ts
+            print(f"[{ts_fmt}] [{who}] {m['memory']}")
+
+    def print_grouped_by_actor(self):
+        messages = self.get_all_messages()
+        grouped = defaultdict(list)
+        for m in messages:
+            grouped[m.get("actor_id") or "Unknown"].append(m)
+        print("\n--- Messages (grouped by actor) ---")
+        for actor, mems in grouped.items():
+            print(f"\n=== {actor} ===")
+            for m in mems:
+                ts = m.get('created_at', 'Timestamp N/A')
+                try:
+                    dt = datetime.fromisoformat(ts.replace('Z', '+00:00'))
+                    ts_fmt = dt.strftime('%Y-%m-%d %H:%M:%S')
+                except Exception:
+                    ts_fmt = ts
+                print(f"[{ts_fmt}] {m['memory']}")
+```
+
+## Usage
+
+```python
+# Example usage
+agent = CollaborativeAgent(RUN_ID)
+agent.add_message("user", "alice", "Let's list tasks for the new landing page.")
+agent.add_message("user", "bob", "I'll own the hero section copy.")
+agent.add_message("user", "carol", "I'll choose product screenshots.")
+
+# Brainstorm with context
+print("\nAssistant reply:\n", agent.brainstorm("What are the current open tasks?"))
+
+# Print all messages sorted by time
+agent.print_sorted_by_time()
+
+# Print all messages grouped by actor
+agent.print_grouped_by_actor()
+```
+
+## Key Points
+
+- Each message is attributed to a user or agent (actor)
+- All messages are stored in a shared project space (`run_id`)
+- You can sort messages by time, group by actor, and format timestamps for clarity
+- Mem0 makes it easy to build collaborative, attributed chat/task systems
+
+## Conclusion
+
+Mem0 enables fast, transparent collaboration for teams and agents, with full attribution, flexible memory search, and easy message organization.

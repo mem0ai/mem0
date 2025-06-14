@@ -12,7 +12,7 @@ export interface LLMResponse {
 export interface LLM {
   generateResponse(
     messages: Array<{ role: string; content: string }>,
-    response_format: { type: string },
+    response_format?: { type: string },
     tools?: any[],
   ): Promise<any>;
   generateChat(messages: Message[]): Promise<LLMResponse>;

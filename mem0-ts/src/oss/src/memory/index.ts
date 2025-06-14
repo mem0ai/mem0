@@ -34,6 +34,8 @@ import {
 } from "./memory.types";
 import { parse_vision_messages } from "../utils/memory";
 import { HistoryManager } from "../storage/base";
+import { captureClientEvent } from "../utils/telemetry";
+
 export class Memory {
   private config: MemoryConfig;
   private customPrompt: string | undefined;
@@ -41,10 +43,11 @@ export class Memory {
   private vectorStore: VectorStore;
   private llm: LLM;
   private db: HistoryManager;
-  private collectionName: string;
+  private collectionName: string | undefined;
   private apiVersion: string;
   private graphMemory?: MemoryGraph;
   private enableGraph: boolean;
+  telemetryId: string;
 
   constructor(config: Partial<MemoryConfig> = {}) {
     // Merge and validate config
@@ -85,10 +88,57 @@ export class Memory {
     this.collectionName = this.config.vectorStore.config.collectionName;
     this.apiVersion = this.config.version || "v1.0";
     this.enableGraph = this.config.enableGraph || false;
+    this.telemetryId = "anonymous";
 
     // Initialize graph memory if configured
     if (this.enableGraph && this.config.graphStore) {
       this.graphMemory = new MemoryGraph(this.config);
+    }
+
+    // Initialize telemetry if vector store is initialized
+    this._initializeTelemetry();
+  }
+
+  private async _initializeTelemetry() {
+    try {
+      await this._getTelemetryId();
+
+      // Capture initialization event
+      await captureClientEvent("init", this, {
+        api_version: this.apiVersion,
+        client_type: "Memory",
+        collection_name: this.collectionName,
+        enable_graph: this.enableGraph,
+      });
+    } catch (error) {}
+  }
+
+  private async _getTelemetryId() {
+    try {
+      if (
+        !this.telemetryId ||
+        this.telemetryId === "anonymous" ||
+        this.telemetryId === "anonymous-supabase"
+      ) {
+        this.telemetryId = await this.vectorStore.getUserId();
+      }
+      return this.telemetryId;
+    } catch (error) {
+      this.telemetryId = "anonymous";
+      return this.telemetryId;
+    }
+  }
+
+  private async _captureEvent(methodName: string, additionalData = {}) {
+    try {
+      await this._getTelemetryId();
+      await captureClientEvent(methodName, this, {
+        ...additionalData,
+        api_version: this.apiVersion,
+        collection_name: this.collectionName,
+      });
+    } catch (error) {
+      console.error(`Failed to capture ${methodName} event:`, error);
     }
   }
 
@@ -106,6 +156,12 @@ export class Memory {
     messages: string | Message[],
     config: AddMemoryOptions,
   ): Promise<SearchResult> {
+    await this._captureEvent("add", {
+      message_count: Array.isArray(messages) ? messages.length : 1,
+      has_metadata: !!config.metadata,
+      has_filters: !!config.filters,
+      infer: config.infer,
+    });
     const {
       userId,
       agentId,
@@ -185,12 +241,10 @@ export class Memory {
     }
     const parsedMessages = messages.map((m) => m.content).join("\n");
 
-    // Get prompts
     const [systemPrompt, userPrompt] = this.customPrompt
       ? [this.customPrompt, `Input:\n${parsedMessages}`]
       : getFactRetrievalMessages(parsedMessages);
 
-    // Extract facts using LLM
     const response = await this.llm.generateResponse(
       [
         { role: "system", content: systemPrompt },
@@ -199,8 +253,18 @@ export class Memory {
       { type: "json_object" },
     );
 
-    const cleanResponse = removeCodeBlocks(response);
-    const facts = JSON.parse(cleanResponse).facts || [];
+    const cleanResponse = removeCodeBlocks(response as string);
+    let facts: string[] = [];
+    try {
+      facts = JSON.parse(cleanResponse).facts || [];
+    } catch (e) {
+      console.error(
+        "Failed to parse facts from LLM response:",
+        cleanResponse,
+        e,
+      );
+      facts = [];
+    }
 
     // Get embeddings for new facts
     const newMessageEmbeddings: Record<string, number[]> = {};
@@ -236,13 +300,24 @@ export class Memory {
 
     // Get memory update decisions
     const updatePrompt = getUpdateMemoryMessages(uniqueOldMemories, facts);
+
     const updateResponse = await this.llm.generateResponse(
       [{ role: "user", content: updatePrompt }],
       { type: "json_object" },
     );
 
-    const cleanUpdateResponse = removeCodeBlocks(updateResponse);
-    const memoryActions = JSON.parse(cleanUpdateResponse).memory || [];
+    const cleanUpdateResponse = removeCodeBlocks(updateResponse as string);
+    let memoryActions: any[] = [];
+    try {
+      memoryActions = JSON.parse(cleanUpdateResponse).memory || [];
+    } catch (e) {
+      console.error(
+        "Failed to parse memory actions from LLM response:",
+        cleanUpdateResponse,
+        e,
+      );
+      memoryActions = [];
+    }
 
     // Process memory actions
     const results: MemoryItem[] = [];
@@ -341,6 +416,11 @@ export class Memory {
     query: string,
     config: SearchMemoryOptions,
   ): Promise<SearchResult> {
+    await this._captureEvent("search", {
+      query_length: query.length,
+      limit: config.limit,
+      has_filters: !!config.filters,
+    });
     const { userId, agentId, runId, limit = 100, filters = {} } = config;
 
     if (userId) filters.userId = userId;
@@ -402,12 +482,14 @@ export class Memory {
   }
 
   async update(memoryId: string, data: string): Promise<{ message: string }> {
+    await this._captureEvent("update", { memory_id: memoryId });
     const embedding = await this.embedder.embed(data);
     await this.updateMemory(memoryId, data, { [data]: embedding });
     return { message: "Memory updated successfully!" };
   }
 
   async delete(memoryId: string): Promise<{ message: string }> {
+    await this._captureEvent("delete", { memory_id: memoryId });
     await this.deleteMemory(memoryId);
     return { message: "Memory deleted successfully!" };
   }
@@ -415,6 +497,11 @@ export class Memory {
   async deleteAll(
     config: DeleteAllMemoryOptions,
   ): Promise<{ message: string }> {
+    await this._captureEvent("delete_all", {
+      has_user_id: !!config.userId,
+      has_agent_id: !!config.agentId,
+      has_run_id: !!config.runId,
+    });
     const { userId, agentId, runId } = config;
 
     const filters: SearchFilters = {};
@@ -441,18 +528,58 @@ export class Memory {
   }
 
   async reset(): Promise<void> {
+    await this._captureEvent("reset");
     await this.db.reset();
-    await this.vectorStore.deleteCol();
-    if (this.graphMemory) {
-      await this.graphMemory.deleteAll({ userId: "default" });
+
+    // Check provider before attempting deleteCol
+    if (this.config.vectorStore.provider.toLowerCase() !== "langchain") {
+      try {
+        await this.vectorStore.deleteCol();
+      } catch (e) {
+        console.error(
+          `Failed to delete collection for provider '${this.config.vectorStore.provider}':`,
+          e,
+        );
+        // Decide if you want to re-throw or just log
+      }
+    } else {
+      console.warn(
+        "Memory.reset(): Skipping vector store collection deletion as 'langchain' provider is used. Underlying Langchain vector store data is not cleared by this operation.",
+      );
     }
+
+    if (this.graphMemory) {
+      await this.graphMemory.deleteAll({ userId: "default" }); // Assuming this is okay, or needs similar check?
+    }
+
+    // Re-initialize factories/clients based on the original config
+    this.embedder = EmbedderFactory.create(
+      this.config.embedder.provider,
+      this.config.embedder.config,
+    );
+    // Re-create vector store instance - crucial for Langchain to reset wrapper state if needed
     this.vectorStore = VectorStoreFactory.create(
       this.config.vectorStore.provider,
-      this.config.vectorStore.config,
+      this.config.vectorStore.config, // This will pass the original client instance back
     );
+    this.llm = LLMFactory.create(
+      this.config.llm.provider,
+      this.config.llm.config,
+    );
+    // Re-init DB if needed (though db.reset() likely handles its state)
+    // Re-init Graph if needed
+
+    // Re-initialize telemetry
+    this._initializeTelemetry();
   }
 
   async getAll(config: GetAllMemoryOptions): Promise<SearchResult> {
+    await this._captureEvent("get_all", {
+      limit: config.limit,
+      has_user_id: !!config.userId,
+      has_agent_id: !!config.agentId,
+      has_run_id: !!config.runId,
+    });
     const { userId, agentId, runId, limit = 100 } = config;
 
     const filters: SearchFilters = {};

@@ -1,0 +1,204 @@
+---
+title: Custom Categories
+description: 'Enhance your product experience by adding custom categories tailored to your needs'
+icon: "tags"
+iconType: "solid"
+---
+
+<Snippet file="paper-release.mdx" />
+
+## How to set custom categories?
+
+You can now create custom categories tailored to your specific needs, instead of using the default categories such as travel, sports, music, and more (see [default categories](#default-categories) below). **When custom categories are provided, they will override the default categories.**
+
+There are two ways to set custom categories:
+
+### 1. Project Level
+
+You can set custom categories at the project level, which will be applied to all memories added within that project. Mem0 will automatically assign relevant categories from your custom set to new memories based on their content. Setting custom categories at the project level will override the default categories.
+
+Here's how to set custom categories:
+
+<CodeGroup>
+```python Code
+import os
+from mem0 import MemoryClient
+
+os.environ["MEM0_API_KEY"] = "your-api-key"
+
+client = MemoryClient()
+
+# Update custom categories
+new_categories = [
+    {"lifestyle_management_concerns": "Tracks daily routines, habits, hobbies and interests including cooking, time management and work-life balance"},
+    {"seeking_structure": "Documents goals around creating routines, schedules, and organized systems in various life areas"},
+    {"personal_information": "Basic information about the user including name, preferences, and personality traits"}
+]
+
+response = client.update_project(custom_categories = new_categories)
+print(response)
+```
+
+```json Output
+{
+    "message": "Updated custom categories"
+}
+```
+</CodeGroup>
+
+This is how you will use these custom categories during the `add` API call:
+
+<CodeGroup>
+```python Code
+messages = [
+    {"role": "user", "content": "My name is Alice. I need help organizing my daily schedule better. I feel overwhelmed trying to balance work, exercise, and social life."},
+    {"role": "assistant", "content": "I understand how overwhelming that can feel. Let's break this down together. What specific areas of your schedule feel most challenging to manage?"},
+    {"role": "user", "content": "I want to be more productive at work, maintain a consistent workout routine, and still have energy for friends and hobbies."},
+    {"role": "assistant", "content": "Those are great goals for better time management. What's one small change you could make to start improving your daily routine?"},
+]
+
+# Add memories with custom categories
+client.add(messages, user_id="alice")
+```
+
+```python Memories with categories
+# Following categories will be created for the memories added
+Wants to have energy for friends and hobbies (lifestyle_management_concerns)
+Wants to maintain a consistent workout routine (seeking_structure, lifestyle_management_concerns)
+Wants to be more productive at work (lifestyle_management_concerns, seeking_structure)
+Name is Alice (personal_information)
+```
+</CodeGroup>
+
+You can also retrieve the current custom categories:
+
+<CodeGroup>
+```python Code
+# Get current custom categories
+categories = client.get_project(fields=["custom_categories"])
+print(categories)
+```
+
+```json Output
+{
+  "custom_categories": [
+    {"lifestyle_management_concerns": "Tracks daily routines, habits, hobbies and interests including cooking, time management and work-life balance"},
+    {"seeking_structure": "Documents goals around creating routines, schedules, and organized systems in various life areas"},
+    {"personal_information": "Basic information about the user including name, preferences, and personality traits"}
+  ]
+}
+
+```
+</CodeGroup>
+
+These project-level categories will be automatically applied to all new memories added to the project.
+
+
+
+### 2. During the `add` API call
+You can also set custom categories during the `add` API call. This will override any project-level custom categories for that specific memory addition. For example, if you want to use different categories for food-related memories, you can provide custom categories like "food" and "user_preferences" in the `add` call. These custom categories will be used instead of the project-level categories when categorizing those specific memories.
+
+<CodeGroup>
+```python Code
+import os
+from mem0 import MemoryClient
+
+os.environ["MEM0_API_KEY"] = "your-api-key"
+
+client = MemoryClient(api_key="<your_mem0_api_key>")
+
+custom_categories = [
+    {"seeking_structure": "Documents goals around creating routines, schedules, and organized systems in various life areas"},
+    {"personal_information": "Basic information about the user including name, preferences, and personality traits"}
+]
+
+messages = [
+    {"role": "user", "content": "My name is Alice. I need help organizing my daily schedule better. I feel overwhelmed trying to balance work, exercise, and social life."},
+    {"role": "assistant", "content": "I understand how overwhelming that can feel. Let's break this down together. What specific areas of your schedule feel most challenging to manage?"},
+    {"role": "user", "content": "I want to be more productive at work, maintain a consistent workout routine, and still have energy for friends and hobbies."},
+    {"role": "assistant", "content": "Those are great goals for better time management. What's one small change you could make to start improving your daily routine?"},
+]
+
+client.add(messages, user_id="alice", custom_categories=custom_categories)
+```
+
+```python Memories with categories
+# Following categories will be created for the memories added
+Wants to have energy for friends and hobbies (seeking_structure)
+Wants to maintain a consistent workout routine (seeking_structure)
+Wants to be more productive at work (seeking_structure)
+Name is Alice (personal_information)
+```
+</CodeGroup>
+
+<Note>Providing more detailed and specific category descriptions will lead to more accurate and relevant memory categorization.</Note>
+
+
+## Default Categories
+Here is the list of **default categories**. If you don't specify any custom categories using the above methods, these will be used as default categories.
+```
+- personal_details
+- family
+- professional_details
+- sports
+- travel
+- food
+- music
+- health
+- technology
+- hobbies
+- fashion
+- entertainment
+- milestones
+- user_preferences
+- misc
+```
+
+<CodeGroup>
+```python Code
+import os
+from mem0 import MemoryClient
+
+os.environ["MEM0_API_KEY"] = "your-api-key"
+
+client = MemoryClient()
+
+messages = [
+    {"role": "user", "content": "Hi, my name is Alice."},
+    {"role": "assistant", "content": "Hi Alice, what sports do you like to play?"},
+    {"role": "user", "content": "I love playing badminton, football, and basketball. I'm quite athletic!"},
+    {"role": "assistant", "content": "That's great! Alice seems to enjoy both individual sports like badminton and team sports like football and basketball."},
+    {"role": "user", "content": "Sometimes, I also draw and sketch in my free time."},
+    {"role": "assistant", "content": "That's cool! I'm sure you're good at it."}
+]
+
+# Add memories with default categories
+client.add(messages, user_id='alice')
+```
+
+```python Memories with categories
+# Following categories will be created for the memories added
+Sometimes draws and sketches in free time (hobbies)
+Is quite athletic (sports)
+Loves playing badminton, football, and basketball (sports)
+Name is Alice (personal_details)
+```
+</CodeGroup>
+
+You can check whether default categories are being used by calling `get_project()`. If `custom_categories` returns `None`, it means the default categories are being used.
+
+<CodeGroup>
+```python Code
+client.get_project(["custom_categories"])
+```
+
+```json Output
+{
+    'custom_categories': None
+}
+```
+</CodeGroup>
+
+If you have any questions, please feel free to reach out to us using one of the following methods:
+
+<Snippet file="get-help.mdx" />

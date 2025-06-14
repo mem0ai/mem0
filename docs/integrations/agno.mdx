@@ -1,0 +1,174 @@
+---
+title: Agno
+---
+<Snippet file="paper-release.mdx" />
+
+Integrate [**Mem0**](https://github.com/mem0ai/mem0) with [Agno](https://github.com/agno-agi/agno), a Python framework for building autonomous agents. This integration enables Agno agents to access persistent memory across conversations, enhancing context retention and personalization.
+
+## Overview
+
+1. 🧠 Store and retrieve memories from Mem0 within Agno agents
+2. 🖼️ Support for multimodal interactions (text and images)
+3. 🔍 Semantic search for relevant past conversations
+4. 🌐 Personalized responses based on user history
+
+## Prerequisites
+
+Before setting up Mem0 with Agno, ensure you have:
+
+1. Installed the required packages:
+```bash
+pip install agno-ai mem0ai
+```
+
+2. Valid API keys:
+   - [Mem0 API Key](https://app.mem0.ai/dashboard/api-keys)
+   - OpenAI API Key (for the agent model)
+
+## Integration Example
+
+The following example demonstrates how to create an Agno agent with Mem0 memory integration, including support for image processing:
+
+```python
+import base64
+from pathlib import Path
+from typing import Optional
+
+from agno.agent import Agent
+from agno.media import Image
+from agno.models.openai import OpenAIChat
+from mem0 import MemoryClient
+
+
+# Initialize the Mem0 client
+client = MemoryClient()
+
+# Define the agent
+agent = Agent(
+    name="Personal Agent",
+    model=OpenAIChat(id="gpt-4"),
+    description="You are a helpful personal agent that helps me with day to day activities."
+                "You can process both text and images.",
+    markdown=True
+)
+
+
+def chat_user(
+    user_input: Optional[str] = None,
+    user_id: str = "user_123",
+    image_path: Optional[str] = None
+) -> str:
+    """
+    Handle user input with memory integration, supporting both text and images.
+
+    Args:
+        user_input: The user's text input
+        user_id: Unique identifier for the user
+        image_path: Path to an image file if provided
+
+    Returns:
+        The agent's response as a string
+    """
+    if image_path:
+        # Convert image to base64
+        with open(image_path, "rb") as image_file:
+            base64_image = base64.b64encode(image_file.read()).decode("utf-8")
+
+        # Create message objects for text and image
+        messages = []
+
+        if user_input:
+            messages.append({
+                "role": "user",
+                "content": user_input
+            })
+
+        messages.append({
+            "role": "user",
+            "content": {
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/jpeg;base64,{base64_image}"
+                }
+            }
+        })
+
+        # Store messages in memory
+        client.add(messages, user_id=user_id)
+        print("✅ Image and text stored in memory.")
+
+    if user_input:
+        # Search for relevant memories
+        memories = client.search(user_input, user_id=user_id)
+        memory_context = "\n".join(f"- {m['memory']}" for m in memories)
+
+        # Construct the prompt
+        prompt = f"""
+You are a helpful personal assistant who helps users with their day-to-day activities and keeps track of everything.
+
+Your task is to:
+1. Analyze the given image (if present) and extract meaningful details to answer the user's question.
+2. Use your past memory of the user to personalize your answer.
+3. Combine the image content and memory to generate a helpful, context-aware response.
+
+Here is what I remember about the user:
+{memory_context}
+
+User question:
+{user_input}
+"""
+        # Get response from agent
+        if image_path:
+            response = agent.run(prompt, images=[Image(filepath=Path(image_path))])
+        else:
+            response = agent.run(prompt)
+
+        # Store the interaction in memory
+        client.add(f"User: {user_input}\nAssistant: {response.content}", user_id=user_id)
+        return response.content
+
+    return "No user input or image provided."
+
+
+# Example Usage
+if __name__ == "__main__":
+    response = chat_user(
+        "This is the picture of what I brought with me in the trip to Bahamas",
+        image_path="travel_items.jpeg",
+        user_id="user_123"
+    )
+    print(response)
+```
+
+## Key Features
+
+### 1. Multimodal Memory Storage
+
+The integration supports storing both text and image data:
+
+- **Text Storage**: Conversation history is saved in a structured format
+- **Image Analysis**: Agents can analyze images and store visual information
+- **Combined Context**: Memory retrieval combines both text and visual data
+
+### 2. Personalized Agent Responses
+
+Improve your agent's context awareness:
+
+- **Memory Retrieval**: Semantic search finds relevant past interactions
+- **User Preferences**: Personalize responses based on stored user information
+- **Continuity**: Maintain conversation threads across multiple sessions
+
+### 3. Flexible Configuration
+
+Customize the integration to your needs:
+
+- **User Identification**: Organize memories by user ID
+- **Memory Search**: Configure search relevance and result count
+- **Memory Formatting**: Support for various OpenAI message formats
+
+## Help & Resources
+
+- [Agno Documentation](https://docs.agno.com/introduction)
+- [Mem0 Platform](https://app.mem0.ai/)
+
+<Snippet file="get-help.mdx" />

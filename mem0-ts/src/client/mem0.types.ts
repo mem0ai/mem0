@@ -20,10 +20,19 @@ export interface MemoryOptions {
   start_date?: string;
   end_date?: string;
   custom_categories?: custom_categories[];
+  custom_instructions?: string;
+  timestamp?: number;
+  output_format?: string | OutputFormat;
+  async_mode?: boolean;
 }
 
 export interface ProjectOptions {
   fields?: string[];
+}
+
+export enum OutputFormat {
+  V1 = "v1.0",
+  V1_1 = "v1.1",
 }
 
 export enum API_VERSION {
@@ -45,7 +54,7 @@ export interface MultiModalMessages {
 }
 
 export interface Messages {
-  role: string;
+  role: "user" | "assistant";
   content: string | MultiModalMessages;
 }
 

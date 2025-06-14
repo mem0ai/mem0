@@ -2,9 +2,7 @@ import { Mem0ProviderSettings } from "./mem0-provider";
 import { OpenAIChatSettings } from "@ai-sdk/openai/internal";
 import { AnthropicMessagesSettings } from "@ai-sdk/anthropic/internal";
 import {
-  LanguageModelV1,
-  LanguageModelV1CallOptions,
-  LanguageModelV1Message,
+  LanguageModelV1
 } from "@ai-sdk/provider";
 
 export type Mem0ChatModelId =
@@ -28,6 +26,8 @@ export interface Mem0ConfigSettings {
   top_k?: number;
   threshold?: number;
   rerank?: boolean;
+  enable_graph?: boolean;
+  output_format?: string;
 }
 
 export interface Mem0ChatConfig extends Mem0ConfigSettings, Mem0ProviderSettings {}

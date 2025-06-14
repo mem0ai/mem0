@@ -1,0 +1,106 @@
+---
+title: Direct Import
+description: 'Bypass the memory deduction phase and directly store pre-defined memories for efficient retrieval'
+icon: "arrow-right"
+iconType: "solid"
+---
+
+<Snippet file="paper-release.mdx" />
+
+## How to use Direct Import?
+The Direct Import feature allows users to skip the memory deduction phase and directly input pre-defined memories into the system for storage and retrieval.
+To enable this feature, you need to set the `infer` parameter to `False` in the `add` method.
+
+
+<CodeGroup>
+
+
+```python Python
+messages = [
+    {"role": "user", "content": "Alice loves playing badminton"},
+    {"role": "assistant", "content": "That's great! Alice is a fitness freak"},
+    {"role": "user", "content": "Alice mostly cook at home because of gym plan"},
+]
+
+
+client.add(messages, user_id="alice", infer=False)
+```
+
+```markdown Output
+[]
+```
+</CodeGroup>
+
+You can see that the output of add call is an empty list.
+
+<Note> Only messages with the role "user" will be used for storage. Messages with roles such as "assistant" or "system" will be ignored during the storage process. </Note>
+
+
+## How to retrieve memories?
+
+You can retrieve memories using the `search` method.
+
+<CodeGroup>
+
+```python Python
+client.search("What is Alice's favorite sport?", user_id="alice", output_format="v1.1")
+```
+
+```json Output
+{
+  "results": [
+    {
+      "id": "19d6d7aa-2454-4e58-96fc-e74d9e9f8dd1",
+      "memory": "Alice loves playing badminton",
+      "user_id": "pc123",
+      "metadata": null,
+      "categories": null,
+      "created_at": "2024-10-15T21:52:11.474901-07:00",
+      "updated_at": "2024-10-15T21:52:11.474912-07:00"
+    }
+  ]
+}
+```
+
+</CodeGroup>
+
+## How to retrieve all memories?
+
+You can retrieve all memories using the `get_all` method.
+
+<CodeGroup>
+
+```python Python
+client.get_all(query="What is Alice's favorite sport?", user_id="alice", output_format="v1.1")
+```
+
+```json Output
+{
+  "results": [
+    {
+      "id": "19d6d7aa-2454-4e58-96fc-e74d9e9f8dd1",
+      "memory": "Alice loves playing badminton",
+      "user_id": "pc123",
+      "metadata": null,
+      "categories": null,
+      "created_at": "2024-10-15T21:52:11.474901-07:00",
+      "updated_at": "2024-10-15T21:52:11.474912-07:00"
+    },
+    {
+      "id": "8557f05d-7b3c-47e5-b409-9886f9e314fc",
+      "memory": "Alice mostly cook at home because of gym plan",
+      "user_id": "pc123",
+      "metadata": null,
+      "categories": null,
+      "created_at": "2024-10-15T21:52:11.474929-07:00",
+      "updated_at": "2024-10-15T21:52:11.474932-07:00"
+    }
+  ]
+}
+```
+
+</CodeGroup>
+
+If you have any questions, please feel free to reach out to us using one of the following methods:
+
+<Snippet file="get-help.mdx" />

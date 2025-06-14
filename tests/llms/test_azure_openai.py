@@ -1,6 +1,5 @@
 from unittest.mock import Mock, patch
 
-import httpx
 import pytest
 
 from mem0.configs.llms.base import BaseLlmConfig
