@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label"; 
 import { Icons } from "@/components/icons";
 import { motion } from "framer-motion";
+import { Shield, CheckCircle } from "lucide-react";
 
 export const AuthForm = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -232,16 +233,28 @@ export const AuthForm = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
-            className="mt-6 space-y-3"
+            className="mt-6 text-left"
           >
-            <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-              <p className="text-xs text-blue-300 text-center font-medium mb-2">
-                🚀 Join thousands of users who trust Jean Memory
-              </p>
-              <div className="text-xs text-blue-200/80 space-y-1">
-                <p>• Works with Claude, ChatGPT, Gemini, and more</p>
-                <p>• Memories sync across all your AI conversations</p>
-                <p>• One-click setup with your favorite AI tools</p>
+            <div className="p-4 bg-zinc-800/30 border border-zinc-700/50 rounded-lg">
+              <div className="flex items-center mb-3">
+                <Shield className="w-5 h-5 text-zinc-400 mr-3" />
+                <p className="text-sm text-zinc-300 font-semibold">
+                  Your privacy is our priority
+                </p>
+              </div>
+              <div className="text-xs text-zinc-400 space-y-2">
+                <div className="flex items-start">
+                  <Icons.circle className="w-3 h-3 mt-0.5 mr-2 flex-shrink-0 fill-current text-zinc-500" />
+                  <span>Works with Claude, ChatGPT, Gemini, and more.</span>
+                </div>
+                <div className="flex items-start">
+                  <Icons.circle className="w-3 h-3 mt-0.5 mr-2 flex-shrink-0 fill-current text-zinc-500" />
+                  <span>Memories sync securely across all your AI conversations.</span>
+                </div>
+                <div className="flex items-start">
+                  <Icons.circle className="w-3 h-3 mt-0.5 mr-2 flex-shrink-0 fill-current text-zinc-500" />
+                  <span>One-click setup with your favorite AI tools.</span>
+                </div>
               </div>
             </div>
           </motion.div>
