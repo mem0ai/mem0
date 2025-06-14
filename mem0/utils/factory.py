@@ -79,6 +79,7 @@ class VectorStoreFactory:
         "upstash_vector": "mem0.vector_stores.upstash_vector.UpstashVector",
         "azure_ai_search": "mem0.vector_stores.azure_ai_search.AzureAISearch",
         "pinecone": "mem0.vector_stores.pinecone.PineconeDB",
+        "mongodb": "mem0.vector_stores.mongodb.MongoDB",
         "redis": "mem0.vector_stores.redis.RedisDB",
         "elasticsearch": "mem0.vector_stores.elasticsearch.ElasticsearchDB",
         "vertex_ai_vector_search": "mem0.vector_stores.vertex_ai_vector_search.GoogleMatchingEngine",

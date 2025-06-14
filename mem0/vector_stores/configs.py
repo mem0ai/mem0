@@ -15,6 +15,7 @@ class VectorStoreConfig(BaseModel):
         "chroma": "ChromaDbConfig",
         "pgvector": "PGVectorConfig",
         "pinecone": "PineconeConfig",
+        "mongodb": "MongoDBConfig",
         "milvus": "MilvusDBConfig",
         "upstash_vector": "UpstashVectorConfig",
         "azure_ai_search": "AzureAISearchConfig",
