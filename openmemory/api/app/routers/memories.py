@@ -31,6 +31,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/memories", tags=["memories"])
 
 
+class MemoriesParams(Params):
+    size: int = Query(100, ge=1, le=1000, description="Page size")
+
+
 def get_memory_or_404(db: Session, memory_id: UUID, user_id: UUID) -> Memory:
     memory = db.query(Memory).filter(Memory.id == memory_id, Memory.user_id == user_id).first()
     if not memory:
@@ -113,7 +117,7 @@ async def list_memories(
         examples=[1718505600]
     ),
     categories: Optional[str] = None,
-    params: Params = Depends(),
+    params: MemoriesParams = Depends(),
     search_query: Optional[str] = None,
     sort_column: Optional[str] = Query(None, description="Column to sort by (memory, categories, app_name, created_at)"),
     sort_direction: Optional[str] = Query(None, description="Sort direction (asc or desc)"),
