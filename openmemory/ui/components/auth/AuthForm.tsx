@@ -76,47 +76,34 @@ export const AuthForm = () => {
         {/* Header */}
         <div className="text-center mb-8">
           <motion.h1 
-            className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent mb-2"
+            className="text-3xl font-bold bg-gradient-to-r from-neutral-400 via-neutral-200 to-neutral-400 bg-clip-text text-transparent mb-2"
             initial={{ scale: 0.9 }}
             animate={{ scale: 1 }}
             transition={{ duration: 0.3 }}
           >
-            {isLogin ? 'Welcome Back' : 'Get Started'}
+            {isLogin ? 'Sign into your Vault' : 'Create your Vault'}
           </motion.h1>
           <p className="text-zinc-400">
-            {isLogin ? 'Sign in to access your memories' : 'Create your account in seconds'}
+            {isLogin ? 'See your memories' : 'Create an account to secure your memories'}
           </p>
-          {isLocalDev && (
-            <div className="mt-3 p-2 bg-orange-500/10 border border-orange-500/20 rounded-md">
-              <p className="text-xs text-orange-300 font-medium">
-                🧪 Local Development Mode - OAuth disabled, use email/password
-              </p>
-            </div>
-          )}
         </div>
 
         {!isLocalDev && (
           <>
-            {/* Google Sign In - Make this prominent */}
+            {/* Social Sign In */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.1 }}
-              className="mb-6"
+              className="space-y-3 mb-6"
             >
-              <div className="mb-3 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                <p className="text-xs text-blue-300 text-center font-medium">
-                  ⚡ Recommended: Sign in with Google or GitHub for the fastest setup
-                </p>
-              </div>
               <Button 
                 variant="outline" 
                 type="button" 
                 disabled={isLoading} 
                 onClick={handleGoogleSignIn} 
-                className="w-full h-12 bg-white hover:bg-gray-50 text-gray-900 border-gray-300 font-medium text-base relative overflow-hidden group"
+                className="w-full h-11 bg-zinc-900 hover:bg-zinc-800 text-white border-zinc-700 font-medium text-base"
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                 {isLoading ? (
                   <Icons.spinner className="mr-3 h-5 w-5 animate-spin" />
                 ) : (
@@ -129,9 +116,8 @@ export const AuthForm = () => {
                 type="button" 
                 disabled={isLoading} 
                 onClick={handleGitHubSignIn} 
-                className="w-full h-12 bg-zinc-900 hover:bg-zinc-800 text-white border-zinc-700 font-medium text-base relative overflow-hidden group mt-3"
+                className="w-full h-11 bg-zinc-900 hover:bg-zinc-800 text-white border-zinc-700 font-medium text-base"
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-gray-500/10 to-zinc-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                 {isLoading ? (
                   <Icons.spinner className="mr-3 h-5 w-5 animate-spin" />
                 ) : (
@@ -173,7 +159,7 @@ export const AuthForm = () => {
               required
               placeholder="your@email.com"
               disabled={isLoading}
-              className="h-11 bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-purple-500 focus:ring-purple-500/20"
+              className="h-11 bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-slate-500 focus:ring-slate-500/20"
             />
           </div>
           
@@ -187,7 +173,7 @@ export const AuthForm = () => {
               required
               placeholder={isLogin ? "Enter your password" : "Create a secure password"}
               disabled={isLoading}
-              className="h-11 bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-purple-500 focus:ring-purple-500/20"
+              className="h-11 bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-slate-500 focus:ring-slate-500/20"
             />
             {!isLogin && (
               <p className="text-xs text-zinc-500 mt-1">
@@ -199,7 +185,7 @@ export const AuthForm = () => {
           <Button 
             type="submit" 
             disabled={isLoading} 
-            className="w-full h-11 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium mt-6"
+            className="w-full h-11 bg-slate-100 hover:bg-slate-200 text-black font-medium mt-6"
           >
             {isLoading ? (
               <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
@@ -218,7 +204,7 @@ export const AuthForm = () => {
               setEmail('');
               setPassword('');
             }}
-            className="text-sm text-zinc-400 hover:text-purple-400 transition-colors font-medium"
+            className="text-sm text-zinc-400 hover:text-white transition-colors font-medium"
             disabled={isLoading}
           >
             {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
@@ -230,10 +216,10 @@ export const AuthForm = () => {
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`mt-4 p-3 rounded-lg text-sm text-center ${
+            className={`mt-4 p-3 rounded-lg text-sm text-center border ${
               message.includes('successful') || message.includes('created') 
-                ? 'bg-green-500/10 text-green-400 border border-green-500/20' 
-                : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                ? 'bg-green-900/20 text-green-300 border-green-800/50' 
+                : 'bg-red-900/20 text-red-300 border-red-800/50'
             }`}
           >
             {message}

@@ -2,11 +2,10 @@
 
 import { useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { ArrowRight, Shield, Zap, Globe } from "lucide-react";
+import { ArrowRight, Shield, Zap, Globe, Key, Github, Star } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import ParticleNetwork from "@/components/landing/ParticleNetwork";
-import AnimatedSphere from "@/components/landing/AnimatedSphere";
 import AnimatedIcons from "@/components/landing/AnimatedIcons";
 import MouseFollowArrow from "@/components/landing/MouseFollowArrow";
 import { useAuth } from "@/contexts/AuthContext";
@@ -72,17 +71,16 @@ export default function LandingPage() {
     <div className="relative min-h-screen bg-black text-white overflow-hidden">
       {/* Background Effects */}
       <div className="absolute inset-0">
-        <ParticleNetwork />
+        <ParticleNetwork id="landing-particles" />
       </div>
-      <AnimatedSphere />
       <AnimatedIcons />
 
       {/* Mouse Follow Arrow */}
       <MouseFollowArrow targetRef={buttonRef} />
 
       {/* Gradient Overlays */}
-      <div className="absolute inset-0 bg-gradient-to-b from-purple-900/20 via-transparent to-blue-900/20" />
-      <div className="absolute inset-0 bg-gradient-radial from-transparent via-black/50 to-black" />
+      <div className="absolute inset-0 bg-gradient-to-b from-blue-950/60 via-transparent to-slate-950/60" />
+      <div className="absolute inset-0 bg-gradient-radial from-transparent via-black/80 to-black" />
 
       {/* Main Content */}
       <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 py-12">
@@ -94,17 +92,17 @@ export default function LandingPage() {
         >
           {/* Logo/Title */}
           <motion.h1
-            className="text-5xl sm:text-6xl md:text-8xl font-bold mb-4 sm:mb-6 bg-gradient-to-r from-purple-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent"
+            className="text-5xl sm:text-6xl md:text-8xl font-extrabold mb-4 sm:mb-6 text-gray-100 tracking-tighter"
             initial={{ scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.2 }}
           >
-            Jean Memory
+            Jean
           </motion.h1>
 
           {/* Subtitle */}
           <motion.p
-            className="text-lg sm:text-xl md:text-2xl text-gray-300 mb-8 sm:mb-12 max-w-2xl mx-auto px-4"
+            className="text-lg sm:text-xl md:text-2xl text-gray-300 mb-8 sm:mb-12 max-w-2xl mx-auto px-4 font-medium tracking-wider"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.4 }}
@@ -112,133 +110,72 @@ export default function LandingPage() {
             Your secure, unified memory layer across all AI applications
           </motion.p>
 
-          {/* GitHub Badges */}
-          <motion.div
-            className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mb-8 sm:mb-12"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.5 }}
-          >
-            <a 
-              href="https://github.com/jonathan-politzki/your-memory" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="hover:scale-105 transition-transform duration-200"
+          <div className="my-12 sm:my-16 flex flex-col items-center justify-center gap-6">
+            {/* CTA Button */}
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{
+                type: "spring",
+                stiffness: 260,
+                damping: 20,
+                delay: 0.7
+              }}
             >
-              <img 
-                src="https://img.shields.io/github/stars/jonathan-politzki/your-memory?style=social" 
-                alt="GitHub stars"
-                className="h-5 sm:h-6"
-              />
-            </a>
-            <a 
-              href="https://github.com/jonathan-politzki/your-memory/fork" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="hover:scale-105 transition-transform duration-200"
+              <Link
+                ref={buttonRef}
+                href="/auth"
+                className="group relative inline-flex items-center justify-center gap-3 px-12 py-4 text-xl font-bold rounded-md bg-black text-white border border-gray-600 hover:bg-gray-800 transition-all duration-300 shadow-lg hover:shadow-xl hover:shadow-slate-500/10 hover:scale-105"
+              >
+                <Key className="w-5 h-5 group-hover:-rotate-12 transition-transform" />
+                <span>Sign in with Jean</span>
+              </Link>
+            </motion.div>
+
+            {/* GitHub Badge */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.8 }}
             >
-              <img 
-                src="https://img.shields.io/github/forks/jonathan-politzki/your-memory?style=social" 
-                alt="GitHub forks"
-                className="h-5 sm:h-6"
-              />
-            </a>
-            <a 
-              href="https://github.com/jonathan-politzki/your-memory/blob/main/LICENSE" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="hover:scale-105 transition-transform duration-200"
-            >
-              <img 
-                src="https://img.shields.io/github/license/jonathan-politzki/your-memory?style=flat-square&color=blue" 
-                alt="License"
-                className="h-5 sm:h-6"
-              />
-            </a>
-            <a 
-              href="https://github.com/jonathan-politzki/your-memory/commits/main" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="hover:scale-105 transition-transform duration-200"
-            >
-              <img 
-                src="https://img.shields.io/github/last-commit/jonathan-politzki/your-memory?style=flat-square&color=green" 
-                alt="Last commit"
-                className="h-5 sm:h-6"
-              />
-            </a>
-            <a 
-              href="https://github.com/jonathan-politzki/your-memory/issues" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="hover:scale-105 transition-transform duration-200"
-            >
-              <img 
-                src="https://img.shields.io/github/issues/jonathan-politzki/your-memory?style=flat-square&color=orange" 
-                alt="GitHub issues"
-                className="h-5 sm:h-6"
-              />
-            </a>
-          </motion.div>
+              <a
+                href="https://github.com/jonathan-politzki/your-memory"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-3 text-sm text-gray-400 hover:text-white transition-colors"
+              >
+                <span className="font-medium">Trusted by Open Source</span>
+                <div className="w-px h-4 bg-gray-600" />
+                <div className="flex items-center gap-1">
+                    <Star className="w-4 h-4 text-yellow-400" />
+                    <span className="font-medium text-white">59</span>
+                </div>
+              </a>
+            </motion.div>
+          </div>
 
           {/* Features */}
           <motion.div
-            className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-8 sm:mb-12 max-w-3xl mx-auto"
+            className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 sm:mb-12 max-w-3xl mx-auto"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.6 }}
+            transition={{ duration: 0.5, delay: 0.9 }}
           >
-            <div className="bg-white/5 backdrop-blur-sm rounded-lg p-4 sm:p-6 border border-white/10">
-              <Shield className="w-6 h-6 sm:w-8 sm:h-8 text-purple-400 mb-2 sm:mb-3 mx-auto" />
-              <h3 className="text-base sm:text-lg font-semibold mb-1 sm:mb-2">Secure & Private</h3>
-              <p className="text-xs sm:text-sm text-gray-400">Your memories stay yours with end-to-end encryption</p>
+            <div className="bg-neutral-900/90 border border-neutral-800 rounded-lg p-4 text-center">
+              <Shield className="w-6 h-6 text-gray-400 mb-3 mx-auto" />
+              <h3 className="text-base font-semibold mb-2">Secure & Private</h3>
+              <p className="text-xs text-gray-400">You own your data--forever.</p>
             </div>
-            <div className="bg-white/5 backdrop-blur-sm rounded-lg p-4 sm:p-6 border border-white/10">
-              <Zap className="w-6 h-6 sm:w-8 sm:h-8 text-blue-400 mb-2 sm:mb-3 mx-auto" />
-              <h3 className="text-base sm:text-lg font-semibold mb-1 sm:mb-2">Lightning Fast</h3>
-              <p className="text-xs sm:text-sm text-gray-400">Instant access to your context across all AI tools</p>
+            <div className="bg-neutral-900/90 border border-neutral-800 rounded-lg p-4 text-center">
+              <Zap className="w-6 h-6 text-gray-400 mb-3 mx-auto" />
+              <h3 className="text-base font-semibold mb-2">Lightning Fast</h3>
+              <p className="text-xs text-gray-400">Instant access to your context across all AI tools</p>
             </div>
-            <div className="bg-white/5 backdrop-blur-sm rounded-lg p-4 sm:p-6 border border-white/10">
-              <Globe className="w-6 h-6 sm:w-8 sm:h-8 text-cyan-400 mb-2 sm:mb-3 mx-auto" />
-              <h3 className="text-base sm:text-lg font-semibold mb-1 sm:mb-2">Universal</h3>
-              <p className="text-xs sm:text-sm text-gray-400">Works with Claude, GPT, Gemini, and more</p>
+            <div className="bg-neutral-900/90 border border-neutral-800 rounded-lg p-4 text-center">
+              <Globe className="w-6 h-6 text-gray-400 mb-3 mx-auto" />
+              <h3 className="text-base font-semibold mb-2">Universal</h3>
+              <p className="text-xs text-gray-400">Claude, Cursor, ChatGPT (soon), etc.</p>
             </div>
-          </motion.div>
-
-          {/* CTA Buttons */}
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ 
-              type: "spring",
-              stiffness: 260,
-              damping: 20,
-              delay: 0.7 
-            }}
-            className="mb-6 flex flex-col sm:flex-row gap-4 sm:gap-6 items-center justify-center"
-          >
-            <Link
-              ref={buttonRef}
-              href="/auth"
-              className="group relative inline-flex items-center gap-2 sm:gap-3 px-6 sm:px-10 py-3 sm:py-5 text-base sm:text-xl font-bold rounded-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 transition-all duration-300 shadow-2xl hover:shadow-purple-500/25 hover:scale-105"
-            >
-              <span>One-Click Setup</span>
-              <ArrowRight className="w-4 h-4 sm:w-6 sm:h-6 group-hover:translate-x-1 transition-transform" />
-              
-              {/* Button Glow Effect */}
-              <div className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 blur-xl opacity-50 group-hover:opacity-75 transition-opacity" />
-            </Link>
-
-            <Link
-              href="/test"
-              className="group relative inline-flex items-center gap-2 sm:gap-3 px-6 sm:px-10 py-3 sm:py-5 text-base sm:text-xl font-bold rounded-full bg-gradient-to-r from-cyan-600 to-green-600 hover:from-cyan-700 hover:to-green-700 transition-all duration-300 shadow-2xl hover:shadow-cyan-500/25 hover:scale-105"
-            >
-              <span>Try It</span>
-              <ArrowRight className="w-4 h-4 sm:w-6 sm:h-6 group-hover:translate-x-1 transition-transform" />
-              
-              {/* Button Glow Effect */}
-              <div className="absolute inset-0 rounded-full bg-gradient-to-r from-cyan-600 to-green-600 blur-xl opacity-50 group-hover:opacity-75 transition-opacity" />
-            </Link>
           </motion.div>
 
           {/* Additional Info */}
@@ -248,21 +185,9 @@ export default function LandingPage() {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 1.1 }}
           >
-            No credit card required • Free forever for personal use • <a 
-              href="https://jonathan-politzki.github.io/jean-privacy-policy/" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="hover:text-gray-300 transition-colors underline"
-            >
-              Privacy Policy
-            </a>
+            No credit card required • Free forever for personal use • <a href="/privacy-policy" className="underline hover:text-white">Privacy Policy</a>
           </motion.p>
         </motion.div>
-      </div>
-
-      {/* Animated Background Gradient */}
-      <div className="absolute inset-0 opacity-30 pointer-events-none">
-        <div className="absolute inset-0 bg-gradient-conic from-purple-600 via-blue-600 to-purple-600 blur-3xl animate-spin-slow" />
       </div>
     </div>
   );
