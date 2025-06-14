@@ -155,25 +155,25 @@ export default function LandingPage() {
 
           {/* Features */}
           <motion.div
-            className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 sm:mb-12 max-w-3xl mx-auto"
+            className="grid grid-cols-1 sm:grid-cols-3 gap-8 my-16 sm:my-20"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.9 }}
           >
-            <div className="bg-neutral-900/90 border border-neutral-800 rounded-lg p-4 text-center">
-              <Shield className="w-6 h-6 text-gray-400 mb-3 mx-auto" />
-              <h3 className="text-base font-semibold mb-2">Secure & Private</h3>
-              <p className="text-xs text-gray-400">You own your data--forever.</p>
+            <div className="flex flex-col items-center text-center p-4">
+              <Shield className="w-8 h-8 text-blue-400 mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Secure & Private</h3>
+              <p className="text-sm text-gray-400 max-w-xs">You own your data—forever.</p>
             </div>
-            <div className="bg-neutral-900/90 border border-neutral-800 rounded-lg p-4 text-center">
-              <Zap className="w-6 h-6 text-gray-400 mb-3 mx-auto" />
-              <h3 className="text-base font-semibold mb-2">Lightning Fast</h3>
-              <p className="text-xs text-gray-400">Instant access to your context across all AI tools</p>
+            <div className="flex flex-col items-center text-center p-4">
+              <Zap className="w-8 h-8 text-blue-400 mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Lightning Fast</h3>
+              <p className="text-sm text-gray-400 max-w-xs">Instant access to your context across all AI tools.</p>
             </div>
-            <div className="bg-neutral-900/90 border border-neutral-800 rounded-lg p-4 text-center">
-              <Globe className="w-6 h-6 text-gray-400 mb-3 mx-auto" />
-              <h3 className="text-base font-semibold mb-2">Universal</h3>
-              <p className="text-xs text-gray-400">Claude, Cursor, ChatGPT (soon), etc.</p>
+            <div className="flex flex-col items-center text-center p-4">
+              <Globe className="w-8 h-8 text-blue-400 mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Universal</h3>
+              <p className="text-sm text-gray-400 max-w-xs">Claude, Cursor, ChatGPT (soon), etc.</p>
             </div>
           </motion.div>
 
