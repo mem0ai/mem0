@@ -83,19 +83,19 @@ class OpenSearchDB(VectorStoreBase):
             },
         }
 
+        logger.warning(f"Creating index {name}, it might take 1-2 minutes...")
         if not self.client.indices.exists(index=name):
             self.client.indices.create(index=name, body=index_settings)
-            logger.info(f"Created index {name}")
 
             # Wait for index to be ready
-            max_retries = 60  # 60 seconds timeout
+            max_retries = 180 # 3 minutes timeout
             retry_count = 0
             while retry_count < max_retries:
                 try:
                     # Check if index is ready by attempting a simple search
                     self.client.search(index=name, body={"query": {"match_all": {}}})
-                    logger.info(f"Index {name} is ready")
                     time.sleep(1)
+                    logger.info(f"Index {name} is ready")
                     return
                 except Exception:
                     retry_count += 1
