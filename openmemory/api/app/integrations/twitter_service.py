@@ -19,7 +19,7 @@ class TwitterService:
         self.apify_token = os.getenv('APIFY_TOKEN')
         self.apify_base_url = "https://api.apify.com/v2"
         
-    async def fetch_tweets_apify(self, username: str, max_tweets: int = 40) -> List[Dict]:
+    async def fetch_tweets_apify(self, username: str, max_tweets: int = 40, progress_callback: Optional[callable] = None) -> List[Dict]:
         """
         Fetch tweets using Apify Twitter Scraper Unlimited.
         Now works with real data since user has paid Apify plan.
@@ -191,7 +191,13 @@ class TwitterService:
 
 
 # Example usage function
-async def sync_twitter_to_memory(username: str, user_id: str, app_id: str, db_session):
+async def sync_twitter_to_memory(
+    username: str, 
+    user_id: str, 
+    app_id: str, 
+    db_session,
+    progress_callback: Optional[callable] = None
+):
     """
     Sync a Twitter user's recent tweets to memory.
     This can be called from an API endpoint or MCP tool.
@@ -206,21 +212,20 @@ async def sync_twitter_to_memory(username: str, user_id: str, app_id: str, db_se
         try:
             return UUID(id_str)
         except ValueError:
-            # For local development mode
             if id_str == 'default_user':
-                logger.info(f"Local development mode detected, using mock UUID for user {id_str}")
-                return UUID('00000000-0000-0000-0000-000000000001')  # Fixed UUID for local dev
-            # For app ID in local development
+                return UUID('00000000-0000-0000-0000-000000000001')
             if id_str == 'twitter':
-                logger.info(f"Local development mode detected, using mock UUID for app {id_str}")
-                return UUID('00000000-0000-0000-0000-000000000002')  # Fixed UUID for local dev app
-            # For any other non-UUID string
-            logger.warning(f"Invalid UUID format: {id_str}, using fallback UUID")
-            return UUID('00000000-0000-0000-0000-000000000099')  # Generic fallback UUID
+                return UUID('00000000-0000-0000-0000-000000000002')
+            return UUID('00000000-0000-0000-0000-000000000099')
+
+    def report_progress(progress: int, message: str, count: int = 0):
+        if progress_callback:
+            progress_callback(progress, message, count)
+
     service = TwitterService()
     memory_client = get_memory_client()
     
-    # For local development, ensure the user and app exist in the database
+    # For local development, ensure the user and app exist
     user_uuid = safe_uuid(user_id)
     app_uuid = safe_uuid(app_id)
     
@@ -258,19 +263,17 @@ async def sync_twitter_to_memory(username: str, user_id: str, app_id: str, db_se
         logger.info("Ensured user and app exist in database for local development")
     
     try:
-        logger.info(f"Starting Twitter sync for @{username}")
+        report_progress(5, "Starting sync...", 0)
         
-        # Try Apify first, then fallback to demo
-        tweets = await service.fetch_tweets_apify(username)
-        logger.info(f"Fetched {len(tweets)} tweets")
+        tweets = await service.fetch_tweets_apify(username, progress_callback=report_progress)
         
         if not tweets:
-            logger.warning(f"No tweets found for @{username}")
+            report_progress(100, "No tweets found or user is private.", 0)
             return 0
         
-        # Format tweets for memory storage
+        report_progress(50, f"Found {len(tweets)} tweets. Formatting for memory...", len(tweets))
+        
         memory_contents = service.format_tweets_for_memory(tweets, username)
-        logger.info(f"Formatted {len(memory_contents)} tweets for memory storage")
         
         # Store tweets using memory client (which handles vector embeddings)
         synced_count = 0
@@ -346,10 +349,10 @@ async def sync_twitter_to_memory(username: str, user_id: str, app_id: str, db_se
                 logger.info(f"Batch complete. Waiting 2 seconds before next batch...")
                 await asyncio.sleep(2)
         
-        logger.info(f"Twitter sync completed: {synced_count} successful, {failed_count} failed")
+        report_progress(100, f"Sync complete. Added {synced_count} new tweets.", synced_count)
         return synced_count
         
     except Exception as e:
-        logger.error(f"Failed to sync Twitter for @{username}: {e}")
-        db_session.rollback()
-        raise 
+        logger.error(f"An error occurred during Twitter sync for @{username}: {e}", exc_info=True)
+        report_progress(100, f"An error occurred: {e}", 0)
+        return 0 

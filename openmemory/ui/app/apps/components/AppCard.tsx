@@ -18,8 +18,52 @@ interface AppCardProps {
 
 export function AppCard({ app }: AppCardProps) {
   const router = useRouter();
-  const appConfig =
-    constants[app.name as keyof typeof constants] || constants.default;
+  
+  // Create a more robust mapping similar to SourceApp component
+  const getAppConfig = () => {
+    // First try direct lookup with app.name
+    if (constants[app.name as keyof typeof constants]) {
+      return constants[app.name as keyof typeof constants];
+    }
+    
+    // Then try app.id (for cases where backend stores id as name)
+    if (constants[app.id as keyof typeof constants]) {
+      return constants[app.id as keyof typeof constants];
+    }
+    
+    // Normalize and try variations
+    const normalizedName = app.name?.toLowerCase().trim();
+    const normalizedId = app.id?.toLowerCase().trim();
+    
+    // Check various mappings
+    const mappings: { [key: string]: keyof typeof constants } = {
+      'twitter': 'twitter',
+      'x': 'twitter',
+      'substack': 'substack',
+      'claude': 'claude',
+      'openmemory': 'openmemory',
+      'jean memory': 'jean memory',
+      'cursor': 'cursor',
+      'cline': 'cline',
+      'roocode': 'roocode',
+      'windsurf': 'windsurf',
+      'witsy': 'witsy',
+      'enconvo': 'enconvo',
+      'notion': 'notion',
+      'obsidian': 'obsidian'
+    };
+    
+    // Try normalized name first, then normalized id
+    const constantKey = mappings[normalizedName] || mappings[normalizedId];
+    if (constantKey && constants[constantKey]) {
+      return constants[constantKey];
+    }
+    
+    // Fall back to default
+    return constants.default;
+  };
+  
+  const appConfig = getAppConfig();
   const isActive = app.is_active;
 
   return (

@@ -131,11 +131,6 @@ app.include_router(keys_router.router, dependencies=[Depends(get_current_supa_us
 app.include_router(local_auth_router, prefix="/api/v1")
 app.include_router(memories_router, prefix="/api/v1", dependencies=[Depends(get_current_supa_user)])
 app.include_router(apps_router, prefix="/api/v1", dependencies=[Depends(get_current_supa_user)])
-# Conditionally include other routers if they exist and are set up
-# if 'users_router' in globals(): # A way to check, or just comment out
-# app.include_router(users_router, prefix="/api/v1")
-# if 'feedback_router' in globals():
-# app.include_router(feedback_router, prefix="/api/v1", dependencies=[Depends(get_current_supa_user)])
 app.include_router(stats_router, prefix="/api/v1", dependencies=[Depends(get_current_supa_user)])
 app.include_router(integrations_router, dependencies=[Depends(get_current_supa_user)])
 app.include_router(mcp_tools_router, dependencies=[Depends(get_current_supa_user)])

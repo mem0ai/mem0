@@ -12,7 +12,7 @@ const AuthPage = () => {
   React.useEffect(() => {
     if (!isLoading && user) {
       // Force redirect to dashboard for authenticated users
-      router.replace('/dashboard');
+      router.replace('/dashboard-new');
     }
   }, [user, isLoading, router]);
 

@@ -30,7 +30,7 @@ export function Navbar() {
   }
 
   const isActive = (href: string) => {
-    if (href === "/dashboard") return pathname === href;
+    if (href === "/dashboard-new") return pathname === href || pathname === "/dashboard";
     return pathname.startsWith(href);
   };
 
@@ -38,16 +38,15 @@ export function Navbar() {
   const inactiveClass = "text-zinc-300";
 
   const navLinks = [
-    { href: "/dashboard", icon: <HiHome />, label: "Dashboard" },
+    { href: "/dashboard-new", icon: <HiHome />, label: "Dashboard" },
     { href: "/memories", icon: <HiMiniRectangleStack />, label: "Memories" },
     { href: "/my-life", icon: <Brain className="w-4 h-4" />, label: "Life Graph" },
-    { href: "/apps", icon: <RiApps2AddFill />, label: "Apps" },
   ];
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-zinc-800 bg-zinc-950/95 backdrop-blur supports-[backdrop-filter]:bg-zinc-950/60">
       <div className="container flex h-14 items-center justify-between px-4">
-        <Link href="/dashboard" className="flex items-center gap-2">
+        <Link href="/dashboard-new" className="flex items-center gap-2">
           <Image src="/images/jean-bug.png" alt="Jean Memory" width={26} height={26} />
           <span className="text-lg sm:text-xl font-medium">Jean Memory</span>
         </Link>

@@ -9,7 +9,7 @@ def get_memory_client(custom_instructions: str = None):
     """
     try:
         if config.is_local_development:
-            qdrant_host = "qdrant_db"
+            qdrant_host = "localhost"
             qdrant_api_key = None # Force no API key for local dev
         else:
             qdrant_host = os.getenv("QDRANT_HOST")

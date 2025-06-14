@@ -21,7 +21,7 @@ export const AuthForm = () => {
   // Redirect to dashboard when user becomes authenticated
   React.useEffect(() => {
     if (user) {
-      router.replace('/dashboard');
+      router.replace('/dashboard-new');
     }
   }, [user, router]);
 

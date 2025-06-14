@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
 import { LogOut, Settings, Code, Star, MessageSquare, Book } from "lucide-react";
+import { RiApps2AddFill } from "react-icons/ri";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Icons } from "./icons";
@@ -78,6 +79,12 @@ export function UserNav() {
             <span>Pro</span>
           </DropdownMenuItem>
         </a>
+        <Link href="/apps">
+          <DropdownMenuItem>
+            <RiApps2AddFill className="mr-2 h-4 w-4" />
+            <span>Apps</span>
+          </DropdownMenuItem>
+        </Link>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={async () => {
           await signOut();

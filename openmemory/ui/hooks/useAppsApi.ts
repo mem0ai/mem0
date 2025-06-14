@@ -21,6 +21,19 @@ import {
   setSelectedAppError,
 } from '@/store/appsSlice';
 
+export interface TaskStatus {
+  task_id: string;
+  type: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  progress: number;
+  progress_message: string;
+  created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  result: any;
+  error: string | null;
+}
+
 interface ApiResponse {
   total: number;
   page: number;
@@ -57,6 +70,7 @@ interface UseAppsApiReturn {
   fetchAppMemories: (appId: string, page?: number, pageSize?: number) => Promise<void>;
   fetchAppAccessedMemories: (appId: string, page?: number, pageSize?: number) => Promise<void>;
   updateAppDetails: (appId: string, details: { is_active: boolean }) => Promise<any | undefined>;
+  checkTaskStatus: (taskId: string) => Promise<TaskStatus | undefined>;
   isLoading: boolean;
   error: string | null;
 }
@@ -219,12 +233,31 @@ export const useAppsApi = (): UseAppsApiReturn => {
     }
   };
 
+  const checkTaskStatus = async (taskId: string): Promise<TaskStatus | undefined> => {
+    if (!currentUserId) {
+      console.log("useAppsApi: No user_id, skipping checkTaskStatus.");
+      return undefined;
+    }
+    try {
+      console.log(`useAppsApi: Checking status for task ${taskId}`);
+      const response = await apiClient.get<TaskStatus>(
+        `/api/v1/integrations/tasks/${taskId}`
+      );
+      return response.data;
+    } catch (err: any) {
+      console.error(`useAppsApi: Failed to fetch status for task ${taskId}`, err);
+      // Don't set global error state for this, as it's a background check
+      return undefined;
+    }
+  };
+
   return {
     fetchApps,
     fetchAppDetails,
     fetchAppMemories,
     fetchAppAccessedMemories,
     updateAppDetails,
+    checkTaskStatus,
     isLoading,
     error
   };

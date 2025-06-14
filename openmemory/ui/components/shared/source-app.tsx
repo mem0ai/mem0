@@ -66,6 +66,16 @@ export const constants = {
     icon: <Icon source="/images/x.svg" />,
     iconImage: "/images/x.svg",
   },
+  notion: {
+    name: "Notion",
+    icon: <Icon source="/images/notion.svg" />,
+    iconImage: "/images/notion.svg",
+  },
+  obsidian: {
+    name: "Obsidian",
+    icon: <Icon source="/images/obsidian.svg" />,
+    iconImage: "/images/obsidian.svg",
+  },
   default: {
     name: "Default",
     icon: <BiEdit size={18} className="ml-1" />,
@@ -74,19 +84,45 @@ export const constants = {
 };
 
 const SourceApp = ({ source }: { source: string }) => {
-  if (!constants[source as keyof typeof constants]) {
+  // Normalize the source string to handle variations
+  const normalizedSource = source?.toLowerCase().trim();
+  
+  // Create a mapping for normalized keys to handle variations
+  const sourceMapping: { [key: string]: keyof typeof constants } = {
+    'twitter': 'twitter',
+    'x': 'twitter',
+    'substack': 'substack',
+    'claude': 'claude',
+    'openmemory': 'openmemory',
+    'jean memory': 'jean memory',
+    'cursor': 'cursor',
+    'cline': 'cline',
+    'roocode': 'roocode',
+    'windsurf': 'windsurf',
+    'witsy': 'witsy',
+    'enconvo': 'enconvo',
+    'notion': 'notion',
+    'obsidian': 'obsidian'
+  };
+  
+  // Find the correct constant key
+  const constantKey = sourceMapping[normalizedSource] || normalizedSource as keyof typeof constants;
+  const appConfig = constants[constantKey];
+  
+  if (!appConfig) {
     return (
-      <div>
-        <BiEdit />
+      <div className="flex items-center gap-2">
+        <BiEdit size={16} />
         <span className="text-sm font-semibold">{source}</span>
       </div>
     );
   }
+  
   return (
     <div className="flex items-center gap-2">
-      {constants[source as keyof typeof constants].icon}
+      {appConfig.icon}
       <span className="text-sm font-semibold">
-        {constants[source as keyof typeof constants].name}
+        {appConfig.name}
       </span>
     </div>
   );

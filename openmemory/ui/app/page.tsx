@@ -19,7 +19,7 @@ export default function LandingPage() {
   useEffect(() => {
     if (!isLoading && user) {
       console.log('Landing page: User authenticated, redirecting to dashboard');
-      router.replace('/dashboard');
+      router.replace('/dashboard-new');
     }
   }, [user, isLoading, router]);
 

@@ -72,67 +72,63 @@ export function TwitterIntegration() {
   };
 
   return (
-    <Card className="bg-zinc-900/50 border-zinc-800 backdrop-blur-sm">
+    <Card className="bg-zinc-900 border-zinc-700">
       <CardHeader className="pb-3">
         <CardTitle className="text-lg font-medium text-zinc-100">
-          Twitter/X Integration
+          Connect to X
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
           <p className="text-sm text-zinc-400 mb-3">
-            Sync recent tweets to capture your thoughts and conversations
+            Provide your X username to sync your content.
           </p>
-          {isSyncing && (
-            <p className="text-xs text-zinc-500 mb-2">
-              Fetching your latest tweets...
-            </p>
-          )}
           <div className="flex gap-2">
             <Input
               type="text"
-              placeholder="@username or username"
+              placeholder="@username"
               value={twitterUsername}
               onChange={(e) => setTwitterUsername(e.target.value)}
-              className="bg-zinc-950/50 border-zinc-800 text-zinc-300"
+              className="bg-zinc-950 border-zinc-800 text-zinc-300 placeholder:text-zinc-500"
               disabled={isSyncing}
             />
             <Button
               onClick={handleSync}
               disabled={isSyncing || !twitterUsername}
-              className="bg-[#1DA1F2] hover:bg-[#1DA1F2]/80 text-white"
+              className="bg-zinc-800 hover:bg-zinc-700 text-zinc-100"
             >
               {isSyncing ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Syncing...
+                  Syncing Tweets...
                 </>
               ) : (
-                "Sync Tweets"
+                "Connect and Sync X"
               )}
             </Button>
           </div>
         </div>
 
         {/* Status message */}
-        {syncMessage && (
-          <div className={`flex items-center gap-2 text-sm ${
-            syncStatus === "success" ? "text-green-400" : "text-red-400"
-          }`}>
-            {syncStatus === "success" ? (
+        {syncMessage && !isSyncing && (
+          <div
+            className={`flex items-center gap-2 text-sm ${
+              syncStatus === 'success' ? 'text-green-400' : 'text-red-400'
+            }`}
+          >
+            {syncStatus === 'success' ? (
               <CheckCircle className="h-4 w-4" />
             ) : (
               <AlertCircle className="h-4 w-4" />
             )}
-            {syncMessage}
+            <span>{syncMessage}</span>
           </div>
         )}
-
-        {/* Tweet count */}
-        {tweetCount > 0 && (
-          <div className="pt-2 border-t border-zinc-800">
-            <p className="text-sm text-zinc-400">
-              <span className="text-zinc-100 font-medium">{tweetCount}</span> tweets synced
+        
+        {tweetCount > 0 && !isSyncing && (
+          <div className="text-sm text-zinc-500 pt-2 border-t border-zinc-800/50">
+            <p>
+              You have <span className="font-bold text-zinc-400">{tweetCount}</span> tweets synced.
             </p>
           </div>
         )}

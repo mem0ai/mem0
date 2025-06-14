@@ -250,24 +250,21 @@ async def sync_twitter(
             import asyncio
             
             async def twitter_sync_task():
+                # Create a new database session for the background task
                 from app.database import SessionLocal
                 db_session = SessionLocal()
                 try:
-                    synced_count = await sync_twitter_to_memory(
-                        username=username.lstrip('@'),
+                    await sync_twitter_to_memory(
+                        username=username,
                         user_id=str(current_supa_user.id),
-                        app_id=str(app.id),
-                        db_session=db_session
+                        app_id="twitter",
+                        db_session=db_session,
+                        progress_callback=lambda p, m, c: update_task_progress(task_id, p, f"{m}")
                     )
-                    return {
-                        "synced_count": synced_count,
-                        "message": f"Successfully synced {synced_count} tweets from @{username}",
-                        "username": username
-                    }
                 finally:
                     db_session.close()
             
-            # Create new event loop for this task with asyncio timeout
+            # Create new event loop for this task
             try:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
@@ -298,7 +295,7 @@ async def sync_twitter(
         return {
             "task_id": task_id,
             "status": "started",
-            "message": f"Twitter sync started for @{username}. Use /api/v1/tasks/{task_id} to check progress."
+            "message": "Sync started! This may take a few minutes. Feel free to close this window and connect other apps."
         }
         
     except HTTPException:

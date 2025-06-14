@@ -15,7 +15,7 @@ export default function AuthCallbackPage() {
         if (user) {
           // User is authenticated, redirect to dashboard
           console.log('Auth callback: User authenticated, redirecting to dashboard');
-          router.replace('/dashboard');
+          router.replace('/dashboard-new');
         } else {
           // No user found, redirect to auth page
           console.log('Auth callback: No user found, redirecting to auth');

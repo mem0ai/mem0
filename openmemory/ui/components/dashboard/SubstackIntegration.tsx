@@ -229,38 +229,38 @@ export function SubstackIntegration({ onSyncComplete }: SubstackIntegrationProps
   };
 
   return (
-    <Card className="bg-zinc-900/50 border-zinc-800 backdrop-blur-sm">
+    <Card className="bg-zinc-900 border-zinc-700">
       <CardHeader className="pb-3">
         <CardTitle className="text-lg font-medium text-zinc-100">
-          Substack Integration
+          Connect to Substack
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
           <p className="text-sm text-zinc-400 mb-3">
-            Sync your Substack essays to build a comprehensive memory bank
+            Provide your Substack details to sync your content.
           </p>
           <div className="flex gap-2">
             <Input
               type="url"
-              placeholder="username.substack.com or https://username.substack.com"
+              placeholder="username.substack.com"
               value={substackUrl}
               onChange={(e) => setSubstackUrl(e.target.value)}
-              className="bg-zinc-950/50 border-zinc-800 text-zinc-300"
+              className="bg-zinc-950 border-zinc-800 text-zinc-300 placeholder:text-zinc-500"
               disabled={isSyncing}
             />
             <Button
               onClick={handleSync}
               disabled={isSyncing || !substackUrl}
-              className="bg-[#FF6719] hover:bg-[#FF6719]/80 text-white"
+              className="bg-zinc-800 hover:bg-zinc-700 text-zinc-100"
             >
               {isSyncing ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Syncing...
+                  Syncing Essays...
                 </>
               ) : (
-                "Sync Essays"
+                "Connect and Sync Substack"
               )}
             </Button>
           </div>
@@ -269,7 +269,7 @@ export function SubstackIntegration({ onSyncComplete }: SubstackIntegrationProps
         {/* Progress bar and status when syncing */}
         {isSyncing && (
           <div className="space-y-3">
-            <Progress value={progress} className="h-2" />
+            <Progress value={progress} className="h-2 bg-zinc-800" />
             <div className="flex items-center gap-2 text-sm text-zinc-400">
               <FileText className="h-4 w-4" />
               <span>{progressMessage}</span>
@@ -284,29 +284,24 @@ export function SubstackIntegration({ onSyncComplete }: SubstackIntegrationProps
 
         {/* Status message */}
         {syncMessage && !isSyncing && (
-          <div className={`flex items-center gap-2 text-sm ${
-            syncStatus === "success" ? "text-green-400" : "text-red-400"
-          }`}>
-            {syncStatus === "success" ? (
+          <div
+            className={`flex items-center gap-2 text-sm ${
+              syncStatus === 'success' ? 'text-green-400' : 'text-red-400'
+            }`}
+          >
+            {syncStatus === 'success' ? (
               <CheckCircle className="h-4 w-4" />
             ) : (
               <AlertCircle className="h-4 w-4" />
             )}
-            {syncMessage}
+            <span>{syncMessage}</span>
           </div>
         )}
-
-        {/* Document count */}
-        {documentCount > 0 && (
-          <div className="pt-2 border-t border-zinc-800">
-            <div className="flex items-center gap-2 text-sm text-zinc-400">
-              <FileText className="h-4 w-4" />
-              <span>
-                <span className="text-zinc-100 font-medium">{documentCount}</span> essays synced and searchable
-              </span>
-            </div>
-            <p className="text-xs text-zinc-500 mt-1">
-              Your essays are being processed in the background for enhanced search capabilities.
+        
+        {documentCount > 0 && !isSyncing && (
+          <div className="text-sm text-zinc-500 pt-2 border-t border-zinc-800/50">
+            <p>
+              You have <span className="font-bold text-zinc-400">{documentCount}</span> Substack essays synced.
             </p>
           </div>
         )}
