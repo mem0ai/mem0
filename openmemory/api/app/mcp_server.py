@@ -1244,22 +1244,21 @@ async def handle_post_message(request: Request):
         params = body.get("params", {})
         request_id = body.get("id")
 
+        # --- Method Routing ---
+
         if method_name == "tools/list":
             if is_api_key_path:
                 tools_to_show = get_api_tools_schema()
             else:
                 tools_to_show = get_original_tools_schema()
-            
             return JSONResponse(content={"jsonrpc": "2.0", "result": {"tools": tools_to_show}, "id": request_id})
 
-        if method_name == "tools/call":
+        elif method_name == "tools/call":
             tool_name = params.get("name")
 
-            # Explicitly block v2 tool for non-api key users
             if not is_api_key_path and tool_name == "search_memory_v2":
                  return JSONResponse(status_code=404, content={"error": f"Tool '{tool_name}' not found"})
             
-            # Block original search with tags for any user, just in case
             if tool_name == "search_memory" and "tags_filter" in params.get("arguments", {}):
                 return JSONResponse(status_code=422, content={"jsonrpc": "2.0", "error": {"code": -32602, "message": "The 'search_memory' tool does not support 'tags_filter'. Use 'search_memory_v2' instead."}, "id": request_id})
 
@@ -1269,18 +1268,34 @@ async def handle_post_message(request: Request):
             
             try:
                 result = await tool_function(**params.get("arguments", {}))
+                return JSONResponse(content={"jsonrpc": "2.0", "result": {"content": [{"type": "text", "text": result}]}, "id": request_id})
             except TypeError as e:
-                # This error handling now applies to both paths, which is safe
                 return JSONResponse(status_code=422, content={"jsonrpc": "2.0", "error": {"code": -32602, "message": f"Invalid parameters for tool '{tool_name}': {e}"}, "id": request_id})
 
-            return JSONResponse(content={"jsonrpc": "2.0", "result": {"content": [{"type": "text", "text": result}]}, "id": request_id})
+        # --- Restore original MCP method handlers ---
+        elif method_name == "initialize":
+            response_payload = {"jsonrpc": "2.0", "result": {"protocolVersion": "2024-11-05", "capabilities": {}, "serverInfo": {"name": "jean-memory-api", "version": "1.0.0"}}, "id": request_id}
+            return JSONResponse(content=response_payload)
         
-        # ... Handle other MCP methods like initialize, etc. ...
+        elif method_name == "notifications/initialized":
+            logger.info(f"Received initialization notification from client '{client_name_from_header}'")
+            return JSONResponse(content={"status": "acknowledged"})
+        
+        elif method_name == "notifications/cancelled":
+            logger.info(f"Received cancellation notification for request {params.get('requestId', 'unknown')}")
+            return JSONResponse(content={"status": "acknowledged"})
+        
+        elif method_name == "resources/list":
+            return JSONResponse(content={"jsonrpc": "2.0", "result": {"resources": []}, "id": request_id})
+        
+        elif method_name == "prompts/list":
+            return JSONResponse(content={"jsonrpc": "2.0", "result": {"prompts": []}, "id": request_id})
+        
         else:
-             # This part remains the same for both
-             return await handle_other_mcp_methods(request, body)
+            return JSONResponse(status_code=404, content={"error": f"Method '{method_name}' not found"})
 
     except Exception as e:
+        logger.error(f"Error executing MCP method: {e}", exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
     finally:
         user_id_var.reset(user_token)
@@ -1345,11 +1360,6 @@ def get_api_tools_schema():
             "inputSchema": {"type": "object", "properties": {"search_query": {"type": "string", "description": "The complex query"}}, "required": ["search_query"]}
         }
     ]
-
-async def handle_other_mcp_methods(request, body):
-    # Contains the original logic for initialize, notifications, resources, prompts, etc.
-    # This keeps the main function cleaner.
-    pass
 
 # Core memory tools registry - simplified for better performance
 tool_registry = {
