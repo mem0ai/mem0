@@ -8,15 +8,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -27,35 +18,15 @@ import { useToast } from "@/hooks/use-toast";
 import { useMemoriesApi } from "@/hooks/useMemoriesApi";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@/store/store";
-import {
-  selectMemory,
-  deselectMemory,
-  selectAllMemories,
-  clearSelection,
-} from "@/store/memoriesSlice";
 import SourceApp from "@/components/shared/source-app";
-import { HiMiniRectangleStack } from "react-icons/hi2";
-import { PiSwatches } from "react-icons/pi";
-import { GoPackage } from "react-icons/go";
-import { CiCalendar } from "react-icons/ci";
 import { useRouter } from "next/navigation";
 import Categories from "@/components/shared/categories";
 import { useUI } from "@/hooks/useUI";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { formatDate } from "@/lib/helpers";
 
 export function MemoryTable() {
   const { toast } = useToast();
   const router = useRouter();
-  const dispatch = useDispatch();
-  const selectedMemoryIds = useSelector(
-    (state: RootState) => state.memories.selectedMemoryIds
-  );
   const memories = useSelector((state: RootState) => state.memories.memories);
 
   const { deleteMemories, updateMemoryState, isLoading } = useMemoriesApi();
@@ -64,21 +35,6 @@ export function MemoryTable() {
     deleteMemories([id]);
   };
 
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      dispatch(selectAllMemories());
-    } else {
-      dispatch(clearSelection());
-    }
-  };
-
-  const handleSelectMemory = (id: string, checked: boolean) => {
-    if (checked) {
-      dispatch(selectMemory(id));
-    } else {
-      dispatch(deselectMemory(id));
-    }
-  };
   const { handleOpenUpdateMemoryDialog } = useUI();
 
   const handleEditMemory = (memory_id: string, memory_content: string) => {
@@ -97,149 +53,33 @@ export function MemoryTable() {
     }
   };
 
-  const isAllSelected =
-    memories.length > 0 && selectedMemoryIds.length === memories.length;
-  const isPartiallySelected =
-    selectedMemoryIds.length > 0 && selectedMemoryIds.length < memories.length;
-
   const handleMemoryClick = (id: string) => {
     router.push(`/memory/${id}`);
   };
 
   return (
-    <div className="rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow className="border-b-border hover:bg-muted/50">
-            <TableHead className="w-[50px] pl-4">
-              <Checkbox
-                className="data-[state=checked]:border-primary border-muted-foreground/50"
-                checked={isAllSelected}
-                data-state={
-                  isPartiallySelected
-                    ? "indeterminate"
-                    : isAllSelected
-                    ? "checked"
-                    : "unchecked"
-                }
-                onCheckedChange={handleSelectAll}
-              />
-            </TableHead>
-            <TableHead>
-              <div className="flex items-center min-w-[600px]">
-                <HiMiniRectangleStack className="mr-1" />
-                Memory
-              </div>
-            </TableHead>
-            <TableHead>
-              <div className="flex items-center">
-                <PiSwatches className="mr-1" size={15} />
-                Categories
-              </div>
-            </TableHead>
-            <TableHead className="w-[140px]">
-              <div className="flex items-center">
-                <GoPackage className="mr-1" />
-                Source App
-              </div>
-            </TableHead>
-            <TableHead className="w-[140px]">
-              <div className="flex items-center w-full justify-center">
-                <CiCalendar className="mr-1" size={16} />
-                Created On
-              </div>
-            </TableHead>
-            <TableHead className="text-right flex justify-center">
-              <div className="flex items-center justify-end">
-                <MoreHorizontal className="h-4 w-4 mr-2" />
-              </div>
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {memories.map((memory) => (
-            <TableRow
-              key={memory.id}
-              className={`hover:bg-muted/50 ${
-                memory.state === "paused" || memory.state === "archived"
-                  ? "text-muted-foreground"
-                  : ""
-              } ${isLoading ? "animate-pulse opacity-50" : ""}`}
-            >
-              <TableCell className="pl-4">
-                <Checkbox
-                  className="data-[state=checked]:border-primary border-muted-foreground/50"
-                  checked={selectedMemoryIds.includes(memory.id)}
-                  onCheckedChange={(checked) =>
-                    handleSelectMemory(memory.id, checked as boolean)
-                  }
-                />
-              </TableCell>
-              <TableCell>
-                {memory.state === "paused" || memory.state === "archived" ? (
-                  <TooltipProvider>
-                    <Tooltip delayDuration={0}>
-                      <TooltipTrigger asChild>
-                        <div
-                          onClick={() => handleMemoryClick(memory.id)}
-                          className={`font-medium ${
-                            memory.state === "paused" ||
-                            memory.state === "archived"
-                              ? "text-muted-foreground"
-                              : "text-foreground"
-                          } cursor-pointer`}
-                        >
-                          {memory.memory}
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>
-                          This memory is{" "}
-                          <span className="font-bold">
-                            {memory.state === "paused" ? "paused" : "archived"}
-                          </span>{" "}
-                          and <span className="font-bold">disabled</span>.
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                ) : (
-                  <div
-                    onClick={() => handleMemoryClick(memory.id)}
-                    className={`font-medium text-foreground cursor-pointer`}
-                  >
-                    {memory.memory}
-                  </div>
-                )}
-              </TableCell>
-              <TableCell>
-                <div className="flex flex-wrap gap-1">
-                  <Categories
-                    categories={memory.categories}
-                    isPaused={
-                      memory.state === "paused" || memory.state === "archived"
-                    }
-                    concat={true}
-                  />
-                </div>
-              </TableCell>
-              <TableCell className="w-[140px] text-center">
-                <SourceApp source={memory.app_name} />
-              </TableCell>
-              <TableCell className="w-[140px] text-center">
-                {formatDate(memory.created_at)}
-              </TableCell>
-              <TableCell className="text-right flex justify-center">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="end"
-                  >
-                    <DropdownMenuItem
+    <div className="space-y-4">
+      {memories.map((memory) => (
+        <div
+          key={memory.id}
+          className={`bg-card border border-border rounded-lg p-4 transition-all duration-300 hover:border-primary/50 hover:shadow-lg ${
+            memory.state === "paused" || memory.state === "archived"
+              ? "text-muted-foreground"
+              : ""
+          } ${isLoading ? "animate-pulse opacity-50" : ""}`}
+        >
+          <div className="flex justify-between items-start">
+            <div className="flex-1 cursor-pointer" onClick={() => handleMemoryClick(memory.id)}>
+              <p className="text-sm line-clamp-3">{memory.memory}</p>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0 ml-4">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                 <DropdownMenuItem
                       className="cursor-pointer"
                       onClick={() => {
                         const newState =
@@ -289,13 +129,26 @@ export function MemoryTable() {
                       <Trash2 className="mr-2 h-4 w-4" />
                       Delete
                     </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between text-xs text-muted-foreground mt-4 gap-2 sm:gap-4">
+             <div className="flex flex-wrap items-center gap-1">
+                  <Categories
+                    categories={memory.categories}
+                    isPaused={
+                      memory.state === "paused" || memory.state === "archived"
+                    }
+                    concat={true}
+                  />
+                </div>
+            <div className="flex items-center gap-4 flex-shrink-0">
+              <SourceApp source={memory.app_name} />
+              <span>{formatDate(memory.created_at)}</span>
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

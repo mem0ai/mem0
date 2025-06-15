@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import "@/styles/animation.css";
 import UpdateMemory from "@/components/shared/update-memory";
 import { useUI } from "@/hooks/useUI";
+import { DeepQueryDialog } from "./components/DeepQueryDialog";
 
 export default function MemoriesPage() {
   const router = useRouter();
@@ -32,8 +33,9 @@ export default function MemoriesPage() {
       />
       <main className="flex-1 py-6">
         <div className="container">
-          <div className="mt-1 pb-4 animate-fade-slide-down">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4 mt-1 pb-4 animate-fade-slide-down">
             <MemoryFilters />
+            <DeepQueryDialog />
           </div>
           <div className="animate-fade-slide-down delay-1">
             <MemoriesSection />

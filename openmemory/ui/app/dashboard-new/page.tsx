@@ -348,6 +348,10 @@ export default function DashboardNew() {
           open={isInstallModalOpen}
           onOpenChange={handleModalClose}
           app={selectedApp}
+          onSyncStart={(appId, taskId) => {
+            setSyncingApps(prev => ({ ...prev, [appId]: true }));
+            setAppTaskIds(prev => ({ ...prev, [appId]: taskId }));
+          }}
         />
       )}
       <SyncModal
