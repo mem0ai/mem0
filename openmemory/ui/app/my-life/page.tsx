@@ -2,24 +2,26 @@
 
 import { useState, useEffect } from "react";
 import KnowledgeGraph from "./components/KnowledgeGraph";
-import ChatInterface from "./components/ChatInterface";
+// import ChatInterface from "./components/ChatInterface";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { MessageSquare, Network } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
+/*
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
+*/
 
 export default function MyLifePage() {
   const [selectedMemory, setSelectedMemory] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<"graph" | "chat">("graph");
   const { user, isLoading } = useAuth();
   const router = useRouter();
-  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(true);
 
   // Redirect unauthenticated users
   useEffect(() => {
@@ -59,6 +61,7 @@ export default function MyLifePage() {
           <Network className="h-4 w-4" />
           Graph
         </Button>
+        {/*
         <Button
           variant={mobileView === "chat" ? "default" : "ghost"}
           size="sm"
@@ -68,6 +71,7 @@ export default function MyLifePage() {
           <MessageSquare className="h-4 w-4" />
           Chat
         </Button>
+        */}
       </div>
 
       {/* Knowledge Graph Section */}
@@ -88,6 +92,7 @@ export default function MyLifePage() {
       </motion.div>
 
       {/* Chat Interface Section */}
+      {/*
       <div className={`
         ${mobileView === "chat" ? "flex" : "hidden"}
         lg:flex
@@ -104,7 +109,7 @@ export default function MyLifePage() {
               transition={{ duration: 0.5, delay: 0.2 }}
               className={`
                 flex flex-col bg-card
-                w-full lg:w-[500px] xl:w-[600px]
+                w-full lg:w-[400px] xl:w-[500px]
                 h-[calc(100vh-7rem)] lg:h-full
               `}
             >
@@ -120,6 +125,7 @@ export default function MyLifePage() {
           </div>
         </Collapsible>
       </div>
+      */}
     </div>
   );
 } 

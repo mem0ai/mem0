@@ -56,6 +56,11 @@ export function AppCard({ app, onConnect, index, isSyncing, onSyncStart }: AppCa
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.2 + index * 0.1 }}
       className="group h-full"
+      onClick={() => {
+        if (app.is_connected) {
+          onConnect(app);
+        }
+      }}
     >
       <div className="relative bg-card rounded-lg border border-border p-4 h-full flex flex-col justify-between hover:border-primary/50 transition-all duration-300">
         {app.is_connected && (
