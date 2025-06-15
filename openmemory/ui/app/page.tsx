@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight, Shield, Zap, Globe, Key, Github, Star } from "lucide-react";
 import Link from "next/link";
@@ -14,6 +14,16 @@ export default function LandingPage() {
   const buttonRef = useRef<HTMLAnchorElement>(null);
   const router = useRouter();
   const { user, isLoading } = useAuth();
+  const [stars, setStars] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch("https://api.github.com/repos/jonathan-politzki/your-memory")
+      .then((res) => res.json())
+      .then((data) => {
+        setStars(data.stargazers_count);
+      })
+      .catch((e) => console.error("Failed to fetch stars", e));
+  }, []);
 
   // Redirect authenticated users to dashboard immediately
   useEffect(() => {
@@ -147,7 +157,9 @@ export default function LandingPage() {
                 <div className="w-px h-4 bg-gray-600" />
                 <div className="flex items-center gap-1">
                     <Star className="w-4 h-4 text-yellow-400" />
-                    <span className="font-medium text-white">59</span>
+                    <span className="font-medium text-white h-4">
+                      {stars ? stars : '...'}
+                    </span>
                 </div>
               </a>
             </motion.div>

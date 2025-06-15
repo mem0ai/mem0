@@ -34,7 +34,6 @@ export function AppCard({ app, onConnect, index, isSyncing, onSyncStart }: AppCa
   const { user, accessToken } = useAuth();
   const { toast } = useToast();
   const [inputValue, setInputValue] = useState("");
-  const [showConnectInput, setShowConnectInput] = useState(false);
   const appConfig = useAppConfig(app);
   const { isLoading, handleSync: performSync } = useAppSync({ app, onSyncStart });
 
@@ -96,7 +95,7 @@ export function AppCard({ app, onConnect, index, isSyncing, onSyncStart }: AppCa
           </div>
 
           {/* Special UI for connected apps OR for special connection flow */}
-          {(app.is_connected || (isSpecialFlow && showConnectInput)) && isSpecialFlow && (
+          {app.is_connected && isSpecialFlow && (
             <div className="mb-3 space-y-2">
                 <div className="flex gap-1.5">
                     <Input 
@@ -119,11 +118,7 @@ export function AppCard({ app, onConnect, index, isSyncing, onSyncStart }: AppCa
           {!app.is_connected ? (
             <Button
               onClick={() => {
-                if (isSpecialFlow) {
-                  setShowConnectInput(true);
-                } else {
-                  onConnect(app);
-                }
+                onConnect(app);
               }}
               className="w-full text-xs h-8"
               variant="outline"
@@ -146,9 +141,22 @@ export function AppCard({ app, onConnect, index, isSyncing, onSyncStart }: AppCa
           ) : (
             <div className="w-full flex gap-1.5">
               {/* Connected Status */}
-              <div className="flex items-center justify-center gap-1.5 py-1.5 px-2 bg-green-500/10 border border-green-500/20 rounded text-xs flex-1">
-                <Check className="w-3 h-3 text-green-400" />
-                <span className="text-green-400">Connected</span>
+              <div className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded text-xs flex-1 ${
+                  isSyncing 
+                    ? 'bg-blue-500/10 border border-blue-500/20' 
+                    : 'bg-green-500/10 border border-green-500/20'
+              }`}>
+                {isSyncing ? (
+                  <>
+                    <Zap className="w-3 h-3 text-blue-400 animate-pulse" />
+                    <span className="text-blue-400">Syncing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-3 h-3 text-green-400" />
+                    <span className="text-green-400">Connected</span>
+                  </>
+                )}
               </div>
               
               {/* View Memories Button */}

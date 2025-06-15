@@ -15,6 +15,7 @@ import { AnalysisPanel } from '@/components/dashboard/AnalysisPanel';
 import { AppCard, DashboardApp } from '@/components/dashboard/AppCard';
 import { useToast } from "@/components/ui/use-toast";
 import ParticleNetwork from "@/components/landing/ParticleNetwork";
+import { SyncModal } from '@/components/dashboard/SyncModal';
 
 // Define available apps with priorities
 interface AvailableApp {
@@ -66,6 +67,7 @@ export default function DashboardNew() {
   const [mounted, setMounted] = useState(false);
   const [hasFetchedApps, setHasFetchedApps] = useState(false);
   const [showAllApps, setShowAllApps] = useState(false);
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const posthog = usePostHog();
   const { fetchMemories } = useMemoriesApi();
   const [totalMemories, setTotalMemories] = useState(0);
@@ -228,7 +230,8 @@ export default function DashboardNew() {
 
     // Twitter and Substack have their own connection flow within the AppCard
     if (app.id === 'twitter' || app.id === 'substack') {
-      // The AppCard component will handle the UI for these
+      setSelectedApp(app);
+      setIsSyncModalOpen(true);
       return;
     }
     
@@ -347,6 +350,15 @@ export default function DashboardNew() {
           app={selectedApp}
         />
       )}
+      <SyncModal
+        app={selectedApp}
+        open={isSyncModalOpen}
+        onOpenChange={setIsSyncModalOpen}
+        onSyncStart={(appId, taskId) => {
+          setSyncingApps(prev => ({ ...prev, [appId]: true }));
+          setAppTaskIds(prev => ({ ...prev, [appId]: taskId }));
+        }}
+      />
     </div>
   );
 } 
