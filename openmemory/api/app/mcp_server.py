@@ -62,10 +62,11 @@ sse = SseServerTransport("/mcp/messages/")
 
 @mcp.tool(description="Add new memories to the user's memory")
 @retry_on_exception(retries=3, delay=1, backoff=2, exceptions=(ConnectionError,))
-async def add_memories(text: str) -> str:
+async def add_memories(text: str, tags: Optional[list[str]] = None) -> str:
     """
     Add memories to the user's personal memory bank.
     These memories are stored in a vector database and can be searched later.
+    Optionally, add a list of string tags for later filtering.
     """
     # Lazy import
     from app.utils.memory import get_memory_client
@@ -124,17 +125,26 @@ async def add_memories(text: str) -> str:
             mem0_start_time = time.time()
             logger.info(f"add_memories: Starting mem0 client call for user {supa_uid}")
 
+            # Prepare metadata, including tags if provided
+            metadata = {
+                "source_app": "openmemory_mcp",
+                "mcp_client": client_name,
+                "app_db_id": str(app.id)
+            }
+            if tags:
+                # Ensure tags are a list of strings
+                if isinstance(tags, list) and all(isinstance(t, str) for t in tags):
+                    metadata["tags"] = tags
+                else:
+                    logger.warning(f"Invalid tags format for user {supa_uid}. Tags must be a list of strings.")
+
             # Run blocking I/O in a separate thread to not block the event loop
             loop = asyncio.get_running_loop()
             add_call = functools.partial(
                 memory_client.add,
                 messages=[{"role": "user", "content": text}],
                 user_id=supa_uid,
-                metadata={
-                    "source_app": "openmemory_mcp",
-                    "mcp_client": client_name,
-                    "app_db_id": str(app.id)
-                }
+                metadata=metadata
             )
             response = await loop.run_in_executor(None, add_call)
 
@@ -215,15 +225,17 @@ async def add_observation(text: str) -> str:
     Functionally, it performs the same action.
     """
     # This function now simply calls the other one to avoid code duplication.
+    # Note: This alias does not expose the 'tags' parameter.
     return await add_memories(text)
 
 
 @mcp.tool(description="Search the user's memory for memories that match the query")
 @retry_on_exception(retries=3, delay=1, backoff=2, exceptions=(ConnectionError,))
-async def search_memory(query: str, limit: int = None) -> str:
+async def search_memory(query: str, limit: int = None, tags_filter: Optional[list[str]] = None) -> str:
     """
     Search the user's memory for memories that match the query.
     Returns memories that are semantically similar to the query.
+    Can optionally filter by a list of tags.
     """
     # Lazy import
     from app.utils.memory import get_memory_client
@@ -243,7 +255,7 @@ async def search_memory(query: str, limit: int = None) -> str:
     
     try:
         # Add timeout to prevent hanging
-        return await asyncio.wait_for(_search_memory_impl(query, supa_uid, client_name, limit), timeout=30.0)
+        return await asyncio.wait_for(_search_memory_impl(query, supa_uid, client_name, limit, tags_filter), timeout=30.0)
     except asyncio.TimeoutError:
         return f"Search timed out. Please try a simpler query."
     except Exception as e:
@@ -251,7 +263,7 @@ async def search_memory(query: str, limit: int = None) -> str:
         return f"Error searching memory: {e}"
 
 
-async def _search_memory_impl(query: str, supa_uid: str, client_name: str, limit: int = 10) -> str:
+async def _search_memory_impl(query: str, supa_uid: str, client_name: str, limit: int = 10, tags_filter: Optional[list[str]] = None) -> str:
     """Implementation of search memory with error handling and timeout"""
     from app.utils.memory import get_memory_client
     import asyncio
@@ -270,13 +282,24 @@ async def _search_memory_impl(query: str, supa_uid: str, client_name: str, limit
             logger.error(f"🚨 USER ID MISMATCH: Expected {supa_uid}, got {user.user_id}")
             return f"Error: User ID validation failed. Security issue detected."
 
+        # Prepare metadata filter for mem0
+        metadata_filter = {}
+        if tags_filter:
+            metadata_filter = {"tags": {"$in": tags_filter}}
+
         # Run blocking I/O in a separate thread
         loop = asyncio.get_running_loop()
-        search_call = functools.partial(memory_client.search, query=query, user_id=supa_uid, limit=limit)
+        search_call = functools.partial(
+            memory_client.search, 
+            query=query, 
+            user_id=supa_uid, 
+            limit=limit,
+            metadata=metadata_filter
+        )
         mem0_search_results = await loop.run_in_executor(None, search_call)
         
         # 🚨 CRITICAL: Log the search results for debugging
-        logger.info(f"🔍 SEARCH DEBUG - Query: {query}, Results count: {len(mem0_search_results.get('results', [])) if isinstance(mem0_search_results, dict) else len(mem0_search_results) if isinstance(mem0_search_results, list) else 0}")
+        logger.info(f"🔍 SEARCH DEBUG - Query: {query}, Filter: {metadata_filter}, Results count: {len(mem0_search_results.get('results', [])) if isinstance(mem0_search_results, dict) else len(mem0_search_results) if isinstance(mem0_search_results, list) else 0}")
 
         processed_results = []
         actual_results_list = []

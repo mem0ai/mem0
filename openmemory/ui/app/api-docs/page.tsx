@@ -741,24 +741,32 @@ x-client-name: your-app-name`} />
               Store important information, preferences, facts, and observations about the user. Use this to remember key details learned during conversation, user preferences, values, beliefs, or anything the user wants remembered for future conversations.
             </p>
             <h4 className="font-semibold text-foreground mb-2">Input Schema:</h4>
-            <CodeBlock lang="json" code={JSON.stringify({
-              text: {
-                type: "string",
-                description: "Important information to remember about the user (facts, preferences, insights, observations, etc.)"
-              }
-            }, null, 2)} />
+            <CodeBlock lang="json" code={`{
+  "text": {
+    "type": "string",
+    "description": "Important information to remember about the user (facts, preferences, insights, observations, etc.)"
+  },
+  "tags": {
+    "type": "array",
+    "items": {
+      "type": "string"
+    },
+    "description": "Optional. A list of strings to categorize the memory (e.g., ['work', 'project-alpha'])."
+  }
+}`} />
             <h4 className="font-semibold text-foreground mt-4 mb-2">Example Payload:</h4>
-            <CodeBlock lang="json" code={JSON.stringify({
-              jsonrpc: "2.0",
-              method: "tools/call",
-              params: {
-                name: "add_memories",
-                arguments: {
-                  text: "The user is interested in learning about generative adversarial networks (GANs) and prefers Python for machine learning projects."
-                }
-              },
-              id: 2
-            }, null, 2)} />
+            <CodeBlock lang="json" code={`{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "add_memories",
+    "arguments": {
+      "text": "The user is interested in learning about generative adversarial networks (GANs) and prefers Python for machine learning projects.",
+      "tags": ["work", "project-alpha"]
+    }
+  },
+  "id": 2
+}`} />
           </div>
 
           {/* search_memory tool */}
@@ -768,29 +776,37 @@ x-client-name: your-app-name`} />
               Quick keyword-based search through the user's memories. Perfect for finding specific facts, dates, names, or simple queries. Use when you need raw memory data rather than a conversational response.
             </p>
             <h4 className="font-semibold text-foreground mb-2">Input Schema:</h4>
-            <CodeBlock lang="json" code={JSON.stringify({
-              query: {
-                type: "string",
-                description: "Keywords or phrases to search for"
-              },
-              limit: {
-                type: "integer",
-                description: "Maximum number of results to return (default: 10)"
-              }
-            }, null, 2)} />
+            <CodeBlock lang="json" code={`{
+  "query": {
+    "type": "string",
+    "description": "Keywords or phrases to search for"
+  },
+  "limit": {
+    "type": "integer",
+    "description": "Maximum number of results to return (default: 10)"
+  },
+  "tags_filter": {
+    "type": "array",
+    "items": {
+      "type": "string"
+    },
+    "description": "Optional. A list of tags to filter the search results."
+  }
+}`} />
             <h4 className="font-semibold text-foreground mt-4 mb-2">Example Payload:</h4>
-            <CodeBlock lang="json" code={JSON.stringify({
-              jsonrpc: "2.0",
-              method: "tools/call",
-              params: {
-                name: "search_memory",
-                arguments: {
-                  query: "TypeScript preferences",
-                  limit: 5
-                }
-              },
-              id: 3
-            }, null, 2)} />
+            <CodeBlock lang="json" code={`{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "search_memory",
+    "arguments": {
+      "query": "TypeScript preferences",
+      "limit": 5,
+      "tags_filter": ["work", "programming"]
+    }
+  },
+  "id": 3
+}`} />
           </div>
 
           {/* list_memories tool */}
