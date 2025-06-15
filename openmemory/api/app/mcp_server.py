@@ -31,6 +31,7 @@ import asyncio
 from sqlalchemy import text
 from app.config.memory_limits import MEMORY_LIMITS
 from fastapi.responses import JSONResponse
+from .background_tasks import task_manager, TaskStatus
 
 # Load environment variables
 load_dotenv()
@@ -992,7 +993,7 @@ async def _lightweight_ask_memory_impl(question: str, supa_uid: str, client_name
                 # Access response.text safely
                 result = response
                 total_duration = time.time() - start_time
-                result += f"\\n\\n💡 Timings: search={search_duration:.2f}s, llm={llm_duration:.2f}s, total={total_duration:.2f}s | {len(clean_memories)} memories"
+                result += f"\n\n💡 Timings: search={search_duration:.2f}s, llm={llm_duration:.2f}s, total={total_duration:.2f}s | {len(clean_memories)} memories"
                 
                 return result
             except asyncio.TimeoutError:
@@ -1279,9 +1280,22 @@ async def handle_post_message(request: Request):
             if not tool_function:
                 return JSONResponse(status_code=404, content={"error": f"Tool '{tool_name}' not found"})
             
-            # Execute the tool and await its result
-            result = await tool_function(**tool_args)
-            
+            try:
+                # Execute the tool and await its result
+                result = await tool_function(**tool_args)
+            except TypeError as e:
+                # This catches errors where arguments are missing or incorrect
+                logger.warning(f"Invalid arguments for tool '{tool_name}': {e}")
+                error_payload = {
+                    "jsonrpc": "2.0",
+                    "error": {
+                        "code": -32602,  # Invalid params
+                        "message": f"Invalid parameters for tool '{tool_name}': {e}"
+                    },
+                    "id": request_id
+                }
+                return JSONResponse(status_code=422, content=error_payload)
+
             response_payload = {
                 "jsonrpc": "2.0",
                 "result": {

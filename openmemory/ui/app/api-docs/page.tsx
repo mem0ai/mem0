@@ -314,6 +314,7 @@ const DocsLayout = ({ children, navItems }: { children: React.ReactNode, navItem
 const navItems = [
   { href: '#introduction', label: 'Introduction', icon: BookOpen },
   { href: '#authentication', label: 'Authentication', icon: Shield },
+  { href: '#key-concepts', label: 'Key Concepts', icon: BrainCircuit },
   { href: '#endpoints', label: 'API Endpoint', icon: GitBranch },
   { href: '#quick-test', label: 'Quick Test', icon: Terminal },
   { href: '#dynamic-agents', label: 'Dynamic Agents', icon: Bot },
@@ -465,6 +466,34 @@ graph TD
             <CodeBlock lang="http" code={`x-user-id: your-supabase-user-id
 x-client-name: your-app-name`} />
           </div>
+        </div>
+      </section>
+
+      <section id="key-concepts">
+        <h2 className="text-3xl font-bold text-foreground mb-4">Key Architectural Concepts</h2>
+        <p className="text-muted-foreground mb-4">
+          Understanding a few key concepts is crucial for building reliable applications on top of the Jean Memory API. Our architecture is designed for scale and power, which introduces behaviors that are important to know.
+        </p>
+        <Alert variant="default" className="bg-blue-950/50 border-blue-800/60 text-blue-300 mb-6">
+          <BrainCircuit className="h-4 w-4 text-blue-400" />
+          <AlertTitle>Core Concept: Asynchronous Indexing</AlertTitle>
+          <AlertDescription>
+            When you add a memory using <code className="font-mono text-xs">add_memories</code>, it is ingested immediately, but it is **not instantly searchable**. The memory enters a queue to be processed, embedded, and indexed into the vector database. This process is highly optimized but can take anywhere from a few seconds to a minute.
+          </AlertDescription>
+        </Alert>
+        <div className="space-y-4">
+            <h3 className="font-semibold text-foreground text-lg">Developer Best Practices</h3>
+             <ul className="list-disc list-inside space-y-2 text-muted-foreground text-sm">
+                <li>
+                  <strong>Decouple Writes from Reads:</strong> Do not design workflows that add a memory and then immediately try to search for it. Assume there will be a delay.
+                </li>
+                <li>
+                  <strong>Use `list_memories` for Confirmation:</strong> If you need to confirm a memory was *received*, you can use the `list_memories` tool, which often shows the latest additions before they are fully indexed.
+                </li>
+                <li>
+                  <strong>For Real-time Needs, Cache Locally:</strong> If your agent needs immediate access to information it just learned, keep a short-term memory cache in your application's local state. Use Jean Memory for long-term retention and cross-session context.
+                </li>
+              </ul>
         </div>
       </section>
 
