@@ -133,14 +133,19 @@ async def add_memories(text: str, tags: Optional[list[str]] = None) -> str:
             if tags:
                 metadata['tags'] = tags
 
+            message_to_add = {
+                "role": "user",
+                "content": text,
+                "metadata": metadata
+            }
+
             logger.info(f"🔍 DEBUG: Passing this metadata to mem0.add: {metadata}")
 
             loop = asyncio.get_running_loop()
             add_call = functools.partial(
                 memory_client.add,
-                messages=[{"role": "user", "content": text}],
-                user_id=supa_uid,
-                metadata=metadata
+                messages=[message_to_add],
+                user_id=supa_uid
             )
             response = await loop.run_in_executor(None, add_call)
 
