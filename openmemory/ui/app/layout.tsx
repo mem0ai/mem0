@@ -14,6 +14,7 @@ import { Inter } from "next/font/google";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://jeanmemory.com'),
   title: {
     default: 'Jean Memory - Your Personal Memory Layer',
     template: '%s | Jean Memory',
@@ -26,7 +27,7 @@ export const metadata: Metadata = {
     siteName: 'Jean Memory',
     images: [
       {
-        url: 'https://jeanmemory.com/og-image.png',
+        url: '/og-image.png',
         width: 1200,
         height: 630,
         alt: 'Jean Memory Banner',
@@ -39,7 +40,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Jean Memory - Your Personal Memory Layer',
     description: 'Securely store, manage, and access your digital memories across all your AI applications.',
-    images: ['https://jeanmemory.com/og-image.png'],
+    images: ['/og-image.png'],
   },
   icons: {
     icon: '/favicon.ico',

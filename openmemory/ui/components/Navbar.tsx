@@ -9,7 +9,7 @@ import { CreateMemoryDialog } from "@/app/memories/components/CreateMemoryDialog
 import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
 import { Brain, Menu, X, Settings2, Book } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Icons } from "@/components/icons";
 import { UserNav } from "./UserNav";
@@ -22,6 +22,11 @@ export function Navbar() {
   const { user, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { theme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Check for reduced motion preference
   const prefersReducedMotion = typeof window !== 'undefined' && 
@@ -50,12 +55,20 @@ export function Navbar() {
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 items-center justify-between px-4">
         <Link href="/dashboard-new" className="flex items-center gap-2">
-          <Image 
-            src={theme === 'light' ? "/images/jean-white-theme-bug.png" : "/images/jean-bug.png"} 
-            alt="Jean Memory" 
-            width={26} 
-            height={26} 
-          />
+          {mounted ? (
+            <Image
+              src={
+                theme === "light"
+                  ? "/images/jean-white-theme-bug.png"
+                  : "/images/jean-bug.png"
+              }
+              alt="Jean Memory"
+              width={26}
+              height={26}
+            />
+          ) : (
+            <div style={{ width: 26, height: 26 }} />
+          )}
           <span className="text-lg sm:text-xl font-medium">Jean Memory</span>
         </Link>
         
