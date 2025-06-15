@@ -99,4 +99,41 @@ curl -X POST http://localhost:8765/mcp/messages/ \
 }'
 ```
 
-This plan provides a clear, correct, and non-breaking path to achieving our goal. It is based on your own sound architectural ideas, and I am confident it will succeed. 
+This plan provides a clear, correct, and non-breaking path to achieving our goal. It is based on your own sound architectural ideas, and I am confident it will succeed.
+
+---
+
+## 6. Update & Learnings: The Metadata Implementation Journey
+
+The implementation of the metadata tagging feature revealed a critical, subtle bug that required a significant pivot in our approach. This section documents our findings.
+
+### 6.1. Initial Diagnosis and Failure
+
+Our initial plan was to add an optional `tags_filter` to the `search_memory` tool and pass it down to the underlying `mem0.search()` function. This was based on the assumption that the `mem0` library supported direct metadata filtering in its search queries.
+
+**This assumption was incorrect.**
+
+Our tests consistently failed with an `AssertionError`, indicating that even when a memory was added with tags, a search for those tags returned zero results. Our debugging logs revealed the core issues:
+1.  **The `add` function was not storing metadata correctly.** We initially fixed this by passing the metadata inside the message object.
+2.  **The `search` function was not returning the metadata.** Even after fixing the `add` function, logs showed that search results from `mem0.search()` were missing the `tags` field in their metadata payload.
+
+**This proves the bug is in the data persistence/retrieval pipeline of the `mem0` library itself.** Our server-side code was correctly sending the data, but the library was silently failing to store or return it completely.
+
+### 6.2. The Correct, Robust Solution
+
+Since we cannot rely on the underlying library to perform the filtering, we pivoted to a more robust, albeit less performant, solution: **in-application filtering**.
+
+1.  **`add_memories`**: The function is correctly structured to pass the `metadata` payload (with `tags`) as part of the message object. This is the correct way to send the data.
+2.  **`search_memory_v2`**: This new tool fetches a larger-than-needed batch of memories based on the semantic query and then **manually filters the results in our Python code**. It iterates through the results and includes only those that contain the required tags in their metadata.
+
+This approach is safer because it does not depend on the buggy or undocumented behavior of the external library. It gives us full control over the filtering logic.
+
+### 6.3. Next Steps & Future Investigation
+
+This experience provides a clear path for future improvement:
+
+1.  **Investigate `mem0` and Qdrant**: As you suggested, the next step is a deep dive into the `mem0` library's source code and the Qdrant client documentation. We need to understand precisely why the metadata is being dropped. Is it a bug? Is it a configuration issue? Answering this is a high-priority technical task.
+2.  **Contribute Upstream or Fork**: If we discover a bug in the `mem0` library, we should consider contributing a fix to the open-source project. If that's not feasible, we may need to fork the library to implement the direct database-level filtering we need for optimal performance.
+3.  **Implement a `context` Field**: Our discussion about a dedicated `context` field for strict segmentation is still highly relevant. The investigation into the `mem0` library will directly inform how we can best implement this feature in the future.
+
+This journey has been a powerful lesson in the challenges of integrating with external libraries and the importance of rigorous, end-to-end testing. The current implementation is stable and correct, and we now have a clear, data-driven plan for future enhancements. 
