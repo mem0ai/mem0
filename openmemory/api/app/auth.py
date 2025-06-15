@@ -209,6 +209,28 @@ async def get_current_supa_user(request: Request) -> SupabaseUser:
             detail=detail
         )
 
+async def get_user_from_api_key_header(request: Request) -> bool:
+    """
+    Validates API key from X-Api-Key header and attaches user to request.state.
+    Returns True if authentication successful, False otherwise.
+    Used by the unified MCP endpoint for API key authentication.
+    """
+    api_key = request.headers.get("X-Api-Key")
+    if not api_key:
+        return False
+    
+    # Get database session
+    from .database import SessionLocal
+    db = SessionLocal()
+    try:
+        user = await _get_user_from_api_key(api_key, db)
+        if user:
+            request.state.user = user
+            return True
+        return False
+    finally:
+        db.close()
+
 async def get_service_client() -> SupabaseClient:
     """
     Get the Supabase service client for backend operations.

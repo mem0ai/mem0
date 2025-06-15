@@ -185,6 +185,7 @@ const navItems = [
   { href: '#introduction', label: 'Introduction', icon: BookOpen },
   { href: '#authentication', label: 'Authentication', icon: Shield },
   { href: '#endpoints', label: 'API Endpoint', icon: GitBranch },
+  { href: '#quick-test', label: 'Quick Test', icon: Terminal },
   { href: '#dynamic-agents', label: 'Dynamic Agents', icon: Bot },
   { href: '#capabilities', label: 'Building Capabilities', icon: Component },
   { href: '#example-use-cases', label: 'Example Use Cases', icon: Lightbulb },
@@ -248,73 +249,104 @@ The tone balances the introspective quality of your essays with the practical en
 
   const architectureDiagram = `
 graph TD
-    subgraph "Existing Production Auth (Unchanged & Safe)"
+    subgraph "Unified Jean Memory API Architecture"
         A["UI Request<br/>(jeanmemory.com)"] --> B{JWT in Header};
-        C["Claude 'supergateway' Request"] --> D{"x-user-id" in Header};
+        C["Claude Desktop Request"] --> D{"x-user-id + x-client-name<br/>Headers"};
+        E["API Key Request<br/>(Programmatic)"] --> F{"X-Api-Key Header<br/>'jean_sk_...'"};
 
-        B --> E["GET /api/v1/*"];
-        D --> F["POST /mcp/messages/"];
+        B --> G["GET /api/v1/*<br/>(UI Endpoints)"];
+        D --> H["POST /mcp/messages/<br/>(Unified MCP Endpoint)"];
+        F --> H;
         
-        E -- "Uses get_current_supa_user" --> G["✅ Validated"];
-        F -- "Uses main MCP handler" --> G;
+        G -- "Uses get_current_supa_user" --> I["✅ UI Validated"];
+        H -- "Dual-path authentication:<br/>1. API Key → get_user_from_api_key_header<br/>2. Headers → existing validation" --> J["✅ MCP Validated"];
+        
+        J --> K["Execute Memory Tools<br/>(ask_memory, add_memories, etc.)"];
     end
 
-    subgraph "New Agent API (Isolated System)"
-        H["Agent Request"] --> I{"API Key<br/>'jean_sk_...' in Header"};
-        I --> J["POST /agent/v1/mcp/messages/"];
-        J -- "Uses get_current_agent" --> K["✅ Validated"];
-        K -- "Forwards to main MCP handler" --> F;
+    subgraph "Memory Tools Registry"
+        K --> L["ask_memory"];
+        K --> M["add_memories"];
+        K --> N["search_memory"];
+        K --> O["list_memories"];
+        K --> P["deep_memory_query"];
     end
     
-    classDef existing fill:#18181b,stroke:#a1a1aa,color:#fafafa,stroke-width:1px
-    classDef new fill:#172554,stroke:#60a5fa,color:#fafafa,stroke-width:1px
+    classDef ui fill:#166534,stroke:#4ade80,color:#fafafa,stroke-width:1px
+    classDef unified fill:#172554,stroke:#60a5fa,color:#fafafa,stroke-width:1px
+    classDef tools fill:#7c2d12,stroke:#fb923c,color:#fafafa,stroke-width:1px
     classDef validated fill:#166534,stroke:#4ade80,color:#fafafa,stroke-width:1px
     
-    class A,B,C,D,E,F existing
-    class H,I,J new
-    class G,K validated
+    class A,B,G ui
+    class C,D,E,F,H unified
+    class I,J validated
+    class K,L,M,N,O,P tools
   `;
 
   return (
     <DocsLayout navItems={navItems}>
       <section id="introduction">
-        <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500 mb-4">Agent API Documentation</h1>
-        <p className="text-lg text-slate-400">
-          The Jean Memory Agent API provides a robust, isolated, and easy-to-use memory layer for your AI applications. It's designed for production use cases where multiple AI agents or services need to interact with a user's memory store via a secure, key-based authentication system.
+        <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500 mb-4">Jean Memory API Documentation</h1>
+        <p className="text-lg text-slate-400 mb-4">
+          The Jean Memory API provides a robust, unified memory layer for your AI applications. Built on the Model Context Protocol (MCP), it offers secure API key authentication for programmatic access while maintaining full compatibility with existing Claude Desktop integrations.
         </p>
+        <div className="flex items-center gap-4 p-4 bg-emerald-900/30 border border-emerald-700/50 rounded-lg">
+          <div className="w-3 h-3 bg-emerald-400 rounded-full animate-pulse"></div>
+          <p className="text-emerald-200 text-sm">
+            <strong>Production Ready:</strong> Zero breaking changes, dual-path authentication, and enterprise-grade security.
+          </p>
+        </div>
       </section>
 
       <section id="authentication">
         <h2 className="text-3xl font-bold text-slate-100 mb-4 flex items-center"><Shield className="w-7 h-7 mr-3 text-purple-400"/>Authentication</h2>
         <p className="text-slate-400 mb-4">
-          All agent endpoints are protected and require an API key. Keys are generated from the Jean Memory UI and must be passed in the <code className="font-mono text-sm">Authorization</code> header as a Bearer token.
+          The API supports dual-path authentication for maximum flexibility and compatibility. You can authenticate using either API keys (recommended for programmatic access) or the existing header-based system (used by Claude Desktop).
         </p>
-        <div className="space-y-4">
-          <div>
-            <h3 className="font-semibold text-slate-200 text-lg flex items-center"><Key className="w-5 h-5 mr-2 text-slate-400"/>Step 1: Generate an API Key</h3>
-            <p className="text-slate-400 mt-1">
-              Navigate to the <a href="/settings" className="text-purple-400 underline hover:text-purple-300">Settings page</a> in the Jean Memory dashboard. From there, you can generate, view, and revoke API keys.
-            </p>
+        <div className="space-y-6">
+          <div className="p-4 border border-emerald-700/80 bg-emerald-900/50 rounded-lg">
+            <h3 className="font-semibold text-emerald-200 text-lg flex items-center mb-3"><Key className="w-5 h-5 mr-2"/>Option 1: API Key Authentication (Recommended)</h3>
+            <div className="space-y-3">
+              <div>
+                <h4 className="font-medium text-emerald-100">Step 1: Generate an API Key</h4>
+                <p className="text-emerald-200/80 text-sm mt-1">
+                  Navigate to your <a href="/dashboard-new" className="text-emerald-300 underline hover:text-emerald-200">Dashboard</a> → Settings → API Keys to generate a new key.
+                </p>
+              </div>
+              <div>
+                <h4 className="font-medium text-emerald-100">Step 2: Use X-Api-Key Header</h4>
+                <p className="text-emerald-200/80 text-sm mt-1">
+                  Include your API key in the <code className="font-mono text-xs bg-emerald-800/50 px-1 rounded">X-Api-Key</code> header:
+                </p>
+                <CodeBlock lang="http" code={`X-Api-Key: jean_sk_s8ad0fI7x2VD2KnyLewH0e3ajuRV_1mdWGgnsBJ6VA8`} />
+              </div>
+            </div>
           </div>
-          <div>
-            <h3 className="font-semibold text-slate-200 text-lg flex items-center"><Code className="w-5 h-5 mr-2 text-slate-400"/>Step 2: Use the API Key</h3>
-            <p className="text-slate-400 mt-1">
-              When making a request to the agent API, include your key in the <code className="font-mono text-sm">Authorization</code> header. The key must be prefixed with <code className="font-mono text-sm">Bearer </code>.
+          <div className="p-4 border border-slate-700/80 bg-slate-900/50 rounded-lg">
+            <h3 className="font-semibold text-slate-200 text-lg flex items-center mb-3"><Code className="w-5 h-5 mr-2"/>Option 2: Header-Based Authentication</h3>
+            <p className="text-slate-400 text-sm">
+              This is used internally by Claude Desktop and the UI. Requires both <code className="font-mono text-xs">x-user-id</code> and <code className="font-mono text-xs">x-client-name</code> headers.
             </p>
-            <CodeBlock lang="http" code={`Authorization: Bearer jean_sk_...`} />
+            <CodeBlock lang="http" code={`x-user-id: your-supabase-user-id
+x-client-name: your-app-name`} />
           </div>
         </div>
       </section>
 
       <section id="endpoints">
-        <h2 className="text-3xl font-bold text-slate-100 mb-4 flex items-center"><GitBranch className="w-7 h-7 mr-3 text-purple-400"/>API Endpoint</h2>
+        <h2 className="text-3xl font-bold text-slate-100 mb-4 flex items-center"><GitBranch className="w-7 h-7 mr-3 text-purple-400"/>Unified API Endpoint</h2>
         <p className="text-slate-400 mb-4">
-          All agent-based interactions use a single, unified MCP endpoint. This endpoint accepts POST requests with a standard JSON-RPC 2.0 payload.
+          All interactions use a single, unified MCP endpoint that supports both API key authentication (for programmatic access) and header-based authentication (for existing Claude/UI integrations). This endpoint accepts POST requests with standard JSON-RPC 2.0 payloads.
         </p>
         <div className="flex items-center gap-2 mt-3">
           <span className="font-mono text-xs font-bold text-green-400 bg-green-900/50 px-2 py-1 rounded">POST</span>
-          <span className="font-mono text-sm text-slate-300">{API_URL}/agent/v1/mcp/messages/</span>
+          <span className="font-mono text-sm text-slate-300">{API_URL}/mcp/messages/</span>
         </div>
+        <Alert className="border-sky-700/80 bg-sky-900/50 rounded-lg text-sky-200 text-sm mt-4">
+          <p>
+            <strong>Zero Breaking Changes:</strong> This unified endpoint maintains full compatibility with existing Claude Desktop and UI integrations while adding secure API key support for programmatic access.
+          </p>
+        </Alert>
       </section>
       
       <section id="dynamic-agents">
@@ -507,28 +539,47 @@ graph TD
       <section id="available-tools">
         <h2 className="text-3xl font-bold text-slate-100 mb-4 flex items-center"><ListTree className="w-7 h-7 mr-3 text-purple-400"/>Available Tools</h2>
         <p className="text-slate-400 mb-6">
-          The Agent API exposes several powerful tools to interact with the user's memory. You call these tools using the <code className="font-mono text-sm">tools/call</code> MCP method.
+          The unified API exposes powerful tools to interact with user memory. These are the core, high-performance tools available via the <code className="font-mono text-sm">tools/call</code> MCP method.
         </p>
         <div className="space-y-8">
+          {/* ask_memory tool */}
+          <div className="p-6 border border-slate-700/50 rounded-lg bg-slate-900/40">
+            <h3 className="font-mono text-lg text-pink-400 mb-2">ask_memory</h3>
+            <p className="text-slate-400 mb-4">
+              <strong>FAST memory search</strong> that provides conversational answers in under 5 seconds. Perfect for most questions - try this FIRST before using heavier tools. Searches stored memories only (not full documents).
+            </p>
+            <h4 className="font-semibold text-slate-200 mb-2">Input Schema:</h4>
+            <CodeBlock lang="json" code={JSON.stringify({
+              question: {
+                type: "string",
+                description: "Any natural language question about the user's memories, thoughts, documents, or experiences"
+              }
+            }, null, 2)} />
+            <h4 className="font-semibold text-slate-200 mt-4 mb-2">Example Payload:</h4>
+            <CodeBlock lang="json" code={JSON.stringify({
+              jsonrpc: "2.0",
+              method: "tools/call",
+              params: {
+                name: "ask_memory",
+                arguments: {
+                  question: "What are my preferences for coding languages?"
+                }
+              },
+              id: 1
+            }, null, 2)} />
+          </div>
+
           {/* add_memories tool */}
           <div className="p-6 border border-slate-700/50 rounded-lg bg-slate-900/40">
             <h3 className="font-mono text-lg text-pink-400 mb-2">add_memories</h3>
             <p className="text-slate-400 mb-4">
-              Adds one or more new memories to the user's memory store. Can optionally include a source and structured metadata.
+              Store important information, preferences, facts, and observations about the user. Use this to remember key details learned during conversation, user preferences, values, beliefs, or anything the user wants remembered for future conversations.
             </p>
             <h4 className="font-semibold text-slate-200 mb-2">Input Schema:</h4>
             <CodeBlock lang="json" code={JSON.stringify({
               text: {
                 type: "string",
-                description: "The memory text to add. For multiple, use a newline-separated string."
-              },
-              source_app: {
-                type: "string",
-                description: "(Optional) The source of the memory, e.g., 'slack', 'jira', or an agent ID."
-              },
-              metadata: {
-                type: "object",
-                description: "(Optional) A JSON object for structured data."
+                description: "Important information to remember about the user (facts, preferences, insights, observations, etc.)"
               }
             }, null, 2)} />
             <h4 className="font-semibold text-slate-200 mt-4 mb-2">Example Payload:</h4>
@@ -538,30 +589,28 @@ graph TD
               params: {
                 name: "add_memories",
                 arguments: {
-                  text: "User reported a bug in the login flow related to password resets.",
-                  source_app: "slack",
-                  metadata: { project_id: "PROJ-456", user: "dave" }
+                  text: "User prefers TypeScript over JavaScript for new projects and likes to use strict type checking."
                 }
               },
-              id: 1
+              id: 2
             }, null, 2)} />
           </div>
 
-          {/* search_memories tool */}
+          {/* search_memory tool */}
           <div className="p-6 border border-slate-700/50 rounded-lg bg-slate-900/40">
-            <h3 className="font-mono text-lg text-pink-400 mb-2">search_memories</h3>
+            <h3 className="font-mono text-lg text-pink-400 mb-2">search_memory</h3>
             <p className="text-slate-400 mb-4">
-              Performs a semantic search over memories. Can be filtered by one or more source applications.
+              Quick keyword-based search through the user's memories. Perfect for finding specific facts, dates, names, or simple queries. Use when you need raw memory data rather than a conversational response.
             </p>
             <h4 className="font-semibold text-slate-200 mb-2">Input Schema:</h4>
             <CodeBlock lang="json" code={JSON.stringify({
               query: {
                 type: "string",
-                description: "The query to search for."
+                description: "Keywords or phrases to search for"
               },
-              source_app: {
-                type: "string",
-                description: "(Optional) A single source or comma-separated list of sources to filter by."
+              limit: {
+                type: "integer",
+                description: "Maximum number of results to return (default: 10)"
               }
             }, null, 2)} />
             <h4 className="font-semibold text-slate-200 mt-4 mb-2">Example Payload:</h4>
@@ -569,13 +618,13 @@ graph TD
               jsonrpc: "2.0",
               method: "tools/call",
               params: {
-                name: "search_memories",
+                name: "search_memory",
                 arguments: {
-                  query: "What are the latest bugs reported for the login system?",
-                  source_app: "slack,jira"
+                  query: "TypeScript preferences",
+                  limit: 5
                 }
               },
-              id: 2
+              id: 3
             }, null, 2)} />
           </div>
 
@@ -583,81 +632,66 @@ graph TD
           <div className="p-6 border border-slate-700/50 rounded-lg bg-slate-900/40">
             <h3 className="font-mono text-lg text-pink-400 mb-2">list_memories</h3>
             <p className="text-slate-400 mb-4">
-              Lists recent memories, paginated by a limit.
+              Browse through the user's stored memories to get an overview of what you know about them. Returns raw memory data without analysis - good for getting oriented or checking what's stored.
             </p>
             <h4 className="font-semibold text-slate-200 mb-2">Input Schema:</h4>
-            <CodeBlock lang="json" code={`{
-  "limit": {
-    "type": "integer",
-    "description": "(Optional) The maximum number of memories to return. Defaults to 20."
-  }
-}`} />
+            <CodeBlock lang="json" code={JSON.stringify({
+              limit: {
+                type: "integer",
+                description: "Maximum number of memories to show (default: 20)"
+              }
+            }, null, 2)} />
             <h4 className="font-semibold text-slate-200 mt-4 mb-2">Example Payload:</h4>
-            <CodeBlock lang="json" code={`{
-  "jsonrpc": "2.0",
-  "method": "tools/call",
-  "params": {
-    "name": "list_memories",
-    "arguments": {
-      "limit": 10
-    }
-  },
-  "id": 3
-}`} />
+            <CodeBlock lang="json" code={JSON.stringify({
+              jsonrpc: "2.0",
+              method: "tools/call",
+              params: {
+                name: "list_memories",
+                arguments: {
+                  limit: 10
+                }
+              },
+              id: 4
+            }, null, 2)} />
           </div>
 
-          {/* chunk_documents tool */}
+          {/* deep_memory_query tool */}
           <div className="p-6 border border-slate-700/50 rounded-lg bg-slate-900/40">
-            <h3 className="font-mono text-lg text-pink-400 mb-2">chunk_documents</h3>
+            <h3 className="font-mono text-lg text-pink-400 mb-2">deep_memory_query</h3>
             <p className="text-slate-400 mb-4">
-              Processes and chunks all existing documents (e.g., from Substack or file uploads) into memory. This improves search speed and relevance. It's a good practice to run this after adding new documents.
+              <strong>COMPREHENSIVE search</strong> that analyzes ALL user content including full documents and essays. Takes 30-60 seconds and processes everything. Use sparingly for complex questions that require analyzing entire documents or finding patterns across multiple sources.
             </p>
             <h4 className="font-semibold text-slate-200 mb-2">Input Schema:</h4>
-            <CodeBlock lang="json" code={`{
-  "description": "No parameters are required."
-}`} />
+            <CodeBlock lang="json" code={JSON.stringify({
+              search_query: {
+                type: "string",
+                description: "Complex question or analysis request"
+              },
+              memory_limit: {
+                type: "integer",
+                description: "Number of memories to include (default: 10)"
+              },
+              chunk_limit: {
+                type: "integer", 
+                description: "Number of document chunks to include (default: 10)"
+              },
+              include_full_docs: {
+                type: "boolean",
+                description: "Whether to include complete documents (default: true)"
+              }
+            }, null, 2)} />
             <h4 className="font-semibold text-slate-200 mt-4 mb-2">Example Payload:</h4>
-            <CodeBlock lang="json" code={`{
-  "jsonrpc": "2.0",
-  "method": "tools/call",
-  "params": {
-    "name": "chunk_documents",
-    "arguments": {}
-  },
-  "id": 4
-}`} />
-          </div>
-
-          {/* sync_substack tool */}
-          <div className="p-6 border border-slate-700/50 rounded-lg bg-slate-900/40">
-            <h3 className="font-mono text-lg text-pink-400 mb-2">sync_substack</h3>
-            <p className="text-slate-400 mb-4">
-              Syncs posts from a Substack publication and ingests them as documents, which can then be chunked into memory.
-            </p>
-            <h4 className="font-semibold text-slate-200 mb-2">Input Schema:</h4>
-            <CodeBlock lang="json" code={`{
-  "substack_url": {
-    "type": "string",
-    "description": "The URL of the Substack publication."
-  },
-  "max_posts": {
-    "type": "integer",
-    "description": "(Optional) The maximum number of recent posts to sync. Defaults to 20."
-  }
-}`} />
-            <h4 className="font-semibold text-slate-200 mt-4 mb-2">Example Payload:</h4>
-            <CodeBlock lang="json" code={`{
-  "jsonrpc": "2.0",
-  "method": "tools/call",
-  "params": {
-    "name": "sync_substack",
-    "arguments": {
-      "substack_url": "https://www.lennyrachitsky.com/",
-      "max_posts": 5
-    }
-  },
-  "id": 5
-}`} />
+            <CodeBlock lang="json" code={JSON.stringify({
+              jsonrpc: "2.0",
+              method: "tools/call",
+              params: {
+                name: "deep_memory_query",
+                arguments: {
+                  search_query: "Analyze my writing style and key themes across all my essays"
+                }
+              },
+              id: 5
+            }, null, 2)} />
           </div>
 
         </div>
@@ -666,22 +700,22 @@ graph TD
       <section id="python-example">
         <h2 className="text-3xl font-bold text-slate-100 mb-4 flex items-center"><Puzzle className="w-7 h-7 mr-3 text-purple-400"/>Python Example</h2>
         <p className="text-slate-400 mb-4">
-          Here is a simple example of how to use the API with Python's <code className="font-mono text-sm">requests</code> library to add a new memory.
+          Here is a simple example of how to use the unified API with Python's <code className="font-mono text-sm">requests</code> library to add a new memory.
         </p>
         <CodeBlock lang="python" code={`
 import requests
 import json
 import os
 
-# It's best practice to load your key from an environment variable
+# Load your API key from environment variable
 API_KEY = os.environ.get("JEAN_API_KEY")
-API_URL = "${API_URL}/agent/v1/mcp/messages/"
+API_URL = "${API_URL}/mcp/messages/"
 
 if not API_KEY:
     raise ValueError("JEAN_API_KEY environment variable not set!")
 
 headers = {
-    "Authorization": f"Bearer {API_KEY}",
+    "X-Api-Key": API_KEY,
     "Content-Type": "application/json"
 }
 
@@ -691,7 +725,7 @@ payload = {
     "params": {
         "name": "add_memories",
         "arguments": {
-            "text": "The user is interested in learning about generative adversarial networks (GANs)."
+            "text": "The user is interested in learning about generative adversarial networks (GANs) and prefers Python for machine learning projects."
         }
     },
     "id": 1
@@ -701,20 +735,32 @@ try:
     response = requests.post(API_URL, headers=headers, data=json.dumps(payload))
     response.raise_for_status()  # Raises an exception for bad status codes
     
-    print("Response:", response.json())
+    result = response.json()
+    print("Response:", result)
+    
+    # Extract the actual response text
+    if "result" in result and "content" in result["result"]:
+        for content in result["result"]["content"]:
+            if content["type"] == "text":
+                print("Memory added:", content["text"])
 
 except requests.exceptions.RequestException as e:
     print(f"An error occurred: {e}")
         `} />
         <p className="text-slate-400 mt-4">
-          A successful call to <code className="font-mono text-sm">add_memories</code> will return a confirmation message.
+          A successful call to <code className="font-mono text-sm">add_memories</code> will return a detailed confirmation:
         </p>
         <CodeBlock lang="json" code={`
 {
   "jsonrpc": "2.0",
   "id": 1,
   "result": {
-    "content": "Successfully added 1 new memory."
+    "content": [
+      {
+        "type": "text",
+        "text": "Successfully added 2 new memory(ies). Total time: 4.82s. Content: The user is interested in learning about..."
+      }
+    ]
   }
 }
 `} />
@@ -731,7 +777,7 @@ import json
 import os
 
 API_KEY = os.environ.get("JEAN_API_KEY")
-API_URL = "${API_URL}/agent/v1/mcp/messages/"
+API_URL = "${API_URL}/mcp/messages/"
 
 def call_jean_api(payload):
     """Helper function to call the Jean Memory API."""
@@ -739,7 +785,7 @@ def call_jean_api(payload):
         raise ValueError("JEAN_API_KEY environment variable not set!")
     
     headers = {
-        "Authorization": f"Bearer {API_KEY}",
+        "X-Api-Key": API_KEY,
         "Content-Type": "application/json"
     }
     
@@ -832,8 +878,8 @@ else:
           You can also interact with the API directly from your terminal using cURL. This example lists the available tools.
         </p>
         <CodeBlock lang="bash" code={`
-curl -X POST ${API_URL}/agent/v1/mcp/messages/ \\
-  -H "Authorization: Bearer YOUR_JEAN_API_KEY" \\
+curl -X POST ${API_URL}/mcp/messages/ \\
+  -H "X-Api-Key: YOUR_JEAN_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
     "jsonrpc": "2.0",
@@ -884,13 +930,44 @@ curl -X POST ${API_URL}/agent/v1/mcp/messages/ \\
 }
 `} />
       </section>
+
+      <section id="quick-test">
+        <h2 className="text-3xl font-bold text-slate-100 mb-4 flex items-center"><Terminal className="w-7 h-7 mr-3 text-purple-400"/>Quick Test</h2>
+        <p className="text-slate-400 mb-4">
+          Verify your API key is working with this simple test. Replace <code className="font-mono text-sm">YOUR_API_KEY</code> with your actual key from the dashboard.
+        </p>
+        <CodeBlock lang="bash" code={`
+# Test API connection
+curl -X POST ${API_URL}/mcp/messages/ \\
+  -H "X-Api-Key: YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "initialize",
+    "params": {},
+    "id": 1
+  }'
+
+# Expected response: {"jsonrpc":"2.0","result":{"protocolVersion":"2024-11-05",...},"id":1}
+        `} />
+        <div className="mt-4 p-4 bg-sky-900/30 border border-sky-700/50 rounded-lg">
+          <p className="text-sky-200 text-sm">
+            <strong>💡 Success indicators:</strong> A successful response includes <code className="font-mono text-xs">protocolVersion</code> and <code className="font-mono text-xs">serverInfo</code>. If you get an authentication error, double-check your API key format and ensure it starts with <code className="font-mono text-xs">jean_sk_</code>.
+          </p>
+        </div>
+      </section>
       
       <section id="architecture-diagram">
-          <h2 className="text-3xl font-bold text-slate-100 mb-4 flex items-center"><Server className="w-7 h-7 mr-3 text-purple-400"/>Architecture</h2>
+          <h2 className="text-3xl font-bold text-slate-100 mb-4 flex items-center"><Server className="w-7 h-7 mr-3 text-purple-400"/>Unified Architecture</h2>
           <p className="text-slate-400 mb-4">
-            The final architecture ensures that production UI and Claude integrations are completely isolated from the new Agent API path, which now has its own dedicated, fully-featured MCP handler.
+            Our implementation uses a <strong>unified endpoint architecture</strong> that maintains 100% compatibility with existing integrations while adding secure API key support. The single <code className="font-mono text-sm">/mcp/messages/</code> endpoint handles all memory operations through dual-path authentication.
             <span className="block text-sm text-slate-500 mt-1">Click the diagram to expand.</span>
           </p>
+          <Alert className="border-emerald-700/80 bg-emerald-900/50 rounded-lg text-emerald-200 text-sm mb-6">
+            <p>
+              <strong>Zero Breaking Changes:</strong> Existing Claude Desktop configurations and UI integrations continue to work exactly as before. The new API key authentication is additive, not replacing existing functionality.
+            </p>
+          </Alert>
           <div className="cursor-zoom-in" onClick={() => setIsDiagramModalOpen(true)}>
             <MermaidDiagram chart={architectureDiagram} />
           </div>

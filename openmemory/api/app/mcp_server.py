@@ -1141,21 +1141,27 @@ async def handle_post_message(request: Request):
     """
     Handles a single, stateless JSON-RPC message.
     This endpoint runs the requested tool and returns the result immediately.
-    It can be called by the Cloudflare Worker (using headers) or by an authenticated
-    agent router (which injects user into request.state).
+    It supports dual-path authentication:
+    - Path A: API key authentication via X-Api-Key header
+    - Path B: Existing header-based auth for Cloudflare Worker/Claude
     """
+    from app.auth import get_user_from_api_key_header
+    
     user_id_from_header = None
     client_name_from_header = None
     
-    # Unified authentication check
-    if hasattr(request.state, 'user') and request.state.user:
-        # Authenticated via agent router (Depends)
+    # Dual-path authentication
+    # Path A: Try API key authentication first
+    api_key_auth_success = await get_user_from_api_key_header(request)
+    
+    if api_key_auth_success and hasattr(request.state, 'user') and request.state.user:
+        # Authenticated via API key
         user: User = request.state.user
         user_id_from_header = str(user.user_id)
         client_name_from_header = request.headers.get("x-client-name", "default_agent_app")
-        logger.info(f"Handling message for user authenticated via Agent API: {user_id_from_header}")
+        logger.info(f"Handling message for user authenticated via API key: {user_id_from_header}")
     else:
-        # Fallback to header-based auth for Cloudflare Worker
+        # Path B: Fallback to header-based auth for Cloudflare Worker/Claude
         user_id_from_header = request.headers.get("x-user-id")
         client_name_from_header = request.headers.get("x-client-name")
         logger.info(f"Handling message for user authenticated via headers: {user_id_from_header}")
