@@ -31,7 +31,6 @@ import asyncio
 from sqlalchemy import text
 from app.config.memory_limits import MEMORY_LIMITS
 from fastapi.responses import JSONResponse
-from .background_tasks import task_manager, TaskStatus
 
 # Load environment variables
 load_dotenv()
