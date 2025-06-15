@@ -1,9 +1,125 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { GitBranch, Shield, BookOpen, Puzzle, Terminal, Code, Server, Key, BrainCircuit, Copy, Check, LucideIcon, ListTree, Bot, Lightbulb, Briefcase, Share2, Component } from 'lucide-react';
+import { GitBranch, Shield, BookOpen, Puzzle, Terminal, Code, Server, Key, BrainCircuit, Copy, Check, LucideIcon, ListTree, Bot, Lightbulb, Briefcase, Share2, Component, PlayCircle, Cpu, FileText, Sparkles } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import ParticleNetwork from '@/components/landing/ParticleNetwork';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Button } from '@/components/ui/button';
+
+const InteractiveDemo = () => {
+  const [isRunning, setIsRunning] = useState(false);
+  const [step, setStep] = useState(0);
+
+  const steps = [
+    {
+      title: "1. Store Writing Style in Memory",
+      icon: FileText,
+      lang: "json",
+      code: `{
+  "method": "tools/call",
+  "params": {
+    "name": "add_memories",
+    "arguments": {
+      "text": "My writing style is direct and minimalist. I value craftsmanship and respect for user intelligence. Technology should be a natural extension of the mind."
+    }
+  }
+}`
+    },
+    {
+      title: "2. Prompt with Style-Guidance",
+      icon: Cpu,
+      lang: "json",
+      code: `{
+  "method": "tools/call",
+  "params": {
+    "name": "generate_text",
+    "arguments": {
+      "prompt": "Write a tweet about the future of personalized AI.",
+      "use_writing_style_from_memory": true
+    }
+  }
+}`
+    },
+    {
+      title: "3. Receive Stylized Output",
+      icon: Sparkles,
+      lang: "json",
+      code: `{
+  "result": {
+    "text": "The future of AI isn't just about bigger models, but personal ones. Technology as a seamless extension of your own mind. That's the frontier. #PersonalAI #Craftsmanship"
+  }
+}`
+    }
+  ];
+
+  const handleRun = () => {
+    if (isRunning) return;
+    setIsRunning(true);
+    setStep(1);
+
+    setTimeout(() => setStep(2), 1500);
+    setTimeout(() => setStep(3), 3000);
+    setTimeout(() => {
+      setIsRunning(false);
+    }, 3500);
+  };
+
+  const handleReset = () => {
+    setStep(0);
+    setIsRunning(false);
+  }
+
+  return (
+    <div className="p-6 border border-border rounded-lg bg-card/50 backdrop-blur-sm relative overflow-hidden">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold text-foreground">Live API Walkthrough</h3>
+        {step === 3 ? (
+           <Button variant="ghost" size="sm" onClick={handleReset}>Reset</Button>
+        ) : (
+           <Button variant="default" size="sm" onClick={handleRun} disabled={isRunning}>
+            <PlayCircle className="w-4 h-4 mr-2"/>
+            Run Demo
+          </Button>
+        )}
+      </div>
+      <p className="text-sm text-muted-foreground mb-6">
+        See how the API can adopt a specific writing style from memory to generate new, context-aware content.
+      </p>
+
+      <div className="space-y-4">
+        <AnimatePresence>
+          {steps.slice(0, step).map((item, index) => {
+            const Icon = item.icon;
+            return (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.5 }}
+              >
+                <h4 className="font-semibold text-foreground/90 text-sm mb-2 flex items-center">
+                  <Icon className="w-4 h-4 mr-2 text-muted-foreground"/>
+                  {item.title}
+                </h4>
+                <CodeBlock code={item.code} lang={item.lang} />
+              </motion.div>
+            )
+          })}
+        </AnimatePresence>
+      </div>
+
+      {isRunning && step < 3 && (
+        <div className="mt-4 flex items-center text-sm text-muted-foreground">
+          <Cpu className="w-4 h-4 mr-2 animate-pulse"/>
+          Simulating API call...
+        </div>
+      )}
+    </div>
+  );
+};
 
 // A simple syntax-highlighted code block component with a copy button
 const CodeBlock = ({ code, lang = 'bash' }: { code: string, lang?: string }) => {
@@ -68,47 +184,58 @@ const CodeBlock = ({ code, lang = 'bash' }: { code: string, lang?: string }) => 
 // Component to render Mermaid diagrams
 const MermaidDiagram = ({ chart }: { chart: string }) => {
   const ref = useRef<HTMLDivElement>(null);
-  const [isRendered, setIsRendered] = useState(false);
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    const renderMermaid = async () => {
-      // Dynamically import mermaid only on the client-side
-      const mermaid = (await import('mermaid')).default;
-      mermaid.initialize({ 
-        startOnLoad: false,
-        theme: 'dark',
-        darkMode: true,
-        themeVariables: {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isClient || !ref.current) return;
+    
+    const refCurrent = ref.current; // Create a stable variable
+    refCurrent.innerHTML = ''; // Clear previous diagram
+
+    const render = async () => {
+      try {
+        const mermaid = (await import('mermaid')).default;
+        const id = `mermaid-graph-${Math.random().toString(36).substring(2, 9)}`;
+        
+        mermaid.initialize({ 
+          startOnLoad: false,
+          theme: 'dark',
+          darkMode: true,
+          themeVariables: {
             background: '#0f172a',
             primaryColor: '#1e293b',
             primaryTextColor: '#d1d5db',
             lineColor: '#4b5563',
             textColor: '#d1d5db',
             fontSize: '14px',
-        }
-       });
-
-      if (ref.current) {
-        const { svg } = await mermaid.render(`mermaid-graph-${Math.random().toString(36).substring(7)}`, chart);
-        ref.current.innerHTML = svg;
-        setIsRendered(true);
+          }
+        });
+        
+        const { svg } = await mermaid.render(id, chart);
+        refCurrent.innerHTML = svg;
+      } catch (error) {
+        console.error("Mermaid rendering failed:", error);
+        refCurrent.innerHTML = `<p class="text-red-400">Error rendering diagram.</p>`;
       }
     };
+    render();
+  }, [chart, isClient]);
 
-    renderMermaid();
-  }, [chart]);
-
+  if (!isClient) {
+    return (
+      <div className="flex justify-center items-center p-4 bg-slate-900/70 rounded-lg border border-slate-700/50 min-h-[300px]">
+        <div className="text-slate-400">Loading diagram...</div>
+      </div>
+    );
+  }
+  
   return (
     <div className="flex justify-center items-center p-4 bg-slate-900/70 rounded-lg border border-slate-700/50 min-h-[300px]">
-       <div 
-        ref={ref} 
-        className={`mermaid-container ${isRendered ? 'opacity-100' : 'opacity-0'} transition-opacity duration-500`}
-        // The raw chart is kept for accessibility and for mermaid to process
-        style={{ display: isRendered ? 'block' : 'none' }}
-      >
-        {chart}
-      </div>
-      {!isRendered && <div className="text-slate-400">Loading diagram...</div>}
+      <div ref={ref} className="w-full h-full" />
     </div>
   );
 };
@@ -148,35 +275,38 @@ const DocsLayout = ({ children, navItems }: { children: React.ReactNode, navItem
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-300">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col lg:flex-row">
-          <aside className="w-full lg:w-64 lg:pr-8 lg:sticky lg:top-16 self-start py-8">
-            <nav className="space-y-2">
-              {navItems.map(({ href, label, icon: Icon }) => (
-                <a
-                  key={href}
-                  href={href}
-                  onClick={(e) => handleNavClick(e, href)}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    activeId === href.substring(1)
-                      ? 'bg-slate-800 text-purple-300'
-                      : 'text-slate-400 hover:bg-slate-900 hover:text-white'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span>{label}</span>
-                </a>
-              ))}
-            </nav>
-          </aside>
-          <main className="w-full lg:pl-8 py-16">
-            <div className="max-w-3xl mx-auto space-y-16">
-              {children}
-            </div>
-          </main>
-        </div>
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="absolute inset-0 z-0 h-full w-full">
+        <ParticleNetwork id="api-docs-particles" className="h-full w-full" interactive={false} particleCount={80} />
       </div>
+      <div className="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col lg:flex-row">
+           <aside className="w-full lg:w-64 lg:pr-8 lg:sticky lg:top-16 self-start py-8">
+             <nav className="space-y-2">
+               {navItems.map(({ href, label, icon: Icon }) => (
+                 <a
+                   key={href}
+                   href={href}
+                   onClick={(e) => handleNavClick(e, href)}
+                   className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                     activeId === href.substring(1)
+                       ? 'bg-muted text-foreground'
+                       : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                   }`}
+                 >
+                   <Icon className="w-4 h-4" />
+                   <span>{label}</span>
+                 </a>
+               ))}
+             </nav>
+           </aside>
+           <main className="w-full lg:pl-8 py-16">
+             <div className="max-w-3xl mx-auto space-y-16">
+               {children}
+             </div>
+           </main>
+         </div>
+       </div>
     </div>
   );
 };
@@ -286,46 +416,51 @@ graph TD
   return (
     <DocsLayout navItems={navItems}>
       <section id="introduction">
-        <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500 mb-4">Jean Memory API Documentation</h1>
-        <p className="text-lg text-slate-400 mb-4">
+        <h1 className="text-4xl font-bold text-foreground mb-4">Jean Memory API Documentation</h1>
+        
+        <div className="my-8">
+          <InteractiveDemo />
+        </div>
+
+        <p className="text-lg text-muted-foreground mb-4">
           The Jean Memory API provides a robust, unified memory layer for your AI applications. Built on the Model Context Protocol (MCP), it offers secure API key authentication for programmatic access while maintaining full compatibility with existing Claude Desktop integrations.
         </p>
-        <div className="flex items-center gap-4 p-4 bg-emerald-900/30 border border-emerald-700/50 rounded-lg">
-          <div className="w-3 h-3 bg-emerald-400 rounded-full animate-pulse"></div>
-          <p className="text-emerald-200 text-sm">
+        <div className="flex items-center gap-4 p-4 bg-green-950/50 border border-green-800/60 rounded-lg">
+          <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+          <p className="text-green-300 text-sm">
             <strong>Production Ready:</strong> Zero breaking changes, dual-path authentication, and enterprise-grade security.
           </p>
         </div>
       </section>
 
       <section id="authentication">
-        <h2 className="text-3xl font-bold text-slate-100 mb-4 flex items-center"><Shield className="w-7 h-7 mr-3 text-purple-400"/>Authentication</h2>
-        <p className="text-slate-400 mb-4">
+        <h2 className="text-3xl font-bold text-foreground mb-4">Authentication</h2>
+        <p className="text-muted-foreground mb-4">
           The API supports dual-path authentication for maximum flexibility and compatibility. You can authenticate using either API keys (recommended for programmatic access) or the existing header-based system (used by Claude Desktop).
         </p>
         <div className="space-y-6">
-          <div className="p-4 border border-emerald-700/80 bg-emerald-900/50 rounded-lg">
-            <h3 className="font-semibold text-emerald-200 text-lg flex items-center mb-3"><Key className="w-5 h-5 mr-2"/>Option 1: API Key Authentication (Recommended)</h3>
+          <div className="p-4 border border-border bg-card rounded-lg">
+            <h3 className="font-semibold text-foreground text-lg flex items-center mb-3"><Key className="w-5 h-5 mr-2 text-muted-foreground"/>Option 1: API Key Authentication (Recommended)</h3>
             <div className="space-y-3">
               <div>
-                <h4 className="font-medium text-emerald-100">Step 1: Generate an API Key</h4>
-                <p className="text-emerald-200/80 text-sm mt-1">
-                  Navigate to your <a href="/dashboard-new" className="text-emerald-300 underline hover:text-emerald-200">Dashboard</a> → Settings → API Keys to generate a new key.
+                <h4 className="font-medium text-foreground">Step 1: Generate an API Key</h4>
+                <p className="text-muted-foreground text-sm mt-1">
+                  Navigate to your <a href="/dashboard-new" className="text-primary underline hover:text-primary/80">Dashboard</a> → Settings → API Keys to generate a new key.
                 </p>
               </div>
               <div>
-                <h4 className="font-medium text-emerald-100">Step 2: Use X-Api-Key Header</h4>
-                <p className="text-emerald-200/80 text-sm mt-1">
-                  Include your API key in the <code className="font-mono text-xs bg-emerald-800/50 px-1 rounded">X-Api-Key</code> header:
+                <h4 className="font-medium text-foreground">Step 2: Use X-Api-Key Header</h4>
+                <p className="text-muted-foreground text-sm mt-1">
+                  Include your API key in the <code className="font-mono text-xs bg-muted px-1 rounded">X-Api-Key</code> header:
                 </p>
                 <CodeBlock lang="http" code={`X-Api-Key: jean_sk_s8ad0fI7x2VD2KnyLewH0e3ajuRV_1mdWGgnsBJ6VA8`} />
               </div>
             </div>
           </div>
-          <div className="p-4 border border-slate-700/80 bg-slate-900/50 rounded-lg">
-            <h3 className="font-semibold text-slate-200 text-lg flex items-center mb-3"><Code className="w-5 h-5 mr-2"/>Option 2: Header-Based Authentication</h3>
-            <p className="text-slate-400 text-sm">
-              This is used internally by Claude Desktop and the UI. Requires both <code className="font-mono text-xs">x-user-id</code> and <code className="font-mono text-xs">x-client-name</code> headers.
+          <div className="p-4 border border-border bg-card rounded-lg">
+            <h3 className="font-semibold text-foreground text-lg flex items-center mb-3"><Code className="w-5 h-5 mr-2 text-muted-foreground"/>Option 2: Header-Based Authentication</h3>
+            <p className="text-muted-foreground text-sm">
+              This is used internally by Claude Desktop and the UI. Requires both <code className="font-mono text-xs bg-muted px-1 rounded">x-user-id</code> and <code className="font-mono text-xs bg-muted px-1 rounded">x-client-name</code> headers.
             </p>
             <CodeBlock lang="http" code={`x-user-id: your-supabase-user-id
 x-client-name: your-app-name`} />
@@ -334,15 +469,15 @@ x-client-name: your-app-name`} />
       </section>
 
       <section id="endpoints">
-        <h2 className="text-3xl font-bold text-slate-100 mb-4 flex items-center"><GitBranch className="w-7 h-7 mr-3 text-purple-400"/>Unified API Endpoint</h2>
-        <p className="text-slate-400 mb-4">
+        <h2 className="text-3xl font-bold text-foreground mb-4">Unified API Endpoint</h2>
+        <p className="text-muted-foreground mb-4">
           All interactions use a single, unified MCP endpoint that supports both API key authentication (for programmatic access) and header-based authentication (for existing Claude/UI integrations). This endpoint accepts POST requests with standard JSON-RPC 2.0 payloads.
         </p>
         <div className="flex items-center gap-2 mt-3">
-          <span className="font-mono text-xs font-bold text-green-400 bg-green-900/50 px-2 py-1 rounded">POST</span>
-          <span className="font-mono text-sm text-slate-300">{API_URL}/mcp/messages/</span>
+          <span className="font-mono text-xs font-bold text-foreground bg-muted px-2 py-1 rounded">POST</span>
+          <span className="font-mono text-sm text-muted-foreground">{API_URL}/mcp/messages/</span>
         </div>
-        <Alert className="border-sky-700/80 bg-sky-900/50 rounded-lg text-sky-200 text-sm mt-4">
+        <Alert className="border-border bg-card rounded-lg text-muted-foreground text-sm mt-4">
           <p>
             <strong>Zero Breaking Changes:</strong> This unified endpoint maintains full compatibility with existing Claude Desktop and UI integrations while adding secure API key support for programmatic access.
           </p>
@@ -350,41 +485,41 @@ x-client-name: your-app-name`} />
       </section>
       
       <section id="dynamic-agents">
-        <h2 className="text-3xl font-bold text-slate-100 mb-4 flex items-center"><Bot className="w-7 h-7 mr-3 text-purple-400"/>Building Dynamic Agents</h2>
-        <p className="text-slate-400 mb-4">
+        <h2 className="text-3xl font-bold text-foreground mb-4">Building Dynamic Agents</h2>
+        <p className="text-muted-foreground mb-4">
           The Jean Memory Agent API is not designed for static, hardcoded calls. It is built to be used as a dynamic tool provider (MCP) within an LLM application, allowing you to create agents that can reason and decide when to access memory.
         </p>
         <div className="space-y-4">
           <div>
-            <h3 className="font-semibold text-slate-200 text-lg">The Agentic Loop</h3>
-            <p className="text-slate-400 mt-1">
+            <h3 className="font-semibold text-foreground text-lg">The Agentic Loop</h3>
+            <p className="text-muted-foreground mt-1">
               The core workflow involves prompting your LLM with the available tools. The LLM then dynamically generates a JSON-RPC payload to call a tool based on the conversational context. Your application executes this call and feeds the result back to the LLM.
             </p>
           </div>
-          <div className="p-4 border border-teal-700/80 bg-teal-900/50 rounded-lg text-teal-300 text-sm">
+          <div className="p-4 border border-border bg-card rounded-lg text-muted-foreground text-sm">
             This architecture enables your agent to intelligently decide when to add a new memory using <code className="font-mono text-sm">add_memories</code> or retrieve context using <code className="font-mono text-sm">search_memories</code>.
           </div>
         </div>
       </section>
 
       <section id="capabilities">
-        <h2 className="text-3xl font-bold text-slate-100 mb-4 flex items-center"><Component className="w-7 h-7 mr-3 text-purple-400"/>Building Capabilities: Tools vs. Workflows</h2>
-        <p className="text-slate-400 mb-4">
+        <h2 className="text-3xl font-bold text-foreground mb-4">Building Capabilities: Tools vs. Workflows</h2>
+        <p className="text-muted-foreground mb-4">
           A critical concept for building advanced agents is understanding the difference between the foundational tools provided by the API and the complex capabilities you can build with them.
         </p>
-        <Alert className="border-sky-700/80 bg-sky-900/50 rounded-lg text-sky-200 text-sm mb-6">
+        <Alert className="border-border bg-card rounded-lg text-muted-foreground text-sm mb-6">
           <p>
             Capabilities like "asking a question of your memory" (i.e., `ask_memory`) are not single tools. They are **emergent workflows** that an agent executes by chaining the foundational tools together.
           </p>
         </Alert>
         <div className="space-y-4">
           <div>
-            <h3 className="font-semibold text-slate-200 text-lg">Example: How an Agent "Asks Memory"</h3>
-            <p className="text-slate-400 mt-1 mb-4">
+            <h3 className="font-semibold text-foreground text-lg">Example: How an Agent "Asks Memory"</h3>
+            <p className="text-muted-foreground mt-1 mb-4">
               The API does not have a single `ask_memory` tool. Here's how an agent performs that capability using the real tools:
             </p>
-            <div className="bg-slate-800/50 p-4 rounded text-sm">
-               <ol className="list-decimal list-inside space-y-3 text-slate-300">
+            <div className="bg-muted/50 p-4 rounded text-sm">
+               <ol className="list-decimal list-inside space-y-3 text-muted-foreground">
                 <li>
                   <strong>User Asks:</strong> "What is my relationship with Project Phoenix?"
                 </li>
@@ -402,7 +537,7 @@ x-client-name: your-app-name`} />
                 </li>
               </ol>
             </div>
-             <p className="text-slate-400 mt-4 text-sm">
+             <p className="text-muted-foreground mt-4 text-sm">
               This architecture is intentional. It provides you with the powerful, low-level building blocks (`add_memories`, `add_graph_memory`, etc.) to create your own custom, sophisticated reasoning workflows, rather than limiting you to a few predefined capabilities.
             </p>
           </div>
@@ -410,21 +545,21 @@ x-client-name: your-app-name`} />
       </section>
 
       <section id="example-use-cases">
-        <h2 className="text-3xl font-bold text-slate-100 mb-4 flex items-center"><Lightbulb className="w-7 h-7 mr-3 text-purple-400"/>Example Use Cases</h2>
-        <p className="text-slate-400 mb-6">
+        <h2 className="text-3xl font-bold text-foreground mb-4">Example Use Cases</h2>
+        <p className="text-muted-foreground mb-6">
           The Jean Memory API is versatile. By giving your agents a reliable memory, you can unlock a wide range of powerful applications. Here are a few examples to inspire you.
         </p>
         <div className="space-y-8">
 
           {/* Programmatic Content Creation */}
-          <div className="p-6 border border-slate-700/50 rounded-lg bg-slate-900/40">
-            <h3 className="text-lg font-semibold text-teal-400 mb-2">Programmatic Content Creation</h3>
-            <p className="text-slate-400 mb-4">
+          <div className="p-6 border border-border rounded-lg bg-card">
+            <h3 className="text-lg font-semibold text-foreground mb-2">Programmatic Content Creation</h3>
+            <p className="text-muted-foreground mb-4">
               Create agents that act as writing assistants, maintaining a consistent voice, style, and context across numerous documents. The agent can remember key arguments from past essays, a user's specific tone, or technical details about a project.
             </p>
-            <div className="bg-slate-800/50 p-3 rounded text-sm">
-              <strong className="text-slate-300">Example Flow:</strong>
-              <ol className="list-decimal list-inside mt-2 space-y-1 text-slate-400">
+            <div className="bg-muted/50 p-3 rounded text-sm">
+              <strong className="text-foreground">Example Flow:</strong>
+              <ol className="list-decimal list-inside mt-2 space-y-1 text-muted-foreground">
                 <li>User: "Remember my startup is called 'InnovateAI' and it uses a custom reinforcement learning model."</li>
                 <li>Agent: (Calls <code className="font-mono text-xs">add_memories</code>) "Got it."</li>
                 <li>User: "Help me draft an investor update email."</li>
@@ -434,14 +569,14 @@ x-client-name: your-app-name`} />
           </div>
 
           {/* Personal Digital Assistant */}
-          <div className="p-6 border border-slate-700/50 rounded-lg bg-slate-900/40">
-            <h3 className="text-lg font-semibold text-teal-400 mb-2">Personal Digital Assistant</h3>
-            <p className="text-slate-400 mb-4">
+          <div className="p-6 border border-border rounded-lg bg-card">
+            <h3 className="text-lg font-semibold text-foreground mb-2">Personal Digital Assistant</h3>
+            <p className="text-muted-foreground mb-4">
               Build a truly personal agent that understands a user's life. By remembering personal preferences, important relationships, career goals, and even inside jokes, the agent can provide deeply contextual assistance, manage schedules, and act on the user's behalf with genuine understanding.
             </p>
-             <div className="bg-slate-800/50 p-3 rounded text-sm">
-              <strong className="text-slate-300">Example Flow:</strong>
-              <ol className="list-decimal list-inside mt-2 space-y-1 text-slate-400">
+             <div className="bg-muted/50 p-3 rounded text-sm">
+              <strong className="text-foreground">Example Flow:</strong>
+              <ol className="list-decimal list-inside mt-2 space-y-1 text-muted-foreground">
                 <li>User: "My wife's name is Sarah and her birthday is March 15th. Remind me a week before."</li>
                 <li>Agent: (Calls <code className="font-mono text-xs">add_memories</code>) "I'll remember that for you."</li>
                 <li>(A week before March 15th) User: "What's on my plate this week?"</li>
@@ -451,14 +586,14 @@ x-client-name: your-app-name`} />
           </div>
 
           {/* Corporate Knowledge Agent */}
-          <div className="p-6 border border-slate-700/50 rounded-lg bg-slate-900/40">
-            <h3 className="text-lg font-semibold text-teal-400 mb-2">Corporate Knowledge Agent</h3>
-            <p className="text-slate-400 mb-4">
+          <div className="p-6 border border-border rounded-lg bg-card">
+            <h3 className="text-lg font-semibold text-foreground mb-2">Corporate Knowledge Agent</h3>
+            <p className="text-muted-foreground mb-4">
               Deploy agents within a company that have a secure, shared memory of internal knowledge. This can include project histories, technical documentation, team roles, and meeting summaries. This is perfect for onboarding new employees or answering complex questions that would normally require interrupting a senior developer.
             </p>
-             <div className="bg-slate-800/50 p-3 rounded text-sm">
-              <strong className="text-slate-300">Example Flow:</strong>
-              <ol className="list-decimal list-inside mt-2 space-y-1 text-slate-400">
+             <div className="bg-muted/50 p-3 rounded text-sm">
+              <strong className="text-foreground">Example Flow:</strong>
+              <ol className="list-decimal list-inside mt-2 space-y-1 text-muted-foreground">
                 <li>(Admin): Uploads all of Q1 project documentation into the agent's memory.</li>
                 <li>New Employee: "What was the main outcome of the 'Project Phoenix' initiative last quarter?"</li>
                 <li>Agent: (Calls <code className="font-mono text-xs">search_memories</code>) "Project Phoenix concluded with the successful deployment of the new user authentication service, which reduced login times by 40%. The project lead was Alice."</li>
@@ -467,9 +602,9 @@ x-client-name: your-app-name`} />
           </div>
 
           {/* Hyper-Personalized Content Generation */}
-          <div className="p-6 border border-slate-700/50 rounded-lg bg-slate-900/40">
-            <h3 className="text-lg font-semibold text-teal-400 mb-2">Hyper-Personalized Content Generation</h3>
-            <p className="text-slate-400 mb-4">
+          <div className="p-6 border border-border rounded-lg bg-card">
+            <h3 className="text-lg font-semibold text-foreground mb-2">Hyper-Personalized Content Generation</h3>
+            <p className="text-muted-foreground mb-4">
               While the API does not expose a single "deep query" tool, you can build advanced agents that perform deep analysis by creating an **emergent workflow**. This involves chaining the available foundational tools to analyze a large corpus of documents and generate rich, biographical content.
             </p>
             <Alert>
@@ -483,24 +618,24 @@ x-client-name: your-app-name`} />
                 </ol>
               </AlertDescription>
             </Alert>
-            <div className="mt-4 bg-slate-800/50 p-4 rounded text-sm">
-              <h4 className="font-bold text-slate-200 text-base mb-2">{novellaTitle}</h4>
-              <p className="text-slate-300 whitespace-pre-wrap">{novellaDescription}</p>
+            <div className="mt-4 bg-muted/50 p-4 rounded text-sm">
+              <h4 className="font-bold text-foreground text-base mb-2">{novellaTitle}</h4>
+              <p className="text-muted-foreground whitespace-pre-wrap">{novellaDescription}</p>
             </div>
           </div>
 
           {/* Agentic Coding: A Cross-Application Workflow */}
-          <div className="p-6 border border-slate-700/50 rounded-lg bg-slate-900/40">
-            <h3 className="text-lg font-semibold text-teal-400 mb-2 flex items-center gap-2">
+          <div className="p-6 border border-border rounded-lg bg-card">
+            <h3 className="text-lg font-semibold text-foreground mb-2 flex items-center gap-2">
               <Share2 className="w-5 h-5" />
               Agentic Coding: A Cross-Application Workflow
             </h3>
-            <p className="text-slate-400 mb-4">
+            <p className="text-muted-foreground mb-4">
               Orchestrate a swarm of specialized agents that collaborate across different applications, using a shared memory context to automate complex developer workflows.
             </p>
-             <div className="bg-slate-800/50 p-3 rounded text-sm">
-              <strong className="text-slate-300">Example Flow:</strong>
-              <ol className="list-decimal list-inside mt-2 space-y-2 text-slate-400">
+             <div className="bg-muted/50 p-3 rounded text-sm">
+              <strong className="text-foreground">Example Flow:</strong>
+              <ol className="list-decimal list-inside mt-2 space-y-2 text-muted-foreground">
                 <li>
                   <strong>A user reports a bug in Slack:</strong><br/>
                   A 'Slack Monitor' agent sees the message. It calls <code className="font-mono text-xs">add_memories</code> with the bug report, `source_app: 'slack'`, and `metadata: &lbrace;'status': 'reported'&rbrace;`.
@@ -525,11 +660,11 @@ x-client-name: your-app-name`} />
       </section>
 
       <section id="mcp-methods">
-          <h2 className="text-3xl font-bold text-slate-100 mb-4 flex items-center"><BrainCircuit className="w-7 h-7 mr-3 text-purple-400"/>MCP Methods</h2>
-          <p className="text-slate-400 mb-4">
+          <h2 className="text-3xl font-bold text-foreground mb-4">MCP Methods</h2>
+          <p className="text-muted-foreground mb-4">
             The agent endpoint supports all standard MCP methods, including tool calls. You can interact with the memory system using methods like <code className="font-mono text-sm">tools/list</code>, <code className="font-mono text-sm">resources/list</code>, and <code className="font-mono text-sm">tools/call</code>.
           </p>
-          <div className="p-4 border border-sky-700/80 bg-sky-900/50 rounded-lg text-sky-300 text-sm">
+          <div className="p-4 border border-border bg-card rounded-lg text-muted-foreground text-sm">
               The architecture has been unified. The agent endpoint is a fully-featured MCP server, providing the same capabilities as the internal system used by Claude.
               <br/><br/>
               The public API provides access to the core, high-performance tools like <code className="font-mono text-sm">add_memories</code> and <code className="font-mono text-sm">search_memories</code>. More resource-intensive analytical tools, such as those for processing entire documents, remain internal to ensure speed and reliability for all agents.
@@ -537,25 +672,25 @@ x-client-name: your-app-name`} />
       </section>
 
       <section id="available-tools">
-        <h2 className="text-3xl font-bold text-slate-100 mb-4 flex items-center"><ListTree className="w-7 h-7 mr-3 text-purple-400"/>Available Tools</h2>
-        <p className="text-slate-400 mb-6">
+        <h2 className="text-3xl font-bold text-foreground mb-4">Available Tools</h2>
+        <p className="text-muted-foreground mb-6">
           The unified API exposes powerful tools to interact with user memory. These are the core, high-performance tools available via the <code className="font-mono text-sm">tools/call</code> MCP method.
         </p>
         <div className="space-y-8">
           {/* ask_memory tool */}
-          <div className="p-6 border border-slate-700/50 rounded-lg bg-slate-900/40">
-            <h3 className="font-mono text-lg text-pink-400 mb-2">ask_memory</h3>
-            <p className="text-slate-400 mb-4">
+          <div className="p-6 border border-border rounded-lg bg-card">
+            <h3 className="font-mono text-lg text-primary mb-2">ask_memory</h3>
+            <p className="text-muted-foreground mb-4">
               <strong>FAST memory search</strong> that provides conversational answers in under 5 seconds. Perfect for most questions - try this FIRST before using heavier tools. Searches stored memories only (not full documents).
             </p>
-            <h4 className="font-semibold text-slate-200 mb-2">Input Schema:</h4>
+            <h4 className="font-semibold text-foreground mb-2">Input Schema:</h4>
             <CodeBlock lang="json" code={JSON.stringify({
               question: {
                 type: "string",
                 description: "Any natural language question about the user's memories, thoughts, documents, or experiences"
               }
             }, null, 2)} />
-            <h4 className="font-semibold text-slate-200 mt-4 mb-2">Example Payload:</h4>
+            <h4 className="font-semibold text-foreground mt-4 mb-2">Example Payload:</h4>
             <CodeBlock lang="json" code={JSON.stringify({
               jsonrpc: "2.0",
               method: "tools/call",
@@ -570,26 +705,26 @@ x-client-name: your-app-name`} />
           </div>
 
           {/* add_memories tool */}
-          <div className="p-6 border border-slate-700/50 rounded-lg bg-slate-900/40">
-            <h3 className="font-mono text-lg text-pink-400 mb-2">add_memories</h3>
-            <p className="text-slate-400 mb-4">
+          <div className="p-6 border border-border rounded-lg bg-card">
+            <h3 className="font-mono text-lg text-primary mb-2">add_memories</h3>
+            <p className="text-muted-foreground mb-4">
               Store important information, preferences, facts, and observations about the user. Use this to remember key details learned during conversation, user preferences, values, beliefs, or anything the user wants remembered for future conversations.
             </p>
-            <h4 className="font-semibold text-slate-200 mb-2">Input Schema:</h4>
+            <h4 className="font-semibold text-foreground mb-2">Input Schema:</h4>
             <CodeBlock lang="json" code={JSON.stringify({
               text: {
                 type: "string",
                 description: "Important information to remember about the user (facts, preferences, insights, observations, etc.)"
               }
             }, null, 2)} />
-            <h4 className="font-semibold text-slate-200 mt-4 mb-2">Example Payload:</h4>
+            <h4 className="font-semibold text-foreground mt-4 mb-2">Example Payload:</h4>
             <CodeBlock lang="json" code={JSON.stringify({
               jsonrpc: "2.0",
               method: "tools/call",
               params: {
                 name: "add_memories",
                 arguments: {
-                  text: "User prefers TypeScript over JavaScript for new projects and likes to use strict type checking."
+                  text: "The user is interested in learning about generative adversarial networks (GANs) and prefers Python for machine learning projects."
                 }
               },
               id: 2
@@ -597,12 +732,12 @@ x-client-name: your-app-name`} />
           </div>
 
           {/* search_memory tool */}
-          <div className="p-6 border border-slate-700/50 rounded-lg bg-slate-900/40">
-            <h3 className="font-mono text-lg text-pink-400 mb-2">search_memory</h3>
-            <p className="text-slate-400 mb-4">
+          <div className="p-6 border border-border rounded-lg bg-card">
+            <h3 className="font-mono text-lg text-primary mb-2">search_memory</h3>
+            <p className="text-muted-foreground mb-4">
               Quick keyword-based search through the user's memories. Perfect for finding specific facts, dates, names, or simple queries. Use when you need raw memory data rather than a conversational response.
             </p>
-            <h4 className="font-semibold text-slate-200 mb-2">Input Schema:</h4>
+            <h4 className="font-semibold text-foreground mb-2">Input Schema:</h4>
             <CodeBlock lang="json" code={JSON.stringify({
               query: {
                 type: "string",
@@ -613,7 +748,7 @@ x-client-name: your-app-name`} />
                 description: "Maximum number of results to return (default: 10)"
               }
             }, null, 2)} />
-            <h4 className="font-semibold text-slate-200 mt-4 mb-2">Example Payload:</h4>
+            <h4 className="font-semibold text-foreground mt-4 mb-2">Example Payload:</h4>
             <CodeBlock lang="json" code={JSON.stringify({
               jsonrpc: "2.0",
               method: "tools/call",
@@ -629,19 +764,19 @@ x-client-name: your-app-name`} />
           </div>
 
           {/* list_memories tool */}
-          <div className="p-6 border border-slate-700/50 rounded-lg bg-slate-900/40">
-            <h3 className="font-mono text-lg text-pink-400 mb-2">list_memories</h3>
-            <p className="text-slate-400 mb-4">
+          <div className="p-6 border border-border rounded-lg bg-card">
+            <h3 className="font-mono text-lg text-primary mb-2">list_memories</h3>
+            <p className="text-muted-foreground mb-4">
               Browse through the user's stored memories to get an overview of what you know about them. Returns raw memory data without analysis - good for getting oriented or checking what's stored.
             </p>
-            <h4 className="font-semibold text-slate-200 mb-2">Input Schema:</h4>
+            <h4 className="font-semibold text-foreground mb-2">Input Schema:</h4>
             <CodeBlock lang="json" code={JSON.stringify({
               limit: {
                 type: "integer",
                 description: "Maximum number of memories to show (default: 20)"
               }
             }, null, 2)} />
-            <h4 className="font-semibold text-slate-200 mt-4 mb-2">Example Payload:</h4>
+            <h4 className="font-semibold text-foreground mt-4 mb-2">Example Payload:</h4>
             <CodeBlock lang="json" code={JSON.stringify({
               jsonrpc: "2.0",
               method: "tools/call",
@@ -656,12 +791,12 @@ x-client-name: your-app-name`} />
           </div>
 
           {/* deep_memory_query tool */}
-          <div className="p-6 border border-slate-700/50 rounded-lg bg-slate-900/40">
-            <h3 className="font-mono text-lg text-pink-400 mb-2">deep_memory_query</h3>
-            <p className="text-slate-400 mb-4">
+          <div className="p-6 border border-border rounded-lg bg-card">
+            <h3 className="font-mono text-lg text-primary mb-2">deep_memory_query</h3>
+            <p className="text-muted-foreground mb-4">
               <strong>COMPREHENSIVE search</strong> that analyzes ALL user content including full documents and essays. Takes 30-60 seconds and processes everything. Use sparingly for complex questions that require analyzing entire documents or finding patterns across multiple sources.
             </p>
-            <h4 className="font-semibold text-slate-200 mb-2">Input Schema:</h4>
+            <h4 className="font-semibold text-foreground mb-2">Input Schema:</h4>
             <CodeBlock lang="json" code={JSON.stringify({
               search_query: {
                 type: "string",
@@ -680,7 +815,7 @@ x-client-name: your-app-name`} />
                 description: "Whether to include complete documents (default: true)"
               }
             }, null, 2)} />
-            <h4 className="font-semibold text-slate-200 mt-4 mb-2">Example Payload:</h4>
+            <h4 className="font-semibold text-foreground mt-4 mb-2">Example Payload:</h4>
             <CodeBlock lang="json" code={JSON.stringify({
               jsonrpc: "2.0",
               method: "tools/call",
@@ -698,8 +833,8 @@ x-client-name: your-app-name`} />
       </section>
 
       <section id="python-example">
-        <h2 className="text-3xl font-bold text-slate-100 mb-4 flex items-center"><Puzzle className="w-7 h-7 mr-3 text-purple-400"/>Python Example</h2>
-        <p className="text-slate-400 mb-4">
+        <h2 className="text-3xl font-bold text-foreground mb-4">Python Example</h2>
+        <p className="text-muted-foreground mb-4">
           Here is a simple example of how to use the unified API with Python's <code className="font-mono text-sm">requests</code> library to add a new memory.
         </p>
         <CodeBlock lang="python" code={`
@@ -747,7 +882,7 @@ try:
 except requests.exceptions.RequestException as e:
     print(f"An error occurred: {e}")
         `} />
-        <p className="text-slate-400 mt-4">
+        <p className="text-muted-foreground mt-4">
           A successful call to <code className="font-mono text-sm">add_memories</code> will return a detailed confirmation:
         </p>
         <CodeBlock lang="json" code={`
@@ -767,8 +902,8 @@ except requests.exceptions.RequestException as e:
       </section>
 
       <section id="advanced-python-example">
-        <h2 className="text-3xl font-bold text-slate-100 mb-4 flex items-center"><Puzzle className="w-7 h-7 mr-3 text-purple-400"/>Advanced Python Example</h2>
-        <p className="text-slate-400 mb-4">
+        <h2 className="text-3xl font-bold text-foreground mb-4">Advanced Python Example</h2>
+        <p className="text-muted-foreground mb-4">
           This example demonstrates a more complex, realistic workflow where an agent uses shared memory to answer a question that requires context from multiple applications (Slack and Jira).
         </p>
         <CodeBlock lang="python" code={`
@@ -873,8 +1008,8 @@ else:
       </section>
 
       <section id="curl-example">
-        <h2 className="text-3xl font-bold text-slate-100 mb-4 flex items-center"><Terminal className="w-7 h-7 mr-3 text-purple-400"/>cURL Example</h2>
-        <p className="text-slate-400 mb-4">
+        <h2 className="text-3xl font-bold text-foreground mb-4">cURL Example</h2>
+        <p className="text-muted-foreground mb-4">
           You can also interact with the API directly from your terminal using cURL. This example lists the available tools.
         </p>
         <CodeBlock lang="bash" code={`
@@ -888,7 +1023,7 @@ curl -X POST ${API_URL}/mcp/messages/ \\
     "id": 1
   }'
         `} />
-        <p className="text-slate-400 mt-4">
+        <p className="text-muted-foreground mt-4">
           A successful request will return a JSON object with a list of available tools:
         </p>
         <CodeBlock lang="json" code={`
@@ -932,8 +1067,8 @@ curl -X POST ${API_URL}/mcp/messages/ \\
       </section>
 
       <section id="quick-test">
-        <h2 className="text-3xl font-bold text-slate-100 mb-4 flex items-center"><Terminal className="w-7 h-7 mr-3 text-purple-400"/>Quick Test</h2>
-        <p className="text-slate-400 mb-4">
+        <h2 className="text-3xl font-bold text-foreground mb-4">Quick Test</h2>
+        <p className="text-muted-foreground mb-4">
           Verify your API key is working with this simple test. Replace <code className="font-mono text-sm">YOUR_API_KEY</code> with your actual key from the dashboard.
         </p>
         <CodeBlock lang="bash" code={`
@@ -950,20 +1085,20 @@ curl -X POST ${API_URL}/mcp/messages/ \\
 
 # Expected response: {"jsonrpc":"2.0","result":{"protocolVersion":"2024-11-05",...},"id":1}
         `} />
-        <div className="mt-4 p-4 bg-sky-900/30 border border-sky-700/50 rounded-lg">
-          <p className="text-sky-200 text-sm">
+        <div className="mt-4 p-4 bg-muted/50 border border-border rounded-lg">
+          <p className="text-muted-foreground text-sm">
             <strong>💡 Success indicators:</strong> A successful response includes <code className="font-mono text-xs">protocolVersion</code> and <code className="font-mono text-xs">serverInfo</code>. If you get an authentication error, double-check your API key format and ensure it starts with <code className="font-mono text-xs">jean_sk_</code>.
           </p>
         </div>
       </section>
       
       <section id="architecture-diagram">
-          <h2 className="text-3xl font-bold text-slate-100 mb-4 flex items-center"><Server className="w-7 h-7 mr-3 text-purple-400"/>Unified Architecture</h2>
-          <p className="text-slate-400 mb-4">
+          <h2 className="text-3xl font-bold text-foreground mb-4">Unified Architecture</h2>
+          <p className="text-muted-foreground mb-4">
             Our implementation uses a <strong>unified endpoint architecture</strong> that maintains 100% compatibility with existing integrations while adding secure API key support. The single <code className="font-mono text-sm">/mcp/messages/</code> endpoint handles all memory operations through dual-path authentication.
-            <span className="block text-sm text-slate-500 mt-1">Click the diagram to expand.</span>
+            <span className="block text-sm text-muted-foreground mt-1">Click the diagram to expand.</span>
           </p>
-          <Alert className="border-emerald-700/80 bg-emerald-900/50 rounded-lg text-emerald-200 text-sm mb-6">
+          <Alert className="border-border bg-card rounded-lg text-muted-foreground text-sm mb-6">
             <p>
               <strong>Zero Breaking Changes:</strong> Existing Claude Desktop configurations and UI integrations continue to work exactly as before. The new API key authentication is additive, not replacing existing functionality.
             </p>
