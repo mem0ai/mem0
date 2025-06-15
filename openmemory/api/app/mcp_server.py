@@ -31,6 +31,7 @@ import asyncio
 from sqlalchemy import text
 from app.config.memory_limits import MEMORY_LIMITS
 from fastapi.responses import JSONResponse
+from .utils.decorators import retry_on_exception
 
 # Load environment variables
 load_dotenv()
@@ -60,6 +61,7 @@ mcp_router = APIRouter(prefix="/mcp")
 sse = SseServerTransport("/mcp/messages/")
 
 @mcp.tool(description="Add new memories to the user's memory")
+@retry_on_exception(retries=3, delay=1, backoff=2, exceptions=(ConnectionError,))
 async def add_memories(text: str) -> str:
     """
     Add memories to the user's personal memory bank.
@@ -217,6 +219,7 @@ async def add_observation(text: str) -> str:
 
 
 @mcp.tool(description="Search the user's memory for memories that match the query")
+@retry_on_exception(retries=3, delay=1, backoff=2, exceptions=(ConnectionError,))
 async def search_memory(query: str, limit: int = None) -> str:
     """
     Search the user's memory for memories that match the query.
@@ -306,6 +309,7 @@ async def _search_memory_impl(query: str, supa_uid: str, client_name: str, limit
 
 
 @mcp.tool(description="List all memories in the user's memory")
+@retry_on_exception(retries=3, delay=1, backoff=2, exceptions=(ConnectionError,))
 async def list_memories(limit: int = None) -> str:
     """
     List all memories for the user.
