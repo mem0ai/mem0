@@ -133,7 +133,8 @@ async def add_memories(text: str, tags: Optional[list[str]] = None) -> str:
             if tags:
                 metadata['tags'] = tags
 
-            # Run blocking I/O in a separate thread to not block the event loop
+            logger.info(f"🔍 DEBUG: Passing this metadata to mem0.add: {metadata}")
+
             loop = asyncio.get_running_loop()
             add_call = functools.partial(
                 memory_client.add,
@@ -358,6 +359,9 @@ async def _search_memory_v2_impl(query: str, supa_uid: str, client_name: str, li
          actual_results_list = mem0_search_results['results']
     elif isinstance(mem0_search_results, list):
          actual_results_list = mem0_search_results
+
+    if actual_results_list:
+        logger.info(f"🔍 DEBUG: Metadata of first result in _search_memory_v2_impl: {actual_results_list[0].get('metadata')}")
 
     # Perform filtering in our application code if a filter is provided
     if tags_filter:
