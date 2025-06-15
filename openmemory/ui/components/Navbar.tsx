@@ -69,7 +69,7 @@ export function Navbar() {
           ) : (
             <div style={{ width: 26, height: 26 }} />
           )}
-          <span className="text-lg sm:text-xl font-medium">Jean Memory</span>
+          <span className="text-lg sm:text-xl font-medium">Jean</span>
         </Link>
         
         {/* Desktop Navigation */}
