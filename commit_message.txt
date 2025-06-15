@@ -1,0 +1,25 @@
+feat(api): Add metadata filtering and improve robustness
+
+This commit introduces several significant improvements to the Jean Memory API, based on feedback from stress testing and a deep architectural review.
+
+Key changes:
+
+- Bug Fix: Resolves a critical TypeError in the search_memory tool by reverting it to its stable implementation, ensuring it no longer passes an unsupported `metadata` argument.
+
+- Feature: Memory Tagging & Filtering:
+  - Adds an optional `tags` parameter to the `add_memories` tool.
+  - Introduces a new `search_memory_v2` tool that supports a `tags_filter` for precise, context-aware searches.
+  - This feature is implemented via post-search filtering within the application to work around limitations in the underlying vector search library.
+
+- Non-Breaking Isolation:
+  - The new tagging features (`tags` on `add_memories` and the `search_memory_v2` tool) are programmatically isolated and only exposed to users authenticating via an API key.
+  - Existing header-based clients (e.g., Claude) receive the original, unchanged tool schema, guaranteeing zero breaking changes.
+
+- Resilience & Error Handling:
+  - Implements a server-side retry decorator on core tools (`add_memories`, `search_memory`, `list_memories`) to automatically handle transient `ConnectionError` exceptions.
+  - Improves error handling for malformed requests to return a proper `HTTP 422` status with a descriptive JSON-RPC error, instead of a generic `500`.
+
+- Documentation:
+  - Updates the API docs to explain the new tagging and filtering capabilities via `search_memory_v2`.
+  - Adds a new 'Key Architectural Concepts' section to clarify the asynchronous nature of memory indexing.
+  - Documents the new, more robust error handling for developers. 

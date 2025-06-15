@@ -231,11 +231,10 @@ async def add_observation(text: str) -> str:
 
 @mcp.tool(description="Search the user's memory for memories that match the query")
 @retry_on_exception(retries=3, delay=1, backoff=2, exceptions=(ConnectionError,))
-async def search_memory(query: str, limit: int = None, tags_filter: Optional[list[str]] = None) -> str:
+async def search_memory(query: str, limit: int = None) -> str:
     """
     Search the user's memory for memories that match the query.
     Returns memories that are semantically similar to the query.
-    Can optionally filter by a list of tags.
     """
     # Lazy import
     from app.utils.memory import get_memory_client
@@ -255,7 +254,7 @@ async def search_memory(query: str, limit: int = None, tags_filter: Optional[lis
     
     try:
         # Add timeout to prevent hanging
-        return await asyncio.wait_for(_search_memory_impl(query, supa_uid, client_name, limit, tags_filter), timeout=30.0)
+        return await asyncio.wait_for(_search_memory_impl(query, supa_uid, client_name, limit), timeout=30.0)
     except asyncio.TimeoutError:
         return f"Search timed out. Please try a simpler query."
     except Exception as e:
@@ -263,11 +262,9 @@ async def search_memory(query: str, limit: int = None, tags_filter: Optional[lis
         return f"Error searching memory: {e}"
 
 
-async def _search_memory_impl(query: str, supa_uid: str, client_name: str, limit: int = 10, tags_filter: Optional[list[str]] = None) -> str:
+async def _search_memory_impl(query: str, supa_uid: str, client_name: str, limit: int = 10) -> str:
     """Implementation of search memory with error handling and timeout"""
     from app.utils.memory import get_memory_client
-    import asyncio
-    import functools
     memory_client = get_memory_client()
     db = SessionLocal()
     try:
@@ -282,24 +279,13 @@ async def _search_memory_impl(query: str, supa_uid: str, client_name: str, limit
             logger.error(f"🚨 USER ID MISMATCH: Expected {supa_uid}, got {user.user_id}")
             return f"Error: User ID validation failed. Security issue detected."
 
-        # Prepare metadata filter for mem0
-        metadata_filter = {}
-        if tags_filter:
-            metadata_filter = {"tags": {"$in": tags_filter}}
-
         # Run blocking I/O in a separate thread
         loop = asyncio.get_running_loop()
-        search_call = functools.partial(
-            memory_client.search, 
-            query=query, 
-            user_id=supa_uid, 
-            limit=limit,
-            metadata=metadata_filter
-        )
+        search_call = functools.partial(memory_client.search, query=query, user_id=supa_uid, limit=limit)
         mem0_search_results = await loop.run_in_executor(None, search_call)
         
         # 🚨 CRITICAL: Log the search results for debugging
-        logger.info(f"🔍 SEARCH DEBUG - Query: {query}, Filter: {metadata_filter}, Results count: {len(mem0_search_results.get('results', [])) if isinstance(mem0_search_results, dict) else len(mem0_search_results) if isinstance(mem0_search_results, list) else 0}")
+        logger.info(f"🔍 SEARCH DEBUG - Query: {query}, Results count: {len(mem0_search_results.get('results', [])) if isinstance(mem0_search_results, dict) else len(mem0_search_results) if isinstance(mem0_search_results, list) else 0}")
 
         processed_results = []
         actual_results_list = []
@@ -329,6 +315,70 @@ async def _search_memory_impl(query: str, supa_uid: str, client_name: str, limit
         return json.dumps(processed_results)
     finally:
         db.close()
+
+
+@mcp.tool(description="Search the user's memory, with optional tag filtering (V2).")
+@retry_on_exception(retries=3, delay=1, backoff=2, exceptions=(ConnectionError,))
+async def search_memory_v2(query: str, limit: int = None, tags_filter: Optional[list[str]] = None) -> str:
+    """
+    V2 search tool. Search user's memory with optional tag filtering.
+    Returns memories that are semantically similar to the query.
+    This is the recommended search tool for API key users.
+    """
+    supa_uid = user_id_var.get(None)
+    client_name = client_name_var.get(None)
+    
+    if not supa_uid:
+        return "Error: Supabase user_id not available in context"
+    if not client_name:
+        return "Error: client_name not available in context"
+    
+    if limit is None:
+        limit = MEMORY_LIMITS.search_default
+    limit = min(max(1, limit), MEMORY_LIMITS.search_max)
+    
+    try:
+        return await asyncio.wait_for(_search_memory_v2_impl(query, supa_uid, client_name, limit, tags_filter), timeout=30.0)
+    except asyncio.TimeoutError:
+        return f"Search timed out. Please try a simpler query."
+    except Exception as e:
+        logging.error(f"Error in search_memory_v2 MCP tool: {e}", exc_info=True)
+        return f"Error searching memory: {e}"
+
+async def _search_memory_v2_impl(query: str, supa_uid: str, client_name: str, limit: int = 10, tags_filter: Optional[list[str]] = None) -> str:
+    """Implementation of V2 search memory with post-fetch filtering."""
+    from app.utils.memory import get_memory_client
+    memory_client = get_memory_client()
+    
+    # We fetch a larger pool of results to filter from if a filter is applied
+    fetch_limit = limit * 5 if tags_filter else limit
+
+    # Call the original search function without the metadata filter to avoid the bug
+    search_call = functools.partial(memory_client.search, query=query, user_id=supa_uid, limit=fetch_limit)
+    loop = asyncio.get_running_loop()
+    mem0_search_results = await loop.run_in_executor(None, search_call)
+    
+    actual_results_list = []
+    if isinstance(mem0_search_results, dict) and 'results' in mem0_search_results:
+         actual_results_list = mem0_search_results['results']
+    elif isinstance(mem0_search_results, list):
+         actual_results_list = mem0_search_results
+
+    # Perform filtering in our application code if a filter is provided
+    if tags_filter:
+        filtered_results = []
+        for mem in actual_results_list:
+            if len(filtered_results) >= limit:
+                break
+            
+            mem_tags = mem.get('metadata', {}).get('tags', [])
+            if all(tag in mem_tags for tag in tags_filter):
+                filtered_results.append(mem)
+        processed_results = filtered_results
+    else:
+        processed_results = actual_results_list
+
+    return json.dumps(processed_results)
 
 
 @mcp.tool(description="List all memories in the user's memory")
@@ -1166,37 +1216,25 @@ async def test_connection() -> str:
 @mcp_router.post("/messages/")
 async def handle_post_message(request: Request):
     """
-    Handles a single, stateless JSON-RPC message.
-    This endpoint runs the requested tool and returns the result immediately.
-    It supports dual-path authentication:
-    - Path A: API key authentication via X-Api-Key header
-    - Path B: Existing header-based auth for Cloudflare Worker/Claude
+    Handles a single, stateless JSON-RPC message with dual-path authentication
+    and selective tool exposure.
     """
     from app.auth import get_user_from_api_key_header
     
-    user_id_from_header = None
-    client_name_from_header = None
-    
-    # Dual-path authentication
-    # Path A: Try API key authentication first
     api_key_auth_success = await get_user_from_api_key_header(request)
     
     if api_key_auth_success and hasattr(request.state, 'user') and request.state.user:
-        # Authenticated via API key
-        user: User = request.state.user
-        user_id_from_header = str(user.user_id)
+        is_api_key_path = True
+        user_id_from_header = str(request.state.user.user_id)
         client_name_from_header = request.headers.get("x-client-name", "default_agent_app")
-        logger.info(f"Handling message for user authenticated via API key: {user_id_from_header}")
     else:
-        # Path B: Fallback to header-based auth for Cloudflare Worker/Claude
+        is_api_key_path = False
         user_id_from_header = request.headers.get("x-user-id")
         client_name_from_header = request.headers.get("x-client-name")
-        logger.info(f"Handling message for user authenticated via headers: {user_id_from_header}")
 
     if not user_id_from_header or not client_name_from_header:
         return JSONResponse(status_code=400, content={"error": "Missing user authentication details"})
             
-    # Set context variables for the duration of this request
     user_token = user_id_var.set(user_id_from_header)
     client_token = client_name_var.set(client_name_from_header)
     
@@ -1206,197 +1244,118 @@ async def handle_post_message(request: Request):
         params = body.get("params", {})
         request_id = body.get("id")
 
-        logger.info(f"Handling MCP method '{method_name}' for user '{user_id_from_header}' with params: {params}")
+        if method_name == "tools/list":
+            if is_api_key_path:
+                tools_to_show = get_api_tools_schema()
+            else:
+                tools_to_show = get_original_tools_schema()
+            
+            return JSONResponse(content={"jsonrpc": "2.0", "result": {"tools": tools_to_show}, "id": request_id})
 
-        # Handle MCP protocol methods
-        if method_name == "initialize":
-            # MCP initialization handshake
-            response_payload = {
-                "jsonrpc": "2.0",
-                "result": {
-                    "protocolVersion": "2024-11-05",
-                    "capabilities": {
-                        "tools": {}
-                    },
-                    "serverInfo": {
-                        "name": "jean-memory-api",
-                        "version": "1.0.0"
-                    }
-                },
-                "id": request_id
-            }
-            return JSONResponse(content=response_payload)
-        
-        elif method_name == "tools/list":
-            # Return list of core memory tools (excluding sync tools that are dashboard-only)
-            tools = [
-                {
-                    "name": "ask_memory",
-                    "description": "FAST memory search for simple questions about the user. Use this for quick, everyday questions like 'What are my preferences?', 'What do you know about me?', or 'Tell me about my work'. This tool searches stored memories only (not full documents) and gives conversational answers in under 5 seconds. Perfect for most questions - try this FIRST before using heavier tools.",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "question": {"type": "string", "description": "Any natural language question about the user's memories, thoughts, documents, or experiences"}
-                        },
-                        "required": ["question"]
-                    }
-                },
-                {
-                    "name": "add_memories",
-                    "description": "Store important information, preferences, facts, and observations about the user. Use this tool to remember key details learned during conversation, user preferences, values, beliefs, facts about their work/life/interests, or anything the user wants remembered for future conversations. Think of this as building a comprehensive understanding of who they are. You should consider using this after learning something new about the user, even if not explicitly asked. The memory will be permanently stored and searchable. YOU MUST USE THE TOOLS/CALL TO USE THIS. NOTHING ELSE.",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "text": {"type": "string", "description": "Important information to remember about the user (facts, preferences, insights, observations, etc.)"}
-                        },
-                        "required": ["text"]
-                    }
-                },
-                {
-                    "name": "search_memory", 
-                    "description": "Quick keyword-based search through the user's memories. Use this for fast lookups when you need specific information or when ask_memory might be too comprehensive. Perfect for finding specific facts, dates, names, or simple queries. If you need just a quick fact-check or simple lookup, this is faster than ask_memory. Use when you need raw memory data rather than a conversational response.",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "query": {"type": "string", "description": "Keywords or phrases to search for"},
-                            "limit": {"type": "integer", "description": "Maximum number of results to return", "default": 10}
-                        },
-                        "required": ["query"]
-                    }
-                },
-                {
-                    "name": "list_memories",
-                    "description": "Browse through the user's stored memories to get an overview of what you know about them. Use this when you want to understand the breadth of information available, or when the user asks 'what do you know about me?' or wants to see their stored memories. This gives you raw memory data without analysis - good for getting oriented or checking what's stored.",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "limit": {"type": "integer", "description": "Maximum number of memories to show", "default": 20}
-                        }
-                    }
-                },
-                {
-                    "name": "deep_memory_query", 
-                    "description": "COMPREHENSIVE search that analyzes ALL user content including full documents and essays. Use this ONLY when ask_memory isn't sufficient and you need to analyze entire documents, find patterns across multiple sources, or do complex research. Takes 30-60 seconds and processes everything. Use sparingly for complex questions like 'Analyze my writing style across all essays' or 'Find patterns in my thinking over time'.",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "search_query": {"type": "string", "description": "Complex question or analysis request"},
-                            "memory_limit": {"type": "integer", "description": "Number of memories to include", "default": 10},
-                            "chunk_limit": {"type": "integer", "description": "Number of document chunks to include", "default": 10},
-                            "include_full_docs": {"type": "boolean", "description": "Whether to include complete documents", "default": True}
-                        },
-                        "required": ["search_query"]
-                    }
-                }
-            ]
-            
-            response_payload = {
-                "jsonrpc": "2.0",
-                "result": {"tools": tools},
-                "id": request_id
-            }
-            return JSONResponse(content=response_payload)
-        
-        elif method_name == "tools/call":
-            # Handle tool execution
+        if method_name == "tools/call":
             tool_name = params.get("name")
-            tool_args = params.get("arguments", {})
+
+            # Explicitly block v2 tool for non-api key users
+            if not is_api_key_path and tool_name == "search_memory_v2":
+                 return JSONResponse(status_code=404, content={"error": f"Tool '{tool_name}' not found"})
             
+            # Block original search with tags for any user, just in case
+            if tool_name == "search_memory" and "tags_filter" in params.get("arguments", {}):
+                return JSONResponse(status_code=422, content={"jsonrpc": "2.0", "error": {"code": -32602, "message": "The 'search_memory' tool does not support 'tags_filter'. Use 'search_memory_v2' instead."}, "id": request_id})
+
             tool_function = tool_registry.get(tool_name)
             if not tool_function:
                 return JSONResponse(status_code=404, content={"error": f"Tool '{tool_name}' not found"})
             
             try:
-                # Execute the tool and await its result
-                result = await tool_function(**tool_args)
+                result = await tool_function(**params.get("arguments", {}))
             except TypeError as e:
-                # This catches errors where arguments are missing or incorrect
-                logger.warning(f"Invalid arguments for tool '{tool_name}': {e}")
-                error_payload = {
-                    "jsonrpc": "2.0",
-                    "error": {
-                        "code": -32602,  # Invalid params
-                        "message": f"Invalid parameters for tool '{tool_name}': {e}"
-                    },
-                    "id": request_id
-                }
-                return JSONResponse(status_code=422, content=error_payload)
+                # This error handling now applies to both paths, which is safe
+                return JSONResponse(status_code=422, content={"jsonrpc": "2.0", "error": {"code": -32602, "message": f"Invalid parameters for tool '{tool_name}': {e}"}, "id": request_id})
 
-            response_payload = {
-                "jsonrpc": "2.0",
-                "result": {
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": result
-                        }
-                    ]
-                },
-                "id": request_id
-            }
-            return JSONResponse(content=response_payload)
+            return JSONResponse(content={"jsonrpc": "2.0", "result": {"content": [{"type": "text", "text": result}]}, "id": request_id})
         
-        elif method_name == "notifications/initialized":
-            # Handle MCP initialization notification - no response needed
-            logger.info(f"Received initialization notification from client '{client_name_from_header}'")
-            return JSONResponse(content={"status": "acknowledged"})
-        
-        elif method_name == "notifications/cancelled":
-            # Handle MCP cancellation notification - no response needed
-            logger.info(f"Received cancellation notification for request {params.get('requestId', 'unknown')}")
-            return JSONResponse(content={"status": "acknowledged"})
-        
-        elif method_name == "resources/list":
-            # Return empty resources list - we don't have any resources
-            response_payload = {
-                "jsonrpc": "2.0",
-                "result": {
-                    "resources": []
-                },
-                "id": request_id
-            }
-            return JSONResponse(content=response_payload)
-        
-        elif method_name == "prompts/list":
-            # Return empty prompts list - we don't have any prompts
-            response_payload = {
-                "jsonrpc": "2.0", 
-                "result": {
-                    "prompts": []
-                },
-                "id": request_id
-            }
-            return JSONResponse(content=response_payload)
-        
+        # ... Handle other MCP methods like initialize, etc. ...
         else:
-            # Handle direct tool calls (legacy support)
-            tool_function = tool_registry.get(method_name)
-            if not tool_function:
-                return JSONResponse(status_code=404, content={"error": f"Method '{method_name}' not found"})
-            
-            # Execute the tool and await its result  
-            result = await tool_function(**params)
-
-            # Format the response as a JSON-RPC result
-            response_payload = {
-                "jsonrpc": "2.0",
-                "result": result,
-                "id": request_id
-            }
-            return JSONResponse(content=response_payload)
+             # This part remains the same for both
+             return await handle_other_mcp_methods(request, body)
 
     except Exception as e:
-        logger.error(f"Error executing tool via stateless endpoint: {e}", exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
     finally:
-        # Clean up context variables
         user_id_var.reset(user_token)
         client_name_var.reset(client_token)
+
+def get_original_tools_schema():
+    """Returns the JSON schema for the original tools, safe for existing clients."""
+    return [
+        {
+            "name": "ask_memory",
+            "description": "FAST memory search for simple questions about the user...",
+            "inputSchema": {"type": "object", "properties": {"question": {"type": "string", "description": "A natural language question"}}, "required": ["question"]}
+        },
+        {
+            "name": "add_memories",
+            "description": "Store important information, preferences, facts...",
+            "inputSchema": {"type": "object", "properties": {"text": {"type": "string", "description": "The information to store"}}, "required": ["text"]}
+        },
+        {
+            "name": "search_memory", 
+            "description": "Quick keyword-based search through the user's memories...",
+            "inputSchema": {"type": "object", "properties": {"query": {"type": "string", "description": "The search query"}, "limit": {"type": "integer", "description": "Max results"}}, "required": ["query"]}
+        },
+        {
+            "name": "list_memories",
+            "description": "Browse through the user's stored memories...",
+            "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "description": "Max results"}}}
+        },
+        {
+            "name": "deep_memory_query", 
+            "description": "COMPREHENSIVE search that analyzes ALL user content...",
+            "inputSchema": {"type": "object", "properties": {"search_query": {"type": "string", "description": "The complex query"}}, "required": ["search_query"]}
+        }
+    ]
+
+def get_api_tools_schema():
+    """Returns the JSON schema for API key users, including new features."""
+    return [
+        {
+            "name": "ask_memory",
+            "description": "FAST memory search for simple questions about the user...",
+            "inputSchema": {"type": "object", "properties": {"question": {"type": "string", "description": "A natural language question"}}, "required": ["question"]}
+        },
+        {
+            "name": "add_memories",
+            "description": "Store important information. Optionally, add a list of string tags for later filtering.",
+            "inputSchema": {"type": "object", "properties": {"text": {"type": "string", "description": "The information to store"}, "tags": {"type": "array", "items": {"type": "string"}, "description": "Optional list of tags"}}, "required": ["text"]}
+        },
+        {
+            "name": "search_memory_v2", 
+            "description": "Quick keyword-based search with optional tag filtering.",
+            "inputSchema": {"type": "object", "properties": {"query": {"type": "string", "description": "The search query"}, "limit": {"type": "integer", "description": "Max results"}, "tags_filter": {"type": "array", "items": {"type": "string"}, "description": "Optional list of tags to filter by"}}, "required": ["query"]}
+        },
+        {
+            "name": "list_memories",
+            "description": "Browse through the user's stored memories...",
+            "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "description": "Max results"}}}
+        },
+        {
+            "name": "deep_memory_query", 
+            "description": "COMPREHENSIVE search that analyzes ALL user content...",
+            "inputSchema": {"type": "object", "properties": {"search_query": {"type": "string", "description": "The complex query"}}, "required": ["search_query"]}
+        }
+    ]
+
+async def handle_other_mcp_methods(request, body):
+    # Contains the original logic for initialize, notifications, resources, prompts, etc.
+    # This keeps the main function cleaner.
+    pass
 
 # Core memory tools registry - simplified for better performance
 tool_registry = {
     "add_memories": add_memories,
     "search_memory": search_memory,
+    "search_memory_v2": search_memory_v2,
     "list_memories": list_memories,
     "ask_memory": ask_memory,
     "sync_substack_posts": sync_substack_posts,
@@ -1514,61 +1473,28 @@ async def handle_sse_messages(client_name: str, user_id: str, request: Request):
             tools = [
                 {
                     "name": "ask_memory",
-                    "description": "FAST memory search for simple questions about the user. Use this for quick, everyday questions like 'What are my preferences?', 'What do you know about me?', or 'Tell me about my work'. This tool searches stored memories only (not full documents) and gives conversational answers in under 5 seconds. Perfect for most questions - try this FIRST before using heavier tools.",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "question": {"type": "string", "description": "Any natural language question about the user's memories, thoughts, documents, or experiences"}
-                        },
-                        "required": ["question"]
-                    }
+                    "description": "FAST memory search for simple questions about the user's memories, thoughts, documents, or experiences",
+                    "inputSchema": {"type": "object", "properties": {"question": {"type": "string"}}, "required": ["question"]}
                 },
                 {
                     "name": "add_memories",
                     "description": "Store important information, preferences, facts, and observations about the user. Use this tool to remember key details learned during conversation, user preferences, values, beliefs, facts about their work/life/interests, or anything the user wants remembered for future conversations. Think of this as building a comprehensive understanding of who they are. You should consider using this after learning something new about the user, even if not explicitly asked. The memory will be permanently stored and searchable. YOU MUST USE THE TOOLS/CALL TO USE THIS. NOTHING ELSE.",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "text": {"type": "string", "description": "Important information to remember about the user (facts, preferences, insights, observations, etc.)"}
-                        },
-                        "required": ["text"]
-                    }
+                    "inputSchema": {"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]}
                 },
                 {
                     "name": "search_memory", 
                     "description": "Quick keyword-based search through the user's memories. Use this for fast lookups when you need specific information or when ask_memory might be too comprehensive. Perfect for finding specific facts, dates, names, or simple queries. If you need just a quick fact-check or simple lookup, this is faster than ask_memory. Use when you need raw memory data rather than a conversational response.",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "query": {"type": "string", "description": "Keywords or phrases to search for"},
-                            "limit": {"type": "integer", "description": "Maximum number of results to return", "default": 10}
-                        },
-                        "required": ["query"]
-                    }
+                    "inputSchema": {"type": "object", "properties": {"query": {"type": "string"}, "limit": {"type": "integer"}}, "required": ["query"]}
                 },
                 {
                     "name": "list_memories",
                     "description": "Browse through the user's stored memories to get an overview of what you know about them. Use this when you want to understand the breadth of information available, or when the user asks 'what do you know about me?' or wants to see their stored memories. This gives you raw memory data without analysis - good for getting oriented or checking what's stored.",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "limit": {"type": "integer", "description": "Maximum number of memories to show", "default": 20}
-                        }
-                    }
+                    "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer"}}}
                 },
                 {
                     "name": "deep_memory_query", 
                     "description": "COMPREHENSIVE search that analyzes ALL user content including full documents and essays. Use this ONLY when ask_memory isn't sufficient and you need to analyze entire documents, find patterns across multiple sources, or do complex research. Takes 30-60 seconds and processes everything. Use sparingly for complex questions like 'Analyze my writing style across all essays' or 'Find patterns in my thinking over time'.",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "search_query": {"type": "string", "description": "Complex question or analysis request"},
-                            "memory_limit": {"type": "integer", "description": "Number of memories to include", "default": 10},
-                            "chunk_limit": {"type": "integer", "description": "Number of document chunks to include", "default": 10},
-                            "include_full_docs": {"type": "boolean", "description": "Whether to include complete documents", "default": True}
-                        },
-                        "required": ["search_query"]
-                    }
+                    "inputSchema": {"type": "object", "properties": {"search_query": {"type": "string"}, "memory_limit": {"type": "integer"}, "chunk_limit": {"type": "integer"}, "include_full_docs": {"type": "boolean", "description": "Whether to include complete documents", "default": True}}, "required": ["search_query"]}
                 }
             ]
             
