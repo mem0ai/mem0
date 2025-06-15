@@ -213,16 +213,16 @@ Provide a focused, concise response (2-3 paragraphs max). If discussing a specif
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-card text-card-foreground">
       {/* Header */}
-      <div className="p-4 border-b border-zinc-800">
+      <div className="p-4 border-b border-border">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-gradient-to-br from-purple-500 to-blue-500 rounded-lg">
-            <Sparkles className="w-5 h-5 text-white" />
+          <div className="p-2 bg-primary/10 rounded-lg">
+            <Sparkles className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-white">Life Assistant</h3>
-            <p className="text-xs text-zinc-400">Powered by Gemini AI</p>
+            <h3 className="text-lg font-semibold text-foreground">Life Assistant</h3>
+            <p className="text-xs text-muted-foreground">Powered by your memories</p>
           </div>
         </div>
       </div>
@@ -241,22 +241,22 @@ Provide a focused, concise response (2-3 paragraphs max). If discussing a specif
               <div className={`flex gap-3 max-w-[80%] ${message.role === "user" ? "flex-row-reverse" : ""}`}>
                 <div className={`p-2 rounded-lg ${
                   message.role === "user" 
-                    ? "bg-purple-500" 
-                    : "bg-gradient-to-br from-purple-500/20 to-blue-500/20 border border-zinc-700"
+                    ? "bg-primary" 
+                    : "bg-muted"
                 }`}>
                   {message.role === "user" ? (
-                    <User className="w-4 h-4 text-white" />
+                    <User className="w-4 h-4 text-primary-foreground" />
                   ) : (
-                    <Bot className="w-4 h-4 text-purple-400" />
+                    <Bot className="w-4 h-4 text-muted-foreground" />
                   )}
                 </div>
                 <div className={`px-4 py-2 rounded-lg ${
                   message.role === "user"
-                    ? "bg-purple-500 text-white"
-                    : "bg-zinc-800/50 text-zinc-100"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-foreground"
                 }`}>
                   {message.role === "assistant" ? (
-                    <div className="text-sm prose prose-invert prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                    <div className="text-sm prose dark:prose-invert prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
                       <ReactMarkdown>
                         {message.content}
                       </ReactMarkdown>
@@ -280,11 +280,11 @@ Provide a focused, concise response (2-3 paragraphs max). If discussing a specif
               className="flex justify-start mb-4"
             >
               <div className="flex gap-3 max-w-[80%]">
-                <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500/20 to-blue-500/20 border border-zinc-700">
-                  <Bot className="w-4 h-4 text-purple-400" />
+                <div className="p-2 rounded-lg bg-muted">
+                  <Bot className="w-4 h-4 text-muted-foreground" />
                 </div>
-                <div className="px-4 py-2 rounded-lg bg-zinc-800/50">
-                  <Loader2 className="w-4 h-4 text-purple-400 animate-spin" />
+                <div className="px-4 py-2 rounded-lg bg-muted">
+                  <Loader2 className="w-4 h-4 text-primary animate-spin" />
                 </div>
               </div>
             </motion.div>
@@ -293,21 +293,20 @@ Provide a focused, concise response (2-3 paragraphs max). If discussing a specif
       </ScrollArea>
 
       {/* Input */}
-      <div className="p-4 border-t border-zinc-800">
+      <div className="p-4 border-t border-border">
         <div className="flex gap-2">
           <Textarea
             ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Ask about your memories, patterns, or life insights..."
-            className="flex-1 min-h-[60px] max-h-[120px] bg-zinc-900 border-zinc-700 text-white placeholder:text-zinc-500 resize-none"
+            placeholder="Ask about your memories..."
+            className="flex-1 min-h-[60px] max-h-[120px] bg-background border-border text-foreground placeholder:text-muted-foreground resize-none"
             disabled={isLoading}
           />
           <Button
             onClick={handleSend}
             disabled={!input.trim() || isLoading}
-            className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white"
           >
             {isLoading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -320,7 +319,7 @@ Provide a focused, concise response (2-3 paragraphs max). If discussing a specif
           <Button
             variant="outline"
             size="sm"
-            className="text-xs border-zinc-700 hover:bg-zinc-800"
+            className="text-xs"
             onClick={() => setInput("What patterns do you see in my life?")}
           >
             Life Patterns
@@ -328,7 +327,7 @@ Provide a focused, concise response (2-3 paragraphs max). If discussing a specif
           <Button
             variant="outline"
             size="sm"
-            className="text-xs border-zinc-700 hover:bg-zinc-800"
+            className="text-xs"
             onClick={() => setInput("What have I learned this year?")}
           >
             Yearly Insights
@@ -336,7 +335,7 @@ Provide a focused, concise response (2-3 paragraphs max). If discussing a specif
           <Button
             variant="outline"
             size="sm"
-            className="text-xs border-zinc-700 hover:bg-zinc-800"
+            className="text-xs"
             onClick={() => setInput("Show me my growth areas")}
           >
             Personal Growth

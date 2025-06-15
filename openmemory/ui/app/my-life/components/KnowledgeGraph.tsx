@@ -9,17 +9,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Info, Settings, X } from "lucide-react";
+import { RefreshCw, Info, Settings, X, Loader2 } from "lucide-react";
 import { constants } from "@/components/shared/source-app";
-
-interface GraphNode {
-  id: string;
-  position: THREE.Vector3;
-  targetPosition: THREE.Vector3;
-  memory: any;
-  color: string;
-  size: number;
-}
+import { GraphRenderer } from "./GraphRenderer";
+import { GraphNode, GraphEdge } from './graph-types';
 
 interface KnowledgeGraphProps {
   onMemorySelect: (memoryId: string | null) => void;
@@ -117,26 +110,24 @@ function GraphNodes({ nodes, onNodeClick }: { nodes: GraphNode[], onNodeClick: (
             <meshPhysicalMaterial
               color={node.color}
               emissive={node.color}
-              emissiveIntensity={hovered === node.id ? 0.8 : 0.3}
-              roughness={0.2}
-              metalness={0.8}
-              clearcoat={1}
-              clearcoatRoughness={0}
+              emissiveIntensity={hovered === node.id ? 0.6 : 0.2}
+              roughness={0.3}
+              metalness={0.1}
               transparent
               opacity={hovered === node.id ? 1 : 0.8}
             />
           </Sphere>
           {hovered === node.id && (
             <Html distanceFactor={10}>
-              <div className="bg-zinc-900/95 text-white p-3 rounded-lg text-xs max-w-xs shadow-xl border border-zinc-700">
+              <div className="bg-card/90 text-card-foreground p-3 rounded-lg text-xs max-w-xs shadow-xl border border-border">
                 <p className="font-semibold mb-1 text-sm">{node.memory?.app_name || "Unknown"}</p>
-                <p className="line-clamp-3 mb-2">{node.memory?.memory || "No content"}</p>
-                <div className="flex flex-wrap gap-1 text-zinc-400">
+                <p className="line-clamp-3 mb-2 text-muted-foreground">{node.memory?.memory || "No content"}</p>
+                <div className="flex flex-wrap gap-1 text-muted-foreground/80">
                   <span>{node.memory?.created_at ? new Date(node.memory.created_at).toLocaleDateString() : ""}</span>
                   {node.memory?.categories?.length > 0 && (
                     <>
                       <span>•</span>
-                      <span className="text-purple-400">{node.memory.categories.join(", ")}</span>
+                      <span className="text-primary/80">{node.memory.categories.join(", ")}</span>
                     </>
                   )}
                 </div>
@@ -180,7 +171,7 @@ function AnimatedParticles() {
       </bufferGeometry>
       <pointsMaterial
         size={0.03}
-        color="#8b5cf6"
+        color="hsl(var(--primary))"
         transparent
         opacity={0.3}
         sizeAttenuation
@@ -190,8 +181,10 @@ function AnimatedParticles() {
 }
 
 export default function KnowledgeGraph({ onMemorySelect }: KnowledgeGraphProps) {
-  const { memories, fetchMemories } = useMemoriesApi();
+  const { memories, fetchMemories, isLoading } = useMemoriesApi();
   const [nodes, setNodes] = useState<GraphNode[]>([]);
+  const [edges, setEdges] = useState<GraphEdge[]>([]);
+  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [selectedApp, setSelectedApp] = useState<string>("all");
   const [memoryLimit, setMemoryLimit] = useState<number>(60);
@@ -200,6 +193,7 @@ export default function KnowledgeGraph({ onMemorySelect }: KnowledgeGraphProps) 
   const [showControls, setShowControls] = useState(false);
   const [showLegend, setShowLegend] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
 
   useEffect(() => {
     // Check if mobile
@@ -213,7 +207,9 @@ export default function KnowledgeGraph({ onMemorySelect }: KnowledgeGraphProps) 
 
   useEffect(() => {
     // Fetch more memories initially
-    fetchMemories(undefined, 1, 100);
+    fetchMemories(undefined, 1, 100).then(() => {
+      setHasFetched(true);
+    });
   }, []);
 
   useEffect(() => {
@@ -238,21 +234,21 @@ export default function KnowledgeGraph({ onMemorySelect }: KnowledgeGraphProps) 
     const graphNodes: GraphNode[] = limitedMemories.map((memory, index) => {
       // Assign colors based on app
       const appColors: { [key: string]: string } = {
-        "claude": "#8b5cf6",
-        "twitter": "#3b82f6", 
-        "jean memory": "#10b981",
-        "cursor": "#f59e0b",
-        "windsurf": "#ef4444",
-        "chatgpt": "#06b6d4"
+        "claude": "hsl(240, 70%, 70%)",       // Muted Blue
+        "twitter": "hsl(200, 80%, 70%)",      // Lighter Blue
+        "jean memory": "hsl(150, 60%, 60%)",  // Seafoam Green
+        "cursor": "hsl(45, 80%, 70%)",        // Soft Yellow
+        "windsurf": "hsl(0, 70%, 70%)",       // Muted Red
+        "chatgpt": "hsl(180, 60%, 60%)",      // Cyan
       };
-      const color = appColors[memory.app_name?.toLowerCase()] || "#6b7280";
+      const color = appColors[memory.app_name?.toLowerCase()] || "hsl(var(--muted-foreground))";
       
       // Size based on content length
-      const size = Math.min(Math.max(memory.memory?.length / 500 || 0.3, 0.3), 0.8);
+      const size = Math.min(Math.max(memory.memory?.length / 800 || 0.1, 0.1), 0.3);
       
       return {
         id: memory.id,
-        position: positions[index].clone(),
+        position: positions[index].clone().add(new THREE.Vector3(Math.random()-0.5, Math.random()-0.5, Math.random()-0.5)),
         targetPosition: positions[index],
         memory,
         color,
@@ -261,6 +257,30 @@ export default function KnowledgeGraph({ onMemorySelect }: KnowledgeGraphProps) 
     });
     
     setNodes(graphNodes);
+
+    // --- Create Edges ---
+    const graphEdges: GraphEdge[] = [];
+    const appGroups: { [key: string]: string[] } = {};
+    graphNodes.forEach(node => {
+      const appName = node.memory.app_name || 'unknown';
+      if (!appGroups[appName]) appGroups[appName] = [];
+      appGroups[appName].push(node.id);
+    });
+
+    Object.values(appGroups).forEach(group => {
+      if (group.length > 1) {
+        for (let i = 0; i < group.length; i++) {
+          for (let j = i + 1; j < group.length; j++) {
+            // Limit number of edges to avoid clutter
+            if (Math.random() > 0.8) {
+              graphEdges.push({ source: group[i], target: group[j] });
+            }
+          }
+        }
+      }
+    });
+    setEdges(graphEdges);
+
   }, [memories, selectedApp, memoryLimit, clusterStrength]);
 
   const handleNodeClick = (node: GraphNode) => {
@@ -273,15 +293,41 @@ export default function KnowledgeGraph({ onMemorySelect }: KnowledgeGraphProps) 
   };
 
   return (
-    <div className="relative w-full h-full bg-zinc-950 overflow-hidden">
+    <div className="relative w-full h-full bg-background overflow-hidden">
+      {/* Loading State */}
+      {isLoading && !hasFetched && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-background/50 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-2 text-muted-foreground">
+            <Loader2 className="w-8 h-8 animate-spin" />
+            <p>Loading your universe...</p>
+          </div>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!isLoading && hasFetched && memories.length === 0 && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center">
+          <div className="text-center">
+            <h3 className="text-2xl font-semibold text-foreground mb-2">Your Universe Awaits</h3>
+            <p className="text-muted-foreground mb-4">
+              It looks like you don't have any memories yet.
+            </p>
+            <Button onClick={handleRefresh}>
+              <RefreshCw className="w-4 h-4 mr-2"/>
+              Check for Memories
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Mobile Control Buttons */}
-      {isMobile && (
+      {isMobile && memories.length > 0 && (
         <div className="absolute top-2 left-2 right-2 z-20 flex justify-between">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setShowControls(!showControls)}
-            className="h-8 w-8 bg-zinc-900/90 backdrop-blur-sm"
+            className="h-8 w-8 bg-card/90 backdrop-blur-sm"
           >
             <Settings className="h-4 w-4" />
           </Button>
@@ -289,7 +335,7 @@ export default function KnowledgeGraph({ onMemorySelect }: KnowledgeGraphProps) 
             variant="ghost"
             size="icon"
             onClick={() => setShowLegend(!showLegend)}
-            className="h-8 w-8 bg-zinc-900/90 backdrop-blur-sm"
+            className="h-8 w-8 bg-card/90 backdrop-blur-sm"
           >
             <Info className="h-4 w-4" />
           </Button>
@@ -298,15 +344,15 @@ export default function KnowledgeGraph({ onMemorySelect }: KnowledgeGraphProps) 
 
       {/* Control Panel */}
       <AnimatePresence>
-        {(!isMobile || showControls) && (
+        {(!isMobile || showControls) && memories.length > 0 && (
           <motion.div
             initial={{ opacity: 0, x: isMobile ? -100 : 0, y: isMobile ? 0 : -20 }}
             animate={{ opacity: 1, x: 0, y: 0 }}
             exit={{ opacity: 0, x: isMobile ? -100 : 0 }}
             className={`
               absolute z-10
-              ${isMobile ? 'inset-0 bg-zinc-900/95' : 'top-4 left-4 bg-zinc-900/90'}
-              backdrop-blur-sm rounded-lg border border-zinc-800
+              ${isMobile ? 'inset-0 bg-background/95' : 'top-4 left-4 bg-card/80'}
+              backdrop-blur-lg rounded-lg border border-border/80 shadow-2xl
               ${isMobile ? 'p-6' : 'p-4'}
             `}
           >
@@ -323,7 +369,7 @@ export default function KnowledgeGraph({ onMemorySelect }: KnowledgeGraphProps) 
             
             <div className="space-y-4 max-w-sm">
               <div className="flex items-center justify-between">
-                <h2 className={`${isMobile ? 'text-2xl' : 'text-xl'} font-semibold text-white`}>
+                <h2 className={`${isMobile ? 'text-2xl' : 'text-xl'} font-semibold text-foreground`}>
                   Knowledge Graph
                 </h2>
                 <Button
@@ -336,15 +382,15 @@ export default function KnowledgeGraph({ onMemorySelect }: KnowledgeGraphProps) 
                 </Button>
               </div>
               
-              <p className="text-sm text-zinc-400">
+              <p className="text-sm text-muted-foreground">
                 {nodes.length} memories visualized
               </p>
               
               {/* App Filter */}
               <div className="space-y-2">
-                <label className="text-xs text-zinc-400">Filter by App</label>
+                <label className="text-xs text-muted-foreground">Filter by App</label>
                 <Select value={selectedApp} onValueChange={setSelectedApp}>
-                  <SelectTrigger className={`${isMobile ? 'w-full' : 'w-48'} bg-zinc-800 border-zinc-700`}>
+                  <SelectTrigger className={`${isMobile ? 'w-full' : 'w-48'}`}>
                     <SelectValue placeholder="Filter by app" />
                   </SelectTrigger>
                   <SelectContent>
@@ -360,7 +406,7 @@ export default function KnowledgeGraph({ onMemorySelect }: KnowledgeGraphProps) 
               
               {/* Memory Limit Slider */}
               <div className="space-y-2">
-                <label className="text-xs text-zinc-400">
+                <label className="text-xs text-muted-foreground">
                   Memory Limit: {memoryLimit}
                 </label>
                 <Slider
@@ -375,7 +421,7 @@ export default function KnowledgeGraph({ onMemorySelect }: KnowledgeGraphProps) 
               
               {/* Cluster Strength Slider */}
               <div className="space-y-2">
-                <label className="text-xs text-zinc-400">
+                <label className="text-xs text-muted-foreground">
                   Cluster Strength: {clusterStrength.toFixed(1)}
                 </label>
                 <Slider
@@ -394,7 +440,7 @@ export default function KnowledgeGraph({ onMemorySelect }: KnowledgeGraphProps) 
 
       {/* Legend */}
       <AnimatePresence>
-        {(!isMobile || showLegend) && (
+        {(!isMobile || showLegend) && memories.length > 0 && (
           <motion.div
             initial={{ opacity: 0, x: isMobile ? 100 : 0, y: isMobile ? 0 : -20 }}
             animate={{ opacity: 1, x: 0, y: 0 }}
@@ -402,8 +448,8 @@ export default function KnowledgeGraph({ onMemorySelect }: KnowledgeGraphProps) 
             transition={{ delay: isMobile ? 0 : 0.2 }}
             className={`
               absolute z-10
-              ${isMobile ? 'inset-0 bg-zinc-900/95' : 'top-4 right-4 bg-zinc-900/90'}
-              backdrop-blur-sm rounded-lg border border-zinc-800
+              ${isMobile ? 'inset-0 bg-background/95' : 'top-4 right-4 bg-card/80'}
+              backdrop-blur-lg rounded-lg border border-border/80 shadow-2xl
               ${isMobile ? 'p-6' : 'p-4'}
             `}
           >
@@ -418,25 +464,25 @@ export default function KnowledgeGraph({ onMemorySelect }: KnowledgeGraphProps) 
               </Button>
             )}
             
-            <h3 className="text-sm font-semibold text-white mb-2 flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
               <Info className="h-3 w-3" />
               App Colors
             </h3>
             <div className="space-y-1">
               {Object.entries({
-                "claude": "#8b5cf6",
-                "twitter": "#3b82f6",
-                "jean memory": "#10b981",
-                "cursor": "#f59e0b",
-                "windsurf": "#ef4444",
-                "chatgpt": "#06b6d4"
+                "claude": "hsl(240, 70%, 70%)",
+                "twitter": "hsl(200, 80%, 70%)",
+                "jean memory": "hsl(150, 60%, 60%)",
+                "cursor": "hsl(45, 80%, 70%)",
+                "windsurf": "hsl(0, 70%, 70%)",
+                "chatgpt": "hsl(180, 60%, 60%)",
               }).map(([app, color]) => (
                 <div key={app} className="flex items-center gap-2">
                   <div 
                     className="w-3 h-3 rounded-full" 
                     style={{ backgroundColor: color }}
                   />
-                  <span className="text-xs text-zinc-400 capitalize">{app}</span>
+                  <span className="text-xs text-muted-foreground capitalize">{app}</span>
                 </div>
               ))}
             </div>
@@ -446,23 +492,31 @@ export default function KnowledgeGraph({ onMemorySelect }: KnowledgeGraphProps) 
 
       {/* 3D Canvas */}
       <Canvas 
+        className={memories.length === 0 ? 'opacity-0' : 'opacity-100 transition-opacity duration-500'}
         camera={{ 
           position: isMobile ? [0, 5, 15] : [0, 5, 20], 
           fov: isMobile ? 75 : 60 
         }}
         gl={{ 
           antialias: !isMobile, 
-          alpha: false,
+          alpha: true,
           powerPreference: isMobile ? "low-power" : "high-performance"
         }}
         dpr={isMobile ? [1, 1] : [1, 2]}
       >
         <ambientLight intensity={0.4} />
         <pointLight position={[10, 10, 10]} intensity={0.8} />
-        <pointLight position={[-10, -10, -10]} intensity={0.4} color="#8b5cf6" />
+        <pointLight position={[-10, -10, -10]} intensity={0.4} color="hsl(var(--primary))" />
         
         {!isMobile && <AnimatedParticles />}
-        <GraphNodes nodes={nodes} onNodeClick={handleNodeClick} />
+        <GraphRenderer 
+          nodes={nodes}
+          edges={edges}
+          hovered={hoveredNode}
+          setHovered={setHoveredNode}
+          onNodeClick={handleNodeClick}
+          isMobile={isMobile}
+        />
         
         <OrbitControls
           enablePan={!isMobile}
@@ -473,8 +527,6 @@ export default function KnowledgeGraph({ onMemorySelect }: KnowledgeGraphProps) 
           minDistance={isMobile ? 3 : 5}
           maxDistance={isMobile ? 30 : 50}
         />
-        
-        <fog attach="fog" args={["#0a0a0a", isMobile ? 15 : 20, isMobile ? 40 : 60]} />
       </Canvas>
 
       {/* Selected Memory Details */}
@@ -488,31 +540,31 @@ export default function KnowledgeGraph({ onMemorySelect }: KnowledgeGraphProps) 
               ? 'bottom-0 left-0 right-0 max-h-[40vh] overflow-y-auto' 
               : 'bottom-4 left-4 right-4 max-w-2xl mx-auto'
             }
-            bg-zinc-900/95 backdrop-blur-sm rounded-t-lg lg:rounded-lg 
-            p-4 border border-zinc-800
+            bg-card/80 backdrop-blur-lg rounded-t-lg lg:rounded-lg 
+            p-4 border-t lg:border border-border/80 shadow-2xl
           `}
         >
           <div className="flex items-start justify-between mb-2">
-            <h3 className="text-lg font-semibold text-white">Selected Memory</h3>
+            <h3 className="text-lg font-semibold text-foreground">Selected Memory</h3>
             <button
               onClick={() => setSelectedNode(null)}
-              className="text-zinc-400 hover:text-white text-xl"
+              className="text-muted-foreground hover:text-foreground text-xl"
             >
               ✕
             </button>
           </div>
-          <p className="text-sm text-zinc-300 mb-3">{selectedNode.memory?.memory || "No content available"}</p>
+          <p className="text-sm text-muted-foreground mb-3">{selectedNode.memory?.memory || "No content available"}</p>
           <div className="flex flex-wrap gap-2 text-xs">
-            <span className="text-zinc-500">
+            <span className="text-muted-foreground/80">
               {selectedNode.memory?.created_at ? new Date(selectedNode.memory.created_at).toLocaleString() : "Unknown date"}
             </span>
             {selectedNode.memory?.app_name && (
-              <span className="px-2 py-1 rounded-full bg-zinc-800 text-zinc-300">
+              <span className="px-2 py-1 rounded-full bg-muted text-muted-foreground">
                 {selectedNode.memory.app_name}
               </span>
             )}
             {selectedNode.memory?.categories?.map((cat: string) => (
-              <span key={cat} className="px-2 py-1 rounded-full bg-purple-900/30 text-purple-300">
+              <span key={cat} className="px-2 py-1 rounded-full bg-primary/10 text-primary">
                 {cat}
               </span>
             ))}
