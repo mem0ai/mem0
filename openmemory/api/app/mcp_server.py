@@ -366,12 +366,15 @@ async def _search_memory_v2_impl(query: str, supa_uid: str, client_name: str, li
     # Perform filtering in our application code if a filter is provided
     if tags_filter:
         filtered_results = []
+        # Convert tags_filter to a set for efficient checking
+        filter_tag_set = set(tags_filter)
         for mem in actual_results_list:
             if len(filtered_results) >= limit:
                 break
             
-            mem_tags = mem.get('metadata', {}).get('tags', [])
-            if all(tag in mem_tags for tag in tags_filter):
+            mem_tags = set(mem.get('metadata', {}).get('tags', []))
+            # Check for intersection between the memory's tags and the filter tags
+            if filter_tag_set.intersection(mem_tags):
                 filtered_results.append(mem)
         processed_results = filtered_results
     else:
