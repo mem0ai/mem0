@@ -125,18 +125,13 @@ async def add_memories(text: str, tags: Optional[list[str]] = None) -> str:
             mem0_start_time = time.time()
             logger.info(f"add_memories: Starting mem0 client call for user {supa_uid}")
 
-            # Prepare metadata, including tags if provided
             metadata = {
                 "source_app": "openmemory_mcp",
                 "mcp_client": client_name,
                 "app_db_id": str(app.id)
             }
             if tags:
-                # Ensure tags are a list of strings
-                if isinstance(tags, list) and all(isinstance(t, str) for t in tags):
-                    metadata["tags"] = tags
-                else:
-                    logger.warning(f"Invalid tags format for user {supa_uid}. Tags must be a list of strings.")
+                metadata['tags'] = tags
 
             # Run blocking I/O in a separate thread to not block the event loop
             loop = asyncio.get_running_loop()
@@ -363,10 +358,6 @@ async def _search_memory_v2_impl(query: str, supa_uid: str, client_name: str, li
          actual_results_list = mem0_search_results['results']
     elif isinstance(mem0_search_results, list):
          actual_results_list = mem0_search_results
-
-    # *** DEBUG LOGGING: Inspect the metadata of the first result ***
-    if actual_results_list:
-        logger.info(f"🔍 DEBUG METADATA for first search result: {actual_results_list[0].get('metadata')}")
 
     # Perform filtering in our application code if a filter is provided
     if tags_filter:
