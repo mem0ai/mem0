@@ -706,6 +706,13 @@ x-client-name: your-app-name`} />
         <p className="text-muted-foreground mb-6">
           The unified API exposes powerful tools to interact with user memory. These are the core, high-performance tools available via the <code className="font-mono text-sm">tools/call</code> MCP method.
         </p>
+        <Alert variant="default" className="mb-8 bg-blue-950/50 border-blue-800/60 text-blue-300">
+            <Lightbulb className="h-4 w-4 text-blue-400" />
+            <AlertTitle>Note on Tool Versioning</AlertTitle>
+            <AlertDescription>
+                You may notice a <code className="font-mono text-xs">v2</code> tool below. To ensure backward compatibility for existing integrations, we introduce new functionality via versioned tools. <code className="font-mono text-xs">search_memory_v2</code> is the recommended tool for new development as it includes powerful filtering capabilities.
+            </AlertDescription>
+        </Alert>
         <div className="space-y-8">
           {/* ask_memory tool */}
           <div className="p-6 border border-border rounded-lg bg-card">
@@ -773,7 +780,39 @@ x-client-name: your-app-name`} />
           <div className="p-6 border border-border rounded-lg bg-card">
             <h3 className="font-mono text-lg text-primary mb-2">search_memory</h3>
             <p className="text-muted-foreground mb-4">
-              Quick keyword-based search through the user's memories. Perfect for finding specific facts, dates, names, or simple queries. Use when you need raw memory data rather than a conversational response.
+              Quick keyword-based search through the user's memories. Perfect for finding specific facts, dates, names, or simple queries. This is the standard search tool for all integrations.
+            </p>
+            <h4 className="font-semibold text-foreground mb-2">Input Schema:</h4>
+            <CodeBlock lang="json" code={`{
+  "query": {
+    "type": "string",
+    "description": "Keywords or phrases to search for"
+  },
+  "limit": {
+    "type": "integer",
+    "description": "Maximum number of results to return (default: 10)"
+  }
+}`} />
+            <h4 className="font-semibold text-foreground mt-4 mb-2">Example Payload:</h4>
+            <CodeBlock lang="json" code={`{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "search_memory",
+    "arguments": {
+      "query": "TypeScript preferences",
+      "limit": 5
+    }
+  },
+  "id": 3
+}`} />
+          </div>
+
+          {/* search_memory_v2 tool */}
+          <div className="p-6 border border-border rounded-lg bg-card">
+            <h3 className="font-mono text-lg text-primary mb-2">search_memory_v2 <span className="text-xs font-sans text-blue-400 bg-blue-900/50 px-2 py-1 rounded-full ml-2">API Users</span></h3>
+            <p className="text-muted-foreground mb-4">
+              An enhanced version of search that allows for filtering by tags. This is the recommended search tool for developers using API keys.
             </p>
             <h4 className="font-semibold text-foreground mb-2">Input Schema:</h4>
             <CodeBlock lang="json" code={`{
@@ -787,10 +826,8 @@ x-client-name: your-app-name`} />
   },
   "tags_filter": {
     "type": "array",
-    "items": {
-      "type": "string"
-    },
-    "description": "Optional. A list of tags to filter the search results."
+    "items": { "type": "string" },
+    "description": "Optional. A list of tags to filter the search results. Only memories containing ALL specified tags will be returned."
   }
 }`} />
             <h4 className="font-semibold text-foreground mt-4 mb-2">Example Payload:</h4>
@@ -798,14 +835,13 @@ x-client-name: your-app-name`} />
   "jsonrpc": "2.0",
   "method": "tools/call",
   "params": {
-    "name": "search_memory",
+    "name": "search_memory_v2",
     "arguments": {
-      "query": "TypeScript preferences",
-      "limit": 5,
-      "tags_filter": ["work", "programming"]
+      "query": "database performance",
+      "tags_filter": ["work", "project-gamma"]
     }
   },
-  "id": 3
+  "id": 4
 }`} />
           </div>
 
