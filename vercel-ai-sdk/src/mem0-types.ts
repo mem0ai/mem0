@@ -28,6 +28,7 @@ export interface Mem0ConfigSettings {
   rerank?: boolean;
   enable_graph?: boolean;
   output_format?: string;
+  filter_memories?: boolean;
 }
 
 export interface Mem0ChatConfig extends Mem0ConfigSettings, Mem0ProviderSettings {}
