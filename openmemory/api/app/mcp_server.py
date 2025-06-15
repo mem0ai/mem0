@@ -364,6 +364,10 @@ async def _search_memory_v2_impl(query: str, supa_uid: str, client_name: str, li
     elif isinstance(mem0_search_results, list):
          actual_results_list = mem0_search_results
 
+    # *** DEBUG LOGGING: Inspect the metadata of the first result ***
+    if actual_results_list:
+        logger.info(f"🔍 DEBUG METADATA for first search result: {actual_results_list[0].get('metadata')}")
+
     # Perform filtering in our application code if a filter is provided
     if tags_filter:
         filtered_results = []
