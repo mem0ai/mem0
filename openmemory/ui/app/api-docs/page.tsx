@@ -494,6 +494,9 @@ x-client-name: your-app-name`} />
                 <li>
                   <strong>For Real-time Needs, Cache Locally:</strong> If your agent needs immediate access to information it just learned, keep a short-term memory cache in your application's local state. Use Jean Memory for long-term retention and cross-session context.
                 </li>
+                <li>
+                  <strong>Testing for Indexing:</strong> When writing integration tests, be aware that a simple `sleep` may not be sufficient to guarantee a memory is indexed. For robust testing of write-then-read workflows, consider implementing a polling mechanism that repeatedly searches for the memory until it is found or a timeout is reached.
+                </li>
               </ul>
         </div>
       </section>
