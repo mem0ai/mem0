@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, FC, ReactNode } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
-import { Key, Plus, Trash2, Copy, AlertTriangle, X } from 'lucide-react';
+import { Key, Plus, Trash2, Copy, AlertTriangle, X, Check } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Button, buttonVariants } from "@/components/ui/button"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
   Dialog,
@@ -31,6 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 // --- Type Definitions ---
 
@@ -41,50 +42,6 @@ interface ApiKey {
   last_used_at: string | null;
   is_active: boolean;
 }
-
-interface ModalProps {
-  children: ReactNode;
-  onClose: () => void;
-}
-
-interface ButtonProps {
-  children: ReactNode;
-  onClick?: (e?: React.MouseEvent<HTMLButtonElement>) => void;
-  variant?: 'primary' | 'danger' | 'secondary';
-  [key: string]: any; // for other props like type, disabled
-}
-
-// --- Helper Components ---
-
-const Modal: FC<ModalProps> = ({ children, onClose }) => (
-  <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4">
-    <motion.div
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      className="bg-zinc-900 rounded-lg shadow-xl p-6 border border-zinc-700 w-full max-w-md relative"
-    >
-      <button onClick={onClose} className="absolute top-4 right-4 text-zinc-500 hover:text-white">
-        <X size={20} />
-      </button>
-      {children}
-    </motion.div>
-  </div>
-);
-
-const Button: FC<ButtonProps> = ({ children, onClick, variant = 'primary', ...props }) => {
-  const baseClasses = "px-4 py-2 rounded-md font-semibold flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
-  const variants = {
-    primary: "bg-indigo-600 hover:bg-indigo-700 text-white",
-    danger: "bg-red-600 hover:bg-red-700 text-white",
-    secondary: "bg-zinc-700 hover:bg-zinc-600 text-white",
-  };
-  return (
-    <button onClick={onClick} className={`${baseClasses} ${variants[variant]}`} {...props}>
-      {children}
-    </button>
-  );
-};
 
 // --- Main Page Component ---
 
@@ -103,6 +60,7 @@ export default function ApiKeysPage() {
   const [newKeyName, setNewKeyName] = useState("");
   const [newlyGeneratedKey, setNewlyGeneratedKey] = useState<{key: string, info: ApiKey} | null>(null);
   const [keyToRevoke, setKeyToRevoke] = useState<ApiKey | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const fetchKeys = async () => {
     if (!accessToken) {
@@ -191,7 +149,10 @@ export default function ApiKeysPage() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    // TODO: show a "Copied!" toast/message
+    setCopied(true);
+    setTimeout(() => {
+      setCopied(false);
+    }, 2000);
   };
 
   return (
@@ -288,24 +249,34 @@ export default function ApiKeysPage() {
       </Dialog>
 
       <Dialog open={isNewKeyModalOpen} onOpenChange={setIsNewKeyModalOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>API Key Generated</DialogTitle>
           </DialogHeader>
-            <div className="bg-yellow-900/10 border border-yellow-700/20 text-yellow-600 dark:text-yellow-300 p-3 rounded-md mb-4 flex items-center">
-              <AlertTriangle className="mr-3 flex-shrink-0" />
-              <p>Please copy this key and store it securely. You will not be able to see it again.</p>
+          <div className="space-y-4">
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Secure Your Key</AlertTitle>
+              <AlertDescription>
+                Please copy this key and store it securely. You will not be able to see it again.
+              </AlertDescription>
+            </Alert>
+            <div className="bg-muted p-3 rounded-md">
+              <div className="flex items-center justify-between gap-2">
+                <code className="text-sm font-mono break-all flex-1">{newlyGeneratedKey?.key}</code>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="flex-shrink-0" 
+                  onClick={() => copyToClipboard(newlyGeneratedKey?.key || '')}
+                >
+                  {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
             </div>
-            <div className="bg-muted p-3 rounded-md flex items-center justify-between">
-              <pre className="text-sm overflow-x-auto"><code>{newlyGeneratedKey?.key}</code></pre>
-              <Button variant="secondary" onClick={() => copyToClipboard(newlyGeneratedKey?.key || '')}>
-                <Copy size={16} />
-              </Button>
-            </div>
+          </div>
           <DialogFooter>
-            <DialogClose asChild>
-                <Button type="button" onClick={() => setIsNewKeyModalOpen(false)}>Close</Button>
-            </DialogClose>
+            <Button type="button" onClick={() => setIsNewKeyModalOpen(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

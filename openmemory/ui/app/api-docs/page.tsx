@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { GitBranch, Shield, BookOpen, Puzzle, Terminal, Code, Server, Key, BrainCircuit, Copy, Check, LucideIcon, ListTree, Bot, Lightbulb, Briefcase, Share2, Component, PlayCircle, Cpu, FileText, Sparkles } from 'lucide-react';
+import { GitBranch, Shield, BookOpen, Puzzle, Terminal, Code, Server, Key, BrainCircuit, Copy, Check, LucideIcon, ListTree, Bot, Lightbulb, Briefcase, Share2, Component, PlayCircle, Cpu, FileText, Sparkles, AlertTriangle } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import ParticleNetwork from '@/components/landing/ParticleNetwork';
@@ -796,6 +796,13 @@ x-client-name: your-app-name`} />
             <p className="text-muted-foreground mb-4">
               <strong>COMPREHENSIVE search</strong> that analyzes ALL user content including full documents and essays. Takes 30-60 seconds and processes everything. Use sparingly for complex questions that require analyzing entire documents or finding patterns across multiple sources.
             </p>
+            <Alert variant="destructive" className="mb-4">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Developer Note</AlertTitle>
+              <AlertDescription>
+                This is a synchronous, blocking call. Please configure your HTTP client with a sufficiently long timeout (e.g., 90 seconds) to prevent premature disconnections.
+              </AlertDescription>
+            </Alert>
             <h4 className="font-semibold text-foreground mb-2">Input Schema:</h4>
             <CodeBlock lang="json" code={JSON.stringify({
               search_query: {
