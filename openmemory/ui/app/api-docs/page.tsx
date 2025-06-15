@@ -316,6 +316,7 @@ const navItems = [
   { href: '#authentication', label: 'Authentication', icon: Shield },
   { href: '#key-concepts', label: 'Key Concepts', icon: BrainCircuit },
   { href: '#endpoints', label: 'API Endpoint', icon: GitBranch },
+  { href: '#error-handling', label: 'Error Handling', icon: AlertTriangle },
   { href: '#quick-test', label: 'Quick Test', icon: Terminal },
   { href: '#dynamic-agents', label: 'Dynamic Agents', icon: Bot },
   { href: '#capabilities', label: 'Building Capabilities', icon: Component },
@@ -1146,6 +1147,31 @@ curl -X POST ${API_URL}/mcp/messages/ \\
           {isDiagramModalOpen && (
             <DiagramModal chart={architectureDiagram} onClose={() => setIsDiagramModalOpen(false)} />
           )}
+      </section>
+
+      <section id="error-handling">
+        <h2 className="text-3xl font-bold text-foreground mb-4">Error Handling</h2>
+        <p className="text-muted-foreground mb-4">
+          The API uses standard HTTP status codes and provides detailed JSON-RPC error objects to help you debug your implementation.
+        </p>
+        <Alert>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Robust Parameter Validation</AlertTitle>
+          <AlertDescription>
+            If you provide incorrect parameters to a tool (e.g., missing a required argument or using the wrong parameter name), the API will return an <code className="font-mono text-xs">HTTP 422 Unprocessable Entity</code> status code. The response body will contain a detailed JSON-RPC error object with code <code className="font-mono text-xs">-32602</code> to help you identify the specific issue.
+          </AlertDescription>
+        </Alert>
+         <h4 className="font-semibold text-foreground mt-6 mb-2">Example Error Response:</h4>
+         <CodeBlock lang="json" code={`
+{
+  "jsonrpc": "2.0",
+  "error": {
+    "code": -32602,
+    "message": "Invalid parameters for tool 'add_memories': add_memories() missing 1 required positional argument: 'text'"
+  },
+  "id": 1
+}
+`} />
       </section>
 
     </DocsLayout>
