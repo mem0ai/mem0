@@ -84,6 +84,23 @@ check-prereqs:
 		echo "⚠️ Port 8765 is in use (needed for API)"; \
 		echo "   Stop the service using port 8765 or it will conflict"; \
 	fi
+	@if lsof -i :54322 >/dev/null 2>&1 || lsof -i :54323 >/dev/null 2>&1; then \
+		echo "⚠️ Supabase ports (54322/54323) in use"; \
+		echo "   This may cause database connection issues"; \
+	fi
+	@# Check basic resource requirements
+	@if command -v df >/dev/null 2>&1; then \
+		AVAILABLE_GB=$$(df -BG . 2>/dev/null | awk 'NR==2 {print $$4}' | sed 's/G//' 2>/dev/null || echo "10"); \
+		if [ $$AVAILABLE_GB -lt 5 ] 2>/dev/null; then \
+			echo "⚠️ Low disk space: $${AVAILABLE_GB}GB available"; \
+			echo "   Need at least 5GB for Docker images and dependencies"; \
+		fi; \
+	fi
+	@# Check Docker permissions (Linux-specific)
+	@if [[ "$$OSTYPE" == "linux-gnu"* ]] && ! groups | grep -q docker 2>/dev/null; then \
+		echo "⚠️ Docker permission may be required on Linux"; \
+		echo "   If setup fails, run: sudo usermod -aG docker $$USER && newgrp docker"; \
+	fi
 	@echo "✅ All prerequisites satisfied"
 
 # Setup environment files
