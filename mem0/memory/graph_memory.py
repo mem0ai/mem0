@@ -122,41 +122,35 @@ class MemoryGraph:
         return search_results
 
     def delete_all(self, filters):
-        if filters["agent_id"]:
-            cypher += f"""
+        if filters.get("agent_id"):
+            cypher = f"""
             MATCH (n {self.node_label} {{user_id: $user_id, agent_id: $agent_id}})
             DETACH DELETE n
             """
             params = {"user_id": filters["user_id"], "agent_id": filters["agent_id"]}
-
         else:
             cypher = f"""
             MATCH (n {self.node_label} {{user_id: $user_id}})
             DETACH DELETE n
             """
-            
-            params = {"user_id": filters["user_id"] }
+            params = {"user_id": filters["user_id"]}
         self.graph.query(cypher, params=params)
 
-    def get_all(self, filters, limit=100):
-        """
-        Retrieves all nodes and relationships from the graph database based on optional filtering criteria.
 
-        Args:
-            filters (dict): A dictionary containing filters to be applied during the retrieval.
-            limit (int): The maximum number of nodes and relationships to retrieve. Defaults to 100.
-        Returns:
-            list: A list of dictionaries, each containing:
-                - 'contexts': The base data store response for each memory.
-                - 'entities': A list of strings representing the nodes and relationships
-        """
-        # return all nodes and relationships
+    def get_all(self, filters, limit=100):
+        agent_filter = ""
+        params = {"user_id": filters["user_id"], "limit": limit}
+        if filters.get("agent_id"):
+            agent_filter = "AND n.agent_id = $agent_id AND m.agent_id = $agent_id"
+            params["agent_id"] = filters["agent_id"]
+
         query = f"""
         MATCH (n {self.node_label} {{user_id: $user_id}})-[r]->(m {self.node_label} {{user_id: $user_id}})
+        WHERE 1=1 {agent_filter}
         RETURN n.name AS source, type(r) AS relationship, m.name AS target
         LIMIT $limit
         """
-        results = self.graph.query(query, params={"user_id": filters["user_id"], "limit": limit})
+        results = self.graph.query(query, params=params)
 
         final_results = []
         for result in results:
@@ -171,6 +165,7 @@ class MemoryGraph:
         logger.info(f"Retrieved {len(final_results)} relationships")
 
         return final_results
+
 
     def _retrieve_nodes_from_data(self, data, filters):
         """Extracts all the entities mentioned in the query."""
