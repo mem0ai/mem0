@@ -12,6 +12,10 @@ DOCKER_CMD = docker
 help:
 	@echo "🧠 Jean Memory - Development Commands"
 	@echo ""
+	@echo "📋 Prerequisites:"
+	@echo "  Docker Desktop, Node.js, pnpm"
+	@echo "  Python 3.12.x (auto-installed if missing)"
+	@echo ""
 	@echo "🚀 Quick Start:"
 	@echo "  make setup               - Create .env files (add your API keys after this)"
 	@echo "  make build               - Build everything after adding API keys"
@@ -91,6 +95,10 @@ validate-env:
 		echo "❌ Supabase keys not configured. Run 'cd openmemory && make setup' first."; \
 		exit 1; \
 	fi
+	@if [ ! -d ".venv" ]; then \
+		echo "❌ Python virtual environment not found. Run 'make setup' to create it."; \
+		exit 1; \
+	fi
 	@echo "✅ Environment validation passed!"
 
 # Complete setup for new users - delegate to the proper setup script
@@ -108,6 +116,9 @@ setup: check-prereqs
 	@echo "You'll only need to provide:"
 	@echo "  • OPENAI_API_KEY (required)"
 	@echo "  • GEMINI_API_KEY (optional)"
+	@echo ""
+	@echo "📍 Python 3.12.x will be automatically installed if needed"
+	@echo "   (macOS: via Homebrew, Linux: via package manager)"
 	@echo ""
 	@read -p "Continue with full setup? (Y/n): " -n 1 -r; \
 	echo; \

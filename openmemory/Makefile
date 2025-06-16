@@ -46,8 +46,9 @@ build:
 		cd ui && npm install --silent; \
 		echo "✅ UI dependencies updated"; \
 	fi
+	@$(MAKE) -s _ensure-venv
 	@if [ -d "api" ] && [ -f "api/requirements.txt" ]; then \
-		cd api && pip install -r requirements.txt --quiet; \
+		../.venv/bin/pip install -r api/requirements.txt --quiet; \
 		echo "✅ API dependencies updated"; \
 	fi
 	@echo "🚀 Starting services..."
@@ -99,6 +100,7 @@ dev:
 dev-api:
 	@echo "🔧 Starting API server..."
 	@$(MAKE) -s _check-env
+	@$(MAKE) -s _ensure-venv
 	@$(MAKE) -s _ensure-supabase
 	@$(MAKE) -s _ensure-qdrant
 	@echo "🌐 API server starting at http://localhost:8765"
@@ -195,6 +197,7 @@ logs:
 # Run tests
 test:
 	@echo "🧪 Running tests..."
+	@$(MAKE) -s _ensure-venv
 	@if [ -d "api" ]; then \
 		cd api && ../../.venv/bin/python -m pytest tests/ -v; \
 	fi
@@ -227,6 +230,58 @@ _check-env:
 	@if [ ! -f ".env.local" ]; then \
 		echo "❌ Environment not configured. Run 'make setup' first."; \
 		exit 1; \
+	fi
+
+_ensure-venv:
+	@if [ ! -d "../.venv" ]; then \
+		echo "🐍 Creating Python virtual environment..."; \
+		cd ..; \
+		if command -v python3.12 >/dev/null 2>&1; then \
+			PYTHON_VERSION=$$(python3.12 --version 2>&1); \
+			if echo "$$PYTHON_VERSION" | grep -q "3\.12\.11"; then \
+				echo "📍 Using Python 3.12.11 (perfect!): $$PYTHON_VERSION"; \
+				python3.12 -m venv .venv; \
+			else \
+				echo "📍 Using Python 3.12.x: $$PYTHON_VERSION"; \
+				echo "   Note: Python 3.12.11 is preferred for consistency"; \
+				python3.12 -m venv .venv; \
+			fi; \
+		elif command -v python3 >/dev/null 2>&1 && python3 --version | grep -q "3\.12\.11"; then \
+			echo "📍 Using python3 (Python 3.12.11 detected: $$(python3 --version))"; \
+			python3 -m venv .venv; \
+		else \
+			echo "⚠️  Python 3.12.11 not found. Attempting automatic installation..."; \
+			if [[ "$$OSTYPE" == "darwin"* ]] && command -v brew >/dev/null 2>&1; then \
+				echo "📦 Installing Python 3.12 via Homebrew (targeting 3.12.11)..."; \
+				brew install python@3.12; \
+				export PATH="/opt/homebrew/bin:/usr/local/bin:$$PATH"; \
+				if command -v python3.12 >/dev/null 2>&1; then \
+					NEW_VERSION=$$(python3.12 --version 2>&1); \
+					echo "✅ Python 3.12 installed successfully: $$NEW_VERSION"; \
+					if echo "$$NEW_VERSION" | grep -q "3\.12\.11"; then \
+						echo "🎯 Perfect! Got Python 3.12.11 as requested"; \
+					else \
+						echo "📝 Note: Got $$NEW_VERSION instead of 3.12.11, but compatible"; \
+					fi; \
+					python3.12 -m venv .venv; \
+				else \
+					echo "❌ Python 3.12 installation failed"; \
+					echo "   Please install manually: brew install python@3.12"; \
+					exit 1; \
+				fi; \
+			else \
+				echo "❌ Python 3.12.11 is required for local development consistency"; \
+				echo "   Current version: $$(python3 --version 2>&1 || echo 'Not found')"; \
+				echo "   Install with: brew install python@3.12 (macOS)"; \
+				exit 1; \
+			fi; \
+		fi; \
+		echo "📦 Installing Python dependencies..."; \
+		.venv/bin/pip install --upgrade pip; \
+		if [ -f "openmemory/api/requirements.txt" ]; then \
+			.venv/bin/pip install -r openmemory/api/requirements.txt; \
+		fi; \
+		echo "✅ Virtual environment ready ($(.venv/bin/python --version))"; \
 	fi
 
 _check-setup:
