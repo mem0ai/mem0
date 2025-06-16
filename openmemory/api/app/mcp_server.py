@@ -156,9 +156,15 @@ async def add_memories(text: str, tags: Optional[list[str]] = None) -> str:
             if isinstance(response, dict) and 'results' in response:
                 added_count = 0
                 updated_count = 0
+                first_added_id = None
+                
                 for result in response['results']:
                     mem0_memory_id_str = result['id']
                     mem0_content = result.get('memory', text)
+
+                    # Capture the ID of the first memory that is ADDED
+                    if result.get('event') == 'ADD' and not first_added_id:
+                        first_added_id = mem0_memory_id_str
 
                     if result.get('event') == 'ADD':
                         sql_memory_record = Memory(
@@ -200,18 +206,25 @@ async def add_memories(text: str, tags: Optional[list[str]] = None) -> str:
                 db_commit_duration = time.time() - db_commit_start_time
                 logger.info(f"add_memories: DB commit for user {supa_uid} took {db_commit_duration:.2f}s")
                 
-                # Return a meaningful string response
-                total_duration = time.time() - start_time
+                # Construct a structured JSON response
+                response_message = ""
                 if added_count > 0:
-                    return f"Successfully added {added_count} new memory(ies). Total time: {total_duration:.2f}s. Content: {text[:100]}{'...' if len(text) > 100 else ''}"
+                    response_message = f"Successfully added {added_count} new memory(ies)."
                 elif updated_count > 0:
-                    return f"Updated {updated_count} existing memory(ies) with new information. Total time: {total_duration:.2f}s. Content: {text[:100]}{'...' if len(text) > 100 else ''}"
+                    response_message = f"Updated {updated_count} existing memory(ies)."
                 else:
-                    return f"Memory processed but no changes made (possibly duplicate). Total time: {total_duration:.2f}s. Content: {text[:100]}{'...' if len(text) > 100 else ''}"
+                    response_message = "Memory processed but no changes made (possibly duplicate)."
+
+                response_data = {
+                    "message": response_message,
+                    "first_added_id": first_added_id,
+                    "content_preview": f"{text[:100]}{'...' if len(text) > 100 else ''}"
+                }
+                return json.dumps(response_data)
             else:
                 # Handle case where response doesn't have expected format
                 total_duration = time.time() - start_time
-                return f"Memory processed successfully in {total_duration:.2f}s. Response: {str(response)[:200]}{'...' if len(str(response)) > 200 else ''}"
+                return json.dumps({"message": f"Memory processed successfully in {total_duration:.2f}s.", "response_preview": f"{str(response)[:200]}{'...' if len(str(response)) > 200 else ''}"})
         finally:
             db.close()
     except Exception as e:
