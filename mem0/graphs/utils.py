@@ -169,14 +169,19 @@ create a direct edge between them. Common examples:
        "start_date": "<optional>",
        "end_date": "<optional>",
        "emotion": "<optional>",
+       "last_mentioned": "<optional: ISO timestamp when this relationship was last mentioned>",
+       "usage_count": "<optional: integer count of how many times this was mentioned, starts at 1>",
        "notes": "<optional>"
      }
    - Note: Typically, “invalid” is used if the text itself indicates the statement was never true in this same utterance. Otherwise, mark as "active" or "ended," etc.
 
-10. Do Not Summarize
+10. Automatic Tracking
+    - The system automatically tracks 'last_mentioned' (current timestamp) and 'usage_count' (increments each mention) for relationship usage analytics.
+
+11. Do Not Summarize
     - Output only the JSON. If no facts can be extracted, return {"facts": []}.
 
-11. Examples
+12. Examples
 
 Example A:
 Input:

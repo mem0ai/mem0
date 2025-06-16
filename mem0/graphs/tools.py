@@ -42,6 +42,14 @@ UPDATE_MEMORY_TOOL_GRAPH = {
                     "type": "string",
                     "description": "The emotion associated with this relationship (e.g., 'positive', 'negative', 'neutral').",
                 },
+                "last_mentioned": {
+                    "type": "string",
+                    "description": "The timestamp when this relationship was last mentioned or referenced, in ISO format.",
+                },
+                "usage_count": {
+                    "type": "integer",
+                    "description": "The number of times this relationship has been referenced or mentioned (starts at 1).",
+                },
             },
             "required": ["source", "destination", "relationship"],
             "additionalProperties": False,
@@ -100,6 +108,14 @@ ADD_MEMORY_TOOL_GRAPH = {
                 "emotion": {
                     "type": "string",
                     "description": "The emotion associated with this relationship (e.g., 'positive', 'negative', 'neutral').",
+                },
+                "last_mentioned": {
+                    "type": "string",
+                    "description": "The timestamp when this relationship was last mentioned or referenced, in ISO format.",
+                },
+                "usage_count": {
+                    "type": "integer",
+                    "description": "The number of times this relationship has been referenced or mentioned (starts at 1).",
                 },
             },
             "required": [
@@ -178,6 +194,14 @@ RELATIONS_TOOL = {
                             "emotion": {
                                 "type": "string",
                                 "description": "The emotion associated with this relationship (e.g., 'positive', 'negative', 'neutral').",
+                            },
+                            "last_mentioned": {
+                                "type": "string",
+                                "description": "The timestamp when this relationship was last mentioned or referenced, in ISO format.",
+                            },
+                            "usage_count": {
+                                "type": "integer",
+                                "description": "The number of times this relationship has been referenced or mentioned (starts at 1).",
                             },
                         },
                         "required": [
@@ -275,6 +299,14 @@ UPDATE_MEMORY_STRUCT_TOOL_GRAPH = {
                     "type": "string",
                     "description": "The emotion associated with this relationship (e.g., 'positive', 'negative', 'neutral').",
                 },
+                "last_mentioned": {
+                    "type": "string",
+                    "description": "The timestamp when this relationship was last mentioned or referenced, in ISO format.",
+                },
+                "usage_count": {
+                    "type": "integer",
+                    "description": "The number of times this relationship has been referenced or mentioned (starts at 1).",
+                },
             },
             "required": ["source", "destination", "relationship"],
             "additionalProperties": False,
@@ -334,6 +366,14 @@ ADD_MEMORY_STRUCT_TOOL_GRAPH = {
                 "emotion": {
                     "type": "string",
                     "description": "The emotion associated with this relationship (e.g., 'positive', 'negative', 'neutral').",
+                },
+                "last_mentioned": {
+                    "type": "string",
+                    "description": "The timestamp when this relationship was last mentioned or referenced, in ISO format.",
+                },
+                "usage_count": {
+                    "type": "integer",
+                    "description": "The number of times this relationship has been referenced or mentioned (starts at 1).",
                 },
             },
             "required": [
@@ -413,6 +453,14 @@ RELATIONS_STRUCT_TOOL = {
                             "emotion": {
                                 "type": "string",
                                 "description": "The emotion associated with this relationship (e.g., 'positive', 'negative', 'neutral').",
+                            },
+                            "last_mentioned": {
+                                "type": "string",
+                                "description": "The timestamp when this relationship was last mentioned or referenced, in ISO format.",
+                            },
+                            "usage_count": {
+                                "type": "integer",
+                                "description": "The number of times this relationship has been referenced or mentioned (starts at 1).",
                             },
                         },
                         "required": [

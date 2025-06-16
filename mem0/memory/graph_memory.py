@@ -114,6 +114,8 @@ class MemoryGraph:
         reranked_results = bm25.get_top_n(tokenized_query, search_outputs_sequence, n=5)
 
         search_results = []
+        current_time_iso = datetime.now(pytz.utc).isoformat()
+        
         for item in reranked_results:
             # Find the original item to retrieve all properties
             for orig_item in search_output:
@@ -142,14 +144,28 @@ class MemoryGraph:
                         result_dict["end_date"] = orig_item["end_date"]
                     if orig_item.get("emotion") is not None:
                         result_dict["emotion"] = orig_item["emotion"]
+                    if orig_item.get("last_mentioned") is not None:
+                        result_dict["last_mentioned"] = orig_item["last_mentioned"]
+                    if orig_item.get("usage_count") is not None:
+                        result_dict["usage_count"] = orig_item["usage_count"]
+
+                    # Update mention metadata for this selected relationship
+                    self.update_mention_metadata(result_dict, current_time_iso, filters["user_id"])
+                    
+                    # Update mention metadata for nodes referenced in this relationship
+                    self.update_node_mention_metadata(item[0], current_time_iso, filters["user_id"])
+                    self.update_node_mention_metadata(item[2], current_time_iso, filters["user_id"])
 
                     search_results.append(result_dict)
                     break
             else:
                 # Fallback if original item not found
-                search_results.append(
-                    {"source": item[0], "relationship": item[1], "destination": item[2]}
-                )
+                fallback_result = {"source": item[0], "relationship": item[1], "destination": item[2]}
+                # Still update metadata even for fallback case
+                self.update_mention_metadata(fallback_result, current_time_iso, filters["user_id"])
+                self.update_node_mention_metadata(item[0], current_time_iso, filters["user_id"])
+                self.update_node_mention_metadata(item[2], current_time_iso, filters["user_id"])
+                search_results.append(fallback_result)
 
         logger.info(f"Returned {len(search_results)} search results")
 
@@ -188,7 +204,9 @@ class MemoryGraph:
             r.status AS status,
             r.start_date AS start_date,
             r.end_date AS end_date,
-            r.emotion AS emotion
+            r.emotion AS emotion,
+            r.last_mentioned AS last_mentioned,
+            r.usage_count AS usage_count
         LIMIT $limit
         """
         results = self.graph.query(
@@ -196,6 +214,8 @@ class MemoryGraph:
         )
 
         final_results = []
+        current_time_iso = datetime.now(pytz.utc).isoformat()
+        
         for result in results:
             result_dict = {
                 "source": result["source"],
@@ -216,6 +236,17 @@ class MemoryGraph:
                 result_dict["end_date"] = result["end_date"]
             if result.get("emotion") is not None:
                 result_dict["emotion"] = result["emotion"]
+            if result.get("last_mentioned") is not None:
+                result_dict["last_mentioned"] = result["last_mentioned"]
+            if result.get("usage_count") is not None:
+                result_dict["usage_count"] = result["usage_count"]
+
+            # Update mention metadata for this retrieved relationship
+            self.update_mention_metadata(result_dict, current_time_iso, filters["user_id"])
+            
+            # Update mention metadata for nodes referenced in this relationship
+            self.update_node_mention_metadata(result["source"], current_time_iso, filters["user_id"])
+            self.update_node_mention_metadata(result["target"], current_time_iso, filters["user_id"])
 
             final_results.append(result_dict)
 
@@ -331,7 +362,9 @@ class MemoryGraph:
                 r.status AS status,
                 r.start_date AS start_date,
                 r.end_date AS end_date,
-                r.emotion AS emotion
+                r.emotion AS emotion,
+                r.last_mentioned AS last_mentioned,
+                r.usage_count AS usage_count
             UNION
             MATCH (n)
             WHERE n.embedding IS NOT NULL AND n.user_id = $user_id
@@ -354,7 +387,9 @@ class MemoryGraph:
                 r.status AS status,
                 r.start_date AS start_date,
                 r.end_date AS end_date,
-                r.emotion AS emotion
+                r.emotion AS emotion,
+                r.last_mentioned AS last_mentioned,
+                r.usage_count AS usage_count
             ORDER BY similarity DESC
             LIMIT $limit
             """
@@ -365,6 +400,25 @@ class MemoryGraph:
                 "limit": limit,
             }
             ans = self.graph.query(cypher_query, params=params)
+            
+            # Update mention metadata for relationships found via similarity search
+            current_time_iso = datetime.now(pytz.utc).isoformat()
+            for relation in ans:
+                # Create a memory object for the metadata update
+                memory_obj = {
+                    "source": relation["source"],
+                    "relationship": relation["relatationship"],  # Note: using original misspelling
+                    "destination": relation["destination"],
+                    "usage_count": relation.get("usage_count", 0)
+                }
+                
+                # Update metadata for this relationship selected via similarity search
+                self.update_mention_metadata(memory_obj, current_time_iso, filters["user_id"])
+                
+                # Update metadata for nodes involved in this relationship
+                self.update_node_mention_metadata(relation["source"], current_time_iso, filters["user_id"])
+                self.update_node_mention_metadata(relation["destination"], current_time_iso, filters["user_id"])
+            
             result_relations.extend(ans)
 
         return result_relations
@@ -422,7 +476,9 @@ class MemoryGraph:
                 r.status AS status,
                 r.start_date AS start_date,
                 r.end_date AS end_date,
-                r.emotion AS emotion
+                r.emotion AS emotion,
+                r.last_mentioned AS last_mentioned,
+                r.usage_count AS usage_count
             LIMIT 1
             """
             params = {
@@ -466,6 +522,10 @@ class MemoryGraph:
                     result_dict["end_date"] = result_data[0]["end_date"]
                 if result_data[0].get("emotion") is not None:
                     result_dict["emotion"] = result_data[0]["emotion"]
+                if result_data[0].get("last_mentioned") is not None:
+                    result_dict["last_mentioned"] = result_data[0]["last_mentioned"]
+                if result_data[0].get("usage_count") is not None:
+                    result_dict["usage_count"] = result_data[0]["usage_count"]
 
                 results.append(result_dict)
             else:
@@ -507,6 +567,8 @@ class MemoryGraph:
             start_date = item.get("start_date")
             end_date = item.get("end_date")
             emotion = item.get("emotion")
+            last_mentioned = item.get("last_mentioned")
+            usage_count = item.get("usage_count")
 
             # search for the nodes with the closest embeddings
             source_node_search_result = self._search_source_node(
@@ -534,6 +596,10 @@ class MemoryGraph:
                     relationship_set_clauses.append("r.end_date = $end_date")
                 if emotion is not None:
                     relationship_set_clauses.append("r.emotion = $emotion")
+                if last_mentioned is not None:
+                    relationship_set_clauses.append("r.last_mentioned = $last_mentioned")
+                if usage_count is not None:
+                    relationship_set_clauses.append("r.usage_count = $usage_count")
                 
                 additional_set_properties_str = ""
                 if relationship_set_clauses:
@@ -546,9 +612,16 @@ class MemoryGraph:
                     ON CREATE SET
                         destination.created_at = $current_formatted_time,
                         destination.embedding = $destination_embedding
+                    ON MATCH SET
+                        destination.embedding = $destination_embedding
                     MERGE (source)-[r:{relationship}]->(destination)
                     ON CREATE SET 
-                        r.created_at = $current_formatted_time{additional_set_properties_str}
+                        r.created_at = $current_formatted_time,
+                        r.usage_count = 1,
+                        r.last_mentioned = $current_formatted_time{additional_set_properties_str}
+                    ON MATCH SET
+                        r.last_mentioned = $current_formatted_time,
+                        r.usage_count = COALESCE(r.usage_count, 0) + 1{additional_set_properties_str}
                     RETURN source.name AS source, type(r) AS relationship, destination.name AS target
                     """
 
@@ -577,6 +650,10 @@ class MemoryGraph:
                     params["end_date"] = end_date
                 if emotion is not None:
                     params["emotion"] = emotion
+                if last_mentioned is not None:
+                    params["last_mentioned"] = last_mentioned
+                if usage_count is not None:
+                    params["usage_count"] = usage_count
 
                 resp = self.graph.query(cypher, params=params)
                 results.append(resp)
@@ -598,6 +675,10 @@ class MemoryGraph:
                     relationship_set_clauses.append("r.end_date = $end_date")
                 if emotion is not None:
                     relationship_set_clauses.append("r.emotion = $emotion")
+                if last_mentioned is not None:
+                    relationship_set_clauses.append("r.last_mentioned = $last_mentioned")
+                if usage_count is not None:
+                    relationship_set_clauses.append("r.usage_count = $usage_count")
 
                 additional_set_properties_str = ""
                 if relationship_set_clauses:
@@ -610,9 +691,16 @@ class MemoryGraph:
                     ON CREATE SET
                         source.created_at = $current_formatted_time,
                         source.embedding = $source_embedding
+                    ON MATCH SET
+                        source.embedding = $source_embedding
                     MERGE (source)-[r:{relationship}]->(destination)
                     ON CREATE SET 
-                        r.created_at = $current_formatted_time{additional_set_properties_str}
+                        r.created_at = $current_formatted_time,
+                        r.usage_count = 1,
+                        r.last_mentioned = $current_formatted_time{additional_set_properties_str}
+                    ON MATCH SET
+                        r.last_mentioned = $current_formatted_time,
+                        r.usage_count = COALESCE(r.usage_count, 0) + 1{additional_set_properties_str}
                     RETURN source.name AS source, type(r) AS relationship, destination.name AS target
                     """
 
@@ -641,6 +729,10 @@ class MemoryGraph:
                     params["end_date"] = end_date
                 if emotion is not None:
                     params["emotion"] = emotion
+                if last_mentioned is not None:
+                    params["last_mentioned"] = last_mentioned
+                if usage_count is not None:
+                    params["usage_count"] = usage_count
 
                 resp = self.graph.query(cypher, params=params)
                 results.append(resp)
@@ -662,6 +754,10 @@ class MemoryGraph:
                     relationship_set_clauses.append("r.end_date = $end_date")
                 if emotion is not None:
                     relationship_set_clauses.append("r.emotion = $emotion")
+                if last_mentioned is not None:
+                    relationship_set_clauses.append("r.last_mentioned = $last_mentioned")
+                if usage_count is not None:
+                    relationship_set_clauses.append("r.usage_count = $usage_count")
 
                 additional_set_properties_str = ""
                 # For this case, r.updated_at is also set, so check if relationship_set_clauses is non-empty
@@ -679,7 +775,13 @@ class MemoryGraph:
                     MERGE (source)-[r:{relationship}]->(destination)
                     ON CREATE SET 
                         r.created_at = $current_formatted_time,
-                        r.updated_at = $current_formatted_time{additional_set_properties_str}
+                        r.updated_at = $current_formatted_time,
+                        r.usage_count = 1,
+                        r.last_mentioned = $current_formatted_time{additional_set_properties_str}
+                    ON MATCH SET
+                        r.updated_at = $current_formatted_time,
+                        r.last_mentioned = $current_formatted_time,
+                        r.usage_count = COALESCE(r.usage_count, 0) + 1{additional_set_properties_str}
                     RETURN source.name AS source, type(r) AS relationship, destination.name AS target
                     """
                 params = {
@@ -707,6 +809,10 @@ class MemoryGraph:
                     params["end_date"] = end_date
                 if emotion is not None:
                     params["emotion"] = emotion
+                if last_mentioned is not None:
+                    params["last_mentioned"] = last_mentioned
+                if usage_count is not None:
+                    params["usage_count"] = usage_count
 
                 resp = self.graph.query(cypher, params=params)
                 results.append(resp)
@@ -728,6 +834,10 @@ class MemoryGraph:
                     relationship_set_clauses.append("rel.end_date = $end_date")
                 if emotion is not None:
                     relationship_set_clauses.append("rel.emotion = $emotion")
+                if last_mentioned is not None:
+                    relationship_set_clauses.append("rel.last_mentioned = $last_mentioned")
+                if usage_count is not None:
+                    relationship_set_clauses.append("rel.usage_count = $usage_count")
                 
                 additional_set_properties_str = ""
                 if relationship_set_clauses:
@@ -735,13 +845,25 @@ class MemoryGraph:
 
                 cypher = f"""
                     MERGE (n:{source_type} {{name: $source_name, user_id: $user_id}})
-                    ON CREATE SET n.created_at = $current_formatted_time, n.embedding = $source_embedding
-                    ON MATCH SET n.embedding = $source_embedding
+                    ON CREATE SET 
+                        n.created_at = $current_formatted_time, 
+                        n.embedding = $source_embedding
+                    ON MATCH SET 
+                        n.embedding = $source_embedding
                     MERGE (m:{destination_type} {{name: $dest_name, user_id: $user_id}})
-                    ON CREATE SET m.created_at = $current_formatted_time, m.embedding = $dest_embedding
-                    ON MATCH SET m.embedding = $dest_embedding
+                    ON CREATE SET 
+                        m.created_at = $current_formatted_time, 
+                        m.embedding = $dest_embedding
+                    ON MATCH SET 
+                        m.embedding = $dest_embedding
                     MERGE (n)-[rel:{relationship}]->(m)
-                    ON CREATE SET rel.created_at = $current_formatted_time{additional_set_properties_str}
+                    ON CREATE SET 
+                        rel.created_at = $current_formatted_time,
+                        rel.usage_count = 1,
+                        rel.last_mentioned = $current_formatted_time{additional_set_properties_str}
+                    ON MATCH SET
+                        rel.last_mentioned = $current_formatted_time,
+                        rel.usage_count = COALESCE(rel.usage_count, 0) + 1{additional_set_properties_str}
                     RETURN n.name AS source, type(rel) AS relationship, m.name AS target
                     """
                 params = {
@@ -768,6 +890,10 @@ class MemoryGraph:
                     params["end_date"] = end_date
                 if emotion is not None:
                     params["emotion"] = emotion
+                if last_mentioned is not None:
+                    params["last_mentioned"] = last_mentioned
+                if usage_count is not None:
+                    params["usage_count"] = usage_count
 
                 resp = self.graph.query(cypher, params=params)
                 results.append(resp)
@@ -796,6 +922,12 @@ class MemoryGraph:
 
             if "emotion" not in item or item["emotion"] is None:
                 item["emotion"] = "neutral"  # Default to neutral emotion
+
+            if "last_mentioned" not in item or item["last_mentioned"] is None:
+                item["last_mentioned"] = datetime.now(pytz.utc).isoformat()  # Default to current time in ISO format
+
+            if "usage_count" not in item or item["usage_count"] is None:
+                item["usage_count"] = 1  # Default to 1
 
             # Optional date parameters - no defaults for these
             # start_date and end_date can remain null
@@ -878,7 +1010,7 @@ class MemoryGraph:
             relationship (str): Relationship type
             destination (str): Destination node name
             user_id (str): User ID
-            **properties: Additional properties to update (weight, is_uncertain, status, start_date, end_date, emotion)
+            **properties: Additional properties to update (weight, is_uncertain, status, start_date, end_date, emotion, last_mentioned, usage_count)
 
         Returns:
             dict: Updated relationship data
@@ -917,7 +1049,9 @@ class MemoryGraph:
             r.status AS status,
             r.start_date AS start_date,
             r.end_date AS end_date,
-            r.emotion AS emotion
+            r.emotion AS emotion,
+            r.last_mentioned AS last_mentioned,
+            r.usage_count AS usage_count
         """
 
         result = self.graph.query(cypher, params=params)
@@ -942,7 +1076,100 @@ class MemoryGraph:
                 result_dict["end_date"] = result[0]["end_date"]
             if result[0].get("emotion") is not None:
                 result_dict["emotion"] = result[0]["emotion"]
+            if result[0].get("last_mentioned") is not None:
+                result_dict["last_mentioned"] = result[0]["last_mentioned"]
+            if result[0].get("usage_count") is not None:
+                result_dict["usage_count"] = result[0]["usage_count"]
 
             return result_dict
 
         return {"source": source, "relationship": relationship, "target": destination}
+
+    def update_mention_metadata(self, memory_object, user_time, user_id, timezone_offset=None):
+        """
+        Update usage_count and last_mentioned for a memory object (node or relation) when it's selected for use.
+        
+        Args:
+            memory_object (dict): Dictionary representing a node or relation with source, relationship, destination
+            user_time (str): Current time in ISO format string (UTC, adjusted to user's local time)
+            user_id (str): User ID for filtering
+            timezone_offset (float, optional): Offset handling if needed separately
+            
+        Behavior:
+            - If usage_count is not present → initialize to 1
+            - If last_mentioned is not present → initialize to user_time
+            - If both are present → increment usage_count and overwrite last_mentioned with user_time
+        """
+        # Extract relationship components
+        source = memory_object.get("source")
+        relationship = memory_object.get("relationship") or memory_object.get("relatationship")
+        destination = memory_object.get("destination") or memory_object.get("target")
+        
+        if not all([source, relationship, destination]):
+            logger.warning(f"Incomplete memory object for update: {memory_object}")
+            return
+            
+        # Get current values or set defaults
+        current_usage_count = memory_object.get("usage_count", 0)
+        new_usage_count = current_usage_count + 1
+        
+        # Update the relationship with incremented usage_count and current timestamp
+        update_cypher = """
+        MATCH (n {name: $source_name, user_id: $user_id})
+        -[r]->(m {name: $dest_name, user_id: $user_id})
+        WHERE type(r) = $relationship_type
+        SET r.usage_count = $new_usage_count,
+            r.last_mentioned = $last_mentioned
+        RETURN r.usage_count AS updated_count
+        """
+        
+        params = {
+            "source_name": source,
+            "dest_name": destination,
+            "user_id": user_id,
+            "relationship_type": relationship,
+            "new_usage_count": new_usage_count,
+            "last_mentioned": user_time
+        }
+        
+        try:
+            result = self.graph.query(update_cypher, params=params)
+            if result:
+                logger.debug(f"Updated mention metadata: {source} -> {relationship} -> {destination} (count: {new_usage_count})")
+            else:
+                logger.warning(f"No relationship found to update: {source} -> {relationship} -> {destination}")
+        except Exception as e:
+            logger.error(f"Error updating mention metadata: {e}")
+
+    def update_node_mention_metadata(self, node_name, user_time, user_id, timezone_offset=None):
+        """
+        Update usage_count and last_mentioned for a node when it's actively referenced.
+        
+        Args:
+            node_name (str): Name of the node
+            user_time (str): Current time in ISO format string (UTC, adjusted to user's local time)  
+            user_id (str): User ID for filtering
+            timezone_offset (float, optional): Offset handling if needed separately
+        """
+        # Update node metadata
+        update_cypher = """
+        MATCH (n {name: $node_name, user_id: $user_id})
+        SET n.usage_count = COALESCE(n.usage_count, 0) + 1,
+            n.last_mentioned = $last_mentioned
+        RETURN n.usage_count AS updated_count
+        """
+        
+        params = {
+            "node_name": node_name,
+            "user_id": user_id,
+            "last_mentioned": user_time
+        }
+        
+        try:
+            result = self.graph.query(update_cypher, params=params)
+            if result:
+                logger.debug(f"Updated node mention metadata: {node_name} (count: {result[0]['updated_count']})")
+            else:
+                logger.warning(f"No node found to update: {node_name}")
+        except Exception as e:
+            logger.error(f"Error updating node mention metadata: {e}")
