@@ -77,7 +77,7 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
 
   const appConfig = constants[app.id as keyof typeof constants] || constants.default;
   const MCP_URL = "https://api.jeanmemory.com";
-gi  const installCommand = `npx install-mcp ${MCP_URL}/mcp/${app.id}/sse/${user?.id} --client ${app.id}`;
+  const installCommand = `npx install-mcp ${MCP_URL}/mcp/${app.id}/sse/${user?.id} --client ${app.id}`;
   const mcpLink = `${MCP_URL}/mcp/openmemory/sse/${user?.id}`;
 
   return (
