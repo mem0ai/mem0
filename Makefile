@@ -17,10 +17,10 @@ help:
 	@echo "  Python 3.12.x (auto-installed if missing)"
 	@echo ""
 	@echo "🚀 Quick Start:"
-	@echo "  make setup               - Create .env files (add your API keys after this)"
-	@echo "  make build               - Build everything after adding API keys"
-	@echo "  make backend             - Start backend services in Docker"
-	@echo "  make ui-local            - Run UI locally (recommended for development)"
+	@echo "  make setup               - Complete setup with API key collection"
+	@echo "  make build               - Build environment (run after setup)"
+	@echo "  make backend             - Start backend services (Terminal 1)"
+	@echo "  make ui-local            - Start UI locally (Terminal 2)"
 	@echo ""
 	@echo "📊 Monitoring:"
 	@echo "  make status              - Show status of all services"
@@ -35,7 +35,7 @@ help:
 	@echo "  make down                - Stop all Docker services"
 	@echo ""
 	@echo "🧹 Maintenance:"
-	@echo "  make clean               - Clean up containers and temp files"
+	@echo "  make clean               - Reset to fresh state (removes all data)"
 	@echo "  make test                - Run tests"
 	@echo "  make check-prereqs       - Check if prerequisites are installed"
 
@@ -138,16 +138,13 @@ validate-env:
 		echo "   2. Edit openmemory/api/.env and replace 'your_openai_api_key_here'"; \
 		exit 1; \
 	fi
-	@# Validate API key format
+	@# Check API key is not empty
 	@if [ -f openmemory/api/.env ]; then \
 		OPENAI_KEY=$$(grep "OPENAI_API_KEY=" openmemory/api/.env | cut -d= -f2 | tr -d '"' | tr -d "'" | xargs); \
-		if [ ! -z "$$OPENAI_KEY" ] && [ "$$OPENAI_KEY" != "your_openai_api_key_here" ]; then \
-			if [[ ! "$$OPENAI_KEY" =~ ^sk-[a-zA-Z0-9-_]{48,}$$ ]]; then \
-				echo "⚠️ OPENAI_API_KEY format looks incorrect"; \
-				echo "   Expected format: sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"; \
-				echo "   Current: $$OPENAI_KEY"; \
-				echo "   Double-check your key from: https://platform.openai.com/api-keys"; \
-			fi; \
+		if [ -z "$$OPENAI_KEY" ]; then \
+			echo "❌ OPENAI_API_KEY is empty in openmemory/api/.env"; \
+			echo "   Get your API key from: https://platform.openai.com/api-keys"; \
+			exit 1; \
 		fi; \
 	fi
 	@# Check Python virtual environment
@@ -168,23 +165,23 @@ validate-env:
 # Complete setup for new users with better error handling
 setup: check-prereqs
 	@echo ""
-	@echo "🚨 RUNNING COMPREHENSIVE SETUP 🚨"
+	@echo "🚨 RUNNING COMPLETE SETUP 🚨"
 	@echo ""
 	@echo "This will:"
 	@echo "  • Create environment files"
-	@echo "  • Install all dependencies" 
-	@echo "  • Start Supabase and configure it automatically"
+	@echo "  • Install Python 3.12.x and dependencies"
+	@echo "  • Start and configure Supabase database"
 	@echo "  • Start Qdrant vector database"
-	@echo "  • Prompt you for API keys"
+	@echo "  • Collect your API keys interactively"
 	@echo ""
-	@echo "You'll only need to provide:"
+	@echo "You'll be prompted for:"
 	@echo "  • OPENAI_API_KEY (required)"
 	@echo "  • GEMINI_API_KEY (optional)"
 	@echo ""
-	@echo "📍 Python 3.12.x will be automatically installed if needed (faster setup!)"
+	@echo "📍 Python 3.12.x will be automatically installed if needed"
 	@echo "   (macOS: via Homebrew, Linux: via package manager)"
 	@echo ""
-	@read -p "Continue with full setup? (Y/n): " -n 1 -r; \
+	@read -p "Continue with complete setup? (Y/n): " -n 1 -r; \
 	echo; \
 	if [[ ! $$REPLY =~ ^[Nn]$$ ]]; then \
 		echo "🔧 Running setup..."; \
@@ -192,10 +189,7 @@ setup: check-prereqs
 			echo ""; \
 			echo "✅ Setup completed successfully!"; \
 			echo ""; \
-			echo "📝 Next steps:"; \
-			echo "   1. Edit openmemory/api/.env and add your OPENAI_API_KEY"; \
-			echo "   2. Run 'make build' to complete the installation"; \
-			echo "   3. Run 'make backend' and 'make ui-local' to start development"; \
+			echo "🎯 Next step: Run 'make build' to complete installation"; \
 		else \
 			echo ""; \
 			echo "❌ Setup failed. Common issues:"; \
@@ -211,6 +205,7 @@ setup: check-prereqs
 # Build with validation and better error handling
 build: validate-env
 	@echo "🏗️ Building Jean Memory development environment..."
+	@echo "📋 Validating setup completion..."
 	@# Verify critical dependencies before building
 	@if [ -f ".venv/bin/python" ] && ! .venv/bin/python -c "import sys; sys.exit(0 if sys.version_info >= (3, 12) else 1)" 2>/dev/null; then \
 		echo "❌ Python 3.12.x required but found $$(.venv/bin/python --version 2>&1)"; \
@@ -282,12 +277,29 @@ logs:
 
 # Clean up everything - reset to pristine state
 clean:
-	@echo "🧹 Resetting to clean state (like fresh git clone)..."
-	@echo "Stopping and removing all services..."
-	@cd openmemory && make clean 2>/dev/null || true
-	@echo "Cleaning root-level dependencies..."
-	@rm -rf node_modules .pnpm-store 2>/dev/null || true
-	@echo "✅ Clean complete! Ready for 'make setup' to start fresh"
+	@echo "🧹 Resetting to fresh state..."
+	@echo ""
+	@echo "⚠️  This will remove:"
+	@echo "   • All Docker containers and volumes (user data)"
+	@echo "   • Python virtual environment"
+	@echo "   • Node.js dependencies"
+	@echo "   • All services and databases"
+	@echo ""
+	@read -p "Are you sure? This will delete all local data! (y/N): " -n 1 -r; \
+	echo; \
+	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
+		echo "🛑 Stopping all services..."; \
+		cd openmemory && make clean 2>/dev/null || true; \
+		echo "🗑️ Removing Docker containers and volumes..."; \
+		cd openmemory && $(DOCKER_COMPOSE) down -v 2>/dev/null || true; \
+		echo "🗑️ Removing Python virtual environment..."; \
+		rm -rf .venv; \
+		echo "🗑️ Removing Node.js dependencies..."; \
+		rm -rf node_modules .pnpm-store openmemory/ui/node_modules 2>/dev/null || true; \
+		echo "✅ Reset complete! Run 'make setup' to start fresh"; \
+	else \
+		echo "❌ Clean cancelled - no changes made"; \
+	fi
 
 # Run tests
 test:
