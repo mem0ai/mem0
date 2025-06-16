@@ -26,38 +26,24 @@ pip install mem0ai agentops
    - OpenAI API Key (for LLM operations)
    - [Mem0 API Key](https://app.mem0.ai/dashboard/api-keys) (optional, for cloud operations)
 
-## Integration Example
+## Basic Integration Example
 
 The following example demonstrates how to integrate Mem0 with AgentOps monitoring for comprehensive memory operation tracking:
 
 ```python
-
+#Import the required libraries for local memory management with Mem0
+from mem0 import Memory, AsyncMemory
 import os
 import asyncio
 import logging
 from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
-
-# CRITICAL: Initialize AgentOps BEFORE importing mem0 classes
-# This ensures proper instrumentation and context propagation
 import agentops
 
-# Initialize AgentOps FIRST
-agentops.init(os.getenv("AGENTOPS_API_KEY"))
+#Set up environment variables for API keys
+os.environ["AGENTOPS_API_KEY"] = os.getenv("AGENTOPS_API_KEY")
+os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
 
-# Now import mem0 classes AFTER agentops initialization
-from mem0 import Memory, AsyncMemory, MemoryClient, AsyncMemoryClient  
-
-# Set up logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# API key for cloud clients (MemoryClient and AsyncMemoryClient)
-mem0_api_key = os.getenv("MEM0_API_KEY")
-
-# Configuration for local memory (Memory and AsyncMemory)
+#Set up the configuration for local memory storage and define sample user data. 
 local_config = {
     "llm": {
         "provider": "openai",
@@ -65,17 +51,13 @@ local_config = {
             "model": "gpt-4o-mini",
             "temperature": 0.1,
             "max_tokens": 2000,
-            "api_key": os.getenv("OPENAI_API_KEY"),
         },
     }
 }
-
-# Sample user data
 user_id = "alice_demo"
 agent_id = "assistant_demo"
 run_id = "session_001"
 
-# Sample conversation data
 sample_messages = [
     {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
     {"role": "assistant", "content": "How about a thriller? They can be quite engaging."},
@@ -94,30 +76,24 @@ sample_preferences = [
     "I work in software engineering",
 ]
 
+#This function demonstrates sequential memory operations using the synchronous Memory class
+def demonstrate_sync_memory(local_config, sample_messages, sample_preferences, user_id):
+    """
+    Demonstrate synchronous Memory class operations.
+    """
 
-def demonstrate_sync_memory():
-    """Demonstrate sync Memory class operations."""
-    print(" SYNC MEMORY (Local) OPERATIONS")
-    
+    agentops.start_trace("mem0_memory_example", tags=["mem0_memory_example"])
     try:
-        # Initialize sync Memory
+        
         memory = Memory.from_config(local_config)
-        print("Sync Memory initialized successfully")
 
-        # 1. ADD operations
-        # Add conversation messages
         result = memory.add(
             sample_messages, user_id=user_id, metadata={"category": "movie_preferences", "session": "demo"}
         )
-        print(f"Added conversation: {result}")
 
-        # Add individual preferences
         for i, preference in enumerate(sample_preferences):
             result = memory.add(preference, user_id=user_id, metadata={"type": "preference", "index": i})
-            print(f"Added preference {i+1}: {result}")
-
-        # 2. SEARCH operations
-        print("\n Searching memories...")
+       
         search_queries = [
             "What movies does the user like?",
             "What are the user's food preferences?",
@@ -126,76 +102,31 @@ def demonstrate_sync_memory():
 
         for query in search_queries:
             results = memory.search(query, user_id=user_id)
-            print(f"    Query: '{query}'")
+        
             if results and "results" in results:
-                for j, result in enumerate(results["results"][:2]):  # Show top 2
+                for j, result in enumerate(results): 
                     print(f"Result {j+1}: {result.get('memory', 'N/A')}")
             else:
                 print("No results found")
 
-        # 3. GET_ALL operations
-        print("\n Getting all memories...")
         all_memories = memory.get_all(user_id=user_id)
         if all_memories and "results" in all_memories:
-            print(f"    Total memories: {len(all_memories['results'])}")
-            for i, mem in enumerate(all_memories["results"][:3]):  # Show first 3
-                print(f"      {i+1}. ID: {mem.get('id', 'N/A')[:8]}... | {mem.get('memory', 'N/A')[:50]}...")
+            print(f"Total memories: {len(all_memories['results'])}")
 
-        # Cleanup
-        print("\n Cleaning up all memories...")
         delete_all_result = memory.delete_all(user_id=user_id)
         print(f"Delete all result: {delete_all_result}")
 
+        agentops.end_trace(end_state="success")
     except Exception as e:
-        print(f"Sync Memory error: {e}")
-        logger.error(f"Sync Memory demonstration failed: {e}")
+        agentops.end_trace(end_state="error")
 
+# Execute sync demonstrations
+demonstrate_sync_memory(local_config, sample_messages, sample_preferences, user_id)
 
-
-def check_environment():
-    """Check if required environment variables are set."""
-    required_vars = ["AGENTOPS_API_KEY", "OPENAI_API_KEY"]
-    optional_vars = ["MEM0_API_KEY"]
-
-    missing_required = [var for var in required_vars if not os.getenv(var)]
-    missing_optional = [var for var in optional_vars if not os.getenv(var)]
-
-    if missing_required:
-        print(f"Missing required environment variables: {missing_required}")
-        return False
-
-    if missing_optional:
-        print(f" Missing optional environment variables: {missing_optional}")
-
-    return True
-
-
-def main():
-    """Run the basic mem0 demonstration with AgentOps tracking."""
-    print("STARTING BASIC MEM0 DEMONSTRATION WITH AGENTOPS")
-
-    if not check_environment():
-        print("Please set the required environment variables and try again.")
-        return
-
-    try:
-        # Run all demonstrations
-        demonstrate_sync_memory()
-        print("Check your AgentOps dashboard to see the instrumentation data.")
-
-    except Exception as e:
-        logger.error(f"Demo failed: {e}")
-        print(f"Demo failed: {e}")
-
-    finally:
-        # End AgentOps session
-        agentops.end_session("Success")
-
-
-if __name__ == "__main__":
-    # Run the main function
-    main()
 ```
+
+For detailed information on this integration, refer to the official [Agentops Mem0 integration documentation](https://docs.agentops.ai/v2/integrations/mem0).
+
 
 ## Key Features
 
