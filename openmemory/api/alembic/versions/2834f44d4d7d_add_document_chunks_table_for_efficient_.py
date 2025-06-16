@@ -17,6 +17,7 @@ depends_on = None
 
 
 def upgrade() -> None:
+    op.execute("COMMIT")
     op.execute('CREATE EXTENSION IF NOT EXISTS pgcrypto;')
     # Create document_chunks table
     op.create_table('document_chunks',
@@ -40,4 +41,5 @@ def downgrade() -> None:
     op.drop_index('idx_document_chunks_chunk_index', table_name='document_chunks')
     op.drop_index('idx_document_chunks_document_id', table_name='document_chunks')
     op.drop_table('document_chunks')
+    op.execute("COMMIT")
     op.execute('DROP EXTENSION IF EXISTS pgcrypto;')
