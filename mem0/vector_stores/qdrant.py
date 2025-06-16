@@ -125,6 +125,10 @@ class Qdrant(VectorStoreBase):
         for key, value in filters.items():
             if isinstance(value, dict) and "gte" in value and "lte" in value:
                 conditions.append(FieldCondition(key=key, range=Range(gte=value["gte"], lte=value["lte"])))
+            elif key == "tags" and isinstance(value, list):
+                # Correctly handle filtering for a list of tags
+                for tag in value:
+                    conditions.append(FieldCondition(key=key, match=MatchValue(value=tag)))
             else:
                 conditions.append(FieldCondition(key=key, match=MatchValue(value=value)))
         return Filter(must=conditions) if conditions else None
