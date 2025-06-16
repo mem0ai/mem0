@@ -39,9 +39,9 @@ get_python_command() {
     fi
 }
 
-# Install Python 3.12.11 automatically based on OS
-install_python_3_12_11() {
-    print_info "Installing Python 3.12.11 for consistent local development..."
+# Install Python 3.12 automatically based on OS
+install_python_3_12() {
+    print_info "Installing Python 3.12 for consistent local development..."
     
     # Detect OS
     if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -54,8 +54,8 @@ install_python_3_12_11() {
             exit 1
         fi
         
-        # First try to install the latest Python 3.12 (which should be 3.12.11 or close)
-        print_info "Installing Python 3.12 via Homebrew (targeting 3.12.11)..."
+        # Install the latest Python 3.12 available
+        print_info "Installing Python 3.12 via Homebrew..."
         if brew install python@3.12; then
             print_success "✅ Python 3.12 installed successfully"
             
@@ -67,12 +67,7 @@ install_python_3_12_11() {
                 local version=$(python3.12 --version 2>&1)
                 print_success "✅ Python 3.12 is now available: $version"
                 
-                # Check if we got exactly 3.12.11
-                if [[ "$version" == *"3.12.11"* ]]; then
-                    print_success "🎯 Perfect! Got Python 3.12.11 as requested"
-                else
-                    print_info "📝 Note: Got $version instead of 3.12.11, but this is compatible"
-                fi
+                print_success "🎯 Python 3.12.x installed successfully!"
                 return 0
             else
                 print_warning "⚠️  Python 3.12 installed but not in PATH. You may need to restart your terminal."
@@ -85,7 +80,7 @@ install_python_3_12_11() {
         
     elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
         # Linux
-        print_info "Detected Linux - Installing Python 3.12.11..."
+        print_info "Detected Linux - Installing Python 3.12..."
         
         # Try different package managers
         if command -v apt >/dev/null 2>&1; then
@@ -118,7 +113,7 @@ install_python_3_12_11() {
     else
         # Windows or other
         print_error "❌ Automatic Python installation not supported on this OS: $OSTYPE"
-        print_error "Please install Python 3.12.11 manually:"
+        print_error "Please install Python 3.12.x manually:"
         print_error "   • Windows: Download from https://python.org"
         print_error "   • Other OS: Use your system's package manager"
         return 1
@@ -293,7 +288,7 @@ main() {
     echo "This script will set up your complete development environment."
     echo "After setup, both backend AND frontend will work together seamlessly!"
     echo ""
-    echo "📍 Python 3.12.x will be automatically installed if not found"
+    echo "📍 Python 3.12.x will be automatically installed if not found (much faster!)"
     echo "   • macOS: Automatic installation via Homebrew"
     echo "   • Linux: Automatic installation via apt/yum"
     echo "   • Windows: Manual installation may be required"
@@ -316,12 +311,12 @@ main() {
         print_success "npm found: $(npm --version)"
     fi
     
-    # Require Python 3.12.11 specifically for consistent local development
+    # Require Python 3.12.x for consistent local development (production uses 3.12-slim)
     local python_cmd=""
     local python_version=""
     local python_found=false
     
-    # First try to find Python 3.12.11 specifically
+    # First try to find Python 3.12.x
     if check_command "python3.12"; then
         python_cmd="python3.12"
         python_version=$(python3.12 --version 2>&1)
@@ -336,27 +331,21 @@ main() {
         python_found=true
     fi
     
-    # Check if we have Python 3.12.11 specifically, if not install it
+    # Check if we have Python 3.12.x, if not install it
     if [ "$python_found" = true ]; then
-        if [[ "$python_version" == *"3.12.11"* ]]; then
-            print_success "✅ Using Python 3.12.11 (perfect!)"
+        if [[ "$python_version" == *"3.12."* ]]; then
+            print_success "✅ Using Python 3.12.x: $python_version (compatible with production)"
             export PYTHON_CMD="$python_cmd"
         else
-            print_warning "⚠️  Found $python_version, but Python 3.12.11 is required for consistency"
-            print_info "Installing Python 3.12.11 for consistent local development..."
+            print_warning "⚠️  Found $python_version, but Python 3.12.x is required for compatibility"
+            print_info "Installing Python 3.12 for consistent local development..."
             
-            if install_python_3_12_11; then
-                # Re-check for Python 3.12.11 after installation
+            if install_python_3_12; then
+                # Re-check for Python 3.12.x after installation
                 if check_command "python3.12"; then
                     new_version=$(python3.12 --version 2>&1)
-                    if [[ "$new_version" == *"3.12.11"* ]]; then
-                        export PYTHON_CMD="python3.12"
-                        print_success "✅ Now using Python 3.12.11: $new_version"
-                    else
-                        export PYTHON_CMD="python3.12"
-                        print_success "✅ Now using Python 3.12.x: $new_version"
-                        print_info "Note: Got Python 3.12.x instead of 3.12.11, but compatible for development"
-                    fi
+                    export PYTHON_CMD="python3.12"
+                    print_success "✅ Now using Python 3.12.x: $new_version"
                 else
                     print_warning "⚠️  Installation completed but python3.12 not found in PATH"
                     print_info "Falling back to existing Python: $python_version"
@@ -368,19 +357,19 @@ main() {
             fi
         fi
     else
-        print_info "No Python installation found. Installing Python 3.12.11..."
-        if install_python_3_12_11; then
+        print_info "No Python installation found. Installing Python 3.12..."
+        if install_python_3_12; then
             if check_command "python3.12"; then
                 export PYTHON_CMD="python3.12"
                 python_version=$(python3.12 --version 2>&1)
-                print_success "✅ Python 3.12.11 installed and ready: $python_version"
+                print_success "✅ Python 3.12.x installed and ready: $python_version"
             else
                 print_error "❌ Installation completed but Python 3.12 not available"
                 print_error "Please restart your terminal and run this script again"
                 exit 1
             fi
         else
-            print_error "❌ Failed to install Python 3.12.11 automatically"
+            print_error "❌ Failed to install Python 3.12 automatically"
             print_error "Please install manually and run this script again"
             exit 1
         fi
@@ -555,13 +544,15 @@ main() {
     echo "   ✅ Frontend and backend configured to work together"
     echo ""
     echo "🚀 Next steps:"
-    echo "   1. Run 'make dev' to start both frontend and backend"
-    echo "   2. Visit http://localhost:3000 for the UI"
-    echo "   3. Visit http://localhost:8765/docs for the API docs"
-    echo "   4. Visit http://localhost:54323 for Supabase Studio"
+    echo "   1. Run 'make backend' in one terminal to start the API server"
+    echo "   2. Run 'make ui-local' in another terminal to start the frontend"
+    echo "   3. Visit http://localhost:3000 for the UI"
+    echo "   4. Visit http://localhost:8765/docs for the API docs"
+    echo "   5. Visit http://localhost:54323 for Supabase Studio"
     echo ""
     echo "🔧 Useful commands:"
-    echo "   make dev      - Start complete development environment"
+    echo "   make backend     - Start API server (run in one terminal)"
+    echo "   make ui-local    - Start frontend (run in another terminal)"
     echo "   make status   - Check what's running"
     echo "   make stop     - Stop all services"
     echo "   make help     - See all available commands"

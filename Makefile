@@ -117,7 +117,7 @@ setup: check-prereqs
 	@echo "  • OPENAI_API_KEY (required)"
 	@echo "  • GEMINI_API_KEY (optional)"
 	@echo ""
-	@echo "📍 Python 3.12.x will be automatically installed if needed"
+	@echo "📍 Python 3.12.x will be automatically installed if needed (faster setup!)"
 	@echo "   (macOS: via Homebrew, Linux: via package manager)"
 	@echo ""
 	@read -p "Continue with full setup? (Y/n): " -n 1 -r; \
