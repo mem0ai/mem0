@@ -201,23 +201,27 @@ class MemoryGraph:
         return entity_type_map
 
     def _establish_nodes_relations_from_data(self, data, filters, entity_type_map):
-        """Eshtablish relations among the extracted nodes."""
+        """Establish relations among the extracted nodes."""
+
+    # Compose user identification string for prompt
+        user_identity = f"user_id: {filters['user_id']}"
+        if filters.get("agent_id"):
+            user_identity += f", agent_id: {filters['agent_id']}"
+
         if self.config.graph_store.custom_prompt:
+            system_content = EXTRACT_RELATIONS_PROMPT.replace("USER_ID", user_identity)
+            # Add the custom prompt line if configured
+            system_content = system_content.replace(
+                "CUSTOM_PROMPT", f"4. {self.config.graph_store.custom_prompt}"
+            )
             messages = [
-                {
-                    "role": "system",
-                    "content": EXTRACT_RELATIONS_PROMPT.replace("USER_ID", filters["user_id"]).replace(
-                        "CUSTOM_PROMPT", f"4. {self.config.graph_store.custom_prompt}"
-                    ),
-                },
+                {"role": "system", "content": system_content},
                 {"role": "user", "content": data},
             ]
         else:
+            system_content = EXTRACT_RELATIONS_PROMPT.replace("USER_ID", user_identity)
             messages = [
-                {
-                    "role": "system",
-                    "content": EXTRACT_RELATIONS_PROMPT.replace("USER_ID", filters["user_id"]),
-                },
+                {"role": "system", "content": system_content},
                 {"role": "user", "content": f"List of entities: {list(entity_type_map.keys())}. \n\nText: {data}"},
             ]
 
@@ -231,8 +235,8 @@ class MemoryGraph:
         )
 
         entities = []
-        if extracted_entities["tool_calls"]:
-            entities = extracted_entities["tool_calls"][0]["arguments"]["entities"]
+        if extracted_entities.get("tool_calls"):
+            entities = extracted_entities["tool_calls"][0].get("arguments", {}).get("entities", [])
 
         entities = self._remove_spaces_from_entities(entities)
         logger.debug(f"Extracted entities: {entities}")
@@ -241,32 +245,43 @@ class MemoryGraph:
     def _search_graph_db(self, node_list, filters, limit=100):
         """Search similar nodes among and their respective incoming and outgoing relations."""
         result_relations = []
+        agent_filter = ""
+        if filters.get("agent_id"):
+            agent_filter = "AND n.agent_id = $agent_id AND m.agent_id = $agent_id"
+
         for node in node_list:
             n_embedding = self.embedding_model.embed(node)
 
             cypher_query = f"""
             MATCH (n {self.node_label})
             WHERE n.embedding IS NOT NULL AND n.user_id = $user_id
+            {agent_filter}
             WITH n, round(2 * vector.similarity.cosine(n.embedding, $n_embedding) - 1, 4) AS similarity // denormalize for backward compatibility
             WHERE similarity >= $threshold
-            CALL (n) {{
-                MATCH (n)-[r]->(m) 
+            CALL {{
+                MATCH (n)-[r]->(m)
+                WHERE m.user_id = $user_id {agent_filter.replace("n.", "m.")} 
                 RETURN n.name AS source, elementId(n) AS source_id, type(r) AS relationship, elementId(r) AS relation_id, m.name AS destination, elementId(m) AS destination_id
                 UNION
-                MATCH (m)-[r]->(n) 
+                MATCH (m)-[r]->(n)
+                WHERE m.user_id = $user_id {agent_filter.replace("n.", "m.")}
                 RETURN m.name AS source, elementId(m) AS source_id, type(r) AS relationship, elementId(r) AS relation_id, n.name AS destination, elementId(n) AS destination_id
             }}
-            WITH distinct source, source_id, relationship, relation_id, destination, destination_id, similarity //deduplicate
+            WITH distinct source, source_id, relationship, relation_id, destination, destination_id, similarity
             RETURN source, source_id, relationship, relation_id, destination, destination_id, similarity
             ORDER BY similarity DESC
             LIMIT $limit
             """
+
             params = {
                 "n_embedding": n_embedding,
                 "threshold": self.threshold,
                 "user_id": filters["user_id"],
                 "limit": limit,
             }
+            if filters.get("agent_id"):
+                params["agent_id"] = filters["agent_id"]
+
             ans = self.graph.query(cypher_query, params=params)
             result_relations.extend(ans)
 
@@ -275,7 +290,13 @@ class MemoryGraph:
     def _get_delete_entities_from_search_output(self, search_output, data, filters):
         """Get the entities to be deleted from the search output."""
         search_output_string = format_entities(search_output)
-        system_prompt, user_prompt = get_delete_messages(search_output_string, data, filters["user_id"])
+
+        # Compose user identification string for prompt
+        user_identity = f"user_id: {filters['user_id']}"
+        if filters.get("agent_id"):
+            user_identity += f", agent_id: {filters['agent_id']}"
+
+        system_prompt, user_prompt = get_delete_messages(search_output_string, data, user_identity)
 
         _tools = [DELETE_MEMORY_TOOL_GRAPH]
         if self.llm_provider in ["azure_openai_structured", "openai_structured"]:
@@ -292,10 +313,10 @@ class MemoryGraph:
         )
 
         to_be_deleted = []
-        for item in memory_updates["tool_calls"]:
-            if item["name"] == "delete_graph_memory":
-                to_be_deleted.append(item["arguments"])
-        # in case if it is not in the correct format
+        for item in memory_updates.get("tool_calls", []):
+            if item.get("name") == "delete_graph_memory":
+                to_be_deleted.append(item.get("arguments"))
+        # Clean entities formatting
         to_be_deleted = self._remove_spaces_from_entities(to_be_deleted)
         logger.debug(f"Deleted relationships: {to_be_deleted}")
         return to_be_deleted
@@ -305,30 +326,40 @@ class MemoryGraph:
         user_id = filters["user_id"]
         agent_id = filters.get("agent_id", None)
         results = []
+        
         for item in to_be_deleted:
             source = item["source"]
             destination = item["destination"]
             relationship = item["relationship"]
+
+            # Build the agent filter for the query
+            agent_filter = ""
+            params = {
+                "source_name": source,
+                "dest_name": destination,
+                "user_id": user_id,
+            }
+            
+            if agent_id:
+                agent_filter = "AND n.agent_id = $agent_id AND m.agent_id = $agent_id"
+                params["agent_id"] = agent_id
 
             # Delete the specific relationship between nodes
             cypher = f"""
             MATCH (n {self.node_label} {{name: $source_name, user_id: $user_id}})
             -[r:{relationship}]->
             (m {self.node_label} {{name: $dest_name, user_id: $user_id}})
+            WHERE 1=1 {agent_filter}
             DELETE r
             RETURN 
                 n.name AS source,
                 m.name AS target,
                 type(r) AS relationship
             """
-            params = {
-                "source_name": source,
-                "dest_name": destination,
-                "user_id": user_id,
-                "agent_id": agent_id,
-            }
+            
             result = self.graph.query(cypher, params=params)
             results.append(result)
+        
         return results
 
     def _add_entities(self, to_be_added, filters, entity_type_map):
