@@ -32,6 +32,7 @@ from sqlalchemy import text
 from app.config.memory_limits import MEMORY_LIMITS
 from fastapi.responses import JSONResponse
 from .utils.decorators import retry_on_exception
+from qdrant_client import QdrantClient
 
 # Load environment variables
 load_dotenv()
@@ -1143,6 +1144,53 @@ async def smart_memory_query(search_query: str) -> str:
     return "⚠️ Smart memory query is temporarily disabled for stability. Please use 'search_memory' or 'deep_memory_query' instead."
 
 
+@mcp.tool(description="DEBUG: Directly fetch a point's payload from Qdrant.")
+async def debug_get_qdrant_payload(point_id: str) -> str:
+    """
+    A temporary debugging tool to directly inspect a point's payload in Qdrant,
+    bypassing the mem0 library's search function to verify if metadata is being written.
+    """
+    from qdrant_client import QdrantClient
+    import os
+    import json
+
+    try:
+        qdrant_host = os.getenv("QDRANT_HOST")
+        qdrant_api_key = os.getenv("QDRANT_API_KEY")
+        collection_name = os.getenv("MAIN_QDRANT_COLLECTION_NAME")
+
+        if not all([qdrant_host, collection_name]):
+            return "Error: Missing Qdrant environment variables for debugging."
+
+        client = QdrantClient(
+            url=f"https://{qdrant_host}",
+            api_key=qdrant_api_key,
+        )
+
+        logger.info(f"🔍 DEBUG_QDRANT: Attempting to retrieve point '{point_id}' from collection '{collection_name}'")
+
+        points = client.retrieve(
+            collection_name=collection_name,
+            ids=[point_id],
+            with_payload=True,
+            with_vectors=False
+        )
+
+        if not points:
+            return f"Error: Point with ID '{point_id}' not found in Qdrant collection '{collection_name}'."
+
+        point_data = points[0]
+        payload = point_data.payload
+
+        logger.info(f"🔍 DEBUG_QDRANT: Successfully retrieved payload for point '{point_id}': {payload}")
+
+        return json.dumps(payload, indent=2)
+
+    except Exception as e:
+        logger.error(f"Error in debug_get_qdrant_payload: {e}", exc_info=True)
+        return f"An unexpected error occurred while debugging Qdrant: {str(e)}"
+
+
 # @mcp.tool(description="Process documents into chunks for efficient retrieval. Run this after syncing new documents.")
 async def chunk_documents() -> str:
     """
@@ -1417,6 +1465,7 @@ tool_registry = {
     "ask_memory": ask_memory,
     "sync_substack_posts": sync_substack_posts,
     "deep_memory_query": deep_memory_query,
+    "debug_get_qdrant_payload": debug_get_qdrant_payload,
 }
 
 # Simple in-memory message queue for SSE connections
