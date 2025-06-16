@@ -406,7 +406,9 @@ async def _search_memory_v2_impl(query: str, supa_uid: str, client_name: str, li
             if len(filtered_results) >= limit:
                 break
             
-            mem_tags = mem.get('metadata', {}).get('tags', [])
+            # Robustly handle cases where metadata is missing or null.
+            metadata = mem.get('metadata') or {}
+            mem_tags = metadata.get('tags', [])
             if all(tag in mem_tags for tag in tags_filter):
                 filtered_results.append(mem)
         processed_results = filtered_results
