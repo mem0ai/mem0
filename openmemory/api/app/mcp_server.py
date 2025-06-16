@@ -1478,7 +1478,6 @@ tool_registry = {
     "ask_memory": ask_memory,
     "sync_substack_posts": sync_substack_posts,
     "deep_memory_query": deep_memory_query,
-    "debug_get_qdrant_payload": debug_get_qdrant_payload,
 }
 
 # Simple in-memory message queue for SSE connections

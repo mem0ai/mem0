@@ -896,3 +896,36 @@ This change ensures that `mem0` generates the correct Qdrant query, with a `must
 ### 25.3. Project Conclusion
 
 With this final patch, the metadata storage and filtering functionality is now fully operational from end to end. The system has been validated across local and production environments, and all known bugs have been resolved. The project can be considered complete and production-ready. 
+
+## APPENDIX D: Final Client-Side Resolution
+
+**Status: PROJECT COMPLETE & STABLE**
+
+The final issue preventing the customer's end-to-end test from passing was a subtle bug in the test script's parsing logic.
+
+### 26.1. Root Cause: Nested API Response Format
+
+Server logs definitively proved that the patched `mem0` library was working correctly and that the `search_memory_v2` tool was returning memories with their full metadata payloads.
+
+The final bug was that the client-side test script was not correctly parsing the API's nested response structure. The API, for compatibility reasons, wraps the tool's direct JSON output inside a larger object.
+
+**API Response Structure:**
+```json
+{
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "[{\"id\": \"...\", \"metadata\": {\"tags\": [...]}}]" 
+      }
+    ]
+  }
+}
+```
+The actual list of memories is a **stringified JSON array** located at `result['content'][0]['text']`. The test script was failing to access and parse this final layer.
+
+### 26.2. Final Client-Side Fix
+
+The customer's test script was updated with the correct parsing logic to handle this nested structure, after which the end-to-end test passed successfully.
+
+This concludes the project. All server-side and client-side issues have been identified, patched, and documented. The metadata tagging and filtering system is fully operational. 

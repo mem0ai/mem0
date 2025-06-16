@@ -751,6 +751,15 @@ x-client-name: your-app-name`} />
             <p className="text-muted-foreground mb-4">
               Store important information, preferences, facts, and observations about the user. Use this to remember key details learned during conversation, user preferences, values, beliefs, or anything the user wants remembered for future conversations.
             </p>
+            <Alert variant="destructive" className="mb-4">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Important Developer Note: Non-Deterministic Behavior</AlertTitle>
+              <AlertDescription>
+                The <code className="font-mono text-xs">add_memories</code> tool does **not** store the input text verbatim. It uses an internal LLM to extract what it considers to be the core "facts" from your text. This means the stored string may have minor variations (e.g., removal of articles, punctuation, or rephrasing).
+                <br/><br/>
+                **Do not rely on exact string matching** when verifying a memory. Instead, check for the presence of key, unique substrings (like a UUID or a specific code) that are unlikely to be altered by the LLM.
+              </AlertDescription>
+            </Alert>
             <div className="mb-4 p-3 bg-amber-950/50 border border-amber-800/60 rounded text-amber-300 text-sm">
               <strong>Note:</strong> The <code className="font-mono text-xs">tags</code> parameter is only available for API users (X-Api-Key authentication). Claude Desktop users automatically get a simplified version without tags to maintain UI reliability.
             </div>
