@@ -751,6 +751,9 @@ x-client-name: your-app-name`} />
             <p className="text-muted-foreground mb-4">
               Store important information, preferences, facts, and observations about the user. Use this to remember key details learned during conversation, user preferences, values, beliefs, or anything the user wants remembered for future conversations.
             </p>
+            <div className="mb-4 p-3 bg-amber-950/50 border border-amber-800/60 rounded text-amber-300 text-sm">
+              <strong>Note:</strong> The <code className="font-mono text-xs">tags</code> parameter is only available for API users (X-Api-Key authentication). Claude Desktop users automatically get a simplified version without tags to maintain UI reliability.
+            </div>
             <h4 className="font-semibold text-foreground mb-2">Input Schema:</h4>
             <CodeBlock lang="json" code={`{
   "text": {
@@ -1035,8 +1038,7 @@ slack_payload = {
         "name": "add_memories",
         "arguments": {
             "text": "User 'dave' reported in #bugs: 'Can't reset my password, the link is broken.'",
-            "source_app": "slack",
-            "metadata": {"channel": "#bugs", "status": "reported"}
+            "tags": ["slack", "bug-report", "password-reset"]
         }
     }
 }
@@ -1049,8 +1051,7 @@ jira_payload = {
         "name": "add_memories",
         "arguments": {
             "text": "Jira Ticket JIRA-123 created: 'Password reset link broken'",
-            "source_app": "jira",
-            "metadata": {"ticket_id": "JIRA-123", "status": "open"}
+            "tags": ["jira", "JIRA-123", "password-reset", "open"]
         }
     }
 }
@@ -1070,10 +1071,10 @@ print("Step 3: Agent searching for 'JIRA-123' across Slack and Jira...")
 search_payload = {
     "jsonrpc": "2.0", "id": 3, "method": "tools/call",
     "params": {
-        "name": "search_memories",
+        "name": "search_memory_v2",
         "arguments": {
-            "query": "JIRA-123",
-            "source_app": "slack,jira" # Filter search to specific apps
+            "query": "JIRA-123 password reset",
+            "tags_filter": ["password-reset"] # Filter to related memories
         }
     }
 }
@@ -1085,7 +1086,10 @@ print("\\nStep 4: Agent synthesizes a response from the search results.")
 if search_results and search_results.get('result', {}).get('results'):
     context = ""
     for res in search_results['result']['results']:
-        context += f"- {res['text']} (Source: {res['metadata'].get('source_app', 'N/A')})\\n"
+        # Extract source from tags (e.g., 'slack', 'jira')
+        source_tags = [tag for tag in res.get('metadata', {}).get('tags', []) if tag in ['slack', 'jira']]
+        source = source_tags[0] if source_tags else 'N/A'
+        context += f"- {res['text']} (Source: {source})\\n"
     
     final_answer = f"""
 Here is the context for ticket JIRA-123:
