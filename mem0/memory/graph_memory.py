@@ -80,8 +80,8 @@ class MemoryGraph:
 
         # TODO: Batch queries with APOC plugin
         # TODO: Add more filter support
-        deleted_entities = self._delete_entities(to_be_deleted, filters["user_id"])
-        added_entities = self._add_entities(to_be_added, filters["user_id"], entity_type_map)
+        deleted_entities = self._delete_entities(to_be_deleted, filters)
+        added_entities = self._add_entities(to_be_added, filters, entity_type_map)
 
         return {"deleted_entities": deleted_entities, "added_entities": added_entities}
 
@@ -122,11 +122,20 @@ class MemoryGraph:
         return search_results
 
     def delete_all(self, filters):
-        cypher = f"""
-        MATCH (n {self.node_label} {{user_id: $user_id}})
-        DETACH DELETE n
-        """
-        params = {"user_id": filters["user_id"]}
+        if filters["agent_id"]:
+            cypher += f"""
+            MATCH (n {self.node_label} {{user_id: $user_id, agent_id: $agent_id}})
+            DETACH DELETE n
+            """
+            params = {"user_id": filters["user_id"], "agent_id": filters["agent_id"]}
+
+        else:
+            cypher = f"""
+            MATCH (n {self.node_label} {{user_id: $user_id}})
+            DETACH DELETE n
+            """
+            
+            params = {"user_id": filters["user_id"] }
         self.graph.query(cypher, params=params)
 
     def get_all(self, filters, limit=100):
@@ -296,8 +305,10 @@ class MemoryGraph:
         logger.debug(f"Deleted relationships: {to_be_deleted}")
         return to_be_deleted
 
-    def _delete_entities(self, to_be_deleted, user_id):
+    def _delete_entities(self, to_be_deleted, filters):
         """Delete the entities from the graph."""
+        user_id = filters["user_id"]
+        agent_id = filters.get("agent_id", None)
         results = []
         for item in to_be_deleted:
             source = item["source"]
@@ -319,13 +330,16 @@ class MemoryGraph:
                 "source_name": source,
                 "dest_name": destination,
                 "user_id": user_id,
+                "agent_id": agent_id,
             }
             result = self.graph.query(cypher, params=params)
             results.append(result)
         return results
 
-    def _add_entities(self, to_be_added, user_id, entity_type_map):
+    def _add_entities(self, to_be_added, filters, entity_type_map):
         """Add the new entities to the graph. Merge the nodes if they already exist."""
+        user_id = filters["user_id"]
+        agent_id = filters.get("agent_id", None)
         results = []
         for item in to_be_added:
             # entities
@@ -346,65 +360,80 @@ class MemoryGraph:
             dest_embedding = self.embedding_model.embed(destination)
 
             # search for the nodes with the closest embeddings
-            source_node_search_result = self._search_source_node(source_embedding, user_id, threshold=0.9)
-            destination_node_search_result = self._search_destination_node(dest_embedding, user_id, threshold=0.9)
+            source_node_search_result = self._search_source_node(source_embedding, filters, threshold=0.9)
+            destination_node_search_result = self._search_destination_node(dest_embedding, filters, threshold=0.9)
 
             # TODO: Create a cypher query and common params for all the cases
             if not destination_node_search_result and source_node_search_result:
-                cypher = f"""
-                    MATCH (source)
-                    WHERE elementId(source) = $source_id
-                    SET source.mentions = coalesce(source.mentions, 0) + 1
-                    WITH source
-                    MERGE (destination {destination_label} {{name: $destination_name, user_id: $user_id}})
-                    ON CREATE SET
-                        destination.created = timestamp(),
-                        destination.mentions = 1
-                        {destination_extra_set}
-                    ON MATCH SET
-                        destination.mentions = coalesce(destination.mentions, 0) + 1
-                    WITH source, destination
-                    CALL db.create.setNodeVectorProperty(destination, 'embedding', $destination_embedding)
-                    WITH source, destination
-                    MERGE (source)-[r:{relationship}]->(destination)
-                    ON CREATE SET 
-                        r.created = timestamp(),
-                        r.mentions = 1
-                    ON MATCH SET
-                        r.mentions = coalesce(r.mentions, 0) + 1
-                    RETURN source.name AS source, type(r) AS relationship, destination.name AS target
-                    """
+                # Build destination MERGE properties
+                merge_props = ["name: $destination_name", "user_id: $user_id"]
+                if agent_id:
+                    merge_props.append("agent_id: $agent_id")
+                merge_props_str = ", ".join(merge_props)
 
+                cypher = f"""
+                MATCH (source)
+                WHERE elementId(source) = $source_id
+                SET source.mentions = coalesce(source.mentions, 0) + 1
+                WITH source
+                MERGE (destination {destination_label} {{{merge_props_str}}})
+                ON CREATE SET
+                    destination.created = timestamp(),
+                    destination.mentions = 1
+                    {destination_extra_set}
+                ON MATCH SET
+                    destination.mentions = coalesce(destination.mentions, 0) + 1
+                WITH source, destination
+                CALL db.create.setNodeVectorProperty(destination, 'embedding', $destination_embedding)
+                WITH source, destination
+                MERGE (source)-[r:{relationship}]->(destination)
+                ON CREATE SET 
+                    r.created = timestamp(),
+                    r.mentions = 1
+                ON MATCH SET
+                    r.mentions = coalesce(r.mentions, 0) + 1
+                RETURN source.name AS source, type(r) AS relationship, destination.name AS target
+                """
+                
                 params = {
                     "source_id": source_node_search_result[0]["elementId(source_candidate)"],
                     "destination_name": destination,
                     "destination_embedding": dest_embedding,
                     "user_id": user_id,
                 }
+                if agent_id:
+                    params["agent_id"] = agent_id
+
             elif destination_node_search_result and not source_node_search_result:
+                # Build source MERGE properties
+                merge_props = ["name: $source_name", "user_id: $user_id"]
+                if agent_id:
+                    merge_props.append("agent_id: $agent_id")
+                merge_props_str = ", ".join(merge_props)
+
                 cypher = f"""
-                    MATCH (destination)
-                    WHERE elementId(destination) = $destination_id
-                    SET destination.mentions = coalesce(destination.mentions, 0) + 1
-                    WITH destination
-                    MERGE (source {source_label} {{name: $source_name, user_id: $user_id}})
-                    ON CREATE SET
-                        source.created = timestamp(),
-                        source.mentions = 1
-                        {source_extra_set}
-                    ON MATCH SET
-                        source.mentions = coalesce(source.mentions, 0) + 1
-                    WITH source, destination
-                    CALL db.create.setNodeVectorProperty(source, 'embedding', $source_embedding)
-                    WITH source, destination
-                    MERGE (source)-[r:{relationship}]->(destination)
-                    ON CREATE SET 
-                        r.created = timestamp(),
-                        r.mentions = 1
-                    ON MATCH SET
-                        r.mentions = coalesce(r.mentions, 0) + 1
-                    RETURN source.name AS source, type(r) AS relationship, destination.name AS target
-                    """
+                MATCH (destination)
+                WHERE elementId(destination) = $destination_id
+                SET destination.mentions = coalesce(destination.mentions, 0) + 1
+                WITH destination
+                MERGE (source {source_label} {{{merge_props_str}}})
+                ON CREATE SET
+                    source.created = timestamp(),
+                    source.mentions = 1
+                    {source_extra_set}
+                ON MATCH SET
+                    source.mentions = coalesce(source.mentions, 0) + 1
+                WITH source, destination
+                CALL db.create.setNodeVectorProperty(source, 'embedding', $source_embedding)
+                WITH source, destination
+                MERGE (source)-[r:{relationship}]->(destination)
+                ON CREATE SET 
+                    r.created = timestamp(),
+                    r.mentions = 1
+                ON MATCH SET
+                    r.mentions = coalesce(r.mentions, 0) + 1
+                RETURN source.name AS source, type(r) AS relationship, destination.name AS target
+                """
 
                 params = {
                     "destination_id": destination_node_search_result[0]["elementId(destination_candidate)"],
@@ -412,53 +441,68 @@ class MemoryGraph:
                     "source_embedding": source_embedding,
                     "user_id": user_id,
                 }
+                if agent_id:
+                    params["agent_id"] = agent_id
+
             elif source_node_search_result and destination_node_search_result:
                 cypher = f"""
-                    MATCH (source)
-                    WHERE elementId(source) = $source_id
-                    SET source.mentions = coalesce(source.mentions, 0) + 1
-                    WITH source
-                    MATCH (destination)
-                    WHERE elementId(destination) = $destination_id
-                    SET destination.mentions = coalesce(destination.mentions) + 1
-                    MERGE (source)-[r:{relationship}]->(destination)
-                    ON CREATE SET 
-                        r.created_at = timestamp(),
-                        r.updated_at = timestamp(),
-                        r.mentions = 1
-                    ON MATCH SET r.mentions = coalesce(r.mentions, 0) + 1
-                    
-                    
-                    RETURN source.name AS source, type(r) AS relationship, destination.name AS target
-                    """
+                MATCH (source)
+                WHERE elementId(source) = $source_id
+                SET source.mentions = coalesce(source.mentions, 0) + 1
+                WITH source
+                MATCH (destination)
+                WHERE elementId(destination) = $destination_id
+                SET destination.mentions = coalesce(destination.mentions, 0) + 1
+                MERGE (source)-[r:{relationship}]->(destination)
+                ON CREATE SET 
+                    r.created_at = timestamp(),
+                    r.updated_at = timestamp(),
+                    r.mentions = 1
+                ON MATCH SET r.mentions = coalesce(r.mentions, 0) + 1
+                RETURN source.name AS source, type(r) AS relationship, destination.name AS target
+                """
+
                 params = {
                     "source_id": source_node_search_result[0]["elementId(source_candidate)"],
                     "destination_id": destination_node_search_result[0]["elementId(destination_candidate)"],
                     "user_id": user_id,
                 }
+                if agent_id:
+                    params["agent_id"] = agent_id
+
             else:
+                # Build dynamic MERGE props for both source and destination
+                source_props = ["name: $source_name", "user_id: $user_id"]
+                dest_props = ["name: $dest_name", "user_id: $user_id"]
+                if agent_id:
+                    source_props.append("agent_id: $agent_id")
+                    dest_props.append("agent_id: $agent_id")
+                source_props_str = ", ".join(source_props)
+                dest_props_str = ", ".join(dest_props)
+
                 cypher = f"""
-                    MERGE (source {source_label} {{name: $source_name, user_id: $user_id}})
-                    ON CREATE SET source.created = timestamp(),
-                                  source.mentions = 1
-                                  {source_extra_set}
-                    ON MATCH SET source.mentions = coalesce(source.mentions, 0) + 1
-                    WITH source
-                    CALL db.create.setNodeVectorProperty(source, 'embedding', $source_embedding)
-                    WITH source
-                    MERGE (destination {destination_label} {{name: $dest_name, user_id: $user_id}})
-                    ON CREATE SET destination.created = timestamp(),
-                                  destination.mentions = 1
-                                  {destination_extra_set}
-                    ON MATCH SET destination.mentions = coalesce(destination.mentions, 0) + 1
-                    WITH source, destination
-                    CALL db.create.setNodeVectorProperty(destination, 'embedding', $source_embedding)
-                    WITH source, destination
-                    MERGE (source)-[rel:{relationship}]->(destination)
-                    ON CREATE SET rel.created = timestamp(), rel.mentions = 1
-                    ON MATCH SET rel.mentions = coalesce(rel.mentions, 0) + 1
-                    RETURN source.name AS source, type(rel) AS relationship, destination.name AS target
-                    """
+                MERGE (source {source_label} {{{source_props_str}}})
+                ON CREATE SET source.created = timestamp(),
+                            source.mentions = 1
+                            {source_extra_set}
+                ON MATCH SET source.mentions = coalesce(source.mentions, 0) + 1
+                WITH source
+                CALL db.create.setNodeVectorProperty(source, 'embedding', $source_embedding)
+                WITH source
+                MERGE (destination {destination_label} {{{dest_props_str}}})
+                ON CREATE SET destination.created = timestamp(),
+                            destination.mentions = 1
+                            {destination_extra_set}
+                ON MATCH SET destination.mentions = coalesce(destination.mentions, 0) + 1
+                WITH source, destination
+                CALL db.create.setNodeVectorProperty(destination, 'embedding', $dest_embedding)
+                WITH source, destination
+                MERGE (source)-[rel:{relationship}]->(destination)
+                ON CREATE SET rel.created = timestamp(), rel.mentions = 1
+                ON MATCH SET rel.mentions = coalesce(rel.mentions, 0) + 1
+                RETURN source.name AS source, type(rel) AS relationship, destination.name AS target
+                """
+
                 params = {
                     "source_name": source,
                     "dest_name": destination,
@@ -466,6 +510,8 @@ class MemoryGraph:
                     "dest_embedding": dest_embedding,
                     "user_id": user_id,
                 }
+                if agent_id:
+                    params["agent_id"] = agent_id
             result = self.graph.query(cypher, params=params)
             results.append(result)
         return results
@@ -477,11 +523,16 @@ class MemoryGraph:
             item["destination"] = item["destination"].lower().replace(" ", "_")
         return entity_list
 
-    def _search_source_node(self, source_embedding, user_id, threshold=0.9):
+    def _search_source_node(self, source_embedding, filters, threshold=0.9):
+        agent_filter = ""
+        if filters.get("agent_id"):
+            agent_filter = "AND source_candidate.agent_id = $agent_id"
+
         cypher = f"""
             MATCH (source_candidate {self.node_label})
             WHERE source_candidate.embedding IS NOT NULL 
             AND source_candidate.user_id = $user_id
+            {agent_filter}
 
             WITH source_candidate,
             round(2 * vector.similarity.cosine(source_candidate.embedding, $source_embedding) - 1, 4) AS source_similarity // denormalize for backward compatibility
@@ -496,18 +547,26 @@ class MemoryGraph:
 
         params = {
             "source_embedding": source_embedding,
-            "user_id": user_id,
+            "user_id": filters["user_id"],
             "threshold": threshold,
         }
+        if filters.get("agent_id"):
+            params["agent_id"] = filters["agent_id"]
 
         result = self.graph.query(cypher, params=params)
         return result
 
-    def _search_destination_node(self, destination_embedding, user_id, threshold=0.9):
+
+    def _search_destination_node(self, destination_embedding, filters, threshold=0.9):
+        agent_filter = ""
+        if filters.get("agent_id"):
+            agent_filter = "AND destination_candidate.agent_id = $agent_id"
+
         cypher = f"""
             MATCH (destination_candidate {self.node_label})
             WHERE destination_candidate.embedding IS NOT NULL 
             AND destination_candidate.user_id = $user_id
+            {agent_filter}
 
             WITH destination_candidate,
             round(2 * vector.similarity.cosine(destination_candidate.embedding, $destination_embedding) - 1, 4) AS destination_similarity // denormalize for backward compatibility
@@ -520,11 +579,14 @@ class MemoryGraph:
 
             RETURN elementId(destination_candidate)
             """
+
         params = {
             "destination_embedding": destination_embedding,
-            "user_id": user_id,
+            "user_id": filters["user_id"],
             "threshold": threshold,
         }
+        if filters.get("agent_id"):
+            params["agent_id"] = filters["agent_id"]
 
         result = self.graph.query(cypher, params=params)
         return result
