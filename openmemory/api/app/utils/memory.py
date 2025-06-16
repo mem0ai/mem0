@@ -30,9 +30,10 @@ def get_memory_client(custom_instructions: str = None):
         if not openai_api_key:
             raise ValueError("OPENAI_API_KEY must be set in environment variables for mem0.")
 
-        # Build Qdrant config
+        # Build Qdrant config with proper parameters for metadata support
         qdrant_config = {
             "collection_name": collection_name,
+            "embedding_model_dims": 1536,  # Required for proper vector storage
         }
         
         # For Qdrant Cloud, use the full URL approach
@@ -65,7 +66,8 @@ def get_memory_client(custom_instructions: str = None):
                     "model": embedder_model,
                     "api_key": openai_api_key
                 }
-            }
+            },
+            "version": "v1.1"  # Required for latest features including metadata support
         }
 
         memory_instance = Memory.from_config(config_dict=mem0_config)

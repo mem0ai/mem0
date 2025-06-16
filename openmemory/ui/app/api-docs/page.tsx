@@ -315,6 +315,7 @@ const navItems = [
   { href: '#introduction', label: 'Introduction', icon: BookOpen },
   { href: '#authentication', label: 'Authentication', icon: Shield },
   { href: '#key-concepts', label: 'Key Concepts', icon: BrainCircuit },
+  { href: '#metadata-tags', label: 'Metadata & Tags', icon: Component },
   { href: '#endpoints', label: 'API Endpoint', icon: GitBranch },
   { href: '#error-handling', label: 'Error Handling', icon: AlertTriangle },
   { href: '#quick-test', label: 'Quick Test', icon: Terminal },
@@ -1181,9 +1182,186 @@ curl -X POST ${API_URL}/mcp/messages/ \\
           <p className="text-muted-foreground text-sm">
             <strong>💡 Success indicators:</strong> A successful response includes <code className="font-mono text-xs">protocolVersion</code> and <code className="font-mono text-xs">serverInfo</code>. If you get an authentication error, double-check your API key format and ensure it starts with <code className="font-mono text-xs">jean_sk_</code>.
           </p>
+                  </div>
+      </section>
+
+      <section id="metadata-tags">
+        <h2 className="text-3xl font-bold text-foreground mb-4">Metadata & Tags</h2>
+        <p className="text-muted-foreground mb-4">
+          The Jean Memory API supports powerful metadata tagging for memory segmentation and organization. This feature allows API users to categorize memories and perform sophisticated filtering for multi-tenant applications, project isolation, and context-aware search.
+        </p>
+        
+        <Alert variant="default" className="bg-amber-950/50 border-amber-800/60 text-amber-300 mb-6">
+          <Component className="h-4 w-4 text-amber-400" />
+          <AlertTitle>Client Compatibility Note</AlertTitle>
+          <AlertDescription>
+            <strong>Claude Desktop:</strong> Gets simple, reliable tools without metadata complexity to prevent UI failures.
+            <br/>
+            <strong>API Users:</strong> Get full metadata capabilities including tags and filtering for sophisticated applications.
+          </AlertDescription>
+        </Alert>
+
+        <div className="space-y-6">
+          <div className="p-4 border border-border bg-card rounded-lg">
+            <h3 className="font-semibold text-foreground text-lg flex items-center mb-3">
+              <BrainCircuit className="w-5 h-5 mr-2 text-muted-foreground"/>
+              Metadata Structure
+            </h3>
+            <p className="text-muted-foreground text-sm mb-3">
+              Every memory automatically gets system metadata for tracking, plus user-defined tags for organization:
+            </p>
+            <CodeBlock lang="json" code={`{
+  "id": "uuid-string",
+  "memory": "User prefers TypeScript over JavaScript for large projects",
+  "metadata": {
+    "source_app": "openmemory_mcp",
+    "mcp_client": "default_agent_app",
+    "app_db_id": "uuid-string",
+    "tags": ["work", "frontend", "preferences"]  // Your custom tags
+  },
+  "created_at": "2025-06-15T18:28:41.462081-07:00",
+  "user_id": "uuid-string"
+}`} />
+          </div>
+
+          <div className="p-4 border border-border bg-card rounded-lg">
+            <h3 className="font-semibold text-foreground text-lg flex items-center mb-3">
+              <Key className="w-5 h-5 mr-2 text-muted-foreground"/>
+              Adding Tagged Memories
+            </h3>
+            <p className="text-muted-foreground text-sm mb-3">
+              Use the <code className="font-mono text-xs bg-muted px-1 rounded">tags</code> parameter when adding memories to categorize them:
+            </p>
+            <CodeBlock lang="json" code={`{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "add_memories",
+    "arguments": {
+      "text": "Project Alpha uses React with TypeScript and requires daily standups at 9 AM",
+      "tags": ["work", "project-alpha", "meetings", "react"]
+    }
+  },
+  "id": 1
+}`} />
+            <div className="mt-3 p-3 bg-muted/50 border border-border rounded text-sm">
+              <strong>💡 Best Practices:</strong>
+              <ul className="list-disc list-inside space-y-1 mt-2 text-muted-foreground">
+                <li>Use consistent tag naming conventions (e.g., "project-alpha" not "Project Alpha")</li>
+                <li>Keep tags short and descriptive (2-15 characters optimal)</li>
+                <li>Consider hierarchical tags: ["work", "project-alpha", "frontend"]</li>
+                <li>Limit to 3-5 tags per memory for best performance</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="p-4 border border-border bg-card rounded-lg">
+            <h3 className="font-semibold text-foreground text-lg flex items-center mb-3">
+              <Server className="w-5 h-5 mr-2 text-muted-foreground"/>
+              Filtering by Tags
+            </h3>
+            <p className="text-muted-foreground text-sm mb-3">
+              Use <code className="font-mono text-xs bg-muted px-1 rounded">search_memory_v2</code> with <code className="font-mono text-xs bg-muted px-1 rounded">tags_filter</code> to find memories with specific tags:
+            </p>
+            <CodeBlock lang="json" code={`{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "search_memory_v2",
+    "arguments": {
+      "query": "meeting schedule",
+      "tags_filter": ["work", "project-alpha"]  // Only memories with BOTH tags
+    }
+  },
+  "id": 2
+}`} />
+            <div className="mt-3 p-3 bg-muted/50 border border-border rounded text-sm">
+              <strong>⚡ Filtering Logic:</strong>
+              <ul className="list-disc list-inside space-y-1 mt-2 text-muted-foreground">
+                <li><strong>AND Logic:</strong> All tags in <code className="font-mono text-xs">tags_filter</code> must be present</li>
+                <li><strong>Semantic + Filter:</strong> First finds relevant memories, then filters by tags</li>
+                <li><strong>Empty Filter:</strong> No <code className="font-mono text-xs">tags_filter</code> returns all matching memories</li>
+                <li><strong>No Matches:</strong> Returns empty array <code className="font-mono text-xs">[]</code> if no memories have all tags</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="p-4 border border-border bg-card rounded-lg">
+            <h3 className="font-semibold text-foreground text-lg flex items-center mb-3">
+              <Briefcase className="w-5 h-5 mr-2 text-muted-foreground"/>
+              Use Cases for Metadata
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+              <div className="p-3 bg-muted/30 border border-border rounded">
+                <h4 className="font-medium text-foreground text-sm mb-2">🏢 Multi-Tenant Applications</h4>
+                <p className="text-muted-foreground text-xs">
+                  Tag memories with client IDs: <code className="font-mono text-xs">["client-acme", "billing"]</code>
+                </p>
+              </div>
+              <div className="p-3 bg-muted/30 border border-border rounded">
+                <h4 className="font-medium text-foreground text-sm mb-2">📋 Project Management</h4>
+                <p className="text-muted-foreground text-xs">
+                  Organize by project: <code className="font-mono text-xs">["project-alpha", "sprint-3"]</code>
+                </p>
+              </div>
+              <div className="p-3 bg-muted/30 border border-border rounded">
+                <h4 className="font-medium text-foreground text-sm mb-2">🔧 Development Workflow</h4>
+                <p className="text-muted-foreground text-xs">
+                  Tag by technology: <code className="font-mono text-xs">["python", "api", "database"]</code>
+                </p>
+              </div>
+              <div className="p-3 bg-muted/30 border border-border rounded">
+                <h4 className="font-medium text-foreground text-sm mb-2">📊 Analytics & Insights</h4>
+                <p className="text-muted-foreground text-xs">
+                  Track sources: <code className="font-mono text-xs">["slack", "user-feedback", "bug-report"]</code>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4 border border-border bg-card rounded-lg">
+            <h3 className="font-semibold text-foreground text-lg flex items-center mb-3">
+              <Share2 className="w-5 h-5 mr-2 text-muted-foreground"/>
+              Advanced Filtering Examples
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <h4 className="font-medium text-foreground text-sm mb-2">Project-Specific Search</h4>
+                <CodeBlock lang="bash" code={`curl -X POST ${API_URL}/mcp/messages/ \\
+  -H "X-Api-Key: YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "method": "tools/call",
+    "params": {
+      "name": "search_memory_v2",
+      "arguments": {
+        "query": "database optimization",
+        "tags_filter": ["work", "project-beta", "backend"]
+      }
+    }
+  }'`} />
+              </div>
+              <div>
+                <h4 className="font-medium text-foreground text-sm mb-2">Client-Isolated Search</h4>
+                <CodeBlock lang="bash" code={`curl -X POST ${API_URL}/mcp/messages/ \\
+  -H "X-Api-Key: YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "method": "tools/call",
+    "params": {
+      "name": "search_memory_v2",
+      "arguments": {
+        "query": "billing preferences",
+        "tags_filter": ["client-acme"]
+      }
+    }
+  }'`} />
+              </div>
+            </div>
+          </div>
         </div>
       </section>
-      
+
       <section id="architecture-diagram">
           <h2 className="text-3xl font-bold text-foreground mb-4">Unified Architecture</h2>
           <p className="text-muted-foreground mb-4">

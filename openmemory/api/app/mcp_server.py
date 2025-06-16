@@ -135,8 +135,7 @@ async def add_memories(text: str, tags: Optional[list[str]] = None) -> str:
 
             message_to_add = {
                 "role": "user",
-                "content": text,
-                "metadata": metadata
+                "content": text
             }
 
             logger.info(f"🔍 DEBUG: Passing this metadata to mem0.add: {metadata}")
@@ -145,7 +144,8 @@ async def add_memories(text: str, tags: Optional[list[str]] = None) -> str:
             add_call = functools.partial(
                 memory_client.add,
                 messages=[message_to_add],
-                user_id=supa_uid
+                user_id=supa_uid,
+                metadata=metadata
             )
             response = await loop.run_in_executor(None, add_call)
 
@@ -230,12 +230,21 @@ async def add_observation(text: str) -> str:
     return await add_memories(text)
 
 
-@mcp.tool(description="Search the user's memory for memories that match the query")
+@mcp.tool(description="Search the user's memory for memories that match the query. Optionally filter by tags.")
 @retry_on_exception(retries=3, delay=1, backoff=2, exceptions=(ConnectionError,))
-async def search_memory(query: str, limit: int = None) -> str:
+async def search_memory(query: str, limit: int = None, tags_filter: Optional[list[str]] = None) -> str:
     """
     Search the user's memory for memories that match the query.
     Returns memories that are semantically similar to the query.
+    
+    Args:
+        query: The search term or phrase to look for
+        limit: Maximum number of results to return (default: 10, max: 50) 
+        tags_filter: Optional list of tags to filter results (e.g., ["work", "project-alpha"])
+                    Only memories containing ALL specified tags will be returned.
+    
+    Returns:
+        JSON string containing list of matching memories with their content and metadata
     """
     # Lazy import
     from app.utils.memory import get_memory_client
@@ -255,7 +264,7 @@ async def search_memory(query: str, limit: int = None) -> str:
     
     try:
         # Add timeout to prevent hanging
-        return await asyncio.wait_for(_search_memory_impl(query, supa_uid, client_name, limit), timeout=30.0)
+        return await asyncio.wait_for(_search_memory_unified_impl(query, supa_uid, client_name, limit, tags_filter), timeout=30.0)
     except asyncio.TimeoutError:
         return f"Search timed out. Please try a simpler query."
     except Exception as e:
@@ -263,11 +272,12 @@ async def search_memory(query: str, limit: int = None) -> str:
         return f"Error searching memory: {e}"
 
 
-async def _search_memory_impl(query: str, supa_uid: str, client_name: str, limit: int = 10) -> str:
-    """Implementation of search memory with error handling and timeout"""
+async def _search_memory_unified_impl(query: str, supa_uid: str, client_name: str, limit: int = 10, tags_filter: Optional[list[str]] = None) -> str:
+    """Unified implementation that supports both basic search and tag filtering"""
     from app.utils.memory import get_memory_client
     memory_client = get_memory_client()
     db = SessionLocal()
+    
     try:
         # Get user (but don't filter by specific app - search ALL memories)
         user = get_or_create_user(db, supa_uid, None)
@@ -280,9 +290,12 @@ async def _search_memory_impl(query: str, supa_uid: str, client_name: str, limit
             logger.error(f"🚨 USER ID MISMATCH: Expected {supa_uid}, got {user.user_id}")
             return f"Error: User ID validation failed. Security issue detected."
 
+        # We fetch a larger pool of results to filter from if a filter is applied
+        fetch_limit = limit * 5 if tags_filter else limit
+
         # Run blocking I/O in a separate thread
         loop = asyncio.get_running_loop()
-        search_call = functools.partial(memory_client.search, query=query, user_id=supa_uid, limit=limit)
+        search_call = functools.partial(memory_client.search, query=query, user_id=supa_uid, limit=fetch_limit)
         mem0_search_results = await loop.run_in_executor(None, search_call)
         
         # 🚨 CRITICAL: Log the search results for debugging
@@ -295,9 +308,17 @@ async def _search_memory_impl(query: str, supa_uid: str, client_name: str, limit
         elif isinstance(mem0_search_results, list):
              actual_results_list = mem0_search_results
 
-        for mem_data in actual_results_list[:limit]:  # Extra safety to ensure limit
+        if actual_results_list and tags_filter:
+            logger.info(f"🔍 DEBUG: First result metadata: {actual_results_list[0].get('metadata')}")
+
+        for mem_data in actual_results_list:
+            # Skip if we've reached our limit
+            if len(processed_results) >= limit:
+                break
+                
             mem0_id = mem_data.get('id')
-            if not mem0_id: continue
+            if not mem0_id: 
+                continue
             
             # 🚨 CRITICAL: Check if this memory belongs to the correct user
             memory_content = mem_data.get('memory', mem_data.get('content', ''))
@@ -308,10 +329,20 @@ async def _search_memory_impl(query: str, supa_uid: str, client_name: str, limit
                 logger.error(f"🚨 Memory metadata: {mem_data.get('metadata', {})}")
                 continue  # Skip this memory
             
+            # Apply tag filtering if requested
+            if tags_filter:
+                # Handle the metadata null case
+                metadata = mem_data.get('metadata') or {}
+                mem_tags = metadata.get('tags', [])
+                
+                # Only include if ALL specified tags are present
+                if not all(tag in mem_tags for tag in tags_filter):
+                    continue
+            
             processed_results.append(mem_data)
         
         # 🚨 Log final results count
-        logger.info(f"🔍 SEARCH FINAL - User {supa_uid}: {len(processed_results)} memories returned after filtering")
+        logger.info(f"🔍 SEARCH FINAL - User {supa_uid}: {len(processed_results)} memories returned after filtering (tags_filter: {tags_filter})")
         
         return json.dumps(processed_results)
     finally:
@@ -1261,15 +1292,25 @@ async def handle_post_message(request: Request):
 
         elif method_name == "tools/call":
             tool_name = params.get("name")
+            tool_args = params.get("arguments", {})
+            
+            # Prevent API-only tools from being accessed by Claude Desktop
             if not is_api_key_path and tool_name == "search_memory_v2":
                  return JSONResponse(status_code=404, content={"error": f"Tool '{tool_name}' not found"})
-            if tool_name == "search_memory" and "tags_filter" in params.get("arguments", {}):
-                return JSONResponse(status_code=422, content={"jsonrpc": "2.0", "error": {"code": -32602, "message": "The 'search_memory' tool does not support 'tags_filter'. Use 'search_memory_v2' instead."}, "id": request_id})
+            
+            # Filter out complex parameters for Claude Desktop to keep interface simple
+            if not is_api_key_path and tool_name == "search_memory":
+                # Remove tags_filter for Claude to prevent complexity issues
+                tool_args.pop("tags_filter", None)
+            elif not is_api_key_path and tool_name == "add_memories":
+                # Remove tags for Claude to prevent complexity issues  
+                tool_args.pop("tags", None)
+            
             tool_function = tool_registry.get(tool_name)
             if not tool_function:
                 return JSONResponse(status_code=404, content={"error": f"Tool '{tool_name}' not found"})
             try:
-                result = await tool_function(**params.get("arguments", {}))
+                result = await tool_function(**tool_args)
                 return JSONResponse(content={"jsonrpc": "2.0", "result": {"content": [{"type": "text", "text": result}]}, "id": request_id})
             except TypeError as e:
                 return JSONResponse(status_code=422, content={"jsonrpc": "2.0", "error": {"code": -32602, "message": f"Invalid parameters for tool '{tool_name}': {e}"}, "id": request_id})
@@ -1299,7 +1340,7 @@ async def handle_post_message(request: Request):
         client_name_var.reset(client_token)
 
 def get_original_tools_schema():
-    """Returns the JSON schema for the original tools, safe for existing clients."""
+    """Returns the JSON schema for the original tools, now unified with optional tags_filter."""
     return [
         {
             "name": "ask_memory",
@@ -1313,8 +1354,15 @@ def get_original_tools_schema():
         },
         {
             "name": "search_memory", 
-            "description": "Quick keyword-based search through the user's memories...",
-            "inputSchema": {"type": "object", "properties": {"query": {"type": "string", "description": "The search query"}, "limit": {"type": "integer", "description": "Max results"}}, "required": ["query"]}
+            "description": "Quick keyword-based search through the user's memories. Use this for fast lookups when you need specific information or when ask_memory might be too comprehensive. Perfect for finding specific facts, dates, names, or simple queries.",
+            "inputSchema": {
+                "type": "object", 
+                "properties": {
+                    "query": {"type": "string", "description": "The search query"}, 
+                    "limit": {"type": "integer", "description": "Max results"}
+                }, 
+                "required": ["query"]
+            }
         },
         {
             "name": "list_memories",
