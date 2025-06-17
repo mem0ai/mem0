@@ -1804,6 +1804,10 @@ async def handle_sse_messages(client_name: str, user_id: str, request: Request):
                 "id": request_id
             }
         
+        # For Cursor, return JSON-RPC directly instead of SSE
+        if client_name == "cursor":
+            return JSONResponse(content=response_payload)
+        
         # Send response through SSE queue instead of returning HTTP response
         connection_id = f"{client_name}_{user_id}"
         if connection_id in sse_message_queues:
@@ -1822,6 +1826,10 @@ async def handle_sse_messages(client_name: str, user_id: str, request: Request):
             },
             "id": request_id if 'request_id' in locals() else None
         }
+        
+        # For Cursor, return JSON-RPC directly instead of SSE
+        if client_name == "cursor":
+            return JSONResponse(content=response_payload)
         
         # Send error through SSE queue
         connection_id = f"{client_name}_{user_id}"
