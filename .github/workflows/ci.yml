@@ -52,6 +52,8 @@ jobs:
         with:
           path: .venv
           key: venv-mem0-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
+      - name: Install GEOS Libraries
+        run: sudo apt-get update && sudo apt-get install -y libgeos-dev
       - name: Install dependencies
         run: |
           make install_all
