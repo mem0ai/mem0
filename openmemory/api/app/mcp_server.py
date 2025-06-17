@@ -1347,7 +1347,12 @@ async def handle_post_message(request: Request):
             return JSONResponse(content=response_payload)
 
         elif method_name == "tools/list":
-            if is_api_key_path:
+            # Detect ChatGPT requests
+            is_chatgpt = client_name_from_header == "chatgpt"
+            
+            if is_chatgpt:
+                tools_to_show = get_chatgpt_tools_schema()
+            elif is_api_key_path:
                 tools_to_show = get_api_tools_schema()
             else:
                 tools_to_show = get_original_tools_schema()
@@ -1356,27 +1361,51 @@ async def handle_post_message(request: Request):
         elif method_name == "tools/call":
             tool_name = params.get("name")
             tool_args = params.get("arguments", {})
+            is_chatgpt = client_name_from_header == "chatgpt"
             
-            # Prevent API-only tools from being accessed by Claude Desktop
-            if not is_api_key_path and tool_name == "search_memory_v2":
-                 return JSONResponse(status_code=404, content={"error": f"Tool '{tool_name}' not found"})
+            # Handle ChatGPT-specific tools
+            if is_chatgpt:
+                if tool_name == "search":
+                    try:
+                        result = await handle_chatgpt_search(user_id_from_header, tool_args.get("query", ""))
+                        return JSONResponse(content={"jsonrpc": "2.0", "result": result, "id": request_id})
+                    except Exception as e:
+                        return JSONResponse(content={"jsonrpc": "2.0", "error": {"code": -32603, "message": str(e)}, "id": request_id})
+                
+                elif tool_name == "fetch":
+                    try:
+                        result = await handle_chatgpt_fetch(user_id_from_header, tool_args.get("id", ""))
+                        return JSONResponse(content={"jsonrpc": "2.0", "result": result, "id": request_id})
+                    except ValueError as e:
+                        return JSONResponse(content={"jsonrpc": "2.0", "error": {"code": -32602, "message": str(e)}, "id": request_id})
+                    except Exception as e:
+                        return JSONResponse(content={"jsonrpc": "2.0", "error": {"code": -32603, "message": str(e)}, "id": request_id})
+                
+                else:
+                    return JSONResponse(status_code=404, content={"error": f"ChatGPT tool '{tool_name}' not found"})
             
-            # Filter out complex parameters for Claude Desktop to keep interface simple
-            if not is_api_key_path and tool_name == "search_memory":
-                # Remove tags_filter for Claude to prevent complexity issues
-                tool_args.pop("tags_filter", None)
-            elif not is_api_key_path and tool_name == "add_memories":
-                # Remove tags for Claude to prevent complexity issues  
-                tool_args.pop("tags", None)
-            
-            tool_function = tool_registry.get(tool_name)
-            if not tool_function:
-                return JSONResponse(status_code=404, content={"error": f"Tool '{tool_name}' not found"})
-            try:
-                result = await tool_function(**tool_args)
-                return JSONResponse(content={"jsonrpc": "2.0", "result": {"content": [{"type": "text", "text": result}]}, "id": request_id})
-            except TypeError as e:
-                return JSONResponse(status_code=422, content={"jsonrpc": "2.0", "error": {"code": -32602, "message": f"Invalid parameters for tool '{tool_name}': {e}"}, "id": request_id})
+            # Handle regular MCP tools for non-ChatGPT clients
+            else:
+                # Prevent API-only tools from being accessed by Claude Desktop
+                if not is_api_key_path and tool_name == "search_memory_v2":
+                     return JSONResponse(status_code=404, content={"error": f"Tool '{tool_name}' not found"})
+                
+                # Filter out complex parameters for Claude Desktop to keep interface simple
+                if not is_api_key_path and tool_name == "search_memory":
+                    # Remove tags_filter for Claude to prevent complexity issues
+                    tool_args.pop("tags_filter", None)
+                elif not is_api_key_path and tool_name == "add_memories":
+                    # Remove tags for Claude to prevent complexity issues  
+                    tool_args.pop("tags", None)
+                
+                tool_function = tool_registry.get(tool_name)
+                if not tool_function:
+                    return JSONResponse(status_code=404, content={"error": f"Tool '{tool_name}' not found"})
+                try:
+                    result = await tool_function(**tool_args)
+                    return JSONResponse(content={"jsonrpc": "2.0", "result": {"content": [{"type": "text", "text": result}]}, "id": request_id})
+                except TypeError as e:
+                    return JSONResponse(status_code=422, content={"jsonrpc": "2.0", "error": {"code": -32602, "message": f"Invalid parameters for tool '{tool_name}': {e}"}, "id": request_id})
 
         elif method_name == "notifications/initialized":
             logger.info(f"Received initialization notification from client '{client_name_from_header}'")
@@ -1587,34 +1616,38 @@ async def handle_sse_messages(client_name: str, user_id: str, request: Request):
             }
         
         elif method_name == "tools/list":
-            # Use the same comprehensive tool list as the main endpoint
-            tools = [
-                {
-                    "name": "ask_memory",
-                    "description": "FAST memory search for simple questions about the user's memories, thoughts, documents, or experiences",
-                    "inputSchema": {"type": "object", "properties": {"question": {"type": "string"}}, "required": ["question"]}
-                },
-                {
-                    "name": "add_memories",
-                    "description": "Store important information, preferences, facts, and observations about the user. Use this tool to remember key details learned during conversation, user preferences, values, beliefs, facts about their work/life/interests, or anything the user wants remembered for future conversations. Think of this as building a comprehensive understanding of who they are. You should consider using this after learning something new about the user, even if not explicitly asked. The memory will be permanently stored and searchable. YOU MUST USE THE TOOLS/CALL TO USE THIS. NOTHING ELSE.",
-                    "inputSchema": {"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]}
-                },
-                {
-                    "name": "search_memory", 
-                    "description": "Quick keyword-based search through the user's memories. Use this for fast lookups when you need specific information or when ask_memory might be too comprehensive. Perfect for finding specific facts, dates, names, or simple queries. If you need just a quick fact-check or simple lookup, this is faster than ask_memory. Use when you need raw memory data rather than a conversational response.",
-                    "inputSchema": {"type": "object", "properties": {"query": {"type": "string"}, "limit": {"type": "integer"}}, "required": ["query"]}
-                },
-                {
-                    "name": "list_memories",
-                    "description": "Browse through the user's stored memories to get an overview of what you know about them. Use this when you want to understand the breadth of information available, or when the user asks 'what do you know about me?' or wants to see their stored memories. This gives you raw memory data without analysis - good for getting oriented or checking what's stored.",
-                    "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer"}}}
-                },
-                {
-                    "name": "deep_memory_query", 
-                    "description": "COMPREHENSIVE search that analyzes ALL user content including full documents and essays. Use this ONLY when ask_memory isn't sufficient and you need to analyze entire documents, find patterns across multiple sources, or do complex research. Takes 30-60 seconds and processes everything. Use sparingly for complex questions like 'Analyze my writing style across all essays' or 'Find patterns in my thinking over time'.",
-                    "inputSchema": {"type": "object", "properties": {"search_query": {"type": "string"}, "memory_limit": {"type": "integer"}, "chunk_limit": {"type": "integer"}, "include_full_docs": {"type": "boolean", "description": "Whether to include complete documents", "default": True}}, "required": ["search_query"]}
-                }
-            ]
+            # Detect ChatGPT client for local development
+            if client_name == "chatgpt":
+                tools = get_chatgpt_tools_schema()
+            else:
+                # Use the same comprehensive tool list as the main endpoint for other clients
+                tools = [
+                    {
+                        "name": "ask_memory",
+                        "description": "FAST memory search for simple questions about the user's memories, thoughts, documents, or experiences",
+                        "inputSchema": {"type": "object", "properties": {"question": {"type": "string"}}, "required": ["question"]}
+                    },
+                    {
+                        "name": "add_memories",
+                        "description": "Store important information, preferences, facts, and observations about the user. Use this tool to remember key details learned during conversation, user preferences, values, beliefs, facts about their work/life/interests, or anything the user wants remembered for future conversations. Think of this as building a comprehensive understanding of who they are. You should consider using this after learning something new about the user, even if not explicitly asked. The memory will be permanently stored and searchable. YOU MUST USE THE TOOLS/CALL TO USE THIS. NOTHING ELSE.",
+                        "inputSchema": {"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]}
+                    },
+                    {
+                        "name": "search_memory", 
+                        "description": "Quick keyword-based search through the user's memories. Use this for fast lookups when you need specific information or when ask_memory might be too comprehensive. Perfect for finding specific facts, dates, names, or simple queries. If you need just a quick fact-check or simple lookup, this is faster than ask_memory. Use when you need raw memory data rather than a conversational response.",
+                        "inputSchema": {"type": "object", "properties": {"query": {"type": "string"}, "limit": {"type": "integer"}}, "required": ["query"]}
+                    },
+                    {
+                        "name": "list_memories",
+                        "description": "Browse through the user's stored memories to get an overview of what you know about them. Use this when you want to understand the breadth of information available, or when the user asks 'what do you know about me?' or wants to see their stored memories. This gives you raw memory data without analysis - good for getting oriented or checking what's stored.",
+                        "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer"}}}
+                    },
+                    {
+                        "name": "deep_memory_query", 
+                        "description": "COMPREHENSIVE search that analyzes ALL user content including full documents and essays. Use this ONLY when ask_memory isn't sufficient and you need to analyze entire documents, find patterns across multiple sources, or do complex research. Takes 30-60 seconds and processes everything. Use sparingly for complex questions like 'Analyze my writing style across all essays' or 'Find patterns in my thinking over time'.",
+                        "inputSchema": {"type": "object", "properties": {"search_query": {"type": "string"}, "memory_limit": {"type": "integer"}, "chunk_limit": {"type": "integer"}, "include_full_docs": {"type": "boolean", "description": "Whether to include complete documents", "default": True}}, "required": ["search_query"]}
+                    }
+                ]
             
             response_payload = {
                 "jsonrpc": "2.0",
@@ -1626,32 +1659,90 @@ async def handle_sse_messages(client_name: str, user_id: str, request: Request):
             tool_name = params.get("name")
             tool_args = params.get("arguments", {})
             
-            tool_function = tool_registry.get(tool_name)
-            if not tool_function:
-                response_payload = {
-                    "jsonrpc": "2.0",
-                    "error": {
-                        "code": -32601,
-                        "message": f"Tool '{tool_name}' not found"
-                    },
-                    "id": request_id
-                }
-            else:
-                # Execute the tool and await its result
-                result = await tool_function(**tool_args)
+            # Handle ChatGPT-specific tools for local development
+            if client_name == "chatgpt":
+                if tool_name == "search":
+                    try:
+                        result = await handle_chatgpt_search("00000000-0000-0000-0000-000000000001", tool_args.get("query", ""))
+                        response_payload = {
+                            "jsonrpc": "2.0",
+                            "result": result,
+                            "id": request_id
+                        }
+                    except Exception as e:
+                        response_payload = {
+                            "jsonrpc": "2.0",
+                            "error": {
+                                "code": -32603,
+                                "message": str(e)
+                            },
+                            "id": request_id
+                        }
                 
-                response_payload = {
-                    "jsonrpc": "2.0",
-                    "result": {
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": result
-                            }
-                        ]
-                    },
-                    "id": request_id
-                }
+                elif tool_name == "fetch":
+                    try:
+                        result = await handle_chatgpt_fetch("00000000-0000-0000-0000-000000000001", tool_args.get("id", ""))
+                        response_payload = {
+                            "jsonrpc": "2.0",
+                            "result": result,
+                            "id": request_id
+                        }
+                    except ValueError as e:
+                        response_payload = {
+                            "jsonrpc": "2.0",
+                            "error": {
+                                "code": -32602,
+                                "message": str(e)
+                            },
+                            "id": request_id
+                        }
+                    except Exception as e:
+                        response_payload = {
+                            "jsonrpc": "2.0",
+                            "error": {
+                                "code": -32603,
+                                "message": str(e)
+                            },
+                            "id": request_id
+                        }
+                
+                else:
+                    response_payload = {
+                        "jsonrpc": "2.0",
+                        "error": {
+                            "code": -32601,
+                            "message": f"ChatGPT tool '{tool_name}' not found"
+                        },
+                        "id": request_id
+                    }
+            else:
+                # Handle regular tools for other clients
+                tool_function = tool_registry.get(tool_name)
+                if not tool_function:
+                    response_payload = {
+                        "jsonrpc": "2.0",
+                        "error": {
+                            "code": -32601,
+                            "message": f"Tool '{tool_name}' not found"
+                        },
+                        "id": request_id
+                    }
+                else:
+                    # Execute the tool and await its result
+                    result = await tool_function(**tool_args)
+                    
+                    response_payload = {
+                        "jsonrpc": "2.0",
+                        "result": {
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": result
+                                }
+                            ]
+                        },
+                        "id": request_id
+                    }
         
         else:
             # Unknown method
@@ -1704,3 +1795,85 @@ def setup_mcp_server(app: FastAPI):
     # The old SSE endpoints are no longer needed with the Cloudflare Worker architecture.
     app.include_router(mcp_router)
     logger.info("MCP server setup complete - stateless router included.")
+
+def get_chatgpt_tools_schema():
+    """Returns ONLY search and fetch tools for ChatGPT clients - OpenAI compliant schemas"""
+    return [
+        {
+            "name": "search",
+            "description": "Searches for resources using the provided query string and returns matching results.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Search query."}
+                },
+                "required": ["query"]
+            }
+        },
+        {
+            "name": "fetch",
+            "description": "Retrieves detailed content for a specific resource identified by the given ID.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string", "description": "ID of the resource to fetch."}
+                },
+                "required": ["id"]
+            }
+        }
+    ]
+
+async def handle_chatgpt_search(user_id: str, query: str):
+    """ChatGPT search implementation - returns OpenAI compliant format"""
+    try:
+        # Use existing search logic but return ChatGPT format
+        result = await _search_memory_unified_impl(query, user_id, "chatgpt", limit=10)
+        
+        # Parse the JSON result from our existing search
+        if isinstance(result, str):
+            import json
+            search_results = json.loads(result)
+        else:
+            search_results = result
+        
+        # Format for ChatGPT schema - must match OpenAI's exact specification
+        formatted_results = []
+        for result in search_results:
+            memory_text = result.get("memory", result.get("content", ""))
+            formatted_results.append({
+                "id": str(result.get("id", "")),
+                "title": memory_text[:100] + "..." if len(memory_text) > 100 else memory_text,
+                "text": memory_text,
+                "url": None  # Required by OpenAI spec, needed for citations
+            })
+        
+        return {"results": formatted_results}
+    except Exception as e:
+        logger.error(f"ChatGPT search error: {e}")
+        return {"results": []}
+
+async def handle_chatgpt_fetch(user_id: str, memory_id: str):
+    """ChatGPT fetch implementation - returns OpenAI compliant format"""
+    try:
+        # Use existing get memory logic  
+        result = await _get_memory_details_impl(memory_id, user_id, "chatgpt")
+        
+        # Parse the JSON result from our existing function
+        if isinstance(result, str):
+            import json
+            memory_details = json.loads(result)
+        else:
+            memory_details = result
+        
+        # Format for ChatGPT schema - must match OpenAI's exact specification
+        memory_text = memory_details.get("content", memory_details.get("memory", ""))
+        return {
+            "id": str(memory_details.get("id", memory_id)),
+            "title": memory_text[:100] + "..." if len(memory_text) > 100 else memory_text,
+            "text": memory_text,  # Complete textual content as per OpenAI spec
+            "url": None,  # Required by OpenAI spec, needed for citations
+            "metadata": memory_details.get("metadata", {})  # Optional additional context
+        }
+    except Exception as e:
+        logger.error(f"ChatGPT fetch error: {e}")
+        raise ValueError("unknown id")  # OpenAI spec expects this exact error message
