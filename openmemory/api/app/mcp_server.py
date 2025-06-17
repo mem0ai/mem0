@@ -1349,8 +1349,12 @@ async def handle_post_message(request: Request):
             # Detect ChatGPT requests
             is_chatgpt = client_name_from_header == "chatgpt"
             
+            # DIAGNOSTIC: Based on user feedback, the Playground may expect the general
+            # toolset even when identifying as 'chatgpt'. This forces the original schema
+            # for testing purposes to see if the tools load successfully.
             if is_chatgpt:
-                tools_to_show = get_chatgpt_tools_schema()
+                # tools_to_show = get_chatgpt_tools_schema() # Temporarily disabling strict schema
+                tools_to_show = get_original_tools_schema()
             elif is_api_key_path:
                 tools_to_show = get_api_tools_schema()
             else:
