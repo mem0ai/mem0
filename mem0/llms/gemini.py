@@ -2,9 +2,9 @@ import os
 from typing import Dict, List, Optional
 
 try:
-    import google.generativeai as genai
-    from google.generativeai import GenerativeModel, protos
-    from google.generativeai.types import content_types
+    from google import genai
+    from google.genai import types
+    
 except ImportError:
     raise ImportError(
         "The 'google-generativeai' library is required. Please install it using 'pip install google-generativeai'."
@@ -22,65 +22,70 @@ class GeminiLLM(LLMBase):
             self.config.model = "gemini-1.5-flash-latest"
 
         api_key = self.config.api_key or os.getenv("GEMINI_API_KEY")
-        genai.configure(api_key=api_key)
-        self.client = GenerativeModel(model_name=self.config.model)
+        self.client_gemini = genai.Client(
+            api_key=api_key,
+        )
 
     def _parse_response(self, response, tools):
         """
         Process the response based on whether tools are used or not.
 
         Args:
-            response: The raw response from API.
+            response: The raw response from the API.
             tools: The list of tools provided in the request.
 
         Returns:
             str or dict: The processed response.
         """
+        candidate = response.candidates[0]
+        content = candidate.content.parts[0].text if candidate.content.parts else None
+
         if tools:
             processed_response = {
-                "content": (content if (content := response.candidates[0].content.parts[0].text) else None),
+                "content": content,
                 "tool_calls": [],
             }
 
-            for part in response.candidates[0].content.parts:
-                if fn := part.function_call:
-                    if isinstance(fn, protos.FunctionCall):
-                        fn_call = type(fn).to_dict(fn)
-                        processed_response["tool_calls"].append({"name": fn_call["name"], "arguments": fn_call["args"]})
-                        continue
-                    processed_response["tool_calls"].append({"name": fn.name, "arguments": fn.args})
+            for part in candidate.content.parts:
+                fn = getattr(part, "function_call", None)
+                if fn:
+                    processed_response["tool_calls"].append({
+                        "name": fn.name,
+                        "arguments": fn.args,
+                    })
 
             return processed_response
-        else:
-            return response.candidates[0].content.parts[0].text
 
-    def _reformat_messages(self, messages: List[Dict[str, str]]):
+        return content
+
+
+    def _reformat_messages(self, messages: List[Dict[str, str]]) -> List[types.Content]:
         """
-        Reformat messages for Gemini.
+        Reformat messages for Gemini using google.genai.types.
 
         Args:
             messages: The list of messages provided in the request.
 
         Returns:
-            list: The list of messages in the required format.
+            list: A list of types.Content objects with proper role and parts.
         """
         new_messages = []
 
         for message in messages:
             if message["role"] == "system":
                 content = "THIS IS A SYSTEM PROMPT. YOU MUST OBEY THIS: " + message["content"]
-
             else:
                 content = message["content"]
 
             new_messages.append(
-                {
-                    "parts": content,
-                    "role": "model" if message["role"] == "model" else "user",
-                }
+                types.Content(
+                    role="model" if message["role"] == "model" else "user",
+                    parts=[types.Part(text=content)]
+                )
             )
 
         return new_messages
+
 
     def _reformat_tools(self, tools: Optional[List[Dict]]):
         """
@@ -126,6 +131,7 @@ class GeminiLLM(LLMBase):
         tools: Optional[List[Dict]] = None,
         tool_choice: str = "auto",
     ):
+        
         """
         Generate a response based on the given messages using Gemini.
 
@@ -149,23 +155,37 @@ class GeminiLLM(LLMBase):
             params["response_mime_type"] = "application/json"
             if "schema" in response_format:
                 params["response_schema"] = response_format["schema"]
+
+        tool_config = None
         if tool_choice:
-            tool_config = content_types.to_tool_config(
-                {
-                    "function_calling_config": {
-                        "mode": tool_choice,
-                        "allowed_function_names": (
-                            [tool["function"]["name"] for tool in tools] if tool_choice == "any" else None
-                        ),
-                    }
-                }
+            tool_config = types.ToolConfig(
+                function_calling_config=types.FunctionCallingConfig(
+                    mode=tool_choice.upper(),  # Assuming 'any' should become 'ANY', etc.
+                    allowed_function_names=[
+                        tool["function"]["name"] for tool in tools
+                    ] if tool_choice == "any" else None
+                )
             )
 
-        response = self.client.generate_content(
-            contents=self._reformat_messages(messages),
-            tools=self._reformat_tools(tools),
-            generation_config=genai.GenerationConfig(**params),
-            tool_config=tool_config,
-        )
+        print(f"Tool config: {tool_config}")
+        print(f"Params: {params}" )
+        print(f"Messages: {messages}")
+        print(f"Tools: {tools}")
+        print(f"Reformatted messages: {self._reformat_messages(messages)}")
+        print(f"Reformatted tools: {self._reformat_tools(tools)}")
+
+        response = self.client_gemini.models.generate_content(
+                model=self.config.model,
+                contents=self._reformat_messages(messages),
+                config=types.GenerateContentConfig(
+                    temperature= self.config.temperature,
+                    max_output_tokens= self.config.max_tokens,
+                    top_p= self.config.top_p,
+                    tools=self._reformat_tools(tools),
+                    tool_config=tool_config,
+
+                ),
+            )
+        print(f"Response test: {response}")
 
         return self._parse_response(response, tools)
