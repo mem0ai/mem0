@@ -469,7 +469,32 @@ This approach gets ChatGPT working quickly while keeping all existing functional
 - **Claude (Unchanged)**: `https://api.jeanmemory.com/mcp/claude/sse/{user_id}`
 
 ### 📋 Next Steps
-1. External testing with real user IDs
-2. ChatGPT Deep Research integration testing
-3. Performance monitoring and optimization
-4. OAuth 2.1 implementation (future enhancement) 
+1. ✅ External testing with real user IDs - **COMPLETED**
+2. ✅ ChatGPT Deep Research integration testing - **COMPLETED** 
+3. ✅ Critical bug fixes deployed - **COMPLETED December 2024**
+4. Performance monitoring and optimization
+5. OAuth 2.1 implementation (future enhancement)
+
+### 🔧 Critical Fixes Applied (December 2024)
+
+**Issue**: ChatGPT was connecting but showing "No file chosen" instead of search results.
+
+**Root Causes Identified & Fixed**:
+1. **Wrong User ID**: ChatGPT handlers were using hardcoded test user ID instead of actual user ID from URL
+2. **JSON Parsing**: Search results weren't being parsed correctly for ChatGPT's response format  
+3. **User Validation**: Production user IDs were being blocked by local development restrictions
+
+**Changes Made**:
+- Updated `handle_chatgpt_search()` and `handle_chatgpt_fetch()` to use actual `user_id` parameter
+- Enhanced JSON parsing to handle different response formats from `_search_memory_unified_impl()`
+- Removed user validation restrictions in SSE connection and messages handlers
+- Added comprehensive logging for debugging ChatGPT tool calls
+- Deployed fixes in commit `22125d0`
+
+**Result**: ✅ ChatGPT Deep Research now works correctly with user's actual memories
+
+### 📚 Documentation Updates
+- Added comprehensive troubleshooting guide to `CHATGPT_DEPLOYMENT_GUIDE.md`
+- Documented common issues and their solutions
+- Included debugging steps and recovery procedures
+- Added code examples for the fixes applied 

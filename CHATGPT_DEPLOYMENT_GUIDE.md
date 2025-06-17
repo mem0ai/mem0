@@ -178,6 +178,152 @@ curl -N https://api.jeanmemory.com/mcp/chatgpt/sse/YOUR_USER_ID_HERE
 
 ---
 
+## 🐛 Troubleshooting Guide
+
+### Common Issues & Solutions
+
+#### Issue 1: "No file chosen" in ChatGPT Deep Research
+**Symptoms**: ChatGPT connects successfully but shows "No file chosen" and can't display search results.
+
+**Root Cause**: Usually indicates a problem with response formatting or user ID handling.
+
+**Solution**: Check the following:
+
+1. **Verify User ID is Correct**:
+```bash
+# Check logs for user ID being used
+curl -X POST https://api.jeanmemory.com/mcp/messages/ \
+  -H "Content-Type: application/json" \
+  -H "X-User-Id: YOUR_USER_ID" \
+  -H "X-Client-Name: chatgpt" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"search","arguments":{"query":"test"}}}'
+```
+
+2. **Check Backend Logs**: Look for these patterns:
+```
+✅ Good: "ChatGPT search returning X results for query: test"
+❌ Bad: "ChatGPT search error: ..." 
+```
+
+3. **Verify Response Format**: Search should return:
+```json
+{
+  "jsonrpc": "2.0", 
+  "result": {
+    "results": [
+      {
+        "id": "uuid",
+        "title": "Preview text...",
+        "text": "Full memory content", 
+        "url": null
+      }
+    ]
+  },
+  "id": 1
+}
+```
+
+#### Issue 2: "User not found in local development mode"
+**Symptoms**: 404 errors when testing with production user IDs.
+
+**Root Cause**: Hardcoded user validation blocking real user IDs.
+
+**Solution Applied** (December 2024):
+- Removed user validation restrictions in `handle_sse_connection` and `handle_sse_messages`
+- Updated handlers to use actual `user_id` parameter instead of hardcoded test IDs
+- Fixed in commit `22125d0`
+
+#### Issue 3: ChatGPT Gets Empty Results Despite Backend Showing Data
+**Symptoms**: Backend logs show "10 memories returned" but ChatGPT sees no results.
+
+**Root Cause**: JSON parsing issues in `handle_chatgpt_search` function.
+
+**Solution Applied** (December 2024):
+- Enhanced JSON parsing to handle both list and dict response formats
+- Added robust error handling for different search result structures
+- Improved logging to track result formatting
+
+**Code Fix**:
+```python
+# Before (broken)
+for result in search_results:
+    # Would fail if search_results was a dict with 'results' key
+
+# After (fixed) 
+if isinstance(search_results, list):
+    results_list = search_results
+elif isinstance(search_results, dict) and 'results' in search_results:
+    results_list = search_results['results']
+else:
+    results_list = search_results if isinstance(search_results, list) else []
+
+for result in results_list:
+    # Now works with any format
+```
+
+#### Issue 4: "MCP session not ready" When Testing Messages Endpoint
+**Symptoms**: 408 timeout errors when testing `/mcp/chatgpt/messages/` directly.
+
+**Root Cause**: This is **expected behavior**. The messages endpoint requires an active SSE connection first.
+
+**Solution**: This is not an error! The proper flow is:
+1. ChatGPT establishes SSE connection: `/mcp/chatgpt/sse/{user_id}`
+2. ChatGPT sends messages through that connection: `/mcp/chatgpt/messages/{user_id}`
+
+**For Testing**: Use the backend direct endpoint instead:
+```bash
+curl -X POST https://api.jeanmemory.com/mcp/messages/ \
+  -H "X-Client-Name: chatgpt" \
+  -H "X-User-Id: {user_id}" \
+  -d '{"jsonrpc":"2.0","method":"tools/list"}'
+```
+
+### Debugging Steps
+
+#### 1. Check Backend Health
+```bash
+curl https://jean-memory-api.onrender.com/health
+# Should return: {"status": "healthy"}
+```
+
+#### 2. Verify Cloudflare Worker
+```bash
+curl https://api.jeanmemory.com/health  
+# Should proxy to backend health check
+```
+
+#### 3. Test Client Detection
+```bash
+# Test ChatGPT client detection
+curl -X POST https://api.jeanmemory.com/mcp/messages/ \
+  -H "X-Client-Name: chatgpt" \
+  -d '{"jsonrpc":"2.0","method":"tools/list"}'
+
+# Should return only search/fetch tools, not full tool suite
+```
+
+#### 4. Monitor Production Logs
+- **Render Backend**: Check logs at https://dashboard.render.com
+- **Cloudflare Worker**: Check logs in Cloudflare dashboard
+- **Look for**: User ID mismatches, JSON parsing errors, tool call failures
+
+### Recovery Procedures
+
+#### If ChatGPT Integration Breaks:
+1. **Verify Claude Still Works**: Test existing Claude Desktop integration
+2. **Check Recent Deployments**: Review recent commits for breaking changes
+3. **Rollback if Needed**: 
+   ```bash
+   git revert <commit-hash>
+   git push origin main
+   ```
+4. **Test Isolation**: ChatGPT and Claude are completely isolated, so Claude should never be affected
+
+#### Emergency Disable:
+If needed, ChatGPT integration can be disabled by removing the `/mcp/chatgpt/` routes from the Cloudflare Worker without affecting Claude users.
+
+---
+
 ## 🔧 Automated Testing Scripts
 
 ### Production Testing Script
