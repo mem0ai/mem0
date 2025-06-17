@@ -1346,15 +1346,17 @@ async def handle_post_message(request: Request):
             return JSONResponse(content=response_payload)
 
         elif method_name == "tools/list":
-            # Simplified logic based on working commit
-            if is_api_key_path:
+            # Select the correct tool schema based on the client
+            if client_name_from_header == "chatgpt":
+                tools_to_show = get_chatgpt_tools_schema()
+            elif is_api_key_path:
                 tools_to_show = get_api_tools_schema()
             else:
                 # This will cover the playground case and default
                 tools_to_show = get_original_tools_schema()
 
             # 🚨 CRITICAL DEBUGGING: Log the exact schema being sent
-            logger.info(f"🔍 TOOLS/LIST DEBUG - Client: {client_name_from_header}, Schema: {json.dumps(tools_to_show, indent=2)}")
+            logger.info(f"🔍 TOOLS/LIST DEBUG - Client: {client_name_from_header}, is_api_key: {is_api_key_path}, Schema: {json.dumps(tools_to_show, indent=2)}")
 
             return JSONResponse(content={"jsonrpc": "2.0", "result": {"tools": tools_to_show}, "id": request_id})
 
