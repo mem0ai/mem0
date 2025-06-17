@@ -1355,6 +1355,10 @@ async def handle_post_message(request: Request):
                 tools_to_show = get_api_tools_schema()
             else:
                 tools_to_show = get_original_tools_schema()
+
+            # 🚨 CRITICAL DEBUGGING: Log the exact schema being sent
+            logger.info(f"🔍 TOOLS/LIST DEBUG - Client: {client_name_from_header}, Schema: {json.dumps(tools_to_show, indent=2)}")
+
             return JSONResponse(content={"jsonrpc": "2.0", "result": {"tools": tools_to_show}, "id": request_id})
 
         elif method_name == "tools/call":
@@ -1890,7 +1894,6 @@ def get_chatgpt_tools_schema():
                     "url": {"type": ["string", "null"], "description": "URL of the resource. Optional but needed for citations to work."},
                     "metadata": {
                         "type": ["object", "null"],
-                        "additionalProperties": {"type": "string"},
                         "description": "Optional metadata providing additional context."
                     }
                 },
