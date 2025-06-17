@@ -1794,9 +1794,6 @@ async def handle_sse_messages(client_name: str, user_id: str, request: Request):
         # If it does, use the queue. Otherwise, return a direct response for stateless clients.
         if connection_id in sse_message_queues:
             await sse_message_queues[connection_id].put(response_payload)
-            # CRITICAL FIX: Immediately send a heartbeat after the message to keep the connection alive.
-            heartbeat_message = f"event: heartbeat\ndata: {{'timestamp': '{datetime.datetime.now(datetime.UTC).isoformat()}'}}\n\n"
-            await sse_message_queues[connection_id].put(heartbeat_message)
             # Return empty response to close HTTP request
             return JSONResponse(content={"status": "sent_via_sse"})
         else:
