@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from typing import Literal, Optional
 
 try:
@@ -43,6 +44,18 @@ class AWSBedrockEmbedding(EmbeddingBase):
             aws_access_key_id=aws_access_key if aws_access_key else None,
             aws_secret_access_key=aws_secret_key if aws_secret_key else None,
         )
+    
+    def extract_json(text):
+        text = text.strip()
+        
+        # Check if it's wrapped in code fences
+        match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
+        if match:
+            json_str = match.group(1)
+        else:
+            json_str = text  # assume it's raw JSON
+
+        return json_str
 
     def _normalize_vector(self, embeddings):
         """Normalize the embedding to a unit vector."""
@@ -74,7 +87,7 @@ class AWSBedrockEmbedding(EmbeddingBase):
                 contentType="application/json",
             )
 
-            response_body = json.loads(response.get("body").read())
+            response_body = json.loads(self.extract_json(response.get("body").read()))
 
             if provider == "cohere":
                 embeddings = response_body.get("embeddings")[0]
