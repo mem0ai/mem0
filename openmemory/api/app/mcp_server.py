@@ -1784,14 +1784,18 @@ async def handle_sse_messages(client_name: str, user_id: str, request: Request):
         # For Cursor, return JSON-RPC directly instead of SSE
         if client_name == "cursor":
             return JSONResponse(content=response_payload)
-        
-        # Send response through SSE queue instead of returning HTTP response
+
         connection_id = f"{client_name}_{user_id}"
+        # Check if a persistent SSE connection exists for this user.
+        # If it does, use the queue. Otherwise, return a direct response for stateless clients.
         if connection_id in sse_message_queues:
             await sse_message_queues[connection_id].put(response_payload)
-        
-        # Return empty response to close HTTP request
-        return JSONResponse(content={"status": "sent_via_sse"})
+            # Return empty response to close HTTP request
+            return JSONResponse(content={"status": "sent_via_sse"})
+        else:
+            # No active SSE connection, so return the full payload directly.
+            # This handles local testing with tools like the OpenAI Playground.
+            return JSONResponse(content=response_payload)
     
     except Exception as e:
         logger.error(f"Error in SSE messages handler: {e}")
@@ -1807,13 +1811,16 @@ async def handle_sse_messages(client_name: str, user_id: str, request: Request):
         # For Cursor, return JSON-RPC directly instead of SSE
         if client_name == "cursor":
             return JSONResponse(content=response_payload)
-        
-        # Send error through SSE queue
+
         connection_id = f"{client_name}_{user_id}"
+        # Also check here for stateless vs. stateful error reporting
         if connection_id in sse_message_queues:
+            # Send error through SSE queue
             await sse_message_queues[connection_id].put(response_payload)
-        
-        return JSONResponse(content={"status": "error_sent_via_sse"})
+            return JSONResponse(content={"status": "error_sent_via_sse"})
+        else:
+            # Return error directly for stateless clients
+            return JSONResponse(content=response_payload, status_code=500)
     
     finally:
         # Clean up context variables
