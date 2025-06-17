@@ -1592,7 +1592,7 @@ async def handle_sse_connection(client_name: str, user_id: str, request: Request
                     # Check for messages with timeout
                     message = await asyncio.wait_for(
                         sse_message_queues[connection_id].get(), 
-                        timeout=10.0
+                        timeout=1.0
                     )
                     # Send the message through SSE
                     yield f"data: {json.dumps(message)}\n\n"
