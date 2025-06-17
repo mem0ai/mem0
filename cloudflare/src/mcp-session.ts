@@ -176,6 +176,13 @@ export class McpSession implements DurableObject {
 
     sendSseResponse(responseJson: any, id: string | number | null) {
         if (this.sseController) {
+            // Only filter out initialization messages for ChatGPT clients
+            // Claude clients need these messages to complete the handshake
+            if (this.clientName === 'chatgpt' && (responseJson?.result?.protocolVersion || responseJson?.result?.serverInfo)) {
+                console.log(`[${this.userId}] Filtering out initialization message from SSE for ChatGPT client, ID: ${id}`);
+                return; // Filter out for ChatGPT only
+            }
+            
             const encoder = new TextEncoder();
             const sseMessage = `event: message\ndata: ${JSON.stringify(responseJson)}\n\n`;
             this.sseController.enqueue(encoder.encode(sseMessage));
