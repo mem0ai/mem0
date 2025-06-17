@@ -1849,74 +1849,103 @@ def get_chatgpt_tools_schema():
     return [
         {
             "name": "search",
-            "description": "Performs comprehensive deep research analysis across ALL user content including documents, essays, and memories. This tool analyzes patterns, themes, and insights across the entire knowledge base. Designed for iterative deep research - call multiple times to explore different angles, dig deeper into findings, or analyze connections between ideas. Takes 30-60 seconds but provides rich, comprehensive results perfect for research citations.",
-            "input_schema": {
+            "description": "Search for memories and documents",
+            "inputSchema": {
                 "type": "object",
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "Deep research query. Can be broad ('analyze my writing themes') or specific ('find patterns in my work preferences'). The more specific and detailed your query, the better the analysis."
+                        "description": "Search query to find relevant memories and documents"
                     }
                 },
                 "required": ["query"]
             },
-            "output_schema": {
+            "outputSchema": {
                 "type": "object",
                 "properties": {
-                    "results": {
+                    "structuredContent": {
+                        "type": "object",
+                        "properties": {
+                            "results": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {"type": "string"},
+                                        "title": {"type": "string"},
+                                        "text": {"type": "string"},
+                                        "url": {"type": ["string", "null"]}
+                                    },
+                                    "required": ["id", "title", "text"]
+                                }
+                            }
+                        },
+                        "required": ["results"]
+                    },
+                    "content": {
                         "type": "array",
                         "items": {
                             "type": "object",
                             "properties": {
-                                "id": {"type": "string", "description": "ID of the resource."},
-                                "title": {"type": "string", "description": "Title or headline of the resource."},
-                                "text": {"type": "string", "description": "Text snippet or summary from the resource."},
-                                "url": {"type": ["string", "null"], "description": "URL of the resource. Optional but needed for citations to work."}
+                                "type": {"type": "string"},
+                                "text": {"type": "string"}
                             },
-                            "required": ["id", "title", "text"]
+                            "required": ["type", "text"]
                         }
                     }
                 },
-                "required": ["results"]
+                "required": ["structuredContent", "content"]
             }
         },
         {
             "name": "fetch",
-            "description": "Retrieves detailed content for a specific resource identified by its ID. Use this to get the full text of a memory or document that was found in a search.",
-            "input_schema": {
+            "description": "Fetch memory or document by ID",
+            "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "id": {"type": "string", "description": "The ID of the resource to fetch."}
+                    "id": {"type": "string", "description": "ID of the memory or document to fetch"}
                 },
                 "required": ["id"]
             },
-            "output_schema": {
+            "outputSchema": {
                 "type": "object",
                 "properties": {
-                    "id": {"type": "string", "description": "ID of the resource."},
-                    "title": {"type": "string", "description": "Title or headline of the fetched resource."},
-                    "text": {"type": "string", "description": "Complete textual content of the resource."},
-                    "url": {"type": ["string", "null"], "description": "URL of the resource. Optional but needed for citations to work."},
-                    "metadata": {
-                        "type": [
-                          "object",
-                          "null"
-                        ],
-                        "description": "Optional metadata providing additional context.",
-                        "additionalProperties": {"type": "string"}
+                    "structuredContent": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string"},
+                            "title": {"type": "string"},
+                            "text": {"type": "string"},
+                            "url": {"type": ["string", "null"]},
+                            "metadata": {
+                                "type": ["object", "null"],
+                                "additionalProperties": {"type": "string"}
+                            }
+                        },
+                        "required": ["id", "title", "text"]
+                    },
+                    "content": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "type": {"type": "string"},
+                                "text": {"type": "string"}
+                            },
+                            "required": ["type", "text"]
+                        }
                     }
                 },
-                "required": ["id", "title", "text"]
+                "required": ["structuredContent", "content"]
             }
         }
     ]
 
 async def handle_chatgpt_search(user_id: str, query: str):
     """
-    ChatGPT search implementation.
-    Returns a simple list of IDs, trusting the fastmcp library's SSE transport
-    to handle fetching the details and formatting the final response.
-    This aligns with working community examples.
+    ChatGPT search implementation - matches sobannon's working format exactly.
+    Returns full article objects with structuredContent and content format.
+    Based on confirmed working implementation: OBannon37/chatgpt-deep-research-connector-example
     """
     try:
         # Use existing search logic to get a list of memory objects
@@ -1929,36 +1958,105 @@ async def handle_chatgpt_search(user_id: str, query: str):
         else:
             search_results = result_json_str
         
-        # Extract just the IDs, as seen in working community examples
-        ids = [str(result.get("id", "")) for result in search_results if result.get("id")]
+        # sobannon's working pattern: Return full article objects, not just IDs
+        # Each result needs: id, title, text, url (all required fields)
+        articles = []
+        for i, result in enumerate(search_results):
+            if result.get("id"):
+                # Map complex UUID to simple string number (store mapping for fetch)
+                simple_id = str(i + 1)  # "1", "2", "3" like working examples
+                
+                # Store mapping for fetch to use
+                if not hasattr(handle_chatgpt_search, '_id_mapping'):
+                    handle_chatgpt_search._id_mapping = {}
+                handle_chatgpt_search._id_mapping[simple_id] = str(result.get("id", ""))
+                
+                # Get memory content for article
+                memory_content = result.get("content", result.get("memory", ""))
+                
+                # Create article object with all required fields (matching sobannon's Article interface)
+                # Generate a citation URL for each memory to help ChatGPT understand it's citable
+                citation_url = f"https://jeanmemory.com/memory/{result.get('id', simple_id)}"
+                
+                article = {
+                    "id": simple_id,  # Simple string ID like "1", "2", "3"
+                    "title": memory_content[:100] + "..." if len(memory_content) > 100 else memory_content,
+                    "text": memory_content,  # Full content
+                    "url": citation_url  # Real URL for ChatGPT citations (matching sobannon's pattern)
+                }
+                articles.append(article)
         
-        logger.info(f"ChatGPT search found {len(ids)} IDs for query: {query}")
-        return {"ids": ids}
+        # sobannon's exact working response format
+        search_response = {"results": articles}
+        
+        logger.info(f"ChatGPT search found {len(articles)} articles for query: {query}")
+        
+        # Return sobannon's exact format: structuredContent + content
+        return {
+            "structuredContent": search_response,  # For programmatic access
+            "content": [
+                {
+                    "type": "text", 
+                    "text": json.dumps(search_response)  # For display
+                }
+            ]
+        }
 
     except Exception as e:
         logger.error(f"ChatGPT search error: {e}", exc_info=True)
-        return {"ids": []}
+        # Return empty results in the same format
+        empty_response = {"results": []}
+        return {
+            "structuredContent": empty_response,
+            "content": [
+                {
+                    "type": "text",
+                    "text": json.dumps(empty_response)
+                }
+            ]
+        }
 
 async def handle_chatgpt_fetch(user_id: str, memory_id: str):
-    """ChatGPT fetch implementation - returns OpenAI compliant format"""
+    """ChatGPT fetch implementation - matches sobannon's working format exactly"""
     try:
+        # Convert simple ID back to UUID using the mapping from search
+        real_memory_id = memory_id
+        if hasattr(handle_chatgpt_search, '_id_mapping') and memory_id in handle_chatgpt_search._id_mapping:
+            real_memory_id = handle_chatgpt_search._id_mapping[memory_id]
+            logger.info(f"ChatGPT fetch: converted simple ID '{memory_id}' to real ID '{real_memory_id}'")
+        
         # Use the new, dedicated fetch logic for ChatGPT to avoid breaking other tools.
-        memory_details = await _chatgpt_fetch_memory_by_id(user_id, memory_id)
+        memory_details = await _chatgpt_fetch_memory_by_id(user_id, real_memory_id)
         
         # If the dedicated function returns None, the memory wasn't found.
         if memory_details is None:
             raise ValueError("unknown id")
         
-        # Format for ChatGPT schema - must match OpenAI's exact specification
+        # Format article object - must match sobannon's Article interface
         memory_text = memory_details.get("content", memory_details.get("memory", ""))
         
-        logger.info(f"ChatGPT fetch returning memory {memory_id} for user {user_id}")
-        return {
-            "id": str(memory_details.get("id", memory_id)),
+        # Generate citation URL matching the search format
+        citation_url = f"https://jeanmemory.com/memory/{memory_details.get('id', memory_id)}"
+        
+        article = {
+            "id": memory_id,  # Return the simple ID that ChatGPT expects
             "title": memory_text[:100] + "..." if len(memory_text) > 100 else memory_text,
-            "text": memory_text,  # Complete textual content as per OpenAI spec
-            "url": None,  # Required by OpenAI spec, needed for citations
+            "text": memory_text,  # Complete textual content
+            "url": citation_url,  # Real URL for ChatGPT citations (matching sobannon's pattern)
             "metadata": memory_details.get("metadata", {})  # Optional additional context
+        }
+        
+        logger.info(f"ChatGPT fetch returning memory {memory_id} (real: {real_memory_id}) for user {user_id}")
+        
+        # Return sobannon's exact format: content + structuredContent
+        return {
+            "content": [
+                {
+                    "type": "text",
+                    "text": json.dumps(article)  # JSON string representation
+                }
+            ],
+            "structuredContent": article  # Article object directly
         }
     except Exception as e:
         # If any error occurs, log it and raise the compliant error.
