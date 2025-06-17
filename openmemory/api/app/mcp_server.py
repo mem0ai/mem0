@@ -83,27 +83,7 @@ async def add_memories(text: str, tags: Optional[list[str]] = None) -> str:
     logger.error(f"🔍 ADD_MEMORIES DEBUG - User ID from context: {supa_uid}")
     logger.error(f"🔍 ADD_MEMORIES DEBUG - Client name from context: {client_name}")
     logger.error(f"🔍 ADD_MEMORIES DEBUG - Memory content preview: {text[:100]}...")
-    
-    # 🚨 CONTAMINATION DETECTION: Check for suspicious Java patterns
-    if any(pattern in text.lower() for pattern in [
-        'planningcontext', 'java', 'compilation', 'pickgroup', 'defaultgroup',
-        'constructor', 'factory', 'junit', '.class', 'import ', 'public class'
-    ]):
-        logger.error(f"🚨 POTENTIAL CONTAMINATION DETECTED!")
-        logger.error(f"🚨 User {supa_uid} trying to add Java content: {text[:150]}...")
-        logger.error(f"🚨 This may indicate context variable bleeding!")
-        
-        # Let's also log current context info
-        import contextvars
-        logger.error(f"🚨 Current context vars: user_id_var={user_id_var}, client_name_var={client_name_var}")
-        
-        # 🚨 EMERGENCY: Block suspicious Java content completely to prevent contamination
-        return f"❌ BLOCKED: Suspicious Java development content detected. This appears to be contaminated memory from another user. Content blocked for security."
-    
-    # 🚨 ADDITIONAL SAFETY: Validate user_id format and detect known contaminated user patterns
-    if supa_uid and any(suspicious_user in supa_uid.lower() for suspicious_user in ['pralayb', 'test', 'debug']):
-        logger.error(f"🚨 SUSPICIOUS USER ID DETECTED: {supa_uid}")
-        return f"❌ BLOCKED: Suspicious user ID pattern detected. Operation blocked for security."
+
     
     memory_client = get_memory_client()
 
@@ -333,15 +313,6 @@ async def _search_memory_unified_impl(query: str, supa_uid: str, client_name: st
             mem0_id = mem_data.get('id')
             if not mem0_id: 
                 continue
-            
-            # 🚨 CRITICAL: Check if this memory belongs to the correct user
-            memory_content = mem_data.get('memory', mem_data.get('content', ''))
-            
-            # Log suspicious content that might belong to other users
-            if any(suspicious in memory_content.lower() for suspicious in ['pralayb', '/users/pralayb', 'faircopyfolder']):
-                logger.error(f"🚨 SUSPICIOUS MEMORY DETECTED - User {supa_uid} got memory: {memory_content[:100]}...")
-                logger.error(f"🚨 Memory metadata: {mem_data.get('metadata', {})}")
-                continue  # Skip this memory
             
             # Apply tag filtering if requested
             if tags_filter:
