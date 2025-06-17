@@ -48,6 +48,13 @@ class AzureOpenAIStructuredLLM(LLMBase):
         Returns:
             str: The generated response.
         """
+
+        user_prompt = messages[-1]['content']
+
+        user_prompt = user_prompt.replace("assistant", "ai")
+
+        messages[-1]['content'] = user_prompt
+
         params = {
             "model": self.config.model,
             "messages": messages,
