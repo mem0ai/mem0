@@ -41,10 +41,10 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 # Initialize MCP
-mcp = FastMCP("jean-memory-api")
+mcp = FastMCP("Jean Memory")
 
 # Add logging for MCP initialization
-logger.info(f"Initialized MCP server with name: jean-memory-api")
+logger.info(f"Initialized MCP server with name: Jean Memory")
 logger.info(f"MCP server object: {mcp}")
 logger.info(f"MCP internal server: {mcp._mcp_server}")
 
@@ -1314,7 +1314,22 @@ async def handle_post_message(request: Request):
         request_id = body.get("id")
 
         if method_name == "initialize":
-            response_payload = {"jsonrpc": "2.0", "result": {"protocolVersion": "2024-11-05", "capabilities": {}, "serverInfo": {"name": "jean-memory-api", "version": "1.0.0"}}, "id": request_id}
+            # Use latest MCP protocol version globally for best features
+            response_payload = {
+                "jsonrpc": "2.0", 
+                "result": {
+                    "protocolVersion": "2025-03-26", 
+                    "capabilities": {
+                        "tools": {"listChanged": False},
+                        "logging": {}
+                    }, 
+                    "serverInfo": {
+                        "name": "Jean Memory", 
+                        "version": "1.0.0"
+                    }
+                }, 
+                "id": request_id
+            }
             return JSONResponse(content=response_payload)
 
         elif method_name == "tools/list":
@@ -1403,21 +1418,31 @@ async def handle_post_message(request: Request):
         client_name_var.reset(client_token)
 
 def get_original_tools_schema():
-    """Returns the JSON schema for the original tools, now unified with optional tags_filter."""
+    """Returns the JSON schema for the original tools with 2025-03-26 annotations."""
     return [
         {
             "name": "ask_memory",
-            "description": "FAST memory search for simple questions about the user...",
-            "inputSchema": {"type": "object", "properties": {"question": {"type": "string", "description": "A natural language question"}}, "required": ["question"]}
+            "description": "FAST memory search for simple questions about the user's memories, thoughts, documents, or experiences",
+            "inputSchema": {"type": "object", "properties": {"question": {"type": "string", "description": "A natural language question"}}, "required": ["question"]},
+            "annotations": {
+                "readOnly": True,
+                "sensitive": False,
+                "destructive": False
+            }
         },
         {
             "name": "add_memories",
-            "description": "Store important information, preferences, facts...",
-            "inputSchema": {"type": "object", "properties": {"text": {"type": "string", "description": "The information to store"}}, "required": ["text"]}
+            "description": "Store important information, preferences, facts, and observations about the user. Use this tool to remember key details learned during conversation.",
+            "inputSchema": {"type": "object", "properties": {"text": {"type": "string", "description": "The information to store"}}, "required": ["text"]},
+            "annotations": {
+                "readOnly": False,
+                "sensitive": True,
+                "destructive": False
+            }
         },
         {
             "name": "search_memory", 
-            "description": "Quick keyword-based search through the user's memories. Use this for fast lookups when you need specific information or when ask_memory might be too comprehensive. Perfect for finding specific facts, dates, names, or simple queries.",
+            "description": "Quick keyword-based search through the user's memories. Use this for fast lookups when you need specific information or when ask_memory might be too comprehensive.",
             "inputSchema": {
                 "type": "object", 
                 "properties": {
@@ -1425,47 +1450,89 @@ def get_original_tools_schema():
                     "limit": {"type": "integer", "description": "Max results"}
                 }, 
                 "required": ["query"]
+            },
+            "annotations": {
+                "readOnly": True,
+                "sensitive": False,
+                "destructive": False
             }
         },
         {
             "name": "list_memories",
-            "description": "Browse through the user's stored memories...",
-            "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "description": "Max results"}}}
+            "description": "Browse through the user's stored memories to get an overview of what you know about them.",
+            "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "description": "Max results"}}},
+            "annotations": {
+                "readOnly": True,
+                "sensitive": True,
+                "destructive": False
+            }
         },
         {
             "name": "deep_memory_query", 
-            "description": "COMPREHENSIVE search that analyzes ALL user content...",
-            "inputSchema": {"type": "object", "properties": {"search_query": {"type": "string", "description": "The complex query"}}, "required": ["search_query"]}
+            "description": "COMPREHENSIVE search that analyzes ALL user content including full documents and essays. Takes 30-60 seconds. Use sparingly for complex analysis.",
+            "inputSchema": {"type": "object", "properties": {"search_query": {"type": "string", "description": "The complex query"}}, "required": ["search_query"]},
+            "annotations": {
+                "readOnly": True,
+                "sensitive": False,
+                "destructive": False,
+                "expensive": True
+            }
         }
     ]
 
 def get_api_tools_schema():
-    """Returns the JSON schema for API key users, including new features."""
+    """Returns the JSON schema for API key users with 2025-03-26 annotations and enhanced features."""
     return [
         {
             "name": "ask_memory",
-            "description": "FAST memory search for simple questions about the user...",
-            "inputSchema": {"type": "object", "properties": {"question": {"type": "string", "description": "A natural language question"}}, "required": ["question"]}
+            "description": "FAST memory search for simple questions about the user's memories, thoughts, documents, or experiences",
+            "inputSchema": {"type": "object", "properties": {"question": {"type": "string", "description": "A natural language question"}}, "required": ["question"]},
+            "annotations": {
+                "readOnly": True,
+                "sensitive": False,
+                "destructive": False
+            }
         },
         {
             "name": "add_memories",
-            "description": "Store important information. Optionally, add a list of string tags for later filtering.",
-            "inputSchema": {"type": "object", "properties": {"text": {"type": "string", "description": "The information to store"}, "tags": {"type": "array", "items": {"type": "string"}, "description": "Optional list of tags"}}, "required": ["text"]}
+            "description": "Store important information with optional tag-based organization. Optionally, add a list of string tags for later filtering.",
+            "inputSchema": {"type": "object", "properties": {"text": {"type": "string", "description": "The information to store"}, "tags": {"type": "array", "items": {"type": "string"}, "description": "Optional list of tags"}}, "required": ["text"]},
+            "annotations": {
+                "readOnly": False,
+                "sensitive": True,
+                "destructive": False
+            }
         },
         {
             "name": "search_memory_v2", 
-            "description": "Quick keyword-based search with optional tag filtering.",
-            "inputSchema": {"type": "object", "properties": {"query": {"type": "string", "description": "The search query"}, "limit": {"type": "integer", "description": "Max results"}, "tags_filter": {"type": "array", "items": {"type": "string"}, "description": "Optional list of tags to filter by"}}, "required": ["query"]}
+            "description": "Quick keyword-based search with optional tag filtering. Enhanced version with metadata filtering capabilities.",
+            "inputSchema": {"type": "object", "properties": {"query": {"type": "string", "description": "The search query"}, "limit": {"type": "integer", "description": "Max results"}, "tags_filter": {"type": "array", "items": {"type": "string"}, "description": "Optional list of tags to filter by"}}, "required": ["query"]},
+            "annotations": {
+                "readOnly": True,
+                "sensitive": False,
+                "destructive": False
+            }
         },
         {
             "name": "list_memories",
-            "description": "Browse through the user's stored memories...",
-            "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "description": "Max results"}}}
+            "description": "Browse through the user's stored memories to get an overview of what you know about them.",
+            "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "description": "Max results"}}},
+            "annotations": {
+                "readOnly": True,
+                "sensitive": True,
+                "destructive": False
+            }
         },
         {
             "name": "deep_memory_query", 
-            "description": "COMPREHENSIVE search that analyzes ALL user content...",
-            "inputSchema": {"type": "object", "properties": {"search_query": {"type": "string", "description": "The complex query"}}, "required": ["search_query"]}
+            "description": "COMPREHENSIVE search that analyzes ALL user content including full documents and essays. Takes 30-60 seconds. Use sparingly for complex analysis.",
+            "inputSchema": {"type": "object", "properties": {"search_query": {"type": "string", "description": "The complex query"}}, "required": ["search_query"]},
+            "annotations": {
+                "readOnly": True,
+                "sensitive": False,
+                "destructive": False,
+                "expensive": True
+            }
         }
     ]
 
@@ -1564,15 +1631,18 @@ async def handle_sse_messages(client_name: str, user_id: str, request: Request):
         
         # Handle MCP protocol methods (same as the existing /messages/ handler)
         if method_name == "initialize":
+            # Use latest MCP protocol version globally for best features
             response_payload = {
                 "jsonrpc": "2.0",
                 "result": {
-                    "protocolVersion": "2024-11-05",
+                    "protocolVersion": "2025-03-26",
                     "capabilities": {
-                        "tools": {}
+                        "tools": {"listChanged": False},
+                        "logging": {},
+                        "sampling": {}
                     },
                     "serverInfo": {
-                        "name": "jean-memory-local",
+                        "name": "Jean Memory",
                         "version": "1.0.0"
                     }
                 },
