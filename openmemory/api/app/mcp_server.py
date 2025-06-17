@@ -19,7 +19,7 @@ import uuid
 import datetime
 from app.utils.permissions import check_memory_access_permissions
 from app.auth import get_current_user
-from typing import Optional
+from typing import Optional, Dict
 # Defer heavy imports
 # from qdrant_client import models as qdrant_models
 # from app.integrations.substack_service import SubstackService
