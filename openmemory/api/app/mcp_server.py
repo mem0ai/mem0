@@ -1947,15 +1947,12 @@ async def handle_chatgpt_search(user_id: str, query: str):
 async def handle_chatgpt_fetch(user_id: str, memory_id: str):
     """ChatGPT fetch implementation - returns OpenAI compliant format"""
     try:
-        # Use existing get memory logic  
-        result = await _get_memory_details_impl(memory_id, user_id, "chatgpt")
+        # Use the new, dedicated fetch logic for ChatGPT to avoid breaking other tools.
+        memory_details = await _chatgpt_fetch_memory_by_id(user_id, memory_id)
         
-        # Parse the JSON result from our existing function
-        if isinstance(result, str):
-            import json
-            memory_details = json.loads(result)
-        else:
-            memory_details = result
+        # If the dedicated function returns None, the memory wasn't found.
+        if memory_details is None:
+            raise ValueError("unknown id")
         
         # Format for ChatGPT schema - must match OpenAI's exact specification
         memory_text = memory_details.get("content", memory_details.get("memory", ""))
@@ -1969,6 +1966,7 @@ async def handle_chatgpt_fetch(user_id: str, memory_id: str):
             "metadata": memory_details.get("metadata", {})  # Optional additional context
         }
     except Exception as e:
+        # If any error occurs, log it and raise the compliant error.
         logger.error(f"ChatGPT fetch error: {e}", exc_info=True)
         raise ValueError("unknown id")  # OpenAI spec expects this exact error message
 
@@ -2082,3 +2080,38 @@ async def handle_streamable_http(user_id: str, request: Request):
     finally:
         user_id_var.reset(user_token)
         client_name_var.reset(client_token)
+
+async def _chatgpt_fetch_memory_by_id(user_id: str, memory_id: str):
+    """
+    A dedicated and robust fetch implementation for the ChatGPT client.
+    It reliably finds a memory by its vector ID using a get_all fallback,
+    ensuring it does not interfere with other tool functionalities.
+    """
+    from app.utils.memory import get_memory_client
+    memory_client = get_memory_client()
+
+    # Use get_all() and iterate in Python, as search(query=<id>) is unreliable.
+    all_memories_result = memory_client.get_all(user_id=user_id, limit=2000) # High limit for thoroughness
+
+    memories_list = []
+    if isinstance(all_memories_result, dict) and 'results' in all_memories_result:
+        memories_list = all_memories_result['results']
+    elif isinstance(all_memories_result, list):
+        memories_list = all_memories_result
+
+    # Look for the exact ID match in the full list
+    for mem in memories_list:
+        if isinstance(mem, dict) and mem.get('id') == memory_id:
+            # Found it. Return the full dictionary.
+            return {
+                "id": mem.get('id'),
+                "content": mem.get('memory', mem.get('content', 'No content available')),
+                "metadata": mem.get('metadata', {}),
+                "created_at": mem.get('created_at'),
+                "updated_at": mem.get('updated_at'),
+                "score": mem.get('score'),
+                "source": "mem0_vector_store"
+            }
+    
+    # If we get here, the memory was not found.
+    return None
