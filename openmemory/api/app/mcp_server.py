@@ -1524,9 +1524,7 @@ async def handle_sse_connection(client_name: str, user_id: str, request: Request
     import asyncio
     import json
     
-    # Validate local development user
-    if user_id != "local_dev_user" and user_id != "00000000-0000-0000-0000-000000000001":
-        raise HTTPException(status_code=404, detail="User not found in local development mode")
+    # Allow any user ID for production usage
     
     logger.info(f"SSE connection from {client_name} for user {user_id}")
     
@@ -1579,13 +1577,8 @@ async def handle_sse_messages(client_name: str, user_id: str, request: Request):
     Messages endpoint for supergateway compatibility
     This handles the actual MCP tool calls from supergateway
     """
-    # Validate local development user
-    if user_id != "local_dev_user" and user_id != "00000000-0000-0000-0000-000000000001":
-        from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail="User not found in local development mode")
-    
-    # Set context variables for local development
-    user_token = user_id_var.set("00000000-0000-0000-0000-000000000001")
+    # Set context variables
+    user_token = user_id_var.set(user_id)
     client_token = client_name_var.set(client_name)
     
     try:
@@ -1659,11 +1652,11 @@ async def handle_sse_messages(client_name: str, user_id: str, request: Request):
             tool_name = params.get("name")
             tool_args = params.get("arguments", {})
             
-            # Handle ChatGPT-specific tools for local development
+            # Handle ChatGPT-specific tools
             if client_name == "chatgpt":
                 if tool_name == "search":
                     try:
-                        result = await handle_chatgpt_search("00000000-0000-0000-0000-000000000001", tool_args.get("query", ""))
+                        result = await handle_chatgpt_search(user_id, tool_args.get("query", ""))
                         response_payload = {
                             "jsonrpc": "2.0",
                             "result": result,
@@ -1681,7 +1674,7 @@ async def handle_sse_messages(client_name: str, user_id: str, request: Request):
                 
                 elif tool_name == "fetch":
                     try:
-                        result = await handle_chatgpt_fetch("00000000-0000-0000-0000-000000000001", tool_args.get("id", ""))
+                        result = await handle_chatgpt_fetch(user_id, tool_args.get("id", ""))
                         response_payload = {
                             "jsonrpc": "2.0",
                             "result": result,
@@ -1838,7 +1831,16 @@ async def handle_chatgpt_search(user_id: str, query: str):
         
         # Format for ChatGPT schema - must match OpenAI's exact specification
         formatted_results = []
-        for result in search_results:
+        
+        # Handle both list and dict formats
+        if isinstance(search_results, list):
+            results_list = search_results
+        elif isinstance(search_results, dict) and 'results' in search_results:
+            results_list = search_results['results']
+        else:
+            results_list = search_results if isinstance(search_results, list) else []
+        
+        for result in results_list:
             memory_text = result.get("memory", result.get("content", ""))
             formatted_results.append({
                 "id": str(result.get("id", "")),
@@ -1847,9 +1849,10 @@ async def handle_chatgpt_search(user_id: str, query: str):
                 "url": None  # Required by OpenAI spec, needed for citations
             })
         
+        logger.info(f"ChatGPT search returning {len(formatted_results)} results for query: {query}")
         return {"results": formatted_results}
     except Exception as e:
-        logger.error(f"ChatGPT search error: {e}")
+        logger.error(f"ChatGPT search error: {e}", exc_info=True)
         return {"results": []}
 
 async def handle_chatgpt_fetch(user_id: str, memory_id: str):
@@ -1867,6 +1870,8 @@ async def handle_chatgpt_fetch(user_id: str, memory_id: str):
         
         # Format for ChatGPT schema - must match OpenAI's exact specification
         memory_text = memory_details.get("content", memory_details.get("memory", ""))
+        
+        logger.info(f"ChatGPT fetch returning memory {memory_id} for user {user_id}")
         return {
             "id": str(memory_details.get("id", memory_id)),
             "title": memory_text[:100] + "..." if len(memory_text) > 100 else memory_text,
@@ -1875,5 +1880,5 @@ async def handle_chatgpt_fetch(user_id: str, memory_id: str):
             "metadata": memory_details.get("metadata", {})  # Optional additional context
         }
     except Exception as e:
-        logger.error(f"ChatGPT fetch error: {e}")
+        logger.error(f"ChatGPT fetch error: {e}", exc_info=True)
         raise ValueError("unknown id")  # OpenAI spec expects this exact error message
