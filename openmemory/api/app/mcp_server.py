@@ -1844,7 +1844,7 @@ def get_chatgpt_tools_schema():
         {
             "name": "search",
             "description": "Performs comprehensive deep research analysis across ALL user content including documents, essays, and memories. This tool analyzes patterns, themes, and insights across the entire knowledge base. Designed for iterative deep research - call multiple times to explore different angles, dig deeper into findings, or analyze connections between ideas. Takes 30-60 seconds but provides rich, comprehensive results perfect for research citations.",
-            "inputSchema": {
+            "input_schema": {
                 "type": "object",
                 "properties": {
                     "query": {
@@ -1854,7 +1854,7 @@ def get_chatgpt_tools_schema():
                 },
                 "required": ["query"]
             },
-            "outputSchema": {
+            "output_schema": {
                 "type": "object",
                 "properties": {
                     "results": {
@@ -1877,14 +1877,14 @@ def get_chatgpt_tools_schema():
         {
             "name": "fetch",
             "description": "Retrieves detailed content for a specific resource identified by its ID. Use this to get the full text of a memory or document that was found in a search.",
-            "inputSchema": {
+            "input_schema": {
                 "type": "object",
                 "properties": {
                     "id": {"type": "string", "description": "The ID of the resource to fetch."}
                 },
                 "required": ["id"]
             },
-            "outputSchema": {
+            "output_schema": {
                 "type": "object",
                 "properties": {
                     "id": {"type": "string", "description": "ID of the resource."},
