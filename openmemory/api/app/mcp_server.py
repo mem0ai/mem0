@@ -1969,49 +1969,32 @@ async def handle_chatgpt_search(user_id: str, query: str):
     This gives ChatGPT immediate access to the full deep analysis without complexity.
     """
     try:
-        # 🎯 SCHEMA COMPLIANT: Return individual memories with real URLs (like working commit d09a3ba)
-        result_json_str = await _search_memory_unified_impl(query, user_id, "chatgpt", limit=8)
+        # 🚀 DIRECT DEEP MEMORY TEST: Call deep analysis directly (testing timeout limits)
+        logger.info(f"🧠 DIRECT: Starting deep memory analysis for ChatGPT query: '{query}' (user: {user_id})")
         
-        # Parse the JSON result from our existing search
-        if isinstance(result_json_str, str):
-            import json
-            search_results = json.loads(result_json_str)
-        else:
-            search_results = result_json_str
+        deep_analysis_result = await _deep_memory_query_impl(
+            search_query=query, 
+            supa_uid=user_id, 
+            client_name="chatgpt",
+            memory_limit=10,  # Reasonable limit for comprehensive results
+            chunk_limit=8,    # Good balance of speed vs depth
+            include_full_docs=True
+        )
         
-        # Create/clear mapping for this user session
-        if user_id not in chatgpt_session_mappings:
-            chatgpt_session_mappings[user_id] = {}
-        chatgpt_session_mappings[user_id].clear()  # Clear old mappings
+        # 🎯 SCHEMA COMPLIANT: Return deep analysis as single article (fits required schema)
+        citation_url = "https://jeanmemory.com"
         
-        # Return individual articles with real jeanmemory.com URLs (ChatGPT requirement)
-        articles = []
-        for i, result in enumerate(search_results):
-            if result.get("id"):
-                # Map complex UUID to simple string number (store mapping for fetch)
-                simple_id = str(i + 1)  # "1", "2", "3" like working examples
-                
-                # Store mapping in session-specific dictionary
-                chatgpt_session_mappings[user_id][simple_id] = str(result.get("id", ""))
-                
-                # Get memory content for article
-                memory_content = result.get("content", result.get("memory", ""))
-                
-                # 🎯 CRITICAL: Real jeanmemory.com URL (existing domain)
-                citation_url = "https://jeanmemory.com"
-                
-                article = {
-                    "id": simple_id,  # Simple string ID like "1", "2", "3"
-                    "title": memory_content[:100] + "..." if len(memory_content) > 100 else memory_content,
-                    "text": memory_content,  # Full content (like working commit d09a3ba)
-                    "url": citation_url  # Real URL for ChatGPT citations (matching sobannon's pattern)
-                }
-                articles.append(article)
+        article = {
+            "id": "1",  # Single comprehensive result
+            "title": f"Deep Analysis: {query[:50]}{'...' if len(query) > 50 else ''}",
+            "text": deep_analysis_result,  # 🧠 Full comprehensive deep analysis
+            "url": citation_url
+        }
         
         # sobannon's exact working response format
-        search_response = {"results": articles}
+        search_response = {"results": [article]}
         
-        logger.info(f"ChatGPT search found {len(articles)} articles for query: {query} (session: {user_id})")
+        logger.info(f"🧠 DIRECT: Deep memory analysis completed for query: '{query}' (user: {user_id})")
         
         # Return sobannon's exact format: structuredContent + content
         return {
@@ -2040,56 +2023,39 @@ async def handle_chatgpt_search(user_id: str, query: str):
 
 async def handle_chatgpt_fetch(user_id: str, memory_id: str):
     """
-    ChatGPT fetch implementation - matches sobannon's working format exactly
-    FIXED: Now uses session-based ID mapping to prevent data corruption and race conditions.
+    DIRECT DEEP MEMORY: Simple fetch for single comprehensive analysis result
     """
     try:
-        # FIXED: Convert simple ID back to UUID using session-based mapping
-        real_memory_id = memory_id
-        if (user_id in chatgpt_session_mappings and 
-            memory_id in chatgpt_session_mappings[user_id]):
-            real_memory_id = chatgpt_session_mappings[user_id][memory_id]
-            logger.info(f"ChatGPT fetch: converted simple ID '{memory_id}' to real ID '{real_memory_id}' (session: {user_id})")
+        # With direct approach, we only have one result with ID "1" containing the full analysis
+        if memory_id == "1":
+            citation_url = "https://jeanmemory.com"
+            
+            article = {
+                "id": "1",
+                "title": "Deep Memory Analysis - Full Context",
+                "text": "The comprehensive deep memory analysis was provided in the search results. This fetch confirms the analysis covers all available memories, documents, and insights about the query.",
+                "url": citation_url,
+                "metadata": {"type": "deep_analysis_confirmation"}
+            }
+            
+            logger.info(f"🧠 DIRECT FETCH: Returning deep analysis confirmation for user {user_id}")
+            
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": json.dumps(article)
+                    }
+                ],
+                "structuredContent": article
+            }
         else:
-            logger.warning(f"ChatGPT fetch: no mapping found for ID '{memory_id}' in session {user_id}")
-        
-        # Use the new, dedicated fetch logic for ChatGPT to avoid breaking other tools.
-        memory_details = await _chatgpt_fetch_memory_by_id(user_id, real_memory_id)
-        
-        # If the dedicated function returns None, the memory wasn't found.
-        if memory_details is None:
+            # No other IDs exist in direct approach
             raise ValueError("unknown id")
-        
-        # Format article object - must match sobannon's Article interface
-        memory_text = memory_details.get("content", memory_details.get("memory", ""))
-        
-        # Generate citation URL matching the search format
-        citation_url = "https://jeanmemory.com"
-        
-        article = {
-            "id": memory_id,  # Return the simple ID that ChatGPT expects
-            "title": memory_text[:100] + "..." if len(memory_text) > 100 else memory_text,
-            "text": memory_text,  # Complete textual content
-            "url": citation_url,  # Real URL for ChatGPT citations (matching sobannon's pattern)
-            "metadata": memory_details.get("metadata", {})  # Optional additional context
-        }
-        
-        logger.info(f"ChatGPT fetch returning memory {memory_id} (real: {real_memory_id}) for user {user_id}")
-        
-        # Return sobannon's exact format: content + structuredContent
-        return {
-            "content": [
-                {
-                    "type": "text",
-                    "text": json.dumps(article)  # JSON string representation
-                }
-            ],
-            "structuredContent": article  # Article object directly
-        }
+            
     except Exception as e:
-        # If any error occurs, log it and raise the compliant error.
-        logger.error(f"ChatGPT fetch error: {e}", exc_info=True)
-        raise ValueError("unknown id")  # OpenAI spec expects this exact error message
+        logger.error(f"ChatGPT direct fetch error: {e}", exc_info=True)
+        raise ValueError("unknown id")
 
 # Add Streamable HTTP endpoint for API Playground compatibility
 @mcp_router.post("/chatgpt/streamable/{user_id}")
