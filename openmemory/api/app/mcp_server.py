@@ -1893,8 +1893,12 @@ def get_chatgpt_tools_schema():
                     "text": {"type": "string", "description": "Complete textual content of the resource."},
                     "url": {"type": ["string", "null"], "description": "URL of the resource. Optional but needed for citations to work."},
                     "metadata": {
-                        "type": ["object", "null"],
-                        "description": "Optional metadata providing additional context."
+                        "type": [
+                          "object",
+                          "null"
+                        ],
+                        "description": "Optional metadata providing additional context.",
+                        "additionalProperties": {"type": "string"}
                     }
                 },
                 "required": ["id", "title", "text"]
