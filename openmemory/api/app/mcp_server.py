@@ -1912,43 +1912,32 @@ def get_chatgpt_tools_schema():
     ]
 
 async def handle_chatgpt_search(user_id: str, query: str):
-    """ChatGPT search implementation - returns OpenAI compliant format"""
+    """
+    ChatGPT search implementation.
+    Returns a simple list of IDs, trusting the fastmcp library's SSE transport
+    to handle fetching the details and formatting the final response.
+    This aligns with working community examples.
+    """
     try:
-        # Use existing search logic but return ChatGPT format
-        result = await _search_memory_unified_impl(query, user_id, "chatgpt", limit=10)
+        # Use existing search logic to get a list of memory objects
+        result_json_str = await _search_memory_unified_impl(query, user_id, "chatgpt", limit=10)
         
         # Parse the JSON result from our existing search
-        if isinstance(result, str):
+        if isinstance(result_json_str, str):
             import json
-            search_results = json.loads(result)
+            search_results = json.loads(result_json_str)
         else:
-            search_results = result
+            search_results = result_json_str
         
-        # Format for ChatGPT schema - must match OpenAI's exact specification
-        formatted_results = []
+        # Extract just the IDs, as seen in working community examples
+        ids = [str(result.get("id", "")) for result in search_results if result.get("id")]
         
-        # Handle both list and dict formats
-        if isinstance(search_results, list):
-            results_list = search_results
-        elif isinstance(search_results, dict) and 'results' in search_results:
-            results_list = search_results['results']
-        else:
-            results_list = search_results if isinstance(search_results, list) else []
-        
-        for result in results_list:
-            memory_text = result.get("memory", result.get("content", ""))
-            formatted_results.append({
-                "id": str(result.get("id", "")),
-                "title": memory_text[:100] + "..." if len(memory_text) > 100 else memory_text,
-                "text": memory_text,
-                "url": None  # Required by OpenAI spec, needed for citations
-            })
-        
-        logger.info(f"ChatGPT search returning {len(formatted_results)} results for query: {query}")
-        return {"results": formatted_results}
+        logger.info(f"ChatGPT search found {len(ids)} IDs for query: {query}")
+        return {"ids": ids}
+
     except Exception as e:
         logger.error(f"ChatGPT search error: {e}", exc_info=True)
-        return {"results": []}
+        return {"ids": []}
 
 async def handle_chatgpt_fetch(user_id: str, memory_id: str):
     """ChatGPT fetch implementation - returns OpenAI compliant format"""
