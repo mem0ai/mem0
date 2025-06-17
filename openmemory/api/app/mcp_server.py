@@ -1346,18 +1346,11 @@ async def handle_post_message(request: Request):
             return JSONResponse(content=response_payload)
 
         elif method_name == "tools/list":
-            # Detect ChatGPT requests
-            is_chatgpt = client_name_from_header == "chatgpt"
-            
-            # DIAGNOSTIC: Based on user feedback, the Playground may expect the general
-            # toolset even when identifying as 'chatgpt'. This forces the original schema
-            # for testing purposes to see if the tools load successfully.
-            if is_chatgpt:
-                # tools_to_show = get_chatgpt_tools_schema() # Temporarily disabling strict schema
-                tools_to_show = get_original_tools_schema()
-            elif is_api_key_path:
+            # Simplified logic based on working commit
+            if is_api_key_path:
                 tools_to_show = get_api_tools_schema()
             else:
+                # This will cover the playground case and default
                 tools_to_show = get_original_tools_schema()
 
             # 🚨 CRITICAL DEBUGGING: Log the exact schema being sent
@@ -1444,17 +1437,17 @@ def get_original_tools_schema(include_annotations=False):
         {
             "name": "ask_memory",
             "description": "FAST memory search for simple questions about the user's memories, thoughts, documents, or experiences",
-            "input_schema": {"type": "object", "properties": {"question": {"type": "string", "description": "A natural language question"}}, "required": ["question"]}
+            "inputSchema": {"type": "object", "properties": {"question": {"type": "string", "description": "A natural language question"}}, "required": ["question"]}
         },
         {
             "name": "add_memories",
             "description": "Store important information, preferences, facts, and observations about the user. Use this tool to remember key details learned during conversation.",
-            "input_schema": {"type": "object", "properties": {"text": {"type": "string", "description": "The information to store"}}, "required": ["text"]}
+            "inputSchema": {"type": "object", "properties": {"text": {"type": "string", "description": "The information to store"}}, "required": ["text"]}
         },
         {
             "name": "search_memory", 
             "description": "Quick keyword-based search through the user's memories. Use this for fast lookups when you need specific information or when ask_memory might be too comprehensive.",
-            "input_schema": {
+            "inputSchema": {
                 "type": "object", 
                 "properties": {
                     "query": {"type": "string", "description": "The search query"}, 
@@ -1466,12 +1459,12 @@ def get_original_tools_schema(include_annotations=False):
         {
             "name": "list_memories",
             "description": "Browse through the user's stored memories to get an overview of what you know about them.",
-            "input_schema": {"type": "object", "properties": {"limit": {"type": "integer", "description": "Max results"}}}
+            "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "description": "Max results"}}}
         },
         {
             "name": "deep_memory_query", 
             "description": "COMPREHENSIVE search that analyzes ALL user content including full documents and essays. Takes 30-60 seconds. Use sparingly for complex analysis.",
-            "input_schema": {"type": "object", "properties": {"search_query": {"type": "string", "description": "The complex query"}}, "required": ["search_query"]}
+            "inputSchema": {"type": "object", "properties": {"search_query": {"type": "string", "description": "The complex query"}}, "required": ["search_query"]}
         }
     ]
     
@@ -1497,7 +1490,7 @@ def get_api_tools_schema():
         {
             "name": "ask_memory",
             "description": "FAST memory search for simple questions about the user's memories, thoughts, documents, or experiences",
-            "input_schema": {"type": "object", "properties": {"question": {"type": "string", "description": "A natural language question"}}, "required": ["question"]},
+            "inputSchema": {"type": "object", "properties": {"question": {"type": "string", "description": "A natural language question"}}, "required": ["question"]},
             "annotations": {
                 "readOnly": True,
                 "sensitive": False,
@@ -1507,7 +1500,7 @@ def get_api_tools_schema():
         {
             "name": "add_memories",
             "description": "Store important information with optional tag-based organization. Optionally, add a list of string tags for later filtering.",
-            "input_schema": {"type": "object", "properties": {"text": {"type": "string", "description": "The information to store"}, "tags": {"type": "array", "items": {"type": "string"}, "description": "Optional list of tags"}}, "required": ["text"]},
+            "inputSchema": {"type": "object", "properties": {"text": {"type": "string", "description": "The information to store"}, "tags": {"type": "array", "items": {"type": "string"}, "description": "Optional list of tags"}}, "required": ["text"]},
             "annotations": {
                 "readOnly": False,
                 "sensitive": True,
@@ -1517,7 +1510,7 @@ def get_api_tools_schema():
         {
             "name": "search_memory_v2", 
             "description": "Quick keyword-based search with optional tag filtering. Enhanced version with metadata filtering capabilities.",
-            "input_schema": {"type": "object", "properties": {"query": {"type": "string", "description": "The search query"}, "limit": {"type": "integer", "description": "Max results"}, "tags_filter": {"type": "array", "items": {"type": "string"}, "description": "Optional list of tags to filter by"}}, "required": ["query"]},
+            "inputSchema": {"type": "object", "properties": {"query": {"type": "string", "description": "The search query"}, "limit": {"type": "integer", "description": "Max results"}, "tags_filter": {"type": "array", "items": {"type": "string"}, "description": "Optional list of tags to filter by"}}, "required": ["query"]},
             "annotations": {
                 "readOnly": True,
                 "sensitive": False,
@@ -1527,7 +1520,7 @@ def get_api_tools_schema():
         {
             "name": "list_memories",
             "description": "Browse through the user's stored memories to get an overview of what you know about them.",
-            "input_schema": {"type": "object", "properties": {"limit": {"type": "integer", "description": "Max results"}}},
+            "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "description": "Max results"}}},
             "annotations": {
                 "readOnly": True,
                 "sensitive": True,
@@ -1537,7 +1530,7 @@ def get_api_tools_schema():
         {
             "name": "deep_memory_query", 
             "description": "COMPREHENSIVE search that analyzes ALL user content including full documents and essays. Takes 30-60 seconds. Use sparingly for complex analysis.",
-            "input_schema": {"type": "object", "properties": {"search_query": {"type": "string", "description": "The complex query"}}, "required": ["search_query"]},
+            "inputSchema": {"type": "object", "properties": {"search_query": {"type": "string", "description": "The complex query"}}, "required": ["search_query"]},
             "annotations": {
                 "readOnly": True,
                 "sensitive": False,
@@ -1849,7 +1842,7 @@ def get_chatgpt_tools_schema():
         {
             "name": "search",
             "description": "Performs comprehensive deep research analysis across ALL user content including documents, essays, and memories. This tool analyzes patterns, themes, and insights across the entire knowledge base. Designed for iterative deep research - call multiple times to explore different angles, dig deeper into findings, or analyze connections between ideas. Takes 30-60 seconds but provides rich, comprehensive results perfect for research citations.",
-            "input_schema": {
+            "inputSchema": {
                 "type": "object",
                 "properties": {
                     "query": {
@@ -1859,7 +1852,7 @@ def get_chatgpt_tools_schema():
                 },
                 "required": ["query"]
             },
-            "output_schema": {
+            "outputSchema": {
                 "type": "object",
                 "properties": {
                     "results": {
@@ -1882,14 +1875,14 @@ def get_chatgpt_tools_schema():
         {
             "name": "fetch",
             "description": "Retrieves detailed content for a specific resource identified by its ID. Use this to get the full text of a memory or document that was found in a search.",
-            "input_schema": {
+            "inputSchema": {
                 "type": "object",
                 "properties": {
                     "id": {"type": "string", "description": "The ID of the resource to fetch."}
                 },
                 "required": ["id"]
             },
-            "output_schema": {
+            "outputSchema": {
                 "type": "object",
                 "properties": {
                     "id": {"type": "string", "description": "ID of the resource."},
