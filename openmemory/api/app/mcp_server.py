@@ -1987,3 +1987,114 @@ async def handle_chatgpt_fetch(user_id: str, memory_id: str):
     except Exception as e:
         logger.error(f"ChatGPT fetch error: {e}", exc_info=True)
         raise ValueError("unknown id")  # OpenAI spec expects this exact error message
+
+# Add Streamable HTTP endpoint for API Playground compatibility
+@mcp_router.post("/chatgpt/streamable/{user_id}")
+async def handle_streamable_http(user_id: str, request: Request):
+    """
+    Streamable HTTP endpoint for OpenAI API Playground compatibility.
+    This handles both tools/list and tools/call via POST to a single endpoint.
+    """
+    # Set context variables for ChatGPT client
+    user_token = user_id_var.set(user_id)
+    client_token = client_name_var.set("chatgpt")
+    
+    try:
+        body = await request.json()
+        method_name = body.get("method")
+        params = body.get("params", {})
+        request_id = body.get("id")
+
+        logger.info(f"Streamable HTTP request: {method_name} for user {user_id}")
+
+        if method_name == "initialize":
+            response_payload = {
+                "jsonrpc": "2.0",
+                "result": {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {"tools": {}},
+                    "serverInfo": {
+                        "name": "Jean Memory",
+                        "version": "1.0.0"
+                    }
+                },
+                "id": request_id
+            }
+        
+        elif method_name == "tools/list":
+            tools = get_chatgpt_tools_schema()
+            response_payload = {
+                "jsonrpc": "2.0",
+                "result": {"tools": tools},
+                "id": request_id
+            }
+        
+        elif method_name == "tools/call":
+            tool_name = params.get("name")
+            tool_args = params.get("arguments", {})
+            
+            if tool_name == "search":
+                try:
+                    result = await handle_chatgpt_search(user_id, tool_args.get("query", ""))
+                    response_payload = {
+                        "jsonrpc": "2.0",
+                        "result": result,
+                        "id": request_id
+                    }
+                except Exception as e:
+                    response_payload = {
+                        "jsonrpc": "2.0",
+                        "error": {"code": -32603, "message": str(e)},
+                        "id": request_id
+                    }
+            
+            elif tool_name == "fetch":
+                try:
+                    result = await handle_chatgpt_fetch(user_id, tool_args.get("id", ""))
+                    response_payload = {
+                        "jsonrpc": "2.0",
+                        "result": result,
+                        "id": request_id
+                    }
+                except ValueError as e:
+                    response_payload = {
+                        "jsonrpc": "2.0",
+                        "error": {"code": -32602, "message": str(e)},
+                        "id": request_id
+                    }
+                except Exception as e:
+                    response_payload = {
+                        "jsonrpc": "2.0",
+                        "error": {"code": -32603, "message": str(e)},
+                        "id": request_id
+                    }
+            
+            else:
+                response_payload = {
+                    "jsonrpc": "2.0",
+                    "error": {"code": -32601, "message": f"Tool '{tool_name}' not found"},
+                    "id": request_id
+                }
+        
+        else:
+            response_payload = {
+                "jsonrpc": "2.0",
+                "error": {"code": -32601, "message": f"Method '{method_name}' not found"},
+                "id": request_id
+            }
+
+        return JSONResponse(content=response_payload)
+
+    except Exception as e:
+        logger.error(f"Error in streamable HTTP handler: {e}", exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content={
+                "jsonrpc": "2.0",
+                "error": {"code": -32603, "message": f"Internal error: {str(e)}"},
+                "id": request_id if 'request_id' in locals() else None
+            }
+        )
+    finally:
+        user_id_var.reset(user_token)
+        client_name_var.reset(client_token)
