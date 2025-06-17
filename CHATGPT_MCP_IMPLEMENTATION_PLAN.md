@@ -46,21 +46,21 @@ def get_chatgpt_tools_schema():
             "name": "search",
             "description": "Searches for resources using the provided query string and returns matching results.",
             "inputSchema": {
-                "type": "object",
+                "type": "object", 
                 "properties": {
                     "query": {"type": "string", "description": "Search query."}
-                },
+                }, 
                 "required": ["query"]
             }
         },
         {
-            "name": "fetch", 
+            "name": "fetch",
             "description": "Retrieves detailed content for a specific resource identified by the given ID.",
             "inputSchema": {
-                "type": "object",
+                "type": "object", 
                 "properties": {
                     "id": {"type": "string", "description": "ID of the resource to fetch."}
-                },
+                }, 
                 "required": ["id"]
             }
         }
@@ -235,26 +235,26 @@ Add these functions:
 def get_chatgpt_tools_schema():
     """Returns ONLY search and fetch tools for ChatGPT clients - OpenAI compliant schemas"""
     return [
-        {
-            "name": "search",
+{
+  "name": "search",
             "description": "Searches the user's personal memory bank for resources using a natural language query string and returns matching results. Use this to find relevant memories based on topics, concepts, or specific information the user has stored.",
             "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "query": {"type": "string", "description": "Search query."}
-                },
-                "required": ["query"]
+    "type": "object",
+    "properties": {
+      "query": {"type": "string", "description": "Search query."}
+    },
+    "required": ["query"]
             }
         },
-        {
-            "name": "fetch",
+{
+  "name": "fetch",
             "description": "Retrieves detailed content for a specific memory resource identified by the given ID.",
             "inputSchema": {
-                "type": "object",
-                "properties": {
+    "type": "object",
+    "properties": {
                     "id": {"type": "string", "description": "ID of the resource to fetch."}
-                },
-                "required": ["id"]
+    },
+    "required": ["id"]
             }
         }
     ]
