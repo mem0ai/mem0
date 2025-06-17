@@ -1415,7 +1415,9 @@ class AsyncMemory(MemoryBase):
     async def _get_all_from_vector_store(self, filters, limit):
         memories_result = await asyncio.to_thread(self.vector_store.list, filters=filters, limit=limit)
         actual_memories = (
-            memories_result[0] if isinstance(memories_result, tuple) and len(memories_result) > 0 else memories_result
+            memories_result[0]
+            if isinstance(memories_result, (tuple, list)) and len(memories_result) > 0
+            else memories_result
         )
 
         promoted_payload_keys = [
