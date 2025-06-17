@@ -26,6 +26,7 @@ class LlmConfig(BaseModel):
             "xai",
             "sarvam",
             "lmstudio",
+            "vllm",
             "langchain",
         ):
             return v

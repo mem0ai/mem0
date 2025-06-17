@@ -1,0 +1,116 @@
+---
+title: vLLM
+---
+
+vLLM is a high-performance inference engine for large language models that provides significant performance improvements for local inference.
+
+## Prerequisites
+
+1. **Install vLLM**:
+
+   ```bash
+   pip install vllm
+   ```
+
+2. **Start vLLM server**:
+   ```bash
+   vllm serve gpt2 --port 8000
+   ```
+
+## Basic Usage
+
+```python
+import os
+from mem0 import Memory
+
+# Set embedding provider API key
+os.environ["GOOGLE_API_KEY"] = "your-gemini-api-key"
+
+config = {
+    "llm": {
+        "provider": "vllm",
+        "config": {
+            "model": "gpt2",
+            "vllm_base_url": "http://localhost:8000/v1",
+            "temperature": 0.7,
+            "max_tokens": 100,
+        }
+    },
+    "embedder": {
+        "provider": "gemini",
+        "config": {
+            "model": "models/text-embedding-004"
+        }
+    }
+}
+
+memory = Memory.from_config(config)
+memory.add("I love programming", user_id="alice")
+results = memory.search("What does Alice like?", user_id="alice")
+```
+
+## Configuration Parameters
+
+| Parameter       | Description                       | Default                      | Environment Variable |
+| --------------- | --------------------------------- | ---------------------------- | -------------------- |
+| `model`         | Model name running on vLLM server | `"gpt2"`                     | -                    |
+| `vllm_base_url` | vLLM server URL                   | `"http://localhost:8000/v1"` | `VLLM_BASE_URL`      |
+| `api_key`       | API key (dummy for local)         | `"vllm-api-key"`             | `VLLM_API_KEY`       |
+| `temperature`   | Sampling temperature              | `0.7`                        | -                    |
+| `max_tokens`    | Maximum tokens to generate        | `100`                        | -                    |
+
+## Environment Variables
+
+You can set these environment variables instead of specifying them in config:
+
+```bash
+export VLLM_BASE_URL="http://localhost:8000/v1"
+export VLLM_API_KEY="your-vllm-api-key"
+```
+
+## Server Setup
+
+### Small Model (for testing)
+
+```bash
+vllm serve gpt2 --port 8000
+```
+
+### Medium Model
+
+```bash
+vllm serve microsoft/DialoGPT-small --port 8000
+```
+
+### Large Model (requires GPU)
+
+```bash
+vllm serve meta-llama/Llama-3.1-8B-Instruct --port 8000
+```
+
+## Benefits
+
+- **High Performance**: 2-3x faster inference than standard implementations
+- **Local Deployment**: Keep your data private and reduce API costs
+- **Easy Integration**: Drop-in replacement for other LLM providers
+- **Flexible**: Works with any model supported by vLLM
+
+## Troubleshooting
+
+1. **Server not responding**: Make sure vLLM server is running
+
+   ```bash
+   curl http://localhost:8000/health
+   ```
+
+2. **404 errors**: Ensure correct base URL format
+
+   ```python
+   "vllm_base_url": "http://localhost:8000/v1"  # Note the /v1
+   ```
+
+3. **Model not found**: Check model name matches server
+
+## Config
+
+All available parameters for the `vllm` config are present in [Master List of All Params in Config](../config).
