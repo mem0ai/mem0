@@ -34,6 +34,7 @@ from fastapi.responses import JSONResponse
 from .utils.decorators import retry_on_exception
 from qdrant_client import QdrantClient
 
+
 # Load environment variables
 load_dotenv()
 
@@ -54,6 +55,23 @@ logger.info(f"MCP internal server: {mcp._mcp_server}")
 # Context variables for user_id (Supabase User ID string) and client_name
 user_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("supa_user_id")
 client_name_var: contextvars.ContextVar[str] = contextvars.ContextVar("client_name")
+
+# Global dictionary to manage SSE connections
+sse_message_queues: Dict[str, asyncio.Queue] = {}
+
+# FIXED: Session-based ID mapping to prevent race conditions
+# Each user session gets its own mapping that gets cleaned up
+chatgpt_session_mappings: Dict[str, Dict[str, str]] = {}
+
+def cleanup_old_chatgpt_sessions():
+    """Clean up old session mappings to prevent memory leaks"""
+    # Keep only the 50 most recent sessions
+    if len(chatgpt_session_mappings) > 50:
+        # Remove oldest sessions (simple cleanup strategy)
+        sessions_to_remove = list(chatgpt_session_mappings.keys())[:-50]
+        for session_id in sessions_to_remove:
+            del chatgpt_session_mappings[session_id]
+        logger.info(f"Cleaned up {len(sessions_to_remove)} old ChatGPT session mappings")
 
 # Create a router for MCP endpoints
 mcp_router = APIRouter(prefix="/mcp")
@@ -1946,6 +1964,8 @@ async def handle_chatgpt_search(user_id: str, query: str):
     ChatGPT search implementation - matches sobannon's working format exactly.
     Returns full article objects with structuredContent and content format.
     Based on confirmed working implementation: OBannon37/chatgpt-deep-research-connector-example
+    
+    FIXED: Now uses session-based ID mapping to prevent race conditions and data corruption.
     """
     try:
         # Use existing search logic to get a list of memory objects
@@ -1958,6 +1978,15 @@ async def handle_chatgpt_search(user_id: str, query: str):
         else:
             search_results = result_json_str
         
+        # FIXED: Use session-based mapping instead of function attribute
+        # Create/clear mapping for this user session
+        if user_id not in chatgpt_session_mappings:
+            chatgpt_session_mappings[user_id] = {}
+        chatgpt_session_mappings[user_id].clear()  # Clear old mappings
+        
+        # Periodic cleanup to prevent memory leaks
+        cleanup_old_chatgpt_sessions()
+        
         # sobannon's working pattern: Return full article objects, not just IDs
         # Each result needs: id, title, text, url (all required fields)
         articles = []
@@ -1966,10 +1995,8 @@ async def handle_chatgpt_search(user_id: str, query: str):
                 # Map complex UUID to simple string number (store mapping for fetch)
                 simple_id = str(i + 1)  # "1", "2", "3" like working examples
                 
-                # Store mapping for fetch to use
-                if not hasattr(handle_chatgpt_search, '_id_mapping'):
-                    handle_chatgpt_search._id_mapping = {}
-                handle_chatgpt_search._id_mapping[simple_id] = str(result.get("id", ""))
+                # FIXED: Store mapping in session-specific dictionary
+                chatgpt_session_mappings[user_id][simple_id] = str(result.get("id", ""))
                 
                 # Get memory content for article
                 memory_content = result.get("content", result.get("memory", ""))
@@ -1989,7 +2016,7 @@ async def handle_chatgpt_search(user_id: str, query: str):
         # sobannon's exact working response format
         search_response = {"results": articles}
         
-        logger.info(f"ChatGPT search found {len(articles)} articles for query: {query}")
+        logger.info(f"ChatGPT search found {len(articles)} articles for query: {query} (session: {user_id})")
         
         # Return sobannon's exact format: structuredContent + content
         return {
@@ -2017,13 +2044,19 @@ async def handle_chatgpt_search(user_id: str, query: str):
         }
 
 async def handle_chatgpt_fetch(user_id: str, memory_id: str):
-    """ChatGPT fetch implementation - matches sobannon's working format exactly"""
+    """
+    ChatGPT fetch implementation - matches sobannon's working format exactly
+    FIXED: Now uses session-based ID mapping to prevent data corruption and race conditions.
+    """
     try:
-        # Convert simple ID back to UUID using the mapping from search
+        # FIXED: Convert simple ID back to UUID using session-based mapping
         real_memory_id = memory_id
-        if hasattr(handle_chatgpt_search, '_id_mapping') and memory_id in handle_chatgpt_search._id_mapping:
-            real_memory_id = handle_chatgpt_search._id_mapping[memory_id]
-            logger.info(f"ChatGPT fetch: converted simple ID '{memory_id}' to real ID '{real_memory_id}'")
+        if (user_id in chatgpt_session_mappings and 
+            memory_id in chatgpt_session_mappings[user_id]):
+            real_memory_id = chatgpt_session_mappings[user_id][memory_id]
+            logger.info(f"ChatGPT fetch: converted simple ID '{memory_id}' to real ID '{real_memory_id}' (session: {user_id})")
+        else:
+            logger.warning(f"ChatGPT fetch: no mapping found for ID '{memory_id}' in session {user_id}")
         
         # Use the new, dedicated fetch logic for ChatGPT to avoid breaking other tools.
         memory_details = await _chatgpt_fetch_memory_by_id(user_id, real_memory_id)
