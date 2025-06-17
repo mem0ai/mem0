@@ -314,7 +314,7 @@ class MemoryGraph:
             -[r:{relationship}]->
             (m {{name: $dest_name, user_id: $user_id}})
             DELETE r
-            RETURN 
+            RETURN
                 n.name AS source,
                 m.name AS target,
                 type(r) AS relationship
@@ -363,7 +363,7 @@ class MemoryGraph:
                         destination.embedding = $destination_embedding,
                         destination:Entity
                     MERGE (source)-[r:{relationship}]->(destination)
-                    ON CREATE SET 
+                    ON CREATE SET
                         r.created = timestamp()
                     RETURN source.name AS source, type(r) AS relationship, destination.name AS target
                     """
@@ -384,7 +384,7 @@ class MemoryGraph:
                         source.embedding = $source_embedding,
                         source:Entity
                     MERGE (source)-[r:{relationship}]->(destination)
-                    ON CREATE SET 
+                    ON CREATE SET
                         r.created = timestamp()
                     RETURN source.name AS source, type(r) AS relationship, destination.name AS target
                     """
@@ -402,7 +402,7 @@ class MemoryGraph:
                     MATCH (destination:Entity)
                     WHERE id(destination) = $destination_id
                     MERGE (source)-[r:{relationship}]->(destination)
-                    ON CREATE SET 
+                    ON CREATE SET
                         r.created_at = timestamp(),
                         r.updated_at = timestamp()
                     RETURN source.name AS source, type(r) AS relationship, destination.name AS target
@@ -437,6 +437,12 @@ class MemoryGraph:
 
     def _remove_spaces_from_entities(self, entity_list):
         for item in entity_list:
+            if "source" not in item and "source_entity" in item:
+                item["source"] = item["source_entity"]
+            if "relationship" not in item and "relatationship" in item:
+                item["relationship"] = item["relatationship"]
+            if "destination" not in item and "destination_entity" in item:
+                item["destination"] = item["destination_entity"]
             item["source"] = item["source"].lower().replace(" ", "_")
             item["relationship"] = item["relationship"].lower().replace(" ", "_")
             item["destination"] = item["destination"].lower().replace(" ", "_")
@@ -444,7 +450,7 @@ class MemoryGraph:
 
     def _search_source_node(self, source_embedding, user_id, threshold=0.9):
         cypher = """
-            CALL vector_search.search("memzero", 1, $source_embedding) 
+            CALL vector_search.search("memzero", 1, $source_embedding)
             YIELD distance, node, similarity
             WITH node AS source_candidate, similarity
             WHERE source_candidate.user_id = $user_id AND similarity >= $threshold
@@ -462,7 +468,7 @@ class MemoryGraph:
 
     def _search_destination_node(self, destination_embedding, user_id, threshold=0.9):
         cypher = """
-            CALL vector_search.search("memzero", 1, $destination_embedding) 
+            CALL vector_search.search("memzero", 1, $destination_embedding)
             YIELD distance, node, similarity
             WITH node AS destination_candidate, similarity
             WHERE node.user_id = $user_id AND similarity >= $threshold
