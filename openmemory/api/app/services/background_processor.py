@@ -17,6 +17,10 @@ class BackgroundProcessor:
     def __init__(self):
         self.is_running = False
         self.process_interval = 30  # Process every 30 seconds
+        self.failure_count = 0
+        self.max_failures = 10  # Circuit breaker threshold
+        self.circuit_breaker_timeout = 300  # 5 minutes
+        self.last_failure_time = None
     
     async def start(self):
         """Start the background processor"""
@@ -44,6 +48,14 @@ class BackgroundProcessor:
     
     async def process_pending_documents(self):
         """Process documents that need chunking"""
+        
+        # Circuit breaker: Stop processing if too many failures
+        if (self.failure_count >= self.max_failures and 
+            self.last_failure_time and 
+            (datetime.utcnow() - self.last_failure_time).seconds < self.circuit_breaker_timeout):
+            logger.warning(f"Circuit breaker active: {self.failure_count} failures, waiting {self.circuit_breaker_timeout}s")
+            return
+        
         db = SessionLocal()
         try:
             # Find documents that need chunking AND have active memories
@@ -103,6 +115,36 @@ class BackgroundProcessor:
                 except Exception as e:
                     logger.error(f"Error chunking document {doc.id}: {e}")
                     db.rollback()
+                    
+                    # PREVENT INFINITE LOOPS: Clear the flag after max retries
+                    if doc.metadata_ is None:
+                        doc.metadata_ = {}
+                    
+                    retry_count = doc.metadata_.get('chunking_retry_count', 0) + 1
+                    
+                    if retry_count >= 3:  # Max 3 retries
+                        logger.error(f"Max retries reached for document {doc.id}, clearing chunking flag")
+                        updated_metadata = dict(doc.metadata_) if doc.metadata_ else {}
+                        updated_metadata["needs_chunking"] = False
+                        updated_metadata["chunking_failed_at"] = datetime.utcnow().isoformat()
+                        updated_metadata["failure_reason"] = str(e)
+                        updated_metadata["retry_count"] = retry_count
+                        
+                        doc.metadata_ = updated_metadata
+                        flag_modified(doc, 'metadata_')
+                        db.commit()
+                        logger.info(f"Cleared stuck chunking flag for failed document {doc.id}")
+                    else:
+                        # Increment retry count and continue
+                        updated_metadata = dict(doc.metadata_) if doc.metadata_ else {}
+                        updated_metadata["chunking_retry_count"] = retry_count
+                        updated_metadata["last_retry_at"] = datetime.utcnow().isoformat()
+                        
+                        doc.metadata_ = updated_metadata
+                        flag_modified(doc, 'metadata_')
+                        db.commit()
+                        logger.info(f"Retry {retry_count}/3 for document {doc.id}")
+                    
                     continue
             
             if processed > 0:
