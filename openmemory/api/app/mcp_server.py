@@ -1808,6 +1808,10 @@ async def handle_sse_messages(client_name: str, user_id: str, request: Request):
         if client_name == "cursor":
             return JSONResponse(content=response_payload)
         
+        # For ChatGPT, also return JSON-RPC directly instead of SSE
+        if client_name == "chatgpt":
+            return JSONResponse(content=response_payload)
+        
         # Send response through SSE queue instead of returning HTTP response
         connection_id = f"{client_name}_{user_id}"
         if connection_id in sse_message_queues:
@@ -1829,6 +1833,10 @@ async def handle_sse_messages(client_name: str, user_id: str, request: Request):
         
         # For Cursor, return JSON-RPC directly instead of SSE
         if client_name == "cursor":
+            return JSONResponse(content=response_payload)
+        
+        # For ChatGPT, also return JSON-RPC directly instead of SSE
+        if client_name == "chatgpt":
             return JSONResponse(content=response_payload)
         
         # Send error through SSE queue
