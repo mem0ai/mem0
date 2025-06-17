@@ -1582,6 +1582,10 @@ async def handle_sse_connection(client_name: str, user_id: str, request: Request
             # Send the endpoint event that supergateway expects
             yield f"event: endpoint\ndata: /mcp/{client_name}/messages/{user_id}\n\n"
             
+            # CRITICAL FIX: Send an immediate heartbeat to satisfy impatient clients like ChatGPT
+            # and prevent the connection from being dropped before the first message.
+            yield f"event: heartbeat\ndata: {{'timestamp': '{datetime.datetime.now(datetime.UTC).isoformat()}'}}\n\n"
+
             # Main event loop
             while True:
                 try:
