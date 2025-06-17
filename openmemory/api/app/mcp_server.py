@@ -1436,17 +1436,17 @@ def get_original_tools_schema(include_annotations=False):
         {
             "name": "ask_memory",
             "description": "FAST memory search for simple questions about the user's memories, thoughts, documents, or experiences",
-            "inputSchema": {"type": "object", "properties": {"question": {"type": "string", "description": "A natural language question"}}, "required": ["question"]}
+            "input_schema": {"type": "object", "properties": {"question": {"type": "string", "description": "A natural language question"}}, "required": ["question"]}
         },
         {
             "name": "add_memories",
             "description": "Store important information, preferences, facts, and observations about the user. Use this tool to remember key details learned during conversation.",
-            "inputSchema": {"type": "object", "properties": {"text": {"type": "string", "description": "The information to store"}}, "required": ["text"]}
+            "input_schema": {"type": "object", "properties": {"text": {"type": "string", "description": "The information to store"}}, "required": ["text"]}
         },
         {
             "name": "search_memory", 
             "description": "Quick keyword-based search through the user's memories. Use this for fast lookups when you need specific information or when ask_memory might be too comprehensive.",
-            "inputSchema": {
+            "input_schema": {
                 "type": "object", 
                 "properties": {
                     "query": {"type": "string", "description": "The search query"}, 
@@ -1458,12 +1458,12 @@ def get_original_tools_schema(include_annotations=False):
         {
             "name": "list_memories",
             "description": "Browse through the user's stored memories to get an overview of what you know about them.",
-            "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "description": "Max results"}}}
+            "input_schema": {"type": "object", "properties": {"limit": {"type": "integer", "description": "Max results"}}}
         },
         {
             "name": "deep_memory_query", 
             "description": "COMPREHENSIVE search that analyzes ALL user content including full documents and essays. Takes 30-60 seconds. Use sparingly for complex analysis.",
-            "inputSchema": {"type": "object", "properties": {"search_query": {"type": "string", "description": "The complex query"}}, "required": ["search_query"]}
+            "input_schema": {"type": "object", "properties": {"search_query": {"type": "string", "description": "The complex query"}}, "required": ["search_query"]}
         }
     ]
     
@@ -1489,7 +1489,7 @@ def get_api_tools_schema():
         {
             "name": "ask_memory",
             "description": "FAST memory search for simple questions about the user's memories, thoughts, documents, or experiences",
-            "inputSchema": {"type": "object", "properties": {"question": {"type": "string", "description": "A natural language question"}}, "required": ["question"]},
+            "input_schema": {"type": "object", "properties": {"question": {"type": "string", "description": "A natural language question"}}, "required": ["question"]},
             "annotations": {
                 "readOnly": True,
                 "sensitive": False,
@@ -1499,7 +1499,7 @@ def get_api_tools_schema():
         {
             "name": "add_memories",
             "description": "Store important information with optional tag-based organization. Optionally, add a list of string tags for later filtering.",
-            "inputSchema": {"type": "object", "properties": {"text": {"type": "string", "description": "The information to store"}, "tags": {"type": "array", "items": {"type": "string"}, "description": "Optional list of tags"}}, "required": ["text"]},
+            "input_schema": {"type": "object", "properties": {"text": {"type": "string", "description": "The information to store"}, "tags": {"type": "array", "items": {"type": "string"}, "description": "Optional list of tags"}}, "required": ["text"]},
             "annotations": {
                 "readOnly": False,
                 "sensitive": True,
@@ -1509,7 +1509,7 @@ def get_api_tools_schema():
         {
             "name": "search_memory_v2", 
             "description": "Quick keyword-based search with optional tag filtering. Enhanced version with metadata filtering capabilities.",
-            "inputSchema": {"type": "object", "properties": {"query": {"type": "string", "description": "The search query"}, "limit": {"type": "integer", "description": "Max results"}, "tags_filter": {"type": "array", "items": {"type": "string"}, "description": "Optional list of tags to filter by"}}, "required": ["query"]},
+            "input_schema": {"type": "object", "properties": {"query": {"type": "string", "description": "The search query"}, "limit": {"type": "integer", "description": "Max results"}, "tags_filter": {"type": "array", "items": {"type": "string"}, "description": "Optional list of tags to filter by"}}, "required": ["query"]},
             "annotations": {
                 "readOnly": True,
                 "sensitive": False,
@@ -1519,7 +1519,7 @@ def get_api_tools_schema():
         {
             "name": "list_memories",
             "description": "Browse through the user's stored memories to get an overview of what you know about them.",
-            "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "description": "Max results"}}},
+            "input_schema": {"type": "object", "properties": {"limit": {"type": "integer", "description": "Max results"}}},
             "annotations": {
                 "readOnly": True,
                 "sensitive": True,
@@ -1529,7 +1529,7 @@ def get_api_tools_schema():
         {
             "name": "deep_memory_query", 
             "description": "COMPREHENSIVE search that analyzes ALL user content including full documents and essays. Takes 30-60 seconds. Use sparingly for complex analysis.",
-            "inputSchema": {"type": "object", "properties": {"search_query": {"type": "string", "description": "The complex query"}}, "required": ["search_query"]},
+            "input_schema": {"type": "object", "properties": {"search_query": {"type": "string", "description": "The complex query"}}, "required": ["search_query"]},
             "annotations": {
                 "readOnly": True,
                 "sensitive": False,
@@ -1669,34 +1669,8 @@ async def handle_sse_messages(client_name: str, user_id: str, request: Request):
             if client_name == "chatgpt":
                 tools = get_chatgpt_tools_schema()
             else:
-                # Use the same comprehensive tool list as the main endpoint for other clients
-                tools = [
-                    {
-                        "name": "ask_memory",
-                        "description": "FAST memory search for simple questions about the user's memories, thoughts, documents, or experiences",
-                        "inputSchema": {"type": "object", "properties": {"question": {"type": "string"}}, "required": ["question"]}
-                    },
-                    {
-                        "name": "add_memories",
-                        "description": "Store important information, preferences, facts, and observations about the user. Use this tool to remember key details learned during conversation, user preferences, values, beliefs, facts about their work/life/interests, or anything the user wants remembered for future conversations. Think of this as building a comprehensive understanding of who they are. You should consider using this after learning something new about the user, even if not explicitly asked. The memory will be permanently stored and searchable. YOU MUST USE THE TOOLS/CALL TO USE THIS. NOTHING ELSE.",
-                        "inputSchema": {"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]}
-                    },
-                    {
-                        "name": "search_memory", 
-                        "description": "Quick keyword-based search through the user's memories. Use this for fast lookups when you need specific information or when ask_memory might be too comprehensive. Perfect for finding specific facts, dates, names, or simple queries. If you need just a quick fact-check or simple lookup, this is faster than ask_memory. Use when you need raw memory data rather than a conversational response.",
-                        "inputSchema": {"type": "object", "properties": {"query": {"type": "string"}, "limit": {"type": "integer"}}, "required": ["query"]}
-                    },
-                    {
-                        "name": "list_memories",
-                        "description": "Browse through the user's stored memories to get an overview of what you know about them. Use this when you want to understand the breadth of information available, or when the user asks 'what do you know about me?' or wants to see their stored memories. This gives you raw memory data without analysis - good for getting oriented or checking what's stored.",
-                        "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer"}}}
-                    },
-                    {
-                        "name": "deep_memory_query", 
-                        "description": "COMPREHENSIVE search that analyzes ALL user content including full documents and essays. Use this ONLY when ask_memory isn't sufficient and you need to analyze entire documents, find patterns across multiple sources, or do complex research. Takes 30-60 seconds and processes everything. Use sparingly for complex questions like 'Analyze my writing style across all essays' or 'Find patterns in my thinking over time'.",
-                        "inputSchema": {"type": "object", "properties": {"search_query": {"type": "string"}, "memory_limit": {"type": "integer"}, "chunk_limit": {"type": "integer"}, "include_full_docs": {"type": "boolean", "description": "Whether to include complete documents", "default": True}}, "required": ["search_query"]}
-                    }
-                ]
+                # Use the standardized schema function for consistency
+                tools = get_original_tools_schema()
             
             response_payload = {
                 "jsonrpc": "2.0",
