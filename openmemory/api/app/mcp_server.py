@@ -1314,15 +1314,28 @@ async def handle_post_message(request: Request):
         request_id = body.get("id")
 
         if method_name == "initialize":
-            # Use latest MCP protocol version globally for best features
+            # Adaptive protocol version - respond with client's version or highest we both support
+            client_version = params.get("protocolVersion", "2024-11-05")
+            
+            # Protocol version negotiation
+            if client_version == "2025-03-26":
+                # Client supports latest - use advanced features
+                protocol_version = "2025-03-26"
+                capabilities = {
+                    "tools": {"listChanged": False},
+                    "logging": {},
+                    "sampling": {}
+                }
+            else:
+                # Client uses older version - maintain compatibility
+                protocol_version = "2024-11-05"
+                capabilities = {"tools": {}}
+            
             response_payload = {
                 "jsonrpc": "2.0", 
                 "result": {
-                    "protocolVersion": "2025-03-26", 
-                    "capabilities": {
-                        "tools": {"listChanged": False},
-                        "logging": {}
-                    }, 
+                    "protocolVersion": protocol_version, 
+                    "capabilities": capabilities, 
                     "serverInfo": {
                         "name": "Jean Memory", 
                         "version": "1.0.0"
@@ -1417,28 +1430,18 @@ async def handle_post_message(request: Request):
         user_id_var.reset(user_token)
         client_name_var.reset(client_token)
 
-def get_original_tools_schema():
-    """Returns the JSON schema for the original tools with 2025-03-26 annotations."""
-    return [
+def get_original_tools_schema(include_annotations=False):
+    """Returns the JSON schema for the original tools, optionally with 2025-03-26 annotations."""
+    tools = [
         {
             "name": "ask_memory",
             "description": "FAST memory search for simple questions about the user's memories, thoughts, documents, or experiences",
-            "inputSchema": {"type": "object", "properties": {"question": {"type": "string", "description": "A natural language question"}}, "required": ["question"]},
-            "annotations": {
-                "readOnly": True,
-                "sensitive": False,
-                "destructive": False
-            }
+            "inputSchema": {"type": "object", "properties": {"question": {"type": "string", "description": "A natural language question"}}, "required": ["question"]}
         },
         {
             "name": "add_memories",
             "description": "Store important information, preferences, facts, and observations about the user. Use this tool to remember key details learned during conversation.",
-            "inputSchema": {"type": "object", "properties": {"text": {"type": "string", "description": "The information to store"}}, "required": ["text"]},
-            "annotations": {
-                "readOnly": False,
-                "sensitive": True,
-                "destructive": False
-            }
+            "inputSchema": {"type": "object", "properties": {"text": {"type": "string", "description": "The information to store"}}, "required": ["text"]}
         },
         {
             "name": "search_memory", 
@@ -1450,35 +1453,35 @@ def get_original_tools_schema():
                     "limit": {"type": "integer", "description": "Max results"}
                 }, 
                 "required": ["query"]
-            },
-            "annotations": {
-                "readOnly": True,
-                "sensitive": False,
-                "destructive": False
             }
         },
         {
             "name": "list_memories",
             "description": "Browse through the user's stored memories to get an overview of what you know about them.",
-            "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "description": "Max results"}}},
-            "annotations": {
-                "readOnly": True,
-                "sensitive": True,
-                "destructive": False
-            }
+            "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "description": "Max results"}}}
         },
         {
             "name": "deep_memory_query", 
             "description": "COMPREHENSIVE search that analyzes ALL user content including full documents and essays. Takes 30-60 seconds. Use sparingly for complex analysis.",
-            "inputSchema": {"type": "object", "properties": {"search_query": {"type": "string", "description": "The complex query"}}, "required": ["search_query"]},
-            "annotations": {
-                "readOnly": True,
-                "sensitive": False,
-                "destructive": False,
-                "expensive": True
-            }
+            "inputSchema": {"type": "object", "properties": {"search_query": {"type": "string", "description": "The complex query"}}, "required": ["search_query"]}
         }
     ]
+    
+    # Add annotations only for 2025-03-26 clients
+    if include_annotations:
+        annotations_map = {
+            "ask_memory": {"readOnly": True, "sensitive": False, "destructive": False},
+            "add_memories": {"readOnly": False, "sensitive": True, "destructive": False},
+            "search_memory": {"readOnly": True, "sensitive": False, "destructive": False},
+            "list_memories": {"readOnly": True, "sensitive": True, "destructive": False},
+            "deep_memory_query": {"readOnly": True, "sensitive": False, "destructive": False, "expensive": True}
+        }
+        
+        for tool in tools:
+            if tool["name"] in annotations_map:
+                tool["annotations"] = annotations_map[tool["name"]]
+    
+    return tools
 
 def get_api_tools_schema():
     """Returns the JSON schema for API key users with 2025-03-26 annotations and enhanced features."""
@@ -1631,16 +1634,28 @@ async def handle_sse_messages(client_name: str, user_id: str, request: Request):
         
         # Handle MCP protocol methods (same as the existing /messages/ handler)
         if method_name == "initialize":
-            # Use latest MCP protocol version globally for best features
+            # Adaptive protocol version - respond with client's version or highest we both support
+            client_version = params.get("protocolVersion", "2024-11-05")
+            
+            # Protocol version negotiation
+            if client_version == "2025-03-26":
+                # Client supports latest - use advanced features
+                protocol_version = "2025-03-26"
+                capabilities = {
+                    "tools": {"listChanged": False},
+                    "logging": {},
+                    "sampling": {}
+                }
+            else:
+                # Client uses older version - maintain compatibility
+                protocol_version = "2024-11-05"
+                capabilities = {"tools": {}}
+            
             response_payload = {
                 "jsonrpc": "2.0",
                 "result": {
-                    "protocolVersion": "2025-03-26",
-                    "capabilities": {
-                        "tools": {"listChanged": False},
-                        "logging": {},
-                        "sampling": {}
-                    },
+                    "protocolVersion": protocol_version,
+                    "capabilities": capabilities,
                     "serverInfo": {
                         "name": "Jean Memory",
                         "version": "1.0.0"
