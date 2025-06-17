@@ -10,7 +10,7 @@ from mem0.embeddings.ollama import OllamaEmbedding
 def mock_ollama_client():
     with patch("mem0.embeddings.ollama.Client") as mock_ollama:
         mock_client = Mock()
-        mock_client.list.return_value = {"models": [{"name": "nomic-embed-text"}]}
+        mock_client.list.return_value = {"models": [{"model": "nomic-embed-text"}]}
         mock_ollama.return_value = mock_client
         yield mock_client
 
