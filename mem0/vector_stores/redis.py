@@ -1,4 +1,5 @@
 import json
+import re
 import logging
 from datetime import datetime
 from functools import reduce
@@ -74,6 +75,18 @@ class RedisDB(VectorStoreBase):
         self.index = SearchIndex.from_dict(self.schema)
         self.index.set_client(self.client)
         self.index.create(overwrite=True)
+
+    def extract_json(text):
+        text = text.strip()
+        
+        # Check if it's wrapped in code fences
+        match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
+        if match:
+            json_str = match.group(1)
+        else:
+            json_str = text  # assume it's raw JSON
+
+        return json_str
 
     def create_col(self, name=None, vector_size=None, distance=None):
         """
@@ -175,7 +188,7 @@ class RedisDB(VectorStoreBase):
                         else {}
                     ),
                     **{field: result[field] for field in ["agent_id", "run_id", "user_id"] if field in result},
-                    **{k: v for k, v in json.loads(result["metadata"]).items()},
+                    **{k: v for k, v in json.loads(self.extract_json(result["metadata"])).items()},
                 },
             )
             for result in results
@@ -219,7 +232,7 @@ class RedisDB(VectorStoreBase):
                 else {}
             ),
             **{field: result[field] for field in ["agent_id", "run_id", "user_id"] if field in result},
-            **{k: v for k, v in json.loads(result["metadata"]).items()},
+            **{k: v for k, v in json.loads(self.extract_json(result["metadata"])).items()},
         }
 
         return MemoryResult(id=result["memory_id"], payload=payload)
@@ -286,7 +299,7 @@ class RedisDB(VectorStoreBase):
                             for field in ["agent_id", "run_id", "user_id"]
                             if field in result.__dict__
                         },
-                        **{k: v for k, v in json.loads(result["metadata"]).items()},
+                        **{k: v for k, v in json.loads(self.extract_json(result["metadata"])).items()},
                     },
                 )
                 for result in results.docs

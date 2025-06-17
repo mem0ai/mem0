@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from typing import Dict, List, Optional
 
 try:
@@ -20,6 +21,18 @@ class GroqLLM(LLMBase):
 
         api_key = self.config.api_key or os.getenv("GROQ_API_KEY")
         self.client = Groq(api_key=api_key)
+
+    def extract_json(text):
+        text = text.strip()
+        
+        # Check if it's wrapped in code fences
+        match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
+        if match:
+            json_str = match.group(1)
+        else:
+            json_str = text  # assume it's raw JSON
+
+        return json_str
 
     def _parse_response(self, response, tools):
         """
@@ -43,7 +56,7 @@ class GroqLLM(LLMBase):
                     processed_response["tool_calls"].append(
                         {
                             "name": tool_call.function.name,
-                            "arguments": json.loads(tool_call.function.arguments),
+                            "arguments": json.loads(self.extract_json(tool_call.function.arguments)),
                         }
                     )
 

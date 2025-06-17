@@ -93,6 +93,18 @@ class AzureAISearch(VectorStoreBase):
         if collection_name not in collections:
             self.create_col()
 
+    def extract_json(text):
+        text = text.strip()
+        
+        # Check if it's wrapped in code fences
+        match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
+        if match:
+            json_str = match.group(1)
+        else:
+            json_str = text  # assume it's raw JSON
+
+        return json_str
+
     def create_col(self):
         """Create a new index in Azure AI Search."""
         # Determine vector type based on use_float16 setting.
@@ -233,7 +245,7 @@ class AzureAISearch(VectorStoreBase):
 
         results = []
         for result in search_results:
-            payload = json.loads(result["payload"])
+            payload = json.loads(self.extract_json(result["payload"]))
             results.append(OutputData(id=result["id"], score=result["@search.score"], payload=payload))
         return results
 
@@ -288,7 +300,7 @@ class AzureAISearch(VectorStoreBase):
             result = self.search_client.get_document(key=vector_id)
         except ResourceNotFoundError:
             return None
-        return OutputData(id=result["id"], score=None, payload=json.loads(result["payload"]))
+        return OutputData(id=result["id"], score=None, payload=json.loads(self.extract_json(result["payload"])))
 
     def list_cols(self) -> List[str]:
         """
@@ -335,7 +347,7 @@ class AzureAISearch(VectorStoreBase):
         search_results = self.search_client.search(search_text="*", filter=filter_expression, top=limit)
         results = []
         for result in search_results:
-            payload = json.loads(result["payload"])
+            payload = json.loads(self.extract_json(result["payload"]))
             results.append(OutputData(id=result["id"], score=result["@search.score"], payload=payload))
         return [results]
 

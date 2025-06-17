@@ -1,6 +1,7 @@
 import argparse
 import json
 from collections import defaultdict
+import re
 
 import numpy as np
 from openai import OpenAI
@@ -34,6 +35,19 @@ Just return the label CORRECT or WRONG in a json format with the key as "label".
 """
 
 
+def extract_json(text):
+    text = text.strip()
+    
+    # Check if it's wrapped in code fences
+    match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
+    if match:
+        json_str = match.group(1)
+    else:
+        json_str = text  
+
+    return json_str
+
+
 def evaluate_llm_judge(question, gold_answer, generated_answer):
     """Evaluate the generated answer against the gold answer using an LLM judge."""
     response = client.chat.completions.create(
@@ -49,7 +63,8 @@ def evaluate_llm_judge(question, gold_answer, generated_answer):
         response_format={"type": "json_object"},
         temperature=0.0,
     )
-    label = json.loads(response.choices[0].message.content)["label"]
+
+    label = json.loads(extract_json(response.choices[0].message.content))["label"]
     return 1 if label == "CORRECT" else 0
 
 
