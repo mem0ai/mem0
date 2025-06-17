@@ -238,16 +238,24 @@ The Mem0's graph supports the following operations:
 ### Add Memories
 
 <Note>
-If you are using Mem0 with Graph Memory, it is recommended to pass `user_id`. Use `userId` in NodeSDK.
+Mem0 with Graph Memory supports both `user_id` and `agent_id` parameters. You can use either or both to organize your memories. Use `userId` and `agentId` in NodeSDK.
 </Note>
 
 <CodeGroup>
 ```python Python
+# Using only user_id
 m.add("I like pizza", user_id="alice")
+
+# Using both user_id and agent_id
+m.add("I like pizza", user_id="alice", agent_id="food-assistant")
 ```
 
 ```typescript TypeScript
+// Using only userId
 memory.add("I like pizza", { userId: "alice" });
+
+// Using both userId and agentId
+memory.add("I like pizza", { userId: "alice", agentId: "food-assistant" });
 ```
 
 ```json Output
@@ -260,11 +268,19 @@ memory.add("I like pizza", { userId: "alice" });
 
 <CodeGroup>
 ```python Python
+# Get all memories for a user
 m.get_all(user_id="alice")
+
+# Get all memories for a specific agent belonging to a user
+m.get_all(user_id="alice", agent_id="food-assistant")
 ```
 
 ```typescript TypeScript
+// Get all memories for a user
 memory.getAll({ userId: "alice" });
+
+// Get all memories for a specific agent belonging to a user
+memory.getAll({ userId: "alice", agentId: "food-assistant" });
 ```
 
 ```json Output
@@ -277,7 +293,8 @@ memory.getAll({ userId: "alice" });
             'metadata': None,
             'created_at': '2024-08-20T14:09:27.588719-07:00',
             'updated_at': None,
-            'user_id': 'alice'
+            'user_id': 'alice',
+            'agent_id': 'food-assistant'
         }
     ],
     'entities': [
@@ -295,11 +312,19 @@ memory.getAll({ userId: "alice" });
 
 <CodeGroup>
 ```python Python
+# Search memories for a user
 m.search("tell me my name.", user_id="alice")
+
+# Search memories for a specific agent belonging to a user
+m.search("tell me my name.", user_id="alice", agent_id="food-assistant")
 ```
 
 ```typescript TypeScript
+// Search memories for a user
 memory.search("tell me my name.", { userId: "alice" });
+
+// Search memories for a specific agent belonging to a user
+memory.search("tell me my name.", { userId: "alice", agentId: "food-assistant" });
 ```
 
 ```json Output
@@ -312,7 +337,8 @@ memory.search("tell me my name.", { userId: "alice" });
             'metadata': None,
             'created_at': '2024-08-20T14:09:27.588719-07:00',
             'updated_at': None,
-            'user_id': 'alice'
+            'user_id': 'alice',
+            'agent_id': 'food-assistant'
         }
     ],
     'entities': [
@@ -331,11 +357,19 @@ memory.search("tell me my name.", { userId: "alice" });
 
 <CodeGroup>
 ```python Python
+# Delete all memories for a user
 m.delete_all(user_id="alice")
+
+# Delete all memories for a specific agent belonging to a user
+m.delete_all(user_id="alice", agent_id="food-assistant")
 ```
 
 ```typescript TypeScript
+// Delete all memories for a user
 memory.deleteAll({ userId: "alice" });
+
+// Delete all memories for a specific agent belonging to a user
+memory.deleteAll({ userId: "alice", agentId: "food-assistant" });
 ```
 </CodeGroup>
 
@@ -515,6 +549,42 @@ memory.search("Who is spiderman?", { userId: "alice123" });
 ![Graph Memory Visualization](/images/graph_memory/graph_example9.png)
 
 > **Note:** The Graph Memory implementation is not standalone. You will be adding/retrieving memories to the vector store and the graph store simultaneously.
+
+## Using Multiple Agents with Graph Memory
+
+When working with multiple agents, you can use the `agent_id` parameter to organize memories by both user and agent. This allows you to:
+
+1. Create agent-specific knowledge graphs
+2. Share common knowledge between agents
+3. Isolate sensitive or specialized information to specific agents
+
+### Example: Multi-Agent Setup
+
+<CodeGroup>
+```python Python
+# Add memories for different agents
+m.add("I prefer Italian cuisine", user_id="bob", agent_id="food-assistant")
+m.add("I'm allergic to peanuts", user_id="bob", agent_id="health-assistant")
+m.add("I live in Seattle", user_id="bob")  # Shared across all agents
+
+# Search within specific agent context
+food_preferences = m.search("What food do I like?", user_id="bob", agent_id="food-assistant")
+health_info = m.search("What are my allergies?", user_id="bob", agent_id="health-assistant")
+location = m.search("Where do I live?", user_id="bob")  # Searches across all agents
+```
+
+```typescript TypeScript
+// Add memories for different agents
+memory.add("I prefer Italian cuisine", { userId: "bob", agentId: "food-assistant" });
+memory.add("I'm allergic to peanuts", { userId: "bob", agentId: "health-assistant" });
+memory.add("I live in Seattle", { userId: "bob" });  // Shared across all agents
+
+// Search within specific agent context
+const foodPreferences = memory.search("What food do I like?", { userId: "bob", agentId: "food-assistant" });
+const healthInfo = memory.search("What are my allergies?", { userId: "bob", agentId: "health-assistant" });
+const location = memory.search("Where do I live?", { userId: "bob" });  // Searches across all agents
+```
+</CodeGroup>
 
 If you want to use a managed version of Mem0, please check out [Mem0](https://mem0.dev/pd). If you have any questions, please feel free to reach out to us using one of the following methods:
 
