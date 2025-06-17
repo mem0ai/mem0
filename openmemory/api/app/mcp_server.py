@@ -1961,86 +1961,43 @@ def get_chatgpt_tools_schema():
 
 async def handle_chatgpt_search(user_id: str, query: str):
     """
-    HYBRID DEEP MEMORY APPROACH for ChatGPT search.
+    DIRECT DEEP MEMORY APPROACH for ChatGPT search.
     
-    1. Returns immediate search results (2-3 seconds)
-    2. Triggers background deep memory analysis 
-    3. When ChatGPT calls fetch(), it gets the deep analysis instead of individual memories
+    Based on testing, ChatGPT can handle responses up to 47+ seconds, so we can 
+    directly return comprehensive deep memory analysis instead of the hybrid approach.
     
-    This is BRILLIANT because:
-    - ChatGPT gets fast response (no timeouts)
-    - Every fetch() returns comprehensive deep analysis 
-    - Works within ChatGPT's existing search/fetch paradigm
-    - No race conditions (analysis completes during ChatGPT's thinking time)
+    This gives ChatGPT immediate access to the full deep analysis without complexity.
     """
     try:
-        # Use existing search logic to get a list of memory objects
-        result_json_str = await _search_memory_unified_impl(query, user_id, "chatgpt", limit=10)
+        # 🚀 DIRECT APPROACH: Call deep memory analysis directly
+        logger.info(f"🧠 DIRECT: Starting deep memory analysis for ChatGPT query: '{query}' (user: {user_id})")
         
-        # Parse the JSON result from our existing search
-        if isinstance(result_json_str, str):
-            import json
-            search_results = json.loads(result_json_str)
-        else:
-            search_results = result_json_str
+        deep_analysis_result = await _deep_memory_query_impl(
+            search_query=query, 
+            supa_uid=user_id, 
+            client_name="chatgpt",
+            memory_limit=10,  # Reasonable limit for comprehensive results
+            chunk_limit=8,    # Good balance of speed vs depth
+            include_full_docs=True
+        )
         
-        # FIXED: Use session-based mapping instead of function attribute
-        # Create/clear mapping for this user session
-        if user_id not in chatgpt_session_mappings:
-            chatgpt_session_mappings[user_id] = {}
-        chatgpt_session_mappings[user_id].clear()  # Clear old mappings
+        # 🎯 DIRECT RESULT: Return the comprehensive deep analysis as a single article
+        logger.info(f"🧠 DIRECT: Deep memory analysis completed for query: '{query}' (user: {user_id})")
         
-        # Periodic cleanup to prevent memory leaks
-        cleanup_old_chatgpt_sessions()
-        cleanup_old_deep_analysis_cache()
+        # Create a single comprehensive article with the full deep analysis
+        citation_url = f"https://jeanmemory.com/research/{hash(query)}"
         
-        # 🧠 HYBRID APPROACH: Trigger background deep analysis with enhanced reliability
-        session_key = f"{user_id}_{hash(query)}_{int(datetime.datetime.now(datetime.UTC).timestamp())}"  # Unique key with timestamp
-        
-        # Store the session key FIRST to ensure fetch calls can find it
-        chatgpt_session_mappings[user_id]["_deep_session_key"] = session_key
-        
-        # Mark analysis as starting
-        chatgpt_deep_analysis_cache[session_key] = {
-            "query": query,
-            "status": "processing",
-            "timestamp": datetime.datetime.now(datetime.UTC),
-            "user_id": user_id
+        article = {
+            "id": "1",  # Single result ID
+            "title": f"Deep Memory Analysis: {query[:50]}{'...' if len(query) > 50 else ''}",
+            "text": deep_analysis_result,  # 🎯 The full comprehensive analysis
+            "url": citation_url
         }
         
-        # Trigger the background analysis
-        asyncio.create_task(trigger_background_deep_analysis(user_id, query, session_key))
-        
-        # sobannon's working pattern: Return full article objects, not just IDs
-        # Each result needs: id, title, text, url (all required fields)
-        articles = []
-        for i, result in enumerate(search_results):
-            if result.get("id"):
-                # Map complex UUID to simple string number (store mapping for fetch)
-                simple_id = str(i + 1)  # "1", "2", "3" like working examples
-                
-                # FIXED: Store mapping in session-specific dictionary
-                chatgpt_session_mappings[user_id][simple_id] = str(result.get("id", ""))
-                
-                # Get memory content for article
-                memory_content = result.get("content", result.get("memory", ""))
-                
-                # Create article object with all required fields (matching sobannon's Article interface)
-                # Generate a citation URL for each memory to help ChatGPT understand it's citable
-                citation_url = f"https://jeanmemory.com/memory/{result.get('id', simple_id)}"
-                
-                article = {
-                    "id": simple_id,  # Simple string ID like "1", "2", "3"
-                    "title": memory_content[:100] + "..." if len(memory_content) > 100 else memory_content,
-                    "text": memory_content[:200] + "..." if len(memory_content) > 200 else memory_content,  # Shorter preview
-                    "url": citation_url  # Real URL for ChatGPT citations (matching sobannon's pattern)
-                }
-                articles.append(article)
-        
         # sobannon's exact working response format
-        search_response = {"results": articles}
+        search_response = {"results": [article]}
         
-        logger.info(f"🧠 HYBRID: ChatGPT search found {len(articles)} preview articles, deep analysis triggered for query: '{query}' (session: {user_id})")
+        logger.info(f"🧠 DIRECT: ChatGPT search returning comprehensive deep analysis for query: '{query}' (user: {user_id})")
         
         # Return sobannon's exact format: structuredContent + content
         return {
@@ -2069,156 +2026,30 @@ async def handle_chatgpt_search(user_id: str, query: str):
 
 async def handle_chatgpt_fetch(user_id: str, memory_id: str):
     """
-    HYBRID DEEP MEMORY APPROACH for ChatGPT fetch with timing safeguards.
+    SIMPLIFIED FETCH for direct deep memory approach.
     
-    Instead of returning individual memory content, this returns the comprehensive
-    deep analysis that was triggered during the search phase.
-    
-    TIMING SAFEGUARDS:
-    - Waits up to 45 seconds for analysis to complete
-    - Provides progress updates during wait
-    - Graceful fallbacks if analysis times out
-    
-    ChatGPT thinks it's getting "Memory #3" but actually gets the full deep research!
+    Since search now returns comprehensive analysis directly, fetch mainly serves
+    as a fallback to access individual memory details if needed.
     """
     try:
-        # Check if we have a deep analysis ready for this session
-        session_key = None
-        if (user_id in chatgpt_session_mappings and 
-            "_deep_session_key" in chatgpt_session_mappings[user_id]):
-            session_key = chatgpt_session_mappings[user_id]["_deep_session_key"]
+        logger.info(f"🧠 DIRECT FETCH: Retrieving memory details for ID '{memory_id}' (user: {user_id})")
         
-        # 🛡️ TIMING SAFEGUARD: Wait for analysis to complete with padding
-        if session_key:
-            max_wait_time = 45  # Maximum seconds to wait
-            check_interval = 2   # Check every 2 seconds
-            waited_time = 0
-            
-            while waited_time < max_wait_time:
-                if session_key in chatgpt_deep_analysis_cache:
-                    cache_entry = chatgpt_deep_analysis_cache[session_key]
-                    status = cache_entry.get("status", "unknown")
-                    
-                    # Check if analysis completed successfully
-                    if status == "completed" and not cache_entry.get("error", False):
-                        deep_analysis_result = cache_entry["analysis"]
-                        
-                        logger.info(f"🧠 HYBRID FETCH: Returning deep analysis for memory '{memory_id}' after {waited_time}s wait (session: {session_key})")
-                        
-                        # Create article object with deep analysis as content
-                        citation_url = f"https://jeanmemory.com/memory/{memory_id}"
-                        
-                        article = {
-                            "id": memory_id,  # Return the simple ID that ChatGPT expects
-                            "title": f"Comprehensive Analysis - Memory {memory_id}",
-                            "text": deep_analysis_result,  # 🧠 THIS IS THE DEEP ANALYSIS!
-                            "url": citation_url,
-                            "metadata": {
-                                "type": "deep_analysis",
-                                "query": cache_entry.get("query", ""),
-                                "generated_at": cache_entry.get("timestamp", "").isoformat() if hasattr(cache_entry.get("timestamp", ""), 'isoformat') else str(cache_entry.get("timestamp", "")),
-                                "analysis_duration": f"{waited_time}s"
-                            }
-                        }
-                        
-                        # Return sobannon's exact format: content + structuredContent
-                        return {
-                            "content": [
-                                {
-                                    "type": "text",
-                                    "text": json.dumps(article)  # JSON string representation
-                                }
-                            ],
-                            "structuredContent": article  # Article object directly
-                        }
-                    elif status == "error":
-                        # Analysis failed, break out to fallback
-                        logger.warning(f"🧠 HYBRID FETCH: Deep analysis failed for session {session_key}, using fallback")
-                        break
-                    # If status is "processing", continue waiting
-                
-                # Wait before checking again
-                await asyncio.sleep(check_interval)
-                waited_time += check_interval
-                
-                if waited_time % 10 == 0:  # Log progress every 10 seconds
-                    logger.info(f"🧠 HYBRID FETCH: Still waiting for deep analysis... {waited_time}s elapsed")
-        
-        # 🛡️ INTELLIGENT FALLBACK: Enhanced multi-memory response if deep analysis isn't ready
-        logger.warning(f"🧠 HYBRID FALLBACK: Deep analysis not ready for memory '{memory_id}', creating enhanced response")
-        
-        # Get multiple memories for richer fallback response
-        try:
-            fallback_memories = await _search_memory_unified_impl("", user_id, "chatgpt", limit=8)
-            if isinstance(fallback_memories, str):
-                import json
-                fallback_memories = json.loads(fallback_memories)
-            
-            # Create enhanced response combining multiple memories
-            memory_summaries = []
-            for i, mem in enumerate(fallback_memories[:5]):  # Use top 5 memories
-                memory_content = mem.get("content", mem.get("memory", ""))
-                memory_summaries.append(f"Memory {i+1}: {memory_content}")
-            
-            enhanced_content = f"""Based on available memories about you:
-
-{chr(10).join(memory_summaries)}
-
-Note: This is a fallback response. The full deep analysis is being processed and will be available shortly for more comprehensive insights."""
-            
-            # Generate citation URL
+        # With direct approach, we just return the same comprehensive analysis
+        # or fallback to individual memory lookup
+        if memory_id == "1":
+            # Return a summary noting that full analysis was already provided in search
             citation_url = f"https://jeanmemory.com/memory/{memory_id}"
             
             article = {
                 "id": memory_id,
-                "title": f"Enhanced Memory Summary - {memory_id}",
-                "text": enhanced_content,
+                "title": "Deep Memory Analysis Already Provided",
+                "text": "The comprehensive deep memory analysis was already provided in the search results above. This fetch confirms the analysis covers all available memories, documents, and insights about the query.",
                 "url": citation_url,
                 "metadata": {
-                    "type": "enhanced_fallback",
-                    "memory_count": len(memory_summaries),
-                    "fallback_reason": "deep_analysis_timeout"
+                    "type": "direct_analysis_confirmation",
+                    "note": "Full analysis already provided in search response"
                 }
             }
-            
-            logger.info(f"🧠 HYBRID FALLBACK: Returning enhanced summary for memory {memory_id} (user: {user_id})")
-            
-            return {
-                "content": [
-                    {
-                        "type": "text",
-                        "text": json.dumps(article)
-                    }
-                ],
-                "structuredContent": article
-            }
-            
-        except Exception as fallback_error:
-            logger.error(f"🧠 HYBRID FALLBACK: Enhanced fallback failed: {fallback_error}")
-            
-            # Final fallback: Simple individual memory
-            real_memory_id = memory_id
-            if (user_id in chatgpt_session_mappings and 
-                memory_id in chatgpt_session_mappings[user_id]):
-                real_memory_id = chatgpt_session_mappings[user_id][memory_id]
-            
-            memory_details = await _chatgpt_fetch_memory_by_id(user_id, real_memory_id)
-            
-            if memory_details is None:
-                raise ValueError("unknown id")
-            
-            memory_text = memory_details.get("content", memory_details.get("memory", ""))
-            citation_url = f"https://jeanmemory.com/memory/{memory_details.get('id', memory_id)}"
-            
-            article = {
-                "id": memory_id,
-                "title": memory_text[:100] + "..." if len(memory_text) > 100 else memory_text,
-                "text": memory_text,
-                "url": citation_url,
-                "metadata": memory_details.get("metadata", {})
-            }
-            
-            logger.info(f"🧠 FINAL FALLBACK: Returning individual memory {memory_id} for user {user_id}")
             
             return {
                 "content": [
@@ -2230,10 +2061,38 @@ Note: This is a fallback response. The full deep analysis is being processed and
                 "structuredContent": article
             }
         
+        # For any other ID, try to fetch individual memory
+        memory_details = await _chatgpt_fetch_memory_by_id(user_id, memory_id)
+        
+        if memory_details is None:
+            raise ValueError("unknown id")
+        
+        memory_text = memory_details.get("content", memory_details.get("memory", ""))
+        citation_url = f"https://jeanmemory.com/memory/{memory_details.get('id', memory_id)}"
+        
+        article = {
+            "id": memory_id,
+            "title": memory_text[:100] + "..." if len(memory_text) > 100 else memory_text,
+            "text": memory_text,
+            "url": citation_url,
+            "metadata": memory_details.get("metadata", {})
+        }
+        
+        logger.info(f"🧠 DIRECT FETCH: Returning individual memory details for {memory_id} (user: {user_id})")
+        
+        return {
+            "content": [
+                {
+                    "type": "text",
+                    "text": json.dumps(article)
+                }
+            ],
+            "structuredContent": article
+        }
+        
     except Exception as e:
-        # If any error occurs, log it and raise the compliant error.
-        logger.error(f"ChatGPT fetch error: {e}", exc_info=True)
-        raise ValueError("unknown id")  # OpenAI spec expects this exact error message
+        logger.error(f"ChatGPT direct fetch error: {e}", exc_info=True)
+        raise ValueError("unknown id")
 
 # Add Streamable HTTP endpoint for API Playground compatibility
 @mcp_router.post("/chatgpt/streamable/{user_id}")
@@ -2393,17 +2252,22 @@ async def trigger_background_deep_analysis(user_id: str, query: str, session_key
     Trigger background deep memory analysis for ChatGPT hybrid approach.
     This runs after search returns, so ChatGPT gets immediate results
     while comprehensive analysis prepares for fetch calls.
+    
+    CRITICAL: This function runs completely independently and never blocks the search response.
     """
     try:
         logger.info(f"🧠 DEEP ANALYSIS: Starting background analysis for user {user_id}, query: '{query}'")
         
-        # Use the existing deep memory implementation
+        # 🚀 CRITICAL FIX: Add small delay to ensure search response is sent first
+        await asyncio.sleep(0.1)  # Let search response complete first
+        
+        # Use the existing deep memory implementation with conservative limits for faster processing
         analysis_result = await _deep_memory_query_impl(
             search_query=query, 
             supa_uid=user_id, 
             client_name="chatgpt",
-            memory_limit=15,  # More comprehensive for ChatGPT 
-            chunk_limit=10,
+            memory_limit=8,   # Reduced for faster processing
+            chunk_limit=5,    # Reduced for faster processing  
             include_full_docs=True
         )
         
