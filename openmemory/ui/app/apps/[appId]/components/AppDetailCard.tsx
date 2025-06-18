@@ -11,6 +11,7 @@ import { RootState } from "@/store/store";
 import { toast } from "@/components/ui/use-toast";
 import { Input } from "@/components/ui/input";
 import { Copy } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const capitalize = (str: string) => {
   return str.charAt(0).toUpperCase() + str.slice(1);
@@ -27,7 +28,7 @@ const AppDetailCard = ({
   const [isLoading, setIsLoading] = useState(false);
   const dispatch = useDispatch();
   const apps = useSelector((state: RootState) => state.apps.apps);
-  const user = useSelector((state: RootState) => state.auth.user);
+  const { user } = useAuth();
   const currentApp = apps.find((app: any) => app.id === appId);
   const appConfig = currentApp
     ? constants[currentApp.name as keyof typeof constants] || constants.default
