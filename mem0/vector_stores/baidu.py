@@ -163,7 +163,6 @@ class BaiduDB(VectorStoreBase):
         """
         # Prepare data for insertion
         for idx, vector, metadata in zip(ids, vectors, payloads):
-            # 使用Row的动态参数设置：直接传入关键字参数
             row = Row(id=idx, vector=vector, metadata=metadata)
             self._table.upsert(rows=[row])
 
