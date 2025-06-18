@@ -43,6 +43,8 @@ interface ApiKey {
   is_active: boolean;
 }
 
+
+
 // --- Main Page Component ---
 
 export default function ApiKeysPage() {
@@ -62,6 +64,19 @@ export default function ApiKeysPage() {
   const [keyToRevoke, setKeyToRevoke] = useState<ApiKey | null>(null);
   const [copied, setCopied] = useState(false);
 
+  const handleApiError = (error: any, response?: Response) => {
+    // Check if this is a subscription-related error (402 status)
+    if (response?.status === 402 && typeof error.detail === 'object' && error.detail.error === 'subscription_required') {
+      // Show a simple toast-style error instead of the annoying modal
+      const errorMessage = error.detail?.message || "This feature requires a Pro subscription.";
+      setError(errorMessage);
+    } else {
+      // Handle as regular error
+      const errorMessage = typeof error.detail === 'string' ? error.detail : error.detail?.message || error.message || 'An error occurred';
+      setError(errorMessage);
+    }
+  };
+
   const fetchKeys = async () => {
     if (!accessToken) {
       setError("Authentication token not available.");
@@ -77,10 +92,12 @@ export default function ApiKeysPage() {
       });
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.detail || "Failed to fetch API keys.");
+        handleApiError(errorData, response);
+        return;
       }
       const data = await response.json();
       setKeys(data);
+      setError(null);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -109,7 +126,8 @@ export default function ApiKeysPage() {
       });
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.detail || "Failed to generate key.");
+        handleApiError(errorData, response);
+        return;
       }
       
       const data = await response.json();
@@ -136,7 +154,8 @@ export default function ApiKeysPage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.detail || "Failed to revoke key.");
+        handleApiError(errorData, response);
+        return;
       }
 
       setKeys(keys.filter(k => k.id !== keyToRevoke.id));

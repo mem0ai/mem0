@@ -9,6 +9,7 @@ from app.mcp_server import setup_mcp_server
 from app.routers import memories_router, apps_router, stats_router, integrations_router, mcp_tools_router
 from app.routers import keys as keys_router
 from app.routers.admin import router as admin_router
+from app.routers.stripe_webhooks import router as stripe_webhooks_router
 
 from fastapi_pagination import add_pagination
 from fastapi.middleware.cors import CORSMiddleware
@@ -45,6 +46,7 @@ async def lifespan(app: FastAPI):
     if not check_database_health():
         logger.error("Database health check failed - application may not work properly")
     
+    # Schema fix completed successfully - this code block has been removed
     logger.info("Database and services initialization completed.")
     
     # Start periodic cleanup task
@@ -104,6 +106,7 @@ app.add_middleware(
         "https://www.jeanmemory.com", # New custom domain with www
         "https://jean-memory-ui.onrender.com", # Render.com frontend URL
         "https://api.jeanmemory.com", # API domain used by some components
+        "https://platform.openai.com", # OpenAI API Playground
     ],  
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"], # Added PATCH
@@ -136,6 +139,7 @@ app.include_router(integrations_router, dependencies=[Depends(get_current_supa_u
 app.include_router(mcp_tools_router, dependencies=[Depends(get_current_supa_user)])
 app.include_router(admin_router)  # Admin router has its own authentication
 app.include_router(agent_mcp_router) # New secure agent endpoint
+app.include_router(stripe_webhooks_router)  # Stripe webhooks (no auth needed - verified by signature)
 
 
 

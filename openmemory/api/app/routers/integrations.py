@@ -14,6 +14,9 @@ import logging
 from sqlalchemy import text
 from app.background_tasks import create_task, get_task, update_task_progress, run_task_async, mark_task_started, mark_task_completed, mark_task_failed, get_task_health_status
 import psutil
+from pydantic import BaseModel
+import httpx
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -368,3 +371,90 @@ async def force_cleanup(
         "task_health": health_status,
         "memory_after_cleanup_mb": round(psutil.Process().memory_info().rss / 1024 / 1024, 1)
     } 
+
+
+# Integration Request Model
+class IntegrationRequest(BaseModel):
+    appName: str
+    useCase: str
+    priority: str
+    additionalInfo: str = ""
+    userEmail: str
+    userId: str
+
+
+@router.post("/request")
+async def request_integration(
+    request_data: IntegrationRequest,
+    background_tasks: BackgroundTasks,
+    current_user: SupabaseUser = Depends(get_current_supa_user)
+):
+    """Submit an integration request via email"""
+    try:
+        # Send email in background
+        background_tasks.add_task(send_integration_request_email, request_data)
+        
+        logger.info(f"Integration request submitted by user {current_user.id} for {request_data.appName}")
+        
+        return {
+            "message": "Integration request submitted successfully",
+            "app_name": request_data.appName
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to submit integration request: {e}")
+        raise HTTPException(status_code=500, detail="Failed to submit integration request")
+
+
+async def send_integration_request_email(request_data: IntegrationRequest):
+    """Send integration request email using Resend"""
+    try:
+        # Check if Resend API key is configured
+        resend_api_key = os.getenv("RESEND_API_KEY")
+        if not resend_api_key:
+            logger.warning("RESEND_API_KEY not configured, email not sent")
+            return
+
+        # Format email content
+        email_content = f"""
+New Integration Request - Jean Memory
+
+App/Service: {request_data.appName}
+Priority: {request_data.priority.title()}
+
+Use Case:
+{request_data.useCase}
+
+Additional Information:
+{request_data.additionalInfo or 'None provided'}
+
+User Details:
+- Email: {request_data.userEmail}
+- User ID: {request_data.userId}
+
+Submitted via Jean Memory Dashboard
+        """.strip()
+
+        # Send via Resend API
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {resend_api_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "from": "Jean Memory <noreply@jeanmemory.com>",
+                    "to": ["jonathan@jeantechnologies.com"],
+                    "subject": f"Integration Request: {request_data.appName} ({request_data.priority.title()} Priority)",
+                    "text": email_content
+                }
+            )
+            
+            if response.status_code == 200:
+                logger.info(f"Integration request email sent successfully for {request_data.appName}")
+            else:
+                logger.error(f"Failed to send email via Resend: {response.status_code} - {response.text}")
+                
+    except Exception as e:
+        logger.error(f"Error sending integration request email: {e}") 

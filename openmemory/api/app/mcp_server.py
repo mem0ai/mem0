@@ -13,13 +13,14 @@ import contextvars
 import os
 from dotenv import load_dotenv
 from app.database import SessionLocal
-from app.models import Memory, MemoryState, MemoryStatusHistory, MemoryAccessLog, Document, DocumentChunk, User
+from app.models import Memory, MemoryState, MemoryStatusHistory, MemoryAccessLog, Document, DocumentChunk, User, SubscriptionTier
 from app.utils.db import get_user_and_app, get_or_create_user
+from app.middleware.subscription_middleware import SubscriptionChecker
 import uuid
 import datetime
 from app.utils.permissions import check_memory_access_permissions
 from app.auth import get_current_user
-from typing import Optional
+from typing import Optional, Dict
 # Defer heavy imports
 # from qdrant_client import models as qdrant_models
 # from app.integrations.substack_service import SubstackService
@@ -34,6 +35,7 @@ from fastapi.responses import JSONResponse
 from .utils.decorators import retry_on_exception
 from qdrant_client import QdrantClient
 
+
 # Load environment variables
 load_dotenv()
 
@@ -41,10 +43,10 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 # Initialize MCP
-mcp = FastMCP("jean-memory-api")
+mcp = FastMCP("Jean Memory")
 
 # Add logging for MCP initialization
-logger.info(f"Initialized MCP server with name: jean-memory-api")
+logger.info(f"Initialized MCP server with name: Jean Memory")
 logger.info(f"MCP server object: {mcp}")
 logger.info(f"MCP internal server: {mcp._mcp_server}")
 
@@ -54,6 +56,23 @@ logger.info(f"MCP internal server: {mcp._mcp_server}")
 # Context variables for user_id (Supabase User ID string) and client_name
 user_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("supa_user_id")
 client_name_var: contextvars.ContextVar[str] = contextvars.ContextVar("client_name")
+
+# Global dictionary to manage SSE connections
+sse_message_queues: Dict[str, asyncio.Queue] = {}
+
+# FIXED: Session-based ID mapping to prevent race conditions
+# Each user session gets its own mapping that gets cleaned up
+chatgpt_session_mappings: Dict[str, Dict[str, str]] = {}
+
+def cleanup_old_chatgpt_sessions():
+    """Clean up old session mappings to prevent memory leaks"""
+    # Keep only the 50 most recent sessions
+    if len(chatgpt_session_mappings) > 50:
+        # Remove oldest sessions (simple cleanup strategy)
+        sessions_to_remove = list(chatgpt_session_mappings.keys())[:-50]
+        for session_id in sessions_to_remove:
+            del chatgpt_session_mappings[session_id]
+        logger.info(f"Cleaned up {len(sessions_to_remove)} old ChatGPT session mappings")
 
 # Create a router for MCP endpoints
 mcp_router = APIRouter(prefix="/mcp")
@@ -83,27 +102,7 @@ async def add_memories(text: str, tags: Optional[list[str]] = None) -> str:
     logger.error(f"🔍 ADD_MEMORIES DEBUG - User ID from context: {supa_uid}")
     logger.error(f"🔍 ADD_MEMORIES DEBUG - Client name from context: {client_name}")
     logger.error(f"🔍 ADD_MEMORIES DEBUG - Memory content preview: {text[:100]}...")
-    
-    # 🚨 CONTAMINATION DETECTION: Check for suspicious Java patterns
-    if any(pattern in text.lower() for pattern in [
-        'planningcontext', 'java', 'compilation', 'pickgroup', 'defaultgroup',
-        'constructor', 'factory', 'junit', '.class', 'import ', 'public class'
-    ]):
-        logger.error(f"🚨 POTENTIAL CONTAMINATION DETECTED!")
-        logger.error(f"🚨 User {supa_uid} trying to add Java content: {text[:150]}...")
-        logger.error(f"🚨 This may indicate context variable bleeding!")
-        
-        # Let's also log current context info
-        import contextvars
-        logger.error(f"🚨 Current context vars: user_id_var={user_id_var}, client_name_var={client_name_var}")
-        
-        # 🚨 EMERGENCY: Block suspicious Java content completely to prevent contamination
-        return f"❌ BLOCKED: Suspicious Java development content detected. This appears to be contaminated memory from another user. Content blocked for security."
-    
-    # 🚨 ADDITIONAL SAFETY: Validate user_id format and detect known contaminated user patterns
-    if supa_uid and any(suspicious_user in supa_uid.lower() for suspicious_user in ['pralayb', 'test', 'debug']):
-        logger.error(f"🚨 SUSPICIOUS USER ID DETECTED: {supa_uid}")
-        return f"❌ BLOCKED: Suspicious user ID pattern detected. Operation blocked for security."
+
     
     memory_client = get_memory_client()
 
@@ -119,6 +118,13 @@ async def add_memories(text: str, tags: Optional[list[str]] = None) -> str:
         logger.info(f"add_memories: DB connection for user {supa_uid} took {db_duration:.2f}s")
         try:
             user, app = get_user_and_app(db, supabase_user_id=supa_uid, app_name=client_name, email=None)
+            
+            # Check if user is trying to use Pro feature (tags)
+            if tags and tags:  # If tags are provided and not empty
+                try:
+                    SubscriptionChecker.check_pro_features(user, "metadata tagging")
+                except Exception as e:
+                    return f"Error: {str(e)}"
 
             if not app.is_active:
                 return f"Error: App {app.name} is currently paused. Cannot create new memories."
@@ -296,6 +302,13 @@ async def _search_memory_unified_impl(query: str, supa_uid: str, client_name: st
         # Get user (but don't filter by specific app - search ALL memories)
         user = get_or_create_user(db, supa_uid, None)
         
+        # Check if user is trying to use Pro feature (tag filtering)
+        if tags_filter and tags_filter:  # If tags_filter is provided and not empty
+            try:
+                SubscriptionChecker.check_pro_features(user, "advanced tag filtering")
+            except Exception as e:
+                return f"Error: {str(e)}"
+        
         # 🚨 CRITICAL: Add user validation logging
         logger.info(f"🔍 SEARCH DEBUG - User ID: {supa_uid}, DB User ID: {user.id}, DB User user_id: {user.user_id}")
         
@@ -333,15 +346,6 @@ async def _search_memory_unified_impl(query: str, supa_uid: str, client_name: st
             mem0_id = mem_data.get('id')
             if not mem0_id: 
                 continue
-            
-            # 🚨 CRITICAL: Check if this memory belongs to the correct user
-            memory_content = mem_data.get('memory', mem_data.get('content', ''))
-            
-            # Log suspicious content that might belong to other users
-            if any(suspicious in memory_content.lower() for suspicious in ['pralayb', '/users/pralayb', 'faircopyfolder']):
-                logger.error(f"🚨 SUSPICIOUS MEMORY DETECTED - User {supa_uid} got memory: {memory_content[:100]}...")
-                logger.error(f"🚨 Memory metadata: {mem_data.get('metadata', {})}")
-                continue  # Skip this memory
             
             # Apply tag filtering if requested
             if tags_filter:
@@ -1343,19 +1347,50 @@ async def handle_post_message(request: Request):
         request_id = body.get("id")
 
         if method_name == "initialize":
-            response_payload = {"jsonrpc": "2.0", "result": {"protocolVersion": "2024-11-05", "capabilities": {}, "serverInfo": {"name": "jean-memory-api", "version": "1.0.0"}}, "id": request_id}
+            # Adaptive protocol version - respond with client's version or highest we both support
+            client_version = params.get("protocolVersion", "2024-11-05")
+            
+            # Protocol version negotiation
+            if client_version == "2025-03-26":
+                # Client supports latest - use advanced features
+                protocol_version = "2025-03-26"
+                capabilities = {
+                    "tools": {"listChanged": False},
+                    "logging": {},
+                    "sampling": {}
+                }
+            else:
+                # Client uses older version - maintain compatibility
+                protocol_version = "2024-11-05"
+                capabilities = {"tools": {}}
+            
+            response_payload = {
+                "jsonrpc": "2.0", 
+                "result": {
+                    "protocolVersion": protocol_version, 
+                    "capabilities": capabilities, 
+                    "serverInfo": {
+                        "name": "Jean Memory", 
+                        "version": "1.0.0"
+                    }
+                }, 
+                "id": request_id
+            }
             return JSONResponse(content=response_payload)
 
         elif method_name == "tools/list":
-            # Detect ChatGPT requests
-            is_chatgpt = client_name_from_header == "chatgpt"
-            
-            if is_chatgpt:
+            # Select the correct tool schema based on the client
+            if client_name_from_header == "chatgpt":
                 tools_to_show = get_chatgpt_tools_schema()
             elif is_api_key_path:
                 tools_to_show = get_api_tools_schema()
             else:
+                # This will cover the playground case and default
                 tools_to_show = get_original_tools_schema()
+
+            # 🚨 CRITICAL DEBUGGING: Log the exact schema being sent
+            logger.info(f"🔍 TOOLS/LIST DEBUG - Client: {client_name_from_header}, is_api_key: {is_api_key_path}, Schema: {json.dumps(tools_to_show, indent=2)}")
+
             return JSONResponse(content={"jsonrpc": "2.0", "result": {"tools": tools_to_show}, "id": request_id})
 
         elif method_name == "tools/call":
@@ -1431,22 +1466,22 @@ async def handle_post_message(request: Request):
         user_id_var.reset(user_token)
         client_name_var.reset(client_token)
 
-def get_original_tools_schema():
-    """Returns the JSON schema for the original tools, now unified with optional tags_filter."""
-    return [
+def get_original_tools_schema(include_annotations=False):
+    """Returns the JSON schema for the original tools, optionally with 2025-03-26 annotations."""
+    tools = [
         {
             "name": "ask_memory",
-            "description": "FAST memory search for simple questions about the user...",
+            "description": "FAST memory search for simple questions about the user's memories, thoughts, documents, or experiences",
             "inputSchema": {"type": "object", "properties": {"question": {"type": "string", "description": "A natural language question"}}, "required": ["question"]}
         },
         {
             "name": "add_memories",
-            "description": "Store important information, preferences, facts...",
+            "description": "Store important information, preferences, facts, and observations about the user. Use this tool to remember key details learned during conversation.",
             "inputSchema": {"type": "object", "properties": {"text": {"type": "string", "description": "The information to store"}}, "required": ["text"]}
         },
         {
             "name": "search_memory", 
-            "description": "Quick keyword-based search through the user's memories. Use this for fast lookups when you need specific information or when ask_memory might be too comprehensive. Perfect for finding specific facts, dates, names, or simple queries.",
+            "description": "Quick keyword-based search through the user's memories. Use this for fast lookups when you need specific information or when ask_memory might be too comprehensive.",
             "inputSchema": {
                 "type": "object", 
                 "properties": {
@@ -1458,43 +1493,85 @@ def get_original_tools_schema():
         },
         {
             "name": "list_memories",
-            "description": "Browse through the user's stored memories...",
+            "description": "Browse through the user's stored memories to get an overview of what you know about them.",
             "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "description": "Max results"}}}
         },
         {
             "name": "deep_memory_query", 
-            "description": "COMPREHENSIVE search that analyzes ALL user content...",
+            "description": "COMPREHENSIVE search that analyzes ALL user content including full documents and essays. Takes 30-60 seconds. Use sparingly for complex analysis.",
             "inputSchema": {"type": "object", "properties": {"search_query": {"type": "string", "description": "The complex query"}}, "required": ["search_query"]}
         }
     ]
+    
+    # Add annotations only for 2025-03-26 clients
+    if include_annotations:
+        annotations_map = {
+            "ask_memory": {"readOnly": True, "sensitive": False, "destructive": False},
+            "add_memories": {"readOnly": False, "sensitive": True, "destructive": False},
+            "search_memory": {"readOnly": True, "sensitive": False, "destructive": False},
+            "list_memories": {"readOnly": True, "sensitive": True, "destructive": False},
+            "deep_memory_query": {"readOnly": True, "sensitive": False, "destructive": False, "expensive": True}
+        }
+        
+        for tool in tools:
+            if tool["name"] in annotations_map:
+                tool["annotations"] = annotations_map[tool["name"]]
+    
+    return tools
 
 def get_api_tools_schema():
-    """Returns the JSON schema for API key users, including new features."""
+    """Returns the JSON schema for API key users with 2025-03-26 annotations and enhanced features."""
     return [
         {
             "name": "ask_memory",
-            "description": "FAST memory search for simple questions about the user...",
-            "inputSchema": {"type": "object", "properties": {"question": {"type": "string", "description": "A natural language question"}}, "required": ["question"]}
+            "description": "FAST memory search for simple questions about the user's memories, thoughts, documents, or experiences",
+            "inputSchema": {"type": "object", "properties": {"question": {"type": "string", "description": "A natural language question"}}, "required": ["question"]},
+            "annotations": {
+                "readOnly": True,
+                "sensitive": False,
+                "destructive": False
+            }
         },
         {
             "name": "add_memories",
-            "description": "Store important information. Optionally, add a list of string tags for later filtering.",
-            "inputSchema": {"type": "object", "properties": {"text": {"type": "string", "description": "The information to store"}, "tags": {"type": "array", "items": {"type": "string"}, "description": "Optional list of tags"}}, "required": ["text"]}
+            "description": "Store important information with optional tag-based organization. Optionally, add a list of string tags for later filtering.",
+            "inputSchema": {"type": "object", "properties": {"text": {"type": "string", "description": "The information to store"}, "tags": {"type": "array", "items": {"type": "string"}, "description": "Optional list of tags"}}, "required": ["text"]},
+            "annotations": {
+                "readOnly": False,
+                "sensitive": True,
+                "destructive": False
+            }
         },
         {
             "name": "search_memory_v2", 
-            "description": "Quick keyword-based search with optional tag filtering.",
-            "inputSchema": {"type": "object", "properties": {"query": {"type": "string", "description": "The search query"}, "limit": {"type": "integer", "description": "Max results"}, "tags_filter": {"type": "array", "items": {"type": "string"}, "description": "Optional list of tags to filter by"}}, "required": ["query"]}
+            "description": "Quick keyword-based search with optional tag filtering. Enhanced version with metadata filtering capabilities.",
+            "inputSchema": {"type": "object", "properties": {"query": {"type": "string", "description": "The search query"}, "limit": {"type": "integer", "description": "Max results"}, "tags_filter": {"type": "array", "items": {"type": "string"}, "description": "Optional list of tags to filter by"}}, "required": ["query"]},
+            "annotations": {
+                "readOnly": True,
+                "sensitive": False,
+                "destructive": False
+            }
         },
         {
             "name": "list_memories",
-            "description": "Browse through the user's stored memories...",
-            "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "description": "Max results"}}}
+            "description": "Browse through the user's stored memories to get an overview of what you know about them.",
+            "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "description": "Max results"}}},
+            "annotations": {
+                "readOnly": True,
+                "sensitive": True,
+                "destructive": False
+            }
         },
         {
             "name": "deep_memory_query", 
-            "description": "COMPREHENSIVE search that analyzes ALL user content...",
-            "inputSchema": {"type": "object", "properties": {"search_query": {"type": "string", "description": "The complex query"}}, "required": ["search_query"]}
+            "description": "COMPREHENSIVE search that analyzes ALL user content including full documents and essays. Takes 30-60 seconds. Use sparingly for complex analysis.",
+            "inputSchema": {"type": "object", "properties": {"search_query": {"type": "string", "description": "The complex query"}}, "required": ["search_query"]},
+            "annotations": {
+                "readOnly": True,
+                "sensitive": False,
+                "destructive": False,
+                "expensive": True
+            }
         }
     ]
 
@@ -1538,13 +1615,17 @@ async def handle_sse_connection(client_name: str, user_id: str, request: Request
             # Send the endpoint event that supergateway expects
             yield f"event: endpoint\ndata: /mcp/{client_name}/messages/{user_id}\n\n"
             
+            # CRITICAL FIX: Send an immediate heartbeat to satisfy impatient clients like ChatGPT
+            # and prevent the connection from being dropped before the first message.
+            yield f"event: heartbeat\ndata: {{'timestamp': '{datetime.datetime.now(datetime.UTC).isoformat()}'}}\n\n"
+
             # Main event loop
             while True:
                 try:
                     # Check for messages with timeout
                     message = await asyncio.wait_for(
                         sse_message_queues[connection_id].get(), 
-                        timeout=10.0
+                        timeout=1.0
                     )
                     # Send the message through SSE
                     yield f"data: {json.dumps(message)}\n\n"
@@ -1593,15 +1674,30 @@ async def handle_sse_messages(client_name: str, user_id: str, request: Request):
         
         # Handle MCP protocol methods (same as the existing /messages/ handler)
         if method_name == "initialize":
+            # Adaptive protocol version - respond with client's version or highest we both support
+            client_version = params.get("protocolVersion", "2024-11-05")
+            
+            # Protocol version negotiation
+            if client_version == "2025-03-26":
+                # Client supports latest - use advanced features
+                protocol_version = "2025-03-26"
+                capabilities = {
+                    "tools": {"listChanged": False},
+                    "logging": {},
+                    "sampling": {}
+                }
+            else:
+                # Client uses older version - maintain compatibility
+                protocol_version = "2024-11-05"
+                capabilities = {"tools": {}}
+            
             response_payload = {
                 "jsonrpc": "2.0",
                 "result": {
-                    "protocolVersion": "2024-11-05",
-                    "capabilities": {
-                        "tools": {}
-                    },
+                    "protocolVersion": protocol_version,
+                    "capabilities": capabilities,
                     "serverInfo": {
-                        "name": "jean-memory-local",
+                        "name": "Jean Memory",
                         "version": "1.0.0"
                     }
                 },
@@ -1613,34 +1709,8 @@ async def handle_sse_messages(client_name: str, user_id: str, request: Request):
             if client_name == "chatgpt":
                 tools = get_chatgpt_tools_schema()
             else:
-                # Use the same comprehensive tool list as the main endpoint for other clients
-                tools = [
-                    {
-                        "name": "ask_memory",
-                        "description": "FAST memory search for simple questions about the user's memories, thoughts, documents, or experiences",
-                        "inputSchema": {"type": "object", "properties": {"question": {"type": "string"}}, "required": ["question"]}
-                    },
-                    {
-                        "name": "add_memories",
-                        "description": "Store important information, preferences, facts, and observations about the user. Use this tool to remember key details learned during conversation, user preferences, values, beliefs, facts about their work/life/interests, or anything the user wants remembered for future conversations. Think of this as building a comprehensive understanding of who they are. You should consider using this after learning something new about the user, even if not explicitly asked. The memory will be permanently stored and searchable. YOU MUST USE THE TOOLS/CALL TO USE THIS. NOTHING ELSE.",
-                        "inputSchema": {"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]}
-                    },
-                    {
-                        "name": "search_memory", 
-                        "description": "Quick keyword-based search through the user's memories. Use this for fast lookups when you need specific information or when ask_memory might be too comprehensive. Perfect for finding specific facts, dates, names, or simple queries. If you need just a quick fact-check or simple lookup, this is faster than ask_memory. Use when you need raw memory data rather than a conversational response.",
-                        "inputSchema": {"type": "object", "properties": {"query": {"type": "string"}, "limit": {"type": "integer"}}, "required": ["query"]}
-                    },
-                    {
-                        "name": "list_memories",
-                        "description": "Browse through the user's stored memories to get an overview of what you know about them. Use this when you want to understand the breadth of information available, or when the user asks 'what do you know about me?' or wants to see their stored memories. This gives you raw memory data without analysis - good for getting oriented or checking what's stored.",
-                        "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer"}}}
-                    },
-                    {
-                        "name": "deep_memory_query", 
-                        "description": "COMPREHENSIVE search that analyzes ALL user content including full documents and essays. Use this ONLY when ask_memory isn't sufficient and you need to analyze entire documents, find patterns across multiple sources, or do complex research. Takes 30-60 seconds and processes everything. Use sparingly for complex questions like 'Analyze my writing style across all essays' or 'Find patterns in my thinking over time'.",
-                        "inputSchema": {"type": "object", "properties": {"search_query": {"type": "string"}, "memory_limit": {"type": "integer"}, "chunk_limit": {"type": "integer"}, "include_full_docs": {"type": "boolean", "description": "Whether to include complete documents", "default": True}}, "required": ["search_query"]}
-                    }
-                ]
+                # Use the standardized schema function for consistency
+                tools = get_original_tools_schema()
             
             response_payload = {
                 "jsonrpc": "2.0",
@@ -1748,13 +1818,24 @@ async def handle_sse_messages(client_name: str, user_id: str, request: Request):
                 "id": request_id
             }
         
-        # Send response through SSE queue instead of returning HTTP response
+        # For Cursor, return JSON-RPC directly instead of SSE
+        if client_name == "cursor":
+            return JSONResponse(content=response_payload)
+
         connection_id = f"{client_name}_{user_id}"
+        # Check if a persistent SSE connection exists for this user.
+        # If it does, use the queue. Otherwise, return a direct response for stateless clients.
         if connection_id in sse_message_queues:
             await sse_message_queues[connection_id].put(response_payload)
-        
-        # Return empty response to close HTTP request
-        return JSONResponse(content={"status": "sent_via_sse"})
+            # CRITICAL FIX: Immediately send a heartbeat after the message to keep the connection alive.
+            heartbeat_message = f"event: heartbeat\ndata: {{'timestamp': '{datetime.datetime.now(datetime.UTC).isoformat()}'}}\n\n"
+            await sse_message_queues[connection_id].put(heartbeat_message)
+            # Return empty response to close HTTP request
+            return JSONResponse(content={"status": "sent_via_sse"})
+        else:
+            # No active SSE connection, so return the full payload directly.
+            # This handles local testing with tools like the OpenAI Playground.
+            return JSONResponse(content=response_payload)
     
     except Exception as e:
         logger.error(f"Error in SSE messages handler: {e}")
@@ -1767,12 +1848,19 @@ async def handle_sse_messages(client_name: str, user_id: str, request: Request):
             "id": request_id if 'request_id' in locals() else None
         }
         
-        # Send error through SSE queue
+        # For Cursor, return JSON-RPC directly instead of SSE
+        if client_name == "cursor":
+            return JSONResponse(content=response_payload)
+
         connection_id = f"{client_name}_{user_id}"
+        # Also check here for stateless vs. stateful error reporting
         if connection_id in sse_message_queues:
+            # Send error through SSE queue
             await sse_message_queues[connection_id].put(response_payload)
-        
-        return JSONResponse(content={"status": "error_sent_via_sse"})
+            return JSONResponse(content={"status": "error_sent_via_sse"})
+        else:
+            # Return error directly for stateless clients
+            return JSONResponse(content=response_payload, status_code=500)
     
     finally:
         # Clean up context variables
@@ -1794,91 +1882,407 @@ def get_chatgpt_tools_schema():
     return [
         {
             "name": "search",
-            "description": "Searches for resources using the provided query string and returns matching results.",
+            "description": "Search for memories and documents",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "query": {"type": "string", "description": "Search query."}
+                    "query": {
+                        "type": "string",
+                        "description": "Search query to find relevant memories and documents"
+                    }
                 },
                 "required": ["query"]
+            },
+            "outputSchema": {
+                "type": "object",
+                "properties": {
+                    "structuredContent": {
+                        "type": "object",
+                        "properties": {
+                            "results": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {"type": "string"},
+                                        "title": {"type": "string"},
+                                        "text": {"type": "string"},
+                                        "url": {"type": ["string", "null"]}
+                                    },
+                                    "required": ["id", "title", "text"]
+                                }
+                            }
+                        },
+                        "required": ["results"]
+                    },
+                    "content": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "type": {"type": "string"},
+                                "text": {"type": "string"}
+                            },
+                            "required": ["type", "text"]
+                        }
+                    }
+                },
+                "required": ["structuredContent", "content"]
             }
         },
         {
             "name": "fetch",
-            "description": "Retrieves detailed content for a specific resource identified by the given ID.",
+            "description": "Fetch memory or document by ID",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "id": {"type": "string", "description": "ID of the resource to fetch."}
+                    "id": {"type": "string", "description": "ID of the memory or document to fetch"}
                 },
                 "required": ["id"]
+            },
+            "outputSchema": {
+                "type": "object",
+                "properties": {
+                    "structuredContent": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string"},
+                            "title": {"type": "string"},
+                            "text": {"type": "string"},
+                            "url": {"type": ["string", "null"]},
+                            "metadata": {
+                                "type": ["object", "null"],
+                                "additionalProperties": {"type": "string"}
+                            }
+                        },
+                        "required": ["id", "title", "text"]
+                    },
+                    "content": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "type": {"type": "string"},
+                                "text": {"type": "string"}
+                            },
+                            "required": ["type", "text"]
+                        }
+                    }
+                },
+                "required": ["structuredContent", "content"]
             }
         }
     ]
 
 async def handle_chatgpt_search(user_id: str, query: str):
-    """ChatGPT search implementation - returns OpenAI compliant format"""
+    """
+    DIRECT DEEP MEMORY APPROACH for ChatGPT search.
+    
+    Based on testing, ChatGPT can handle responses up to 47+ seconds, so we can 
+    directly return comprehensive deep memory analysis instead of the hybrid approach.
+    
+    This gives ChatGPT immediate access to the full deep analysis without complexity.
+    """
     try:
-        # Use existing search logic but return ChatGPT format
-        result = await _search_memory_unified_impl(query, user_id, "chatgpt", limit=10)
+        # 🚀 DIRECT DEEP MEMORY TEST: Call deep analysis directly (testing timeout limits)
+        logger.info(f"🧠 DIRECT: Starting deep memory analysis for ChatGPT query: '{query}' (user: {user_id})")
         
-        # Parse the JSON result from our existing search
-        if isinstance(result, str):
-            import json
-            search_results = json.loads(result)
-        else:
-            search_results = result
+        deep_analysis_result = await _deep_memory_query_impl(
+            search_query=query, 
+            supa_uid=user_id, 
+            client_name="chatgpt",
+            memory_limit=10,  # Reasonable limit for comprehensive results
+            chunk_limit=8,    # Good balance of speed vs depth
+            include_full_docs=True
+        )
         
-        # Format for ChatGPT schema - must match OpenAI's exact specification
-        formatted_results = []
+        # 🎯 SCHEMA COMPLIANT: Return deep analysis as single article (fits required schema)
+        citation_url = "https://jeanmemory.com"
         
-        # Handle both list and dict formats
-        if isinstance(search_results, list):
-            results_list = search_results
-        elif isinstance(search_results, dict) and 'results' in search_results:
-            results_list = search_results['results']
-        else:
-            results_list = search_results if isinstance(search_results, list) else []
+        article = {
+            "id": "1",  # Single comprehensive result
+            "title": f"Deep Analysis: {query[:50]}{'...' if len(query) > 50 else ''}",
+            "text": deep_analysis_result,  # 🧠 Full comprehensive deep analysis
+            "url": citation_url
+        }
         
-        for result in results_list:
-            memory_text = result.get("memory", result.get("content", ""))
-            formatted_results.append({
-                "id": str(result.get("id", "")),
-                "title": memory_text[:100] + "..." if len(memory_text) > 100 else memory_text,
-                "text": memory_text,
-                "url": None  # Required by OpenAI spec, needed for citations
-            })
+        # sobannon's exact working response format
+        search_response = {"results": [article]}
         
-        logger.info(f"ChatGPT search returning {len(formatted_results)} results for query: {query}")
-        return {"results": formatted_results}
+        logger.info(f"🧠 DIRECT: Deep memory analysis completed for query: '{query}' (user: {user_id})")
+        
+        # Return sobannon's exact format: structuredContent + content
+        return {
+            "structuredContent": search_response,  # For programmatic access
+            "content": [
+                {
+                    "type": "text", 
+                    "text": json.dumps(search_response)  # For display
+                }
+            ]
+        }
+
     except Exception as e:
         logger.error(f"ChatGPT search error: {e}", exc_info=True)
-        return {"results": []}
+        # Return empty results in the same format
+        empty_response = {"results": []}
+        return {
+            "structuredContent": empty_response,
+            "content": [
+                {
+                    "type": "text",
+                    "text": json.dumps(empty_response)
+                }
+            ]
+        }
 
 async def handle_chatgpt_fetch(user_id: str, memory_id: str):
-    """ChatGPT fetch implementation - returns OpenAI compliant format"""
+    """
+    DIRECT DEEP MEMORY: Simple fetch for single comprehensive analysis result
+    """
     try:
-        # Use existing get memory logic  
-        result = await _get_memory_details_impl(memory_id, user_id, "chatgpt")
-        
-        # Parse the JSON result from our existing function
-        if isinstance(result, str):
-            import json
-            memory_details = json.loads(result)
+        # With direct approach, we only have one result with ID "1" containing the full analysis
+        if memory_id == "1":
+            citation_url = "https://jeanmemory.com"
+            
+            article = {
+                "id": "1",
+                "title": "Deep Memory Analysis - Full Context",
+                "text": "The comprehensive deep memory analysis was provided in the search results. This fetch confirms the analysis covers all available memories, documents, and insights about the query.",
+                "url": citation_url,
+                "metadata": {"type": "deep_analysis_confirmation"}
+            }
+            
+            logger.info(f"🧠 DIRECT FETCH: Returning deep analysis confirmation for user {user_id}")
+            
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": json.dumps(article)
+                    }
+                ],
+                "structuredContent": article
+            }
         else:
-            memory_details = result
-        
-        # Format for ChatGPT schema - must match OpenAI's exact specification
-        memory_text = memory_details.get("content", memory_details.get("memory", ""))
-        
-        logger.info(f"ChatGPT fetch returning memory {memory_id} for user {user_id}")
-        return {
-            "id": str(memory_details.get("id", memory_id)),
-            "title": memory_text[:100] + "..." if len(memory_text) > 100 else memory_text,
-            "text": memory_text,  # Complete textual content as per OpenAI spec
-            "url": None,  # Required by OpenAI spec, needed for citations
-            "metadata": memory_details.get("metadata", {})  # Optional additional context
-        }
+            # No other IDs exist in direct approach
+            raise ValueError("unknown id")
+            
     except Exception as e:
-        logger.error(f"ChatGPT fetch error: {e}", exc_info=True)
-        raise ValueError("unknown id")  # OpenAI spec expects this exact error message
+        logger.error(f"ChatGPT direct fetch error: {e}", exc_info=True)
+        raise ValueError("unknown id")
+
+# Add Streamable HTTP endpoint for API Playground compatibility
+@mcp_router.post("/chatgpt/streamable/{user_id}")
+async def handle_streamable_http(user_id: str, request: Request):
+    """
+    Streamable HTTP endpoint for OpenAI API Playground compatibility.
+    This handles both tools/list and tools/call via POST to a single endpoint.
+    """
+    # Set context variables for ChatGPT client
+    user_token = user_id_var.set(user_id)
+    client_token = client_name_var.set("chatgpt")
+    
+    try:
+        body = await request.json()
+        method_name = body.get("method")
+        params = body.get("params", {})
+        request_id = body.get("id")
+
+        logger.info(f"Streamable HTTP request: {method_name} for user {user_id}")
+
+        if method_name == "initialize":
+            response_payload = {
+                "jsonrpc": "2.0",
+                "result": {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {"tools": {}},
+                    "serverInfo": {
+                        "name": "Jean Memory",
+                        "version": "1.0.0"
+                    }
+                },
+                "id": request_id
+            }
+        
+        elif method_name == "tools/list":
+            tools = get_chatgpt_tools_schema()
+            response_payload = {
+                "jsonrpc": "2.0",
+                "result": {"tools": tools},
+                "id": request_id
+            }
+        
+        elif method_name == "tools/call":
+            tool_name = params.get("name")
+            tool_args = params.get("arguments", {})
+            
+            if tool_name == "search":
+                try:
+                    result = await handle_chatgpt_search(user_id, tool_args.get("query", ""))
+                    response_payload = {
+                        "jsonrpc": "2.0",
+                        "result": result,
+                        "id": request_id
+                    }
+                except Exception as e:
+                    response_payload = {
+                        "jsonrpc": "2.0",
+                        "error": {"code": -32603, "message": str(e)},
+                        "id": request_id
+                    }
+            
+            elif tool_name == "fetch":
+                try:
+                    result = await handle_chatgpt_fetch(user_id, tool_args.get("id", ""))
+                    response_payload = {
+                        "jsonrpc": "2.0",
+                        "result": result,
+                        "id": request_id
+                    }
+                except ValueError as e:
+                    response_payload = {
+                        "jsonrpc": "2.0",
+                        "error": {"code": -32602, "message": str(e)},
+                        "id": request_id
+                    }
+                except Exception as e:
+                    response_payload = {
+                        "jsonrpc": "2.0",
+                        "error": {"code": -32603, "message": str(e)},
+                        "id": request_id
+                    }
+            
+            else:
+                response_payload = {
+                    "jsonrpc": "2.0",
+                    "error": {"code": -32601, "message": f"Tool '{tool_name}' not found"},
+                    "id": request_id
+                }
+        
+        else:
+            response_payload = {
+                "jsonrpc": "2.0",
+                "error": {"code": -32601, "message": f"Method '{method_name}' not found"},
+                "id": request_id
+            }
+
+        return JSONResponse(content=response_payload)
+
+    except Exception as e:
+        logger.error(f"Error in streamable HTTP handler: {e}", exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content={
+                "jsonrpc": "2.0",
+                "error": {"code": -32603, "message": f"Internal error: {str(e)}"},
+                "id": request_id if 'request_id' in locals() else None
+            }
+        )
+    finally:
+        user_id_var.reset(user_token)
+        client_name_var.reset(client_token)
+
+async def _chatgpt_fetch_memory_by_id(user_id: str, memory_id: str):
+    """
+    A dedicated and robust fetch implementation for the ChatGPT client.
+    It reliably finds a memory by its vector ID using a get_all fallback,
+    ensuring it does not interfere with other tool functionalities.
+    """
+    from app.utils.memory import get_memory_client
+    memory_client = get_memory_client()
+
+    # Use get_all() and iterate in Python, as search(query=<id>) is unreliable.
+    all_memories_result = memory_client.get_all(user_id=user_id, limit=2000) # High limit for thoroughness
+
+    memories_list = []
+    if isinstance(all_memories_result, dict) and 'results' in all_memories_result:
+        memories_list = all_memories_result['results']
+    elif isinstance(all_memories_result, list):
+        memories_list = all_memories_result
+
+    # Look for the exact ID match in the full list
+    for mem in memories_list:
+        if isinstance(mem, dict) and mem.get('id') == memory_id:
+            # Found it. Return the full dictionary.
+            return {
+                "id": mem.get('id'),
+                "content": mem.get('memory', mem.get('content', 'No content available')),
+                "metadata": mem.get('metadata', {}),
+                "created_at": mem.get('created_at'),
+                "updated_at": mem.get('updated_at'),
+                "score": mem.get('score'),
+                "source": "mem0_vector_store"
+            }
+    
+    # If we get here, the memory was not found.
+    return None
+
+# Simple in-memory cache for deep analyses
+deep_analysis_cache: Dict[str, Dict] = {}
+DEEP_CACHE_TTL = 1800  # 30 minutes
+
+# New: Session-based deep analysis cache for ChatGPT hybrid approach
+chatgpt_deep_analysis_cache: Dict[str, Dict] = {}
+
+async def trigger_background_deep_analysis(user_id: str, query: str, session_key: str):
+    """
+    Trigger background deep memory analysis for ChatGPT hybrid approach.
+    This runs after search returns, so ChatGPT gets immediate results
+    while comprehensive analysis prepares for fetch calls.
+    
+    CRITICAL: This function runs completely independently and never blocks the search response.
+    """
+    try:
+        logger.info(f"🧠 DEEP ANALYSIS: Starting background analysis for user {user_id}, query: '{query}'")
+        
+        # 🚀 CRITICAL FIX: Add small delay to ensure search response is sent first
+        await asyncio.sleep(0.1)  # Let search response complete first
+        
+        # Use the existing deep memory implementation with conservative limits for faster processing
+        analysis_result = await _deep_memory_query_impl(
+            search_query=query, 
+            supa_uid=user_id, 
+            client_name="chatgpt",
+            memory_limit=8,   # Reduced for faster processing
+            chunk_limit=5,    # Reduced for faster processing  
+            include_full_docs=True
+        )
+        
+        # Cache the analysis for this session
+        chatgpt_deep_analysis_cache[session_key] = {
+            "query": query,
+            "analysis": analysis_result,
+            "status": "completed",
+            "timestamp": datetime.datetime.now(datetime.UTC),
+            "user_id": user_id
+        }
+        
+        logger.info(f"🧠 DEEP ANALYSIS: Completed and cached for session {session_key}")
+        
+    except Exception as e:
+        logger.error(f"🧠 DEEP ANALYSIS: Failed for session {session_key}: {e}")
+        # Store error result so fetch doesn't wait indefinitely
+        chatgpt_deep_analysis_cache[session_key] = {
+            "query": query,
+            "analysis": f"Deep analysis encountered an error: {str(e)}. Falling back to basic memory search.",
+            "status": "error",
+            "timestamp": datetime.datetime.now(datetime.UTC),
+            "user_id": user_id,
+            "error": True
+        }
+
+def cleanup_old_deep_analysis_cache():
+    """Clean up old deep analysis cache entries"""
+    current_time = datetime.datetime.now(datetime.UTC)
+    expired_keys = []
+    
+    for session_key, data in chatgpt_deep_analysis_cache.items():
+        if (current_time - data["timestamp"]).total_seconds() > DEEP_CACHE_TTL:
+            expired_keys.append(session_key)
+    
+    for key in expired_keys:
+        del chatgpt_deep_analysis_cache[key]
+    
+    if expired_keys:
+        logger.info(f"🧠 DEEP ANALYSIS: Cleaned up {len(expired_keys)} expired cache entries")

@@ -73,6 +73,10 @@ class Config:
         self.ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
         self.APIFY_TOKEN = os.getenv("APIFY_TOKEN")
         
+        # Stripe configuration
+        self.STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
+        self.STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+        
         # Application settings
         self.APP_NAME = "OpenMemory"
         self.API_VERSION = "1.0.0"

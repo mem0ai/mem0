@@ -79,6 +79,7 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
   const MCP_URL = "https://api.jeanmemory.com";
   const installCommand = `npx install-mcp ${MCP_URL}/mcp/${app.id}/sse/${user?.id} --client ${app.id}`;
   const mcpLink = `${MCP_URL}/mcp/openmemory/sse/${user?.id}`;
+  const chatgptLink = `${MCP_URL}/mcp/chatgpt/sse/${user?.id}`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -92,11 +93,15 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
             )}
           </div>
           <DialogTitle className="text-2xl font-bold">
-            {app.id === 'mcp-generic' ? 'Your Universal MCP Link' : `Connect to ${app.name}`}
+            {app.id === 'mcp-generic' ? 'Your Universal MCP Link' : 
+             app.id === 'chatgpt' ? 'Connect to ChatGPT Deep Research' :
+             `Connect to ${app.name}`}
           </DialogTitle>
           <DialogDescription className="text-zinc-400 pt-1">
             {app.id === 'mcp-generic'
                 ? 'Use this URL for any MCP-compatible application.'
+                : app.id === 'chatgpt'
+                ? 'Add Jean Memory to ChatGPT Deep Research. Enterprise account required.'
                 : app.id === 'substack' || app.id === 'twitter'
                 ? `Provide your ${app.name} details to sync your content.`
                 : `Activate Jean Memory for ${app.name} in two simple steps.`
@@ -124,6 +129,45 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
                             </>
                         )}
                     </Button>
+                </div>
+            </div>
+        ) : app.id === 'chatgpt' ? (
+            <div className="px-4 py-2 text-center space-y-4">
+                <div className="bg-amber-900/20 border border-amber-700/50 rounded-md p-3 mb-4">
+                    <p className="text-amber-300 text-sm font-medium mb-1">⚠️ Admin Setup Required</p>
+                    <p className="text-amber-200/80 text-xs">
+                        A workspace admin needs to add this connector in ChatGPT settings.
+                    </p>
+                </div>
+                <p className="text-zinc-400 text-sm mb-4">
+                    Copy this MCP Server URL for your admin to add in ChatGPT workspace settings.
+                </p>
+                <div className="relative group bg-black border border-zinc-700 rounded-md p-3 font-mono text-xs text-zinc-300 flex items-center justify-between">
+                    <code style={{ wordBreak: 'break-all' }}>{chatgptLink}</code>
+                    <Button variant="ghost" className="ml-4 text-zinc-400 hover:text-white" onClick={() => handleCopy(chatgptLink)}>
+                        {copied ? (
+                            <>
+                                <Check className="h-4 w-4 mr-2 text-green-400" />
+                                Copied!
+                            </>
+                        ) : (
+                             <>
+                                <Copy className="h-4 w-4 mr-2" />
+                                Copy
+                            </>
+                        )}
+                    </Button>
+                </div>
+                <div className="text-left mt-4 space-y-2">
+                    <p className="text-zinc-300 text-sm font-medium">For your admin:</p>
+                    <ol className="text-zinc-400 text-xs space-y-1 ml-4">
+                        <li>1. Go to ChatGPT workspace settings</li>
+                        <li>2. Navigate to "Deep Research" or "Connectors"</li>
+                        <li>3. Click "Add new connector"</li>
+                        <li>4. Paste the MCP Server URL above</li>
+                        <li>5. Set Authentication to "No authentication"</li>
+                        <li>6. Save the connector</li>
+                    </ol>
                 </div>
             </div>
         ) : app.id === 'substack' || app.id === 'twitter' ? (

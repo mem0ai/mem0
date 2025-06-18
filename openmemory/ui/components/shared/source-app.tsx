@@ -11,6 +11,16 @@ export const Icon = ({ source }: { source: string }) => {
 };
 
 export const constants = {
+  'request-integration': {
+    name: "Request Integration",
+    icon: <div className="w-4 h-4 rounded-full bg-zinc-700 flex items-center justify-center text-white text-xs font-bold">+</div>,
+    iconImage: null,
+  },
+  chatgpt: {
+    name: "ChatGPT",
+    icon: <Icon source="/images/ChatGPT-Logo.svg" />,
+    iconImage: "/images/ChatGPT-Logo.svg",
+  },
   claude: {
     name: "Claude",
     icon: <Icon source="/images/claude.webp" />,
@@ -89,6 +99,11 @@ const SourceApp = ({ source }: { source: string }) => {
   
   // Create a mapping for normalized keys to handle variations
   const sourceMapping: { [key: string]: keyof typeof constants } = {
+    'request-integration': 'request-integration',
+    'request integration': 'request-integration',
+    'chatgpt': 'chatgpt',
+    'chat-gpt': 'chatgpt',
+    'openai': 'chatgpt',
     'twitter': 'twitter',
     'x': 'twitter',
     'substack': 'substack',

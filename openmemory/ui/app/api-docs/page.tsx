@@ -410,6 +410,9 @@ graph TD
     <DocsLayout navItems={navItems}>
       <section id="introduction">
         <h1 className="text-4xl font-bold text-foreground mb-4">Jean Memory API</h1>
+        <p className="text-xl text-muted-foreground mb-6">
+          Build personal or enterprise agents with human-like memory
+        </p>
         
         <div className="my-8">
           <InteractiveDemo />
@@ -616,7 +619,7 @@ x-client-name: your-app-name`} />
 
           {/* search_memory_v2 tool */}
           <div className="p-6 border border-border rounded-lg bg-card">
-            <h3 className="font-mono text-lg text-primary mb-2">search_memory_v2 <span className="text-xs font-sans text-blue-400 bg-blue-900/50 px-2 py-1 rounded-full ml-2">API Users</span></h3>
+            <h3 className="font-mono text-lg text-primary mb-2">search_memory_v2 <span className="text-xs font-sans text-white bg-zinc-700 px-2 py-1 rounded-full ml-2">API Users</span></h3>
             <p className="text-muted-foreground mb-4">
               An enhanced search tool that allows for powerful filtering by tags. This is the recommended search tool for all new development using API keys.
             </p>
@@ -662,7 +665,28 @@ x-client-name: your-app-name`} />
           </div>
            <div className="p-6 border border-border rounded-lg bg-card">
             <h3 className="font-mono text-lg text-primary mb-2">deep_memory_query</h3>
-             <p className="text-muted-foreground mb-4">A comprehensive, slow search that analyzes full documents. Use this sparingly for deep analysis that requires synthesizing information from large bodies of text.</p>
+             <p className="text-muted-foreground mb-4">
+               A comprehensive, slow search that analyzes full documents. Use this for deep analysis that requires synthesizing information from large bodies of text. This is by far my favorite and most powerful tool.
+             </p>
+             <h4 className="font-semibold text-foreground mb-2">Input Schema:</h4>
+             <CodeBlock lang="json" code={`{
+  "search_query": {
+    "type": "string",
+    "description": "The complex, natural language question for deep analysis."
+  }
+}`} />
+            <h4 className="font-semibold text-foreground mt-4 mb-2">Example Payload:</h4>
+            <CodeBlock lang="json" code={`{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "deep_memory_query",
+    "arguments": {
+      "search_query": "What is the philosophical throughline of my recent essays?"
+    }
+  },
+  "id": "req-126"
+}`} />
           </div>
         </div>
       </section>
