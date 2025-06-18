@@ -137,6 +137,7 @@
                           "components/vectordbs/dbs/pgvector",
                           "components/vectordbs/dbs/milvus",
                           "components/vectordbs/dbs/pinecone",
+                          "components/vectordbs/dbs/mongodb",
                           "components/vectordbs/dbs/azure",
                           "components/vectordbs/dbs/redis",
                           "components/vectordbs/dbs/elasticsearch",
@@ -235,6 +236,7 @@
                 "icon": "plug",
                 "pages": [
                   "integrations",
+                  "integrations/agentops",
                   "integrations/vercel-ai-sdk",
                   "integrations/flowise",
                   "integrations/crewai",

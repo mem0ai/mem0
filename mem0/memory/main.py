@@ -28,8 +28,8 @@ from mem0.memory.utils import (
     get_fact_retrieval_messages,
     parse_messages,
     parse_vision_messages,
-    remove_code_blocks,
     process_telemetry_filters,
+    remove_code_blocks,
 )
 from mem0.utils.factory import EmbedderFactory, LlmFactory, VectorStoreFactory
 
@@ -340,10 +340,9 @@ class Memory(MemoryBase):
         except Exception as e:
             logging.error(f"Error in new_retrieved_facts: {e}")
             new_retrieved_facts = []
-
+        
         if not new_retrieved_facts:
             logger.debug("No new facts retrieved from input. Skipping memory update LLM call.")
-            return []
 
         retrieved_old_memory = []
         new_message_embeddings = {}
@@ -371,24 +370,27 @@ class Memory(MemoryBase):
             temp_uuid_mapping[str(idx)] = item["id"]
             retrieved_old_memory[idx]["id"] = str(idx)
 
-        function_calling_prompt = get_update_memory_messages(
-            retrieved_old_memory, new_retrieved_facts, self.config.custom_update_memory_prompt
-        )
-
-        try:
-            response: str = self.llm.generate_response(
-                messages=[{"role": "user", "content": function_calling_prompt}],
-                response_format={"type": "json_object"},
+        if new_retrieved_facts:
+            function_calling_prompt = get_update_memory_messages(
+                retrieved_old_memory, new_retrieved_facts, self.config.custom_update_memory_prompt
             )
-        except Exception as e:
-            logging.error(f"Error in new memory actions response: {e}")
-            response = ""
 
-        try:
-            response = remove_code_blocks(response)
-            new_memories_with_actions = json.loads(response)
-        except Exception as e:
-            logging.error(f"Invalid JSON response: {e}")
+            try:
+                response: str = self.llm.generate_response(
+                    messages=[{"role": "user", "content": function_calling_prompt}],
+                    response_format={"type": "json_object"},
+                )
+            except Exception as e:
+                logging.error(f"Error in new memory actions response: {e}")
+                response = ""
+
+            try:
+                response = remove_code_blocks(response)
+                new_memories_with_actions = json.loads(response)
+            except Exception as e:
+                logging.error(f"Invalid JSON response: {e}")
+                new_memories_with_actions = {}
+        else:
             new_memories_with_actions = {}
 
         returned_memories = []
@@ -1164,13 +1166,11 @@ class AsyncMemory(MemoryBase):
             response = remove_code_blocks(response)
             new_retrieved_facts = json.loads(response)["facts"]
         except Exception as e:
-            new_retrieved_facts = []
-
-        if not new_retrieved_facts:
-            logger.info("No new facts retrieved from input. Skipping memory update LLM call.")
-            return []
             logging.error(f"Error in new_retrieved_facts: {e}")
             new_retrieved_facts = []
+        
+        if not new_retrieved_facts:
+            logger.debug("No new facts retrieved from input. Skipping memory update LLM call.")
 
         retrieved_old_memory = []
         new_message_embeddings = {}
@@ -1202,31 +1202,25 @@ class AsyncMemory(MemoryBase):
             temp_uuid_mapping[str(idx)] = item["id"]
             retrieved_old_memory[idx]["id"] = str(idx)
 
-        function_calling_prompt = get_update_memory_messages(
-            retrieved_old_memory, new_retrieved_facts, self.config.custom_update_memory_prompt
-        )
-        try:
-            response = await asyncio.to_thread(
-                self.llm.generate_response,
-                messages=[{"role": "user", "content": function_calling_prompt}],
-                response_format={"type": "json_object"},
+        if new_retrieved_facts:
+            function_calling_prompt = get_update_memory_messages(
+                retrieved_old_memory, new_retrieved_facts, self.config.custom_update_memory_prompt
             )
-        except Exception as e:
-            response = ""
-            logging.error(f"Error in new memory actions response: {e}")
-            response = ""
-        try:
-            response = remove_code_blocks(response)
-            new_memories_with_actions = json.loads(response)
-        except Exception as e:
-            new_memories_with_actions = {}
-
-        if not new_memories_with_actions:
-            logger.info("No new facts retrieved from input (async). Skipping memory update LLM call.")
-            return []
-
-            logging.error(f"Invalid JSON response: {e}")
-            new_memories_with_actions = {}
+            try:
+                response = await asyncio.to_thread(
+                    self.llm.generate_response,
+                    messages=[{"role": "user", "content": function_calling_prompt}],
+                    response_format={"type": "json_object"},
+                )
+            except Exception as e:
+                logging.error(f"Error in new memory actions response: {e}")
+                response = ""
+            try:
+                response = remove_code_blocks(response)
+                new_memories_with_actions = json.loads(response)
+            except Exception as e:
+                logging.error(f"Invalid JSON response: {e}")
+                new_memories_with_actions = {}
 
         returned_memories = []
         try:
@@ -1423,7 +1417,9 @@ class AsyncMemory(MemoryBase):
     async def _get_all_from_vector_store(self, filters, limit):
         memories_result = await asyncio.to_thread(self.vector_store.list, filters=filters, limit=limit)
         actual_memories = (
-            memories_result[0] if isinstance(memories_result, tuple) and len(memories_result) > 0 else memories_result
+            memories_result[0]
+            if isinstance(memories_result, (tuple, list)) and len(memories_result) > 0
+            else memories_result
         )
 
         promoted_payload_keys = [

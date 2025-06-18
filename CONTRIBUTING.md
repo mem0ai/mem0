@@ -16,18 +16,19 @@ To make a contribution, follow these steps:
 For more details about pull requests, please read [GitHub's guides](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request).
 
 
-### 📦 Package manager
+### 📦 Development Environment
 
-We use `poetry` as our package manager. You can install poetry by following the instructions [here](https://python-poetry.org/docs/#installation).
-
-Please DO NOT use pip or conda to install the dependencies. Instead, use poetry:
+We use `hatch` for managing development environments. To set up:
 
 ```bash
-make install_all
+# Activate environment for specific Python version:
+hatch shell dev_py_3_9   # Python 3.9
+hatch shell dev_py_3_10  # Python 3.10  
+hatch shell dev_py_3_11  # Python 3.11
 
-#activate
-
-poetry shell
+# The environment will automatically install all dev dependencies
+# Run tests within the activated shell:
+make test
 ```
 
 ### 📌 Pre-commit
@@ -40,16 +41,21 @@ pre-commit install
 
 ### 🧪 Testing
 
-We use `pytest` to test our code. You can run the tests by running the following command:
+We use `pytest` to test our code across multiple Python versions. You can run tests using:
 
 ```bash
-poetry run pytest tests
-
-# or
-
+# Run tests with default Python version
 make test
+
+# Test specific Python versions:
+make test-py-3.9   # Python 3.9 environment
+make test-py-3.10  # Python 3.10 environment
+make test-py-3.11  # Python 3.11 environment
+
+# When using hatch shells, run tests with:
+make test  # After activating a shell with hatch shell test_XX
 ```
 
-Several packages have been removed from Poetry to make the package lighter. Therefore, it is recommended to run `make install_all` to install the remaining packages and ensure all tests pass. Make sure that all tests pass before submitting a pull request.
+Make sure that all tests pass across all supported Python versions before submitting a pull request.
 
 We look forward to your pull requests and can't wait to see your contributions!
