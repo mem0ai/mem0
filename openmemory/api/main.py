@@ -50,49 +50,77 @@ async def lifespan(app: FastAPI):
         logger.info("Running one-time schema fix for document_chunks...")
         from sqlalchemy import text
         
-        # Get a database connection
+        # Get a database connection with autocommit
         with engine.connect() as conn:
-            # Check if metadata column exists
-            result = conn.execute(text("""
-                SELECT EXISTS (
-                    SELECT 1 FROM information_schema.columns 
-                    WHERE table_name = 'document_chunks' 
-                    AND column_name = 'metadata' 
-                    AND table_schema = 'public'
-                ) as metadata_exists
-            """))
+            # Start a transaction explicitly
+            trans = conn.begin()
             
-            metadata_exists = result.scalar()
-            
-            if metadata_exists:
-                logger.info("✅ metadata column already exists - no fix needed")
-            else:
-                logger.info("🔧 Adding missing metadata column...")
-                
-                # Add the missing column
-                conn.execute(text("ALTER TABLE document_chunks ADD COLUMN metadata JSONB"))
-                
-                # Update migration state
-                conn.execute(text("""
-                    INSERT INTO alembic_version (version_num) 
-                    VALUES ('2834f44d4d7d')
-                    ON CONFLICT (version_num) DO NOTHING
+            try:
+                # Check if metadata column exists
+                result = conn.execute(text("""
+                    SELECT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'document_chunks' 
+                        AND column_name = 'metadata' 
+                        AND table_schema = 'public'
+                    ) as metadata_exists
                 """))
                 
-                logger.info("✅ Schema fix completed successfully!")
-            
-            # Always try to clear stuck documents (using correct column name)
-            result = conn.execute(text("""
-                UPDATE documents 
-                SET metadata = metadata || '{"needs_chunking": false, "schema_fixed": true}'::jsonb
-                WHERE metadata->>'needs_chunking' = 'true'
-            """))
-            
-            fixed_docs = result.rowcount
-            conn.commit()
-            
-            if fixed_docs > 0:
-                logger.info(f"✅ Cleared {fixed_docs} stuck documents")
+                metadata_exists = result.scalar()
+                
+                if metadata_exists:
+                    logger.info("✅ metadata column already exists - no fix needed")
+                else:
+                    logger.info("🔧 Adding missing metadata column...")
+                    
+                    # Add the missing column
+                    conn.execute(text("ALTER TABLE document_chunks ADD COLUMN metadata JSONB"))
+                    
+                    # Update migration state
+                    conn.execute(text("""
+                        INSERT INTO alembic_version (version_num) 
+                        VALUES ('2834f44d4d7d')
+                        ON CONFLICT (version_num) DO NOTHING
+                    """))
+                    
+                    # Commit the schema changes immediately
+                    trans.commit()
+                    logger.info("✅ Schema fix committed to database!")
+                    
+                    # Start a new transaction for document updates
+                    trans = conn.begin()
+                
+                # Always try to clear stuck documents (cast JSON to JSONB)
+                result = conn.execute(text("""
+                    UPDATE documents 
+                    SET metadata = (metadata::jsonb || '{"needs_chunking": false, "schema_fixed": true}'::jsonb)::json
+                    WHERE metadata->>'needs_chunking' = 'true'
+                """))
+                
+                fixed_docs = result.rowcount
+                trans.commit()
+                
+                if fixed_docs > 0:
+                    logger.info(f"✅ Cleared {fixed_docs} stuck documents")
+                    
+                # Final verification that the column exists
+                result = conn.execute(text("""
+                    SELECT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'document_chunks' 
+                        AND column_name = 'metadata' 
+                        AND table_schema = 'public'
+                    ) as metadata_exists
+                """))
+                
+                if result.scalar():
+                    logger.info("✅ VERIFIED: metadata column exists and is ready for use")
+                else:
+                    logger.error("❌ VERIFICATION FAILED: metadata column still missing after fix")
+                    
+            except Exception as e:
+                trans.rollback()
+                raise e
                 
     except Exception as e:
         logger.error(f"Schema fix error: {e}")
