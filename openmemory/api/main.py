@@ -47,14 +47,53 @@ async def lifespan(app: FastAPI):
     
     # ONE-TIME FIX: Run schema fix for document_chunks metadata column
     try:
-        from run_migration_fix import fix_schema
         logger.info("Running one-time schema fix for document_chunks...")
-        if fix_schema():
-            logger.info("✅ Schema fix completed successfully")
-        else:
-            logger.error("❌ Schema fix failed")
+        from sqlalchemy import text
+        
+        # Get a database connection
+        with engine.connect() as conn:
+            # Check if metadata column exists
+            result = conn.execute(text("""
+                SELECT EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name = 'document_chunks' 
+                    AND column_name = 'metadata' 
+                    AND table_schema = 'public'
+                ) as metadata_exists
+            """))
+            
+            metadata_exists = result.scalar()
+            
+            if metadata_exists:
+                logger.info("✅ metadata column already exists - no fix needed")
+            else:
+                logger.info("🔧 Adding missing metadata column...")
+                
+                # Add the missing column
+                conn.execute(text("ALTER TABLE document_chunks ADD COLUMN metadata JSONB"))
+                
+                # Update migration state
+                conn.execute(text("""
+                    INSERT INTO alembic_version (version_num) 
+                    VALUES ('2834f44d4d7d')
+                    ON CONFLICT (version_num) DO NOTHING
+                """))
+                
+                # Clear stuck documents
+                result = conn.execute(text("""
+                    UPDATE documents 
+                    SET metadata_ = metadata_ || '{"needs_chunking": false, "schema_fixed": true}'::jsonb
+                    WHERE metadata_->>'needs_chunking' = 'true'
+                """))
+                
+                fixed_docs = result.rowcount
+                conn.commit()
+                
+                logger.info(f"✅ Schema fix completed successfully!")
+                logger.info(f"✅ Cleared {fixed_docs} stuck documents")
+                
     except Exception as e:
-        logger.error(f"Schema fix error (this is expected after the fix runs once): {e}")
+        logger.error(f"Schema fix error: {e}")
     
     logger.info("Database and services initialization completed.")
     
