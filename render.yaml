@@ -20,9 +20,7 @@ services:
       
       # Database Configuration - Will be automatically set from the database
       - key: DATABASE_URL
-        fromDatabase:
-          name: jonathans-memory-db
-          property: connectionString
+        value: "postgres://postgres:jeandbtype123@db.masapxpxcwvsjpuymbmd.supabase.co:6543/postgres?pool_mode=transaction"
       
       # Supabase Configuration (Required - Set in dashboard)
       - key: SUPABASE_URL

@@ -83,7 +83,7 @@ The Jean Memory application has been successfully deployed to Render.com and is 
 
 **Cloud Infrastructure Utilized:**
 *   **Application Hosting:** Render.com (for Backend API & Frontend UI)
-*   **Metadata Database:** PostgreSQL on Render (`jonathans-memory-db` - now `jean-memory-db` or verify actual name)
+*   **Metadata Database:** Supabase PostgreSQL (formerly Render `jonathans-memory-db`)
 *   **User Authentication:** Supabase (Cloud)
 *   **Vector Storage:** Qdrant Cloud
 *   **LLM Operations:** OpenAI API
@@ -108,4 +108,9 @@ The Jean Memory application has been successfully deployed to Render.com and is 
 
 **🎉 STATUS: MVP & PRODUCTION DEPLOYMENT COMPLETE - SYSTEM IS LIVE! 🎉**
 
-*The multi-tenant Jean Memory system is fully functional, deployed to the cloud, and accessible via the public URLs listed above. All critical deployment bugs have been resolved.* 
+*The multi-tenant Jean Memory system is fully functional, deployed to the cloud, and accessible via the public URLs listed above. All critical deployment bugs have been resolved.*
+
+#### Key Identifiers
+*   **Supabase Project ID:** `masapxpxcwvsjpuymbmd`
+*   **Vector Database:** Qdrant Cloud (`jonathans_memory_main`)
+*   **Metadata Database:** Supabase PostgreSQL (formerly Render `jonathans-memory-db`) 
