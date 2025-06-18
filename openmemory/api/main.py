@@ -79,17 +79,19 @@ async def lifespan(app: FastAPI):
                     ON CONFLICT (version_num) DO NOTHING
                 """))
                 
-                # Clear stuck documents
-                result = conn.execute(text("""
-                    UPDATE documents 
-                    SET metadata_ = metadata_ || '{"needs_chunking": false, "schema_fixed": true}'::jsonb
-                    WHERE metadata_->>'needs_chunking' = 'true'
-                """))
-                
-                fixed_docs = result.rowcount
-                conn.commit()
-                
-                logger.info(f"✅ Schema fix completed successfully!")
+                logger.info("✅ Schema fix completed successfully!")
+            
+            # Always try to clear stuck documents (using correct column name)
+            result = conn.execute(text("""
+                UPDATE documents 
+                SET metadata = metadata || '{"needs_chunking": false, "schema_fixed": true}'::jsonb
+                WHERE metadata->>'needs_chunking' = 'true'
+            """))
+            
+            fixed_docs = result.rowcount
+            conn.commit()
+            
+            if fixed_docs > 0:
                 logger.info(f"✅ Cleared {fixed_docs} stuck documents")
                 
     except Exception as e:
