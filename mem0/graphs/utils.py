@@ -62,7 +62,7 @@ ENTITY RULES:
 5. NEVER create any relationship with nodes that do not exist in the graph.
 6. Do not generate empty, partial, or invalid commands.
 7. User information goes in ONE node only
-8. Normalize age nodes to: `21_yeras`, `22_years`, etc.
+8. Normalize age nodes to: `21_years`, `22_years`, etc.
     - Avoid plain numbers as node names.
     - Prefer consistent naming like `21_years`, `may_2023`, etc.
 9. Translate and normalize all entity names before graph generation.
