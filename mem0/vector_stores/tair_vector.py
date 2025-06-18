@@ -31,21 +31,18 @@ class TairVectorExtendClient(Tair):
         """
         search for the top @k approximate nearest neighbors of @vector in an index, return with field information
         """
+        params = reduce(lambda x, y: x + y, kwargs.items(), ())
         if field_names is None:
             field_names = []
         if field_count != 0 and field_count != len(field_names):
             raise ValueError("field_count must be 0 or equal to the number of field_names")
-        command_args = [self.KNNSEARCHFIELD, index, k]
-        if not isinstance(vector, str):
+        if not (isinstance(vector, str) or isinstance(vector, bytes)):
             vector = self.encode_vector(vector, is_binary)
-
-        command_args.extend([vector, field_count])
-        command_args.extend(field_names)
         if filter_str:
-            command_args.append(filter_str)
-
-        params = reduce(lambda x, y: x + y, kwargs.items(), ())
-        return self.execute_command(*command_args, *params)
+            return self.execute_command(self.KNNSEARCHFIELD, index, k, vector, field_count, *field_names,
+                                        filter_str, *params)
+        else:
+            return self.execute_command(self.KNNSEARCHFIELD, index, k, vector, field_count, *field_names, *params)
 
 
 class MemoryResult:
@@ -63,11 +60,12 @@ class MemoryResult:
         while i < len(data):
             key = data[i].decode()
             if key == 'VECTOR':
+                i += 2
                 continue
             elif key == "metadata":
                 payload[key] = json.loads(data[i + 1].decode())
             elif key == 'TEXT':
-                payload[key] = data[i + 1].decode()
+                payload["data"] = data[i + 1].decode()
             else:
                 payload[key] = data[i + 1].decode()
             i += 2
@@ -82,7 +80,7 @@ class MemoryResult:
             elif key == 'metadata':
                 payload[key] = json.loads(value)
             elif key == 'TEXT':
-                payload[data] = data[key].decode()
+                payload["data"] = value
             else:
                 payload[key] = value
         return cls(id, score=0, payload=payload)
@@ -94,6 +92,7 @@ class MemoryResult:
             score=data[1],
             payload=None,
         )
+
 
 # all field excludes metadata and data
 ALL_FIELDS = ["memory_id", "hash", "user_id", "agent_id", "run_id", "actor_id", "created_at", "updated_at", "role"]
