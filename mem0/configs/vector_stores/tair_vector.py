@@ -3,7 +3,7 @@ from typing import Dict, Any
 from pydantic import BaseModel, Field, model_validator
 
 
-class TairConfig(BaseModel):
+class TairVectorConfig(BaseModel):
     host: str = Field("localhost", description="Tair host address")
     port: int = Field(6379, description="Tair port number")
     db: str = Field("0", description="Tair db name")

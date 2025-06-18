@@ -5,6 +5,7 @@ from copy import deepcopy
 from functools import reduce
 from typing import List, Optional, Dict
 
+import pytz
 from redis.connection import ConnectionPool
 from mem0.vector_stores.base import VectorStoreBase
 from datetime import datetime
@@ -66,6 +67,11 @@ class MemoryResult:
                 payload[key] = json.loads(data[i + 1].decode())
             elif key == 'TEXT':
                 payload["data"] = data[i + 1].decode()
+            elif key == 'created_at' or key == "updated_at":
+                payload[key] = datetime.fromtimestamp(
+                    int(data[i + 1].decode()),
+                    tz=pytz.timezone("US/Pacific")
+                ).isoformat(timespec="microseconds")
             else:
                 payload[key] = data[i + 1].decode()
             i += 2
@@ -81,6 +87,11 @@ class MemoryResult:
                 payload[key] = json.loads(value)
             elif key == 'TEXT':
                 payload["data"] = value
+            elif key == 'created_at' or key == "updated_at":
+                payload[key] = datetime.fromtimestamp(
+                    int(value),
+                    tz=pytz.timezone("US/Pacific")
+                ).isoformat(timespec="microseconds")
             else:
                 payload[key] = value
         return cls(id, score=0, payload=payload)
