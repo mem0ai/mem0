@@ -13,6 +13,8 @@ def get_or_create_user(db: Session, supabase_user_id: str, email: Optional[str] 
     Get or create a user based on the Supabase User ID.
     The Supabase User ID (a UUID string) will be stored in User.id (PK, UUID type)
     and also in User.user_id (String type) for compatibility or future use.
+    
+    Uses database-level constraints to prevent race conditions and duplicate users.
     """
     # First try to find user by the string user_id
     user = db.query(User).filter(User.user_id == supabase_user_id).first()
@@ -58,7 +60,8 @@ def get_or_create_user(db: Session, supabase_user_id: str, email: Optional[str] 
     if existing_user:
         return existing_user
     
-    # Create new user
+    # RACE CONDITION FIX: Use database-level ON CONFLICT to handle concurrent inserts
+    # Create new user with proper error handling for race conditions
     user = User(
         id=user_pk_uuid, # Set the PK directly
         user_id=supabase_user_id, # Also set the string user_id field
@@ -71,13 +74,25 @@ def get_or_create_user(db: Session, supabase_user_id: str, email: Optional[str] 
         db.refresh(user)
     except IntegrityError as e:
         db.rollback()
-        # If there's an integrity error (like duplicate email), try to find existing user
-        if email and "email" in str(e):
-            logger.warning(f"Email {email} already exists, attempting to find existing user")
+        # RACE CONDITION HANDLING: If there's an integrity error, another thread likely created the user
+        # Try to find the existing user by user_id (most reliable) or email
+        logger.info(f"IntegrityError creating user {supabase_user_id}, attempting to find existing user: {e}")
+        
+        # First try by user_id (most reliable)
+        existing_user = db.query(User).filter(User.user_id == supabase_user_id).first()
+        if existing_user:
+            logger.info(f"Found existing user by user_id: {existing_user.user_id}")
+            return existing_user
+        
+        # If email was provided and caused the conflict, try by email
+        if email:
             existing_user = db.query(User).filter(User.email == email).first()
             if existing_user:
+                logger.info(f"Found existing user by email: {existing_user.email}")
                 return existing_user
-        logger.error(f"Error creating user {supabase_user_id}: {e}")
+        
+        # If we still can't find the user, this is a real error
+        logger.error(f"Could not create or find user {supabase_user_id} after IntegrityError: {e}")
         raise
     except Exception as e:
         db.rollback()

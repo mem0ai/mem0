@@ -32,7 +32,6 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { SubscriptionModal } from "@/components/ui/subscription-modal"
 
 // --- Type Definitions ---
 
@@ -44,19 +43,7 @@ interface ApiKey {
   is_active: boolean;
 }
 
-interface SubscriptionError {
-  error: string;
-  title: string;
-  message: string;
-  description: string;
-  benefits: string[];
-  action: {
-    text: string;
-    url: string;
-  };
-  current_tier?: string;
-  current_status?: string;
-}
+
 
 // --- Main Page Component ---
 
@@ -65,13 +52,11 @@ export default function ApiKeysPage() {
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [subscriptionError, setSubscriptionError] = useState<SubscriptionError | null>(null);
 
   // State for modals
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [isNewKeyModalOpen, setIsNewKeyModalOpen] = useState(false);
-  const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
   
   // State for key management
   const [newKeyName, setNewKeyName] = useState("");
@@ -82,14 +67,13 @@ export default function ApiKeysPage() {
   const handleApiError = (error: any, response?: Response) => {
     // Check if this is a subscription-related error (402 status)
     if (response?.status === 402 && typeof error.detail === 'object' && error.detail.error === 'subscription_required') {
-      setSubscriptionError(error.detail);
-      setIsSubscriptionModalOpen(true);
-      setError(null);
+      // Show a simple toast-style error instead of the annoying modal
+      const errorMessage = error.detail?.message || "This feature requires a Pro subscription.";
+      setError(errorMessage);
     } else {
       // Handle as regular error
       const errorMessage = typeof error.detail === 'string' ? error.detail : error.detail?.message || error.message || 'An error occurred';
       setError(errorMessage);
-      setSubscriptionError(null);
     }
   };
 
@@ -114,7 +98,6 @@ export default function ApiKeysPage() {
       const data = await response.json();
       setKeys(data);
       setError(null);
-      setSubscriptionError(null);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -337,14 +320,6 @@ export default function ApiKeysPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      )}
-
-      {subscriptionError && (
-        <SubscriptionModal
-          error={subscriptionError}
-          isOpen={isSubscriptionModalOpen}
-          onClose={() => setIsSubscriptionModalOpen(false)}
-        />
       )}
 
     </div>
