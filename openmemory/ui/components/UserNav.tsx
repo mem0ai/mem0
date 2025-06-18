@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
-import { LogOut, Settings, Code, Star, MessageSquare, Book } from "lucide-react";
+import { LogOut, Settings, Code, Star, MessageSquare, Book, ShieldCheck } from "lucide-react";
 import { RiApps2AddFill } from "react-icons/ri";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -51,6 +51,12 @@ export function UserNav() {
             <DropdownMenuItem>
               <Settings className="mr-2 h-4 w-4" />
               <span>Settings</span>
+            </DropdownMenuItem>
+          </Link>
+          <Link href="/privacy">
+            <DropdownMenuItem>
+              <ShieldCheck className="mr-2 h-4 w-4" />
+              <span>Privacy</span>
             </DropdownMenuItem>
           </Link>
           <Link href="/api-docs">
