@@ -14,7 +14,10 @@ if DATABASE_URL.startswith("sqlite"):
 
 engine = create_engine(
     DATABASE_URL,
-    connect_args=connect_args
+    connect_args=connect_args,
+    pool_recycle=1800,  # Recycle connections every 30 minutes
+    pool_pre_ping=True,  # Check connection liveliness before use
+    pool_timeout=30  # Wait for 30 seconds for a connection before timing out
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
