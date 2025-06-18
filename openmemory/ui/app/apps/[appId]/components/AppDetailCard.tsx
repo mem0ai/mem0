@@ -8,6 +8,9 @@ import { setAppDetails } from "@/store/appsSlice";
 import { BiEdit } from "react-icons/bi";
 import { constants } from "@/components/shared/source-app";
 import { RootState } from "@/store/store";
+import { toast } from "@/components/ui/use-toast";
+import { Input } from "@/components/ui/input";
+import { Copy } from "lucide-react";
 
 const capitalize = (str: string) => {
   return str.charAt(0).toUpperCase() + str.slice(1);
@@ -24,6 +27,7 @@ const AppDetailCard = ({
   const [isLoading, setIsLoading] = useState(false);
   const dispatch = useDispatch();
   const apps = useSelector((state: RootState) => state.apps.apps);
+  const user = useSelector((state: RootState) => state.auth.user);
   const currentApp = apps.find((app: any) => app.id === appId);
   const appConfig = currentApp
     ? constants[currentApp.name as keyof typeof constants] || constants.default
@@ -48,6 +52,16 @@ const AppDetailCard = ({
   const buttonText = selectedApp.details.is_active
     ? "Pause Access"
     : "Unpause Access";
+
+  const installCommand = `npx install-mcp https://api.jeanmemory.com/mcp/${currentApp?.name}/sse/${user?.id} --client ${currentApp?.name}`;
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(installCommand);
+    toast({
+      title: "Copied to clipboard!",
+      description: "You can now run this command in your terminal.",
+    });
+  };
 
   return (
     <div>
@@ -139,6 +153,20 @@ const AppDetailCard = ({
           </div>
 
           <hr className="border-zinc-800" />
+
+          <div>
+            <p className="text-xs text-zinc-400 mb-2">Install Command</p>
+            <div className="flex items-center gap-2">
+              <Input
+                readOnly
+                value={installCommand}
+                className="bg-zinc-800 border-zinc-700 text-xs truncate"
+              />
+              <Button size="icon" variant="ghost" onClick={handleCopy}>
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
 
           <div className="flex gap-2 justify-end">
             <Button
