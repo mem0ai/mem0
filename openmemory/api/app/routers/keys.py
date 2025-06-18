@@ -8,11 +8,12 @@ import datetime
 import logging
 
 from app.database import get_db
-from app.models import ApiKey, User
+from app.models import ApiKey, User, SubscriptionTier
 from app.auth import get_current_supa_user, hash_api_key
 from gotrue.types import User as SupabaseUser
 from pydantic import BaseModel
 from app.utils.auth_utils import generate_api_key, get_key_hash
+from app.middleware.subscription_middleware import SubscriptionChecker
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,7 @@ def create_api_key(
 ):
     """
     Generate a new API key for the current user.
+    Requires Pro subscription for API access.
     The key is returned in plaintext only once.
     """
     logger.info(f"User {supa_user.id} requesting to create a new API key with name: '{key_create.name}'")
@@ -55,6 +57,13 @@ def create_api_key(
     if not db_user:
         logger.error(f"User with Supabase ID {supa_user.id} not found in our database.")
         raise HTTPException(status_code=404, detail="User not found")
+
+    # Check if user has Pro subscription for API access
+    try:
+        SubscriptionChecker.check_pro_features(db_user, "API key generation")
+    except HTTPException as e:
+        logger.warning(f"User {supa_user.id} attempted to create API key without Pro subscription")
+        raise e
 
     # 1. Generate a new plaintext key and its metadata
     plaintext_key = generate_api_key()
@@ -73,7 +82,7 @@ def create_api_key(
     db.commit()
     db.refresh(db_api_key)
 
-    logger.info(f"Successfully created API key ID {db_api_key.id} for user {db_user.id}.")
+    logger.info(f"Successfully created API key ID {db_api_key.id} for Pro user {db_user.id}.")
 
     # 5. Return the plaintext key and key info
     return NewApiKeyResponse(
@@ -88,15 +97,23 @@ def get_api_keys(
 ):
     """
     List all active API keys for the current user.
+    Requires Pro subscription for API access.
     """
     logger.info(f"User {supa_user.id} requesting to list their API keys.")
     db_user = db.query(User).filter(User.user_id == str(supa_user.id)).first()
     if not db_user:
         logger.error(f"User with Supabase ID {supa_user.id} not found in our database during key listing.")
         raise HTTPException(status_code=404, detail="User not found")
+    
+    # Check if user has Pro subscription for API access
+    try:
+        SubscriptionChecker.check_pro_features(db_user, "API key management")
+    except HTTPException as e:
+        logger.warning(f"User {supa_user.id} attempted to list API keys without Pro subscription")
+        raise e
         
     keys = db.query(ApiKey).filter(ApiKey.user_id == db_user.id, ApiKey.is_active == True).all()
-    logger.info(f"Found {len(keys)} active API keys for user {db_user.id}.")
+    logger.info(f"Found {len(keys)} active API keys for Pro user {db_user.id}.")
     return keys
 
 @router.delete("/{key_id}", status_code=204)
@@ -128,5 +145,4 @@ def revoke_api_key(
     db.commit()
 
     logger.info(f"Successfully revoked API key {key_id} for user {db_user.id}.")
-
     return None 

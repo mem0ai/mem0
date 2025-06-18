@@ -32,6 +32,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { SubscriptionModal } from "@/components/ui/subscription-modal"
 
 // --- Type Definitions ---
 
@@ -43,6 +44,20 @@ interface ApiKey {
   is_active: boolean;
 }
 
+interface SubscriptionError {
+  error: string;
+  title: string;
+  message: string;
+  description: string;
+  benefits: string[];
+  action: {
+    text: string;
+    url: string;
+  };
+  current_tier?: string;
+  current_status?: string;
+}
+
 // --- Main Page Component ---
 
 export default function ApiKeysPage() {
@@ -50,17 +65,33 @@ export default function ApiKeysPage() {
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [subscriptionError, setSubscriptionError] = useState<SubscriptionError | null>(null);
 
   // State for modals
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [isNewKeyModalOpen, setIsNewKeyModalOpen] = useState(false);
+  const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
   
   // State for key management
   const [newKeyName, setNewKeyName] = useState("");
   const [newlyGeneratedKey, setNewlyGeneratedKey] = useState<{key: string, info: ApiKey} | null>(null);
   const [keyToRevoke, setKeyToRevoke] = useState<ApiKey | null>(null);
   const [copied, setCopied] = useState(false);
+
+  const handleApiError = (error: any, response?: Response) => {
+    // Check if this is a subscription-related error (402 status)
+    if (response?.status === 402 && typeof error.detail === 'object' && error.detail.error === 'subscription_required') {
+      setSubscriptionError(error.detail);
+      setIsSubscriptionModalOpen(true);
+      setError(null);
+    } else {
+      // Handle as regular error
+      const errorMessage = typeof error.detail === 'string' ? error.detail : error.detail?.message || error.message || 'An error occurred';
+      setError(errorMessage);
+      setSubscriptionError(null);
+    }
+  };
 
   const fetchKeys = async () => {
     if (!accessToken) {
@@ -77,10 +108,13 @@ export default function ApiKeysPage() {
       });
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.detail || "Failed to fetch API keys.");
+        handleApiError(errorData, response);
+        return;
       }
       const data = await response.json();
       setKeys(data);
+      setError(null);
+      setSubscriptionError(null);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -109,7 +143,8 @@ export default function ApiKeysPage() {
       });
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.detail || "Failed to generate key.");
+        handleApiError(errorData, response);
+        return;
       }
       
       const data = await response.json();
@@ -136,7 +171,8 @@ export default function ApiKeysPage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.detail || "Failed to revoke key.");
+        handleApiError(errorData, response);
+        return;
       }
 
       setKeys(keys.filter(k => k.id !== keyToRevoke.id));
@@ -301,6 +337,14 @@ export default function ApiKeysPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+      )}
+
+      {subscriptionError && (
+        <SubscriptionModal
+          error={subscriptionError}
+          isOpen={isSubscriptionModalOpen}
+          onClose={() => setIsSubscriptionModalOpen(false)}
+        />
       )}
 
     </div>

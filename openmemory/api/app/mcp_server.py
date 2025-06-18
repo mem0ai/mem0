@@ -13,8 +13,9 @@ import contextvars
 import os
 from dotenv import load_dotenv
 from app.database import SessionLocal
-from app.models import Memory, MemoryState, MemoryStatusHistory, MemoryAccessLog, Document, DocumentChunk, User
+from app.models import Memory, MemoryState, MemoryStatusHistory, MemoryAccessLog, Document, DocumentChunk, User, SubscriptionTier
 from app.utils.db import get_user_and_app, get_or_create_user
+from app.middleware.subscription_middleware import SubscriptionChecker
 import uuid
 import datetime
 from app.utils.permissions import check_memory_access_permissions
@@ -117,6 +118,13 @@ async def add_memories(text: str, tags: Optional[list[str]] = None) -> str:
         logger.info(f"add_memories: DB connection for user {supa_uid} took {db_duration:.2f}s")
         try:
             user, app = get_user_and_app(db, supabase_user_id=supa_uid, app_name=client_name, email=None)
+            
+            # Check if user is trying to use Pro feature (tags)
+            if tags and tags:  # If tags are provided and not empty
+                try:
+                    SubscriptionChecker.check_pro_features(user, "metadata tagging")
+                except Exception as e:
+                    return f"Error: {str(e)}"
 
             if not app.is_active:
                 return f"Error: App {app.name} is currently paused. Cannot create new memories."
@@ -293,6 +301,13 @@ async def _search_memory_unified_impl(query: str, supa_uid: str, client_name: st
     try:
         # Get user (but don't filter by specific app - search ALL memories)
         user = get_or_create_user(db, supa_uid, None)
+        
+        # Check if user is trying to use Pro feature (tag filtering)
+        if tags_filter and tags_filter:  # If tags_filter is provided and not empty
+            try:
+                SubscriptionChecker.check_pro_features(user, "advanced tag filtering")
+            except Exception as e:
+                return f"Error: {str(e)}"
         
         # 🚨 CRITICAL: Add user validation logging
         logger.info(f"🔍 SEARCH DEBUG - User ID: {supa_uid}, DB User ID: {user.id}, DB User user_id: {user.user_id}")

@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.utils.categorization import get_categories_for_memory
 from sqlalchemy.schema import DDL
 import os
+from enum import Enum as PyEnum
 
 # Python 3.10 compatibility
 try:
@@ -32,6 +33,12 @@ class MemoryState(enum.Enum):
     deleted = "deleted"
 
 
+class SubscriptionTier(PyEnum):
+    FREE = "free"
+    PRO = "pro"
+    ENTERPRISE = "enterprise"
+
+
 class User(Base):
     __tablename__ = "users"
     id = Column(UUID, primary_key=True, default=lambda: uuid.uuid4())
@@ -39,6 +46,14 @@ class User(Base):
     name = Column(String, nullable=True, index=True)
     email = Column(String, unique=True, nullable=True, index=True)
     metadata_ = Column('metadata', JSON, default=dict)
+    
+    # Subscription fields
+    subscription_tier = Column(Enum(SubscriptionTier), default=SubscriptionTier.FREE, index=True)
+    stripe_customer_id = Column(String, nullable=True, index=True)
+    stripe_subscription_id = Column(String, nullable=True, index=True)
+    subscription_status = Column(String, nullable=True)  # active, canceled, past_due, etc.
+    subscription_current_period_end = Column(DateTime, nullable=True)
+    
     created_at = Column(DateTime, default=get_current_utc_time, index=True)
     updated_at = Column(DateTime,
                         default=get_current_utc_time,
