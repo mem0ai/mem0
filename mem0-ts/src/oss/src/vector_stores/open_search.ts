@@ -1,16 +1,29 @@
-import { Client as OpenSearchClient } from "@opensearch-project/opensearch";
+import { ClientOptions, NodeOptions, Client as OpenSearchClient } from "@opensearch-project/opensearch";
+import { AwsSigv4Signer, AwsSigv4SignerOptions } from "@opensearch-project/opensearch/aws";
 import { SearchFilters, VectorStoreResult } from "../types";
 import { VectorStore } from "./base";
+import { defaultProvider } from "@aws-sdk/credential-provider-node";
 
-interface OpenSearchConfig {
-  host: string;
-  port?: number;
+export type OpenSearchConfig = { 
   user?: string;
   password?: string;
-  useSSL?: boolean;
-  verifyCerts?: boolean;
   collectionName: string;
   embeddingModelDims?: number;
+  verifyCerts?: boolean;
+  awsV4signerOptions?: AwsSigv4SignerOptions
+  otherClientOptions?: ClientOptions
+} & (OpenSearchConfigUsingHost | OpenSearchConfigUsingNode | OpenSearchConfigUsingNodes)
+
+type OpenSearchConfigUsingHost = {
+  host: string;
+  port?: number;
+  useSSL?: boolean;
+}
+type OpenSearchConfigUsingNode = {
+  node: string | string[] | NodeOptions | NodeOptions[];
+}
+type OpenSearchConfigUsingNodes = {
+  nodes: string | string[] | NodeOptions | NodeOptions[];
 }
 
 export class OpenSearchVectorStore implements VectorStore {
@@ -20,25 +33,50 @@ export class OpenSearchVectorStore implements VectorStore {
   private userId: string | null = null;
 
   constructor(config: OpenSearchConfig) {
-    const protocol = config.useSSL ? "https" : "http";
-    const port = config.port || 9200;
-    const node = `${protocol}://${config.host}:${port}`;
-
+    let node;
+    if ('node' in config) {
+      node = config.node
+    } else if ('nodes' in config) {
+      node = config.nodes
+    } else {
+      const protocol = config.useSSL ? "https" : "http";
+      const port = config.port || 9200;
+      node = `${protocol}://${config.host}:${port}`;
+    }
     const auth =
       config.user && config.password
         ? { username: config.user, password: config.password }
         : undefined;
+        
+    const defaults = {
+      maxRetries: 3,
+      requestTimeout: 30000,
+    }
+    let awsV4signerOptions = {}
+    if ('awsV4signerOptions' in config) {
+      awsV4signerOptions = AwsSigv4Signer({
+        region: 'ap-northeast-1',
+        service: 'es',  // 'aoss' for OpenSearch Serverless
+        getCredentials: () => {
+          // Any other method to acquire a new Credentials object can be used.
+          const credentialsProvider = defaultProvider();
+          return credentialsProvider();
+        },
+        ...config.awsV4signerOptions
+      })
+    }
 
     this.client = new OpenSearchClient({
+      ...defaults,
       node,
       auth,
       ssl: {
         rejectUnauthorized: config.verifyCerts ?? true,
       },
-      maxRetries: 3,
-      requestTimeout: 30000,
-      // Optional: set connection pool size or other client options here
+      ...awsV4signerOptions,
+      ...config.otherClientOptions
     });
+
 
     this.collectionName = config.collectionName;
     this.embeddingModelDims = config.embeddingModelDims || 1536;
