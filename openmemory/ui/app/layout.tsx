@@ -10,6 +10,7 @@ import type { Metadata } from 'next';
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Inter } from "next/font/google";
+import { cn } from "@/lib/utils";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -42,10 +43,7 @@ export const metadata: Metadata = {
     description: 'Securely store, manage, and access your digital memories across all your AI applications.',
     images: ['/og-image.png'],
   },
-  icons: {
-    icon: '/favicon.ico',
-    apple: '/apple-touch-icon.png',
-  },
+  icons: [{ rel: 'icon', url: '/images/jean-bug.png' }],
 };
 
 export default function RootLayout({
@@ -55,7 +53,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="min-h-screen font-sans antialiased flex flex-col bg-background text-foreground">
+      <head>
+        <link rel="icon" href="/images/jean-white-theme-bug.png" sizes="any" />
+      </head>
+      <body className={cn(
+        "min-h-screen font-sans antialiased flex flex-col bg-background text-foreground",
+        inter.className
+      )}>
         <Providers>
           <AuthProvider>
             <ThemeProvider
