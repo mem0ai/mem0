@@ -1780,24 +1780,26 @@ curl -X GET "https://api.mem0.ai/v1/memories/<memory-id-here>/history/" \
 
 ### 4.6 Update Memory
 
-Update a memory with new data.
+Update a memory with new data. You can update the memory's text, metadata, or both.
 
 <CodeGroup>
 
 ```python Python
-message = "I recently tried chicken and I loved it. I'm thinking of trying more non-vegetarian dishes.."
-client.update(memory_id, message)
+client.update(
+    memory_id="<memory-id-here>",
+    text="I am now a vegetarian.", 
+    metadata={"diet": "vegetarian"}
+)
 ```
 
 ```javascript JavaScript
-const message = "I recently tried chicken and I loved it. I'm thinking of trying more non-vegetarian dishes..";
-client.update("memory-id-here", message)
+client.update("memory-id-here", { text: "I am now a vegetarian.", metadata: { diet: "vegetarian" } })
     .then(result => console.log(result))
     .catch(error => console.error(error));
 ```
 
 ```bash cURL
-curl -X PUT "https://api.mem0.ai/v1/memories/memory-id-here" \
+curl -X PUT "https://api.mem0.ai/v1/memories/<memory-id-here>" \
         -H "Authorization: Token your-api-key" \
         -H "Content-Type: application/json" \
         -d '{
