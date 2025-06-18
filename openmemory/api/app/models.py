@@ -34,9 +34,9 @@ class MemoryState(enum.Enum):
 
 
 class SubscriptionTier(PyEnum):
-    FREE = "free"
-    PRO = "pro"
-    ENTERPRISE = "enterprise"
+    FREE = "FREE"
+    PRO = "PRO"
+    ENTERPRISE = "ENTERPRISE"
 
 
 class User(Base):
