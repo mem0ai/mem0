@@ -1,0 +1,334 @@
+import json
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
+from functools import reduce
+from typing import List, Optional, Dict
+
+from redis.connection import ConnectionPool
+from mem0.vector_stores.base import VectorStoreBase
+from datetime import datetime
+from tair import Tair
+from tair.tairvector import DistanceMetric, IndexType
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+class TairVectorExtendClient(Tair):
+    KNNSEARCHFIELD = "TVS.KNNSEARCHFIELD"
+
+    @classmethod
+    def from_url(cls, url: str, **kwargs):
+        connection_pool = ConnectionPool.from_url(url, **kwargs)
+        return cls(connection_pool=connection_pool)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def tvs_knnsearchfield(self, index: str, k: int, vector: List[float], field_count: int = 0,
+                           field_names: List[str] = None, filter_str: str = None, is_binary: bool = False, **kwargs):
+        """
+        search for the top @k approximate nearest neighbors of @vector in an index, return with field information
+        """
+        if field_names is None:
+            field_names = []
+        if field_count != 0 and field_count != len(field_names):
+            raise ValueError("field_count must be 0 or equal to the number of field_names")
+        command_args = [self.KNNSEARCHFIELD, index, k]
+        if not isinstance(vector, str):
+            vector = self.encode_vector(vector, is_binary)
+
+        command_args.extend([vector, field_count])
+        command_args.extend(field_names)
+        if filter_str:
+            command_args.append(filter_str)
+
+        params = reduce(lambda x, y: x + y, kwargs.items(), ())
+        return self.execute_command(*command_args, *params)
+
+
+class MemoryResult:
+    def __init__(self, id: str, score: float = None, payload: Dict = None):
+        self.id = id
+        self.score = score
+        self.payload = payload
+
+    @classmethod
+    def from_list(cls, data: List[bytes]):
+        id = data[0].decode()
+        score = float(data[1].decode())
+        payload = {}
+        i = 2
+        while i < len(data):
+            key = data[i].decode()
+            if key == 'VECTOR':
+                continue
+            elif key == "metadata":
+                payload[key] = json.loads(data[i + 1].decode())
+            elif key == 'TEXT':
+                payload[key] = data[i + 1].decode()
+            else:
+                payload[key] = data[i + 1].decode()
+            i += 2
+        return cls(id, score, payload)
+
+    @classmethod
+    def from_fields_dict(cls, id: str, data: Dict):
+        payload = {}
+        for key, value in data.items():
+            if key == 'VECTOR':
+                continue
+            elif key == 'metadata':
+                payload[key] = json.loads(value)
+            elif key == 'TEXT':
+                payload[data] = data[key].decode()
+            else:
+                payload[key] = value
+        return cls(id, score=0, payload=payload)
+
+    @classmethod
+    def from_tuple_values(cls, data: tuple):
+        return cls(
+            id=data[0],
+            score=data[1],
+            payload=None,
+        )
+
+# all field excludes metadata and data
+ALL_FIELDS = ["memory_id", "hash", "user_id", "agent_id", "run_id", "actor_id", "created_at", "updated_at", "role"]
+
+# memory_id and hash are fields that unique to each memory.
+INVERTED_INDEX_FIELDS_TYPE = {
+    "user_id": "string",
+    "agent_id": "string",
+    "run_id": "string",
+    "actor_id": "string",
+    "created_at": "long",
+    "updated_at": "long",
+    "role": "string",
+    "metadata": "string",
+}
+
+
+class TairVector(VectorStoreBase):
+    def __init__(
+            self,
+            host: str,
+            port: int,
+            db: str,
+            username: str,
+            password: str,
+            collection_name: str,
+            embedding_model_dims: int = 1536,
+            distance_method: DistanceMetric = DistanceMetric.L2,
+    ):
+        """
+        Args:
+            host: tair host
+            port: tair port, default port is
+            db:  tair DB name, default name is "mem0"
+            username:
+            password:
+            embedding_model_dims:
+        """
+        self.connection_info = {
+            "host": host,
+            "port": port,
+            "db": db,
+            "username": username,
+            "password": password,
+        }
+        self.collection_name = collection_name
+        self.tair_client = TairVectorExtendClient(host=host, port=port, db=db, username=username, password=password)
+        self.embedding_model_dims = embedding_model_dims
+        self.distance_method = distance_method
+        self.index_params = {
+            "index_type": IndexType.HNSW,
+            "data_type": "Float16",
+            "M": 32,
+            "ef_construct": 200,
+            "lexical_algorithm": "bm25"
+        }
+        self.pool = ThreadPoolExecutor(max_workers=10)
+        self.local = threading.local()
+        self.create_col(collection_name, vector_size=embedding_model_dims, distance=distance_method)
+
+    def _get_client(self):
+        if not hasattr(self.local, 'client'):
+            self.local.client = TairVectorExtendClient(**self.connection_info)
+        return self.local.client
+
+    def create_col(self, name: str, vector_size: int, distance: DistanceMetric = DistanceMetric.L2) -> None:
+        """Create a new collection."""
+        if self.tair_client.tvs_get_index(name) is None:
+            index_param = deepcopy(self.index_params)
+            index_param["distance_type"] = distance
+            for field, data_type in INVERTED_INDEX_FIELDS_TYPE.items():
+                index_param[f"inverted_index_{field}"] = data_type
+
+            ret = self.tair_client.tvs_create_index(name, vector_size, **index_param)
+            if ret:
+                logger.info(f"Collection {name} created successfully")
+            else:
+                logger.info("Create Index Failed")
+        else:
+            logger.info(f"Collection {name} already exits. Skipping creation")
+
+    def _insert_single(self, vector: List[float], payload: Dict, vector_id: str):
+        client = self._get_client()
+        entry = {
+            "hash": payload["hash"],
+            "TEXT": payload["data"],
+            "created_at": int(datetime.fromisoformat(payload["created_at"]).timestamp()),
+        }
+        for field in ["agent_id", "run_id", "user_id", "actor_id", "role"]:
+            if field in payload:
+                entry[field] = payload[field]
+        entry["metadata"] = json.dumps({k: v for k, v in payload.items() if k not in ALL_FIELDS})
+        client.tvs_hset(self.collection_name, vector_id, vector, is_binary=False, **entry)
+
+    def insert(self, vectors: List[List[float]], payloads: Optional[List[Dict]] = None,
+               ids: Optional[List[str]] = None):
+        """Insert vectors into a collection."""
+        futures = [self.pool.submit(self._insert_single, vector, payload, vector_id)
+                   for vector, payload, vector_id in zip(vectors, payloads, ids)]
+        for future in futures:
+            future.result()
+
+    def search(self, query: str, vectors: List[float], limit: int = 5, filters: Optional[Dict] = None
+               ) -> List[MemoryResult]:
+        """Search for similar vectors."""
+        conditions = []
+        if filters is not None:
+            for key, value in filters.items():
+                if value is not None:
+                    if isinstance(value, str):
+                        conditions.append(f"{key} == \"{value}\"")
+                    else:
+                        conditions.append(f"{key} == {value}")
+        if conditions:
+            filter_str = reduce(lambda x, y: f"{x} && {y}", conditions)
+        else:
+            filter_str = None
+
+        kwargs = {
+            "TEXT": query,
+            "hybrid_ratio": 0.5,
+        }
+        # search all field
+        results = self.tair_client.tvs_knnsearchfield(
+            self.collection_name,
+            k=limit,
+            vector=vectors,
+            filter_str=filter_str,
+            **kwargs
+        )
+
+        return [
+            MemoryResult.from_list(result)
+            for result in results
+        ]
+
+    def delete(self, vector_id: str) -> None:
+        """Delete a vector by ID."""
+        self.tair_client.tvs_del(self.collection_name, vector_id)
+
+    def update(self, vector_id: str, vector: Optional[List[float]] = None, payload: Optional[Dict] = None
+               ) -> None:
+        """Update a vector and its payload."""
+        entry = {
+            "hash": payload["hash"],
+            "TEXT": payload["data"],
+            "created_at": int(datetime.fromisoformat(payload["created_at"]).timestamp()),
+            "updated_at": int(datetime.fromisoformat(payload.get("updated_at")).timestamp()),
+        }
+        for field in ["agent_id", "run_id", "user_id", "actor_id", "role"]:
+            if field in payload:
+                entry[field] = payload[field]
+        entry["metadata"] = json.dumps({k: v for k, v in payload.items() if k not in ALL_FIELDS})
+        self.tair_client.tvs_hset(self.collection_name, vector_id, vector, is_binary=False, **entry)
+
+    def get(self, vector_id):
+        """Retrieve a vector by ID."""
+        ret = self.tair_client.tvs_hgetall(self.collection_name, vector_id)
+        return MemoryResult.from_fields_dict(vector_id, ret)
+
+    def list_cols(self) -> List[str]:
+        """List all collections."""
+        result = self.tair_client.tvs_scan_index()
+        indices = []
+        for index in result.iter():
+            indices.append(index.decode())
+        return indices
+
+    def delete_col(self) -> None:
+        """Delete a collection."""
+        self.tair_client.tvs_del_index(self.collection_name)
+
+    def col_info(self):
+        """Get information about a collection."""
+        return self.tair_client.tvs_get_index(self.collection_name)
+
+    def _get_single_memory(self, memory_id: str):
+        client = self._get_client()
+        all_field_value = client.tvs_hgetall(self.collection_name, memory_id)
+        payload = {
+            "hash": all_field_value.get("hash", None),
+            "data": all_field_value.get("TEXT", None),
+        }
+        for field in ["agent_id", "run_id", "user_id", "actor_id", "role"]:
+            if field in all_field_value:
+                payload[field] = all_field_value[field]
+
+        # 处理 created_at
+        if all_field_value.get("created_at") is not None:
+            payload["created_at"] = datetime.fromtimestamp(
+                int(all_field_value.get("created_at"))
+            ).isoformat(timespec="microseconds")
+
+        # 处理 updated_at
+        if all_field_value.get("updated_at") is not None:
+            payload["updated_at"] = datetime.fromtimestamp(
+                int(all_field_value.get("updated_at"))
+            ).isoformat(timespec="microseconds")
+
+        # 添加元数据
+        payload.update(json.loads(all_field_value.get("metadata", "{}")))
+
+        return MemoryResult(
+            id=memory_id,
+            payload=payload
+        )
+
+    def list(self, filters=None, limit=None) -> list:
+        """List all memories."""
+        conditions = []
+        if filters is not None:
+            for key, value in filters.items():
+                if value is not None:
+                    if isinstance(value, str):
+                        conditions.append(f"{key} == \"{value}\"")
+                    else:
+                        conditions.append(f"{key} == {value}")
+        if conditions:
+            filter_str = reduce(lambda x, y: f"{x} && {y}", conditions)
+        else:
+            filter_str = None
+
+        if limit is None:
+            limit = 20
+        keys = self.tair_client.tvs_scan(
+            self.collection_name,
+            filter_str=filter_str,
+            batch=limit,
+        )
+        memory_ids = [key.decode() for key in keys]
+        futures = [self.pool.submit(self._get_single_memory, memory_id) for memory_id in memory_ids]
+        return [future.result() for future in futures]
+
+    def reset(self):
+        """Reset by delete the collection and recreate it."""
+        logger.warning(f"Resetting index {self.collection_name}...")
+        self.delete_col()
+        self.create_col(self.collection_name, self.embedding_model_dims, self.distance_method)
