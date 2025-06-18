@@ -665,7 +665,28 @@ x-client-name: your-app-name`} />
           </div>
            <div className="p-6 border border-border rounded-lg bg-card">
             <h3 className="font-mono text-lg text-primary mb-2">deep_memory_query</h3>
-             <p className="text-muted-foreground mb-4">A comprehensive, slow search that analyzes full documents. Use this sparingly for deep analysis that requires synthesizing information from large bodies of text.</p>
+             <p className="text-muted-foreground mb-4">
+               A comprehensive, slow search that analyzes full documents. Use this for deep analysis that requires synthesizing information from large bodies of text. This is by far my favorite and most powerful tool.
+             </p>
+             <h4 className="font-semibold text-foreground mb-2">Input Schema:</h4>
+             <CodeBlock lang="json" code={`{
+  "search_query": {
+    "type": "string",
+    "description": "The complex, natural language question for deep analysis."
+  }
+}`} />
+            <h4 className="font-semibold text-foreground mt-4 mb-2">Example Payload:</h4>
+            <CodeBlock lang="json" code={`{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "deep_memory_query",
+    "arguments": {
+      "search_query": "What is the philosophical throughline of my recent essays?"
+    }
+  },
+  "id": "req-126"
+}`} />
           </div>
         </div>
       </section>
