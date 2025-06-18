@@ -1,0 +1,119 @@
+# Virginia Blue-Green Deployment Blueprint
+# Based on exported Render configuration - migrated to Virginia region for performance
+
+services:
+  # Main Backend API Service (Virginia)
+  - type: web
+    name: jean-memory-api-virginia
+    runtime: python
+    repo: https://github.com/jonathan-politzki/your-memory
+    plan: starter
+    region: virginia  # Changed from oregon
+    rootDir: openmemory/api
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    preDeployCommand: alembic upgrade head
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      # Database Configuration
+      - key: DATABASE_URL
+        sync: false
+      
+      # Supabase Configuration  
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      
+      # OpenAI Configuration
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: LLM_PROVIDER
+        value: "openai"
+      - key: OPENAI_MODEL
+        value: "gpt-4o-mini"
+      - key: EMBEDDER_PROVIDER
+        value: "openai"
+      - key: EMBEDDER_MODEL
+        value: "text-embedding-3-small"
+      
+      # Qdrant Configuration
+      - key: QDRANT_HOST
+        sync: false
+      - key: QDRANT_PORT
+        value: "6333"
+      - key: QDRANT_API_KEY
+        sync: false
+      - key: MAIN_QDRANT_COLLECTION_NAME
+        sync: false
+      
+      # Additional Configuration
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: ENVIRONMENT
+        value: "production"
+      - key: ENABLE_AGENT_API
+        sync: false
+      - key: POSTHOG_HOST
+        sync: false
+      - key: POSTHOG_API_KEY
+        sync: false
+      - key: ADMIN_SECRET_KEY
+        sync: false
+      - key: UVICORN_TIMEOUT_KEEP_ALIVE
+        value: "75"
+      - key: APIFY_TOKEN
+        sync: false
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: LOG_LEVEL
+        value: "INFO"
+      
+      # Link to frontend environment group
+      - fromGroup: frontend-public-env
+
+  # Main Frontend UI Service (Virginia)  
+  - type: web
+    name: jean-memory-ui-virginia
+    runtime: node
+    repo: https://github.com/jonathan-politzki/your-memory
+    plan: starter
+    region: virginia  # Changed from oregon
+    rootDir: openmemory/ui
+    buildCommand: pnpm install && pnpm build
+    startCommand: pnpm start
+    autoDeployTrigger: commit
+    envVars:
+      # Point to Virginia backend API
+      - key: NEXT_PUBLIC_API_URL
+        value: "https://jean-memory-api-virginia.onrender.com"
+      
+      # Environment Configuration
+      - key: ENVIRONMENT
+        value: "production"
+      - key: NODE_ENV
+        value: "production"
+      
+      # Additional Frontend Config
+      - key: RESEND_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      - key: NEXT_PUBLIC_POSTHOG_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      
+      # Link to frontend environment group
+      - fromGroup: frontend-public-env
+
+version: "1" 
