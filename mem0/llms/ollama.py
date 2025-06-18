@@ -15,8 +15,8 @@ class OllamaLLM(LLMBase):
 
         if not self.config.model:
             self.config.model = "llama3.1:70b"
-        self.client = Client(host=self.config.ollama_base_url)
-        self._ensure_model_exists()
+        self.client = Client(host=self.config.ollama_base_url, headers={"Authorization": "Bearer " + self.config.api_key})
+        # self._ensure_model_exists()
 
     def _ensure_model_exists(self):
         """

@@ -17,6 +17,9 @@ Guidelines:
 6. Temporal Awareness: If timestamps are available, consider the recency of information when making updates.
 7. Relationship Refinement: Look for opportunities to refine relationship descriptions for greater precision or clarity.
 8. Redundancy Elimination: Identify and merge any redundant or highly similar relationships that may result from the update.
+9. Relationship Equivalence: Detect and consolidate semantically identical relationships.
+    For example: `plans_to_visit`, `plans_to_travel`, and `will_travel_in` must be merged into one (`PLANS_TO_TRAVEL`).
+    If two relationships differ but mean the same, keep only the standardized one.
 
 Memory Format:
 source -- RELATIONSHIP -- destination
@@ -34,23 +37,67 @@ Provide a list of update instructions, each specifying the source, target, and t
 
 EXTRACT_RELATIONS_PROMPT = """
 
-You are an advanced algorithm designed to extract structured information from text to construct knowledge graphs. Your goal is to capture comprehensive and accurate information. Follow these key principles:
+You are an advanced algorithm designed to extract structured information from text to construct knowledge graphs. Your goal is to capture comprehensive and accurate information. 
+Please notice that the user will provide you the information in Spanish, so you will need to extract the information in Spanish and then normalize it to English. 
+The knowledge graph must not contain information in Spanish, it must be in English.
 
-1. Extract only explicitly stated information from the text.
-2. Establish relationships among the entities provided.
-3. Use "USER_ID" as the source entity for any self-references (e.g., "I," "me," "my," etc.) in user messages.
-CUSTOM_PROMPT
+Follow these key principles:
 
-Relationships:
-    - Use consistent, general, and timeless relationship types.
-    - Example: Prefer "professor" over "became_professor."
-    - Relationships should only be established among the entities explicitly mentioned in the user message.
+1. Normalize and translate all entity and relationship names to English.
+2. Extract only explicitly stated information from the text.
+3. Establish relationships among the entities provided.
+4. Use "USER_ID" as the source entity for any self-references (e.g., "I," "me," "my," etc.) in user messages.
+5. Follow strict rules to ensure graph consistency and coherence.
+
+ENTITY RULES:
+1. All nodes must use the label `:Entity`. No other labels are allowed.
+2. There must be exactly one user node (with name: USER_ID, user_id: USER_ID).
+3. Normalize all entity names:
+   - Convert to lowercase.
+   - Remove accents and "ñ".
+   - Replace spaces with underscores.
+   - Remove special characters except underscores.
+   - Translate to English if necessary.
+4. NEVER create any node without at least one relationship.
+5. NEVER create any relationship with nodes that do not exist in the graph.
+6. Do not generate empty, partial, or invalid commands.
+7. User information goes in ONE node only
+8. Normalize age nodes to: `21_yeras`, `22_years`, etc.
+    - Avoid plain numbers as node names.
+    - Prefer consistent naming like `21_years`, `may_2023`, etc.
+9. Translate and normalize all entity names before graph generation.
+10. Do NOT create a new node if another normalized (translated) version already exists. For example:
+     - `matematicas` → `mathematics`
+     - `ingenieria_informatica` → `computer_science`
+     Use existing normalized node instead of duplicating it.
+
+11. Do not generate self-loops (e.g., `paciente -- HAS_NAME --> paciente`).
+12. Do NOT use nodes without any relationships. Every node must be part of a meaningful connection.
+13. Every relationship must come from an allowed list and must include `created: datetime()`.
+
+RELATIONSHIP RULES:
+1. Use only normalized, meaningful types like:
+   - `:STUDIES_AT`, `:LIVES_IN`, `:LIKES`, `:PLANS_TO_TRAVEL`, `:HAS_SCHEDULED`, `:TRAVELS_WITH`, `:RELATED_TO`
+2. NEVER create multiple relationships that mean the same thing (e.g., `plans_to_travel`, `will_travel_in`, `plans_to_visit`)
+   → Use only one (`:PLANS_TO_TRAVEL`)
+3. All relationships must include `created: datetime()`
+4. Relationship types must be ALL_CAPS and use underscores
+5. Never use dynamic relationship types. Always use literal relationship names.
+6. Relationships should only be established among the entities explicitly mentioned in the user message.
+7. DO NOT create any relationship without both source and destination nodes.
+
+STRUCTURE:
+1. Always use MERGE to avoid duplicates.
+2. Do not repeat existing relationships or entities.
+3. Always verify that the entities and relationships you are creating do not already exist in the graph before creating them.
+4. If a concept is already represented in the graph, do not create it again.
 
 Entity Consistency:
     - Ensure that relationships are coherent and logically align with the context of the message.
     - Maintain consistent naming for entities across the extracted data.
+    - Before establishing a relationship between two nodes, ensure that there is not already a relationship meaning the same thing between them.
 
-Strive to construct a coherent and easily understandable knowledge graph by eshtablishing all the relationships among the entities and adherence to the user’s context.
+Strive to construct a coherent and easily understandable knowledge graph by establishing all the relationships among the entities and adherence to the user’s context.
 
 Adhere strictly to these guidelines to ensure high-quality knowledge graph extraction."""
 
