@@ -1,0 +1,30 @@
+# export mem0-ts subtree for GitHub-based package referencing
+name: Export mem0-ts subtree
+
+on:
+  push:
+    branches:
+      - btree-develop
+
+jobs:
+  export-subtree:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history is needed for subtree
+
+      - name: Set up Git
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+
+      - name: Create subtree branch from mem0-ts
+        run: |
+          git subtree split --prefix=mem0-ts -b temp-subtree
+
+      - name: Push to btree-develop-subtree
+        run: |
+          git push -f origin temp-subtree:btree-develop-subtree
