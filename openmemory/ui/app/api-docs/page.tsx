@@ -410,6 +410,9 @@ graph TD
     <DocsLayout navItems={navItems}>
       <section id="introduction">
         <h1 className="text-4xl font-bold text-foreground mb-4">Jean Memory API</h1>
+        <p className="text-xl text-muted-foreground mb-6">
+          Build personal or enterprise agents with human-like memory
+        </p>
         
         <div className="my-8">
           <InteractiveDemo />
@@ -616,7 +619,7 @@ x-client-name: your-app-name`} />
 
           {/* search_memory_v2 tool */}
           <div className="p-6 border border-border rounded-lg bg-card">
-            <h3 className="font-mono text-lg text-primary mb-2">search_memory_v2 <span className="text-xs font-sans text-blue-400 bg-blue-900/50 px-2 py-1 rounded-full ml-2">API Users</span></h3>
+            <h3 className="font-mono text-lg text-primary mb-2">search_memory_v2 <span className="text-xs font-sans text-white bg-zinc-700 px-2 py-1 rounded-full ml-2">API Users</span></h3>
             <p className="text-muted-foreground mb-4">
               An enhanced search tool that allows for powerful filtering by tags. This is the recommended search tool for all new development using API keys.
             </p>

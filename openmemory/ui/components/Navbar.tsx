@@ -8,7 +8,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { CreateMemoryDialog } from "@/app/memories/components/CreateMemoryDialog";
 import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
-import { Brain, Menu, X, Settings2, Book, Network } from "lucide-react";
+import { Brain, Menu, X, Settings2, Book, Network, Star } from "lucide-react";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Icons } from "@/components/icons";
@@ -27,6 +27,25 @@ export function Navbar() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Close mobile menu when route changes
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
+
+  // Close mobile menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (mobileMenuOpen && !(event.target as Element).closest('header')) {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    if (mobileMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [mobileMenuOpen]);
 
   // Check for reduced motion preference
   const prefersReducedMotion = typeof window !== 'undefined' && 
@@ -53,26 +72,29 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-14 items-center justify-between px-4">
-        <Link href="/dashboard-new" className="flex items-center gap-2">
-          {mounted ? (
-            <Image
-              src={
-                theme === "light"
-                  ? "/images/jean-white-theme-bug.png"
-                  : "/images/jean-bug.png"
-              }
-              alt="Jean Memory"
-              width={26}
-              height={26}
-            />
-          ) : (
-            <div style={{ width: 26, height: 26 }} />
-          )}
-          <span className="text-lg sm:text-xl font-medium">Jean</span>
-        </Link>
+      <div className="container flex h-14 items-center px-4">
+        {/* Left Side - Logo */}
+        <div className="flex items-center flex-1">
+          <Link href="/dashboard-new" className="flex items-center gap-2">
+            {mounted ? (
+              <Image
+                src={
+                  theme === "light"
+                    ? "/images/jean-white-theme-bug.png"
+                    : "/images/jean-bug.png"
+                }
+                alt="Jean Memory"
+                width={26}
+                height={26}
+              />
+            ) : (
+              <div style={{ width: 26, height: 26 }} />
+            )}
+            <span className="text-lg sm:text-xl font-medium">Jean</span>
+          </Link>
+        </div>
         
-        {/* Desktop Navigation */}
+        {/* Center - Desktop Navigation */}
         <div className="hidden md:flex items-center gap-2">
           {navLinks.map((link) => (
             <Link key={link.href} href={link.href}>
@@ -90,10 +112,29 @@ export function Navbar() {
           ))}
         </div>
         
-        {/* Desktop Actions */}
-        <div className="hidden md:flex items-center gap-2">
+        {/* Right Side - Desktop Actions */}
+        <div className="hidden md:flex items-center gap-2 flex-1 justify-end">
           {user ? (
             <>
+              <Link href="/api-docs">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  API
+                </Button>
+              </Link>
+              <Link href="/pro">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-purple-500 hover:text-purple-400 flex items-center gap-1"
+                >
+                  <Star className="w-4 h-4" />
+                  Pro
+                </Button>
+              </Link>
               <CreateMemoryDialog />
               <ThemeToggle />
               <UserNav />
@@ -111,8 +152,35 @@ export function Navbar() {
         <div className="flex items-center gap-2 md:hidden">
           {user ? (
             <>
+              <Link href="/api-docs">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  API
+                </Button>
+              </Link>
+              <Link href="/pro">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-purple-500 hover:text-purple-400 flex items-center gap-1"
+                >
+                  <Star className="w-4 h-4" />
+                  Pro
+                </Button>
+              </Link>
               <ThemeToggle />
               <UserNav />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="p-2"
+              >
+                {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </Button>
             </>
           ) : (
             <Link href="/auth">
@@ -123,6 +191,48 @@ export function Navbar() {
           )}
         </div>
       </div>
+
+      {/* Mobile Menu */}
+      <AnimatePresence>
+        {mobileMenuOpen && user && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ 
+              duration: prefersReducedMotion ? 0 : 0.2,
+              ease: "easeInOut"
+            }}
+            className="md:hidden border-b border-border bg-background/95 backdrop-blur"
+          >
+            <div className="container px-4 py-4">
+              <nav className="flex flex-col gap-2">
+                {navLinks.map((link) => (
+                  <Link 
+                    key={link.href} 
+                    href={link.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={`w-full justify-start gap-2 ${
+                        isActive(link.href) ? activeClass : inactiveClass
+                      }`}
+                    >
+                      {link.icon}
+                      {link.label}
+                    </Button>
+                  </Link>
+                ))}
+                <div className="pt-2 border-t border-border">
+                  <CreateMemoryDialog />
+                </div>
+              </nav>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </header>
   );
 }

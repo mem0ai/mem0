@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Check, Link as LinkIcon, Eye, Zap, BookOpen } from "lucide-react";
+import { Check, Link as LinkIcon, Eye, Zap, BookOpen, Plus } from "lucide-react";
 import { App } from "@/store/appsSlice";
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from "@/components/ui/use-toast";
@@ -138,8 +138,17 @@ export function AppCard({ app, onConnect, index, isSyncing, onSyncStart }: AppCa
                 "Coming Soon"
               ) : (
                 <>
-                  <LinkIcon className="w-3 h-3 mr-1.5 group-hover:rotate-12 transition-transform" />
-                  Connect
+                  {app.id === 'request-integration' ? (
+                    <>
+                      <Plus className="w-3 h-3 mr-1.5 group-hover:rotate-12 transition-transform" />
+                      Request
+                    </>
+                  ) : (
+                    <>
+                      <LinkIcon className="w-3 h-3 mr-1.5 group-hover:rotate-12 transition-transform" />
+                      Connect
+                    </>
+                  )}
                 </>
               )}
             </Button>

@@ -26,12 +26,13 @@ export default function LandingPage() {
   }, []);
 
   // Redirect authenticated users to dashboard immediately
-  useEffect(() => {
-    if (!isLoading && user) {
-      console.log('Landing page: User authenticated, redirecting to dashboard');
-      router.replace('/dashboard-new');
-    }
-  }, [user, isLoading, router]);
+  // COMMENTED OUT: Allow authenticated users to view landing page
+  // useEffect(() => {
+  //   if (!isLoading && user) {
+  //     console.log('Landing page: User authenticated, redirecting to dashboard');
+  //     router.replace('/dashboard-new');
+  //   }
+  // }, [user, isLoading, router]);
 
   // Also check for Supabase OAuth callback and redirect immediately
   useEffect(() => {
@@ -56,13 +57,14 @@ export default function LandingPage() {
   }
 
   // Don't render landing page for authenticated users (they'll be redirected)
-  if (user) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-white">Redirecting to dashboard...</div>
-      </div>
-    );
-  }
+  // COMMENTED OUT: Allow authenticated users to view landing page
+  // if (user) {
+  //   return (
+  //     <div className="min-h-screen bg-black flex items-center justify-center">
+  //       <div className="text-white">Redirecting to dashboard...</div>
+  //     </div>
+  //   );
+  // }
 
   // Check if this is an OAuth callback - show loading instead of landing page
   const urlParams = new URLSearchParams(window.location.search);
@@ -133,11 +135,11 @@ export default function LandingPage() {
             >
               <Link
                 ref={buttonRef}
-                href="/auth?animate=true"
+                href={user ? "/dashboard-new" : "/auth?animate=true"}
                 className="group relative inline-flex items-center justify-center gap-3 px-12 py-4 text-xl font-bold rounded-md bg-black text-white border border-gray-600 hover:bg-gray-800 transition-all duration-300 shadow-lg hover:shadow-xl hover:shadow-slate-500/10 hover:scale-105"
               >
                 <Key className="w-5 h-5 group-hover:-rotate-12 transition-transform" />
-                <span>Sign in with Jean</span>
+                <span>{user ? "Go to Dashboard" : "Sign in with Jean"}</span>
               </Link>
             </motion.div>
 

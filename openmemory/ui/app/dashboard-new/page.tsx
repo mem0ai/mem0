@@ -16,6 +16,7 @@ import { AppCard, DashboardApp } from '@/components/dashboard/AppCard';
 import { useToast } from "@/components/ui/use-toast";
 import ParticleNetwork from "@/components/landing/ParticleNetwork";
 import { SyncModal } from '@/components/dashboard/SyncModal';
+import { RequestIntegrationModal } from '@/components/dashboard/RequestIntegrationModal';
 
 // Define available apps with priorities
 interface AvailableApp {
@@ -30,14 +31,16 @@ interface AvailableApp {
 }
 
 const availableApps: AvailableApp[] = [
+  { id: 'request-integration', name: 'Request Integration', description: '', priority: 14, category: 'Request', trustScore: 100, isComingSoon: false },
+  { id: 'chatgpt', name: 'ChatGPT', description: 'Deep research memories', priority: 12, category: 'AI Assistant', trustScore: 99 },
   { id: 'claude', name: 'Claude', description: 'AI assistant for conversations', priority: 11, category: 'AI Assistant', trustScore: 96 },
   { id: 'cursor', name: 'Cursor', description: 'AI-powered code editor', priority: 10, category: 'Development', trustScore: 98 },
-  { id: 'substack', name: 'Substack', description: 'Newsletter and publishing platform', priority: 9, category: 'Content', trustScore: 95 },
-  { id: 'twitter', name: 'X', description: 'Social media and microblogging', priority: 8, category: 'Social', trustScore: 93 },
+  { id: 'substack', name: 'Substack', description: 'For writers for substack', priority: 9, category: 'Content', trustScore: 95 },
+  { id: 'twitter', name: 'X', description: 'Social media', priority: 8, category: 'Social', trustScore: 93 },
   { id: 'obsidian', name: 'Obsidian', description: 'Powerful knowledge base application', priority: 7, category: 'Productivity', trustScore: 94, isComingSoon: true },
   { id: 'notion', name: 'Notion', description: 'Connected workspace for notes & projects', priority: 6, category: 'Productivity', trustScore: 92, isComingSoon: true },
-  { id: 'windsurf', name: 'Windsurf', description: 'Collaborative development environment', priority: 5, category: 'Development', trustScore: 94 },
-  { id: 'mcp-generic', name: 'MCP Link', description: 'Connect to any MCP-compatible app', priority: 4, category: 'Integration', trustScore: 91 },
+  { id: 'windsurf', name: 'Windsurf', description: 'AI-powered code editor', priority: 5, category: 'Development', trustScore: 94 },
+  { id: 'mcp-generic', name: 'MCP Link', description: 'Connect to any mcp', priority: -1, category: 'Integration', trustScore: 91 },
   { id: 'cline', name: 'Cline', description: 'Command line interface tool', priority: 3, category: 'Development', trustScore: 92 },
   { id: 'roocode', name: 'RooCode', description: 'Code review and collaboration', priority: 2, category: 'Development', trustScore: 90 },
   { id: 'witsy', name: 'Witsy', description: 'Smart productivity assistant', priority: 1, category: 'Productivity', trustScore: 88 },
@@ -68,6 +71,7 @@ export default function DashboardNew() {
   const [hasFetchedApps, setHasFetchedApps] = useState(false);
   const [showAllApps, setShowAllApps] = useState(false);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+  const [isRequestIntegrationModalOpen, setIsRequestIntegrationModalOpen] = useState(false);
   const posthog = usePostHog();
   const { fetchMemories } = useMemoriesApi();
   const [totalMemories, setTotalMemories] = useState(0);
@@ -223,10 +227,24 @@ export default function DashboardNew() {
     return (isConnectedViaAPI || isActiveSyncing || hasApiConnection) && !app.isComingSoon;
   }).length;
   
-  const displayedApps = showAllApps ? sortedApps : sortedApps.slice(0, 6);
+  const displayedApps = showAllApps ? sortedApps : sortedApps.slice(0, 9);
 
   const handleConnectApp = (app: DashboardApp) => {
     if (app.is_connected || app.isComingSoon) return;
+
+    // Handle request integration specially
+    if (app.id === 'request-integration') {
+      setIsRequestIntegrationModalOpen(true);
+      
+      // Track the request
+      if (posthog && user) {
+        posthog.capture('integration_request_modal_opened', {
+          user_id: user.id,
+          user_email: user.email
+        });
+      }
+      return;
+    }
 
     // Twitter and Substack have their own connection flow within the AppCard
     if (app.id === 'twitter' || app.id === 'substack') {
@@ -322,7 +340,7 @@ export default function DashboardNew() {
               </div>
             </motion.div>
             
-            {!showAllApps && sortedApps.length > 6 && (
+            {!showAllApps && sortedApps.length > 9 && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -330,7 +348,7 @@ export default function DashboardNew() {
                 className="text-center mt-8"
               >
                 <Button variant="ghost" onClick={() => setShowAllApps(true)}>
-                  Show {sortedApps.length - 6} more apps <ArrowRight className="w-4 h-4 ml-2" />
+                  Show {sortedApps.length - 9} more apps <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               </motion.div>
             )}
@@ -362,6 +380,10 @@ export default function DashboardNew() {
           setSyncingApps(prev => ({ ...prev, [appId]: true }));
           setAppTaskIds(prev => ({ ...prev, [appId]: taskId }));
         }}
+      />
+      <RequestIntegrationModal
+        open={isRequestIntegrationModalOpen}
+        onOpenChange={setIsRequestIntegrationModalOpen}
       />
     </div>
   );
