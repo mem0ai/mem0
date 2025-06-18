@@ -45,6 +45,17 @@ async def lifespan(app: FastAPI):
     if not check_database_health():
         logger.error("Database health check failed - application may not work properly")
     
+    # ONE-TIME FIX: Run schema fix for document_chunks metadata column
+    try:
+        from run_migration_fix import fix_schema
+        logger.info("Running one-time schema fix for document_chunks...")
+        if fix_schema():
+            logger.info("✅ Schema fix completed successfully")
+        else:
+            logger.error("❌ Schema fix failed")
+    except Exception as e:
+        logger.error(f"Schema fix error (this is expected after the fix runs once): {e}")
+    
     logger.info("Database and services initialization completed.")
     
     # Start periodic cleanup task
