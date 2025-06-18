@@ -1,28 +1,26 @@
-# Render Blueprint Specification
-# This file defines the infrastructure for your multi-tenant memory application
+# Virginia Blue-Green Deployment Blueprint
+# Based on exported Render configuration - migrated to Virginia region for performance
 
 services:
-  # Backend API Service
+  # Main Backend API Service (Virginia)
   - type: web
-    name: jean-memory-api
+    name: jean-memory-api-virginia
     runtime: python
-    region: oregon
-    plan: starter # $7/month
+    repo: https://github.com/jonathan-politzki/your-memory
+    plan: starter
+    region: virginia  # Changed from oregon
     rootDir: openmemory/api
-    buildCommand: "pip install -r requirements.txt"
-    preDeployCommand: "alembic upgrade head" # Run database migrations before starting
-    startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
-    healthCheckPath: "/health"
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    preDeployCommand: alembic upgrade head
+    healthCheckPath: /health
+    autoDeployTrigger: commit
     envVars:
-      # Environment Detection (Critical for proper configuration)
-      - key: ENVIRONMENT
-        value: "production"
-      
-      # Database Configuration - Will be automatically set from the database
+      # Database Configuration
       - key: DATABASE_URL
         sync: false
       
-      # Supabase Configuration (Required - Set in dashboard)
+      # Supabase Configuration  
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_KEY
@@ -30,7 +28,7 @@ services:
       - key: SUPABASE_ANON_KEY
         sync: false
       
-      # OpenAI Configuration (Required - Set in dashboard)
+      # OpenAI Configuration
       - key: OPENAI_API_KEY
         sync: false
       - key: LLM_PROVIDER
@@ -42,7 +40,7 @@ services:
       - key: EMBEDDER_MODEL
         value: "text-embedding-3-small"
       
-      # Qdrant Configuration (Required - Set in dashboard)
+      # Qdrant Configuration
       - key: QDRANT_HOST
         sync: false
       - key: QDRANT_PORT
@@ -50,54 +48,72 @@ services:
       - key: QDRANT_API_KEY
         sync: false
       - key: MAIN_QDRANT_COLLECTION_NAME
-        value: "jonathans_memory_main"
+        sync: false
       
-      # Apify Configuration (Optional - for Twitter integration)
+      # Additional Configuration
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: ENVIRONMENT
+        value: "production"
+      - key: ENABLE_AGENT_API
+        sync: false
+      - key: POSTHOG_HOST
+        sync: false
+      - key: POSTHOG_API_KEY
+        sync: false
+      - key: ADMIN_SECRET_KEY
+        sync: false
+      - key: UVICORN_TIMEOUT_KEEP_ALIVE
+        value: "75"
       - key: APIFY_TOKEN
         sync: false
-      
-      # Gemini Configuration (Optional - for AI features)
-      - key: GEMINI_API_KEY
-        sync: false
-      
-      # Runtime Configuration
       - key: PYTHONUNBUFFERED
         value: "1"
       - key: LOG_LEVEL
         value: "INFO"
-      - key: UVICORN_TIMEOUT_KEEP_ALIVE
-        value: "75"
+      
+      # Link to frontend environment group
+      - fromGroup: frontend-public-env
 
-  # Frontend UI Service
+  # Main Frontend UI Service (Virginia)  
   - type: web
-    name: jean-memory-ui
+    name: jean-memory-ui-virginia
     runtime: node
-    region: oregon
-    plan: starter # $7/month
+    repo: https://github.com/jonathan-politzki/your-memory
+    plan: starter
+    region: virginia  # Changed from oregon
     rootDir: openmemory/ui
-    buildCommand: "pnpm install && pnpm build"
-    startCommand: "pnpm start"
+    buildCommand: pnpm install && pnpm build
+    startCommand: pnpm start
+    autoDeployTrigger: commit
     envVars:
-      # Environment Detection
+      # Point to Virginia backend API
+      - key: NEXT_PUBLIC_API_URL
+        value: "https://jean-memory-api-virginia.onrender.com"
+      
+      # Environment Configuration
       - key: ENVIRONMENT
         value: "production"
-      
-      # Link the environment group for Supabase public keys
-      - fromGroup: frontend-public-env 
-      
-      # FIXED: Point to the actual backend API server, not the MCP-only Cloudflare Worker
-      - key: NEXT_PUBLIC_API_URL
-        value: "https://jean-memory-api.onrender.com"
-      
-      # Runtime
       - key: NODE_ENV
         value: "production"
+      
+      # Additional Frontend Config
+      - key: RESEND_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      - key: NEXT_PUBLIC_POSTHOG_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      
+      # Link to frontend environment group
+      - fromGroup: frontend-public-env
 
-# PostgreSQL Database for backend metadata
-databases:
-  - name: jonathans-memory-db
-    databaseName: openmemory
-    user: openmemory
-    region: oregon
-    plan: basic-256mb # Basic tier - 256MB RAM, 1GB storage
-    ipAllowList: [] # Allow connections from Render services 
+version: "1" 

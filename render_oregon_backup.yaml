@@ -1,0 +1,103 @@
+# Render Blueprint Specification
+# This file defines the infrastructure for your multi-tenant memory application
+
+services:
+  # Backend API Service
+  - type: web
+    name: jean-memory-api
+    runtime: python
+    region: oregon
+    plan: starter # $7/month
+    rootDir: openmemory/api
+    buildCommand: "pip install -r requirements.txt"
+    preDeployCommand: "alembic upgrade head" # Run database migrations before starting
+    startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: "/health"
+    envVars:
+      # Environment Detection (Critical for proper configuration)
+      - key: ENVIRONMENT
+        value: "production"
+      
+      # Database Configuration - Will be automatically set from the database
+      - key: DATABASE_URL
+        sync: false
+      
+      # Supabase Configuration (Required - Set in dashboard)
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      
+      # OpenAI Configuration (Required - Set in dashboard)
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: LLM_PROVIDER
+        value: "openai"
+      - key: OPENAI_MODEL
+        value: "gpt-4o-mini"
+      - key: EMBEDDER_PROVIDER
+        value: "openai"
+      - key: EMBEDDER_MODEL
+        value: "text-embedding-3-small"
+      
+      # Qdrant Configuration (Required - Set in dashboard)
+      - key: QDRANT_HOST
+        sync: false
+      - key: QDRANT_PORT
+        value: "6333"
+      - key: QDRANT_API_KEY
+        sync: false
+      - key: MAIN_QDRANT_COLLECTION_NAME
+        value: "jonathans_memory_main"
+      
+      # Apify Configuration (Optional - for Twitter integration)
+      - key: APIFY_TOKEN
+        sync: false
+      
+      # Gemini Configuration (Optional - for AI features)
+      - key: GEMINI_API_KEY
+        sync: false
+      
+      # Runtime Configuration
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: LOG_LEVEL
+        value: "INFO"
+      - key: UVICORN_TIMEOUT_KEEP_ALIVE
+        value: "75"
+
+  # Frontend UI Service
+  - type: web
+    name: jean-memory-ui
+    runtime: node
+    region: oregon
+    plan: starter # $7/month
+    rootDir: openmemory/ui
+    buildCommand: "pnpm install && pnpm build"
+    startCommand: "pnpm start"
+    envVars:
+      # Environment Detection
+      - key: ENVIRONMENT
+        value: "production"
+      
+      # Link the environment group for Supabase public keys
+      - fromGroup: frontend-public-env 
+      
+      # FIXED: Point to the actual backend API server, not the MCP-only Cloudflare Worker
+      - key: NEXT_PUBLIC_API_URL
+        value: "https://jean-memory-api.onrender.com"
+      
+      # Runtime
+      - key: NODE_ENV
+        value: "production"
+
+# PostgreSQL Database for backend metadata
+databases:
+  - name: jonathans-memory-db
+    databaseName: openmemory
+    user: openmemory
+    region: oregon
+    plan: basic-256mb # Basic tier - 256MB RAM, 1GB storage
+    ipAllowList: [] # Allow connections from Render services 
