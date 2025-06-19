@@ -29,7 +29,7 @@ config = {
     "llm": {
         "provider": "vllm",
         "config": {
-            "model": "microsoft/DialoGPT-small",  # Small model for demo
+            "model": "Qwen/Qwen2.5-32B-Instruct",
             "vllm_base_url": "http://localhost:8000/v1",
             "api_key": "vllm-api-key",
             "temperature": 0.7,
@@ -56,12 +56,12 @@ def main():
     """
     Demonstrate vLLM integration with mem0
     """
-    print("🚀 Initializing mem0 with vLLM...")
+    print("--> Initializing mem0 with vLLM...")
     
     # Initialize memory with vLLM
     memory = Memory.from_config(config)
     
-    print("✅ Memory initialized successfully!")
+    print("--> Memory initialized successfully!")
     
     # Example conversations to store
     conversations = [
@@ -88,7 +88,7 @@ def main():
         }
     ]
     
-    print("\n📝 Adding memories using vLLM...")
+    print("\n--> Adding memories using vLLM...")
     
     # Add memories - now powered by vLLM's high-performance inference
     for i, conversation in enumerate(conversations, 1):
@@ -117,26 +117,26 @@ def main():
         for memory_item in memories:
             print(f"  - {memory_item['memory']}")
     
-    print("\n🎯 Getting all memories for user...")
+    print("\n--> Getting all memories for user...")
     all_memories = memory.get_all(user_id="user_123")
     print(f"Total memories stored: {len(all_memories)}")
     
     for memory_item in all_memories:
         print(f"  - {memory_item['memory']}")
     
-    print("\n✨ vLLM integration demo completed successfully!")
+    print("\n--> vLLM integration demo completed successfully!")
     print("\nBenefits of using vLLM:")
-    print("  🚀 2.7x higher throughput compared to standard implementations")
-    print("  ⚡ 5x faster time-per-output-token")
-    print("  💾 Efficient memory usage with PagedAttention")
-    print("  🔧 Simple configuration, same as other providers")
+    print("  -> 2.7x higher throughput compared to standard implementations")
+    print("  -> 5x faster time-per-output-token")
+    print("  -> Efficient memory usage with PagedAttention")
+    print("  -> Simple configuration, same as other providers")
 
 
 if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"=> Error: {e}")
         print("\nTroubleshooting:")
         print("1. Make sure vLLM server is running: vllm serve microsoft/DialoGPT-small --port 8000")
         print("2. Check if the model is downloaded and accessible")

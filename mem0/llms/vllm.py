@@ -2,11 +2,6 @@ import json
 import os
 from typing import Dict, List, Optional
 
-try:
-    from openai import OpenAI
-except ImportError:
-    raise ImportError("The 'openai' library is required for vLLM. Please install it using 'pip install openai'.")
-
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.llms.base import LLMBase
 
@@ -16,7 +11,7 @@ class VllmLLM(LLMBase):
         super().__init__(config)
 
         if not self.config.model:
-            self.config.model = "meta-llama/Llama-3.1-8B-Instruct"
+            self.config.model = "Qwen/Qwen2.5-32B-Instruct"
 
         self.config.api_key = self.config.api_key or os.getenv("VLLM_API_KEY") or "vllm-api-key"
         base_url = self.config.vllm_base_url or os.getenv("VLLM_BASE_URL")

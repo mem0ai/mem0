@@ -15,7 +15,7 @@ def mock_vllm_client():
 
 
 def test_generate_response_without_tools(mock_vllm_client):
-    config = BaseLlmConfig(model="gpt2", temperature=0.7, max_tokens=100, top_p=1.0)
+    config = BaseLlmConfig(model="Qwen/Qwen2.5-32B-Instruct", temperature=0.7, max_tokens=100, top_p=1.0)
     llm = VllmLLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
@@ -29,13 +29,13 @@ def test_generate_response_without_tools(mock_vllm_client):
     response = llm.generate_response(messages)
 
     mock_vllm_client.chat.completions.create.assert_called_once_with(
-        model="gpt2", messages=messages, temperature=0.7, max_tokens=100, top_p=1.0
+        model="Qwen/Qwen2.5-32B-Instruct", messages=messages, temperature=0.7, max_tokens=100, top_p=1.0
     )
     assert response == "I'm doing well, thank you for asking!"
 
 
 def test_generate_response_with_tools(mock_vllm_client):
-    config = BaseLlmConfig(model="gpt2", temperature=0.7, max_tokens=100, top_p=1.0)
+    config = BaseLlmConfig(model="Qwen/Qwen2.5-32B-Instruct", temperature=0.7, max_tokens=100, top_p=1.0)
     llm = VllmLLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
@@ -71,7 +71,7 @@ def test_generate_response_with_tools(mock_vllm_client):
     response = llm.generate_response(messages, tools=tools)
 
     mock_vllm_client.chat.completions.create.assert_called_once_with(
-        model="gpt2", messages=messages, temperature=0.7, max_tokens=100, top_p=1.0, tools=tools, tool_choice="auto"
+        model="Qwen/Qwen2.5-32B-Instruct", messages=messages, temperature=0.7, max_tokens=100, top_p=1.0, tools=tools, tool_choice="auto"
     )
 
     assert response["content"] == "I've added the memory for you."
