@@ -8,6 +8,127 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2025-06-19" description="v0.1.109">
+
+**New Features:**
+- **AgentOps:** Added AgentOps integration
+- **LM Studio:** Added response_format parameter for LM Studio configuration
+- **Examples:** Added Memory agent powered by voice (Cartesia + Agno)
+
+**Improvements:**
+- **AI SDK:** Added output_format parameter
+- **Client:** Enhanced update method to support metadata
+- **Google:** Added Google Genai library support
+
+**Bug Fixes:**
+- **Build:** Fixed Build CI failure
+- **Pinecone:** Fixed pinecone for async memory
+
+</Update>
+
+<Update label="2025-06-14" description="v0.1.108">
+
+**New Features:**
+- **MongoDB:** Added MongoDB Vector Store support
+- **Client:** Added client support for summary functionality
+
+**Improvements:**
+- **Pinecone:** Fixed pinecone version issues
+- **OpenSearch:** Added logger support
+- **Testing:** Added python version test environments
+
+</Update>
+
+<Update label="2025-06-11" description="v0.1.107">
+
+**Improvements:**
+- **Documentation:** 
+  - Updated Livekit documentation migration
+  - Updated OpenMemory hosted version documentation
+- **Core:** Updated categorization flow
+- **Storage:** Fixed migration issues
+
+</Update>
+
+<Update label="2025-06-09" description="v0.1.106">
+
+**New Features:**
+- **Cloudflare:** Added Cloudflare vector store support
+- **Search:** Added threshold parameter to search functionality
+- **API:** Added wildcard character support for v2 Memory APIs
+
+**Improvements:**
+- **Documentation:** Updated README docs for OpenMemory environment setup
+- **Core:** Added support for unique user IDs
+
+**Bug Fixes:**
+- **Core:** Fixed error handling exceptions
+
+</Update>
+
+<Update label="2025-06-03" description="v0.1.104">
+
+**Bug Fixes:**
+- **Vector Stores:** Fixed GET_ALL functionality for FAISS and OpenSearch
+
+</Update>
+
+<Update label="2025-06-02" description="v0.1.103">
+
+**New Features:**
+- **LLM:** Added support for OpenAI compatible LLM providers with baseUrl configuration
+
+**Improvements:**
+- **Documentation:** 
+  - Fixed broken links
+  - Improved Graph Memory features documentation clarity
+  - Updated enable_graph documentation
+- **TypeScript SDK:** Updated Google SDK peer dependency version
+- **Client:** Added async mode parameter
+
+</Update>
+
+<Update label="2025-05-26" description="v0.1.102">
+
+**New Features:**
+- **Examples:** Added Neo4j example
+- **AI SDK:** Added Google provider support
+- **OpenMemory:** Added LLM and Embedding Providers support
+
+**Improvements:**
+- **Documentation:** 
+  - Updated memory export documentation
+  - Enhanced role-based memory attribution rules documentation
+  - Updated API reference and messages documentation
+  - Added Mastra and Raycast documentation
+  - Added NOT filter documentation for Search and GetAll V2
+  - Announced Claude 4 support
+- **Core:** 
+  - Removed support for passing string as input in client.add()
+  - Added support for sarvam-m model
+- **TypeScript SDK:** Fixed types from message interface
+
+**Bug Fixes:**
+- **Memory:** Prevented saving prompt artifacts as memory when no new facts are present
+- **OpenMemory:** Fixed typos in MCP tool description
+
+</Update>
+
+<Update label="2025-05-15" description="v0.1.101">
+
+**New Features:**
+- **Neo4j:** Added base label configuration support
+
+**Improvements:**
+- **Documentation:** 
+  - Updated Healthcare example index
+  - Enhanced collaborative task agent documentation clarity
+  - Added criteria-based filtering documentation
+- **OpenMemory:** Added cURL command for easy installation
+- **Build:** Migrated to Hatch build system
+
+</Update>
+
 <Update label="2025-05-10" description="v0.1.100">
 
 **New Features:**
@@ -442,255 +563,109 @@ mode: "wide"
 
 <Tab title="Platform">
 
+<Update label="2025-06-19" description="">
+
+**New Features:**
+- **Rate Limiting:** Implemented comprehensive rate limiting system
+
+**Improvements:**
+- **Performance:** Added performance indexes for memory stats query
+
+**Bug Fixes:**
+- **Search:** Fixed search events not respecting top-k parameter
+
+</Update>
+
+<Update label="2025-06-18" description="">
+
+**New Features:**
+- **Memory Management:** Implemented OpenAI Batch API for Memory Cleaning with fallback
+- **Playground:** Added Claude 4 support on Playground
+
+**Improvements:**
+- **Memory:** Added ability to update memory metadata
+
+</Update>
+
+<Update label="2025-06-17" description="">
+
+**New Features:**
+- **UI:** New Memories Page UI design
+
+</Update>
+
+<Update label="2025-06-16" description="">
+
+**Improvements:**
+- **Infrastructure:** Migrated to Application Load Balancer (ALB)
+
+</Update>
+
+<Update label="2025-06-13" description="">
+
+**Improvements:**
+- **Memory Management:** Enhanced Memory Management with Cosine Similarity Fallback
+
+</Update>
+
+<Update label="2025-06-11" description="">
+
+**New Features:**
+- **OMM:** Added OMM Script and UI functionality
+
+**Improvements:**
+- **API:** Added filters validation to semantic_search_v2 endpoint
+
+</Update>
+
+<Update label="2025-06-09" description="">
+
+**New Features:**
+- **Intercom:** Set Intercom events for ADD and SEARCH operations
+- **OpenMemory:** Added Posthog integration and feedback functionality
+- **MCP:** New JavaScript MCP Server with feedback support
+
+**Improvements:**
+- **Structured Data:** Enhanced structured data handling in memory management
+
+</Update>
+
+<Update label="2025-06-06" description="">
+
+**New Features:**
+- **OAuth:** Added Mem0 OAuth integration
+- **OMM:** Added OMM-Mem0 sync for deleted memories
+
+</Update>
+
+<Update label="2025-06-05" description="">
+
+**New Features:**
+- **Filters:** Implemented Wildcard Filters and refactored filter logic in V2 Views
+
+</Update>
+
+<Update label="2025-06-02" description="">
+
+**New Features:**
+- **OpenMemory Cloud:** Added OpenMemory Cloud support
+- **Structured Data:** Added 'structured_attributes' field to Memory model
+
+</Update>
+
+<Update label="2025-05-30" description="">
+
+**New Features:**
+- **Projects:** Added version and enable_graph to project views
+- **OpenMemory:** Added Postgres support for OpenMemory
+
+</Update>
+
 <Update label="2025-05-19" description="">
 
 **Bug Fixes:**
 - **Core:** Fixed unicode error in user_id, agent_id, run_id and app_id
 
-</Update>
-
-<Update label="2025-05-17" description="">
-
-**New Features:**
-- **Graph:** Added Neo4J Graph Migration
-- **API:** Added API to set custom instructions
-
-</Update>
-
-<Update label="2025-05-16" description="">
-
-**New Features:**
-- **API:** Added Org-wide API Limit and Usage
-
-**Improvements:**
-- **Database:** Added migration for "is_deleted" column
-- **Graph:** Improved graph queries
-
-</Update>
-
-<Update label="2025-05-15" description="">
-
-**New Features:**
-- **Lambda:** Added actions to lambda
-- **Core:** Added background runs support
-- **Models:** Added o4-mini for pro users
-
-</Update>
-
-<Update label="2025-05-10" description="">
-
-**New Features:**
-- **Integrations:** Added Intercom Events integration
-- **Billing:** Added prefilled email for payments
-- **Organizations:** Added Pro organization marking
-
-**Improvements:**
-- **UI:** Fixed loading jitter for organization selection
-- **Infrastructure:** Improved production scaling
-
-</Update>
-
-<Update label="2025-05-09" description="">
-
-**Improvements:**
-- **Memory:** Fixed filters in Memory Page
-- **Deployment:** Added custom categories for on-premise
-
-</Update>
-
-<Update label="2025-05-08" description="">
-
-**Improvements:**
-- **Backend:** Updated Django settings for metrics
-- **Memory:** Added retries to memory filtering
-- **Search:** Added scoring mechanism
-
-</Update>
-
-<Update label="2025-05-07" description="">
-
-**Improvements:**
-- **Deployment:** Updated deployment scripts
-- **Testing:** Added code coverage tracking
-- **Memory:** Added background cron job for memory quality
-
-</Update>
-
-<Update label="2025-05-06" description="">
-
-**New Features:**
-- **Models:** Added support for 4.1-mini model
-
-**Improvements:**
-- **Infrastructure:** Increased instance count
-- **API:** Added V2 for Manage Entities
-
-</Update>
-
-<Update label="2025-05-04" description="">
-
-**New Features:**
-- **Testing:** Added code coverage tracking
-- **AI:** Added Keywords AI integration
-
-**Improvements:**
-- **UI:** Updated UI with tabs
-- **Database:** Added migrations for custom instructions
-- **Search:** Added criteria filtering
-
-</Update>
-
-<Update label="2025-04-26" description="">
-
-**Improvements:**
-- **Performance:** Parallelized embedding calls
-- **Monitoring:** Added timing for LLM calls
-- **Search:** Added category checking in Search V2
-- **Bug Fixes:** Fixed issues with ADD filters
-- **Graph:** Implemented new graph updates
-
-</Update>
-
-<Update label="2025-04-25" description="">
-
-**Improvements:**
-- **Memory:** Fixed memory export functionality
-- **Analytics:** Added logging for project
-
-</Update>
-
-<Update label="2025-04-24" description="">
-
-**Improvements:**
-- **Output:** Added memory_type display for ADD output
-
-</Update>
-
-<Update label="2025-04-23" description="">
-
-**New Features:**
-- **UI:** Added new Pricing Component
-- **Memory:** Implemented Long/Short term memory categorization
-- **Output:** Modified serializer to hide memory_type
-
-**Documentation:**
-- Updated README for deployment
-
-</Update>
-
-<Update label="2025-04-22" description="">
-
-**New Features:**
-- **Memory:** Added timestamp to ADD call
-
-**Bug Fixes:**
-- Fixed issues with coreV2
-
-</Update>
-
-<Update label="2025-04-21" description="">
-
-**New Features:**
-- **Memory:** Implemented backdating with migrations and backfilling script
-
-</Update>
-
-<Update label="2025-04-17" description="">
-
-**New Features:**
-- **Billing:** Integrated Stripe Billing Dashboard
-- **Admin:** Added webhook creation functionality
-
-**Bug Fixes:**
-- Fixed Users Page issues
-- Fixed Custom Categories
-- Fixed Table components
-- Updated Stripe configuration
-
-</Update>
-
-<Update label="2025-04-16" description="">
-
-**Improvements:**
-- **Performance:** Made Admin panel and Memory Page faster
-- **Security:** Implemented active session cancellation
-- **Analytics:** Added Stripe customer ID capture
-
-</Update>
-
-<Update label="2025-04-12" description="">
-
-**New Features:**
-- **Memory Management:** 
-  - Added ability to delete memories from Project level with filters
-  - Added delete memories capability on Memories Page
-- **Memory Visualization:** Released V1 Graph Memory Visualization
-- **Graph Playground:** Enabled for @mem0.ai users
-- **Notifications:** Added email alerts to organization owners when new members join
-- **Memory Export:** Added date support for filtering memory exports
-
-**Improvements:**
-- **Performance:** 
-  - Optimized graph for better performance
-  - Optimized database calls in ADD method
-- **Analytics:** Added flagging of paid users in Posthog
-- **CI/CD:** Improved CI pipeline and fixed lint issues
-
-</Update>
-
-<Update label="2025-04-10" description="">
-
-**New Features:**
-- **Notifications:** Implemented email notifications for organization owners when new members join
-
-**Improvements:**
-- **CI/CD:** Fixed Dockerfile for CI tests
-
-</Update>
-
-<Update label="2025-04-09" description="">
-
-**Improvements:**
-- **Integrations:** Updated chat model for Together Qwen
-- **Platform:** Removed older platforms
-- **Bug Fixes:** Fixed FILTER_MAPPING
-
-</Update>
-
-<Update label="2025-04-03" description="">
-
-**New Features:**
-- **Memory:** Added implicit memory capabilities
-- **API:** Improved implicit lambda and get_all v2 functionality
-
-</Update>
-
-<Update label="2025-04-02" description="">
-
-**New Features:**
-- **Integrations:** Added Clay integration
-
-**Improvements:**
-- **Integrations:** Removed deepseek coder from Together
-- **API:** Added custom instructions for add v2
-
-</Update>
-
-<Update label="2025-03-31" description="">
-
-**Security:**
-- **Validation:** Added key validation in messages
-
-</Update>
-
-<Update label="2025-03-28" description="">
-- **Updated Playground Prompt**
-- **Send Email on User Addition to Org/Proj**
-- **Fix Search Entity**
-</Update>
-
-<Update label="2025-03-19" description="">
-- **General Stability & Performance Improvements**
 </Update>
 
 </Tab>
