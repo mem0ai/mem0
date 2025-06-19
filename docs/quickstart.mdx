@@ -333,11 +333,23 @@ const memory = new Memory();
 <CodeGroup>
 ```python Code
 # For a user
-result = m.add("I like to drink coffee in the morning and go for a walk.", user_id="alice", metadata={"category": "preferences"})
+messages = [
+    {
+        "role": "user",
+        "content": "I like to drink coffee in the morning and go for a walk"
+    }
+]
+result = m.add(messages, user_id="alice", metadata={"category": "preferences"})
 ```
 
 ```typescript TypeScript
-const result = memory.add("I like to drink coffee in the morning and go for a walk.", { userId: "alice", metadata: { category: "preferences" } });
+const messages = [
+  {
+    role: "user",
+    content: "I like to drink coffee in the morning and go for a walk"
+  }
+];
+const result = memory.add(messages, { userId: "alice", metadata: { category: "preferences" } });
 ```
 
 ```json Output
