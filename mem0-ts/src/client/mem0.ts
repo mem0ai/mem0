@@ -229,7 +229,7 @@ export default class MemoryClient {
     }
 
     if (options.api_version) {
-      options.version = options.api_version.toString();
+      options.version = options.api_version.toString() || "v2";
     }
 
     const payload = this._preparePayload(messages, options);
