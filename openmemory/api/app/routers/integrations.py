@@ -444,8 +444,8 @@ Submitted via Jean Memory Dashboard
                     "Content-Type": "application/json"
                 },
                 json={
-                    "from": "Jean Memory <noreply@jeanmemory.com>",
-                    "to": ["jonathan@jeantechnologies.com"],
+                    "from": "Jean Memory <onboarding@resend.dev>",
+                    "to": ["politzki18@gmail.com"],
                     "subject": f"Integration Request: {request_data.appName} ({request_data.priority.title()} Priority)",
                     "text": email_content
                 }
