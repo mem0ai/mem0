@@ -80,6 +80,47 @@ mcp_router = APIRouter(prefix="/mcp")
 # Initialize SSE transport
 sse = SseServerTransport("/mcp/messages/")
 
+# Analytics tracking - only active if ENABLE_ANALYTICS=true
+def _track_tool_usage(tool_name: str, properties: dict = None):
+    """Analytics tracking - only active if enabled via environment variable"""
+    # Only track if explicitly enabled via environment variable
+    if not os.getenv('ENABLE_ANALYTICS', 'false').lower() == 'true':
+        return
+    
+    try:
+        from app.utils.posthog_client import get_posthog_client
+        from datetime import datetime
+        
+        supa_uid = user_id_var.get(None)
+        client_name = client_name_var.get(None)
+        
+        if supa_uid:
+            posthog = get_posthog_client()
+            
+            # Create the event name
+            event_name = f'mcp_core_{tool_name}' if not tool_name.startswith('chatgpt_') else f'mcp_{tool_name}'
+            
+            # Merge default properties with provided ones
+            event_properties = {
+                'tool_type': 'core_mcp',
+                'source': 'mcp_server',
+                'client_name': client_name,
+                'timestamp': datetime.now().isoformat(),
+                **(properties or {})
+            }
+            
+            # Send to PostHog
+            posthog.capture(
+                user_id=supa_uid,
+                event=event_name,
+                properties=event_properties
+            )
+            
+            logger.debug(f"Tracked tool usage: {event_name} for user {supa_uid}")
+    except Exception:
+        # Never let analytics break the main functionality
+        pass
+
 @mcp.tool(description="Add new memories to the user's memory")
 @retry_on_exception(retries=3, delay=1, backoff=2, exceptions=(ConnectionError,))
 async def add_memories(text: str, tags: Optional[list[str]] = None) -> str:
@@ -112,6 +153,12 @@ async def add_memories(text: str, tags: Optional[list[str]] = None) -> str:
         return "Error: client_name not available in context"
 
     try:
+        # Track memory addition (only if private analytics available)
+        _track_tool_usage('add_memories', {
+            'text_length': len(text),
+            'has_tags': bool(tags)
+        })
+        
         db_start_time = time.time()
         db = SessionLocal()
         db_duration = time.time() - db_start_time
@@ -283,6 +330,13 @@ async def search_memory(query: str, limit: int = None, tags_filter: Optional[lis
     limit = min(max(1, limit), MEMORY_LIMITS.search_max)
     
     try:
+        # Track search usage (only if private analytics available)
+        _track_tool_usage('search_memory', {
+            'query_length': len(query),
+            'limit': limit,
+            'has_tags_filter': bool(tags_filter)
+        })
+        
         # Add timeout to prevent hanging
         return await asyncio.wait_for(_search_memory_unified_impl(query, supa_uid, client_name, limit, tags_filter), timeout=30.0)
     except asyncio.TimeoutError:
@@ -388,6 +442,13 @@ async def search_memory_v2(query: str, limit: int = None, tags_filter: Optional[
     limit = min(max(1, limit), MEMORY_LIMITS.search_max)
     
     try:
+        # Track search v2 usage (only if private analytics available)
+        _track_tool_usage('search_memory_v2', {
+            'query_length': len(query),
+            'limit': limit,
+            'has_tags_filter': bool(tags_filter)
+        })
+        
         return await asyncio.wait_for(_search_memory_v2_impl(query, supa_uid, client_name, limit, tags_filter), timeout=30.0)
     except asyncio.TimeoutError:
         return f"Search timed out. Please try a simpler query."
@@ -460,6 +521,9 @@ async def list_memories(limit: int = None) -> str:
     limit = min(max(1, limit), MEMORY_LIMITS.list_max)
     
     try:
+        # Track list usage (only if private analytics available)
+        _track_tool_usage('list_memories', {'limit': limit})
+        
         # Add timeout to prevent hanging
         return await asyncio.wait_for(_list_memories_impl(supa_uid, client_name, limit), timeout=30.0)
     except asyncio.TimeoutError:
@@ -559,6 +623,9 @@ async def delete_all_memories() -> str:
     if not client_name:
         return "Error: client_name not available in context"
     try:
+        # Track delete all usage (only if private analytics available)
+        _track_tool_usage('delete_all_memories', {})
+        
         db = SessionLocal()
         try:
             user, app = get_user_and_app(db, supabase_user_id=supa_uid, app_name=client_name, email=None)
@@ -616,6 +683,9 @@ async def get_memory_details(memory_id: str) -> str:
         return "Error: client_name not available in context"
     
     try:
+        # Track memory details usage (only if private analytics available)
+        _track_tool_usage('get_memory_details', {'memory_id_length': len(memory_id)})
+        
         # Add timeout to prevent hanging
         return await asyncio.wait_for(_get_memory_details_impl(memory_id, supa_uid, client_name), timeout=10.0)
     except asyncio.TimeoutError:
@@ -699,6 +769,12 @@ async def sync_substack_posts(substack_url: str, max_posts: int = 20) -> str:
     if not client_name:
         return "Error: client_name not available in context"
     
+    # Track Substack sync usage (only if private analytics available)
+    _track_tool_usage('sync_substack_posts', {
+        'substack_url_length': len(substack_url),
+        'max_posts': max_posts
+    })
+    
     # Let user know we're starting
     logger.info(f"Starting Substack sync for {substack_url}")
     
@@ -744,6 +820,14 @@ async def deep_memory_query(search_query: str, memory_limit: int = None, chunk_l
         return "Error: client_name not available in context"
     
     try:
+        # Track deep memory usage (only if private analytics available)
+        _track_tool_usage('deep_memory_query', {
+            'query_length': len(search_query),
+            'memory_limit': memory_limit,
+            'chunk_limit': chunk_limit,
+            'include_full_docs': include_full_docs
+        })
+        
         # Add timeout to prevent hanging - 60 seconds max
         return await asyncio.wait_for(
             _deep_memory_query_impl(search_query, supa_uid, client_name, memory_limit, chunk_limit, include_full_docs),
@@ -1027,6 +1111,9 @@ async def ask_memory(question: str) -> str:
         return "Error: client_name not available in context"
 
     try:
+        # Track usage (only if private analytics available)
+        _track_tool_usage('ask_memory', {'query_length': len(question)})
+        
         # Lightweight version for better performance
         return await _lightweight_ask_memory_impl(question, supa_uid, client_name)
     except Exception as e:
@@ -1266,6 +1353,9 @@ async def test_connection() -> str:
         return "❌ Error: client_name not available in context. Connection may be broken."
     
     try:
+        # Track test connection usage (only if private analytics available)
+        _track_tool_usage('test_connection', {})
+        
         db = SessionLocal()
         try:
             # Test database connection
@@ -1984,6 +2074,21 @@ async def handle_chatgpt_search(user_id: str, query: str):
     This gives ChatGPT immediate access to the full deep analysis without complexity.
     """
     try:
+        # Track ChatGPT search usage (only if private analytics available)
+        try:
+            from app.utils.private_analytics import track_tool_usage
+            track_tool_usage(
+                user_id=user_id,
+                tool_name='chatgpt_search',
+                properties={
+                    'client_name': 'chatgpt',
+                    'query_length': len(query),
+                    'is_chatgpt': True
+                }
+            )
+        except (ImportError, Exception):
+            pass
+        
         # 🚀 DIRECT DEEP MEMORY TEST: Call deep analysis directly (testing timeout limits)
         logger.info(f"🧠 DIRECT: Starting deep memory analysis for ChatGPT query: '{query}' (user: {user_id})")
         
@@ -2041,6 +2146,21 @@ async def handle_chatgpt_fetch(user_id: str, memory_id: str):
     DIRECT DEEP MEMORY: Simple fetch for single comprehensive analysis result
     """
     try:
+        # Track ChatGPT fetch usage (only if private analytics available)
+        try:
+            from app.utils.private_analytics import track_tool_usage
+            track_tool_usage(
+                user_id=user_id,
+                tool_name='chatgpt_fetch',
+                properties={
+                    'client_name': 'chatgpt',
+                    'memory_id': memory_id,
+                    'is_chatgpt': True
+                }
+            )
+        except (ImportError, Exception):
+            pass
+        
         # With direct approach, we only have one result with ID "1" containing the full analysis
         if memory_id == "1":
             citation_url = "https://jeanmemory.com"
