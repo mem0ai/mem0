@@ -193,7 +193,8 @@
             "icon": "square-terminal",
             "pages": [
               "openmemory/overview",
-              "openmemory/quickstart"
+              "openmemory/quickstart",
+              "openmemory/integrations"
             ]
           },
           {
