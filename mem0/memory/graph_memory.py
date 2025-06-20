@@ -138,6 +138,16 @@ class MemoryGraph:
 
 
     def get_all(self, filters, limit=100):
+        """
+        Retrieves all nodes and relationships from the graph database based on optional filtering criteria.
+         Args:
+            filters (dict): A dictionary containing filters to be applied during the retrieval.
+            limit (int): The maximum number of nodes and relationships to retrieve. Defaults to 100.
+        Returns:
+            list: A list of dictionaries, each containing:
+                - 'contexts': The base data store response for each memory.
+                - 'entities': A list of strings representing the nodes and relationships
+        """
         agent_filter = ""
         params = {"user_id": filters["user_id"], "limit": limit}
         if filters.get("agent_id"):
