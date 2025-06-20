@@ -79,7 +79,7 @@ export function UserNav() {
             <span>Discord</span>
           </DropdownMenuItem>
         </a>
-        <a href="https://buy.stripe.com/fZuaEX70gev399t4tMabK00" target="_blank" rel="noopener noreferrer">
+        <a href="https://buy.stripe.com/8x214n2K0cmVadx3pIabK01" target="_blank" rel="noopener noreferrer">
           <DropdownMenuItem>
             <Star className="mr-2 h-4 w-4" />
             <span>Pro</span>
