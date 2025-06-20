@@ -28,6 +28,12 @@ aws cloudformation deploy \
   --capabilities CAPABILITY_IAM
 ```
 
+#### Using dynamodb-shell
+
+```bash
+ddbsh < schema.sql
+```
+
 #### Using the Utility Function
 
 ```python
@@ -79,11 +85,10 @@ memory = Memory(config)
 ### Conversation Table
 
 - **Primary Key**:
-  - Partition Key (`pk`): `USER#{user_id}`
-  - Sort Key (`sk`): `CONV#{conversation_id}`
-- **Attributes**:
   - `user_id`: User identifier
   - `conversation_id`: Conversation identifier
+
+- **Attributes**:
   - `messages`: JSON string of messages
   - `timestamp`: Creation timestamp
   - `metadata`: Optional JSON string of metadata
@@ -92,17 +97,15 @@ memory = Memory(config)
 ### Graph Table
 
 - **Primary Key**:
-  - Partition Key (`pk`): `NODE#{node_id}` or `REL#{relationship_type}`
-  - Sort Key (`sk`): `META`, `EDGE_OUT#{edge_id}`, `EDGE_IN#{edge_id}`, or `EDGE#{edge_id}`
+  - `node_id`: Node identifier
+  - `edge_id`: Edge identifier
 - **GSI**: RelationshipTypeIndex
   - Partition Key: `relationship_type`
   - Sort Key: `created_at`
 - **Node Attributes**:
-  - `node_id`: Node identifier
   - `content`: Memory content
   - `metadata`: Optional JSON string of metadata
 - **Edge Attributes**:
-  - `edge_id`: Edge identifier
   - `source_id`: Source node identifier
   - `target_id`: Target node identifier
   - `relationship_type`: Type of relationship
