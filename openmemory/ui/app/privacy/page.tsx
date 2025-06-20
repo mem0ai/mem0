@@ -24,7 +24,7 @@ export default function PrivacyPage() {
               Your Memory
             </h1>
             <p className="text-xl text-muted-foreground">
-              Your context is a projection of your mind.
+              Your context is a projection of your mind
             </p>
           </div>
 
