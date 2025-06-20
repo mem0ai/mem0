@@ -21,23 +21,23 @@ export default function PrivacyPage() {
         >
           <div className="text-center mb-16">
             <h1 className="text-5xl md:text-6xl font-bold tracking-tight mb-4">
-              Software for the Individual
+              Your Memory
             </h1>
             <p className="text-xl text-muted-foreground">
-              Your context is an intimate projection of your mind.
+              Your context is a projection of your mind.
             </p>
           </div>
 
           <div className="space-y-12 text-lg leading-relaxed prose dark:prose-invert mx-auto">
             <section>
-              <p>AI now understands this projection with unprecedented depth. This has created a new landscape of power. Those who hold the data that maps your mind hold a key to your identity.<a href="https://jonathanpolitzki.substack.com/p/general-personal-embeddings" target="_blank" rel="noopener noreferrer" className="no-underline"><sup className="text-primary font-medium ml-1">[1]</sup></a></p>
+              <p>AI now understands this projection deeply. We believe that makes it important to get this infrastructure right.<a href="https://jonathanpolitzki.substack.com/p/general-personal-embeddings" target="_blank" rel="noopener noreferrer" className="no-underline"><sup className="text-primary font-medium ml-1">[1]</sup></a></p>
               <p>Large companies like OpenAI have publicly stated their goal is to own this identity layer.<a href="#ref-2" className="no-underline"><sup className="text-primary font-medium ml-1">[2]</sup></a></p>
-              <p>The future is not set in stone. There are many paths forward where this can end poorly for us. However, we see a path forward—one defined by trust, where humans own our data and our data does not own us.</p>
+              <p>We are building a future defined by trust, where we own our context and our context does not own us.</p>
             </section>
             
             <section>
               <h2 className="text-3xl font-bold tracking-tight !mb-6 !mt-12">Our Guiding Principles</h2>
-              <p>This is not a policy. It is a promise we are actively building towards, centered on individual empowerment. We make every decision based on building trust.</p>
+              <p>This is a promise we are building towards. We make every decision based on building trust.</p>
               <ul className="space-y-4">
                 <li><strong>Open Source & Self-Hostable.</strong> The entire platform is open source. You can run it on your own hardware for absolute control. Every algorithm is auditable on GitHub, and contributions are welcome.</li>
                 <li><strong>A Commitment to Zero-Knowledge.</strong> We are building a future with end-to-end encryption and zero-knowledge proofs. Jean will not see your personal information.</li>
