@@ -1,8 +1,6 @@
-import time
 import pytest
 from unittest.mock import MagicMock, patch
 from mem0.vector_stores.mongodb import MongoVector
-from pymongo.operations import SearchIndexModel
 
 @pytest.fixture
 @patch("mem0.vector_stores.mongodb.MongoClient")
@@ -20,8 +18,7 @@ def mongo_vector_fixture(mock_mongo_client):
         db_name="test_db",
         collection_name="test_collection",
         embedding_model_dims=1536,
-        user="username",
-        password="password",
+        mongo_uri="mongodb://username:password@localhost:27017"
     )
     return mongo_vector, mock_collection, mock_db
 
@@ -48,7 +45,7 @@ def test_initalize_create_col(mongo_vector_fixture):
                 "fields": {
                     "embedding": {
                         "type": "knnVector",
-                        "d": 1536,
+                        "dimensions": 1536,
                         "similarity": "cosine",
                     }
                 }
@@ -72,14 +69,14 @@ def test_insert(mongo_vector_fixture):
 
 def test_search(mongo_vector_fixture):
     mongo_vector, mock_collection, _ = mongo_vector_fixture
-    query_vector = [0.1] * 1536
+    query_vectors = [[0.1] * 1536]  # Changed to list of vectors
     mock_collection.aggregate.return_value = [
         {"_id": "id1", "score": 0.9, "payload": {"key": "value1"}},
         {"_id": "id2", "score": 0.8, "payload": {"key": "value2"}},
     ]
     mock_collection.list_search_indexes.return_value = ["test_collection_vector_index"]
 
-    results = mongo_vector.search("query_str", query_vector, limit=2)
+    results = mongo_vector.search("query_str", query_vectors, limit=2)
     mock_collection.list_search_indexes.assert_called_with(name="test_collection_vector_index")
     mock_collection.aggregate.assert_called_once_with([
         {
@@ -87,7 +84,7 @@ def test_search(mongo_vector_fixture):
                 "index": "test_collection_vector_index",
                 "limit": 2,
                 "numCandidates": 2,
-                "queryVector": query_vector,
+                "queryVector": query_vectors[0],
                 "path": "embedding",
             },
         },
