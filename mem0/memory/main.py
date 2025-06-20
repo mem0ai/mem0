@@ -129,19 +129,29 @@ class Memory(MemoryBase):
             self.config.vector_store.provider, self.config.vector_store.config
         )
         self.llm = LlmFactory.create(self.config.llm.provider, self.config.llm.config)
-        self.db = SQLiteManager(self.config.history_db_path)
+        
+        # Use ConversationStoreFactory to create the appropriate conversation store
+        if hasattr(self.config, 'conversation_store') and self.config.conversation_store:
+            from mem0.utils.factory import ConversationStoreFactory
+            self.db = ConversationStoreFactory.create(
+                self.config.conversation_store.provider, 
+                self.config.conversation_store.config
+            )
+        else:
+            self.db = SQLiteManager(self.config.history_db_path)
+            
         self.collection_name = self.config.vector_store.config.collection_name
         self.api_version = self.config.version
 
         self.enable_graph = False
 
         if self.config.graph_store.config:
-            if self.config.graph_store.provider == "memgraph":
-                from mem0.memory.memgraph_memory import MemoryGraph
-            else:
-                from mem0.memory.graph_memory import MemoryGraph
-
-            self.graph = MemoryGraph(self.config)
+            # Use GraphStoreFactory to create the appropriate graph store
+            from mem0.utils.factory import GraphStoreFactory
+            self.graph = GraphStoreFactory.create(
+                self.config.graph_store.provider, 
+                self.config
+            )
             self.enable_graph = True
         else:
             self.graph = None
