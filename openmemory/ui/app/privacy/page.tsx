@@ -24,13 +24,13 @@ export default function PrivacyPage() {
               Your Memory
             </h1>
             <p className="text-xl text-muted-foreground">
-              Your context is a projection of your mind
+              Personal context layer for all of your software.
             </p>
           </div>
 
           <div className="space-y-12 text-lg leading-relaxed prose dark:prose-invert mx-auto">
             <section>
-              <p>AI now understands this projection deeply. We believe that makes it important to get this infrastructure right.<a href="https://jonathanpolitzki.substack.com/p/general-personal-embeddings" target="_blank" rel="noopener noreferrer" className="no-underline"><sup className="text-primary font-medium ml-1">[1]</sup></a></p>
+              <p>Your context is a projection of your mind. AI now understands this projection deeply. We believe that makes it important to get this infrastructure right.<a href="https://jonathanpolitzki.substack.com/p/general-personal-embeddings" target="_blank" rel="noopener noreferrer" className="no-underline"><sup className="text-primary font-medium ml-1">[1]</sup></a></p>
               <p>Large companies like OpenAI have publicly stated their goal is to own this identity layer.<a href="#ref-2" className="no-underline"><sup className="text-primary font-medium ml-1">[2]</sup></a></p>
               <p>We are building a future defined by trust, where we own our context and our context does not own us.</p>
             </section>
