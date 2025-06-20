@@ -12,8 +12,20 @@ Prerequisites:
 2. OpenAI API key for both LLM and embeddings
 3. Environment variables: MONGODB_URI, OPENAI_API_KEY
 
+Connection Methods:
+- Method 1 (Recommended): Use MONGODB_URI environment variable
+- Method 2: Use individual credentials (MONGO_HOST, MONGO_USER, MONGO_PASSWORD)
+
 Example usage:
+    # Method 1: Connection URI
     export MONGODB_URI="mongodb+srv://user:pass@cluster.mongodb.net/"
+    export OPENAI_API_KEY="your_openai_api_key"
+    python mongodb_atlas_openai_example.py
+
+    # Method 2: Individual credentials
+    export MONGO_HOST="localhost"
+    export MONGO_USER="myuser"
+    export MONGO_PASSWORD="mypass"
     export OPENAI_API_KEY="your_openai_api_key"
     python mongodb_atlas_openai_example.py
 """
@@ -25,9 +37,40 @@ from mem0 import Memory
 def create_memory_config():
     """Create mem0 configuration with MongoDB Atlas and OpenAI models."""
     openai_key = os.getenv("OPENAI_API_KEY")
+    mongodb_uri = os.getenv("MONGODB_URI")
 
     if not openai_key:
         raise ValueError("OPENAI_API_KEY environment variable is required")
+
+    # Method 1: Connection URI (Recommended)
+    if mongodb_uri:
+        vector_store_config = {
+            "db_name": "mem0_db",
+            "collection_name": "memories",
+            "embedding_model_dims": 1536,  # Must match embedder dimensions
+            "mongo_uri": mongodb_uri
+        }
+    else:
+        # Method 2: Individual credentials
+        mongo_host = os.getenv("MONGO_HOST", "localhost")
+        mongo_user = os.getenv("MONGO_USER")
+        mongo_password = os.getenv("MONGO_PASSWORD")
+        mongo_port = int(os.getenv("MONGO_PORT", "27017"))
+
+        vector_store_config = {
+            "db_name": "mem0_db",
+            "collection_name": "memories",
+            "embedding_model_dims": 1536,
+            "host": mongo_host,
+            "port": mongo_port
+        }
+
+        # Add credentials if provided
+        if mongo_user and mongo_password:
+            vector_store_config.update({
+                "user": mongo_user,
+                "password": mongo_password
+            })
 
     return {
         "llm": {
@@ -49,12 +92,7 @@ def create_memory_config():
         },
         "vector_store": {
             "provider": "mongodb",
-            "config": {
-                "db_name": "mem0_db",
-                "collection_name": "memories",
-                "embedding_model_dims": 1536,  # Must match embedder dimensions
-                "mongo_uri": os.getenv("MONGODB_URI")
-            }
+            "config": vector_store_config
         }
     }
 
@@ -170,15 +208,31 @@ def main():
     mongodb_uri = os.getenv("MONGODB_URI")
     openai_key = os.getenv("OPENAI_API_KEY")
 
-    if not mongodb_uri:
-        print("❌ Missing required environment variable: MONGODB_URI")
-        print("   Get your connection string from MongoDB Atlas dashboard")
+    # Check for MongoDB connection (either URI or individual credentials)
+    mongo_host = os.getenv("MONGO_HOST")
+    mongo_user = os.getenv("MONGO_USER")
+    mongo_password = os.getenv("MONGO_PASSWORD")
+
+    if not mongodb_uri and not mongo_host:
+        print("❌ Missing MongoDB connection configuration!")
+        print("   Method 1: Set MONGODB_URI environment variable")
+        print("   Method 2: Set MONGO_HOST (and optionally MONGO_USER, MONGO_PASSWORD)")
         return
 
     if not openai_key:
         print("❌ Missing required environment variable: OPENAI_API_KEY")
         print("   Get your API key from https://platform.openai.com/api-keys")
         return
+
+    # Show connection method being used
+    if mongodb_uri:
+        print(f"--> Using MongoDB connection URI (Method 1)")
+    else:
+        print(f"--> Using individual credentials (Method 2): {mongo_host}")
+        if mongo_user:
+            print(f"    Authentication: {mongo_user}")
+        else:
+            print(f"    Authentication: None")
     
     try:
         # Create memory instance
@@ -201,7 +255,7 @@ def main():
         
         # Summary
         print(f"\n🎉 Demo completed successfully!")
-        print(f"📊 Summary:")
+        print(f"-> Summary:")
         print(f"   - Conversations processed: {conversations_added}")
         print(f"   - Total memories stored: {total_memories}")
         print(f"   - Vector store: MongoDB Atlas")

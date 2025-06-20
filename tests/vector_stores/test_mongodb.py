@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
 from mem0.vector_stores.mongodb import MongoVector
+from mem0.configs.vector_stores.mongodb import MongoDBConfig
 
 @pytest.fixture
 @patch("mem0.vector_stores.mongodb.MongoClient")
@@ -171,3 +172,59 @@ def test_list(mongo_vector_fixture):
     assert results[0].payload == {"key": "value1"}
     assert results[1].id == "id2"
     assert results[1].payload == {"key": "value2"}
+
+
+def test_mongodb_config_with_uri():
+    """Test MongoDB configuration with connection URI."""
+    config_data = {
+        "db_name": "test_db",
+        "collection_name": "test_collection",
+        "embedding_model_dims": 1536,
+        "mongo_uri": "mongodb+srv://user:pass@cluster.mongodb.net/"
+    }
+    config = MongoDBConfig(**config_data)
+    assert config.mongo_uri == "mongodb+srv://user:pass@cluster.mongodb.net/"
+    assert config.db_name == "test_db"
+
+
+def test_mongodb_config_with_credentials():
+    """Test MongoDB configuration with individual credentials."""
+    config_data = {
+        "db_name": "test_db",
+        "collection_name": "test_collection",
+        "embedding_model_dims": 1536,
+        "host": "localhost",
+        "port": 27017,
+        "user": "testuser",
+        "password": "testpass"
+    }
+    config = MongoDBConfig(**config_data)
+    assert config.mongo_uri == "mongodb://testuser:testpass@localhost:27017"
+    assert config.db_name == "test_db"
+
+
+def test_mongodb_config_without_auth():
+    """Test MongoDB configuration without authentication."""
+    config_data = {
+        "db_name": "test_db",
+        "collection_name": "test_collection",
+        "embedding_model_dims": 1536,
+        "host": "localhost",
+        "port": 27017
+    }
+    config = MongoDBConfig(**config_data)
+    assert config.mongo_uri == "mongodb://localhost:27017"
+
+
+def test_mongodb_config_invalid_credentials():
+    """Test MongoDB configuration with invalid credential combination."""
+    config_data = {
+        "db_name": "test_db",
+        "collection_name": "test_collection",
+        "embedding_model_dims": 1536,
+        "host": "localhost",
+        "port": 27017,
+        "user": "testuser"  # Missing password
+    }
+    with pytest.raises(ValueError, match="Both 'user' and 'password' must be provided together"):
+        MongoDBConfig(**config_data)

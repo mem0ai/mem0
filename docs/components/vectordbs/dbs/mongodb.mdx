@@ -10,6 +10,8 @@ pip install pymongo
 
 ### Usage
 
+#### Method 1: Connection URI (Recommended)
+
 <CodeGroup>
 ```python Python
 import os
@@ -18,15 +20,15 @@ from mem0 import Memory
 os.environ["OPENAI_API_KEY"] = "sk-xx"
 
 config = {
-    "vector_store": {
-        "provider": "mongodb",
-        "config": {
-            "db_name": "mem0_db",
-            "collection_name": "memories",
-            "embedding_model_dims": 1536,
-            "mongo_uri": "mongodb+srv://username:password@cluster.mongodb.net/"
-        }
-    }
+"vector_store": {
+"provider": "mongodb",
+"config": {
+"db_name": "mem0_db",
+"collection_name": "mem0",
+"embedding_model_dims": 1536,
+"mongo_uri": "mongodb+srv://username:password@cluster.mongodb.net/"
+}
+}
 }
 
 m = Memory.from_config(config)
@@ -48,7 +50,7 @@ const config = {
     provider: 'mongodb',
     config: {
       dbName: 'mem0_db',
-      collectionName: 'memories',
+      collectionName: 'mem0',
       embeddingModelDims: 1536,
       mongoUri: 'mongodb+srv://username:password@cluster.mongodb.net/',
     },
@@ -67,6 +69,57 @@ await memory.add(messages, { userId: "alice", metadata: { category: "movies" } }
 
 </CodeGroup>
 
+#### Method 2: Individual Credentials
+
+<CodeGroup>
+```python Python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+"vector_store": {
+"provider": "mongodb",
+"config": {
+"db_name": "mem0_db",
+"collection_name": "mem0",
+"embedding_model_dims": 1536,
+"host": "localhost",
+"port": 27017,
+"user": "my_user", # Optional
+"password": "my_password" # Optional
+}
+}
+}
+
+m = Memory.from_config(config)
+
+````
+
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  vectorStore: {
+    provider: 'mongodb',
+    config: {
+      dbName: 'mem0_db',
+      collectionName: 'mem0',
+      embeddingModelDims: 1536,
+      host: 'localhost',
+      port: 27017,
+      user: 'my_user',        // Optional
+      password: 'my_password' // Optional
+    },
+  },
+};
+
+const memory = new Memory(config);
+````
+
+</CodeGroup>
+
 ### Config
 
 Let's see the available parameters for the `mongodb` config:
@@ -76,14 +129,38 @@ Let's see the available parameters for the `mongodb` config:
 		| Parameter | Description | Default Value | | --- | --- | --- | | `db_name`
 		| Name of the MongoDB database | `mem0_db` | | `collection_name` | Name of
 		the MongoDB collection | `mem0` | | `embedding_model_dims` | Dimensions of
-		the embedding model | `1536` | | `mongo_uri` | MongoDB connection URI |
-		Required |
+		the embedding model | `1536` | | `mongo_uri` | MongoDB connection URI
+		(Method 1) | `None` | | `host` | MongoDB host (Method 2) | `localhost` | |
+		`port` | MongoDB port (Method 2) | `27017` | | `user` | MongoDB user for
+		authentication (Method 2) | `None` | | `password` | Password for the MongoDB
+		user (Method 2) | `None` |
 	</Tab>
 	<Tab title="TypeScript">
 		| Parameter | Description | Default Value | | --- | --- | --- | | `dbName` |
 		Name of the MongoDB database | `mem0_db` | | `collectionName` | Name of the
 		MongoDB collection | `mem0` | | `embeddingModelDims` | Dimensions of the
-		embedding model | `1536` | | `mongoUri` | MongoDB connection URI | Required
-		|
+		embedding model | `1536` | | `mongoUri` | MongoDB connection URI (Method 1)
+		| `None` | | `host` | MongoDB host (Method 2) | `localhost` | | `port` |
+		MongoDB port (Method 2) | `27017` | | `user` | MongoDB user for
+		authentication (Method 2) | `None` | | `password` | Password for the MongoDB
+		user (Method 2) | `None` |
 	</Tab>
 </Tabs>
+
+### Connection Methods
+
+**Method 1: Connection URI (Recommended)**
+
+- Use `mongo_uri` parameter with full connection string
+- Supports MongoDB Atlas, replica sets, and authentication
+- Examples:
+  - MongoDB Atlas: `mongodb+srv://user:pass@cluster.mongodb.net/`
+  - Local with auth: `mongodb://user:pass@localhost:27017/`
+  - Local without auth: `mongodb://localhost:27017/`
+
+**Method 2: Individual Credentials**
+
+- Use `host`, `port`, `user`, `password` parameters
+- Automatically converted to connection URI internally
+- `user` and `password` must be provided together or omitted together
+- Useful when you have separate credential management
