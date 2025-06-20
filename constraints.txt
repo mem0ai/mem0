@@ -1,7 +1,0 @@
-vertexai==1.65.0
-google-cloud-aiplatform==1.65.0
-google-generativeai==0.8.4
-google-ai-generativelanguage==0.6.15
-shapely==2.0.1
-websockets==13.0
-numpy==1.26.4

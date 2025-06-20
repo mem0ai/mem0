@@ -51,15 +51,17 @@ jobs:
         uses: actions/cache@v3
         with:
           path: .venv
-          key: venv-mem0-${{ runner.os }}-${{ hashFiles('**/pyproject.toml', '**/Makefile') }}
-      - name: Install dependencies (debug mode)
-        if: steps.cached-hatch-dependencies.outputs.cache-hit != 'true'
+          key: venv-mem0-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
+      - name: Install GEOS Libraries
+        run: sudo apt-get update && sudo apt-get install -y libgeos-dev
+      - name: Install dependencies
         run: |
-          echo "Installing dependencies with verbose logging..."
-          set -x
-          make install_all || echo "make install_all failed"
-          pip install -v -e ".[test]" || echo "pip install -e failed"
-          pip install -v pinecone pinecone-text || echo "pinecone install failed"
+          pip install --upgrade pip wheel setuptools
+          pip install --only-binary=shapely shapely
+          make install_all
+          pip install -e ".[test]"
+          pip install pinecone pinecone-text
+        if: steps.cached-hatch-dependencies.outputs.cache-hit != 'true'
       - name: Run Formatting
         run: |
           mkdir -p .ruff_cache && chmod -R 777 .ruff_cache
@@ -87,10 +89,10 @@ jobs:
         uses: actions/cache@v3
         with:
           path: .venv
-          key: venv-embedchain-${{ runner.os }}-${{ hashFiles('**/pyproject.toml', '**/Makefile') }}
+          key: venv-embedchain-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
       - name: Install dependencies
-        if: steps.cached-hatch-dependencies.outputs.cache-hit != 'true'
         run: cd embedchain && make install_all
+        if: steps.cached-hatch-dependencies.outputs.cache-hit != 'true'
       - name: Run Formatting
         run: |
           mkdir -p embedchain/.ruff_cache && chmod -R 777 embedchain/.ruff_cache

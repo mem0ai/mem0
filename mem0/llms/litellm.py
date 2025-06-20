@@ -9,6 +9,7 @@ except ImportError:
 
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.llms.base import LLMBase
+from mem0.llms.utils.functions import extract_json
 
 
 class LiteLLM(LLMBase):
@@ -17,18 +18,6 @@ class LiteLLM(LLMBase):
 
         if not self.config.model:
             self.config.model = "gpt-4o-mini"
-
-    def extract_json(text):
-        text = text.strip()
-        
-        # Check if it's wrapped in code fences
-        match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
-        if match:
-            json_str = match.group(1)
-        else:
-            json_str = text  # assume it's raw JSON
-
-        return json_str
 
     def _parse_response(self, response, tools):
         """
@@ -52,7 +41,7 @@ class LiteLLM(LLMBase):
                     processed_response["tool_calls"].append(
                         {
                             "name": tool_call.function.name,
-                            "arguments": json.loads(self.extract_json(tool_call.function.arguments)),
+                            "arguments": json.loads(extract_json(tool_call.function.arguments)),
                         }
                     )
 
