@@ -42,7 +42,7 @@ Jean securely stores the personal context that makes your AI truly yours. From y
 🧠 **Human-like Agentic Memory**: Jean is more than just a vector database. It creates a dynamic, connected graph of your memories, allowing AI agents to understand relationships, context, and how ideas evolve over time. This enables more sophisticated reasoning and a deeper understanding of you.
 
 <p align="center">
-  <img src="docs/images/jean-memory-architecture.png" width="600px" alt="Jean Memory Architecture - Connected Memory Graph">
+  <img src="/openmemory/ui/public/og-image.png" width="600px" alt="Jean Memory Knowledge Graph">
 </p>
 
 ## 🚀 Quick Start
