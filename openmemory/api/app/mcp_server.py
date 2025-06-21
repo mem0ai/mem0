@@ -156,6 +156,15 @@ async def add_memories(text: str, tags: Optional[list[str]] = None) -> str:
     is_claude_desktop = (client_name not in ["chatgpt", "default_agent_app"] and 
                         not client_name.startswith("api_"))
 
+    # For Claude Desktop: return immediately and process in background
+    if is_claude_desktop:
+        # Start background task - fire and forget
+        asyncio.create_task(_add_memories_background_claude(text, tags, supa_uid, client_name))
+        
+        # Return immediately for instant response
+        return "✅ Memory added."
+
+    # For API users and other clients: keep synchronous for reliability
     try:
         # Track memory addition (only if private analytics available)
         _track_tool_usage('add_memories', {
@@ -263,39 +272,123 @@ async def add_memories(text: str, tags: Optional[list[str]] = None) -> str:
                 db_commit_duration = time.time() - db_commit_start_time
                 logger.info(f"add_memories: DB commit for user {supa_uid} took {db_commit_duration:.2f}s")
                 
-                # Return different responses based on client
-                if is_claude_desktop:
-                    # Simple response for Claude Desktop
-                    return "✅ Memory added."
+                # Detailed response for API users and other clients
+                response_message = ""
+                if added_count > 0:
+                    response_message = f"Successfully added {added_count} new memory(ies)."
+                elif updated_count > 0:
+                    response_message = f"Updated {updated_count} existing memory(ies)."
                 else:
-                    # Detailed response for API users and other clients
-                    response_message = ""
-                    if added_count > 0:
-                        response_message = f"Successfully added {added_count} new memory(ies)."
-                    elif updated_count > 0:
-                        response_message = f"Updated {updated_count} existing memory(ies)."
-                    else:
-                        response_message = "Memory processed but no changes made (possibly duplicate)."
+                    response_message = "Memory processed but no changes made (possibly duplicate)."
 
-                    response_data = {
-                        "message": response_message,
-                        "first_added_id": first_added_id,
-                        "content_preview": f"{text[:100]}{'...' if len(text) > 100 else ''}"
-                    }
-                    return json.dumps(response_data)
+                response_data = {
+                    "message": response_message,
+                    "first_added_id": first_added_id,
+                    "content_preview": f"{text[:100]}{'...' if len(text) > 100 else ''}"
+                }
+                return json.dumps(response_data)
             else:
                 # Handle case where response doesn't have expected format
-                if is_claude_desktop:
-                    return "✅ Memory added."
-                else:
-                    total_duration = time.time() - start_time
-                    return json.dumps({"message": f"Memory processed successfully in {total_duration:.2f}s.", "response_preview": f"{str(response)[:200]}{'...' if len(str(response)) > 200 else ''}"})
+                total_duration = time.time() - start_time
+                return json.dumps({"message": f"Memory processed successfully in {total_duration:.2f}s.", "response_preview": f"{str(response)[:200]}{'...' if len(str(response)) > 200 else ''}"})
         finally:
             db.close()
     except Exception as e:
         total_duration = time.time() - start_time
         logging.error(f"Error in add_memories MCP tool after {total_duration:.2f}s: {e}", exc_info=True)
         return f"Error adding to memory: {e}"
+
+
+async def _add_memories_background_claude(text: str, tags: Optional[list[str]], supa_uid: str, client_name: str):
+    """Background memory processing for Claude Desktop - fire and forget"""
+    try:
+        # Reuse the same logic as the synchronous version
+        from app.utils.memory import get_memory_client
+        
+        memory_client = get_memory_client()
+        
+        # Track memory addition (only if private analytics available)
+        _track_tool_usage('add_memories', {
+            'text_length': len(text),
+            'has_tags': bool(tags)
+        })
+        
+        db = SessionLocal()
+        try:
+            user, app = get_user_and_app(db, supabase_user_id=supa_uid, app_name=client_name, email=None)
+            
+            # Skip Pro features check for background - just ignore tags if not Pro
+            if tags and tags:
+                try:
+                    SubscriptionChecker.check_pro_features(user, "metadata tagging")
+                except Exception:
+                    tags = None  # Just remove tags instead of failing
+                    
+            if not app.is_active:
+                logger.warning(f"Background memory add skipped - app {app.name} is paused for user {supa_uid}")
+                return
+
+            metadata = {
+                "source_app": "openmemory_mcp",
+                "mcp_client": client_name,
+                "app_db_id": str(app.id)
+            }
+            if tags:
+                metadata['tags'] = tags
+
+            message_to_add = {
+                "role": "user",
+                "content": text
+            }
+
+            loop = asyncio.get_running_loop()
+            add_call = functools.partial(
+                memory_client.add,
+                messages=[message_to_add],
+                user_id=supa_uid,
+                metadata=metadata
+            )
+            response = await loop.run_in_executor(None, add_call)
+
+            if isinstance(response, dict) and 'results' in response:
+                for result in response['results']:
+                    mem0_memory_id_str = result['id']
+                    mem0_content = result.get('memory', text)
+
+                    if result.get('event') == 'ADD':
+                        sql_memory_record = Memory(
+                            user_id=user.id,
+                            app_id=app.id,
+                            content=mem0_content,
+                            state=MemoryState.active,
+                            metadata_={**result.get('metadata', {}), "mem0_id": mem0_memory_id_str}
+                        )
+                        db.add(sql_memory_record)
+                    elif result.get('event') == 'DELETE':
+                        sql_memory_record = db.query(Memory).filter(
+                            text("metadata_->>'mem0_id' = :mem0_id"),
+                            Memory.user_id == user.id
+                        ).params(mem0_id=mem0_memory_id_str).first()
+                        
+                        if sql_memory_record:
+                            sql_memory_record.state = MemoryState.deleted
+                            sql_memory_record.deleted_at = datetime.datetime.now(datetime.UTC)
+                            history = MemoryStatusHistory(
+                                memory_id=sql_memory_record.id,
+                                changed_by=user.id,
+                                old_state=MemoryState.active,
+                                new_state=MemoryState.deleted
+                            )
+                            db.add(history)
+                            
+                db.commit()
+                logger.info(f"Background memory add completed for user {supa_uid}: {text[:50]}...")
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logger.error(f"Background memory add failed for user {supa_uid}: {e}", exc_info=True)
+        # Don't re-raise - this is fire and forget
 
 
 @mcp.tool(description="Add new memory/fact/observation about the user. Use this to save: 1) Important information learned in conversation, 2) User preferences/values/beliefs, 3) Facts about their work/life/interests, 4) Anything the user wants remembered. The memory will be permanently stored and searchable.")
