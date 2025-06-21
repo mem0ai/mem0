@@ -72,6 +72,12 @@ jobs:
           pip install -e ".[test]"
           pip install pinecone pinecone-text
         if: steps.cached-hatch-dependencies.outputs.cache-hit != 'true'
+        run: |
+          echo "Installing dependencies with verbose logging..."
+          set -x
+          make install_all || echo "make install_all failed"
+          pip install -v -e ".[test]" || echo "pip install -e failed"
+          pip install -v pinecone pinecone-text || echo "pinecone install failed"
       - name: Run Formatting
         run: |
           mkdir -p .ruff_cache && chmod -R 777 .ruff_cache
@@ -99,10 +105,10 @@ jobs:
         uses: actions/cache@v3
         with:
           path: .venv
-          key: venv-embedchain-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
+          key: venv-embedchain-${{ runner.os }}-${{ hashFiles('**/pyproject.toml', '**/Makefile') }}
       - name: Install dependencies
-        run: cd embedchain && make install_all
         if: steps.cached-hatch-dependencies.outputs.cache-hit != 'true'
+        run: cd embedchain && make install_all
       - name: Run Formatting
         run: |
           mkdir -p embedchain/.ruff_cache && chmod -R 777 embedchain/.ruff_cache
@@ -117,3 +123,4 @@ jobs:
           file: coverage.xml
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
