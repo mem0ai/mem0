@@ -4,6 +4,7 @@ icon: "magnifying-glass"
 iconType: "solid"
 ---
 
+<Snippet file="paper-release.mdx" />
 
 Mem0’s **Advanced Retrieval** provides additional control over how memories are selected and ranked during search. While the default search uses embedding-based semantic similarity, Advanced Retrieval introduces specialized options to improve recall, ranking accuracy, or filtering based on specific use case.
 
@@ -168,4 +169,8 @@ This configuration broadens the candidate pool with keywords, improves ordering 
 - Combining all modes adds cumulative latency (e.g. ~450ms)
 - Filtering uses LLM evaluation and may be rate-limited depending on your plan
 
----
+<Note> You can enable or disable these search modes by passing the respective parameters to the `search` method. There is no required sequence for these modes, and any combination can be used based on your needs. </Note>
+
+If you have any questions, please feel free to reach out to us using one of the following methods:
+
+<Snippet file="get-help.mdx" />
