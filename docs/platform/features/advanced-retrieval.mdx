@@ -14,7 +14,7 @@ You can enable any of the following modes independently or together:
 - Reranking
 - Filtering
 
-Each enhancement can be toggled independently via the `search()` API call. These flags are off by default. These useful when building agents that require fine-grained retrieval control
+Each enhancement can be toggled independently via the `search()` API call. These flags are off by default. These are useful when building agents that require fine-grained retrieval control
 
 ---
 
@@ -95,7 +95,7 @@ results = client.search(
 
 ## Filtering
 
-Filtering allows you to narrow down search results by applying specific criterias from the set of retrieved memories.
+Filtering allows you to narrow down search results by applying specific criteria from the set of retrieved memories.
 
 ### When to use
 - You require highly specific results
@@ -146,6 +146,7 @@ results = client.search(
 ```
 
 This configuration broadens the candidate pool with keywords, improves ordering via rerank, and finally cuts noise with filtering.
+<Note> Combining all modes may add up to ~450ms latency per query. </Note>
 
 ---
 
@@ -166,7 +167,6 @@ This configuration broadens the candidate pool with keywords, improves ordering 
 - Use `filter_memories` in production-facing or safety-critical agents
 - Combine filtering and reranking for maximum accuracy
 - Filters may eliminate all results—always handle the empty set gracefully
-- Combining all modes adds cumulative latency (e.g. ~450ms)
 - Filtering uses LLM evaluation and may be rate-limited depending on your plan
 
 <Note> You can enable or disable these search modes by passing the respective parameters to the `search` method. There is no required sequence for these modes, and any combination can be used based on your needs. </Note>
