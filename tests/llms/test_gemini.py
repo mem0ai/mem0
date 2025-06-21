@@ -1,7 +1,6 @@
 from unittest.mock import Mock, patch
 
 import pytest
-from google import genai
 from google.genai import types
 
 from mem0.configs.llms.base import BaseLlmConfig

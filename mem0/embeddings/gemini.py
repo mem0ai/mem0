@@ -1,7 +1,7 @@
 import os
 from typing import Literal, Optional
 
-import google.genai as genai 
+import google.genai as genai
 
 from mem0.configs.embeddings.base import BaseEmbedderConfig
 from mem0.embeddings.base import EmbeddingBase
@@ -12,7 +12,7 @@ class GoogleGenAIEmbedding(EmbeddingBase):
         super().__init__(config)
 
         self.config.model = self.config.model or "models/text-embedding-004"
-        self.embedding_dims = self.config.embedding_dims or 768
+        self.config.embedding_dims = self.config.embedding_dims or 768
 
         api_key = self.config.api_key or os.getenv("GOOGLE_API_KEY")
 
@@ -39,7 +39,7 @@ class GoogleGenAIEmbedding(EmbeddingBase):
         response = self.client.models.embed_content(
             model=self.config.model,
             content=text,
-            output_dimensionality=self.embedding_dims
+            output_dimensionality=self.config.embedding_dims
         )
 
         return response["embedding"]
