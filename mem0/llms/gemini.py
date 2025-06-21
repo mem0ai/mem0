@@ -167,13 +167,6 @@ class GeminiLLM(LLMBase):
                 )
             )
 
-        print(f"Tool config: {tool_config}")
-        print(f"Params: {params}" )
-        print(f"Messages: {messages}")
-        print(f"Tools: {tools}")
-        print(f"Reformatted messages: {self._reformat_messages(messages)}")
-        print(f"Reformatted tools: {self._reformat_tools(tools)}")
-
         response = self.client_gemini.models.generate_content(
                 model=self.config.model,
                 contents=self._reformat_messages(messages),
@@ -186,6 +179,5 @@ class GeminiLLM(LLMBase):
 
                 ),
             )
-        print(f"Response test: {response}")
-
+        
         return self._parse_response(response, tools)
