@@ -152,6 +152,10 @@ async def add_memories(text: str, tags: Optional[list[str]] = None) -> str:
     if not client_name:
         return "Error: client_name not available in context"
 
+    # Detect if this is Claude Desktop for simpler response
+    is_claude_desktop = (client_name not in ["chatgpt", "default_agent_app"] and 
+                        not client_name.startswith("api_"))
+
     try:
         # Track memory addition (only if private analytics available)
         _track_tool_usage('add_memories', {
@@ -259,25 +263,33 @@ async def add_memories(text: str, tags: Optional[list[str]] = None) -> str:
                 db_commit_duration = time.time() - db_commit_start_time
                 logger.info(f"add_memories: DB commit for user {supa_uid} took {db_commit_duration:.2f}s")
                 
-                # Construct a structured JSON response
-                response_message = ""
-                if added_count > 0:
-                    response_message = f"Successfully added {added_count} new memory(ies)."
-                elif updated_count > 0:
-                    response_message = f"Updated {updated_count} existing memory(ies)."
+                # Return different responses based on client
+                if is_claude_desktop:
+                    # Simple response for Claude Desktop
+                    return "✅ Memory added."
                 else:
-                    response_message = "Memory processed but no changes made (possibly duplicate)."
+                    # Detailed response for API users and other clients
+                    response_message = ""
+                    if added_count > 0:
+                        response_message = f"Successfully added {added_count} new memory(ies)."
+                    elif updated_count > 0:
+                        response_message = f"Updated {updated_count} existing memory(ies)."
+                    else:
+                        response_message = "Memory processed but no changes made (possibly duplicate)."
 
-                response_data = {
-                    "message": response_message,
-                    "first_added_id": first_added_id,
-                    "content_preview": f"{text[:100]}{'...' if len(text) > 100 else ''}"
-                }
-                return json.dumps(response_data)
+                    response_data = {
+                        "message": response_message,
+                        "first_added_id": first_added_id,
+                        "content_preview": f"{text[:100]}{'...' if len(text) > 100 else ''}"
+                    }
+                    return json.dumps(response_data)
             else:
                 # Handle case where response doesn't have expected format
-                total_duration = time.time() - start_time
-                return json.dumps({"message": f"Memory processed successfully in {total_duration:.2f}s.", "response_preview": f"{str(response)[:200]}{'...' if len(str(response)) > 200 else ''}"})
+                if is_claude_desktop:
+                    return "✅ Memory added."
+                else:
+                    total_duration = time.time() - start_time
+                    return json.dumps({"message": f"Memory processed successfully in {total_duration:.2f}s.", "response_preview": f"{str(response)[:200]}{'...' if len(str(response)) > 200 else ''}"})
         finally:
             db.close()
     except Exception as e:
