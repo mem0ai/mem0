@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from typing import Dict, List, Optional
 
 try:
@@ -9,7 +10,7 @@ except ImportError:
 
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.llms.base import LLMBase
-
+from mem0.llms.utils.functions import extract_json
 
 class TogetherLLM(LLMBase):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
@@ -43,7 +44,7 @@ class TogetherLLM(LLMBase):
                     processed_response["tool_calls"].append(
                         {
                             "name": tool_call.function.name,
-                            "arguments": json.loads(tool_call.function.arguments),
+                            "arguments": json.loads(extract_json(tool_call.function.arguments)),
                         }
                     )
 

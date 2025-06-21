@@ -10,6 +10,7 @@ import warnings
 from copy import deepcopy
 from datetime import datetime
 from typing import Any, Dict, Optional
+import re
 
 import pytz
 from pydantic import ValidationError
@@ -180,6 +181,18 @@ class Memory(MemoryBase):
             logger.error(f"Configuration validation error: {e}")
             raise
 
+    def extract_json(text):
+        text = text.strip()
+        
+        # Check if it's wrapped in code fences
+        match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
+        if match:
+            json_str = match.group(1)
+        else:
+            json_str = text  # assume it's raw JSON
+
+        return json_str
+
     def add(
         self,
         messages,
@@ -334,7 +347,7 @@ class Memory(MemoryBase):
 
         try:
             response = remove_code_blocks(response)
-            new_retrieved_facts = json.loads(response)["facts"]
+            new_retrieved_facts = json.loads(self.extract_json(response))["facts"]
         except Exception as e:
             logging.error(f"Error in new_retrieved_facts: {e}")
             new_retrieved_facts = []
@@ -384,7 +397,7 @@ class Memory(MemoryBase):
 
             try:
                 response = remove_code_blocks(response)
-                new_memories_with_actions = json.loads(response)
+                new_memories_with_actions = json.loads(self.extract_json(response))3
             except Exception as e:
                 logging.error(f"Invalid JSON response: {e}")
                 new_memories_with_actions = {}
@@ -1162,7 +1175,7 @@ class AsyncMemory(MemoryBase):
         )
         try:
             response = remove_code_blocks(response)
-            new_retrieved_facts = json.loads(response)["facts"]
+            new_retrieved_facts = json.loads(self.extract_json(response))["facts"]
         except Exception as e:
             logging.error(f"Error in new_retrieved_facts: {e}")
             new_retrieved_facts = []
@@ -1215,7 +1228,7 @@ class AsyncMemory(MemoryBase):
                 response = ""
             try:
                 response = remove_code_blocks(response)
-                new_memories_with_actions = json.loads(response)
+                new_memories_with_actions = json.loads(self.extract_json(response))
             except Exception as e:
                 logging.error(f"Invalid JSON response: {e}")
                 new_memories_with_actions = {}

@@ -55,6 +55,26 @@ jobs:
       - name: Install GEOS Libraries
         run: sudo apt-get update && sudo apt-get install -y libgeos-dev
       - name: Install dependencies
+<<<<<<< HEAD
+<<<<<<< HEAD
+        run: |
+          pip install --upgrade pip wheel setuptools
+          pip install --only-binary=shapely shapely
+          make install_all
+          pip install -e ".[test]"
+          pip install pinecone pinecone-text
+        if: steps.cached-hatch-dependencies.outputs.cache-hit != 'true'
+=======
+>>>>>>> d75a1330 (Fix : Common Utils for Json Parsing)
+        run: |
+          pip install --upgrade pip wheel setuptools
+          pip install --only-binary=shapely shapely
+          make install_all
+          pip install -e ".[test]"
+          pip install pinecone pinecone-text
+        if: steps.cached-hatch-dependencies.outputs.cache-hit != 'true'
+=======
+>>>>>>> 5ce8b59a (Fix : Common Utils for Json Parsing)
         run: |
           pip install --upgrade pip wheel setuptools
           pip install --only-binary=shapely shapely

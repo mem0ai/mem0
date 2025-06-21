@@ -1,4 +1,5 @@
 import json
+import re
 import logging
 from datetime import datetime
 from functools import reduce
@@ -12,6 +13,7 @@ from redisvl.query import VectorQuery
 from redisvl.query.filter import Tag
 
 from mem0.vector_stores.base import VectorStoreBase
+from mem0.llms.utils.functions import extract_json
 
 logger = logging.getLogger(__name__)
 
@@ -175,7 +177,7 @@ class RedisDB(VectorStoreBase):
                         else {}
                     ),
                     **{field: result[field] for field in ["agent_id", "run_id", "user_id"] if field in result},
-                    **{k: v for k, v in json.loads(result["metadata"]).items()},
+                    **{k: v for k, v in json.loads(extract_json(result["metadata"])).items()},
                 },
             )
             for result in results
@@ -219,7 +221,7 @@ class RedisDB(VectorStoreBase):
                 else {}
             ),
             **{field: result[field] for field in ["agent_id", "run_id", "user_id"] if field in result},
-            **{k: v for k, v in json.loads(result["metadata"]).items()},
+            **{k: v for k, v in json.loads(extract_json(result["metadata"])).items()},
         }
 
         return MemoryResult(id=result["memory_id"], payload=payload)
@@ -286,7 +288,7 @@ class RedisDB(VectorStoreBase):
                             for field in ["agent_id", "run_id", "user_id"]
                             if field in result.__dict__
                         },
-                        **{k: v for k, v in json.loads(result["metadata"]).items()},
+                        **{k: v for k, v in json.loads(extract_json(result["metadata"])).items()},
                     },
                 )
                 for result in results.docs

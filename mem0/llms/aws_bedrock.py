@@ -54,6 +54,18 @@ class AWSBedrockLLM(LLMBase):
             "top_p": self.config.top_p,
         }
 
+    def extract_json(text):
+        text = text.strip()
+        
+        # Check if it's wrapped in code fences
+        match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
+        if match:
+            json_str = match.group(1)
+        else:
+            json_str = text  # assume it's raw JSON
+
+        return json_str
+
     def _format_messages(self, messages: List[Dict[str, str]]) -> str:
         """
         Formats a list of messages into the required prompt structure for the model.
@@ -101,7 +113,7 @@ class AWSBedrockLLM(LLMBase):
             return processed_response
 
         response_body = response.get("body").read().decode()
-        response_json = json.loads(response_body)
+        response_json = json.loads(self.extract_json(response_body))
         return response_json.get("content", [{"text": ""}])[0].get("text", "")
 
     def _prepare_input(
