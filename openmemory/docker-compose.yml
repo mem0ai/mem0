@@ -10,7 +10,6 @@ services:
     image: mem0/openmemory-mcp:latest
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - USER=ryan
       - QDRANT_HOST=mem0_store
       - QDRANT_PORT=6333
     depends_on:
