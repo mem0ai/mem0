@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mem0ai"
-version = "0.1.108"
+version = "0.1.110"
 description = "Long-term memory for AI Agents"
 authors = [
     { name = "Mem0", email = "founders@mem0.ai" }
@@ -43,6 +43,8 @@ llms = [
     "ollama>=0.1.0",
     "vertexai>=0.1.0",
     "google-generativeai>=0.3.0",
+    "google-genai>=1.0.0",
+    
 ]
 extras = [
     "boto3>=1.34.0",

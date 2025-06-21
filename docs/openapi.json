@@ -1769,27 +1769,27 @@
 				"x-code-samples": [
 				{
 				"lang": "Python",
-				"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\n# Update a memory\nmemory_id = \"<memory_id>\"\nmessage = \"Your updated memory message here\"\nclient.update(memory_id, message)"
+				"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\n# Update a memory\nmemory_id = \"<memory_id>\"\nclient.update(\n    memory_id=memory_id,\n    text=\"Your updated memory message here\",\n    metadata={\"category\": \"example\"}\n)"
 				},
 				{
 				"lang": "JavaScript",
-				"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\n// Update a specific memory\nconst memory_id=<memory_id>\nconst message=\"Your updated memory message here\"\nclient.update(memory_id, message)\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
+				"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\n// Update a specific memory\nconst memory_id = \"<memory_id>\";\nclient.update(memory_id, { \n  text: \"Your updated memory message here\",\n  metadata: { category: \"example\" }\n})\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
 				},
 				{
 				"lang": "cURL",
-				"source": "curl --request PUT \\\n  --url https://api.mem0.ai/v1/memories/{memory_id}/ \\\n  --header 'Authorization: Token <api-key>' \\\n  --header 'Content-Type: application/json' \\\n  --data '{\"text\": \"Your updated memory text here\"}'"
+				"source": "curl --request PUT \\\n  --url https://api.mem0.ai/v1/memories/{memory_id}/ \\\n  --header 'Authorization: Token <api-key>' \\\n  --header 'Content-Type: application/json' \\\n  --data '{\"text\": \"Your updated memory text here\", \"metadata\": {\"category\": \"example\"}}'"
 				},
 				{
 				"lang": "Go",
-				"source": "package main\n\nimport (\n\t\"fmt\"\n\t\"strings\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\n\turl := \"https://api.mem0.ai/v1/memories/{memory_id}/\"\n\n\tpayload := strings.NewReader(`{\n\t\"text\": \"Your updated memory text here\"\n}`)\n\n\treq, _ := http.NewRequest(\"PUT\", url, payload)\n\n\treq.Header.Add(\"Authorization\", \"Token <api-key>\")\n\treq.Header.Add(\"Content-Type\", \"application/json\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(res)\n\tfmt.Println(string(body))\n\n}"
+				"source": "package main\n\nimport (\n\t\"fmt\"\n\t\"strings\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\n\turl := \"https://api.mem0.ai/v1/memories/{memory_id}/\"\n\n\tpayload := strings.NewReader(`{\n\t\"text\": \"Your updated memory text here\",\n\t\"metadata\": {\n\t\t\"category\": \"example\"\n\t}\n}`)\n\n\treq, _ := http.NewRequest(\"PUT\", url, payload)\n\n\treq.Header.Add(\"Authorization\", \"Token <api-key>\")\n\treq.Header.Add(\"Content-Type\", \"application/json\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(res)\n\tfmt.Println(string(body))\n\n}"
 				},
 				{
 				"lang": "PHP",
-				"source": "<?php\n\n$curl = curl_init();\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/v1/memories/{memory_id}/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"PUT\",\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: Token <api-key>\",\n    \"Content-Type: application/json\"\n  ],\n  CURLOPT_POSTFIELDS => json_encode({\n    \"text\": \"Your updated memory text here\"\n  })\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
+				"source": "<?php\n\n$curl = curl_init();\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/v1/memories/{memory_id}/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"PUT\",\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: Token <api-key>\",\n    \"Content-Type: application/json\"\n  ],\n  CURLOPT_POSTFIELDS => json_encode([\n    \"text\" => \"Your updated memory text here\",\n    \"metadata\" => [\"category\" => \"example\"]\n  ])\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
 				},
 				{
 				"lang": "Java",
-				"source": "HttpResponse<String> response = Unirest.put(\"https://api.mem0.ai/v1/memories/{memory_id}/\")\n  .header(\"Authorization\", \"Token <api-key>\")\n  .header(\"Content-Type\", \"application/json\")\n  .body({\"text\": \"Your updated memory text here\"})\n  .asString();"
+				"source": "HttpResponse<String> response = Unirest.put(\"https://api.mem0.ai/v1/memories/{memory_id}/\")\n  .header(\"Authorization\", \"Token <api-key>\")\n  .header(\"Content-Type\", \"application/json\")\n  .body(\"{\\\"text\\\": \\\"Your updated memory text here\\\", \\\"metadata\\\": {\\\"category\\\": \\\"example\\\"}}\")\n  .asString();"
 					}
 				],
 				"x-codegen-request-body-name": "data"

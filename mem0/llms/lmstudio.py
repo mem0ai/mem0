@@ -46,6 +46,8 @@ class LMStudioLLM(LLMBase):
         }
         if response_format:
             params["response_format"] = response_format
+        if self.config.lmstudio_response_format is not None:
+            params["response_format"] = self.config.lmstudio_response_format
 
         response = self.client.chat.completions.create(**params)
         return response.choices[0].message.content

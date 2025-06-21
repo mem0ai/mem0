@@ -24,6 +24,7 @@ export interface MemoryOptions {
   timestamp?: number;
   output_format?: string | OutputFormat;
   async_mode?: boolean;
+  filter_memories?: boolean;
 }
 
 export interface ProjectOptions {
