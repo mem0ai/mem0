@@ -7,6 +7,7 @@ psycopg2-binary>=2.9.0
 python-multipart>=0.0.5
 fastapi-pagination>=0.12.0
 mem0ai>=0.1.92
+openai>=1.40.0
 mcp[cli]>=1.3.0
 pytest>=7.0.0
 pytest-asyncio>=0.21.0
