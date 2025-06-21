@@ -23,17 +23,22 @@ def get_categories_for_memory(memory: str) -> List[str]:
             {"role": "user", "content": memory}
         ]
 
-        # Let OpenAI handle the pydantic parsing directly
-        completion = openai_client.chat.completions.with_response_format(
-            response_format=MemoryCategories
-        ).create(
+        # Use compatible approach for older OpenAI versions
+        completion = openai_client.chat.completions.create(
             model="gpt-4o-mini",
             messages=messages,
-            temperature=0
+            temperature=0,
+            response_format={"type": "json_object"}
         )
 
-        parsed: MemoryCategories = completion.choices[0].message.parsed
-        return [cat.strip().lower() for cat in parsed.categories]
+        # Parse the JSON response manually
+        import json
+        response_content = completion.choices[0].message.content
+        parsed_data = json.loads(response_content)
+        
+        # Extract categories from the response
+        categories = parsed_data.get("categories", [])
+        return [cat.strip().lower() for cat in categories]
 
     except Exception as e:
         logging.error(f"[ERROR] Failed to get categories: {e}")
