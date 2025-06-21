@@ -105,3 +105,65 @@ class VectorStoreFactory:
     def reset(cls, instance):
         instance.reset()
         return instance
+
+
+class ConversationStoreFactory:
+    """Factory for creating conversation store instances."""
+    
+    @staticmethod
+    def create(provider, config):
+        """
+        Create a conversation store instance based on the provider.
+        
+        Args:
+            provider: Provider name (e.g., 'sqlite', 'dynamodb')
+            config: Configuration for the provider
+            
+        Returns:
+            conversation_store: Conversation store instance
+        """
+        if provider == "sqlite":
+            from mem0.memory.storage import SQLiteManager
+            return SQLiteManager(config.history_db_path)
+        elif provider == "dynamodb":
+            from mem0.dynamodb.conversation_store import DynamoDBConversationStore
+            return DynamoDBConversationStore(config)
+        else:
+            raise ValueError(f"Unsupported conversation store provider: {provider}")
+
+
+class GraphStoreFactory:
+    """Factory for creating graph store instances."""
+    
+    @staticmethod
+    def create(provider, config):
+        """
+        Create a graph store instance based on the provider.
+        
+        Args:
+            provider: Provider name (e.g., 'memgraph', 'default', 'dynamodb')
+            config: Configuration for the provider
+            
+        Returns:
+            graph_store: Graph store instance
+        """
+        if provider == "memgraph":
+            from mem0.memory.memgraph_memory import MemoryGraph
+            return MemoryGraph(config)
+        elif provider == "default":
+            from mem0.memory.graph_memory import MemoryGraph
+            return MemoryGraph(config)
+        elif provider == "dynamodb":
+            from mem0.dynamodb.graph_store import DynamoDBMemoryGraph
+
+            # For DynamoDB, we need to extract the graph_store.config
+            if hasattr(config, 'graph_store') and hasattr(config.graph_store, 'config'):
+                return DynamoDBMemoryGraph(config.graph_store.config)
+            else:
+                return DynamoDBMemoryGraph(config)
+        elif provider == "neo4j":
+            # For testing purposes, use the default MemoryGraph implementation
+            from mem0.memory.graph_memory import MemoryGraph
+            return MemoryGraph(config)
+        else:
+            raise ValueError(f"Unsupported graph store provider: {provider}")

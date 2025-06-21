@@ -1,8 +1,9 @@
-import time
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
+
 from mem0.vector_stores.mongodb import MongoVector
-from pymongo.operations import SearchIndexModel
+
 
 @pytest.fixture
 @patch("mem0.vector_stores.mongodb.MongoClient")
@@ -20,8 +21,7 @@ def mongo_vector_fixture(mock_mongo_client):
         db_name="test_db",
         collection_name="test_collection",
         embedding_model_dims=1536,
-        user="username",
-        password="password",
+        mongo_uri="mongodb://username:password@localhost:27017"
     )
     return mongo_vector, mock_collection, mock_db
 
@@ -48,7 +48,7 @@ def test_initalize_create_col(mongo_vector_fixture):
                 "fields": {
                     "embedding": {
                         "type": "knnVector",
-                        "d": 1536,
+                        "dimensions": 1536,
                         "similarity": "cosine",
                     }
                 }
