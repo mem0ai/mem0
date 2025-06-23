@@ -216,58 +216,29 @@ class AWSBedrockLLM(LLMBase):
         Returns:
             str: The generated response.
         """
-
-        if tools:
-            # Use converse method when tools are provided
-            messages = [
-                {
-                    "role": "user",
-                    "content": [{"text": message["content"]} for message in messages],
-                }
-            ]
-            inference_config = {
-                "temperature": self.model_kwargs["temperature"],
-                "maxTokens": self.model_kwargs["max_tokens_to_sample"],
-                "topP": self.model_kwargs["top_p"],
+        # Use converse method for all models
+        messages = [
+            {
+                "role": "user",
+                "content": [{"text": message["content"]} for message in messages],
             }
-            tools_config = {"tools": self._convert_tool_format(tools)}
-
-            response = self.client.converse(
-                modelId=self.config.model,
-                messages=messages,
-                inferenceConfig=inference_config,
-                toolConfig=tools_config,
-            )
-        else:
-            # Use invoke_model method when no tools are provided
-            prompt = self._format_messages(messages)
-            provider = extract_provider(self.config.model)
-            input_body = self._prepare_input(provider, self.config.model, prompt, model_kwargs=self.model_kwargs)
-            body = json.dumps(input_body)
-
-            if provider == "anthropic" or provider == "deepseek":
-                input_body = {
-                    "messages": [{"role": "user", "content": [{"type": "text", "text": prompt}]}],
-                    "max_tokens": self.model_kwargs["max_tokens_to_sample"] or self.model_kwargs["max_tokens"] or 5000,
-                    "temperature": self.model_kwargs["temperature"] or 0.1,
-                    "top_p": self.model_kwargs["top_p"] or 0.9,
-                    "anthropic_version": "bedrock-2023-05-31",
-                }
-
-                body = json.dumps(input_body)
-
-                response = self.client.invoke_model(
-                    body=body,
-                    modelId=self.config.model,
-                    accept="application/json",
-                    contentType="application/json",
-                )
-            else:
-                response = self.client.invoke_model(
-                    body=body,
-                    modelId=self.config.model,
-                    accept="application/json",
-                    contentType="application/json",
-                )
+        ]
+        inference_config = {
+            "temperature": self.model_kwargs["temperature"],
+            "maxTokens": self.model_kwargs["max_tokens_to_sample"],
+            "topP": self.model_kwargs["top_p"],
+        }
+        tools_config = {"tools": self._convert_tool_format(tools)} if tools else None
+        
+        response = self.client.converse(
+            modelId=self.config.model,
+            messages=messages,
+            inferenceConfig=inference_config,
+            toolConfig=tools_config,
+        ) if tools_config else self.client.converse(
+            modelId=self.config.model,
+            messages=messages,
+            inferenceConfig=inference_config
+        )
 
         return self._parse_response(response, tools)
