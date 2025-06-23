@@ -55,6 +55,18 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="icon" href="/images/jean-white-theme-bug.png" sizes="any" />
+        {/* Google tag (gtag.js) */}
+        <script async src="https://www.googletagmanager.com/gtag/js?id=AW-17027341721"></script>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', 'AW-17027341721');
+            `,
+          }}
+        />
       </head>
       <body className={cn(
         "min-h-screen font-sans antialiased flex flex-col bg-background text-foreground",
