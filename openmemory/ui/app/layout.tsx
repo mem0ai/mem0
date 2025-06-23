@@ -11,6 +11,7 @@ import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Inter } from "next/font/google";
 import { cn } from "@/lib/utils";
+import Script from "next/script";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -55,23 +56,25 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="icon" href="/images/jean-white-theme-bug.png" sizes="any" />
-        {/* Google tag (gtag.js) */}
-        <script async src="https://www.googletagmanager.com/gtag/js?id=AW-17027341721"></script>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              window.dataLayer = window.dataLayer || [];
-              function gtag(){dataLayer.push(arguments);}
-              gtag('js', new Date());
-              gtag('config', 'AW-17027341721');
-            `,
-          }}
-        />
       </head>
       <body className={cn(
         "min-h-screen font-sans antialiased flex flex-col bg-background text-foreground",
         inter.className
       )}>
+        {/* Google tag (gtag.js) */}
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=AW-17027341721"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'AW-17027341721');
+          `}
+        </Script>
+        
         <Providers>
           <AuthProvider>
             <ThemeProvider
