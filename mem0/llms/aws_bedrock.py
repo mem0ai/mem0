@@ -99,10 +99,11 @@ class AWSBedrockLLM(LLMBase):
                         )
 
             return processed_response
-
-        response_body = response.get("body").read().decode()
-        response_json = json.loads(response_body)
-        return response_json.get("content", [{"text": ""}])[0].get("text", "")
+        else:
+            if response["output"]["message"]["content"]:
+                return response["output"]["message"]["content"][0].get("text", "")
+            else:
+                return ""
 
     def _prepare_input(
         self,
