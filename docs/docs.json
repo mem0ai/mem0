@@ -19,10 +19,10 @@
             "tab": "Documentation",
             "groups": [
               {
-                "group": "Get Started",
+                "group": "Getting Started",
                 "icon": "rocket",
                 "pages": [
-                  "overview",
+                  "what-is-mem0",
                   "quickstart",
                   "faqs"
                 ]
@@ -32,7 +32,16 @@
                 "icon": "brain",
                 "pages": [
                   "core-concepts/memory-types",
-                  "core-concepts/memory-operations"
+                  {
+                    "group": "Memory Operations",
+                    "icon": "gear",
+                    "pages": [
+                      "core-concepts/memory-operations/add",
+                      "core-concepts/memory-operations/search",
+                      "core-concepts/memory-operations/update",
+                      "core-concepts/memory-operations/delete"
+                    ]
+                  }
                 ]
               },
               {
@@ -350,31 +359,6 @@
             ]
           }
         ]
-      },
-      {
-        "anchor": "Your Dashboard",
-        "href": "https://app.mem0.ai",
-        "icon": "chart-simple"
-      },
-      {
-        "anchor": "Demo",
-        "href": "https://mem0.dev/demo",
-        "icon": "play"
-      },
-      {
-        "anchor": "Discord",
-        "href": "https://mem0.dev/DiD",
-        "icon": "discord"
-      },
-      {
-        "anchor": "GitHub",
-        "href": "https://github.com/mem0ai/mem0",
-        "icon": "github"
-      },
-      {
-        "anchor": "Support",
-        "href": "mailto:founders@mem0.ai",
-        "icon": "envelope"
       }
     ]
   },
