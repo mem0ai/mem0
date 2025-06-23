@@ -40,15 +40,31 @@ export function RequestFeatureModal({ open, onOpenChange }: RequestFeatureModalP
     setIsLoading(true);
 
     try {
-      // Re-using the integration endpoint but with a different payload structure
-      await apiClient.post('/api/v1/integrations/request', {
-        appName: `Feature: ${formData.featureIdea}`, // Repurposing field
+      // Ensure user data is available
+      if (!user?.email || !user?.id) {
+        toast({
+          variant: "destructive",
+          title: "Authentication Error",
+          description: "User authentication data is missing. Please try refreshing the page.",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      const requestPayload = {
+        appName: `Feature: ${formData.featureIdea}`,
         useCase: formData.useCase,
-        priority: "low", // Fulfills backend requirement
-        additionalInfo: formData.additionalInfo,
-        userEmail: user?.email,
-        userId: user?.id
-      });
+        priority: "low",
+        additionalInfo: formData.additionalInfo || "",
+        userEmail: user.email,
+        userId: user.id
+      };
+
+      // Debug logging
+      console.log("Feature request payload:", requestPayload);
+      console.log("User data:", { email: user.email, id: user.id });
+
+      await apiClient.post('/api/v1/integrations/request', requestPayload);
 
       toast({
         title: "Thank You!",
@@ -63,6 +79,9 @@ export function RequestFeatureModal({ open, onOpenChange }: RequestFeatureModalP
       onOpenChange(false);
 
     } catch (error: any) {
+      console.error("Feature request error:", error);
+      console.error("Error response:", error.response?.data);
+      
       toast({
         variant: "destructive",
         title: "Submission Failed",
