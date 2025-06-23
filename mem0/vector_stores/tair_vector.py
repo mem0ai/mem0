@@ -291,19 +291,16 @@ class TairVector(VectorStoreBase):
             if field in all_field_value:
                 payload[field] = all_field_value[field]
 
-        # 处理 created_at
         if all_field_value.get("created_at") is not None:
             payload["created_at"] = datetime.fromtimestamp(
                 int(all_field_value.get("created_at"))
             ).isoformat(timespec="microseconds")
 
-        # 处理 updated_at
         if all_field_value.get("updated_at") is not None:
             payload["updated_at"] = datetime.fromtimestamp(
                 int(all_field_value.get("updated_at"))
             ).isoformat(timespec="microseconds")
 
-        # 添加元数据
         payload.update(json.loads(all_field_value.get("metadata", "{}")))
 
         return MemoryResult(
