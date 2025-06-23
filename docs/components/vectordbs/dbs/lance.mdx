@@ -1,0 +1,66 @@
+[LanceDB](https://lancedb.com/) is a high-performance open-source and enterprise-ready vector database designed for fast, efficient similarity search and embedding storage. It is optimized for AI applications, offering a simple interface for managing and querying vector embeddings.
+
+> **Note**: Before configuring LanceDB, you need to select an embedding model (e.g., OpenAI, Cohere, or custom models) and ensure the `embedding_model_dims` in your config matches your chosen model's dimensions. For example, OpenAI's text-embedding-3-small uses 1536 dimensions.
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+# Example using local LanceDB
+config = {
+    "vector_store": {
+        "provider": "lance",
+        "config": {
+            "collection_name": "my_collection",
+            "embedding_model_dims": 1536,  # Matches your embedding model
+            "uri": "./lancedb"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movie? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+### Config
+
+Here are the parameters available for configuring LanceDB:
+
+| Parameter              | Description                                               | Default Value   |
+|------------------------|-----------------------------------------------------------|-----------------|
+| `collection_name`      | Name of the table/collection in LanceDB                   | `mem0`          |
+| `embedding_model_dims` | Dimensions of the embedding model                         | `1536`          |
+| `uri`                  | Path or URI to the LanceDB database (local or cloud)      | `./lancedb`     |
+| `api_key`              | API key for LanceDB Enterprise/Cloud (optional)           | `None`          |
+| `region`               | Cloud region for LanceDB Enterprise/Cloud (optional)      | `None`          |
+
+> **Important**: For local development, only `collection_name`, `embedding_model_dims`, and `uri` are required. For LanceDB Enterprise/Cloud, you must provide `uri`, `api_key`, and `region`.
+
+
+#### Enterprise/Cloud Example
+```python
+config = {
+    "vector_store": {
+        "provider": "lance",
+        "config": {
+            "collection_name": "my_collection",
+            "embedding_model_dims": 1536,
+            "uri": "db://your-project-slug",
+            "api_key": "your-api-key",
+            "region": "your-cloud-region"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+```

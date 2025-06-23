@@ -28,6 +28,7 @@ class VectorStoreConfig(BaseModel):
         "weaviate": "WeaviateConfig",
         "faiss": "FAISSConfig",
         "langchain": "LangchainConfig",
+        "lance": "LanceDBConfig",
     }
 
     @model_validator(mode="after")
