@@ -128,24 +128,15 @@ class LanceDB(VectorStoreBase):
         if not vectors or not isinstance(vectors, list):
             return []
         query_vector = vectors
-        query_builder = table.search(query_vector).limit(limit)
-        if filters:
-            df = table.to_pandas()
-            filtered_records = []
-            for record in df.to_dict(orient="records"):
-                payload = json.loads(record["payload"])
-                if all(payload.get(k) == v for k, v in filters.items()):
-                    filtered_records.append(record)
-            return [
-                OutputData(id=rec["id"], score=1.0, payload=json.loads(rec["payload"]))
-                for rec in filtered_records[:limit]
-            ]
-        results = query_builder.to_pandas()
+        # Only use the supported search API
+        results = table.search(query_vector).limit(limit).to_pandas()
         parsed_results = []
         for record in results.to_dict(orient="records"):
-            parsed_results.append(
-                OutputData(id=record["id"], score=record.get("score", 1.0), payload=json.loads(record["payload"]))
-            )
+            payload = json.loads(record["payload"])
+            if not filters or all(payload.get(k) == v for k, v in filters.items()):
+                parsed_results.append(
+                    OutputData(id=record["id"], score=record.get("score", 1.0), payload=payload)
+                )
         return parsed_results
 
     def delete(self, vector_id):
@@ -238,16 +229,14 @@ class LanceDB(VectorStoreBase):
             list: A list containing a list of OutputData objects matching the filters.
         """
         table = self.db.open_table(self.collection_name)
-        df = table.to_pandas()
-
+        dummy_vector = [0.0] * self.embedding_model_dims
+        results = table.search(dummy_vector).limit(limit).to_pandas()
         filtered_records = []
-        for record in df.to_dict(orient="records"):
+        for record in results.to_dict(orient="records"):
             payload = json.loads(record["payload"])
             if not filters or all(payload.get(k) == v for k, v in filters.items()):
                 filtered_records.append(OutputData(id=record["id"], score=1.0, payload=payload))
-
-        # Return a list containing the list of records to match the expected format
-        return [filtered_records[:limit]]
+        return [filtered_records]
 
     def reset(self):
         """
