@@ -4,6 +4,7 @@ from collections import defaultdict
 
 import numpy as np
 from openai import OpenAI
+from mem0.llms.utils.functions import extract_json
 
 client = OpenAI()
 
@@ -22,7 +23,7 @@ The generated answer might be much longer, but you should be generous with your 
 
 For time related questions, the gold answer will be a specific date, month, year, etc. The generated answer might be much longer or use relative time references (like "last Tuesday" or "next month"), but you should be generous with your grading - as long as it refers to the same date or time period as the gold answer, it should be counted as CORRECT. Even if the format differs (e.g., "May 7th" vs "7 May"), consider it CORRECT if it's the same date.
 
-Now it’s time for the real question:
+Now it's time for the real question:
 Question: {question}
 Gold answer: {gold_answer}
 Generated answer: {generated_answer}
@@ -49,7 +50,7 @@ def evaluate_llm_judge(question, gold_answer, generated_answer):
         response_format={"type": "json_object"},
         temperature=0.0,
     )
-    label = json.loads(response.choices[0].message.content)["label"]
+    label = json.loads(extract_json(response.choices[0].message.content))["label"]
     return 1 if label == "CORRECT" else 0
 
 

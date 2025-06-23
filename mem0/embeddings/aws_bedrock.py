@@ -11,6 +11,7 @@ import numpy as np
 
 from mem0.configs.embeddings.base import BaseEmbedderConfig
 from mem0.embeddings.base import EmbeddingBase
+from mem0.llms.utils.functions import extract_json
 
 
 class AWSBedrockEmbedding(EmbeddingBase):
@@ -74,7 +75,7 @@ class AWSBedrockEmbedding(EmbeddingBase):
                 contentType="application/json",
             )
 
-            response_body = json.loads(response.get("body").read())
+            response_body = json.loads(extract_json(response.get("body").read()))
 
             if provider == "cohere":
                 embeddings = response_body.get("embeddings")[0]
