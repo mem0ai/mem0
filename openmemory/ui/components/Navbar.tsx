@@ -8,7 +8,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { CreateMemoryDialog } from "@/app/memories/components/CreateMemoryDialog";
 import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
-import { Brain, Menu, X, Settings2, Book, Network, Star } from "lucide-react";
+import { Brain, Menu, X, Settings2, Book, Network, Star, User, Info } from "lucide-react";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Icons } from "@/components/icons";
@@ -68,6 +68,7 @@ export function Navbar() {
     { href: "/dashboard-new", icon: <HiHome />, label: "Dashboard" },
     { href: "/memories", icon: <HiMiniRectangleStack />, label: "Memories" },
     { href: "/my-life", icon: <Network className="w-4 h-4" />, label: "Life Graph" },
+    { href: "/how-to-use-tools", icon: <Info className="w-4 h-4" />, label: "How to Use" },
   ];
 
   return (

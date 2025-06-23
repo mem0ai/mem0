@@ -273,7 +273,8 @@ async def create_memory(
         user_id=user.id,
         app_id=app_obj.id,
         content=request.text,
-        metadata_=request.metadata
+        metadata_=request.metadata,
+        created_at=datetime.datetime.now(UTC)
     )
     db.add(sql_memory)
     try:

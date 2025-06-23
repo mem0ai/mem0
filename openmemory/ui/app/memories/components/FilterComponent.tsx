@@ -50,7 +50,7 @@ const columns = [
   },
 ];
 
-export default function FilterComponent() {
+export default function FilterComponent({ onFilterChange }: { onFilterChange: () => void }) {
   const dispatch = useDispatch();
   const { fetchApps } = useAppsApi();
   const { fetchCategories, updateSort } = useFiltersApi();
@@ -113,7 +113,7 @@ export default function FilterComponent() {
     setTempSelectedCategories([]);
     setShowArchived(false);
     dispatch(clearFilters());
-    await fetchMemories();
+    await onFilterChange();
   };
 
   const handleApplyFilters = async () => {
@@ -123,23 +123,12 @@ export default function FilterComponent() {
         .filter((cat) => tempSelectedCategories.includes(cat.name))
         .map((cat) => cat.id);
 
-      // Get app IDs for selected app names
-      const selectedAppIds = apps
-        .filter((app) => tempSelectedApps.includes(app.id))
-        .map((app) => app.id);
-
       // Update the global state with temporary selections
       dispatch(setSelectedApps(tempSelectedApps));
-      dispatch(setSelectedCategories(tempSelectedCategories));
+      dispatch(setSelectedCategories(selectedCategoryIds));
       dispatch({ type: "filters/setShowArchived", payload: showArchived });
 
-      await fetchMemories(undefined, 1, 10, {
-        apps: selectedAppIds,
-        categories: selectedCategoryIds,
-        sortColumn: filters.sortColumn,
-        sortDirection: filters.sortDirection,
-        showArchived: showArchived,
-      });
+      await onFilterChange();
       setIsOpen(false);
     } catch (error) {
       console.error("Failed to apply filters:", error);
@@ -163,23 +152,8 @@ export default function FilterComponent() {
         : "asc";
     updateSort(column, newDirection);
 
-    // Get category IDs for selected category names
-    const selectedCategoryIds = categories
-      .filter((cat) => tempSelectedCategories.includes(cat.name))
-      .map((cat) => cat.id);
-
-    // Get app IDs for selected app names
-    const selectedAppIds = apps
-      .filter((app) => tempSelectedApps.includes(app.id))
-      .map((app) => app.id);
-
     try {
-      await fetchMemories(undefined, 1, 10, {
-        apps: selectedAppIds,
-        categories: selectedCategoryIds,
-        sortColumn: column,
-        sortDirection: newDirection,
-      });
+      await onFilterChange();
     } catch (error) {
       console.error("Failed to apply sorting:", error);
     }
@@ -350,7 +324,7 @@ export default function FilterComponent() {
             {hasTempFilters && (
               <Button
                 onClick={handleClearFilters}
-                className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300"
+                variant="ghost"
               >
                 Clear All
               </Button>
@@ -358,7 +332,6 @@ export default function FilterComponent() {
             {/* Apply filters button */}
             <Button
               onClick={handleApplyFilters}
-              className="bg-primary hover:bg-primary/80 text-white"
             >
               Apply Filters
             </Button>

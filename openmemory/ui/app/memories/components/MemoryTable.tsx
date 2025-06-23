@@ -24,10 +24,13 @@ import Categories from "@/components/shared/categories";
 import { useUI } from "@/hooks/useUI";
 import { formatDate } from "@/lib/helpers";
 
-export function MemoryTable() {
+interface MemoryTableProps {
+  memories: any[];
+}
+
+export function MemoryTable({ memories }: MemoryTableProps) {
   const { toast } = useToast();
   const router = useRouter();
-  const memories = useSelector((state: RootState) => state.memories.memories);
 
   const { deleteMemories, updateMemoryState, isLoading } = useMemoriesApi();
 

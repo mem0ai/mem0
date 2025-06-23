@@ -31,7 +31,6 @@ export default function PrivacyPage() {
           <div className="space-y-12 text-lg leading-relaxed prose dark:prose-invert mx-auto">
             <section>
               <p>Your context is a projection of your mind. AI now understands this projection deeply. We believe that makes it important to get this infrastructure right.<a href="https://jonathanpolitzki.substack.com/p/general-personal-embeddings" target="_blank" rel="noopener noreferrer" className="no-underline"><sup className="text-primary font-medium ml-1">[1]</sup></a></p>
-              <p>Large companies like OpenAI have publicly stated their goal is to own this identity layer.<a href="#ref-2" className="no-underline"><sup className="text-primary font-medium ml-1">[2]</sup></a></p>
               <p>We are building a future defined by trust, where we own our context and our context does not own us.</p>
             </section>
             
@@ -52,10 +51,6 @@ export default function PrivacyPage() {
                 <p id="ref-1" className="flex items-start">
                   <span className="mr-2">[1]</span>
                   <span>Politzki, J. (2024). <a href="https://jonathanpolitzki.substack.com/p/general-personal-embeddings" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline"><em>General Personal Embeddings: A trusted infrastructure for the age of AI</em></a>.</span>
-                </p>
-                <p id="ref-2" className="flex items-start">
-                  <span className="mr-2">[2]</span>
-                  <span>Based on public statements and product direction. See: <a href="https://www.eff.org/deeplinks/2023/11/sign-chatgpt-privacy-nightmare" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">EFF, "Sign in with ChatGPT is a Privacy Nightmare"</a> and <a href="https://venturebeat.com/ai/sam-altman-calls-for-ai-privilege-as-openai-clarifies-court-order-to-retain-temporary-and-deleted-chatgpt-sessions/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">VentureBeat on data portability</a>.</span>
                 </p>
               </div>
             </section>

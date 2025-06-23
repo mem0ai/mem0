@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { MemoriesSection } from "@/app/memories/components/MemoriesSection";
 import { MemoryFilters } from "@/app/memories/components/MemoryFilters";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -8,20 +8,69 @@ import "@/styles/animation.css";
 import UpdateMemory from "@/components/shared/update-memory";
 import { useUI } from "@/hooks/useUI";
 import { DeepQueryDialog } from "./components/DeepQueryDialog";
+import { useMemoriesApi } from "@/hooks/useMemoriesApi";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store/store";
 
 export default function MemoriesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { updateMemoryDialog, handleCloseUpdateMemoryDialog } = useUI();
+  const { fetchMemories } = useMemoriesApi();
+  const [memories, setMemories] = useState<any[]>([]);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
+  const filters = useSelector((state: RootState) => state.filters.apps);
+
+  const currentPage = Number(searchParams.get("page")) || 1;
+  const itemsPerPage = Number(searchParams.get("size")) || 10;
+
   useEffect(() => {
-    // Set default pagination values if not present in URL
-    if (!searchParams.has("page") || !searchParams.has("size")) {
-      const params = new URLSearchParams(searchParams.toString());
-      if (!searchParams.has("page")) params.set("page", "1");
-      if (!searchParams.has("size")) params.set("size", "10");
-      router.push(`?${params.toString()}`);
+    loadMemories();
+  }, [currentPage, itemsPerPage, searchParams, filters]);
+
+  const loadMemories = async () => {
+    setIsLoading(true);
+    try {
+      const searchQuery = searchParams.get("search") || "";
+      const result = await fetchMemories(
+        searchQuery,
+        currentPage,
+        itemsPerPage,
+        {
+          apps: filters.selectedApps,
+          categories: filters.selectedCategories,
+          sortColumn: filters.sortColumn,
+          sortDirection: filters.sortDirection,
+          showArchived: filters.showArchived,
+        }
+      );
+      setMemories(result.memories);
+      setTotalItems(result.total);
+      setTotalPages(result.pages);
+    } catch (error) {
+      console.error("Failed to fetch memories:", error);
     }
-  }, []);
+    setIsLoading(false);
+  };
+
+  const setCurrentPage = (page: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", page.toString());
+    router.push(`?${params.toString()}`);
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", "1");
+    params.set("size", size.toString());
+    router.push(`?${params.toString()}`);
+  };
+
+  const handleClearFilters = () => {
+    // This will be handled by the FilterComponent's Redux action
+  };
 
   return (
     <div className="">
@@ -34,11 +83,26 @@ export default function MemoriesPage() {
       <main className="flex-1 py-6">
         <div className="container">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 mt-1 pb-4 animate-fade-slide-down">
-            <MemoryFilters />
+            <MemoryFilters onFilterChange={loadMemories} />
             <DeepQueryDialog />
           </div>
           <div className="animate-fade-slide-down delay-1">
-            <MemoriesSection />
+            <MemoriesSection
+              memories={memories}
+              totalItems={totalItems}
+              totalPages={totalPages}
+              currentPage={currentPage}
+              itemsPerPage={itemsPerPage}
+              isLoading={isLoading}
+              setCurrentPage={setCurrentPage}
+              onPageSizeChange={handlePageSizeChange}
+              onClearFilters={handleClearFilters}
+              hasActiveFilters={
+                filters.selectedApps.length > 0 ||
+                filters.selectedCategories.length > 0 ||
+                filters.showArchived
+              }
+            />
           </div>
         </div>
       </main>

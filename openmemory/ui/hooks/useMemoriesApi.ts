@@ -127,17 +127,20 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
     setIsLoading(true);
     setError(null);
     try {
-      // Use the working GET endpoint instead of the failing POST filter endpoint
-      const params: any = {
-        page: page,
-        size: size,
-      };
+      const params = new URLSearchParams();
+      params.append('page', page.toString());
+      params.append('size', size.toString());
 
-      if (query) params.search_query = query;
-      if (filters?.apps && filters.apps.length > 0) params.app_id = filters.apps[0]; // GET endpoint takes single app_id
-      if (filters?.categories && filters.categories.length > 0) params.categories = filters.categories.join(',');
-      if (filters?.sortColumn) params.sort_column = filters.sortColumn.toLowerCase();
-      if (filters?.sortDirection) params.sort_direction = filters.sortDirection;
+      if (query) params.append('search_query', query);
+      if (filters?.apps) {
+        filters.apps.forEach(appId => params.append('app_id', appId));
+      }
+      if (filters?.categories) {
+        filters.categories.forEach(catId => params.append('category_id', catId));
+      }
+      if (filters?.sortColumn) params.append('sort_column', filters.sortColumn.toLowerCase());
+      if (filters?.sortDirection) params.append('sort_direction', filters.sortDirection);
+      if (filters?.showArchived) params.append('show_archived', String(filters.showArchived));
 
       const response = await apiClient.get<ApiResponse>(
         `/api/v1/memories/`,

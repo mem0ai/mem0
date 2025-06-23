@@ -9,50 +9,39 @@ import { useMemoriesApi } from "@/hooks/useMemoriesApi";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MemoryTableSkeleton } from "@/skeleton/MemoryTableSkeleton";
 
-export function MemoriesSection() {
+interface MemoriesSectionProps {
+  memories: any[];
+  totalItems: number;
+  totalPages: number;
+  currentPage: number;
+  itemsPerPage: number;
+  isLoading: boolean;
+  setCurrentPage: (page: number) => void;
+  onPageSizeChange: (size: number) => void;
+  onClearFilters: () => void;
+  hasActiveFilters: boolean;
+}
+
+export function MemoriesSection({
+  memories,
+  totalItems,
+  totalPages,
+  currentPage,
+  itemsPerPage,
+  isLoading,
+  setCurrentPage,
+  onPageSizeChange,
+  onClearFilters,
+  hasActiveFilters,
+}: MemoriesSectionProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { fetchMemories } = useMemoriesApi();
-  const [memories, setMemories] = useState<any[]>([]);
-  const [totalItems, setTotalItems] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
-  const [isLoading, setIsLoading] = useState(true);
 
-  const currentPage = Number(searchParams.get("page")) || 1;
-  const itemsPerPage = Number(searchParams.get("size")) || 10;
   const [selectedCategory, setSelectedCategory] = useState<Category | "all">(
     "all"
   );
   const [selectedClient, setSelectedClient] = useState<Client | "all">("all");
-
-  useEffect(() => {
-    const loadMemories = async () => {
-      setIsLoading(true);
-      try {
-        const searchQuery = searchParams.get("search") || "";
-        const result = await fetchMemories(
-          searchQuery,
-          currentPage,
-          itemsPerPage
-        );
-        setMemories(result.memories);
-        setTotalItems(result.total);
-        setTotalPages(result.pages);
-      } catch (error) {
-        console.error("Failed to fetch memories:", error);
-      }
-      setIsLoading(false);
-    };
-
-    loadMemories();
-  }, [currentPage, itemsPerPage, fetchMemories, searchParams]);
-
-  const setCurrentPage = (page: number) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("page", page.toString());
-    params.set("size", itemsPerPage.toString());
-    router.push(`?${params.toString()}`);
-  };
 
   const handlePageSizeChange = (size: number) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -79,7 +68,7 @@ export function MemoriesSection() {
       <div>
         {memories.length > 0 ? (
           <>
-            <MemoryTable />
+            <MemoryTable memories={memories} />
             <div className="flex items-center justify-between mt-4">
               <PageSizeSelector
                 pageSize={itemsPerPage}
@@ -121,22 +110,19 @@ export function MemoriesSection() {
               </div>
             </div>
             <h3 className="text-xl font-semibold text-foreground mb-2">
-              {selectedCategory !== "all" || selectedClient !== "all"
+              {hasActiveFilters
                 ? "No memories match your filters"
                 : "Start Building Your Memory Bank"}
             </h3>
             <p className="text-muted-foreground mb-6 max-w-md">
-              {selectedCategory !== "all" || selectedClient !== "all"
+              {hasActiveFilters
                 ? "Try adjusting your filters to see more memories"
                 : "Your AI conversations will appear here. Connect an app above and start chatting to create your first memory!"}
             </p>
-            {selectedCategory !== "all" || selectedClient !== "all" ? (
+            {hasActiveFilters ? (
               <Button
                 variant="outline"
-                onClick={() => {
-                  setSelectedCategory("all");
-                  setSelectedClient("all");
-                }}
+                onClick={onClearFilters}
               >
                 Clear Filters
               </Button>

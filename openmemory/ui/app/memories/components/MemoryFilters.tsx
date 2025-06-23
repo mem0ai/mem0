@@ -19,7 +19,7 @@ import { useEffect, useRef } from "react";
 import FilterComponent from "./FilterComponent";
 import { clearFilters } from "@/store/filtersSlice";
 
-export function MemoryFilters() {
+export function MemoryFilters({ onFilterChange }: { onFilterChange: () => void }) {
   const dispatch = useDispatch();
   const selectedMemoryIds = useSelector(
     (state: RootState) => state.memories.selectedMemoryIds
@@ -81,7 +81,7 @@ export function MemoryFilters() {
 
   const handleClearAllFilters = async () => {
     dispatch(clearFilters());
-    await fetchMemories(); // Fetch memories without any filters
+    await onFilterChange(); // Use the callback to refetch memories
   };
 
   const hasActiveFilters =
@@ -100,7 +100,7 @@ export function MemoryFilters() {
         />
       </div>
       <div className="flex gap-2">
-        <FilterComponent />
+        <FilterComponent onFilterChange={onFilterChange} />
         {hasActiveFilters && (
           <Button
             variant="outline"
