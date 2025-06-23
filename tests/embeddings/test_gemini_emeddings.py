@@ -28,3 +28,29 @@ def test_embed_query(mock_genai, config):
 
     assert embedding == [0.1, 0.2, 0.3, 0.4]
     mock_genai.assert_called_once_with(model="test_model", content="Hello, world!", output_dimensionality=786)
+
+def test_embed_returns_empty_list_if_none(mock_genai, config):
+    mock_genai.return_value = None
+
+    embedder = GoogleGenAIEmbedding(config)
+    result = embedder.embed("test")
+
+    assert result == []
+    mock_genai.assert_called_once()
+
+
+def test_embed_raises_on_error(mock_genai, config):
+    mock_genai.side_effect = RuntimeError("Embedding failed")
+
+    embedder = GoogleGenAIEmbedding(config)
+
+    with pytest.raises(RuntimeError, match="Embedding failed"):
+        embedder.embed("some input")
+
+def test_config_initialization(config):
+    embedder = GoogleGenAIEmbedding(config)
+
+    assert embedder.config.api_key == "dummy_api_key"
+    assert embedder.config.model == "test_model"
+    assert embedder.config.embedding_dims == 786
+
