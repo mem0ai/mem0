@@ -46,6 +46,20 @@ def remove_code_blocks(content: str) -> str:
     return match.group(1).strip() if match else content.strip()
 
 
+def extract_json(text):
+    """
+    Extracts JSON content from a string, removing enclosing triple backticks and optional 'json' tag if present.
+    If no code block is found, returns the text as-is.
+    """
+    text = text.strip()
+    match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
+    if match:
+        json_str = match.group(1)
+    else:
+        json_str = text  # assume it's raw JSON
+    return json_str
+
+
 def get_image_description(image_obj, llm, vision_details):
     """
     Get the description of the image
