@@ -11,7 +11,7 @@ import numpy as np
 
 from mem0.configs.embeddings.base import BaseEmbedderConfig
 from mem0.embeddings.base import EmbeddingBase
-from mem0.llms.utils.functions import extract_json
+from mem0.memory.utils import extract_json
 
 
 class AWSBedrockEmbedding(EmbeddingBase):
