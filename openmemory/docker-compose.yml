@@ -73,9 +73,27 @@ services:
       timeout: 10s
       retries: 3
 
+  # Redis Service - For caching and session storage (like SMS context)
+  redis_db:
+    image: redis:7-alpine
+    container_name: openmemory_redis_service
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - memory_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   postgres_data:
   qdrant_data:
+  redis_data:
 
 networks:
   memory_network:

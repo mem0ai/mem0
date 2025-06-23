@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Check, Link as LinkIcon, Eye, Zap, BookOpen, Plus } from "lucide-react";
+import { Check, Link as LinkIcon, Eye, Zap, BookOpen, Plus, MessageSquareText } from "lucide-react";
 import { App } from "@/store/appsSlice";
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from "@/components/ui/use-toast";
@@ -73,7 +73,9 @@ export function AppCard({ app, onConnect, index, isSyncing, onSyncStart }: AppCa
           <div className="flex items-center gap-3 mb-3">
             <div className="relative">
               <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
-                {appConfig.iconImage ? (
+                {app.id === 'sms' ? (
+                  <MessageSquareText className="w-6 h-6 text-primary" />
+                ) : appConfig.iconImage ? (
                   <img
                     src={appConfig.iconImage}
                     alt={app.name}

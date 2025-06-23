@@ -9,7 +9,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePostHog } from 'posthog-js/react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, MessageSquareText } from 'lucide-react';
 import { useMemoriesApi } from '@/hooks/useMemoriesApi';
 import { AnalysisPanel } from '@/components/dashboard/AnalysisPanel';
 import { AppCard, DashboardApp } from '@/components/dashboard/AppCard';
@@ -17,6 +17,7 @@ import { useToast } from "@/components/ui/use-toast";
 import ParticleNetwork from "@/components/landing/ParticleNetwork";
 import { SyncModal } from '@/components/dashboard/SyncModal';
 import { RequestIntegrationModal } from '@/components/dashboard/RequestIntegrationModal';
+import { SmsModal } from '@/components/dashboard/SmsModal';
 
 // Define available apps with priorities
 interface AvailableApp {
@@ -32,6 +33,7 @@ interface AvailableApp {
 
 const availableApps: AvailableApp[] = [
   { id: 'request-integration', name: 'Request Integration', description: '', priority: 14, category: 'Request', trustScore: 100, isComingSoon: false },
+  { id: 'sms', name: 'SMS', description: 'Text Jean Memory from your phone. Pro feature with 50 daily commands.', priority: 13, category: 'Communication', icon: 'MessageSquareText', trustScore: 100 },
   { id: 'chatgpt', name: 'ChatGPT', description: 'Deep research memories', priority: 12, category: 'AI Assistant', trustScore: 99 },
   { id: 'claude', name: 'Claude', description: 'AI assistant for conversations', priority: 11, category: 'AI Assistant', trustScore: 96 },
   { id: 'cursor', name: 'Cursor', description: 'AI-powered code editor', priority: 10, category: 'Development', trustScore: 98 },
@@ -73,6 +75,7 @@ export default function DashboardNew() {
   const [showAllApps, setShowAllApps] = useState(false);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [isRequestIntegrationModalOpen, setIsRequestIntegrationModalOpen] = useState(false);
+  const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
   const posthog = usePostHog();
   const { fetchMemories } = useMemoriesApi();
   const [totalMemories, setTotalMemories] = useState(0);
@@ -267,6 +270,20 @@ export default function DashboardNew() {
       return;
     }
 
+    // Handle SMS integration specially  
+    if (app.id === 'sms') {
+      setIsSmsModalOpen(true);
+      
+      // Track the SMS connection attempt
+      if (posthog && user) {
+        posthog.capture('sms_integration_modal_opened', {
+          user_id: user.id,
+          user_email: user.email
+        });
+      }
+      return;
+    }
+
     // Twitter and Substack have their own connection flow within the AppCard
     if (app.id === 'twitter' || app.id === 'substack') {
       setSelectedApp(app);
@@ -420,6 +437,10 @@ export default function DashboardNew() {
       <RequestIntegrationModal
         open={isRequestIntegrationModalOpen}
         onOpenChange={setIsRequestIntegrationModalOpen}
+      />
+      <SmsModal
+        open={isSmsModalOpen}
+        onOpenChange={setIsSmsModalOpen}
       />
     </div>
   );

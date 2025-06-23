@@ -54,6 +54,13 @@ class User(Base):
     subscription_status = Column(String, nullable=True)  # active, canceled, past_due, etc.
     subscription_current_period_end = Column(DateTime, nullable=True)
     
+    # SMS fields
+    phone_number = Column(String(20), nullable=True, unique=True, index=True)
+    phone_verified = Column(Boolean, nullable=True, default=False, index=True)
+    phone_verification_attempts = Column(Integer, nullable=True, default=0)
+    phone_verified_at = Column(DateTime, nullable=True)
+    sms_enabled = Column(Boolean, nullable=True, default=True)
+    
     created_at = Column(DateTime, default=get_current_utc_time, index=True)
     updated_at = Column(DateTime,
                         default=get_current_utc_time,
