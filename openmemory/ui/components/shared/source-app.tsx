@@ -51,6 +51,11 @@ export const constants = {
     icon: <Icon source="/images/enconvo.png" />,
     iconImage: "/images/enconvo.png",
   },
+  augment: {
+    name: "Augment",
+    icon: <Icon source="/images/augment.png" />,
+    iconImage: "/images/augment.png",
+  },
   default: {
     name: "Default",
     icon: <BiEdit size={18} className="ml-1" />,

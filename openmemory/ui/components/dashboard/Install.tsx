@@ -14,6 +14,7 @@ const clientTabs = [
   { key: "windsurf", label: "Windsurf", icon: "/images/windsurf.png" },
   { key: "witsy", label: "Witsy", icon: "/images/witsy.png" },
   { key: "enconvo", label: "Enconvo", icon: "/images/enconvo.png" },
+  { key: "augment", label: "Augment", icon: "/images/augment.png" },
 ];
 
 const colorGradientMap: { [key: string]: string } = {
@@ -95,7 +96,7 @@ export const Install = () => {
       </div>
 
       <Tabs defaultValue="claude" className="w-full">
-        <TabsList className="bg-transparent border-b border-zinc-800 rounded-none w-full justify-start gap-0 p-0 grid grid-cols-8">
+        <TabsList className="bg-transparent border-b border-zinc-800 rounded-none w-full justify-start gap-0 p-0 grid grid-cols-9">
           {allTabs.map(({ key, label, icon }) => (
             <TabsTrigger
               key={key}
