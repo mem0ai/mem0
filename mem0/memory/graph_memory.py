@@ -1,4 +1,6 @@
 import logging
+import re
+import unicodedata
 
 from mem0.memory.utils import format_entities
 
@@ -552,11 +554,22 @@ class MemoryGraph:
             results.append(result)
         return results
 
-    def _remove_spaces_from_entities(self, entity_list):
+    def _sanitize_relationship_type(self, rel_name):
+        normalized = unicodedata.normalize('NFKD', rel_name)
+        ascii_text = normalized.encode('ascii', 'ignore').decode('ascii')
+        return re.sub(r'\W+', '_', ascii_text).upper()
+
+    def _sanitize_node_label(self, label):
+        normalized = unicodedata.normalize('NFKD', label)
+        ascii_text = normalized.encode('ascii', 'ignore').decode('ascii')
+        words = re.sub(r'\W+', ' ', ascii_text).split()
+        return ''.join(word.capitalize() for word in words)
+
+    def _sanitize_entities(self, entity_list):
         for item in entity_list:
-            item["source"] = item["source"].lower().replace(" ", "_")
-            item["relationship"] = item["relationship"].lower().replace(" ", "_")
-            item["destination"] = item["destination"].lower().replace(" ", "_")
+            item["source"] = self._sanitize_node_label(item["source"])
+            item["relationship"] = self._sanitize_relationship_type(item["relationship"])
+            item["destination"] = self._sanitize_node_label(item["destination"])
         return entity_list
 
     def _search_source_node(self, source_embedding, filters, threshold=0.9):
