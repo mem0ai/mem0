@@ -14,7 +14,7 @@
   ·
   <a href="https://jeanmemory.com/dashboard-new">Dashboard</a>
   ·
-  <a href="https://jeanmemory.com/docs">Docs</a>
+  <a href="https://jeanmemory.com/api-docs">Docs</a>
   ·
   <a href="https://github.com/jonathan-politzki/your-memory/issues">Report an Issue</a>
 </p>
@@ -136,7 +136,7 @@ This project incorporates code from [mem0ai/mem0](https://github.com/mem0ai/mem0
 
 ## 🙋‍♂️ Support
 
-- **Docs**: [jeanmemory.com/docs](https://jeanmemory.com/docs)
+- **Docs**: [jeanmemory.com/api-docs](https://jeanmemory.com/api-docs)
 - **Issues**: [GitHub Issues](https://github.com/jonathan-politzki/your-memory/issues)
 - **Email**: [jonathan@jeantechnologies.com](mailto:jonathan@jeantechnologies.com)
 
