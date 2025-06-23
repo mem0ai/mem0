@@ -50,6 +50,8 @@ class BaseLlmConfig(ABC):
         aws_access_key_id: Optional[str] = None,
         aws_secret_access_key: Optional[str] = None,
         aws_region: Optional[str] = "us-west-2",
+        # Ockam Model specific
+        ockam_model: Optional = None,
     ):
         """
         Initializes a configuration class instance for the LLM.
@@ -150,3 +152,6 @@ class BaseLlmConfig(ABC):
         self.aws_access_key_id = aws_access_key_id
         self.aws_secret_access_key = aws_secret_access_key
         self.aws_region = aws_region
+
+        # Ockam Model specific
+        self.ockam_model = ockam_model

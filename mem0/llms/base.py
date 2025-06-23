@@ -17,7 +17,7 @@ class LLMBase(ABC):
             self.config = config
 
     @abstractmethod
-    def generate_response(self, messages, tools: Optional[List[Dict]] = None, tool_choice: str = "auto"):
+    async def generate_response(self, messages, tools: Optional[List[Dict]] = None, tool_choice: str = "auto"):
         """
         Generate a response based on the given messages.
 
