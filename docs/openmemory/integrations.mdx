@@ -26,10 +26,10 @@ These values define where your MCP server is running and which user’s memory i
 
 ### MCP Client Setup
 
-Use the `install-mcp` utility to connect a client. The general command format is as follows:
+Use the following one step command to configure OpenMemory Local MCP to a client. The general command format is as follows:
 
 ```bash
-npx install-mcp http://localhost:8765/mcp/<client-name>/sse/<user-id> --client <client-name>
+npx @openmemory/install local http://localhost:8765/mcp/<client-name>/sse/<user-id> --client <client-name>
 ```
 
 Replace `<client-name>` with the desired client name and `<user-id>` with the value specified in your environment variables.
@@ -38,14 +38,14 @@ Replace `<client-name>` with the desired client name and `<user-id>` with the va
 
 | Client      | Command |
 |-------------|---------|
-| OpenMemory | `npx install-mcp http://localhost:8765/mcp/openmemory/sse/<user-id> --client openmemory` |
-| Claude      | `npx install-mcp http://localhost:8765/mcp/claude/sse/<user-id> --client claude` |
-| Cursor      | `npx install-mcp http://localhost:8765/mcp/cursor/sse/<user-id> --client cursor` |
-| Cline       | `npx install-mcp http://localhost:8765/mcp/cline/sse/<user-id> --client cline` |
-| RooCline    | `npx install-mcp http://localhost:8765/mcp/roocline/sse/<user-id> --client roocline` |
-| Windsurf    | `npx install-mcp http://localhost:8765/mcp/windsurf/sse/<user-id> --client windsurf` |
-| Witsy       | `npx install-mcp http://localhost:8765/mcp/witsy/sse/<user-id> --client witsy` |
-| Enconvo     | `npx install-mcp http://localhost:8765/mcp/enconvo/sse/<user-id> --client enconvo` |
+| OpenMemory | `npx @openmemory/install local http://localhost:8765/mcp/openmemory/sse/<user-id> --client openmemory` |
+| Claude      | `npx @openmemory/install local http://localhost:8765/mcp/claude/sse/<user-id> --client claude` |
+| Cursor      | `npx @openmemory/install local http://localhost:8765/mcp/cursor/sse/<user-id> --client cursor` |
+| Cline       | `npx @openmemory/install local http://localhost:8765/mcp/cline/sse/<user-id> --client cline` |
+| RooCline    | `npx @openmemory/install local http://localhost:8765/mcp/roocline/sse/<user-id> --client roocline` |
+| Windsurf    | `npx @openmemory/install local http://localhost:8765/mcp/windsurf/sse/<user-id> --client windsurf` |
+| Witsy       | `npx @openmemory/install local http://localhost:8765/mcp/witsy/sse/<user-id> --client witsy` |
+| Enconvo     | `npx @openmemory/install local http://localhost:8765/mcp/enconvo/sse/<user-id> --client enconvo` |
 
 ### What This Does
 
