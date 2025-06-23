@@ -16,13 +16,10 @@ class GoogleGenAIEmbedding(EmbeddingBase):
 
         api_key = self.config.api_key or os.getenv("GOOGLE_API_KEY")
 
-
         if api_key:
             self.client = genai.Client(api_key="api_key")
         else:
-
             self.client = genai.Client()
-
 
     def embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
         """
@@ -35,11 +32,8 @@ class GoogleGenAIEmbedding(EmbeddingBase):
         """
         text = text.replace("\n", " ")
 
-
         response = self.client.models.embed_content(
-            model=self.config.model,
-            content=text,
-            output_dimensionality=self.config.embedding_dims
+            model=self.config.model, content=text, output_dimensionality=self.config.embedding_dims
         )
 
         return response["embedding"]

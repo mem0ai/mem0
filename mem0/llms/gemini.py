@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 try:
     from google import genai
     from google.genai import types
-    
+
 except ImportError:
     raise ImportError(
         "The 'google-generativeai' library is required. Please install it using 'pip install google-generativeai'."
@@ -49,15 +49,16 @@ class GeminiLLM(LLMBase):
             for part in candidate.content.parts:
                 fn = getattr(part, "function_call", None)
                 if fn:
-                    processed_response["tool_calls"].append({
-                        "name": fn.name,
-                        "arguments": fn.args,
-                    })
+                    processed_response["tool_calls"].append(
+                        {
+                            "name": fn.name,
+                            "arguments": fn.args,
+                        }
+                    )
 
             return processed_response
 
         return content
-
 
     def _reformat_messages(self, messages: List[Dict[str, str]]) -> List[types.Content]:
         """
@@ -78,14 +79,10 @@ class GeminiLLM(LLMBase):
                 content = message["content"]
 
             new_messages.append(
-                types.Content(
-                    role="model" if message["role"] == "model" else "user",
-                    parts=[types.Part(text=content)]
-                )
+                types.Content(role="model" if message["role"] == "model" else "user", parts=[types.Part(text=content)])
             )
 
         return new_messages
-
 
     def _reformat_tools(self, tools: Optional[List[Dict]]):
         """
@@ -131,7 +128,6 @@ class GeminiLLM(LLMBase):
         tools: Optional[List[Dict]] = None,
         tool_choice: str = "auto",
     ):
-        
         """
         Generate a response based on the given messages using Gemini.
 
@@ -161,23 +157,22 @@ class GeminiLLM(LLMBase):
             tool_config = types.ToolConfig(
                 function_calling_config=types.FunctionCallingConfig(
                     mode=tool_choice.upper(),  # Assuming 'any' should become 'ANY', etc.
-                    allowed_function_names=[
-                        tool["function"]["name"] for tool in tools
-                    ] if tool_choice == "any" else None
+                    allowed_function_names=[tool["function"]["name"] for tool in tools]
+                    if tool_choice == "any"
+                    else None,
                 )
             )
 
         response = self.client_gemini.models.generate_content(
-                model=self.config.model,
-                contents=self._reformat_messages(messages),
-                config=types.GenerateContentConfig(
-                    temperature= self.config.temperature,
-                    max_output_tokens= self.config.max_tokens,
-                    top_p= self.config.top_p,
-                    tools=self._reformat_tools(tools),
-                    tool_config=tool_config,
+            model=self.config.model,
+            contents=self._reformat_messages(messages),
+            config=types.GenerateContentConfig(
+                temperature=self.config.temperature,
+                max_output_tokens=self.config.max_tokens,
+                top_p=self.config.top_p,
+                tools=self._reformat_tools(tools),
+                tool_config=tool_config,
+            ),
+        )
 
-                ),
-            )
-        
         return self._parse_response(response, tools)
