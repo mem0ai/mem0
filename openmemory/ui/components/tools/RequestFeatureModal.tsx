@@ -42,9 +42,9 @@ export function RequestFeatureModal({ open, onOpenChange }: RequestFeatureModalP
     try {
       // Re-using the integration endpoint but with a different payload structure
       await apiClient.post('/api/v1/integrations/request', {
-        requestType: 'feature',
         appName: `Feature: ${formData.featureIdea}`, // Repurposing field
         useCase: formData.useCase,
+        priority: "low", // Fulfills backend requirement
         additionalInfo: formData.additionalInfo,
         userEmail: user?.email,
         userId: user?.id
