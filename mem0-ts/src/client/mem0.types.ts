@@ -25,6 +25,7 @@ export interface MemoryOptions {
   output_format?: string | OutputFormat;
   async_mode?: boolean;
   filter_memories?: boolean;
+  immutable?: boolean;
 }
 
 export interface ProjectOptions {
