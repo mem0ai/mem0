@@ -11,7 +11,13 @@ export class GroqLLM implements LLM {
     if (!apiKey) {
       throw new Error("Groq API key is required");
     }
-    this.client = new Groq({ apiKey });
+    this.client = new Groq({
+      apiKey,
+      baseURL: config.baseURL,
+      defaultHeaders: {
+        ...(config.headers ?? {}),
+      },
+    });
     this.model = config.model || "llama3-70b-8192";
   }
 

@@ -7,7 +7,15 @@ export class GoogleEmbedder implements Embedder {
   private model: string;
 
   constructor(config: EmbeddingConfig) {
-    this.google = new GoogleGenAI({ apiKey: config.apiKey });
+    this.google = new GoogleGenAI({
+      apiKey: config.apiKey,
+      httpOptions: {
+        baseUrl: config.url,
+        headers: {
+          ...(config.headers ?? {}),
+        },
+      },
+    });
     this.model = config.model || "text-embedding-004";
   }
 

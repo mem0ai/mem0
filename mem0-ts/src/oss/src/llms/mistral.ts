@@ -1,6 +1,7 @@
 import { Mistral } from "@mistralai/mistralai";
 import { LLM, LLMResponse } from "./base";
 import { LLMConfig, Message } from "../types";
+import { HTTPClient } from "@mistralai/mistralai/lib/http";
 
 export class MistralLLM implements LLM {
   private client: Mistral;
@@ -10,8 +11,22 @@ export class MistralLLM implements LLM {
     if (!config.apiKey) {
       throw new Error("Mistral API key is required");
     }
+    const httpClient = new HTTPClient();
+    httpClient.addHook("beforeRequest", (request) => {
+      const nextRequest = new Request(request, {
+        signal: request.signal,
+      });
+      if (config.headers) {
+        Object.entries(config.headers).forEach(([key, value]) => {
+          nextRequest.headers.set(key, value);
+        });
+      }
+      return nextRequest;
+    });
     this.client = new Mistral({
       apiKey: config.apiKey,
+      httpClient,
+      serverURL: config.baseURL,
     });
     this.model = config.model || "mistral-tiny-latest";
   }

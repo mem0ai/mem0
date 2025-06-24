@@ -12,6 +12,9 @@ export class OllamaEmbedder implements Embedder {
   constructor(config: EmbeddingConfig) {
     this.ollama = new Ollama({
       host: config.url || "http://localhost:11434",
+      headers: {
+        ...(config.headers ?? {}),
+      },
     });
     this.model = config.model || "nomic-embed-text:latest";
     this.ensureModelExists().catch((err) => {

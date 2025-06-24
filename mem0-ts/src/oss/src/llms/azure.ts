@@ -16,6 +16,10 @@ export class AzureOpenAILLM implements LLM {
     this.client = new AzureOpenAI({
       apiKey: config.apiKey,
       endpoint: endpoint as string,
+      baseURL: config.baseURL,
+      defaultHeaders: {
+        ...(config.headers ?? {}),
+      },
       ...rest,
     });
     this.model = config.model || "gpt-4";

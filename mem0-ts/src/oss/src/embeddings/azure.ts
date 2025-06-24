@@ -16,6 +16,9 @@ export class AzureOpenAIEmbedder implements Embedder {
     this.client = new AzureOpenAI({
       apiKey: config.apiKey,
       endpoint: endpoint as string,
+      defaultHeaders: {
+        ...(config.headers ?? {}),
+      },
       ...rest,
     });
     this.model = config.model || "text-embedding-3-small";
