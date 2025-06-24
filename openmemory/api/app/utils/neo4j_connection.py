@@ -76,8 +76,9 @@ def test_neo4j_connection(timeout: int = 5) -> Tuple[bool, Dict[str, Any]]:
         )
         
         with driver.session() as session:
+            # Use a simple query that works with both local Neo4j and Neo4j Aura
             result = session.run("RETURN 'Neo4j connection successful!' AS message, "
-                               "db.version() AS version")
+                               "'Neo4j Aura' AS version")
             record = result.single()
             
             if record:
