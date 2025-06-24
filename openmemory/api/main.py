@@ -67,6 +67,29 @@ async def lifespan(app: FastAPI):
         logger.warning(f"⚠️ Neo4j status check failed: {e}")
         logger.warning("   This is expected if Neo4j environment variables are not set")
     
+    # 🚧 Phase 2: Check pgvector connection status
+    logger.info("🚧 Checking pgvector connection status...")
+    try:
+        from app.utils.pgvector_connection import get_pgvector_status
+        pgvector_status = get_pgvector_status()
+        
+        if pgvector_status["connected"]:
+            logger.info(f"✅ pgvector connected successfully!")
+            logger.info(f"   pgvector Host: {pgvector_status['host']}:{pgvector_status['port']}")
+            logger.info(f"   pgvector Database: {pgvector_status['database']}")
+            logger.info(f"   Extension Available: {pgvector_status.get('extension_available', False)}")
+            logger.info(f"   Extension Installed: {pgvector_status.get('extension_installed', False)}")
+            logger.info(f"   Overall Status: {pgvector_status['overall_status']}")
+        else:
+            logger.warning(f"⚠️ pgvector connection failed (Phase 2 - not critical)")
+            logger.warning(f"   Status: {pgvector_status['overall_status']}")
+            logger.warning(f"   Host: {pgvector_status['host']}:{pgvector_status['port']}")
+            if 'result' in pgvector_status and 'error' in pgvector_status['result']:
+                logger.warning(f"   Error: {pgvector_status['result']['error']}")
+    except Exception as e:
+        logger.warning(f"⚠️ pgvector status check failed: {e}")
+        logger.warning("   This is expected if pgvector environment variables are not set")
+    
     # Schema fix completed successfully - this code block has been removed
     logger.info("Database and services initialization completed.")
     
@@ -152,9 +175,10 @@ async def health_check():
 
 @app.api_route("/health/detailed", methods=["GET"])
 async def detailed_health_check():
-    """Detailed health check including Neo4j status"""
+    """Detailed health check including Neo4j and pgvector status"""
     try:
         from app.utils.neo4j_connection import get_neo4j_status
+        from app.utils.pgvector_connection import get_pgvector_status
         from app.db_init import check_database_health
         
         # Get database health
@@ -162,6 +186,9 @@ async def detailed_health_check():
         
         # Get Neo4j status
         neo4j_status = get_neo4j_status()
+        
+        # Get pgvector status
+        pgvector_status = get_pgvector_status()
         
         health_data = {
             "status": "healthy",
@@ -178,6 +205,17 @@ async def detailed_health_check():
                 "uri": neo4j_status["uri"],
                 "database": neo4j_status["database"],
                 "overall_status": neo4j_status["overall_status"]
+            },
+            "pgvector": {
+                "available": pgvector_status["available"],
+                "configured": pgvector_status["configured"],
+                "connected": pgvector_status["connected"],
+                "host": pgvector_status["host"],
+                "port": pgvector_status["port"],
+                "database": pgvector_status["database"],
+                "extension_available": pgvector_status.get("extension_available", False),
+                "extension_installed": pgvector_status.get("extension_installed", False),
+                "overall_status": pgvector_status["overall_status"]
             }
         }
         
@@ -185,6 +223,11 @@ async def detailed_health_check():
         if not neo4j_status["connected"] and "result" in neo4j_status:
             health_data["neo4j"]["error"] = neo4j_status["result"].get("error", "Unknown error")
             health_data["neo4j"]["error_type"] = neo4j_status["result"].get("type", "unknown")
+        
+        # Add error details if pgvector has issues
+        if not pgvector_status["connected"] and "result" in pgvector_status:
+            health_data["pgvector"]["error"] = pgvector_status["result"].get("error", "Unknown error")
+            health_data["pgvector"]["error_type"] = pgvector_status["result"].get("type", "unknown")
         
         return health_data
         
