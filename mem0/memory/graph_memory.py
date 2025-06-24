@@ -136,7 +136,6 @@ class MemoryGraph:
             params = {"user_id": filters["user_id"]}
         self.graph.query(cypher, params=params)
 
-
     def get_all(self, filters, limit=100):
         agent_filter = ""
         params = {"user_id": filters["user_id"], "limit": limit}
@@ -165,7 +164,6 @@ class MemoryGraph:
         logger.info(f"Retrieved {len(final_results)} relationships")
 
         return final_results
-
 
     def _retrieve_nodes_from_data(self, data, filters):
         """Extracts all the entities mentioned in the query."""
@@ -203,7 +201,7 @@ class MemoryGraph:
     def _establish_nodes_relations_from_data(self, data, filters, entity_type_map):
         """Establish relations among the extracted nodes."""
 
-    # Compose user identification string for prompt
+        # Compose user identification string for prompt
         user_identity = f"user_id: {filters['user_id']}"
         if filters.get("agent_id"):
             user_identity += f", agent_id: {filters['agent_id']}"
@@ -211,9 +209,7 @@ class MemoryGraph:
         if self.config.graph_store.custom_prompt:
             system_content = EXTRACT_RELATIONS_PROMPT.replace("USER_ID", user_identity)
             # Add the custom prompt line if configured
-            system_content = system_content.replace(
-                "CUSTOM_PROMPT", f"4. {self.config.graph_store.custom_prompt}"
-            )
+            system_content = system_content.replace("CUSTOM_PROMPT", f"4. {self.config.graph_store.custom_prompt}")
             messages = [
                 {"role": "system", "content": system_content},
                 {"role": "user", "content": data},
@@ -326,7 +322,7 @@ class MemoryGraph:
         user_id = filters["user_id"]
         agent_id = filters.get("agent_id", None)
         results = []
-        
+
         for item in to_be_deleted:
             source = item["source"]
             destination = item["destination"]
@@ -339,7 +335,7 @@ class MemoryGraph:
                 "dest_name": destination,
                 "user_id": user_id,
             }
-            
+
             if agent_id:
                 agent_filter = "AND n.agent_id = $agent_id AND m.agent_id = $agent_id"
                 params["agent_id"] = agent_id
@@ -356,10 +352,10 @@ class MemoryGraph:
                 m.name AS target,
                 type(r) AS relationship
             """
-            
+
             result = self.graph.query(cypher, params=params)
             results.append(result)
-        
+
         return results
 
     def _add_entities(self, to_be_added, filters, entity_type_map):
@@ -420,7 +416,7 @@ class MemoryGraph:
                     r.mentions = coalesce(r.mentions, 0) + 1
                 RETURN source.name AS source, type(r) AS relationship, destination.name AS target
                 """
-                
+
                 params = {
                     "source_id": source_node_search_result[0]["elementId(source_candidate)"],
                     "destination_name": destination,
@@ -582,7 +578,6 @@ class MemoryGraph:
         result = self.graph.query(cypher, params=params)
         return result
 
-
     def _search_destination_node(self, destination_embedding, filters, threshold=0.9):
         agent_filter = ""
         if filters.get("agent_id"):
@@ -617,7 +612,7 @@ class MemoryGraph:
         result = self.graph.query(cypher, params=params)
         return result
 
-    # TODO: reset is not defined in base.py
+    # Reset is not defined in base.py
     def reset(self):
         """Reset the graph by clearing all nodes and relationships."""
         logger.warning("Clearing graph...")

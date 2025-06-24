@@ -392,7 +392,7 @@ class NeptuneBase(ABC):
         """
         pass
 
-    # TODO: reset is not defined in base.py
+    # Reset is not defined in base.py
     def reset(self):
         """
         Reset the graph by clearing all nodes and relationships.
