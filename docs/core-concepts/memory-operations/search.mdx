@@ -48,12 +48,12 @@ The search flow follows these steps:
 ```python Python
 from mem0 import MemoryClient
 
-client = MemoryClient(api_key="your_api_key")
+client = MemoryClient(api_key="your-api-key")
 
 query = "What do you know about me?"
 filters = {
    "OR": [
-      {"user_id": "alex"},
+      {"user_id": "alice"},
       {"agent_id": {"in": ["travel-assistant", "customer-support"]}}
    ]
 }
@@ -64,12 +64,12 @@ results = client.search(query, version="v2", filters=filters)
 ```javascript JavaScript
 import { MemoryClient } from "mem0ai";
 
-const client = new MemoryClient({apiKey: "your_api_key"});
+const client = new MemoryClient({apiKey: "your-api-key"});
 
 const query = "I'm craving some pizza. Any recommendations?";
 const filters = {
   AND: [
-    { user_id: "alex" }
+    { user_id: "alice" }
   ]
 };
 

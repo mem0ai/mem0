@@ -33,7 +33,7 @@ Updating memory ensures your agents remain accurate, adaptive, and personalized.
 ```python Python
 from mem0 import MemoryClient
 
-client = MemoryClient(api_key="your_api_key")
+client = MemoryClient(api_key="your-api-key")
 
 memory_id = "your_memory_id"
 client.update(
@@ -68,7 +68,7 @@ Update up to 1000 memories in one call.
 ```python Python
 from mem0 import MemoryClient
 
-client = MemoryClient(api_key="your_api_key", org_id="your_org_id", project_id="your_project_id")
+client = MemoryClient(api_key="your-api-key")
 
 update_memories = [
     {"memory_id": "id1", "text": "Watches football"},

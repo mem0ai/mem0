@@ -46,7 +46,7 @@ You don’t need to handle any of this manually, Mem0 takes care of it with a si
 ```python Python
 from mem0 import MemoryClient
 
-client = MemoryClient(api_key="your_api_key")
+client = MemoryClient(api_key="your-api-key")
 
 messages = [
     {"role": "user", "content": "I'm planning a trip to Tokyo next month."},
@@ -55,7 +55,7 @@ messages = [
 
 client.add(
     messages=messages,
-    user_id="user_123",
+    user_id="alice",
     version="v2"
 )
 ```
@@ -63,7 +63,7 @@ client.add(
 ```javascript JavaScript
 import { MemoryClient } from "mem0ai";
 
-const client = new MemoryClient({apiKey: "your_api_key"});
+const client = new MemoryClient({apiKey: "your-api-key"});
 
 const messages = [
   { role: "user", content: "I'm planning a trip to Tokyo next month." },
@@ -72,7 +72,7 @@ const messages = [
 
 await client.add({
   messages,
-  user_id: "user_123",
+  user_id: "alice",
   version: "v2"
 });
 ```
@@ -102,7 +102,7 @@ messages = [
 result = m.add(messages, user_id="alice", metadata={"category": "movie_recommendations"})
 
 # Optionally store raw messages without inference
-# result = m.add(messages, user_id="alice", metadata={"category": "movie_recommendations"}, infer=False)
+result = m.add(messages, user_id="alice", metadata={"category": "movie_recommendations"}, infer=False)
 ```
 
 ```javascript JavaScript

@@ -31,7 +31,7 @@ This page walks through code example for each method.
 ```python Python
 from mem0 import MemoryClient
 
-client = MemoryClient(api_key="your_api_key")
+client = MemoryClient(api_key="your-api-key")
 
 memory_id = "your_memory_id"
 client.delete(memory_id=memory_id)
@@ -56,7 +56,7 @@ client.delete("your_memory_id")
 ```python Python
 from mem0 import MemoryClient
 
-client = MemoryClient(api_key="your_api_key")
+client = MemoryClient(api_key="your-api-key")
 
 delete_memories = [
     {"memory_id": "id1"},
@@ -91,7 +91,7 @@ client.batchDelete(deleteMemories)
 ```python Python
 from mem0 import MemoryClient
 
-client = MemoryClient(api_key="your_api_key")
+client = MemoryClient(api_key="your-api-key")
 
 # Delete all memories for a specific user
 client.delete_all(user_id="alice")
