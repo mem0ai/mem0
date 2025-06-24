@@ -13,9 +13,8 @@ Memories can become outdated, irrelevant, or need to be removed for privacy or c
 2. **Batch Delete** – delete multiple known memory IDs (up to 1000)
 3. **Filtered Delete** – delete memories matching a filter (e.g., `user_id`, `metadata`, `run_id`)
 
-This page walks through each method for both **Mem0 Platform** and **Mem0 Open Source** SDKs.
+This page walks through code example for each method.
 
----
 
 ## Use Cases
 
@@ -116,26 +115,6 @@ You can also filter by other parameters such as:
 
 ---
 
-## Mem0 Open Source
-
-<CodeGroup>
-```python Python
-from mem0 import Memory
-
-m = Memory()
-m.delete(memory_id="abc123")
-```
-
-```javascript JavaScript
-import { Memory } from 'mem0ai/oss';
-
-const memory = new Memory();
-await memory.delete("abc123");
-```
-</CodeGroup>
-
----
-
 ## Key Differences
 
 | Method                | Use When                                | IDs Needed | Filters |
@@ -144,9 +123,8 @@ await memory.delete("abc123");
 | `batch_delete([...])`| You have a known list of memory IDs       | ✔          | ✘        |
 | `delete_all(...)`    | You want to delete by user/agent/run/etc | ✘          | ✔        |
 
----
 
-## More Details
+### More Details
 
 For request/response schema and additional filtering options, see:
 - [Delete Memory API Reference](/api-reference/memory/delete-memory)

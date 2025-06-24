@@ -55,21 +55,19 @@
                     "icon": "star",
                     "pages": [
                       "platform/features/platform-overview",
+                      "platform/features/contextual-add",
+                      "platform/features/async-client",
                       "platform/features/advanced-retrieval",
                       "platform/features/criteria-retrieval",
-                      "platform/features/contextual-add",
-                      "platform/features/multimodal-support",
-                      "platform/features/timestamp",
                       "platform/features/selective-memory",
                       "platform/features/custom-categories",
                       "platform/features/custom-instructions",
                       "platform/features/direct-import",
-                      "platform/features/async-client",
                       "platform/features/memory-export",
+                      "platform/features/timestamp",
+                      "platform/features/expiration-date",
                       "platform/features/webhooks",
-                      "platform/features/graph-memory",
-                      "platform/features/feedback-mechanism",
-                      "platform/features/expiration-date"
+                      "platform/features/feedback-mechanism"
                     ]
                   }
                 ]
@@ -78,12 +76,12 @@
                 "group": "Open Source",
                 "icon": "code-branch",
                 "pages": [
-                  "open-source/quickstart",
+                  "open-source/overview",
                   "open-source/python-quickstart",
                   "open-source/node-quickstart",
                   {
                     "group": "Features",
-                    "icon": "wrench",
+                    "icon": "star",
                     "pages": [
                       "open-source/features/async-memory",
                       "open-source/features/openai_compatibility",

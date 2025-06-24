@@ -1,7 +1,7 @@
 ---
 title: Search Memory
 description: Retrieve relevant memories from Mem0 using powerful semantic and filtered search capabilities.
-icon: "search"
+icon: "magnifying-glass"
 iconType: "solid"
 ---
 
@@ -19,7 +19,6 @@ This applies to both:
 - **Mem0 Platform** (hosted API with full-scale features)
 - **Mem0 Open Source** (local-first with LLM inference and local vector DB)
 
----
 
 ## Architecture
 
@@ -111,18 +110,13 @@ const relatedMemories = memory.search("Should I drink coffee or tea?", { userId:
 - Consider wildcard filters (e.g., `run_id: "*"`) for broader matches
 - Tune with `top_k`, `threshold`, or `rerank` if needed
 
----
 
-## More Details
+### More Details
 
 For the full list of filter logic, comparison operators, and optional search parameters, see the
 [Search Memory API Reference](/api-reference/memory/v2-search-memories).
 
 ---
-
-## Next Step: [Update Memory →](/core-concepts/memory-operations/update-memory)
-
-Learn how to revise or improve memories after new context is added.
 
 ## Need help?
 If you have any questions, please feel free to reach out to us using one of the following methods:
