@@ -130,6 +130,8 @@ MULTI_INDEX_MODE_FIELDS_TYPE = {
     "metadata": "string",
 }
 
+MULTI_INDEX_MODE_COLLECTION_PREFIX = "mem0_vector_index"
+
 
 class TairVector(VectorStoreBase):
     def __init__(
@@ -210,7 +212,8 @@ class TairVector(VectorStoreBase):
 
         if self.multi_index_mode:
             if "user_id" in payload:
-                collection_name = f"user_vector_index_{payload['user_id']}"
+                collection_name = f"{MULTI_INDEX_MODE_COLLECTION_PREFIX}_{payload['user_id']}"
+                # hit create each time to avoid missing create
                 self.create_col(collection_name, vector_size=self.embedding_model_dims, distance=self.distance_method)
             else:
                 collection_name = self.collection_name
@@ -262,7 +265,7 @@ class TairVector(VectorStoreBase):
         }
         # search all field
         if self.multi_index_mode and filters and 'user_id' in filters:
-            collection_name = f"user_vector_index_{filters['user_id']}"
+            collection_name = f"{MULTI_INDEX_MODE_COLLECTION_PREFIX}_{filters['user_id']}"
         else:
             collection_name = self.collection_name
 
@@ -285,9 +288,10 @@ class TairVector(VectorStoreBase):
             collection_name = self.tair_client.get(vector_id)
             if collection_name:
                 self.tair_client.tvs_del(collection_name, vector_id)
+                self.tair_client.delete(vector_id)
             else:
                 logger.info(f"Collection {collection_name} not found. Skipping deletion")
-            return
+            return None
         else:
             self.tair_client.tvs_del(self.collection_name, vector_id)
 
@@ -303,9 +307,12 @@ class TairVector(VectorStoreBase):
 
         if self.multi_index_mode:
             if "user_id" in payload:
-                collection_name = f"user_vector_index_{payload['user_id']}"
-            else:
                 collection_name = self.tair_client.get(vector_id)
+                if collection_name is None:
+                    logger.info(f"Collection not found for vector_id: {vector_id}")
+                    return None
+            else:
+                collection_name = self.collection_name
             for field in ["agent_id", "run_id", "actor_id", "role"]:
                 if field in payload:
                     entry[field] = payload[field]
@@ -333,10 +340,13 @@ class TairVector(VectorStoreBase):
             return MemoryResult.from_fields_dict(vector_id, ret)
 
     def list_cols(self) -> List[str]:
-        """List all collections."""
+        """List all mem0 collections."""
         result = self.tair_client.tvs_scan_index()
         indices = []
         for index in result.iter():
+            index_name = index.decode()
+            if index_name != self.collection_name and not index_name.startswith(MULTI_INDEX_MODE_COLLECTION_PREFIX):
+                continue
             indices.append(index.decode())
         return indices
 
@@ -345,16 +355,30 @@ class TairVector(VectorStoreBase):
         if self.multi_index_mode:
             for index in self.list_cols():
                 self.tair_client.tvs_del_index(index)
+            self.tair_client.flushall()
         else:
             self.tair_client.tvs_del_index(self.collection_name)
 
     def col_info(self):
-        """Get information about a collection."""
-        return self.tair_client.tvs_get_index(self.collection_name)
+        """Get information about all the collection."""
+        if self.multi_index_mode:
+            result = {}
+            for collection in self.list_cols():
+                result[collection] = self.tair_client.tvs_get_index(collection)
+            return result
+        else:
+            return self.tair_client.tvs_get_index(self.collection_name)
 
     def _get_single_memory(self, memory_id: str):
         client = self._get_client()
-        all_field_value = client.tvs_hgetall(self.collection_name, memory_id)
+        if self.multi_index_mode:
+            collection_name = self.tair_client.get(memory_id)
+            if collection_name is None:
+                logger.info(f"Collection not found for memory_id: {memory_id}")
+                return None
+        else:
+            collection_name = self.collection_name
+        all_field_value = client.tvs_hgetall(collection_name, memory_id)
         payload = {
             "hash": all_field_value.get("hash", None),
             "data": all_field_value.get("TEXT", None),
@@ -402,23 +426,29 @@ class TairVector(VectorStoreBase):
 
         if self.multi_index_mode:
             if filters and 'user_id' in filters:
-                collection_name = f"user_vector_index_{filters['user_id']}"
+                collection_name = f"{MULTI_INDEX_MODE_COLLECTION_PREFIX}_{filters['user_id']}"
                 keys = self.tair_client.tvs_scan(
                     collection_name,
                     filter_str=filter_str,
                     batch=limit,
                 )
+            else:
+                collections = self.list_cols()
+                keys = []
+                for collection_name in collections:
+                    scan_results = self.tair_client.tvs_scan(
+                        collection_name,
+                        filter_str=filter_str,
+                        batch=limit,
+                    )
+                    for key in scan_results:
+                        keys.append(key)
         else:
-            collections = self.list_cols()
-            keys = [
-                self.tair_client.tvs_scan(
-                    collection_name,
-                    filter_str=filter_str,
-                    batch=limit,
-                )
-                for collection_name in collections
-            ]
-
+            keys = self.tair_client.tvs_scan(
+                self.collection_name,
+                filter_str=filter_str,
+                batch=limit
+            )
         memory_ids = [key.decode() for key in keys]
         futures = [self.pool.submit(self._get_single_memory, memory_id) for memory_id in memory_ids]
         return [future.result() for future in futures]
