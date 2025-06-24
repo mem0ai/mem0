@@ -52,28 +52,34 @@ class MemoryResult:
         self.score = score
         self.payload = payload
 
+    @staticmethod
+    def safe_decode(value):
+        if isinstance(value, bytes):
+            return value.decode()
+        return value
+
     @classmethod
-    def from_list(cls, data: List[bytes]):
-        id = data[0].decode()
-        score = float(data[1].decode())
+    def from_list(cls, data: List):
+        id = cls.safe_decode(data[0])
+        score = float(cls.safe_decode(data[1]))
         payload = {}
         i = 2
         while i < len(data):
-            key = data[i].decode()
+            key = cls.safe_decode(data[i])
             if key == 'VECTOR':
                 i += 2
                 continue
             elif key == "metadata":
-                payload[key] = json.loads(data[i + 1].decode())
+                payload[key] = json.loads(cls.safe_decode(data[i + 1]))
             elif key == 'TEXT':
-                payload["data"] = data[i + 1].decode()
+                payload["data"] = cls.safe_decode(data[i + 1])
             elif key == 'created_at' or key == "updated_at":
                 payload[key] = datetime.fromtimestamp(
-                    int(data[i + 1].decode()),
+                    int(cls.safe_decode(data[i + 1])),
                     tz=pytz.timezone("US/Pacific")
                 ).isoformat(timespec="microseconds")
             else:
-                payload[key] = data[i + 1].decode()
+                payload[key] = cls.safe_decode(data[i + 1])
             i += 2
         return cls(id, score, payload)
 
@@ -249,6 +255,8 @@ class TairVector(VectorStoreBase):
             for key, value in filters.items():
                 if self.multi_index_mode and key == "user_id":
                     continue
+                if key not in ALL_FIELDS:
+                    continue
                 if value is not None:
                     if isinstance(value, str):
                         conditions.append(f"{key} == \"{value}\"")
@@ -410,6 +418,8 @@ class TairVector(VectorStoreBase):
         if filters is not None:
             for key, value in filters.items():
                 if self.multi_index_mode and key == "user_id":
+                    continue
+                if key not in ALL_FIELDS:
                     continue
                 if value is not None:
                     if isinstance(value, str):
