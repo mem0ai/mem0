@@ -99,7 +99,7 @@ class MemoryGraph(NeptuneBase):
         destination_label = self.node_label if self.node_label else f":`{destination_type}`"
         destination_extra_set = f", destination:`{destination_type}`" if self.node_label else ""
 
-        # TODO: Create a cypher query and common params for all the cases
+        # Refactor this code with the graph_memory.py implementation
         if not destination_node_list and source_node_list:
             cypher = f"""
                     MATCH (source)
