@@ -17,6 +17,7 @@ export interface EmbeddingConfig {
   model?: string | any;
   url?: string;
   modelProperties?: Record<string, any>;
+  headers?: Record<string, string>;
 }
 
 export interface VectorStoreConfig {
@@ -44,6 +45,7 @@ export interface LLMConfig {
   apiKey?: string;
   model?: string | any;
   modelProperties?: Record<string, any>;
+  headers?: Record<string, string>;
 }
 
 export interface Neo4jConfig {
