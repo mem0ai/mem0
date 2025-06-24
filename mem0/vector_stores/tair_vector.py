@@ -225,12 +225,12 @@ class TairVector(VectorStoreBase):
                 collection_name = self.collection_name
             for field in ["agent_id", "run_id", "actor_id", "role"]:
                 if field in payload:
-                    entry[field] = payload[field]
+                    entry[field] = str(payload[field])
         else:
             collection_name = self.collection_name
             for field in ["agent_id", "run_id", "user_id", "actor_id", "role"]:
                 if field in payload:
-                    entry[field] = payload[field]
+                    entry[field] = str(payload[field])
 
         entry["metadata"] = json.dumps({k: v for k, v in payload.items() if k not in ALL_FIELDS})
         client.tvs_hset(collection_name, vector_id, vector, is_binary=False, **entry)
@@ -277,18 +277,21 @@ class TairVector(VectorStoreBase):
         else:
             collection_name = self.collection_name
 
-        results = self.tair_client.tvs_knnsearchfield(
-            index=collection_name,
-            k=limit,
-            vector=vectors,
-            filter_str=filter_str,
-            **kwargs
-        )
+        if self.tair_client.tvs_get_index(collection_name):
+            results = self.tair_client.tvs_knnsearchfield(
+                index=collection_name,
+                k=limit,
+                vector=vectors,
+                filter_str=filter_str,
+                **kwargs
+            )
 
-        return [
-            MemoryResult.from_list(result)
-            for result in results
-        ]
+            return [
+                MemoryResult.from_list(result)
+                for result in results
+            ]
+        else:
+            return []
 
     def delete(self, vector_id: str) -> None:
         """Delete a vector by ID."""
