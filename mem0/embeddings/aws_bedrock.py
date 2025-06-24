@@ -11,7 +11,6 @@ import numpy as np
 
 from mem0.configs.embeddings.base import BaseEmbedderConfig
 from mem0.embeddings.base import EmbeddingBase
-from mem0.memory.utils import extract_json
 
 
 class AWSBedrockEmbedding(EmbeddingBase):
@@ -28,6 +27,7 @@ class AWSBedrockEmbedding(EmbeddingBase):
         # Get AWS config from environment variables or use defaults
         aws_access_key = os.environ.get("AWS_ACCESS_KEY_ID", "")
         aws_secret_key = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
+        aws_session_token = os.environ.get("AWS_SESSION_TOKEN", "")
         aws_region = os.environ.get("AWS_REGION", "us-west-2")
 
         # Check if AWS config is provided in the config
@@ -43,6 +43,7 @@ class AWSBedrockEmbedding(EmbeddingBase):
             region_name=aws_region,
             aws_access_key_id=aws_access_key if aws_access_key else None,
             aws_secret_access_key=aws_secret_key if aws_secret_key else None,
+            aws_session_token=aws_session_token if aws_session_token else None,
         )
 
     def _normalize_vector(self, embeddings):
@@ -75,7 +76,7 @@ class AWSBedrockEmbedding(EmbeddingBase):
                 contentType="application/json",
             )
 
-            response_body = json.loads(extract_json(response.get("body").read()))
+            response_body = json.loads(response.get("body").read())
 
             if provider == "cohere":
                 embeddings = response_body.get("embeddings")[0]
