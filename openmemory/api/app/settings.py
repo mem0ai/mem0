@@ -73,6 +73,12 @@ class Config:
         self.ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
         self.APIFY_TOKEN = os.getenv("APIFY_TOKEN")
         
+        # Neo4j configuration for graph memory (Phase 1 - Infrastructure Setup)
+        # Only adding what's needed for Neo4j connectivity testing
+        self.NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+        self.NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
+        self.NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
+        
         # Stripe configuration
         self.STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
         self.STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
@@ -138,6 +144,12 @@ class Config:
         if self.QDRANT_HOST != "localhost" and not self.QDRANT_API_KEY:
             errors.append("QDRANT_API_KEY is required for cloud Qdrant")
         
+        # Neo4j validation (Phase 1 - basic connectivity check only)
+        # Note: Neo4j is optional for now, just need to validate format if provided
+        if self.NEO4J_URI and self.NEO4J_URI != "bolt://localhost:7687":
+            if not self.NEO4J_URI.startswith(('bolt://', 'neo4j://', 'neo4j+s://')):
+                errors.append("NEO4J_URI must start with bolt://, neo4j://, or neo4j+s://")
+        
         if errors:
             raise ValueError(f"Configuration errors: {', '.join(errors)}")
         
@@ -162,6 +174,13 @@ class Config:
         logger.info(f"Collection: {self.QDRANT_COLLECTION_NAME}")
         logger.info(f"LLM Provider: {self.LLM_PROVIDER}")
         logger.info(f"Debug Mode: {self.DEBUG}")
+        
+        # Log Phase 1 Neo4j configuration (always show for visibility)
+        logger.info(f"🚧 Phase 1 - Neo4j URI: {self.NEO4J_URI}")
+        if self.NEO4J_PASSWORD and self.NEO4J_PASSWORD != "password":
+            logger.info(f"🚧 Phase 1 - Neo4j: CONFIGURED")
+        else:
+            logger.info(f"🚧 Phase 1 - Neo4j: DEFAULT/NOT CONFIGURED")
 
 # Create a singleton instance
 config = Config()

@@ -46,6 +46,27 @@ async def lifespan(app: FastAPI):
     if not check_database_health():
         logger.error("Database health check failed - application may not work properly")
     
+    # 🚧 Phase 1: Check Neo4j connection status
+    logger.info("🚧 Checking Neo4j connection status...")
+    try:
+        from app.utils.neo4j_connection import get_neo4j_status
+        neo4j_status = get_neo4j_status()
+        
+        if neo4j_status["connected"]:
+            logger.info(f"✅ Neo4j connected successfully!")
+            logger.info(f"   Neo4j URI: {neo4j_status['uri']}")
+            logger.info(f"   Neo4j Database: {neo4j_status['database']}")
+            logger.info(f"   Overall Status: {neo4j_status['overall_status']}")
+        else:
+            logger.warning(f"⚠️ Neo4j connection failed (Phase 1 - not critical)")
+            logger.warning(f"   Status: {neo4j_status['overall_status']}")
+            logger.warning(f"   URI: {neo4j_status['uri']}")
+            if 'result' in neo4j_status and 'error' in neo4j_status['result']:
+                logger.warning(f"   Error: {neo4j_status['result']['error']}")
+    except Exception as e:
+        logger.warning(f"⚠️ Neo4j status check failed: {e}")
+        logger.warning("   This is expected if Neo4j environment variables are not set")
+    
     # Schema fix completed successfully - this code block has been removed
     logger.info("Database and services initialization completed.")
     
@@ -128,6 +149,51 @@ async def health_check():
     """Health check endpoint for deployment services"""
     # Keep it simple for fast response
     return {"status": "healthy", "timestamp": datetime.datetime.now(datetime.UTC).isoformat()}
+
+@app.api_route("/health/detailed", methods=["GET"])
+async def detailed_health_check():
+    """Detailed health check including Neo4j status"""
+    try:
+        from app.utils.neo4j_connection import get_neo4j_status
+        from app.db_init import check_database_health
+        
+        # Get database health
+        db_healthy = check_database_health()
+        
+        # Get Neo4j status
+        neo4j_status = get_neo4j_status()
+        
+        health_data = {
+            "status": "healthy",
+            "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
+            "environment": config.ENVIRONMENT,
+            "database": {
+                "healthy": db_healthy,
+                "status": "connected" if db_healthy else "disconnected"
+            },
+            "neo4j": {
+                "available": neo4j_status["available"],
+                "configured": neo4j_status["configured"],
+                "connected": neo4j_status["connected"],
+                "uri": neo4j_status["uri"],
+                "database": neo4j_status["database"],
+                "overall_status": neo4j_status["overall_status"]
+            }
+        }
+        
+        # Add error details if Neo4j has issues
+        if not neo4j_status["connected"] and "result" in neo4j_status:
+            health_data["neo4j"]["error"] = neo4j_status["result"].get("error", "Unknown error")
+            health_data["neo4j"]["error_type"] = neo4j_status["result"].get("type", "unknown")
+        
+        return health_data
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
+            "error": str(e)
+        }
 
 # Include routers - Now using get_current_supa_user from app.auth
 app.include_router(keys_router.router, dependencies=[Depends(get_current_supa_user)])
