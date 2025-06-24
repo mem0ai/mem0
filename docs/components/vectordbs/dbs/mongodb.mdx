@@ -20,15 +20,15 @@ from mem0 import Memory
 os.environ["OPENAI_API_KEY"] = "sk-xx"
 
 config = {
-"vector_store": {
-"provider": "mongodb",
-"config": {
-"db_name": "mem0_db",
-"collection_name": "mem0",
-"embedding_model_dims": 1536,
-"mongo_uri": "mongodb+srv://username:password@cluster.mongodb.net/"
-}
-}
+    "vector_store": {
+        "provider": "mongodb",
+        "config": {
+            "db_name": "mem0_db",
+            "collection_name": "mem0",
+            "embedding_model_dims": 1536,
+            "mongo_uri": "mongodb+srv://username:password@cluster.mongodb.net/"
+        }
+    }
 }
 
 m = Memory.from_config(config)
@@ -79,18 +79,18 @@ from mem0 import Memory
 os.environ["OPENAI_API_KEY"] = "sk-xx"
 
 config = {
-"vector_store": {
-"provider": "mongodb",
-"config": {
-"db_name": "mem0_db",
-"collection_name": "mem0",
-"embedding_model_dims": 1536,
-"host": "localhost",
-"port": 27017,
-"user": "my_user", # Optional
-"password": "my_password" # Optional
-}
-}
+    "vector_store": {
+        "provider": "mongodb",
+        "config": {
+            "db_name": "mem0_db",
+            "collection_name": "mem0",
+            "embedding_model_dims": 1536,
+            "host": "localhost",
+            "port": 27017,
+            "user": "my_user",  # Optional
+            "password": "my_password"  # Optional
+        }
+    }
 }
 
 m = Memory.from_config(config)
@@ -125,26 +125,30 @@ const memory = new Memory(config);
 Let's see the available parameters for the `mongodb` config:
 
 <Tabs>
-	<Tab title="Python">
-		| Parameter | Description | Default Value | | --- | --- | --- | | `db_name`
-		| Name of the MongoDB database | `mem0_db` | | `collection_name` | Name of
-		the MongoDB collection | `mem0` | | `embedding_model_dims` | Dimensions of
-		the embedding model | `1536` | | `mongo_uri` | MongoDB connection URI
-		(Method 1) | `None` | | `host` | MongoDB host (Method 2) | `localhost` | |
-		`port` | MongoDB port (Method 2) | `27017` | | `user` | MongoDB user for
-		authentication (Method 2) | `None` | | `password` | Password for the MongoDB
-		user (Method 2) | `None` |
-	</Tab>
-	<Tab title="TypeScript">
-		| Parameter | Description | Default Value | | --- | --- | --- | | `dbName` |
-		Name of the MongoDB database | `mem0_db` | | `collectionName` | Name of the
-		MongoDB collection | `mem0` | | `embeddingModelDims` | Dimensions of the
-		embedding model | `1536` | | `mongoUri` | MongoDB connection URI (Method 1)
-		| `None` | | `host` | MongoDB host (Method 2) | `localhost` | | `port` |
-		MongoDB port (Method 2) | `27017` | | `user` | MongoDB user for
-		authentication (Method 2) | `None` | | `password` | Password for the MongoDB
-		user (Method 2) | `None` |
-	</Tab>
+<Tab title="Python">
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `db_name` | Name of the MongoDB database | `mem0_db` |
+| `collection_name` | Name of the MongoDB collection | `mem0` |
+| `embedding_model_dims` | Dimensions of the embedding model | `1536` |
+| `mongo_uri` | MongoDB connection URI (Method 1) | `None` |
+| `host` | MongoDB host (Method 2) | `localhost` |
+| `port` | MongoDB port (Method 2) | `27017` |
+| `user` | MongoDB user for authentication (Method 2) | `None` |
+| `password` | Password for the MongoDB user (Method 2) | `None` |
+</Tab>
+<Tab title="TypeScript">
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `dbName` | Name of the MongoDB database | `mem0_db` |
+| `collectionName` | Name of the MongoDB collection | `mem0` |
+| `embeddingModelDims` | Dimensions of the embedding model | `1536` |
+| `mongoUri` | MongoDB connection URI (Method 1) | `None` |
+| `host` | MongoDB host (Method 2) | `localhost` |
+| `port` | MongoDB port (Method 2) | `27017` |
+| `user` | MongoDB user for authentication (Method 2) | `None` |
+| `password` | Password for the MongoDB user (Method 2) | `None` |
+</Tab>
 </Tabs>
 
 ### Connection Methods
