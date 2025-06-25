@@ -282,37 +282,57 @@ logger.info(f"SMS AI selected tool: {tool_name} for message: {message[:50]}...")
 
 ---
 
-## 🚀 Project Status & Next Steps (As of June 23, 2025)
+## 🚀 Project Status & Next Steps (As of June 24, 2025)
 
-This section documents the recent implementation push to make the SMS integration feature production-ready.
-
-### Changes Implemented
-1.  **Production-Ready Context Management (Redis):** The initial in-memory dictionary for conversation history was replaced with a robust, scalable Redis-backed solution. This is the most critical change for production.
-    *   A Redis service was added to `docker-compose.yml` for local development.
-    *   The `redis` Python library was added to `requirements.txt`.
-    *   `webhooks.py` was updated to use Redis for storing and retrieving conversation context, with a 24-hour TTL.
-2.  **Improved User Experience:**
-    *   The SMS icon on the dashboard was updated to a more intuitive messaging icon (`AppCard.tsx`).
-    *   The instructions in the SMS connection modal were updated to encourage natural language interaction, reflecting the AI-powered nature of the feature (`SmsModal.tsx`).
-3.  **Local Environment Configuration:** The local `.env` file was configured with `REDIS_HOST=localhost` to allow the API server to connect to the local Redis container.
+This section documents the current project status and the path to production.
 
 ### Current Status
-*   **Code Complete:** The feature is architecturally complete and ready for production deployment.
-*   **Twilio Verification Pending:** The primary blocker is the manual verification of the Toll-Free number by Twilio. All messages will fail with a `30032` error until Twilio approves the registration. This is an external dependency.
-*   **Local Testing Blocked by Signature Bug:** The `test_sms_integration.py` script created to test the system locally is currently flawed due to repeated failures to correctly implement Twilio's complex HMAC-SHA1 signature validation. The recommended workaround is to test with `curl` after temporarily disabling the signature check in `webhooks.py`.
+*   **Code Complete:** The feature is architecturally complete and ready for production deployment. The webhook connection and security validation are fully functional.
+*   **Testing Blocked by Carrier Filtering (A2P 10DLC):** The application successfully calls the Twilio API to send the verification SMS. However, the message is being blocked by mobile carriers because the account has not completed the required **A2P 10DLC registration**. This is now the primary blocker for end-to-end testing.
+*   **Toll-Free Verification Pending:** The original Toll-Free number (`+1 888 781 6423`) is still pending its separate verification process. This is a parallel issue that will need to be resolved for production use with that specific number.
 
 ### Path to Production (Next Steps)
-1.  **Wait for Twilio Approval:** No messages will be delivered until Twilio completes their review of your Toll-Free number registration.
-2.  **Local Test with `curl`:** To verify the application logic while waiting, the recommended path is:
-    *   Temporarily comment out the signature validation block in `openmemory/api/app/routers/webhooks.py`.
-    *   Restart the backend server.
-    *   Use `curl` commands to send test messages to the local webhook and confirm the AI and Redis logic works.
-3.  **CRITICAL - Clean Up Before Commit:** Before committing the code, you **must** perform these two steps:
-    *   **Re-enable the signature validation block** in `webhooks.py`. Pushing code with disabled security would be a major vulnerability.
-    *   Remove the temporary debugging logs that were added to `openmemory/api/app/utils/sms.py`.
-4.  **Deploy:**
+1.  **Complete A2P 10DLC Registration:** This is the immediate next step. You must complete the "Create Customer Profile" and "Register Brand" steps in the Twilio console. This will register your business as a legitimate sender and should unblock the verification SMS for your local test number.
+2.  **Complete End-to-End Test:** Once the A2P registration is approved, use the local test number (`+1 364 888 9368`) to complete the phone verification flow in the UI and test the full memory tool functionality via SMS.
+3.  **Wait for Toll-Free Verification:** Continue to monitor the separate verification process for your primary toll-free number.
+4.  **Deploy:** Once all testing is complete and the production number is verified, deploy the feature to Render.
     *   Commit all modified files and push to the `sms-integration` branch.
     *   Deploy the updated code to your Render API service.
     *   In the Render dashboard, add a **Redis service** to your project.
-    *   Set all required production environment variables in Render: `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`, and the new `REDIS_HOST` and `REDIS_PORT` provided by the Render Redis service.
-5.  **Final Twilio Configuration:** Once your number is approved and the app is deployed, update the "A message comes in" Webhook URL in your Twilio number's configuration page to your production URL: `https://jean-memory-api.onrender.com/webhooks/sms`. 
+    *   Set all required production environment variables in Render: `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` (this should be your production toll-free number), and the new `REDIS_HOST` and `REDIS_PORT`.
+5.  **Final Twilio Configuration:** Update the "A message comes in" Webhook URL in your toll-free number's configuration page to your production URL: `https://jean-memory-api.onrender.com/webhooks/sms`. 
+
+---
+
+## 🚧 **Key Technical Learnings & Troubleshooting Guide**
+
+This section documents critical lessons learned during the implementation and testing of the Twilio integration.
+
+### 1. A2P 10DLC is Mandatory for Testing
+
+*   **The Problem**: Our initial assumption was that we could use a new local 10-digit number for testing without completing any compliance paperwork. This was incorrect. All Application-to-Person (A2P) traffic to US numbers is now heavily filtered.
+*   **The Learning**: You **cannot** send SMS messages from a standard 10-digit number (10DLC) without first completing the full A2P 10DLC registration process. This is the absolute primary blocker. The verification SMS will fail with an "Undelivered" status until this is done.
+*   **The Solution**: The developer must complete the full registration flow in the Twilio console: **Create Customer Profile -> Register Brand -> Register Campaign -> Link Phone Number**. There are no shortcuts.
+
+### 2. Toll-Free vs. 10DLC Verification are Separate Processes
+
+*   **The Problem**: We were initially confused by the two different compliance systems and their corresponding error messages (`Warning 30032` for Toll-Free vs. `Error 30007` for 10DLC).
+*   **The Learning**: Verifying a toll-free number is a completely separate process from registering a standard 10DLC number. Solving one does not affect the other. The email from Twilio support regarding A2P 10DLC was relevant only for our test number, not our primary toll-free number.
+
+### 3. Webhook Signature Validation is Nuanced
+
+*   **The Problem**: Our initial webhook implementation failed with a `403 Forbidden` error because our manual signature validation logic was flawed.
+*   **The Learning**: Twilio's signature validation is complex. It requires the POST parameters to be sorted alphabetically before being appended to the URL for the HMAC-SHA1 calculation.
+*   **The Solution**: **Do not write your own validation logic.** The only correct and robust way to validate incoming webhooks is to use the official `twilio.request_validator.RequestValidator` library, as it handles all nuances correctly.
+
+### 4. The "Stream Consumed" Error in FastAPI
+
+*   **The Problem**: After implementing the official validator, we encountered a `RuntimeError: Stream consumed`.
+*   **The Learning**: This happens when the request body is read more than once. The `RequestValidator` called `await request.form()`, and then our handler tried to call `await request.body()`.
+*   **The Solution**: The request body must be read **only once**. The correct pattern is to read the form data at the beginning of the main request handler and then pass the resulting dictionary to the validator and any other functions that need it.
+
+### 5. Webhook Responses Must Be TwiML
+
+*   **The Problem**: Our first successful requests were still logging a `Warning 12300` in the Twilio console because our server was replying with JSON (`{"status": "success"}`).
+*   **The Learning**: Twilio webhooks require a response with a `Content-Type` of `application/xml`. The body of the response must be valid **TwiML**.
+*   **The Solution**: To acknowledge a webhook and send an asynchronous reply, the endpoint must always return an empty, valid TwiML response: `<?xml version="1.0" encoding="UTF-8"?><Response></Response>`. The actual message to the user is sent separately via an API call to the Twilio client. 
