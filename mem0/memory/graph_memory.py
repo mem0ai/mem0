@@ -255,33 +255,35 @@ class MemoryGraph:
     def _search_graph_db(self, node_list, filters, limit=100):
         """Search similar nodes among and their respective incoming and outgoing relations."""
         result_relations = []
-        agent_filter = ""
+        base_agent_filter = ""
+        relation_agent_filter = ""
         if filters.get("agent_id"):
-            agent_filter = "AND n.agent_id = $agent_id AND m.agent_id = $agent_id"
+            base_agent_filter = "AND n.agent_id = $agent_id"
+            relation_agent_filter = "AND m.agent_id = $agent_id"
 
         for node in node_list:
             n_embedding = self.embedding_model.embed(node)
 
             cypher_query = f"""
-            MATCH (n {self.node_label})
-            WHERE n.embedding IS NOT NULL AND n.user_id = $user_id
-            {agent_filter}
-            WITH n, round(2 * vector.similarity.cosine(n.embedding, $n_embedding) - 1, 4) AS similarity // denormalize for backward compatibility
-            WHERE similarity >= $threshold
-            CALL {{
-                MATCH (n)-[r]->(m)
-                WHERE m.user_id = $user_id {agent_filter.replace("n.", "m.")} 
-                RETURN n.name AS source, elementId(n) AS source_id, type(r) AS relationship, elementId(r) AS relation_id, m.name AS destination, elementId(m) AS destination_id
-                UNION
-                MATCH (m)-[r]->(n)
-                WHERE m.user_id = $user_id {agent_filter.replace("n.", "m.")}
-                RETURN m.name AS source, elementId(m) AS source_id, type(r) AS relationship, elementId(r) AS relation_id, n.name AS destination, elementId(n) AS destination_id
-            }}
-            WITH distinct source, source_id, relationship, relation_id, destination, destination_id, similarity
-            RETURN source, source_id, relationship, relation_id, destination, destination_id, similarity
-            ORDER BY similarity DESC
-            LIMIT $limit
-            """
+                MATCH (n {self.node_label})
+                WHERE n.embedding IS NOT NULL AND n.user_id = $user_id
+                {base_agent_filter}
+                WITH n, round(2 * vector.similarity.cosine(n.embedding, $n_embedding) - 1, 4) AS similarity // denormalize for backward compatibility
+                WHERE similarity >= $threshold
+                CALL {{
+                    MATCH (n)-[r]->(m)
+                    WHERE m.user_id = $user_id {relation_agent_filter} 
+                    RETURN n.name AS source, elementId(n) AS source_id, type(r) AS relationship, elementId(r) AS relation_id, m.name AS destination, elementId(m) AS destination_id
+                    UNION
+                    MATCH (m)-[r]->(n)
+                    WHERE m.user_id = $user_id {relation_agent_filter}
+                    RETURN m.name AS source, elementId(m) AS source_id, type(r) AS relationship, elementId(r) AS relation_id, n.name AS destination, elementId(n) AS destination_id
+                }}
+                WITH distinct source, source_id, relationship, relation_id, destination, destination_id, similarity
+                RETURN source, source_id, relationship, relation_id, destination, destination_id, similarity
+                ORDER BY similarity DESC
+                LIMIT $limit
+                """
 
             params = {
                 "n_embedding": n_embedding,
