@@ -2,8 +2,8 @@
 
 Mem0 is a self-improving memory layer for LLM applications, enabling personalized AI experiences that save costs and delight users. We offer both cloud and open-source solutions to cater to different needs.
 
-See the complete [OSS Docs](https://docs.mem0.ai/open-source-typescript/quickstart).
-See the complete [Platform API Reference](https://docs.mem0.ai/api-reference/overview).
+See the complete [OSS Docs](https://docs.mem0.ai/open-source/node-quickstart).
+See the complete [Platform API Reference](https://docs.mem0.ai/api-reference).
 
 ## 1. Installation
 
@@ -61,5 +61,4 @@ If you have any questions or need assistance, please reach out to us:
 
 - Email: founders@mem0.ai
 - [Join our discord community](https://mem0.ai/discord)
-- [Join our slack community](https://mem0.ai/slack)
-- GitHub Issues: [Report bugs or request features](https://github.com/mem0ai/mem0ai-node/issues)
+- GitHub Issues: [Report bugs or request features](https://github.com/mem0ai/mem0/issues)
