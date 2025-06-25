@@ -76,8 +76,8 @@ class MemoryGraph:
 
         # TODO: Batch queries with APOC plugin
         # TODO: Add more filter support
-        deleted_entities = self._delete_entities(to_be_deleted, filters["user_id"])
-        added_entities = self._add_entities(to_be_added, filters["user_id"], entity_type_map)
+        deleted_entities = self._delete_entities(to_be_deleted, filters)
+        added_entities = self._add_entities(to_be_added, filters, entity_type_map)
 
         return {"deleted_entities": deleted_entities, "added_entities": added_entities}
 
