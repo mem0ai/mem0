@@ -4939,6 +4939,27 @@
 						"title": "Version", 
 						"type": "string",
 						"nullable": true
+					},
+					"llm_config": {
+						"description": "The LLM configuration to use for the memory.",
+						"title": "LLM config",
+						"type": "object",
+						"properties": {
+							"provider": {
+								"type": "string",
+								"description": "LLM provider name (e.g. anthropic, openai, gemini)",
+								"enum": ["anthropic", "openai", "gemini"]
+							},
+							"model": {
+								"type": "string",
+								"description": "Specific model to use (e.g. claude-3-sonnet-latest, gpt-4)"
+							},
+							"api_key": {
+								"type": "string",
+								"description": "Authentication key for the LLM provider"
+							}
+						},
+						"required": ["provider", "model", "api_key"]
 					}
 				}
 			},

@@ -57,6 +57,7 @@
                       "platform/features/platform-overview",
                       "platform/features/contextual-add",
                       "platform/features/async-client",
+                      "platform/features/multillm",
                       "platform/features/advanced-retrieval",
                       "platform/features/criteria-retrieval",
                       "platform/features/selective-memory",
