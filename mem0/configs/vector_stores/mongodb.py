@@ -56,9 +56,9 @@ class MongoDBConfig(BaseModel):
         return values
 
     def model_dump(self, **kwargs) -> Dict[str, Any]:
-        """Override model_dump to return only the fields needed by MongoVector constructor."""
+        """Override model_dump to return only the fields needed by MongoDB constructor."""
         data = super().model_dump(**kwargs)
-        # Return only the fields that MongoVector.__init__ expects
+        # Return only the fields that MongoDB.__init__ expects
         return {
             "db_name": data["db_name"],
             "collection_name": data["collection_name"],
