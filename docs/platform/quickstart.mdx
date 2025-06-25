@@ -349,6 +349,59 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 
 </CodeGroup>
 
+
+#### Async Memory Addition
+
+When you set `async_mode=True`, memory processing happens completely asynchronously in the background. This allows for faster API responses while your memories are processed. The memories will be available on the dashboard and for retrieval within a few seconds.
+
+<CodeGroup>
+
+```python Python
+messages = [
+    {"role": "user", "content": "I love hiking and outdoor activities"},
+    {"role": "assistant", "content": "That's great! I'll remember your interest in hiking and outdoor activities for future recommendations."}
+]
+
+client.add(messages, user_id="alex", async_mode=True)
+```
+
+```javascript JavaScript
+const messages = [
+    {"role": "user", "content": "I love hiking and outdoor activities"},
+    {"role": "assistant", "content": "That's great! I'll remember your interest in hiking and outdoor activities for future recommendations."}
+];
+
+client.add(messages, { user_id: "alex", async_mode: true })
+    .then(response => console.log(response))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+curl -X POST "https://api.mem0.ai/v1/memories/" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "messages": [
+             {"role": "user", "content": "I love hiking and outdoor activities"},
+             {"role": "assistant", "content": "That's great! I'll remember your interest in hiking and outdoor activities for future recommendations."}
+         ],
+         "user_id": "alex",
+         "async_mode": true
+     }'
+```
+
+```json Output
+{
+    "results": [
+        {
+            "message": "Memory processing has been queued for background execution"
+        }
+    ]
+}
+```
+
+</CodeGroup>
+
 #### Monitor Memories
 
 You can monitor memory operations on the platform dashboard:
@@ -1347,7 +1400,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?version=v2&page=1&page_size=50" \
             "memory":"Name: Alex. Vegetarian. Allergic to nuts.",
             "user_id":"alex",
             "hash":"62bc074f56d1f909f1b4c2b639f56f6a",
-            "metadata":null,
+            "metadata":None,
             "immutable": false,
             "expiration_date": null,
             "created_at":"2024-07-25T23:57:00.108347-07:00",
