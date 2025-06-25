@@ -10,6 +10,7 @@ import warnings
 from copy import deepcopy
 from datetime import datetime
 from typing import Any, Dict, Optional
+import asyncio
 
 import pytz
 from pydantic import ValidationError
@@ -181,6 +182,64 @@ class Memory(MemoryBase):
             raise
 
     def add(
+        self,
+        messages,
+        *,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        infer: bool = True,
+        memory_type: Optional[str] = None,
+        prompt: Optional[str] = None,
+        async_mode: Optional[bool] = False,
+        callback: Optional[callable] = None,  # Para notificar cuando complete
+    ):
+        if async_mode:
+            # Crear task sin esperar resultado
+            task = asyncio.create_task(
+                self._add_async_wrapper(
+                    messages, user_id, agent_id, run_id, 
+                    metadata, infer, memory_type, prompt, callback
+                )
+            )
+            return {"task_id": id(task), "status": "processing"}
+        else:
+            return self.add_sync(
+                messages=messages,
+                user_id=user_id,
+                agent_id=agent_id,
+                run_id=run_id,
+                metadata=metadata,
+                infer=infer,
+                memory_type=memory_type,
+                prompt=prompt,
+            )
+
+    async def _add_async_wrapper(self, messages, user_id, agent_id, run_id, 
+                            metadata, infer, memory_type, prompt, callback):
+        """Wrapper async que ejecuta add_sync en background"""
+        try:
+            result = await asyncio.to_thread(
+                self.add_sync,
+                messages=messages,
+                user_id=user_id,
+                agent_id=agent_id,
+                run_id=run_id,
+                metadata=metadata,
+                infer=infer,
+                memory_type=memory_type,
+                prompt=prompt,
+            )
+            if callback:
+                callback(result, None)
+            return result
+        except Exception as e:
+            if callback:
+                callback(None, e)
+            logger.error(f"Error in async memory addition: {e}")
+        
+    def add_sync(
         self,
         messages,
         *,
@@ -1838,6 +1897,10 @@ class AsyncMemory(MemoryBase):
         self.vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config
         )
+
+        if self.enable_graph:
+            self.graph.reset()
+
         capture_event("mem0.reset", self, {"sync_type": "async"})
 
     async def chat(self, query):

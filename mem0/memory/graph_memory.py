@@ -628,3 +628,13 @@ class MemoryGraph:
 
         result = self.graph.query(cypher, params=params)
         return result
+    
+    def reset(self):
+        """
+        Resets the graph by deleting all nodes and relationships.
+        """
+        cypher = f"""
+            MATCH (n)
+            DETACH DELETE n
+        """
+        self.graph.query(cypher)
