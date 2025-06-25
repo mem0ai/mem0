@@ -9,13 +9,11 @@ class TairVectorConfig(BaseModel):
     db: str = Field("0", description="Tair db name")
     username: str = Field(None, description="Tair username")
     password: str = Field(None, description="Tair password")
-    collection_name: str = Field("mem0", description="Tair collection name. If in multi-index-mode, "
-                                                     "it it the default index if user_id not provided")
+    collection_name: str = Field("mem0", description="The default collection name. When put data into TairVector and no"
+                                                     "user_id provided, the data will be stored in the default "
+                                                     "collection")
     embedding_model_dims: int = Field(1024, description="Embedding model dimensions")
-    distance_method: str = Field("L2", description="Distance method, using L2/IP/JACCARD/COSINE")
-    multi_index_mode: bool = Field(False, description="Whether to use multi-index mode. TairVector supports each user "
-                                                      "having independent vector index. Set this to True enable it.")
-
+    distance_method: str = Field("COSINE", description="Distance method, using L2/IP/JACCARD/COSINE")
 
     @model_validator(mode="before")
     @classmethod

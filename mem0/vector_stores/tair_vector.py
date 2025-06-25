@@ -116,24 +116,11 @@ ALL_FIELDS = ["memory_id", "hash", "user_id", "agent_id", "run_id", "actor_id", 
 
 # memory_id and hash are fields that unique to each memory.
 INVERTED_INDEX_FIELDS_TYPE = {
-    "user_id": "string",
     "agent_id": "string",
     "run_id": "string",
     "actor_id": "string",
     "created_at": "long",
     "updated_at": "long",
-    "role": "string",
-    "metadata": "string",
-}
-
-MULTI_INDEX_MODE_FIELDS_TYPE = {
-    "agent_id": "string",
-    "run_id": "string",
-    "actor_id": "string",
-    "created_at": "long",
-    "updated_at": "long",
-    "role": "string",
-    "metadata": "string",
 }
 
 MULTI_INDEX_MODE_COLLECTION_PREFIX = "mem0_vector_index"
@@ -149,8 +136,7 @@ class TairVector(VectorStoreBase):
             password: str,
             collection_name: str,
             embedding_model_dims: int = 1536,
-            distance_method: DistanceMetric = DistanceMetric.L2,
-            multi_index_mode: bool = False
+            distance_method: DistanceMetric = DistanceMetric.L2
     ):
         """
         Args:
@@ -172,96 +158,121 @@ class TairVector(VectorStoreBase):
         self.tair_client = TairVectorExtendClient(host=host, port=port, db=db, username=username, password=password)
         self.embedding_model_dims = embedding_model_dims
         self.distance_method = distance_method
-        self.multi_index_mode = multi_index_mode
         self.index_params = {
-            "index_type": IndexType.HNSW,
+            "index_type": IndexType.FLAT,
             "data_type": "Float16",
-            "M": 32,
-            "ef_construct": 200,
             "lexical_algorithm": "bm25"
         }
         self.pool = ThreadPoolExecutor(max_workers=10)
         self.local = threading.local()
-        self.create_col(collection_name, vector_size=embedding_model_dims, distance=distance_method)
+        self._ensure_collection_exists(collection_name, vector_size=embedding_model_dims, distance=distance_method)
 
     def _get_client(self):
         if not hasattr(self.local, 'client'):
             self.local.client = TairVectorExtendClient(**self.connection_info)
         return self.local.client
 
-    def create_col(self, name: str, vector_size: int, distance: DistanceMetric = DistanceMetric.L2) -> None:
+    def _ensure_collection_exists(self, name: str, vector_size: int,
+                                  distance: DistanceMetric = DistanceMetric.Cosine) -> None:
+        """Ensure that a collection exists, creating it if necessary."""
+        try:
+            if not self._index_exists(name):
+                self._create_collection(name, vector_size, distance)
+            else:
+                logger.info(f"Collection {name} already exists.")
+        except Exception as e:
+            logger.error(f"Error ensuring collection {name} exists: {str(e)}")
+            raise
+
+    def _index_exists(self, name: str) -> bool:
+        """Check if an index exists."""
+        try:
+            return self.tair_client.tvs_get_index(name) is not None
+        except Exception as e:
+            logger.error(f"Error checking if index {name} exists: {str(e)}")
+            raise
+
+    def _create_collection(self, name: str, vector_size: int, distance: DistanceMetric) -> None:
         """Create a new collection."""
-        if self.tair_client.tvs_get_index(name) is None:
+        try:
             index_param = deepcopy(self.index_params)
             index_param["distance_type"] = distance
-            inverted_index_fields_type = INVERTED_INDEX_FIELDS_TYPE if not self.multi_index_mode \
-                else MULTI_INDEX_MODE_FIELDS_TYPE
 
-            for field, data_type in inverted_index_fields_type.items():
+            for field, data_type in INVERTED_INDEX_FIELDS_TYPE.items():
                 index_param[f"inverted_index_{field}"] = data_type
 
             ret = self.tair_client.tvs_create_index(name, vector_size, **index_param)
-            if ret:
-                logger.info(f"Collection {name} created successfully")
-            else:
-                logger.info("Create Index Failed")
-        else:
-            logger.info(f"Collection {name} already exits. Skipping creation")
+            if not ret:
+                raise ValueError(f"Failed to create index {name}")
+            logger.info(f"Collection {name} created successfully")
+        except Exception as e:
+            logger.error(f"Error creating collection {name}: {str(e)}")
+            raise
+
+    def create_col(self, name: str, vector_size: int, distance: DistanceMetric = DistanceMetric.Cosine) -> None:
+        """Create a new collection."""
+        self._ensure_collection_exists(name, vector_size, distance)
 
     def _insert_single(self, vector: List[float], payload: Dict, vector_id: str):
         client = self._get_client()
-        entry = {
-            "hash": payload["hash"],
-            "TEXT": payload["data"],
-            "created_at": int(datetime.fromisoformat(payload["created_at"]).timestamp()),
-        }
+        if payload is None:
+            payload = {}
 
-        if self.multi_index_mode:
-            if "user_id" in payload:
-                collection_name = f"{MULTI_INDEX_MODE_COLLECTION_PREFIX}_{payload['user_id']}"
-                # hit create each time to avoid missing create
-                self.create_col(collection_name, vector_size=self.embedding_model_dims, distance=self.distance_method)
-            else:
-                collection_name = self.collection_name
-            for field in ["agent_id", "run_id", "actor_id", "role"]:
-                if field in payload:
-                    entry[field] = str(payload[field])
-        else:
-            collection_name = self.collection_name
-            for field in ["agent_id", "run_id", "user_id", "actor_id", "role"]:
-                if field in payload:
-                    entry[field] = str(payload[field])
+        if "created_at" not in payload:
+            payload["created_at"] = datetime.now().isoformat()
 
-        entry["metadata"] = json.dumps({k: v for k, v in payload.items() if k not in ALL_FIELDS})
+        collection_name = self.collection_name
+        if "user_id" in payload and payload["user_id"]:
+            # call create_col() each time to avoid index missing
+            collection_name = f"{MULTI_INDEX_MODE_COLLECTION_PREFIX}_{payload['user_id']}"
+            self._ensure_collection_exists(collection_name, vector_size=self.embedding_model_dims, distance=self.distance_method)
+            payload.pop("user_id")
+
+        entry = {}
+        for key, value in payload.items():
+            if key in ["agent_id", "run_id", "actor_id"]:
+                entry[key] = str(value)
+            elif key == "data":
+                entry["TEXT"] = value
+            elif key == "created_at":
+                entry["created_at"] = int(datetime.fromisoformat(value).timestamp())
+            elif value is not None:
+                entry[key] = value
+
         client.tvs_hset(collection_name, vector_id, vector, is_binary=False, **entry)
-
         # store the vector_id -> collection_name mapping
-        if self.multi_index_mode:
-            client.set(vector_id, collection_name)
+        client.set(vector_id, collection_name)
 
     def insert(self, vectors: List[List[float]], payloads: Optional[List[Dict]] = None,
-               ids: Optional[List[str]] = None):
+               ids: Optional[List[str]] = None) -> None:
         """Insert vectors into a collection."""
-        futures = [self.pool.submit(self._insert_single, vector, payload, vector_id)
-                   for vector, payload, vector_id in zip(vectors, payloads, ids)]
-        for future in futures:
-            future.result()
+        try:
+            futures = [self.pool.submit(self._insert_single, vector, payload, vector_id)
+                       for vector, payload, vector_id in zip(vectors, payloads, ids)]
+            for future in futures:
+                future.result()
+        except Exception as e:
+            logger.error(f"Error inserting vectors: {str(e)}")
+            raise
 
     def search(self, query: str, vectors: List[float], limit: int = 5, filters: Optional[Dict] = None
                ) -> List[MemoryResult]:
         """Search for similar vectors."""
+        if filters and 'user_id' in filters:
+            collection_name = f"{MULTI_INDEX_MODE_COLLECTION_PREFIX}_{filters['user_id']}"
+            filters.pop('user_id')
+        else:
+            collection_name = self.collection_name
+
         conditions = []
         if filters is not None:
             for key, value in filters.items():
-                if self.multi_index_mode and key == "user_id":
-                    continue
-                if key not in ALL_FIELDS:
-                    continue
                 if value is not None:
                     if isinstance(value, str):
                         conditions.append(f"{key} == \"{value}\"")
                     else:
                         conditions.append(f"{key} == {value}")
+
         if conditions:
             filter_str = reduce(lambda x, y: f"{x} && {y}", conditions)
         else:
@@ -271,12 +282,8 @@ class TairVector(VectorStoreBase):
             "TEXT": query,
             "hybrid_ratio": 0.5,
         }
-        # search all field
-        if self.multi_index_mode and filters and 'user_id' in filters:
-            collection_name = f"{MULTI_INDEX_MODE_COLLECTION_PREFIX}_{filters['user_id']}"
-        else:
-            collection_name = self.collection_name
 
+        # search all field
         if self.tair_client.tvs_get_index(collection_name):
             results = self.tair_client.tvs_knnsearchfield(
                 index=collection_name,
@@ -295,60 +302,50 @@ class TairVector(VectorStoreBase):
 
     def delete(self, vector_id: str) -> None:
         """Delete a vector by ID."""
-        if self.multi_index_mode:
-            collection_name = self.tair_client.get(vector_id)
-            if collection_name:
-                self.tair_client.tvs_del(collection_name, vector_id)
-                self.tair_client.delete(vector_id)
-            else:
-                logger.info(f"Collection {collection_name} not found. Skipping deletion")
-            return None
+        collection_name = self.tair_client.get(vector_id)
+        if collection_name:
+            self.tair_client.tvs_del(collection_name, vector_id)
+            self.tair_client.delete(vector_id)
         else:
-            self.tair_client.tvs_del(self.collection_name, vector_id)
+            logger.info(f"Collection {collection_name} not found. Skipping deletion")
+        return None
 
     def update(self, vector_id: str, vector: Optional[List[float]] = None, payload: Optional[Dict] = None
                ) -> None:
         """Update a vector and its payload."""
-        entry = {
-            "hash": payload["hash"],
-            "TEXT": payload["data"],
-            "created_at": int(datetime.fromisoformat(payload["created_at"]).timestamp()),
-            "updated_at": int(datetime.fromisoformat(payload.get("updated_at")).timestamp()),
-        }
+        if payload is None:
+            payload = {}
 
-        if self.multi_index_mode:
-            if "user_id" in payload:
-                collection_name = self.tair_client.get(vector_id)
-                if collection_name is None:
-                    logger.info(f"Collection not found for vector_id: {vector_id}")
-                    return None
-            else:
-                collection_name = self.collection_name
-            for field in ["agent_id", "run_id", "actor_id", "role"]:
-                if field in payload:
-                    entry[field] = payload[field]
-        else:
-            collection_name = self.collection_name
-            for field in ["agent_id", "run_id", "user_id", "actor_id", "role"]:
-                if field in payload:
-                    entry[field] = payload[field]
+        if "updated_at" not in payload:
+            payload["updated_at"] = datetime.now().isoformat()
 
-        entry["metadata"] = json.dumps({k: v for k, v in payload.items() if k not in ALL_FIELDS})
+        collection_name = self.tair_client.get(vector_id)
+        if collection_name is None:
+            logger.info(f"Collection not found for vector_id: {vector_id}")
+            return None
+
+        entry = {}
+        for key, value in payload.items():
+            if key in ["agent_id", "run_id", "actor_id"]:
+                entry[key] = str(value)
+            elif key == "created_at" or key == "updated_at":
+                entry[key] = int(datetime.fromisoformat(value).timestamp())
+            elif key == "data":
+                entry["TEXT"] = value
+            elif value is not None:
+                entry[key] = value
+
         self.tair_client.tvs_hset(collection_name, vector_id, vector, is_binary=False, **entry)
 
-    def get(self, vector_id):
+    def get(self, vector_id) -> Optional[MemoryResult]:
         """Retrieve a vector by ID."""
-        if self.multi_index_mode:
-            collection_name = self.tair_client.get(vector_id)
-            if collection_name:
-                ret = self.tair_client.tvs_hgetall(collection_name, vector_id)
-                return MemoryResult.from_fields_dict(vector_id, ret)
-            else:
-                logger.info(f"Collection {collection_name} not found. Skipping deletion")
-                return None
-        else:
-            ret = self.tair_client.tvs_hgetall(self.collection_name, vector_id)
+        collection_name = self.tair_client.get(vector_id)
+        if collection_name:
+            ret = self.tair_client.tvs_hgetall(collection_name, vector_id)
             return MemoryResult.from_fields_dict(vector_id, ret)
+        else:
+            logger.info(f"Collection {collection_name} not found. Skipping deletion")
+            return None
 
     def list_cols(self) -> List[str]:
         """List all mem0 collections."""
@@ -363,52 +360,43 @@ class TairVector(VectorStoreBase):
 
     def delete_col(self) -> None:
         """Delete all collection."""
-        if self.multi_index_mode:
-            for index in self.list_cols():
-                self.tair_client.tvs_del_index(index)
-            self.tair_client.flushall()
-        else:
-            self.tair_client.tvs_del_index(self.collection_name)
+        for index in self.list_cols():
+            self.tair_client.tvs_del_index(index)
+        self.tair_client.flushall()
 
-    def col_info(self):
+    def col_info(self) -> Dict:
         """Get information about all the collection."""
-        if self.multi_index_mode:
-            result = {}
-            for collection in self.list_cols():
-                result[collection] = self.tair_client.tvs_get_index(collection)
-            return result
-        else:
-            return self.tair_client.tvs_get_index(self.collection_name)
+        result = {}
+        for collection in self.list_cols():
+            result[collection] = self.tair_client.tvs_get_index(collection)
+        return result
 
-    def _get_single_memory(self, memory_id: str):
+    def _get_single_memory(self, memory_id: str) -> Optional[MemoryResult]:
         client = self._get_client()
-        if self.multi_index_mode:
-            collection_name = self.tair_client.get(memory_id)
-            if collection_name is None:
-                logger.info(f"Collection not found for memory_id: {memory_id}")
-                return None
-        else:
-            collection_name = self.collection_name
+        collection_name = self.tair_client.get(memory_id)
+        if collection_name is None:
+            logger.info(f"Collection not found for memory_id: {memory_id}")
+            return None
+
         all_field_value = client.tvs_hgetall(collection_name, memory_id)
-        payload = {
-            "hash": all_field_value.get("hash", None),
-            "data": all_field_value.get("TEXT", None),
-        }
-        for field in ["agent_id", "run_id", "user_id", "actor_id", "role"]:
-            if field in all_field_value:
-                payload[field] = all_field_value[field]
+        if not all_field_value:
+            logger.info(f"Memory not found for memory_id: {memory_id}")
+            return None
 
-        if all_field_value.get("created_at") is not None:
-            payload["created_at"] = datetime.fromtimestamp(
-                int(all_field_value.get("created_at"))
-            ).isoformat(timespec="microseconds")
-
-        if all_field_value.get("updated_at") is not None:
-            payload["updated_at"] = datetime.fromtimestamp(
-                int(all_field_value.get("updated_at"))
-            ).isoformat(timespec="microseconds")
-
-        payload.update(json.loads(all_field_value.get("metadata", "{}")))
+        payload = {}
+        for field, value in all_field_value.items():
+            if value is None:
+                continue
+            elif field == "TEXT":
+                payload["data"] = value
+            elif field == "created_at" or field == "updated_at":
+                try:
+                    payload[field] = datetime.fromtimestamp(int(value)).isoformat(timespec="microseconds")
+                except ValueError:
+                    logger.warning(f"Invalid timestamp for {field}: {value}")
+                    payload[field] = None
+            else:
+                payload[field] = value
 
         return MemoryResult(
             id=memory_id,
@@ -420,9 +408,7 @@ class TairVector(VectorStoreBase):
         conditions = []
         if filters is not None:
             for key, value in filters.items():
-                if self.multi_index_mode and key == "user_id":
-                    continue
-                if key not in ALL_FIELDS:
+                if key == "user_id":
                     continue
                 if value is not None:
                     if isinstance(value, str):
@@ -437,36 +423,31 @@ class TairVector(VectorStoreBase):
         if limit is None:
             limit = 20
 
-        if self.multi_index_mode:
-            if filters and 'user_id' in filters:
-                collection_name = f"{MULTI_INDEX_MODE_COLLECTION_PREFIX}_{filters['user_id']}"
-                keys = self.tair_client.tvs_scan(
+        if filters and 'user_id' in filters:
+            # scan this collection
+            collection_name = f"{MULTI_INDEX_MODE_COLLECTION_PREFIX}_{filters['user_id']}"
+            keys = self.tair_client.tvs_scan(
+                collection_name,
+                filter_str=filter_str,
+                batch=limit,
+            )
+        else:
+            # scan all collections
+            collections = self.list_cols()
+            keys = []
+            for collection_name in collections:
+                scan_results = self.tair_client.tvs_scan(
                     collection_name,
                     filter_str=filter_str,
                     batch=limit,
                 )
-            else:
-                collections = self.list_cols()
-                keys = []
-                for collection_name in collections:
-                    scan_results = self.tair_client.tvs_scan(
-                        collection_name,
-                        filter_str=filter_str,
-                        batch=limit,
-                    )
-                    for key in scan_results:
-                        keys.append(key)
-        else:
-            keys = self.tair_client.tvs_scan(
-                self.collection_name,
-                filter_str=filter_str,
-                batch=limit
-            )
+                for key in scan_results:
+                    keys.append(key)
         memory_ids = [key.decode() for key in keys]
         futures = [self.pool.submit(self._get_single_memory, memory_id) for memory_id in memory_ids]
         return [future.result() for future in futures]
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset by delete the collection and recreate it."""
         logger.warning(f"Resetting index {self.collection_name} and all the user's vector index(if exists)...")
         self.delete_col()
