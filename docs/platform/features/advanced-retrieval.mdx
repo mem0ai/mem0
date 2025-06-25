@@ -16,8 +16,6 @@ You can enable any of the following modes independently or together:
 
 Each enhancement can be toggled independently via the `search()` API call. These flags are off by default. These are useful when building agents that require fine-grained retrieval control
 
----
-
 ## Keyword Search
 
 Keyword search expands the result set by including memories that contain lexically similar terms and important keywords from the query, even if they're not semantically similar.
@@ -53,7 +51,7 @@ results = client.search(
 - May slightly reduce precision
 - Adds ~10ms latency
 
----
+
 
 ## Reranking
 
@@ -91,7 +89,7 @@ results = client.search(
 - Adds ~150–200ms latency
 - Higher computational cost
 
----
+
 
 ## Filtering
 
@@ -129,7 +127,7 @@ results = client.search(
 - Adds ~200-300ms latency
 - Best for focused, specific queries
 
----
+
 
 ## Combining Modes
 
@@ -148,7 +146,7 @@ results = client.search(
 This configuration broadens the candidate pool with keywords, improves ordering via rerank, and finally cuts noise with filtering.
 <Note> Combining all modes may add up to ~450ms latency per query. </Note>
 
----
+
 
 ## Performance Benchmarks
 
@@ -158,7 +156,7 @@ This configuration broadens the candidate pool with keywords, improves ordering 
 | `rerank`         | 150–200ms               |
 | `filter_memories`| 200–300ms               |
 
----
+
 
 ## Best Practices & Limitations
 
@@ -171,6 +169,7 @@ This configuration broadens the candidate pool with keywords, improves ordering 
 
 <Note> You can enable or disable these search modes by passing the respective parameters to the `search` method. There is no required sequence for these modes, and any combination can be used based on your needs. </Note>
 
+---
 If you have any questions, please feel free to reach out to us using one of the following methods:
 
 <Snippet file="get-help.mdx" />

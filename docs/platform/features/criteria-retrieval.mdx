@@ -19,7 +19,7 @@ You define **criteria** - custom attributes like "joy", "negativity", "confidenc
 
 This gives you nuanced, intent-aware memory search that adapts to your use case.
 
----
+
 
 ## When to Use Criteria Retrieval
 
@@ -29,7 +29,7 @@ Use Criteria Retrieval if:
 - You want to guide memory selection based on **context**, not just content
 - You have domain-specific signals like "risk", "positivity", "confidence", etc. that shape recall
 
----
+
 
 ## Setting Up Criteria Retrieval
 
@@ -156,7 +156,7 @@ results_without_criteria = client.search(
 2. **Score Distribution**: With criteria, scores are more spread out (0.116 to 0.666) and reflect the criteria weights, while without criteria, scores are more clustered (0.336 to 0.607) and based purely on relevance.
 3. **Trait Sensitivity**: “Rainy day” content is penalized due to negative tone. “Storm curiosity” is recognized and scored accordingly.
 
----
+
 
 ## Key Differences vs. Standard Search
 
@@ -172,7 +172,7 @@ results_without_criteria = client.search(
 If no criteria are defined for a project, `version="v2"` behaves like normal search.
 </Note>
 
----
+
 
 ## Best Practices
 
@@ -182,7 +182,7 @@ If no criteria are defined for a project, `version="v2"` behaves like normal sea
 - Avoid redundant or ambiguous criteria (e.g. “positivity” + “joy”)
 - Always handle empty result sets in your application logic
 
----
+
 
 ## How It Works
 
@@ -197,7 +197,7 @@ This lets you prioritize memories that align with your agent’s goals and not j
 Criteria retrieval is currently supported only in search v2. Make sure to use `version="v2"` when performing searches with custom criteria.
 </Note>
 
----
+
 
 ## Summary
 
