@@ -558,7 +558,7 @@ class MemoryGraph:
         normalized = unicodedata.normalize('NFKD', name)
         ascii_text = normalized.encode('ascii', 'ignore').decode('ascii')
         sanitized = re.sub(r'\W+', '_', ascii_text)
-        return sanitized.strip('_')
+        return sanitized.strip('_').lower()
 
     def _sanitize_entities(self, entity_list):
         for item in entity_list:
