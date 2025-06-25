@@ -94,36 +94,36 @@ export function FormView({ settings, onChange }: FormViewProps) {
   const isLlmOllama = settings.mem0?.llm?.provider?.toLowerCase() === "ollama"
   const isEmbedderOllama = settings.mem0?.embedder?.provider?.toLowerCase() === "ollama"
 
-  const LLM_PROVIDERS = [
-    "OpenAI",
-    "Anthropic",
-    "Azure OpenAI",
-    "Ollama",
-    "Together",
-    "Groq",
-    "Litellm",
-    "Mistral AI",
-    "Google AI",
-    "AWS Bedrock",
-    "Gemini",
-    "DeepSeek",
-    "xAI",
-    "LM Studio",
-    "LangChain",
-  ]
+  const LLM_PROVIDERS = {
+    "OpenAI": "openai",
+    "Anthropic": "anthropic", 
+    "Azure OpenAI": "azure_openai",
+    "Ollama": "ollama",
+    "Together": "together",
+    "Groq": "groq",
+    "Litellm": "litellm",
+    "Mistral AI": "mistralai",
+    "Google AI": "google_ai",
+    "AWS Bedrock": "aws_bedrock",
+    "Gemini": "gemini",
+    "DeepSeek": "deepseek",
+    "xAI": "xai",
+    "LM Studio": "lmstudio",
+    "LangChain": "langchain",
+  }
 
-  const EMBEDDER_PROVIDERS = [
-    "OpenAI",
-    "Azure OpenAI",
-    "Ollama",
-    "Hugging Face",
-    "Vertexai",
-    "Gemini",
-    "Lmstudio",
-    "Together",
-    "LangChain",
-    "AWS Bedrock",
-  ]
+  const EMBEDDER_PROVIDERS = {
+    "OpenAI": "openai",
+    "Azure OpenAI": "azure_openai", 
+    "Ollama": "ollama",
+    "Hugging Face": "huggingface",
+    "Vertex AI": "vertexai",
+    "Gemini": "gemini",
+    "LM Studio": "lmstudio",
+    "Together": "together",
+    "LangChain": "langchain",
+    "AWS Bedrock": "aws_bedrock",
+  }
 
   return (
     <div className="space-y-8">
@@ -167,8 +167,8 @@ export function FormView({ settings, onChange }: FormViewProps) {
                 <SelectValue placeholder="Select a provider" />
               </SelectTrigger>
               <SelectContent>
-                {LLM_PROVIDERS.map((provider) => (
-                  <SelectItem key={provider} value={provider.toLowerCase()}>
+                {Object.entries(LLM_PROVIDERS).map(([provider, value]) => (
+                  <SelectItem key={value} value={value}>
                     {provider}
                   </SelectItem>
                 ))}
@@ -281,8 +281,8 @@ export function FormView({ settings, onChange }: FormViewProps) {
                 <SelectValue placeholder="Select a provider" />
               </SelectTrigger>
               <SelectContent>
-                {EMBEDDER_PROVIDERS.map((provider) => (
-                  <SelectItem key={provider} value={provider.toLowerCase()}>
+                {Object.entries(EMBEDDER_PROVIDERS).map(([provider, value]) => (
+                  <SelectItem key={value} value={value}>
                     {provider}
                   </SelectItem>
                 ))}
