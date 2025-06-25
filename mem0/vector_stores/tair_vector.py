@@ -52,6 +52,9 @@ class MemoryResult:
         self.score = score
         self.payload = payload
 
+    def __str__(self):
+        return f"MemoryResult(id={self.id}, score={self.score}, payload={self.payload})"
+
     @staticmethod
     def safe_decode(value):
         if isinstance(value, bytes):
@@ -223,9 +226,12 @@ class TairVector(VectorStoreBase):
 
         collection_name = self.collection_name
         if "user_id" in payload and payload["user_id"]:
-            # call create_col() each time to avoid index missing
             collection_name = f"{MULTI_INDEX_MODE_COLLECTION_PREFIX}_{payload['user_id']}"
-            self._ensure_collection_exists(collection_name, vector_size=self.embedding_model_dims, distance=self.distance_method)
+            # identity user_identity
+            if payload.get("type", None) == "user_identity":
+                collection_name = f"{MULTI_INDEX_MODE_COLLECTION_PREFIX}_{payload['user_id']}_user_identity"
+            self._ensure_collection_exists(collection_name, vector_size=self.embedding_model_dims,
+                                           distance=self.distance_method)
             payload.pop("user_id")
 
         entry = {}
@@ -361,8 +367,19 @@ class TairVector(VectorStoreBase):
     def delete_col(self) -> None:
         """Delete all collection."""
         for index in self.list_cols():
+            self.clear_memory_kvs(index)
             self.tair_client.tvs_del_index(index)
-        self.tair_client.flushall()
+
+    def clear_memory_kvs(self, collection: str):
+        """Clean all TairVector related data without affecting other keys in the database."""
+        logger.warning(f"Cleaning TairVector data for {self.collection_name} and all user vector indices...")
+
+        vector_ids = self.tair_client.tvs_scan(collection)
+        for vector_id in vector_ids:
+            vector_id = vector_id.decode()
+            self.tair_client.delete(vector_id)  # Delete the vector_id -> collection_name mapping
+
+        logger.info("TairVector data cleaning completed.")
 
     def col_info(self) -> Dict:
         """Get information about all the collection."""
@@ -385,7 +402,7 @@ class TairVector(VectorStoreBase):
 
         payload = {}
         for field, value in all_field_value.items():
-            if value is None:
+            if value is None or field == "VECTOR":
                 continue
             elif field == "TEXT":
                 payload["data"] = value
@@ -420,16 +437,12 @@ class TairVector(VectorStoreBase):
         else:
             filter_str = None
 
-        if limit is None:
-            limit = 20
-
         if filters and 'user_id' in filters:
             # scan this collection
             collection_name = f"{MULTI_INDEX_MODE_COLLECTION_PREFIX}_{filters['user_id']}"
             keys = self.tair_client.tvs_scan(
                 collection_name,
-                filter_str=filter_str,
-                batch=limit,
+                filter_str=filter_str
             )
         else:
             # scan all collections
@@ -439,11 +452,12 @@ class TairVector(VectorStoreBase):
                 scan_results = self.tair_client.tvs_scan(
                     collection_name,
                     filter_str=filter_str,
-                    batch=limit,
                 )
                 for key in scan_results:
                     keys.append(key)
         memory_ids = [key.decode() for key in keys]
+        if limit:
+            memory_ids = memory_ids[:limit]
         futures = [self.pool.submit(self._get_single_memory, memory_id) for memory_id in memory_ids]
         return [future.result() for future in futures]
 
