@@ -4910,6 +4910,12 @@
 						"type": "boolean",
 						"default": false
 					},
+					"async_mode": {
+						"description": "Whether to add the memory completely asynchronously.",
+						"title": "Async mode",
+						"type": "boolean",
+						"default": false
+					},
 					"timestamp": {
 						"description": "The timestamp of the memory. Format: Unix timestamp",
 						"title": "Timestamp",
