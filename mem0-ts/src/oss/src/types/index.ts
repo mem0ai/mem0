@@ -16,6 +16,7 @@ export interface EmbeddingConfig {
   apiKey?: string;
   model?: string | any;
   url?: string;
+  openai_base_url?: string;
   modelProperties?: Record<string, any>;
 }
 
