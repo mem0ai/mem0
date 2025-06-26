@@ -138,6 +138,24 @@ if __name__ == "__main__":
 
 For detailed integration steps, see the [Quickstart](https://docs.mem0.ai/quickstart) and [API Reference](https://docs.mem0.ai/api-reference).
 
+## Local Installation
+
+To install the packages locally, navigate to the respective directories and run pip install:
+
+### mem0
+
+```bash
+cd mem0
+pip install -e .
+```
+
+### embedchain
+
+```bash
+cd embedchain
+pip install -e .
+```
+
 ## 🔗 Integrations & Demos
 
 - **ChatGPT with Memory**: Personalized chat powered by Mem0 ([Live Demo](https://mem0.dev/demo))
