@@ -61,7 +61,7 @@ class MemoryGraph:
         if self.config.graph_store.llm:
             self.llm_provider = self.config.graph_store.llm.provider
 
-        self.llm = LlmFactory.create(self.llm_provider, self.config.llm.config)
+        self.llm = LlmFactory.create(self.llm_provider, self.config.graph_store.llm.config if self.config.graph_store.llm.config else self.config.llm.config)
         self.user_id = None
         self.threshold = 0.7
 
