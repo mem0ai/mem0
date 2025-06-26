@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional, Callable, List
 from pydantic import BaseModel, Field, root_validator
 
 
-class MongoVectorConfig(BaseModel):
+class MongoDBConfig(BaseModel):
     """Configuration for MongoDB vector database."""
 
     db_name: str = Field("mem0_db", description="Name of the MongoDB database")
