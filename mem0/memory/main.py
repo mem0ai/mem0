@@ -1020,6 +1020,10 @@ class Memory(MemoryBase):
             self.vector_store = VectorStoreFactory.create(
                 self.config.vector_store.provider, self.config.vector_store.config
             )
+        if self.enable_graph:
+            logger.warning("Resetting graph store")
+            self.graph.reset()
+            
         capture_event("mem0.reset", self, {"sync_type": "sync"})
 
     def chat(self, query):
