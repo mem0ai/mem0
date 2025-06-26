@@ -7,7 +7,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.server.sse import SseServerTransport
 # Defer heavy imports
 # from app.utils.memory import get_memory_client
-from fastapi import FastAPI, Request, Depends, Header
+from fastapi import FastAPI, Request, Depends, Header, Response
 from fastapi.routing import APIRouter
 import contextvars
 import os
@@ -2026,7 +2026,7 @@ async def handle_sse_messages(client_name: str, user_id: str, request: Request):
             heartbeat_message = f"event: heartbeat\ndata: {{'timestamp': '{datetime.datetime.now(datetime.UTC).isoformat()}'}}\n\n"
             await sse_message_queues[connection_id].put(heartbeat_message)
             # Return empty response to close HTTP request
-            return JSONResponse(content={"status": "sent_via_sse"})
+            return Response(status_code=204)
         else:
             # No active SSE connection, so return the full payload directly.
             # This handles local testing with tools like the OpenAI Playground.
@@ -2052,24 +2052,22 @@ async def handle_sse_messages(client_name: str, user_id: str, request: Request):
         if connection_id in sse_message_queues:
             # Send error through SSE queue
             await sse_message_queues[connection_id].put(response_payload)
-            return JSONResponse(content={"status": "error_sent_via_sse"})
+            return Response(status_code=204)
         else:
             # Return error directly for stateless clients
             return JSONResponse(content=response_payload, status_code=500)
     
     finally:
         # Clean up context variables
-        try:
-            user_id_var.reset(user_token)
-            client_name_var.reset(client_token)
-        except:
-            pass
+        user_id_var.reset(user_token)
+        client_name_var.reset(client_token)
 
 def setup_mcp_server(app: FastAPI):
     """Setup MCP server with the FastAPI application"""
     # The new stateless /messages endpoint is the primary way to interact.
     # The old SSE endpoints are no longer needed with the Cloudflare Worker architecture.
     app.include_router(mcp_router)
+    app.include_router(chorus_router)
     logger.info("MCP server setup complete - stateless router included.")
 
 def get_chatgpt_tools_schema():
@@ -2511,3 +2509,16 @@ def cleanup_old_deep_analysis_cache():
     
     if expired_keys:
         logger.info(f"🧠 DEEP ANALYSIS: Cleaned up {len(expired_keys)} expired cache entries")
+
+# Dedicated router for Chorus for stability and isolation
+chorus_router = APIRouter(prefix="/mcp/chorus")
+
+@chorus_router.get("/sse/{user_id}")
+async def handle_chorus_sse(user_id: str, request: Request):
+    # This reuses the same robust SSE connection logic from the main router
+    return await handle_sse_connection(client_name="chorus", user_id=user_id, request=request)
+
+@chorus_router.post("/messages/{user_id}")
+async def handle_chorus_messages(user_id: str, request: Request):
+    # This reuses the same robust message handling logic from the main router
+    return await handle_sse_messages(client_name="chorus", user_id=user_id, request=request)

@@ -34,7 +34,20 @@ export interface App {
   name: string;
   total_memories_created: number;
   total_memories_accessed: number;
-  is_active?: boolean;
+  is_active: boolean;
+  description?: string;
+  category?: string;
+  priority?: number;
+  trustScore?: number;
+  is_connected?: boolean;
+  isComingSoon?: boolean;
+  imageUrl?: string;
+  connectUrl?: string;
+  docsUrl?: string;
+  connectionType?: string;
+  modalTitle?: string;
+  modalContent?: string;
+  installCommand?: string;
 }
 
 interface MemoriesState {

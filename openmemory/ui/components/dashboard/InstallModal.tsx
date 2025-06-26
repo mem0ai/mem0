@@ -76,8 +76,27 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
   if (!app) return null;
 
   const appConfig = constants[app.id as keyof typeof constants] || constants.default;
+  let commandParts = { command: '', args: '' };
+  
   const MCP_URL = "https://api.jeanmemory.com";
-  const installCommand = `npx install-mcp ${MCP_URL}/mcp/${app.id}/sse/${user?.id} --client ${app.id}`;
+
+  // Define a base command that can be used as a fallback, fixing the regression.
+  let rawInstallCommand = app.installCommand;
+  if (!rawInstallCommand) {
+    rawInstallCommand = `npx install-mcp ${MCP_URL}/mcp/${app.id}/sse/{user_id} --client ${app.id}`;
+  }
+  
+  // Handle the special case for Chorus with a multi-part command
+  if (app.id === 'chorus' && rawInstallCommand && rawInstallCommand.includes('#')) {
+    const parts = rawInstallCommand.split('#');
+    commandParts.command = parts[0];
+    commandParts.args = parts[1].replace('{USER_ID}', user?.id || '');
+  }
+  
+  const installCommand = rawInstallCommand
+    .replace('{user_id}', user?.id || '')
+    .replace('{USER_ID}', user?.id || '');
+    
   const mcpLink = `${MCP_URL}/mcp/openmemory/sse/${user?.id}`;
   const chatgptLink = `${MCP_URL}/mcp/chatgpt/sse/${user?.id}`;
 
@@ -200,6 +219,29 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
                   )}
                 </Button>
             </div>
+        ) : app.id === 'chorus' ? (
+          <div className="space-y-4 px-4 py-2">
+            <ol className="list-decimal list-inside space-y-3 text-zinc-400 text-sm">
+              <li>{app.modalContent}</li>
+              <li>
+                In the <code className="bg-black px-1.5 py-0.5 rounded-md font-mono text-xs border border-zinc-700">Command</code> field, enter: <code className="bg-black px-1.5 py-0.5 rounded-md font-mono text-xs border border-zinc-700">npx</code>
+              </li>
+              <li>
+                In the <code className="bg-black px-1.5 py-0.5 rounded-md font-mono text-xs border border-zinc-700">Arguments</code> field, paste the following:
+                <div className="relative mt-2">
+                  <Input
+                    id="chorus-args"
+                    readOnly
+                    value={(app.installCommand || '').replace('{USER_ID}', user?.id || '')}
+                    className="bg-black border-zinc-700 text-zinc-300 font-mono text-xs pr-10"
+                  />
+                  <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-zinc-400 hover:text-white" onClick={() => handleCopy((app.installCommand || '').replace('{USER_ID}', user?.id || ''))}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </li>
+            </ol>
+          </div>
         ) : (
             <div className="space-y-6 px-4 py-2">
                 <div className="flex items-start gap-4">

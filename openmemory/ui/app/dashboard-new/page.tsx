@@ -28,6 +28,13 @@ interface AvailableApp {
   icon?: string;
   trustScore?: number;
   isComingSoon?: boolean;
+  imageUrl?: string;
+  connectUrl?: string;
+  docsUrl?: string;
+  connectionType?: string;
+  modalTitle?: string;
+  modalContent?: string;
+  installCommand?: string;
 }
 
 const availableApps: AvailableApp[] = [
@@ -40,11 +47,26 @@ const availableApps: AvailableApp[] = [
   { id: 'obsidian', name: 'Obsidian', description: 'Powerful knowledge base application', priority: 7, category: 'Productivity', trustScore: 94, isComingSoon: true },
   { id: 'notion', name: 'Notion', description: 'Connected workspace for notes & projects', priority: 6, category: 'Productivity', trustScore: 92, isComingSoon: true },
   { id: 'windsurf', name: 'Windsurf', description: 'AI-powered code editor', priority: 5, category: 'Development', trustScore: 94 },
-  { id: 'mcp-generic', name: 'MCP Link', description: 'Connect to any mcp', priority: -1, category: 'Integration', trustScore: 91 },
+  { id: 'mcp-generic', name: 'MCP Link', description: 'Connect to any mcp', priority: -2, category: 'Integration', trustScore: 91 },
   { id: 'cline', name: 'Cline', description: 'Command line interface tool', priority: 3, category: 'Development', trustScore: 92 },
   { id: 'roocode', name: 'RooCode', description: 'Code review and collaboration', priority: 2, category: 'Development', trustScore: 90 },
   { id: 'witsy', name: 'Witsy', description: 'Smart productivity assistant', priority: 1, category: 'Productivity', trustScore: 88 },
   { id: 'enconvo', name: 'Enconvo', description: 'Environment configuration tool', priority: 0, category: 'Development', trustScore: 86 },
+  {
+    id: 'chorus',
+    name: 'Chorus',
+    imageUrl: '/images/chorus.jpg',
+    connectUrl: 'https://app.chorus.sh/dashboard',
+    docsUrl: 'https://docs.chorus.sh',
+    connectionType: 'Local MCP',
+    description: 'Chorus gives access to multiple AI models',
+    modalTitle: 'Connect to Chorus',
+    modalContent: 'In Chorus, go to Connections > Add New Connection > New Local MCP.',
+    installCommand: '-y mcp-remote https://api.jeanmemory.com/mcp/chorus/sse/{USER_ID} --transport sse-only',
+    category: 'Assistant',
+    isComingSoon: false,
+    priority: -1,
+  },
 ];
 
 const createAppFromTemplate = (template: AvailableApp): DashboardApp => ({
@@ -59,6 +81,13 @@ const createAppFromTemplate = (template: AvailableApp): DashboardApp => ({
   trustScore: template.trustScore,
   is_connected: false,
   isComingSoon: template.isComingSoon,
+  imageUrl: template.imageUrl,
+  connectUrl: template.connectUrl,
+  docsUrl: template.docsUrl,
+  connectionType: template.connectionType,
+  modalTitle: template.modalTitle,
+  modalContent: template.modalContent,
+  installCommand: template.installCommand,
 });
 
 export default function DashboardNew() {
