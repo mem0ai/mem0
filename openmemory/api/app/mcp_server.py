@@ -2518,22 +2518,37 @@ chorus_router = APIRouter(prefix="/mcp/chorus")
 @chorus_router.get("/sse/{user_id}")
 async def handle_chorus_sse(user_id: str, request: Request):
     """
-    Minimal SSE endpoint that just provides the messages endpoint
-    Chorus will use HTTP responses, not actual SSE streaming
+    Minimal SSE endpoint that provides the messages endpoint and keeps connection alive
+    Chorus will use HTTP responses for actual communication
     """
     from fastapi.responses import StreamingResponse
+    import asyncio
     
-    async def simple_sse():
-        # Just send the endpoint event and close
-        yield f"event: endpoint\ndata: /mcp/chorus/messages/{user_id}\n\n"
+    async def chorus_sse_stream():
+        try:
+            # Send the endpoint event (tells client where to send messages)
+            yield f"event: endpoint\ndata: /mcp/chorus/messages/{user_id}\n\n"
+            
+            # Keep connection alive with periodic heartbeats
+            while True:
+                await asyncio.sleep(30)  # Send heartbeat every 30 seconds
+                yield f": heartbeat\n\n"
+                
+        except asyncio.CancelledError:
+            logger.info(f"Chorus SSE stream cancelled for user {user_id}")
+            return
+        except Exception as e:
+            logger.error(f"Error in Chorus SSE stream: {e}")
+            return
     
     return StreamingResponse(
-        simple_sse(),
+        chorus_sse_stream(),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
             "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Cache-Control",
         }
     )
 
