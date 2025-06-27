@@ -22,7 +22,7 @@ from app.utils.memory import get_memory_client
 from app.utils.db import get_or_create_user, get_user_and_app
 from app.models import (
     Memory, MemoryState, MemoryAccessLog, App,
-    MemoryStatusHistory, User, Category, AccessControl
+    MemoryStatusHistory, User, Category, AccessControl, UserNarrative
 )
 from app.schemas import MemoryResponse, PaginatedMemoryResponse
 from app.utils.permissions import check_memory_access_permissions
@@ -245,6 +245,43 @@ async def get_categories(
     return {
         "categories": list(categories_set),
         "total": len(categories_set)
+    }
+
+
+# Get cached user narrative
+@router.get("/narrative")
+async def get_user_narrative(
+    current_supa_user: SupabaseUser = Depends(get_current_supa_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get the cached user narrative.
+    Returns the narrative content if found, otherwise returns 204 No Content.
+    """
+    supabase_user_id_str = str(current_supa_user.id)
+    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Check for existing narrative
+    narrative = db.query(UserNarrative).filter(UserNarrative.user_id == user.id).first()
+    if not narrative:
+        # Return 204 No Content if no narrative exists
+        raise HTTPException(status_code=204, detail="Narrative not yet generated")
+    
+    # Check if narrative is still fresh (within 7 days)
+    now = datetime.datetime.now(narrative.generated_at.tzinfo or UTC)
+    age_days = (now - narrative.generated_at).days
+    
+    if age_days > 7:  # Narrative is stale
+        # Return 204 No Content if narrative is stale
+        raise HTTPException(status_code=204, detail="Narrative is being regenerated")
+    
+    return {
+        "narrative": narrative.narrative_content,
+        "generated_at": narrative.generated_at,
+        "version": narrative.version,
+        "age_days": age_days
     }
 
 

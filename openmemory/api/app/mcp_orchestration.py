@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 from fastapi import BackgroundTasks
 import functools
 from app.database import SessionLocal
-from app.models import Memory, MemoryState
+from app.models import Memory, MemoryState, UserNarrative
 from app.utils.db import get_user_and_app
 
 logger = logging.getLogger(__name__)
@@ -22,6 +22,9 @@ logger = logging.getLogger(__name__)
 # Session-based context cache - stores user context profiles
 _context_cache: Dict[str, Dict] = {}
 _cache_ttl_minutes = 30  # Context cache TTL
+
+# Narrative cache TTL in days
+NARRATIVE_TTL_DAYS = 7
 
 class SmartContextOrchestrator:
     """
@@ -455,27 +458,49 @@ Provide rich context that helps understand them deeply, but keep it conversation
         user_message: str, 
         user_id: str, 
         client_name: str,
-        is_new_conversation: bool
+        is_new_conversation: bool,
+        background_tasks: BackgroundTasks = None
     ) -> str:
         """
-        Main orchestration method with enhanced deep memory analysis capability.
+        Main orchestration method with enhanced narrative caching capability.
         
         ENHANCED STRATEGY: 
+        - Narrative Cache: Check for cached user narrative first for new conversations
         - Deep Memory Analysis: For new conversations and rich content (30-60s, comprehensive)
         - Standard Orchestration: For continuing conversations (5-10s, targeted)
         """
         logger.info(f"🚀 [Jean Memory] Enhanced orchestration started for user {user_id}. New convo: {is_new_conversation}")
         
         try:
-            # Determine which orchestration strategy to use
-            should_use_deep_analysis = self._should_use_deep_analysis(user_message, is_new_conversation)
+            # SMART CACHE: Check for cached narrative first (instant)
+            cached_narrative = await self._get_cached_narrative(user_id)
+            if cached_narrative:
+                logger.info(f"✅ [Smart Cache] Using cached narrative for user {user_id}")
+                return cached_narrative
             
-            if should_use_deep_analysis:
-                logger.info(f"🧠 [Jean Memory] Using DEEP MEMORY ANALYSIS for comprehensive understanding")
-                return await self._deep_memory_orchestration(user_message, user_id, client_name, is_new_conversation)
-            else:
-                logger.info(f"🔍 [Jean Memory] Using STANDARD ORCHESTRATION for targeted context")
-                return await self._standard_orchestration(user_message, user_id, client_name, is_new_conversation)
+            logger.info(f"⚠️ [Smart Cache] No cached narrative found for user {user_id}, falling back to deep analysis")
+            
+            # CACHE MISS: Fall back to deep analysis and start background caching
+            analysis_start = time.time()
+            deep_analysis = await self._fast_deep_analysis(user_message, user_id, client_name)
+            analysis_time = time.time() - analysis_start
+            
+            logger.info(f"🔍 [Smart Context] Deep analysis completed in {analysis_time:.1f}s for user {user_id}")
+            
+            # Extract memories text from the analysis for caching
+            try:
+                # Get memories for background narrative generation
+                memories = await self._get_user_memories(user_id, limit=50)
+                if memories:
+                    memories_text = "\n".join([f"• {mem}" for mem in memories[:25]])
+                    # Start background narrative generation with Pro model
+                    await self._generate_and_cache_narrative(user_id, memories_text, background_tasks)
+                    logger.info(f"🔄 [Smart Cache] Started background narrative generation for user {user_id}")
+            except Exception as cache_error:
+                logger.warning(f"Background narrative caching failed for user {user_id}: {cache_error}")
+                # Don't fail the main request if background caching fails
+            
+            return deep_analysis
             
         except Exception as e:
             logger.error(f"❌ [Jean Memory] Orchestration failed: {e}", exc_info=True)
@@ -1420,6 +1445,136 @@ User Message: "what time is it?"
         except Exception as e:
             logger.error(f"Error in contextual memory retrieval: {e}")
             return {}
+
+    async def _get_cached_narrative(self, user_id: str) -> Optional[str]:
+        """
+        Check for cached user narrative that's still fresh.
+        Returns narrative content if found and fresh, None otherwise.
+        """
+        try:
+            db = SessionLocal()
+            try:
+                # Get user by user_id string
+                from app.models import User
+                user = db.query(User).filter(User.user_id == user_id).first()
+                if not user:
+                    logger.warning(f"User not found for user_id: {user_id}")
+                    return None
+                
+                # Check for existing narrative
+                narrative = db.query(UserNarrative).filter(UserNarrative.user_id == user.id).first()
+                if not narrative:
+                    logger.info(f"📝 [Narrative Cache] No cached narrative found for user {user_id}")
+                    return None
+                
+                # Check if narrative is fresh (within TTL)
+                now = datetime.now(narrative.generated_at.tzinfo or datetime.timezone.utc)
+                age_days = (now - narrative.generated_at).days
+                
+                if age_days <= NARRATIVE_TTL_DAYS:
+                    logger.info(f"✅ [Narrative Cache] Found fresh narrative for user {user_id} (age: {age_days} days)")
+                    return narrative.narrative_content
+                else:
+                    logger.info(f"⏰ [Narrative Cache] Found stale narrative for user {user_id} (age: {age_days} days)")
+                    return None
+                    
+            finally:
+                db.close()
+        except Exception as e:
+            logger.error(f"❌ [Narrative Cache] Error checking cached narrative for user {user_id}: {e}")
+            return None
+    
+    async def _save_narrative_to_cache(self, user_id: str, narrative_content: str):
+        """
+        Save a narrative to the cache in the background.
+        This is called as a background task to avoid blocking the user.
+        """
+        try:
+            db = SessionLocal()
+            try:
+                # Get user by user_id string
+                from app.models import User
+                user = db.query(User).filter(User.user_id == user_id).first()
+                if not user:
+                    logger.warning(f"Cannot save narrative - user not found for user_id: {user_id}")
+                    return
+                
+                # Delete any existing narrative for this user
+                existing = db.query(UserNarrative).filter(UserNarrative.user_id == user.id).first()
+                if existing:
+                    db.delete(existing)
+                    logger.info(f"Replaced existing narrative for user {user_id}")
+                
+                # Create new narrative
+                narrative = UserNarrative(
+                    user_id=user.id,
+                    narrative_content=narrative_content,
+                    generated_at=datetime.utcnow()
+                )
+                db.add(narrative)
+                db.commit()
+                logger.info(f"✅ Saved narrative to cache for user {user_id} (length: {len(narrative_content)} chars)")
+            finally:
+                db.close()
+        except Exception as e:
+            logger.error(f"Failed to save narrative to cache for user {user_id}: {e}")
+
+    async def _generate_and_cache_narrative(self, user_id: str, memories_text: str, background_tasks: BackgroundTasks):
+        """
+        Generate a new narrative using Gemini 2.5 Pro and cache it.
+        This is run as a background task for maximum quality without blocking the user.
+        """
+        def background_narrative_generation():
+            try:
+                logger.info(f"🤖 Background narrative generation starting for user {user_id} using Gemini 2.5 Pro")
+                # Use async context for Gemini Pro generation
+                import asyncio
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                
+                try:
+                    # Generate high-quality narrative with Pro model
+                    narrative = loop.run_until_complete(
+                        self._get_gemini().generate_narrative_pro(memories_text)
+                    )
+                    
+                    # Save to cache
+                    loop.run_until_complete(
+                        self._save_narrative_to_cache(user_id, narrative)
+                    )
+                    logger.info(f"✅ Background narrative generation completed for user {user_id}")
+                finally:
+                    loop.close()
+            except Exception as e:
+                logger.error(f"Background narrative generation failed for user {user_id}: {e}")
+        
+        background_tasks.add_task(background_narrative_generation)
+
+    async def _get_user_memories(self, user_id: str, limit: int = 50) -> List[str]:
+        """
+        Get user memories from the database for narrative generation.
+        """
+        try:
+            db = SessionLocal()
+            try:
+                # Get user by user_id string
+                from app.models import User
+                user = db.query(User).filter(User.user_id == user_id).first()
+                if not user:
+                    return []
+                
+                # Get user's active memories
+                memories = db.query(Memory).filter(
+                    Memory.user_id == user.id,
+                    Memory.state == 'active'
+                ).order_by(Memory.created_at.desc()).limit(limit).all()
+                
+                return [memory.content for memory in memories]
+            finally:
+                db.close()
+        except Exception as e:
+            logger.error(f"Error getting user memories for {user_id}: {e}")
+            return []
 
 
 # Global orchestrator instance

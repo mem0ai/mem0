@@ -62,6 +62,7 @@ class User(Base):
     apps = relationship("App", back_populates="owner")
     memories = relationship("Memory", back_populates="user")
     documents = relationship("Document", back_populates="user")
+    narrative = relationship("UserNarrative", back_populates="user", uselist=False)
 
 
 class App(Base):
@@ -261,6 +262,23 @@ class DocumentChunk(Base):
     document = relationship("Document", back_populates="chunks")
     
     # Indexes are defined in the migration
+
+
+class UserNarrative(Base):
+    __tablename__ = "user_narratives"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), unique=True, nullable=False, index=True)
+    narrative_content = Column(Text, nullable=False)
+    version = Column(Integer, default=1, nullable=False)
+    generated_at = Column(DateTime(timezone=True), default=get_current_utc_time, nullable=False, index=True)
+    
+    # Relationship
+    user = relationship("User", back_populates="narrative")
+    
+    __table_args__ = (
+        Index('idx_narrative_user_generated', 'user_id', 'generated_at'),
+    )
 
 
 def categorize_memory(memory: Memory, db: Session) -> None:

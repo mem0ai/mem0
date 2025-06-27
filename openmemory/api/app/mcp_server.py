@@ -1877,7 +1877,8 @@ async def jean_memory(user_message: str, is_new_conversation: bool) -> str:
                 user_message=user_message,
                 user_id=supa_uid,
                 client_name=client_name,
-                is_new_conversation=is_new_conversation
+                is_new_conversation=is_new_conversation,
+                background_tasks=background_tasks
             )
             return enhanced_context
 

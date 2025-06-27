@@ -187,9 +187,43 @@ Return only the insights, one per line, without numbering or bullet points."""
                 f"{full_text}"
             )
             
-            response = await self.model.generate_content_async(prompt)
+            # Use Pro model for narrative generation - higher quality for background processing
+            response = await self.model_pro.generate_content_async(prompt)
             
             return response.text
         except Exception as e:
             logger.error(f"Error generating narrative with Gemini: {e}")
-            raise Exception(f"Failed to generate narrative with Gemini: {str(e)}") 
+            raise Exception(f"Failed to generate narrative with Gemini: {str(e)}")
+    
+    async def generate_narrative_pro(self, memories_text: str) -> str:
+        """
+        Generate a high-quality user narrative using Gemini 2.5 Pro.
+        Specifically designed for background batch processing where quality > speed.
+        """
+        try:
+            prompt = f"""You are providing context for a conversation with this user. Analyze their memories and create a rich, synthesized understanding.
+
+USER'S MEMORIES:
+{memories_text}
+
+Create a comprehensive but concise 'life narrative' for this person to be used as a primer for new conversations. Focus on:
+1. Who they are (personality, background, values)
+2. What they're working on (projects, goals, interests)  
+3. How to best interact with them (preferences, communication style)
+4. Key themes or recurring patterns in their life.
+
+Provide a well-written, paragraph-based narrative that captures the essence of the user. Use sophisticated reasoning to identify deeper patterns and insights."""
+            
+            # Use Pro model for maximum quality in background processing
+            response = await self.model_pro.generate_content_async(
+                prompt,
+                generation_config=genai.GenerationConfig(
+                    temperature=0.7,  # Balanced creativity
+                    max_output_tokens=2048,  # Allow longer narratives
+                )
+            )
+            
+            return response.text.strip()
+        except Exception as e:
+            logger.error(f"Error generating narrative with Gemini Pro: {e}")
+            raise Exception(f"Failed to generate narrative with Gemini Pro: {str(e)}") 
