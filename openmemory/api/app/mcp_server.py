@@ -2067,9 +2067,9 @@ def setup_mcp_server(app: FastAPI):
     # The new stateless /messages endpoint is the primary way to interact.
     # The old SSE endpoints are no longer needed with the Cloudflare Worker architecture.
     app.include_router(mcp_router)
-    # DISABLED: chorus_router to prevent SSE competition - Chorus must use Worker SSE only
-    # app.include_router(chorus_router)
-    logger.info("MCP server setup complete - stateless router included.")
+    # RE-ENABLED: chorus_router for direct backend connection (bypasses Worker completely)
+    app.include_router(chorus_router)
+    logger.info("MCP server setup complete - stateless router and chorus router included.")
 
 def get_chatgpt_tools_schema():
     """Returns ONLY search and fetch tools for ChatGPT clients - OpenAI compliant schemas"""
@@ -2514,13 +2514,117 @@ def cleanup_old_deep_analysis_cache():
 # Dedicated router for Chorus for stability and isolation
 chorus_router = APIRouter(prefix="/mcp/chorus")
 
-# DISABLED: Chorus SSE endpoint to prevent competition with Worker SSE
-# Chorus clients should only use Worker SSE, not backend SSE
-# @chorus_router.get("/sse/{user_id}")
-# async def handle_chorus_sse(user_id: str, request: Request):
-#     return await handle_sse_connection(client_name="chorus", user_id=user_id, request=request)
+# Minimal SSE endpoint for Chorus (for mcp-remote compatibility)
+@chorus_router.get("/sse/{user_id}")
+async def handle_chorus_sse(user_id: str, request: Request):
+    """
+    Minimal SSE endpoint that just provides the messages endpoint
+    Chorus will use HTTP responses, not actual SSE streaming
+    """
+    from fastapi.responses import StreamingResponse
+    
+    async def simple_sse():
+        # Just send the endpoint event and close
+        yield f"event: endpoint\ndata: /mcp/chorus/messages/{user_id}\n\n"
+    
+    return StreamingResponse(
+        simple_sse(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+        }
+    )
 
-# DISABLED: Chorus messages endpoint - Chorus must use Worker routing only
-# @chorus_router.post("/messages/{user_id}")
-# async def handle_chorus_messages(user_id: str, request: Request):
-#     # Disabled to prevent SSE competition with Worker
+# Chorus messages endpoint - returns JSON-RPC directly via HTTP (no SSE)
+@chorus_router.post("/messages/{user_id}")
+async def handle_chorus_messages(user_id: str, request: Request):
+    """
+    Direct HTTP JSON-RPC endpoint for Chorus - bypasses Worker completely
+    Returns JSON-RPC responses directly via HTTP without SSE
+    """
+    # Set context variables
+    user_token = user_id_var.set(user_id)
+    client_token = client_name_var.set("chorus")
+    
+    try:
+        body = await request.json()
+        method_name = body.get("method")
+        params = body.get("params", {})
+        request_id = body.get("id")
+
+        logger.info(f"Chorus direct HTTP: {method_name} for user {user_id}")
+
+        # Handle MCP methods directly (same logic as main /messages/ endpoint)
+        if method_name == "initialize":
+            response_payload = {
+                "jsonrpc": "2.0",
+                "result": {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {"tools": {}},
+                    "serverInfo": {
+                        "name": "Jean Memory",
+                        "version": "1.0.0"
+                    }
+                },
+                "id": request_id
+            }
+        
+        elif method_name == "tools/list":
+            tools = get_original_tools_schema()
+            response_payload = {
+                "jsonrpc": "2.0",
+                "result": {"tools": tools},
+                "id": request_id
+            }
+        
+        elif method_name == "tools/call":
+            tool_name = params.get("name")
+            tool_args = params.get("arguments", {})
+            
+            tool_function = tool_registry.get(tool_name)
+            if not tool_function:
+                response_payload = {
+                    "jsonrpc": "2.0",
+                    "error": {"code": -32601, "message": f"Tool '{tool_name}' not found"},
+                    "id": request_id
+                }
+            else:
+                try:
+                    result = await tool_function(**tool_args)
+                    response_payload = {
+                        "jsonrpc": "2.0",
+                        "result": {"content": [{"type": "text", "text": result}]},
+                        "id": request_id
+                    }
+                except Exception as e:
+                    response_payload = {
+                        "jsonrpc": "2.0",
+                        "error": {"code": -32603, "message": f"Tool execution failed: {str(e)}"},
+                        "id": request_id
+                    }
+        
+        else:
+            response_payload = {
+                "jsonrpc": "2.0",
+                "error": {"code": -32601, "message": f"Method '{method_name}' not found"},
+                "id": request_id
+            }
+
+        # Return JSON-RPC directly via HTTP (no SSE)
+        return JSONResponse(content=response_payload)
+
+    except Exception as e:
+        logger.error(f"Error in Chorus direct HTTP handler: {e}", exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content={
+                "jsonrpc": "2.0",
+                "error": {"code": -32603, "message": f"Internal error: {str(e)}"},
+                "id": request_id if 'request_id' in locals() else None
+            }
+        )
+    finally:
+        user_id_var.reset(user_token)
+        client_name_var.reset(client_token)
