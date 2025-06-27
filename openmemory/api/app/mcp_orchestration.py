@@ -1523,32 +1523,77 @@ User Message: "what time is it?"
         """
         Generate a new narrative using Gemini 2.5 Pro and cache it.
         This is run as a background task for maximum quality without blocking the user.
+        Enhanced with comprehensive debugging for production troubleshooting.
         """
         def background_narrative_generation():
+            import traceback
+            task_start_time = datetime.utcnow()
+            logger.info(f"🤖 [Background Task] Starting narrative generation for user {user_id} at {task_start_time}")
+            
             try:
-                logger.info(f"🤖 Background narrative generation starting for user {user_id} using Gemini 2.5 Pro")
+                # Enhanced logging for background task execution
+                logger.info(f"🔧 [Background Task] Setting up async event loop for user {user_id}")
+                
                 # Use async context for Gemini Pro generation
                 import asyncio
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
+                logger.info(f"✅ [Background Task] Event loop created successfully for user {user_id}")
                 
                 try:
+                    # Log memory text details
+                    memory_length = len(memories_text)
+                    logger.info(f"📊 [Background Task] Processing {memory_length} chars of memories for user {user_id}")
+                    
                     # Generate high-quality narrative with Pro model
+                    logger.info(f"🤖 [Background Task] Calling Gemini 2.5 Pro API for user {user_id}")
+                    api_start_time = datetime.utcnow()
+                    
                     narrative = loop.run_until_complete(
                         self._get_gemini().generate_narrative_pro(memories_text)
                     )
                     
-                    # Save to cache
-                    loop.run_until_complete(
-                        self._save_narrative_to_cache(user_id, narrative)
-                    )
-                    logger.info(f"✅ Background narrative generation completed for user {user_id}")
+                    api_end_time = datetime.utcnow()
+                    api_duration = (api_end_time - api_start_time).total_seconds()
+                    
+                    if narrative and narrative.strip():
+                        logger.info(f"✅ [Background Task] Gemini API successful for user {user_id} (duration: {api_duration:.2f}s, response length: {len(narrative)} chars)")
+                        
+                        # Save to cache
+                        logger.info(f"💾 [Background Task] Attempting to save narrative to database for user {user_id}")
+                        save_start_time = datetime.utcnow()
+                        
+                        loop.run_until_complete(
+                            self._save_narrative_to_cache(user_id, narrative)
+                        )
+                        
+                        save_end_time = datetime.utcnow()
+                        save_duration = (save_end_time - save_start_time).total_seconds()
+                        
+                        task_end_time = datetime.utcnow()
+                        total_duration = (task_end_time - task_start_time).total_seconds()
+                        
+                        logger.info(f"✅ [Background Task] Database save completed for user {user_id} (save duration: {save_duration:.2f}s)")
+                        logger.info(f"🎉 [Background Task] COMPLETED successfully for user {user_id} (total duration: {total_duration:.2f}s)")
+                    else:
+                        logger.error(f"❌ [Background Task] Gemini returned empty narrative for user {user_id} after {api_duration:.2f}s")
+                        
+                except Exception as inner_e:
+                    logger.error(f"💥 [Background Task] Inner exception for user {user_id}: {str(inner_e)}")
+                    logger.error(f"💥 [Background Task] Inner traceback for user {user_id}: {traceback.format_exc()}")
                 finally:
+                    logger.info(f"🔄 [Background Task] Closing event loop for user {user_id}")
                     loop.close()
+                    
             except Exception as e:
-                logger.error(f"Background narrative generation failed for user {user_id}: {e}")
+                task_end_time = datetime.utcnow()
+                task_duration = (task_end_time - task_start_time).total_seconds()
+                logger.error(f"💥 [Background Task] FAILED for user {user_id} after {task_duration:.2f}s: {str(e)}")
+                logger.error(f"💥 [Background Task] Full traceback for user {user_id}: {traceback.format_exc()}")
         
+        logger.info(f"🔄 [Smart Cache] Adding background task to queue for user {user_id}")
         background_tasks.add_task(background_narrative_generation)
+        logger.info(f"✅ [Smart Cache] Background task successfully queued for user {user_id}")
 
     async def _get_user_memories(self, user_id: str, limit: int = 50) -> List[str]:
         """
