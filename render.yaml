@@ -125,9 +125,9 @@ services:
     repo: https://github.com/jonathan-politzki/your-memory
     plan: starter
     region: virginia
-    rootDir: openmemory/api
-    buildCommand: pip install -r requirements.txt
-    startCommand: python -m scripts.utils.backfill_user_narratives
+    rootDir: .
+    buildCommand: pip install -r openmemory/api/requirements.txt && pip install psycopg2-binary python-dotenv
+    startCommand: python scripts/utils/standalone_backfill.py
     schedule: "0 2 * * 0"  # Every Sunday at 2 AM UTC
     envVars:
       # Database Configuration
