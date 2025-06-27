@@ -12,12 +12,10 @@ import re
 from typing import Dict, List, Optional, Tuple, Any
 from datetime import datetime, timedelta
 from fastapi import BackgroundTasks
-from app.mcp_server import background_tasks_var
 import functools
 from app.database import SessionLocal
 from app.models import Memory, MemoryState
 from app.utils.db import get_user_and_app
-from app.mcp_server import user_id_var, client_name_var
 
 logger = logging.getLogger(__name__)
 
@@ -62,42 +60,30 @@ class SmartContextOrchestrator:
         """
         gemini = self._get_gemini()
         
-        # Streamlined prompt for faster processing
-        prompt = f"""As an expert context engineer, analyze this message and create a JSON plan for optimal context engineering.
+        # OPTIMIZED: Much more focused, concise prompt for faster processing
+        strategy = 'deep_understanding' if is_new_conversation else 'relevant_context'
+        should_save = str(is_new_conversation or 'remember' in user_message.lower()).lower()
+        # Safely handle user message in JSON by escaping quotes
+        safe_message = user_message.replace('"', '\\"').replace('\n', '\\n')
+        memorable_content = f'"{safe_message}"' if (is_new_conversation or 'remember' in user_message.lower()) else 'null'
+        
+        prompt = f"""Analyze this message for context engineering. Respond with JSON only:
 
-**JEAN MEMORY MISSION**: Ensure AI applications understand users consistently by providing persistent, cross-platform memory that surfaces relevant personal context when needed.
+Message: "{user_message}"
+New conversation: {is_new_conversation}
 
-**CONTEXT ENGINEERING PRINCIPLES:**
-- NEW CONVERSATIONS: Build coherent understanding of who this person is
-- CONTINUING CONVERSATIONS: Surface only relevant context to avoid flooding
-- Focus on what helps the AI understand this INDIVIDUAL person
-
-**Message Analysis:**
-Conversation Type: {'New conversation (first message)' if is_new_conversation else 'Continuing conversation'}
-User Message: "{user_message}"
-
-Respond with valid JSON only:
 {{
-  "user_intent": "brief description of what user wants",
-  "understanding_focus": {{
-    "identity_coherence": "what to understand about who they are" or null,
-    "personal_patterns": "their unique patterns/preferences to surface" or null,
-    "contextual_relevance": "what specific context helps with this request" or null,
-    "growth_trajectory": "how they're evolving/learning" or null
-  }},
-  "context_strategy": "deep_understanding" | "relevant_context" | "comprehensive_analysis",
-  "search_queries": ["specific", "targeted", "search", "queries"],
-  "should_save_memory": true/false,
-  "save_with_priority": true/false,
-  "memorable_content": "what to remember" or null,
-  "understanding_enhancement": "how this builds user understanding"
+  "context_strategy": "{strategy}",
+  "search_queries": ["1-3 search terms"],
+  "should_save_memory": {should_save},
+  "memorable_content": {memorable_content}
 }}"""
 
         try:
-            # Add timeout to prevent slow responses
+            # Increased timeout to 12 seconds to handle occasional slow responses
             response_text = await asyncio.wait_for(
                 gemini.generate_response(prompt),
-                timeout=8.0  # 8 second timeout for faster responses
+                timeout=12.0
             )
             
             # Extract JSON from response
@@ -111,7 +97,7 @@ Respond with valid JSON only:
                 return self._get_fallback_plan(user_message, is_new_conversation)
                 
         except asyncio.TimeoutError:
-            logger.warning(f"⏰ AI planner timed out after 8s, using fallback")
+            logger.warning(f"⏰ AI planner timed out after 12s, using fallback")
             return self._get_fallback_plan(user_message, is_new_conversation)
         except Exception as e:
             logger.error(f"❌ Error creating AI context plan: {e}. Defaulting to simple search.", exc_info=True)
@@ -158,9 +144,11 @@ Respond with valid JSON only:
         try:
             # CRITICAL FIX: Handle missing background_tasks gracefully
             try:
+                from app.mcp_server import background_tasks_var
                 background_tasks = background_tasks_var.get()
-            except LookupError:
-                logger.warning("⚠️ Background tasks not available in current context - using fallback mode")
+                logger.info("✅ Background tasks context available")
+            except (LookupError, ImportError):
+                logger.info("⚠️ Background tasks not available in current context - using async tasks instead")
                 background_tasks = None
             
             # Step 1: Create plan for saving memory and determining context strategy
@@ -254,9 +242,9 @@ Respond with valid JSON only:
             logger.info("No search queries specified by AI planner - using minimal fallback")
             return {}
         
-        # For new conversations, use higher limits since this is the key learning moment
+        # For new conversations, use balanced limits for faster processing while maintaining quality
         # But let the AI decide what to search for, not hard-coded categories
-        search_limit = 15  # Generous limit for comprehensive new conversation understanding
+        search_limit = 12  # Balanced limit for good understanding with faster processing
         
         # Execute AI-determined searches in parallel
         tasks = [self._get_tools()['search_memory'](query=query, limit=search_limit) for query in search_queries]
@@ -293,8 +281,8 @@ Respond with valid JSON only:
             # Fallback to comprehensive search
             search_queries = ["comprehensive user background and expertise", "user's projects and achievements", "user's interests and goals"]
         
-        # Use higher limits for comprehensive analysis
-        comprehensive_limit = 20
+        # Use balanced limits for comprehensive analysis with good performance  
+        comprehensive_limit = 15
         
         # Execute comprehensive searches
         tasks = [self._get_tools()['search_memory'](query=query, limit=comprehensive_limit) for query in search_queries]
@@ -590,6 +578,7 @@ Respond with valid JSON only:
             from app.utils.memory import get_memory_client
             
             # CRITICAL FIX: Set context variables in background task since they're lost
+            from app.mcp_server import user_id_var, client_name_var
             user_token = user_id_var.set(user_id)
             client_token = client_name_var.set(client_name)
             
@@ -653,7 +642,7 @@ Respond with valid JSON only:
                     db.close()
                     
             finally:
-                # Clean up context variables
+                # Clean up context variables  
                 user_id_var.reset(user_token)
                 client_name_var.reset(client_token)
                 
