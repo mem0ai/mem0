@@ -288,7 +288,7 @@ You are a memory summarization system that records and preserves the complete in
 """
 
 
-def get_update_memory_messages(retrieved_old_memory_dict, response_content, custom_update_memory_prompt=None):
+def get_update_memory_messages(retrieved_old_memory_dict, extracted_new_facts, custom_update_memory_prompt=None):
     if custom_update_memory_prompt is None:
         global DEFAULT_UPDATE_MEMORY_PROMPT
         custom_update_memory_prompt = DEFAULT_UPDATE_MEMORY_PROMPT
@@ -304,7 +304,7 @@ def get_update_memory_messages(retrieved_old_memory_dict, response_content, cust
     The new extracted facts are mentioned in the triple backticks. You have to analyze the new extracted facts and determine whether these facts should be added, updated, or deleted in the memory.
 
     ```
-    {response_content}
+    {extracted_new_facts}
     ```
 
     You must return your response in the following JSON structure only:
