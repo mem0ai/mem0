@@ -70,17 +70,25 @@ Provide a well-written, paragraph-based narrative that captures the essence of t
 def get_db_connection():
     """Get direct PostgreSQL connection"""
     database_url = os.getenv("DATABASE_URL")
+    
     if not database_url:
         # Try Supabase format
         supabase_url = os.getenv("SUPABASE_URL")
         service_key = os.getenv("SUPABASE_SERVICE_KEY")
+        
         if supabase_url and service_key:
-            # Extract connection details from Supabase URL
-            host = supabase_url.replace("https://", "").replace("http://", "")
-            database_url = f"postgresql://postgres.{host.split('.')[0]}:{service_key}@aws-0-us-west-1.pooler.supabase.com:6543/postgres"
-    
-    if not database_url:
-        raise ValueError("No database connection URL found")
+            # Extract project ID from Supabase URL
+            # Format: https://xxxxx.supabase.co -> xxxxx
+            project_id = supabase_url.replace("https://", "").replace("http://", "").split(".")[0]
+            database_url = f"postgresql://postgres.{project_id}:{service_key}@aws-0-us-west-1.pooler.supabase.com:6543/postgres"
+            logger.info(f"Using Supabase connection for project: {project_id}")
+        else:
+            logger.error(f"Missing environment variables:")
+            logger.error(f"  DATABASE_URL: {'✅' if os.getenv('DATABASE_URL') else '❌'}")
+            logger.error(f"  SUPABASE_URL: {'✅' if os.getenv('SUPABASE_URL') else '❌'}")
+            logger.error(f"  SUPABASE_SERVICE_KEY: {'✅' if os.getenv('SUPABASE_SERVICE_KEY') else '❌'}")
+            logger.error(f"  GEMINI_API_KEY: {'✅' if os.getenv('GEMINI_API_KEY') else '❌'}")
+            raise ValueError("No database connection URL found. Please set DATABASE_URL or SUPABASE_URL + SUPABASE_SERVICE_KEY")
     
     return psycopg2.connect(database_url)
 
