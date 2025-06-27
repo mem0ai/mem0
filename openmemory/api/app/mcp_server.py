@@ -34,6 +34,7 @@ from app.config.memory_limits import MEMORY_LIMITS
 from fastapi.responses import JSONResponse
 from .utils.decorators import retry_on_exception
 from qdrant_client import QdrantClient
+from fastapi import BackgroundTasks
 
 
 # Load environment variables
@@ -56,6 +57,7 @@ logger.info(f"MCP internal server: {mcp._mcp_server}")
 # Context variables for user_id (Supabase User ID string) and client_name
 user_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("supa_user_id")
 client_name_var: contextvars.ContextVar[str] = contextvars.ContextVar("client_name")
+background_tasks_var: contextvars.ContextVar["BackgroundTasks"] = contextvars.ContextVar("background_tasks")
 
 # Global dictionary to manage SSE connections
 sse_message_queues: Dict[str, asyncio.Queue] = {}
@@ -123,11 +125,12 @@ def _track_tool_usage(tool_name: str, properties: dict = None):
 
 @mcp.tool(description="Add new memories to the user's memory")
 @retry_on_exception(retries=3, delay=1, backoff=2, exceptions=(ConnectionError,))
-async def add_memories(text: str, tags: Optional[list[str]] = None) -> str:
+async def add_memories(text: str, tags: Optional[list[str]] = None, priority: bool = False) -> str:
     """
     Add memories to the user's personal memory bank.
     These memories are stored in a vector database and can be searched later.
     Optionally, add a list of string tags for later filtering.
+    Set priority=True for core directives that should always be remembered.
     """
     # Lazy import
     from app.utils.memory import get_memory_client
@@ -159,7 +162,7 @@ async def add_memories(text: str, tags: Optional[list[str]] = None) -> str:
     # For Claude Desktop: return immediately and process in background
     if is_claude_desktop:
         # Start background task - fire and forget
-        asyncio.create_task(_add_memories_background_claude(text, tags, supa_uid, client_name))
+        asyncio.create_task(_add_memories_background_claude(text, tags, supa_uid, client_name, priority))
         
         # Return immediately for instant response
         return "✅ Memory added."
@@ -169,7 +172,8 @@ async def add_memories(text: str, tags: Optional[list[str]] = None) -> str:
         # Track memory addition (only if private analytics available)
         _track_tool_usage('add_memories', {
             'text_length': len(text),
-            'has_tags': bool(tags)
+            'has_tags': bool(tags),
+            'is_priority': priority
         })
         
         db_start_time = time.time()
@@ -197,6 +201,15 @@ async def add_memories(text: str, tags: Optional[list[str]] = None) -> str:
                 "mcp_client": client_name,
                 "app_db_id": str(app.id)
             }
+            
+            # Ensure tags is a list if it's None
+            if tags is None:
+                tags = []
+            
+            # Add the priority tag if specified
+            if priority and 'priority' not in tags:
+                tags.append('priority')
+
             if tags:
                 metadata['tags'] = tags
 
@@ -299,7 +312,7 @@ async def add_memories(text: str, tags: Optional[list[str]] = None) -> str:
         return f"Error adding to memory: {e}"
 
 
-async def _add_memories_background_claude(text: str, tags: Optional[list[str]], supa_uid: str, client_name: str):
+async def _add_memories_background_claude(text: str, tags: Optional[list[str]], supa_uid: str, client_name: str, priority: bool = False):
     """Background memory processing for Claude Desktop - fire and forget"""
     try:
         # Reuse the same logic as the synchronous version
@@ -310,7 +323,8 @@ async def _add_memories_background_claude(text: str, tags: Optional[list[str]], 
         # Track memory addition (only if private analytics available)
         _track_tool_usage('add_memories', {
             'text_length': len(text),
-            'has_tags': bool(tags)
+            'has_tags': bool(tags),
+            'is_priority': priority
         })
         
         db = SessionLocal()
@@ -333,6 +347,15 @@ async def _add_memories_background_claude(text: str, tags: Optional[list[str]], 
                 "mcp_client": client_name,
                 "app_db_id": str(app.id)
             }
+
+            # Ensure tags is a list if it's None
+            if tags is None:
+                tags = []
+            
+            # Add the priority tag if specified
+            if priority and 'priority' not in tags:
+                tags.append('priority')
+
             if tags:
                 metadata['tags'] = tags
 
@@ -951,15 +974,14 @@ async def _deep_memory_query_impl(search_query: str, supa_uid: str, client_name:
     from app.utils.memory import get_memory_client
     from app.utils.gemini import GeminiService
     from app.services.chunking_service import ChunkingService
-    import google.generativeai as genai
     
-    # Use conservative limits to prevent timeouts
+    # Use expanded limits to provide richer context
     if memory_limit is None:
-        memory_limit = min(10, MEMORY_LIMITS.deep_memory_default)  # Cap at 10 for timeout prevention
+        memory_limit = min(25, MEMORY_LIMITS.deep_memory_default)
     if chunk_limit is None:
-        chunk_limit = min(8, MEMORY_LIMITS.deep_chunk_default)   # Cap at 8 for timeout prevention
-    memory_limit = min(max(1, memory_limit), min(15, MEMORY_LIMITS.deep_memory_max))  # Hard cap at 15
-    chunk_limit = min(max(1, chunk_limit), min(10, MEMORY_LIMITS.deep_chunk_max))    # Hard cap at 10
+        chunk_limit = min(20, MEMORY_LIMITS.deep_chunk_default)
+    memory_limit = min(max(1, memory_limit), min(30, MEMORY_LIMITS.deep_memory_max))  # Hard cap at 30
+    chunk_limit = min(max(1, chunk_limit), min(25, MEMORY_LIMITS.deep_chunk_max))    # Hard cap at 25
     
     import time
     start_time = time.time()
@@ -1172,21 +1194,17 @@ INSTRUCTIONS:
 
 Provide a thorough, insightful response."""
             
-            # 7. Generate response (direct call for speed)
+            # 7. Generate response using the new GeminiService
             gemini_start_time = time.time()
-            logger.info(f"deep_memory_query: Starting Gemini call for user {supa_uid}")
-            response = gemini_service.model.generate_content(
-                prompt,
-                generation_config=genai.GenerationConfig(
-                    temperature=0.3,
-                    max_output_tokens=4096
-                )
-            )
+            logger.info(f"deep_memory_query: Starting Gemini Flash call for user {supa_uid}")
+            
+            response_text = await gemini_service.generate_response(prompt)
+
             gemini_duration = time.time() - gemini_start_time
-            logger.info(f"deep_memory_query: Gemini call for user {supa_uid} took {gemini_duration:.2f}s")
+            logger.info(f"deep_memory_query: Gemini Flash call for user {supa_uid} took {gemini_duration:.2f}s")
             
             processing_time = time.time() - start_time
-            result = response.text
+            result = response_text
             result += f"\n\n📊 Deep Analysis: total={processing_time:.2f}s, mem_fetch={mem_fetch_duration:.2f}s, doc_fetch={doc_fetch_duration:.2f}s, chunk_search={chunk_search_duration:.2f}s, gemini={gemini_duration:.2f}s"
             
             return result
@@ -1665,15 +1683,15 @@ def get_original_tools_schema(include_annotations=False):
     """Returns the JSON schema for the original tools, optionally with 2025-03-26 annotations."""
     tools = [
         {
-            "name": "smart_context",
-            "description": "🌟 SMART CONTEXT: The primary tool for natural conversation! Automatically detects conversation type, manages memory, and provides personalized context. Uses working memory, builds profiles, searches relevantly, and saves information in background. Session-cached for efficiency.",
+            "name": "jean_memory",
+            "description": "🌟 ALWAYS USE THIS TOOL. It is the primary tool for all conversational interactions. It intelligently engineers context for the user's message, saves new information, and provides relevant background. For the very first message in a conversation, set 'is_new_conversation' to true.",
             "inputSchema": {
                 "type": "object", 
                 "properties": {
-                    "user_message": {"type": "string", "description": "The user's message or question"}, 
-                    "conversation_context": {"type": "string", "description": "Optional hints: 'new_conversation', 'continuing', 'fresh_start'"}
+                    "user_message": {"type": "string", "description": "The user's complete message or question"}, 
+                    "is_new_conversation": {"type": "boolean", "description": "Set to true only for the very first message in a new chat session, otherwise false."}
                 }, 
-                "required": ["user_message"]
+                "required": ["user_message", "is_new_conversation"]
             }
         },
         {
@@ -1713,7 +1731,7 @@ def get_original_tools_schema(include_annotations=False):
     # Add annotations only for 2025-03-26 clients
     if include_annotations:
         annotations_map = {
-            "smart_context": {"readOnly": False, "sensitive": True, "destructive": False, "intelligent": True},
+            "jean_memory": {"readOnly": False, "sensitive": True, "destructive": False, "intelligent": True},
             "ask_memory": {"readOnly": True, "sensitive": False, "destructive": False},
             "add_memories": {"readOnly": False, "sensitive": True, "destructive": False},
             "search_memory": {"readOnly": True, "sensitive": False, "destructive": False},
@@ -1731,15 +1749,15 @@ def get_api_tools_schema():
     """Returns the JSON schema for API key users with 2025-03-26 annotations and enhanced features."""
     return [
         {
-            "name": "smart_context",
-            "description": "🌟 SMART CONTEXT: The primary tool for natural conversation! Automatically detects conversation type, manages memory, and provides personalized context. Uses working memory, builds profiles, searches relevantly, and saves information in background. Session-cached for efficiency.",
+            "name": "jean_memory",
+            "description": "🌟 ALWAYS USE THIS TOOL. It is the primary tool for all conversational interactions. It intelligently engineers context for the user's message, saves new information, and provides relevant background. For the very first message in a conversation, set 'is_new_conversation' to true.",
             "inputSchema": {
                 "type": "object", 
                 "properties": {
-                    "user_message": {"type": "string", "description": "The user's message or question"}, 
-                    "conversation_context": {"type": "string", "description": "Optional hints: 'new_conversation', 'continuing', 'fresh_start'"}
+                    "user_message": {"type": "string", "description": "The user's complete message or question"},
+                    "is_new_conversation": {"type": "boolean", "description": "Set to true only for the very first message in a new chat session, otherwise false."}
                 }, 
-                "required": ["user_message"]
+                "required": ["user_message", "is_new_conversation"]
             },
             "annotations": {
                 "readOnly": False,
@@ -1804,25 +1822,23 @@ def get_api_tools_schema():
 # Import enhanced orchestration
 from app.mcp_orchestration import get_smart_orchestrator
 
-@mcp.tool(description="🌟 SMART CONTEXT: Intelligent orchestration that automatically manages your memory and provides personalized context. This tool detects conversation type, searches relevant memories, saves new information, and provides enhanced context for natural conversations. Use this as your primary tool!")
-async def smart_context(user_message: str, conversation_context: Optional[str] = None) -> str:
+@mcp.tool(description="🌟 ALWAYS USE THIS TOOL. It is the primary tool for all conversational interactions. It intelligently engineers context for the user's message, saves new information, and provides relevant background. For the very first message in a conversation, set 'is_new_conversation' to true.")
+async def jean_memory(user_message: str, is_new_conversation: bool) -> str:
     """
     Smart context orchestration combining single-tool simplicity with session-based caching.
     
     This tool:
-    1. Detects new vs continuing conversations using multiple signals
-    2. Uses list_memories as working memory for recent context
-    3. Builds user profiles using ask_memory for quick insights
-    4. Searches relevant memories with search_memory and deep_memory_query
-    5. Adds new memorable information in background with add_memories
-    6. Caches context sessions for efficiency
+    1. Uses the 'is_new_conversation' flag from the client to determine conversation state.
+    2. Provides a context primer for new chats.
+    3. Uses an AI planner for targeted context on continuing chats.
+    4. Adds new memorable information in the background.
     
     Args:
-        user_message: The user's message or question
-        conversation_context: Optional hints about conversation state
+        user_message: The user's message or question.
+        is_new_conversation: Flag set by the client indicating if this is the first turn.
     
     Returns:
-        Enhanced context string with relevant background information
+        Enhanced context string with relevant background information.
     """
     supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
@@ -1834,24 +1850,34 @@ async def smart_context(user_message: str, conversation_context: Optional[str] =
     
     try:
         # Track usage
-        _track_tool_usage('smart_context', {
+        _track_tool_usage('jean_memory', {
             'message_length': len(user_message),
-            'has_conversation_context': bool(conversation_context)
+            'is_new_conversation': is_new_conversation
         })
         
-        # Get enhanced orchestrator and process
-        orchestrator = get_smart_orchestrator()
-        enhanced_context = await orchestrator.orchestrate_smart_context(
-            user_message=user_message,
-            user_id=supa_uid,
-            client_name=client_name,
-            conversation_context=conversation_context
-        )
-        
-        return enhanced_context
-        
+        async with asyncio.timeout(15): # 15 second timeout for the entire orchestration
+            # Get enhanced orchestrator and process
+            orchestrator = get_smart_orchestrator()
+            enhanced_context = await orchestrator.orchestrate_smart_context(
+                user_message=user_message,
+                user_id=supa_uid,
+                client_name=client_name,
+                is_new_conversation=is_new_conversation
+            )
+            return enhanced_context
+
+    except asyncio.TimeoutError:
+        logger.warning(f"Jean Memory context timed out for user {supa_uid}. Falling back to simple search.")
+        try:
+            # Fallback to a simple, reliable search
+            fallback_result = await search_memory(query=user_message, limit=5)
+            return f"I had trouble with my advanced context analysis, but here are some relevant memories I found:\n{fallback_result}"
+        except Exception as fallback_e:
+            logger.error(f"Error in jean_memory fallback search: {fallback_e}", exc_info=True)
+            return "My apologies, I had trouble processing your request and the fallback search also failed."
+
     except Exception as e:
-        logger.error(f"Error in smart_context: {e}", exc_info=True)
+        logger.error(f"Error in jean_memory: {e}", exc_info=True)
         return f"I had trouble processing your message: {str(e)}"
 
 # Core memory tools registry - simplified for better performance
@@ -1863,7 +1889,7 @@ tool_registry = {
     "ask_memory": ask_memory,
     "sync_substack_posts": sync_substack_posts,
     "deep_memory_query": deep_memory_query,
-    "smart_context": smart_context,
+    "jean_memory": jean_memory,
 }
 
 # Simple in-memory message queue for SSE connections
@@ -1933,7 +1959,7 @@ async def handle_sse_connection(client_name: str, user_id: str, request: Request
 
 # Add messages endpoint for supergateway compatibility  
 @mcp_router.post("/{client_name}/messages/{user_id}")
-async def handle_sse_messages(client_name: str, user_id: str, request: Request):
+async def handle_sse_messages(client_name: str, user_id: str, request: Request, background_tasks: BackgroundTasks):
     """
     Messages endpoint for supergateway compatibility
     This handles the actual MCP tool calls from supergateway
@@ -1941,6 +1967,7 @@ async def handle_sse_messages(client_name: str, user_id: str, request: Request):
     # Set context variables
     user_token = user_id_var.set(user_id)
     client_token = client_name_var.set(client_name)
+    tasks_token = background_tasks_var.set(background_tasks)
     
     try:
         body = await request.json()
@@ -2146,6 +2173,7 @@ async def handle_sse_messages(client_name: str, user_id: str, request: Request):
         # Clean up context variables
         user_id_var.reset(user_token)
         client_name_var.reset(client_token)
+        background_tasks_var.reset(tasks_token)
 
 def setup_mcp_server(app: FastAPI):
     """Setup MCP server with the FastAPI application"""

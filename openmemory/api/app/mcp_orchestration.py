@@ -8,8 +8,16 @@ import asyncio
 import json
 import logging
 import time
-from typing import Dict, List, Optional, Tuple
+import re
+from typing import Dict, List, Optional, Tuple, Any
 from datetime import datetime, timedelta
+from fastapi import BackgroundTasks
+from app.mcp_server import background_tasks_var
+import functools
+from app.database import SessionLocal
+from app.models import Memory, MemoryState
+from app.utils.db import get_user_and_app
+from app.mcp_server import user_id_var, client_name_var
 
 logger = logging.getLogger(__name__)
 
@@ -19,17 +27,14 @@ _cache_ttl_minutes = 30  # Context cache TTL
 
 class SmartContextOrchestrator:
     """
-    AI-Powered Context Orchestrator using Gemini 2.5 Flash for intelligent reasoning.
-    Replaces hard-coded heuristics with AI-driven decision making.
+    AI-Powered Context Orchestrator using a planner-based approach for precise context engineering.
     """
     
     def __init__(self):
-        # Import tools at runtime to avoid circular imports
         self._tools_cache = None
         self._gemini_service = None
     
     def _get_tools(self):
-        """Lazy import of MCP tools to avoid circular imports"""
         if self._tools_cache is None:
             from app.mcp_server import (
                 add_memories, search_memory, list_memories, 
@@ -45,76 +50,590 @@ class SmartContextOrchestrator:
         return self._tools_cache
     
     def _get_gemini(self):
-        """Lazy import of Gemini service to avoid circular imports"""
         if self._gemini_service is None:
             from app.utils.gemini import GeminiService
             self._gemini_service = GeminiService()
         return self._gemini_service
+    
+    async def _ai_create_context_plan(self, user_message: str, is_new_conversation: bool) -> Dict:
+        """
+        Uses AI to create a comprehensive context engineering plan.
+        This is the core "brain" of the orchestrator - implementing top-down context theory.
+        """
+        gemini = self._get_gemini()
+        
+        # Streamlined prompt for faster processing
+        prompt = f"""As an expert context engineer, analyze this message and create a JSON plan for optimal context engineering.
+
+**JEAN MEMORY MISSION**: Ensure AI applications understand users consistently by providing persistent, cross-platform memory that surfaces relevant personal context when needed.
+
+**CONTEXT ENGINEERING PRINCIPLES:**
+- NEW CONVERSATIONS: Build coherent understanding of who this person is
+- CONTINUING CONVERSATIONS: Surface only relevant context to avoid flooding
+- Focus on what helps the AI understand this INDIVIDUAL person
+
+**Message Analysis:**
+Conversation Type: {'New conversation (first message)' if is_new_conversation else 'Continuing conversation'}
+User Message: "{user_message}"
+
+Respond with valid JSON only:
+{{
+  "user_intent": "brief description of what user wants",
+  "understanding_focus": {{
+    "identity_coherence": "what to understand about who they are" or null,
+    "personal_patterns": "their unique patterns/preferences to surface" or null,
+    "contextual_relevance": "what specific context helps with this request" or null,
+    "growth_trajectory": "how they're evolving/learning" or null
+  }},
+  "context_strategy": "deep_understanding" | "relevant_context" | "comprehensive_analysis",
+  "search_queries": ["specific", "targeted", "search", "queries"],
+  "should_save_memory": true/false,
+  "save_with_priority": true/false,
+  "memorable_content": "what to remember" or null,
+  "understanding_enhancement": "how this builds user understanding"
+}}"""
+
+        try:
+            # Add timeout to prevent slow responses
+            response_text = await asyncio.wait_for(
+                gemini.generate_response(prompt),
+                timeout=8.0  # 8 second timeout for faster responses
+            )
+            
+            # Extract JSON from response
+            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+            if json_match:
+                plan = json.loads(json_match.group())
+                logger.info(f"✅ AI Context Plan: {plan}")
+                return plan
+            else:
+                logger.warning("No JSON found in AI response, using fallback")
+                return self._get_fallback_plan(user_message, is_new_conversation)
+                
+        except asyncio.TimeoutError:
+            logger.warning(f"⏰ AI planner timed out after 8s, using fallback")
+            return self._get_fallback_plan(user_message, is_new_conversation)
+        except Exception as e:
+            logger.error(f"❌ Error creating AI context plan: {e}. Defaulting to simple search.", exc_info=True)
+            return self._get_fallback_plan(user_message, is_new_conversation)
+
+    def _get_fallback_plan(self, user_message: str, is_new_conversation: bool) -> Dict:
+        """Fast fallback when AI planning fails or times out"""
+        
+        # Detect if user wants deeper analysis
+        deeper_analysis_keywords = ["deeper", "more detail", "comprehensive", "tell me more", "elaborate", "analyze"]
+        wants_deeper = any(keyword in user_message.lower() for keyword in deeper_analysis_keywords)
+        
+        # Choose strategy based on request type
+        if wants_deeper and not is_new_conversation:
+            context_strategy = "comprehensive_analysis"
+            search_queries = ["comprehensive analysis of user's background, projects, and expertise"]
+        elif is_new_conversation:
+            context_strategy = "deep_understanding"
+            search_queries = [user_message, "user's core identity and background", "user's current projects and interests"]
+        else:
+            context_strategy = "relevant_context"
+            search_queries = [user_message]
+        
+        return {
+            "user_intent": "fallback_search",
+            "context_strategy": context_strategy,
+            "search_queries": search_queries,
+            "should_save_memory": is_new_conversation or ("remember" in user_message.lower()),
+            "save_with_priority": "always remember" in user_message.lower(),
+            "memorable_content": user_message if is_new_conversation or "remember" in user_message.lower() else None,
+            "understanding_enhancement": f"Fallback context engineering: {user_message}" if is_new_conversation else None
+        }
     
     async def orchestrate_smart_context(
         self, 
         user_message: str, 
         user_id: str, 
         client_name: str,
-        conversation_context: Optional[str] = None
+        is_new_conversation: bool
     ) -> str:
-        """
-        Main orchestration method that provides intelligent context engineering.
-        
-        Args:
-            user_message: The user's current message
-            user_id: Supabase user ID
-            client_name: MCP client name
-            conversation_context: Optional hints about conversation state
-            
-        Returns:
-            Enhanced context string that provides relevant background
-        """
-        start_time = time.time()
+        orchestration_start_time = time.time()
+        logger.info(f"🚀 [Jean Memory] Orchestration started for user {user_id}. New convo: {is_new_conversation}")
         
         try:
-            # Step 1: Check session cache for user context
-            cache_key = f"{user_id}_{client_name}"
-            cached_context = self._get_cached_context(cache_key)
+            background_tasks = background_tasks_var.get()
+            # Step 1: Create plan for saving memory and determining context strategy
+            plan = await self._ai_create_context_plan(user_message, is_new_conversation)
             
-            # Step 2: Detect conversation type
-            is_new_chat = await self._detect_new_conversation(
-                user_message, conversation_context, cached_context
-            )
+            # Extract strategy and handle new schema
+            context_strategy = plan.get("context_strategy", "targeted_search")
             
-            # Step 3: Parallel execution - context gathering and memory processing
-            context_task = self._gather_intelligent_context(
-                user_message, user_id, client_name, is_new_chat, cached_context
-            )
-            memory_task = self._process_memory_intelligently(
-                user_message, user_id, client_name
-            )
+            # Step 2: Execute the context strategy based on plan
+            context_task = None
+            if context_strategy == "comprehensive_analysis":
+                logger.info("🔬 [Jean Memory] Executing comprehensive analysis.")
+                context_task = self._execute_comprehensive_analysis(plan, user_id)
+            elif context_strategy == "deep_understanding":
+                logger.info("🔥 [Jean Memory] Executing deep understanding context primer.")
+                context_task = self._get_deep_understanding_primer(plan, user_id)
+            elif context_strategy == "relevant_context" and plan.get("search_queries"):
+                logger.info("💬 [Jean Memory] Executing relevant context search.")
+                context_task = self._execute_relevant_context_search(plan, user_id)
+            else:
+                # If no context strategy specified, create a no-op task
+                logger.info("📝 [Jean Memory] No specific context strategy, using basic search.")
+                context_task = self._execute_relevant_context_search(plan, user_id)
+
+            # Step 3: Handle memory saving and understanding enhancement
+            memory_task = asyncio.sleep(0) # Default no-op task
+            if plan.get("should_save_memory") and plan.get("memorable_content"):
+                logger.info("💾 [Jean Memory] Adding memory saving to background tasks.")
+                background_tasks.add_task(self._add_memory_background,
+                    plan["memorable_content"], 
+                    user_id, 
+                    client_name,
+                    priority=plan.get("save_with_priority", False)
+                )
+                
+                # Handle understanding enhancement
+                if plan.get("understanding_enhancement"):
+                    logger.info("🎯 [Jean Memory] Adding understanding enhancement directive.")
+                    background_tasks.add_task(self._add_understanding_enhancement_directive,
+                        plan["understanding_enhancement"],
+                        user_id,
+                        client_name
+                    )
+
+            context_results, _ = await asyncio.gather(context_task, memory_task, return_exceptions=True)
             
-            # Execute both in parallel
-            context_result, memory_result = await asyncio.gather(
-                context_task, memory_task, return_exceptions=True
-            )
+            # Step 4: Format the context using top-down approach
+            enhanced_context = self._format_layered_context(context_results, plan)
             
-            # Step 4: Build enhanced context response
-            enhanced_context = await self._build_context_response(
-                context_result, memory_result, is_new_chat, user_message
-            )
-            
-            # Step 5: Update session cache
-            if not isinstance(context_result, Exception):
-                self._update_context_cache(cache_key, context_result, user_id)
-            
-            processing_time = time.time() - start_time
-            
-            # Add debug info if slow
-            if processing_time > 2.0:
-                enhanced_context += f"\n⏱️ Processing took {processing_time:.1f}s"
+            processing_time = time.time() - orchestration_start_time
+            logger.info(f"🏁 [Jean Memory] Orchestration finished in {processing_time:.2f}s. Context length: {len(enhanced_context)} chars.")
             
             return enhanced_context
             
         except Exception as e:
-            logger.error(f"Error in smart context orchestration: {e}", exc_info=True)
-            return f"I encountered an issue processing your message: {str(e)}"
+            logger.error(f"❌ Unhandled error in smart_context orchestration: {e}", exc_info=True)
+            return "" # Fail gracefully with no context
+
+    async def _get_deep_understanding_primer(self, plan: Dict, user_id: str) -> Dict:
+        """
+        Implements the top-down context engineering approach using AI intelligence.
+        The AI planner determines what context layers and searches are most relevant.
+        
+        Following the bitter lesson: leverage AI intelligence, not hard-coded heuristics.
+        """
+        logger.info("📋 [Context Engineering] Executing AI-guided deep understanding primer")
+        
+        # Let the AI planner determine the search queries - it knows what's most relevant
+        search_queries = plan.get("search_queries", [])
+        
+        if not search_queries:
+            logger.info("No search queries specified by AI planner - using minimal fallback")
+            return {}
+        
+        # For new conversations, use higher limits since this is the key learning moment
+        # But let the AI decide what to search for, not hard-coded categories
+        search_limit = 15  # Generous limit for comprehensive new conversation understanding
+        
+        # Execute AI-determined searches in parallel
+        tasks = [self._get_tools()['search_memory'](query=query, limit=search_limit) for query in search_queries]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Organize results based on what the AI found most relevant
+        all_context = []
+        for query, result in zip(search_queries, results):
+            if isinstance(result, Exception):
+                logger.error(f"Error in AI-guided search '{query}': {result}")
+                continue
+                
+            try:
+                memories = json.loads(result)
+                for mem in memories:
+                    if isinstance(mem, dict):
+                        memory_content = mem.get('memory', mem.get('content', ''))
+                        if memory_content and memory_content not in all_context:
+                            all_context.append(memory_content)
+                        
+            except (json.JSONDecodeError, TypeError):
+                logger.warning(f"Could not parse AI-guided search result for '{query}': {result}")
+        
+        # Return as unified context - let the formatting layer organize it intelligently
+        return {"ai_guided_context": all_context}
+
+    async def _execute_comprehensive_analysis(self, plan: Dict, user_id: str) -> Dict:
+        """
+        Execute comprehensive analysis for deeper queries like "go much deeper".
+        This provides immediate detailed information rather than background processing.
+        """
+        search_queries = plan.get("search_queries", [])
+        if not search_queries:
+            # Fallback to comprehensive search
+            search_queries = ["comprehensive user background and expertise", "user's projects and achievements", "user's interests and goals"]
+        
+        # Use higher limits for comprehensive analysis
+        comprehensive_limit = 20
+        
+        # Execute comprehensive searches
+        tasks = [self._get_tools()['search_memory'](query=query, limit=comprehensive_limit) for query in search_queries]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Collect all unique memories for comprehensive view
+        all_memories = {}
+        for query, result in zip(search_queries, results):
+            if isinstance(result, Exception):
+                logger.error(f"Error in comprehensive search '{query}': {result}")
+                continue
+                
+            try:
+                memories = json.loads(result)
+                for mem in memories:
+                    if isinstance(mem, dict):
+                        memory_id = mem.get('id', len(all_memories))
+                        memory_content = mem.get('memory', mem.get('content', ''))
+                        if memory_content and memory_id not in all_memories:
+                            all_memories[memory_id] = memory_content
+                        
+            except (json.JSONDecodeError, TypeError):
+                logger.warning(f"Could not parse comprehensive search result for '{query}': {result}")
+        
+        return {"comprehensive_memories": all_memories}
+
+    async def _execute_relevant_context_search(self, plan: Dict, user_id: str) -> Dict:
+        """
+        Execute relevant context search based on specific queries from the AI plan.
+        This is for continuing conversations with relevant context needs.
+        """
+        search_queries = plan.get("search_queries", [])
+        if not search_queries:
+            return {}
+
+        tasks = [self._get_tools()['search_memory'](query=q, limit=12) for q in search_queries]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        relevant_memories = {}
+        for query, result in zip(search_queries, results):
+            if isinstance(result, Exception):
+                logger.error(f"Error searching for '{query}': {result}")
+                continue
+            try:
+                memories = json.loads(result)
+                for mem in memories:
+                    if isinstance(mem, dict):
+                        # Use memory ID as key to deduplicate
+                        memory_id = mem.get('id', len(relevant_memories))
+                        relevant_memories[memory_id] = mem.get('memory', mem.get('content', ''))
+            except (json.JSONDecodeError, TypeError):
+                logger.warning(f"Could not parse search result for query '{query}': {result}")
+        
+        return {"relevant_memories": relevant_memories}
+
+    def _format_layered_context(self, context_results: Dict, plan: Dict) -> str:
+        """
+        Format context intelligently based on what the AI found most relevant.
+        Following the bitter lesson: let AI intelligence determine the optimal presentation.
+        """
+        if not context_results or isinstance(context_results, Exception):
+            return ""
+
+        context_parts = []
+        context_strategy = plan.get("context_strategy", "targeted_search")
+        
+        if context_strategy == "comprehensive_analysis":
+            # COMPREHENSIVE ANALYSIS: Show detailed, comprehensive information
+            comprehensive_memories = context_results.get('comprehensive_memories', {})
+            
+            if comprehensive_memories:
+                # Group memories by relevance/type for better organization
+                memory_list = list(comprehensive_memories.values())
+                
+                # Show comprehensive context in structured format
+                if len(memory_list) > 15:
+                    # Split into multiple sections for very comprehensive analysis
+                    professional_info = [m for m in memory_list if any(keyword in m.lower() for keyword in ['work', 'project', 'build', 'develop', 'engineer', 'company'])]
+                    personal_info = [m for m in memory_list if any(keyword in m.lower() for keyword in ['prefer', 'love', 'like', 'value', 'interest'])]
+                    technical_info = [m for m in memory_list if any(keyword in m.lower() for keyword in ['python', 'javascript', 'ml', 'ai', 'code', 'tech'])]
+                    other_info = [m for m in memory_list if m not in professional_info + personal_info + technical_info]
+                    
+                    if professional_info:
+                        context_parts.append(f"Professional Background: {'; '.join(professional_info[:8])}")
+                    if technical_info:
+                        context_parts.append(f"Technical Expertise: {'; '.join(technical_info[:6])}")
+                    if personal_info:
+                        context_parts.append(f"Personal Preferences: {'; '.join(personal_info[:4])}")
+                    if other_info:
+                        context_parts.append(f"Additional Context: {'; '.join(other_info[:4])}")
+                else:
+                    # For moderate amounts, show all in comprehensive format
+                    context_parts.append(f"Comprehensive Context: {'; '.join(memory_list)}")
+        
+        elif context_strategy == "deep_understanding":
+            # NEW CONVERSATIONS: Let AI intelligence determine what's most important to show
+            ai_context = context_results.get('ai_guided_context', [])
+            
+            if ai_context:
+                # For new conversations, show more context but let the AI's search decisions guide what's shown
+                # The AI planner already determined what was most relevant to search for
+                comprehensive_context = ai_context[:12]  # Show up to 12 most relevant pieces
+                
+                if len(comprehensive_context) > 6:
+                    # Split into two logical groups if we have enough context
+                    primary_context = comprehensive_context[:6]
+                    secondary_context = comprehensive_context[6:]
+                    
+                    context_parts.append(f"Core Context: {'; '.join(primary_context)}")
+                    context_parts.append(f"Additional Context: {'; '.join(secondary_context)}")
+                else:
+                    context_parts.append(f"Relevant Context: {'; '.join(comprehensive_context)}")
+                
+        else:
+            # CONTINUING CONVERSATIONS: Lean, targeted context only
+            
+            # Check for system directives first
+            behavioral = context_results.get('behavioral', [])
+            if behavioral:
+                priority_behavioral = [b for b in behavioral if 'SYSTEM DIRECTIVE' in b or 'prefer' in b.lower()]
+                if priority_behavioral:
+                    context_parts.append(f"Preferences: {'; '.join(priority_behavioral[:1])}")
+            
+            # Show relevant context
+            query_specific = context_results.get('query_specific', [])
+            relevant_memories = context_results.get('relevant_memories', {})
+            ai_context = context_results.get('ai_guided_context', [])
+            
+            if query_specific:
+                context_parts.append(f"Relevant: {'; '.join(query_specific[:2])}")
+            elif relevant_memories:
+                mem_list = list(relevant_memories.values())[:2]
+                if mem_list:
+                    context_parts.append(f"Relevant: {'; '.join(mem_list)}")
+            elif ai_context:
+                context_parts.append(f"Relevant: {'; '.join(ai_context[:2])}")
+
+        if not context_parts:
+            return ""
+
+        # Simple, clean formatting
+        if context_strategy == "comprehensive_analysis":
+            return f"---\n[Jean Memory Context - Comprehensive Analysis]\n" + "\n".join(context_parts) + "\n---"
+        elif context_strategy == "deep_understanding":
+            return f"---\n[Jean Memory Context - New Conversation]\n" + "\n".join(context_parts) + "\n---"
+        else:
+            return f"---\n[Jean Memory Context]\n" + "\n".join(context_parts) + "\n---"
+
+    async def _add_understanding_enhancement_directive(
+        self, 
+        directive: str, 
+        user_id: str, 
+        client_name: str
+    ):
+        """
+        Adds a system directive to enhance understanding of the user.
+        Simplified for local testing - just call add_memories directly.
+        """
+        try:
+            logger.info(f"🎯 [Understanding Enhancement] Adding directive for user {user_id}: {directive[:50]}...")
+            
+            # For local testing, just call the tool directly - context should be inherited
+            await self._get_tools()['add_memories'](
+                text=f"SYSTEM DIRECTIVE: {directive}", 
+                tags=['priority', 'system_directive'], 
+                priority=True
+            )
+            logger.info(f"✅ [Understanding Enhancement] Successfully added system directive for user {user_id}.")
+                
+        except Exception as e:
+            logger.error(f"❌ [Understanding Enhancement] Error adding system directive: {e}", exc_info=True)
+
+    async def _execute_deep_analysis_background(self, plan: Dict, user_id: str, client_name: str):
+        """
+        Executes a deep memory query in the background and saves the result.
+        """
+        try:
+            query = (plan.get("search_queries") or [""])[0]
+            if not query:
+                logger.warning("Deep analysis triggered but no search query was provided in the plan.")
+                return
+
+            logger.info(f"🔬 [Deep Analysis BG] Starting deep query for user {user_id}: '{query}'")
+            analysis_result = await self._get_tools()['deep_memory_query'](search_query=query)
+            
+            if analysis_result:
+                # Save the result as a new memory for later retrieval
+                memorable_content = f"The result of a deep analysis on '{query}':\n\n{analysis_result}"
+                await self._add_memory_background(memorable_content, user_id, client_name)
+                logger.info(f"✅ [Deep Analysis BG] Successfully completed and saved deep analysis for user {user_id}.")
+            else:
+                logger.warning(f"⚠️ [Deep Analysis BG] No analysis result generated for user {user_id}.")
+
+        except Exception as e:
+            logger.error(f"❌ [Deep Analysis BG] Failed for user {user_id}: {e}", exc_info=True)
+            
+            # Optionally, save an error memory
+            error_content = f"An error occurred during a deep analysis for the query: '{query}'."
+            await self._add_memory_background(error_content, user_id, client_name, priority=False)
+
+    async def _get_new_conversation_primer(self, user_id: str) -> Dict:
+        """
+        Fetches a general context summary to prime a new conversation.
+        """
+        logger.info("Getting new conversation primer...")
+        # Define generic but useful queries for a new chat
+        primer_queries = {
+            "core_directives": {"query": "user's core directives or always-remember instructions", "tags_filter": ["priority"]},
+            "core_preferences": {"query": "user's core preferences, personality traits, and values", "tags_filter": None},
+            "current_focus": {"query": "user's current projects, work, and learning goals", "tags_filter": None}
+        }
+        
+        tasks = [self._get_tools()['search_memory'](query=q['query'], limit=10, tags_filter=q['tags_filter']) for q in primer_queries.values()]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        all_memories = {}
+        for (category, result) in zip(primer_queries.keys(), results):
+            if isinstance(result, Exception):
+                logger.error(f"Error fetching primer category '{category}': {result}")
+                continue
+            try:
+                memories = json.loads(result)
+                # We just take the content for the primer
+                all_memories[category] = [mem['memory'] for mem in memories]
+            except (json.JSONDecodeError, TypeError):
+                logger.warning(f"Could not parse primer result for category '{category}': {result}")
+        
+        return all_memories
+
+    async def _execute_context_plan(self, plan: Dict, user_id: str) -> Dict:
+        search_queries = plan.get("search_queries")
+        if not search_queries:
+            return {}
+
+        tasks = [self._get_tools()['search_memory'](query=q, limit=15) for q in search_queries]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        all_memories = {}
+        for query, result in zip(search_queries, results):
+            if isinstance(result, Exception):
+                logger.error(f"Error searching for '{query}': {result}")
+                continue
+            try:
+                memories = json.loads(result)
+                for mem in memories:
+                    # Use memory ID as key to deduplicate
+                    all_memories[mem['id']] = mem['memory']
+            except (json.JSONDecodeError, TypeError):
+                logger.warning(f"Could not parse search result for query '{query}': {result}")
+        
+        return all_memories
+
+    def _format_structured_context(self, context_results: Dict) -> str:
+        if not context_results or isinstance(context_results, Exception):
+            return ""
+
+        context_parts = []
+        
+        core_directives = context_results.get('core_directives')
+        if core_directives:
+             context_parts.append(f"User's Core Directives: {'; '.join(core_directives)}")
+
+        core_prefs = context_results.get('core_preferences')
+        if core_prefs:
+             context_parts.append(f"User's Core Preferences: {'; '.join(core_prefs)}")
+
+        current_focus = context_results.get('current_focus')
+        if current_focus:
+             context_parts.append(f"User's Current Focus: {'; '.join(current_focus)}")
+
+        # For memories from a targeted search
+        other_memories = {k: v for k, v in context_results.items() if k not in ['core_directives', 'core_preferences', 'current_focus']}
+        if other_memories:
+            # This will handle the deduplicated memories from _execute_context_plan
+            mem_list = list(other_memories.values())
+            if mem_list:
+                 context_parts.append(f"Relevant Memories: {'; '.join(mem_list)}")
+
+        if not context_parts:
+            return ""
+
+        return f"---\n[Jean Memory Context]\n" + "\n".join(context_parts) + "\n---"
+
+    async def _add_memory_background(self, content: str, user_id: str, client_name: str, priority: bool = False):
+        """
+        Add memory in background task with proper context isolation.
+        Context variables are lost in background tasks, so we pass them as parameters.
+        """
+        try:
+            logger.info(f"💾 [BG Add Memory] Saving memory for user {user_id}: {content[:50]}...")
+            
+            # Import here to avoid circular imports
+            from app.utils.memory import get_memory_client
+            
+            # CRITICAL FIX: Set context variables in background task since they're lost
+            user_token = user_id_var.set(user_id)
+            client_token = client_name_var.set(client_name)
+            
+            try:
+                memory_client = get_memory_client()
+                db = SessionLocal()
+                
+                try:
+                    user, app = get_user_and_app(db, supabase_user_id=user_id, app_name=client_name, email=None)
+                    
+                    if not app.is_active:
+                        logger.warning(f"Background memory add skipped - app {app.name} is paused for user {user_id}")
+                        return
+
+                    metadata = {
+                        "source_app": "openmemory_mcp",
+                        "mcp_client": client_name,
+                        "app_db_id": str(app.id)
+                    }
+                    
+                    if priority:
+                        metadata['tags'] = ['priority']
+
+                    message_to_add = {
+                        "role": "user",
+                        "content": content
+                    }
+
+                    # Execute memory addition
+                    loop = asyncio.get_running_loop()
+                    add_call = functools.partial(
+                        memory_client.add,
+                        messages=[message_to_add],
+                        user_id=user_id,
+                        metadata=metadata
+                    )
+                    response = await loop.run_in_executor(None, add_call)
+
+                    # Process results and update SQL database
+                    if isinstance(response, dict) and 'results' in response:
+                        for result in response['results']:
+                            mem0_memory_id_str = result['id']
+                            mem0_content = result.get('memory', content)
+
+                            if result.get('event') == 'ADD':
+                                sql_memory_record = Memory(
+                                    user_id=user.id,
+                                    app_id=app.id,
+                                    content=mem0_content,
+                                    state=MemoryState.active,
+                                    metadata_={**result.get('metadata', {}), "mem0_id": mem0_memory_id_str}
+                                )
+                                db.add(sql_memory_record)
+                        
+                        db.commit()
+                        logger.info(f"✅ [BG Add Memory] Successfully saved memory for user {user_id}.")
+                    else:
+                        logger.warning(f"⚠️ [BG Add Memory] Unexpected response format for user {user_id}: {response}")
+                        
+                finally:
+                    db.close()
+                    
+            finally:
+                # Clean up context variables
+                user_id_var.reset(user_token)
+                client_name_var.reset(client_token)
+                
+        except Exception as e:
+            logger.error(f"❌ [BG Add Memory] Failed for user {user_id}: {e}", exc_info=True)
     
     def _get_cached_context(self, cache_key: str) -> Optional[Dict]:
         """Get cached context if it exists and is still valid"""
@@ -152,182 +671,42 @@ class SmartContextOrchestrator:
         except Exception as e:
             logger.error(f"Error updating context cache: {e}")
     
-    async def _detect_new_conversation(
-        self, 
-        user_message: str, 
-        conversation_context: Optional[str],
-        cached_context: Optional[Dict]
-    ) -> bool:
+    async def _gather_planned_context(self, plan: Dict, user_id: str, client_name: str) -> Dict:
         """
-        Use Gemini 2.5 Flash to intelligently detect if this is a new conversation.
-        Leverages AI reasoning instead of hard-coded heuristics.
+        Gathers context based on the AI-generated execution plan.
         """
-        try:
-            # Quick checks first
-            if conversation_context:
-                if any(hint in conversation_context.lower() for hint in 
-                      ['new_conversation', 'new_chat', 'fresh_start']):
-                    return True
-                if any(hint in conversation_context.lower() for hint in 
-                      ['continuing', 'follow_up', 'same_conversation']):
-                    return False
-            
-            # If no cache, it's definitely new
-            if not cached_context:
-                return True
-            
-            # Use Gemini for intelligent analysis
-            gemini = self._get_gemini()
-            
-            # Build context for analysis
-            cache_age = ""
-            if cached_context and cached_context.get('timestamp'):
-                age_minutes = (datetime.now() - cached_context['timestamp']).total_seconds() / 60
-                cache_age = f"Last context cached {age_minutes:.0f} minutes ago."
-            
-            prompt = f"""Analyze this message to determine if it represents a NEW conversation start or CONTINUING an existing conversation.
+        tools = self._get_tools()
+        context_needed = plan.get("context_needed", [])
+        
+        if not context_needed:
+            return {"type": "no_context_needed", "plan": plan}
 
-USER MESSAGE: "{user_message}"
+        tasks = {}
+        if "working_memory" in context_needed:
+            tasks["working_memory"] = self._get_working_memory(user_id, tools)
+        if "user_profile" in context_needed:
+            tasks["user_profile"] = self._get_user_profile(user_id, tools)
+        if "relevant_memories" in context_needed and plan.get("search_query"):
+            tasks["relevant_memories"] = self._get_query_relevant_context(plan["search_query"], user_id, tools)
+        if "deep_analysis" in context_needed and plan.get("search_query"):
+            tasks["deep_analysis"] = tools['deep_memory_query'](search_query=plan["search_query"])
 
-CONTEXT:
-- {cache_age if cache_age else "No previous context available."}
-- User has existing conversation history stored
-
-CRITERIA for NEW conversation:
-- Greetings and introductions
-- Starting fresh on new topics
-- Self-introductions or context setting
-- Messages that establish new interaction patterns
-
-CRITERIA for CONTINUING conversation:
-- References to previous discussions
-- Follow-up questions
-- Assumes prior context
-- Short queries without introductory elements
-
-Respond with ONLY one word: "NEW" or "CONTINUING"
-"""
+        if not tasks:
+            return {"type": "no_context_needed", "plan": plan}
             
-            response = await asyncio.to_thread(
-                gemini.model.generate_content,
-                prompt,
-                generation_config={
-                    "temperature": 0.1,  # Low temperature for consistent decisions
-                    "max_output_tokens": 10
-                }
-            )
-            
-            result = response.text.strip().upper()
-            is_new = result == "NEW"
-            
-            logger.info(f"AI conversation detection: '{user_message[:50]}...' -> {result}")
-            return is_new
-            
-        except Exception as e:
-            logger.error(f"Error in AI conversation detection: {e}")
-            # Fallback: assume continuing unless it looks like a greeting
-            return user_message.lower().strip().startswith(('hello', 'hi ', 'hey '))
-    
-    async def _gather_intelligent_context(
-        self, 
-        user_message: str, 
-        user_id: str, 
-        client_name: str, 
-        is_new_chat: bool,
-        cached_context: Optional[Dict]
-    ) -> Dict:
-        """
-        Gather context intelligently based on conversation type and cache status.
-        """
-        try:
-            tools = self._get_tools()
-            
-            if is_new_chat:
-                # For new conversations, build comprehensive fresh context
-                return await self._build_fresh_context(
-                    user_message, user_id, client_name, tools
-                )
+        # Execute tasks in parallel
+        results = await asyncio.gather(*tasks.values(), return_exceptions=True)
+        
+        # Map results back to their context types
+        final_context = {"type": "planned_context", "plan": plan}
+        for (context_type, result) in zip(tasks.keys(), results):
+            if isinstance(result, Exception):
+                logger.error(f"Error gathering planned context for '{context_type}': {result}")
+                final_context[context_type] = {"error": str(result)}
             else:
-                # For continuing conversations, use working memory + targeted search
-                return await self._build_continuing_context(
-                    user_message, user_id, client_name, tools, cached_context
-                )
-                
-        except Exception as e:
-            logger.error(f"Error gathering intelligent context: {e}")
-            return {"error": str(e)}
-    
-    async def _build_fresh_context(
-        self, 
-        user_message: str, 
-        user_id: str, 
-        client_name: str, 
-        tools: Dict
-    ) -> Dict:
-        """
-        Build comprehensive fresh context for new conversations.
-        Uses list_memories as working memory + user profile building.
-        """
-        try:
-            # Run multiple context gathering operations in parallel
-            working_memory_task = self._get_working_memory(user_id, tools)
-            user_profile_task = self._get_user_profile(user_id, tools)
-            query_relevant_task = self._get_query_relevant_context(user_message, user_id, tools)
-            
-            working_memory, user_profile, query_relevant = await asyncio.gather(
-                working_memory_task, user_profile_task, query_relevant_task,
-                return_exceptions=True
-            )
-            
-            return {
-                "type": "fresh_context",
-                "working_memory": working_memory if not isinstance(working_memory, Exception) else None,
-                "user_profile": user_profile if not isinstance(user_profile, Exception) else None,
-                "query_relevant": query_relevant if not isinstance(query_relevant, Exception) else None,
-                "is_new_chat": True
-            }
-            
-        except Exception as e:
-            logger.error(f"Error building fresh context: {e}")
-            return {"error": str(e), "type": "fresh_context"}
-    
-    async def _build_continuing_context(
-        self, 
-        user_message: str, 
-        user_id: str, 
-        client_name: str, 
-        tools: Dict,
-        cached_context: Optional[Dict]
-    ) -> Dict:
-        """
-        Build context for continuing conversations using working memory + targeted search.
-        """
-        try:
-            # For continuing conversations, focus on working memory + specific search
-            working_memory_task = self._get_working_memory(user_id, tools)
-            targeted_search_task = self._get_targeted_search(user_message, user_id, tools)
-            
-            working_memory, targeted_search = await asyncio.gather(
-                working_memory_task, targeted_search_task,
-                return_exceptions=True
-            )
-            
-            # Use cached user profile if available
-            cached_profile = None
-            if cached_context and cached_context.get('context_data'):
-                cached_profile = cached_context['context_data'].get('user_profile')
-            
-            return {
-                "type": "continuing_context",
-                "working_memory": working_memory if not isinstance(working_memory, Exception) else None,
-                "targeted_search": targeted_search if not isinstance(targeted_search, Exception) else None,
-                "cached_profile": cached_profile,
-                "is_new_chat": False
-            }
-            
-        except Exception as e:
-            logger.error(f"Error building continuing context: {e}")
-            return {"error": str(e), "type": "continuing_context"}
+                final_context[context_type] = result
+
+        return final_context
     
     async def _get_working_memory(self, user_id: str, tools: Dict) -> Dict:
         """
@@ -374,17 +753,21 @@ Respond with ONLY one word: "NEW" or "CONTINUING"
                 "What am I currently working on?"
             ]
             
+            # Create a list of tasks to run in parallel
+            tasks = [tools['ask_memory'](question=q) for q in profile_questions]
+            
+            # Run all questions in parallel
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
             profile_responses = []
-            for question in profile_questions:
-                try:
-                    response = await tools['ask_memory'](question=question)
+            for question, result in zip(profile_questions, results):
+                if isinstance(result, Exception):
+                    logger.error(f"Error with profile question '{question}': {result}")
+                    continue
                     profile_responses.append({
                         "question": question,
-                        "answer": response
+                    "answer": result
                     })
-                except Exception as e:
-                    logger.error(f"Error with profile question '{question}': {e}")
-                    continue
             
             return {
                 "profile_responses": profile_responses,
@@ -421,122 +804,9 @@ Respond with ONLY one word: "NEW" or "CONTINUING"
             logger.error(f"Error getting query relevant context: {e}")
             return {"error": str(e)}
     
-    async def _get_targeted_search(self, user_message: str, user_id: str, tools: Dict) -> Dict:
-        """
-        Perform AI-guided targeted search for continuing conversations.
-        """
-        try:
-            # Use AI to determine if we need deep search or regular search
-            search_analysis = await self._ai_needs_deep_search(user_message)
-            
-            if search_analysis["needs_deep"]:
-                # Use deep_memory_query for complex questions
-                deep_result = await tools['deep_memory_query'](search_query=user_message)
-                return {
-                    "search_type": "deep",
-                    "result": deep_result,
-                    "ai_reasoning": search_analysis["reasoning"]
-                }
-            else:
-                # Use regular search_memory for simple queries
-                search_result_str = await tools['search_memory'](query=user_message, limit=10)
-                
-                # Handle JSON parsing safely
-                search_result = []
-                if search_result_str and search_result_str.strip():
-                    try:
-                        search_result = json.loads(search_result_str)
-                    except json.JSONDecodeError:
-                        logger.warning(f"Failed to parse search_memory JSON response: {search_result_str[:100]}...")
-                        search_result = []
-                
-                return {
-                    "search_type": "regular",
-                    "result": search_result,
-                    "ai_reasoning": search_analysis["reasoning"]
-                }
-                
-        except Exception as e:
-            logger.error(f"Error in targeted search: {e}")
-            return {"error": str(e)}
-    
-    async def _ai_needs_deep_search(self, user_message: str) -> Dict:
-        """
-        Use Gemini 2.5 Flash to determine if the user message needs deep search analysis.
-        """
-        try:
-            gemini = self._get_gemini()
-            
-            prompt = f"""Analyze this user message to determine if it requires DEEP SEARCH (comprehensive analysis across all content) or REGULAR SEARCH (simple memory lookup).
-
-USER MESSAGE: "{user_message}"
-
-DEEP SEARCH is needed for:
-- Requests to analyze, summarize, or compare across multiple sources
-- Questions about patterns, trends, or themes in the user's life/work
-- Comprehensive queries (e.g., "everything about", "all my", "overall")
-- Complex analytical questions requiring synthesis of multiple memories/documents
-- Requests for insights, explanations, or understanding of complex topics
-
-REGULAR SEARCH is sufficient for:
-- Simple factual questions
-- Looking up specific information
-- Quick queries about preferences or basic facts
-- Direct questions with straightforward answers
-
-RESPONSE FORMAT:
-Decision: DEEP or REGULAR
-Reasoning: [Brief explanation of why this level of search is needed]
-
-Example:
-Decision: DEEP
-Reasoning: Request to analyze patterns across user's goals requires comprehensive analysis
-
-Example:
-Decision: REGULAR
-Reasoning: Simple factual question about a preference can be answered with basic search"""
-            
-            response = await asyncio.to_thread(
-                gemini.model.generate_content,
-                prompt,
-                generation_config={
-                    "temperature": 0.2,
-                    "max_output_tokens": 150
-                }
-            )
-            
-            result = response.text.strip()
-            
-            # Parse the response
-            lines = result.split('\n')
-            decision_line = next((line for line in lines if line.startswith('Decision:')), '')
-            reasoning_line = next((line for line in lines if line.startswith('Reasoning:')), '')
-            
-            needs_deep = 'DEEP' in decision_line.upper()
-            reasoning = reasoning_line.replace('Reasoning:', '').strip() if reasoning_line else "AI analysis"
-            
-            logger.info(f"AI search depth decision: '{user_message[:30]}...' -> {'DEEP' if needs_deep else 'REGULAR'}")
-            
-            return {
-                "needs_deep": needs_deep,
-                "reasoning": reasoning,
-                "search_type": "deep" if needs_deep else "regular"
-            }
-            
-        except Exception as e:
-            logger.error(f"Error in AI deep search detection: {e}")
-            # Fallback to simple heuristic
-            simple_check = any(indicator in user_message.lower() for indicator in 
-                             ['analyze', 'summarize', 'compare', 'patterns', 'everything about'])
-            return {
-                "needs_deep": simple_check,
-                "reasoning": "Fallback heuristic analysis",
-                "search_type": "deep" if simple_check else "regular"
-            }
-    
     async def _process_memory_intelligently(
         self, 
-        user_message: str, 
+        memorable_content: str, 
         user_id: str, 
         client_name: str
     ) -> Dict:
@@ -545,29 +815,19 @@ Reasoning: Simple factual question about a preference can be answered with basic
         Uses background processing to avoid blocking the response.
         """
         try:
-            # Use AI to analyze memory worthiness
-            memory_analysis = await self._ai_memory_analysis(user_message)
-            
-            if memory_analysis["should_remember"]:
+            # This function is now simpler as the decision is made by the planner
                 tools = self._get_tools()
-                memorable_content = memory_analysis["content"]
                 
                 # Add memory in background (fire and forget)
                 asyncio.create_task(self._add_memory_background(
-                    memorable_content, user_id, client_name, tools
+                    memorable_content, user_id, client_name
                 ))
                 
                 return {
                     "memory_added": True,
                     "content": memorable_content,
                     "processing": "background",
-                    "ai_reasoning": "AI determined this contains memorable personal information"
-                }
-            else:
-                return {
-                    "memory_added": False,
-                    "reason": memory_analysis["content"],  # AI's explanation of why not memorable
-                    "ai_reasoning": "AI determined this doesn't contain memorable information"
+                "ai_reasoning": "AI planner determined this contains memorable personal information"
                 }
                 
         except Exception as e:
@@ -614,16 +874,9 @@ Decision: SKIP
 Content: Simple question about weather with no personal information
 """
             
-            response = await asyncio.to_thread(
-                gemini.model.generate_content,
-                prompt,
-                generation_config={
-                    "temperature": 0.2,
-                    "max_output_tokens": 200
-                }
-            )
+            response = await gemini.generate_response(prompt)
             
-            result = response.text.strip()
+            result = response.strip()
             
             # Parse the response
             lines = result.split('\n')
@@ -659,140 +912,6 @@ Content: Simple question about weather with no personal information
         # For now, return the full message, but could be enhanced with NLP
         # to extract specific facts, preferences, or key information
         return user_message.strip()
-    
-    async def _add_memory_background(
-        self, 
-        content: str, 
-        user_id: str, 
-        client_name: str, 
-        tools: Dict
-    ):
-        """
-        Add memory in background without blocking the main response.
-        """
-        try:
-            await tools['add_memories'](text=content)
-            logger.info(f"Background memory added for user {user_id}: {content[:50]}...")
-        except Exception as e:
-            logger.error(f"Error adding memory in background: {e}")
-    
-    async def _build_context_response(
-        self, 
-        context_result: Dict, 
-        memory_result: Dict, 
-        is_new_chat: bool, 
-        user_message: str
-    ) -> str:
-        """
-        Build the final enhanced context response string.
-        """
-        try:
-            if isinstance(context_result, Exception):
-                return "I'm ready to help! Ask me anything."
-            
-            if context_result.get("error"):
-                return "I'm ready to help! Ask me anything."
-            
-            response_parts = []
-            
-            # Build context based on conversation type
-            if is_new_chat:
-                context_text = self._format_fresh_context(context_result)
-            else:
-                context_text = self._format_continuing_context(context_result)
-            
-            if context_text:
-                response_parts.append(context_text)
-            
-            # Add status indicators
-            status_parts = []
-            
-            if is_new_chat:
-                status_parts.append("🆕 New conversation - I've gathered fresh context about you")
-            
-            if isinstance(memory_result, dict) and memory_result.get("memory_added"):
-                status_parts.append("💾 Processing new information to remember")
-            
-            if status_parts:
-                response_parts.append(" | ".join(status_parts))
-            
-            return "\n".join(response_parts) if response_parts else "I'm ready to help! Ask me anything."
-            
-        except Exception as e:
-            logger.error(f"Error building context response: {e}")
-            return "I'm ready to help! Ask me anything."
-    
-    def _format_fresh_context(self, context_data: Dict) -> str:
-        """
-        Format fresh context for new conversations.
-        """
-        try:
-            context_parts = []
-            
-            # Add user profile summary
-            user_profile = context_data.get("user_profile", {})
-            if user_profile and not user_profile.get("error"):
-                profile_summary = user_profile.get("profile_summary")
-                if profile_summary:
-                    context_parts.append(f"About you: {profile_summary}")
-            
-            # Add recent activity from working memory
-            working_memory = context_data.get("working_memory", {})
-            if working_memory and not working_memory.get("error"):
-                themes = working_memory.get("recent_themes", [])
-                if themes:
-                    context_parts.append(f"Recent focus: {', '.join(themes[:3])}")
-            
-            # Add query-relevant context
-            query_relevant = context_data.get("query_relevant", {})
-            if query_relevant and not query_relevant.get("error"):
-                relevant_count = query_relevant.get("relevance_count", 0)
-                if relevant_count > 0:
-                    context_parts.append(f"Found {relevant_count} relevant memories")
-            
-            if context_parts:
-                return f"Here's helpful context I know: {' | '.join(context_parts)}\n"
-            
-            return ""
-            
-        except Exception as e:
-            logger.error(f"Error formatting fresh context: {e}")
-            return ""
-    
-    def _format_continuing_context(self, context_data: Dict) -> str:
-        """
-        Format context for continuing conversations.
-        """
-        try:
-            context_parts = []
-            
-            # Add working memory insights
-            working_memory = context_data.get("working_memory", {})
-            if working_memory and not working_memory.get("error"):
-                themes = working_memory.get("recent_themes", [])
-                memory_count = working_memory.get("memory_count", 0)
-                if themes and memory_count > 0:
-                    context_parts.append(f"Recent context: {', '.join(themes[:2])} ({memory_count} recent memories)")
-            
-            # Add targeted search results
-            targeted_search = context_data.get("targeted_search", {})
-            if targeted_search and not targeted_search.get("error"):
-                search_type = targeted_search.get("search_type", "regular")
-                if search_type == "deep":
-                    context_parts.append("Using comprehensive analysis")
-                else:
-                    result = targeted_search.get("result", [])
-                    if isinstance(result, list) and len(result) > 0:
-                        context_parts.append(f"Found {len(result)} relevant memories")
-            
-            if context_parts:
-                return f"Context for your question: {' | '.join(context_parts)}\n"
-            
-            return ""
-            
-        except Exception as e:
-            logger.error(f"Error formatting continuing context: {e}")
-            return ""
     
     async def _ai_extract_themes_from_memories(self, memories: List[Dict]) -> List[str]:
         """
@@ -837,16 +956,9 @@ Return ONLY the theme words separated by commas, no explanations.
 
 Example output: work, technology, fitness, travel, learning"""
             
-            response = await asyncio.to_thread(
-                gemini.model.generate_content,
-                prompt,
-                generation_config={
-                    "temperature": 0.3,
-                    "max_output_tokens": 100
-                }
-            )
+            response = await gemini.generate_response(prompt)
             
-            result = response.text.strip()
+            result = response.strip()
             themes = [theme.strip() for theme in result.split(',') if theme.strip()]
             
             # Limit to 5 themes and clean them
@@ -887,6 +999,125 @@ Example output: work, technology, fitness, travel, learning"""
         except Exception as e:
             logger.error(f"Error summarizing profile: {e}")
             return "Profile information processing"
+
+    async def _ai_create_memory_plan(self, user_message: str) -> Dict:
+        """
+        Use AI to decide ONLY if a memory should be saved and what to save.
+        """
+        gemini = self._get_gemini()
+        prompt = f"""Analyze this message to determine if it contains new, personally-relevant information worth saving to a long-term memory.
+
+USER MESSAGE: "{user_message}"
+
+MEMORABLE CONTENT includes:
+- Personal facts (name, job, location, background)
+- Preferences and opinions (likes, dislikes, beliefs)
+- Goals, plans, and aspirations
+- Explicit requests to remember something
+
+NOT MEMORABLE:
+- Simple questions
+- General requests for help
+- Casual conversation without new personal information ("thanks", "got it", "that's cool")
+
+RESPONSE FORMAT (JSON):
+{{
+  "should_save_memory": boolean,
+  "memorable_content": "the extracted information to save, if true, otherwise null."
+}}
+
+Example 1:
+User Message: "I live in Paris and work as a designer."
+{{
+  "should_save_memory": true,
+  "memorable_content": "User lives in Paris and works as a designer."
+}}
+
+Example 2:
+User Message: "what time is it?"
+{{
+  "should_save_memory": false,
+  "memorable_content": null
+}}
+"""
+        try:
+            response_text = await gemini.generate_response(prompt)
+            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+            if not json_match:
+                logger.error(f"AI memory planner did not return valid JSON. Response: {response_text}")
+                return {"should_save_memory": False, "memorable_content": None}
+            plan_str = json_match.group(0)
+            plan = json.loads(plan_str)
+            return plan
+        except (json.JSONDecodeError, Exception) as e:
+            logger.error(f"Error creating AI memory plan: {e}", exc_info=True)
+            return {"should_save_memory": False, "memorable_content": None}
+
+    async def _build_fresh_context(
+        self, 
+        user_message: str, 
+        user_id: str, 
+        client_name: str
+    ) -> Dict:
+        """
+        Builds a concise, intelligent context primer for new conversations.
+        """
+        try:
+            # For a new chat, get a user profile summary and recent themes
+            tasks = {
+                "user_profile": self._get_user_profile(user_id, self._get_tools()),
+                "working_memory": self._get_working_memory(user_id, self._get_tools())
+            }
+            
+            results = await asyncio.gather(*tasks.values(), return_exceptions=True)
+            
+            final_context = {"type": "fresh_context"}
+            for context_type, result in zip(tasks.keys(), results):
+                 if isinstance(result, Exception):
+                    final_context[context_type] = {"error": str(result)}
+                 else:
+                    final_context[context_type] = result
+            
+            return final_context
+            
+        except Exception as e:
+            logger.error(f"Error building fresh context: {e}")
+            return {"error": str(e), "type": "fresh_context"}
+
+    async def _get_contextual_memories(
+        self, 
+        user_message: str, 
+        user_id: str, 
+        client_name: str
+    ) -> Dict:
+        """
+        Enhanced contextual memory retrieval based on the user's message.
+        Uses semantic search and selective retrieval for better context.
+        """
+        try:
+            # For a new chat, get a user profile summary and recent themes
+            tasks = {
+                "user_profile": self._get_user_profile(user_id, self._get_tools()),
+                "working_memory": self._get_working_memory(user_id, self._get_tools())
+            }
+            
+            results = await asyncio.gather(*tasks.values(), return_exceptions=True)
+            context_data = dict(zip(tasks.keys(), results))
+            
+            # Filter out any exceptions
+            clean_results = {}
+            for key, result in context_data.items():
+                if isinstance(result, Exception):
+                    logger.warning(f"Error in {key}: {result}")
+                    clean_results[key] = {}
+                else:
+                    clean_results[key] = result
+                    
+            return clean_results
+            
+        except Exception as e:
+            logger.error(f"Error in contextual memory retrieval: {e}")
+            return {}
 
 
 # Global orchestrator instance

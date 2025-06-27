@@ -44,7 +44,10 @@ from mcp.types import Tool, TextContent
 
 # Import our existing MCP tools
 try:
-    from app.mcp_server import add_memories, search_memory, list_memories, user_id_var, client_name_var
+    from app.mcp_server import (
+        add_memories, search_memory, list_memories, smart_context,
+        user_id_var, client_name_var
+    )
     from app.database import SessionLocal
     from app.utils.db import get_or_create_user
     logger.info("Successfully imported MCP tools")
@@ -110,6 +113,24 @@ async def list_tools() -> list[Tool]:
                 },
                 "required": []
             }
+        ),
+        Tool(
+            name="smart_context",
+            description="🧠 Intelligent context orchestration that combines memory search and addition. Analyzes your query using AI to determine what context is most relevant, automatically searches your memories, and adds memorable information in the background. This is the most advanced way to interact with your memory system - it understands whether you're starting a new conversation or continuing one, and provides contextually appropriate information.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Your question, request, or statement. The system will intelligently determine what context you need and what information should be remembered."
+                    },
+                    "context": {
+                        "type": "string",
+                        "description": "Optional additional context about your current situation, task, or what you're working on."
+                    }
+                },
+                "required": ["query"]
+            }
         )
     ]
 
@@ -138,6 +159,8 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             result = await search_memory(arguments["query"], arguments.get("limit"))
         elif name == "list_memories":
             result = await list_memories(arguments.get("limit"))
+        elif name == "smart_context":
+            result = await smart_context(arguments["query"], arguments.get("context"))
         else:
             result = f"Unknown tool: {name}"
         

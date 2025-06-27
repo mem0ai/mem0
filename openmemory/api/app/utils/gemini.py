@@ -4,10 +4,11 @@ Uses Gemini 2.0 Flash for efficient processing of large documents.
 """
 import os
 import google.generativeai as genai
-from typing import List, Dict
+from typing import List, Dict, Union
 from app.models import Document
 import logging
 import asyncio
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,24 @@ class GeminiService:
         # Also initialize 2.5 Pro for complex reasoning tasks
         self.model_pro = genai.GenerativeModel('gemini-2.5-pro')
     
+    async def generate_response(self, prompt: str, response_format: str = "text") -> Union[str, Dict]:
+        start_time = time.time()
+        logger.info(f"🤖 [GEMINI] Starting API call - Format: {response_format}")
+        logger.debug(f"🤖 [GEMINI] Prompt length: {len(prompt)} chars")
+        
+        try:
+            response = await self.model.generate_content_async(prompt)
+            logger.info(f"⏱️ [GEMINI] API call completed: {time.time() - start_time:.2f}s")
+            
+            if response.candidates and response.candidates[0].finish_reason == 2: # 2 is 'SAFETY'
+                logger.warning(f"⚠️ [GEMINI] Safety filter triggered for prompt: '{prompt[:100]}...'")
+                
+            return response.text
+            
+        except Exception as e:
+            logger.error(f"❌ [GEMINI] API call failed after {time.time() - start_time:.2f}s: {e}")
+            raise
+
     async def query_documents(self, documents: List[Document], query: str) -> str:
         """Query documents using Gemini's long context capabilities"""
         
