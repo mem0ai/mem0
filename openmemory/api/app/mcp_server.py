@@ -1665,6 +1665,18 @@ def get_original_tools_schema(include_annotations=False):
     """Returns the JSON schema for the original tools, optionally with 2025-03-26 annotations."""
     tools = [
         {
+            "name": "smart_context",
+            "description": "🌟 SMART CONTEXT: The primary tool for natural conversation! Automatically detects conversation type, manages memory, and provides personalized context. Uses working memory, builds profiles, searches relevantly, and saves information in background. Session-cached for efficiency.",
+            "inputSchema": {
+                "type": "object", 
+                "properties": {
+                    "user_message": {"type": "string", "description": "The user's message or question"}, 
+                    "conversation_context": {"type": "string", "description": "Optional hints: 'new_conversation', 'continuing', 'fresh_start'"}
+                }, 
+                "required": ["user_message"]
+            }
+        },
+        {
             "name": "ask_memory",
             "description": "FAST memory search for simple questions about the user's memories, thoughts, documents, or experiences",
             "inputSchema": {"type": "object", "properties": {"question": {"type": "string", "description": "A natural language question"}}, "required": ["question"]}
@@ -1701,6 +1713,7 @@ def get_original_tools_schema(include_annotations=False):
     # Add annotations only for 2025-03-26 clients
     if include_annotations:
         annotations_map = {
+            "smart_context": {"readOnly": False, "sensitive": True, "destructive": False, "intelligent": True},
             "ask_memory": {"readOnly": True, "sensitive": False, "destructive": False},
             "add_memories": {"readOnly": False, "sensitive": True, "destructive": False},
             "search_memory": {"readOnly": True, "sensitive": False, "destructive": False},
@@ -1717,6 +1730,24 @@ def get_original_tools_schema(include_annotations=False):
 def get_api_tools_schema():
     """Returns the JSON schema for API key users with 2025-03-26 annotations and enhanced features."""
     return [
+        {
+            "name": "smart_context",
+            "description": "🌟 SMART CONTEXT: The primary tool for natural conversation! Automatically detects conversation type, manages memory, and provides personalized context. Uses working memory, builds profiles, searches relevantly, and saves information in background. Session-cached for efficiency.",
+            "inputSchema": {
+                "type": "object", 
+                "properties": {
+                    "user_message": {"type": "string", "description": "The user's message or question"}, 
+                    "conversation_context": {"type": "string", "description": "Optional hints: 'new_conversation', 'continuing', 'fresh_start'"}
+                }, 
+                "required": ["user_message"]
+            },
+            "annotations": {
+                "readOnly": False,
+                "sensitive": True,
+                "destructive": False,
+                "intelligent": True
+            }
+        },
         {
             "name": "ask_memory",
             "description": "FAST memory search for simple questions about the user's memories, thoughts, documents, or experiences",
@@ -1770,6 +1801,59 @@ def get_api_tools_schema():
         }
     ]
 
+# Import enhanced orchestration
+from app.mcp_orchestration import get_smart_orchestrator
+
+@mcp.tool(description="🌟 SMART CONTEXT: Intelligent orchestration that automatically manages your memory and provides personalized context. This tool detects conversation type, searches relevant memories, saves new information, and provides enhanced context for natural conversations. Use this as your primary tool!")
+async def smart_context(user_message: str, conversation_context: Optional[str] = None) -> str:
+    """
+    Smart context orchestration combining single-tool simplicity with session-based caching.
+    
+    This tool:
+    1. Detects new vs continuing conversations using multiple signals
+    2. Uses list_memories as working memory for recent context
+    3. Builds user profiles using ask_memory for quick insights
+    4. Searches relevant memories with search_memory and deep_memory_query
+    5. Adds new memorable information in background with add_memories
+    6. Caches context sessions for efficiency
+    
+    Args:
+        user_message: The user's message or question
+        conversation_context: Optional hints about conversation state
+    
+    Returns:
+        Enhanced context string with relevant background information
+    """
+    supa_uid = user_id_var.get(None)
+    client_name = client_name_var.get(None)
+    
+    if not supa_uid:
+        return "Error: User ID not available"
+    if not client_name:
+        return "Error: Client name not available"
+    
+    try:
+        # Track usage
+        _track_tool_usage('smart_context', {
+            'message_length': len(user_message),
+            'has_conversation_context': bool(conversation_context)
+        })
+        
+        # Get enhanced orchestrator and process
+        orchestrator = get_smart_orchestrator()
+        enhanced_context = await orchestrator.orchestrate_smart_context(
+            user_message=user_message,
+            user_id=supa_uid,
+            client_name=client_name,
+            conversation_context=conversation_context
+        )
+        
+        return enhanced_context
+        
+    except Exception as e:
+        logger.error(f"Error in smart_context: {e}", exc_info=True)
+        return f"I had trouble processing your message: {str(e)}"
+
 # Core memory tools registry - simplified for better performance
 tool_registry = {
     "add_memories": add_memories,
@@ -1779,6 +1863,7 @@ tool_registry = {
     "ask_memory": ask_memory,
     "sync_substack_posts": sync_substack_posts,
     "deep_memory_query": deep_memory_query,
+    "smart_context": smart_context,
 }
 
 # Simple in-memory message queue for SSE connections
