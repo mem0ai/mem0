@@ -126,7 +126,15 @@ export default function DashboardNew() {
       const connectedApp = connectedAppsMap.get(template.id.toLowerCase());
       if (connectedApp) {
         // Make sure all properties from the connected app are carried over
-        const mergedApp = { ...createAppFromTemplate(template), ...connectedApp, is_connected: true };
+        // But preserve the template's installCommand to maintain custom commands like Chorus
+        const templateApp = createAppFromTemplate(template);
+        const mergedApp = { 
+          ...templateApp, 
+          ...connectedApp, 
+          is_connected: true,
+          // Preserve template's installCommand if it exists
+          installCommand: templateApp.installCommand || connectedApp.installCommand
+        };
         return mergedApp;
       }
       
@@ -140,10 +148,14 @@ export default function DashboardNew() {
       
       if (hasApiConnection) {
         // Mark as connected and include the API data
+        // But preserve the template's installCommand to maintain custom commands like Chorus
+        const templateApp = createAppFromTemplate(template);
         return {
-          ...createAppFromTemplate(template),
+          ...templateApp,
           ...hasApiConnection,
-          is_connected: true
+          is_connected: true,
+          // Preserve template's installCommand if it exists  
+          installCommand: templateApp.installCommand || hasApiConnection.installCommand
         };
       }
       
