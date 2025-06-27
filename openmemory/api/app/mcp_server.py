@@ -1684,7 +1684,7 @@ def get_original_tools_schema(include_annotations=False):
     tools = [
         {
             "name": "jean_memory",
-            "description": "🌟 ALWAYS USE THIS TOOL. It is the primary tool for all conversational interactions. It intelligently engineers context for the user's message, saves new information, and provides relevant background. For the very first message in a conversation, set 'is_new_conversation' to true. Note: This tool automatically handles memory saving, so no need to call add_memories separately.",
+            "description": "🌟 PRIMARY TOOL for all conversational interactions. Intelligently engineers context for the user's message, saves new information, and provides relevant background. For the very first message in a conversation, set 'is_new_conversation' to true.",
             "inputSchema": {
                 "type": "object", 
                 "properties": {
@@ -1692,6 +1692,17 @@ def get_original_tools_schema(include_annotations=False):
                     "is_new_conversation": {"type": "boolean", "description": "Set to true only for the very first message in a new chat session, otherwise false."}
                 }, 
                 "required": ["user_message", "is_new_conversation"]
+            }
+        },
+        {
+            "name": "add_memories",
+            "description": "💾 MANUAL memory saving. Use this to explicitly save important information when automatic saving isn't working properly. Useful for ensuring critical details are preserved.",
+            "inputSchema": {
+                "type": "object", 
+                "properties": {
+                    "text": {"type": "string", "description": "The information to store"}
+                }, 
+                "required": ["text"]
             }
         },
         {
