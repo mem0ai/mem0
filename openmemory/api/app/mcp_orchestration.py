@@ -65,7 +65,7 @@ class SmartContextOrchestrator:
         should_save = str(is_new_conversation or 'remember' in user_message.lower()).lower()
         # Safely handle user message in JSON by escaping quotes
         safe_message = user_message.replace('"', '\\"').replace('\n', '\\n')
-        memorable_content = f'"{safe_message}"' if (is_new_conversation or 'remember' in user_message.lower()) else 'null'
+        memorable_content = f'"{safe_message}"' if (is_new_conversation or 'remember' in user_message.lower() or has_rich_content) else 'null'
         
         prompt = f"""Analyze this message for context engineering. Respond with JSON only:
 
@@ -131,26 +131,107 @@ New conversation: {is_new_conversation}
             "understanding_enhancement": f"Fallback context engineering: {user_message}" if is_new_conversation else None
         }
     
-    async def orchestrate_smart_context(
+    def _should_use_deep_analysis(self, user_message: str, is_new_conversation: bool) -> bool:
+        """
+        Determine if this message should use deep memory analysis for maximum understanding.
+        
+        Deep analysis provides comprehensive context but takes 30-60 seconds.
+        Use for: new conversations, rich personal content, or explicit deep requests.
+        """
+        # Always use deep analysis for new conversations - this is prime learning moment
+        if is_new_conversation:
+            return True
+        
+        # Rich personal content indicators
+        rich_content_indicators = [
+            'i am', 'i love', 'i follow', 'i used to', 'i really', 'i believe', 'i work on',
+            'my background', 'my experience', 'entrepreneurship', 'important to me', 'my values',
+            'my goals', 'i build', 'i founded', 'my company', 'my vision'
+        ]
+        
+        # Check for rich personal content
+        message_lower = user_message.lower()
+        if len(user_message) > 100 and any(indicator in message_lower for indicator in rich_content_indicators):
+            return True
+        
+        # Explicit requests for deep analysis
+        deep_request_indicators = [
+            'go deep', 'tell me everything', 'comprehensive', 'what do you know about me',
+            'who am i', 'deeper', 'analyze me', 'understand me'
+        ]
+        
+        if any(indicator in message_lower for indicator in deep_request_indicators):
+            return True
+        
+        return False
+
+    async def _deep_memory_orchestration(
         self, 
         user_message: str, 
         user_id: str, 
-        client_name: str,
+        client_name: str, 
         is_new_conversation: bool
     ) -> str:
+        """
+        Enhanced orchestration using deep memory analysis for comprehensive understanding.
+        
+        This provides the deepest level of context but takes longer to process.
+        Perfect for new conversations and rich content.
+        """
         orchestration_start_time = time.time()
-        logger.info(f"🚀 [Jean Memory] Orchestration started for user {user_id}. New convo: {is_new_conversation}")
+        logger.info(f"🧠 [Deep Memory] Starting deep analysis orchestration for user {user_id}")
         
         try:
-            # CRITICAL FIX: Handle missing background_tasks gracefully
-            try:
-                from app.mcp_server import background_tasks_var
-                background_tasks = background_tasks_var.get()
-                logger.info("✅ Background tasks context available")
-            except (LookupError, ImportError):
-                logger.info("⚠️ Background tasks not available in current context - using async tasks instead")
-                background_tasks = None
+            # Background memory saving - handle this first to not block deep analysis
+            await self._handle_background_memory_saving(user_message, user_id, client_name, is_new_conversation)
             
+            # Create targeted query for deep memory analysis
+            if is_new_conversation:
+                # For new conversations, get comprehensive understanding
+                deep_query = f"Tell me everything about this user - their personality, work, interests, values, goals, and experiences. Context: {user_message}"
+            else:
+                # For rich content, focus on the specific context plus background
+                deep_query = f"Analyze: {user_message}. Provide relevant background context about this user."
+            
+            logger.info(f"🧠 [Deep Memory] Executing deep memory query: {deep_query[:100]}...")
+            
+            # Execute deep memory analysis with timeout protection
+            deep_analysis_task = self._get_tools()['deep_memory_query'](search_query=deep_query)
+            deep_analysis_result = await asyncio.wait_for(deep_analysis_task, timeout=50.0)
+            
+            processing_time = time.time() - orchestration_start_time
+            logger.info(f"🧠 [Deep Memory] Deep analysis completed in {processing_time:.2f}s")
+            
+            # Format as enhanced context
+            if deep_analysis_result and not deep_analysis_result.startswith("Error"):
+                return f"---\n[Jean Memory Context - Deep Analysis]\n{deep_analysis_result}\n---"
+            else:
+                # Fallback to standard orchestration if deep analysis fails
+                logger.warning("🧠 [Deep Memory] Deep analysis failed, falling back to standard orchestration")
+                return await self._standard_orchestration(user_message, user_id, client_name, is_new_conversation)
+                
+        except asyncio.TimeoutError:
+            logger.warning(f"🧠 [Deep Memory] Deep analysis timed out after 50s, falling back to standard orchestration")
+            return await self._standard_orchestration(user_message, user_id, client_name, is_new_conversation)
+        except Exception as e:
+            logger.error(f"🧠 [Deep Memory] Deep analysis failed: {e}, falling back to standard orchestration")
+            return await self._standard_orchestration(user_message, user_id, client_name, is_new_conversation)
+
+    async def _standard_orchestration(
+        self, 
+        user_message: str, 
+        user_id: str, 
+        client_name: str, 
+        is_new_conversation: bool
+    ) -> str:
+        """
+        Standard orchestration using the existing AI planning and search approach.
+        Faster but less comprehensive than deep memory analysis.
+        """
+        orchestration_start_time = time.time()
+        logger.info(f"🔍 [Standard] Starting standard orchestration for user {user_id}")
+        
+        try:
             # Step 1: Create plan for saving memory and determining context strategy
             plan = await self._ai_create_context_plan(user_message, is_new_conversation)
             
@@ -160,27 +241,95 @@ New conversation: {is_new_conversation}
             # Step 2: Execute the context strategy based on plan
             context_task = None
             if context_strategy == "comprehensive_analysis":
-                logger.info("🔬 [Jean Memory] Executing comprehensive analysis.")
+                logger.info("🔬 [Standard] Executing comprehensive analysis.")
                 context_task = self._execute_comprehensive_analysis(plan, user_id)
             elif context_strategy == "deep_understanding":
-                logger.info("🔥 [Jean Memory] Executing deep understanding context primer.")
+                logger.info("🔥 [Standard] Executing deep understanding context primer.")
                 context_task = self._get_deep_understanding_primer(plan, user_id)
             elif context_strategy == "relevant_context" and plan.get("search_queries"):
-                logger.info("💬 [Jean Memory] Executing relevant context search.")
+                logger.info("💬 [Standard] Executing relevant context search.")
                 context_task = self._execute_relevant_context_search(plan, user_id)
             else:
                 # If no context strategy specified, create a no-op task
-                logger.info("📝 [Jean Memory] No specific context strategy, using basic search.")
+                logger.info("📝 [Standard] No specific context strategy, using basic search.")
                 context_task = self._execute_relevant_context_search(plan, user_id)
 
-            # Step 3: Handle memory saving and understanding enhancement
-            memory_task = asyncio.create_task(asyncio.sleep(0))  # Default no-op task
+            # Step 3: Handle memory saving
+            await self._handle_background_memory_saving_from_plan(plan, user_message, user_id, client_name)
+
+            # Step 4: Execute context retrieval
+            context_results = await context_task
             
+            # Step 5: Format the context using top-down approach
+            enhanced_context = self._format_layered_context(context_results, plan)
+            
+            processing_time = time.time() - orchestration_start_time
+            logger.info(f"🔍 [Standard] Standard orchestration finished in {processing_time:.2f}s. Context length: {len(enhanced_context)} chars.")
+            
+            return enhanced_context
+            
+        except Exception as e:
+            logger.error(f"❌ [Standard] Error in standard orchestration: {e}", exc_info=True)
+            return "" # Fail gracefully with no context
+
+    async def _handle_background_memory_saving(
+        self, 
+        user_message: str, 
+        user_id: str, 
+        client_name: str, 
+        is_new_conversation: bool
+    ):
+        """Handle memory saving in background for deep memory orchestration"""
+        try:
+            # Always save new conversation messages and rich content
+            should_save = is_new_conversation or len(user_message) > 50
+            
+            if should_save:
+                logger.info("💾 [Deep Memory] Adding memory saving to background tasks.")
+                
+                # Get background tasks context
+                try:
+                    from app.mcp_server import background_tasks_var
+                    background_tasks = background_tasks_var.get()
+                except (LookupError, ImportError):
+                    background_tasks = None
+                
+                if background_tasks:
+                    background_tasks.add_task(
+                        self._add_memory_background, 
+                        user_message, 
+                        user_id, 
+                        client_name,
+                        priority=is_new_conversation
+                    )
+                else:
+                    # Fallback: Add memory asynchronously
+                    asyncio.create_task(self._add_memory_background(
+                        user_message, user_id, client_name, priority=is_new_conversation
+                    ))
+        except Exception as e:
+            logger.error(f"❌ [Deep Memory] Background memory saving failed: {e}")
+
+    async def _handle_background_memory_saving_from_plan(
+        self, 
+        plan: Dict, 
+        user_message: str, 
+        user_id: str, 
+        client_name: str
+    ):
+        """Handle memory saving in background for standard orchestration"""
+        try:
             if plan.get("should_save_memory") and plan.get("memorable_content"):
-                logger.info("💾 [Jean Memory] Adding memory saving to background tasks.")
+                logger.info("💾 [Standard] Adding memory saving to background tasks.")
                 memorable_content = plan["memorable_content"]
                 
-                # Background memory addition
+                # Get background tasks context
+                try:
+                    from app.mcp_server import background_tasks_var
+                    background_tasks = background_tasks_var.get()
+                except (LookupError, ImportError):
+                    background_tasks = None
+                
                 if background_tasks:
                     background_tasks.add_task(
                         self._add_memory_background, 
@@ -189,42 +338,93 @@ New conversation: {is_new_conversation}
                         client_name,
                         priority=plan.get("save_with_priority", False)
                     )
-                else:
-                    # Fallback: Add memory synchronously if no background tasks available
-                    logger.info("⚠️ Adding memory synchronously (no background tasks)")
-                    asyncio.create_task(self._add_memory_background(
-                        memorable_content, user_id, client_name, 
-                        priority=plan.get("save_with_priority", False)
-                    ))
-                
-                # Handle understanding enhancement
-                if plan.get("understanding_enhancement"):
-                    logger.info("🎯 [Jean Memory] Adding understanding enhancement directive.")
-                    if background_tasks:
-                        background_tasks.add_task(self._add_understanding_enhancement_directive,
+                    
+                    # Handle understanding enhancement
+                    if plan.get("understanding_enhancement"):
+                        logger.info("🎯 [Standard] Adding understanding enhancement directive.")
+                        background_tasks.add_task(
+                            self._add_understanding_enhancement_directive,
                             plan["understanding_enhancement"],
                             user_id,
                             client_name
                         )
-                    else:
-                        # Fallback: Add directive synchronously
+                else:
+                    # Fallback: Add memory asynchronously
+                    asyncio.create_task(self._add_memory_background(
+                        memorable_content, user_id, client_name, 
+                        priority=plan.get("save_with_priority", False)
+                    ))
+                    
+                    if plan.get("understanding_enhancement"):
                         asyncio.create_task(self._add_understanding_enhancement_directive(
                             plan["understanding_enhancement"], user_id, client_name
                         ))
+        except Exception as e:
+            logger.error(f"❌ [Standard] Background memory saving failed: {e}")
 
-            context_results, _ = await asyncio.gather(context_task, memory_task, return_exceptions=True)
+    async def orchestrate_smart_context(
+        self, 
+        user_message: str, 
+        user_id: str, 
+        client_name: str,
+        is_new_conversation: bool
+    ) -> str:
+        """
+        Main orchestration method with enhanced deep memory analysis capability.
+        
+        ENHANCED STRATEGY: 
+        - Deep Memory Analysis: For new conversations and rich content (30-60s, comprehensive)
+        - Standard Orchestration: For continuing conversations (5-10s, targeted)
+        """
+        logger.info(f"🚀 [Jean Memory] Enhanced orchestration started for user {user_id}. New convo: {is_new_conversation}")
+        
+        try:
+            # Determine which orchestration strategy to use
+            should_use_deep_analysis = self._should_use_deep_analysis(user_message, is_new_conversation)
             
-            # Step 4: Format the context using top-down approach
-            enhanced_context = self._format_layered_context(context_results, plan)
-            
-            processing_time = time.time() - orchestration_start_time
-            logger.info(f"🏁 [Jean Memory] Orchestration finished in {processing_time:.2f}s. Context length: {len(enhanced_context)} chars.")
-            
-            return enhanced_context
+            if should_use_deep_analysis:
+                logger.info(f"🧠 [Jean Memory] Using DEEP MEMORY ANALYSIS for comprehensive understanding")
+                return await self._deep_memory_orchestration(user_message, user_id, client_name, is_new_conversation)
+            else:
+                logger.info(f"🔍 [Jean Memory] Using STANDARD ORCHESTRATION for targeted context")
+                return await self._standard_orchestration(user_message, user_id, client_name, is_new_conversation)
             
         except Exception as e:
-            logger.error(f"❌ Unhandled error in smart_context orchestration: {e}", exc_info=True)
-            return "" # Fail gracefully with no context
+            logger.error(f"❌ [Jean Memory] Orchestration failed: {e}", exc_info=True)
+            return await self._fallback_simple_search(user_message, user_id)
+
+    async def _fallback_simple_search(self, user_message: str, user_id: str) -> str:
+        """
+        Simple fallback search when all orchestration methods fail.
+        Provides basic context without complex processing.
+        """
+        try:
+            logger.info(f"🆘 [Fallback] Using simple search fallback for user {user_id}")
+            
+            # Simple search with the user message
+            search_result = await self._get_tools()['search_memory'](query=user_message, limit=5)
+            
+            if search_result:
+                try:
+                    memories = json.loads(search_result)
+                    if memories:
+                        context_items = []
+                        for mem in memories[:3]:  # Limit to top 3 for simplicity
+                            if isinstance(mem, dict):
+                                memory_content = mem.get('memory', mem.get('content', ''))
+                                if memory_content:
+                                    context_items.append(memory_content)
+                        
+                        if context_items:
+                            return f"---\n[Jean Memory Context - Basic]\n{'; '.join(context_items)}\n---"
+                except (json.JSONDecodeError, TypeError):
+                    logger.warning(f"Could not parse fallback search result: {search_result}")
+            
+            return ""  # Return empty context if everything fails
+            
+        except Exception as e:
+            logger.error(f"🆘 [Fallback] Even fallback search failed: {e}", exc_info=True)
+            return ""
 
     async def _get_deep_understanding_primer(self, plan: Dict, user_id: str) -> Dict:
         """

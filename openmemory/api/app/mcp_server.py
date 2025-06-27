@@ -1684,7 +1684,7 @@ def get_original_tools_schema(include_annotations=False):
     tools = [
         {
             "name": "jean_memory",
-            "description": "🌟 ALWAYS USE THIS TOOL. It is the primary tool for all conversational interactions. It intelligently engineers context for the user's message, saves new information, and provides relevant background. For the very first message in a conversation, set 'is_new_conversation' to true.",
+            "description": "🌟 ALWAYS USE THIS TOOL. It is the primary tool for all conversational interactions. It intelligently engineers context for the user's message, saves new information, and provides relevant background. For the very first message in a conversation, set 'is_new_conversation' to true. Note: This tool automatically handles memory saving, so no need to call add_memories separately.",
             "inputSchema": {
                 "type": "object", 
                 "properties": {
@@ -1698,11 +1698,6 @@ def get_original_tools_schema(include_annotations=False):
             "name": "ask_memory",
             "description": "FAST memory search for simple questions about the user's memories, thoughts, documents, or experiences",
             "inputSchema": {"type": "object", "properties": {"question": {"type": "string", "description": "A natural language question"}}, "required": ["question"]}
-        },
-        {
-            "name": "add_memories",
-            "description": "Store important information, preferences, facts, and observations about the user. Use this tool to remember key details learned during conversation.",
-            "inputSchema": {"type": "object", "properties": {"text": {"type": "string", "description": "The information to store"}}, "required": ["text"]}
         },
         {
             "name": "search_memory", 
