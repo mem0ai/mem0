@@ -65,7 +65,7 @@ class SmartContextOrchestrator:
         should_save = str(is_new_conversation or 'remember' in user_message.lower()).lower()
         # Safely handle user message in JSON by escaping quotes
         safe_message = user_message.replace('"', '\\"').replace('\n', '\\n')
-        memorable_content = f'"{safe_message}"' if (is_new_conversation or 'remember' in user_message.lower() or has_rich_content) else 'null'
+        memorable_content = f'"{safe_message}"' if (is_new_conversation or 'remember' in user_message.lower()) else 'null'
         
         prompt = f"""Analyze this message for context engineering. Respond with JSON only:
 
