@@ -553,7 +553,6 @@ class MemoryGraph:
 
     def _remove_spaces_from_entities(self, entity_list):
         for item in entity_list:
-            print(item)
             if "source" not in item and "source_entity" in item:
                 item["source"] = item["source_entity"]
             if "relationship" not in item and "relatationship" in item:
