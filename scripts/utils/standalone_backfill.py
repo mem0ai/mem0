@@ -208,7 +208,7 @@ def get_user_context_like_deep_memory(user_id: str):
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             # Use the same memory query pattern as deep_memory_query
             query = """
-            SELECT m.content, m.created_at, m.metadata_
+            SELECT m.content, m.created_at, m.metadata
             FROM users u
             INNER JOIN memories m ON u.id = m.user_id
             WHERE u.user_id = %s 
