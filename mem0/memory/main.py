@@ -338,7 +338,7 @@ class Memory(MemoryBase):
         except Exception as e:
             logging.error(f"Error in new_retrieved_facts: {e}")
             new_retrieved_facts = []
-        
+
         if not new_retrieved_facts:
             logger.debug("No new facts retrieved from input. Skipping memory update LLM call.")
 
@@ -369,25 +369,32 @@ class Memory(MemoryBase):
             retrieved_old_memory[idx]["id"] = str(idx)
 
         if new_retrieved_facts:
-            function_calling_prompt = get_update_memory_messages(
-                retrieved_old_memory, new_retrieved_facts, self.config.custom_update_memory_prompt
-            )
-
-            try:
-                response: str = self.llm.generate_response(
-                    messages=[{"role": "user", "content": function_calling_prompt}],
-                    response_format={"type": "json_object"},
+            if not retrieved_old_memory:
+                new_memories_with_actions = {
+                    "memory": [
+                        {"text": fact, "event": "ADD"} for fact in new_retrieved_facts
+                    ]
+                }
+            else:
+                function_calling_prompt = get_update_memory_messages(
+                    retrieved_old_memory, new_retrieved_facts, self.config.custom_update_memory_prompt
                 )
-            except Exception as e:
-                logging.error(f"Error in new memory actions response: {e}")
-                response = ""
 
-            try:
-                response = remove_code_blocks(response)
-                new_memories_with_actions = json.loads(response)
-            except Exception as e:
-                logging.error(f"Invalid JSON response: {e}")
-                new_memories_with_actions = {}
+                try:
+                    response: str = self.llm.generate_response(
+                        messages=[{"role": "user", "content": function_calling_prompt}],
+                        response_format={"type": "json_object"},
+                    )
+                except Exception as e:
+                    logging.error(f"Error in new memory actions response: {e}")
+                    response = ""
+
+                try:
+                    response = remove_code_blocks(response)
+                    new_memories_with_actions = json.loads(response)
+                except Exception as e:
+                    logging.error(f"Invalid JSON response: {e}")
+                    new_memories_with_actions = {}
         else:
             new_memories_with_actions = {}
 
@@ -1166,7 +1173,7 @@ class AsyncMemory(MemoryBase):
         except Exception as e:
             logging.error(f"Error in new_retrieved_facts: {e}")
             new_retrieved_facts = []
-        
+
         if not new_retrieved_facts:
             logger.debug("No new facts retrieved from input. Skipping memory update LLM call.")
 
