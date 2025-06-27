@@ -1859,7 +1859,7 @@ async def jean_memory(user_message: str, is_new_conversation: bool) -> str:
             background_tasks = BackgroundTasks()
             background_tasks_var.set(background_tasks)
         
-        async with asyncio.timeout(20): # Increased timeout to 20 seconds for better reliability
+        async with asyncio.timeout(25): # Increased to 25 seconds for Fast Deep Analysis
             # Get enhanced orchestrator and process
             orchestrator = get_smart_orchestrator()
             enhanced_context = await orchestrator.orchestrate_smart_context(
