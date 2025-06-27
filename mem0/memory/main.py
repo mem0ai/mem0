@@ -338,7 +338,7 @@ class Memory(MemoryBase):
         except Exception as e:
             logging.error(f"Error in new_retrieved_facts: {e}")
             new_retrieved_facts = []
-        
+
         if not new_retrieved_facts:
             logger.debug("No new facts retrieved from input. Skipping memory update LLM call.")
 
@@ -1080,10 +1080,9 @@ class AsyncMemory(MemoryBase):
         else:
             messages = parse_vision_messages(messages)
 
-        vector_store_task = asyncio.create_task(
-            self._add_to_vector_store(messages, processed_metadata, effective_filters, infer)
-        )
-        graph_task = asyncio.create_task(self._add_to_graph(messages, effective_filters))
+        vector_store_task = self._add_to_vector_store(messages, processed_metadata, effective_filters, infer)
+
+        graph_task = self._add_to_graph(messages, effective_filters)
 
         vector_store_result, graph_result = await asyncio.gather(vector_store_task, graph_task)
 
@@ -1109,7 +1108,7 @@ class AsyncMemory(MemoryBase):
         self,
         messages: list,
         metadata: dict,
-        effective_filters: dict,
+        filters: dict,
         infer: bool,
     ):
         if not infer:
@@ -1134,7 +1133,7 @@ class AsyncMemory(MemoryBase):
                     per_msg_meta["actor_id"] = actor_name
 
                 msg_content = message_dict["content"]
-                msg_embeddings = await asyncio.to_thread(self.embedding_model.embed, msg_content, "add")
+                msg_embeddings = await self.embedding_model.embed(msg_content, "add")
                 mem_id = await self._create_memory(msg_content, msg_embeddings, per_msg_meta)
 
                 returned_memories.append(
@@ -1149,43 +1148,45 @@ class AsyncMemory(MemoryBase):
             return returned_memories
 
         parsed_messages = parse_messages(messages)
+
         if self.config.custom_fact_extraction_prompt:
             system_prompt = self.config.custom_fact_extraction_prompt
             user_prompt = f"Input:\n{parsed_messages}"
         else:
             system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages)
 
-        response = await asyncio.to_thread(
-            self.llm.generate_response,
+        response = await self.llm.generate_response(
             messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
             response_format={"type": "json_object"},
         )
+
         try:
             response = remove_code_blocks(response)
             new_retrieved_facts = json.loads(response)["facts"]
         except Exception as e:
             logging.error(f"Error in new_retrieved_facts: {e}")
             new_retrieved_facts = []
-        
+
         if not new_retrieved_facts:
             logger.debug("No new facts retrieved from input. Skipping memory update LLM call.")
 
         retrieved_old_memory = []
         new_message_embeddings = {}
 
-        async def process_fact_for_search(new_mem_content):
-            embeddings = await asyncio.to_thread(self.embedding_model.embed, new_mem_content, "add")
-            new_message_embeddings[new_mem_content] = embeddings
-            existing_mems = await asyncio.to_thread(
+        async def process_fact_for_search(new_mem):
+            messages_embeddings = await self.embedding_model.embed(new_mem, "add")
+            # FIXME: Sometimes this happens `TypeError: unhashable type: 'list'`
+            new_message_embeddings[new_mem] = messages_embeddings
+            existing_memories = await asyncio.to_thread(
                 self.vector_store.search,
-                query=new_mem_content,
-                vectors=embeddings,
+                query=new_mem,
+                vectors=messages_embeddings,
                 limit=5,
-                filters=effective_filters,  # 'filters' is query_filters_for_inference
+                filters=filters,  # 'filters' is query_filters_for_inference
             )
-            return [{"id": mem.id, "text": mem.payload["data"]} for mem in existing_mems]
+            return [{"id": mem.id, "text": mem.payload["data"]} for mem in existing_memories]
 
-        search_tasks = [process_fact_for_search(fact) for fact in new_retrieved_facts]
+        search_tasks = [process_fact_for_search(new_mem) for new_mem in new_retrieved_facts]
         search_results_list = await asyncio.gather(*search_tasks)
         for result_group in search_results_list:
             retrieved_old_memory.extend(result_group)
@@ -1195,18 +1196,20 @@ class AsyncMemory(MemoryBase):
             unique_data[item["id"]] = item
         retrieved_old_memory = list(unique_data.values())
         logging.info(f"Total existing memories: {len(retrieved_old_memory)}")
+
+        # mapping UUIDs with integers for handling UUID hallucinations
         temp_uuid_mapping = {}
         for idx, item in enumerate(retrieved_old_memory):
             temp_uuid_mapping[str(idx)] = item["id"]
             retrieved_old_memory[idx]["id"] = str(idx)
 
+        new_memories_with_actions = {}
         if new_retrieved_facts:
             function_calling_prompt = get_update_memory_messages(
                 retrieved_old_memory, new_retrieved_facts, self.config.custom_update_memory_prompt
             )
             try:
-                response = await asyncio.to_thread(
-                    self.llm.generate_response,
+                response = await self.llm.generate_response(
                     messages=[{"role": "user", "content": function_calling_prompt}],
                     response_format={"type": "json_object"},
                 )
@@ -1222,64 +1225,59 @@ class AsyncMemory(MemoryBase):
 
         returned_memories = []
         try:
-            memory_tasks = []
             for resp in new_memories_with_actions.get("memory", []):
                 logging.info(resp)
                 try:
                     action_text = resp.get("text")
                     if not action_text:
+                        logging.info("Skipping memory entry because of empty `text` field.")
                         continue
+
                     event_type = resp.get("event")
 
-                    if event_type == "ADD":
-                        task = asyncio.create_task(
-                            self._create_memory(
-                                data=action_text,
-                                existing_embeddings=new_message_embeddings,
-                                metadata=deepcopy(metadata),
-                            )
-                        )
-                        memory_tasks.append((task, resp, "ADD", None))
-                    elif event_type == "UPDATE":
-                        task = asyncio.create_task(
-                            self._update_memory(
-                                memory_id=temp_uuid_mapping[resp["id"]],
-                                data=action_text,
-                                existing_embeddings=new_message_embeddings,
-                                metadata=deepcopy(metadata),
-                            )
-                        )
-                        memory_tasks.append((task, resp, "UPDATE", temp_uuid_mapping[resp["id"]]))
-                    elif event_type == "DELETE":
-                        task = asyncio.create_task(self._delete_memory(memory_id=temp_uuid_mapping[resp.get("id")]))
-                        memory_tasks.append((task, resp, "DELETE", temp_uuid_mapping[resp.get("id")]))
-                    elif event_type == "NONE":
-                        logging.info("NOOP for Memory (async).")
-                except Exception as e:
-                    logging.error(f"Error processing memory action (async): {resp}, Error: {e}")
+                    id = resp.get("id")
 
-            for task, resp, event_type, mem_id in memory_tasks:
-                try:
-                    result_id = await task
+                    temp_uuid = temp_uuid_mapping.get(id, None)
+
+                    # FIXME: Ugly fix when we try to update an unexisting memory (for some reason that happens sometimes)
+                    if not temp_uuid and event_type == "UPDATE":
+                        event_type = "ADD"
+
                     if event_type == "ADD":
-                        returned_memories.append({"id": result_id, "memory": resp.get("text"), "event": event_type})
+                        memory_id = await self._create_memory(
+                            data=action_text,
+                            existing_embeddings=new_message_embeddings,
+                            metadata=deepcopy(metadata),
+                        )
+                        returned_memories.append({"id": memory_id, "memory": action_text, "event": "ADD"})
                     elif event_type == "UPDATE":
+                        await self._update_memory(
+                            memory_id=temp_uuid,
+                            data=action_text,
+                            existing_embeddings=new_message_embeddings,
+                            metadata=deepcopy(metadata),
+                        )
                         returned_memories.append(
                             {
-                                "id": mem_id,
-                                "memory": resp.get("text"),
+                                "id": temp_uuid,
+                                "memory": action_text,
                                 "event": event_type,
                                 "previous_memory": resp.get("old_memory"),
                             }
                         )
                     elif event_type == "DELETE":
-                        returned_memories.append({"id": mem_id, "memory": resp.get("text"), "event": event_type})
+                        await self._delete_memory(memory_id=temp_uuid)
+                        returned_memories.append(
+                            {"id": temp_uuid_mapping[id], "memory": action_text, "event": event_type}
+                        )
+                    elif event_type == "NONE":
+                        logging.info("NOOP for Memory (async).")
                 except Exception as e:
-                    logging.error(f"Error awaiting memory task (async): {e}")
+                    logging.error(f"Error processing memory action (async): {resp}, Error: {e}")
         except Exception as e:
-            logging.error(f"Error in memory processing loop (async): {e}")
+            logging.error(f"Error iterating new_memories_with_actions: {e}")
 
-        keys, encoded_ids = process_telemetry_filters(effective_filters)
+        keys, encoded_ids = process_telemetry_filters(filters)
         capture_event(
             "mem0.add",
             self,
@@ -1384,20 +1382,17 @@ class AsyncMemory(MemoryBase):
             "mem0.get_all", self, {"limit": limit, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"}
         )
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future_memories = executor.submit(self._get_all_from_vector_store, effective_filters, limit)
-            future_graph_entities = (
-                executor.submit(self.graph.get_all, effective_filters, limit) if self.enable_graph else None
-            )
-
-            concurrent.futures.wait(
-                [future_memories, future_graph_entities] if future_graph_entities else [future_memories]
-            )
-
-            all_memories_result = future_memories.result()
-            graph_entities_result = future_graph_entities.result() if future_graph_entities else None
+        futures = [self._get_all_from_vector_store(effective_filters, limit)]
 
         if self.enable_graph:
+            futures.append(self.graph.get_all(effective_filters, limit))
+
+        results = await asyncio.gather(*futures)
+
+        all_memories_result = results.pop(0)
+
+        if self.enable_graph:
+            graph_entities_result = results.pop()
             return {"results": all_memories_result, "relations": graph_entities_result}
 
         if self.api_version == "v1.0":
@@ -1413,6 +1408,7 @@ class AsyncMemory(MemoryBase):
             return {"results": all_memories_result}
 
     async def _get_all_from_vector_store(self, filters, limit):
+        # TODO: Make VectorStore async
         memories_result = await asyncio.to_thread(self.vector_store.list, filters=filters, limit=limit)
         actual_memories = (
             memories_result[0]
@@ -1500,22 +1496,14 @@ class AsyncMemory(MemoryBase):
             },
         )
 
-        vector_store_task = asyncio.create_task(self._search_vector_store(query, effective_filters, limit, threshold))
+        original_memories = await self._search_vector_store(query, effective_filters, limit, threshold)
 
-        graph_task = None
         if self.enable_graph:
             if hasattr(self.graph.search, "__await__"):  # Check if graph search is async
-                graph_task = asyncio.create_task(self.graph.search(query, effective_filters, limit))
+                graph_entities = await asyncio.to_thread(self.graph.search(query, effective_filters, limit))
             else:
-                graph_task = asyncio.create_task(asyncio.to_thread(self.graph.search, query, effective_filters, limit))
+                graph_entities = await asyncio.to_thread(self.graph.search, query, effective_filters, limit)
 
-        if graph_task:
-            original_memories, graph_entities = await asyncio.gather(vector_store_task, graph_task)
-        else:
-            original_memories = await vector_store_task
-            graph_entities = None
-
-        if self.enable_graph:
             return {"results": original_memories, "relations": graph_entities}
 
         if self.api_version == "v1.0":
@@ -1531,7 +1519,7 @@ class AsyncMemory(MemoryBase):
             return {"results": original_memories}
 
     async def _search_vector_store(self, query, filters, limit, threshold: Optional[float] = None):
-        embeddings = await asyncio.to_thread(self.embedding_model.embed, query, "search")
+        embeddings = await self.embedding_model.embed(query, "search")
         memories = await asyncio.to_thread(
             self.vector_store.search, query=query, vectors=embeddings, limit=limit, filters=filters
         )
@@ -1583,7 +1571,7 @@ class AsyncMemory(MemoryBase):
         """
         capture_event("mem0.update", self, {"memory_id": memory_id, "sync_type": "async"})
 
-        embeddings = await asyncio.to_thread(self.embedding_model.embed, data, "update")
+        embeddings = await self.embedding_model.embed(data, "update")
         existing_embeddings = {data: embeddings}
 
         await self._update_memory(memory_id, data, existing_embeddings)
@@ -1657,7 +1645,7 @@ class AsyncMemory(MemoryBase):
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
         else:
-            embeddings = await asyncio.to_thread(self.embedding_model.embed, data, memory_action="add")
+            embeddings = await self.embedding_model.embed(data, memory_action="add")
 
         memory_id = str(uuid.uuid4())
         metadata = metadata or {}
@@ -1720,7 +1708,7 @@ class AsyncMemory(MemoryBase):
                 response = await asyncio.to_thread(llm.invoke, input=parsed_messages)
                 procedural_memory = response.content
             else:
-                procedural_memory = await asyncio.to_thread(self.llm.generate_response, messages=parsed_messages)
+                procedural_memory = await self.llm.generate_response(messages=parsed_messages)
         except Exception as e:
             logger.error(f"Error generating procedural memory summary: {e}")
             raise
@@ -1729,7 +1717,7 @@ class AsyncMemory(MemoryBase):
             raise ValueError("Metadata cannot be done for procedural memory.")
 
         metadata["memory_type"] = MemoryType.PROCEDURAL.value
-        embeddings = await asyncio.to_thread(self.embedding_model.embed, procedural_memory, memory_action="add")
+        embeddings = await self.embedding_model.embed(procedural_memory, memory_action="add")
         memory_id = await self._create_memory(procedural_memory, {procedural_memory: embeddings}, metadata=metadata)
         capture_event("mem0._create_procedural_memory", self, {"memory_id": memory_id, "sync_type": "async"})
 
@@ -1770,7 +1758,7 @@ class AsyncMemory(MemoryBase):
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
         else:
-            embeddings = await asyncio.to_thread(self.embedding_model.embed, data, "update")
+            embeddings = await self.embedding_model.embed(data, "update")
 
         await asyncio.to_thread(
             self.vector_store.update,

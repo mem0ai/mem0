@@ -31,6 +31,7 @@ class LlmFactory:
         "lmstudio": "mem0.llms.lmstudio.LMStudioLLM",
         "vllm": "mem0.llms.vllm.VllmLLM",
         "langchain": "mem0.llms.langchain.LangchainLLM",
+        "ockam": "mem0.llms.ockam.OckamLLM",
     }
 
     @classmethod
@@ -56,6 +57,7 @@ class EmbedderFactory:
         "lmstudio": "mem0.embeddings.lmstudio.LMStudioEmbedding",
         "langchain": "mem0.embeddings.langchain.LangchainEmbedding",
         "aws_bedrock": "mem0.embeddings.aws_bedrock.AWSBedrockEmbedding",
+        "ockam": "mem0.embeddings.ockam.OckamEmbedding",
     }
 
     @classmethod
@@ -89,6 +91,7 @@ class VectorStoreFactory:
         "weaviate": "mem0.vector_stores.weaviate.Weaviate",
         "faiss": "mem0.vector_stores.faiss.FAISS",
         "langchain": "mem0.vector_stores.langchain.Langchain",
+        "inmemory": "mem0.vector_stores.inmemory.InMemory",
     }
 
     @classmethod

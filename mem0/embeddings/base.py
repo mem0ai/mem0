@@ -18,7 +18,7 @@ class EmbeddingBase(ABC):
             self.config = config
 
     @abstractmethod
-    def embed(self, text, memory_action: Optional[Literal["add", "search", "update"]]):
+    async def embed(self, text, memory_action: Optional[Literal["add", "search", "update"]]):
         """
         Get the embedding for the given text.
 

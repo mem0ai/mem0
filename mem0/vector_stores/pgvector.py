@@ -49,6 +49,7 @@ class PGVector(VectorStoreBase):
             hnsw (bool, optional): Use HNSW for faster search
         """
         self.collection_name = collection_name
+        self.user = user
         self.use_diskann = diskann
         self.use_hnsw = hnsw
         self.embedding_model_dims = embedding_model_dims
@@ -73,6 +74,7 @@ class PGVector(VectorStoreBase):
             f"""
             CREATE TABLE IF NOT EXISTS {self.collection_name} (
                 id UUID PRIMARY KEY,
+                tenant_id TEXT NOT NULL,
                 vector vector({embedding_model_dims}),
                 payload JSONB
             );
@@ -114,10 +116,10 @@ class PGVector(VectorStoreBase):
         logger.info(f"Inserting {len(vectors)} vectors into collection {self.collection_name}")
         json_payloads = [json.dumps(payload) for payload in payloads]
 
-        data = [(id, vector, payload) for id, vector, payload in zip(ids, vectors, json_payloads)]
+        data = [(id, self.user, vector, payload) for id, vector, payload in zip(ids, vectors, json_payloads)]
         execute_values(
             self.cur,
-            f"INSERT INTO {self.collection_name} (id, vector, payload) VALUES %s",
+            f"INSERT INTO {self.collection_name} (id, tenant_id, vector, payload) VALUES %s",
             data,
         )
         self.conn.commit()
