@@ -156,7 +156,13 @@ Respond with valid JSON only:
         logger.info(f"🚀 [Jean Memory] Orchestration started for user {user_id}. New convo: {is_new_conversation}")
         
         try:
-            background_tasks = background_tasks_var.get()
+            # CRITICAL FIX: Handle missing background_tasks gracefully
+            try:
+                background_tasks = background_tasks_var.get()
+            except LookupError:
+                logger.warning("⚠️ Background tasks not available in current context - using fallback mode")
+                background_tasks = None
+            
             # Step 1: Create plan for saving memory and determining context strategy
             plan = await self._ai_create_context_plan(user_message, is_new_conversation)
             
@@ -180,24 +186,43 @@ Respond with valid JSON only:
                 context_task = self._execute_relevant_context_search(plan, user_id)
 
             # Step 3: Handle memory saving and understanding enhancement
-            memory_task = asyncio.sleep(0) # Default no-op task
+            memory_task = asyncio.create_task(asyncio.sleep(0))  # Default no-op task
+            
             if plan.get("should_save_memory") and plan.get("memorable_content"):
                 logger.info("💾 [Jean Memory] Adding memory saving to background tasks.")
-                background_tasks.add_task(self._add_memory_background,
-                    plan["memorable_content"], 
-                    user_id, 
-                    client_name,
-                    priority=plan.get("save_with_priority", False)
-                )
+                memorable_content = plan["memorable_content"]
+                
+                # Background memory addition
+                if background_tasks:
+                    background_tasks.add_task(
+                        self._add_memory_background, 
+                        memorable_content, 
+                        user_id, 
+                        client_name,
+                        priority=plan.get("save_with_priority", False)
+                    )
+                else:
+                    # Fallback: Add memory synchronously if no background tasks available
+                    logger.info("⚠️ Adding memory synchronously (no background tasks)")
+                    asyncio.create_task(self._add_memory_background(
+                        memorable_content, user_id, client_name, 
+                        priority=plan.get("save_with_priority", False)
+                    ))
                 
                 # Handle understanding enhancement
                 if plan.get("understanding_enhancement"):
                     logger.info("🎯 [Jean Memory] Adding understanding enhancement directive.")
-                    background_tasks.add_task(self._add_understanding_enhancement_directive,
-                        plan["understanding_enhancement"],
-                        user_id,
-                        client_name
-                    )
+                    if background_tasks:
+                        background_tasks.add_task(self._add_understanding_enhancement_directive,
+                            plan["understanding_enhancement"],
+                            user_id,
+                            client_name
+                        )
+                    else:
+                        # Fallback: Add directive synchronously
+                        asyncio.create_task(self._add_understanding_enhancement_directive(
+                            plan["understanding_enhancement"], user_id, client_name
+                        ))
 
             context_results, _ = await asyncio.gather(context_task, memory_task, return_exceptions=True)
             
