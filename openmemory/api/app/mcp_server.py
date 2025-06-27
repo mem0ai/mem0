@@ -2514,35 +2514,22 @@ def cleanup_old_deep_analysis_cache():
 # Dedicated router for Chorus for stability and isolation
 chorus_router = APIRouter(prefix="/mcp/chorus")
 
-# Minimal SSE endpoint for Chorus (for mcp-remote compatibility)
+# Simple SSE endpoint for Chorus - just provides endpoint and closes
 @chorus_router.get("/sse/{user_id}")
 async def handle_chorus_sse(user_id: str, request: Request):
     """
-    Minimal SSE endpoint that provides the messages endpoint and keeps connection alive
-    Chorus will use HTTP responses for actual communication
+    Simple SSE endpoint that just provides the messages endpoint
+    No heartbeats or streaming - just the endpoint event and done
     """
     from fastapi.responses import StreamingResponse
-    import asyncio
     
-    async def chorus_sse_stream():
-        try:
-            # Send the endpoint event (tells client where to send messages)
-            yield f"event: endpoint\ndata: /mcp/chorus/messages/{user_id}\n\n"
-            
-            # Keep connection alive with periodic heartbeats
-            while True:
-                await asyncio.sleep(30)  # Send heartbeat every 30 seconds
-                yield f": heartbeat\n\n"
-                
-        except asyncio.CancelledError:
-            logger.info(f"Chorus SSE stream cancelled for user {user_id}")
-            return
-        except Exception as e:
-            logger.error(f"Error in Chorus SSE stream: {e}")
-            return
+    async def simple_chorus_sse():
+        # Send only the endpoint event - no heartbeats to avoid parsing issues
+        yield f"event: endpoint\ndata: /mcp/chorus/messages/{user_id}\n\n"
+        # Stream ends here - no infinite loop or heartbeats
     
     return StreamingResponse(
-        chorus_sse_stream(),
+        simple_chorus_sse(),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -2551,6 +2538,15 @@ async def handle_chorus_sse(user_id: str, request: Request):
             "Access-Control-Allow-Headers": "Cache-Control",
         }
     )
+
+# Also handle POST to the same SSE endpoint (for http-first transport)
+@chorus_router.post("/sse/{user_id}")
+async def handle_chorus_sse_post(user_id: str, request: Request):
+    """
+    Handle POST requests to SSE endpoint - redirect to messages handler
+    This supports http-first transport strategy
+    """
+    return await handle_chorus_messages(user_id, request)
 
 # Chorus messages endpoint - returns JSON-RPC directly via HTTP (no SSE)
 @chorus_router.post("/messages/{user_id}")
@@ -2570,6 +2566,7 @@ async def handle_chorus_messages(user_id: str, request: Request):
         request_id = body.get("id")
 
         logger.info(f"Chorus direct HTTP: {method_name} for user {user_id}")
+        logger.info(f"Chorus request body: {body}")
 
         # Handle MCP methods directly (same logic as main /messages/ endpoint)
         if method_name == "initialize":
@@ -2628,18 +2625,18 @@ async def handle_chorus_messages(user_id: str, request: Request):
             }
 
         # Return JSON-RPC directly via HTTP (no SSE)
+        logger.info(f"Chorus response: {response_payload}")
         return JSONResponse(content=response_payload)
 
     except Exception as e:
         logger.error(f"Error in Chorus direct HTTP handler: {e}", exc_info=True)
-        return JSONResponse(
-            status_code=500,
-            content={
-                "jsonrpc": "2.0",
-                "error": {"code": -32603, "message": f"Internal error: {str(e)}"},
-                "id": request_id if 'request_id' in locals() else None
-            }
-        )
+        error_response = {
+            "jsonrpc": "2.0",
+            "error": {"code": -32603, "message": f"Internal error: {str(e)}"},
+            "id": request_id if 'request_id' in locals() else None
+        }
+        logger.info(f"Chorus error response: {error_response}")
+        return JSONResponse(status_code=200, content=error_response)  # Return 200 for JSON-RPC errors
     finally:
         user_id_var.reset(user_token)
         client_name_var.reset(client_token)
