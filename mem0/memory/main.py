@@ -25,7 +25,7 @@ from mem0.memory.setup import mem0_dir, setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import capture_event
 from mem0.memory.utils import (
-    get_fact_retrieval_messages,
+    get_fact_extraction_messages,
     parse_messages,
     parse_vision_messages,
     process_telemetry_filters,
@@ -322,7 +322,7 @@ class Memory(MemoryBase):
             system_prompt = self.config.custom_fact_extraction_prompt
             user_prompt = f"Input:\n{parsed_messages}"
         else:
-            system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages)
+            system_prompt, user_prompt = get_fact_extraction_messages(parsed_messages)
 
         response = self.llm.generate_response(
             messages=[
@@ -1153,7 +1153,7 @@ class AsyncMemory(MemoryBase):
             system_prompt = self.config.custom_fact_extraction_prompt
             user_prompt = f"Input:\n{parsed_messages}"
         else:
-            system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages)
+            system_prompt, user_prompt = get_fact_extraction_messages(parsed_messages)
 
         response = await asyncio.to_thread(
             self.llm.generate_response,

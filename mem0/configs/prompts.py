@@ -11,7 +11,7 @@ Guidelines:
 Here are the details of the task:
 """
 
-FACT_RETRIEVAL_PROMPT = f"""You are a Personal Information Organizer, specialized in accurately storing facts, user memories, and preferences. Your primary role is to extract relevant pieces of information from conversations and organize them into distinct, manageable facts. This allows for easy retrieval and personalization in future interactions. Below are the types of information you need to focus on and the detailed instructions on how to handle the input data.
+FACT_EXTRACTION_PROMPT = f"""You are a Personal Information Organizer, specialized in accurately storing facts, user memories, and preferences. Your primary role is to extract relevant pieces of information from conversations and organize them into distinct, manageable facts. This allows for easy retrieval and personalization in future interactions. Below are the types of information you need to focus on and the detailed instructions on how to handle the input data.
 
 Types of Information to Remember:
 
@@ -63,7 +63,7 @@ You can perform four operations: (1) add into the memory, (2) update the memory,
 
 Based on the above four operations, the memory will change.
 
-Compare newly retrieved facts with the existing memory. For each new fact, decide whether to:
+Compare newly extracted facts with the existing memory. For each new fact, decide whether to:
 - ADD: Add it to the memory as a new element
 - UPDATE: Update an existing memory element
 - DELETE: Delete an existing memory element
@@ -71,16 +71,16 @@ Compare newly retrieved facts with the existing memory. For each new fact, decid
 
 There are specific guidelines to select which operation to perform:
 
-1. **Add**: If the retrieved facts contain new information not present in the memory, then you have to add it by generating a new ID in the id field.
+1. **Add**: If the newly extracted facts contain new information not present in the old memory, then you have to add it by generating a new ID in the id field.
 - **Example**:
-    - Old Memory:
+    - Retrieved Old Memory:
         [
             {
                 "id" : "0",
                 "text" : "User is a software engineer"
             }
         ]
-    - Retrieved facts: ["Name is John"]
+    - Extracted New Facts: ["Name is John"]
     - New Memory:
         {
             "memory" : [
@@ -98,15 +98,15 @@ There are specific guidelines to select which operation to perform:
 
         }
 
-2. **Update**: If the retrieved facts contain information that is already present in the memory but the information is totally different, then you have to update it. 
-If the retrieved fact contains information that conveys the same thing as the elements present in the memory, then you have to keep the fact which has the most information. 
-Example (a) -- if the memory contains "User likes to play cricket" and the retrieved fact is "Loves to play cricket with friends", then update the memory with the retrieved facts.
-Example (b) -- if the memory contains "Likes cheese pizza" and the retrieved fact is "Loves cheese pizza", then you do not need to update it because they convey the same information.
+2. **Update**: If the new facts contain information that is already present in the old memory but the information is totally different, then you have to update it. 
+If the extracted fact contains information that conveys the same thing as the elements present in the old memory, then you have to keep the fact which has the most information. 
+Example (a) -- if the memory contains "User likes to play cricket" and the extracted new fact is "Loves to play cricket with friends", then update the memory with the new facts.
+Example (b) -- if the memory contains "Likes cheese pizza" and the extracted fact is "Loves cheese pizza", then you do not need to update it because they convey the same information.
 If the direction is to update the memory, then you have to update it.
 Please keep in mind while updating you have to keep the same ID.
 Please note to return the IDs in the output from the input IDs only and do not generate any new ID.
 - **Example**:
-    - Old Memory:
+    - Retrieved Old Memory:
         [
             {
                 "id" : "0",
@@ -121,7 +121,7 @@ Please note to return the IDs in the output from the input IDs only and do not g
                 "text" : "User likes to play cricket"
             }
         ]
-    - Retrieved facts: ["Loves chicken pizza", "Loves to play cricket with friends"]
+    - Extracted New Facts: ["Loves chicken pizza", "Loves to play cricket with friends"]
     - New Memory:
         {
         "memory" : [
@@ -146,10 +146,10 @@ Please note to return the IDs in the output from the input IDs only and do not g
         }
 
 
-3. **Delete**: If the retrieved facts contain information that contradicts the information present in the memory, then you have to delete it. Or if the direction is to delete the memory, then you have to delete it.
+3. **Delete**: If the newly extracted facts contain information that contradicts the information present in the memory, then you have to delete it. Or if the direction is to delete the memory, then you have to delete it.
 Please note to return the IDs in the output from the input IDs only and do not generate any new ID.
 - **Example**:
-    - Old Memory:
+    - Retrieved Old Memory:
         [
             {
                 "id" : "0",
@@ -160,7 +160,7 @@ Please note to return the IDs in the output from the input IDs only and do not g
                 "text" : "Loves cheese pizza"
             }
         ]
-    - Retrieved facts: ["Dislikes cheese pizza"]
+    - Extracted New Facts: ["Dislikes cheese pizza"]
     - New Memory:
         {
         "memory" : [
@@ -177,9 +177,9 @@ Please note to return the IDs in the output from the input IDs only and do not g
         ]
         }
 
-4. **No Change**: If the retrieved facts contain information that is already present in the memory, then you do not need to make any changes.
+4. **No Change**: If the newly extracted facts contain information that is already present in the memory, then you do not need to make any changes.
 - **Example**:
-    - Old Memory:
+    - Retrieved Old Memory:
         [
             {
                 "id" : "0",
@@ -190,7 +190,7 @@ Please note to return the IDs in the output from the input IDs only and do not g
                 "text" : "Loves cheese pizza"
             }
         ]
-    - Retrieved facts: ["Name is John"]
+    - Extracted New Facts: ["Name is John"]
     - New Memory:
         {
         "memory" : [
@@ -301,7 +301,7 @@ def get_update_memory_messages(retrieved_old_memory_dict, response_content, cust
     {retrieved_old_memory_dict}
     ```
 
-    The new retrieved facts are mentioned in the triple backticks. You have to analyze the new retrieved facts and determine whether these facts should be added, updated, or deleted in the memory.
+    The new extracted facts are mentioned in the triple backticks. You have to analyze the new extracted facts and determine whether these facts should be added, updated, or deleted in the memory.
 
     ```
     {response_content}
@@ -323,7 +323,7 @@ def get_update_memory_messages(retrieved_old_memory_dict, response_content, cust
 
     Follow the instruction mentioned below:
     - Do not return anything from the custom few shot prompts provided above.
-    - If the current memory is empty, then you have to add the new retrieved facts to the memory.
+    - If the current memory is empty, then you have to add the new extracted facts to the memory.
     - You should return the updated memory in only JSON format as shown below. The memory key should be the same if no changes are made.
     - If there is an addition, generate a new key and add the new memory corresponding to it.
     - If there is a deletion, the memory key-value pair should be removed from the memory.
