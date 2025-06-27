@@ -78,12 +78,17 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
   const appConfig = constants[app.id as keyof typeof constants] || constants.default;
   let commandParts = { command: '', args: '' };
   
-  const MCP_URL = "https://api.jeanmemory.com";
+  // Use direct backend URL for Chorus, Worker URL for others
+  const MCP_URL = app.id === 'chorus' ? "https://jean-memory-api.onrender.com" : "https://api.jeanmemory.com";
 
   // Define a base command that can be used as a fallback, fixing the regression.
   let rawInstallCommand = app.installCommand;
   if (!rawInstallCommand) {
-    rawInstallCommand = `npx install-mcp ${MCP_URL}/mcp/${app.id}/sse/{user_id} --client ${app.id}`;
+    if (app.id === 'chorus') {
+      rawInstallCommand = `-y mcp-remote ${MCP_URL}/mcp/${app.id}/sse/{user_id}`;
+    } else {
+      rawInstallCommand = `npx install-mcp ${MCP_URL}/mcp/${app.id}/sse/{user_id} --client ${app.id}`;
+    }
   }
   
   // Handle the special case for Chorus with a multi-part command
@@ -105,7 +110,9 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
       <DialogContent className="sm:max-w-lg bg-zinc-950 border-zinc-800 text-white shadow-2xl shadow-blue-500/10">
         <DialogHeader className="text-center pb-4">
           <div className="mx-auto w-16 h-16 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center mb-4">
-            {appConfig.iconImage ? (
+            {app.imageUrl ? (
+                <Image src={app.imageUrl} alt={app.name} width={36} height={36} />
+            ) : appConfig.iconImage ? (
                 <Image src={appConfig.iconImage} alt={app.name} width={36} height={36} />
             ) : (
                 <div className="w-9 h-9 flex items-center justify-center">{appConfig.icon}</div>
@@ -232,10 +239,10 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
                   <Input
                     id="chorus-args"
                     readOnly
-                    value={(app.installCommand || '').replace('{USER_ID}', user?.id || '')}
+                    value={installCommand}
                     className="bg-black border-zinc-700 text-zinc-300 font-mono text-xs pr-10"
                   />
-                  <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-zinc-400 hover:text-white" onClick={() => handleCopy((app.installCommand || '').replace('{USER_ID}', user?.id || ''))}>
+                  <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-zinc-400 hover:text-white" onClick={() => handleCopy(installCommand)}>
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>
