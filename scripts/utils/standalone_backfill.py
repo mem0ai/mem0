@@ -178,19 +178,18 @@ def get_eligible_users():
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             seven_days_ago = datetime.now(UTC) - timedelta(days=NARRATIVE_TTL_DAYS)
             
+            # FORCE REGENERATION MODE: Regenerate ALL narratives regardless of age
+            # This ensures everyone gets the new comprehensive format
             query = """
             SELECT DISTINCT u.user_id, u.name, COUNT(m.id) as memory_count
             FROM users u
             INNER JOIN memories m ON u.id = m.user_id AND m.state = 'active'
-            LEFT JOIN user_narratives un ON u.id = un.user_id 
-                AND un.generated_at >= %s
-            WHERE un.user_id IS NULL
             GROUP BY u.user_id, u.name
             HAVING COUNT(m.id) > %s
             ORDER BY COUNT(m.id) DESC
             """
             
-            cur.execute(query, (seven_days_ago, MEMORY_THRESHOLD))
+            cur.execute(query, (MEMORY_THRESHOLD,))
             users = cur.fetchall()
             
             logger.info(f"✅ Found {len(users)} eligible users")
