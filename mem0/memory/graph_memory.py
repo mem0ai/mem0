@@ -194,7 +194,6 @@ class MemoryGraph:
         )
 
         entity_type_map = {}
-
         try:
             for tool_call in search_results["tool_calls"]:
                 if tool_call["name"] != "extract_entities":
@@ -554,6 +553,13 @@ class MemoryGraph:
 
     def _remove_spaces_from_entities(self, entity_list):
         for item in entity_list:
+            print(item)
+            if "source" not in item and "source_entity" in item:
+                item["source"] = item["source_entity"]
+            if "relationship" not in item and "relatationship" in item:
+                item["relationship"] = item["relatationship"]
+            if "destination" not in item and "destination_entity" in item:
+                item["destination"] = item["destination_entity"]
             item["source"] = item["source"].lower().replace(" ", "_")
             item["relationship"] = item["relationship"].lower().replace(" ", "_")
             item["destination"] = item["destination"].lower().replace(" ", "_")
