@@ -173,10 +173,10 @@ New conversation: {is_new_conversation}
         is_new_conversation: bool
     ) -> str:
         """
-        Enhanced orchestration using deep memory analysis for comprehensive understanding.
+        Enhanced orchestration using FAST deep analysis for conversation instantiation.
         
-        This provides the deepest level of context but takes longer to process.
-        Perfect for new conversations and rich content.
+        For new conversations: Rich memory context with Gemini synthesis (10-15s)
+        For rich content: Full deep analysis including documents (30-60s)
         """
         orchestration_start_time = time.time()
         logger.info(f"🧠 [Deep Memory] Starting deep analysis orchestration for user {user_id}")
@@ -185,37 +185,125 @@ New conversation: {is_new_conversation}
             # Background memory saving - handle this first to not block deep analysis
             await self._handle_background_memory_saving(user_message, user_id, client_name, is_new_conversation)
             
-            # Create targeted query for deep memory analysis
+            # Choose analysis depth based on use case
             if is_new_conversation:
-                # For new conversations, get comprehensive understanding
-                deep_query = f"Tell me everything about this user - their personality, work, interests, values, goals, and experiences. Context: {user_message}"
+                # FAST DEEP ANALYSIS: Rich understanding without heavy document processing
+                logger.info(f"⚡ [Fast Deep] Using fast deep analysis for conversation instantiation")
+                analysis_result = await self._fast_deep_analysis(user_message, user_id, client_name)
             else:
-                # For rich content, focus on the specific context plus background
+                # FULL DEEP ANALYSIS: Complete analysis including documents for rich content
+                logger.info(f"🔬 [Full Deep] Using full deep analysis for rich content")
                 deep_query = f"Analyze: {user_message}. Provide relevant background context about this user."
-            
-            logger.info(f"🧠 [Deep Memory] Executing deep memory query: {deep_query[:100]}...")
-            
-            # Execute deep memory analysis with timeout protection
-            deep_analysis_task = self._get_tools()['deep_memory_query'](search_query=deep_query)
-            deep_analysis_result = await asyncio.wait_for(deep_analysis_task, timeout=50.0)
+                deep_analysis_task = self._get_tools()['deep_memory_query'](search_query=deep_query)
+                analysis_result = await asyncio.wait_for(deep_analysis_task, timeout=50.0)
             
             processing_time = time.time() - orchestration_start_time
             logger.info(f"🧠 [Deep Memory] Deep analysis completed in {processing_time:.2f}s")
             
             # Format as enhanced context
-            if deep_analysis_result and not deep_analysis_result.startswith("Error"):
-                return f"---\n[Jean Memory Context - Deep Analysis]\n{deep_analysis_result}\n---"
+            if analysis_result and not analysis_result.startswith("Error"):
+                return f"---\n[Jean Memory Context - Deep Analysis]\n{analysis_result}\n---"
             else:
                 # Fallback to standard orchestration if deep analysis fails
                 logger.warning("🧠 [Deep Memory] Deep analysis failed, falling back to standard orchestration")
                 return await self._standard_orchestration(user_message, user_id, client_name, is_new_conversation)
                 
         except asyncio.TimeoutError:
-            logger.warning(f"🧠 [Deep Memory] Deep analysis timed out after 50s, falling back to standard orchestration")
+            logger.warning(f"🧠 [Deep Memory] Deep analysis timed out, falling back to standard orchestration")
             return await self._standard_orchestration(user_message, user_id, client_name, is_new_conversation)
         except Exception as e:
             logger.error(f"🧠 [Deep Memory] Deep analysis failed: {e}, falling back to standard orchestration")
             return await self._standard_orchestration(user_message, user_id, client_name, is_new_conversation)
+
+    async def _fast_deep_analysis(self, user_message: str, user_id: str, client_name: str) -> str:
+        """
+        Fast deep analysis optimized for conversation instantiation.
+        
+        Uses Gemini Flash intelligence but skips heavy document processing.
+        Target: 10-15 seconds with rich memory understanding.
+        """
+        from app.utils.gemini import GeminiService
+        
+        analysis_start_time = time.time()
+        logger.info(f"⚡ [Fast Deep] Starting fast deep analysis for user {user_id}")
+        
+        try:
+            # 1. Get comprehensive memory context (faster than documents)
+            memory_search_start = time.time()
+            
+            # Multiple targeted searches for rich context
+            search_queries = [
+                "personal background values personality traits",
+                "work projects technical expertise professional",
+                "current goals interests preferences habits",
+                "important experiences thoughts insights"
+            ]
+            
+            tasks = [self._get_tools()['search_memory'](query=query, limit=8) for query in search_queries]
+            search_results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Collect unique memories
+            all_memories = {}
+            for query, result in zip(search_queries, search_results):
+                if isinstance(result, Exception):
+                    logger.warning(f"Search failed for '{query}': {result}")
+                    continue
+                    
+                try:
+                    memories = json.loads(result)
+                    for mem in memories:
+                        if isinstance(mem, dict):
+                            memory_id = mem.get('id')
+                            memory_content = mem.get('memory', mem.get('content', ''))
+                            if memory_id and memory_content and memory_id not in all_memories:
+                                all_memories[memory_id] = memory_content
+                except (json.JSONDecodeError, TypeError):
+                    logger.warning(f"Failed to parse search result for '{query}'")
+            
+            memory_search_time = time.time() - memory_search_start
+            logger.info(f"⚡ [Fast Deep] Memory search completed in {memory_search_time:.2f}s. Found {len(all_memories)} unique memories.")
+            
+            # 2. Use Gemini Flash for intelligent synthesis
+            gemini_start_time = time.time()
+            gemini_service = GeminiService()
+            
+            # Build rich context for Gemini
+            memory_list = list(all_memories.values())
+            memories_text = "\n".join([f"• {mem}" for mem in memory_list[:20]])  # Limit for speed
+            
+            # Optimized prompt for conversation instantiation
+            prompt = f"""You are providing context for a conversation with this user. Analyze their memories and create a rich understanding.
+
+USER'S MESSAGE: "{user_message}"
+
+USER'S MEMORIES:
+{memories_text}
+
+Create a comprehensive but concise understanding of this person for conversation context. Focus on:
+1. Who they are (personality, background, values)
+2. What they're working on (projects, goals, interests)  
+3. How to best interact with them (preferences, communication style)
+4. Any relevant context for their current message
+
+Provide rich context that helps understand them deeply, but keep it conversational and practical."""
+
+            analysis_response = await gemini_service.generate_response(prompt)
+            
+            gemini_time = time.time() - gemini_start_time
+            total_time = time.time() - analysis_start_time
+            
+            logger.info(f"⚡ [Fast Deep] Completed in {total_time:.2f}s (memory: {memory_search_time:.2f}s, gemini: {gemini_time:.2f}s)")
+            
+            return analysis_response
+            
+        except Exception as e:
+            logger.error(f"⚡ [Fast Deep] Error in fast deep analysis: {e}")
+            # Fallback to basic memory context
+            memory_list = list(all_memories.values()) if 'all_memories' in locals() else []
+            if memory_list:
+                return f"Key context about this user:\n" + "\n".join([f"• {mem}" for mem in memory_list[:8]])
+            else:
+                return "Unable to retrieve context at this time."
 
     async def _standard_orchestration(
         self, 
