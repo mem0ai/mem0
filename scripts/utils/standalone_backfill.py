@@ -52,7 +52,7 @@ class GeminiService:
 USER'S MEMORIES AND CONTENT:
 {memories_text}
 
-Create a comprehensive 'life narrative' for this person to be used as a primer for new conversations. Focus on:
+Create a comprehensive life narrative for this person to be used as a primer for new conversations. Focus on:
 
 1. **Who they are** - personality, background, values, and core interests
 2. **What they're working on** - current projects, goals, professional focus, and aspirations  
@@ -90,17 +90,17 @@ Write this as flowing, insightful paragraphs that synthesize their experiences i
     async def _generate_narrative_fallback(self, memories_text: str) -> str:
         """Fallback method with very safe prompt to avoid safety filters"""
         # Much simpler, safer prompt
-        prompt = f"""Based on these conversation notes, write a professional summary about this person's work and interests:
+        prompt = f"""Analyze these conversation notes and create a professional narrative about this person:
 
 NOTES:
 {memories_text[:2000]}
 
-Write 2-3 paragraphs describing:
+Write a cohesive narrative covering:
 - Their professional background and skills
-- Current projects and interests
+- Current projects and interests  
 - Working style and goals
 
-Keep it professional and factual."""
+Write this as flowing paragraphs that would help an AI assistant understand this person completely."""
         
         try:
             response = await self.model_pro.generate_content_async(
