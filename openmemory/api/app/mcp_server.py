@@ -2067,7 +2067,8 @@ def setup_mcp_server(app: FastAPI):
     # The new stateless /messages endpoint is the primary way to interact.
     # The old SSE endpoints are no longer needed with the Cloudflare Worker architecture.
     app.include_router(mcp_router)
-    app.include_router(chorus_router)
+    # DISABLED: chorus_router to prevent SSE competition - Chorus must use Worker SSE only
+    # app.include_router(chorus_router)
     logger.info("MCP server setup complete - stateless router included.")
 
 def get_chatgpt_tools_schema():
@@ -2513,12 +2514,13 @@ def cleanup_old_deep_analysis_cache():
 # Dedicated router for Chorus for stability and isolation
 chorus_router = APIRouter(prefix="/mcp/chorus")
 
-@chorus_router.get("/sse/{user_id}")
-async def handle_chorus_sse(user_id: str, request: Request):
-    # This reuses the same robust SSE connection logic from the main router
-    return await handle_sse_connection(client_name="chorus", user_id=user_id, request=request)
+# DISABLED: Chorus SSE endpoint to prevent competition with Worker SSE
+# Chorus clients should only use Worker SSE, not backend SSE
+# @chorus_router.get("/sse/{user_id}")
+# async def handle_chorus_sse(user_id: str, request: Request):
+#     return await handle_sse_connection(client_name="chorus", user_id=user_id, request=request)
 
-@chorus_router.post("/messages/{user_id}")
-async def handle_chorus_messages(user_id: str, request: Request):
-    # This reuses the same robust message handling logic from the main router
-    return await handle_sse_messages(client_name="chorus", user_id=user_id, request=request)
+# DISABLED: Chorus messages endpoint - Chorus must use Worker routing only
+# @chorus_router.post("/messages/{user_id}")
+# async def handle_chorus_messages(user_id: str, request: Request):
+#     # Disabled to prevent SSE competition with Worker
