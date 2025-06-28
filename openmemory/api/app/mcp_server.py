@@ -2870,7 +2870,7 @@ async def _process_document_background(
             user = get_or_create_user(db, supa_uid, email=None)
             if not user:
                 raise ValueError("Failed to get user information")
-            logger.info(f"✅ [{job_id}] User retrieved successfully: {user.id}")
+            logger.info(f"✅ [{job_id}] User retrieved successfully: {user.id} (type: {type(user.id)})")
             
             # Import and initialize memory client
             logger.info(f"🧠 [{job_id}] Initializing memory client...")
@@ -2895,7 +2895,7 @@ async def _process_document_background(
             logger.info(f"💾 [{job_id}] Inserting document into database...")
             document_data = {
                 "id": document_id,
-                "user_id": user.id,
+                "user_id": str(user.id),  # Ensure UUID is converted to string
                 "title": title,
                 "content": content,
                 "document_type": document_type,
@@ -2931,7 +2931,7 @@ async def _process_document_background(
                         chunks.append({
                             "id": chunk_id,
                             "document_id": document_id,
-                            "user_id": user.id,
+                            "user_id": str(user.id),  # Ensure UUID is converted to string
                             "content": chunk_content,
                             "chunk_index": len(chunks),
                             "created_at": datetime.datetime.now(datetime.UTC).isoformat()
@@ -3008,7 +3008,7 @@ async def _process_document_background(
                         "id": str(uuid.uuid4()),
                         "document_id": document_id,
                         "memory_id": memory_id,
-                        "user_id": user.id,
+                        "user_id": str(user.id),  # Ensure UUID is converted to string
                         "created_at": datetime.datetime.now(datetime.UTC).isoformat()
                     }
                     link_result = supabase_admin.table("document_memories").insert(link_data).execute()
