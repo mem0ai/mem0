@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Check, Link as LinkIcon, Eye, Zap, BookOpen, Plus, MessageSquareText } from "lucide-react";
+import { Check, Link as LinkIcon, Eye, Zap, BookOpen, Plus, MessageSquareText, Star } from "lucide-react";
 import { App } from "@/store/appsSlice";
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from "@/components/ui/use-toast";
@@ -100,7 +100,15 @@ export function AppCard({ app, onConnect, index, isSyncing, onSyncStart }: AppCa
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="font-medium text-foreground text-sm truncate">{app.name}</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="font-medium text-foreground text-sm truncate">{app.name}</h3>
+                {app.id === 'sms' && (
+                  <div className="bg-purple-500/20 text-purple-300 text-xs font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Star className="w-3 h-3" />
+                    PRO
+                  </div>
+                )}
+              </div>
               {!app.isComingSoon && (
                 <p className="text-xs text-muted-foreground truncate">{app.description}</p>
               )}
