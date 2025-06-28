@@ -252,9 +252,9 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
             </div>
         ) : app.id === 'chatgpt' ? (
             <div className="py-2 text-center space-y-4">
-                <div className="bg-amber-900/20 border border-amber-700/50 rounded-md p-3 mb-4">
-                    <p className="text-amber-300 text-sm font-medium mb-1">⚠️ Admin Setup Required</p>
-                    <p className="text-amber-200/80 text-xs">
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700/50 rounded-md p-3 mb-4">
+                    <p className="text-yellow-800 dark:text-yellow-300 text-sm font-medium mb-1">⚠️ Admin Setup Required</p>
+                    <p className="text-yellow-700 dark:text-yellow-200/80 text-xs">
                         A workspace admin needs to add this connector in ChatGPT settings.
                     </p>
                 </div>
