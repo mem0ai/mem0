@@ -5,7 +5,7 @@ import { App } from '@/store/appsSlice';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { MobileOptimizedDialog, MobileOptimizedDialogContent, MobileOptimizedDialogHeader, MobileOptimizedDialogTitle, MobileOptimizedDialogDescription } from '@/components/ui/mobile-optimized-dialog';
-import { Copy, Check, Key, Shield, Link as LinkIcon, Loader2, CheckCircle, AlertCircle, MessageSquare, Info, Download, ExternalLink, AlertTriangle, Smartphone } from 'lucide-react';
+import { Copy, Check, Key, Shield, Link as LinkIcon, Loader2, CheckCircle, AlertCircle, MessageSquare, MessageSquareText, Info, Download, ExternalLink, AlertTriangle, Smartphone } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { constants } from "@/components/shared/source-app";
@@ -199,7 +199,7 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
         <MobileOptimizedDialogHeader className="text-center pb-4">
           <div className="mx-auto w-16 h-16 rounded-lg bg-muted border flex items-center justify-center mb-4">
             {app.id === 'sms' ? (
-                <MessageSquare className="w-9 h-9 text-blue-400" />
+                <MessageSquareText className="w-9 h-9 text-primary" />
             ) : app.imageUrl ? (
                 <Image src={app.imageUrl} alt={app.name} width={36} height={36} />
             ) : appConfig.iconImage ? (
