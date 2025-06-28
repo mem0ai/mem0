@@ -45,8 +45,8 @@ from mcp.types import Tool, TextContent
 # Import our existing MCP tools
 try:
     from app.mcp_server import (
-        add_memories, store_document, get_document_status, search_memory, list_memories,
-        user_id_var, client_name_var
+        add_memories, search_memory, list_memories,
+        user_id_var, client_name_var, tool_registry
     )
     from app.database import SessionLocal
     from app.utils.db import get_or_create_user
@@ -184,15 +184,23 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         if name == "add_memories":
             result = await add_memories(arguments["text"])
         elif name == "store_document":
-            result = await store_document(
-                title=arguments["title"],
-                content=arguments["content"],
-                document_type=arguments.get("document_type", "markdown"),
-                source_url=arguments.get("source_url"),
-                metadata=arguments.get("metadata")
-            )
+            store_document_func = tool_registry.get("store_document")
+            if store_document_func:
+                result = await store_document_func(
+                    title=arguments["title"],
+                    content=arguments["content"],
+                    document_type=arguments.get("document_type", "markdown"),
+                    source_url=arguments.get("source_url"),
+                    metadata=arguments.get("metadata")
+                )
+            else:
+                result = "store_document function not available"
         elif name == "get_document_status":
-            result = await get_document_status(arguments["job_id"])
+            get_status_func = tool_registry.get("get_document_status")
+            if get_status_func:
+                result = await get_status_func(arguments["job_id"])
+            else:
+                result = "get_document_status function not available"
         elif name == "search_memory":
             result = await search_memory(arguments["query"], arguments.get("limit"))
         elif name == "list_memories":
