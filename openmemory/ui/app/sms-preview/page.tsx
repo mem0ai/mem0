@@ -5,7 +5,7 @@ import { Phone, Check, Star } from "lucide-react";
 
 export default function SmsPreviewPage() {
   return (
-    <div className="relative min-h-screen bg-black text-white overflow-hidden flex items-center justify-center p-4">
+    <div className="relative min-h-screen bg-background text-foreground overflow-hidden flex items-center justify-center p-4">
       {/* Gradient Overlays */}
       <div className="absolute inset-0 bg-gradient-to-b from-blue-950/60 via-transparent to-slate-950/60" />
       <div className="absolute inset-0 bg-gradient-radial from-transparent via-black/80 to-black" />
@@ -16,22 +16,22 @@ export default function SmsPreviewPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="text-center max-w-md mx-auto w-full bg-slate-900/80 backdrop-blur-sm border border-slate-700 rounded-2xl p-8 shadow-2xl shadow-blue-500/10"
+          className="text-center max-w-md mx-auto w-full bg-card/80 backdrop-blur-sm border rounded-2xl p-8 shadow-2xl shadow-primary/10"
         >
           {/* Icon */}
           <motion.div
             initial={{ scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="mx-auto w-16 h-16 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center mb-6"
+            className="mx-auto w-16 h-16 rounded-xl bg-muted border flex items-center justify-center mb-6"
           >
-            <Phone className="w-8 h-8 text-blue-400" />
+            <Phone className="w-8 h-8 text-primary" />
           </motion.div>
 
           {/* Title and Pro Badge */}
           <div className="flex items-center justify-center gap-3 mb-2">
             <motion.h1
-              className="text-2xl font-bold text-slate-100 tracking-tight"
+              className="text-2xl font-bold text-card-foreground tracking-tight"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
@@ -39,7 +39,7 @@ export default function SmsPreviewPage() {
               Connect SMS to Jean Memory
             </motion.h1>
             <motion.div
-              className="bg-purple-500/20 text-purple-300 text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1"
+              className="bg-primary/20 text-primary text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1"
               initial={{ scale: 0, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ duration: 0.5, delay: 0.3 }}
@@ -51,7 +51,7 @@ export default function SmsPreviewPage() {
 
           {/* Subtitle */}
           <motion.p
-            className="text-sm text-slate-400 mb-8"
+            className="text-sm text-muted-foreground mb-8"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.4 }}
@@ -61,32 +61,32 @@ export default function SmsPreviewPage() {
           
           {/* Mockup Form */}
           <div className="space-y-2 mb-4">
-            <label htmlFor="phone-number" className="text-left block text-sm font-medium text-slate-300 mb-1">Phone Number *</label>
+            <label htmlFor="phone-number" className="text-left block text-sm font-medium text-card-foreground mb-1">Phone Number *</label>
             <div className="relative">
               <input
                 id="phone-number"
                 type="tel"
                 placeholder="(555) 123-4567"
-                className="w-full bg-slate-800/50 border border-slate-600 rounded-lg pl-4 pr-4 py-2.5 text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                className="w-full bg-muted border rounded-lg pl-4 pr-4 py-2.5 text-foreground placeholder-muted-foreground focus:ring-2 focus:ring-primary focus:border-primary outline-none"
                 disabled
               />
             </div>
           </div>
           
           {/* Consent Text */}
-          <p className="text-xs text-slate-500 mb-6">
+          <p className="text-xs text-muted-foreground mb-6">
             US phone numbers only. By providing your phone number, you agree to receive text messages from Jean Memory for account verification and to interact with your memory assistant. Message & data rates may apply.
           </p>
           
           {/* How to Use Box */}
           <motion.div
-            className="mb-8 text-sm text-slate-400 text-left bg-slate-800/50 p-4 rounded-lg border border-slate-700"
+            className="mb-8 text-sm text-muted-foreground text-left bg-muted p-4 rounded-lg border"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.6 }}
           >
-            <p className="font-bold text-slate-200 mb-2">How to Use Jean Memory SMS:</p>
-            <ul className="list-disc list-inside space-y-1 text-slate-400 text-xs">
+            <p className="font-bold text-card-foreground mb-2">How to Use Jean Memory SMS:</p>
+            <ul className="list-disc list-inside space-y-1 text-muted-foreground text-xs">
                 <li>"Remember to pick up groceries after work"</li>
                 <li>"What were the main points from the meeting yesterday?"</li>
                 <li>"Show my recent thoughts on the new project"</li>
@@ -97,20 +97,20 @@ export default function SmsPreviewPage() {
           {/* Action Buttons */}
           <div className="grid grid-cols-2 gap-3">
             <button
-              className="w-full inline-flex items-center justify-center px-4 py-2.5 font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all duration-300 shadow-lg"
+              className="w-full inline-flex items-center justify-center px-4 py-2.5 font-semibold rounded-lg bg-muted text-muted-foreground hover:bg-muted/80 transition-all duration-300 shadow-lg"
               disabled
             >
               Cancel
             </button>
             <button
-              className="w-full inline-flex items-center justify-center px-4 py-2.5 font-semibold rounded-lg bg-slate-200 text-slate-900 transition-all duration-300 shadow-lg"
+              className="w-full inline-flex items-center justify-center px-4 py-2.5 font-semibold rounded-lg bg-secondary text-secondary-foreground transition-all duration-300 shadow-lg"
               disabled
             >
               Send Code
             </button>
           </div>
 
-          <p className="text-xs text-slate-600 mt-8">
+          <p className="text-xs text-muted-foreground mt-8">
               This is a static mockup page for Twilio campaign verification purposes.
           </p>
         </motion.div>
