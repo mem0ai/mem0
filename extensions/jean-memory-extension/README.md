@@ -33,9 +33,9 @@ Jean Memory is a personal AI memory service that allows Claude to remember your 
 ## Getting Your User ID
 
 1. Visit [Jean Memory Dashboard](https://jeanmemory.com/dashboard-new)
-2. Go to Settings → API Keys
-3. Copy your User ID
-4. Paste it into the extension configuration
+2. Click on the Claude Desktop installation option
+3. Your User ID will be displayed in the install modal
+4. Copy the User ID and paste it into the extension configuration
 
 ## How It Works
 

@@ -38,7 +38,7 @@
     "user_id": {
       "type": "string",
       "title": "Jean Memory User ID",
-      "description": "Find your User ID in Jean Memory dashboard → Settings → API Keys",
+      "description": "Find and copy your User ID in the Claude Desktop install card in Jean Memory dashboard",
       "required": true,
       "sensitive": false
     }

@@ -108,7 +108,7 @@ Our `manifest.json` will include:
     "user_id": {
       "type": "string",
       "title": "Jean Memory User ID",
-      "description": "Find your User ID in Jean Memory dashboard → Settings → API Keys",
+      "description": "Find and copy your User ID in the Claude Desktop install card in Jean Memory dashboard",
       "required": true,
       "sensitive": false
     }
@@ -612,7 +612,7 @@ The hard work is done - now it's time to get maximum distribution! 🚀
 
 2. **Configure with your User ID**:
    - Enter your User ID when prompted
-   - Find it in Jean Memory dashboard → Settings → API Keys
+   - Find it in the Claude Desktop install card in Jean Memory dashboard
 
 3. **Test the connection**:
    - Open new Claude conversation
