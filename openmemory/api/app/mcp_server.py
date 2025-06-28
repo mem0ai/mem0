@@ -2864,27 +2864,36 @@ async def _process_document_background(
         document_processing_status[job_id]["message"] = "Validating content..."
         
         # 2. Get user and initialize services
+        logger.info(f"📝 [{job_id}] Getting user and initializing services for user {supa_uid}")
         db = SessionLocal()
         try:
             user = get_or_create_user(db, supa_uid, email=None)
             if not user:
                 raise ValueError("Failed to get user information")
+            logger.info(f"✅ [{job_id}] User retrieved successfully: {user.id}")
             
             # Import and initialize memory client
+            logger.info(f"🧠 [{job_id}] Initializing memory client...")
             from app.utils.memory import get_memory_client
             mem0_client = get_memory_client()
+            logger.info(f"✅ [{job_id}] Memory client initialized successfully")
             
             document_processing_status[job_id]["progress"] = 30
             document_processing_status[job_id]["message"] = "Storing document..."
             
             # 3. Store the full document in database
             document_id = str(uuid.uuid4())
+            logger.info(f"🗄️ [{job_id}] Generated document ID: {document_id}")
+            
             # Import and initialize Supabase admin client
+            logger.info(f"🔐 [{job_id}] Initializing Supabase admin client...")
             from app.auth import get_service_client
             supabase_admin = await get_service_client()
+            logger.info(f"✅ [{job_id}] Supabase admin client initialized successfully")
             
             # Insert into documents table
-            result = supabase_admin.table("documents").insert({
+            logger.info(f"💾 [{job_id}] Inserting document into database...")
+            document_data = {
                 "id": document_id,
                 "user_id": user.id,
                 "title": title,
@@ -2894,16 +2903,23 @@ async def _process_document_background(
                 "metadata": metadata or {},
                 "created_at": datetime.datetime.now(datetime.UTC).isoformat(),
                 "updated_at": datetime.datetime.now(datetime.UTC).isoformat()
-            }).execute()
+            }
+            logger.info(f"📊 [{job_id}] Document data prepared - Title: '{title}', Type: {document_type}, Size: {len(content)} chars")
+            
+            result = supabase_admin.table("documents").insert(document_data).execute()
             
             if not result.data:
+                logger.error(f"❌ [{job_id}] Document insert failed - no data returned from Supabase")
                 raise ValueError("Failed to store document in database")
+            
+            logger.info(f"✅ [{job_id}] Document stored successfully in database")
                 
             document_processing_status[job_id]["progress"] = 50
             document_processing_status[job_id]["message"] = "Creating searchable chunks..."
             
             # 4. Create chunks for better search performance (for large documents)
             if len(content) > 2000:  # Only chunk large documents
+                logger.info(f"🔍 [{job_id}] Document is large ({len(content)} chars), creating chunks...")
                 chunk_size = 1000
                 overlap = 200
                 chunks = []
@@ -2921,23 +2937,36 @@ async def _process_document_background(
                             "created_at": datetime.datetime.now(datetime.UTC).isoformat()
                         })
                 
+                logger.info(f"📝 [{job_id}] Created {len(chunks)} chunks for document")
+                
                 # Insert chunks in batch
                 if chunks:
-                    supabase_admin.table("document_chunks").insert(chunks).execute()
+                    logger.info(f"💾 [{job_id}] Inserting {len(chunks)} chunks into database...")
+                    chunks_result = supabase_admin.table("document_chunks").insert(chunks).execute()
+                    if chunks_result.data:
+                        logger.info(f"✅ [{job_id}] Chunks inserted successfully")
+                    else:
+                        logger.warning(f"⚠️ [{job_id}] Chunks insert may have failed - no data returned")
+            else:
+                logger.info(f"📝 [{job_id}] Document is small ({len(content)} chars), skipping chunking")
                     
             document_processing_status[job_id]["progress"] = 70
             document_processing_status[job_id]["message"] = "Generating summary..."
             
             # 5. Create a summary memory that links to the document
+            logger.info(f"📄 [{job_id}] Creating summary memory for document...")
             summary_content = f"📄 Document stored: '{title}' ({document_type})"
             if len(content) > 500:
                 # Create AI summary for large documents
                 summary_content += f"\n\nContent preview: {content[:500]}..."
+                logger.info(f"📝 [{job_id}] Created summary with content preview (large document)")
             else:
                 summary_content += f"\n\nFull content: {content}"
+                logger.info(f"📝 [{job_id}] Created summary with full content (small document)")
                 
             if source_url:
                 summary_content += f"\n\nSource: {source_url}"
+                logger.info(f"🔗 [{job_id}] Added source URL to summary: {source_url}")
                 
             # Add to memory system with enhanced metadata
             enhanced_metadata = {
@@ -2949,28 +2978,48 @@ async def _process_document_background(
             }
             if metadata:
                 enhanced_metadata.update(metadata)
+                logger.info(f"🏷️ [{job_id}] Enhanced metadata with custom fields: {list(metadata.keys())}")
+            
+            logger.info(f"🧠 [{job_id}] Adding document summary to mem0 (content length: {len(summary_content)})")
                 
             document_processing_status[job_id]["progress"] = 80
             document_processing_status[job_id]["message"] = "Adding to memory system..."
             
             # Add summary to mem0
-            memory_result = mem0_client.add(
-                messages=[{"role": "user", "content": summary_content}],
-                user_id=supa_uid,
-                metadata=enhanced_metadata
-            )
+            try:
+                memory_result = mem0_client.add(
+                    messages=[{"role": "user", "content": summary_content}],
+                    user_id=supa_uid,
+                    metadata=enhanced_metadata
+                )
+                logger.info(f"✅ [{job_id}] Memory added to mem0 successfully")
+                logger.info(f"🔍 [{job_id}] Memory result type: {type(memory_result)}, has 'results': {'results' in memory_result if isinstance(memory_result, dict) else False}")
+            except Exception as mem_error:
+                logger.error(f"❌ [{job_id}] Failed to add memory to mem0: {mem_error}", exc_info=True)
+                raise ValueError(f"Failed to add memory to mem0: {mem_error}")
             
             # 6. Link document to memory in database
+            logger.info(f"🔗 [{job_id}] Linking document to memory in database...")
             if memory_result and 'results' in memory_result and memory_result['results']:
                 memory_id = memory_result['results'][0].get('id')
                 if memory_id:
-                    supabase_admin.table("document_memories").insert({
+                    logger.info(f"🆔 [{job_id}] Got memory ID from mem0: {memory_id}")
+                    link_data = {
                         "id": str(uuid.uuid4()),
                         "document_id": document_id,
                         "memory_id": memory_id,
                         "user_id": user.id,
                         "created_at": datetime.datetime.now(datetime.UTC).isoformat()
-                    }).execute()
+                    }
+                    link_result = supabase_admin.table("document_memories").insert(link_data).execute()
+                    if link_result.data:
+                        logger.info(f"✅ [{job_id}] Document-memory link created successfully")
+                    else:
+                        logger.warning(f"⚠️ [{job_id}] Document-memory link may have failed - no data returned")
+                else:
+                    logger.warning(f"⚠️ [{job_id}] No memory ID found in mem0 result")
+            else:
+                logger.warning(f"⚠️ [{job_id}] Invalid memory result from mem0: {memory_result}")
         finally:
             db.close()
         
@@ -2983,7 +3032,8 @@ async def _process_document_background(
             "started_at": document_processing_status[job_id]["started_at"]
         }
         
-        logger.info(f"✅ Background processing completed for document '{title}' (job: {job_id})")
+        processing_time = (datetime.datetime.now(datetime.UTC) - datetime.datetime.fromisoformat(document_processing_status[job_id]["started_at"].replace('Z', '+00:00'))).total_seconds()
+        logger.info(f"✅ [{job_id}] Background processing completed successfully for document '{title}' in {processing_time:.2f} seconds")
         
     except Exception as e:
         logger.error(f"❌ Error in background document processing (job: {job_id}): {e}", exc_info=True)
@@ -3036,6 +3086,7 @@ async def store_document(
         
         # Generate job ID for tracking
         job_id = f"doc_{int(datetime.datetime.now(datetime.UTC).timestamp())}_{str(uuid.uuid4())[:8]}"
+        logger.info(f"🚀 [QUEUE] Generated job ID {job_id} for document '{title}' (user: {supa_uid}, client: {client_name})")
         
         # Store in processing queue
         document_processing_queue[job_id] = {
@@ -3056,9 +3107,11 @@ async def store_document(
             "progress": 0,
             "queued_at": datetime.datetime.now(datetime.UTC).isoformat()
         }
+        logger.info(f"📋 [QUEUE] Document queued successfully - Size: {len(content)} chars, Type: {document_type}")
         
         # Queue background processing
         if background_tasks:
+            logger.info(f"⚡ [QUEUE] Scheduling background task via FastAPI BackgroundTasks for job {job_id}")
             background_tasks.add_task(
                 _process_document_background,
                 job_id=job_id,
@@ -3072,6 +3125,7 @@ async def store_document(
             )
         else:
             # Fallback: create simple BackgroundTasks if not available
+            logger.info(f"⚡ [QUEUE] Scheduling background task via asyncio.create_task for job {job_id}")
             import asyncio
             asyncio.create_task(_process_document_background(
                 job_id=job_id,
