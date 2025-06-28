@@ -14,9 +14,9 @@ import { useAppSync } from "@/hooks/useAppSync";
 
 export interface DashboardApp extends App {
   description?: string;
-  category?: string;
+  category: string;
   is_connected?: boolean;
-  priority?: number;
+  priority: number;
   trustScore?: number;
   isComingSoon?: boolean;
 }
@@ -75,6 +75,12 @@ export function AppCard({ app, onConnect, index, isSyncing, onSyncStart }: AppCa
               <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
                 {app.id === 'sms' ? (
                   <MessageSquareText className="w-6 h-6 text-primary" />
+                ) : app.imageUrl ? (
+                  <img
+                    src={app.imageUrl}
+                    alt={app.name}
+                    className="w-full h-full object-cover"
+                  />
                 ) : appConfig.iconImage ? (
                   <img
                     src={appConfig.iconImage}

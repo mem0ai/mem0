@@ -4,10 +4,11 @@ Uses Gemini 2.0 Flash for efficient processing of large documents.
 """
 import os
 import google.generativeai as genai
-from typing import List, Dict
+from typing import List, Dict, Union
 from app.models import Document
 import logging
 import asyncio
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -19,13 +20,31 @@ class GeminiService:
             raise ValueError("GEMINI_API_KEY environment variable not set")
         
         genai.configure(api_key=api_key)
-        # Use Gemini 2.0 Flash for fast, long-context processing
-        self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
-
-        genai.configure(api_key=api_key)
-        # Use Gemini 2.5 Pro Preview for enhanced reasoning and long-context processing
-        self.model = genai.GenerativeModel('gemini-2.5-pro-preview-05-06')
+        # Use Gemini 2.5 Flash - Google's latest hybrid reasoning model
+        # Combines speed and cost-efficiency with adjustable thinking budgets
+        self.model = genai.GenerativeModel('gemini-2.5-flash')
+        
+        # Also initialize 2.5 Pro for complex reasoning tasks
+        self.model_pro = genai.GenerativeModel('gemini-2.5-pro')
     
+    async def generate_response(self, prompt: str, response_format: str = "text") -> Union[str, Dict]:
+        start_time = time.time()
+        logger.info(f"🤖 [GEMINI] Starting API call - Format: {response_format}")
+        logger.debug(f"🤖 [GEMINI] Prompt length: {len(prompt)} chars")
+        
+        try:
+            response = await self.model.generate_content_async(prompt)
+            logger.info(f"⏱️ [GEMINI] API call completed: {time.time() - start_time:.2f}s")
+            
+            if response.candidates and response.candidates[0].finish_reason == 2: # 2 is 'SAFETY'
+                logger.warning(f"⚠️ [GEMINI] Safety filter triggered for prompt: '{prompt[:100]}...'")
+                
+            return response.text
+            
+        except Exception as e:
+            logger.error(f"❌ [GEMINI] API call failed after {time.time() - start_time:.2f}s: {e}")
+            raise
+
     async def query_documents(self, documents: List[Document], query: str) -> str:
         """Query documents using Gemini's long context capabilities"""
         
@@ -168,9 +187,43 @@ Return only the insights, one per line, without numbering or bullet points."""
                 f"{full_text}"
             )
             
-            response = await self.model.generate_content_async(prompt)
+            # Use Pro model for narrative generation - higher quality for background processing
+            response = await self.model_pro.generate_content_async(prompt)
             
             return response.text
         except Exception as e:
             logger.error(f"Error generating narrative with Gemini: {e}")
-            raise Exception(f"Failed to generate narrative with Gemini: {str(e)}") 
+            raise Exception(f"Failed to generate narrative with Gemini: {str(e)}")
+    
+    async def generate_narrative_pro(self, memories_text: str) -> str:
+        """
+        Generate a high-quality user narrative using Gemini 2.5 Pro.
+        Specifically designed for background batch processing where quality > speed.
+        """
+        try:
+            prompt = f"""You are providing context for a conversation with this user. Analyze their memories and create a rich, synthesized understanding.
+
+USER'S MEMORIES:
+{memories_text}
+
+Create a comprehensive but concise 'life narrative' for this person to be used as a primer for new conversations. Focus on:
+1. Who they are (personality, background, values)
+2. What they're working on (projects, goals, interests)  
+3. How to best interact with them (preferences, communication style)
+4. Key themes or recurring patterns in their life.
+
+Provide a well-written, paragraph-based narrative that captures the essence of the user. Use sophisticated reasoning to identify deeper patterns and insights."""
+            
+            # Use Pro model for maximum quality in background processing
+            response = await self.model_pro.generate_content_async(
+                prompt,
+                generation_config=genai.GenerationConfig(
+                    temperature=0.7,  # Balanced creativity
+                    max_output_tokens=2048,  # Allow longer narratives
+                )
+            )
+            
+            return response.text.strip()
+        except Exception as e:
+            logger.error(f"Error generating narrative with Gemini Pro: {e}")
+            raise Exception(f"Failed to generate narrative with Gemini Pro: {str(e)}") 

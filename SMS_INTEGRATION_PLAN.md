@@ -336,3 +336,50 @@ This section documents critical lessons learned during the implementation and te
 *   **The Problem**: Our first successful requests were still logging a `Warning 12300` in the Twilio console because our server was replying with JSON (`{"status": "success"}`).
 *   **The Learning**: Twilio webhooks require a response with a `Content-Type` of `application/xml`. The body of the response must be valid **TwiML**.
 *   **The Solution**: To acknowledge a webhook and send an asynchronous reply, the endpoint must always return an empty, valid TwiML response: `<?xml version="1.0" encoding="UTF-8"?><Response></Response>`. The actual message to the user is sent separately via an API call to the Twilio client. 
+
+---
+
+## 🚨 Twilio A2P 10DLC Campaign Rejection (June 2025)
+
+This section documents the reasons for our campaign rejection and the plan to resolve it.
+
+### **Reason for Rejection**
+The campaign was rejected for a single, critical reason:
+> **"The campaign submission has been reviewed and rejected due to issues verifying the Call to Action (CTA) provided for the campaign."**
+
+**Root Cause:**
+1.  **Unverifiable URL:** The opt-in URL provided (`app.jeanmemory.com`) requires a user login. The Twilio reviewer cannot create an account or log in, so they cannot see the consent process.
+2.  **Dead Link:** The URL provided (`app.jeanmemory.com`) returned a 404 `DEPLOYMENT_NOT_FOUND` error, making it impossible for the reviewer to verify anything. A working link is a minimum requirement.
+3.  **Missing Opt-in Confirmation Message:** The campaign submission was missing the required confirmation message that is sent to the user immediately after they opt in.
+
+### **The "Chicken-and-Egg" Problem**
+We faced the classic verification paradox: we cannot build the full, working SMS integration until Twilio approves our campaign, but Twilio cannot approve our campaign until they can see the integration's opt-in flow.
+
+### **Solution: The Public Mockup Page**
+The standard solution is to create a publicly accessible mockup of the opt-in page. This page does not need a working backend; it just needs to visually represent the user's journey and display the exact consent language.
+
+**Action Plan:**
+1.  **Create a Public Mockup Page:**
+    *   Create a new, static page at a public URL (e.g., `jeanmemory.com/sms-preview`).
+    *   This page will contain a mockup of the phone number input form and button.
+    *   Crucially, it **must** display the following consent language clearly on the page:
+        > "By providing your phone number, you agree to receive text messages from Jean Memory for account verification and to interact with your memory assistant. Message and data rates may apply. Message frequency varies based on your usage. Reply STOP to cancel, HELP for help."
+
+2.  **Resubmit Campaign with Updated Information:**
+    *   **"How do end-users consent to receive messages?"**: Update this field to explain the mockup page and provide the link.
+        ```text
+        Our SMS integration is not yet fully implemented pending carrier approval. We have created a publicly accessible mockup of the opt-in page for review at: [URL of mockup page]
+
+        The user flow is as follows:
+        1. A user signs into their account on our application.
+        2. They navigate to the SMS integration page, which is shown in the mockup.
+        3. The user enters their phone number and agrees to the Call-to-Action, which explicitly states the consent language.
+        4. Once approved, our system will send a one-time verification code to confirm their consent.
+        ```
+    *   **"Opt-in Message"**: Add the required confirmation message.
+        ```text
+        Welcome to Jean Memory! You are now subscribed for SMS-based memory interactions and account alerts. Msg&Data rates may apply. Msg frequency varies. Reply HELP for help, STOP to cancel.
+        ```
+    *   **Sample Messages**: Update samples to use bracket templating and include opt-out language.
+        *   `Your Jean Memory verification code is: {123456}. This code expires in 10 minutes. Reply STOP to opt-out.`
+        *   `✅ Memory added: "{User-provided content}".` 

@@ -54,7 +54,9 @@ const AppDetailCard = ({
     ? "Pause Access"
     : "Unpause Access";
 
-  const installCommand = `npx install-mcp https://api.jeanmemory.com/mcp/${currentApp?.name}/sse/${user?.id} --client ${currentApp?.name}`;
+  const installCommand = currentApp?.name === 'chorus' 
+    ? `-y mcp-remote https://jean-memory-api.onrender.com/mcp/chorus/sse/${user?.id}`
+    : `npx install-mcp https://api.jeanmemory.com/mcp/${currentApp?.name}/sse/${user?.id} --client ${currentApp?.name}`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(installCommand);

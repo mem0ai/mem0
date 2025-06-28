@@ -10,39 +10,47 @@ import { RequestFeatureModal } from "@/components/tools/RequestFeatureModal";
 
 const tools = [
   {
+    name: "jean_memory",
+    icon: <BrainCircuit className="w-6 h-6 text-purple-500" />,
+    description: "🌟 THE PRIMARY TOOL - Intelligent context engineering that automatically adapts. For new conversations, provides deep comprehensive understanding. For follow-ups, gives targeted fast responses. Always use this tool first.",
+    example: "jean_memory: 'Hi! I'm testing the new smart context system.' (is_new_conversation: true)",
+    badge: "Primary Tool",
+    isNew: true
+  },
+  {
+    name: "ask_memory",
+    icon: <BrainCircuit className="w-6 h-6 text-primary" />,
+    description: "Fast memory search for simple questions about your memories, thoughts, and experiences.",
+    example: "ask_memory: 'What are my main interests and preferences?'"
+  },
+  {
+    name: "search_memory",
+    icon: <Search className="w-6 h-6 text-primary" />,
+    description: "Quick keyword-based search through your memories for specific information.",
+    example: "search_memory: 'Q3 project goals'"
+  },
+  {
     name: "add_memories",
     icon: <BotMessageSquare className="w-6 h-6 text-primary" />,
-    description: "Permanently store any new piece of information, thought, or conversation.",
+    description: "Manually store specific information (jean_memory handles this automatically in most cases).",
     example: "add_memories: 'I met with John Doe today to discuss the Q3 project goals.'"
   },
   {
     name: "list_memories",
     icon: <List className="w-6 h-6 text-primary" />,
-    description: "View a list of your recent memories to get a quick overview.",
+    description: "Browse through your stored memories to get an overview.",
     example: "list_memories"
-  },
-  {
-    name: "search_memories",
-    icon: <Search className="w-6 h-6 text-primary" />,
-    description: "Find specific memories using keywords or semantic search.",
-    example: "search_memories: 'Q3 project goals'"
-  },
-  {
-    name: "ask_memories",
-    icon: <BrainCircuit className="w-6 h-6 text-primary" />,
-    description: "Ask questions in natural language and get synthesized answers from your memory.",
-    example: "ask_memories: 'What are the main points from my last meeting with John?'"
   },
 ];
 
 const deepMemoryTool = {
-  name: "deep_memory",
+  name: "deep_memory_query",
   icon: <Wand2 className="w-6 h-6 text-purple-400" />,
-  description: "Run complex queries over your entire memory bank. It can analyze, synthesize, and even create new content based on your stored experiences, beliefs, and knowledge.",
+  description: "Advanced standalone tool for complex analysis over your entire memory bank. Note: This capability is now automatically built into jean_memory for new conversations and rich content.",
   examples: [
-    "\"Write an essay on the future of AI, using my personal beliefs and writing style.\"",
-    "\"Pull together everything I've been working on for the last month and summarize it.\"",
-    "\"Analyze my recent journal entries and tell me about trends in my mood that I might not be aware of.\"",
+    "\"Tell me everything about Jonathan - his personality, work, interests, values\"",
+    "\"Analyze my recent thoughts and tell me about patterns I might not be aware of\"",
+    "\"What are the key themes across all my stored experiences?\"",
   ]
 };
 
@@ -67,7 +75,7 @@ export default function HowToUsePage() {
             Using Your Memory Tools
           </h1>
           <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-            Your digital memory is powerful. Here's how to interact with it effectively using simple commands.
+            Jean Memory now features intelligent context engineering. <strong>jean_memory</strong> is your primary tool that automatically provides deep understanding for new conversations and fast responses for follow-ups.
           </p>
         </motion.div>
 
@@ -83,9 +91,19 @@ export default function HowToUsePage() {
                 <CardHeader>
                   <div className="flex items-center gap-4">
                     <div className="p-2 bg-secondary rounded-lg">{tool.icon}</div>
-                    <div>
+                    <div className="flex-1">
                       <CardTitle className="flex items-center gap-2 font-mono text-lg">
                         {tool.name}
+                        {tool.badge && (
+                          <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
+                            {tool.badge}
+                          </Badge>
+                        )}
+                        {tool.isNew && (
+                          <Badge variant="default" className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+                            Enhanced
+                          </Badge>
+                        )}
                       </CardTitle>
                       <p className="text-sm text-muted-foreground mt-1">{tool.description}</p>
                     </div>
@@ -100,11 +118,61 @@ export default function HowToUsePage() {
             </motion.div>
           ))}
           
-          {/* Deep Memory Query Card */}
+          {/* Smart Behavior Explanation */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.6 }}
+          >
+            <Card className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950/50 dark:to-blue-950/50 border border-purple-200 dark:border-purple-500/30">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <BrainCircuit className="w-6 h-6 text-purple-500" />
+                  How jean_memory Automatically Adapts
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="grid gap-3">
+                    <div className="flex items-start gap-3">
+                      <div className="w-2 h-2 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
+                      <div>
+                        <p className="font-semibold text-sm">New Conversations</p>
+                        <p className="text-sm text-muted-foreground">Automatically provides deep, comprehensive understanding (30-60s) to establish rich context</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                      <div>
+                        <p className="font-semibold text-sm">Rich Personal Content</p>
+                        <p className="text-sm text-muted-foreground">Detects when you share substantial personal information and triggers deep analysis</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
+                      <div>
+                        <p className="font-semibold text-sm">Follow-up Questions</p>
+                        <p className="text-sm text-muted-foreground">Fast, targeted responses (5-10s) for continuing conversations</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="w-2 h-2 bg-amber-500 rounded-full mt-2 flex-shrink-0"></div>
+                      <div>
+                        <p className="font-semibold text-sm">Explicit Deep Requests</p>
+                        <p className="text-sm text-muted-foreground">Triggers comprehensive analysis when you ask to "go deeper" or "tell me everything"</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+          
+          {/* Deep Memory Query Card */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, delay: 0.7 }}
           >
             <Card className="bg-card/50 border border-purple-200 dark:border-purple-500/30 hover:border-purple-400/50 dark:hover:border-purple-500/50 transition-colors duration-300">
               <CardHeader>
@@ -136,7 +204,7 @@ export default function HowToUsePage() {
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 0.7 }}
+            transition={{ duration: 0.5, delay: 0.8 }}
             onClick={() => setIsRequestModalOpen(true)}
             className="cursor-pointer"
           >

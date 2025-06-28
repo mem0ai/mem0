@@ -18,7 +18,15 @@ export default {
 		let client_name: string = 'claude'; // default client
 		let endpoint: string;
 
-		if (pathParts.length === 4 && pathParts[0] === 'mcp' && pathParts[1] === 'chatgpt') {
+		if (pathParts.length === 4 && pathParts[0] === 'mcp' && pathParts[1] === 'chorus') {
+			// Chorus format: /mcp/chorus/sse/{user_id} or /mcp/chorus/messages/{user_id}
+			client_name = 'chorus';
+			endpoint = pathParts[2];
+			user_id = pathParts[3];
+			if (endpoint !== 'sse' && endpoint !== 'messages') {
+				return new Response('Invalid Chorus endpoint. Expected /mcp/chorus/sse/{user_id} or /mcp/chorus/messages/{user_id}', { status: 400 });
+			}
+		} else if (pathParts.length === 4 && pathParts[0] === 'mcp' && pathParts[1] === 'chatgpt') {
 			// ChatGPT format: /mcp/chatgpt/sse/{user_id} or /mcp/chatgpt/messages/{user_id}
 			client_name = 'chatgpt';
 			endpoint = pathParts[2];
@@ -42,7 +50,7 @@ export default {
 				return new Response('Invalid endpoint. Expected sse or messages', { status: 400 });
 			}
 		} else {
-			return new Response('Invalid MCP URL format. Expected /mcp/chatgpt/sse/{user_id}, /mcp/chatgpt/messages/{user_id}, /mcp/{user_id}/sse, /mcp/{user_id}/messages, /mcp/{client_name}/sse/{user_id}, or /mcp/{client_name}/messages/{user_id}', { status: 400 });
+			return new Response('Invalid MCP URL format. Expected /mcp/chorus/sse/{user_id}, /mcp/chatgpt/sse/{user_id}, /mcp/chatgpt/messages/{user_id}, /mcp/{user_id}/sse, /mcp/{user_id}/messages, /mcp/{client_name}/sse/{user_id}, or /mcp/{client_name}/messages/{user_id}', { status: 400 });
 		}
 
 		// Create Durable Object ID from user_id and client_name

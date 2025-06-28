@@ -14,13 +14,40 @@ export function AnalysisPanel() {
   const [narrative, setNarrative] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
-    // Removed the logic that fetches a pre-existing narrative
+    // Automatically fetch cached narrative on page load
+    const fetchCachedNarrative = async () => {
+      if (!accessToken) return;
+      
+      try {
+        setIsLoading(true);
+        const response = await apiClient.get('/api/v1/memories/narrative');
+        
+        if (response.data && response.data.narrative) {
+          setNarrative(response.data.narrative);
+          setError(''); // Clear any previous errors
+        }
+      } catch (err: any) {
+        if (err.response?.status === 204) {
+          // No narrative available yet - this is expected for new users
+          setError('');
+          setNarrative('');
+        } else {
+          console.error('Failed to fetch cached narrative:', err);
+          setError('Failed to load narrative');
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchCachedNarrative();
   }, [accessToken]);
 
   const handleGenerateNarrative = async () => {
-    setIsLoading(true);
+    setIsGenerating(true);
     setError('');
 
     try {
@@ -67,7 +94,7 @@ export function AnalysisPanel() {
         description: errorMessage,
       });
     } finally {
-      setIsLoading(false);
+      setIsGenerating(false);
     }
   };
 
@@ -88,14 +115,20 @@ export function AnalysisPanel() {
         {isLoading ? (
           <div className="text-center">
             <div className="animate-pulse text-primary mb-2 font-medium">
-              Loading Narrative...
+              Loading your narrative...
+            </div>
+          </div>
+        ) : isGenerating ? (
+          <div className="text-center">
+            <div className="animate-pulse text-primary mb-2 font-medium">
+              Generating Narrative...
             </div>
           </div>
         ) : error ? (
             <div className='text-center'>
                 <p className="text-destructive mb-4">{error}</p>
-                <Button onClick={handleGenerateNarrative} disabled={isLoading}>
-                    {isLoading ? 'Generating...' : 'Try Again'}
+                <Button onClick={handleGenerateNarrative} disabled={isGenerating}>
+                    {isGenerating ? 'Generating...' : 'Try Again'}
                 </Button>
             </div>
         ) : narrative ? (
@@ -105,19 +138,20 @@ export function AnalysisPanel() {
         ) : (
           <div className="text-center">
             <p className="text-muted-foreground mb-4">
-              Click the button to generate a narrative from your memories.
+              Your narrative will appear here once you have enough memories (5+). 
+              You can also generate one manually if you'd like.
             </p>
-            <Button onClick={handleGenerateNarrative} disabled={isLoading}>
-              {isLoading ? 'Generating...' : 'Generate Narrative'}
+            <Button onClick={handleGenerateNarrative} disabled={isGenerating}>
+              {isGenerating ? 'Generating...' : 'Generate Narrative'}
             </Button>
           </div>
         )}
       </div>
       {/* Regenerate Button - always visible if a narrative exists */}
-      {!isLoading && !error && narrative && (
+      {!isLoading && !isGenerating && !error && narrative && (
         <div className="mt-4 pt-4 border-t border-border/50 flex justify-end">
-            <Button onClick={handleGenerateNarrative} disabled={isLoading} variant="ghost" size="sm">
-              {isLoading ? 'Regenerating...' : 'Regenerate Narrative'}
+            <Button onClick={handleGenerateNarrative} disabled={isGenerating} variant="ghost" size="sm">
+              {isGenerating ? 'Regenerating...' : 'Regenerate Narrative'}
             </Button>
         </div>
       )}

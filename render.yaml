@@ -73,6 +73,8 @@ services:
         value: "1"
       - key: LOG_LEVEL
         value: "INFO"
+      - key: GEMINI_API_KEY
+        sync: false
       
       # Link to frontend environment group
       - fromGroup: frontend-public-env
@@ -115,5 +117,63 @@ services:
       
       # Link to frontend environment group
       - fromGroup: frontend-public-env
+
+  # Weekly Narrative Backfill Cron Job
+  - type: cron
+    name: narrative-backfill-weekly
+    runtime: python
+    repo: https://github.com/jonathan-politzki/your-memory
+    plan: starter
+    region: virginia
+    rootDir: .
+    buildCommand: pip install -r openmemory/api/requirements.txt && pip install psycopg2-binary python-dotenv
+    startCommand: python scripts/utils/standalone_backfill.py
+    schedule: "0 2 * * 0"  # Every Sunday at 2 AM UTC
+    envVars:
+      # Database Configuration
+      - key: DATABASE_URL
+        sync: false
+      
+      # Supabase Configuration  
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      
+      # OpenAI Configuration
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: LLM_PROVIDER
+        value: "openai"
+      - key: OPENAI_MODEL
+        value: "gpt-4o-mini"
+      - key: EMBEDDER_PROVIDER
+        value: "openai"
+      - key: EMBEDDER_MODEL
+        value: "text-embedding-3-small"
+      
+      # Qdrant Configuration
+      - key: QDRANT_HOST
+        sync: false
+      - key: QDRANT_PORT
+        value: "6333"
+      - key: QDRANT_API_KEY
+        sync: false
+      - key: MAIN_QDRANT_COLLECTION_NAME
+        sync: false
+      
+      # Gemini Configuration
+      - key: GEMINI_API_KEY
+        sync: false
+      
+      # Additional Configuration
+      - key: ENVIRONMENT
+        value: "production"
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: LOG_LEVEL
+        value: "INFO"
 
 version: "1" 

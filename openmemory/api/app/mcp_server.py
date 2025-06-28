@@ -7,7 +7,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.server.sse import SseServerTransport
 # Defer heavy imports
 # from app.utils.memory import get_memory_client
-from fastapi import FastAPI, Request, Depends, Header
+from fastapi import FastAPI, Request, Depends, Header, Response
 from fastapi.routing import APIRouter
 import contextvars
 import os
@@ -34,6 +34,7 @@ from app.config.memory_limits import MEMORY_LIMITS
 from fastapi.responses import JSONResponse
 from .utils.decorators import retry_on_exception
 from qdrant_client import QdrantClient
+from fastapi import BackgroundTasks
 
 
 # Load environment variables
@@ -56,6 +57,7 @@ logger.info(f"MCP internal server: {mcp._mcp_server}")
 # Context variables for user_id (Supabase User ID string) and client_name
 user_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("supa_user_id")
 client_name_var: contextvars.ContextVar[str] = contextvars.ContextVar("client_name")
+background_tasks_var: contextvars.ContextVar["BackgroundTasks"] = contextvars.ContextVar("background_tasks")
 
 # Global dictionary to manage SSE connections
 sse_message_queues: Dict[str, asyncio.Queue] = {}
@@ -123,11 +125,12 @@ def _track_tool_usage(tool_name: str, properties: dict = None):
 
 @mcp.tool(description="Add new memories to the user's memory")
 @retry_on_exception(retries=3, delay=1, backoff=2, exceptions=(ConnectionError,))
-async def add_memories(text: str, tags: Optional[list[str]] = None) -> str:
+async def add_memories(text: str, tags: Optional[list[str]] = None, priority: bool = False) -> str:
     """
     Add memories to the user's personal memory bank.
     These memories are stored in a vector database and can be searched later.
     Optionally, add a list of string tags for later filtering.
+    Set priority=True for core directives that should always be remembered.
     """
     # Lazy import
     from app.utils.memory import get_memory_client
@@ -159,7 +162,7 @@ async def add_memories(text: str, tags: Optional[list[str]] = None) -> str:
     # For Claude Desktop: return immediately and process in background
     if is_claude_desktop:
         # Start background task - fire and forget
-        asyncio.create_task(_add_memories_background_claude(text, tags, supa_uid, client_name))
+        asyncio.create_task(_add_memories_background_claude(text, tags, supa_uid, client_name, priority))
         
         # Return immediately for instant response
         return "✅ Memory added."
@@ -169,7 +172,8 @@ async def add_memories(text: str, tags: Optional[list[str]] = None) -> str:
         # Track memory addition (only if private analytics available)
         _track_tool_usage('add_memories', {
             'text_length': len(text),
-            'has_tags': bool(tags)
+            'has_tags': bool(tags),
+            'is_priority': priority
         })
         
         db_start_time = time.time()
@@ -197,6 +201,15 @@ async def add_memories(text: str, tags: Optional[list[str]] = None) -> str:
                 "mcp_client": client_name,
                 "app_db_id": str(app.id)
             }
+            
+            # Ensure tags is a list if it's None
+            if tags is None:
+                tags = []
+            
+            # Add the priority tag if specified
+            if priority and 'priority' not in tags:
+                tags.append('priority')
+
             if tags:
                 metadata['tags'] = tags
 
@@ -299,7 +312,7 @@ async def add_memories(text: str, tags: Optional[list[str]] = None) -> str:
         return f"Error adding to memory: {e}"
 
 
-async def _add_memories_background_claude(text: str, tags: Optional[list[str]], supa_uid: str, client_name: str):
+async def _add_memories_background_claude(text: str, tags: Optional[list[str]], supa_uid: str, client_name: str, priority: bool = False):
     """Background memory processing for Claude Desktop - fire and forget"""
     try:
         # Reuse the same logic as the synchronous version
@@ -310,7 +323,8 @@ async def _add_memories_background_claude(text: str, tags: Optional[list[str]], 
         # Track memory addition (only if private analytics available)
         _track_tool_usage('add_memories', {
             'text_length': len(text),
-            'has_tags': bool(tags)
+            'has_tags': bool(tags),
+            'is_priority': priority
         })
         
         db = SessionLocal()
@@ -333,6 +347,15 @@ async def _add_memories_background_claude(text: str, tags: Optional[list[str]], 
                 "mcp_client": client_name,
                 "app_db_id": str(app.id)
             }
+
+            # Ensure tags is a list if it's None
+            if tags is None:
+                tags = []
+            
+            # Add the priority tag if specified
+            if priority and 'priority' not in tags:
+                tags.append('priority')
+
             if tags:
                 metadata['tags'] = tags
 
@@ -951,15 +974,14 @@ async def _deep_memory_query_impl(search_query: str, supa_uid: str, client_name:
     from app.utils.memory import get_memory_client
     from app.utils.gemini import GeminiService
     from app.services.chunking_service import ChunkingService
-    import google.generativeai as genai
     
-    # Use conservative limits to prevent timeouts
+    # Use expanded limits to provide richer context
     if memory_limit is None:
-        memory_limit = min(10, MEMORY_LIMITS.deep_memory_default)  # Cap at 10 for timeout prevention
+        memory_limit = min(25, MEMORY_LIMITS.deep_memory_default)
     if chunk_limit is None:
-        chunk_limit = min(8, MEMORY_LIMITS.deep_chunk_default)   # Cap at 8 for timeout prevention
-    memory_limit = min(max(1, memory_limit), min(15, MEMORY_LIMITS.deep_memory_max))  # Hard cap at 15
-    chunk_limit = min(max(1, chunk_limit), min(10, MEMORY_LIMITS.deep_chunk_max))    # Hard cap at 10
+        chunk_limit = min(20, MEMORY_LIMITS.deep_chunk_default)
+    memory_limit = min(max(1, memory_limit), min(30, MEMORY_LIMITS.deep_memory_max))  # Hard cap at 30
+    chunk_limit = min(max(1, chunk_limit), min(25, MEMORY_LIMITS.deep_chunk_max))    # Hard cap at 25
     
     import time
     start_time = time.time()
@@ -1172,21 +1194,17 @@ INSTRUCTIONS:
 
 Provide a thorough, insightful response."""
             
-            # 7. Generate response (direct call for speed)
+            # 7. Generate response using the new GeminiService
             gemini_start_time = time.time()
-            logger.info(f"deep_memory_query: Starting Gemini call for user {supa_uid}")
-            response = gemini_service.model.generate_content(
-                prompt,
-                generation_config=genai.GenerationConfig(
-                    temperature=0.3,
-                    max_output_tokens=4096
-                )
-            )
+            logger.info(f"deep_memory_query: Starting Gemini Flash call for user {supa_uid}")
+            
+            response_text = await gemini_service.generate_response(prompt)
+
             gemini_duration = time.time() - gemini_start_time
-            logger.info(f"deep_memory_query: Gemini call for user {supa_uid} took {gemini_duration:.2f}s")
+            logger.info(f"deep_memory_query: Gemini Flash call for user {supa_uid} took {gemini_duration:.2f}s")
             
             processing_time = time.time() - start_time
-            result = response.text
+            result = response_text
             result += f"\n\n📊 Deep Analysis: total={processing_time:.2f}s, mem_fetch={mem_fetch_duration:.2f}s, doc_fetch={doc_fetch_duration:.2f}s, chunk_search={chunk_search_duration:.2f}s, gemini={gemini_duration:.2f}s"
             
             return result
@@ -1665,14 +1683,32 @@ def get_original_tools_schema(include_annotations=False):
     """Returns the JSON schema for the original tools, optionally with 2025-03-26 annotations."""
     tools = [
         {
-            "name": "ask_memory",
-            "description": "FAST memory search for simple questions about the user's memories, thoughts, documents, or experiences",
-            "inputSchema": {"type": "object", "properties": {"question": {"type": "string", "description": "A natural language question"}}, "required": ["question"]}
+            "name": "jean_memory",
+            "description": "🌟 PRIMARY TOOL for all conversational interactions. Intelligently engineers context for the user's message, saves new information, and provides relevant background. For the very first message in a conversation, set 'is_new_conversation' to true.",
+            "inputSchema": {
+                "type": "object", 
+                "properties": {
+                    "user_message": {"type": "string", "description": "The user's complete message or question"}, 
+                    "is_new_conversation": {"type": "boolean", "description": "Set to true only for the very first message in a new chat session, otherwise false."}
+                }, 
+                "required": ["user_message", "is_new_conversation"]
+            }
         },
         {
             "name": "add_memories",
-            "description": "Store important information, preferences, facts, and observations about the user. Use this tool to remember key details learned during conversation.",
-            "inputSchema": {"type": "object", "properties": {"text": {"type": "string", "description": "The information to store"}}, "required": ["text"]}
+            "description": "💾 MANUAL memory saving. Use this to explicitly save important information when automatic saving isn't working properly. Useful for ensuring critical details are preserved.",
+            "inputSchema": {
+                "type": "object", 
+                "properties": {
+                    "text": {"type": "string", "description": "The information to store"}
+                }, 
+                "required": ["text"]
+            }
+        },
+        {
+            "name": "ask_memory",
+            "description": "FAST memory search for simple questions about the user's memories, thoughts, documents, or experiences",
+            "inputSchema": {"type": "object", "properties": {"question": {"type": "string", "description": "A natural language question"}}, "required": ["question"]}
         },
         {
             "name": "search_memory", 
@@ -1701,6 +1737,7 @@ def get_original_tools_schema(include_annotations=False):
     # Add annotations only for 2025-03-26 clients
     if include_annotations:
         annotations_map = {
+            "jean_memory": {"readOnly": False, "sensitive": True, "destructive": False, "intelligent": True},
             "ask_memory": {"readOnly": True, "sensitive": False, "destructive": False},
             "add_memories": {"readOnly": False, "sensitive": True, "destructive": False},
             "search_memory": {"readOnly": True, "sensitive": False, "destructive": False},
@@ -1717,6 +1754,24 @@ def get_original_tools_schema(include_annotations=False):
 def get_api_tools_schema():
     """Returns the JSON schema for API key users with 2025-03-26 annotations and enhanced features."""
     return [
+        {
+            "name": "jean_memory",
+            "description": "🌟 ALWAYS USE THIS TOOL. It is the primary tool for all conversational interactions. It intelligently engineers context for the user's message, saves new information, and provides relevant background. For the very first message in a conversation, set 'is_new_conversation' to true.",
+            "inputSchema": {
+                "type": "object", 
+                "properties": {
+                    "user_message": {"type": "string", "description": "The user's complete message or question"},
+                    "is_new_conversation": {"type": "boolean", "description": "Set to true only for the very first message in a new chat session, otherwise false."}
+                }, 
+                "required": ["user_message", "is_new_conversation"]
+            },
+            "annotations": {
+                "readOnly": False,
+                "sensitive": True,
+                "destructive": False,
+                "intelligent": True
+            }
+        },
         {
             "name": "ask_memory",
             "description": "FAST memory search for simple questions about the user's memories, thoughts, documents, or experiences",
@@ -1770,6 +1825,77 @@ def get_api_tools_schema():
         }
     ]
 
+# Import enhanced orchestration
+from app.mcp_orchestration import get_smart_orchestrator
+
+@mcp.tool(description="🌟 ALWAYS USE THIS TOOL. It is the primary tool for all conversational interactions. It intelligently engineers context for the user's message, saves new information, and provides relevant background. For the very first message in a conversation, set 'is_new_conversation' to true.")
+async def jean_memory(user_message: str, is_new_conversation: bool) -> str:
+    """
+    Smart context orchestration combining single-tool simplicity with session-based caching.
+    
+    This tool:
+    1. Uses the 'is_new_conversation' flag from the client to determine conversation state.
+    2. Provides a context primer for new chats.
+    3. Uses an AI planner for targeted context on continuing chats.
+    4. Adds new memorable information in the background.
+    
+    Args:
+        user_message: The user's message or question.
+        is_new_conversation: Flag set by the client indicating if this is the first turn.
+    
+    Returns:
+        Enhanced context string with relevant background information.
+    """
+    supa_uid = user_id_var.get(None)
+    client_name = client_name_var.get(None)
+    
+    if not supa_uid:
+        return "Error: User ID not available"
+    if not client_name:
+        return "Error: Client name not available"
+    
+    try:
+        # Track usage
+        _track_tool_usage('jean_memory', {
+            'message_length': len(user_message),
+            'is_new_conversation': is_new_conversation
+        })
+        
+        # CRITICAL FIX: Set up background tasks context for orchestration
+        try:
+            background_tasks = background_tasks_var.get()
+        except LookupError:
+            # Create a simple background tasks processor if not available
+            from fastapi import BackgroundTasks
+            background_tasks = BackgroundTasks()
+            background_tasks_var.set(background_tasks)
+        
+        async with asyncio.timeout(25): # Increased to 25 seconds for Fast Deep Analysis
+            # Get enhanced orchestrator and process
+            orchestrator = get_smart_orchestrator()
+            enhanced_context = await orchestrator.orchestrate_smart_context(
+                user_message=user_message,
+                user_id=supa_uid,
+                client_name=client_name,
+                is_new_conversation=is_new_conversation,
+                background_tasks=background_tasks
+            )
+            return enhanced_context
+
+    except asyncio.TimeoutError:
+        logger.warning(f"Jean Memory context timed out for user {supa_uid}. Falling back to simple search.")
+        try:
+            # Fallback to a simple, reliable search
+            fallback_result = await search_memory(query=user_message, limit=5)
+            return f"I had trouble with my advanced context analysis, but here are some relevant memories I found:\n{fallback_result}"
+        except Exception as fallback_e:
+            logger.error(f"Error in jean_memory fallback search: {fallback_e}", exc_info=True)
+            return "My apologies, I had trouble processing your request and the fallback search also failed."
+
+    except Exception as e:
+        logger.error(f"Error in jean_memory: {e}", exc_info=True)
+        return f"I had trouble processing your message: {str(e)}"
+
 # Core memory tools registry - simplified for better performance
 tool_registry = {
     "add_memories": add_memories,
@@ -1779,6 +1905,7 @@ tool_registry = {
     "ask_memory": ask_memory,
     "sync_substack_posts": sync_substack_posts,
     "deep_memory_query": deep_memory_query,
+    "jean_memory": jean_memory,
 }
 
 # Simple in-memory message queue for SSE connections
@@ -1848,7 +1975,7 @@ async def handle_sse_connection(client_name: str, user_id: str, request: Request
 
 # Add messages endpoint for supergateway compatibility  
 @mcp_router.post("/{client_name}/messages/{user_id}")
-async def handle_sse_messages(client_name: str, user_id: str, request: Request):
+async def handle_sse_messages(client_name: str, user_id: str, request: Request, background_tasks: BackgroundTasks):
     """
     Messages endpoint for supergateway compatibility
     This handles the actual MCP tool calls from supergateway
@@ -1856,6 +1983,7 @@ async def handle_sse_messages(client_name: str, user_id: str, request: Request):
     # Set context variables
     user_token = user_id_var.set(user_id)
     client_token = client_name_var.set(client_name)
+    tasks_token = background_tasks_var.set(background_tasks)
     
     try:
         body = await request.json()
@@ -2026,7 +2154,7 @@ async def handle_sse_messages(client_name: str, user_id: str, request: Request):
             heartbeat_message = f"event: heartbeat\ndata: {{'timestamp': '{datetime.datetime.now(datetime.UTC).isoformat()}'}}\n\n"
             await sse_message_queues[connection_id].put(heartbeat_message)
             # Return empty response to close HTTP request
-            return JSONResponse(content={"status": "sent_via_sse"})
+            return Response(status_code=204)
         else:
             # No active SSE connection, so return the full payload directly.
             # This handles local testing with tools like the OpenAI Playground.
@@ -2052,25 +2180,25 @@ async def handle_sse_messages(client_name: str, user_id: str, request: Request):
         if connection_id in sse_message_queues:
             # Send error through SSE queue
             await sse_message_queues[connection_id].put(response_payload)
-            return JSONResponse(content={"status": "error_sent_via_sse"})
+            return Response(status_code=204)
         else:
             # Return error directly for stateless clients
             return JSONResponse(content=response_payload, status_code=500)
     
     finally:
         # Clean up context variables
-        try:
-            user_id_var.reset(user_token)
-            client_name_var.reset(client_token)
-        except:
-            pass
+        user_id_var.reset(user_token)
+        client_name_var.reset(client_token)
+        background_tasks_var.reset(tasks_token)
 
 def setup_mcp_server(app: FastAPI):
     """Setup MCP server with the FastAPI application"""
     # The new stateless /messages endpoint is the primary way to interact.
     # The old SSE endpoints are no longer needed with the Cloudflare Worker architecture.
     app.include_router(mcp_router)
-    logger.info("MCP server setup complete - stateless router included.")
+    # RE-ENABLED: chorus_router for direct backend connection (bypasses Worker completely)
+    app.include_router(chorus_router)
+    logger.info("MCP server setup complete - stateless router and chorus router included.")
 
 def get_chatgpt_tools_schema():
     """Returns ONLY search and fetch tools for ChatGPT clients - OpenAI compliant schemas"""
@@ -2511,3 +2639,133 @@ def cleanup_old_deep_analysis_cache():
     
     if expired_keys:
         logger.info(f"🧠 DEEP ANALYSIS: Cleaned up {len(expired_keys)} expired cache entries")
+
+# Dedicated router for Chorus for stability and isolation
+chorus_router = APIRouter(prefix="/mcp/chorus")
+
+# Simple SSE endpoint for Chorus - just provides endpoint and closes
+@chorus_router.get("/sse/{user_id}")
+async def handle_chorus_sse(user_id: str, request: Request):
+    """
+    Simple SSE endpoint that just provides the messages endpoint
+    No heartbeats or streaming - just the endpoint event and done
+    """
+    from fastapi.responses import StreamingResponse
+    
+    async def simple_chorus_sse():
+        # Send only the endpoint event - no heartbeats to avoid parsing issues
+        yield f"event: endpoint\ndata: /mcp/chorus/messages/{user_id}\n\n"
+        # Stream ends here - no infinite loop or heartbeats
+    
+    return StreamingResponse(
+        simple_chorus_sse(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Cache-Control",
+        }
+    )
+
+# Also handle POST to the same SSE endpoint (for http-first transport)
+@chorus_router.post("/sse/{user_id}")
+async def handle_chorus_sse_post(user_id: str, request: Request):
+    """
+    Handle POST requests to SSE endpoint - redirect to messages handler
+    This supports http-first transport strategy
+    """
+    return await handle_chorus_messages(user_id, request)
+
+# Chorus messages endpoint - returns JSON-RPC directly via HTTP (no SSE)
+@chorus_router.post("/messages/{user_id}")
+async def handle_chorus_messages(user_id: str, request: Request):
+    """
+    Direct HTTP JSON-RPC endpoint for Chorus - bypasses Worker completely
+    Returns JSON-RPC responses directly via HTTP without SSE
+    """
+    # Set context variables
+    user_token = user_id_var.set(user_id)
+    client_token = client_name_var.set("chorus")
+    
+    try:
+        body = await request.json()
+        method_name = body.get("method")
+        params = body.get("params", {})
+        request_id = body.get("id")
+
+        logger.info(f"Chorus direct HTTP: {method_name} for user {user_id}")
+        logger.info(f"Chorus request body: {body}")
+
+        # Handle MCP methods directly (same logic as main /messages/ endpoint)
+        if method_name == "initialize":
+            response_payload = {
+                "jsonrpc": "2.0",
+                "result": {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {"tools": {}},
+                    "serverInfo": {
+                        "name": "Jean Memory",
+                        "version": "1.0.0"
+                    }
+                },
+                "id": request_id
+            }
+        
+        elif method_name == "tools/list":
+            tools = get_original_tools_schema()
+            response_payload = {
+                "jsonrpc": "2.0",
+                "result": {"tools": tools},
+                "id": request_id
+            }
+        
+        elif method_name == "tools/call":
+            tool_name = params.get("name")
+            tool_args = params.get("arguments", {})
+            
+            tool_function = tool_registry.get(tool_name)
+            if not tool_function:
+                response_payload = {
+                    "jsonrpc": "2.0",
+                    "error": {"code": -32601, "message": f"Tool '{tool_name}' not found"},
+                    "id": request_id
+                }
+            else:
+                try:
+                    result = await tool_function(**tool_args)
+                    response_payload = {
+                        "jsonrpc": "2.0",
+                        "result": {"content": [{"type": "text", "text": result}]},
+                        "id": request_id
+                    }
+                except Exception as e:
+                    response_payload = {
+                        "jsonrpc": "2.0",
+                        "error": {"code": -32603, "message": f"Tool execution failed: {str(e)}"},
+                        "id": request_id
+                    }
+        
+        else:
+            response_payload = {
+                "jsonrpc": "2.0",
+                "error": {"code": -32601, "message": f"Method '{method_name}' not found"},
+                "id": request_id
+            }
+
+        # Return JSON-RPC directly via HTTP (no SSE)
+        logger.info(f"Chorus response: {response_payload}")
+        return JSONResponse(content=response_payload)
+
+    except Exception as e:
+        logger.error(f"Error in Chorus direct HTTP handler: {e}", exc_info=True)
+        error_response = {
+            "jsonrpc": "2.0",
+            "error": {"code": -32603, "message": f"Internal error: {str(e)}"},
+            "id": request_id if 'request_id' in locals() else None
+        }
+        logger.info(f"Chorus error response: {error_response}")
+        return JSONResponse(status_code=200, content=error_response)  # Return 200 for JSON-RPC errors
+    finally:
+        user_id_var.reset(user_token)
+        client_name_var.reset(client_token)
