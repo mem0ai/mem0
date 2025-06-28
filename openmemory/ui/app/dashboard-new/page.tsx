@@ -43,7 +43,7 @@ const availableApps: AvailableApp[] = [
   {
     id: 'sms',
     name: 'SMS',
-    description: 'Connect your phone to interact with your memory via text.',
+    description: 'Text your memories',
     priority: 13,
     category: 'Integration',
     trustScore: 99,
