@@ -88,6 +88,7 @@ export default function RootLayout({
                 {children}
               </main>
               <Toaster />
+              <SonnerToaster />
             </ThemeProvider>
           </AuthProvider>
         </Providers>

@@ -21,6 +21,8 @@ interface InstallModalProps {
   onSyncStart: (appId: string, taskId: string) => void;
 }
 
+type VerificationStatus = 'idle' | 'sending' | 'sent' | 'verifying' | 'verified' | 'error';
+
 export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallModalProps) {
   const [copied, setCopied] = useState(false);
   const { user, accessToken } = useAuth();
@@ -28,7 +30,10 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
   const [hasConsented, setHasConsented] = useState(false);
+  const [status, setStatus] = useState<VerificationStatus>('idle');
+  const [errorMessage, setErrorMessage] = useState('');
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -76,6 +81,68 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
       setIsLoading(false);
     }
   };
+
+  const handleSendCode = async () => {
+    if (!phoneNumber || !hasConsented) return;
+    setStatus('sending');
+    setErrorMessage('');
+    try {
+      await apiClient.post('/api/v1/profile/phone/add', { phone_number: phoneNumber });
+      setStatus('sent');
+      toast({
+        title: "Verification Code Sent",
+        description: "Check your phone for a 6-digit code.",
+      });
+    } catch (error: any) {
+      const detail = error.response?.data?.detail || "An unexpected error occurred.";
+      setErrorMessage(detail);
+      setStatus('error');
+      toast({
+        variant: "destructive",
+        title: "Failed to Send Code",
+        description: detail,
+      });
+    }
+  };
+
+  const handleVerifyCode = async () => {
+    if (!verificationCode) return;
+    setStatus('verifying');
+    setErrorMessage('');
+    try {
+      await apiClient.post('/api/v1/profile/phone/verify', { verification_code: verificationCode });
+      setStatus('verified');
+      toast({
+        title: "Success!",
+        description: "Your phone number has been verified.",
+        className: "bg-green-500 text-white",
+      });
+      // Close modal after a short delay
+      setTimeout(() => onOpenChange(false), 1500);
+    } catch (error: any) {
+      const detail = error.response?.data?.detail || "An unexpected error occurred.";
+      setErrorMessage(detail);
+      setStatus('error');
+      toast({
+        variant: "destructive",
+        title: "Verification Failed",
+        description: detail,
+      });
+    }
+  };
+  
+  // Reset state when modal is closed or app changes
+  React.useEffect(() => {
+    if (!open) {
+      setTimeout(() => {
+        setPhoneNumber('');
+        setVerificationCode('');
+        setHasConsented(false);
+        setStatus('idle');
+        setErrorMessage('');
+      }, 300);
+    }
+  }, [open]);
 
   if (!app) return null;
 
@@ -238,59 +305,92 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
             </div>
         ) : app.id === 'sms' ? (
             <div className="px-4 py-2 space-y-4 text-left">
-              <div className="space-y-1">
-                  <Label htmlFor="phone-number" className="text-sm font-medium text-foreground">Phone Number *</Label>
-                  <Input
-                    id="phone-number"
-                    type="tel"
-                    placeholder="(555) 123-4567"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    className="bg-background"
-                  />
-                  <p className="text-xs text-muted-foreground pt-1">US phone numbers only. Message & data rates may apply.</p>
-              </div>
-
-              <div className="bg-muted border rounded-lg p-3 text-sm mt-4">
-                <div className="flex items-start">
-                  <Info className="h-4 w-4 text-muted-foreground mt-0.5 mr-2 flex-shrink-0"/>
-                  <div>
-                    <p className="font-semibold text-foreground mb-2">How to Use Jean Memory SMS:</p>
-                    <ul className="list-disc list-inside text-muted-foreground space-y-1 text-xs">
-                        <li>Just text us naturally, like you're talking to a person!</li>
-                        <li>"Remember to pick up groceries after work"</li>
-                        <li>"What were the main points from the meeting yesterday?"</li>
-                        <li>"Show my recent thoughts on the new project"</li>
-                        <li>Text "help" anytime for more examples.</li>
-                    </ul>
+              {status !== 'sent' && status !== 'verifying' ? (
+                <>
+                  <div className="space-y-1">
+                      <Label htmlFor="phone-number" className="text-sm font-medium text-foreground">Phone Number *</Label>
+                      <Input
+                        id="phone-number"
+                        type="tel"
+                        placeholder="(555) 123-4567"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        className="bg-background"
+                        disabled={status === 'sending'}
+                      />
+                      <p className="text-xs text-muted-foreground pt-1">US phone numbers only. Message & data rates may apply.</p>
                   </div>
+
+                  <div className="bg-muted border rounded-lg p-3 text-sm mt-4">
+                    <div className="flex items-start">
+                      <Info className="h-4 w-4 text-muted-foreground mt-0.5 mr-2 flex-shrink-0"/>
+                      <div>
+                        <p className="font-semibold text-foreground mb-2">How to Use Jean Memory SMS:</p>
+                        <ul className="list-disc list-inside text-muted-foreground space-y-1 text-xs">
+                            <li>Just text us naturally, like you're talking to a person!</li>
+                            <li>"Remember to pick up groceries after work"</li>
+                            <li>"What were the main points from the meeting yesterday?"</li>
+                            <li>"Show my recent thoughts on the new project"</li>
+                            <li>Text "help" anytime for more examples.</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="items-top flex space-x-3 pt-4">
+                      <Checkbox
+                          id="terms-sms"
+                          checked={hasConsented}
+                          onCheckedChange={(checked) => setHasConsented(checked as boolean)}
+                          className="data-[state=checked]:bg-primary border-border mt-0.5"
+                          disabled={status === 'sending'}
+                      />
+                      <div className="grid gap-1.5 leading-none">
+                          <label
+                            htmlFor="terms-sms"
+                            className="text-xs text-muted-foreground font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                          >
+                            I accept the <a href="/sms-terms" target="_blank" rel="noopener noreferrer" className="underline hover:text-primary">SMS Terms of Service</a> & <a href="https://jonathan-politzki.github.io/jean-privacy-policy/" target="_blank" rel="noopener noreferrer" className="underline hover:text-primary">Privacy Policy</a>.
+                          </label>
+                      </div>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground pt-3">
+                    By providing your phone number, you agree to receive informational text messages from Jean Memory. Consent is not a condition of purchase. Messages Frequency will vary. Msg & data rates may apply. Reply HELP for help or STOP to cancel.
+                  </p>
+                </>
+              ) : (
+                <div className="space-y-2 pt-2 text-center">
+                    <Label htmlFor="verification-code" className="text-sm font-medium text-foreground">Enter Verification Code</Label>
+                    <p className="text-xs text-muted-foreground pb-2">A 6-digit code was sent to {phoneNumber}.</p>
+                    <Input
+                      id="verification-code"
+                      type="text"
+                      placeholder="123456"
+                      value={verificationCode}
+                      onChange={(e) => setVerificationCode(e.target.value)}
+                      className="bg-background text-center text-lg tracking-widest"
+                      maxLength={6}
+                      disabled={status === 'verifying' || status === 'verified'}
+                    />
                 </div>
-              </div>
+              )}
+              
+              {errorMessage && (
+                <div className="text-center text-sm text-red-500 bg-red-500/10 p-2 rounded-md">
+                    {errorMessage}
+                </div>
+              )}
 
-              <div className="items-top flex space-x-3 pt-4">
-                  <Checkbox
-                      id="terms-sms"
-                      checked={hasConsented}
-                      onCheckedChange={(checked) => setHasConsented(checked as boolean)}
-                      className="data-[state=checked]:bg-primary border-border mt-0.5"
-                  />
-                  <div className="grid gap-1.5 leading-none">
-                      <label
-                        htmlFor="terms-sms"
-                        className="text-xs text-muted-foreground font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                      >
-                        I accept the <a href="/sms-terms" target="_blank" rel="noopener noreferrer" className="underline hover:text-primary">SMS Terms of Service</a> & <a href="https://jonathan-politzki.github.io/jean-privacy-policy/" target="_blank" rel="noopener noreferrer" className="underline hover:text-primary">Privacy Policy</a>.
-                      </label>
-                  </div>
-              </div>
-
-              <p className="text-xs text-muted-foreground pt-3">
-                By providing your phone number, you agree to receive informational text messages from Jean Memory. Consent is not a condition of purchase. Messages Frequency will vary. Msg & data rates may apply. Reply HELP for help or STOP to cancel.
-              </p>
-
-              <p className="text-center text-sm text-primary pt-2">
-                Coming Soon: Full SMS integration is pending carrier approval.
-              </p>
+              {status === 'verified' ? (
+                <div className="text-center text-sm text-green-500 font-semibold pt-2">
+                    ✓ Verified! You can now use SMS.
+                </div>
+              ) : (
+                <p className="text-center text-sm text-primary pt-2">
+                  Coming Soon: Full SMS integration is pending carrier approval.
+                </p>
+              )}
             </div>
         ) : app.id === 'chorus' ? (
           <div className="space-y-4 px-4 py-2">
@@ -364,18 +464,23 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
                 <Button variant="outline" onClick={() => onOpenChange(false)}>
                     Cancel
                 </Button>
-                <Button
-                  onClick={() => {
-                      toast({
-                          title: "Verification Sent (Mockup)",
-                          description: "This demonstrates the user action to the review team.",
-                      });
-                  }}
-                  disabled={!phoneNumber || !hasConsented}
-                  variant="secondary"
+                {status !== 'sent' && status !== 'verifying' ? (
+                  <Button
+                    onClick={handleSendCode}
+                    disabled={!phoneNumber || !hasConsented || status === 'sending'}
+                    variant="secondary"
                   >
-                  Send Code
-              </Button>
+                    {status === 'sending' ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending...</> : 'Send Code'}
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handleVerifyCode}
+                    disabled={verificationCode.length !== 6 || status === 'verifying' || status === 'verified'}
+                    variant="secondary"
+                  >
+                    {status === 'verifying' ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Verifying...</> : 'Verify'}
+                  </Button>
+                )}
             </div>
         ) : (
           <div className="mt-6 text-center">
