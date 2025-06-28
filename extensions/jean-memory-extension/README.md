@@ -32,7 +32,7 @@ Jean Memory is a personal AI memory service that allows Claude to remember your 
 
 ## Getting Your User ID
 
-1. Visit [Jean Memory Dashboard](https://jeanmemory.com)
+1. Visit [Jean Memory Dashboard](https://jeanmemory.com/dashboard-new)
 2. Go to Settings → API Keys
 3. Copy your User ID
 4. Paste it into the extension configuration
@@ -84,9 +84,9 @@ The extension provides Claude with these memory tools:
 ## Support
 
 For help with the extension:
-- Visit [Jean Memory Support](https://jeanmemory.com/support)
-- Email: support@jeanmemory.com
-- Check the [documentation](https://docs.jeanmemory.com)
+- Visit [Jean Memory](https://jeanmemory.com)
+- Email: jonathan@jeantechnologies.com
+- Check the [documentation](https://jeanmemory.com/api-docs)
 
 For Claude Desktop issues:
 - Visit [Claude Support](https://support.anthropic.com)
@@ -98,4 +98,4 @@ MIT License - see LICENSE file for details
 ---
 
 **Jean Memory - Your AI's Personal Memory**  
-[Website](https://jeanmemory.com) | [Dashboard](https://jeanmemory.com/dashboard) | [Documentation](https://docs.jeanmemory.com) 
+[Website](https://jeanmemory.com) | [Dashboard](https://jeanmemory.com/dashboard-new) | [Documentation](https://jeanmemory.com/api-docs) 
