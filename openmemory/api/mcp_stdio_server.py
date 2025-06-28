@@ -45,7 +45,7 @@ from mcp.types import Tool, TextContent
 # Import our existing MCP tools
 try:
     from app.mcp_server import (
-        add_memories, search_memory, list_memories, smart_context,
+        add_memories, store_document, get_document_status, search_memory, list_memories,
         user_id_var, client_name_var
     )
     from app.database import SessionLocal
@@ -78,6 +78,51 @@ async def list_tools() -> list[Tool]:
                     }
                 },
                 "required": ["text"]
+            }
+        ),
+        Tool(
+            name="store_document",
+            description="⚡ FAST document upload. Store large documents (markdown, code, essays) in background. Returns immediately with job ID for status tracking.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "description": "A descriptive title for the document"
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "The full text content of the document"
+                    },
+                    "document_type": {
+                        "type": "string",
+                        "description": "Type of document (e.g., 'markdown', 'code', 'notes')",
+                        "default": "markdown"
+                    },
+                    "source_url": {
+                        "type": "string",
+                        "description": "Optional URL where the document came from"
+                    },
+                    "metadata": {
+                        "type": "object",
+                        "description": "Optional additional metadata"
+                    }
+                },
+                "required": ["title", "content"]
+            }
+        ),
+        Tool(
+            name="get_document_status",
+            description="Check the processing status of a document upload using the job ID returned by store_document.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "job_id": {
+                        "type": "string",
+                        "description": "The job ID returned by store_document"
+                    }
+                },
+                "required": ["job_id"]
             }
         ),
         Tool(
@@ -114,24 +159,7 @@ async def list_tools() -> list[Tool]:
                 "required": []
             }
         ),
-        Tool(
-            name="smart_context",
-            description="🧠 Intelligent context orchestration that combines memory search and addition. Analyzes your query using AI to determine what context is most relevant, automatically searches your memories, and adds memorable information in the background. This is the most advanced way to interact with your memory system - it understands whether you're starting a new conversation or continuing one, and provides contextually appropriate information.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": "Your question, request, or statement. The system will intelligently determine what context you need and what information should be remembered."
-                    },
-                    "context": {
-                        "type": "string",
-                        "description": "Optional additional context about your current situation, task, or what you're working on."
-                    }
-                },
-                "required": ["query"]
-            }
-        )
+
     ]
 
 @server.call_tool()
@@ -155,12 +183,20 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         # Call the appropriate tool
         if name == "add_memories":
             result = await add_memories(arguments["text"])
+        elif name == "store_document":
+            result = await store_document(
+                title=arguments["title"],
+                content=arguments["content"],
+                document_type=arguments.get("document_type", "markdown"),
+                source_url=arguments.get("source_url"),
+                metadata=arguments.get("metadata")
+            )
+        elif name == "get_document_status":
+            result = await get_document_status(arguments["job_id"])
         elif name == "search_memory":
             result = await search_memory(arguments["query"], arguments.get("limit"))
         elif name == "list_memories":
             result = await list_memories(arguments.get("limit"))
-        elif name == "smart_context":
-            result = await smart_context(arguments["query"], arguments.get("context"))
         else:
             result = f"Unknown tool: {name}"
         

@@ -1706,6 +1706,42 @@ def get_original_tools_schema(include_annotations=False):
             }
         },
         {
+            "name": "store_document",
+            "description": "⚡ FAST document upload. Store large documents (markdown, code, essays) in background. Returns immediately with job ID for status tracking. Perfect for entire files that would slow down chat.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "A descriptive title for the document"},
+                    "content": {"type": "string", "description": "The full text content of the document (markdown, code, etc.)"},
+                    "document_type": {"type": "string", "description": "Type of document (e.g., 'markdown', 'code', 'notes', 'documentation')", "default": "markdown"},
+                    "source_url": {"type": "string", "description": "Optional URL where the document came from"},
+                    "metadata": {"type": "object", "description": "Optional additional metadata about the document"}
+                },
+                "required": ["title", "content"]
+            },
+            "annotations": {
+                "readOnly": false,
+                "sensitive": true,
+                "destructive": false
+            }
+        },
+        {
+            "name": "get_document_status",
+            "description": "Check the processing status of a document upload using the job ID returned by store_document.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "job_id": {"type": "string", "description": "The job ID returned by store_document"}
+                },
+                "required": ["job_id"]
+            },
+            "annotations": {
+                "readOnly": true,
+                "sensitive": false,
+                "destructive": false
+            }
+        },
+        {
             "name": "ask_memory",
             "description": "FAST memory search for simple questions about the user's memories, thoughts, documents, or experiences",
             "inputSchema": {"type": "object", "properties": {"question": {"type": "string", "description": "A natural language question"}}, "required": ["question"]}
@@ -1740,6 +1776,8 @@ def get_original_tools_schema(include_annotations=False):
             "jean_memory": {"readOnly": False, "sensitive": True, "destructive": False, "intelligent": True},
             "ask_memory": {"readOnly": True, "sensitive": False, "destructive": False},
             "add_memories": {"readOnly": False, "sensitive": True, "destructive": False},
+            "store_document": {"readOnly": False, "sensitive": True, "destructive": False},
+            "get_document_status": {"readOnly": True, "sensitive": False, "destructive": False},
             "search_memory": {"readOnly": True, "sensitive": False, "destructive": False},
             "list_memories": {"readOnly": True, "sensitive": True, "destructive": False},
             "deep_memory_query": {"readOnly": True, "sensitive": False, "destructive": False, "expensive": True}
@@ -1786,6 +1824,26 @@ def get_api_tools_schema():
             "name": "add_memories",
             "description": "Store important information with optional tag-based organization. Optionally, add a list of string tags for later filtering.",
             "inputSchema": {"type": "object", "properties": {"text": {"type": "string", "description": "The information to store"}, "tags": {"type": "array", "items": {"type": "string"}, "description": "Optional list of tags"}}, "required": ["text"]},
+            "annotations": {
+                "readOnly": False,
+                "sensitive": True,
+                "destructive": False
+            }
+        },
+        {
+            "name": "store_document",
+            "description": "📄 LARGE DOCUMENT storage. Store entire markdown files, code files, essays, documentation, or any large text content. Perfect for preserving complete documents that you want to reference later. Creates searchable summaries automatically.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "A descriptive title for the document"},
+                    "content": {"type": "string", "description": "The full text content of the document (markdown, code, etc.)"},
+                    "document_type": {"type": "string", "description": "Type of document (e.g., 'markdown', 'code', 'notes', 'documentation')", "default": "markdown"},
+                    "source_url": {"type": "string", "description": "Optional URL where the document came from"},
+                    "metadata": {"type": "object", "description": "Optional additional metadata about the document"}
+                },
+                "required": ["title", "content"]
+            },
             "annotations": {
                 "readOnly": False,
                 "sensitive": True,
@@ -1896,17 +1954,7 @@ async def jean_memory(user_message: str, is_new_conversation: bool) -> str:
         logger.error(f"Error in jean_memory: {e}", exc_info=True)
         return f"I had trouble processing your message: {str(e)}"
 
-# Core memory tools registry - simplified for better performance
-tool_registry = {
-    "add_memories": add_memories,
-    "search_memory": search_memory,
-    "search_memory_v2": search_memory_v2,
-    "list_memories": list_memories,
-    "ask_memory": ask_memory,
-    "sync_substack_posts": sync_substack_posts,
-    "deep_memory_query": deep_memory_query,
-    "jean_memory": jean_memory,
-}
+# Tool registry will be defined after all functions are loaded
 
 # Simple in-memory message queue for SSE connections
 sse_message_queues = {}
@@ -2769,3 +2817,358 @@ async def handle_chorus_messages(user_id: str, request: Request):
     finally:
         user_id_var.reset(user_token)
         client_name_var.reset(client_token)
+
+
+
+# Tool registry will be defined at the end of the file after all functions
+
+# Document processing queue - in-memory for now, could be Redis/Celery for production
+document_processing_queue = {}
+document_processing_status = {}
+
+async def _process_document_background(
+    job_id: str,
+    title: str, 
+    content: str, 
+    document_type: str,
+    source_url: Optional[str],
+    metadata: Optional[dict],
+    supa_uid: str,
+    client_name: str
+):
+    """
+    Background task to handle heavy document processing:
+    - Store document in database
+    - Create chunks for vector search
+    - Generate summary memory
+    - Link to memory system
+    """
+    try:
+        logger.info(f"🔄 Starting background processing for document '{title}' (job: {job_id})")
+        document_processing_status[job_id] = {
+            "status": "processing",
+            "message": "Processing document...",
+            "progress": 10,
+            "started_at": datetime.datetime.now(datetime.UTC).isoformat()
+        }
+        
+        # 1. Validate input
+        if not title.strip():
+            raise ValueError("Document title cannot be empty")
+        if not content.strip():
+            raise ValueError("Document content cannot be empty")
+        if len(content) < 50:
+            raise ValueError("Document content too short (minimum 50 characters)")
+            
+        document_processing_status[job_id]["progress"] = 20
+        document_processing_status[job_id]["message"] = "Validating content..."
+        
+        # 2. Get user and initialize services
+        user = await get_or_create_user(email="dummy", supa_uid=supa_uid, client_name=client_name)
+        if not user:
+            raise ValueError("Failed to get user information")
+        
+        mem0_client = get_mem0_client()
+        
+        document_processing_status[job_id]["progress"] = 30
+        document_processing_status[job_id]["message"] = "Storing document..."
+        
+        # 3. Store the full document in database
+        document_id = str(uuid.uuid4())
+        supabase_admin = get_supabase_admin_client()
+        
+        # Insert into documents table
+        result = supabase_admin.table("documents").insert({
+            "id": document_id,
+            "user_id": user.id,
+            "title": title,
+            "content": content,
+            "document_type": document_type,
+            "source_url": source_url,
+            "metadata": metadata or {},
+            "created_at": datetime.datetime.now(datetime.UTC).isoformat(),
+            "updated_at": datetime.datetime.now(datetime.UTC).isoformat()
+        }).execute()
+        
+        if not result.data:
+            raise ValueError("Failed to store document in database")
+            
+        document_processing_status[job_id]["progress"] = 50
+        document_processing_status[job_id]["message"] = "Creating searchable chunks..."
+        
+        # 4. Create chunks for better search performance (for large documents)
+        if len(content) > 2000:  # Only chunk large documents
+            chunk_size = 1000
+            overlap = 200
+            chunks = []
+            
+            for i in range(0, len(content), chunk_size - overlap):
+                chunk_content = content[i:i + chunk_size]
+                if chunk_content.strip():
+                    chunk_id = str(uuid.uuid4())
+                    chunks.append({
+                        "id": chunk_id,
+                        "document_id": document_id,
+                        "user_id": user.id,
+                        "content": chunk_content,
+                        "chunk_index": len(chunks),
+                        "created_at": datetime.datetime.now(datetime.UTC).isoformat()
+                    })
+            
+            # Insert chunks in batch
+            if chunks:
+                supabase_admin.table("document_chunks").insert(chunks).execute()
+                
+        document_processing_status[job_id]["progress"] = 70
+        document_processing_status[job_id]["message"] = "Generating summary..."
+        
+        # 5. Create a summary memory that links to the document
+        summary_content = f"📄 Document stored: '{title}' ({document_type})"
+        if len(content) > 500:
+            # Create AI summary for large documents
+            summary_content += f"\n\nContent preview: {content[:500]}..."
+        else:
+            summary_content += f"\n\nFull content: {content}"
+            
+        if source_url:
+            summary_content += f"\n\nSource: {source_url}"
+            
+        # Add to memory system with enhanced metadata
+        enhanced_metadata = {
+            "document_id": document_id,
+            "document_type": document_type,
+            "document_title": title,
+            "content_length": len(content),
+            "is_document_summary": True
+        }
+        if metadata:
+            enhanced_metadata.update(metadata)
+            
+        document_processing_status[job_id]["progress"] = 80
+        document_processing_status[job_id]["message"] = "Adding to memory system..."
+        
+        # Add summary to mem0
+        memory_result = mem0_client.add(
+            messages=[{"role": "user", "content": summary_content}],
+            user_id=supa_uid,
+            metadata=enhanced_metadata
+        )
+        
+        # 6. Link document to memory in database
+        if memory_result and 'results' in memory_result and memory_result['results']:
+            memory_id = memory_result['results'][0].get('id')
+            if memory_id:
+                supabase_admin.table("document_memories").insert({
+                    "id": str(uuid.uuid4()),
+                    "document_id": document_id,
+                    "memory_id": memory_id,
+                    "user_id": user.id,
+                    "created_at": datetime.datetime.now(datetime.UTC).isoformat()
+                }).execute()
+        
+        document_processing_status[job_id] = {
+            "status": "completed",
+            "message": f"✅ Document '{title}' successfully stored and indexed",
+            "progress": 100,
+            "document_id": document_id,
+            "completed_at": datetime.datetime.now(datetime.UTC).isoformat(),
+            "started_at": document_processing_status[job_id]["started_at"]
+        }
+        
+        logger.info(f"✅ Background processing completed for document '{title}' (job: {job_id})")
+        
+    except Exception as e:
+        logger.error(f"❌ Error in background document processing (job: {job_id}): {e}", exc_info=True)
+        document_processing_status[job_id] = {
+            "status": "failed",
+            "message": f"❌ Error processing document: {str(e)}",
+            "progress": 0,
+            "failed_at": datetime.datetime.now(datetime.UTC).isoformat(),
+            "started_at": document_processing_status.get(job_id, {}).get("started_at")
+        }
+
+@mcp.tool(description="⚡ FAST document upload. Store large documents (markdown, code, essays) in background. Returns immediately with job ID for status tracking. Perfect for entire files that would slow down chat.")
+async def store_document(
+    title: str, 
+    content: str, 
+    document_type: str = "markdown",
+    source_url: Optional[str] = None,
+    metadata: Optional[dict] = None
+) -> str:
+    """
+    Lightweight document storage tool that queues processing in background.
+    
+    Args:
+        title: A descriptive title for the document
+        content: The full text content of the document
+        document_type: Type of document (markdown, code, notes, etc.)
+        source_url: Optional URL where document came from
+        metadata: Optional additional metadata
+    
+    Returns:
+        Job ID for tracking processing status
+    """
+    supa_uid = user_id_var.get(None)
+    client_name = client_name_var.get(None)
+    background_tasks = background_tasks_var.get(None)
+    
+    if not supa_uid:
+        return "❌ Error: User ID not available"
+    if not client_name:
+        return "❌ Error: Client name not available"
+    
+    try:
+        # Quick validation
+        if not title.strip():
+            return "❌ Error: Document title cannot be empty"
+        if not content.strip():
+            return "❌ Error: Document content cannot be empty"
+        if len(content) < 10:
+            return "❌ Error: Document content too short"
+        
+        # Generate job ID for tracking
+        job_id = f"doc_{int(datetime.datetime.now(datetime.UTC).timestamp())}_{str(uuid.uuid4())[:8]}"
+        
+        # Store in processing queue
+        document_processing_queue[job_id] = {
+            "title": title,
+            "content": content,
+            "document_type": document_type,
+            "source_url": source_url,
+            "metadata": metadata,
+            "user_id": supa_uid,
+            "client_name": client_name,
+            "queued_at": datetime.datetime.now(datetime.UTC).isoformat()
+        }
+        
+        # Initialize status
+        document_processing_status[job_id] = {
+            "status": "queued",
+            "message": "Document queued for processing...",
+            "progress": 0,
+            "queued_at": datetime.datetime.now(datetime.UTC).isoformat()
+        }
+        
+        # Queue background processing
+        if background_tasks:
+            background_tasks.add_task(
+                _process_document_background,
+                job_id=job_id,
+                title=title,
+                content=content,
+                document_type=document_type,
+                source_url=source_url,
+                metadata=metadata,
+                supa_uid=supa_uid,
+                client_name=client_name
+            )
+        else:
+            # Fallback: create simple BackgroundTasks if not available
+            import asyncio
+            asyncio.create_task(_process_document_background(
+                job_id=job_id,
+                title=title,
+                content=content,
+                document_type=document_type,
+                source_url=source_url,
+                metadata=metadata,
+                supa_uid=supa_uid,
+                client_name=client_name
+            ))
+        
+        # Immediate lightweight response
+        content_preview = content[:100] + "..." if len(content) > 100 else content
+        
+        return f"""🚀 **Document Upload Started**
+
+📄 **Title:** {title}
+📊 **Size:** {len(content):,} characters
+🔄 **Job ID:** `{job_id}`
+⏱️ **Status:** Queued for background processing
+
+Your document is being processed in the background. This includes:
+- ✅ Secure storage in database
+- 🔍 Creating searchable chunks  
+- 🧠 Adding to memory system
+- 🔗 Linking for future retrieval
+
+Use `get_document_status("{job_id}")` to check progress.
+
+**Preview:** {content_preview}"""
+
+    except Exception as e:
+        logger.error(f"Error in store_document MCP tool: {e}", exc_info=True)
+        return f"❌ Error queueing document: {e}"
+
+@mcp.tool(description="Check the processing status of a document upload using the job ID returned by store_document.")
+async def get_document_status(job_id: str) -> str:
+    """
+    Check the status of a background document processing job.
+    
+    Args:
+        job_id: The job ID returned by store_document
+    
+    Returns:
+        Current status and progress of document processing
+    """
+    try:
+        if job_id not in document_processing_status:
+            return f"❌ Job ID '{job_id}' not found. Please check the job ID."
+        
+        status_info = document_processing_status[job_id]
+        status = status_info.get("status", "unknown")
+        message = status_info.get("message", "No message")
+        progress = status_info.get("progress", 0)
+        
+        # Status icons
+        status_icons = {
+            "queued": "⏳",
+            "processing": "🔄", 
+            "completed": "✅",
+            "failed": "❌"
+        }
+        
+        icon = status_icons.get(status, "❓")
+        
+        response = f"""📋 **Document Processing Status**
+
+🔍 **Job ID:** `{job_id}`
+{icon} **Status:** {status.upper()}
+📊 **Progress:** {progress}%
+💬 **Message:** {message}
+"""
+        
+        # Add timing information
+        if "queued_at" in status_info:
+            response += f"⏰ **Queued:** {status_info['queued_at']}\n"
+        if "started_at" in status_info:
+            response += f"🚀 **Started:** {status_info['started_at']}\n"
+        if "completed_at" in status_info:
+            response += f"✅ **Completed:** {status_info['completed_at']}\n"
+        if "failed_at" in status_info:
+            response += f"❌ **Failed:** {status_info['failed_at']}\n"
+        
+        # Add document ID if completed
+        if status == "completed" and "document_id" in status_info:
+            response += f"\n📄 **Document ID:** `{status_info['document_id']}`"
+            response += f"\n🔍 **Next Steps:** Your document is now searchable via regular memory tools!"
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error checking document status: {e}", exc_info=True)
+        return f"❌ Error checking status: {e}"
+
+# Core memory tools registry - defined after all functions are loaded
+tool_registry = {
+    "add_memories": add_memories,
+    "store_document": store_document,
+    "get_document_status": get_document_status,
+    "search_memory": search_memory,
+    "search_memory_v2": search_memory_v2,
+    "list_memories": list_memories,
+    "ask_memory": ask_memory,
+    "sync_substack_posts": sync_substack_posts,
+    "deep_memory_query": deep_memory_query,
+    "jean_memory": jean_memory,
+}
