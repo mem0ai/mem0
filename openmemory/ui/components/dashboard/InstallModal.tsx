@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { App } from '@/store/appsSlice';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Copy, Check, Key, Shield, Link as LinkIcon, Loader2, CheckCircle, AlertCircle, MessageSquare, Info, Download } from 'lucide-react';
+import { MobileOptimizedDialog, MobileOptimizedDialogContent, MobileOptimizedDialogHeader, MobileOptimizedDialogTitle, MobileOptimizedDialogDescription } from '@/components/ui/mobile-optimized-dialog';
+import { Copy, Check, Key, Shield, Link as LinkIcon, Loader2, CheckCircle, AlertCircle, MessageSquare, Info, Download, ExternalLink, AlertTriangle, Smartphone } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { constants } from "@/components/shared/source-app";
@@ -13,6 +13,7 @@ import Image from 'next/image';
 import apiClient from '@/lib/apiClient';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Badge } from '@/components/ui/badge';
 
 interface InstallModalProps {
   app: App | null;
@@ -145,7 +146,7 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
   };
   
   // Reset state when modal is closed or app changes
-  React.useEffect(() => {
+  useEffect(() => {
     if (!open) {
       setTimeout(() => {
         setPhoneNumber('');
@@ -190,9 +191,12 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
   const chatgptLink = `${MCP_URL}/mcp/chatgpt/sse/${user?.id}`;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg bg-card text-card-foreground border shadow-2xl shadow-blue-500/10">
-        <DialogHeader className="text-center pb-4">
+    <MobileOptimizedDialog open={open} onOpenChange={onOpenChange}>
+      <MobileOptimizedDialogContent 
+        className="sm:max-w-lg bg-card text-card-foreground border shadow-2xl shadow-blue-500/10"
+        onOpenChange={onOpenChange}
+      >
+        <MobileOptimizedDialogHeader className="text-center pb-4">
           <div className="mx-auto w-16 h-16 rounded-lg bg-muted border flex items-center justify-center mb-4">
             {app.id === 'sms' ? (
                 <MessageSquare className="w-9 h-9 text-blue-400" />
@@ -204,13 +208,13 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
                 <div className="w-9 h-9 flex items-center justify-center">{appConfig.icon}</div>
             )}
           </div>
-          <DialogTitle className="text-2xl font-bold">
+          <MobileOptimizedDialogTitle className="text-2xl font-bold">
             {app.id === 'mcp-generic' ? 'Your Universal MCP Link' : 
              app.id === 'chatgpt' ? 'Connect to ChatGPT Deep Research' :
              app.id === 'sms' ? 'Connect SMS to Jean Memory' :
              `Connect to ${app.name}`}
-          </DialogTitle>
-          <DialogDescription className="text-muted-foreground pt-1">
+          </MobileOptimizedDialogTitle>
+          <MobileOptimizedDialogDescription className="text-muted-foreground pt-1">
             {app.id === 'mcp-generic'
                 ? 'Use this URL for any MCP-compatible application.'
                 : app.id === 'chatgpt'
@@ -221,11 +225,11 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
                 ? 'Add your phone number to interact with your memories via text message.'
                 : `Activate Jean Memory for ${app.name} in two simple steps.`
             }
-          </DialogDescription>
-        </DialogHeader>
+          </MobileOptimizedDialogDescription>
+        </MobileOptimizedDialogHeader>
 
         {app.id === 'mcp-generic' ? (
-            <div className="px-4 py-2 text-center">
+            <div className="py-2 text-center">
                 <p className="text-muted-foreground text-sm mb-4">
                     Copy this URL and paste it into any MCP-compatible application to connect it with Jean Memory.
                 </p>
@@ -247,7 +251,7 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
                 </div>
             </div>
         ) : app.id === 'chatgpt' ? (
-            <div className="px-4 py-2 text-center space-y-4">
+            <div className="py-2 text-center space-y-4">
                 <div className="bg-amber-900/20 border border-amber-700/50 rounded-md p-3 mb-4">
                     <p className="text-amber-300 text-sm font-medium mb-1">⚠️ Admin Setup Required</p>
                     <p className="text-amber-200/80 text-xs">
@@ -286,7 +290,7 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
                 </div>
             </div>
         ) : app.id === 'claude' ? (
-            <div className="px-4 py-2 space-y-6">
+            <div className="py-2 space-y-6">
                 {/* Download Button */}
                 <Button 
                     onClick={handleDownloadExtension}
@@ -346,7 +350,7 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
                 </details>
             </div>
         ) : app.id === 'substack' || app.id === 'twitter' ? (
-            <div className="px-4 py-2 space-y-4">
+            <div className="py-2 space-y-4">
                 <p className="text-muted-foreground text-center text-sm">
                     Enter your {app.name === 'X' ? 'username' : 'URL'} below. This allows Jean Memory to find and sync your content.
                 </p>
@@ -377,7 +381,7 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
                 </Button>
             </div>
         ) : app.id === 'sms' ? (
-            <div className="px-4 py-2 space-y-4 text-left">
+            <div className="py-2 space-y-4 text-left">
               {status !== 'sent' && status !== 'verifying' ? (
                 <>
                   <div className="space-y-1">
@@ -466,7 +470,7 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
               )}
             </div>
         ) : app.id === 'chorus' ? (
-          <div className="space-y-4 px-4 py-2">
+          <div className="space-y-4 py-2">
             <ol className="list-decimal list-inside space-y-3 text-muted-foreground text-sm">
               <li>{app.modalContent}</li>
               <li>
@@ -489,7 +493,7 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
             </ol>
           </div>
         ) : (
-            <div className="space-y-6 px-4 py-2">
+            <div className="space-y-6 py-2">
                 <div className="flex items-start gap-4">
                     <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center">
                         <Key className="h-5 w-5 text-muted-foreground" />
@@ -533,7 +537,7 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
         )}
         
         {app.id === 'sms' ? (
-            <div className="mt-6 flex justify-end gap-3 px-4">
+            <div className="mt-6 flex justify-end gap-3 max-sm:flex-col max-sm:space-y-2">
                 <Button variant="outline" onClick={() => onOpenChange(false)}>
                     Cancel
                 </Button>
@@ -566,7 +570,7 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
               </Button>
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+      </MobileOptimizedDialogContent>
+    </MobileOptimizedDialog>
   );
 } 

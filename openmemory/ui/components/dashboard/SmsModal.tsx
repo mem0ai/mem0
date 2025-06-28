@@ -2,12 +2,12 @@
 
 import { useState } from 'react';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
+  MobileOptimizedDialog,
+  MobileOptimizedDialogContent,
+  MobileOptimizedDialogHeader,
+  MobileOptimizedDialogTitle,
+  MobileOptimizedDialogDescription,
+} from '@/components/ui/mobile-optimized-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -169,19 +169,19 @@ export function SmsModal({ open, onOpenChange }: SmsModalProps) {
 
   const renderPhoneStep = () => (
     <>
-      <DialogHeader className="text-center pb-4">
+      <MobileOptimizedDialogHeader className="text-center pb-4">
         <div className="mx-auto w-16 h-16 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mb-4">
           <MessageSquare className="w-8 h-8 text-blue-500" />
         </div>
-        <DialogTitle className="text-2xl font-bold">
+        <MobileOptimizedDialogTitle className="text-2xl font-bold">
           Connect SMS to Jean Memory
-        </DialogTitle>
-        <DialogDescription className="text-muted-foreground pt-1">
+        </MobileOptimizedDialogTitle>
+        <MobileOptimizedDialogDescription className="text-muted-foreground pt-1">
           Add your phone number to interact with your memories via text message
-        </DialogDescription>
-      </DialogHeader>
+        </MobileOptimizedDialogDescription>
+      </MobileOptimizedDialogHeader>
 
-      <div className="space-y-4 px-4 py-2">
+      <div className="space-y-4 py-2">
         <div className="space-y-2">
           <Label htmlFor="phone" className="text-sm font-medium">
             Phone Number *
@@ -221,7 +221,7 @@ export function SmsModal({ open, onOpenChange }: SmsModalProps) {
           </div>
         </div>
 
-        <div className="flex gap-2 pt-2">
+        <div className="flex gap-2 pt-2 max-sm:flex-col max-sm:space-y-2">
           <Button variant="outline" onClick={handleClose} className="flex-1" disabled>
             Cancel
           </Button>
@@ -239,19 +239,19 @@ export function SmsModal({ open, onOpenChange }: SmsModalProps) {
 
   const renderVerificationStep = () => (
     <>
-      <DialogHeader className="text-center pb-4">
+      <MobileOptimizedDialogHeader className="text-center pb-4">
         <div className="mx-auto w-16 h-16 rounded-lg bg-green-500/10 border border-green-500/20 flex items-center justify-center mb-4">
           <Shield className="w-8 h-8 text-green-500" />
         </div>
-        <DialogTitle className="text-2xl font-bold">
+        <MobileOptimizedDialogTitle className="text-2xl font-bold">
           Verify Your Phone
-        </DialogTitle>
-        <DialogDescription className="text-muted-foreground pt-1">
+        </MobileOptimizedDialogTitle>
+        <MobileOptimizedDialogDescription className="text-muted-foreground pt-1">
           Enter the 6-digit code sent to {state.phoneNumber}
-        </DialogDescription>
-      </DialogHeader>
+        </MobileOptimizedDialogDescription>
+      </MobileOptimizedDialogHeader>
 
-      <div className="space-y-4 px-4 py-2">
+      <div className="space-y-4 py-2">
         <div className="space-y-2">
           <Label htmlFor="code" className="text-sm font-medium">
             Verification Code *
@@ -301,19 +301,19 @@ export function SmsModal({ open, onOpenChange }: SmsModalProps) {
 
   const renderSuccessStep = () => (
     <>
-      <DialogHeader className="text-center pb-4">
+      <MobileOptimizedDialogHeader className="text-center pb-4">
         <div className="mx-auto w-16 h-16 rounded-lg bg-green-500/10 border border-green-500/20 flex items-center justify-center mb-4">
           <CheckCircle className="w-8 h-8 text-green-500" />
         </div>
-        <DialogTitle className="text-2xl font-bold">
+        <MobileOptimizedDialogTitle className="text-2xl font-bold">
           SMS Connected!
-        </DialogTitle>
-        <DialogDescription className="text-muted-foreground pt-1">
+        </MobileOptimizedDialogTitle>
+        <MobileOptimizedDialogDescription className="text-muted-foreground pt-1">
           You can now text Jean Memory to manage your memories
-        </DialogDescription>
-      </DialogHeader>
+        </MobileOptimizedDialogDescription>
+      </MobileOptimizedDialogHeader>
 
-      <div className="space-y-4 px-4 py-2">
+      <div className="space-y-4 py-2">
         <div className="bg-green-50 dark:bg-green-500/10 rounded-lg p-4 space-y-2">
           <h4 className="font-medium text-sm text-green-800 dark:text-green-400">
             🎉 Ready to use! Try sending:
@@ -341,19 +341,19 @@ export function SmsModal({ open, onOpenChange }: SmsModalProps) {
 
   const renderErrorStep = () => (
     <>
-      <DialogHeader className="text-center pb-4">
+      <MobileOptimizedDialogHeader className="text-center pb-4">
         <div className="mx-auto w-16 h-16 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4">
           <MessageSquare className="w-8 h-8 text-red-500" />
         </div>
-        <DialogTitle className="text-2xl font-bold">
+        <MobileOptimizedDialogTitle className="text-2xl font-bold">
           Upgrade Required
-        </DialogTitle>
-        <DialogDescription className="text-muted-foreground pt-1">
+        </MobileOptimizedDialogTitle>
+        <MobileOptimizedDialogDescription className="text-muted-foreground pt-1">
           SMS features are available with Jean Memory Pro
-        </DialogDescription>
-      </DialogHeader>
+        </MobileOptimizedDialogDescription>
+      </MobileOptimizedDialogHeader>
 
-      <div className="space-y-4 px-4 py-2">
+      <div className="space-y-4 py-2">
         {state.error && (
           <Alert variant="destructive">
             <AlertDescription>{state.error}</AlertDescription>
@@ -401,10 +401,13 @@ export function SmsModal({ open, onOpenChange }: SmsModalProps) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md bg-background border-border shadow-2xl">
+    <MobileOptimizedDialog open={open} onOpenChange={handleClose}>
+      <MobileOptimizedDialogContent 
+        className="sm:max-w-md bg-background border-border shadow-2xl"
+        onOpenChange={handleClose}
+      >
         {renderStep()}
-      </DialogContent>
-    </Dialog>
+      </MobileOptimizedDialogContent>
+    </MobileOptimizedDialog>
   );
 } 

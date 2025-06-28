@@ -112,4 +112,13 @@
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
   }
+
+  /* Safe area utilities for mobile devices */
+  .pb-safe-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+  
+  .pt-safe-top {
+    padding-top: max(1rem, env(safe-area-inset-top));
+  }
 }

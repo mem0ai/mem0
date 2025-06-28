@@ -3,7 +3,13 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { 
+  MobileOptimizedDialog, 
+  MobileOptimizedDialogContent, 
+  MobileOptimizedDialogHeader, 
+  MobileOptimizedDialogTitle, 
+  MobileOptimizedDialogDescription 
+} from '@/components/ui/mobile-optimized-dialog';
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -81,23 +87,26 @@ export function RequestIntegrationModal({ open, onOpenChange }: RequestIntegrati
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md bg-zinc-950 border-zinc-800 text-white shadow-2xl shadow-zinc-500/10">
-        <DialogHeader className="text-center pb-4">
-          <div className="mx-auto w-16 h-16 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center mb-4">
-            <Plus className="w-8 h-8 text-zinc-300" />
+    <MobileOptimizedDialog open={open} onOpenChange={onOpenChange}>
+      <MobileOptimizedDialogContent 
+        className="sm:max-w-md bg-card border-border text-foreground shadow-2xl"
+        onOpenChange={onOpenChange}
+      >
+        <MobileOptimizedDialogHeader className="text-center pb-4">
+          <div className="mx-auto w-16 h-16 rounded-lg bg-secondary border border-border flex items-center justify-center mb-4">
+            <Plus className="w-8 h-8 text-muted-foreground" />
           </div>
-          <DialogTitle className="text-2xl font-bold">
+          <MobileOptimizedDialogTitle className="text-2xl font-bold">
             Request New Integration
-          </DialogTitle>
-          <DialogDescription className="text-zinc-400 pt-1">
+          </MobileOptimizedDialogTitle>
+          <MobileOptimizedDialogDescription className="text-muted-foreground pt-1">
             Tell us which app you'd like to connect to Jean Memory
-          </DialogDescription>
-        </DialogHeader>
+          </MobileOptimizedDialogDescription>
+        </MobileOptimizedDialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 px-4 py-2">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="appName" className="text-sm font-medium text-zinc-300">
+            <Label htmlFor="appName" className="text-sm font-medium">
               App/Service Name *
             </Label>
             <Input
@@ -105,14 +114,14 @@ export function RequestIntegrationModal({ open, onOpenChange }: RequestIntegrati
               placeholder="e.g., Slack, Discord, Notion..."
               value={formData.appName}
               onChange={(e) => handleInputChange('appName', e.target.value)}
-              className="bg-zinc-900 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
+              className="bg-background border-border"
               disabled={isLoading}
               required
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="useCase" className="text-sm font-medium text-zinc-300">
+            <Label htmlFor="useCase" className="text-sm font-medium">
               How would you use this integration? *
             </Label>
             <Textarea
@@ -120,30 +129,30 @@ export function RequestIntegrationModal({ open, onOpenChange }: RequestIntegrati
               placeholder="Describe your specific use case and how this integration would help you..."
               value={formData.useCase}
               onChange={(e) => handleInputChange('useCase', e.target.value)}
-              className="bg-zinc-900 border-zinc-700 text-zinc-100 placeholder:text-zinc-500 min-h-[80px]"
+              className="bg-background border-border min-h-[80px]"
               disabled={isLoading}
               required
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="priority" className="text-sm font-medium text-zinc-300">
+            <Label htmlFor="priority" className="text-sm font-medium">
               Priority Level *
             </Label>
             <Select value={formData.priority} onValueChange={(value) => handleInputChange('priority', value)} disabled={isLoading}>
-              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-zinc-100">
+              <SelectTrigger className="bg-background border-border">
                 <SelectValue placeholder="Select priority level" />
               </SelectTrigger>
-              <SelectContent className="bg-zinc-900 border-zinc-700">
-                <SelectItem value="high" className="text-zinc-100 hover:bg-zinc-800">High - I need this urgently</SelectItem>
-                <SelectItem value="medium" className="text-zinc-100 hover:bg-zinc-800">Medium - Would be very helpful</SelectItem>
-                <SelectItem value="low" className="text-zinc-100 hover:bg-zinc-800">Low - Nice to have</SelectItem>
+              <SelectContent className="bg-popover border-border">
+                <SelectItem value="high" className="hover:bg-accent">High - I need this urgently</SelectItem>
+                <SelectItem value="medium" className="hover:bg-accent">Medium - Would be very helpful</SelectItem>
+                <SelectItem value="low" className="hover:bg-accent">Low - Nice to have</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="additionalInfo" className="text-sm font-medium text-zinc-300">
+            <Label htmlFor="additionalInfo" className="text-sm font-medium">
               Additional Information
             </Label>
             <Textarea
@@ -151,24 +160,24 @@ export function RequestIntegrationModal({ open, onOpenChange }: RequestIntegrati
               placeholder="Any additional details, links, or requirements..."
               value={formData.additionalInfo}
               onChange={(e) => handleInputChange('additionalInfo', e.target.value)}
-              className="bg-zinc-900 border-zinc-700 text-zinc-100 placeholder:text-zinc-500 min-h-[60px]"
+              className="bg-background border-border min-h-[60px]"
               disabled={isLoading}
             />
           </div>
 
-          <div className="flex gap-3 pt-4">
+          <div className="flex gap-3 pt-4 max-sm:flex-col max-sm:space-y-2">
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               onClick={() => onOpenChange(false)}
-              className="flex-1 border border-zinc-700 hover:bg-zinc-800"
+              className="flex-1"
               disabled={isLoading}
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              className="flex-1 bg-white hover:bg-zinc-200 text-black"
+              className="flex-1"
               disabled={isLoading}
             >
               {isLoading ? (
@@ -185,7 +194,7 @@ export function RequestIntegrationModal({ open, onOpenChange }: RequestIntegrati
             </Button>
           </div>
         </form>
-      </DialogContent>
-    </Dialog>
+      </MobileOptimizedDialogContent>
+    </MobileOptimizedDialog>
   );
 } 

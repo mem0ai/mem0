@@ -3,7 +3,13 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { 
+  MobileOptimizedDialog, 
+  MobileOptimizedDialogContent, 
+  MobileOptimizedDialogHeader, 
+  MobileOptimizedDialogTitle, 
+  MobileOptimizedDialogDescription 
+} from '@/components/ui/mobile-optimized-dialog';
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -97,21 +103,24 @@ export function RequestFeatureModal({ open, onOpenChange }: RequestFeatureModalP
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg bg-card border-border text-foreground shadow-lg">
-        <DialogHeader className="text-center pb-4">
+    <MobileOptimizedDialog open={open} onOpenChange={onOpenChange}>
+      <MobileOptimizedDialogContent 
+        className="sm:max-w-lg bg-card border-border text-foreground shadow-lg"
+        onOpenChange={onOpenChange}
+      >
+        <MobileOptimizedDialogHeader className="text-center pb-4">
           <div className="mx-auto w-14 h-14 rounded-lg bg-secondary flex items-center justify-center mb-4">
             <Lightbulb className="w-8 h-8 text-primary" />
           </div>
-          <DialogTitle className="text-2xl font-bold">
+          <MobileOptimizedDialogTitle className="text-2xl font-bold">
             Share Your Idea
-          </DialogTitle>
-          <DialogDescription className="text-muted-foreground pt-1 px-4">
+          </MobileOptimizedDialogTitle>
+          <MobileOptimizedDialogDescription className="text-muted-foreground pt-1">
             We're a small team and love hearing from our users. What should we build next to make your memory even more powerful?
-          </DialogDescription>
-        </DialogHeader>
+          </MobileOptimizedDialogDescription>
+        </MobileOptimizedDialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 px-4 py-2">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="featureIdea">Tool or Feature Idea *</Label>
             <Input
@@ -149,7 +158,7 @@ export function RequestFeatureModal({ open, onOpenChange }: RequestFeatureModalP
             />
           </div>
 
-          <div className="flex gap-3 pt-4">
+          <div className="flex gap-3 pt-4 max-sm:flex-col max-sm:space-y-2">
             <Button
               type="button"
               variant="outline"
@@ -178,7 +187,7 @@ export function RequestFeatureModal({ open, onOpenChange }: RequestFeatureModalP
             </Button>
           </div>
         </form>
-      </DialogContent>
-    </Dialog>
+      </MobileOptimizedDialogContent>
+    </MobileOptimizedDialog>
   );
 } 
