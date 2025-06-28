@@ -1726,22 +1726,6 @@ def get_original_tools_schema(include_annotations=False):
             }
         },
         {
-            "name": "get_document_status",
-            "description": "Check the processing status of a document upload using the job ID returned by store_document.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "job_id": {"type": "string", "description": "The job ID returned by store_document"}
-                },
-                "required": ["job_id"]
-            },
-            "annotations": {
-                "readOnly": True,
-                "sensitive": False,
-                "destructive": False
-            }
-        },
-        {
             "name": "ask_memory",
             "description": "FAST memory search for simple questions about the user's memories, thoughts, documents, or experiences",
             "inputSchema": {"type": "object", "properties": {"question": {"type": "string", "description": "A natural language question"}}, "required": ["question"]}
@@ -1777,7 +1761,6 @@ def get_original_tools_schema(include_annotations=False):
             "ask_memory": {"readOnly": True, "sensitive": False, "destructive": False},
             "add_memories": {"readOnly": False, "sensitive": True, "destructive": False},
             "store_document": {"readOnly": False, "sensitive": True, "destructive": False},
-            "get_document_status": {"readOnly": True, "sensitive": False, "destructive": False},
             "search_memory": {"readOnly": True, "sensitive": False, "destructive": False},
             "list_memories": {"readOnly": True, "sensitive": True, "destructive": False},
             "deep_memory_query": {"readOnly": True, "sensitive": False, "destructive": False, "expensive": True}
@@ -3243,7 +3226,6 @@ async def get_document_status(job_id: str) -> str:
 tool_registry = {
     "add_memories": add_memories,
     "store_document": store_document,
-    "get_document_status": get_document_status,
     "search_memory": search_memory,
     "search_memory_v2": search_memory_v2,
     "list_memories": list_memories,
