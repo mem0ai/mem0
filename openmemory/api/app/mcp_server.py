@@ -2891,70 +2891,25 @@ async def _process_document_background(
             document_id = str(uuid.uuid4())
             logger.info(f"🗄️ [{job_id}] Generated document ID: {document_id}")
             
-            # Import and initialize Supabase admin client
-            logger.info(f"🔐 [{job_id}] Initializing Supabase admin client...")
-            from app.auth import get_service_client
-            supabase_admin = await get_service_client()
+            # Insert into documents table using SQLAlchemy ORM (same as Substack sync)
+            logger.info(f"💾 [{job_id}] Creating document using SQLAlchemy ORM...")
             
-            # Test service client permissions
-            try:
-                # Try a simple read query first to test basic connectivity
-                test_query = supabase_admin.table("users").select("id").limit(1).execute()
-                logger.info(f"🔍 [{job_id}] Service client has read access to users table")
-            except Exception as test_error:
-                logger.error(f"⚠️ [{job_id}] Service client test failed: {test_error}")
+            # Use SQLAlchemy ORM directly - same approach as Substack sync
+            from app.models import Document
+            doc = Document(
+                id=uuid.UUID(document_id),
+                user_id=user.id,
+                app_id=app.id,
+                title=title,
+                content=content,
+                document_type=document_type,
+                source_url=source_url,
+                metadata_=metadata or {}
+            )
             
-            logger.info(f"✅ [{job_id}] Supabase admin client initialized successfully")
-            
-            # Insert into documents table
-            logger.info(f"💾 [{job_id}] Inserting document into database...")
-            document_data = {
-                "id": document_id,
-                "user_id": str(user.id),  # Ensure UUID is converted to string
-                "app_id": str(app.id),   # Ensure UUID is converted to string
-                "title": title,
-                "content": content,
-                "document_type": document_type,
-                "source_url": source_url,
-                "metadata": metadata or {},
-                "created_at": datetime.datetime.now(datetime.UTC).isoformat(),
-                "updated_at": datetime.datetime.now(datetime.UTC).isoformat()
-            }
-            logger.info(f"📊 [{job_id}] Document data prepared - Title: '{title}', Type: {document_type}, Size: {len(content)} chars, App: {app.name} ({app.id})")
-            
-            # Insert with explicit RLS bypass (service role should auto-bypass but being explicit)
-            try:
-                result = supabase_admin.table("documents").insert(document_data).execute()
-                logger.info(f"📄 [{job_id}] Document insert succeeded with result data: {bool(result.data)}")
-            except Exception as insert_error:
-                logger.error(f"💥 [{job_id}] Document insert failed with error: {insert_error}")
-                # Try with explicit RLS bypass as fallback
-                logger.info(f"🔄 [{job_id}] Retrying with explicit RLS bypass...")
-                try:
-                    # Execute raw SQL with RLS bypass for service role
-                    result = supabase_admin.rpc('exec_sql', {
-                        'query': f"""
-                        SET LOCAL row_security = off;
-                        INSERT INTO documents (id, user_id, app_id, title, content, document_type, source_url, metadata, created_at, updated_at)
-                        VALUES ('{document_id}', '{str(user.id)}', '{str(app.id)}', '{title.replace("'", "''")}', '{content.replace("'", "''")}', 
-                                '{document_type}', {f"'{source_url}'" if source_url else 'NULL'}, 
-                                '{json.dumps(metadata or {}).replace("'", "''")}', 
-                                '{datetime.datetime.now(datetime.UTC).isoformat()}', 
-                                '{datetime.datetime.now(datetime.UTC).isoformat()}');
-                        """
-                    }).execute()
-                    logger.info(f"✅ [{job_id}] Document inserted via RLS bypass")
-                    # Create a mock result object for consistency
-                    result = type('obj', (object,), {'data': [{'id': document_id}]})
-                except Exception as bypass_error:
-                    logger.error(f"💥 [{job_id}] RLS bypass also failed: {bypass_error}")
-                    raise insert_error  # Re-raise original error
-            
-            if not result.data:
-                logger.error(f"❌ [{job_id}] Document insert failed - no data returned from Supabase")
-                raise ValueError("Failed to store document in database")
-            
-            logger.info(f"✅ [{job_id}] Document stored successfully in database")
+            db.add(doc)
+            db.flush()  # Get the ID without committing yet
+            logger.info(f"✅ [{job_id}] Document stored successfully in database using SQLAlchemy ORM")
                 
             document_processing_status[job_id]["progress"] = 50
             document_processing_status[job_id]["message"] = "Creating searchable chunks..."
@@ -2969,29 +2924,32 @@ async def _process_document_background(
                 for i in range(0, len(content), chunk_size - overlap):
                     chunk_content = content[i:i + chunk_size]
                     if chunk_content.strip():
-                        chunk_id = str(uuid.uuid4())
                         chunks.append({
-                            "id": chunk_id,
+                            "id": str(uuid.uuid4()),
                             "document_id": document_id,
-                            "user_id": str(user.id),  # Ensure UUID is converted to string
                             "content": chunk_content,
-                            "chunk_index": len(chunks),
-                            "created_at": datetime.datetime.now(datetime.UTC).isoformat()
+                            "chunk_index": len(chunks)
                         })
                 
                 logger.info(f"📝 [{job_id}] Created {len(chunks)} chunks for document")
                 
-                # Insert chunks in batch
+                # Insert chunks using SQLAlchemy ORM  
                 if chunks:
-                    logger.info(f"💾 [{job_id}] Inserting {len(chunks)} chunks into database...")
+                    logger.info(f"💾 [{job_id}] Creating {len(chunks)} chunks using SQLAlchemy ORM...")
                     try:
-                        chunks_result = supabase_admin.table("document_chunks").insert(chunks).execute()
-                        if chunks_result.data:
-                            logger.info(f"✅ [{job_id}] Chunks inserted successfully")
-                        else:
-                            logger.warning(f"⚠️ [{job_id}] Chunks insert may have failed - no data returned")
+                        from app.models import DocumentChunk
+                        for chunk in chunks:
+                            chunk_obj = DocumentChunk(
+                                id=uuid.UUID(chunk["id"]),
+                                document_id=uuid.UUID(chunk["document_id"]),
+                                content=chunk["content"],
+                                chunk_index=chunk["chunk_index"]
+                            )
+                            db.add(chunk_obj)
+                        db.flush()  # Save chunks without committing yet
+                        logger.info(f"✅ [{job_id}] {len(chunks)} chunks created successfully using SQLAlchemy ORM")
                     except Exception as chunks_error:
-                        logger.error(f"💥 [{job_id}] Chunks insert failed: {chunks_error}")
+                        logger.error(f"💥 [{job_id}] Chunks creation failed: {chunks_error}")
                         # Continue processing even if chunks fail - not critical
             else:
                 logger.info(f"📝 [{job_id}] Document is small ({len(content)} chars), skipping chunking")
@@ -3050,19 +3008,16 @@ async def _process_document_background(
                 memory_id = memory_result['results'][0].get('id')
                 if memory_id:
                     logger.info(f"🆔 [{job_id}] Got memory ID from mem0: {memory_id}")
-                    link_data = {
-                        "id": str(uuid.uuid4()),
-                        "document_id": document_id,
-                        "memory_id": memory_id,
-                        "user_id": str(user.id),  # Ensure UUID is converted to string
-                        "created_at": datetime.datetime.now(datetime.UTC).isoformat()
-                    }
                     try:
-                        link_result = supabase_admin.table("document_memories").insert(link_data).execute()
-                        if link_result.data:
-                            logger.info(f"✅ [{job_id}] Document-memory link created successfully")
-                        else:
-                            logger.warning(f"⚠️ [{job_id}] Document-memory link may have failed - no data returned")
+                        # Link document to memory using SQLAlchemy (same as Substack sync)
+                        from app.models import document_memories
+                        db.execute(
+                            document_memories.insert().values(
+                                document_id=doc.id,
+                                memory_id=memory_id
+                            )
+                        )
+                        logger.info(f"✅ [{job_id}] Document-memory link created successfully using SQLAlchemy")
                     except Exception as link_error:
                         logger.error(f"💥 [{job_id}] Document-memory link failed: {link_error}")
                         # Continue - the document and memory are still saved
@@ -3070,6 +3025,11 @@ async def _process_document_background(
                     logger.warning(f"⚠️ [{job_id}] No memory ID found in mem0 result")
             else:
                 logger.warning(f"⚠️ [{job_id}] Invalid memory result from mem0: {memory_result}")
+                
+            # Commit all changes (same as Substack sync)
+            db.commit()
+            logger.info(f"💾 [{job_id}] All database changes committed successfully")
+            
         finally:
             db.close()
         
@@ -3087,6 +3047,14 @@ async def _process_document_background(
         
     except Exception as e:
         logger.error(f"❌ Error in background document processing (job: {job_id}): {e}", exc_info=True)
+        # Rollback database changes on error (same as Substack sync)
+        if 'db' in locals():
+            try:
+                db.rollback()
+                logger.info(f"🔄 [{job_id}] Database changes rolled back due to error")
+            except Exception as rollback_error:
+                logger.error(f"❌ [{job_id}] Failed to rollback database changes: {rollback_error}")
+                
         document_processing_status[job_id] = {
             "status": "failed",
             "message": f"❌ Error processing document: {str(e)}",
