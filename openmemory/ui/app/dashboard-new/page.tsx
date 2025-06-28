@@ -40,7 +40,7 @@ interface AvailableApp {
 
 const availableApps: AvailableApp[] = [
   { id: 'request-integration', name: 'Request Integration', description: '', priority: 14, category: 'Request', trustScore: 100, isComingSoon: false },
-  { id: 'sms', name: 'SMS', description: 'Text your memory. Coming Soon.', priority: 13, category: 'Communication', icon: 'MessageSquareText', trustScore: 100 },
+  { id: 'sms', name: 'SMS', description: 'Text your memory.', priority: 13, category: 'Communication', icon: 'MessageSquareText', trustScore: 100 },
   { id: 'chatgpt', name: 'ChatGPT', description: 'Deep research memories', priority: 12, category: 'AI Assistant', trustScore: 99 },
   { id: 'claude', name: 'Claude', description: 'AI assistant for conversations', priority: 11, category: 'AI Assistant', trustScore: 96 },
   { id: 'cursor', name: 'Cursor', description: 'AI-powered code editor', priority: 10, category: 'Development', trustScore: 98 },
