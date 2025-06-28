@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { PauseIcon, Loader2, PlayIcon } from "lucide-react";
+import { PauseIcon, Loader2, PlayIcon, Download, Copy } from "lucide-react";
 import { useAppsApi } from "@/hooks/useAppsApi";
 import Image from "next/image";
 import { useDispatch, useSelector } from "react-redux";
@@ -10,7 +10,6 @@ import { constants } from "@/components/shared/source-app";
 import { RootState } from "@/store/store";
 import { toast } from "@/components/ui/use-toast";
 import { Input } from "@/components/ui/input";
-import { Copy } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const capitalize = (str: string) => {
@@ -58,11 +57,24 @@ const AppDetailCard = ({
     ? `-y mcp-remote https://jean-memory-api.onrender.com/mcp/chorus/sse/${user?.id}`
     : `npx install-mcp https://api.jeanmemory.com/mcp/${currentApp?.name}/sse/${user?.id} --client ${currentApp?.name}`;
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(installCommand);
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
     toast({
       title: "Copied to clipboard!",
       description: "You can now run this command in your terminal.",
+    });
+  };
+
+  const handleDownloadExtension = () => {
+    // Open the DXT download endpoint - backend FastAPI route
+    const backendUrl = process.env.NODE_ENV === 'development' 
+      ? 'http://localhost:8765' 
+      : 'https://jean-memory-api.onrender.com';
+    window.open(`${backendUrl}/download/claude-extension`, '_blank');
+    
+    toast({
+      title: "Download Started",
+      description: "The Claude Desktop Extension is downloading. Double-click the file to install.",
     });
   };
 
@@ -157,19 +169,52 @@ const AppDetailCard = ({
 
           <hr className="border-zinc-800" />
 
-          <div>
-            <p className="text-xs text-zinc-400 mb-2">Install Command</p>
-            <div className="flex items-center gap-2">
-              <Input
-                readOnly
-                value={installCommand}
-                className="bg-zinc-800 border-zinc-700 text-xs truncate"
-              />
-              <Button size="icon" variant="ghost" onClick={handleCopy}>
-                <Copy className="h-4 w-4" />
+          {currentApp?.name?.toLowerCase() === 'claude' ? (
+            <div>
+              <p className="text-xs text-zinc-400 mb-2">Desktop Extension</p>
+              <Button 
+                onClick={handleDownloadExtension}
+                className="w-full mb-2"
+                variant="secondary"
+                size="sm"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Download Extension
               </Button>
+              <p className="text-xs text-zinc-500">
+                One-click install for Claude Desktop
+              </p>
+              <details className="mt-2">
+                <summary className="text-xs text-zinc-400 cursor-pointer hover:text-zinc-300">
+                  Show manual install command
+                </summary>
+                <div className="flex items-center gap-2 mt-2">
+                  <Input
+                    readOnly
+                    value={installCommand}
+                    className="bg-zinc-800 border-zinc-700 text-xs truncate"
+                  />
+                  <Button size="icon" variant="ghost" onClick={() => handleCopy(installCommand)}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </details>
             </div>
-          </div>
+          ) : (
+            <div>
+              <p className="text-xs text-zinc-400 mb-2">Install Command</p>
+              <div className="flex items-center gap-2">
+                <Input
+                  readOnly
+                  value={installCommand}
+                  className="bg-zinc-800 border-zinc-700 text-xs truncate"
+                />
+                <Button size="icon" variant="ghost" onClick={() => handleCopy(installCommand)}>
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
 
           <div className="flex gap-2 justify-end">
             <Button
