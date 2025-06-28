@@ -42,8 +42,11 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
   };
 
   const handleDownloadExtension = () => {
-    // Open the DXT download endpoint
-    window.open('/download/claude-extension', '_blank');
+    // Open the DXT download endpoint - backend FastAPI route
+    const backendUrl = process.env.NODE_ENV === 'development' 
+      ? 'http://localhost:8765' 
+      : 'https://jean-memory-api.onrender.com';
+    window.open(`${backendUrl}/download/claude-extension`, '_blank');
     
     toast({
       title: "Download Started",
@@ -283,68 +286,64 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
                 </div>
             </div>
         ) : app.id === 'claude' ? (
-            <div className="px-4 py-2 space-y-4">
-                <div className="bg-blue-900/20 border border-blue-700/50 rounded-md p-3 mb-4">
-                    <p className="text-blue-300 text-sm font-medium mb-1">✨ New: One-Click Installation</p>
-                    <p className="text-blue-200/80 text-xs">
-                        Download our Claude Desktop Extension for the easiest setup experience.
-                    </p>
-                </div>
-                
+            <div className="px-4 py-2 space-y-6">
+                {/* Download Button */}
                 <Button 
                     onClick={handleDownloadExtension}
                     className="w-full"
                     variant="secondary"
                 >
                     <Download className="mr-2 h-4 w-4" />
-                    Download Claude Desktop Extension
+                    Download Desktop Extension
                 </Button>
                 
-                <div className="text-center">
-                    <p className="text-xs text-muted-foreground">or</p>
+                {/* User ID */}
+                <div className="space-y-2">
+                    <h3 className="font-medium text-foreground">Your User ID</h3>
+                    <p className="text-sm text-muted-foreground">Copy this ID to configure the extension:</p>
+                    <div className="relative bg-background border rounded-md p-3 font-mono text-sm break-all">
+                        <div className="pr-12">{user?.id || ''}</div>
+                        <Button 
+                            variant="ghost" 
+                            size="sm"
+                            className="absolute right-1 top-1/2 -translate-y-1/2" 
+                            onClick={() => handleCopy(user?.id || '')}
+                        >
+                            {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                        </Button>
+                    </div>
                 </div>
                 
-                <div className="space-y-4">
-                    <div className="flex items-start gap-4">
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-                            <Key className="h-5 w-5 text-muted-foreground" />
-                        </div>
-                        <div>
-                        <h3 className="font-semibold text-md text-foreground">1. Run Install Command</h3>
-                        <p className="text-muted-foreground text-sm mb-3">
-                            Open your terminal and paste this command:
-                        </p>
-                        <div className="relative group bg-background border rounded-md p-3 font-mono text-xs text-foreground flex items-center justify-between">
-                            <code style={{ wordBreak: 'break-all' }}>{installCommand}</code>
-                            <Button variant="ghost" className="ml-4 text-muted-foreground hover:text-foreground" onClick={() => handleCopy(installCommand)}>
-                               {copied ? (
-                                <>
-                                    <Check className="h-4 w-4 mr-2 text-green-400" />
-                                    Copied!
-                                </>
-                            ) : (
-                                 <>
-                                    <Copy className="h-4 w-4 mr-2" />
-                                    Copy
-                                </>
-                            )}
+                {/* Simple Steps */}
+                <div className="space-y-2">
+                    <h3 className="font-medium text-foreground">Setup Steps</h3>
+                    <ol className="text-sm text-muted-foreground space-y-1">
+                        <li>1. Download and install the extension</li>
+                        <li>2. Enter your User ID when prompted</li>
+                        <li>3. Start using Jean Memory in Claude Desktop</li>
+                    </ol>
+                </div>
+                
+                {/* Manual Setup Option */}
+                <details className="group">
+                    <summary className="text-sm text-muted-foreground cursor-pointer hover:text-foreground">
+                        Need manual terminal setup instead?
+                    </summary>
+                    <div className="mt-3 space-y-3">
+                        <div className="relative bg-background border rounded-md p-3 font-mono text-xs break-all">
+                            <div className="pr-12">{installCommand}</div>
+                            <Button 
+                                variant="ghost" 
+                                size="sm"
+                                className="absolute right-1 top-1/2 -translate-y-1/2" 
+                                onClick={() => handleCopy(installCommand)}
+                            >
+                                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                             </Button>
                         </div>
-                        </div>
+                        <p className="text-xs text-muted-foreground">Run this command in terminal, then restart Claude Desktop.</p>
                     </div>
-                    
-                    <div className="flex items-start gap-4">
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-                            <Shield className="h-5 w-5 text-muted-foreground" />
-                        </div>
-                        <div>
-                            <h3 className="font-semibold text-md text-foreground">2. Restart Claude Desktop</h3>
-                            <p className="text-muted-foreground text-sm">
-                            After the command completes, restart Claude Desktop. Jean Memory will be active.
-                            </p>
-                        </div>
-                    </div>
-                </div>
+                </details>
             </div>
         ) : app.id === 'substack' || app.id === 'twitter' ? (
             <div className="px-4 py-2 space-y-4">
@@ -445,7 +444,7 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
                       onChange={(e) => setVerificationCode(e.target.value)}
                       className="bg-background text-center text-lg tracking-widest"
                       maxLength={6}
-                      disabled={status === 'verifying' || status === 'verified'}
+                      disabled={['verifying', 'verified'].includes(status)}
                     />
                 </div>
               )}
@@ -549,7 +548,7 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
                 ) : (
                   <Button
                     onClick={handleVerifyCode}
-                    disabled={verificationCode.length !== 6 || status === 'verifying' || status === 'verified'}
+                    disabled={verificationCode.length !== 6 || ['verifying', 'verified'].includes(status)}
                     variant="secondary"
                   >
                     {status === 'verifying' ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Verifying...</> : 'Verify'}

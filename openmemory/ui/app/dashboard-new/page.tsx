@@ -35,6 +35,7 @@ interface AvailableApp {
   modalTitle?: string;
   modalContent?: string;
   installCommand?: string;
+  hasDesktopExtension?: boolean;
 }
 
 const availableApps: AvailableApp[] = [
@@ -51,7 +52,15 @@ const availableApps: AvailableApp[] = [
     modalContent: 'This will be the mockup for Twilio verification.',
   },
   { id: 'chatgpt', name: 'ChatGPT', description: 'Deep research memories', priority: 12, category: 'AI Assistant', trustScore: 99 },
-  { id: 'claude', name: 'Claude', description: 'AI assistant for conversations', priority: 11, category: 'AI Assistant', trustScore: 96 },
+  { 
+    id: 'claude', 
+    name: 'Claude', 
+    description: 'One-Click Install', 
+    priority: 11, 
+    category: 'AI Assistant', 
+    trustScore: 98,
+    hasDesktopExtension: true
+  },
   { id: 'cursor', name: 'Cursor', description: 'AI-powered code editor', priority: 10, category: 'Development', trustScore: 98 },
   { id: 'substack', name: 'Substack', description: 'For writers for substack', priority: 9, category: 'Content', trustScore: 95 },
   { id: 'twitter', name: 'X', description: 'Social media', priority: 8, category: 'Social', trustScore: 93 },
@@ -99,6 +108,7 @@ const createAppFromTemplate = (template: AvailableApp): DashboardApp => ({
   modalTitle: template.modalTitle,
   modalContent: template.modalContent,
   installCommand: template.installCommand,
+  hasDesktopExtension: template.hasDesktopExtension,
 });
 
 export default function DashboardNew() {

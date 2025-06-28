@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Check, Link as LinkIcon, Eye, Zap, BookOpen, Plus, MessageSquareText, Star } from "lucide-react";
+import { Check, Link as LinkIcon, Eye, Zap, BookOpen, Plus, MessageSquareText, Star, Download } from "lucide-react";
 import { App } from "@/store/appsSlice";
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from "@/components/ui/use-toast";
@@ -19,6 +19,7 @@ export interface DashboardApp extends App {
   priority: number;
   trustScore?: number;
   isComingSoon?: boolean;
+  hasDesktopExtension?: boolean;
 }
 
 interface AppCardProps {
@@ -158,6 +159,11 @@ export function AppCard({ app, onConnect, index, isSyncing, onSyncStart }: AppCa
                     <>
                       <Plus className="w-3 h-3 mr-1.5 group-hover:rotate-12 transition-transform" />
                       Request
+                    </>
+                  ) : app.hasDesktopExtension ? (
+                    <>
+                      <Download className="w-3 h-3 mr-1.5 group-hover:scale-110 transition-transform" />
+                      Install
                     </>
                   ) : (
                     <>

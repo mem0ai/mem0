@@ -2,7 +2,8 @@ import datetime
 import os
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException
+from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordBearer
 from app.database import engine, Base, SessionLocal
 from app.mcp_server import setup_mcp_server
@@ -237,6 +238,24 @@ async def detailed_health_check():
             "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
             "error": str(e)
         }
+
+@app.get("/download/claude-extension")
+async def download_claude_extension():
+    """Serve the Jean Memory Claude Desktop Extension file"""
+    file_path = os.path.join(os.path.dirname(__file__), "app", "static", "jean-memory.dxt")
+    
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Extension file not found")
+    
+    return FileResponse(
+        path=file_path,
+        filename="jean-memory.dxt",
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": "attachment; filename=jean-memory.dxt",
+            "Content-Description": "Jean Memory Claude Desktop Extension"
+        }
+    )
 
 # Include routers - Now using get_current_supa_user from app.auth
 app.include_router(keys_router.router, dependencies=[Depends(get_current_supa_user)])
