@@ -2864,107 +2864,111 @@ async def _process_document_background(
         document_processing_status[job_id]["message"] = "Validating content..."
         
         # 2. Get user and initialize services
-        user = await get_or_create_user(email="dummy", supa_uid=supa_uid, client_name=client_name)
-        if not user:
-            raise ValueError("Failed to get user information")
-        
-        mem0_client = get_mem0_client()
-        
-        document_processing_status[job_id]["progress"] = 30
-        document_processing_status[job_id]["message"] = "Storing document..."
-        
-        # 3. Store the full document in database
-        document_id = str(uuid.uuid4())
-        supabase_admin = get_supabase_admin_client()
-        
-        # Insert into documents table
-        result = supabase_admin.table("documents").insert({
-            "id": document_id,
-            "user_id": user.id,
-            "title": title,
-            "content": content,
-            "document_type": document_type,
-            "source_url": source_url,
-            "metadata": metadata or {},
-            "created_at": datetime.datetime.now(datetime.UTC).isoformat(),
-            "updated_at": datetime.datetime.now(datetime.UTC).isoformat()
-        }).execute()
-        
-        if not result.data:
-            raise ValueError("Failed to store document in database")
+        db = SessionLocal()
+        try:
+            user = get_or_create_user(db, supa_uid, email=None)
+            if not user:
+                raise ValueError("Failed to get user information")
             
-        document_processing_status[job_id]["progress"] = 50
-        document_processing_status[job_id]["message"] = "Creating searchable chunks..."
-        
-        # 4. Create chunks for better search performance (for large documents)
-        if len(content) > 2000:  # Only chunk large documents
-            chunk_size = 1000
-            overlap = 200
-            chunks = []
+            mem0_client = get_mem0_client()
             
-            for i in range(0, len(content), chunk_size - overlap):
-                chunk_content = content[i:i + chunk_size]
-                if chunk_content.strip():
-                    chunk_id = str(uuid.uuid4())
-                    chunks.append({
-                        "id": chunk_id,
-                        "document_id": document_id,
-                        "user_id": user.id,
-                        "content": chunk_content,
-                        "chunk_index": len(chunks),
-                        "created_at": datetime.datetime.now(datetime.UTC).isoformat()
-                    })
+            document_processing_status[job_id]["progress"] = 30
+            document_processing_status[job_id]["message"] = "Storing document..."
             
-            # Insert chunks in batch
-            if chunks:
-                supabase_admin.table("document_chunks").insert(chunks).execute()
+            # 3. Store the full document in database
+            document_id = str(uuid.uuid4())
+            supabase_admin = get_supabase_admin_client()
+            
+            # Insert into documents table
+            result = supabase_admin.table("documents").insert({
+                "id": document_id,
+                "user_id": user.id,
+                "title": title,
+                "content": content,
+                "document_type": document_type,
+                "source_url": source_url,
+                "metadata": metadata or {},
+                "created_at": datetime.datetime.now(datetime.UTC).isoformat(),
+                "updated_at": datetime.datetime.now(datetime.UTC).isoformat()
+            }).execute()
+            
+            if not result.data:
+                raise ValueError("Failed to store document in database")
                 
-        document_processing_status[job_id]["progress"] = 70
-        document_processing_status[job_id]["message"] = "Generating summary..."
-        
-        # 5. Create a summary memory that links to the document
-        summary_content = f"📄 Document stored: '{title}' ({document_type})"
-        if len(content) > 500:
-            # Create AI summary for large documents
-            summary_content += f"\n\nContent preview: {content[:500]}..."
-        else:
-            summary_content += f"\n\nFull content: {content}"
+            document_processing_status[job_id]["progress"] = 50
+            document_processing_status[job_id]["message"] = "Creating searchable chunks..."
             
-        if source_url:
-            summary_content += f"\n\nSource: {source_url}"
+            # 4. Create chunks for better search performance (for large documents)
+            if len(content) > 2000:  # Only chunk large documents
+                chunk_size = 1000
+                overlap = 200
+                chunks = []
+                
+                for i in range(0, len(content), chunk_size - overlap):
+                    chunk_content = content[i:i + chunk_size]
+                    if chunk_content.strip():
+                        chunk_id = str(uuid.uuid4())
+                        chunks.append({
+                            "id": chunk_id,
+                            "document_id": document_id,
+                            "user_id": user.id,
+                            "content": chunk_content,
+                            "chunk_index": len(chunks),
+                            "created_at": datetime.datetime.now(datetime.UTC).isoformat()
+                        })
+                
+                # Insert chunks in batch
+                if chunks:
+                    supabase_admin.table("document_chunks").insert(chunks).execute()
+                    
+            document_processing_status[job_id]["progress"] = 70
+            document_processing_status[job_id]["message"] = "Generating summary..."
             
-        # Add to memory system with enhanced metadata
-        enhanced_metadata = {
-            "document_id": document_id,
-            "document_type": document_type,
-            "document_title": title,
-            "content_length": len(content),
-            "is_document_summary": True
-        }
-        if metadata:
-            enhanced_metadata.update(metadata)
+            # 5. Create a summary memory that links to the document
+            summary_content = f"📄 Document stored: '{title}' ({document_type})"
+            if len(content) > 500:
+                # Create AI summary for large documents
+                summary_content += f"\n\nContent preview: {content[:500]}..."
+            else:
+                summary_content += f"\n\nFull content: {content}"
+                
+            if source_url:
+                summary_content += f"\n\nSource: {source_url}"
+                
+            # Add to memory system with enhanced metadata
+            enhanced_metadata = {
+                "document_id": document_id,
+                "document_type": document_type,
+                "document_title": title,
+                "content_length": len(content),
+                "is_document_summary": True
+            }
+            if metadata:
+                enhanced_metadata.update(metadata)
+                
+            document_processing_status[job_id]["progress"] = 80
+            document_processing_status[job_id]["message"] = "Adding to memory system..."
             
-        document_processing_status[job_id]["progress"] = 80
-        document_processing_status[job_id]["message"] = "Adding to memory system..."
-        
-        # Add summary to mem0
-        memory_result = mem0_client.add(
-            messages=[{"role": "user", "content": summary_content}],
-            user_id=supa_uid,
-            metadata=enhanced_metadata
-        )
-        
-        # 6. Link document to memory in database
-        if memory_result and 'results' in memory_result and memory_result['results']:
-            memory_id = memory_result['results'][0].get('id')
-            if memory_id:
-                supabase_admin.table("document_memories").insert({
-                    "id": str(uuid.uuid4()),
-                    "document_id": document_id,
-                    "memory_id": memory_id,
-                    "user_id": user.id,
-                    "created_at": datetime.datetime.now(datetime.UTC).isoformat()
-                }).execute()
+            # Add summary to mem0
+            memory_result = mem0_client.add(
+                messages=[{"role": "user", "content": summary_content}],
+                user_id=supa_uid,
+                metadata=enhanced_metadata
+            )
+            
+            # 6. Link document to memory in database
+            if memory_result and 'results' in memory_result and memory_result['results']:
+                memory_id = memory_result['results'][0].get('id')
+                if memory_id:
+                    supabase_admin.table("document_memories").insert({
+                        "id": str(uuid.uuid4()),
+                        "document_id": document_id,
+                        "memory_id": memory_id,
+                        "user_id": user.id,
+                        "created_at": datetime.datetime.now(datetime.UTC).isoformat()
+                    }).execute()
+        finally:
+            db.close()
         
         document_processing_status[job_id] = {
             "status": "completed",
