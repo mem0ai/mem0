@@ -1720,9 +1720,9 @@ def get_original_tools_schema(include_annotations=False):
                 "required": ["title", "content"]
             },
             "annotations": {
-                "readOnly": false,
-                "sensitive": true,
-                "destructive": false
+                "readOnly": False,
+                "sensitive": True,
+                "destructive": False
             }
         },
         {
@@ -1736,9 +1736,9 @@ def get_original_tools_schema(include_annotations=False):
                 "required": ["job_id"]
             },
             "annotations": {
-                "readOnly": true,
-                "sensitive": false,
-                "destructive": false
+                "readOnly": True,
+                "sensitive": False,
+                "destructive": False
             }
         },
         {

@@ -1363,7 +1363,7 @@ User Message: "I live in Paris and work as a designer."
 Example 2:
 User Message: "what time is it?"
 {{
-  "should_save_memory": false,
+  "should_save_memory": False,
   "memorable_content": null
 }}
 """
