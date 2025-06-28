@@ -1,19 +1,3 @@
-import { ArrowRight } from "lucide-react";
-import Categories from "@/components/shared/categories";
-import Link from "next/link";
-import { constants } from "@/components/shared/source-app";
-import Image from "next/image";
-interface MemoryCardProps {
-  id: string;
-  content: string;
-  created_at: string;
-  metadata?: Record<string, any>;
-  categories?: string[];
-  access_count?: number;
-  app_name: string;
-  state: string;
-}
-
 export function MemoryCard({
   id,
   content,
@@ -54,7 +38,7 @@ export function MemoryCard({
         </div>
 
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
             <span className="text-muted-foreground text-xs sm:text-sm">
               {access_count ? (
                 <span>
@@ -112,4 +96,4 @@ export function MemoryCard({
       </div>
     </div>
   );
-}
+} 

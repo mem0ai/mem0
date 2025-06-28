@@ -47,21 +47,21 @@ export function MemoryDetails({ memory_id }: MemoryDetailsProps) {
         <ArrowLeft className="h-4 w-4 mr-2" />
         Back to Memories
       </Button>
-      <div className="flex gap-4 w-full">
-        <div className="rounded-lg w-2/3 border h-fit pb-2 border-zinc-800 bg-zinc-900 overflow-hidden">
+      <div className="flex flex-col lg:flex-row gap-4 w-full">
+        <div className="rounded-lg lg:w-2/3 border h-fit pb-2 border-border bg-card overflow-hidden">
           <div className="">
-            <div className="flex px-6 py-3 justify-between items-center mb-6 bg-zinc-800 border-b border-zinc-800">
+            <div className="flex px-4 sm:px-6 py-3 justify-between items-center mb-4 sm:mb-6 bg-muted border-b border-border">
               <div className="flex items-center gap-2">
-                <h1 className="font-semibold text-white">
+                <h1 className="font-semibold text-foreground text-sm sm:text-base">
                   Memory{" "}
-                  <span className="ml-1 text-zinc-400 text-sm font-normal">
+                  <span className="ml-1 text-muted-foreground text-xs sm:text-sm font-normal">
                     #{memory?.id?.slice(0, 6)}
                   </span>
                 </h1>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-4 w-4 text-zinc-400 hover:text-white -ml-[5px] mt-1"
+                  className="h-4 w-4 text-muted-foreground hover:text-foreground -ml-[5px] mt-1"
                   onClick={handleCopy}
                 >
                   {copied ? (
@@ -78,37 +78,43 @@ export function MemoryDetails({ memory_id }: MemoryDetailsProps) {
               />
             </div>
 
-            <div className="px-6 py-2">
-              <div className="border-l-2 border-primary pl-4 mb-6">
-                <p
-                  className={`${
-                    memory?.state === "archived" || memory?.state === "paused"
-                      ? "text-zinc-400"
-                      : "text-white"
-                  }`}
-                >
+            <div className="px-4 sm:px-6 pb-4">
+              <div className="border-l-2 border-primary pl-3 sm:pl-4 mb-4 sm:mb-6">
+                <p className="text-sm sm:text-base text-foreground">
                   {memory?.text}
                 </p>
               </div>
 
-              <div className="mt-6 pt-4 border-t border-zinc-800">
-                <div className="flex justify-between items-center">
-                  <div className="">
-                    <Categories
-                      categories={memory?.categories || []}
-                      isPaused={
-                        memory?.state === "archived" ||
-                        memory?.state === "paused"
-                      }
-                    />
-                  </div>
-                  <div className="flex items-center gap-2 min-w-[300px] justify-end">
+              {/* Categories */}
+              <div className="mb-3 sm:mb-4">
+                <Categories
+                  categories={memory?.categories || []}
+                  isPaused={memory?.state !== "active"}
+                />
+              </div>
+
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                <div className="text-xs sm:text-sm text-muted-foreground">
+                  {new Date(memory?.created_at || "").toLocaleDateString(
+                    "en-US",
+                    {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                      hour: "numeric",
+                      minute: "numeric",
+                    }
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 min-w-0 justify-end">
                     <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-1 bg-zinc-700 px-3 py-1 rounded-lg">
-                        <span className="text-sm text-zinc-400">
+                      <div className="flex items-center gap-1 bg-muted px-2 sm:px-3 py-1 rounded-lg">
+                        <span className="text-xs sm:text-sm text-muted-foreground">
                           Created by:
                         </span>
-                        <div className="w-4 h-4 rounded-full bg-zinc-700 flex items-center justify-center overflow-hidden">
+                        <div className="w-4 h-4 rounded-full bg-muted flex items-center justify-center overflow-hidden">
                           <Image
                             src={
                               constants[
@@ -116,11 +122,11 @@ export function MemoryDetails({ memory_id }: MemoryDetailsProps) {
                               ]?.iconImage || ""
                             }
                             alt="Jean Memory"
-                            width={24}
-                            height={24}
+                            width={16}
+                            height={16}
                           />
                         </div>
-                        <p className="text-sm text-zinc-100 font-semibold">
+                        <p className="text-xs sm:text-sm text-foreground font-semibold">
                           {
                             constants[
                               memory?.app_name as keyof typeof constants
@@ -131,17 +137,11 @@ export function MemoryDetails({ memory_id }: MemoryDetailsProps) {
                     </div>
                   </div>
                 </div>
-
-                {/* <div className="flex justify-end gap-2 w-full mt-2">
-                <p className="text-sm font-semibold text-primary my-auto">
-                    {new Date(memory.created_at).toLocaleString()}
-                  </p>
-                </div> */}
               </div>
             </div>
           </div>
         </div>
-        <div className="w-1/3 flex flex-col gap-4">
+        <div className="lg:w-1/3 flex flex-col gap-4">
           <AccessLog memoryId={memory?.id || ""} />
           <RelatedMemories memoryId={memory?.id || ""} />
         </div>

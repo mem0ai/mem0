@@ -58,18 +58,18 @@ export default function AppDetailsPage() {
   if (!selectedApp.details) {
     return (
       <div className="flex-1 py-6 text-white">
-        <div className="container flex justify-between">
-          <div className="flex-1 p-4 max-w-4xl animate-fade-slide-down">
+        <div className="container flex flex-col lg:flex-row lg:justify-between gap-6">
+          <div className="flex-1 px-4 max-w-none lg:max-w-4xl animate-fade-slide-down">
             <div className="mb-6">
-              <div className="h-10 w-64 bg-zinc-800 rounded animate-pulse mb-6" />
-              <div className="space-y-6">
+              <div className="h-10 w-64 bg-muted rounded animate-pulse mb-6" />
+              <div className="space-y-4 lg:space-y-6">
                 {[...Array(3)].map((_, i) => (
                   <MemoryCardSkeleton key={i} />
                 ))}
               </div>
             </div>
           </div>
-          <div className="p-14 animate-fade-slide-down delay-2">
+          <div className="lg:p-14 animate-fade-slide-down delay-2 lg:flex-shrink-0">
             <AppDetailCardSkeleton />
           </div>
         </div>
@@ -98,7 +98,7 @@ export default function AppDetailsPage() {
 
     if (memories.items.length === 0) {
       return (
-        <div className="text-zinc-400 text-center py-8">No memories found</div>
+        <div className="text-muted-foreground text-center py-8">No memories found</div>
       );
     }
 
@@ -139,7 +139,7 @@ export default function AppDetailsPage() {
 
     if (memories.items.length === 0) {
       return (
-        <div className="text-zinc-400 text-center py-8">
+        <div className="text-muted-foreground text-center py-8">
           No accessed memories found
         </div>
       );
@@ -166,18 +166,18 @@ export default function AppDetailsPage() {
 
   return (
     <div className="flex-1 py-6 text-white">
-      <div className="container flex justify-between">
+      <div className="container flex flex-col lg:flex-row lg:justify-between gap-6">
         {/* Main content area */}
-        <div className="flex-1 p-4 max-w-4xl animate-fade-slide-down">
+        <div className="flex-1 px-4 max-w-none lg:max-w-4xl animate-fade-slide-down">
           <Tabs
             defaultValue="created"
             className="mb-6"
             onValueChange={setActiveTab}
           >
-            <TabsList className="bg-transparent border-b border-zinc-800 rounded-none w-full justify-start gap-8 p-0">
+            <TabsList className="bg-transparent border-b border-zinc-800 rounded-none w-full justify-start gap-4 lg:gap-8 p-0">
               <TabsTrigger
                 value="created"
-                className={`px-0 pb-2 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none ${
+                className={`px-0 pb-2 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none text-sm lg:text-base ${
                   activeTab === "created" ? "text-white" : "text-zinc-400"
                 }`}
               >
@@ -185,7 +185,7 @@ export default function AppDetailsPage() {
               </TabsTrigger>
               <TabsTrigger
                 value="accessed"
-                className={`px-0 pb-2 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none ${
+                className={`px-0 pb-2 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none text-sm lg:text-base ${
                   activeTab === "accessed" ? "text-white" : "text-zinc-400"
                 }`}
               >
@@ -195,14 +195,14 @@ export default function AppDetailsPage() {
 
             <TabsContent
               value="created"
-              className="mt-6 space-y-6 animate-fade-slide-down delay-1"
+              className="mt-6 space-y-4 lg:space-y-6 animate-fade-slide-down delay-1"
             >
               {renderCreatedMemories()}
             </TabsContent>
 
             <TabsContent
               value="accessed"
-              className="mt-6 space-y-6 animate-fade-slide-down delay-1"
+              className="mt-6 space-y-4 lg:space-y-6 animate-fade-slide-down delay-1"
             >
               {renderAccessedMemories()}
             </TabsContent>
@@ -210,7 +210,7 @@ export default function AppDetailsPage() {
         </div>
 
         {/* Sidebar */}
-        <div className="p-14 animate-fade-slide-down delay-2">
+        <div className="lg:p-14 animate-fade-slide-down delay-2 lg:flex-shrink-0">
           <AppDetailCard appId={appId} selectedApp={selectedApp} />
         </div>
       </div>
