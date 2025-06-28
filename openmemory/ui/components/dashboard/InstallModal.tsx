@@ -5,7 +5,7 @@ import { App } from '@/store/appsSlice';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Copy, Check, Key, Shield, Link as LinkIcon, Loader2, CheckCircle, AlertCircle, MessageSquare, Info } from 'lucide-react';
+import { Copy, Check, Key, Shield, Link as LinkIcon, Loader2, CheckCircle, AlertCircle, MessageSquare, Info, Download } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { constants } from "@/components/shared/source-app";
@@ -39,6 +39,16 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownloadExtension = () => {
+    // Open the DXT download endpoint
+    window.open('/download/claude-extension', '_blank');
+    
+    toast({
+      title: "Download Started",
+      description: "The Claude Desktop Extension is downloading. Double-click the file to install.",
+    });
   };
 
   const handleSync = async () => {
@@ -270,6 +280,70 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
                         <li>5. Set Authentication to "No authentication"</li>
                         <li>6. Save the connector</li>
                     </ol>
+                </div>
+            </div>
+        ) : app.id === 'claude' ? (
+            <div className="px-4 py-2 space-y-4">
+                <div className="bg-blue-900/20 border border-blue-700/50 rounded-md p-3 mb-4">
+                    <p className="text-blue-300 text-sm font-medium mb-1">✨ New: One-Click Installation</p>
+                    <p className="text-blue-200/80 text-xs">
+                        Download our Claude Desktop Extension for the easiest setup experience.
+                    </p>
+                </div>
+                
+                <Button 
+                    onClick={handleDownloadExtension}
+                    className="w-full"
+                    variant="secondary"
+                >
+                    <Download className="mr-2 h-4 w-4" />
+                    Download Claude Desktop Extension
+                </Button>
+                
+                <div className="text-center">
+                    <p className="text-xs text-muted-foreground">or</p>
+                </div>
+                
+                <div className="space-y-4">
+                    <div className="flex items-start gap-4">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                            <Key className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                        <div>
+                        <h3 className="font-semibold text-md text-foreground">1. Run Install Command</h3>
+                        <p className="text-muted-foreground text-sm mb-3">
+                            Open your terminal and paste this command:
+                        </p>
+                        <div className="relative group bg-background border rounded-md p-3 font-mono text-xs text-foreground flex items-center justify-between">
+                            <code style={{ wordBreak: 'break-all' }}>{installCommand}</code>
+                            <Button variant="ghost" className="ml-4 text-muted-foreground hover:text-foreground" onClick={() => handleCopy(installCommand)}>
+                               {copied ? (
+                                <>
+                                    <Check className="h-4 w-4 mr-2 text-green-400" />
+                                    Copied!
+                                </>
+                            ) : (
+                                 <>
+                                    <Copy className="h-4 w-4 mr-2" />
+                                    Copy
+                                </>
+                            )}
+                            </Button>
+                        </div>
+                        </div>
+                    </div>
+                    
+                    <div className="flex items-start gap-4">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                            <Shield className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                        <div>
+                            <h3 className="font-semibold text-md text-foreground">2. Restart Claude Desktop</h3>
+                            <p className="text-muted-foreground text-sm">
+                            After the command completes, restart Claude Desktop. Jean Memory will be active.
+                            </p>
+                        </div>
+                    </div>
                 </div>
             </div>
         ) : app.id === 'substack' || app.id === 'twitter' ? (
