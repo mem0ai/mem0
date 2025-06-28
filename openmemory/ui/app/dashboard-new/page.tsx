@@ -51,12 +51,12 @@ const availableApps: AvailableApp[] = [
     modalTitle: 'Connect via SMS',
     modalContent: 'This will be the mockup for Twilio verification.',
   },
-  { id: 'chatgpt', name: 'ChatGPT', description: 'Deep research memories', priority: 12, category: 'AI Assistant', trustScore: 99 },
+  { id: 'chatgpt', name: 'ChatGPT', description: 'Deep research memories', priority: 11, category: 'AI Assistant', trustScore: 99 },
   { 
     id: 'claude', 
     name: 'Claude', 
     description: 'One-Click Install', 
-    priority: 11, 
+    priority: 12, 
     category: 'AI Assistant', 
     trustScore: 98,
     hasDesktopExtension: true
