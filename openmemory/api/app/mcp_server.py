@@ -2870,14 +2870,18 @@ async def _process_document_background(
             if not user:
                 raise ValueError("Failed to get user information")
             
-            mem0_client = get_mem0_client()
+            # Import and initialize memory client
+            from app.utils.memory import get_memory_client
+            mem0_client = get_memory_client()
             
             document_processing_status[job_id]["progress"] = 30
             document_processing_status[job_id]["message"] = "Storing document..."
             
             # 3. Store the full document in database
             document_id = str(uuid.uuid4())
-            supabase_admin = get_supabase_admin_client()
+            # Import and initialize Supabase admin client
+            from app.auth import get_service_client
+            supabase_admin = await get_service_client()
             
             # Insert into documents table
             result = supabase_admin.table("documents").insert({
