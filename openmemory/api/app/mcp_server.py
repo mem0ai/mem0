@@ -2940,74 +2940,149 @@ async def _process_document_background(
             document_processing_status[job_id]["progress"] = 70
             document_processing_status[job_id]["message"] = "Generating summary..."
             
-            # 5. Create a summary memory that links to the document
-            logger.info(f"📄 [{job_id}] Creating summary memory for document...")
-            summary_content = f"📄 Document stored: '{title}' ({document_type})"
-            if len(content) > 500:
-                # Create AI summary for large documents
-                summary_content += f"\n\nContent preview: {content[:500]}..."
-                logger.info(f"📝 [{job_id}] Created summary with content preview (large document)")
-            else:
-                summary_content += f"\n\nFull content: {content}"
-                logger.info(f"📝 [{job_id}] Created summary with full content (small document)")
-                
-            if source_url:
-                summary_content += f"\n\nSource: {source_url}"
-                logger.info(f"🔗 [{job_id}] Added source URL to summary: {source_url}")
-                
-            # Add to memory system with enhanced metadata
-            enhanced_metadata = {
-                "document_id": document_id,
-                "document_type": document_type,
-                "document_title": title,
-                "content_length": len(content),
-                "is_document_summary": True
-            }
-            if metadata:
-                enhanced_metadata.update(metadata)
-                logger.info(f"🏷️ [{job_id}] Enhanced metadata with custom fields: {list(metadata.keys())}")
+            # 5. Create multiple memory strategies for document - COMPREHENSIVE MEM0 FIX
+            logger.info(f"📄 [{job_id}] Creating memory for document with multiple strategies...")
             
-            logger.info(f"🧠 [{job_id}] Adding document summary to mem0 (content length: {len(summary_content)})")
-                
             document_processing_status[job_id]["progress"] = 80
             document_processing_status[job_id]["message"] = "Adding to memory system..."
             
-            # Add summary to mem0
-            try:
-                memory_result = mem0_client.add(
-                    messages=[{"role": "user", "content": summary_content}],
-                    user_id=supa_uid,
-                    metadata=enhanced_metadata
-                )
-                logger.info(f"✅ [{job_id}] Memory added to mem0 successfully")
-                logger.info(f"🔍 [{job_id}] Memory result type: {type(memory_result)}, has 'results': {'results' in memory_result if isinstance(memory_result, dict) else False}")
-            except Exception as mem_error:
-                logger.error(f"❌ [{job_id}] Failed to add memory to mem0: {mem_error}", exc_info=True)
-                raise ValueError(f"Failed to add memory to mem0: {mem_error}")
+            # Strategy definitions for robust mem0 integration
+            memory_strategies = []
             
-            # 6. Link document to memory in database
-            logger.info(f"🔗 [{job_id}] Linking document to memory in database...")
-            if memory_result and 'results' in memory_result and memory_result['results']:
-                memory_id = memory_result['results'][0].get('id')
-                if memory_id:
-                    logger.info(f"🆔 [{job_id}] Got memory ID from mem0: {memory_id}")
-                    try:
-                        # Link document to memory using SQLAlchemy (same as Substack sync)
-                        from app.models import document_memories
-                        db.execute(
-                            document_memories.insert().values(
-                                document_id=doc.id,
-                                memory_id=memory_id
-                            )
-                        )
-                        logger.info(f"✅ [{job_id}] Document-memory link created successfully using SQLAlchemy")
-                    except Exception as link_error:
-                        logger.error(f"💥 [{job_id}] Document-memory link failed: {link_error}")
-                        # Continue - the document and memory are still saved
-                else:
-                    logger.warning(f"⚠️ [{job_id}] No memory ID found in mem0 result")
+            # Strategy 1: Natural conversational summary (recommended by analysis)
+            if len(content) > 1000:
+                natural_content = f"I stored a {document_type} document titled '{title}'. It contains {len(content):,} characters covering topics related to {title.lower()}. The document begins with: {content[:200].strip()}..."
             else:
-                logger.warning(f"⚠️ [{job_id}] Invalid memory result from mem0: {memory_result}")
+                natural_content = f"I stored a {document_type} document titled '{title}'. Content: {content[:800].strip()}"
+            
+            if source_url:
+                natural_content += f" Source URL: {source_url}"
+                
+            memory_strategies.append({
+                "name": "conversational",
+                "content": natural_content,
+                "metadata": {
+                    "source_app": "openmemory_mcp",
+                    "mcp_client": client_name,
+                    "document_id": document_id,
+                    "document_type": document_type,
+                    "is_document_summary": True
+                }
+            })
+            
+            # Strategy 2: Simple factual format (like working add_memories)
+            simple_content = f"Document: {title} ({document_type}, {len(content)} chars)"
+            if len(content) > 500:
+                simple_content += f". Preview: {content[:400]}"
+            else:
+                simple_content += f". Content: {content}"
+                
+            memory_strategies.append({
+                "name": "simple",
+                "content": simple_content,
+                "metadata": {
+                    "source_app": "openmemory_mcp",
+                    "mcp_client": client_name,
+                    "document_id": document_id
+                }
+            })
+            
+            # Strategy 3: Keywords-only approach
+            title_keywords = ' '.join(title.split()[:5])  # First 5 words of title
+            content_keywords = ' '.join(content.split()[:20])  # First 20 words of content
+            keywords_content = f"{title_keywords} {content_keywords}"
+            
+            memory_strategies.append({
+                "name": "keywords",
+                "content": keywords_content,
+                "metadata": {
+                    "source_app": "openmemory_mcp",
+                    "document_id": document_id
+                }
+            })
+            
+            # Strategy 4: Title-only minimal approach
+            memory_strategies.append({
+                "name": "minimal",
+                "content": f"Document: {title}",
+                "metadata": {
+                    "document_id": document_id
+                }
+            })
+            
+            # Try each strategy until one succeeds
+            memory_result = None
+            successful_strategy = None
+            
+            # Use same approach as working _add_memories_background_claude function
+            import functools
+            loop = asyncio.get_running_loop()
+            
+            for strategy in memory_strategies:
+                try:
+                    logger.info(f"🔄 [{job_id}] Trying mem0 strategy '{strategy['name']}' (content: {len(strategy['content'])} chars)")
+                    
+                    # Use the exact same pattern as working add_memories function
+                    message_to_add = {
+                        "role": "user",
+                        "content": strategy["content"]
+                    }
+                    
+                    # Run mem0 call in executor (same as working code)
+                    add_call = functools.partial(
+                        mem0_client.add,
+                        messages=[message_to_add],
+                        user_id=supa_uid,
+                        metadata=strategy["metadata"]
+                    )
+                    memory_result = await loop.run_in_executor(None, add_call)
+                    
+                    logger.info(f"🔍 [{job_id}] Strategy '{strategy['name']}' result: {type(memory_result)}")
+                    logger.info(f"🔍 [{job_id}] Result content: {memory_result}")
+                    
+                    # Check if we got a valid result with memories created
+                    if (isinstance(memory_result, dict) and 
+                        'results' in memory_result and 
+                        memory_result['results'] and 
+                        len(memory_result['results']) > 0):
+                        
+                        successful_strategy = strategy['name']
+                        logger.info(f"✅ [{job_id}] SUCCESS with strategy '{successful_strategy}' - {len(memory_result['results'])} memories created")
+                        break
+                    else:
+                        logger.warning(f"⚠️ [{job_id}] Strategy '{strategy['name']}' returned empty results: {memory_result}")
+                        
+                except Exception as strategy_error:
+                    logger.error(f"❌ [{job_id}] Strategy '{strategy['name']}' failed: {strategy_error}")
+                    continue
+            
+            # Handle results based on success/failure
+            if memory_result and isinstance(memory_result, dict) and 'results' in memory_result and memory_result['results']:
+                logger.info(f"🎉 [{job_id}] Memory creation SUCCESS using '{successful_strategy}' strategy!")
+                
+                # Follow the same database linking pattern as working code
+                for result in memory_result['results']:
+                    mem0_memory_id_str = result.get('id')
+                    if mem0_memory_id_str and result.get('event') == 'ADD':
+                        logger.info(f"🆔 [{job_id}] Got memory ID from mem0: {mem0_memory_id_str}")
+                        try:
+                            # Link document to memory using SQLAlchemy (same as Substack sync)
+                            from app.models import document_memories
+                            db.execute(
+                                document_memories.insert().values(
+                                    document_id=doc.id,
+                                    memory_id=mem0_memory_id_str
+                                )
+                            )
+                            logger.info(f"✅ [{job_id}] Document-memory link created successfully")
+                            break  # Only link to first successfully created memory
+                        except Exception as link_error:
+                            logger.error(f"💥 [{job_id}] Document-memory link failed: {link_error}")
+                            # Continue - the document and memory are still saved
+            else:
+                logger.error(f"💥 [{job_id}] ALL MEMORY STRATEGIES FAILED - document stored but not indexed in mem0")
+                logger.error(f"💥 [{job_id}] Final result: {memory_result}")
+                # Don't raise exception - document is still stored and retrievable via deep_memory_query
                 
             # Commit all changes (same as Substack sync)
             db.commit()
@@ -3152,10 +3227,10 @@ async def store_document(
 Your document is being processed in the background. This includes:
 - ✅ Secure storage in database
 - 🔍 Creating searchable chunks  
-- 🧠 Adding to memory system
+- 🧠 Adding to memory system with multiple retry strategies
 - 🔗 Linking for future retrieval
 
-Use `get_document_status("{job_id}")` to check progress.
+Processing typically completes within 30-60 seconds. Your document will then be searchable via regular memory tools and deep_memory_query.
 
 **Preview:** {content_preview}"""
 
