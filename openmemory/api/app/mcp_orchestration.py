@@ -465,42 +465,47 @@ Provide rich context that helps understand them deeply, but keep it conversation
         Main orchestration method with enhanced narrative caching capability.
         
         ENHANCED STRATEGY: 
-        - Narrative Cache: Check for cached user narrative first for new conversations
-        - Deep Memory Analysis: For new conversations and rich content (30-60s, comprehensive)
+        - Narrative Cache: Check for cached user narrative ONLY for new conversations
+        - Deep Memory Analysis: For new conversations when no cache exists
         - Standard Orchestration: For continuing conversations (5-10s, targeted)
         """
         logger.info(f"🚀 [Jean Memory] Enhanced orchestration started for user {user_id}. New convo: {is_new_conversation}")
         
         try:
-            # SMART CACHE: Check for cached narrative first (instant)
-            cached_narrative = await self._get_cached_narrative(user_id)
-            if cached_narrative:
-                logger.info(f"✅ [Smart Cache] Using cached narrative for user {user_id}")
-                return cached_narrative
-            
-            logger.info(f"⚠️ [Smart Cache] No cached narrative found for user {user_id}, falling back to deep analysis")
-            
-            # CACHE MISS: Fall back to deep analysis and start background caching
-            analysis_start = time.time()
-            deep_analysis = await self._fast_deep_analysis(user_message, user_id, client_name)
-            analysis_time = time.time() - analysis_start
-            
-            logger.info(f"🔍 [Smart Context] Deep analysis completed in {analysis_time:.1f}s for user {user_id}")
-            
-            # Extract memories text from the analysis for caching
-            try:
-                # Get memories for background narrative generation
-                memories = await self._get_user_memories(user_id, limit=50)
-                if memories:
-                    memories_text = "\n".join([f"• {mem}" for mem in memories[:25]])
-                    # Start background narrative generation with Pro model
-                    await self._generate_and_cache_narrative(user_id, memories_text, background_tasks)
-                    logger.info(f"🔄 [Smart Cache] Started background narrative generation for user {user_id}")
-            except Exception as cache_error:
-                logger.warning(f"Background narrative caching failed for user {user_id}: {cache_error}")
-                # Don't fail the main request if background caching fails
-            
-            return deep_analysis
+            # SMART CACHE: Only check for cached narrative on NEW conversations
+            if is_new_conversation:
+                cached_narrative = await self._get_cached_narrative(user_id)
+                if cached_narrative:
+                    logger.info(f"✅ [Smart Cache] Using cached narrative for NEW conversation - user {user_id}")
+                    return cached_narrative
+                
+                logger.info(f"⚠️ [Smart Cache] No cached narrative found for user {user_id}, falling back to deep analysis")
+                
+                # CACHE MISS: Fall back to deep analysis and start background caching
+                analysis_start = time.time()
+                deep_analysis = await self._fast_deep_analysis(user_message, user_id, client_name)
+                analysis_time = time.time() - analysis_start
+                
+                logger.info(f"🔍 [Smart Context] Deep analysis completed in {analysis_time:.1f}s for user {user_id}")
+                
+                # Extract memories text from the analysis for caching
+                try:
+                    # Get memories for background narrative generation
+                    memories = await self._get_user_memories(user_id, limit=50)
+                    if memories:
+                        memories_text = "\n".join([f"• {mem}" for mem in memories[:25]])
+                        # Start background narrative generation with Pro model
+                        await self._generate_and_cache_narrative(user_id, memories_text, background_tasks)
+                        logger.info(f"🔄 [Smart Cache] Started background narrative generation for user {user_id}")
+                except Exception as cache_error:
+                    logger.warning(f"Background narrative caching failed for user {user_id}: {cache_error}")
+                    # Don't fail the main request if background caching fails
+                
+                return deep_analysis
+            else:
+                # CONTINUING CONVERSATION: Use standard orchestration (targeted context)
+                logger.info(f"🔄 [Standard] Using standard orchestration for CONTINUING conversation - user {user_id}")
+                return await self._standard_orchestration(user_message, user_id, client_name, is_new_conversation)
             
         except Exception as e:
             logger.error(f"❌ [Jean Memory] Orchestration failed: {e}", exc_info=True)
