@@ -58,6 +58,7 @@ config = {
 
 m = Memory.from_config(config)
 m.add("Your text here", user_id="user", metadata={"category": "example"})
+
 ```
 
 ```typescript TypeScript
@@ -76,6 +77,7 @@ const config = {
 const memory = new Memory(config);
 await memory.add("Your text here", { userId: "user123", metadata: { category: "example" } });
 ```
+
 </CodeGroup>
 
 ## Why is Config Needed?
@@ -110,6 +112,12 @@ Here's a comprehensive list of all parameters that can be used across different 
     | `azure_kwargs`       | Azure LLM args for initialization             | AzureOpenAI       |
     | `deepseek_base_url`  | Base URL for DeepSeek API                     | DeepSeek          |
     | `xai_base_url`       | Base URL for XAI API                          | XAI               |
+    | `sarvam_base_url`    | Base URL for Sarvam API                       | Sarvam            |
+    | `reasoning_effort`   | Reasoning level (low, medium, high)           | Sarvam            |
+    | `frequency_penalty`  | Penalize frequent tokens (-2.0 to 2.0)        | Sarvam            |
+    | `presence_penalty`   | Penalize existing tokens (-2.0 to 2.0)        | Sarvam            |
+    | `seed`               | Seed for deterministic sampling               | Sarvam            |
+    | `stop`               | Stop sequences (max 4)                        | Sarvam            |
     | `lmstudio_base_url`  | Base URL for LM Studio API                    | LM Studio         |
   </Tab>
   <Tab title="TypeScript">

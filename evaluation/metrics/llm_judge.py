@@ -4,6 +4,7 @@ from collections import defaultdict
 
 import numpy as np
 from openai import OpenAI
+from mem0.memory.utils import extract_json
 
 client = OpenAI()
 
@@ -22,7 +23,7 @@ The generated answer might be much longer, but you should be generous with your 
 
 For time related questions, the gold answer will be a specific date, month, year, etc. The generated answer might be much longer or use relative time references (like "last Tuesday" or "next month"), but you should be generous with your grading - as long as it refers to the same date or time period as the gold answer, it should be counted as CORRECT. Even if the format differs (e.g., "May 7th" vs "7 May"), consider it CORRECT if it's the same date.
 
-Now it’s time for the real question:
+Now it's time for the real question:
 Question: {question}
 Gold answer: {gold_answer}
 Generated answer: {generated_answer}
@@ -33,35 +34,34 @@ Do NOT include both CORRECT and WRONG in your response, or it will break the eva
 Just return the label CORRECT or WRONG in a json format with the key as "label".
 """
 
+
 def evaluate_llm_judge(question, gold_answer, generated_answer):
     """Evaluate the generated answer against the gold answer using an LLM judge."""
     response = client.chat.completions.create(
         model="gpt-4o-mini",
-        messages=[{
-            "role": "user", 
-            "content": ACCURACY_PROMPT.format(
-                question=question, 
-                gold_answer=gold_answer, 
-                generated_answer=generated_answer
-            )
-        }],
+        messages=[
+            {
+                "role": "user",
+                "content": ACCURACY_PROMPT.format(
+                    question=question, gold_answer=gold_answer, generated_answer=generated_answer
+                ),
+            }
+        ],
         response_format={"type": "json_object"},
-        temperature=0.0
+        temperature=0.0,
     )
-    label = json.loads(response.choices[0].message.content)['label']
+    label = json.loads(extract_json(response.choices[0].message.content))["label"]
     return 1 if label == "CORRECT" else 0
 
 
 def main():
     """Main function to evaluate RAG results using LLM judge."""
-    parser = argparse.ArgumentParser(
-        description='Evaluate RAG results using LLM judge'
-    )
+    parser = argparse.ArgumentParser(description="Evaluate RAG results using LLM judge")
     parser.add_argument(
-        '--input_file',
+        "--input_file",
         type=str,
         default="results/default_run_v4_k30_new_graph.json",
-        help='Path to the input dataset file'
+        help="Path to the input dataset file",
     )
 
     args = parser.parse_args()
@@ -78,10 +78,10 @@ def main():
     index = 0
     for k, v in data.items():
         for x in v:
-            question = x['question']
-            gold_answer = x['answer']
-            generated_answer = x['response']
-            category = x['category']
+            question = x["question"]
+            gold_answer = x["answer"]
+            generated_answer = x["response"]
+            category = x["category"]
 
             # Skip category 5
             if int(category) == 5:
@@ -92,13 +92,15 @@ def main():
             LLM_JUDGE[category].append(label)
 
             # Store the results
-            RESULTS[index].append({
-                "question": question,
-                "gt_answer": gold_answer,
-                "response": generated_answer,
-                "category": category,
-                "llm_label": label
-            })
+            RESULTS[index].append(
+                {
+                    "question": question,
+                    "gt_answer": gold_answer,
+                    "response": generated_answer,
+                    "category": category,
+                    "llm_label": label,
+                }
+            )
 
             # Save intermediate results
             with open(output_path, "w") as f:
@@ -108,8 +110,7 @@ def main():
             print("All categories accuracy:")
             for cat, results in LLM_JUDGE.items():
                 if results:  # Only print if there are results for this category
-                    print(f"  Category {cat}: {np.mean(results):.4f} "
-                          f"({sum(results)}/{len(results)})")
+                    print(f"  Category {cat}: {np.mean(results):.4f} " f"({sum(results)}/{len(results)})")
             print("------------------------------------------")
         index += 1
 

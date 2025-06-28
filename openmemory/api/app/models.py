@@ -1,6 +1,7 @@
 import enum
 import uuid
 import datetime
+import sqlalchemy as sa
 from sqlalchemy import (
     Column, String, Boolean, ForeignKey, Enum, Table,
     DateTime, JSON, Integer, UUID, Index, event
@@ -43,7 +44,7 @@ class App(Base):
     __tablename__ = "apps"
     id = Column(UUID, primary_key=True, default=lambda: uuid.uuid4())
     owner_id = Column(UUID, ForeignKey("users.id"), nullable=False, index=True)
-    name = Column(String, unique=True, nullable=False, index=True)
+    name = Column(String, nullable=False, index=True)
     description = Column(String)
     metadata_ = Column('metadata', JSON, default=dict)
     is_active = Column(Boolean, default=True, index=True)
@@ -54,6 +55,21 @@ class App(Base):
 
     owner = relationship("User", back_populates="apps")
     memories = relationship("Memory", back_populates="app")
+
+    __table_args__ = (
+        sa.UniqueConstraint('owner_id', 'name', name='idx_app_owner_name'),
+    )
+
+
+class Config(Base):
+    __tablename__ = "configs"
+    id = Column(UUID, primary_key=True, default=lambda: uuid.uuid4())
+    key = Column(String, unique=True, nullable=False, index=True)
+    value = Column(JSON, nullable=False)
+    created_at = Column(DateTime, default=get_current_utc_time)
+    updated_at = Column(DateTime,
+                        default=get_current_utc_time,
+                        onupdate=get_current_utc_time)
 
 
 class Memory(Base):

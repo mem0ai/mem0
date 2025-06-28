@@ -1,0 +1,175 @@
+---
+title: Advanced Retrieval
+icon: "magnifying-glass"
+iconType: "solid"
+---
+
+<Snippet file="paper-release.mdx" />
+
+Mem0’s **Advanced Retrieval** provides additional control over how memories are selected and ranked during search. While the default search uses embedding-based semantic similarity, Advanced Retrieval introduces specialized options to improve recall, ranking accuracy, or filtering based on specific use case.
+
+You can enable any of the following modes independently or together:
+
+- Keyword Search
+- Reranking
+- Filtering
+
+Each enhancement can be toggled independently via the `search()` API call. These flags are off by default. These are useful when building agents that require fine-grained retrieval control
+
+## Keyword Search
+
+Keyword search expands the result set by including memories that contain lexically similar terms and important keywords from the query, even if they're not semantically similar.
+
+### When to use
+- You are searching for specific entities, names, or technical terms
+- When you need comprehensive coverage of a topic
+- You want broader recall at the cost of slight noise
+
+
+### API Usage
+```python
+results = client.search(
+    query="What are my food preferences?",
+    keyword_search=True,
+    user_id="alex"
+)
+```
+
+### Example
+
+**Without keyword_search:**
+- "Vegetarian. Allergic to nuts."
+- "Prefers spicy food and enjoys Thai cuisine"
+
+**With keyword_search=True:**
+- "Vegetarian. Allergic to nuts."
+- "Prefers spicy food and enjoys Thai cuisine"
+- "Mentioned disliking seafood during restaurant discussion"
+
+### Trade-offs
+- Increases recall
+- May slightly reduce precision
+- Adds ~10ms latency
+
+
+
+## Reranking
+
+Reranking reorders the retrieved results using a deep semantic relevance model that improves the position of the most relevant matches.
+
+### When to use
+- You rely on top-1 or top-N precision
+- When result order is critical for your application
+- You want consistent result quality across sessions
+
+### API Usage
+```python
+results = client.search(
+    query="What are my travel plans?",
+    rerank=True,
+    user_id="alex"
+)
+```
+
+### Example
+
+**Without rerank:**
+1. "Traveled to France last year"
+2. "Planning a trip to Japan next month"
+3. "Interested in visiting Tokyo restaurants"
+
+**With rerank=True:**
+1. "Planning a trip to Japan next month"
+2. "Interested in visiting Tokyo restaurants"
+3. "Traveled to France last year"
+
+### Trade-offs
+- Significantly improves result ordering accuracy
+- Ensures most relevant memories appear first
+- Adds ~150–200ms latency
+- Higher computational cost
+
+
+
+## Filtering
+
+Filtering allows you to narrow down search results by applying specific criteria from the set of retrieved memories.
+
+### When to use
+- You require highly specific results
+- You are working with huge amount of data where noise is problematic
+- You require quality over quantity results
+
+### API Usage
+```python
+results = client.search(
+    query="What are my dietary restrictions?",
+    filter_memories=True,
+    user_id="alex"
+)
+```
+
+### Example
+
+**Without filtering:**
+- "Vegetarian. Allergic to nuts."
+- "I enjoy cooking Italian food on weekends"
+- "Mentioned disliking seafood during restaurant discussion"
+- "Prefers to eat dinner at 7pm"
+
+**With filter_memories=True:**
+- "Vegetarian. Allergic to nuts."
+- "Mentioned disliking seafood during restaurant discussion"
+
+### Trade-offs
+- Maximizes precision (highly relevant results only)
+- May reduce recall (filters out some relevant memories)
+- Adds ~200-300ms latency
+- Best for focused, specific queries
+
+
+
+## Combining Modes
+
+You can combine all three retrieval modes as needed:
+
+```python
+results = client.search(
+    query="What are my travel plans?",
+    keyword_search=True,
+    rerank=True,
+    filter_memories=True,
+    user_id="alex"
+)
+```
+
+This configuration broadens the candidate pool with keywords, improves ordering via rerank, and finally cuts noise with filtering.
+<Note> Combining all modes may add up to ~450ms latency per query. </Note>
+
+
+
+## Performance Benchmarks
+
+| **Mode**         | **Approximate Latency** |
+|------------------|-------------------------|
+| `keyword_search` | &lt;10ms                   |
+| `rerank`         | 150–200ms               |
+| `filter_memories`| 200–300ms               |
+
+
+
+## Best Practices & Limitations
+
+- Use `keyword_search` for broader recall when query context is limited
+- Use `rerank` to prioritize the top-most relevant result
+- Use `filter_memories` in production-facing or safety-critical agents
+- Combine filtering and reranking for maximum accuracy
+- Filters may eliminate all results—always handle the empty set gracefully
+- Filtering uses LLM evaluation and may be rate-limited depending on your plan
+
+<Note> You can enable or disable these search modes by passing the respective parameters to the `search` method. There is no required sequence for these modes, and any combination can be used based on your needs. </Note>
+
+---
+If you have any questions, please feel free to reach out to us using one of the following methods:
+
+<Snippet file="get-help.mdx" />

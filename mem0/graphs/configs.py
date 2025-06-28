@@ -10,6 +10,7 @@ class Neo4jConfig(BaseModel):
     username: Optional[str] = Field(None, description="Username for the graph database")
     password: Optional[str] = Field(None, description="Password for the graph database")
     database: Optional[str] = Field(None, description="Database for the graph database")
+    base_label: Optional[bool] = Field(None, description="Whether to use base node label __Entity__ for all entities")
 
     @model_validator(mode="before")
     def check_host_port_or_path(cls, values):
@@ -21,7 +22,8 @@ class Neo4jConfig(BaseModel):
         if not url or not username or not password:
             raise ValueError("Please provide 'url', 'username' and 'password'.")
         return values
-    
+
+
 class MemgraphConfig(BaseModel):
     url: Optional[str] = Field(None, description="Host address for the graph database")
     username: Optional[str] = Field(None, description="Username for the graph database")

@@ -1,17 +1,20 @@
 from datetime import datetime, UTC
 from typing import List, Optional, Set
-from uuid import UUID
+from uuid import UUID, uuid4
+import logging
+import os
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from fastapi_pagination import Page, Params
 from fastapi_pagination.ext.sqlalchemy import paginate as sqlalchemy_paginate
 from pydantic import BaseModel
 from sqlalchemy import or_, func
+from app.utils.memory import get_memory_client
 
 from app.database import get_db
 from app.models import (
     Memory, MemoryState, MemoryAccessLog, App,
-    MemoryStatusHistory, User, Category, AccessControl
+    MemoryStatusHistory, User, Category, AccessControl, Config as ConfigModel
 )
 from app.schemas import MemoryResponse, PaginatedMemoryResponse
 from app.utils.permissions import check_memory_access_permissions
@@ -209,7 +212,8 @@ async def create_memory(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     # Get or create app
-    app_obj = db.query(App).filter(App.name == request.app).first()
+    app_obj = db.query(App).filter(App.name == request.app,
+                                   App.owner_id == user.id).first()
     if not app_obj:
         app_obj = App(name=request.app, owner_id=user.id)
         db.add(app_obj)
@@ -220,17 +224,82 @@ async def create_memory(
     if not app_obj.is_active:
         raise HTTPException(status_code=403, detail=f"App {request.app} is currently paused on OpenMemory. Cannot create new memories.")
 
-    # Create memory
-    memory = Memory(
-        user_id=user.id,
-        app_id=app_obj.id,
-        content=request.text,
-        metadata_=request.metadata
-    )
-    db.add(memory)
-    db.commit()
-    db.refresh(memory)
-    return memory
+    # Log what we're about to do
+    logging.info(f"Creating memory for user_id: {request.user_id} with app: {request.app}")
+    
+    # Try to get memory client safely
+    try:
+        memory_client = get_memory_client()
+        if not memory_client:
+            raise Exception("Memory client is not available")
+    except Exception as client_error:
+        logging.warning(f"Memory client unavailable: {client_error}. Creating memory in database only.")
+        # Return a json response with the error
+        return {
+            "error": str(client_error)
+        }
+
+    # Try to save to Qdrant via memory_client
+    try:
+        qdrant_response = memory_client.add(
+            request.text,
+            user_id=request.user_id,  # Use string user_id to match search
+            metadata={
+                "source_app": "openmemory",
+                "mcp_client": request.app,
+            }
+        )
+        
+        # Log the response for debugging
+        logging.info(f"Qdrant response: {qdrant_response}")
+        
+        # Process Qdrant response
+        if isinstance(qdrant_response, dict) and 'results' in qdrant_response:
+            for result in qdrant_response['results']:
+                if result['event'] == 'ADD':
+                    # Get the Qdrant-generated ID
+                    memory_id = UUID(result['id'])
+                    
+                    # Check if memory already exists
+                    existing_memory = db.query(Memory).filter(Memory.id == memory_id).first()
+                    
+                    if existing_memory:
+                        # Update existing memory
+                        existing_memory.state = MemoryState.active
+                        existing_memory.content = result['memory']
+                        memory = existing_memory
+                    else:
+                        # Create memory with the EXACT SAME ID from Qdrant
+                        memory = Memory(
+                            id=memory_id,  # Use the same ID that Qdrant generated
+                            user_id=user.id,
+                            app_id=app_obj.id,
+                            content=result['memory'],
+                            metadata_=request.metadata,
+                            state=MemoryState.active
+                        )
+                        db.add(memory)
+                    
+                    # Create history entry
+                    history = MemoryStatusHistory(
+                        memory_id=memory_id,
+                        changed_by=user.id,
+                        old_state=MemoryState.deleted if existing_memory else MemoryState.deleted,
+                        new_state=MemoryState.active
+                    )
+                    db.add(history)
+                    
+                    db.commit()
+                    db.refresh(memory)
+                    return memory
+    except Exception as qdrant_error:
+        logging.warning(f"Qdrant operation failed: {qdrant_error}.")
+        # Return a json response with the error
+        return {
+            "error": str(qdrant_error)
+        }
+
+
 
 
 # Get memory by ID
