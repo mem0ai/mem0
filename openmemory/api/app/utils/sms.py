@@ -137,11 +137,9 @@ class SMSService:
         Returns:
             str: Response message to send back via SMS
         """
-        from openai import OpenAI
         from app.tools.memory import ask_memory, add_memories
         from app.tools.documents import deep_memory_query
         import os
-        import json
         
         try:
             # Handle special commands first
@@ -210,126 +208,135 @@ Reply STOP to unsubscribe."""
                 import random
                 return random.choice(confirmations)
 
-            # Use AI for everything else
-            client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+            # Use Claude for everything else (superior tool calling)
+            import anthropic
+            client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
             
-            # AI prompt to determine which tool to use
-            tool_selection_prompt = f"""
-You are Jean Memory - a smart, conversational AI assistant that helps users manage their personal memories via SMS. You should respond like ChatGPT would, but with the added ability to remember and recall information.
+            # Claude tool calling prompt - much more sophisticated
+            tool_selection_prompt = f"""You are Jean Memory, an intelligent SMS assistant that helps users manage their personal memories. You have access to powerful memory tools and should use them wisely.
 
-User's message: "{message}"
+User message: "{message}"
 
-DECISION TREE - Choose the best response:
+You have these tools available:
+1. ask_memory - Search and recall existing memories to answer questions
+2. add_memories - Store new information, experiences, thoughts, or facts
+3. chat_only - Respond conversationally without using tools
 
-1. **ALWAYS use ask_memory for these patterns:**
-   - "what do you know about me"
-   - "what do you remember about"
-   - "tell me about my"
-   - "do I have any memories about"
-   - "what did I say about"
-   - "remind me about"
-   - "what have I told you"
+Use your intelligence to determine the best response. Claude's superior tool calling should make smart decisions about:
 
-2. **ALWAYS use add_memories for these patterns:**
-   - "remember that"
-   - "don't forget"
-   - "I just" + personal experience
-   - "today I" + experience
-   - "I'm feeling" + emotion
-   - "my favorite" + preference
-   - Clear facts/experiences to store
+- When the user wants information recalled → use ask_memory
+- When the user shares something to remember → use add_memories  
+- When it's just conversation → use chat_only
 
-3. **Use chat for everything else:**
-   - Greetings, questions about Jean Memory, casual conversation
+Be smart, helpful, and conversational like you would be in any other Claude conversation."""
 
-**Key Rules:**
-- Be SMART like ChatGPT - don't give generic responses
-- If unsure whether they want info recalled, DEFAULT to ask_memory 
-- Always be helpful and conversational
-- Think about what the user ACTUALLY wants
+            # Define tools for Claude
+            tools = [
+                {
+                    "name": "ask_memory",
+                    "description": "Search the user's memories to answer questions about their life, experiences, or information they've shared",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "The question or topic to search for in the user's memories"
+                            }
+                        },
+                        "required": ["query"]
+                    }
+                },
+                {
+                    "name": "add_memories",
+                    "description": "Store new information, experiences, thoughts, facts, or anything the user wants to remember",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "content": {
+                                "type": "string", 
+                                "description": "The information to store in memory"
+                            }
+                        },
+                        "required": ["content"]
+                    }
+                },
+                {
+                    "name": "chat_only",
+                    "description": "Respond conversationally without using memory tools - for greetings, questions about Jean Memory, or general chat",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "response": {
+                                "type": "string",
+                                "description": "The conversational response to send to the user"
+                            }
+                        },
+                        "required": ["response"]
+                    }
+                }
+            ]
 
-RESPONSE FORMAT:
-- Chat: {{"type": "chat", "message": "intelligent helpful response"}}
-- Tool: {{"type": "tool", "tool": "tool_name", "processed_message": "optimized query"}}
-
-Examples:
-- "what do you know about me" → {{"type": "tool", "tool": "ask_memory", "processed_message": "what do you know about me"}}
-- "hey there" → {{"type": "chat", "message": "Hey! Good to hear from you! What's on your mind?"}}
-- "I love pizza" → {{"type": "tool", "tool": "add_memories", "processed_message": "I love pizza"}}
-- "who are you" → {{"type": "chat", "message": "I'm Jean Memory! I'm your personal AI assistant that helps you remember things. What would you like to talk about?"}}
-"""
-
-            # Get AI decision
-            response = client.chat.completions.create(
-                model="gpt-4o-mini",
+            # Get Claude's decision with tool calling
+            response = client.messages.create(
+                model="claude-3-5-haiku-20241022",  # Fast and smart for SMS
+                max_tokens=300,
                 messages=[{"role": "user", "content": tool_selection_prompt}],
-                temperature=0.1,
-                max_tokens=200
+                tools=tools
             )
             
-            # Parse AI response
+            # Parse Claude's response
             try:
-                ai_decision = json.loads(response.choices[0].message.content.strip())
-                response_type = ai_decision.get("type")
-                
-                if response_type == "chat":
-                    # Direct chat response - no tool needed
-                    response_msg = ai_decision.get("message", "Hey! I'm here to help with your thoughts and memories. What's on your mind?")
-                    logger.info(f"SMS AI responded with chat-only message for '{message}'")
-                    return response_msg
-                
-                elif response_type == "tool":
-                    # Tool-based response
-                    selected_tool = ai_decision.get("tool")
-                    processed_message = ai_decision.get("processed_message", message)
+                # Check if Claude used a tool
+                if response.content and any(isinstance(block, anthropic.types.ToolUseBlock) for block in response.content):
+                    # Claude chose to use a tool
+                    for block in response.content:
+                        if isinstance(block, anthropic.types.ToolUseBlock):
+                            tool_name = block.name
+                            tool_input = block.input
+                            
+                            logger.info(f"SMS Claude selected tool '{tool_name}' for message '{message}'")
+                            
+                            if tool_name == "ask_memory":
+                                result = await ask_memory(tool_input.get("query", message))
+                                if len(result) > 1300:
+                                    return f"{result[:1250]}...\n\nWant me to dig deeper into any of that?"
+                                else:
+                                    return result
+                                    
+                            elif tool_name == "add_memories":
+                                result = await add_memories(tool_input.get("content", message))
+                                confirmations = [
+                                    "Got it! I'll remember that.",
+                                    "Noted! Thanks for sharing that with me.",
+                                    "I've added that to your memories 👍",
+                                    "Cool, I'll keep that in mind!",
+                                    "Saved! I won't forget that.",
+                                    "Perfect, I've got that stored for you."
+                                ]
+                                import random
+                                return random.choice(confirmations)
+                                
+                            elif tool_name == "chat_only":
+                                return tool_input.get("response", "Hey! I'm here to help with your thoughts and memories. What's on your mind?")
+                                
+                else:
+                    # Claude chose not to use tools, extract text response
+                    text_response = ""
+                    for block in response.content:
+                        if hasattr(block, 'text'):
+                            text_response += block.text
                     
-                    logger.info(f"SMS AI selected tool '{selected_tool}' for message '{message}'")
-                else:
-                    logger.warning(f"Unknown response_type: {response_type}. Defaulting to ask_memory")
-                    selected_tool = "ask_memory"
-                    processed_message = message
+                    logger.info(f"SMS Claude responded with chat-only message for '{message}'")
+                    return text_response or "Hey! I'm here to help with your thoughts and memories. What's on your mind?"
                 
-            except (json.JSONDecodeError, KeyError) as e:
-                logger.warning(f"Failed to parse AI tool selection: {e}. Defaulting to chat response")
-                # Default to friendly chat response for parsing errors
-                return "Hey! I'm here to help with your thoughts and memories. What would you like to talk about?"
-            
-            # Execute the selected tool
-            if selected_tool == "add_memories":
-                result = await add_memories(processed_message)
-                # Natural, conversational confirmations
-                confirmations = [
-                    f"Got it! I'll remember that.",
-                    f"Noted! Thanks for sharing that with me.",
-                    f"I've added that to your memories 👍",
-                    f"Cool, I'll keep that in mind!",
-                    f"Saved! I won't forget that.",
-                    f"Perfect, I've got that stored for you."
-                ]
-                import random
-                response_msg = random.choice(confirmations)
-                
-            elif selected_tool == "deep_memory_query":
-                result = await deep_memory_query(processed_message)
-                # Keep deep analysis but make it more conversational
+            except Exception as e:
+                logger.warning(f"Failed to parse Claude response: {e}. Falling back to ask_memory")
+                # Fallback to ask_memory for any parsing errors
+                result = await ask_memory(message)
                 if len(result) > 1300:
-                    response_msg = f"{result[:1250]}...\n\nThere's more to explore - just ask!"
+                    return f"{result[:1250]}...\n\nWant me to dig deeper into any of that?"
                 else:
-                    response_msg = result
-                    
-            else:  # Default to ask_memory  
-                result = await ask_memory(processed_message)
-                # More natural search responses
-                if len(result) > 1300:
-                    response_msg = f"{result[:1250]}...\n\nWant me to dig deeper into any of that?"
-                else:
-                    response_msg = result
-            
-            # Add natural help hints for very short responses
-            if len(response_msg) < 50:
-                response_msg += "\n\nAnything else you'd like to remember or ask about?"
-                
-            return response_msg
+                    return result
             
         except Exception as e:
             logger.error(f"Error processing SMS command '{message}': {e}")

@@ -40,6 +40,10 @@ services:
       - key: EMBEDDER_MODEL
         value: "text-embedding-3-small"
       
+      # Anthropic Configuration (for SMS Claude integration)
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      
       # Qdrant Configuration
       - key: QDRANT_HOST
         sync: false
