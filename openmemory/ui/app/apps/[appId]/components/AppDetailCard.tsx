@@ -55,6 +55,8 @@ const AppDetailCard = ({
 
   const installCommand = currentApp?.name === 'chorus' 
     ? `-y mcp-remote https://jean-memory-api.onrender.com/mcp/chorus/sse/${user?.id}`
+    : currentApp?.name === 'claude'
+    ? `npx -y supergateway --stdio https://jean-memory-api.onrender.com/mcp/v2/claude/${user?.id}`
     : `npx install-mcp https://api.jeanmemory.com/mcp/${currentApp?.name}/sse/${user?.id} --client ${currentApp?.name}`;
 
   const handleCopy = (text: string) => {
@@ -66,11 +68,11 @@ const AppDetailCard = ({
   };
 
   const handleDownloadExtension = () => {
-    // Open the DXT download endpoint - backend FastAPI route
+    // Download the HTTP v2 extension
     const backendUrl = process.env.NODE_ENV === 'development' 
       ? 'http://localhost:8765' 
       : 'https://jean-memory-api.onrender.com';
-    window.open(`${backendUrl}/download/claude-extension`, '_blank');
+    window.open(`${backendUrl}/download/claude-extension-http`, '_blank');
     
     toast({
       title: "Download Started",

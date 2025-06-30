@@ -50,8 +50,8 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
     window.open(`${backendUrl}/download/claude-extension-http`, '_blank');
     
     toast({
-      title: "Download Started",
-      description: "Jean Memory extension downloading - 50% faster with HTTP transport!",
+      title: "Download Started", 
+      description: "The Claude Desktop Extension is downloading. Double-click the file to install.",
     });
   };
 

@@ -18,15 +18,15 @@ if (!userId) {
 // Log startup (to stderr so it doesn't interfere with MCP protocol)
 console.error(`[Jean Memory] Starting connection for user: ${userId.substring(0, 8)}...`);
 
-// Construct the supergateway command to connect to Jean Memory
+// Construct the supergateway command to connect to Jean Memory with HTTP v2 transport
 const args = [
   '-y',
   'supergateway', 
-  '--sse',
-  `https://api.jeanmemory.com/mcp/claude/sse/${userId}`
+  '--stdio',
+  `https://jean-memory-api.onrender.com/mcp/v2/claude/${userId}`
 ];
 
-console.error(`[Jean Memory] Connecting to: https://api.jeanmemory.com/mcp/claude/sse/${userId.substring(0, 8)}...`);
+console.error(`[Jean Memory HTTP v2] Connecting to: https://jean-memory-api.onrender.com/mcp/v2/claude/${userId.substring(0, 8)}...`);
 
 // Spawn supergateway process
 const gateway = spawn('npx', args, {

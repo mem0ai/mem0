@@ -1,10 +1,10 @@
 {
   "dxt_version": "0.1",
-  "name": "jean-memory-http",
-  "display_name": "Jean Memory (HTTP Transport)",
-  "version": "1.0.0",
-  "description": "Connect your personal AI memory to Claude Desktop - 50% faster with HTTP transport",
-  "long_description": "Jean Memory gives Claude access to your personal memory store with HTTP transport for faster performance. Allowing it to remember conversations, learn your preferences, and provide contextual responses based on your history.",
+  "name": "jean-memory",
+  "display_name": "Jean Memory",
+  "version": "1.0.0", 
+  "description": "Connect your personal AI memory to Claude Desktop",
+  "long_description": "Jean Memory gives Claude access to your personal memory store, allowing it to remember conversations, learn your preferences, and provide contextual responses based on your history.",
   "author": {
     "name": "Jean Memory",
     "email": "support@jeanmemory.com",
@@ -18,7 +18,7 @@
   "documentation": "https://docs.jeanmemory.com",
   "support": "https://jeanmemory.com/support",
   "icon": "assets/icon.png",
-  "keywords": ["memory", "ai", "personal", "assistant", "claude", "mcp", "http", "fast"],
+  "keywords": ["memory", "ai", "personal", "assistant", "claude", "mcp"],
   "license": "MIT",
   "server": {
     "type": "node",
