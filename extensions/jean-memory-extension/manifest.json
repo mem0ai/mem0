@@ -2,7 +2,7 @@
   "dxt_version": "0.1",
   "name": "jean-memory",
   "display_name": "Jean Memory",
-  "version": "1.0.0", 
+  "version": "1.0.0",
   "description": "Connect your personal AI memory to Claude Desktop",
   "long_description": "Jean Memory gives Claude access to your personal memory store, allowing it to remember conversations, learn your preferences, and provide contextual responses based on your history.",
   "author": {
@@ -74,4 +74,4 @@
       "node": ">=16.0.0"
     }
   }
-} 
+}
