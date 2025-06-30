@@ -194,7 +194,6 @@ export function SmsModal({ open, onOpenChange }: SmsModalProps) {
             onChange={handlePhoneChange}
             className="text-center text-lg"
             maxLength={14}
-            disabled
           />
           <p className="text-xs text-muted-foreground text-center">
             US phone numbers only. Message & data rates may apply.
@@ -222,16 +221,19 @@ export function SmsModal({ open, onOpenChange }: SmsModalProps) {
         </div>
 
         <div className="flex gap-2 pt-2 max-sm:flex-col max-sm:space-y-2">
-          <Button variant="outline" onClick={handleClose} className="flex-1" disabled>
+          <Button variant="outline" onClick={handleClose} className="flex-1">
             Cancel
           </Button>
-          <Button className="flex-1" disabled>
-            Send Code
+          <Button onClick={handlePhoneSubmit} className="flex-1" disabled={state.loading}>
+            {state.loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Sending...
+              </>
+            ) : (
+              'Send Code'
+            )}
           </Button>
-        </div>
-
-        <div className="text-center text-sm font-semibold text-blue-400 pt-4">
-          Coming Soon: Full SMS integration is pending carrier approval.
         </div>
       </div>
     </>

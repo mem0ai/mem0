@@ -103,7 +103,7 @@ export default function SmsPreviewPage() {
               Cancel
             </button>
             <button
-              className="w-full inline-flex items-center justify-center px-4 py-2.5 font-semibold rounded-lg bg-secondary text-secondary-foreground transition-all duration-300 shadow-lg"
+              className="w-full inline-flex items-center justify-center px-4 py-2.5 font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-300 shadow-lg"
               disabled
             >
               Send Code
@@ -111,7 +111,8 @@ export default function SmsPreviewPage() {
           </div>
 
           <p className="text-xs text-muted-foreground mt-8">
-              This is a static mockup page for Twilio campaign verification purposes.
+              This is a public mockup page for A2P 10DLC campaign verification. <br/>
+              Visit <a href="https://jean-memory-ui-virginia.onrender.com/dashboard-new" className="text-primary hover:underline">Jean Memory Dashboard</a> to connect your phone number.
           </p>
         </motion.div>
       </div>

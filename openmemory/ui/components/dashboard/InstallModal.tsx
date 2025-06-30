@@ -462,14 +462,10 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
                 </div>
               )}
 
-              {status === 'verified' ? (
+              {status === 'verified' && (
                 <div className="text-center text-sm text-green-500 font-semibold pt-2">
                     ✓ Verified! You can now use SMS.
                 </div>
-              ) : (
-                <p className="text-center text-sm text-primary pt-2">
-                  Coming Soon: Full SMS integration is pending carrier approval.
-                </p>
               )}
             </div>
         ) : app.id === 'chorus' ? (
