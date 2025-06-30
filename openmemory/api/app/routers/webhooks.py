@@ -100,9 +100,26 @@ async def handle_sms(
         user = get_or_create_user(db, None, None, phone_number=user_phone)
 
         if not user.phone_verified:
-            await sms_service.send_message(
+            sms_service.send_sms(
                 to_phone=user_phone,
-                body="Welcome to Jean Memory! Please verify your number on the website to get started."
+                message="Hi! I'm Jean Memory, your personal AI memory assistant. Please verify your phone number at jeanmemory.com first, then text me anything you want to remember!"
+            )
+            return Response(content=str(MessagingResponse()), media_type="application/xml")
+
+        # Check rate limits (Pro/Enterprise subscription required)
+        from app.utils.sms import SMSRateLimit
+        allowed, remaining = SMSRateLimit.check_rate_limit(user, db)
+        
+        if not allowed:
+            from app.models import SubscriptionTier
+            if remaining == 0 and hasattr(user, 'subscription_tier') and user.subscription_tier in [SubscriptionTier.PRO, SubscriptionTier.ENTERPRISE]:
+                error_msg = "You've reached your daily SMS memory limit! It resets tomorrow. You can still access all your memories at jeanmemory.com anytime."
+            else:
+                error_msg = "Hi! SMS memory access is a Pro feature. Visit jeanmemory.com to upgrade and text me all your memories, thoughts, and experiences!"
+            
+            sms_service.send_sms(
+                to_phone=user_phone,
+                message=error_msg
             )
             return Response(content=str(MessagingResponse()), media_type="application/xml")
 
@@ -113,6 +130,24 @@ async def handle_sms(
         try:
             # Process the message using the SMS service logic, which calls the tools
             response_message = await sms_service.process_command(message_body, str(user.user_id))
+            
+            # Send response back to user
+            sms_service.send_sms(
+                to_phone=user_phone,
+                message=response_message
+            )
+            
+            # Increment usage counter after successful processing
+            SMSRateLimit.increment_usage(user, db)
+            
+        except Exception as e:
+            logger.error(f"Error processing SMS command from {user_phone}: {e}")
+            # Send error response
+            sms_service.send_sms(
+                to_phone=user_phone,
+                message="Oops, I had trouble processing that memory. Could you try rephrasing it? Text 'help' for examples of what I can remember for you!"
+            )
+            
         finally:
             # Reset context variables
             user_id_var.reset(user_id_token)
@@ -121,10 +156,8 @@ async def handle_sms(
     finally:
         db.close()
 
-    # Create TwiML response
+    # Return empty TwiML response (we're sending replies asynchronously)
     twilio_response = MessagingResponse()
-    twilio_response.message(response_message)
-    
     return Response(content=str(twilio_response), media_type="application/xml")
 
 @router.post("/verify-phone")

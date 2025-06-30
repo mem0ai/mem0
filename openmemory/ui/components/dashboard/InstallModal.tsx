@@ -214,7 +214,7 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
           <MobileOptimizedDialogTitle className="text-2xl font-bold">
             {app.id === 'mcp-generic' ? 'Your Universal MCP Link' : 
              app.id === 'chatgpt' ? 'Connect to ChatGPT Deep Research' :
-             app.id === 'sms' ? 'Connect SMS to Jean Memory' :
+             app.id === 'sms' ? 'Text Jean Memory' :
              `Connect to ${app.name}`}
           </MobileOptimizedDialogTitle>
           <MobileOptimizedDialogDescription className="text-muted-foreground pt-1">
@@ -405,12 +405,12 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
                     <div className="flex items-start">
                       <Info className="h-4 w-4 text-muted-foreground mt-0.5 mr-2 flex-shrink-0"/>
                       <div>
-                        <p className="font-semibold text-foreground mb-2">How to Use Jean Memory SMS:</p>
+                        <p className="font-semibold text-foreground mb-2">Text Your Memory Assistant:</p>
                         <ul className="list-disc list-inside text-muted-foreground space-y-1 text-xs">
-                            <li>Just text us naturally, like you're talking to a person!</li>
-                            <li>"Remember to pick up groceries after work"</li>
-                            <li>"What were the main points from the meeting yesterday?"</li>
-                            <li>"Show my recent thoughts on the new project"</li>
+                            <li>Text like talking to a trusted friend who remembers everything!</li>
+                            <li>"Remember I had a great meeting with Sarah today"</li>
+                            <li>"What do I remember about my anxiety triggers?"</li>
+                            <li>"How do my work meetings usually go?"</li>
                             <li>Text "help" anytime for more examples.</li>
                         </ul>
                       </div>

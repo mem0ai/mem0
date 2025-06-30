@@ -174,10 +174,10 @@ export function SmsModal({ open, onOpenChange }: SmsModalProps) {
           <MessageSquare className="w-8 h-8 text-blue-500" />
         </div>
         <MobileOptimizedDialogTitle className="text-2xl font-bold">
-          Connect SMS to Jean Memory
+          Text Jean Memory
         </MobileOptimizedDialogTitle>
         <MobileOptimizedDialogDescription className="text-muted-foreground pt-1">
-          Add your phone number to interact with your memories via text message
+          Connect your phone to text your personal AI memory assistant anytime, anywhere
         </MobileOptimizedDialogDescription>
       </MobileOptimizedDialogHeader>
 
@@ -209,13 +209,13 @@ export function SmsModal({ open, onOpenChange }: SmsModalProps) {
         <div className="bg-muted/50 rounded-lg p-4 space-y-2">
           <h4 className="font-medium text-sm flex items-center gap-2">
             <Smartphone className="w-4 h-4" />
-            How to Use Jean Memory SMS:
+            Text Your Memory Assistant:
           </h4>
           <div className="text-xs text-muted-foreground space-y-1">
-            <div>Just text us naturally, like you're talking to a person!</div>
-            <div>• "Remember to pick up groceries after work"</div>
-            <div>• "What were the main points from the meeting yesterday?"</div>
-            <div>• "Show my recent thoughts on the new project"</div>
+            <div>Text like you're talking to a trusted friend who remembers everything!</div>
+            <div>• "Remember I had a great meeting with Sarah today"</div>
+            <div>• "What do I remember about my anxiety triggers?"</div>
+            <div>• "How do my work meetings usually go?"</div>
             <div>• Text "help" anytime for more examples.</div>
           </div>
         </div>
