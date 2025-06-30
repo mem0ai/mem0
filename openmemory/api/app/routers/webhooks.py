@@ -79,6 +79,14 @@ async def handle_sms(
     """
     Handle incoming SMS messages from Twilio.
     """
+    # Debug logging for troubleshooting
+    import os
+    twilio_account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+    twilio_auth_token = os.getenv("TWILIO_AUTH_TOKEN") 
+    logger.info(f"Twilio env check - Account SID exists: {bool(twilio_account_sid)}, Auth Token exists: {bool(twilio_auth_token)}")
+    if twilio_account_sid:
+        logger.info(f"Account SID starts with: {twilio_account_sid[:10]}...")
+    
     # 1. Validate Twilio signature (Security First) 
     signature = request.headers.get('X-Twilio-Signature', '')
     post_data = {
@@ -94,6 +102,8 @@ async def handle_sms(
         post_data['MessagingServiceSid'] = MessagingServiceSid
     
     request_url = str(request.url)
+    logger.info(f"Webhook signature validation - URL: {request_url}, Signature present: {bool(signature)}")
+    
     if not SMSWebhookValidator.validate_webhook_signature(request_url, post_data, signature):
         logger.warning(f"Invalid Twilio webhook signature from {From}")
         raise HTTPException(status_code=403, detail="Invalid signature")
