@@ -74,6 +74,20 @@ services:
       - key: LOG_LEVEL
         value: "INFO"
       
+      # SMS Integration (Twilio) - Pro Feature
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_PHONE_NUMBER
+        value: "+13648889368"
+      - key: SMS_RATE_LIMIT_PRO
+        value: "50"
+      - key: SMS_RATE_LIMIT_ENTERPRISE
+        value: "200"
+      - key: SMS_VERIFICATION_TIMEOUT
+        value: "600"
+      
       # Link to frontend environment group
       - fromGroup: frontend-public-env
 
