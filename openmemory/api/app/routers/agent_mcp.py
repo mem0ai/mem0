@@ -1,7 +1,7 @@
 import logging
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, BackgroundTasks
 
-from app.mcp_server import handle_post_message as mcp_message_handler
+from app.routing.mcp import handle_post_message as mcp_message_handler
 from app.models import User
 from app.auth import get_current_user
 
@@ -16,6 +16,7 @@ agent_mcp_router = APIRouter(
 @agent_mcp_router.post("/messages/")
 async def handle_agent_message(
     request: Request, 
+    background_tasks: BackgroundTasks,
     user: User = Depends(get_current_user)
 ):
     """
@@ -23,4 +24,4 @@ async def handle_agent_message(
     The user is injected into the request state to be used by the handler.
     """
     request.state.user = user
-    return await mcp_message_handler(request)
+    return await mcp_message_handler(request, background_tasks)

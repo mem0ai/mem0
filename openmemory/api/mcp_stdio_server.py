@@ -42,15 +42,15 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import Tool, TextContent
 
-# Import our existing MCP tools
+# Import our new refactored components
 try:
-    from app.mcp_server import (
-        add_memories, search_memory, list_memories,
-        user_id_var, client_name_var, tool_registry
-    )
+    from app.clients import get_client_profile
+    from app.tool_registry import tool_registry
     from app.database import SessionLocal
     from app.utils.db import get_or_create_user
-    logger.info("Successfully imported MCP tools")
+    from app.mcp_server import user_id_var, client_name_var, background_tasks_var
+    from fastapi import BackgroundTasks
+    logger.info("Successfully imported MCP components")
 except ImportError as e:
     logger.error(f"Failed to import MCP tools: {e}")
     sys.exit(1)
@@ -62,105 +62,15 @@ server = Server("jean-memory-local")
 DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000001"
 DEFAULT_CLIENT_NAME = "claude"
 
+# Get the client profile for the local dev environment
+local_client_profile = get_client_profile(DEFAULT_CLIENT_NAME)
+
 @server.list_tools()
 async def list_tools() -> list[Tool]:
-    """List available tools"""
-    return [
-        Tool(
-            name="add_memories",
-            description="Add new memories to the user's memory",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "text": {
-                        "type": "string",
-                        "description": "The text to add to memory"
-                    }
-                },
-                "required": ["text"]
-            }
-        ),
-        Tool(
-            name="store_document",
-            description="⚡ FAST document upload. Store large documents (markdown, code, essays) in background. Returns immediately with job ID for status tracking.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "title": {
-                        "type": "string",
-                        "description": "A descriptive title for the document"
-                    },
-                    "content": {
-                        "type": "string",
-                        "description": "The full text content of the document"
-                    },
-                    "document_type": {
-                        "type": "string",
-                        "description": "Type of document (e.g., 'markdown', 'code', 'notes')",
-                        "default": "markdown"
-                    },
-                    "source_url": {
-                        "type": "string",
-                        "description": "Optional URL where the document came from"
-                    },
-                    "metadata": {
-                        "type": "object",
-                        "description": "Optional additional metadata"
-                    }
-                },
-                "required": ["title", "content"]
-            }
-        ),
-        Tool(
-            name="get_document_status",
-            description="Check the processing status of a document upload using the job ID returned by store_document.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "job_id": {
-                        "type": "string",
-                        "description": "The job ID returned by store_document"
-                    }
-                },
-                "required": ["job_id"]
-            }
-        ),
-        Tool(
-            name="search_memory",
-            description="Search the user's memory for memories that match the query",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": "The search query"
-                    },
-                    "limit": {
-                        "type": "integer",
-                        "description": "Maximum number of results (optional)",
-                        "default": 10
-                    }
-                },
-                "required": ["query"]
-            }
-        ),
-        Tool(
-            name="list_memories",
-            description="List all memories in the user's memory",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "limit": {
-                        "type": "integer",
-                        "description": "Maximum number of memories to return (optional)",
-                        "default": 10
-                    }
-                },
-                "required": []
-            }
-        ),
-
-    ]
+    """List available tools using the client profile."""
+    schema = local_client_profile.get_tools_schema()
+    # Convert to MCP Tool objects
+    return [Tool.model_validate(tool_schema) for tool_schema in schema]
 
 @server.call_tool()
 async def call_tool(name: str, arguments: dict) -> list[TextContent]:
@@ -168,7 +78,9 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
     # Set context variables for all tool calls
     user_token = user_id_var.set(DEFAULT_USER_ID)
     client_token = client_name_var.set(DEFAULT_CLIENT_NAME)
-    
+    # Stdio server doesn't have a real background task queue, so we create a dummy one
+    tasks_token = background_tasks_var.set(BackgroundTasks())
+
     try:
         # Ensure user exists in database
         try:
@@ -179,46 +91,28 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         except Exception as e:
             logger.error(f"Database setup error: {e}")
             return [TextContent(type="text", text=f"Database error: {e}")]
-        
-        # Call the appropriate tool
-        if name == "add_memories":
-            result = await add_memories(arguments["text"])
-        elif name == "store_document":
-            store_document_func = tool_registry.get("store_document")
-            if store_document_func:
-                result = await store_document_func(
-                    title=arguments["title"],
-                    content=arguments["content"],
-                    document_type=arguments.get("document_type", "markdown"),
-                    source_url=arguments.get("source_url"),
-                    metadata=arguments.get("metadata")
-                )
-            else:
-                result = "store_document function not available"
-        elif name == "get_document_status":
-            get_status_func = tool_registry.get("get_document_status")
-            if get_status_func:
-                result = await get_status_func(arguments["job_id"])
-            else:
-                result = "get_document_status function not available"
-        elif name == "search_memory":
-            result = await search_memory(arguments["query"], arguments.get("limit"))
-        elif name == "list_memories":
-            result = await list_memories(arguments.get("limit"))
-        else:
-            result = f"Unknown tool: {name}"
-        
+
+        # Use the client profile to handle the tool call
+        result = await local_client_profile.handle_tool_call(
+            tool_name=name,
+            tool_args=arguments,
+            user_id=DEFAULT_USER_ID
+        )
+
+        # The result from handle_tool_call is the raw return value of the function.
+        # We need to wrap it in the TextContent type for the stdio server.
         return [TextContent(type="text", text=str(result))]
-    
+
     except Exception as e:
-        logger.error(f"Tool execution error: {e}")
+        logger.error(f"Tool execution error: {e}", exc_info=True)
         return [TextContent(type="text", text=f"Error: {e}")]
-    
+
     finally:
         # Clean up context variables
         try:
             user_id_var.reset(user_token)
             client_name_var.reset(client_token)
+            background_tasks_var.reset(tasks_token)
         except:
             pass
 
