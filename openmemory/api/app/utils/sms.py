@@ -443,12 +443,13 @@ class SMSWebhookValidator:
     """Validate Twilio webhook requests"""
     
     @staticmethod
-    async def validate_webhook_signature(request: Any, signature: str) -> bool:
+    def validate_webhook_signature(request_url: str, post_data: dict, signature: str) -> bool:
         """
-        Validate Twilio webhook signature for security
+        Validate Twilio webhook signature using official Twilio RequestValidator
         
         Args:
-            request: The full FastAPI request object
+            request_url: The full request URL as string
+            post_data: The form data as a dictionary
             signature: X-Twilio-Signature header value
         
         Returns:
@@ -459,29 +460,17 @@ class SMSWebhookValidator:
             return False
         
         try:
-            request_url = str(request.url)
-            post_body = await request.body()
+            from twilio.request_validator import RequestValidator
             
-            # --- BEGIN TEMPORARY DEBUGGING ---
-            logger.info("--- SIGNATURE VALIDATION (SERVER-SIDE) ---")
-            logger.info(f"Received URL: {request_url}")
-            logger.info(f"Received POST Body (raw): {post_body}")
-            string_to_sign = request_url.encode('utf-8') + post_body
-            logger.info(f"String to Sign: {string_to_sign}")
-            # --- END TEMPORARY DEBUGGING ---
-
-            # Create the expected signature
-            expected_signature = hmac.new(
-                sms_config.TWILIO_AUTH_TOKEN.encode('utf-8'),
-                string_to_sign,
-                hashlib.sha1
-            ).digest()
+            validator = RequestValidator(sms_config.TWILIO_AUTH_TOKEN)
+            is_valid = validator.validate(request_url, post_data, signature)
             
-            # Encode to base64
-            import base64
-            expected_signature_b64 = base64.b64encode(expected_signature).decode('utf-8')
+            logger.info(f"Twilio signature validation result: {is_valid}")
+            if not is_valid:
+                logger.warning(f"Invalid signature for URL: {request_url}")
+                logger.warning(f"Post data: {post_data}")
             
-            return hmac.compare_digest(signature, expected_signature_b64)
+            return is_valid
             
         except Exception as e:
             logger.error(f"Error validating webhook signature: {e}")

@@ -79,9 +79,22 @@ async def handle_sms(
     """
     Handle incoming SMS messages from Twilio.
     """
-    # 1. Validate Twilio signature (Security First)
+    # 1. Validate Twilio signature (Security First) 
     signature = request.headers.get('X-Twilio-Signature', '')
-    if not await SMSWebhookValidator.validate_webhook_signature(request, signature):
+    post_data = {
+        'From': From,
+        'To': To, 
+        'Body': Body,
+        'MessageSid': MessageSid,
+        'SmsSid': SmsSid,
+        'AccountSid': AccountSid,
+        'NumMedia': str(NumMedia)
+    }
+    if MessagingServiceSid:
+        post_data['MessagingServiceSid'] = MessagingServiceSid
+    
+    request_url = str(request.url)
+    if not SMSWebhookValidator.validate_webhook_signature(request_url, post_data, signature):
         logger.warning(f"Invalid Twilio webhook signature from {From}")
         raise HTTPException(status_code=403, detail="Invalid signature")
 
