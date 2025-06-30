@@ -1,66 +1,71 @@
-#!/usr/bin/env node
+const readline = require('readline');
+const http = require('http');
+const https = require('https');
+const url = require('url');
 
-/**
- * Jean Memory Desktop Extension MCP Server
- * This script acts as a proxy to connect Claude Desktop to Jean Memory's cloud MCP server
- */
-
-const { spawn } = require('child_process');
-
-// Get user ID from environment variable set by Claude Desktop
-const userId = process.env.USER_ID;
-
-if (!userId) {
-  console.error('Error: Jean Memory User ID not provided. Please configure your User ID in the extension settings.');
-  process.exit(1);
+const remoteUrlString = process.argv[2];
+if (!remoteUrlString) {
+    console.error("Fatal: Remote URL was not provided.");
+    process.exit(1);
 }
 
-// Log startup (to stderr so it doesn't interfere with MCP protocol)
-console.error(`[Jean Memory] Starting connection for user: ${userId.substring(0, 8)}...`);
+const remoteUrl = new URL(remoteUrlString);
+const transport = remoteUrl.protocol === 'https:' ? https : http;
 
-// Construct the supergateway command to connect to Jean Memory
-const args = [
-  '-y',
-  'supergateway', 
-  '--sse',
-  `https://api.jeanmemory.com/mcp/claude/sse/${userId}`
-];
-
-console.error(`[Jean Memory] Connecting to: https://api.jeanmemory.com/mcp/claude/sse/${userId.substring(0, 8)}...`);
-
-// Spawn supergateway process
-const gateway = spawn('npx', args, {
-  stdio: ['inherit', 'inherit', 'inherit'],
-  env: { 
-    ...process.env, 
-    USER_ID: userId,
-    // Ensure npm doesn't prompt for updates
-    NO_UPDATE_NOTIFIER: '1',
-    NPM_CONFIG_UPDATE_NOTIFIER: 'false'
-  }
+const rl = readline.createInterface({
+    input: process.stdin,
+    terminal: false
 });
 
-// Handle process events
-gateway.on('close', (code) => {
-  if (code !== 0) {
-    console.error(`[Jean Memory] Connection closed with code ${code}`);
-  }
-  process.exit(code);
+const sendError = (id, message) => {
+    const errorResponse = {
+        jsonrpc: "2.0",
+        error: { code: -32603, message: `Proxy Error: ${message}` },
+        id: id || null,
+    };
+    process.stdout.write(JSON.stringify(errorResponse));
+};
+
+rl.on('line', (line) => {
+    let requestBody;
+    try {
+        requestBody = JSON.parse(line);
+    } catch (e) {
+        sendError(null, 'Failed to parse incoming JSON from client.');
+        return;
+    }
+
+    const options = {
+        hostname: remoteUrl.hostname,
+        port: remoteUrl.port || (remoteUrl.protocol === 'https:' ? 443 : 80),
+        path: remoteUrl.pathname,
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(line),
+            'Accept': 'application/json'
+        }
+    };
+
+    const req = transport.request(options, (res) => {
+        let data = '';
+        res.on('data', (chunk) => {
+            data += chunk;
+        });
+        res.on('end', () => {
+            process.stdout.write(data);
+        });
+    });
+
+    req.on('error', (e) => {
+        console.error(`Request to remote failed: ${e.message}`);
+        sendError(requestBody.id, e.message);
+    });
+
+    req.write(line);
+    req.end();
 });
 
-gateway.on('error', (err) => {
-  console.error(`[Jean Memory] Failed to start connection: ${err.message}`);
-  console.error(`[Jean Memory] Please check your internet connection and try again.`);
-  process.exit(1);
-});
-
-// Handle termination signals
-process.on('SIGTERM', () => {
-  console.error('[Jean Memory] Received SIGTERM, shutting down...');
-  gateway.kill('SIGTERM');
-});
-
-process.on('SIGINT', () => {
-  console.error('[Jean Memory] Received SIGINT, shutting down...');
-  gateway.kill('SIGINT');
+rl.on('close', () => {
+    process.exit(0);
 }); 

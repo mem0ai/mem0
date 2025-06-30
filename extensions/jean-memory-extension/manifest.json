@@ -2,7 +2,7 @@
   "dxt_version": "0.1",
   "name": "jean-memory",
   "display_name": "Jean Memory",
-  "version": "1.0.0",
+  "version": "1.0.0", 
   "description": "Connect your personal AI memory to Claude Desktop",
   "long_description": "Jean Memory gives Claude access to your personal memory store, allowing it to remember conversations, learn your preferences, and provide contextual responses based on your history.",
   "author": {
@@ -24,12 +24,10 @@
     "type": "node",
     "entry_point": "server/index.js",
     "mcp_config": {
-      "command": "npx",
+      "command": "node",
       "args": [
-        "-y", 
-        "supergateway", 
-        "--sse", 
-        "https://api.jeanmemory.com/mcp/claude/sse/${user_config.user_id}"
+        "${__dirname}/server/index.js",
+        "https://jean-memory-api.onrender.com/mcp/v2/claude/${user_config.user_id}"
       ],
       "env": {}
     }
@@ -63,6 +61,10 @@
     {
       "name": "list_memories",
       "description": "Browse your stored memories"
+    },
+    {
+      "name": "store_document",
+      "description": "Store large documents like markdown files, code, or essays"
     }
   ],
   "compatibility": {
@@ -72,4 +74,4 @@
       "node": ">=16.0.0"
     }
   }
-}
+} 
