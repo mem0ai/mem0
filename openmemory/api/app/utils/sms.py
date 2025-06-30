@@ -278,7 +278,7 @@ Be smart, helpful, and conversational like you would be in any other Claude conv
 
             # Get Claude's decision with tool calling
             response = client.messages.create(
-                model="claude-3-5-haiku-20241022",  # Fast and smart for SMS
+                model="claude-sonnet-4-20250514",  # Fast and smart for SMS
                 max_tokens=300,
                 messages=[{"role": "user", "content": tool_selection_prompt}],
                 tools=tools
