@@ -167,48 +167,96 @@ I'm here to help you capture, organize, and understand your life experiences. Ju
 
 Reply STOP to unsubscribe."""
 
-            # Initialize OpenAI client
+            # Hard-coded patterns for reliability (fallback if AI fails)
+            message_lower = message.lower().strip()
+            
+            # ALWAYS use ask_memory for these common patterns
+            if any(pattern in message_lower for pattern in [
+                "what do you know about me",
+                "what do you remember about",
+                "tell me about my",
+                "what did I say about",
+                "what have I told you",
+                "what memories do",
+                "do you remember",
+                "remind me about"
+            ]):
+                logger.info(f"SMS hard-coded pattern match: using ask_memory for '{message}'")
+                result = await ask_memory(message)
+                if len(result) > 1300:
+                    return f"{result[:1250]}...\n\nWant me to dig deeper into any of that?"
+                else:
+                    return result
+            
+            # ALWAYS use add_memories for clear storage patterns
+            if any(pattern in message_lower for pattern in [
+                "remember that",
+                "don't forget",
+                "i just",
+                "today i",
+                "i'm feeling",
+                "my favorite"
+            ]) or message_lower.startswith(("remember", "save", "store")):
+                logger.info(f"SMS hard-coded pattern match: using add_memories for '{message}'")
+                result = await add_memories(message)
+                confirmations = [
+                    "Got it! I'll remember that.",
+                    "Noted! Thanks for sharing that with me.",
+                    "I've added that to your memories 👍",
+                    "Cool, I'll keep that in mind!",
+                    "Saved! I won't forget that.",
+                    "Perfect, I've got that stored for you."
+                ]
+                import random
+                return random.choice(confirmations)
+
+            # Use AI for everything else
             client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
             
             # AI prompt to determine which tool to use
             tool_selection_prompt = f"""
-You are Jean Memory's SMS assistant - a friendly, conversational AI that helps users manage their personal memories via text. You're like texting a smart friend who remembers everything about their life.
-
-IMPORTANT: You are a CHATBOT FIRST, memory tool SECOND. Many messages just need friendly conversation - not every message needs a memory tool.
+You are Jean Memory - a smart, conversational AI assistant that helps users manage their personal memories via SMS. You should respond like ChatGPT would, but with the added ability to remember and recall information.
 
 User's message: "{message}"
 
-CONVERSATIONAL CONTEXT - Choose the right response type:
+DECISION TREE - Choose the best response:
 
-🗣️ **CHAT ONLY** (no tool) - Use for:
-- Greetings: "Hey", "Hi", "Yo", "What's up"
-- General conversation: "How are you?", "What's going on?"
-- Thanks/acknowledgments: "Thanks", "Cool", "Awesome"
-- Quick questions about YOU: "What's your name?", "What do you do?"
+1. **ALWAYS use ask_memory for these patterns:**
+   - "what do you know about me"
+   - "what do you remember about"
+   - "tell me about my"
+   - "do I have any memories about"
+   - "what did I say about"
+   - "remind me about"
+   - "what have I told you"
 
-💾 **add_memories** - Use for:
-- Personal experiences: "I just had dinner with Sarah", "Feeling stressed about work"
-- Facts to remember: "My favorite coffee is Blue Bottle", "I live in Seattle"
-- Goals/plans: "I want to learn Spanish", "Meeting Tom tomorrow"
-- Feelings/thoughts: "I'm excited about the project", "Worried about the presentation"
+2. **ALWAYS use add_memories for these patterns:**
+   - "remember that"
+   - "don't forget"
+   - "I just" + personal experience
+   - "today I" + experience
+   - "I'm feeling" + emotion
+   - "my favorite" + preference
+   - Clear facts/experiences to store
 
-🔍 **ask_memory** - Use for:
-- Specific questions about their past: "What do I remember about Sarah?", "When did I last go to that restaurant?"
-- Recall requests: "Tell me about my meetings this week", "What did I say about my job?"
+3. **Use chat for everything else:**
+   - Greetings, questions about Jean Memory, casual conversation
 
-🧠 **deep_memory_query** - Use for:
-- Pattern analysis: "How do I usually feel on Mondays?", "What patterns do you see in my relationships?"
-- Insights: "Analyze my mood this month", "What trends do you notice?"
+**Key Rules:**
+- Be SMART like ChatGPT - don't give generic responses
+- If unsure whether they want info recalled, DEFAULT to ask_memory 
+- Always be helpful and conversational
+- Think about what the user ACTUALLY wants
 
 RESPONSE FORMAT:
-- If CHAT ONLY: {{"response_type": "chat", "message": "your friendly response here"}}
-- If using a tool: {{"response_type": "tool", "tool": "tool_name", "reasoning": "brief reason", "processed_message": "optimized message"}}
+- Chat: {{"type": "chat", "message": "intelligent helpful response"}}
+- Tool: {{"type": "tool", "tool": "tool_name", "processed_message": "optimized query"}}
 
 Examples:
-- "Yo" → {{"response_type": "chat", "message": "Hey! Good to hear from you! What's going on?"}}
-- "What's your name?" → {{"response_type": "chat", "message": "I'm Jean Memory! I'm your personal AI assistant who helps you remember and organize your thoughts and experiences. What's on your mind?"}}
-- "I just had an amazing lunch" → {{"response_type": "tool", "tool": "add_memories", "reasoning": "storing positive experience", "processed_message": "Had an amazing lunch"}}
-- "What did I say about my job?" → {{"response_type": "tool", "tool": "ask_memory", "reasoning": "recalling specific topic", "processed_message": "What did I say about my job?"}}
+- "what do you know about me" → {{"type": "tool", "tool": "ask_memory", "processed_message": "what do you know about me"}}
+- "hey there" → {{"type": "chat", "message": "Hey! Good to hear from you! What's on your mind?"}}
+- "I love pizza" → {{"type": "tool", "tool": "add_memories", "processed_message": "I love pizza"}}
+- "who are you" → {{"type": "chat", "message": "I'm Jean Memory! I'm your personal AI assistant that helps you remember things. What would you like to talk about?"}}
 """
 
             # Get AI decision
@@ -222,7 +270,7 @@ Examples:
             # Parse AI response
             try:
                 ai_decision = json.loads(response.choices[0].message.content.strip())
-                response_type = ai_decision.get("response_type")
+                response_type = ai_decision.get("type")
                 
                 if response_type == "chat":
                     # Direct chat response - no tool needed
@@ -234,9 +282,8 @@ Examples:
                     # Tool-based response
                     selected_tool = ai_decision.get("tool")
                     processed_message = ai_decision.get("processed_message", message)
-                    reasoning = ai_decision.get("reasoning", "")
                     
-                    logger.info(f"SMS AI selected tool '{selected_tool}' for message '{message}' - reasoning: {reasoning}")
+                    logger.info(f"SMS AI selected tool '{selected_tool}' for message '{message}'")
                 else:
                     logger.warning(f"Unknown response_type: {response_type}. Defaulting to ask_memory")
                     selected_tool = "ask_memory"
