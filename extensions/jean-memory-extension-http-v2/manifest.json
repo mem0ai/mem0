@@ -1,0 +1,79 @@
+{
+  "dxt_version": "0.1",
+  "name": "jean-memory-http",
+  "display_name": "Jean Memory (HTTP Transport)",
+  "version": "1.0.0",
+  "description": "Connect your personal AI memory to Claude Desktop - 50% faster with HTTP transport",
+  "long_description": "Jean Memory gives Claude access to your personal memory store with HTTP transport for faster performance. Allowing it to remember conversations, learn your preferences, and provide contextual responses based on your history.",
+  "author": {
+    "name": "Jean Memory",
+    "email": "support@jeanmemory.com",
+    "url": "https://github.com/jonathan-politzki"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jonathan-politzki/your-memory"
+  },
+  "homepage": "https://jeanmemory.com",
+  "documentation": "https://docs.jeanmemory.com",
+  "support": "https://jeanmemory.com/support",
+  "icon": "assets/icon.png",
+  "keywords": ["memory", "ai", "personal", "assistant", "claude", "mcp", "http", "fast"],
+  "license": "MIT",
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.js",
+    "mcp_config": {
+      "command": "npx",
+      "args": [
+        "-y", 
+        "supergateway", 
+        "--stdio", 
+        "https://jean-memory-api.onrender.com/mcp/v2/claude/${user_config.user_id}"
+      ],
+      "env": {}
+    }
+  },
+  "user_config": {
+    "user_id": {
+      "type": "string",
+      "title": "Jean Memory User ID",
+      "description": "Find and copy your User ID in the Claude Desktop install card in Jean Memory dashboard",
+      "required": true,
+      "sensitive": false
+    }
+  },
+  "tools": [
+    {
+      "name": "jean_memory",
+      "description": "Primary tool for conversational interactions with memory context"
+    },
+    {
+      "name": "search_memory", 
+      "description": "Search through your personal memories"
+    },
+    {
+      "name": "add_memories",
+      "description": "Save new information to your memory"
+    },
+    {
+      "name": "ask_memory",
+      "description": "Ask questions about your stored memories"
+    },
+    {
+      "name": "list_memories",
+      "description": "Browse your stored memories"
+    },
+    {
+      "name": "store_document",
+      "description": "Store large documents like markdown files, code, or essays"
+    }
+  ],
+  "compatibility": {
+    "claude_desktop": ">=0.1.0",
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=16.0.0"
+    }
+  }
+} 

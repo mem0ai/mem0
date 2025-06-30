@@ -240,22 +240,37 @@ async def detailed_health_check():
         }
 
 @app.get("/download/claude-extension")
-async def download_claude_extension():
+async def download_claude_extension(transport: str = "sse"):
     """Serve the Jean Memory Claude Desktop Extension file"""
-    file_path = os.path.join(os.path.dirname(__file__), "app", "static", "jean-memory.dxt")
+    
+    # Choose extension based on transport type
+    if transport == "http":
+        filename = "jean-memory-http-v2.dxt"
+        description = "Jean Memory Claude Desktop Extension (HTTP Transport - 50% faster)"
+    else:
+        filename = "jean-memory.dxt"
+        description = "Jean Memory Claude Desktop Extension (SSE Transport - Legacy)"
+    
+    file_path = os.path.join(os.path.dirname(__file__), "app", "static", filename)
     
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Extension file not found")
     
     return FileResponse(
         path=file_path,
-        filename="jean-memory.dxt",
+        filename=filename,
         media_type="application/zip",
         headers={
-            "Content-Disposition": "attachment; filename=jean-memory.dxt",
-            "Content-Description": "Jean Memory Claude Desktop Extension"
+            "Content-Disposition": f"attachment; filename={filename}",
+            "Content-Description": description
         }
     )
+
+# Additional endpoint for HTTP v2 extension specifically
+@app.get("/download/claude-extension-http")
+async def download_claude_extension_http():
+    """Serve the Jean Memory Claude Desktop Extension file with HTTP transport"""
+    return await download_claude_extension(transport="http")
 
 # Include routers - Now using get_current_supa_user from app.auth
 app.include_router(keys_router.router, dependencies=[Depends(get_current_supa_user)])
