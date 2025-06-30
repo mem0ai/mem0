@@ -117,8 +117,16 @@ async def handle_sms(request: Request):
 
     db = SessionLocal()
     try:
-        from app.utils.db import get_or_create_user
-        user = get_or_create_user(db, None, None, phone_number=user_phone)
+        # For SMS users, find by phone number instead of creating through get_or_create_user
+        user = db.query(User).filter(User.phone_number == user_phone).first()
+        
+        if not user:
+            # Phone number not found - this user needs to verify their phone first
+            sms_service.send_sms(
+                to_phone=user_phone,
+                message="Hi! I'm Jean Memory, your personal AI memory assistant. Please verify your phone number at jeanmemory.com first, then text me anything you want to remember!"
+            )
+            return Response(content=str(MessagingResponse()), media_type="application/xml")
 
         if not user.phone_verified:
             sms_service.send_sms(
