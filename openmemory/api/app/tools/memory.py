@@ -891,7 +891,11 @@ async def _lightweight_ask_memory_impl(question: str, supa_uid: str, client_name
                 # Access response.text safely
                 result = response
                 total_duration = time.time() - start_time
-                result += f"\n\n💡 Timings: search={search_duration:.2f}s, llm={llm_duration:.2f}s, total={total_duration:.2f}s | {len(clean_memories)} memories"
+                
+                # Only include timing info for non-SMS clients (for debugging)
+                current_client = client_name_var.get(None)
+                if current_client != "sms":
+                    result += f"\n\n💡 Timings: search={search_duration:.2f}s, llm={llm_duration:.2f}s, total={total_duration:.2f}s | {len(clean_memories)} memories"
                 
                 return result
             except asyncio.TimeoutError:

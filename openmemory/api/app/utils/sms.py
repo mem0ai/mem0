@@ -172,43 +172,43 @@ Reply STOP to unsubscribe."""
             
             # AI prompt to determine which tool to use
             tool_selection_prompt = f"""
-You are Jean Memory's SMS assistant - a personal AI that helps users manage their life memories via text message. 
+You are Jean Memory's SMS assistant - a friendly, conversational AI that helps users manage their personal memories via text. You're like texting a smart friend who remembers everything about their life.
 
-Your purpose: Help users capture, organize, and understand their personal experiences, thoughts, preferences, goals, and life patterns. You're their trusted memory companion that they can text anytime.
-
-Available tools:
-1. "add_memories" - Store new information, experiences, thoughts, goals, preferences, or anything they want to remember
-2. "ask_memory" - Search and recall their existing memories to answer questions about their life
-3. "deep_memory_query" - Provide insights, patterns, analysis, or deeper understanding of their memories
+IMPORTANT: You are a CHATBOT FIRST, memory tool SECOND. Many messages just need friendly conversation - not every message needs a memory tool.
 
 User's message: "{message}"
 
-Context awareness - Jean Memory users typically text about:
-- Life events, experiences, thoughts, feelings
-- Goals, plans, tasks, reminders
-- Preferences, opinions, learning experiences  
-- Relationships, work, health, personal growth
-- Questions about their past experiences or patterns
+CONVERSATIONAL CONTEXT - Choose the right response type:
 
-Tool selection patterns:
-- **add_memories**: "remember...", "I just...", "today I...", "don't forget...", personal statements, experiences, new insights
-- **ask_memory**: "what...", "when did I...", "tell me about...", "do I remember...", "find...", specific recall questions
-- **deep_memory_query**: "analyze...", "what patterns...", "how often do I...", "insights about...", "trends in my...", complex understanding requests
+🗣️ **CHAT ONLY** (no tool) - Use for:
+- Greetings: "Hey", "Hi", "Yo", "What's up"
+- General conversation: "How are you?", "What's going on?"
+- Thanks/acknowledgments: "Thanks", "Cool", "Awesome"
+- Quick questions about YOU: "What's your name?", "What do you do?"
 
-Important: Users text naturally - they don't know about tools. Interpret their intent as someone texting their personal memory assistant.
+💾 **add_memories** - Use for:
+- Personal experiences: "I just had dinner with Sarah", "Feeling stressed about work"
+- Facts to remember: "My favorite coffee is Blue Bottle", "I live in Seattle"
+- Goals/plans: "I want to learn Spanish", "Meeting Tom tomorrow"
+- Feelings/thoughts: "I'm excited about the project", "Worried about the presentation"
 
-Respond with ONLY this JSON:
-{{
-    "tool": "tool_name", 
-    "reasoning": "brief explanation of why this tool fits their memory needs",
-    "processed_message": "clean version optimized for the memory tool"
-}}
+🔍 **ask_memory** - Use for:
+- Specific questions about their past: "What do I remember about Sarah?", "When did I last go to that restaurant?"
+- Recall requests: "Tell me about my meetings this week", "What did I say about my job?"
+
+🧠 **deep_memory_query** - Use for:
+- Pattern analysis: "How do I usually feel on Mondays?", "What patterns do you see in my relationships?"
+- Insights: "Analyze my mood this month", "What trends do you notice?"
+
+RESPONSE FORMAT:
+- If CHAT ONLY: {{"response_type": "chat", "message": "your friendly response here"}}
+- If using a tool: {{"response_type": "tool", "tool": "tool_name", "reasoning": "brief reason", "processed_message": "optimized message"}}
 
 Examples:
-- "Remember I had a great meeting with Sarah today" → {{"tool": "add_memories", "reasoning": "storing positive work experience", "processed_message": "Had a great meeting with Sarah today"}}
-- "What do I remember about my meetings with Sarah?" → {{"tool": "ask_memory", "reasoning": "recalling past interactions", "processed_message": "What do I remember about my meetings with Sarah?"}}
-- "How do my work meetings usually go?" → {{"tool": "deep_memory_query", "reasoning": "analyzing work patterns", "processed_message": "How do my work meetings usually go?"}}
-- "I'm feeling anxious about tomorrow's presentation" → {{"tool": "add_memories", "reasoning": "capturing emotional state and context", "processed_message": "Feeling anxious about tomorrow's presentation"}}
+- "Yo" → {{"response_type": "chat", "message": "Hey! Good to hear from you! What's going on?"}}
+- "What's your name?" → {{"response_type": "chat", "message": "I'm Jean Memory! I'm your personal AI assistant who helps you remember and organize your thoughts and experiences. What's on your mind?"}}
+- "I just had an amazing lunch" → {{"response_type": "tool", "tool": "add_memories", "reasoning": "storing positive experience", "processed_message": "Had an amazing lunch"}}
+- "What did I say about my job?" → {{"response_type": "tool", "tool": "ask_memory", "reasoning": "recalling specific topic", "processed_message": "What did I say about my job?"}}
 """
 
             # Get AI decision
@@ -222,44 +222,59 @@ Examples:
             # Parse AI response
             try:
                 ai_decision = json.loads(response.choices[0].message.content.strip())
-                selected_tool = ai_decision.get("tool")
-                processed_message = ai_decision.get("processed_message", message)
-                reasoning = ai_decision.get("reasoning", "")
+                response_type = ai_decision.get("response_type")
                 
-                logger.info(f"SMS AI selected tool '{selected_tool}' for message '{message}' - reasoning: {reasoning}")
+                if response_type == "chat":
+                    # Direct chat response - no tool needed
+                    response_msg = ai_decision.get("message", "Hey! I'm here to help with your thoughts and memories. What's on your mind?")
+                    logger.info(f"SMS AI responded with chat-only message for '{message}'")
+                    return response_msg
+                
+                elif response_type == "tool":
+                    # Tool-based response
+                    selected_tool = ai_decision.get("tool")
+                    processed_message = ai_decision.get("processed_message", message)
+                    reasoning = ai_decision.get("reasoning", "")
+                    
+                    logger.info(f"SMS AI selected tool '{selected_tool}' for message '{message}' - reasoning: {reasoning}")
+                else:
+                    logger.warning(f"Unknown response_type: {response_type}. Defaulting to ask_memory")
+                    selected_tool = "ask_memory"
+                    processed_message = message
                 
             except (json.JSONDecodeError, KeyError) as e:
-                logger.warning(f"Failed to parse AI tool selection: {e}. Defaulting to ask_memory")
-                selected_tool = "ask_memory"
-                processed_message = message
+                logger.warning(f"Failed to parse AI tool selection: {e}. Defaulting to chat response")
+                # Default to friendly chat response for parsing errors
+                return "Hey! I'm here to help with your thoughts and memories. What would you like to talk about?"
             
             # Execute the selected tool
             if selected_tool == "add_memories":
                 result = await add_memories(processed_message)
-                # Natural confirmations for adding memories - Jean Memory style
+                # Natural, conversational confirmations
                 confirmations = [
-                    f"Added to your memory! {processed_message[:70]}{'...' if len(processed_message) > 70 else ''}",
-                    f"I'll remember that for you: {processed_message[:65]}{'...' if len(processed_message) > 65 else ''}",
-                    f"Captured in your Jean Memory: {processed_message[:60]}{'...' if len(processed_message) > 60 else ''}",
-                    f"Saved! {processed_message[:75]}{'...' if len(processed_message) > 75 else ''}",
-                    f"Memory stored: {processed_message[:70]}{'...' if len(processed_message) > 70 else ''}"
+                    f"Got it! I'll remember that.",
+                    f"Noted! Thanks for sharing that with me.",
+                    f"I've added that to your memories 👍",
+                    f"Cool, I'll keep that in mind!",
+                    f"Saved! I won't forget that.",
+                    f"Perfect, I've got that stored for you."
                 ]
                 import random
                 response_msg = random.choice(confirmations)
                 
             elif selected_tool == "deep_memory_query":
                 result = await deep_memory_query(processed_message)
-                # Natural deep analysis responses
+                # Keep deep analysis but make it more conversational
                 if len(result) > 1300:
-                    response_msg = f"{result[:1250]}...\n\nThere's more detail in your dashboard if you need it."
+                    response_msg = f"{result[:1250]}...\n\nThere's more to explore - just ask!"
                 else:
                     response_msg = result
                     
             else:  # Default to ask_memory  
                 result = await ask_memory(processed_message)
-                # Natural search responses
+                # More natural search responses
                 if len(result) > 1300:
-                    response_msg = f"{result[:1250]}...\n\nNeed more details? Just ask!"
+                    response_msg = f"{result[:1250]}...\n\nWant me to dig deeper into any of that?"
                 else:
                     response_msg = result
             
