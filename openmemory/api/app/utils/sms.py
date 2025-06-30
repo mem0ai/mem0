@@ -128,7 +128,7 @@ class SMSService:
     async def process_command(self, message: str, user_id: str) -> str:
         """
         Process SMS command using AI to select the appropriate memory tool.
-        Limited to: add_memories, ask_memory, deep_memory_query
+        Available tools: add_memories, ask_memory, deep_memory_query, chat_only
         
         Args:
             message: The SMS message content
@@ -156,12 +156,13 @@ class SMSService:
 "When did I last feel anxious about work?"
 "Tell me about my favorite places"
 
-🧠 Understand patterns:
+🧠 Deep analysis & synthesis:
 "How do my work meetings usually go?"
 "What patterns do you see in my mood?"
 "Analyze my relationship with anxiety"
+"Find insights across all my documents"
 
-I'm here to help you capture, organize, and understand your life experiences. Just text naturally!
+I can search your memories AND analyze full documents for deeper insights. Just text naturally!
 
 Reply STOP to unsubscribe."""
 
@@ -208,6 +209,28 @@ Reply STOP to unsubscribe."""
                 import random
                 return random.choice(confirmations)
 
+            # ALWAYS use deep_memory_query for complex analysis patterns
+            if any(pattern in message_lower for pattern in [
+                "analyze",
+                "what patterns",
+                "understand patterns",
+                "how do my",
+                "what insights",
+                "synthesize",
+                "find insights",
+                "across all my",
+                "in my documents",
+                "deep dive",
+                "comprehensive",
+                "relationship between"
+            ]):
+                logger.info(f"SMS hard-coded pattern match: using deep_memory_query for '{message}'")
+                result = await deep_memory_query(message)
+                if len(result) > 1300:
+                    return f"{result[:1250]}...\n\nThis was a deep analysis - I can go into more detail if you'd like!"
+                else:
+                    return result
+
             # Use Claude for everything else (superior tool calling)
             import anthropic
             client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
@@ -217,24 +240,30 @@ Reply STOP to unsubscribe."""
 
 User message: "{message}"
 
+IMPORTANT: You are having a personal conversation via SMS. Always address the user directly as "you" (never "the user is" or third-person language). This is like texting a friend who remembers everything about you.
+
 You have these tools available:
-1. ask_memory - Search and recall existing memories to answer questions
+1. ask_memory - Search and recall existing memories to answer questions (fast, snippets only)
 2. add_memories - Store new information, experiences, thoughts, or facts
-3. chat_only - Respond conversationally without using tools
+3. deep_memory_query - Comprehensive analysis including full documents, synthesis across many memories, pattern recognition (slower but deeper)
+4. chat_only - Respond conversationally without using tools
 
-Use your intelligence to determine the best response. Claude's superior tool calling should make smart decisions about:
+Use your intelligence to determine the best response. Consider:
 
-- When the user wants information recalled → use ask_memory
+- For simple questions about existing memories → use ask_memory
 - When the user shares something to remember → use add_memories  
-- When it's just conversation → use chat_only
+- For complex analysis, document searches, or "understand patterns" requests → use deep_memory_query
+- For greetings or general conversation → use chat_only
 
-Be smart, helpful, and conversational like you would be in any other Claude conversation."""
+Deep memory is perfect for: synthesis across many memories, finding needle-in-haystack information, analyzing full documents, understanding patterns and relationships.
+
+Be smart, helpful, and conversational like you would be in any other Claude conversation. Remember: address them as "you" since this is a personal SMS conversation."""
 
             # Define tools for Claude
             tools = [
                 {
                     "name": "ask_memory",
-                    "description": "Search the user's memories to answer questions about their life, experiences, or information they've shared",
+                    "description": "Search the user's memories to answer questions about their life, experiences, or information they've shared. Fast but only sees memory snippets.",
                     "input_schema": {
                         "type": "object",
                         "properties": {
@@ -258,6 +287,20 @@ Be smart, helpful, and conversational like you would be in any other Claude conv
                             }
                         },
                         "required": ["content"]
+                    }
+                },
+                {
+                    "name": "deep_memory_query",
+                    "description": "Comprehensive analysis including full documents, synthesis across many memories, pattern recognition. Use for complex questions that need deep analysis or document searching.",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "The complex question or analysis request"
+                            }
+                        },
+                        "required": ["query"]
                     }
                 },
                 {
@@ -316,6 +359,13 @@ Be smart, helpful, and conversational like you would be in any other Claude conv
                                 import random
                                 return random.choice(confirmations)
                                 
+                            elif tool_name == "deep_memory_query":
+                                result = await deep_memory_query(tool_input.get("query", message))
+                                if len(result) > 1300:
+                                    return f"{result[:1250]}...\n\nThis was a deep analysis - I can go into more detail if you'd like!"
+                                else:
+                                    return result
+                                    
                             elif tool_name == "chat_only":
                                 return tool_input.get("response", "Hey! I'm here to help with your thoughts and memories. What's on your mind?")
                                 

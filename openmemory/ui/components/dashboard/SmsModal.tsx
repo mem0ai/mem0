@@ -216,6 +216,7 @@ export function SmsModal({ open, onOpenChange }: SmsModalProps) {
             <div>• "Remember I had a great meeting with Sarah today"</div>
             <div>• "What do I remember about my anxiety triggers?"</div>
             <div>• "How do my work meetings usually go?"</div>
+            <div>• "Analyze patterns in my mood over time"</div>
             <div>• Text "help" anytime for more examples.</div>
           </div>
         </div>

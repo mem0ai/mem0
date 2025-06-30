@@ -1,6 +1,7 @@
 import React from "react";
 import { BiEdit } from "react-icons/bi";
 import Image from "next/image";
+import { MessageSquareText } from "lucide-react";
 
 export const Icon = ({ source }: { source: string }) => {
   return (
@@ -14,6 +15,11 @@ export const constants = {
   'request-integration': {
     name: "Request Integration",
     icon: <div className="w-4 h-4 rounded-full bg-zinc-700 flex items-center justify-center text-white text-xs font-bold">+</div>,
+    iconImage: null,
+  },
+  sms: {
+    name: "SMS",
+    icon: <MessageSquareText className="w-4 h-4 text-primary" />,
     iconImage: null,
   },
   chatgpt: {

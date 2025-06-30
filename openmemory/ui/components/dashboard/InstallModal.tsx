@@ -411,6 +411,7 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
                             <li>"Remember I had a great meeting with Sarah today"</li>
                             <li>"What do I remember about my anxiety triggers?"</li>
                             <li>"How do my work meetings usually go?"</li>
+                            <li>"Analyze patterns in my mood over time"</li>
                             <li>Text "help" anytime for more examples.</li>
                         </ul>
                       </div>
