@@ -110,53 +110,152 @@ Migrate all MCP clients from SSE transport to HTTP transport for:
 
 ## Recommended HTTP Transport Migration Strategy
 
+### HYBRID APPROACH: Best of Both Worlds
+
+**Core Strategy**: Keep existing Cloudflare SSE infrastructure for legacy users, route new HTTP installs directly to Render backend.
+
+#### Advantages of Hybrid Approach
+
+**Why Keep Cloudflare for SSE?**
+1. **Zero Breaking Changes**: Existing users continue working without any updates
+2. **Proven Stability**: Current SSE setup is working reliably post-rollback  
+3. **Geographic Performance**: Cloudflare edge locations provide global latency benefits
+4. **Rate Limiting**: Cloudflare provides built-in DDoS protection and rate limiting
+5. **SSL Termination**: Handles certificate management automatically
+6. **Caching**: Can cache static responses and reduce backend load
+
+**Why Direct Render for HTTP?**
+1. **Simplified Architecture**: Eliminates proxy layer complexity
+2. **Better Debugging**: Direct logs and error handling
+3. **Lower Latency**: No additional proxy hop
+4. **Protocol Flexibility**: Can implement custom HTTP optimizations
+5. **Cost Efficiency**: Reduces Cloudflare bandwidth costs
+6. **Infrastructure Control**: Full control over transport implementation
+
+#### Migration Architecture
+
+```
+LEGACY USERS (SSE):
+Extension → Cloudflare Worker → Render Backend
+- URL: https://api.jeanmemory.com/mcp/claude/sse/{user_id}
+- Transport: SSE with --sse flag
+- Status: Stable, no changes needed
+
+NEW USERS (HTTP):  
+Extension → Render Backend (Direct)
+- URL: https://jean-memory-api.onrender.com/mcp/v2/claude/{user_id}
+- Transport: HTTP with --stdio flag  
+- Status: New implementation needed
+```
+
 ### Phase 1: Infrastructure Hardening
-1. **Eliminate Cloudflare Dependency**
-   - Route directly to `jean-memory-api.onrender.com`
-   - Remove Cloudflare worker from critical path
-   - Use Cloudflare only for static assets/CDN
 
-2. **Implement Transport Negotiation**
-   - Backend supports both SSE and HTTP on same endpoints
-   - Clients can specify preferred transport
-   - Graceful fallback if transport fails
+1. **Maintain Cloudflare SSE Path**
+   - Keep existing `api.jeanmemory.com` worker operational
+   - No changes to current SSE implementation
+   - Existing users remain unaffected
 
-3. **Version-Aware Endpoints**
+2. **Implement Direct HTTP Endpoints**
+   - Add new `/mcp/v2/` endpoints to Render backend
+   - Support HTTP transport with auto-detection
+   - Implement proper CORS and security headers
+   - Add comprehensive logging and monitoring
+
+3. **Version-Aware Endpoint Structure**
    ```
-   /mcp/v1/{client}/{user_id}  # SSE transport (legacy)
-   /mcp/v2/{client}/{user_id}  # HTTP transport (new)
-   ```
-
-### Phase 2: Client Migration
-1. **Backward Compatible Rollout**
-   - New clients use HTTP transport by default
-   - Old clients continue using SSE transport
-   - Both work simultaneously
-
-2. **Gradual Migration**
-   - Update dashboard to offer both install options
-   - "Upgrade to HTTP transport" option for existing users
-   - Clear performance benefits messaging
-
-3. **Extension Strategy**
-   - Abandon `.dxt` format entirely
-   - Provide direct MCP configuration JSON
-   - Users copy-paste into Claude Desktop settings
-
-### Phase 3: Infrastructure Simplification
-1. **Direct Backend Routing**
-   ```
-   # Old (fragile)
-   Extension → Cloudflare Worker → Backend
+   # Legacy SSE (via Cloudflare)
+   https://api.jeanmemory.com/mcp/claude/sse/{user_id}
    
-   # New (reliable)  
-   Extension → Backend (direct)
+   # New HTTP (direct to Render)  
+   https://jean-memory-api.onrender.com/mcp/v2/claude/{user_id}
+   https://jean-memory-api.onrender.com/mcp/v2/chatgpt/{user_id}
+   https://jean-memory-api.onrender.com/mcp/v2/chorus/{user_id}
    ```
 
-2. **Transport Detection**
-   - Backend auto-detects transport from request headers
-   - No client-side transport flags needed
-   - Eliminates supergateway dependency
+### Phase 2: Dual Installation Options
+
+1. **Dashboard Updates**
+   ```
+   INSTALLATION OPTIONS:
+   
+   ⚡ HTTP Transport (Recommended - 50% faster)
+   📋 Copy this MCP configuration:
+   {
+     "jean-memory": {
+       "command": "npx",
+       "args": ["-y", "supergateway", "--stdio", 
+                "https://jean-memory-api.onrender.com/mcp/v2/claude/{user_id}"]
+     }
+   }
+   
+   🔄 SSE Transport (Legacy - Current users)
+   📋 Copy this MCP configuration:
+   {
+     "jean-memory": {
+       "command": "npx", 
+       "args": ["-y", "supergateway", "--sse",
+                "https://api.jeanmemory.com/mcp/claude/sse/{user_id}"]
+     }
+   }
+   ```
+
+2. **Performance Messaging**
+   - Clear benefits: "50% faster, more reliable"
+   - Migration incentive: "Upgrade to HTTP for better performance"
+   - No pressure: "Your current setup will continue working"
+
+3. **Client-Specific Optimizations**
+   - **Claude Desktop**: Direct MCP config (abandon .dxt)
+   - **ChatGPT**: Already using direct HTTP URLs
+   - **Chorus**: Can immediately switch to HTTP
+   - **API Users**: Gradual migration with both endpoints
+
+### Phase 3: Long-term Evolution
+
+1. **Monitor Migration Metrics**
+   ```
+   Track:
+   - HTTP vs SSE usage ratios
+   - Performance improvements (latency, reliability)
+   - User satisfaction and adoption rates
+   - Infrastructure costs (Cloudflare vs direct)
+   ```
+
+2. **Gradual SSE Deprecation** (6+ months later)
+   - Announce SSE deprecation timeline
+   - Provide migration assistance
+   - Maintain backward compatibility until <5% SSE usage
+
+3. **Infrastructure Optimization**
+   - Evaluate Cloudflare value for HTTP transport
+   - Consider Cloudflare for static assets only
+   - Optimize Render backend for direct connections
+
+#### Cloudflare Value Analysis for HTTP Transport
+
+**Potential Benefits:**
+- **Global Edge**: 300+ locations vs Render's limited regions
+- **DDoS Protection**: Built-in security layer
+- **Caching**: Can cache tool schemas and static responses
+- **Analytics**: Built-in request analytics and monitoring
+- **SSL**: Automatic certificate management
+
+**Potential Drawbacks:**
+- **Added Complexity**: Another layer to debug and maintain
+- **Vendor Lock-in**: Dependency on Cloudflare infrastructure  
+- **Cost**: Bandwidth and request costs
+- **Latency**: Additional proxy hop for dynamic requests
+
+**Recommendation**: Start with direct Render routing for HTTP to prove performance benefits, then evaluate adding Cloudflare back as a CDN layer if global performance becomes critical.
+
+### Implementation Priority
+
+**Week 1**: Backend v2 endpoints with HTTP transport
+**Week 2**: Dashboard dual installation options  
+**Week 3**: Soft launch HTTP option to power users
+**Week 4**: Full rollout with performance marketing
+
+This hybrid approach provides the safest migration path while delivering immediate performance benefits to new users.
 
 ## Implementation Roadmap
 
