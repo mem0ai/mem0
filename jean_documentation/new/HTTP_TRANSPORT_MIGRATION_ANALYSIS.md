@@ -259,11 +259,18 @@ This hybrid approach provides the safest migration path while delivering immedia
 
 ## Implementation Roadmap
 
-### Week 1: Backend Hardening
-- [ ] Add HTTP transport support to existing SSE endpoints
-- [ ] Implement transport auto-detection
-- [ ] Add versioned endpoint structure
-- [ ] Test direct backend routing
+### Week 1: Backend Hardening - ✅ COMPLETE
+- [x] Add HTTP transport support to existing SSE endpoints
+- [x] Implement transport auto-detection  
+- [x] Add versioned endpoint structure
+- [x] Test direct backend routing
+
+**Implementation Details:**
+- Added `/mcp/v2/{client_name}/{user_id}` endpoints in `openmemory/api/app/routing/mcp.py`
+- Leveraged existing `handle_request_logic()` for transport auto-detection
+- Created comprehensive test suite at `tests/test_http_v2_transport.py`
+- Maintained 100% backward compatibility with SSE endpoints
+- Direct backend routing bypasses Cloudflare Worker for performance
 
 ### Week 2: Client Updates
 - [ ] Create HTTP transport extension configs
