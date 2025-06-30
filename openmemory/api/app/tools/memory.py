@@ -865,14 +865,14 @@ async def _lightweight_ask_memory_impl(question: str, supa_uid: str, client_name
                 total_chars += len(memory_line)
             
             # Use LLM for fast, cheap synthesis with safer prompt
-            prompt = f"""Based on the user's memories below, please answer their question.
+            prompt = f"""You are an AI assistant answering a question about someone's personal memories. Always address them directly as "you" (never "the user" or third person).
             
-            Memories:
+            Their memories:
             {chr(10).join(clean_memories)}
             
-            Question: {question}
+            Their question: {question}
             
-            Answer concisely based only on the provided memories."""
+            Answer their question based only on their memories. Address them directly as "you" in your response."""
             
             try:
                 llm_start_time = time.time()

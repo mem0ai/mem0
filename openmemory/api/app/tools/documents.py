@@ -582,13 +582,13 @@ async def _deep_memory_query_impl(search_query: str, supa_uid: str, client_name:
     from app.services.chunking_service import ChunkingService
     from app.models import Document
     
-    # Use expanded limits to provide richer context
+    # Use configured limits - NO HARDCODED CAPS! Let it use hundreds of memories
     if memory_limit is None:
-        memory_limit = min(25, MEMORY_LIMITS.deep_memory_default)
+        memory_limit = MEMORY_LIMITS.deep_memory_default  # Now 200!
     if chunk_limit is None:
-        chunk_limit = min(20, MEMORY_LIMITS.deep_chunk_default)
-    memory_limit = min(max(1, memory_limit), min(30, MEMORY_LIMITS.deep_memory_max))  # Hard cap at 30
-    chunk_limit = min(max(1, chunk_limit), min(25, MEMORY_LIMITS.deep_chunk_max))    # Hard cap at 25
+        chunk_limit = MEMORY_LIMITS.deep_chunk_default    # Now 50!
+    memory_limit = min(max(1, memory_limit), MEMORY_LIMITS.deep_memory_max)  # Up to 500 memories!
+    chunk_limit = min(max(1, chunk_limit), MEMORY_LIMITS.deep_chunk_max)     # Up to 100 chunks!
     
     import time
     start_time = time.time()
