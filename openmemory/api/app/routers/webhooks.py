@@ -65,17 +65,7 @@ class CheckRequest(BaseModel):
 sms_service = SMSService()
 
 @router.post("/sms")
-async def handle_sms(
-    request: Request,
-    From: str = Form(...),
-    To: str = Form(...),
-    Body: str = Form(...),
-    MessageSid: str = Form(...),
-    SmsSid: str = Form(...),
-    AccountSid: str = Form(...),
-    NumMedia: int = Form(...),
-    MessagingServiceSid: Optional[str] = Form(None),
-):
+async def handle_sms(request: Request):
     """
     Handle incoming SMS messages from Twilio.
     """
@@ -87,22 +77,30 @@ async def handle_sms(
     if twilio_account_sid:
         logger.info(f"Account SID starts with: {twilio_account_sid[:10]}...")
     
+    # Get ALL form data for signature validation
+    form_data = await request.form()
+    post_data = {key: value for key, value in form_data.items()}
+    
+    # Extract required parameters from form data
+    From = post_data.get('From')
+    To = post_data.get('To')
+    Body = post_data.get('Body')
+    MessageSid = post_data.get('MessageSid')
+    SmsSid = post_data.get('SmsSid')
+    AccountSid = post_data.get('AccountSid')
+    NumMedia = int(post_data.get('NumMedia', 0))
+    MessagingServiceSid = post_data.get('MessagingServiceSid')
+    
+    # Validate required parameters
+    if not all([From, To, Body, MessageSid, SmsSid, AccountSid]):
+        logger.error(f"Missing required SMS parameters: From={From}, To={To}, Body={Body}, MessageSid={MessageSid}, SmsSid={SmsSid}, AccountSid={AccountSid}")
+        raise HTTPException(status_code=400, detail="Missing required parameters")
+    
     # 1. Validate Twilio signature (Security First) 
     signature = request.headers.get('X-Twilio-Signature', '')
-    post_data = {
-        'From': From,
-        'To': To, 
-        'Body': Body,
-        'MessageSid': MessageSid,
-        'SmsSid': SmsSid,
-        'AccountSid': AccountSid,
-        'NumMedia': str(NumMedia)
-    }
-    if MessagingServiceSid:
-        post_data['MessagingServiceSid'] = MessagingServiceSid
-    
     request_url = str(request.url)
     logger.info(f"Webhook signature validation - URL: {request_url}, Signature present: {bool(signature)}")
+    logger.info(f"Form data keys: {list(post_data.keys())}")
     
     if not SMSWebhookValidator.validate_webhook_signature(request_url, post_data, signature):
         logger.warning(f"Invalid Twilio webhook signature from {From}")
