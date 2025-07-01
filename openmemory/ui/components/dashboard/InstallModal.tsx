@@ -384,90 +384,92 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
                 </Button>
             </div>
         ) : app.id === 'sms' ? (
-            <div className="py-2 space-y-4 text-left">
-              {status !== 'sent' && status !== 'verifying' ? (
-                <>
-                  <div className="space-y-1">
-                      <Label htmlFor="phone-number" className="text-sm font-medium text-foreground">Phone Number *</Label>
-                      <Input
-                        id="phone-number"
-                        type="tel"
-                        placeholder="(555) 123-4567"
-                        value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
-                        className="bg-background"
-                        disabled={status === 'sending'}
-                      />
-                      <p className="text-xs text-muted-foreground pt-1">US phone numbers only. Message & data rates may apply.</p>
-                  </div>
+            <div className="sm:contents max-sm:space-y-4">
+              <div className="py-2 space-y-4 text-left">
+                {status !== 'sent' && status !== 'verifying' ? (
+                  <>
+                    <div className="space-y-1">
+                        <Label htmlFor="phone-number" className="text-sm font-medium text-foreground">Phone Number *</Label>
+                        <Input
+                          id="phone-number"
+                          type="tel"
+                          placeholder="(555) 123-4567"
+                          value={phoneNumber}
+                          onChange={(e) => setPhoneNumber(e.target.value)}
+                          className="bg-background"
+                          disabled={status === 'sending'}
+                        />
+                        <p className="text-xs text-muted-foreground pt-1">US phone numbers only. Message & data rates may apply.</p>
+                    </div>
 
-                  <div className="bg-muted border rounded-lg p-3 text-sm mt-4">
-                    <div className="flex items-start">
-                      <Info className="h-4 w-4 text-muted-foreground mt-0.5 mr-2 flex-shrink-0"/>
-                      <div>
-                        <p className="font-semibold text-foreground mb-2">Text Your Memory Assistant:</p>
-                        <ul className="list-disc list-inside text-muted-foreground space-y-1 text-xs">
-                            <li>Text like talking to a trusted friend who remembers everything!</li>
-                            <li>"Remember I had a great meeting with Sarah today"</li>
-                            <li>"What do I remember about my anxiety triggers?"</li>
-                            <li>"How do my work meetings usually go?"</li>
-                            <li>"Analyze patterns in my mood over time"</li>
-                            <li>Text "help" anytime for more examples.</li>
-                        </ul>
+                    <div className="bg-muted border rounded-lg p-3 text-sm mt-4">
+                      <div className="flex items-start">
+                        <Info className="h-4 w-4 text-muted-foreground mt-0.5 mr-2 flex-shrink-0"/>
+                        <div>
+                          <p className="font-semibold text-foreground mb-2">Text Your Memory Assistant:</p>
+                          <ul className="list-disc list-inside text-muted-foreground space-y-1 text-xs">
+                              <li>Text like talking to a trusted friend who remembers everything!</li>
+                              <li>"Remember I had a great meeting with Sarah today"</li>
+                              <li>"What do I remember about my anxiety triggers?"</li>
+                              <li>"How do my work meetings usually go?"</li>
+                              <li>"Analyze patterns in my mood over time"</li>
+                              <li>Text "help" anytime for more examples.</li>
+                          </ul>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="items-top flex space-x-3 pt-4">
-                      <Checkbox
-                          id="terms-sms"
-                          checked={hasConsented}
-                          onCheckedChange={(checked) => setHasConsented(checked as boolean)}
-                          className="data-[state=checked]:bg-primary border-border mt-0.5"
-                          disabled={status === 'sending'}
+                    <div className="items-top flex space-x-3 pt-4">
+                        <Checkbox
+                            id="terms-sms"
+                            checked={hasConsented}
+                            onCheckedChange={(checked) => setHasConsented(checked as boolean)}
+                            className="data-[state=checked]:bg-primary border-border mt-0.5"
+                            disabled={status === 'sending'}
+                        />
+                        <div className="grid gap-1.5 leading-none">
+                            <label
+                              htmlFor="terms-sms"
+                              className="text-xs text-muted-foreground font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                            >
+                              I accept the <a href="/sms-terms" target="_blank" rel="noopener noreferrer" className="underline hover:text-primary">SMS Terms of Service</a> & <a href="https://jonathan-politzki.github.io/jean-privacy-policy/" target="_blank" rel="noopener noreferrer" className="underline hover:text-primary">Privacy Policy</a>.
+                            </label>
+                        </div>
+                    </div>
+
+                    <p className="text-xs text-muted-foreground pt-3">
+                      By providing your phone number, you agree to receive informational text messages from Jean Memory. Consent is not a condition of purchase. Messages Frequency will vary. Msg & data rates may apply. Reply HELP for help or STOP to cancel.
+                    </p>
+                  </>
+                ) : (
+                  <div className="space-y-2 pt-2 text-center">
+                      <Label htmlFor="verification-code" className="text-sm font-medium text-foreground">Enter Verification Code</Label>
+                      <p className="text-xs text-muted-foreground pb-2">A 6-digit code was sent to {phoneNumber}.</p>
+                      <Input
+                        id="verification-code"
+                        type="text"
+                        placeholder="123456"
+                        value={verificationCode}
+                        onChange={(e) => setVerificationCode(e.target.value)}
+                        className="bg-background text-center text-lg tracking-widest"
+                        maxLength={6}
+                        disabled={['verifying', 'verified'].includes(status)}
                       />
-                      <div className="grid gap-1.5 leading-none">
-                          <label
-                            htmlFor="terms-sms"
-                            className="text-xs text-muted-foreground font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                          >
-                            I accept the <a href="/sms-terms" target="_blank" rel="noopener noreferrer" className="underline hover:text-primary">SMS Terms of Service</a> & <a href="https://jonathan-politzki.github.io/jean-privacy-policy/" target="_blank" rel="noopener noreferrer" className="underline hover:text-primary">Privacy Policy</a>.
-                          </label>
-                      </div>
                   </div>
+                )}
+                
+                {errorMessage && (
+                  <div className="text-center text-sm text-red-500 bg-red-500/10 p-2 rounded-md">
+                      {errorMessage}
+                  </div>
+                )}
 
-                  <p className="text-xs text-muted-foreground pt-3">
-                    By providing your phone number, you agree to receive informational text messages from Jean Memory. Consent is not a condition of purchase. Messages Frequency will vary. Msg & data rates may apply. Reply HELP for help or STOP to cancel.
-                  </p>
-                </>
-              ) : (
-                <div className="space-y-2 pt-2 text-center">
-                    <Label htmlFor="verification-code" className="text-sm font-medium text-foreground">Enter Verification Code</Label>
-                    <p className="text-xs text-muted-foreground pb-2">A 6-digit code was sent to {phoneNumber}.</p>
-                    <Input
-                      id="verification-code"
-                      type="text"
-                      placeholder="123456"
-                      value={verificationCode}
-                      onChange={(e) => setVerificationCode(e.target.value)}
-                      className="bg-background text-center text-lg tracking-widest"
-                      maxLength={6}
-                      disabled={['verifying', 'verified'].includes(status)}
-                    />
-                </div>
-              )}
-              
-              {errorMessage && (
-                <div className="text-center text-sm text-red-500 bg-red-500/10 p-2 rounded-md">
-                    {errorMessage}
-                </div>
-              )}
-
-              {status === 'verified' && (
-                <div className="text-center text-sm text-green-500 font-semibold pt-2">
-                    ✓ Verified! You can now use SMS.
-                </div>
-              )}
+                {status === 'verified' && (
+                  <div className="text-center text-sm text-green-500 font-semibold pt-2">
+                      ✓ Verified! You can now use SMS.
+                  </div>
+                )}
+              </div>
             </div>
         ) : app.id === 'chorus' ? (
           <div className="space-y-4 py-2">
@@ -537,7 +539,7 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
         )}
         
         {app.id === 'sms' ? (
-            <div className="mt-6 flex justify-end gap-3 max-sm:flex-col max-sm:space-y-2">
+            <div className="mt-6 flex justify-end gap-3 max-sm:flex-col max-sm:space-y-2 max-sm:px-4 max-sm:pb-4 max-sm:bg-background max-sm:border-t max-sm:border-border max-sm:-mx-4 max-sm:-mb-4 max-sm:mt-4">
                 <Button variant="outline" onClick={() => onOpenChange(false)}>
                     Cancel
                 </Button>
