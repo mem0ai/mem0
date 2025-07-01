@@ -207,6 +207,17 @@ async def verify_phone_number(
         user.sms_enabled = True
         db.commit()
         
+        # --- Send a welcome SMS ---
+        try:
+            welcome_message = "Welcome to Jean Memory! 🎉 You're all set. Save this number and text me anything you want to remember. I'm here to help 24/7!"
+            sms_service = SMSService()
+            sms_service.send_sms(user.phone_number, welcome_message)
+            logger.info(f"Sent welcome SMS to user {user.id} at {user.phone_number}")
+        except Exception as e:
+            # Log if the welcome SMS fails, but don't fail the whole request
+            # as the verification itself was successful.
+            logger.error(f"Failed to send welcome SMS to user {user.id}: {e}")
+
         return {
             "message": "Phone number verified successfully",
             "phone_number": user.phone_number,

@@ -39,6 +39,11 @@ class SubscriptionTier(PyEnum):
     ENTERPRISE = "ENTERPRISE"
 
 
+class SMSRole(enum.Enum):
+    USER = "USER"
+    ASSISTANT = "ASSISTANT"
+
+
 class User(Base):
     __tablename__ = "users"
     id = Column(UUID, primary_key=True, default=lambda: uuid.uuid4())
@@ -70,6 +75,7 @@ class User(Base):
     memories = relationship("Memory", back_populates="user")
     documents = relationship("Document", back_populates="user")
     narrative = relationship("UserNarrative", back_populates="user", uselist=False)
+    sms_conversations = relationship("SMSConversation", back_populates="user")
 
 
 class App(Base):
@@ -285,6 +291,21 @@ class UserNarrative(Base):
     
     __table_args__ = (
         Index('idx_narrative_user_generated', 'user_id', 'generated_at'),
+    )
+
+
+class SMSConversation(Base):
+    __tablename__ = "sms_conversations"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    role = Column(Enum(SMSRole), nullable=False)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=get_current_utc_time, nullable=False, index=True)
+
+    user = relationship("User", back_populates="sms_conversations")
+
+    __table_args__ = (
+        Index('idx_sms_conversation_user_created', 'user_id', 'created_at'),
     )
 
 
