@@ -246,24 +246,23 @@
                 "icon": "plug",
                 "pages": [
                   "integrations",
-                  "integrations/agentops",
-                  "integrations/vercel-ai-sdk",
-                  "integrations/flowise",
-                  "integrations/crewai",
-                  "integrations/autogen",
                   "integrations/langchain",
                   "integrations/langgraph",
                   "integrations/llama-index",
-                  "integrations/langchain-tools",
-                  "integrations/dify",
-                  "integrations/mcp-server",
-                  "integrations/livekit",
-                  "integrations/elevenlabs",
-                  "integrations/pipecat",
                   "integrations/agno",
+                  "integrations/autogen",
+                  "integrations/crewai",
+                  "integrations/mastra",
+                  "integrations/vercel-ai-sdk",
+                  "integrations/livekit",
+                  "integrations/pipecat",
+                  "integrations/elevenlabs",
+                  "integrations/flowise",
+                  "integrations/langchain-tools",
+                  "integrations/agentops",
                   "integrations/keywords",
-                  "integrations/raycast",
-                  "integrations/mastra"
+                  "integrations/dify",
+                  "integrations/raycast"
                 ]
               }
             ]
