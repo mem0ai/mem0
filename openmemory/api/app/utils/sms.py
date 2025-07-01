@@ -129,6 +129,8 @@ END:VCARD"""
 
 You're all set! I've sent you my contact card so you can easily save my number.
 
+💡 Pro tip: Pin this conversation so you can always find me quickly!
+
 Text me anything you want to remember - I'm here to help 24/7!
 
 Try: "Remember I love this coffee shop" or "What did I say about work?"
