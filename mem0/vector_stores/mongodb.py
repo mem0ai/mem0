@@ -22,7 +22,7 @@ class OutputData(BaseModel):
     payload: Optional[dict]
 
 
-class MongoVector(VectorStoreBase):
+class MongoDB(VectorStoreBase):
     VECTOR_TYPE = "knnVector"
     SIMILARITY_METRIC = "cosine"
 

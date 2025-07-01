@@ -16,8 +16,7 @@ config = {
         "config": {
             "db_name": "mem0-db",
             "collection_name": "mem0-collection",
-            "user": "my-user",
-            "password": "my-password",
+            "mongo_uri":"mongodb://username:password@localhost:27017"
         }
     }
 }
@@ -41,9 +40,6 @@ Here are the parameters available for configuring MongoDB:
 | db_name | Name of the MongoDB database | `"mem0_db"` |
 | collection_name | Name of the MongoDB collection | `"mem0_collection"` |
 | embedding_model_dims | Dimensions of the embedding vectors | `1536` |
-| user | MongoDB user for authentication | `None` |
-| password | Password for the MongoDB user | `None` |
-| host | MongoDB host | `"localhost"` |
-| port | MongoDB port | `27017` |
+| mongo_uri | The mongo URI connection string | mongodb://username:password@localhost:27017 |
 
-> **Note**: `user` and `password` must either be provided together or omitted together.
+> **Note**: If Mongo_uri is not provided it will default to mongodb://username:password@localhost:27017.
