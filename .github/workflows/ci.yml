@@ -56,11 +56,8 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libgeos-dev
       - name: Install dependencies
         run: |
-          pip install --upgrade pip wheel setuptools
-          pip install --only-binary=shapely shapely
-          make install_all
-          pip install -e ".[test]"
-          pip install pinecone pinecone-text
+          pip install --upgrade pip
+          pip install -e ".[test,graph,vector_stores,llms,extras]"
         if: steps.cached-hatch-dependencies.outputs.cache-hit != 'true'
       - name: Run Formatting
         run: |
