@@ -91,15 +91,13 @@ async def add_phone_number(
     current_supa_user: SupabaseUser = Depends(get_current_supa_user),
     db: Session = Depends(get_db)
 ):
-    """Add and verify phone number (Pro feature)"""
+    """Add and send verification code to a phone number. No subscription required."""
     supabase_user_id_str = str(current_supa_user.id)
     user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
-    
-    # Check if user has Pro subscription
-    try:
-        SubscriptionChecker.check_pro_features(user, "SMS integration")
-    except HTTPException as e:
-        raise e
+    logger.info(f"Initiating phone number add for user {user.id} with number {request.phone_number}")
+
+    # NOTE: Subscription check is moved to the webhook that handles incoming SMS.
+    # Any user can add and verify a number.
     
     # Check if SMS is configured
     if not sms_config.is_configured:
@@ -127,36 +125,52 @@ async def add_phone_number(
             detail="This phone number is already registered to another account"
         )
     
-    # Generate and send verification code
+    # Generate verification code
     verification_code = SMSVerification.generate_verification_code()
     
-    # Store verification code
-    if not SMSVerification.store_verification_code(user, verification_code, db):
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to store verification code"
-        )
+    # --- ATOMIC OPERATION: Send SMS first, then update DB ---
     
-    # Send SMS
+    # 1. Send SMS
     sms_service = SMSService()
-    if not sms_service.send_verification_code(request.phone_number, verification_code):
+    try:
+        sms_sent = sms_service.send_verification_code(request.phone_number, verification_code)
+        if not sms_sent:
+            # The service itself might return False without raising an exception
+            raise Exception("SMS service returned failure")
+        logger.info(f"Successfully sent verification SMS to {request.phone_number} for user {user.id}")
+    except Exception as e:
+        logger.error(f"Failed to send verification SMS to {request.phone_number}: {e}")
         raise HTTPException(
             status_code=500,
-            detail="Failed to send verification code"
+            detail="Failed to send verification code. Please try again later."
         )
-    
-    # Update user with phone number and increment attempts
-    user.phone_number = request.phone_number
-    user.phone_verified = False
-    user.phone_verification_attempts = (user.phone_verification_attempts or 0) + 1
-    
+
+    # 2. If SMS is successful, now commit all DB changes in one transaction
     try:
+        # Store verification code without committing
+        if not SMSVerification.store_verification_code(user, verification_code, db, commit=False):
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to prepare verification code for storage"
+            )
+
+        # Update user with phone number and increment attempts
+        user.phone_number = request.phone_number
+        user.phone_verified = False
+        user.phone_verification_attempts = (user.phone_verification_attempts or 0) + 1
+        
         db.commit()
+        logger.info(f"Successfully updated user {user.id} profile with new phone number.")
+
     except Exception as e:
         db.rollback()
-        logger.error(f"Failed to update user phone number: {e}")
-        raise HTTPException(status_code=500, detail="Database error")
-    
+        logger.error(f"Database error after sending SMS for user {user.id}: {e}")
+        # Inform the user that SMS was sent but DB update failed
+        raise HTTPException(
+            status_code=500, 
+            detail="Verification code was sent, but we encountered a database error. Please contact support."
+        )
+
     return {
         "message": "Verification code sent to your phone",
         "phone_number": request.phone_number,
@@ -169,15 +183,12 @@ async def verify_phone_number(
     current_supa_user: SupabaseUser = Depends(get_current_supa_user),
     db: Session = Depends(get_db)
 ):
-    """Verify phone number with code"""
+    """Verify phone number with code. No subscription required."""
     supabase_user_id_str = str(current_supa_user.id)
     user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
+    logger.info(f"Initiating phone verification for user {user.id} with number {user.phone_number}")
     
-    # Check if user has Pro subscription
-    try:
-        SubscriptionChecker.check_pro_features(user, "SMS integration")
-    except HTTPException as e:
-        raise e
+    # NOTE: Subscription check is moved to the webhook that handles incoming SMS.
     
     if not user.phone_number:
         raise HTTPException(
@@ -198,6 +209,7 @@ async def verify_phone_number(
             "verified": True
         }
     else:
+        # Logging for failure is handled inside SMSVerification.verify_code
         raise HTTPException(
             status_code=400,
             detail="Invalid or expired verification code"
@@ -270,12 +282,6 @@ async def get_sms_usage(
     """Get SMS usage statistics"""
     supabase_user_id_str = str(current_supa_user.id)
     user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
-    
-    # Check if user has Pro subscription
-    try:
-        SubscriptionChecker.check_pro_features(user, "SMS integration")
-    except HTTPException as e:
-        raise e
     
     # Get rate limits and current usage
     allowed, remaining = SMSRateLimit.check_rate_limit(user, db)

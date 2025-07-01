@@ -244,7 +244,7 @@ IMPORTANT: You are having a personal conversation via SMS. Always address the us
 
 You have these tools available:
 1. ask_memory - Search and recall existing memories to answer questions (fast, snippets only)
-2. add_memories - Store new information, experiences, thoughts, or facts
+2. add_memories - Store new information, experiences, thoughts, facts
 3. deep_memory_query - Comprehensive analysis including full documents, synthesis across many memories, pattern recognition (slower but deeper)
 4. chat_only - Respond conversationally without using tools
 
@@ -402,7 +402,7 @@ class SMSVerification:
         return ''.join(random.choices(string.digits, k=6))
     
     @staticmethod
-    def store_verification_code(user, code: str, db: Session) -> bool:
+    def store_verification_code(user, code: str, db: Session, commit: bool = True) -> bool:
         """
         Store verification code in user metadata
         
@@ -410,6 +410,7 @@ class SMSVerification:
             user: User model instance
             code: Verification code
             db: Database session
+            commit: Whether to commit the transaction
         
         Returns:
             bool: True if stored successfully
@@ -424,11 +425,12 @@ class SMSVerification:
                 'expires_at': (datetime.now(timezone.utc) + timedelta(seconds=sms_config.SMS_VERIFICATION_TIMEOUT)).isoformat()
             }
             
-            db.commit()
+            if commit:
+                db.commit()
             return True
             
         except Exception as e:
-            logger.error(f"Failed to store verification code: {e}")
+            logger.error(f"Failed to store verification code for user {user.id}: {e}")
             db.rollback()
             return False
     
@@ -447,6 +449,7 @@ class SMSVerification:
         """
         try:
             if not user.metadata_ or 'sms_verification' not in user.metadata_:
+                logger.warning(f"Verification attempt for user {user.id} failed: No verification data found.")
                 return False
             
             verification = user.metadata_['sms_verification']
@@ -454,12 +457,14 @@ class SMSVerification:
             expires_at = verification.get('expires_at')
             
             if not stored_code or not expires_at:
+                logger.warning(f"Verification attempt for user {user.id} failed: Incomplete verification data.")
                 return False
             
             # Check if code has expired
             expires_datetime = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
             if datetime.now(timezone.utc) > expires_datetime:
                 # Clean up expired code
+                logger.info(f"Verification attempt for user {user.id} failed: Code expired at {expires_at}.")
                 del user.metadata_['sms_verification']
                 db.commit()
                 return False
@@ -467,16 +472,18 @@ class SMSVerification:
             # Check if code matches
             if stored_code == submitted_code:
                 # Mark as verified and clean up code
+                logger.info(f"Verification successful for user {user.id} with phone {user.phone_number}.")
                 user.phone_verified = True
                 user.phone_verified_at = datetime.now(timezone.utc)
                 del user.metadata_['sms_verification']
                 db.commit()
                 return True
             
+            logger.warning(f"Verification attempt for user {user.id} failed: Submitted code did not match stored code.")
             return False
             
         except Exception as e:
-            logger.error(f"Error verifying SMS code: {e}")
+            logger.error(f"Error during SMS code verification for user {user.id}: {e}")
             return False
 
 

@@ -4,6 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from app.models import User, App
 from typing import Tuple, Optional
 import logging
+from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
 
@@ -25,9 +26,11 @@ def get_or_create_user(db: Session, supabase_user_id: str, email: Optional[str] 
             existing_user_with_email = db.query(User).filter(User.email == email).first()
             # Check if the email is taken by a *different* user
             if existing_user_with_email and existing_user_with_email.user_id != supabase_user_id:
-                logger.warning(f"Cannot update user {supabase_user_id} ({user.id}) with email {email} - email already exists for a different user {existing_user_with_email.user_id} ({existing_user_with_email.id})")
-                # Don't update the email to avoid constraint violation
-                return user
+                logger.error(f"Conflict: Attempted to assign email '{email}' to user {supabase_user_id}, but it's already used by user {existing_user_with_email.user_id}")
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Email '{email}' is already associated with a different user."
+                )
             
             # Safe to update email
             user.email = email

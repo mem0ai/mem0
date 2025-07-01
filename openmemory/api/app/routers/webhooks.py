@@ -135,17 +135,26 @@ async def handle_sms(request: Request):
             )
             return Response(content=str(MessagingResponse()), media_type="application/xml")
 
-        # Check rate limits (Pro/Enterprise subscription required)
+        # --- Subscription & Rate Limit Check ---
+        from app.models import SubscriptionTier
+        
+        # Only Pro and Enterprise users can use the SMS memory features
+        if user.subscription_tier not in [SubscriptionTier.PRO, SubscriptionTier.ENTERPRISE]:
+            logger.info(f"User {user.id} ({user.subscription_tier.value}) denied SMS access due to non-pro subscription.")
+            sms_service.send_sms(
+                to_phone=user_phone,
+                message="Hi! SMS memory access is a Pro feature. To save and search memories via text, please upgrade your account at jeanmemory.com. Thanks!"
+            )
+            return Response(content=str(MessagingResponse()), media_type="application/xml")
+
+        # For subscribed users, check their rate limit
         from app.utils.sms import SMSRateLimit
         allowed, remaining = SMSRateLimit.check_rate_limit(user, db)
+        logger.info(f"User {user.id} ({user.subscription_tier.value}) SMS check: allowed={allowed}, remaining={remaining}")
         
         if not allowed:
-            from app.models import SubscriptionTier
-            if remaining == 0 and hasattr(user, 'subscription_tier') and user.subscription_tier in [SubscriptionTier.PRO, SubscriptionTier.ENTERPRISE]:
-                error_msg = "You've reached your daily SMS memory limit! It resets tomorrow. You can still access all your memories at jeanmemory.com anytime."
-            else:
-                error_msg = "Hi! SMS memory access is a Pro feature. Visit jeanmemory.com to upgrade and text me all your memories, thoughts, and experiences!"
-            
+            # This will only trigger for Pro/Enterprise users who have hit their daily cap
+            error_msg = "You've reached your daily SMS memory limit! It resets tomorrow. You can still access all your memories at jeanmemory.com anytime."
             sms_service.send_sms(
                 to_phone=user_phone,
                 message=error_msg
