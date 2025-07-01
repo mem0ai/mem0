@@ -4,6 +4,7 @@ Handles user profile data, phone number verification, and SMS settings
 """
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 from pydantic import BaseModel, validator
 from typing import Optional
 import re
@@ -153,6 +154,9 @@ async def add_phone_number(
                 status_code=500,
                 detail="Failed to prepare verification code for storage"
             )
+
+        # Flag the metadata field as modified to ensure the change is detected
+        flag_modified(user, "metadata_")
 
         # Update user with phone number and increment attempts
         user.phone_number = request.phone_number

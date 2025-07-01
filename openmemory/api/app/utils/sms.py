@@ -15,6 +15,7 @@ from urllib.parse import urlparse
 from twilio.rest import Client
 from twilio.base.exceptions import TwilioException
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 logger = logging.getLogger(__name__)
 
@@ -466,6 +467,7 @@ class SMSVerification:
                 # Clean up expired code
                 logger.info(f"Verification attempt for user {user.id} failed: Code expired at {expires_at}.")
                 del user.metadata_['sms_verification']
+                flag_modified(user, "metadata_")
                 db.commit()
                 return False
             
@@ -476,6 +478,7 @@ class SMSVerification:
                 user.phone_verified = True
                 user.phone_verified_at = datetime.now(timezone.utc)
                 del user.metadata_['sms_verification']
+                flag_modified(user, "metadata_")
                 db.commit()
                 return True
             
