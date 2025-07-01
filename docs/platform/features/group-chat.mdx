@@ -64,7 +64,7 @@ messages = [
 
 response = client.add(
     messages,
-    run_id="GroupChat_1",
+    run_id="group_chat_1",
     output_format="v1.1",
     infer=True
 )
@@ -108,7 +108,7 @@ Retrieve all memories from a specific group chat session:
 filters = {
     "AND": [
         {"user_id": "*"},
-        {"run_id": "GroupChat_1"}
+        {"run_id": "group_chat_1"}
     ]
 }
 
@@ -122,43 +122,25 @@ print(all_memories)
         "id": "147559a8-c5f7-44d0-9418-91f53f7a89a4",
         "memory": "suggests considering Angular because it has great enterprise support",
         "user_id": "charlie",
-        "session_id": "GroupChat_1",
-        "metadata": null,
-        "categories": null,
+        "run_id": "group_chat_1",
         "created_at": "2025-06-21T05:51:11.007223-07:00",
-        "updated_at": "2025-06-21T05:51:11.626562-07:00",
-        "expiration_date": null,
-        "structured_attributes": null,
-        "internal_metadata": null,
-        "deleted_at": null
+        "updated_at": "2025-06-21T05:51:11.626562-07:00"
     },
     {
         "id": "1d8b8f39-7b17-4d18-8632-ab1c64fa35b9",
         "memory": "prefers Vue.js for our use case",
         "user_id": "bob",
-        "session_id": "GroupChat_1",
-        "metadata": null,
-        "categories": null,
+        "run_id": "group_chat_1",
         "created_at": "2025-06-21T05:51:08.675301-07:00",
         "updated_at": "2025-06-21T05:51:09.319269-07:00",
-        "expiration_date": null,
-        "structured_attributes": null,
-        "internal_metadata": null,
-        "deleted_at": null
     },
     {
         "id": "4d82478a-8d50-47e6-9324-1f65efff5829",
         "memory": "prefers using React for the frontend",
         "user_id": "alice",
-        "session_id": "GroupChat_1",
-        "metadata": null,
-        "categories": null,
+        "run_id": "group_chat_1",
         "created_at": "2025-06-21T05:51:05.943223-07:00",
         "updated_at": "2025-06-21T05:51:06.982539-07:00",
-        "expiration_date": null,
-        "structured_attributes": null,
-        "internal_metadata": null,
-        "deleted_at": null
     }
 ]
 ```
@@ -176,7 +158,7 @@ Retrieve memories from a specific participant in a group chat:
 filters = {
     "AND": [
         {"user_id": "charlie"},
-        {"run_id": "GroupChat_1"}
+        {"run_id": "group_chat_1"}
     ]
 }
 
@@ -190,15 +172,10 @@ print(charlie_memories)
         "id": "147559a8-c5f7-44d0-9418-91f53f7a89a4",
         "memory": "suggests considering Angular because it has great enterprise support",
         "user_id": "charlie",
-        "session_id": "GroupChat_1",
-        "metadata": null,
-        "categories": null,
+        "run_id": "group_chat_1",
         "created_at": "2025-06-21T05:51:11.007223-07:00",
         "updated_at": "2025-06-21T05:51:11.626562-07:00",
-        "expiration_date": null,
-        "structured_attributes": null,
-        "internal_metadata": null,
-        "deleted_at": null
+
     }
 ]
 ```
@@ -216,7 +193,7 @@ Search for specific information within a group chat session:
 filters = {
     "AND": [
         {"user_id": "charlie"},
-        {"run_id": "GroupChat_1"}
+        {"run_id": "group_chat_1"}
     ]
 }
 
@@ -234,16 +211,9 @@ print(search_response)
         "id": "147559a8-c5f7-44d0-9418-91f53f7a89a4",
         "memory": "suggests considering Angular because it has great enterprise support",
         "user_id": "charlie",
-        "session_id": "GroupChat_1",
-        "metadata": null,
-        "categories": null,
+        "run_id": "group_chat_1",
         "created_at": "2025-06-21T05:51:11.007223-07:00",
         "updated_at": "2025-06-21T05:51:11.626562-07:00",
-        "expiration_date": null,
-        "structured_attributes": null,
-        "internal_metadata": null,
-        "deleted_at": null,
-        "score": 0.45
     }
 ]
 ```
@@ -260,7 +230,7 @@ Group chat also supports async processing for improved performance:
 # Group chat with async mode
 response = client.add(
     messages,
-    run_id="GroupChat_Async",
+    run_id="groupchat_async",
     output_format="v1.1",
     infer=True,
     async_mode=True
@@ -289,16 +259,10 @@ Each message in a group chat must include:
   "content": "I think we should use React for the frontend"
 }
 ```
-
 ### Supported Roles
 
 - **`user`**: Human participants (memories stored with `user_id`)
 - **`assistant`**: AI assistants (memories stored with `agent_id`)
-- **`agent`**: AI agents (memories stored with `agent_id`)
-
-
-
-
 
 ## Best Practices
 
