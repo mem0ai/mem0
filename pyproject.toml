@@ -35,6 +35,8 @@ vector_stores = [
     "faiss-cpu>=1.7.4",
     "upstash-vector>=0.1.0",
     "azure-search-documents>=11.4.0b8",
+    "pymongo>=4.13.2",
+    "pymochow>=2.2.9"
 ]
 llms = [
     "groq>=0.3.0",
@@ -44,7 +46,6 @@ llms = [
     "vertexai>=0.1.0",
     "google-generativeai>=0.3.0",
     "google-genai>=1.0.0",
-    
 ]
 extras = [
     "boto3>=1.34.0",
