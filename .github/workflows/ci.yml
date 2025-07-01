@@ -58,6 +58,7 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -e ".[test,graph,vector_stores,llms,extras]"
+          pip install ruff
         if: steps.cached-hatch-dependencies.outputs.cache-hit != 'true'
       - name: Run Formatting
         run: |
