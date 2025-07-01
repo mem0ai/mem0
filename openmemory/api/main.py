@@ -272,6 +272,29 @@ async def download_claude_extension_http():
     """Serve the Jean Memory Claude Desktop Extension file with HTTP transport"""
     return await download_claude_extension(transport="http")
 
+@app.get("/api/v1/vcard")
+async def serve_vcard(data: str):
+    """Serve vCard file for MMS contact cards"""
+    try:
+        import base64
+        from fastapi.responses import Response
+        
+        # Decode the base64 vCard data
+        vcf_content = base64.b64decode(data).decode('utf-8')
+        
+        # Return the vCard with proper MIME type
+        return Response(
+            content=vcf_content,
+            media_type="text/vcard",
+            headers={
+                "Content-Disposition": "attachment; filename=JeanMemory.vcf",
+                "Content-Type": "text/vcard"
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error serving vCard: {e}")
+        raise HTTPException(status_code=400, detail="Invalid vCard data")
+
 # Include routers - Now using get_current_supa_user from app.auth
 app.include_router(keys_router.router, dependencies=[Depends(get_current_supa_user)])
 # Local Auth Router (only active in local development)

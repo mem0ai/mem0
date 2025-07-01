@@ -94,6 +94,79 @@ class SMSService:
         except Exception as e:
             logger.error(f"Unexpected error sending SMS to {to_phone}: {e}")
             return False
+
+    def send_welcome_with_contact(self, to_phone: str) -> bool:
+        """
+        Send welcome message with Jean Memory contact card as MMS
+        
+        Args:
+            to_phone: Target phone number in E.164 format
+        
+        Returns:
+            bool: True if sent successfully, False otherwise
+        """
+        if not self.client:
+            logger.error("SMS service not configured")
+            return False
+        
+        try:
+            # Ensure phone number is in E.164 format
+            if not to_phone.startswith('+'):
+                to_phone = f"+1{to_phone.replace('-', '').replace('(', '').replace(')', '').replace(' ', '')}"
+            
+            # Create vCard content
+            vcf_content = f"""BEGIN:VCARD
+VERSION:3.0
+FN:Jean Memory
+ORG:Jean Memory
+TEL;TYPE=CELL:{sms_config.TWILIO_PHONE_NUMBER}
+URL:https://jeanmemory.com
+NOTE:Your personal AI memory assistant - text me anything you want to remember!
+END:VCARD"""
+            
+            # Welcome message
+            welcome_message = """Welcome to Jean Memory! 🎉 
+
+You're all set! I've sent you my contact card so you can easily save my number.
+
+Text me anything you want to remember - I'm here to help 24/7!
+
+Try: "Remember I love this coffee shop" or "What did I say about work?"
+
+Reply HELP for more examples."""
+
+            # Create publicly accessible vCard URL
+            # We'll use a simple approach: encode the vCard and use our API endpoint
+            import base64
+            import urllib.parse
+            vcf_base64 = base64.b64encode(vcf_content.encode('utf-8')).decode('utf-8')
+            
+            # Use our API to serve the vCard file temporarily
+            # This endpoint will be created to serve vCard files
+            vcf_url = f"https://jean-memory-api.onrender.com/api/v1/vcard?data={urllib.parse.quote(vcf_base64)}"
+            
+            # Send MMS with contact card
+            message = self.client.messages.create(
+                body=welcome_message,
+                from_=sms_config.TWILIO_PHONE_NUMBER,
+                to=to_phone,
+                media_url=[vcf_url]
+            )
+            
+            logger.info(f"Welcome MMS with contact card sent successfully to {to_phone}, SID: {message.sid}")
+            return True
+            
+        except TwilioException as e:
+            logger.error(f"Failed to send welcome MMS to {to_phone}: {e}")
+            # Fallback to regular SMS if MMS fails
+            logger.info(f"Falling back to regular SMS for {to_phone}")
+            fallback_message = "Welcome to Jean Memory! 🎉 You're all set. Save this number: +13648889368 and text me anything you want to remember. I'm here to help 24/7!"
+            return self.send_sms(to_phone, fallback_message)
+        except Exception as e:
+            logger.error(f"Unexpected error sending welcome MMS to {to_phone}: {e}")
+            # Fallback to regular SMS
+            fallback_message = "Welcome to Jean Memory! 🎉 You're all set. Save this number: +13648889368 and text me anything you want to remember. I'm here to help 24/7!"
+            return self.send_sms(to_phone, fallback_message)
     
     def send_verification_code(self, to_phone: str, code: str) -> bool:
         """

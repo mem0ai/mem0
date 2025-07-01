@@ -62,6 +62,8 @@ export function SmsModal({ open, onOpenChange }: SmsModalProps) {
     setTimeout(resetModal, 300); // Reset after animation
   };
 
+
+
   const handlePhoneSubmit = async () => {
     if (!state.phoneNumber.trim()) {
       setState(prev => ({ ...prev, error: 'Please enter a phone number' }));
@@ -335,8 +337,7 @@ export function SmsModal({ open, onOpenChange }: SmsModalProps) {
 
           <Alert>
             <AlertDescription className="text-sm">
-              <strong>Pro Tip:</strong> Your phone number is now verified and ready. 
-              You have 50 SMS commands per day with your Pro subscription.
+              <strong>📱 Contact Card Sent:</strong> Check your messages! I've sent you my contact card so you can easily save my number to your phone. You have 50 SMS commands per day with your Pro subscription.
             </AlertDescription>
           </Alert>
         </div>
