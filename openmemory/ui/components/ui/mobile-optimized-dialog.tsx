@@ -125,27 +125,30 @@ const MobileOptimizedDialogContent = React.forwardRef<
         "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
         
         // Desktop styles - keep original padding
-        "sm:rounded-lg sm:p-6 sm:max-h-[90vh]",
+        "sm:rounded-lg sm:p-6 sm:max-h-[90vh] sm:overflow-y-auto",
         
         // Mobile styles - conditional full screen or bottom sheet
         mobileFullScreen 
-          ? "max-sm:h-full max-sm:w-full max-sm:rounded-none max-sm:border-0 max-sm:p-4" 
-          : "max-sm:fixed max-sm:bottom-0 max-sm:left-0 max-sm:right-0 max-sm:top-auto max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-t-xl max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 max-sm:max-h-[85vh] max-sm:p-4 max-sm:data-[state=open]:slide-in-from-bottom max-sm:data-[state=closed]:slide-out-to-bottom",
+          ? "max-sm:h-full max-sm:w-full max-sm:rounded-none max-sm:border-0 max-sm:p-4 max-sm:overflow-y-auto" 
+          : "max-sm:fixed max-sm:bottom-0 max-sm:left-0 max-sm:right-0 max-sm:top-auto max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-t-xl max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 max-sm:max-h-[85vh] max-sm:p-0 max-sm:data-[state=open]:slide-in-from-bottom max-sm:data-[state=closed]:slide-out-to-bottom max-sm:flex max-sm:flex-col",
         
         className
       )}
       {...props}
     >
       {/* Mobile swipe indicator */}
-      <div className="sm:hidden flex justify-center -mt-2 mb-2">
+      <div className="sm:hidden flex justify-center pt-2 pb-2 px-4 flex-shrink-0">
         <div className="w-12 h-1 bg-muted-foreground/30 rounded-full" />
       </div>
       
-      <SwipeToClose onClose={() => onOpenChange?.(false)}>
-        <div className="contents">
-          {children}
-        </div>
-      </SwipeToClose>
+      {/* Scrollable content area on mobile */}
+      <div className="sm:contents max-sm:flex-1 max-sm:overflow-y-auto max-sm:px-4">
+        <SwipeToClose onClose={() => onOpenChange?.(false)}>
+          <div className="sm:contents max-sm:min-h-0">
+            {children}
+          </div>
+        </SwipeToClose>
+      </div>
       
       {/* Close button - same as original but mobile optimized */}
       {showCloseButton && (
