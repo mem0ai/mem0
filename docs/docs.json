@@ -254,6 +254,7 @@
                   "integrations/autogen",
                   "integrations/crewai",
                   "integrations/openai-agents-sdk",
+                  "integrations/google-ai-adk",
                   "integrations/mastra",
                   "integrations/vercel-ai-sdk",
                   "integrations/livekit",
