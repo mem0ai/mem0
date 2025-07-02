@@ -1,8 +1,8 @@
 import unittest
 from unittest.mock import MagicMock, patch
 import pytest
-from mem0.memory.neptune_memory import MemoryGraph
-from mem0.memory.neptune_base import NeptuneBase
+from mem0.memory.neptune.main import MemoryGraph
+from mem0.memory.neptune.base import NeptuneBase
 
 
 class TestNeptuneMemory(unittest.TestCase):
@@ -28,7 +28,7 @@ class TestNeptuneMemory(unittest.TestCase):
         self.mock_llm = MagicMock()
 
         # Patch the necessary components
-        self.neptune_analytics_graph_patcher = patch("mem0.memory.neptune_memory.NeptuneAnalyticsGraph")
+        self.neptune_analytics_graph_patcher = patch("mem0.memory.neptune.main.NeptuneAnalyticsGraph")
         self.mock_neptune_analytics_graph = self.neptune_analytics_graph_patcher.start()
         self.mock_neptune_analytics_graph.return_value = self.mock_graph
 
