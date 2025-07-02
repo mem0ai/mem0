@@ -80,6 +80,21 @@ volumes:
   mem0_storage:
 EOF
 
+# Check if migration is needed before running the migration script
+NEED_MIGRATION=no
+if docker volume ls -q | grep -qw mem0_storage; then
+  HAS_OLD_DATA=$(docker run --rm -v mem0_storage:/data busybox sh -c "[ -d /data/mem0/storage ] && [ \"\$(ls -A /data/mem0/storage 2>/dev/null)\" ] && echo yes || echo no")
+  HAS_NEW_DATA=$(docker run --rm -v mem0_storage:/data busybox sh -c "[ -d /data/qdrant/storage ] && [ \"\$(ls -A /data/qdrant/storage 2>/dev/null)\" ] && echo yes || echo no")
+  if [ "$HAS_OLD_DATA" = "yes" ] && [ "$HAS_NEW_DATA" != "yes" ]; then
+    NEED_MIGRATION=yes
+  fi
+fi
+
+if [ "$NEED_MIGRATION" = "yes" ] && [ -x "$(dirname "$0")/scripts/migrate_mem0storage_to_qdrantpath.sh" ]; then
+  echo "🔄 Running migration script for mem0_storage to /qdrant/storage ..."
+  "$(dirname "$0")/scripts/migrate_mem0storage_to_qdrantpath.sh"
+fi
+
 # Start services
 echo "🚀 Starting backend services..."
 docker compose up -d
