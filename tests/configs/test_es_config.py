@@ -1,3 +1,4 @@
+import pytest
 from mem0.configs.vector_stores.elasticsearch import ElasticsearchConfig
 
 
@@ -21,31 +22,20 @@ def test_es_valid_headers():
 
 
 def test_es_invalid_headers():
-    err = None
-    try:
-        config = {
-            "host": "localhost",
-            "port": 9200,
-            "user": "elastic",
-            "password": "password",
-            "headers": "not-a-dict",  # This should be a dictionary
-        }
-        _ = ElasticsearchConfig(**config)
-    except ValueError as e:
-        err = e
-        print(f"Expected error: {e}")
-    assert err is not None
-
-    try:
-        config = {
-            "host": "localhost",
-            "port": 9200,
-            "user": "elastic",
-            "password": "password",
-            "headers": {"x-extra-info": 123},  # Key and Value must be a string
-        }
-        _ = ElasticsearchConfig(**config)
-    except ValueError as e:
-        err = e
-        print(f"Expected error: {e}")
-    assert err is not None
+    base_config = {
+        "host": "localhost",
+        "port": 9200,
+        "user": "elastic",
+        "password": "password",
+    }
+    
+    invalid_headers = [
+        "not-a-dict",  # Non-dict headers
+        {"x-extra-info": 123},  # Non-string values
+        {123: "456"},  # Non-string keys
+    ]
+    
+    for headers in invalid_headers:
+        with pytest.raises(ValueError):
+            config = {**base_config, "headers": headers}
+            ElasticsearchConfig(**config)
