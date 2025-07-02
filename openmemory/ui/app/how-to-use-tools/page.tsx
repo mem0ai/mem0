@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Code, BotMessageSquare, BrainCircuit, Search, List, Wand2, ArrowRight, Lightbulb } from "lucide-react";
+import { Code, BotMessageSquare, BrainCircuit, Search, List, Wand2, ArrowRight, Lightbulb, FileText } from "lucide-react";
 import { motion } from "framer-motion";
 import ParticleNetwork from "@/components/landing/ParticleNetwork";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +34,12 @@ const tools = [
     icon: <BotMessageSquare className="w-6 h-6 text-primary" />,
     description: "Manually store specific information (jean_memory handles this automatically in most cases).",
     example: "add_memories: 'I met with John Doe today to discuss the Q3 project goals.'"
+  },
+  {
+    name: "store_document",
+    icon: <FileText className="w-6 h-6 text-primary" />,
+    description: "Store large documents like files, articles, or notes. Creates a searchable summary automatically.",
+    example: 'store_document: { title: "Meeting Notes Q3", content: "..." }',
   },
   {
     name: "list_memories",
