@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
-import { Key, Plus, Trash2, Copy, AlertTriangle, X, Check } from 'lucide-react';
+import { Key, Plus, Trash2, Copy, AlertTriangle, X, Check, Crown, Shield, User } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -43,6 +43,17 @@ interface ApiKey {
   is_active: boolean;
 }
 
+interface Profile {
+  user_id: string;
+  email: string | null;
+  name: string | null;
+  subscription_tier: string;
+  subscription_status: string | null;
+  phone_number: string | null;
+  phone_verified: boolean;
+  sms_enabled: boolean;
+}
+
 
 
 // --- Main Page Component ---
@@ -50,6 +61,7 @@ interface ApiKey {
 export default function ApiKeysPage() {
   const { user, accessToken } = useAuth();
   const [keys, setKeys] = useState<ApiKey[]>([]);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,6 +86,24 @@ export default function ApiKeysPage() {
       // Handle as regular error
       const errorMessage = typeof error.detail === 'string' ? error.detail : error.detail?.message || error.message || 'An error occurred';
       setError(errorMessage);
+    }
+  };
+
+  const fetchProfile = async () => {
+    if (!accessToken) return;
+    
+    try {
+      const response = await fetch("/api/v1/profile/", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setProfile(data);
+      }
+    } catch (err: any) {
+      console.error("Failed to fetch profile:", err);
     }
   };
 
@@ -107,6 +137,7 @@ export default function ApiKeysPage() {
 
   useEffect(() => {
     if (user && accessToken) {
+      fetchProfile();
       fetchKeys();
     }
   }, [user, accessToken]);
@@ -191,6 +222,83 @@ export default function ApiKeysPage() {
             Generate New Key
           </Button>
         </div>
+
+        {/* Subscription Status Card */}
+        {profile && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                {profile.subscription_tier === 'ENTERPRISE' ? (
+                  <Shield className="h-5 w-5 text-purple-500" />
+                ) : profile.subscription_tier === 'PRO' ? (
+                  <Crown className="h-5 w-5 text-yellow-500" />
+                ) : (
+                  <User className="h-5 w-5 text-gray-500" />
+                )}
+                Account Status
+              </CardTitle>
+              <CardDescription>
+                Your current subscription and account details
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground">Subscription Tier</div>
+                  <div className={`text-lg font-semibold ${
+                    profile.subscription_tier === 'ENTERPRISE' ? 'text-purple-500' :
+                    profile.subscription_tier === 'PRO' ? 'text-yellow-500' : 
+                    'text-gray-500'
+                  }`}>
+                    {profile.subscription_tier === 'ENTERPRISE' ? 'Enterprise' :
+                     profile.subscription_tier === 'PRO' ? 'Pro' : 
+                     'Free'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground">Status</div>
+                  <div className={`text-lg font-semibold ${
+                    profile.subscription_status === 'active' ? 'text-green-500' :
+                    profile.subscription_status === 'past_due' ? 'text-yellow-500' :
+                    profile.subscription_status === 'canceled' ? 'text-red-500' :
+                    'text-gray-500'
+                  }`}>
+                    {profile.subscription_status === 'active' ? 'Active' :
+                     profile.subscription_status === 'past_due' ? 'Past Due' :
+                     profile.subscription_status === 'canceled' ? 'Canceled' :
+                     profile.subscription_status === 'incomplete' ? 'Incomplete' :
+                     profile.subscription_status || 'Not Set'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground">Account Email</div>
+                  <div className="text-lg">{profile.email || 'Not set'}</div>
+                </div>
+              </div>
+              {profile.subscription_tier === 'FREE' && (
+                <div className="mt-4 p-3 bg-muted rounded-md">
+                  <p className="text-sm text-muted-foreground">
+                    Upgrade to Pro for API access, SMS features, and unlimited memory storage.{' '}
+                    <a href="/pro" className="text-primary hover:underline">
+                      Learn more →
+                    </a>
+                  </p>
+                </div>
+              )}
+              {profile.subscription_tier === 'PRO' && profile.subscription_status !== 'active' && (
+                <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700/50 rounded-md">
+                  <p className="text-sm text-yellow-800 dark:text-yellow-300">
+                    <strong>Subscription Issue:</strong> Your Pro subscription is {profile.subscription_status}. 
+                    Please check your payment method or contact support at{' '}
+                    <a href="mailto:jonathan@jeantechnologies.com" className="underline">
+                      jonathan@jeantechnologies.com
+                    </a>
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {isLoading && <p>Loading keys...</p>}
         {error && <p className="text-destructive">{error}</p>}

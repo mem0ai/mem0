@@ -27,6 +27,7 @@ class ProfileResponse(BaseModel):
     email: Optional[str]
     name: Optional[str]
     subscription_tier: str
+    subscription_status: Optional[str]
     phone_number: Optional[str]
     phone_verified: bool
     sms_enabled: bool
@@ -81,6 +82,7 @@ async def get_profile(
         email=user.email,
         name=user.name,
         subscription_tier=user.subscription_tier.value,
+        subscription_status=user.subscription_status,
         phone_number=user.phone_number,
         phone_verified=user.phone_verified or False,
         sms_enabled=user.sms_enabled if user.sms_enabled is not None else True
