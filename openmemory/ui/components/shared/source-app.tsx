@@ -47,6 +47,11 @@ export const constants = {
     icon: <Icon source="/images/cursor.png" />,
     iconImage: "/images/cursor.png",
   },
+  vscode: {
+    name: "VS Code",
+    icon: <Icon source="/images/vscode.svg" />,
+    iconImage: "/images/vscode.svg",
+  },
   cline: {
     name: "Cline",
     icon: <Icon source="/images/cline.png" />,
@@ -117,6 +122,10 @@ const SourceApp = ({ source }: { source: string }) => {
     'openmemory': 'openmemory',
     'jean memory': 'jean memory',
     'cursor': 'cursor',
+    'vscode': 'vscode',
+    'vs code': 'vscode',
+    'visualstudiocode': 'vscode',
+    'visual studio code': 'vscode',
     'cline': 'cline',
     'roocode': 'roocode',
     'windsurf': 'windsurf',

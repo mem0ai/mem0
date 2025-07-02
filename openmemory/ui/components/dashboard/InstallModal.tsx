@@ -14,6 +14,7 @@ import apiClient from '@/lib/apiClient';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 interface InstallModalProps {
   app: App | null;
@@ -192,6 +193,20 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
     
   const mcpLink = `${MCP_URL}/mcp/openmemory/sse/${user?.id}`;
   const chatgptLink = `${MCP_URL}/mcp/chatgpt/sse/${user?.id}`;
+  const cursorSettingsJson = {
+    "mcpServers": {
+      "jean-memory": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "supergateway",
+          "--stdio",
+          `${MCP_URL}/mcp/v2/${app.id.toLowerCase()}/{user_id}`
+        ],
+        "env": {}
+      }
+    }
+  };
 
   return (
     <MobileOptimizedDialog open={open} onOpenChange={onOpenChange}>
@@ -215,6 +230,7 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
             {app.id === 'mcp-generic' ? 'Your Universal MCP Link' : 
              app.id === 'chatgpt' ? 'Connect to ChatGPT Deep Research' :
              app.id === 'sms' ? 'Text Jean Memory' :
+             app.id === 'vscode' ? 'Connect to VS Code' :
              `Connect to ${app.name}`}
           </MobileOptimizedDialogTitle>
           <MobileOptimizedDialogDescription className="text-muted-foreground pt-1">
@@ -226,6 +242,8 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
                 ? `Provide your ${app.name} details to sync your content.`
                 : app.id === 'sms'
                 ? 'Add your phone number to interact with your memories via text message.'
+                : app.id === 'vscode'
+                ? 'Connect Jean Memory to VS Code via the official marketplace extension.'
                 : `Activate Jean Memory for ${app.name} in two simple steps.`
             }
           </MobileOptimizedDialogDescription>
@@ -352,36 +370,48 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
                     </div>
                 </details>
             </div>
-        ) : app.id === 'substack' || app.id === 'twitter' ? (
+        ) : app.id === 'vscode' || app.id === 'cursor' ? (
             <div className="py-2 space-y-4">
-                <p className="text-muted-foreground text-center text-sm">
-                    Enter your {app.name === 'X' ? 'username' : 'URL'} below. This allows Jean Memory to find and sync your content.
-                </p>
-                <div className="flex items-center gap-4">
-                  <Input
-                    type="text"
-                    placeholder={app.id === 'twitter' ? '@username' : 'your.substack.com'}
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    className="bg-background"
-                    disabled={isLoading}
-                  />
+                <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                        For a workspace-level setup, create a <code className="font-mono text-xs bg-muted p-1 rounded">.vscode/mcp.json</code> file in your project and add this:
+                    </p>
+                    <div className="relative bg-background border rounded-md p-3 font-mono text-xs break-all">
+                        <pre><code className="text-foreground">{JSON.stringify({ servers: cursorSettingsJson.mcpServers }, null, 2)}</code></pre>
+                        <Button 
+                            variant="ghost" 
+                            size="sm"
+                            className="absolute right-1 top-1" 
+                            onClick={() => handleCopy(JSON.stringify({ servers: cursorSettingsJson.mcpServers }, null, 2))}
+                        >
+                            {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                        </Button>
+                    </div>
                 </div>
-                <Button
-                  onClick={handleSync}
-                  disabled={isLoading || !inputValue}
-                  className="w-full"
-                  variant="secondary"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Syncing...
-                    </>
-                  ) : (
-                    "Connect and Sync"
-                  )}
-                </Button>
+                <details className="group pt-2">
+                    <summary className="text-sm text-muted-foreground cursor-pointer hover:text-foreground">
+                        Or, for a global setup across all projects...
+                    </summary>
+                    <div className="mt-3 space-y-3">
+                        <p className="text-sm text-muted-foreground">
+                            Add this to your global user <code className="font-mono text-xs bg-muted p-1 rounded">settings.json</code> file:
+                        </p>
+                        <div className="relative bg-background border rounded-md p-3 font-mono text-xs break-all">
+                            <pre><code className="text-foreground">{JSON.stringify({ "mcp": cursorSettingsJson }, null, 2)}</code></pre>
+                            <Button 
+                                variant="ghost" 
+                                size="sm"
+                                className="absolute right-1 top-1" 
+                                onClick={() => handleCopy(JSON.stringify({ "mcp": cursorSettingsJson }, null, 2))}
+                            >
+                                {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                            </Button>
+                        </div>
+                    </div>
+                </details>
+                <p className="text-xs text-muted-foreground pt-2">
+                    This feature is in preview in VS Code. You may need to enable <code className="font-mono text-xs bg-muted p-1 rounded">chat.mcp.enabled</code> in your settings.
+                </p>
             </div>
         ) : app.id === 'sms' ? (
             <div className="sm:contents max-sm:space-y-4">
