@@ -12,10 +12,7 @@ Before you begin, make sure you have:
 
 1. Installed Livekit Agents SDK with voice dependencies of silero and deepgram:
 ```bash
-pip install livekit-agents[voice] \
-livekit-plugins-silero \
-livekit-plugins-deepgram \
-livekit-plugins-openai
+pip install livekit-agents[silero,openai,deepgram]
 ```
 
 2. Installed Mem0 SDK:
@@ -383,3 +380,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger("memory_voice_agent")
 ```
+
+## Help & Resources
+
+- [LiveKit Documentation](https://docs.livekit.io/)
+- [Mem0 Platform](https://app.mem0.ai/)
+- Need assistance? Reach out through:
+
+<Snippet file="get-help.mdx" />
