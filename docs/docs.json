@@ -67,7 +67,8 @@
                       "platform/features/timestamp",
                       "platform/features/expiration-date",
                       "platform/features/webhooks",
-                      "platform/features/feedback-mechanism"
+                      "platform/features/feedback-mechanism",
+                      "platform/features/group-chat"
                     ]
                   }
                 ]
