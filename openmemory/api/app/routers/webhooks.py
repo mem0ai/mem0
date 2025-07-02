@@ -8,7 +8,7 @@ from twilio.twiml.messaging_response import MessagingResponse
 from app.database import SessionLocal
 from app.models import User
 from app.auth import get_current_user
-from app.utils.sms import SMSService, SMSWebhookValidator
+from app.utils.sms import SMSService, SMSWebhookValidator, SMSContextManager
 from app.context import user_id_var, client_name_var
 
 # Import tools from their new, correct locations
@@ -166,13 +166,31 @@ async def handle_sms(request: Request):
         client_name_token = client_name_var.set("sms")
 
         try:
+            # Store incoming message to conversation history
+            SMSContextManager.add_message_to_conversation(
+                user_id=str(user.user_id),
+                phone_number=user_phone,
+                content=message_body,
+                role='user',
+                db=db
+            )
+            
             # Process the message using the SMS service logic, which calls the tools
-            response_message = await sms_service.process_command(message_body, str(user.user_id))
+            response_message = await sms_service.process_command(message_body, str(user.user_id), db=db)
             
             # Send response back to user
             sms_service.send_sms(
                 to_phone=user_phone,
                 message=response_message
+            )
+            
+            # Store outgoing message to conversation history
+            SMSContextManager.add_message_to_conversation(
+                user_id=str(user.user_id),
+                phone_number=user_phone,
+                content=response_message,
+                role='assistant',
+                db=db
             )
             
             # Increment usage counter after successful processing
@@ -181,9 +199,19 @@ async def handle_sms(request: Request):
         except Exception as e:
             logger.error(f"Error processing SMS command from {user_phone}: {e}")
             # Send error response
+            error_message = "Oops, I had trouble processing that memory. Could you try rephrasing it? Text 'help' for examples of what I can remember for you!"
             sms_service.send_sms(
                 to_phone=user_phone,
-                message="Oops, I had trouble processing that memory. Could you try rephrasing it? Text 'help' for examples of what I can remember for you!"
+                message=error_message
+            )
+            
+            # Store error response to conversation history too
+            SMSContextManager.add_message_to_conversation(
+                user_id=str(user.user_id),
+                phone_number=user_phone,
+                content=error_message,
+                role='assistant',
+                db=db
             )
             
         finally:

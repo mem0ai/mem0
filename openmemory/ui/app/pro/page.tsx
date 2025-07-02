@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Check, Star, ArrowRight, BrainCircuit, Key, Tags, Zap } from "lucide-react";
+import { Check, Star, ArrowRight, BrainCircuit, Key, Tags, Zap, MessageSquareText } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -12,24 +12,24 @@ import { Badge } from "@/components/ui/badge";
 
 const proFeatures = [
   {
+    icon: <MessageSquareText className="w-5 h-5 text-purple-400" />,
+    title: "Text Your Memory Anywhere",
+    description: "Instantly save memories or ask questions. Your AI assistant works wherever you are, no app required.",
+  },
+  {
     icon: <Key className="w-5 h-5 text-purple-400" />,
-    title: "Unlock Your Memory with API Access",
-    description: "Integrate Jean Memory into your custom applications, scripts, and workflows. The possibilities are endless.",
+    title: "API Access for Your Apps",
+    description: "Connect to all your favorite tools, agents, and workflows. Build consistent memory kingdom across every application you use.",
   },
   {
     icon: <BrainCircuit className="w-5 h-5 text-purple-400" />,
-    title: "Go Beyond Keywords with Graph Memory",
-    description: "Discover hidden connections and complex relationships in your memories with our advanced graph-based intelligence.",
-  },
-  {
-    icon: <Zap className="w-5 h-5 text-purple-400" />,
-    title: "Shape the Future of Memory",
-    description: "Get priority support from our team and be the first to access new features and integrations before anyone else.",
+    title: "Discover Hidden Connections",
+    description: "Our graph memory reveals surprising relationships between your thoughts, projects, and experiences that you never noticed before.",
   },
   {
     icon: <Tags className="w-5 h-5 text-purple-400" />,
-    title: "Advanced Tagging & Filtering",
-    description: "Organize memories with tags and use powerful filters to find exactly what you need, instantly.",
+    title: "Advanced Organization",
+    description: "Tag, filter, and organize your memories with precision. Find exactly what you need in seconds, not minutes.",
   },
 ];
 
@@ -56,10 +56,10 @@ export default function ProPage() {
           </Badge>
           
           <h1 className="text-4xl md:text-5xl font-bold mb-4">
-            Stop Forgetting. Start Creating.
+            Build Your Memory Kingdom
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Upgrade to Pro to unlock powerful developer tools, advanced search, and deeper integrations that turn your memory into a creative powerhouse.
+            Create a consistent, intelligent memory that works across all your apps, devices, and conversations. Text, connect, and discover like never before.
           </p>
         </motion.div>
 
@@ -116,7 +116,7 @@ export default function ProPage() {
                   <Badge className="bg-purple-600 text-white">Recommended</Badge>
                 </CardTitle>
                 <CardDescription>
-                  For power users and developers building with memory.
+                  For creators building their personal memory kingdom across all apps and devices.
                 </CardDescription>
                 <div className="flex items-baseline gap-1 pt-2">
                   <span className="text-4xl font-bold">$19</span>

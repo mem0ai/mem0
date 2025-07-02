@@ -201,7 +201,7 @@ Reply HELP for more examples."""
         
         return self.send_sms(to_phone, response)
     
-    async def process_command(self, message: str, user_id: str) -> str:
+    async def process_command(self, message: str, user_id: str, db=None) -> str:
         """
         Process SMS command using AI to select the appropriate memory tool.
         Available tools: add_memories, ask_memory, deep_memory_query, chat_only
@@ -209,6 +209,7 @@ Reply HELP for more examples."""
         Args:
             message: The SMS message content
             user_id: User ID for context
+            db: Database session for conversation history
             
         Returns:
             str: Response message to send back via SMS
@@ -216,6 +217,11 @@ Reply HELP for more examples."""
         from app.tools.memory import ask_memory, add_memories
         from app.tools.documents import deep_memory_query
         import os
+        
+        # Get conversation context if database session provided
+        conversation_context = ""
+        if db:
+            conversation_context = SMSContextManager.get_conversation_context(user_id, db)
         
         try:
             # Handle special commands first
@@ -312,11 +318,16 @@ Reply STOP to unsubscribe."""
             client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
             
             # Claude tool calling prompt - much more sophisticated
-            tool_selection_prompt = f"""You are Jean Memory, an intelligent SMS assistant that helps users manage their personal memories. You have access to powerful memory tools and should use them wisely.
+            # Include conversation context in the prompt
+            conversation_part = f"\n\n{conversation_context}" if conversation_context else ""
+            
+            tool_selection_prompt = f"""You are Jean Memory, an intelligent SMS assistant that helps users manage their personal memories. You have access to powerful memory tools and should use them wisely.{conversation_part}
 
-User message: "{message}"
+Current user message: "{message}"
 
 IMPORTANT: You are having a personal conversation via SMS. Always address the user directly as "you" (never "the user is" or third-person language). This is like texting a friend who remembers everything about you.
+
+CONVERSATION CONTINUITY: If there's recent conversation context above, use it to understand references like "that", "it", "what we talked about", etc. The user may be referring to something from the recent conversation.
 
 You have these tools available:
 1. ask_memory - Search and recall existing memories to answer questions (fast, snippets only)
@@ -681,11 +692,107 @@ class SMSWebhookValidator:
             return False
 
 
+class SMSContextManager:
+    """Manages SMS conversation context and history"""
+    
+    @staticmethod
+    def add_message_to_conversation(user_id: str, phone_number: str, content: str, role: str, db) -> bool:
+        """
+        Add a message to the SMS conversation history
+        
+        Args:
+            user_id: UUID of the user
+            phone_number: Phone number for logging
+            content: Message content
+            role: 'user' for incoming, 'assistant' for outgoing
+            db: Database session
+        
+        Returns:
+            bool: True if added successfully
+        """
+        try:
+            from app.models import SMSConversation, SMSRole, User
+            from uuid import UUID
+            
+            # Get user by user_id to ensure we have the correct UUID
+            user = db.query(User).filter(User.user_id == user_id).first()
+            if not user:
+                logger.error(f"User not found for user_id {user_id}")
+                return False
+            
+            # Map string role to enum
+            sms_role = SMSRole.USER if role == 'user' else SMSRole.ASSISTANT
+            
+            # Create conversation record
+            conversation = SMSConversation(
+                user_id=user.id,  # Use the UUID primary key
+                role=sms_role,
+                content=content
+            )
+            
+            db.add(conversation)
+            db.commit()
+            
+            logger.info(f"Added SMS message to conversation history: user={user_id}, role={role}, content_length={len(content)}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to add SMS message to conversation: {e}")
+            db.rollback()
+            return False
+    
+    @staticmethod
+    def get_conversation_context(user_id: str, db, limit: int = 6) -> str:
+        """
+        Get recent conversation history for context
+        
+        Args:
+            user_id: User ID string
+            db: Database session
+            limit: Number of recent messages to include
+        
+        Returns:
+            str: Formatted conversation context
+        """
+        try:
+            from app.models import SMSConversation, SMSRole, User
+            
+            # Get user by user_id 
+            user = db.query(User).filter(User.user_id == user_id).first()
+            if not user:
+                return ""
+            
+            # Get recent conversation messages
+            recent_messages = db.query(SMSConversation).filter(
+                SMSConversation.user_id == user.id
+            ).order_by(
+                SMSConversation.created_at.desc()
+            ).limit(limit).all()
+            
+            if not recent_messages:
+                return ""
+            
+            # Format conversation history (reverse to show chronological order)
+            context_lines = []
+            for msg in reversed(recent_messages):
+                role_label = "You" if msg.role == SMSRole.USER else "Jean Memory"
+                context_lines.append(f"{role_label}: {msg.content}")
+            
+            context = "Recent conversation:\n" + "\n".join(context_lines)
+            logger.info(f"Retrieved conversation context for user {user_id}: {len(recent_messages)} messages")
+            return context
+            
+        except Exception as e:
+            logger.error(f"Failed to get conversation context: {e}")
+            return ""
+
+
 # Export main classes and functions
 __all__ = [
     'SMSService',
     'SMSVerification', 
     'SMSRateLimit',
     'SMSWebhookValidator',
+    'SMSContextManager',
     'sms_config'
 ] 
