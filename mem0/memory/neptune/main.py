@@ -1,5 +1,5 @@
 import logging
-from .neptune_base import NeptuneBase
+from .base import NeptuneBase
 
 try:
     from langchain_aws import NeptuneAnalyticsGraph, NeptuneGraph
