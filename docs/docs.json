@@ -19,10 +19,10 @@
             "tab": "Documentation",
             "groups": [
               {
-                "group": "Get Started",
+                "group": "Getting Started",
                 "icon": "rocket",
                 "pages": [
-                  "overview",
+                  "what-is-mem0",
                   "quickstart",
                   "faqs"
                 ]
@@ -32,7 +32,16 @@
                 "icon": "brain",
                 "pages": [
                   "core-concepts/memory-types",
-                  "core-concepts/memory-operations"
+                  {
+                    "group": "Memory Operations",
+                    "icon": "gear",
+                    "pages": [
+                      "core-concepts/memory-operations/add",
+                      "core-concepts/memory-operations/search",
+                      "core-concepts/memory-operations/update",
+                      "core-concepts/memory-operations/delete"
+                    ]
+                  }
                 ]
               },
               {
@@ -46,21 +55,20 @@
                     "icon": "star",
                     "pages": [
                       "platform/features/platform-overview",
+                      "platform/features/contextual-add",
+                      "platform/features/async-client",
                       "platform/features/advanced-retrieval",
                       "platform/features/criteria-retrieval",
-                      "platform/features/contextual-add",
-                      "platform/features/multimodal-support",
-                      "platform/features/timestamp",
                       "platform/features/selective-memory",
                       "platform/features/custom-categories",
                       "platform/features/custom-instructions",
                       "platform/features/direct-import",
-                      "platform/features/async-client",
                       "platform/features/memory-export",
+                      "platform/features/timestamp",
+                      "platform/features/expiration-date",
                       "platform/features/webhooks",
-                      "platform/features/graph-memory",
                       "platform/features/feedback-mechanism",
-                      "platform/features/expiration-date"
+                      "platform/features/group-chat"
                     ]
                   }
                 ]
@@ -69,12 +77,12 @@
                 "group": "Open Source",
                 "icon": "code-branch",
                 "pages": [
-                  "open-source/quickstart",
+                  "open-source/overview",
                   "open-source/python-quickstart",
                   "open-source/node-quickstart",
                   {
                     "group": "Features",
-                    "icon": "wrench",
+                    "icon": "star",
                     "pages": [
                       "open-source/features/async-memory",
                       "open-source/features/openai_compatibility",
@@ -117,7 +125,8 @@
                           "components/llms/models/xAI",
                           "components/llms/models/sarvam",
                           "components/llms/models/lmstudio",
-                          "components/llms/models/langchain"
+                          "components/llms/models/langchain",
+                          "components/llms/models/vllm"
                         ]
                       }
                     ]
@@ -193,7 +202,8 @@
             "icon": "square-terminal",
             "pages": [
               "openmemory/overview",
-              "openmemory/quickstart"
+              "openmemory/quickstart",
+              "openmemory/integrations"
             ]
           },
           {
@@ -237,24 +247,24 @@
                 "icon": "plug",
                 "pages": [
                   "integrations",
-                  "integrations/agentops",
-                  "integrations/vercel-ai-sdk",
-                  "integrations/flowise",
-                  "integrations/crewai",
-                  "integrations/autogen",
                   "integrations/langchain",
                   "integrations/langgraph",
                   "integrations/llama-index",
-                  "integrations/langchain-tools",
-                  "integrations/dify",
-                  "integrations/mcp-server",
-                  "integrations/livekit",
-                  "integrations/elevenlabs",
-                  "integrations/pipecat",
                   "integrations/agno",
+                  "integrations/autogen",
+                  "integrations/crewai",
+                  "integrations/openai-agents-sdk",
+                  "integrations/mastra",
+                  "integrations/vercel-ai-sdk",
+                  "integrations/livekit",
+                  "integrations/pipecat",
+                  "integrations/elevenlabs",
+                  "integrations/flowise",
+                  "integrations/langchain-tools",
+                  "integrations/agentops",
                   "integrations/keywords",
-                  "integrations/raycast",
-                  "integrations/mastra"
+                  "integrations/dify",
+                  "integrations/raycast"
                 ]
               }
             ]
@@ -349,31 +359,6 @@
             ]
           }
         ]
-      },
-      {
-        "anchor": "Your Dashboard",
-        "href": "https://app.mem0.ai",
-        "icon": "chart-simple"
-      },
-      {
-        "anchor": "Demo",
-        "href": "https://mem0.dev/demo",
-        "icon": "play"
-      },
-      {
-        "anchor": "Discord",
-        "href": "https://mem0.dev/DiD",
-        "icon": "discord"
-      },
-      {
-        "anchor": "GitHub",
-        "href": "https://github.com/mem0ai/mem0",
-        "icon": "github"
-      },
-      {
-        "anchor": "Support",
-        "href": "mailto:founders@mem0.ai",
-        "icon": "envelope"
       }
     ]
   },

@@ -4,10 +4,7 @@ icon: "bolt"
 iconType: "solid"
 ---
 
-<Snippet file="paper-release.mdx" />
-<Note type="info">
-🎉 We're excited to announce that Claude 4 is now available with Mem0! Check it out [here](components/llms/models/anthropic).
-</Note>
+<Snippet file="security-compliance.mdx" />
 
 
 Mem0 offers two powerful ways to leverage our technology: [our managed platform](#mem0-platform-managed-solution) and [our open source solution](#mem0-open-source).
@@ -333,11 +330,23 @@ const memory = new Memory();
 <CodeGroup>
 ```python Code
 # For a user
-result = m.add("I like to drink coffee in the morning and go for a walk.", user_id="alice", metadata={"category": "preferences"})
+messages = [
+    {
+        "role": "user",
+        "content": "I like to drink coffee in the morning and go for a walk"
+    }
+]
+result = m.add(messages, user_id="alice", metadata={"category": "preferences"})
 ```
 
 ```typescript TypeScript
-const result = memory.add("I like to drink coffee in the morning and go for a walk.", { userId: "alice", metadata: { category: "preferences" } });
+const messages = [
+  {
+    role: "user",
+    content: "I like to drink coffee in the morning and go for a walk"
+  }
+];
+const result = memory.add(messages, { userId: "alice", metadata: { category: "preferences" } });
 ```
 
 ```json Output
@@ -406,7 +415,7 @@ const relatedMemories = memory.search("Should I drink coffee or tea?", { userId:
 <Card title="Mem0 OSS Python SDK" icon="python" href="/open-source/python-quickstart">
   Learn more about Mem0 OSS Python SDK
 </Card>
-<Card title="Mem0 OSS Node.js SDK" icon="node" href="/open-source-typescript/quickstart">
+<Card title="Mem0 OSS Node.js SDK" icon="node" href="/open-source/node-quickstart">
   Learn more about Mem0 OSS Node.js SDK
 </Card>
 </CardGroup>
