@@ -372,16 +372,28 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
                 </details>
             </div>
         ) : app.id === 'vscode' ? (
-            <div className="py-2 space-y-4">
-                <p className="text-sm text-muted-foreground">
-                    Open the Command Palette (Cmd+Shift+P), run <code className="font-mono text-xs bg-muted p-1 rounded">Preferences: Open User Settings (JSON)</code>, and add this to the file:
-                </p>
-                <div className="relative bg-background border rounded-md p-3 font-mono text-xs break-all">
-                    <pre><code className="text-foreground">{JSON.stringify(vscodeSettingsJson, null, 2)}</code></pre>
+            <div className="py-2 space-y-4 text-left">
+                <ol className="list-decimal list-inside space-y-3 text-muted-foreground text-sm">
+                    <li>
+                        Open VS Code Settings.
+                        <div className="text-xs pl-2">(Mac: <code className="font-mono text-xs bg-muted p-1 rounded">Code &gt; Settings &gt; Settings</code>)</div>
+                        <div className="text-xs pl-2">(Windows: <code className="font-mono text-xs bg-muted p-1 rounded">File &gt; Preferences &gt; Settings</code>)</div>
+                    </li>
+                    <li>
+                        In the top-right of the Settings tab, click the <strong className="text-foreground">Open Settings (JSON)</strong> icon.
+                    </li>
+                    <li>
+                        Add the following to the file:
+                    </li>
+                </ol>
+                <div className="relative bg-background border rounded-md overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <pre className="p-3 pr-12 font-mono text-xs text-foreground min-w-0"><code className="whitespace-pre-wrap break-words">{JSON.stringify(vscodeSettingsJson, null, 2)}</code></pre>
+                    </div>
                     <Button 
                         variant="ghost" 
                         size="sm"
-                        className="absolute right-1 top-1" 
+                        className="absolute right-1 top-1 bg-background/80 backdrop-blur-sm border" 
                         onClick={() => handleCopy(JSON.stringify(vscodeSettingsJson, null, 2))}
                     >
                         {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
