@@ -107,11 +107,11 @@ async def add_phone_number(
             detail="SMS service is not available at this time"
         )
     
-    # Check verification attempts to prevent abuse
-    if user.phone_verification_attempts and user.phone_verification_attempts >= 5:
+    # Check verification attempts to prevent abuse (much more liberal limit)
+    if user.phone_verification_attempts and user.phone_verification_attempts >= 20:
         raise HTTPException(
             status_code=429,
-            detail="Too many verification attempts. Please try again later."
+            detail="Too many verification attempts today. Please try again tomorrow or reach out to the team."
         )
     
     # Check if phone number is already taken by another user

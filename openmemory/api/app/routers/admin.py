@@ -336,6 +336,30 @@ async def investigate_contamination_scope(
         raise HTTPException(status_code=500, detail=f"Investigation failed: {str(e)}")
 
 
+@router.post("/reset-verification-attempts/{user_id}")
+async def reset_verification_attempts(
+    user_id: str,
+    admin_verified: bool = Depends(verify_admin_access),
+    db: Session = Depends(get_db)
+):
+    """ADMIN ONLY: Reset phone verification attempts for a stuck user"""
+    user = db.query(User).filter(User.user_id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    old_attempts = user.phone_verification_attempts
+    user.phone_verification_attempts = 0
+    db.commit()
+    
+    logger.info(f"Admin reset verification attempts for user {user_id}: {old_attempts} -> 0")
+    
+    return {
+        "status": "success", 
+        "message": f"Reset verification attempts from {old_attempts} to 0",
+        "user_email": user.email
+    }
+
+
 @router.post("/emergency-fix-context-bleeding")
 async def emergency_fix_context_bleeding(
     admin_verified: bool = Depends(verify_admin_access),

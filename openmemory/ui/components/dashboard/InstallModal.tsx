@@ -14,7 +14,6 @@ import apiClient from '@/lib/apiClient';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 
-
 interface InstallModalProps {
   app: App | null;
   open: boolean;
