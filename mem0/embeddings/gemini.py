@@ -1,7 +1,8 @@
 import os
 from typing import Literal, Optional
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 from mem0.configs.embeddings.base import BaseEmbedderConfig
 from mem0.embeddings.base import EmbeddingBase
@@ -12,11 +13,11 @@ class GoogleGenAIEmbedding(EmbeddingBase):
         super().__init__(config)
 
         self.config.model = self.config.model or "models/text-embedding-004"
-        self.config.embedding_dims = self.config.embedding_dims or 768
+        self.config.embedding_dims = self.config.embedding_dims or self.config.output_dimensionality or 768
 
         api_key = self.config.api_key or os.getenv("GOOGLE_API_KEY")
 
-        genai.configure(api_key=api_key)
+        self.client = genai.Client(api_key=api_key)
 
     def embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
         """
@@ -28,7 +29,11 @@ class GoogleGenAIEmbedding(EmbeddingBase):
             list: The embedding vector.
         """
         text = text.replace("\n", " ")
-        response = genai.embed_content(
-            model=self.config.model, content=text, output_dimensionality=self.config.embedding_dims
-        )
-        return response["embedding"]
+
+        # Create config for embedding parameters
+        config = types.EmbedContentConfig(output_dimensionality=self.config.embedding_dims)
+
+        # Call the embed_content method with the correct parameters
+        response = self.client.models.embed_content(model=self.config.model, contents=text, config=config)
+
+        return response.embeddings[0].values

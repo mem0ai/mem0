@@ -4,7 +4,7 @@ icon: "gear"
 iconType: "solid"
 ---
 
-<Snippet file="paper-release.mdx" />
+<Snippet file="security-compliance.mdx" />
 
 ## How to define configurations?
 
@@ -58,6 +58,7 @@ config = {
 
 m = Memory.from_config(config)
 m.add("Your text here", user_id="user", metadata={"category": "example"})
+
 ```
 
 ```typescript TypeScript
@@ -76,6 +77,7 @@ const config = {
 const memory = new Memory(config);
 await memory.add("Your text here", { userId: "user123", metadata: { category: "example" } });
 ```
+
 </CodeGroup>
 
 ## Why is Config Needed?
