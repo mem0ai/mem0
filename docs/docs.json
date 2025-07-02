@@ -252,6 +252,7 @@
                   "integrations/agno",
                   "integrations/autogen",
                   "integrations/crewai",
+                  "integrations/openai-agents-sdk",
                   "integrations/mastra",
                   "integrations/vercel-ai-sdk",
                   "integrations/livekit",
