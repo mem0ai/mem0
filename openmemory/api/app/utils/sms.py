@@ -248,71 +248,6 @@ I can search your memories AND analyze full documents for deeper insights. Just 
 
 Reply STOP to unsubscribe."""
 
-            # Hard-coded patterns for reliability (fallback if AI fails)
-            message_lower = message.lower().strip()
-            
-            # ALWAYS use ask_memory for these common patterns
-            if any(pattern in message_lower for pattern in [
-                "what do you know about me",
-                "what do you remember about",
-                "tell me about my",
-                "what did I say about",
-                "what have I told you",
-                "what memories do",
-                "do you remember",
-                "remind me about"
-            ]):
-                logger.info(f"SMS hard-coded pattern match: using ask_memory for '{message}'")
-                result = await ask_memory(message)
-                if len(result) > 1300:
-                    return f"{result[:1250]}...\n\nWant me to dig deeper into any of that?"
-                else:
-                    return result
-            
-            # ALWAYS use add_memories for clear storage patterns
-            if any(pattern in message_lower for pattern in [
-                "remember that",
-                "don't forget",
-                "i just",
-                "today i",
-                "i'm feeling",
-                "my favorite"
-            ]) or message_lower.startswith(("remember", "save", "store")):
-                logger.info(f"SMS hard-coded pattern match: using add_memories for '{message}'")
-                result = await add_memories(message)
-                confirmations = [
-                    "Got it! I'll remember that.",
-                    "Noted! Thanks for sharing that with me.",
-                    "I've added that to your memories 👍",
-                    "Cool, I'll keep that in mind!",
-                    "Saved! I won't forget that.",
-                    "Perfect, I've got that stored for you."
-                ]
-                import random
-                return random.choice(confirmations)
-
-            # ALWAYS use deep_memory_query for complex analysis patterns
-            if any(pattern in message_lower for pattern in [
-                "analyze",
-                "what patterns",
-                "understand patterns",
-                "how do my",
-                "what insights",
-                "synthesize",
-                "find insights",
-                "across all my",
-                "in my documents",
-                "deep dive",
-                "comprehensive",
-                "relationship between"
-            ]):
-                logger.info(f"SMS hard-coded pattern match: using deep_memory_query for '{message}'")
-                result = await deep_memory_query(message)
-                if len(result) > 1300:
-                    return f"{result[:1250]}...\n\nThis was a deep analysis - I can go into more detail if you'd like!"
-                else:
-                    return result
-
             # Use Claude for everything else (superior tool calling)
             import anthropic
             client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
@@ -327,22 +262,15 @@ Current user message: "{message}"
 
 IMPORTANT: You are having a personal conversation via SMS. Always address the user directly as "you" (never "the user is" or third-person language). This is like texting a friend who remembers everything about you.
 
-CONVERSATION CONTINUITY: If there's recent conversation context above, use it to understand references like "that", "it", "what we talked about", etc. The user may be referring to something from the recent conversation.
+CONVERSATION CONTINUITY: If there's recent conversation context above, use it to understand references like "that", "it", "what we talked about", "what did I just say", etc. The user may be referring to something from the recent conversation.
 
 You have these tools available:
-1. ask_memory - Search and recall existing memories to answer questions (fast, snippets only)
-2. add_memories - Store new information, experiences, thoughts, facts
-3. deep_memory_query - Comprehensive analysis including full documents, synthesis across many memories, pattern recognition (slower but deeper)
-4. chat_only - Respond conversationally without using tools
+1. ask_memory - Search and recall existing memories to answer questions (fast, snippets only). **Use this for questions about the current conversation.**
+2. add_memories - Store new information, experiences, thoughts, facts. **Use this when the user explicitly asks to remember something.**
+3. deep_memory_query - Comprehensive analysis including full documents, synthesis across many memories, pattern recognition (slower but deeper).
+4. chat_only - Respond conversationally without using tools (for greetings, thanks, or if no other tool is appropriate).
 
-Use your intelligence to determine the best response. Consider:
-
-- For simple questions about existing memories → use ask_memory
-- When the user shares something to remember → use add_memories  
-- For complex analysis, document searches, or "understand patterns" requests → use deep_memory_query
-- For greetings or general conversation → use chat_only
-
-Deep memory is perfect for: synthesis across many memories, finding needle-in-haystack information, analyzing full documents, understanding patterns and relationships.
+Use your intelligence to determine the best response. If the user is asking about the conversation itself (e.g., "what did I just say?"), use the conversation context to answer. If they are asking a question, use `ask_memory`. If they are sharing something new, use `add_memories`.
 
 Be smart, helpful, and conversational like you would be in any other Claude conversation. Remember: address them as "you" since this is a personal SMS conversation."""
 
