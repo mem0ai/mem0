@@ -5,7 +5,7 @@ import { App } from '@/store/appsSlice';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { MobileOptimizedDialog, MobileOptimizedDialogContent, MobileOptimizedDialogHeader, MobileOptimizedDialogTitle, MobileOptimizedDialogDescription } from '@/components/ui/mobile-optimized-dialog';
-import { Copy, Check, Key, Shield, Link as LinkIcon, Loader2, CheckCircle, AlertCircle, MessageSquare, MessageSquareText, Info, Download, ExternalLink, AlertTriangle, Smartphone } from 'lucide-react';
+import { Copy, Check, Key, Shield, Loader2, MessageSquareText, Info, Download } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { constants } from "@/components/shared/source-app";
@@ -13,7 +13,7 @@ import Image from 'next/image';
 import apiClient from '@/lib/apiClient';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Badge } from '@/components/ui/badge';
+
 
 interface InstallModalProps {
   app: App | null;
@@ -26,7 +26,7 @@ type VerificationStatus = 'idle' | 'sending' | 'sent' | 'verifying' | 'verified'
 
 export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallModalProps) {
   const [copied, setCopied] = useState(false);
-  const { user, accessToken } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -161,7 +161,6 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
   if (!app) return null;
 
   const appConfig = constants[app.id as keyof typeof constants] || constants.default;
-  let commandParts = { command: '', args: '' };
   
   // Use direct backend URL for Chorus, Worker URL for others
   const MCP_URL = app.id === 'chorus' ? "https://jean-memory-api.onrender.com" : "https://api.jeanmemory.com";
@@ -182,8 +181,8 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
   // Handle the special case for Chorus with a multi-part command
   if (app.id === 'chorus' && rawInstallCommand && rawInstallCommand.includes('#')) {
     const parts = rawInstallCommand.split('#');
-    commandParts.command = parts[0];
-    commandParts.args = parts[1].replace('{USER_ID}', user?.id || '');
+    // Extract the args part for Chorus
+    rawInstallCommand = parts[1].replace('{USER_ID}', user?.id || '');
   }
   
   const installCommand = rawInstallCommand
@@ -195,19 +194,16 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
 
   const userId = user?.id || '{YOUR_USER_ID}'; // Fallback for display
 
-  const vscodeSettingsJson = {
-    "mcp": {
-      "mcpServers": {
-        "jean-memory": {
-          "command": "npx",
-          "args": [
-            "-y",
-            "supergateway",
-            "--stdio",
-            `${MCP_URL}/mcp/v2/vscode/${userId}`
-          ],
-          "env": {}
-        }
+  const vscodeEnableSettings = {
+    "chat.mcp.enabled": true,
+    "chat.mcp.discovery.enabled": true
+  };
+
+  const vscodeMcpConfig = {
+    "servers": {
+      "jean-memory": {
+        "type": "sse",
+        "url": `https://api.jeanmemory.com/mcp/vscode/sse/${userId}`
       }
     }
   };
@@ -373,35 +369,62 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
             </div>
         ) : app.id === 'vscode' ? (
             <div className="py-2 space-y-4 text-left">
-                <ol className="list-decimal list-inside space-y-3 text-muted-foreground text-sm">
-                    <li>
-                        Open VS Code Settings.
-                        <div className="text-xs pl-2">(Mac: <code className="font-mono text-xs bg-muted p-1 rounded">Code &gt; Settings &gt; Settings</code>)</div>
-                        <div className="text-xs pl-2">(Windows: <code className="font-mono text-xs bg-muted p-1 rounded">File &gt; Preferences &gt; Settings</code>)</div>
-                    </li>
-                    <li>
-                        In the top-right of the Settings tab, click the <strong className="text-foreground">Open Settings (JSON)</strong> icon.
-                    </li>
-                    <li>
-                        Add the following to the file:
-                    </li>
-                </ol>
-                <div className="relative bg-background border rounded-md overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <pre className="p-3 pr-12 font-mono text-xs text-foreground min-w-0"><code className="whitespace-pre-wrap break-words">{JSON.stringify(vscodeSettingsJson, null, 2)}</code></pre>
-                    </div>
-                    <Button 
-                        variant="ghost" 
-                        size="sm"
-                        className="absolute right-1 top-1 bg-background/80 backdrop-blur-sm border" 
-                        onClick={() => handleCopy(JSON.stringify(vscodeSettingsJson, null, 2))}
-                    >
-                        {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-                    </Button>
-                </div>
-                <p className="text-xs text-muted-foreground pt-2">
-                    This feature is in preview. You may need to enable <code className="font-mono text-xs bg-muted p-1 rounded">chat.mcp.enabled</code> in your settings.
+                <p className="text-muted-foreground text-sm mb-4">
+                    VS Code has native MCP support. Just add a configuration file and enable MCP.
                 </p>
+                
+                <div className="space-y-3">
+                    <div>
+                        <h3 className="font-medium text-foreground mb-2">1. Enable MCP in Settings</h3>
+                        <p className="text-xs text-muted-foreground mb-2">Add to your settings.json:</p>
+                        <div className="relative bg-background border rounded-md overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <pre className="p-3 pr-12 font-mono text-xs text-foreground min-w-0"><code className="whitespace-pre-wrap break-words">{JSON.stringify(vscodeEnableSettings, null, 2)}</code></pre>
+                            </div>
+                            <Button 
+                                variant="ghost" 
+                                size="sm"
+                                className="absolute right-1 top-1 bg-background/80 backdrop-blur-sm border" 
+                                onClick={() => handleCopy(JSON.stringify(vscodeEnableSettings, null, 2))}
+                            >
+                                {copied ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
+                            </Button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 className="font-medium text-foreground mb-2">2. Create .vscode/mcp.json</h3>
+                        <p className="text-xs text-muted-foreground mb-2">Add this file to your project root:</p>
+                        <div className="relative bg-background border rounded-md overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <pre className="p-3 pr-12 font-mono text-xs text-foreground min-w-0"><code className="whitespace-pre-wrap break-words">{JSON.stringify(vscodeMcpConfig, null, 2)}</code></pre>
+                            </div>
+                            <Button 
+                                variant="ghost" 
+                                size="sm"
+                                className="absolute right-1 top-1 bg-background/80 backdrop-blur-sm border" 
+                                onClick={() => handleCopy(JSON.stringify(vscodeMcpConfig, null, 2))}
+                            >
+                                {copied ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-muted border rounded-md p-3 mt-4">
+                    <div className="flex items-start">
+                        <Info className="h-4 w-4 text-muted-foreground mt-0.5 mr-2 flex-shrink-0"/>
+                        <div>
+                            <p className="font-medium text-foreground mb-2">Next Steps</p>
+                            <ol className="text-muted-foreground text-xs space-y-1 ml-4">
+                                <li>1. Restart VS Code completely</li>
+                                <li>2. Open Chat (Ctrl/Cmd + Alt + I) → Agent mode</li>
+                                <li>3. Click "Trust" when prompted</li>
+                                <li>4. Click "Tools" to see Jean Memory</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
             </div>
         ) : app.id === 'substack' || app.id === 'twitter' ? (
             <div className="py-2 space-y-4">
