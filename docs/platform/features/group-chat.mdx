@@ -1,0 +1,291 @@
+---
+title: Group Chat
+description: 'Enable multi-participant conversations with automatic memory attribution to individual speakers'
+icon: "users"
+iconType: "solid"
+---
+
+<Snippet file="paper-release.mdx" />
+
+## Introduction to the Group Chat
+
+## Overview
+
+The Group Chat feature enables Mem0 to process conversations involving multiple participants and automatically attribute memories to individual speakers. This allows for precise tracking of each participant's preferences, characteristics, and contributions in collaborative discussions, team meetings, or multi-agent conversations.
+
+When you provide messages with participant names, Mem0 automatically:
+- Extracts memories from each participant's messages separately
+- Attributes each memory to the correct speaker using their name as the `user_id` or `agent_id`
+- Maintains individual memory profiles for each participant
+
+## How Group Chat Works
+
+Mem0 automatically detects group chat scenarios when messages contain a `name` field:
+
+```json
+{
+  "role": "user",
+  "name": "Alice",
+  "content": "Hey team, I think we should use React for the frontend"
+}
+```
+
+When names are present, Mem0:
+- Formats messages as `"Alice (user): content"` for processing
+- Extracts memories with proper attribution to each speaker
+- Stores memories with the speaker's name as the `user_id` (for users) or `agent_id` (for assistants/agents)
+
+### Memory Attribution Rules
+
+- **User Messages**: The `name` field becomes the `user_id` in stored memories
+- **Assistant/Agent Messages**: The `name` field becomes the `agent_id` in stored memories
+- **Messages without names**: Fall back to standard processing using role as identifier
+
+## Using Group Chat
+
+### Basic Group Chat
+
+Add memories from a multi-participant conversation:
+
+<CodeGroup>
+
+```python Python
+from mem0 import MemoryClient
+
+client = MemoryClient(api_key="your-api-key")
+
+# Group chat with multiple users
+messages = [
+    {"role": "user", "name": "Alice", "content": "Hey team, I think we should use React for the frontend"},
+    {"role": "user", "name": "Bob", "content": "I disagree, Vue.js would be better for our use case"},
+    {"role": "user", "name": "Charlie", "content": "What about considering Angular? It has great enterprise support"},
+    {"role": "assistant", "content": "All three frameworks have their merits. Let me summarize the pros and cons of each."}
+]
+
+response = client.add(
+    messages,
+    run_id="group_chat_1",
+    output_format="v1.1",
+    infer=True
+)
+print(response)
+```
+
+```json Output
+{
+  "results": [
+    {
+      "id": "4d82478a-8d50-47e6-9324-1f65efff5829",
+      "event": "ADD",
+      "memory": "prefers using React for the frontend"
+    },
+    {
+      "id": "1d8b8f39-7b17-4d18-8632-ab1c64fa35b9",
+      "event": "ADD",
+      "memory": "prefers Vue.js for our use case"
+    },
+    {
+      "id": "147559a8-c5f7-44d0-9418-91f53f7a89a4",
+      "event": "ADD",
+      "memory": "suggests considering Angular because it has great enterprise support"
+    }
+  ]
+}
+```
+
+</CodeGroup>
+
+## Retrieving Group Chat Memories
+
+### Get All Memories for a Session
+
+Retrieve all memories from a specific group chat session:
+
+<CodeGroup>
+
+```python Python
+# Get all memories for a specific run_id
+filters = {
+    "AND": [
+        {"user_id": "*"},
+        {"run_id": "group_chat_1"}
+    ]
+}
+
+all_memories = client.get_all(version="v2", filters=filters, page=1)
+print(all_memories)
+```
+
+```json Output
+[
+    {
+        "id": "147559a8-c5f7-44d0-9418-91f53f7a89a4",
+        "memory": "suggests considering Angular because it has great enterprise support",
+        "user_id": "charlie",
+        "run_id": "group_chat_1",
+        "created_at": "2025-06-21T05:51:11.007223-07:00",
+        "updated_at": "2025-06-21T05:51:11.626562-07:00"
+    },
+    {
+        "id": "1d8b8f39-7b17-4d18-8632-ab1c64fa35b9",
+        "memory": "prefers Vue.js for our use case",
+        "user_id": "bob",
+        "run_id": "group_chat_1",
+        "created_at": "2025-06-21T05:51:08.675301-07:00",
+        "updated_at": "2025-06-21T05:51:09.319269-07:00",
+    },
+    {
+        "id": "4d82478a-8d50-47e6-9324-1f65efff5829",
+        "memory": "prefers using React for the frontend",
+        "user_id": "alice",
+        "run_id": "group_chat_1",
+        "created_at": "2025-06-21T05:51:05.943223-07:00",
+        "updated_at": "2025-06-21T05:51:06.982539-07:00",
+    }
+]
+```
+
+</CodeGroup>
+
+### Get Memories for a Specific Participant
+
+Retrieve memories from a specific participant in a group chat:
+
+<CodeGroup>
+
+```python Python
+# Get memories for a specific participant
+filters = {
+    "AND": [
+        {"user_id": "charlie"},
+        {"run_id": "group_chat_1"}
+    ]
+}
+
+charlie_memories = client.get_all(version="v2", filters=filters, page=1)
+print(charlie_memories)
+```
+
+```json Output
+[
+    {
+        "id": "147559a8-c5f7-44d0-9418-91f53f7a89a4",
+        "memory": "suggests considering Angular because it has great enterprise support",
+        "user_id": "charlie",
+        "run_id": "group_chat_1",
+        "created_at": "2025-06-21T05:51:11.007223-07:00",
+        "updated_at": "2025-06-21T05:51:11.626562-07:00",
+
+    }
+]
+```
+
+</CodeGroup>
+
+### Search Within Group Chat Context
+
+Search for specific information within a group chat session:
+
+<CodeGroup>
+
+```python Python
+# Search within group chat context
+filters = {
+    "AND": [
+        {"user_id": "charlie"},
+        {"run_id": "group_chat_1"}
+    ]
+}
+
+search_response = client.search(
+    query="What are the tasks?",
+    filters=filters,
+    version="v2"
+)
+print(search_response)
+```
+
+```json Output
+[
+    {
+        "id": "147559a8-c5f7-44d0-9418-91f53f7a89a4",
+        "memory": "suggests considering Angular because it has great enterprise support",
+        "user_id": "charlie",
+        "run_id": "group_chat_1",
+        "created_at": "2025-06-21T05:51:11.007223-07:00",
+        "updated_at": "2025-06-21T05:51:11.626562-07:00",
+    }
+]
+```
+
+</CodeGroup>
+
+## Async Mode Support
+
+Group chat also supports async processing for improved performance:
+
+<CodeGroup>
+
+```python Python
+# Group chat with async mode
+response = client.add(
+    messages,
+    run_id="groupchat_async",
+    output_format="v1.1",
+    infer=True,
+    async_mode=True
+)
+print(response)
+```
+
+</CodeGroup>
+
+## Message Format Requirements
+
+### Required Fields
+
+Each message in a group chat must include:
+
+- `role`: The participant's role (`"user"`, `"assistant"`, `"agent"`)
+- `content`: The message content
+- `name`: The participant's name (required for group chat detection)
+
+### Example Message Structure
+
+```json
+{
+  "role": "user",
+  "name": "Alice",
+  "content": "I think we should use React for the frontend"
+}
+```
+### Supported Roles
+
+- **`user`**: Human participants (memories stored with `user_id`)
+- **`assistant`**: AI assistants (memories stored with `agent_id`)
+
+## Best Practices
+
+1. **Consistent Naming**: Use consistent names for participants across sessions to maintain proper memory attribution.
+
+2. **Clear Role Assignment**: Ensure each participant has the correct role (`user`, `assistant`, or `agent`) for proper memory categorization.
+
+3. **Session Management**: Use meaningful `run_id` values to organize group chat sessions and enable easy retrieval.
+
+4. **Memory Filtering**: Use filters to retrieve memories from specific participants or sessions when needed.
+
+5. **Async Processing**: Use `async_mode=True` for large group conversations to improve performance.
+
+6. **Search Context**: Leverage the search functionality to find specific information within group chat contexts.
+
+## Use Cases
+
+- **Team Meetings**: Track individual team member preferences and contributions
+- **Customer Support**: Maintain separate memory profiles for different customers
+- **Multi-Agent Systems**: Manage conversations with multiple AI assistants
+- **Collaborative Projects**: Track individual preferences and expertise areas
+- **Group Discussions**: Maintain context for each participant's viewpoints
+
+If you have any questions, please feel free to reach out to us using one of the following methods:
+
+<Snippet file="get-help.mdx" /> 
