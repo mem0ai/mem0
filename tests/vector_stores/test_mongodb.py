@@ -1,7 +1,9 @@
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
+
 from mem0.vector_stores.mongodb import MongoDB
-from pymongo.operations import SearchIndexModel
+
 
 @pytest.fixture
 @patch("mem0.vector_stores.mongodb.MongoClient")
