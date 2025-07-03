@@ -83,7 +83,7 @@ class Qdrant(VectorStoreBase):
         response = self.list_cols()
         for collection in response.collections:
             if collection.name == self.collection_name:
-                logging.debug(f"Collection {self.collection_name} already exists. Skipping creation.")
+                logger.debug(f"Collection {self.collection_name} already exists. Skipping creation.")
                 return
 
         self.client.create_collection(
