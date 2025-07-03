@@ -5,6 +5,8 @@ from app.models import User, App
 from typing import Tuple, Optional
 import logging
 from fastapi import HTTPException
+import os
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +65,9 @@ def get_or_create_user(db: Session, supabase_user_id: str, email: Optional[str] 
     if existing_user:
         return existing_user
     
+    # If we are here, a new user will be created.
+    created = True
+
     # RACE CONDITION FIX: Use database-level ON CONFLICT to handle concurrent inserts
     # Create new user with proper error handling for race conditions
     user = User(
@@ -77,6 +82,8 @@ def get_or_create_user(db: Session, supabase_user_id: str, email: Optional[str] 
         db.refresh(user)
     except IntegrityError as e:
         db.rollback()
+        # If we hit a race condition, the user was created by another thread, so it's not a new creation.
+        created = False
         # RACE CONDITION HANDLING: If there's an integrity error, another thread likely created the user
         # Try to find the existing user by user_id (most reliable) or email
         logger.info(f"IntegrityError creating user {supabase_user_id}, attempting to find existing user: {e}")
@@ -102,7 +109,55 @@ def get_or_create_user(db: Session, supabase_user_id: str, email: Optional[str] 
         logger.error(f"Error creating user {supabase_user_id}: {e}")
         raise # Re-raise after rollback
     
+    if created:
+        add_user_to_loops(user)
+
     return user
+
+
+def add_user_to_loops(user: User):
+    """
+    Adds a new user to Loops to trigger welcome email sequences.
+    This is a fire-and-forget operation. Failure should not block user creation.
+    """
+    loops_api_key = os.getenv("LOOPS_API_KEY")
+    if not loops_api_key:
+        logger.warning("LOOPS_API_KEY is not set. Skipping adding user to Loops.")
+        return
+
+    if not user.email:
+        logger.warning(f"User {user.user_id} has no email. Skipping adding user to Loops.")
+        return
+
+    url = "https://app.loops.so/api/v1/contacts/create"
+    headers = {
+        "Authorization": f"Bearer {loops_api_key}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "email": user.email,
+        "userId": user.user_id,
+        "source": "Jean Memory App"
+    }
+
+    try:
+        response = requests.post(url, json=payload, headers=headers, timeout=5)
+        response.raise_for_status()  # Raise an exception for bad status codes (4xx or 5xx)
+        
+        response_data = response.json()
+        if response_data.get("success"):
+            logger.info(f"Successfully added user {user.email} to Loops.")
+        else:
+            logger.error(f"Failed to add user {user.email} to Loops. API responded with an error: {response_data.get('message', 'Unknown error')}")
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error calling Loops API for user {user.email}: {e}")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while adding user {user.email} to Loops: {e}")
+
+
+def get_user(db: Session, user_id: str) -> Optional[User]:
+    return db.query(User).filter(User.user_id == user_id).first()
 
 
 def get_or_create_app(db: Session, user: User, app_name: str) -> App:
