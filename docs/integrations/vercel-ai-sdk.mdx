@@ -225,6 +225,18 @@ const memories = await getMemories(prompt, { user_id: "borat", mem0ApiKey: "m0-x
 
 The `getMemories` function will return an object with two keys: `results` and `relations`, if `enable_graph` is set to `true`. Otherwise, it will return an array of objects.
 
+## Supported LLM Providers
+
+| Provider | Configuration Value |
+|----------|-------------------|
+| OpenAI | openai |
+| Anthropic | anthropic |
+| Gemini | gemini |
+| Google | google |
+| Mistral | mistral |
+| Groq | groq |
+
+> **Note**: You can use `google` as provider for Gemini (Google) models. They are same and internally they use `@ai-sdk/google` package.
 
 ## Key Features
 
