@@ -125,17 +125,15 @@ NOTE:Your personal AI memory assistant - text me anything you want to remember!
 END:VCARD"""
             
             # Welcome message
-            welcome_message = """Welcome to Jean Memory! 🎉 
+            welcome_message = """Welcome to Jean Memory! 🎉 I've sent you my contact card so you can easily save my number.
 
-You're all set! I've sent you my contact card so you can easily save my number.
+Here's a quick guide to my main tools:
+• 'ask_memory': For quick questions about what you've told me. It's fast but not as deep.
+• 'deep_memory': For complex questions. It can synthesize information across all your memories to find patterns and deeper insights.
 
-💡 Pro tip: Pin this conversation so you can always find me quickly!
+Try asking: "What did I say about work?" or "deep_memory: what are my main projects this quarter?"
 
-Text me anything you want to remember - I'm here to help 24/7!
-
-Try: "Remember I love this coffee shop" or "What did I say about work?"
-
-Reply HELP for more examples."""
+Text me anything you want to remember. I'm here 24/7!"""
 
             # Create publicly accessible vCard URL
             # We'll use a simple approach: encode the vCard and use our API endpoint
@@ -265,7 +263,7 @@ IMPORTANT: You are having a personal conversation via SMS. Always address the us
 CONVERSATION CONTINUITY: If there's recent conversation context above, use it to understand references like "that", "it", "what we talked about", "what did I just say", etc. The user may be referring to something from the recent conversation.
 
 You have these tools available:
-1. ask_memory - Search and recall existing memories to answer questions (fast, snippets only). **Use this for questions about the current conversation.**
+1. ask_memory - Search and recall existing memories to answer questions about their life, experiences, or information they've shared. Fast but only sees memory snippets. **Use this for questions about the current conversation.**
 2. add_memories - Store new information, experiences, thoughts, facts. **Use this when the user explicitly asks to remember something.**
 3. deep_memory_query - Comprehensive analysis including full documents, synthesis across many memories, pattern recognition (slower but deeper).
 4. chat_only - Respond conversationally without using tools (for greetings, thanks, or if no other tool is appropriate).
