@@ -4,6 +4,8 @@ icon: "plug"
 iconType: "solid"
 ---
 
+<Snippet file="security-compliance.mdx" />
+
 ## Connecting an MCP Client
 
 Once your OpenMemory server is running locally, you can connect any compatible MCP client to your personal memory stream. This enables a seamless memory layer integration for AI tools and agents.
@@ -22,14 +24,14 @@ OPENAI_API_KEY=sk-xxx
 USER=<user-id>
 ```
 
-These values define where your MCP server is running and which user’s memory is accessed.
+These values define where your MCP server is running and which user's memory is accessed.
 
 ### MCP Client Setup
 
-Use the `install-mcp` utility to connect a client. The general command format is as follows:
+Use the following one step command to configure OpenMemory Local MCP to a client. The general command format is as follows:
 
 ```bash
-npx install-mcp http://localhost:8765/mcp/<client-name>/sse/<user-id> --client <client-name>
+npx @openmemory/install local http://localhost:8765/mcp/<client-name>/sse/<user-id> --client <client-name>
 ```
 
 Replace `<client-name>` with the desired client name and `<user-id>` with the value specified in your environment variables.
@@ -38,7 +40,6 @@ Replace `<client-name>` with the desired client name and `<user-id>` with the va
 
 | Client      | Command |
 |-------------|---------|
-| OpenMemory | `npx install-mcp http://localhost:8765/mcp/openmemory/sse/<user-id> --client openmemory` |
 | Claude      | `npx install-mcp http://localhost:8765/mcp/claude/sse/<user-id> --client claude` |
 | Cursor      | `npx install-mcp http://localhost:8765/mcp/cursor/sse/<user-id> --client cursor` |
 | Cline       | `npx install-mcp http://localhost:8765/mcp/cline/sse/<user-id> --client cline` |
@@ -46,6 +47,7 @@ Replace `<client-name>` with the desired client name and `<user-id>` with the va
 | Windsurf    | `npx install-mcp http://localhost:8765/mcp/windsurf/sse/<user-id> --client windsurf` |
 | Witsy       | `npx install-mcp http://localhost:8765/mcp/witsy/sse/<user-id> --client witsy` |
 | Enconvo     | `npx install-mcp http://localhost:8765/mcp/enconvo/sse/<user-id> --client enconvo` |
+| Augment     | `npx install-mcp http://localhost:8765/mcp/augment/sse/<user-id> --client augment` |
 
 ### What This Does
 
