@@ -25,7 +25,7 @@ from mem0.memory.setup import mem0_dir, setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import capture_event
 from mem0.memory.utils import (
-    get_fact_retrieval_messages,
+    get_fact_extraction_messages,
     parse_messages,
     parse_vision_messages,
     process_telemetry_filters,
@@ -322,7 +322,7 @@ class Memory(MemoryBase):
             system_prompt = self.config.custom_fact_extraction_prompt
             user_prompt = f"Input:\n{parsed_messages}"
         else:
-            system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages)
+            system_prompt, user_prompt = get_fact_extraction_messages(parsed_messages)
 
         response = self.llm.generate_response(
             messages=[
@@ -334,17 +334,17 @@ class Memory(MemoryBase):
 
         try:
             response = remove_code_blocks(response)
-            new_retrieved_facts = json.loads(response)["facts"]
+            new_extracted_facts = json.loads(response)["facts"]
         except Exception as e:
-            logging.error(f"Error in new_retrieved_facts: {e}")
-            new_retrieved_facts = []
+            logging.error(f"Error in new_extracted_facts: {e}")
+            new_extracted_facts = []
         
-        if not new_retrieved_facts:
+        if not new_extracted_facts:
             logger.debug("No new facts retrieved from input. Skipping memory update LLM call.")
 
         retrieved_old_memory = []
         new_message_embeddings = {}
-        for new_mem in new_retrieved_facts:
+        for new_mem in new_extracted_facts:
             messages_embeddings = self.embedding_model.embed(new_mem, "add")
             new_message_embeddings[new_mem] = messages_embeddings
             existing_memories = self.vector_store.search(
@@ -368,9 +368,9 @@ class Memory(MemoryBase):
             temp_uuid_mapping[str(idx)] = item["id"]
             retrieved_old_memory[idx]["id"] = str(idx)
 
-        if new_retrieved_facts:
+        if new_extracted_facts:
             function_calling_prompt = get_update_memory_messages(
-                retrieved_old_memory, new_retrieved_facts, self.config.custom_update_memory_prompt
+                retrieved_old_memory, new_extracted_facts, self.config.custom_update_memory_prompt
             )
 
             try:
@@ -1153,7 +1153,7 @@ class AsyncMemory(MemoryBase):
             system_prompt = self.config.custom_fact_extraction_prompt
             user_prompt = f"Input:\n{parsed_messages}"
         else:
-            system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages)
+            system_prompt, user_prompt = get_fact_extraction_messages(parsed_messages)
 
         response = await asyncio.to_thread(
             self.llm.generate_response,
