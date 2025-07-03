@@ -102,7 +102,7 @@ class Weaviate(VectorStoreBase):
             distance (str, optional): Distance metric for vector similarity. Defaults to "cosine".
         """
         if self.client.collections.exists(self.collection_name):
-            logging.debug(f"Collection {self.collection_name} already exists. Skipping creation.")
+            logger.debug(f"Collection {self.collection_name} already exists. Skipping creation.")
             return
 
         properties = [

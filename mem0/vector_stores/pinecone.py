@@ -98,7 +98,7 @@ class PineconeDB(VectorStoreBase):
         existing_indexes = self.list_cols().names()
 
         if self.collection_name in existing_indexes:
-            logging.debug(f"Index {self.collection_name} already exists. Skipping creation.")
+            logger.debug(f"Index {self.collection_name} already exists. Skipping creation.")
             self.index = self.client.Index(self.collection_name)
             return
 
