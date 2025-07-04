@@ -111,7 +111,7 @@ def main():
             print("All categories accuracy:")
             for cat, results in LLM_JUDGE.items():
                 if results:  # Only print if there are results for this category
-                    print(f"  Category {cat}: {np.mean(results):.4f} " f"({sum(results)}/{len(results)})")
+                    print(f"  Category {cat}: {np.mean(results):.4f} ({sum(results)}/{len(results)})")
             print("------------------------------------------")
         index += 1
 

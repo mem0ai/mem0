@@ -91,10 +91,12 @@ class AWSBedrockLLM(LLMBase):
             if response["output"]["message"]["content"]:
                 for item in response["output"]["message"]["content"]:
                     if "toolUse" in item:
-                        processed_response["tool_calls"].append({
-                            "name": item["toolUse"]["name"],
-                            "arguments": item["toolUse"]["input"],
-                        })
+                        processed_response["tool_calls"].append(
+                            {
+                                "name": item["toolUse"]["name"],
+                                "arguments": item["toolUse"]["input"],
+                            }
+                        )
 
             return processed_response
 
