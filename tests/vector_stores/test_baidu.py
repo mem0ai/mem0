@@ -1,11 +1,6 @@
 from unittest.mock import Mock, PropertyMock, patch
 
 import pytest
-
-from mem0.vector_stores.baidu import BaiduDB
-from pymochow.model.enum import TableState, ServerErrCode
-from pymochow.model.table import VectorSearchConfig, VectorTopkSearchRequest, FloatVector, Table
-
 from pymochow.exception import ServerError
 from pymochow.model.enum import ServerErrCode, TableState
 from pymochow.model.table import (

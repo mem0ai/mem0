@@ -1,8 +1,6 @@
 import json
 import os
 from typing import Dict, List, Optional
-from openai import OpenAI
-
 
 from openai import OpenAI
 
