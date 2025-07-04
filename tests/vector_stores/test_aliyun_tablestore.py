@@ -224,7 +224,7 @@ def test_sts_token(data):
         instance_name=os.environ["TABLESTORE_INSTANCE_NAME"],
         access_key_id=os.environ["STS_TABLESTORE_ACCESS_KEY_ID"],
         access_key_secret=os.environ["STS_TABLESTORE_ACCESS_KEY_SECRET"],
-        sts_token=os.environ["STS_TOKEN"],
+        sts_token=os.environ["TABLESTORE_STS_TOKEN"],
         vector_dimension=4,
         collection_name='sts_test_collection',
         search_index_name='sts_test_search_index',
