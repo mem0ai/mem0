@@ -162,7 +162,7 @@ class MemoryGraph:
             LIMIT $limit
             """
             params = {"user_id": filters["user_id"], "limit": limit}
-        
+
         results = self.graph.query(query, params=params)
 
         final_results = []
@@ -318,7 +318,7 @@ class MemoryGraph:
                     "user_id": filters["user_id"],
                     "limit": limit,
                 }
-            
+
             ans = self.graph.query(cypher_query, params=params)
             result_relations.extend(ans)
 
@@ -356,7 +356,7 @@ class MemoryGraph:
         user_id = filters["user_id"]
         agent_id = filters.get("agent_id", None)
         results = []
-        
+
         for item in to_be_deleted:
             source = item["source"]
             destination = item["destination"]
@@ -369,7 +369,7 @@ class MemoryGraph:
                 "dest_name": destination,
                 "user_id": user_id,
             }
-            
+
             if agent_id:
                 agent_filter = "AND n.agent_id = $agent_id AND m.agent_id = $agent_id"
                 params["agent_id"] = agent_id
@@ -386,10 +386,10 @@ class MemoryGraph:
                 m.name AS target,
                 type(r) AS relationship
             """
-            
+
             result = self.graph.query(cypher, params=params)
             results.append(result)
-        
+
         return results
 
     # added Entity label to all nodes for vector search to work
@@ -398,7 +398,7 @@ class MemoryGraph:
         user_id = filters["user_id"]
         agent_id = filters.get("agent_id", None)
         results = []
-        
+
         for item in to_be_added:
             # entities
             source = item["source"]
@@ -421,7 +421,7 @@ class MemoryGraph:
             agent_id_clause = ""
             if agent_id:
                 agent_id_clause = ", agent_id: $agent_id"
-            
+
             # TODO: Create a cypher query and common params for all the cases
             if not destination_node_search_result and source_node_search_result:
                 cypher = f"""
@@ -446,7 +446,7 @@ class MemoryGraph:
                 }
                 if agent_id:
                     params["agent_id"] = agent_id
-                
+
             elif destination_node_search_result and not source_node_search_result:
                 cypher = f"""
                     MATCH (destination:Entity)
@@ -470,7 +470,7 @@ class MemoryGraph:
                 }
                 if agent_id:
                     params["agent_id"] = agent_id
-                
+
             elif source_node_search_result and destination_node_search_result:
                 cypher = f"""
                     MATCH (source:Entity)
@@ -490,7 +490,7 @@ class MemoryGraph:
                 }
                 if agent_id:
                     params["agent_id"] = agent_id
-                
+
             else:
                 cypher = f"""
                     MERGE (n:{source_type}:Entity {{name: $source_name, user_id: $user_id{agent_id_clause}}})
@@ -512,7 +512,7 @@ class MemoryGraph:
                 }
                 if agent_id:
                     params["agent_id"] = agent_id
-                
+
             result = self.graph.query(cypher, params=params)
             results.append(result)
         return results
@@ -528,7 +528,7 @@ class MemoryGraph:
         """Search for source nodes with similar embeddings."""
         user_id = filters["user_id"]
         agent_id = filters.get("agent_id", None)
-        
+
         if agent_id:
             cypher = """
                 CALL vector_search.search("memzero", 1, $source_embedding) 
@@ -567,7 +567,7 @@ class MemoryGraph:
         """Search for destination nodes with similar embeddings."""
         user_id = filters["user_id"]
         agent_id = filters.get("agent_id", None)
-        
+
         if agent_id:
             cypher = """
                 CALL vector_search.search("memzero", 1, $destination_embedding) 

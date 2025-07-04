@@ -45,11 +45,7 @@ def get_food_recommendation(user_query: str, user_id):
     """Get food recommendation with memory context"""
 
     # Search memory for relevant food preferences
-    memories_result = memory_client.search(
-        query=user_query,
-        user_id=user_id,
-        limit=5
-    )
+    memories_result = memory_client.search(query=user_query, user_id=user_id, limit=5)
 
     # Add memory context to the message
     memories = [f"- {result['memory']}" for result in memories_result]
@@ -71,6 +67,7 @@ def get_food_recommendation(user_query: str, user_id):
     # Save audio file
     if response.audio:
         import time
+
         timestamp = int(time.time())
         filename = f"food_recommendation_{timestamp}.mp3"
         write_audio_to_file(
@@ -118,7 +115,11 @@ def initialize_food_memory(user_id):
 # Initialize the memory for the user once in order for the agent to learn the user preference
 initialize_food_memory(user_id=USER_ID)
 
-print(get_food_recommendation("Which type of restaurants should I go tonight for dinner and cuisines preferred?", user_id=USER_ID))
+print(
+    get_food_recommendation(
+        "Which type of restaurants should I go tonight for dinner and cuisines preferred?", user_id=USER_ID
+    )
+)
 # OUTPUT: 🎵 Audio saved as food_recommendation_1750162610.mp3
 # For dinner tonight, considering your love for healthy spic optionsy, you could try a nice Thai, Indian, or Mexican restaurant.
 # You might find dishes with quinoa, chickpeas, tofu, and fresh herbs delightful. Enjoy your dinner!

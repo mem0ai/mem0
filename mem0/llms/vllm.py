@@ -7,7 +7,6 @@ from openai import OpenAI
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.llms.base import LLMBase
 from mem0.memory.utils import extract_json
-from openai import OpenAI
 
 
 class VllmLLM(LLMBase):
@@ -41,10 +40,12 @@ class VllmLLM(LLMBase):
 
             if response.choices[0].message.tool_calls:
                 for tool_call in response.choices[0].message.tool_calls:
-                    processed_response["tool_calls"].append({
-                        "name": tool_call.function.name,
-                        "arguments": json.loads(extract_json(tool_call.function.arguments)),
-                    })
+                    processed_response["tool_calls"].append(
+                        {
+                            "name": tool_call.function.name,
+                            "arguments": json.loads(extract_json(tool_call.function.arguments)),
+                        }
+                    )
 
             return processed_response
         else:
