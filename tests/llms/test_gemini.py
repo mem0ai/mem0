@@ -46,21 +46,17 @@ def test_generate_response_without_tools(mock_gemini_client: Mock):
             {"parts": "Hello, how are you?", "role": "user"},
         ],
         config=types.GenerateContentConfig(
-              temperature=0.7, 
-              max_output_tokens=100, 
-              top_p=1.0,
-              tools=None,
-              tool_config=types.ToolConfig(
-                function_calling_config=types.FunctionCallingConfig(
-                    allowed_function_names=None,
-                    mode="auto"
-                
-                )
-            )
-    )   )
-    
-    assert response == "I'm doing well, thank you for asking!"
+            temperature=0.7,
+            max_output_tokens=100,
+            top_p=1.0,
+            tools=None,
+            tool_config=types.ToolConfig(
+                function_calling_config=types.FunctionCallingConfig(allowed_function_names=None, mode="auto")
+            ),
+        ),
+    )
 
+    assert response == "I'm doing well, thank you for asking!"
 
 
 def test_generate_response_with_tools(mock_gemini_client: Mock):
@@ -106,14 +102,8 @@ def test_generate_response_with_tools(mock_gemini_client: Mock):
 
     mock_gemini_client.generate_content.assert_called_once_with(
         contents=[
-            {
-                "parts": "THIS IS A SYSTEM PROMPT. YOU MUST OBEY THIS: You are a helpful assistant.",
-                "role": "user"
-            },
-            {
-                "parts": "Add a new memory: Today is a sunny day.",
-                "role": "user"
-            },
+            {"parts": "THIS IS A SYSTEM PROMPT. YOU MUST OBEY THIS: You are a helpful assistant.", "role": "user"},
+            {"parts": "Add a new memory: Today is a sunny day.", "role": "user"},
         ],
         config=types.GenerateContentConfig(
             temperature=0.7,
@@ -127,25 +117,17 @@ def test_generate_response_with_tools(mock_gemini_client: Mock):
                             description="Add a memory",
                             parameters={
                                 "type": "object",
-                                "properties": {
-                                    "data": {
-                                        "type": "string",
-                                        "description": "Data to add to memory"
-                                    }
-                                },
-                                "required": ["data"]
-                            }
+                                "properties": {"data": {"type": "string", "description": "Data to add to memory"}},
+                                "required": ["data"],
+                            },
                         )
                     ]
                 )
             ],
             tool_config=types.ToolConfig(
-                function_calling_config=types.FunctionCallingConfig(
-                    allowed_function_names=None,
-                    mode="auto"
-                )
-            )
-        )
+                function_calling_config=types.FunctionCallingConfig(allowed_function_names=None, mode="auto")
+            ),
+        ),
     )
 
     assert response["content"] == "I've added the memory for you."
