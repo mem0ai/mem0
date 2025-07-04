@@ -6,10 +6,14 @@ from openai import OpenAI
 from pydantic import BaseModel
 from tenacity import retry, stop_after_attempt, wait_exponential
 from app.utils.prompts import MEMORY_CATEGORIZATION_PROMPT
+from app.config import OPENAI_BASE_URL
 
 load_dotenv()
-openai_client = OpenAI()
 
+if OPENAI_BASE_URL:
+    openai_client = OpenAI(base_url=OPENAI_BASE_URL)
+else:
+    openai_client = OpenAI()
 
 class MemoryCategories(BaseModel):
     categories: List[str]
