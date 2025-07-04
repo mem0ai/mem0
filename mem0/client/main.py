@@ -609,7 +609,7 @@ class MemoryClient:
             APIError: If the API request fails.
             ValueError: If org_id or project_id are not set.
         """
-        logger.warning("get_project() method is going to be deprecated soon. Please use the client.project.get() method instead.")
+        logger.warning("get_project() method is going to be deprecated in version v1.0 of the package. Please use the client.project.get() method instead.")
         if not (self.org_id and self.project_id):
             raise ValueError(
                 "org_id and project_id must be set to access instructions or "
@@ -654,7 +654,7 @@ class MemoryClient:
             APIError: If the API request fails.
             ValueError: If org_id or project_id are not set.
         """
-        logger.warning("update_project() method is going to be deprecated soon. Please use the client.project.update() method instead.")
+        logger.warning("update_project() method is going to be deprecated in version v1.0 of the package. Please use the client.project.update() method instead.")
         if not (self.org_id and self.project_id):
             raise ValueError(
                 "org_id and project_id must be set to update instructions or "
@@ -1427,7 +1427,7 @@ class AsyncMemoryClient:
             APIError: If the API request fails.
             ValueError: If org_id or project_id are not set.
         """
-        logger.warning("get_project() method is going to be deprecated soon. Please use the client.project.get() method instead.")
+        logger.warning("get_project() method is going to be deprecated in version v1.0 of the package. Please use the client.project.get() method instead.")
         if not (self.org_id and self.project_id):
             raise ValueError("org_id and project_id must be set to access instructions or categories")
 
@@ -1465,7 +1465,7 @@ class AsyncMemoryClient:
             APIError: If the API request fails.
             ValueError: If org_id or project_id are not set.
         """
-        logger.warning("update_project() method is going to be deprecated soon. Please use the client.project.update() method instead.")
+        logger.warning("update_project() method is going to be deprecated in version v1.0 of the package. Please use the client.project.update() method instead.")
         if not (self.org_id and self.project_id):
             raise ValueError("org_id and project_id must be set to update instructions or categories")
 

@@ -192,7 +192,6 @@ class BaseProject(ABC):
         custom_categories: Optional[List[str]] = None,
         retrieval_criteria: Optional[List[Dict[str, Any]]] = None,
         enable_graph: Optional[bool] = None,
-        version: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Update project settings.
@@ -202,7 +201,6 @@ class BaseProject(ABC):
             custom_categories: New categories for the project
             retrieval_criteria: New retrieval criteria for the project
             enable_graph: Enable or disable the graph for the project
-            version: Version of the project
 
         Returns:
             Dictionary containing the API response.
@@ -391,7 +389,6 @@ class Project(BaseProject):
         custom_categories: Optional[List[str]] = None,
         retrieval_criteria: Optional[List[Dict[str, Any]]] = None,
         enable_graph: Optional[bool] = None,
-        version: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Update project settings.
@@ -401,7 +398,6 @@ class Project(BaseProject):
             custom_categories: New categories for the project
             retrieval_criteria: New retrieval criteria for the project
             enable_graph: Enable or disable the graph for the project
-            version: Version of the project
 
         Returns:
             Dictionary containing the API response.
@@ -415,12 +411,11 @@ class Project(BaseProject):
             and custom_categories is None
             and retrieval_criteria is None
             and enable_graph is None
-            and version is None
         ):
             raise ValueError(
                 "At least one parameter must be provided for update: "
                 "custom_instructions, custom_categories, retrieval_criteria, "
-                "enable_graph, or version"
+                "enable_graph"
             )
 
         payload = self._prepare_params(
@@ -428,8 +423,7 @@ class Project(BaseProject):
                 "custom_instructions": custom_instructions,
                 "custom_categories": custom_categories,
                 "retrieval_criteria": retrieval_criteria,
-                "enable_graph": enable_graph,
-                "version": version,
+                "enable_graph": enable_graph
             }
         )
         response = self._client.patch(
@@ -445,7 +439,6 @@ class Project(BaseProject):
                 "custom_categories": custom_categories,
                 "retrieval_criteria": retrieval_criteria,
                 "enable_graph": enable_graph,
-                "version": version,
                 "sync_type": "sync",
             },
         )
@@ -689,7 +682,6 @@ class AsyncProject(BaseProject):
         custom_categories: Optional[List[str]] = None,
         retrieval_criteria: Optional[List[Dict[str, Any]]] = None,
         enable_graph: Optional[bool] = None,
-        version: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Update project settings.
@@ -699,7 +691,6 @@ class AsyncProject(BaseProject):
             custom_categories: New categories for the project
             retrieval_criteria: New retrieval criteria for the project
             enable_graph: Enable or disable the graph for the project
-            version: Version of the project
 
         Returns:
             Dictionary containing the API response.
@@ -713,12 +704,11 @@ class AsyncProject(BaseProject):
             and custom_categories is None
             and retrieval_criteria is None
             and enable_graph is None
-            and version is None
         ):
             raise ValueError(
                 "At least one parameter must be provided for update: "
                 "custom_instructions, custom_categories, retrieval_criteria, "
-                "enable_graph, or version"
+                "enable_graph"
             )
 
         payload = self._prepare_params(
@@ -726,8 +716,7 @@ class AsyncProject(BaseProject):
                 "custom_instructions": custom_instructions,
                 "custom_categories": custom_categories,
                 "retrieval_criteria": retrieval_criteria,
-                "enable_graph": enable_graph,
-                "version": version,
+                "enable_graph": enable_graph
             }
         )
         response = await self._client.patch(
@@ -743,7 +732,6 @@ class AsyncProject(BaseProject):
                 "custom_categories": custom_categories,
                 "retrieval_criteria": retrieval_criteria,
                 "enable_graph": enable_graph,
-                "version": version,
                 "sync_type": "async",
             },
         )

@@ -103,7 +103,7 @@ client.project.update(
 
 # Update project with custom instructions
 client.project.update(
-    custom_instructions="Focus on customer satisfaction and personalized support"
+    custom_instructions="..."
 )
 
 # Enable graph memory for the project
@@ -111,17 +111,20 @@ client.project.update(enable_graph=True)
 
 # Update multiple settings at once
 client.project.update(
-    custom_instructions="Enhanced AI assistant instructions",
+    custom_instructions="...",
     custom_categories=[
         {"personal_info": "User personal information and preferences"},
         {"work_context": "Professional context and work-related information"}
     ],
-    enable_graph=True,
-    version="v2"
+    enable_graph=True
 )
 ```
 
 #### Delete Project
+
+<Note>
+This action will remove all memories, messages, and other related data in the project. This operation is irreversible.
+</Note>
 
 Remove a project and all its associated data:
 
@@ -171,10 +174,8 @@ async def manage_project():
 
     # All methods support async/await
     project_info = await client.project.get()
-    print(project_info)
     await client.project.update(enable_graph=True)
     members = await client.project.get_members()
-    print(members)
 
 # To call the async function properly
 import asyncio
