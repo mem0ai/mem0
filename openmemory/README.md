@@ -138,7 +138,7 @@ For Warp Terminal's Agent Mode, since it's not yet directly supported by the ins
 
 4. Restart Warp to load the new MCP configuration.
 
-**Note**: We are also working on adding Warp support directly to the `@openmemory/install` npm package to enable automatic installation. This manual configuration will remain as a backup method.
+**Note**: We would appreciate if Warp support could be added directly to the `@openmemory/install` npm package to enable automatic installation. This manual configuration will remain as a reliable method in the meantime.
 
 
 ## Project Structure
