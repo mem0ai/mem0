@@ -43,6 +43,7 @@ def test_generate_response_without_tools(mock_lm_studio_client):
 
     assert response == "I'm doing well, thank you for asking!"
 
+
 def test_generate_response_specifying_response_format(mock_lm_studio_client):
     config = BaseLlmConfig(
         model="lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",

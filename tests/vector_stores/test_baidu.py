@@ -2,10 +2,9 @@ from unittest.mock import Mock, patch, PropertyMock
 
 import pytest
 
-from mem0.vector_stores.baidu import BaiduDB, OutputData
-from pymochow.model.enum import MetricType, TableState, ServerErrCode
-from pymochow.model.schema import Field, Schema, VectorIndex, FilteringIndex, HNSWParams, AutoBuildRowCountIncrement
-from pymochow.model.table import Partition, Row, VectorSearchConfig, VectorTopkSearchRequest, FloatVector, Table
+from mem0.vector_stores.baidu import BaiduDB
+from pymochow.model.enum import TableState, ServerErrCode
+from pymochow.model.table import VectorSearchConfig, VectorTopkSearchRequest, FloatVector, Table
 from pymochow.exception import ServerError
 
 

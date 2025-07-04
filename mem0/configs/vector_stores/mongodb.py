@@ -11,7 +11,7 @@ class MongoDBConfig(BaseModel):
     embedding_model_dims: Optional[int] = Field(1536, description="Dimensions of the embedding vectors")
     mongo_uri: str = Field("mongodb://localhost:27017", description="MongoDB URI. Default is mongodb://localhost:27017")
 
-    @model_validator(mode='before')
+    @model_validator(mode="before")
     @classmethod
     def validate_extra_fields(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         allowed_fields = set(cls.model_fields.keys())

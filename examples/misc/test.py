@@ -1,4 +1,4 @@
-from agents import Agent, Runner, function_tool, handoffs, enable_verbose_stdout_logging
+from agents import Agent, Runner, function_tool, enable_verbose_stdout_logging
 from dotenv import load_dotenv
 
 from mem0 import MemoryClient
@@ -35,7 +35,7 @@ travel_agent = Agent(
     understand the user's travel preferences and history before making recommendations.
     After providing your response, use store_conversation to save important details.""",
     tools=[search_memory, save_memory],
-    model="gpt-4o"
+    model="gpt-4o",
 )
 
 health_agent = Agent(
@@ -44,7 +44,7 @@ health_agent = Agent(
     understand the user's health goals and dietary preferences.
     After providing advice, use store_conversation to save relevant information.""",
     tools=[search_memory, save_memory],
-    model="gpt-4o"
+    model="gpt-4o",
 )
 
 # Triage agent with handoffs
@@ -55,7 +55,7 @@ triage_agent = Agent(
     For health-related questions (fitness, diet, wellness, exercise), hand off to Health Advisor.
     For general questions, you can handle them directly using available tools.""",
     handoffs=[travel_agent, health_agent],
-    model="gpt-4o"
+    model="gpt-4o",
 )
 
 
@@ -74,10 +74,7 @@ def chat_with_handoffs(user_input: str, user_id: str) -> str:
     result = Runner.run_sync(triage_agent, user_input)
 
     # Store the original conversation in memory
-    conversation = [
-        {"role": "user", "content": user_input},
-        {"role": "assistant", "content": result.final_output}
-    ]
+    conversation = [{"role": "user", "content": user_input}, {"role": "assistant", "content": result.final_output}]
     mem0.add(conversation, user_id=user_id)
 
     return result.final_output
