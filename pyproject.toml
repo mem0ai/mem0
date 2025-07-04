@@ -23,6 +23,7 @@ dependencies = [
 [project.optional-dependencies]
 graph = [
     "langchain-neo4j>=0.4.0",
+    "langchain-aws>=0.2.23",
     "neo4j>=5.23.1",
     "rank-bm25>=0.2.2",
 ]
