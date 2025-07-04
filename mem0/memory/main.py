@@ -336,9 +336,9 @@ class Memory(MemoryBase):
             response = remove_code_blocks(response)
             new_retrieved_facts = json.loads(response)["facts"]
         except Exception as e:
-            logging.error(f"Error in new_retrieved_facts: {e}")
+            logger.error(f"Error in new_retrieved_facts: {e}")
             new_retrieved_facts = []
-        
+
         if not new_retrieved_facts:
             logger.debug("No new facts retrieved from input. Skipping memory update LLM call.")
 
@@ -360,7 +360,7 @@ class Memory(MemoryBase):
         for item in retrieved_old_memory:
             unique_data[item["id"]] = item
         retrieved_old_memory = list(unique_data.values())
-        logging.info(f"Total existing memories: {len(retrieved_old_memory)}")
+        logger.info(f"Total existing memories: {len(retrieved_old_memory)}")
 
         # mapping UUIDs with integers for handling UUID hallucinations
         temp_uuid_mapping = {}
@@ -379,14 +379,14 @@ class Memory(MemoryBase):
                     response_format={"type": "json_object"},
                 )
             except Exception as e:
-                logging.error(f"Error in new memory actions response: {e}")
+                logger.error(f"Error in new memory actions response: {e}")
                 response = ""
 
             try:
                 response = remove_code_blocks(response)
                 new_memories_with_actions = json.loads(response)
             except Exception as e:
-                logging.error(f"Invalid JSON response: {e}")
+                logger.error(f"Invalid JSON response: {e}")
                 new_memories_with_actions = {}
         else:
             new_memories_with_actions = {}
@@ -394,11 +394,11 @@ class Memory(MemoryBase):
         returned_memories = []
         try:
             for resp in new_memories_with_actions.get("memory", []):
-                logging.info(resp)
+                logger.info(resp)
                 try:
                     action_text = resp.get("text")
                     if not action_text:
-                        logging.info("Skipping memory entry because of empty `text` field.")
+                        logger.info("Skipping memory entry because of empty `text` field.")
                         continue
 
                     event_type = resp.get("event")
@@ -434,11 +434,11 @@ class Memory(MemoryBase):
                             }
                         )
                     elif event_type == "NONE":
-                        logging.info("NOOP for Memory.")
+                        logger.info("NOOP for Memory.")
                 except Exception as e:
-                    logging.error(f"Error processing memory action: {resp}, Error: {e}")
+                    logger.error(f"Error processing memory action: {resp}, Error: {e}")
         except Exception as e:
-            logging.error(f"Error iterating new_memories_with_actions: {e}")
+            logger.error(f"Error iterating new_memories_with_actions: {e}")
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event(
@@ -801,7 +801,7 @@ class Memory(MemoryBase):
         return self.db.get_history(memory_id)
 
     def _create_memory(self, data, existing_embeddings, metadata=None):
-        logging.debug(f"Creating memory with {data=}")
+        logger.debug(f"Creating memory with {data=}")
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
         else:
@@ -922,7 +922,7 @@ class Memory(MemoryBase):
         return memory_id
 
     def _delete_memory(self, memory_id):
-        logging.info(f"Deleting memory with {memory_id=}")
+        logger.info(f"Deleting memory with {memory_id=}")
         existing_memory = self.vector_store.get(vector_id=memory_id)
         prev_value = existing_memory.payload["data"]
         self.vector_store.delete(vector_id=memory_id)
@@ -1164,9 +1164,9 @@ class AsyncMemory(MemoryBase):
             response = remove_code_blocks(response)
             new_retrieved_facts = json.loads(response)["facts"]
         except Exception as e:
-            logging.error(f"Error in new_retrieved_facts: {e}")
+            logger.error(f"Error in new_retrieved_facts: {e}")
             new_retrieved_facts = []
-        
+
         if not new_retrieved_facts:
             logger.debug("No new facts retrieved from input. Skipping memory update LLM call.")
 
@@ -1194,7 +1194,7 @@ class AsyncMemory(MemoryBase):
         for item in retrieved_old_memory:
             unique_data[item["id"]] = item
         retrieved_old_memory = list(unique_data.values())
-        logging.info(f"Total existing memories: {len(retrieved_old_memory)}")
+        logger.info(f"Total existing memories: {len(retrieved_old_memory)}")
         temp_uuid_mapping = {}
         for idx, item in enumerate(retrieved_old_memory):
             temp_uuid_mapping[str(idx)] = item["id"]
@@ -1211,20 +1211,20 @@ class AsyncMemory(MemoryBase):
                     response_format={"type": "json_object"},
                 )
             except Exception as e:
-                logging.error(f"Error in new memory actions response: {e}")
+                logger.error(f"Error in new memory actions response: {e}")
                 response = ""
             try:
                 response = remove_code_blocks(response)
                 new_memories_with_actions = json.loads(response)
             except Exception as e:
-                logging.error(f"Invalid JSON response: {e}")
+                logger.error(f"Invalid JSON response: {e}")
                 new_memories_with_actions = {}
 
         returned_memories = []
         try:
             memory_tasks = []
             for resp in new_memories_with_actions.get("memory", []):
-                logging.info(resp)
+                logger.info(resp)
                 try:
                     action_text = resp.get("text")
                     if not action_text:
@@ -1254,9 +1254,9 @@ class AsyncMemory(MemoryBase):
                         task = asyncio.create_task(self._delete_memory(memory_id=temp_uuid_mapping[resp.get("id")]))
                         memory_tasks.append((task, resp, "DELETE", temp_uuid_mapping[resp.get("id")]))
                     elif event_type == "NONE":
-                        logging.info("NOOP for Memory (async).")
+                        logger.info("NOOP for Memory (async).")
                 except Exception as e:
-                    logging.error(f"Error processing memory action (async): {resp}, Error: {e}")
+                    logger.error(f"Error processing memory action (async): {resp}, Error: {e}")
 
             for task, resp, event_type, mem_id in memory_tasks:
                 try:
@@ -1275,9 +1275,9 @@ class AsyncMemory(MemoryBase):
                     elif event_type == "DELETE":
                         returned_memories.append({"id": mem_id, "memory": resp.get("text"), "event": event_type})
                 except Exception as e:
-                    logging.error(f"Error awaiting memory task (async): {e}")
+                    logger.error(f"Error awaiting memory task (async): {e}")
         except Exception as e:
-            logging.error(f"Error in memory processing loop (async): {e}")
+            logger.error(f"Error in memory processing loop (async): {e}")
 
         keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
@@ -1653,7 +1653,7 @@ class AsyncMemory(MemoryBase):
         return await asyncio.to_thread(self.db.get_history, memory_id)
 
     async def _create_memory(self, data, existing_embeddings, metadata=None):
-        logging.debug(f"Creating memory with {data=}")
+        logger.debug(f"Creating memory with {data=}")
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
         else:
@@ -1795,7 +1795,7 @@ class AsyncMemory(MemoryBase):
         return memory_id
 
     async def _delete_memory(self, memory_id):
-        logging.info(f"Deleting memory with {memory_id=}")
+        logger.info(f"Deleting memory with {memory_id=}")
         existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
         prev_value = existing_memory.payload["data"]
 
