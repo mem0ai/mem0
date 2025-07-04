@@ -253,10 +253,10 @@ def test_get_all(memory_instance, version, enable_graph, expected_result):
 def test_custom_prompts(memory_custom_instance):
     messages = [{"role": "user", "content": "Test message"}]
     from mem0.embeddings.mock import MockEmbeddings
+
     memory_custom_instance.llm.generate_response = Mock()
     memory_custom_instance.llm.generate_response.return_value = '{"facts": ["fact1", "fact2"]}'
     memory_custom_instance.embedding_model = MockEmbeddings()
-    
 
     with patch("mem0.memory.main.parse_messages", return_value="Test message") as mock_parse_messages:
         with patch(

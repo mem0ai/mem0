@@ -165,7 +165,6 @@ class GeminiLLM(LLMBase):
         if system_instruction:
             config_params["system_instruction"] = system_instruction
 
-
         if response_format is not None and response_format["type"] == "json_object":
             config_params["response_mime_type"] = "application/json"
             if "schema" in response_format:
@@ -174,7 +173,6 @@ class GeminiLLM(LLMBase):
         if tools:
             formatted_tools = self._reformat_tools(tools)
             config_params["tools"] = formatted_tools
-
 
             if tool_choice:
                 if tool_choice == "auto":
