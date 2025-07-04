@@ -1,8 +1,7 @@
-import time
 import pytest
 from unittest.mock import MagicMock, patch
-from mem0.vector_stores.mongodb import MongoVector
-from pymongo.operations import SearchIndexModel
+from mem0.vector_stores.mongodb import MongoDB
+
 
 @pytest.fixture
 @patch("mem0.vector_stores.mongodb.MongoClient")
@@ -16,14 +15,14 @@ def mongo_vector_fixture(mock_mongo_client):
     mock_collection.find.return_value = []
     mock_db.list_collection_names.return_value = []
 
-    mongo_vector = MongoVector(
+    mongo_vector = MongoDB(
         db_name="test_db",
         collection_name="test_collection",
         embedding_model_dims=1536,
-        user="username",
-        password="password",
+        mongo_uri="mongodb://username:password@localhost:27017",
     )
     return mongo_vector, mock_collection, mock_db
+
 
 def test_initalize_create_col(mongo_vector_fixture):
     mongo_vector, mock_collection, mock_db = mongo_vector_fixture
@@ -48,14 +47,15 @@ def test_initalize_create_col(mongo_vector_fixture):
                 "fields": {
                     "embedding": {
                         "type": "knnVector",
-                        "d": 1536,
+                        "dimensions": 1536,
                         "similarity": "cosine",
                     }
-                }
+                },
             }
-        }
+        },
     }
     assert mongo_vector.collection == mock_collection
+
 
 def test_insert(mongo_vector_fixture):
     mongo_vector, mock_collection, _ = mongo_vector_fixture
@@ -64,11 +64,12 @@ def test_insert(mongo_vector_fixture):
     ids = ["id1", "id2"]
 
     mongo_vector.insert(vectors, payloads, ids)
-    expected_records=[
+    expected_records = [
         ({"_id": ids[0], "embedding": vectors[0], "payload": payloads[0]}),
-        ({"_id": ids[1], "embedding": vectors[1], "payload": payloads[1]})
+        ({"_id": ids[1], "embedding": vectors[1], "payload": payloads[1]}),
     ]
     mock_collection.insert_many.assert_called_once_with(expected_records)
+
 
 def test_search(mongo_vector_fixture):
     mongo_vector, mock_collection, _ = mongo_vector_fixture
@@ -81,24 +82,27 @@ def test_search(mongo_vector_fixture):
 
     results = mongo_vector.search("query_str", query_vector, limit=2)
     mock_collection.list_search_indexes.assert_called_with(name="test_collection_vector_index")
-    mock_collection.aggregate.assert_called_once_with([
-        {
-            "$vectorSearch": {
-                "index": "test_collection_vector_index",
-                "limit": 2,
-                "numCandidates": 2,
-                "queryVector": query_vector,
-                "path": "embedding",
+    mock_collection.aggregate.assert_called_once_with(
+        [
+            {
+                "$vectorSearch": {
+                    "index": "test_collection_vector_index",
+                    "limit": 2,
+                    "numCandidates": 2,
+                    "queryVector": query_vector,
+                    "path": "embedding",
+                },
             },
-        },
-        {"$set": {"score": {"$meta": "vectorSearchScore"}}},
-        {"$project": {"embedding": 0}},
-    ])
+            {"$set": {"score": {"$meta": "vectorSearchScore"}}},
+            {"$project": {"embedding": 0}},
+        ]
+    )
     assert len(results) == 2
     assert results[0].id == "id1"
     assert results[0].score == 0.9
     assert results[1].id == "id2"
     assert results[1].score == 0.8
+
 
 def test_delete(mongo_vector_fixture):
     mongo_vector, mock_collection, _ = mongo_vector_fixture
@@ -108,6 +112,7 @@ def test_delete(mongo_vector_fixture):
 
     mongo_vector.delete("id1")
     mock_collection.delete_one.assert_called_with({"_id": "id1"})
+
 
 def test_update(mongo_vector_fixture):
     mongo_vector, mock_collection, _ = mongo_vector_fixture
@@ -124,6 +129,7 @@ def test_update(mongo_vector_fixture):
         {"$set": {"embedding": vectorValue, "payload": payloadValue}},
     )
 
+
 def test_get(mongo_vector_fixture):
     mongo_vector, mock_collection, _ = mongo_vector_fixture
     mock_collection.find_one.return_value = {"_id": "id1", "payload": {"key": "value1"}}
@@ -133,6 +139,7 @@ def test_get(mongo_vector_fixture):
     assert result.id == "id1"
     assert result.payload == {"key": "value1"}
 
+
 def test_list_cols(mongo_vector_fixture):
     mongo_vector, _, mock_db = mongo_vector_fixture
     mock_db.list_collection_names.return_value = ["col1", "col2"]
@@ -140,11 +147,13 @@ def test_list_cols(mongo_vector_fixture):
     collections = mongo_vector.list_cols()
     assert collections == ["col1", "col2"]
 
+
 def test_delete_col(mongo_vector_fixture):
     mongo_vector, mock_collection, _ = mongo_vector_fixture
 
     mongo_vector.delete_col()
     mock_collection.drop.assert_called_once()
+
 
 def test_col_info(mongo_vector_fixture):
     mongo_vector, _, mock_db = mongo_vector_fixture
@@ -155,6 +164,7 @@ def test_col_info(mongo_vector_fixture):
     assert info["name"] == "test_collection"
     assert info["count"] == 10
     assert info["size"] == 1024
+
 
 def test_list(mongo_vector_fixture):
     mongo_vector, mock_collection, _ = mongo_vector_fixture

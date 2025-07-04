@@ -14,6 +14,7 @@ const clientTabs = [
   { key: "windsurf", label: "Windsurf", icon: "/images/windsurf.png" },
   { key: "witsy", label: "Witsy", icon: "/images/witsy.png" },
   { key: "enconvo", label: "Enconvo", icon: "/images/enconvo.png" },
+  { key: "augment", label: "Augment", icon: "/images/augment.png" },
 ];
 
 const colorGradientMap: { [key: string]: string } = {
@@ -51,7 +52,7 @@ export const Install = () => {
   const handleCopy = async (tab: string, isMcp: boolean = false) => {
     const text = isMcp
       ? `${URL}/mcp/openmemory/sse/${user}`
-      : `npx install-mcp i ${URL}/mcp/${tab}/sse/${user} --client ${tab}`;
+      : `npx @openmemory/install local ${URL}/mcp/${tab}/sse/${user} --client ${tab}`;
 
     try {
       // Try using the Clipboard API first
@@ -95,7 +96,7 @@ export const Install = () => {
       </div>
 
       <Tabs defaultValue="claude" className="w-full">
-        <TabsList className="bg-transparent border-b border-zinc-800 rounded-none w-full justify-start gap-0 p-0 grid grid-cols-8">
+        <TabsList className="bg-transparent border-b border-zinc-800 rounded-none w-full justify-start gap-0 p-0 grid grid-cols-9">
           {allTabs.map(({ key, label, icon }) => (
             <TabsTrigger
               key={key}
@@ -167,7 +168,7 @@ export const Install = () => {
                 <div className="relative">
                   <pre className="bg-zinc-800 px-4 py-3 rounded-md overflow-x-auto text-sm">
                     <code className="text-gray-300">
-                      {`npx install-mcp i ${URL}/mcp/${key}/sse/${user} --client ${key}`}
+                      {`npx @openmemory/install local ${URL}/mcp/${key}/sse/${user} --client ${key}`}
                     </code>
                   </pre>
                   <div>

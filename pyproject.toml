@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mem0ai"
-version = "0.1.109"
+version = "0.1.113"
 description = "Long-term memory for AI Agents"
 authors = [
     { name = "Mem0", email = "founders@mem0.ai" }
@@ -31,11 +31,13 @@ vector_stores = [
     "vecs>=0.4.0",
     "chromadb>=0.4.24",
     "weaviate-client>=4.4.0",
-    "pinecone<7.0.0",
-    "pinecone-text>=0.1.1",
+    "pinecone<=7.3.0",
+    "pinecone-text>=0.10.0",
     "faiss-cpu>=1.7.4",
     "upstash-vector>=0.1.0",
     "azure-search-documents>=11.4.0b8",
+    "pymongo>=4.13.2",
+    "pymochow>=2.2.9",
 ]
 llms = [
     "groq>=0.3.0",
@@ -45,12 +47,11 @@ llms = [
     "vertexai>=0.1.0",
     "google-generativeai>=0.3.0",
     "google-genai>=1.0.0",
-    
 ]
 extras = [
     "boto3>=1.34.0",
     "langchain-community>=0.0.0",
-    "sentence-transformers>=2.2.2",
+    "sentence-transformers>=5.0.0",
     "elasticsearch>=8.0.0",
     "opensearch-py>=2.0.0",
     "langchain-memgraph>=0.1.0",

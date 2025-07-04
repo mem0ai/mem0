@@ -11,6 +11,7 @@ except ImportError:
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.llms.base import LLMBase
 
+
 PROVIDERS = ["ai21", "amazon", "anthropic", "cohere", "meta", "mistral", "stability", "writer"]
 
 
@@ -189,10 +190,7 @@ class AWSBedrockLLM(LLMBase):
                 }
 
                 for prop, details in function["parameters"].get("properties", {}).items():
-                    new_tool["toolSpec"]["inputSchema"]["json"]["properties"][prop] = {
-                        "type": details.get("type", "string"),
-                        "description": details.get("description", ""),
-                    }
+                    new_tool["toolSpec"]["inputSchema"]["json"]["properties"][prop] = details
 
                 new_tools.append(new_tool)
 

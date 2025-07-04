@@ -29,6 +29,7 @@ class LlmFactory:
         "xai": "mem0.llms.xai.XAILLM",
         "sarvam": "mem0.llms.sarvam.SarvamLLM",
         "lmstudio": "mem0.llms.lmstudio.LMStudioLLM",
+        "vllm": "mem0.llms.vllm.VllmLLM",
         "langchain": "mem0.llms.langchain.LangchainLLM",
     }
 
