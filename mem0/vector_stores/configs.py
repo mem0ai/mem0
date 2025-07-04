@@ -28,6 +28,7 @@ class VectorStoreConfig(BaseModel):
         "weaviate": "WeaviateConfig",
         "faiss": "FAISSConfig",
         "langchain": "LangchainConfig",
+        "aliyun_tablestore": "AliyunTableStoreConfig",
     }
 
     @model_validator(mode="after")
