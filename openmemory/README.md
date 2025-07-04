@@ -106,6 +106,38 @@ npx @openmemory/install local http://localhost:8765/mcp/<client-name>/sse/<user-
 
 Replace `<client-name>` with the desired client name and `<user-id>` with the value specified in your environment variables.
 
+#### Warp Terminal Agent Mode Setup
+
+For Warp Terminal's Agent Mode, since it's not yet directly supported by the installer, you can manually configure it by creating an MCP configuration file:
+
+1. Create the configuration directory:
+   ```bash
+   mkdir -p ~/.config/warp
+   ```
+
+2. Create the MCP configuration file `~/.config/warp/mcp_config.json`:
+   ```json
+   {
+     "mcpServers": {
+       "openmemory": {
+         "command": "npx",
+         "args": [
+           "-y",
+           "openmemory"
+         ],
+         "env": {
+           "OPENMEMORY_API_KEY": "your-api-key-here",
+           "CLIENT_NAME": "warp"
+         }
+       }
+     }
+   }
+   ```
+
+3. Replace `your-api-key-here` with your actual OpenMemory API key.
+
+4. Restart Warp to load the new MCP configuration.
+
 
 ## Project Structure
 
