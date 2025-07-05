@@ -21,9 +21,4 @@ module.exports = {
   setupFiles: ["dotenv/config"],
   testPathIgnorePatterns: ["/node_modules/", "/dist/"],
   moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json", "node"],
-  globals: {
-    "ts-jest": {
-      tsconfig: "tsconfig.test.json",
-    },
-  },
 };
