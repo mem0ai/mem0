@@ -81,7 +81,7 @@ retrieval_criteria = [
 Once defined, register the criteria to your project:
 
 ```python
-client.update_project(retrieval_criteria=retrieval_criteria)
+client.project.update(retrieval_criteria=retrieval_criteria)
 ```
 
 Criteria apply project-wide. Once set, they affect all searches using `version="v2"`.
@@ -187,7 +187,7 @@ If no criteria are defined for a project, `version="v2"` behaves like normal sea
 ## How It Works
 
 1. **Criteria Definition**: Define custom criteria with a name, description, and weight. These describe what matters in a memory (e.g., joy, urgency, empathy).
-2. **Project Configuration**: Register these criteria using `update_project()`. They apply at the project level and influence all searches using `version="v2"`.
+2. **Project Configuration**: Register these criteria using `project.update()`. They apply at the project level and influence all searches using `version="v2"`.
 3. **Memory Retrieval**: When you perform a search with `version="v2"`, Mem0 first retrieves relevant memories based on the query and your defined criteria.
 4. **Weighted Scoring**: Each retrieved memory is evaluated and scored against the defined criteria and weights.
 
@@ -202,7 +202,7 @@ Criteria retrieval is currently supported only in search v2. Make sure to use `v
 ## Summary
 
 - Define what “relevant” means using criteria
-- Apply them per project via `update_project()`
+- Apply them per project via `project.update()`
 - Use `version="v2"` to activate criteria-aware search
 - Build agents that reason not just with relevance, but **contextual importance**
 
