@@ -19,6 +19,7 @@ class ElasticsearchConfig(BaseModel):
     custom_search_query: Optional[Callable[[List[float], int, Optional[Dict]], Dict]] = Field(
         None, description="Custom search query function. Parameters: (query, limit, filters) -> Dict"
     )
+    headers: Optional[Dict[str, str]] = Field(None, description="Custom headers to include in requests")
 
     @model_validator(mode="before")
     @classmethod
@@ -31,6 +32,23 @@ class ElasticsearchConfig(BaseModel):
         if not any([values.get("api_key"), (values.get("user") and values.get("password"))]):
             raise ValueError("Either api_key or user/password must be provided")
 
+        return values
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_headers(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate headers format and content"""
+        headers = values.get("headers")
+        if headers is not None:
+            # Check if headers is a dictionary
+            if not isinstance(headers, dict):
+                raise ValueError("headers must be a dictionary")
+            
+            # Check if all keys and values are strings
+            for key, value in headers.items():
+                if not isinstance(key, str) or not isinstance(value, str):
+                    raise ValueError("All header keys and values must be strings")
+        
         return values
 
     @model_validator(mode="before")
