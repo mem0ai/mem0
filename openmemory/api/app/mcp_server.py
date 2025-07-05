@@ -15,22 +15,22 @@ Key features:
 - Environment variable parsing for API keys
 """
 
-import logging
+import contextvars
+import datetime
 import json
-from mcp.server.fastmcp import FastMCP
-from mcp.server.sse import SseServerTransport
+import logging
+import uuid
+
+from app.database import SessionLocal
+from app.models import Memory, MemoryAccessLog, MemoryState, MemoryStatusHistory
+from app.utils.db import get_user_and_app
 from app.utils.memory import get_memory_client
+from app.utils.permissions import check_memory_access_permissions
+from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.routing import APIRouter
-import contextvars
-import os
-from dotenv import load_dotenv
-from app.database import SessionLocal
-from app.models import Memory, MemoryState, MemoryStatusHistory, MemoryAccessLog
-from app.utils.db import get_user_and_app
-import uuid
-import datetime
-from app.utils.permissions import check_memory_access_permissions
+from mcp.server.fastmcp import FastMCP
+from mcp.server.sse import SseServerTransport
 from qdrant_client import models as qdrant_models
 
 # Load environment variables
@@ -410,32 +410,32 @@ async def handle_get_message(request: Request):
 async def handle_post_message(request: Request):
     return await handle_post_message(request)
 
-async def handle_post_message(request: Request):
-    """Handle POST messages for SSE"""
-    try:
-        body = await request.body()
+# async def handle_post_message(request: Request):
+#     """Handle POST messages for SSE"""
+#     try:
+#         body = await request.body()
 
-        # Create a simple receive function that returns the body
-        async def receive():
-            return {"type": "http.request", "body": body, "more_body": False}
+#         # Create a simple receive function that returns the body
+#         async def receive():
+#             return {"type": "http.request", "body": body, "more_body": False}
 
-        # Create a simple send function that does nothing
-        async def send(message):
-            return {}
+#         # Create a simple send function that does nothing
+#         async def send(message):
+#             return {}
 
-        # Call handle_post_message with the correct arguments
-        await sse.handle_post_message(request.scope, receive, send)
+#         # Call handle_post_message with the correct arguments
+#         await sse.handle_post_message(request.scope, receive, send)
 
-        # Return a success response
-        return {"status": "ok"}
-    finally:
-        pass
-        # Clean up context variable
-        # client_name_var.reset(client_token)
+#         # Return a success response
+#         return {"status": "ok"}
+#     finally:
+#         pass
+#         # Clean up context variable
+#         # client_name_var.reset(client_token)
 
 def setup_mcp_server(app: FastAPI):
     """Setup MCP server with the FastAPI application"""
-    mcp._mcp_server.name = f"mem0-mcp-server"
+    mcp._mcp_server.name = "mem0-mcp-server"
 
     # Include MCP router in the FastAPI app
     app.include_router(mcp_router)

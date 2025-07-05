@@ -8,12 +8,31 @@ from mem0.vector_stores.base import VectorStoreBase
 
 try:
     import pymochow
-    from pymochow.configuration import Configuration
     from pymochow.auth.bce_credentials import BceCredentials
-    from pymochow.model.enum import FieldType, MetricType, IndexType, TableState, ServerErrCode
-    from pymochow.model.schema import Field, Schema, VectorIndex, FilteringIndex, HNSWParams, AutoBuildRowCountIncrement
-    from pymochow.model.table import Partition, Row, VectorSearchConfig, VectorTopkSearchRequest, FloatVector
+    from pymochow.configuration import Configuration
     from pymochow.exception import ServerError
+    from pymochow.model.enum import (
+        FieldType,
+        IndexType,
+        MetricType,
+        ServerErrCode,
+        TableState,
+    )
+    from pymochow.model.schema import (
+        AutoBuildRowCountIncrement,
+        Field,
+        FilteringIndex,
+        HNSWParams,
+        Schema,
+        VectorIndex,
+    )
+    from pymochow.model.table import (
+        FloatVector,
+        Partition,
+        Row,
+        VectorSearchConfig,
+        VectorTopkSearchRequest,
+    )
 except ImportError:
     raise ImportError("The 'pymochow' library is required. Please install it using 'pip install pymochow'.")
 
