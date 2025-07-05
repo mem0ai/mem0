@@ -79,7 +79,7 @@ class OpenAILLM(LLMBase):
         tool_choice: str = "auto",
     ):
         """
-        Generate a response based on the given messages using OpenAI.
+        Generate a JSON response based on the given messages using OpenAI.
 
         Args:
             messages (list): List of message dicts containing 'role' and 'content'.
@@ -88,7 +88,7 @@ class OpenAILLM(LLMBase):
             tool_choice (str, optional): Tool choice method. Defaults to "auto".
 
         Returns:
-            str: The generated response.
+            json: The generated response.
         """
         params = {
             "model": self.config.model,
