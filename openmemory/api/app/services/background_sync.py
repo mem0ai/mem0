@@ -60,12 +60,9 @@ class BackgroundSyncService:
                     logger.error(f"Failed to sync app {app.name} for user {app.owner_id}: {e}")
                     sync_results['errors'] += 1
                     
-                    # Update app metadata with error status (since sync_status field doesn't exist)
-                    if not app.metadata_:
-                        app.metadata_ = {}
-                    app.metadata_['sync_status'] = "failed"
-                    app.metadata_['sync_error'] = str(e)
-                    app.metadata_['last_sync_attempt'] = get_current_utc_time().isoformat()
+                    # Update app with error status
+                    app.sync_status = "failed"
+                    app.sync_error = str(e)
                     db.commit()
             
             logger.info(f"✅ Hourly sync completed: {sync_results}")
@@ -97,32 +94,26 @@ class BackgroundSyncService:
                     'error': f'App {app_name} not found for user'
                 }
             
-            # Check if already syncing (using metadata since sync_status field doesn't exist)
-            sync_status = app.metadata_.get('sync_status') if app.metadata_ else None
-            if sync_status == "syncing":
-                last_synced = app.metadata_.get('last_synced_at') if app.metadata_ else None
+            # Check if already syncing
+            if app.sync_status == "syncing":
                 return {
                     'success': False,
                     'error': 'Sync already in progress',
-                    'last_synced_at': last_synced
+                    'last_synced_at': app.last_synced_at.isoformat() if app.last_synced_at else None
                 }
             
-            # Mark as syncing (using metadata since sync_status field doesn't exist)
-            if not app.metadata_:
-                app.metadata_ = {}
-            app.metadata_['sync_status'] = "syncing"
-            app.metadata_['sync_error'] = None
-            app.metadata_['sync_started_at'] = get_current_utc_time().isoformat()
+            # Mark as syncing
+            app.sync_status = "syncing"
+            app.sync_error = None
             db.commit()
             
             # Start background sync task
             asyncio.create_task(self._sync_app_data(db, app))
             
-            last_synced = app.metadata_.get('last_synced_at') if app.metadata_ else None
             return {
                 'success': True,
                 'message': f'Sync started for {app_name}',
-                'last_synced_at': last_synced,
+                'last_synced_at': app.last_synced_at.isoformat() if app.last_synced_at else None,
                 'sync_status': 'syncing'
             }
             
@@ -149,20 +140,13 @@ class BackgroundSyncService:
             app_type = self._get_app_type(app.name)
             sync_interval = self.sync_intervals.get(app_type, self.sync_intervals['default'])
             
-            # Check if sync is due (using metadata since last_synced_at field doesn't exist)
-            last_synced_str = app.metadata_.get('last_synced_at') if app.metadata_ else None
-            if not last_synced_str:
+            # Check if sync is due
+            if not app.last_synced_at:
                 # Never synced before
                 apps_due.append(app)
             else:
-                try:
-                    from datetime import datetime
-                    last_synced_at = datetime.fromisoformat(last_synced_str.replace('Z', '+00:00'))
-                    time_since_sync = now - last_synced_at
-                    if time_since_sync >= sync_interval:
-                        apps_due.append(app)
-                except (ValueError, AttributeError):
-                    # Invalid timestamp, treat as never synced
+                time_since_sync = now - app.last_synced_at
+                if time_since_sync >= sync_interval:
                     apps_due.append(app)
         
         logger.info(f"Found {len(apps_due)} apps due for sync")
@@ -175,10 +159,7 @@ class BackgroundSyncService:
         app_type = self._get_app_type(app.name)
         
         try:
-            # Mark as syncing (using metadata since sync_status field doesn't exist)
-            if not app.metadata_:
-                app.metadata_ = {}
-            app.metadata_['sync_status'] = "syncing"
+            app.sync_status = "syncing"
             db.commit()
             
             if app_type == 'substack':
@@ -190,20 +171,17 @@ class BackgroundSyncService:
                 return
             
             # Mark as successful
-            app.metadata_['sync_status'] = "idle"
-            app.metadata_['sync_error'] = None
-            app.metadata_['last_synced_at'] = get_current_utc_time().isoformat()
+            app.sync_status = "idle"
+            app.sync_error = None
+            app.last_synced_at = get_current_utc_time()
             db.commit()
             
             logger.info(f"✅ Successfully synced {app.name} for user {app.owner_id}")
             
         except Exception as e:
             logger.error(f"❌ Sync failed for {app.name}: {e}")
-            if not app.metadata_:
-                app.metadata_ = {}
-            app.metadata_['sync_status'] = "failed"
-            app.metadata_['sync_error'] = str(e)
-            app.metadata_['last_sync_attempt'] = get_current_utc_time().isoformat()
+            app.sync_status = "failed"
+            app.sync_error = str(e)
             db.commit()
             raise
 
@@ -231,12 +209,9 @@ class BackgroundSyncService:
             app_id=app.id
         )
         
-        # Update app metrics (store in metadata since total_memories_created field doesn't exist)
+        # Update app metrics
         if result.get('synced_count'):
-            if not app.metadata_:
-                app.metadata_ = {}
-            current_count = app.metadata_.get('total_memories_created', 0)
-            app.metadata_['total_memories_created'] = current_count + result['synced_count']
+            app.total_memories_created += result['synced_count']
             
         logger.info(f"Substack sync completed: {result}")
 
@@ -264,12 +239,9 @@ class BackgroundSyncService:
             app_id=app.id
         )
         
-        # Update app metrics (store in metadata since total_memories_created field doesn't exist)
+        # Update app metrics
         if result.get('synced_count'):
-            if not app.metadata_:
-                app.metadata_ = {}
-            current_count = app.metadata_.get('total_memories_created', 0)
-            app.metadata_['total_memories_created'] = current_count + result['synced_count']
+            app.total_memories_created += result['synced_count']
             
         logger.info(f"Twitter sync completed: {result}")
 
@@ -305,18 +277,13 @@ class BackgroundSyncService:
                     'error': f'App {app_name} not found'
                 }
             
-            # Get sync status from metadata (since sync_status field doesn't exist)
-            sync_status = app.metadata_.get('sync_status', 'idle') if app.metadata_ else 'idle'
-            last_synced_at = app.metadata_.get('last_synced_at') if app.metadata_ else None
-            sync_error = app.metadata_.get('sync_error') if app.metadata_ else None
-            
             return {
                 'found': True,
-                'sync_status': sync_status,
-                'last_synced_at': last_synced_at,
-                'sync_error': sync_error,
-                'total_memories_created': getattr(app, 'total_memories_created', 0),
-                'total_memories_accessed': getattr(app, 'total_memories_accessed', 0)
+                'sync_status': app.sync_status,
+                'last_synced_at': app.last_synced_at.isoformat() if app.last_synced_at else None,
+                'sync_error': app.sync_error,
+                'total_memories_created': app.total_memories_created,
+                'total_memories_accessed': app.total_memories_accessed
             }
             
         finally:
@@ -362,9 +329,8 @@ class BackgroundSyncService:
                 app_type = self._get_app_type(app.name)
                 
                 try:
-                    # Skip if already syncing (using metadata since sync_status field doesn't exist)
-                    sync_status = app.metadata_.get('sync_status') if app.metadata_ else None
-                    if sync_status == "syncing":
+                    # Skip if already syncing
+                    if app.sync_status == "syncing":
                         refresh_results['skipped_apps'] += 1
                         refresh_results['results'].append({
                             'app_name': app.name,
