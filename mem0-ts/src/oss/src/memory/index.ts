@@ -14,6 +14,7 @@ import {
   VectorStoreFactory,
   HistoryManagerFactory,
 } from "../utils/factory";
+import { logger } from "../utils/logger";
 import {
   getFactRetrievalMessages,
   getUpdateMemoryMessages,
@@ -270,9 +271,11 @@ export class Memory {
     const newMessageEmbeddings: Record<string, number[]> = {};
     const retrievedOldMemory: Array<{ id: string; text: string }> = [];
 
+    const embeddedInput = await this.embedder.embedBatch(facts);
+
     // Create embeddings and search for similar memories
-    for (const fact of facts) {
-      const embedding = await this.embedder.embed(fact);
+    for (const [index, fact] of facts.entries()) {
+      const embedding = embeddedInput[index];
       newMessageEmbeddings[fact] = embedding;
 
       const existingMemories = await this.vectorStore.search(

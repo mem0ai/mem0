@@ -314,8 +314,9 @@ export class MemoryGraph {
     const session = this.graph.session();
 
     try {
-      for (const node of nodeList) {
-        const nEmbedding = await this.embeddingModel.embed(node);
+      const embeddedNodes = await this.embeddingModel.embedBatch(nodeList);
+      for (const [index, node] of nodeList.entries()) {
+        const nEmbedding = embeddedNodes[index];
 
         const cypher = `
           MATCH (n)
