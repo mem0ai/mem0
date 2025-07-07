@@ -90,6 +90,13 @@ class App(Base):
     updated_at = Column(DateTime,
                         default=get_current_utc_time,
                         onupdate=get_current_utc_time)
+    
+    # Integration sync tracking fields
+    last_synced_at = Column(DateTime, nullable=True, index=True)
+    sync_status = Column(String, default="idle", index=True)  # idle, syncing, failed
+    sync_error = Column(Text, nullable=True)
+    total_memories_created = Column(Integer, default=0, index=True)
+    total_memories_accessed = Column(Integer, default=0, index=True)
 
     owner = relationship("User", back_populates="apps")
     memories = relationship("Memory", back_populates="app")
