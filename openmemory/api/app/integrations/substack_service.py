@@ -333,4 +333,218 @@ class SubstackService:
             return doc
 
         # Execute with retry logic
-        return await retry_with_exponential_backoff(process_post) 
+        return await retry_with_exponential_backoff(process_post)
+
+
+# Jean Memory V2 Integration Function - follows Twitter pattern exactly
+async def sync_substack_to_memory(
+    substack_url: str,
+    user_id: str, 
+    app_id: str, 
+    db_session,
+    max_posts: int = 20,
+    progress_callback: Optional[callable] = None
+):
+    """
+    Sync Substack posts to memory using Jean Memory V2.
+    Adapts existing infrastructure to follow Twitter integration pattern.
+    """
+    from app.models import Memory, App, User
+    from app.utils.memory import get_async_memory_client
+    from sqlalchemy.sql import exists
+    from uuid import UUID
+    import re
+    
+    def safe_uuid(id_str):
+        """Convert string to UUID, handling local development IDs"""
+        try:
+            return UUID(id_str)
+        except ValueError:
+            if id_str == 'default_user':
+                return UUID('00000000-0000-0000-0000-000000000001')
+            if id_str == 'substack':
+                return UUID('00000000-0000-0000-0000-000000000003')
+            return UUID('00000000-0000-0000-0000-000000000099')
+
+    def report_progress(progress: int, message: str, count: int = 0):
+        if progress_callback:
+            progress_callback(progress, message, count)
+
+    # Get Jean Memory V2 client
+    memory_client = await get_async_memory_client()
+    
+    # Validate and extract username from URL
+    normalized_url = SubstackService.normalize_substack_url(substack_url)
+    username = SubstackService.extract_username_from_url(normalized_url)
+    if not username:
+        report_progress(100, "Error: Invalid Substack URL format", 0)
+        return 0
+    
+    # For local development, ensure the user and app exist
+    user_uuid = safe_uuid(user_id)
+    app_uuid = safe_uuid(app_id)
+    
+    # Check if this is local development mode
+    if user_id == 'default_user' or app_id == 'substack':
+        logger.info("Local development mode detected, ensuring user and app exist in database")
+        
+        # Check if the user exists, create if not
+        user_exists = db_session.query(exists().where(User.id == user_uuid)).scalar()
+        if not user_exists:
+            logger.info(f"Creating mock user for local development with id {user_uuid}")
+            mock_user = User(
+                id=user_uuid,
+                email='local-dev@example.com',
+                display_name='Local Dev User',
+                is_active=True
+            )
+            db_session.add(mock_user)
+        
+        # Check if the Substack app exists, create if not
+        app_exists = db_session.query(exists().where(App.id == app_uuid)).scalar()
+        if not app_exists:
+            logger.info(f"Creating Substack app for local development with id {app_uuid}")
+            substack_app = App(
+                id=app_uuid,
+                name='Substack',
+                description='Substack Integration',
+                owner_id=user_uuid,
+                is_active=True
+            )
+            db_session.add(substack_app)
+            
+        # Commit these changes before proceeding
+        db_session.commit()
+        logger.info("Ensured user and app exist in database for local development")
+    
+    try:
+        report_progress(5, "Starting Substack sync...", 0)
+        
+        # Use existing scraper infrastructure
+        scraper = SubstackScraper(normalized_url, max_posts=max_posts)
+        posts = await scraper.scrape()
+        
+        if not posts:
+            report_progress(100, f"No posts found at {normalized_url}. The blog might be private or have no published posts.", 0)
+            return 0
+        
+        logger.info(f"Found {len(posts)} posts to process")
+        report_progress(20, f"Found {len(posts)} posts. Formatting for memory...", len(posts))
+        
+        # Format posts for memory - following Twitter pattern
+        memory_contents = []
+        for post in posts:
+            # Create memory-friendly content similar to Twitter format
+            memory_text = f"Substack post by {username}: {post.title}"
+            
+            # Add content summary (limit length for memory efficiency)
+            if post.content:
+                # Take first 800 characters for context (more than tweets but manageable)
+                summary = post.content[:800] + "..." if len(post.content) > 800 else post.content
+                memory_text += f" - {summary}"
+            
+            # Add date if available
+            if post.date:
+                if isinstance(post.date, datetime):
+                    date_str = post.date.strftime('%Y-%m-%d')
+                else:
+                    date_str = str(post.date)
+                memory_text += f" (published on {date_str})"
+                
+            memory_contents.append(memory_text)
+        
+        # Store posts using memory client - following Twitter pattern exactly
+        synced_count = 0
+        failed_count = 0
+        
+        # Process posts in smaller batches (posts are longer than tweets)
+        batch_size = 3  # Process 3 posts at a time
+        
+        for i in range(0, len(memory_contents), batch_size):
+            batch = memory_contents[i:i + batch_size]
+            logger.info(f"Processing batch {i//batch_size + 1}/{(len(memory_contents) + batch_size - 1)//batch_size} ({len(batch)} posts)")
+            
+            for j, content in enumerate(batch):
+                try:
+                    post_index = i + j
+                    logger.debug(f"Adding post {post_index+1} to memory: {posts[post_index].title}")
+                    
+                    # Create memory metadata - following Twitter pattern
+                    memory_metadata = {
+                        'source': 'substack',
+                        'source_app': 'substack',
+                        'username': username,
+                        'type': 'post',
+                        'post_index': post_index,
+                        'post_data': {
+                            'title': posts[post_index].title,
+                            'url': posts[post_index].url,
+                            'date': posts[post_index].date.isoformat() if posts[post_index].date else None
+                        }
+                    }
+                    
+                    # Create database record - following Twitter pattern
+                    db_memory = Memory(
+                        user_id=safe_uuid(user_id),
+                        app_id=safe_uuid(app_id),
+                        content=content,
+                        metadata_=memory_metadata
+                    )
+                    db_session.add(db_memory)
+                    db_session.flush()  # Get the ID without committing
+                    
+                    # Add to vector store using Jean Memory V2 async client - EXACTLY like Twitter
+                    try:
+                        response = await memory_client.add(
+                            messages=content,
+                            user_id=user_id,  # This should be the Supabase user ID
+                            metadata={
+                                **memory_metadata,
+                                'db_memory_id': str(db_memory.id),  # Link to database record
+                                'app_id': app_id,
+                                'app_db_id': app_id
+                            }
+                        )
+                    except Exception as mem_error:
+                        logger.warning(f"Failed to add to Jean Memory V2: {mem_error}. Continuing with database storage only.")
+                        response = None
+                    
+                    logger.debug(f"Memory client response: {response}")
+                    synced_count += 1
+                    
+                    # Small delay to prevent overwhelming the system
+                    await asyncio.sleep(0.2)
+                    
+                except Exception as e:
+                    logger.error(f"Failed to add post {post_index+1} to memory: {e}")
+                    failed_count += 1
+                    db_session.rollback()
+                    continue
+            
+            # Commit the batch - following Twitter pattern
+            try:
+                db_session.commit()
+                logger.info(f"Committed batch {i//batch_size + 1} to database")
+                
+                # Update progress after each successful batch
+                batch_progress = 20 + int(((i + len(batch)) / len(memory_contents)) * 70)
+                report_progress(batch_progress, f"Synced batch {i//batch_size + 1}", synced_count)
+                
+            except Exception as e:
+                logger.error(f"Failed to commit batch: {e}")
+                db_session.rollback()
+                failed_count += len(batch)
+                synced_count -= len(batch)
+            
+            # Longer delay between batches (posts are more substantial than tweets)
+            if i + batch_size < len(memory_contents):
+                logger.info(f"Batch complete. Waiting 3 seconds before next batch...")
+                await asyncio.sleep(3)
+        
+        report_progress(100, f"Sync complete. Added {synced_count} new posts.", synced_count)
+        return synced_count
+        
+    except Exception as e:
+        logger.error(f"An error occurred during Substack sync for {normalized_url}: {e}", exc_info=True)
+        report_progress(100, f"An error occurred: {e}", 0)
+        return 0 
