@@ -101,30 +101,7 @@ services:
       # Link to frontend environment group
       - fromGroup: frontend-public-env
 
-  # Jean Memory FastMCP Production Server (Replaces Cloudflare Workers)
-  - type: web
-    name: jean-memory-mcp-virginia
-    runtime: python
-    repo: https://github.com/jonathan-politzki/your-memory
-    plan: starter
-    region: virginia
-    rootDir: openmemory/api
-    buildCommand: pip install -r requirements.txt && pip install mcp[cli] aiohttp uvicorn
-    startCommand: python jean_memory_fastmcp_production.py
-    healthCheckPath: /health
-    autoDeployTrigger: commit
-    envVars:
-      # Backend API Configuration
-      - key: BACKEND_URL
-        value: "https://jean-memory-api-virginia.onrender.com"
-      - key: FASTMCP_HOST
-        value: "0.0.0.0"
-      - key: ENVIRONMENT
-        value: "production"
-      - key: LOG_LEVEL
-        value: "INFO"
-      - key: PYTHONUNBUFFERED
-        value: "1"
+
 
   # Main Frontend UI Service (Virginia)  
   - type: web
