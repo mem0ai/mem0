@@ -28,14 +28,8 @@ interface ApiMemoryItem {
   app_name: string;
 }
 
-// Define the shape of the API response
-interface ApiResponse {
-  items: ApiMemoryItem[];
-  total: number;
-  page: number;
-  size: number;
-  pages: number;
-}
+// Define the shape of the API response (now just an array without pagination)
+type ApiResponse = ApiMemoryItem[];
 
 interface AccessLogEntry {
   id: string;
@@ -61,19 +55,12 @@ interface RelatedMemoryItem {
   metadata_: Record<string, any>;
 }
 
-interface RelatedMemoriesResponse {
-  items: RelatedMemoryItem[];
-  total: number;
-  page: number;
-  size: number;
-  pages: number;
-}
+// Define the shape of the related memories API response (now just an array)
+type RelatedMemoriesResponse = RelatedMemoryItem[];
 
 interface UseMemoriesApiReturn {
   fetchMemories: (
     query?: string,
-    page?: number,
-    size?: number,
     filters?: {
       apps?: string[];
       categories?: string[];
@@ -81,7 +68,7 @@ interface UseMemoriesApiReturn {
       sortDirection?: 'asc' | 'desc';
       showArchived?: boolean;
     }
-  ) => Promise<{ memories: Memory[]; total: number; pages: number }>;
+  ) => Promise<{ memories: Memory[]; total: number }>;
   fetchMemoryById: (memoryId: string) => Promise<void>;
   fetchAccessLogs: (memoryId: string, page?: number, pageSize?: number) => Promise<void>;
   fetchRelatedMemories: (memoryId: string) => Promise<void>;
@@ -110,8 +97,6 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
 
   const fetchMemories = useCallback(async (
     query?: string,
-    page: number = 1,
-    size: number = 10,
     filters?: {
       apps?: string[];
       categories?: string[];
@@ -119,17 +104,15 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
       sortDirection?: 'asc' | 'desc';
       showArchived?: boolean;
     }
-  ): Promise<{ memories: Memory[], total: number, pages: number }> => {
+  ): Promise<{ memories: Memory[], total: number }> => {
     if (!user_id) {
       console.log("useMemoriesApi: No user_id, skipping fetchMemories.");
-      return { memories: [], total: 0, pages: 0 };
+      return { memories: [], total: 0 };
     }
     setIsLoading(true);
     setError(null);
     try {
       const params = new URLSearchParams();
-      params.append('page', page.toString());
-      params.append('size', size.toString());
 
       if (query) params.append('search_query', query);
       if (filters?.apps) {
@@ -147,7 +130,7 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
         { params }
       );
 
-      const adaptedMemories: Memory[] = response.data.items.map((item: ApiMemoryItem) => ({
+      const adaptedMemories: Memory[] = response.data.map((item: ApiMemoryItem) => ({
         id: item.id,
         memory: item.content,
         created_at: new Date(item.created_at).getTime(),
@@ -161,8 +144,7 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
       dispatch(setMemoriesSuccess(adaptedMemories));
       return {
         memories: adaptedMemories,
-        total: response.data.total,
-        pages: response.data.pages
+        total: adaptedMemories.length
       };
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to fetch memories';
@@ -300,7 +282,7 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
         `/api/v1/memories/${memoryId}/related`
       );
 
-      const adaptedMemories: Memory[] = response.data.items.map((item: RelatedMemoryItem) => ({
+      const adaptedMemories: Memory[] = response.data.map((item: RelatedMemoryItem) => ({
         id: item.id,
         memory: item.content,
         created_at: item.created_at,

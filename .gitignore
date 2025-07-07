@@ -190,10 +190,48 @@ testing.ipynb
 # security
 CONTAMINATION_INCIDENT_REPORT.md
 
-# Local investigation scripts - DO NOT COMMIT
-investigate_contamination_local.py
-admin_contamination_*.py
-admin_contamination_*.sql
-*_contamination_*
-contamination_report_* 
-backups/
+# Environment variables - NEVER commit these
+.env
+.env.*
+.env.local*
+.env.backup*
+.env.test*
+**/.env
+**/.env.*
+**/.env.local*
+**/.env.backup*
+**/.env.test*
+
+# Development scripts with hardcoded credentials
+set_env_*.sh
+**/set_env_*.sh
+
+# Migration and backup files - contain sensitive data
+migration_exports/
+full_migration_exports/
+migration_analysis_*.json
+migration_plan.md
+MIGRATION_SETUP.md
+production_stats_*.json
+**/migration_engine_*.py
+**/end_to_end_migration.py
+**/extract_qdrant_to_sql.py
+**/export_*.py
+**/test_qdrant_connection.py
+clear_test_databases.py
+add_test_memory.py
+test_v1_vs_v2_optimized.py
+fix_qdrant_indexes.py
+
+# Development and testing scripts with hardcoded credentials
+backup/
+debug_logs/
+test_logs/
+phase3_exports/
+complex_setup_backup/
+
+# MCP development files (may contain hardcoded credentials)
+**/mcp_stdio_server.py
+
+# Local configuration files
+claude_desktop_config.json
