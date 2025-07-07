@@ -68,7 +68,6 @@ def test_list(aliyun_tablestore_instance):
     vectors, payloads, ids = batch_data(length)
     aliyun_tablestore_instance.insert(vectors=vectors, payloads=payloads, ids=ids)
 
-    # 等待索引表准备完毕，防止出现不在预期内结果
     wait_for_index_ready(aliyun_tablestore_instance, length)
 
     outputs = aliyun_tablestore_instance.list()[0]
@@ -104,7 +103,6 @@ def test_list(aliyun_tablestore_instance):
     )
     assert len(outputs) == half_user_count
 
-    # reset防止影响其他用例
     aliyun_tablestore_instance.reset()
 
 def test_insert_and_reset(aliyun_tablestore_instance, data):
@@ -188,7 +186,6 @@ def test_search(aliyun_tablestore_instance):
     outputs = aliyun_tablestore_instance.get(id)
     assert outputs.payload == query_payload
 
-    # 等待索引表准备完毕，防止出现不在预期内结果
     wait_for_index_ready(aliyun_tablestore_instance, length)
 
     limit_num = 5
