@@ -1,0 +1,51 @@
+# Jean Memory V2 - Dependencies (REDIRECT to working openmemory/api/requirements.txt)
+# ==============================================================================
+# 
+# IMPORTANT: Jean Memory V2 now uses the EXACT same dependencies as the working
+# openmemory/api pipeline to prevent rate limiting and authentication issues.
+#
+# To install Jean Memory V2 dependencies, run:
+#   pip install -r openmemory/api/requirements.txt
+#
+# This ensures 100% compatibility with the working pipeline orchestration.
+# ==============================================================================
+
+# ALL DEPENDENCIES ARE NOW SOURCED FROM: openmemory/api/requirements.txt
+
+# The working pipeline uses these exact versions:
+# fastapi>=0.68.0
+# uvicorn>=0.15.0
+# sqlalchemy>=1.4.0
+# python-dotenv>=0.19.0
+# alembic>=1.7.0
+# psycopg2-binary>=2.9.0
+# python-multipart>=0.0.5
+# fastapi-pagination>=0.12.0
+# mem0ai[graph]>=0.1.107
+# mcp[cli]>=1.3.0
+# pytest>=7.0.0
+# pytest-asyncio>=0.21.0
+# httpx>=0.24.0
+# pytest-cov>=4.0.0
+# tenacity==9.1.2
+# supabase>=2.5.0,<3.0.0
+# feedparser>=6.0.0
+# python-dateutil>=2.8.0
+# google-generativeai>=0.3.0,<1.22.0
+# beautifulsoup4>=4.12.0
+# psutil>=5.9.0
+# starlette==0.38.2
+# sse-starlette==2.1.3
+# posthog>=3.0.0
+# email-validator>=2.0.0
+# stripe>=12.0.0
+# twilio>=8.5.0
+redis==5.0.1
+numpy>=1.24.0
+# neo4j>=5.28.0
+# pgvector>=0.3.6
+# graphiti-core>=0.13.0
+# openai>=1.91.0
+
+# NOTE: Do NOT install from this file directly!
+# Use: pip install -r openmemory/api/requirements.txt 

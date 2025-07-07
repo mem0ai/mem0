@@ -9,7 +9,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePostHog } from 'posthog-js/react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, PlusCircle } from 'lucide-react';
 import { useMemoriesApi } from '@/hooks/useMemoriesApi';
 import { AnalysisPanel } from '@/components/dashboard/AnalysisPanel';
 import { AppCard, DashboardApp } from '@/components/dashboard/AppCard';
@@ -17,6 +17,7 @@ import { useToast } from "@/components/ui/use-toast";
 import ParticleNetwork from "@/components/landing/ParticleNetwork";
 import { SyncModal } from '@/components/dashboard/SyncModal';
 import { RequestIntegrationModal } from '@/components/dashboard/RequestIntegrationModal';
+import { RefreshAllButton, RefreshStatus } from "@/components/dashboard/RefreshAllButton";
 
 // Define available apps with priorities
 interface AvailableApp {
@@ -61,14 +62,13 @@ const availableApps: AvailableApp[] = [
     trustScore: 98,
     hasDesktopExtension: true
   },
-  { id: 'cursor', name: 'Cursor', description: 'AI Code Editor', priority: 10, category: 'Development', trustScore: 98 },
-  { id: 'vscode', name: 'VS Code', description: 'Code Editor', priority: 9, category: 'Development', trustScore: 98 },
-  { id: 'substack', name: 'Substack', description: 'For writers', priority: 8, category: 'Content', trustScore: 95 },
-  { id: 'twitter', name: 'X', description: 'Social media', priority: 7, category: 'Social', trustScore: 93 },
+  { id: 'cursor', name: 'Cursor', description: 'AI-powered code editor', priority: 10, category: 'Development', trustScore: 98 },
+  { id: 'substack', name: 'Substack', description: 'For writers for substack', priority: 9, category: 'Content', trustScore: 95 },
+  { id: 'twitter', name: 'X', description: 'Social media', priority: 8, category: 'Social', trustScore: 93 },
+  { id: 'obsidian', name: 'Obsidian', description: 'Powerful knowledge base application', priority: 7, category: 'Productivity', trustScore: 94, isComingSoon: true },
   { id: 'notion', name: 'Notion', description: 'Connected workspace for notes & projects', priority: 6, category: 'Productivity', trustScore: 92, isComingSoon: true },
-  { id: 'obsidian', name: 'Obsidian', description: 'Powerful knowledge base application', priority: 5, category: 'Productivity', trustScore: 94, isComingSoon: true },
-  { id: 'windsurf', name: 'Windsurf', description: 'AI-powered code editor', priority: 4, category: 'Development', trustScore: 94 },
-  { id: 'mcp-generic', name: 'MCP Link', description: 'Connect to any MCP', priority: -2, category: 'Integration', trustScore: 91 },
+  { id: 'windsurf', name: 'Windsurf', description: 'AI-powered code editor', priority: 5, category: 'Development', trustScore: 94 },
+  { id: 'mcp-generic', name: 'MCP Link', description: 'Connect to any mcp', priority: -2, category: 'Integration', trustScore: 91 },
   { id: 'cline', name: 'Cline', description: 'Command line interface tool', priority: 3, category: 'Development', trustScore: 92 },
   { id: 'roocode', name: 'RooCode', description: 'Code review and collaboration', priority: 2, category: 'Development', trustScore: 90 },
   { id: 'witsy', name: 'Witsy', description: 'Smart productivity assistant', priority: 1, category: 'Productivity', trustScore: 88 },
@@ -80,10 +80,10 @@ const availableApps: AvailableApp[] = [
     connectUrl: 'https://app.chorus.sh/dashboard',
     docsUrl: 'https://docs.chorus.sh',
     connectionType: 'Local MCP',
-    description: 'Multiple AI models',
+    description: 'Chorus gives access to multiple AI models',
     modalTitle: 'Connect to Chorus',
     modalContent: 'In Chorus, go to Connections > Add New Connection > New Local MCP.',
-    installCommand: '-y mcp-remote https://jean-memory-api.onrender.com/mcp/v2/chorus/{USER_ID}',
+    installCommand: '-y mcp-remote https://jean-memory-api.onrender.com/mcp/chorus/sse/{USER_ID}',
     category: 'Assistant',
     isComingSoon: false,
     priority: -1,
@@ -244,7 +244,7 @@ export default function DashboardNew() {
   useEffect(() => {
     const getTotalMemories = async () => {
       try {
-        const result = await fetchMemories('', 1, 1);
+        const result = await fetchMemories('');
         setTotalMemories(result.total);
       } catch (error) {
         console.error("Failed to fetch total memories:", error);
@@ -255,47 +255,56 @@ export default function DashboardNew() {
     }
   }, [user, fetchMemories]);
 
-  // Polling logic for task status
+  // Remove aggressive polling logic - replace with event-driven updates
   useEffect(() => {
-    const activeTasks = Object.entries(appTaskIds).filter(([, taskId]) => taskId !== null);
-    if (activeTasks.length === 0) return;
+    // Only check task status immediately after starting a sync
+    // No continuous polling to reduce API calls
+    const checkInitialTaskStatus = async () => {
+      const activeTasks = Object.entries(appTaskIds).filter(([, taskId]) => taskId !== null);
+      if (activeTasks.length === 0) return;
 
-    const intervalId = setInterval(async () => {
+      // Only check once when task IDs change, not continuously
       for (const [appId, taskId] of activeTasks) {
         if (!taskId) continue;
 
-        const taskStatus = await checkTaskStatus(taskId);
-        if (taskStatus && (taskStatus.status === 'completed' || taskStatus.status === 'failed')) {
+        try {
+          const taskStatus = await checkTaskStatus(taskId);
+          if (taskStatus && (taskStatus.status === 'completed' || taskStatus.status === 'failed')) {
+            setSyncingApps(prev => ({ ...prev, [appId]: false }));
+            setAppTaskIds(prev => ({ ...prev, [appId]: null }));
+            
+            const appName = availableApps.find(a => a.id === appId)?.name || 'The app';
+
+            if (taskStatus.status === 'completed') {
+              toast({
+                title: "Sync Complete",
+                description: `${appName} has finished syncing.`,
+              });
+            } else {
+              toast({
+                variant: "destructive",
+                title: "Sync Failed", 
+                description: `Sync for ${appName} failed. ${taskStatus.error || 'Unknown error'}`,
+              });
+            }
+
+            // Refresh apps data once after completion
+            fetchApps();
+          }
+        } catch (error) {
+          console.error(`Error checking task status for ${appId}:`, error);
+          // Clear the task on error to prevent infinite checking
           setSyncingApps(prev => ({ ...prev, [appId]: false }));
           setAppTaskIds(prev => ({ ...prev, [appId]: null }));
-          
-          const appName = availableApps.find(a => a.id === appId)?.name || 'The app';
-
-          if (taskStatus.status === 'completed') {
-            toast({
-              title: "Sync Complete",
-              description: `${appName} has finished syncing.`,
-            });
-            
-            // FIXED: Mark the app as connected after successful sync
-            // This updates the UI to show the app as connected
-            // The next fetchApps() call will get the updated connection status from backend
-          } else {
-            toast({
-              variant: "destructive",
-              title: "Sync Failed",
-              description: `Sync for ${appName} failed. ${taskStatus.error || 'Unknown error'}`,
-            });
-          }
-
-          // Refresh data - this will update the connection status from backend
-          fetchApps();
         }
       }
-    }, 5000); // Poll every 5 seconds
+    };
 
-    return () => clearInterval(intervalId);
-  }, [appTaskIds, checkTaskStatus, fetchApps, toast]);
+    // Only run when appTaskIds changes (when a new sync starts)
+    if (Object.values(appTaskIds).some(taskId => taskId !== null)) {
+      checkInitialTaskStatus();
+    }
+  }, [appTaskIds]); // Only depend on appTaskIds changes, not time intervals
 
   // 📊 Track dashboard visits
   useEffect(() => {
@@ -306,6 +315,22 @@ export default function DashboardNew() {
       });
     }
   }, [posthog, user]);
+
+  const handleRefreshComplete = () => {
+    // Refresh the apps list to show updated data
+    fetchApps();
+    
+    // Also refresh memory count
+    const getTotalMemories = async () => {
+      try {
+        const result = await fetchMemories('');
+        setTotalMemories(result.total);
+      } catch (error) {
+        console.error("Failed to fetch total memories:", error);
+      }
+    };
+    getTotalMemories();
+  };
 
   if (!mounted) {
     return null;
@@ -366,10 +391,10 @@ export default function DashboardNew() {
       </div>
 
       {/* Main Content */}
-      <div className="relative z-10 container mx-auto px-4 py-8 max-w-7xl">
+      <div className="relative z-10 container mx-auto px-4 max-w-7xl py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Side */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 h-full flex flex-col">
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -409,50 +434,90 @@ export default function DashboardNew() {
               </div>
             </motion.div>
 
-            {/* App Grid */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-            >
-              {isLoadingApps ? (
-                // Loading skeleton
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {Array.from({ length: 9 }).map((_, index) => (
-                    <div key={index} className="h-32 bg-card border border-border rounded-lg animate-pulse">
-                      <div className="p-4 space-y-3">
-                        <div className="h-6 bg-muted rounded w-3/4"></div>
-                        <div className="h-4 bg-muted rounded w-full"></div>
-                        <div className="h-8 bg-muted rounded w-1/2"></div>
+            {/* Header with stats and buttons */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                  Dashboard
+                </h1>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-1">
+                  <p className="text-gray-600 dark:text-gray-400">
+                    {connectedCount > 0 
+                      ? `${connectedCount} connected integration${connectedCount !== 1 ? 's' : ''}`
+                      : 'Connect your first integration to get started'
+                    }
+                  </p>
+                  {/* Refresh Status on the left */}
+                  <RefreshStatus />
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                {/* Refresh All Button (without status) */}
+                <RefreshAllButton onRefreshComplete={handleRefreshComplete} showStatus={false} />
+                
+                {/* Add Integration button */}
+                <Button
+                  onClick={() => setIsSyncModalOpen(true)}
+                  variant="outline"
+                  size="sm"
+                  className="whitespace-nowrap"
+                >
+                  <PlusCircle className="w-4 h-4 mr-2" />
+                  Add Integration
+                </Button>
+              </div>
+            </div>
+
+            {/* Scrollable App Grid Container */}
+            <div className="flex-1 overflow-y-auto pr-2">
+              {/* App Grid */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+              >
+                {isLoadingApps ? (
+                  // Loading skeleton
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {Array.from({ length: 9 }).map((_, index) => (
+                      <div key={index} className="h-32 bg-card border border-border rounded-lg animate-pulse">
+                        <div className="p-4 space-y-3">
+                          <div className="h-6 bg-muted rounded w-3/4"></div>
+                          <div className="h-4 bg-muted rounded w-full"></div>
+                          <div className="h-8 bg-muted rounded w-1/2"></div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {displayedApps.map((app, index) => (
-                    <AppCard
-                      key={app.id || index}
-                      app={app}
-                      onConnect={handleConnectApp}
-                      index={index}
-                      isSyncing={syncingApps[app.id] || !!appTaskIds[app.id]}
-                      onSyncStart={(appId, taskId) => {
-                        setSyncingApps(prev => ({ ...prev, [appId]: true }));
-                        setAppTaskIds(prev => ({ ...prev, [appId]: taskId }));
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
-            </motion.div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {displayedApps.map((app, index) => (
+                      <AppCard
+                        key={app.id || index}
+                        app={app}
+                        onConnect={handleConnectApp}
+                        index={index}
+                        isSyncing={syncingApps[app.id] || !!appTaskIds[app.id]}
+                        onSyncStart={(appId, taskId) => {
+                          setSyncingApps(prev => ({ ...prev, [appId]: true }));
+                          setAppTaskIds(prev => ({ ...prev, [appId]: taskId }));
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </motion.div>
+            </div>
             
+            {/* Show More Apps Button - Aligned with Life's Narrative bottom */}
             {!showAllApps && sortedApps.length > 9 && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.3 }}
-                className="text-center mt-8"
+                className="text-center pb-8 pt-4"
+                style={{ height: '60px' }}
               >
                 <Button variant="ghost" onClick={() => setShowAllApps(true)}>
                   Show {sortedApps.length - 9} more apps <ArrowRight className="w-4 h-4 ml-2" />
@@ -462,7 +527,7 @@ export default function DashboardNew() {
           </div>
 
           {/* Right Side */}
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-1 h-full">
             <AnalysisPanel />
           </div>
         </div>
