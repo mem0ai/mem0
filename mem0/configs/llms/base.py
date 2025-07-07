@@ -43,6 +43,9 @@ class BaseLlmConfig(ABC):
         sarvam_base_url: Optional[str] = "https://api.sarvam.ai/v1",
         # LM Studio specific
         lmstudio_base_url: Optional[str] = "http://localhost:1234/v1",
+        lmstudio_response_format: dict = None,
+        # vLLM specific
+        vllm_base_url: Optional[str] = "http://localhost:8000/v1",
         # AWS Bedrock specific
         aws_access_key_id: Optional[str] = None,
         aws_secret_access_key: Optional[str] = None,
@@ -95,6 +98,10 @@ class BaseLlmConfig(ABC):
         :type sarvam_base_url: Optional[str], optional
         :param lmstudio_base_url: LM Studio base URL to be use, defaults to "http://localhost:1234/v1"
         :type lmstudio_base_url: Optional[str], optional
+        :param lmstudio_response_format: LM Studio response format to be use, defaults to None
+        :type lmstudio_response_format: Optional[Dict], optional
+        :param vllm_base_url: vLLM base URL to be use, defaults to "http://localhost:8000/v1"
+        :type vllm_base_url: Optional[str], optional
         """
 
         self.model = model
@@ -134,6 +141,10 @@ class BaseLlmConfig(ABC):
 
         # LM Studio specific
         self.lmstudio_base_url = lmstudio_base_url
+        self.lmstudio_response_format = lmstudio_response_format
+
+        # vLLM specific
+        self.vllm_base_url = vllm_base_url
 
         # AWS Bedrock specific
         self.aws_access_key_id = aws_access_key_id

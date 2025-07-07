@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mem0ai"
-version = "0.1.106"
+version = "0.1.114"
 description = "Long-term memory for AI Agents"
 authors = [
     { name = "Mem0", email = "founders@mem0.ai" }
@@ -23,8 +23,38 @@ dependencies = [
 [project.optional-dependencies]
 graph = [
     "langchain-neo4j>=0.4.0",
+    "langchain-aws>=0.2.23",
     "neo4j>=5.23.1",
     "rank-bm25>=0.2.2",
+]
+vector_stores = [
+    "vecs>=0.4.0",
+    "chromadb>=0.4.24",
+    "weaviate-client>=4.4.0",
+    "pinecone<=7.3.0",
+    "pinecone-text>=0.10.0",
+    "faiss-cpu>=1.7.4",
+    "upstash-vector>=0.1.0",
+    "azure-search-documents>=11.4.0b8",
+    "pymongo>=4.13.2",
+    "pymochow>=2.2.9",
+]
+llms = [
+    "groq>=0.3.0",
+    "together>=0.2.10",
+    "litellm>=0.1.0",
+    "ollama>=0.1.0",
+    "vertexai>=0.1.0",
+    "google-generativeai>=0.3.0",
+    "google-genai>=1.0.0",
+]
+extras = [
+    "boto3>=1.34.0",
+    "langchain-community>=0.0.0",
+    "sentence-transformers>=5.0.0",
+    "elasticsearch>=8.0.0",
+    "opensearch-py>=2.0.0",
+    "langchain-memgraph>=0.1.0",
 ]
 test = [
     "pytest>=8.2.2",
@@ -52,6 +82,36 @@ only-include = ["mem0"]
 
 [tool.hatch.build.targets.wheel.shared-data]
 "README.md" = "README.md"
+
+[tool.hatch.envs.dev_py_3_9]
+python = "3.9"
+features = [
+  "test",
+  "graph",
+  "vector_stores",
+  "llms",
+  "extras",
+]
+
+[tool.hatch.envs.dev_py_3_10]
+python = "3.10"
+features = [
+  "test",
+  "graph",
+  "vector_stores",
+  "llms",
+  "extras",
+]
+
+[tool.hatch.envs.dev_py_3_11]
+python = "3.11"
+features = [
+  "test",
+  "graph",
+  "vector_stores",
+  "llms",
+  "extras",
+]
 
 [tool.hatch.envs.default.scripts]
 format = [

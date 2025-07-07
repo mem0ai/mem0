@@ -16,6 +16,7 @@ import { Embedder } from "../embeddings/base";
 import { LLM } from "../llms/base";
 import { VectorStore } from "../vector_stores/base";
 import { Qdrant } from "../vector_stores/qdrant";
+import { VectorizeDB } from "../vector_stores/vectorize";
 import { RedisDB } from "../vector_stores/redis";
 import { OllamaLLM } from "../llms/ollama";
 import { SupabaseDB } from "../vector_stores/supabase";
@@ -40,6 +41,7 @@ export class EmbedderFactory {
       case "ollama":
         return new OllamaEmbedder(config);
       case "google":
+      case "gemini":
         return new GoogleEmbedder(config);
       case "azure_openai":
         return new AzureOpenAIEmbedder(config);
@@ -65,6 +67,7 @@ export class LLMFactory {
       case "ollama":
         return new OllamaLLM(config);
       case "google":
+      case "gemini":
         return new GoogleLLM(config);
       case "azure_openai":
         return new AzureOpenAILLM(config);
@@ -93,6 +96,8 @@ export class VectorStoreFactory {
         return new SupabaseDB(config as any);
       case "langchain":
         return new LangchainVectorStore(config as any);
+      case "vectorize":
+        return new VectorizeDB(config as any);
       default:
         throw new Error(`Unsupported vector store provider: ${provider}`);
     }

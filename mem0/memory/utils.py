@@ -1,4 +1,5 @@
 import re
+import hashlib
 
 from mem0.configs.prompts import FACT_RETRIEVAL_PROMPT
 
@@ -43,6 +44,20 @@ def remove_code_blocks(content: str) -> str:
     pattern = r"^```[a-zA-Z0-9]*\n([\s\S]*?)\n```$"
     match = re.match(pattern, content.strip())
     return match.group(1).strip() if match else content.strip()
+
+
+def extract_json(text):
+    """
+    Extracts JSON content from a string, removing enclosing triple backticks and optional 'json' tag if present.
+    If no code block is found, returns the text as-is.
+    """
+    text = text.strip()
+    match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
+    if match:
+        json_str = match.group(1)
+    else:
+        json_str = text  # assume it's raw JSON
+    return json_str
 
 
 def get_image_description(image_obj, llm, vision_details):
@@ -98,3 +113,21 @@ def parse_vision_messages(messages, llm=None, vision_details="auto"):
             returned_messages.append(msg)
 
     return returned_messages
+
+
+def process_telemetry_filters(filters):
+    """
+    Process the telemetry filters
+    """
+    if filters is None:
+        return {}
+
+    encoded_ids = {}
+    if "user_id" in filters:
+        encoded_ids["user_id"] = hashlib.md5(filters["user_id"].encode()).hexdigest()
+    if "agent_id" in filters:
+        encoded_ids["agent_id"] = hashlib.md5(filters["agent_id"].encode()).hexdigest()
+    if "run_id" in filters:
+        encoded_ids["run_id"] = hashlib.md5(filters["run_id"].encode()).hexdigest()
+
+    return list(filters.keys()), encoded_ids

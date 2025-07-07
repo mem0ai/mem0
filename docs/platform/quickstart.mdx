@@ -1,11 +1,11 @@
 ---
-title: Guide
+title: Quickstart
 description: 'Get started with Mem0 Platform in minutes'
-icon: "book"
+icon: "bolt"
 iconType: "solid"
 ---
 
-<Snippet file="paper-release.mdx" />
+<Snippet file="security-compliance.mdx" />
 
 <Note type="info">
   🎉 Looking for TypeScript support? Mem0 has you covered! Check out an example [here](/platform/quickstart/#4-11-working-with-mem0-in-typescript).
@@ -349,6 +349,59 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 
 </CodeGroup>
 
+
+#### Async Memory Addition
+
+When you set `async_mode=True`, memory processing happens completely asynchronously in the background. This allows for faster API responses while your memories are processed. The memories will be available on the dashboard and for retrieval within a few seconds.
+
+<CodeGroup>
+
+```python Python
+messages = [
+    {"role": "user", "content": "I love hiking and outdoor activities"},
+    {"role": "assistant", "content": "That's great! I'll remember your interest in hiking and outdoor activities for future recommendations."}
+]
+
+client.add(messages, user_id="alex", async_mode=True)
+```
+
+```javascript JavaScript
+const messages = [
+    {"role": "user", "content": "I love hiking and outdoor activities"},
+    {"role": "assistant", "content": "That's great! I'll remember your interest in hiking and outdoor activities for future recommendations."}
+];
+
+client.add(messages, { user_id: "alex", async_mode: true })
+    .then(response => console.log(response))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+curl -X POST "https://api.mem0.ai/v1/memories/" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "messages": [
+             {"role": "user", "content": "I love hiking and outdoor activities"},
+             {"role": "assistant", "content": "That's great! I'll remember your interest in hiking and outdoor activities for future recommendations."}
+         ],
+         "user_id": "alex",
+         "async_mode": true
+     }'
+```
+
+```json Output
+{
+    "results": [
+        {
+            "message": "Memory processing has been queued for background execution"
+        }
+    ]
+}
+```
+
+</CodeGroup>
+
 #### Monitor Memories
 
 You can monitor memory operations on the platform dashboard:
@@ -458,7 +511,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
 
 #### Search using custom filters
 
-Our advanced search allows you to set custom search filters. You can filter by user_id, agent_id, app_id, run_id, created_at, updated_at, categories, and text. The filters support logical operators (AND, OR) and comparison operators (in, gte, lte, gt, lt, ne, contains, icontains). For more details, see [V2 Search Memories](/api-reference/memory/v2-search-memories).
+Our advanced search allows you to set custom search filters. You can filter by user_id, agent_id, app_id, run_id, created_at, updated_at, categories, and text. The filters support logical operators (AND, OR) and comparison operators (in, gte, lte, gt, lt, ne, contains, icontains, *). The wildcard character (*) matches everything for a specific field. For more details, see [V2 Search Memories](/api-reference/memory/v2-search-memories).
 
 Here you need to define `version` as `v2` in the search method.
 
@@ -754,6 +807,81 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
             "user_id": "alex",
             "metadata": null,
             "categories": ["location"],
+            "immutable": false,
+            "expiration_date": null,
+            "created_at": "2024-07-20T01:30:36.275141-07:00",
+            "updated_at": "2024-07-20T01:30:36.275172-07:00"
+        }
+    ]
+}
+```
+
+</CodeGroup>
+
+Example 5: Search using wildcard filters
+<CodeGroup>
+```python Python
+query = "What do you know about me?"
+filters = {
+    "AND": [
+        {
+            "user_id": "alex"
+        },
+        {
+            "run_id": "*"  # Matches all run_ids
+        }
+    ]
+}
+client.search(query, version="v2", filters=filters)
+```
+
+```javascript JavaScript
+const query = "What do you know about me?";
+const filters = {
+    "AND": [
+        {
+            "user_id": "alex"
+        },
+        {
+            "run_id": "*"  // Matches all run_ids
+        }
+    ]
+};
+
+client.search(query, { version: "v2", filters })
+    .then(results => console.log(results))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "query": "What do you know about me?",
+         "filters": {
+             "AND": [
+                 {
+                     "user_id": "alex"
+                 },
+                 {
+                     "run_id": "*"
+                 }
+             ]
+         }
+     }'
+```
+
+```json Output
+{
+    "results": [
+        {
+            "id": "7f165f7e-b411-4afe-b7e5-35789b72c4a5",
+            "memory": "Name: Alex. Vegetarian. Allergic to nuts.",
+            "user_id": "alex",
+            "run_id": "session-1",
+            "metadata": null,
+            "categories": ["food_preferences"],
             "immutable": false,
             "expiration_date": null,
             "created_at": "2024-07-20T01:30:36.275141-07:00",
@@ -1138,7 +1266,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex&keywords=to play&page
 
 #### Get all memories using custom filters
 
-Our advanced retrieval allows you to set custom filters when fetching memories. You can filter by user_id, agent_id, app_id, run_id, created_at, updated_at, categories, and keywords. The filters support logical operators (AND, OR) and comparison operators (in, gte, lte, gt, lt, ne, contains, icontains). For more details, see [v2 Get Memories](/api-reference/memory/v2-get-memories).
+Our advanced retrieval allows you to set custom filters when fetching memories. You can filter by user_id, agent_id, app_id, run_id, created_at, updated_at, categories, and keywords. The filters support logical operators (AND, OR) and comparison operators (in, gte, lte, gt, lt, ne, contains, icontains, *). The wildcard character (*) matches everything for a specific field. For more details, see [v2 Get Memories](/api-reference/memory/v2-get-memories).
 
 Here you need to define `version` as `v2` in the get_all method.
 
@@ -1272,7 +1400,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?version=v2&page=1&page_size=50" \
             "memory":"Name: Alex. Vegetarian. Allergic to nuts.",
             "user_id":"alex",
             "hash":"62bc074f56d1f909f1b4c2b639f56f6a",
-            "metadata":null,
+            "metadata":None,
             "immutable": false,
             "expiration_date": null,
             "created_at":"2024-07-25T23:57:00.108347-07:00",
@@ -1497,6 +1625,119 @@ curl -X GET "https://api.mem0.ai/v1/memories/?version=v2&page=1&page_size=50" \
 
 </CodeGroup>
 
+Example 4: Get all memories using wildcard filters
+<CodeGroup>
+```python Python
+filters = {
+    "AND": [
+        {
+            "user_id": "alex"
+        },
+        {
+            "run_id": "*"  # Matches all run_ids
+        }
+    ]
+}
+
+# Default (No Pagination)
+client.get_all(version="v2", filters=filters)
+
+# Pagination (You can also use the page and page_size parameters)
+client.get_all(version="v2", filters=filters, page=1, page_size=50)
+```
+
+```javascript JavaScript
+const filters = {
+    "AND": [
+        {
+            "user_id": "alex"
+        },
+        {
+            "run_id": "*"  // Matches all run_ids
+        }
+    ]
+};
+
+// Default (No Pagination)
+client.getAll({ version: "v2", filters })
+    .then(memories => console.log(memories))
+    .catch(error => console.error(error));
+
+// Pagination (You can also use the page and page_size parameters)
+client.getAll({ version: "v2", filters, page: 1, page_size: 50 })
+    .then(memories => console.log(memories))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+# Default (No Pagination)
+curl -X GET "https://api.mem0.ai/v1/memories/?version=v2" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "filters": {
+             "AND": [
+                {"user_id":"alex"},
+                {"run_id": "*"}
+             ]
+         }
+     }'
+
+# Pagination (You can also use the page and page_size parameters)
+curl -X GET "https://api.mem0.ai/v1/memories/?version=v2&page=1&page_size=50" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "filters": {
+             "AND": [
+                {"user_id":"alex"},
+                {"run_id": "*"}
+             ]
+         }
+     }'
+```
+
+```json Output (Default)
+[
+    {
+        "id": "f38b689d-6b24-45b7-bced-17fbb4d8bac7",
+        "memory": "Name: Alex. Vegetarian. Allergic to nuts.",
+        "user_id": "alex",
+        "run_id": "session-1",
+        "metadata": null,
+        "categories": ["food_preferences"],
+        "immutable": false,
+        "expiration_date": null,
+        "created_at": "2024-07-20T01:30:36.275141-07:00",
+        "updated_at": "2024-07-20T01:30:36.275172-07:00"
+    }
+]
+```
+
+```json Output (Paginated)
+{
+    "count": 1,
+    "next": null,
+    "previous": null,
+    "results": [
+        {
+            "id": "f38b689d-6b24-45b7-bced-17fbb4d8bac7",
+            "memory": "Name: Alex. Vegetarian. Allergic to nuts.",
+            "user_id": "alex",
+            "run_id": "session-1",
+            "metadata": null,
+            "categories": ["food_preferences"],
+            "immutable": false,
+            "expiration_date": null,
+            "created_at": "2024-07-20T01:30:36.275141-07:00",
+            "updated_at": "2024-07-20T01:30:36.275172-07:00"
+        }
+    ]
+}
+```
+
+</CodeGroup>
+
 
 ### 4.5 Memory History
 
@@ -1592,24 +1833,26 @@ curl -X GET "https://api.mem0.ai/v1/memories/<memory-id-here>/history/" \
 
 ### 4.6 Update Memory
 
-Update a memory with new data.
+Update a memory with new data. You can update the memory's text, metadata, or both.
 
 <CodeGroup>
 
 ```python Python
-message = "I recently tried chicken and I loved it. I'm thinking of trying more non-vegetarian dishes.."
-client.update(memory_id, message)
+client.update(
+    memory_id="<memory-id-here>",
+    text="I am now a vegetarian.", 
+    metadata={"diet": "vegetarian"}
+)
 ```
 
 ```javascript JavaScript
-const message = "I recently tried chicken and I loved it. I'm thinking of trying more non-vegetarian dishes..";
-client.update("memory-id-here", message)
+client.update("memory-id-here", { text: "I am now a vegetarian.", metadata: { diet: "vegetarian" } })
     .then(result => console.log(result))
     .catch(error => console.error(error));
 ```
 
 ```bash cURL
-curl -X PUT "https://api.mem0.ai/v1/memories/memory-id-here" \
+curl -X PUT "https://api.mem0.ai/v1/memories/<memory-id-here>" \
         -H "Authorization: Token your-api-key" \
         -H "Content-Type: application/json" \
         -d '{
