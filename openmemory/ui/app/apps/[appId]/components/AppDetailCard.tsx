@@ -55,8 +55,8 @@ const AppDetailCard = ({
 
   const installCommand =
     currentApp?.name === 'claude'
-      ? `npx -y supergateway --stdio https://jean-memory-api.onrender.com/mcp/v2/claude/${user?.id}`
-      : `npx -y mcp-remote https://jean-memory-api.onrender.com/mcp/${currentApp?.name}/v2/${user?.id}`;
+      ? `npx -y supergateway --stdio https://jean-memory-api-virginia.onrender.com/mcp/v2/claude/${user?.id}`
+      : `npx -y mcp-remote https://jean-memory-api-virginia.onrender.com/mcp/${currentApp?.name}/v2/${user?.id}`;
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -70,7 +70,7 @@ const AppDetailCard = ({
     // Download the HTTP v2 extension
     const backendUrl = process.env.NODE_ENV === 'development' 
       ? 'http://localhost:8765' 
-      : 'https://jean-memory-api.onrender.com';
+      : 'https://jean-memory-api-virginia.onrender.com';
     window.open(`${backendUrl}/download/claude-extension-http`, '_blank');
     
     toast({

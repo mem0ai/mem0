@@ -45,7 +45,7 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
     // Download the HTTP v2 extension (faster transport)
     const backendUrl = process.env.NODE_ENV === 'development' 
       ? 'http://localhost:8765' 
-      : 'https://jean-memory-api.onrender.com';
+      : 'https://jean-memory-api-virginia.onrender.com';
     window.open(`${backendUrl}/download/claude-extension-http`, '_blank');
     
     toast({
@@ -162,7 +162,7 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
   const appConfig = constants[app.id as keyof typeof constants] || constants.default;
   
   // Use direct backend URL for Chorus, Worker URL for others
-  const MCP_URL = app.id === 'chorus' ? "https://jean-memory-api.onrender.com" : "https://api.jeanmemory.com";
+  const MCP_URL = app.id === 'chorus' ? "https://jean-memory-api-virginia.onrender.com" : "https://api.jeanmemory.com";
 
   // Define a base command that can be used as a fallback, fixing the regression.
   let rawInstallCommand = app.installCommand;
@@ -171,7 +171,7 @@ export function InstallModal({ app, open, onOpenChange, onSyncStart }: InstallMo
       rawInstallCommand = `-y mcp-remote ${MCP_URL}/mcp/${app.id}/sse/{user_id}`;
     } else if (app.id === 'claude') {
       // Use HTTP v2 transport for Claude (50% faster)
-      rawInstallCommand = `npx -y supergateway --stdio https://jean-memory-api.onrender.com/mcp/v2/claude/{user_id}`;
+      rawInstallCommand = `npx -y supergateway --stdio https://jean-memory-api-virginia.onrender.com/mcp/v2/claude/{user_id}`;
     } else {
       rawInstallCommand = `npx install-mcp ${MCP_URL}/mcp/${app.id}/sse/{user_id} --client ${app.id}`;
     }

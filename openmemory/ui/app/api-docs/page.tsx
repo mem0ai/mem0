@@ -372,7 +372,7 @@ const DiagramModal = ({ chart, onClose }: { chart: string; onClose: () => void }
 };
 
 const ApiDocsPage = () => {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://jean-memory-api.onrender.com";
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://jean-memory-api-virginia.onrender.com";
   const [isDiagramModalOpen, setIsDiagramModalOpen] = useState(false);
 
   const architectureDiagram = `
