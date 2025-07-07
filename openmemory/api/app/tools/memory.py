@@ -20,6 +20,30 @@ from app.analytics import track_tool_usage
 logger = logging.getLogger(__name__)
 
 
+class DateTimeJSONEncoder(json.JSONEncoder):
+    """Custom JSON encoder that handles datetime objects"""
+    def default(self, obj):
+        if isinstance(obj, datetime.datetime):
+            return obj.isoformat()
+        elif isinstance(obj, datetime.date):
+            return obj.isoformat()
+        return super().default(obj)
+
+
+def safe_json_dumps(data, **kwargs):
+    """Safely serialize data to JSON, handling datetime objects"""
+    try:
+        return json.dumps(data, cls=DateTimeJSONEncoder, **kwargs)
+    except Exception as e:
+        # Fallback: convert data to string representation
+        logger.warning(f"JSON serialization failed, using fallback: {e}")
+        try:
+            return json.dumps(str(data), **kwargs)
+        except Exception as fallback_error:
+            logger.error(f"Fallback JSON serialization also failed: {fallback_error}")
+            return f'{{"error": "Serialization failed", "data_preview": "{str(data)[:200]}"}}'
+
+
 def _track_tool_usage(tool_name: str, properties: dict = None):
     """Analytics tracking - only active if enabled via environment variable"""
     # Placeholder for the actual analytics call to avoid breaking the code.
@@ -445,7 +469,7 @@ async def _search_memory_unified_impl(query: str, supa_uid: str, client_name: st
         # 🚨 Log final results count
         logger.info(f"🔍 SEARCH FINAL - User {supa_uid}: {len(processed_results)} memories returned after filtering (tags_filter: {tags_filter})")
         
-        return json.dumps(processed_results)
+        return safe_json_dumps(processed_results)
     finally:
         db.close()
 
@@ -523,7 +547,7 @@ async def _search_memory_v2_impl(query: str, supa_uid: str, client_name: str, li
     else:
         processed_results = actual_results_list
 
-    return json.dumps(processed_results)
+    return safe_json_dumps(processed_results)
 
 
 @mcp.tool(description="List all memories in the user's memory")
@@ -619,7 +643,7 @@ async def _list_memories_impl(supa_uid: str, client_name: str, limit: int = 20) 
         logger.info(f"📋 LIST FINAL - User {supa_uid}: {len(processed_results)} memories returned after filtering")
         
         json_start_time = time.time()
-        response_json = json.dumps(processed_results)
+        response_json = safe_json_dumps(processed_results)
         json_duration = time.time() - json_start_time
         
         total_duration = time.time() - start_time
@@ -744,7 +768,7 @@ async def _get_memory_details_impl(memory_id: str, supa_uid: str, client_name: s
                 "categories": [cat.name for cat in sql_memory.categories] if sql_memory.categories else [],
                 "source": "sql_database"
             }
-            return json.dumps(memory_details, indent=2)
+            return safe_json_dumps(memory_details, indent=2)
         
         # Try mem0 with direct search instead of getting all memories
         memory_client = get_memory_client()
@@ -761,7 +785,7 @@ async def _get_memory_details_impl(memory_id: str, supa_uid: str, client_name: s
         # Look for exact ID match
         for mem in memories_list:
             if isinstance(mem, dict) and mem.get('id') == memory_id:
-                return json.dumps({
+                return safe_json_dumps({
                     "id": mem.get('id'),
                     "content": mem.get('memory', mem.get('content', 'No content available')),
                     "metadata": mem.get('metadata', {}),
