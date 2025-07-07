@@ -12,7 +12,7 @@ from sqlalchemy import and_
 
 from app.database import SessionLocal
 from app.models import App, User
-from app.utils.db import get_current_utc_time
+from app.models import get_current_utc_time
 
 logger = logging.getLogger(__name__)
 
