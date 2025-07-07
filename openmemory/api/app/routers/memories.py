@@ -194,7 +194,7 @@ async def list_memories(
             created_at=mem.created_at, 
             state=mem.state.value if mem.state else None,
             app_id=mem.app_id,
-            app_name=mem.app.name if mem.app else None, 
+            app_name=mem.app.name if mem.app else "Unknown App", 
             categories=[cat.name for cat in mem.categories], 
             metadata_=mem.metadata_
         )
@@ -774,7 +774,7 @@ async def get_memory(
             created_at=sql_memory.created_at,
             state=sql_memory.state.value if sql_memory.state else None,
             app_id=sql_memory.app_id,
-            app_name=sql_memory.app.name if sql_memory.app else None,
+            app_name=sql_memory.app.name if sql_memory.app else "Unknown App",
             categories=[category.name for category in sql_memory.categories],
             metadata_=sql_memory.metadata_
         )
@@ -1085,7 +1085,7 @@ async def update_memory(
         created_at=memory_to_update.created_at,
         state=memory_to_update.state.value if memory_to_update.state else None,
         app_id=memory_to_update.app_id,
-        app_name=memory_to_update.app.name if memory_to_update.app else None,
+        app_name=memory_to_update.app.name if memory_to_update.app else "Unknown App",
         categories=[cat.name for cat in memory_to_update.categories],
         metadata_=memory_to_update.metadata_
     )
@@ -1179,7 +1179,7 @@ async def filter_memories(
             created_at=mem.created_at,
             state=mem.state.value if mem.state else None,
             app_id=mem.app_id,
-            app_name=mem.app.name if mem.app else None,
+            app_name=mem.app.name if mem.app else "Unknown App",
             categories=[cat.name for cat in mem.categories],
             metadata_=mem.metadata_
         )
@@ -1238,7 +1238,7 @@ async def get_related_memories(
             created_at=item.created_at,
             state=item.state.value if item.state else None,
             app_id=item.app_id,
-            app_name=item.app.name if item.app else None,
+            app_name=item.app.name if item.app else "Unknown App",
             categories=[cat.name for cat in item.categories],
             metadata_=item.metadata_
         )

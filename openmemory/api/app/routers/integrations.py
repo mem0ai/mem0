@@ -10,6 +10,7 @@ from app.integrations.substack_service import SubstackService
 import asyncio
 from app.services.chunking_service import ChunkingService
 from app.integrations.twitter_service import sync_twitter_to_memory
+from app.integrations.substack_service import sync_substack_to_memory
 import logging
 from sqlalchemy import text
 from app.background_tasks import create_task, get_task, update_task_progress, run_task_async, mark_task_started, mark_task_completed, mark_task_failed, get_task_health_status
@@ -17,6 +18,8 @@ import psutil
 from pydantic import BaseModel
 import httpx
 import os
+from app.services.background_sync import background_sync_service
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -310,6 +313,103 @@ async def sync_twitter(
             detail=f"Failed to start Twitter sync: {str(e)}"
         ) 
 
+@router.post("/sync/substack")
+async def sync_substack_simple(
+    substack_url: str = Query(..., description="Substack URL (e.g., username.substack.com)"),
+    max_posts: int = Query(20, description="Maximum number of posts to sync (max 40)"),
+    background_tasks: BackgroundTasks = None,
+    current_supa_user: SupabaseUser = Depends(get_current_supa_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Sync recent Substack posts to memory in background.
+    Uses existing infrastructure with Jean Memory V2 integration.
+    """
+    try:
+        # Limit max_posts to prevent resource exhaustion
+        max_posts = min(max_posts, 40)
+        
+        # Get user and Substack app (create if doesn't exist)
+        user, app = get_user_and_app(
+            db,
+            supabase_user_id=str(current_supa_user.id),
+            app_name="substack",
+            email=current_supa_user.email
+        )
+        
+        if not app.is_active:
+            raise HTTPException(
+                status_code=400,
+                detail="Substack app is paused. Cannot sync posts."
+            )
+        
+        # Create a background task
+        task_id = create_task("substack_sync", str(current_supa_user.id))
+        
+        # Define the sync function (non-async wrapper)
+        def execute_substack_sync():
+            """Non-blocking Substack sync execution with asyncio timeout"""
+            import asyncio
+            
+            async def substack_sync_task():
+                # Create a new database session for the background task
+                from app.database import SessionLocal
+                db_session = SessionLocal()
+                try:
+                    await sync_substack_to_memory(
+                        substack_url=substack_url,
+                        user_id=str(current_supa_user.id),
+                        app_id="substack",
+                        db_session=db_session,
+                        max_posts=max_posts,
+                        progress_callback=lambda p, m, c: update_task_progress(task_id, p, f"{m}")
+                    )
+                finally:
+                    db_session.close()
+            
+            # Create new event loop for this task
+            try:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                
+                # Use asyncio timeout for Substack sync (20 minutes)
+                result = loop.run_until_complete(
+                    asyncio.wait_for(substack_sync_task(), timeout=1200)  # 20 minutes timeout
+                )
+                
+                mark_task_completed(task_id, result)
+                logger.info(f"Substack task {task_id} completed successfully")
+                
+            except asyncio.TimeoutError:
+                mark_task_failed(task_id, "Substack sync timed out after 20 minutes")
+                logger.error(f"Substack task {task_id} timed out")
+            except Exception as e:
+                mark_task_failed(task_id, str(e))
+                logger.error(f"Substack task {task_id} failed: {e}")
+            finally:
+                try:
+                    loop.close()
+                except:
+                    pass
+        
+        # Add to background tasks
+        background_tasks.add_task(execute_substack_sync)
+        
+        return {
+            "task_id": task_id,
+            "status": "started",
+            "message": "Sync started! This may take a few minutes. Feel free to close this window and connect other apps."
+        }
+        
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions
+    except Exception as e:
+        logger.error(f"Error starting Substack sync for user {current_supa_user.id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to start Substack sync: {str(e)}"
+        ) 
+
 @router.get("/health")
 async def get_integration_health():
     """Get health status of integration services and background tasks"""
@@ -457,4 +557,128 @@ Submitted via Jean Memory Dashboard
                 logger.error(f"Failed to send email via Resend: {response.status_code} - {response.text}")
                 
     except Exception as e:
-        logger.error(f"Error sending integration request email: {e}") 
+        logger.error(f"Error sending integration request email: {e}")
+
+@router.post("/apps/{app_name}/refresh")
+async def manual_refresh_app(
+    app_name: str,
+    current_supa_user: SupabaseUser = Depends(get_current_supa_user)
+):
+    """
+    Manually refresh an app's data (replaces real-time polling).
+    Triggers background sync and returns immediately.
+    """
+    try:
+        supabase_user_id_str = str(current_supa_user.id)
+        
+        result = await background_sync_service.manual_refresh_app(
+            user_id=supabase_user_id_str,
+            app_name=app_name
+        )
+        
+        if result['success']:
+            return {
+                "message": result['message'],
+                "sync_status": result['sync_status'],
+                "last_synced_at": result.get('last_synced_at')
+            }
+        else:
+            raise HTTPException(status_code=400, detail=result['error'])
+            
+    except Exception as e:
+        logger.error(f"Manual refresh failed for {app_name}: {e}")
+        raise HTTPException(status_code=500, detail=f"Refresh failed: {str(e)}")
+
+
+@router.get("/apps/{app_name}/sync-status")
+async def get_app_sync_status(
+    app_name: str,
+    current_supa_user: SupabaseUser = Depends(get_current_supa_user)
+):
+    """
+    Get the current sync status for an app.
+    Returns last sync time, current status, and any errors.
+    """
+    try:
+        supabase_user_id_str = str(current_supa_user.id)
+        
+        status = await background_sync_service.get_app_sync_status(
+            user_id=supabase_user_id_str,
+            app_name=app_name
+        )
+        
+        if not status['found']:
+            raise HTTPException(status_code=404, detail=status['error'])
+        
+        return {
+            "sync_status": status['sync_status'],
+            "last_synced_at": status['last_synced_at'],
+            "sync_error": status['sync_error'],
+            "total_memories_created": status['total_memories_created'],
+            "total_memories_accessed": status['total_memories_accessed']
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get sync status for {app_name}: {e}")
+        raise HTTPException(status_code=500, detail=f"Status check failed: {str(e)}")
+
+
+@router.post("/cron/hourly-sync")
+async def hourly_sync_cron(
+    # TODO: Add proper authentication for CRON jobs
+    # cron_token: str = Query(..., description="CRON authentication token")
+):
+    """
+    CRON endpoint: Triggered every hour to sync all integrations.
+    This replaces the frontend polling approach.
+    """
+    try:
+        logger.info("🕐 Hourly CRON sync triggered")
+        
+        # TODO: Verify CRON token for security
+        # if cron_token != settings.CRON_SECRET_TOKEN:
+        #     raise HTTPException(status_code=401, detail="Invalid CRON token")
+        
+        results = await background_sync_service.sync_all_integrations()
+        
+        return {
+            "message": "Hourly sync completed",
+            "results": results,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Hourly CRON sync failed: {e}")
+        raise HTTPException(status_code=500, detail=f"CRON sync failed: {str(e)}")
+
+@router.post("/refresh-all")
+async def refresh_all_user_integrations(
+    current_supa_user: SupabaseUser = Depends(get_current_supa_user)
+):
+    """
+    Refresh all integrations for the current user.
+    Used by dashboard refresh button and session-based auto-refresh.
+    """
+    try:
+        supabase_user_id_str = str(current_supa_user.id)
+        
+        result = await background_sync_service.refresh_all_user_integrations(
+            user_id=supabase_user_id_str
+        )
+        
+        return {
+            "message": result['message'],
+            "total_apps": result['total_apps'],
+            "successful_refreshes": result['successful_refreshes'],
+            "failed_refreshes": result['failed_refreshes'],
+            "skipped_apps": result['skipped_apps'],
+            "results": result['results'],
+            "errors": result['errors'],
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to refresh all user integrations: {e}")
+        raise HTTPException(status_code=500, detail=f"Refresh failed: {str(e)}") 
