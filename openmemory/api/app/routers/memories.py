@@ -1270,16 +1270,27 @@ async def enhanced_deep_life_query(
     try:
         # Use Jean Memory V2 for comprehensive memory retrieval
         from app.utils.memory import get_async_memory_client
-        memory_client = await get_async_memory_client()
         
-        logger.info(f"🧠 Enhanced Deep Life Query for user {supabase_user_id_str}: '{query}'")
+        logger.info(f"🧠 [DEEP LIFE QUERY] Starting Enhanced Deep Life Query for user {supabase_user_id_str}: '{query}'")
+        logger.info(f"🔄 [DEEP LIFE QUERY] Initializing Jean Memory V2 async client...")
+        
+        memory_client = await get_async_memory_client()
+        logger.info(f"✅ [DEEP LIFE QUERY] Jean Memory V2 client initialized successfully")
         
         # Get comprehensive memories from Jean Memory V2 with enhanced search
+        enhanced_query = f"{query} life experiences goals values relationships achievements"
+        logger.info(f"🔍 [DEEP LIFE QUERY] Enhanced search query: '{enhanced_query}'")
+        logger.info(f"📊 [DEEP LIFE QUERY] Searching Jean Memory V2 with limit=50...")
+        
+        import time
+        search_start_time = time.time()
         memory_results = await memory_client.search(
-            query=f"{query} life experiences goals values relationships achievements",
+            query=enhanced_query,
             user_id=supabase_user_id_str,
             limit=50  # Get more comprehensive results
         )
+        search_duration = time.time() - search_start_time
+        logger.info(f"⚡ [DEEP LIFE QUERY] Jean Memory V2 search completed in {search_duration:.2f}s")
         
         # Process memory results
         memories_text = []
@@ -1292,7 +1303,10 @@ async def enhanced_deep_life_query(
         else:
             memories = []
         
-        logger.info(f"🧠 Found {len(memories)} memories for enhanced analysis")
+        logger.info(f"📋 [DEEP LIFE QUERY] Raw memory results type: {type(memory_results)}")
+        logger.info(f"📋 [DEEP LIFE QUERY] Found {len(memories)} memories for enhanced analysis")
+        if len(memories) > 0:
+            logger.info(f"📋 [DEEP LIFE QUERY] Sample memory content: {memories[0].get('memory', memories[0].get('content', ''))[:100]}...")
         
         # Build enhanced context with Jean Memory V2 insights
         for i, mem in enumerate(memories[:30]):  # Use top 30 most relevant
@@ -1350,8 +1364,15 @@ ENHANCEMENT: Ontology-guided entity extraction active"""
         from app.utils.gemini import GeminiService
         gemini_service = GeminiService()
         
-        logger.info(f"🧠 Generating enhanced analysis with {len(memories_text)} memories")
+        logger.info(f"🤖 [DEEP LIFE QUERY] Generating enhanced AI analysis with {len(memories_text)} memories")
+        logger.info(f"📝 [DEEP LIFE QUERY] Prompt length: {len(enhanced_prompt)} characters")
+        
+        analysis_start_time = time.time()
         analysis_result = await gemini_service.generate_response(enhanced_prompt)
+        analysis_duration = time.time() - analysis_start_time
+        
+        logger.info(f"✅ [DEEP LIFE QUERY] AI analysis completed in {analysis_duration:.2f}s")
+        logger.info(f"📤 [DEEP LIFE QUERY] Response length: {len(analysis_result)} characters")
         
         # Add metadata about the analysis
         analysis_metadata = {
@@ -1362,6 +1383,10 @@ ENHANCEMENT: Ontology-guided entity extraction active"""
             "timestamp": datetime.datetime.now(UTC).isoformat()
         }
         
+        total_duration = time.time() - search_start_time
+        logger.info(f"🎉 [DEEP LIFE QUERY] COMPLETE - Total duration: {total_duration:.2f}s (search: {search_duration:.2f}s, analysis: {analysis_duration:.2f}s)")
+        logger.info(f"📊 [DEEP LIFE QUERY] Final stats - Memories: {len(memories_text)}, Response: {len(analysis_result)} chars")
+        
         return {
             "response": analysis_result,
             "metadata": analysis_metadata,
@@ -1369,7 +1394,9 @@ ENHANCEMENT: Ontology-guided entity extraction active"""
         }
         
     except Exception as e:
-        logger.error(f"Enhanced Deep Life Query failed: {e}", exc_info=True)
+        logger.error(f"❌ [DEEP LIFE QUERY] Enhanced Deep Life Query failed for user {supabase_user_id_str}: {e}", exc_info=True)
+        logger.error(f"❌ [DEEP LIFE QUERY] Query was: '{query}'")
+        logger.error(f"❌ [DEEP LIFE QUERY] Error type: {type(e).__name__}")
         raise HTTPException(
             status_code=500, 
             detail=f"Enhanced analysis failed: {str(e)}"

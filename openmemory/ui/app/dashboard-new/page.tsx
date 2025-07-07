@@ -244,16 +244,30 @@ export default function DashboardNew() {
   useEffect(() => {
     const getTotalMemories = async () => {
       try {
-        const result = await fetchMemories('');
-        setTotalMemories(result.total);
+        // FIXED: Use SQL-only memory count from apps API instead of combined count
+        // The fetchMemories API combines SQL + Jean Memory V2 memories, causing double counting
+        // Apps API gives us SQL-only counts which is faster and avoids duplication
+        const appsResponse = await fetchApps();
+        const sqlOnlyTotal = connectedAppsFromApi.reduce((total, app) => {
+          return total + (app.total_memories_created || 0);
+        }, 0);
+        setTotalMemories(sqlOnlyTotal);
+        console.log(`Dashboard: Using SQL-only memory count: ${sqlOnlyTotal}`);
       } catch (error) {
         console.error("Failed to fetch total memories:", error);
+        // Fallback to fetch memories if apps API fails
+        try {
+          const result = await fetchMemories('');
+          setTotalMemories(result.total);
+        } catch (fallbackError) {
+          console.error("Fallback memory fetch also failed:", fallbackError);
+        }
       }
     };
     if (user) {
       getTotalMemories();
     }
-  }, [user, fetchMemories]);
+  }, [user, fetchMemories, fetchApps, connectedAppsFromApi]);
 
   // Remove aggressive polling logic - replace with event-driven updates
   useEffect(() => {
@@ -320,13 +334,25 @@ export default function DashboardNew() {
     // Refresh the apps list to show updated data
     fetchApps();
     
-    // Also refresh memory count
+    // Also refresh memory count - FIXED: Use SQL-only count
     const getTotalMemories = async () => {
       try {
-        const result = await fetchMemories('');
-        setTotalMemories(result.total);
+        // Use SQL-only memory count from apps API instead of combined count
+        await fetchApps(); // Refresh apps data first
+        const sqlOnlyTotal = connectedAppsFromApi.reduce((total, app) => {
+          return total + (app.total_memories_created || 0);
+        }, 0);
+        setTotalMemories(sqlOnlyTotal);
+        console.log(`Dashboard refresh: Using SQL-only memory count: ${sqlOnlyTotal}`);
       } catch (error) {
         console.error("Failed to fetch total memories:", error);
+        // Fallback to fetch memories if apps API fails
+        try {
+          const result = await fetchMemories('');
+          setTotalMemories(result.total);
+        } catch (fallbackError) {
+          console.error("Fallback memory fetch also failed:", fallbackError);
+        }
       }
     };
     getTotalMemories();
