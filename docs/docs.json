@@ -261,6 +261,7 @@
                   "integrations/livekit",
                   "integrations/pipecat",
                   "integrations/elevenlabs",
+                  "integrations/aws-bedrock",
                   "integrations/flowise",
                   "integrations/langchain-tools",
                   "integrations/agentops",
