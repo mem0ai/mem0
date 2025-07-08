@@ -28,7 +28,7 @@ class OllamaLlm(BaseLlm):
 
         client = Client(host=config.base_url)
         local_models = client.list()["models"]
-        if not any(model.get("name") == self.config.model for model in local_models):
+        if not any(model.get("model") == self.config.model for model in local_models):
             logger.info(f"Pulling {self.config.model} from Ollama!")
             client.pull(self.config.model)
 
