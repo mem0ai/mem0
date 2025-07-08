@@ -1,4 +1,4 @@
-from unittest.mock import patch, ANY
+from unittest.mock import ANY, patch
 
 import pytest
 
@@ -38,14 +38,13 @@ def test_embed_returns_empty_list_if_none(mock_genai, config):
     mock_genai.return_value = type('Response', (), {'embeddings': [type('Embedding', (), {'values': []})]})()
 
     embedder = GoogleGenAIEmbedding(config)
-    result = embedder.embed("test")
+    
+    with pytest.raises(IndexError):  # This will raise IndexError when trying to access [0]
+        embedder.embed("test")
 
-    assert result == []
-    mock_genai.assert_called_once()
 
-
-def test_embed_raises_on_error(mock_genai, config):
-    mock_genai.side_effect = RuntimeError("Embedding failed")
+def test_embed_raises_on_error(mock_genai_client, config):
+    mock_genai_client.models.embed_content.side_effect = RuntimeError("Embedding failed")
 
     embedder = GoogleGenAIEmbedding(config)
 

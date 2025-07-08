@@ -497,40 +497,38 @@
 			"summary": "Export data based on filters",
 			"description": "Get the latest memory export.",
 			"operationId": "exports_list",
-			"parameters": [
-				{
-					"name": "filters",
-					"in": "query",
-					"schema": {
-						"type": "object",
-						"properties": {
-							"user_id": {"type": "string"},
-							"agent_id": {"type": "string"},
-							"app_id": {"type": "string"},
-							"run_id": {"type": "string"},
-							"created_at": {"type": "string"},
-							"updated_at": {"type": "string"}
-						},
-						"description": "Filters to apply while exporting memories. Available fields are: user_id, agent_id, app_id, run_id, created_at, updated_at."
+			"requestBody": {
+				"content": {
+					"application/json": {
+						"schema": {
+							"type": "object",
+							"properties": {
+								"memory_export_id": {"type": "string", "description": "The unique identifier of the memory export"},
+								"filters": {
+									"type": "object",
+									"properties": {
+										"user_id": {"type": "string"},
+										"agent_id": {"type": "string"},
+										"app_id": {"type": "string"},
+										"run_id": {"type": "string"},
+										"created_at": {"type": "string"},
+										"updated_at": {"type": "string"}
+									},
+									"description": "Filters to apply while exporting memories. Available fields are: user_id, agent_id, app_id, run_id, created_at, updated_at."
+								},
+								"org_id": {
+									"type": "string",
+									"description": "Filter exports by organization ID"
+								},
+								"project_id": {
+									"type": "string",
+									"description": "Filter exports by project ID"
+								}
+							}
+						}
 					}
-				},
-				{
-				"name": "org_id",
-				"in": "query",
-				"schema": {
-					"type": "string"
-				},
-				"description": "Filter exports by organization ID"
-				},
-				{
-				"name": "project_id",
-				"in": "query",
-				"schema": {
-					"type": "string"
-				},
-				"description": "Filter exports by project ID"
 				}
-			],
+			},
 			"responses": {
 				"200": {
 				"description": "Successful export",
@@ -538,7 +536,7 @@
 					"application/json": {
 					"schema": {
 						"type": "object",
-						"description": "Export data response"
+						"description": "Export data response in a object format"
 					}
 					}
 				}
@@ -579,27 +577,27 @@
 				"x-code-samples": [
 				{
 					"lang": "Python",
-					"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"project_id\")\n\nfilters = {\n    \"AND\": [\n        {\"created_at\": {\"gte\": \"2024-07-10\", \"lte\": \"2024-07-20\"}},\n        {\"user_id\": \"alex\"}\n    ]\n}\n\nresponse = client.get_memory_export(filters=filters)\nprint(response)"
+					"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"project_id\")\n\nmemory_export_id = \"<memory_export_id>\"\n\nresponse = client.get_memory_export(memory_export_id=memory_export_id)\nprint(response)"
 				},
 				{
 					"lang": "JavaScript", 
-					"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst filters = {\n  AND: [\n    {created_at: {gte: \"2024-07-10\", lte: \"2024-07-20\"}},\n    {user_id: \"alex\"}\n  ]\n};\n\n// Get memory export\nclient.getMemoryExport({ filters })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
+					"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst memory_export_id = \"<memory_export_id>\";\n\n// Get memory export\nclient.getMemoryExport({ memory_export_id })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
 				},
 				{
 					"lang": "cURL",
-					"source": "curl --request GET \\\n  --url 'https://api.mem0.ai/v1/exports/?filters={\"AND\":[{\"created_at\":{\"gte\":\"2024-07-10\",\"lte\":\"2024-07-20\"}},{\"user_id\":\"alex\"}]}' \\\n  --header 'Authorization: Token <api-key>'"
+					"source": "curl --request POST \\\n  --url 'https://api.mem0.ai/v1/exports/get/' \\\n  --header 'Authorization: Token <api-key>' \\\n  --data '{\n    \"memory_export_id\": \"<memory_export_id>\"\n}'"
 				},
 				{
 					"lang": "Go",
-					"source": "package main\n\nimport (\n\t\"fmt\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\tfilters := `{\"AND\":[{\"created_at\":{\"gte\":\"2024-07-10\",\"lte\":\"2024-07-20\"}},{\"user_id\":\"alex\"}]}`\n\turl := fmt.Sprintf(\"https://api.mem0.ai/v1/exports/?filters=%s\", filters)\n\n\treq, _ := http.NewRequest(\"GET\", url, nil)\n\n\treq.Header.Add(\"Authorization\", \"Token <api-key>\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(string(body))\n}"
+					"source": "package main\n\nimport (\n\t\"fmt\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\tmemory_export_id := \"<memory_export_id>\"\n\n\treq, _ := http.NewRequest(\"POST\", \"https://api.mem0.ai/v1/exports/get/\", nil)\n\n\treq.Header.Add(\"Authorization\", \"Token <api-key>\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(string(body))\n}"
 				},
 				{
 					"lang": "PHP",
-					"source": "<?php\n\n$curl = curl_init();\n\n$filters = urlencode('{\"AND\":[{\"created_at\":{\"gte\":\"2024-07-10\",\"lte\":\"2024-07-20\"}},{\"user_id\":\"alex\"}]}');\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/v1/exports/?filters=\" . $filters,\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"GET\",\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: Token <api-key>\"\n  ],\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
+					"source": "<?php\n\n$curl = curl_init();\n\n$data = json_encode(['memory_export_id' => '<memory_export_id>']);\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/v1/exports/get/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"POST\",\n  CURLOPT_POSTFIELDS => $data,\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: Token <api-key>\",\n    \"Content-Type: application/json\"\n  ],\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
 				},
 				{
 					"lang": "Java",
-					"source": "String filters = \"{\\\"AND\\\":[{\\\"created_at\\\":{\\\"gte\\\":\\\"2024-07-10\\\",\\\"lte\\\":\\\"2024-07-20\\\"}},{\\\"user_id\\\":\\\"alex\\\"}]}\";\n\nHttpResponse<String> response = Unirest.get(\"https://api.mem0.ai/v1/exports/?filters=\" + filters)\n  .header(\"Authorization\", \"Token <api-key>\")\n  .asString();"
+					"source": "String data = \"{\\\"memory_export_id\\\":\\\"<memory_export_id>\\\"}\";\n\nHttpResponse<String> response = Unirest.post(\"https://api.mem0.ai/v1/exports/get/\")\n  .header(\"Authorization\", \"Token <api-key>\")\n  .header(\"Content-Type\", \"application/json\")\n  .body(data)\n  .asString();"
 				}
 				]
 			}

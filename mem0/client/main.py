@@ -10,6 +10,8 @@ import requests
 
 from mem0.memory.setup import get_user_id, setup_config
 from mem0.memory.telemetry import capture_client_event
+from mem0.client.project import Project, AsyncProject
+from mem0.client.utils import api_error_handler
 
 logger = logging.getLogger(__name__)
 
@@ -17,29 +19,6 @@ warnings.filterwarnings("default", category=DeprecationWarning)
 
 # Setup user config
 setup_config()
-
-
-class APIError(Exception):
-    """Exception raised for errors in the API."""
-
-    pass
-
-
-def api_error_handler(func):
-    """Decorator to handle API errors consistently."""
-
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except httpx.HTTPStatusError as e:
-            logger.error(f"HTTP error occurred: {e}")
-            raise APIError(f"API request failed: {e.response.text}")
-        except httpx.RequestError as e:
-            logger.error(f"Request error occurred: {e}")
-            raise APIError(f"Request failed: {str(e)}")
-
-    return wrapper
 
 
 class MemoryClient:
@@ -114,6 +93,15 @@ class MemoryClient:
                 timeout=300,
             )
         self.user_email = self._validate_api_key()
+
+        # Initialize project manager
+        self.project = Project(
+            client=self.client,
+            org_id=self.org_id,
+            project_id=self.project_id,
+            user_email=self.user_email,
+        )
+
         capture_client_event("client.init", self, {"sync_type": "sync"})
 
     def _validate_api_key(self):
@@ -574,6 +562,7 @@ class MemoryClient:
             APIError: If the API request fails.
             ValueError: If org_id or project_id are not set.
         """
+        logger.warning("get_project() method is going to be deprecated in version v1.0 of the package. Please use the client.project.get() method instead.")
         if not (self.org_id and self.project_id):
             raise ValueError("org_id and project_id must be set to access instructions or categories")
 
@@ -615,6 +604,7 @@ class MemoryClient:
             APIError: If the API request fails.
             ValueError: If org_id or project_id are not set.
         """
+        logger.warning("update_project() method is going to be deprecated in version v1.0 of the package. Please use the client.project.update() method instead.")
         if not (self.org_id and self.project_id):
             raise ValueError("org_id and project_id must be set to update instructions or categories")
 
@@ -893,6 +883,15 @@ class AsyncMemoryClient:
             )
 
         self.user_email = self._validate_api_key()
+
+        # Initialize project manager
+        self.project = AsyncProject(
+            client=self.async_client,
+            org_id=self.org_id,
+            project_id=self.project_id,
+            user_email=self.user_email,
+        )
+
         capture_client_event("client.init", self, {"sync_type": "async"})
 
     def _validate_api_key(self):
@@ -1331,6 +1330,7 @@ class AsyncMemoryClient:
             APIError: If the API request fails.
             ValueError: If org_id or project_id are not set.
         """
+        logger.warning("get_project() method is going to be deprecated in version v1.0 of the package. Please use the client.project.get() method instead.")
         if not (self.org_id and self.project_id):
             raise ValueError("org_id and project_id must be set to access instructions or categories")
 
@@ -1368,6 +1368,7 @@ class AsyncMemoryClient:
             APIError: If the API request fails.
             ValueError: If org_id or project_id are not set.
         """
+        logger.warning("update_project() method is going to be deprecated in version v1.0 of the package. Please use the client.project.update() method instead.")
         if not (self.org_id and self.project_id):
             raise ValueError("org_id and project_id must be set to update instructions or categories")
 
