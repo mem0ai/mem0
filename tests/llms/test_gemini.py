@@ -72,6 +72,9 @@ def test_generate_response_with_tools(mock_gemini_client: Mock):
         }
     ]
 
+    # Create a proper mock for the function call arguments
+    mock_args = {"data": "Today is a sunny day."}
+    
     mock_tool_call = Mock()
     mock_tool_call.name = "add_memory"
     mock_tool_call.args = {"data": "Today is a sunny day."}
