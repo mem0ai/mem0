@@ -2,8 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, CheckCircle, Loader2, Download } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getGlobalAccessToken } from '@/contexts/AuthContext';
 
@@ -99,11 +98,6 @@ export function MigrationBanner() {
     );
   }
 
-  const handleDownloadExtension = () => {
-    // Download the HTTP v2 extension (faster transport)
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://jean-memory-api-virginia.onrender.com';
-    window.open(`${backendUrl}/download/claude-extension-http`, '_blank');
-  };
 
   return (
     <Alert className={`mb-6 ${migrationStatus.isMigrated ? 'border-green-500' : 'border-yellow-500'}`}>
@@ -123,28 +117,10 @@ export function MigrationBanner() {
             </p>
             
             {migrationStatus.isMigrated ? (
-              <div className="space-y-3">
-                <p className="text-green-700 dark:text-green-400 font-medium">
-                  ✓ Your data has been successfully migrated!
-                  {migrationStatus.qdrantMemoryCount && ` (${migrationStatus.qdrantMemoryCount.toLocaleString()} memories in Qdrant)`}
-                </p>
-                <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-md">
-                  <p className="text-sm font-medium mb-2">
-                    Action Required: Update Claude Desktop Extension
-                  </p>
-                  <p className="text-sm mb-3">
-                    Please delete your current Jean Memory Claude Desktop extension and download the updated version.
-                  </p>
-                  <Button
-                    size="sm"
-                    onClick={handleDownloadExtension}
-                    className="gap-2"
-                  >
-                    <Download className="h-4 w-4" />
-                    Download Jean Memory Extension
-                  </Button>
-                </div>
-              </div>
+              <p className="text-green-700 dark:text-green-400 font-medium">
+                ✓ Your data has been successfully migrated!
+                {migrationStatus.qdrantMemoryCount && ` (${migrationStatus.qdrantMemoryCount.toLocaleString()} memories in Qdrant)`}
+              </p>
             ) : (
               <p className="text-yellow-700 dark:text-yellow-400">
                 Your data migration is pending. We'll notify you once your data has been migrated.
