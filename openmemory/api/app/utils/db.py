@@ -1,6 +1,7 @@
-from sqlalchemy.orm import Session
-from app.models import User, App
 from typing import Tuple
+
+from app.models import App, User
+from sqlalchemy.orm import Session
 
 
 def get_or_create_user(db: Session, user_id: str) -> User:

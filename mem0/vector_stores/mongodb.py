@@ -1,12 +1,12 @@
 import logging
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
 try:
     from pymongo import MongoClient
-    from pymongo.operations import SearchIndexModel
     from pymongo.errors import PyMongoError
+    from pymongo.operations import SearchIndexModel
 except ImportError:
     raise ImportError("The 'pymongo' library is required. Please install it using 'pip install pymongo'.")
 
