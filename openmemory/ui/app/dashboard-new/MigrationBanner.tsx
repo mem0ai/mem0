@@ -110,7 +110,11 @@ export function MigrationBanner() {
         <div className="flex-1">
           <AlertDescription className="text-sm">
             <p className="font-semibold mb-2">
-              System Upgrade Notice - July 8, 2025
+              System Upgrade Notice - {new Date().toLocaleDateString('en-US', { 
+                month: 'long', 
+                day: 'numeric', 
+                year: 'numeric' 
+              })}
             </p>
             <p className="mb-3">
               We are currently migrating data and upgrading our memory system. Some features may experience temporary downtime.
