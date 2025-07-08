@@ -1,7 +1,8 @@
 from typing import Optional
 from uuid import UUID
+
+from app.models import App, Memory, MemoryState
 from sqlalchemy.orm import Session
-from app.models import Memory, App, MemoryState
 
 
 def check_memory_access_permissions(
