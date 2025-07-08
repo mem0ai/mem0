@@ -197,41 +197,22 @@ async def search_memory(query: str) -> str:
                 for memory in memories
             ]
 
-            # Log memory access for each memory found
-            if isinstance(memories, dict) and 'results' in memories:
-                print(f"Memories: {memories}")
-                for memory_data in memories['results']:
-                    if 'id' in memory_data:
-                        memory_id = uuid.UUID(memory_data['id'])
-                        # Create access log entry
-                        access_log = MemoryAccessLog(
-                            memory_id=memory_id,
-                            app_id=app.id,
-                            access_type="search",
-                            metadata_={
-                                "query": query,
-                                "score": memory_data.get('score'),
-                                "hash": memory_data.get('hash')
-                            }
-                        )
-                        db.add(access_log)
-                db.commit()
-            else:
-                for memory in memories:
-                    memory_id = uuid.UUID(memory['id'])
-                    # Create access log entry
-                    access_log = MemoryAccessLog(
-                        memory_id=memory_id,
-                        app_id=app.id,
-                        access_type="search",
-                        metadata_={
-                            "query": query,
-                            "score": memory.get('score'),
-                            "hash": memory.get('hash')
-                        }
-                    )
-                    db.add(access_log)
-                db.commit()
+            for memory in memories:
+                memory_id = uuid.UUID(memory['id'])
+                # Create access log entry
+                access_log = MemoryAccessLog(
+                    memory_id=memory_id,
+                    app_id=app.id,
+                    access_type="search",
+                    metadata_={
+                        "query": query,
+                        "score": memory.get('score'),
+                        "hash": memory.get('hash')
+                    }
+                )
+                db.add(access_log)
+            db.commit()
+
             return json.dumps(memories, indent=2)
         finally:
             db.close()
