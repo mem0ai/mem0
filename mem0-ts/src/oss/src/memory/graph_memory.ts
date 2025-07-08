@@ -455,13 +455,20 @@ export class MemoryGraph {
     const session = this.graph.session();
 
     try {
-      for (const item of toBeAdded) {
+      const sources = toBeAdded.map((item) => item.source);
+      const destinations = toBeAdded.map((item) => item.destination);
+      const allToEmbed = [...sources, ...destinations];
+      const allEmbeddings = await this.embeddingModel.embedBatch(allToEmbed);
+      // Use the precomputed embeddings in the for loop
+      for (let i = 0; i < toBeAdded.length; i++) {
+        const item = toBeAdded[i];
         const { source, destination, relationship } = item;
         const sourceType = entityTypeMap[source] || "unknown";
         const destinationType = entityTypeMap[destination] || "unknown";
 
-        const sourceEmbedding = await this.embeddingModel.embed(source);
-        const destEmbedding = await this.embeddingModel.embed(destination);
+        // Use the embeddings from allEmbeddings
+        const sourceEmbedding = allEmbeddings[i];
+        const destEmbedding = allEmbeddings[i + toBeAdded.length];
 
         const sourceNodeSearchResult = await this._searchSourceNode(
           sourceEmbedding,
