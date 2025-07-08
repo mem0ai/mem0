@@ -178,8 +178,14 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     span: ({ children, ...props }: React.HTMLAttributes<HTMLSpanElement>) => (
       <span {...props}>{processChildren(children)}</span>
     ),
+    ul: ({ children, ...props }: React.HTMLAttributes<HTMLUListElement>) => (
+      <ul className="my-4 ml-6 list-disc" {...props}>{processChildren(children)}</ul>
+    ),
+    ol: ({ children, ...props }: React.HTMLAttributes<HTMLOListElement>) => (
+      <ol className="my-4 ml-6 list-decimal" {...props}>{processChildren(children)}</ol>
+    ),
     li: ({ children, ...props }: React.HTMLAttributes<HTMLLIElement>) => (
-      <li {...props}>{processChildren(children)}</li>
+      <li className="my-2" {...props}>{processChildren(children)}</li>
     ),
     strong: ({ children, ...props }: React.HTMLAttributes<HTMLElement>) => (
       <strong {...props}>{processChildren(children)}</strong>
