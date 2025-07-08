@@ -223,6 +223,63 @@ const getMemories = async (prompt: LanguageModelV1Prompt | string, config?: Mem0
     }
 }
 
+const getMemory = async (id: string, config?: Mem0ConfigSettings) => {
+    try {
+        const apiKey = loadApiKey({
+            apiKey: (config&&config.mem0ApiKey),
+            environmentVariableName: "MEM0_API_KEY",
+            description: "Mem0",
+        });
+        const params = new URLSearchParams();
+        if (config?.user_id) params.append('user_id', config.user_id);
+        if (config?.app_id) params.append('app_id', config.app_id);
+        if (config?.agent_id) params.append('agent_id', config.agent_id);
+        if (config?.run_id) params.append('run_id', config.run_id);
+        if (config?.org_id) params.append('org_id', config.org_id);
+        if (config?.project_id) params.append('project_id', config.project_id);
+        const query = params.toString() ? `?${params.toString()}` : '';
+        const response = await fetch(`https://api.mem0.ai/v1/memories/${id}/${query}`, {
+            headers: {
+                Authorization: `Token ${apiKey}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error("Error in getMemory:", error);
+        throw error;
+    }
+}
+
+const deleteMemory = async (id: string, config?: Mem0ConfigSettings) => {
+    try {
+        const apiKey = loadApiKey({
+            apiKey: (config&&config.mem0ApiKey),
+            environmentVariableName: "MEM0_API_KEY",
+            description: "Mem0",
+        });
+        const response = await fetch(`https://api.mem0.ai/v1/memories/${id}/`, {
+            method: 'DELETE',
+            headers: {
+                Authorization: `Token ${apiKey}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error("Error in deleteMemory:", error);
+        throw error;
+    }
+}
+
 const searchMemories = async (prompt: LanguageModelV1Prompt | string, config?: Mem0ConfigSettings) => {
     try {
         const message = typeof prompt === 'string' ? prompt : flattenPrompt(prompt);
@@ -234,4 +291,4 @@ const searchMemories = async (prompt: LanguageModelV1Prompt | string, config?: M
     }
 }
 
-export {addMemories, updateMemories, retrieveMemories, flattenPrompt, searchMemories, getMemories};
+export { addMemories, updateMemories, retrieveMemories, flattenPrompt, searchMemories, getMemories, getMemory, deleteMemory };
