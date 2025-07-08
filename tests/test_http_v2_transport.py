@@ -9,7 +9,7 @@ import time
 
 # Test configurations
 LOCAL_BASE_URL = "http://localhost:8765"
-PROD_BASE_URL = "https://jean-memory-api.onrender.com"
+PROD_BASE_URL = "https://jean-memory-api-virginia.onrender.com"
 
 # Test user (use a test UUID format)
 TEST_USER_ID = "test-user-12345"

@@ -27,7 +27,7 @@
       "command": "node",
       "args": [
         "${__dirname}/server/index.js",
-        "https://jean-memory-api.onrender.com/mcp/v2/claude/${user_config.user_id}"
+        "https://jean-memory-api-virginia.onrender.com/mcp/v2/claude/${user_config.user_id}"
       ],
       "env": {}
     }
