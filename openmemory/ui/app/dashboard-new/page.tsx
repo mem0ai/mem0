@@ -18,6 +18,7 @@ import ParticleNetwork from "@/components/landing/ParticleNetwork";
 import { SyncModal } from '@/components/dashboard/SyncModal';
 import { RequestIntegrationModal } from '@/components/dashboard/RequestIntegrationModal';
 import { RefreshAllButton, RefreshStatus } from "@/components/dashboard/RefreshAllButton";
+import { MigrationBanner } from "./MigrationBanner";
 
 // Define available apps with priorities
 interface AvailableApp {
@@ -362,6 +363,9 @@ export default function DashboardNew() {
 
       {/* Main Content */}
       <div className="relative z-10 container mx-auto px-4 max-w-7xl py-8">
+        {/* Migration Banner */}
+        <MigrationBanner />
+        
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Side */}
           <div className="lg:col-span-2 h-full flex flex-col">

@@ -37,6 +37,7 @@
     "@radix-ui/react-toggle": "^1.1.1",
     "@radix-ui/react-toggle-group": "^1.1.1",
     "@radix-ui/react-tooltip": "^1.1.6",
+    "@qdrant/js-client-rest": "^1.12.0",
     "@react-three/drei": "^10.0.8",
     "@react-three/fiber": "^9.1.2",
     "@reduxjs/toolkit": "^2.7.0",
