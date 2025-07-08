@@ -36,6 +36,7 @@ class AliyunTableStore(VectorStoreBase):
             access_key_id: str,
             access_key_secret: str,
             vector_dimension: int,
+            sts_token: Optional[str] = None,
             collection_name: Optional[str] = "mem0",
             search_index_name: Optional[str] = "mem0_search_index",
             text_field: Optional[str] = "text",
@@ -48,6 +49,7 @@ class AliyunTableStore(VectorStoreBase):
             access_key_id=access_key_id,
             access_key_secret=access_key_secret,
             instance_name=instance_name,
+            sts_token=None if sts_token == "" else sts_token,
             retry_policy=tablestore.WriteRetryPolicy(),
         )
 

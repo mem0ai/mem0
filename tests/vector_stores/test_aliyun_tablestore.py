@@ -217,8 +217,36 @@ def test_search(aliyun_tablestore_instance):
 
     aliyun_tablestore_instance.reset()
 
+@pytest.mark.skip(reason="need sts token")
+def test_sts_token(data):
+    aliyun_tablestore_instance = AliyunTableStore(
+        endpoint=os.environ["TABLESTORE_ENDPOINT"],
+        instance_name=os.environ["TABLESTORE_INSTANCE_NAME"],
+        access_key_id=os.environ["STS_TABLESTORE_ACCESS_KEY_ID"],
+        access_key_secret=os.environ["STS_TABLESTORE_ACCESS_KEY_SECRET"],
+        sts_token=os.environ["STS_TOKEN"],
+        vector_dimension=4,
+        collection_name='sts_test_collection',
+        search_index_name='sts_test_search_index',
+    )
 
+    assert aliyun_tablestore_instance._collection_name in aliyun_tablestore_instance.list_cols()
 
+    vectors, payloads, ids = data
+
+    aliyun_tablestore_instance.insert(vectors=vectors, payloads=payloads, ids=ids)
+    wait_for_index_ready(aliyun_tablestore_instance, len(ids))
+    outputs = aliyun_tablestore_instance.list()[0]
+
+    assert len(outputs) == 1
+    assert isinstance(outputs[0], OutputData)
+
+    assert outputs[0].id == ids[0]
+    assert outputs[0].payload == payloads[0]
+
+    aliyun_tablestore_instance.delete_col()
+
+    assert aliyun_tablestore_instance._collection_name not in aliyun_tablestore_instance.list_cols()
 
 
 

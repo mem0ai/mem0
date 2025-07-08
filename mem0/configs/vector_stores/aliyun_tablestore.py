@@ -8,6 +8,7 @@ class AliyunTableStoreConfig(BaseModel):
     access_key_id: str = Field(description="access_key_id of tablestore")
     access_key_secret: str = Field(description="access_key_secret of tablestore")
     vector_dimension: int = Field(1536, description="dimension of vector")
+    sts_token: Optional[str] = Field(None, description="sts_token of tablestore")
     collection_name: Optional[str] = Field("mem0", description="name of the collection")
     search_index_name: Optional[str] = Field("mem0_search_index", description="index name")
     text_field: Optional[str] = Field("text", description="name of the text in table field")
