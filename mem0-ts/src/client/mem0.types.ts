@@ -31,6 +31,7 @@ export interface MemoryOptions {
   async_mode?: boolean;
   filter_memories?: boolean;
   immutable?: boolean;
+  structured_data_schema?: Record<string, any>;
 }
 
 export interface ProjectOptions {
