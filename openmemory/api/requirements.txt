@@ -33,3 +33,4 @@ neo4j>=5.28.0
 pgvector>=0.3.6
 graphiti-core>=0.13.0
 openai>=1.91.0
+qdrant-client>=1.12.0

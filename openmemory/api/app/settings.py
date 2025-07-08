@@ -56,6 +56,7 @@ class Config:
         self.QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
         self.QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
         self.QDRANT_API_KEY = os.getenv("QDRANT_API_KEY", "")
+        self.QDRANT_URL = os.getenv("QDRANT_URL", "")
         
         # Collection name based on environment
         default_collection = "openmemory_dev" if self.is_local_development else "openmemory_prod"
@@ -167,7 +168,11 @@ class Config:
     @property
     def qdrant_url(self) -> str:
         """Get the full Qdrant URL"""
-        if self.QDRANT_HOST == "localhost":
+        # Use QDRANT_URL if explicitly set (for cloud instances)
+        if self.QDRANT_URL:
+            return self.QDRANT_URL
+        # Otherwise build from host and port
+        elif self.QDRANT_HOST == "localhost":
             return f"http://{self.QDRANT_HOST}:{self.QDRANT_PORT}"
         else:
             # For cloud Qdrant, use HTTPS

@@ -11,6 +11,7 @@ from app.routers import memories_router, apps_router, stats_router, integrations
 from app.routers import keys as keys_router
 from app.routers.admin import router as admin_router
 from app.routers.stripe_webhooks import router as stripe_webhooks_router
+from app.routers.migration import router as migration_router
 
 from fastapi_pagination import add_pagination
 from fastapi.middleware.cors import CORSMiddleware
@@ -307,6 +308,7 @@ app.include_router(profile_router, dependencies=[Depends(get_current_supa_user)]
 app.include_router(webhooks_router)  # SMS webhooks (no auth - verified by Twilio signature)
 app.include_router(admin_router)  # Admin router has its own authentication
 app.include_router(agent_mcp_router) # New secure agent endpoint
+app.include_router(migration_router, prefix="/api/v1", dependencies=[Depends(get_current_supa_user)])  # Migration status endpoint
 app.include_router(stripe_webhooks_router)  # Stripe webhooks (no auth needed - verified by signature)
 
 
