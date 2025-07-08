@@ -4,6 +4,7 @@ from collections import defaultdict
 
 import numpy as np
 from openai import OpenAI
+
 from mem0.memory.utils import extract_json
 
 client = OpenAI()

@@ -8,10 +8,12 @@ export CARTESIA_API_KEY=your_cartesia_api_key
 """
 
 from textwrap import dedent
+
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 from agno.tools.cartesia import CartesiaTools
 from agno.utils.audio import write_audio_to_file
+
 from mem0 import MemoryClient
 
 memory_client = MemoryClient()

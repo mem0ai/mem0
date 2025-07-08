@@ -1,12 +1,11 @@
-import os
-import json
-from typing import Dict, Any, Optional
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
+from typing import Any, Dict, Optional
+
 from app.database import get_db
 from app.models import Config as ConfigModel
 from app.utils.memory import reset_memory_client
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/api/v1/config", tags=["config"])
 

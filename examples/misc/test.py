@@ -1,4 +1,4 @@
-from agents import Agent, Runner, function_tool, enable_verbose_stdout_logging
+from agents import Agent, Runner, enable_verbose_stdout_logging, function_tool
 from dotenv import load_dotenv
 
 from mem0 import MemoryClient

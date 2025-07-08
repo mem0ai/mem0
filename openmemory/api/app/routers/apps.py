@@ -1,11 +1,11 @@
 from typing import Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, desc
 
 from app.database import get_db
 from app.models import App, Memory, MemoryAccessLog, MemoryState
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import desc, func
+from sqlalchemy.orm import Session, joinedload
 
 router = APIRouter(prefix="/api/v1/apps", tags=["apps"])
 

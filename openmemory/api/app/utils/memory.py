@@ -27,16 +27,15 @@ Example configuration that will be automatically adjusted:
 }
 """
 
-import os
-import json
 import hashlib
+import json
+import os
 import socket
-import platform
 
-from mem0 import Memory
 from app.database import SessionLocal
 from app.models import Config as ConfigModel
 
+from mem0 import Memory
 
 _memory_client = None
 _config_hash = None
