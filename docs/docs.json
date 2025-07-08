@@ -67,7 +67,8 @@
                       "platform/features/timestamp",
                       "platform/features/expiration-date",
                       "platform/features/webhooks",
-                      "platform/features/feedback-mechanism"
+                      "platform/features/feedback-mechanism",
+                      "platform/features/group-chat"
                     ]
                   }
                 ]
@@ -246,24 +247,25 @@
                 "icon": "plug",
                 "pages": [
                   "integrations",
-                  "integrations/agentops",
-                  "integrations/vercel-ai-sdk",
-                  "integrations/flowise",
-                  "integrations/crewai",
-                  "integrations/autogen",
                   "integrations/langchain",
                   "integrations/langgraph",
                   "integrations/llama-index",
-                  "integrations/langchain-tools",
-                  "integrations/dify",
-                  "integrations/mcp-server",
-                  "integrations/livekit",
-                  "integrations/elevenlabs",
-                  "integrations/pipecat",
                   "integrations/agno",
+                  "integrations/autogen",
+                  "integrations/crewai",
+                  "integrations/openai-agents-sdk",
+                  "integrations/google-ai-adk",
+                  "integrations/mastra",
+                  "integrations/vercel-ai-sdk",
+                  "integrations/livekit",
+                  "integrations/pipecat",
+                  "integrations/elevenlabs",
+                  "integrations/flowise",
+                  "integrations/langchain-tools",
+                  "integrations/agentops",
                   "integrations/keywords",
-                  "integrations/raycast",
-                  "integrations/mastra"
+                  "integrations/dify",
+                  "integrations/raycast"
                 ]
               }
             ]

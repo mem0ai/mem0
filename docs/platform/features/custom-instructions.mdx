@@ -5,7 +5,7 @@ icon: "pencil"
 iconType: "solid"
 ---
 
-<Snippet file="paper-release.mdx" />
+<Snippet file="security-compliance.mdx" />
 
 ## Introduction to Custom Instructions
 
@@ -50,7 +50,7 @@ Guidelines:
 - Focus solely on health-related content.
 - Maintain clarity and context accuracy while recording.
 """
-response = client.update_project(custom_instructions=prompt)
+response = client.project.update(custom_instructions=prompt)
 print(response)
 ```
 
@@ -66,7 +66,7 @@ You can also retrieve the current custom instructions:
 <CodeGroup>
 ```python Code
 # Retrieve current custom instructions
-response = client.get_project(fields=["custom_instructions"])
+response = client.project.get(fields=["custom_instructions"])
 print(response)
 ```
 

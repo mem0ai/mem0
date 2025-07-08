@@ -4,7 +4,7 @@ icon: "info"
 iconType: "solid"
 ---
 
-<Snippet file="paper-release.mdx" />
+<Snippet file="security-compliance.mdx" />
 
 Mem0 provides a powerful set of APIs that allow you to integrate advanced memory management capabilities into your applications. Our APIs are designed to be intuitive, efficient, and scalable, enabling you to create, retrieve, update, and delete memories across various entities such as users, agents, apps, and runs.
 
@@ -59,6 +59,128 @@ const client = new MemoryClient({organizationId: "YOUR_ORG_ID", projectId: "YOUR
 
   </Tab>
 </Tabs>
+
+### Project Management Methods
+
+The Mem0 client provides comprehensive project management capabilities through the `client.project` interface:
+
+#### Get Project Details
+
+Retrieve information about the current project:
+
+```python
+# Get all project details
+project_info = client.project.get()
+
+# Get specific fields only
+project_info = client.project.get(fields=["name", "description", "custom_categories"])
+```
+
+#### Create a New Project
+
+Create a new project within your organization:
+
+```python
+# Create a project with name and description
+new_project = client.project.create(
+    name="My New Project",
+    description="A project for managing customer support memories"
+)
+```
+
+#### Update Project Settings
+
+Modify project configuration including custom instructions, categories, and graph settings:
+
+```python
+# Update project with custom categories
+client.project.update(
+    custom_categories=[
+        {"customer_preferences": "Customer likes, dislikes, and preferences"},
+        {"support_history": "Previous support interactions and resolutions"}
+    ]
+)
+
+# Update project with custom instructions
+client.project.update(
+    custom_instructions="..."
+)
+
+# Enable graph memory for the project
+client.project.update(enable_graph=True)
+
+# Update multiple settings at once
+client.project.update(
+    custom_instructions="...",
+    custom_categories=[
+        {"personal_info": "User personal information and preferences"},
+        {"work_context": "Professional context and work-related information"}
+    ],
+    enable_graph=True
+)
+```
+
+#### Delete Project
+
+<Note>
+This action will remove all memories, messages, and other related data in the project. This operation is irreversible.
+</Note>
+
+Remove a project and all its associated data:
+
+```python
+# Delete the current project (irreversible)
+result = client.project.delete()
+```
+
+#### Member Management
+
+Manage project members and their access levels:
+
+```python
+# Get all project members
+members = client.project.get_members()
+
+# Add a new member as a reader
+client.project.add_member(
+    email="colleague@company.com",
+    role="READER"  # or "OWNER"
+)
+
+# Update a member's role
+client.project.update_member(
+    email="colleague@company.com",
+    role="OWNER"
+)
+
+# Remove a member from the project
+client.project.remove_member(email="colleague@company.com")
+```
+
+#### Member Roles
+
+- **READER**: Can view and search memories, but cannot modify project settings or manage members
+- **OWNER**: Full access including project modification, member management, and all reader permissions
+
+#### Async Support
+
+All project methods are also available in async mode:
+
+```python
+from mem0 import AsyncMemoryClient
+
+async def manage_project():
+    client = AsyncMemoryClient(org_id='YOUR_ORG_ID', project_id='YOUR_PROJECT_ID')
+
+    # All methods support async/await
+    project_info = await client.project.get()
+    await client.project.update(enable_graph=True)
+    members = await client.project.get_members()
+
+# To call the async function properly
+import asyncio
+asyncio.run(manage_project())
+```
 
 ## Getting Started
 

@@ -1,6 +1,8 @@
 import os
-import requests
 from typing import Dict, List, Optional
+
+import requests
+
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.llms.base import LLMBase
 
@@ -18,7 +20,7 @@ class SarvamLLM(LLMBase):
 
         if not self.api_key:
             raise ValueError(
-                "Sarvam API key is required. Set SARVAM_API_KEY environment variable " "or provide api_key in config."
+                "Sarvam API key is required. Set SARVAM_API_KEY environment variable or provide api_key in config."
             )
 
         # Set base URL - use config value or environment or default
