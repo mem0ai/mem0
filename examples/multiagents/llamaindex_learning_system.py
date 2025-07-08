@@ -70,7 +70,7 @@ class MultiAgentLearningSystem:
                 "variables": {
                     "beginner": "Think of variables like labeled boxes. You put data inside and can change what's in the box anytime.",
                     "intermediate": "Variables are memory locations that store data. They have names (identifiers) and values that can be modified.",
-                    "visual": "🗂️ Variable = Label + Storage\n   name = 'Alice'  →  [Alice] stored in memory location 'name'"
+                    "visual": "Variable = Label + Storage\n   name = 'Alice'  →  [Alice] stored in memory location 'name'"
                 },
                 "functions": {
                     "beginner": "Functions are like recipes. You give them ingredients (inputs) and they make something (output).",
