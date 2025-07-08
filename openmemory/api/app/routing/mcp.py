@@ -2,6 +2,7 @@ import logging
 import json
 import asyncio
 import datetime
+import os
 from typing import Dict
 
 from fastapi import APIRouter, Request, Response, BackgroundTasks
@@ -11,6 +12,11 @@ from app.clients import get_client_profile, get_client_name
 from app.context import user_id_var, client_name_var, background_tasks_var
 
 logger = logging.getLogger(__name__)
+
+# Log service info on startup to help with debugging
+SERVICE_NAME = os.getenv('RENDER_SERVICE_NAME', 'unknown-service')
+RENDER_REGION = os.getenv('RENDER_REGION', 'unknown-region')
+logger.warning(f"🔧 MCP Router initialized on service: {SERVICE_NAME} in region: {RENDER_REGION}")
 
 mcp_router = APIRouter(prefix="/mcp")
 
@@ -143,13 +149,14 @@ async def handle_http_v2_transport(client_name: str, user_id: str, request: Requ
         request.headers.__dict__['_list'].append((b'x-client-name', client_name.encode()))
         
         body = await request.json()
-        logger.info(f"🚀 HTTP v2 Transport: {client_name}/{user_id} - Method: {body.get('method')}")
+        method = body.get('method')
+        logger.warning(f"🚀 HTTP v2 Transport: {client_name}/{user_id} - Method: {method} - Service: {SERVICE_NAME} ({RENDER_REGION})")
         
         # Use the same unified logic as SSE transport
         response = await handle_request_logic(request, body, background_tasks)
         
         # For HTTP transport, return JSON-RPC response directly (no SSE queue)
-        logger.info(f"✅ HTTP v2 Response: {client_name}/{user_id} - Status: {response.status_code}")
+        logger.warning(f"✅ HTTP v2 Response: {client_name}/{user_id} - Status: {response.status_code} - Service: {SERVICE_NAME}")
         return response
         
     except Exception as e:

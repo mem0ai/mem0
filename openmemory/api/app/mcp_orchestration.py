@@ -37,10 +37,11 @@ class SmartContextOrchestrator:
     
     def _get_tools(self):
         if self._tools_cache is None:
-            from app.mcp_server import (
+            from app.tools.memory import (
                 add_memories, search_memory, list_memories, 
-                ask_memory, deep_memory_query
+                ask_memory
             )
+            from app.tools.documents import deep_memory_query
             self._tools_cache = {
                 'add_memories': add_memories,
                 'search_memory': search_memory,
