@@ -7,7 +7,7 @@ dotenv.config();
 
 jest.setTimeout(20000);
 
-const apiKey = process.env.MEM0_API_KEY || "";
+const apiKey = process.env.MEM0_API_KEY || '';  
 const host = process.env.MEM0_API_HOST || "https://api.mem0.ai";
 
 function randomString() {
