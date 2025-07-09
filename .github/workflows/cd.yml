@@ -26,4 +26,4 @@ jobs:
           context: ./openmemory/api
           file: ./openmemory/api/Dockerfile
           push: true
-          tags: ghcr.io/fhuzjan/openmemory-mcp:latest
+          tags: ghcr.io/ingemark/openmemory-mcp:latest
