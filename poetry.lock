@@ -364,7 +364,7 @@ description = "The AWS SDK for Python"
 optional = true
 python-versions = ">=3.9"
 groups = ["main"]
-markers = "extra == \"extras\""
+markers = "extra == \"graph\" or extra == \"extras\""
 files = [
     {file = "boto3-1.39.3-py3-none-any.whl", hash = "sha256:056cfa2440fe1a157a7c2be897c749c83e1a322144aa4dad889f2fca66571019"},
     {file = "boto3-1.39.3.tar.gz", hash = "sha256:0a367106497649ae3d8a7b571b8c3be01b7b935a0fe303d4cc2574ed03aecbb4"},
@@ -385,7 +385,7 @@ description = "Low-level, data-driven core of boto 3."
 optional = true
 python-versions = ">=3.9"
 groups = ["main"]
-markers = "extra == \"extras\""
+markers = "extra == \"graph\" or extra == \"extras\""
 files = [
     {file = "botocore-1.39.3-py3-none-any.whl", hash = "sha256:66a81cfac18ad5e9f47696c73fdf44cdbd8f8ca51ab3fca1effca0aabf61f02f"},
     {file = "botocore-1.39.3.tar.gz", hash = "sha256:da8f477e119f9f8a3aaa8b3c99d9c6856ed0a243680aa3a3fbbfc15a8d4093fb"},
@@ -2496,7 +2496,7 @@ description = "JSON Matching Expressions"
 optional = true
 python-versions = ">=3.7"
 groups = ["main"]
-markers = "extra == \"extras\""
+markers = "extra == \"graph\" or extra == \"extras\""
 files = [
     {file = "jmespath-1.0.1-py3-none-any.whl", hash = "sha256:02e2e4cc71b5bcab88332eebf907519190dd9e6e82107fa7f83b1003a6252980"},
     {file = "jmespath-1.0.1.tar.gz", hash = "sha256:90261b206d6defd58fdd5e85f478bf633a2901798906be2ad389150c5c60edbe"},
@@ -2667,6 +2667,28 @@ together = ["langchain-together"]
 xai = ["langchain-xai"]
 
 [[package]]
+name = "langchain-aws"
+version = "0.2.24"
+description = "An integration package connecting AWS and LangChain"
+optional = true
+python-versions = ">=3.9"
+groups = ["main"]
+markers = "extra == \"graph\""
+files = [
+    {file = "langchain_aws-0.2.24-py3-none-any.whl", hash = "sha256:464df2e6535001e5424786c493906d2e5d4a01bd1906e9e8d4da1404e13bd25c"},
+    {file = "langchain_aws-0.2.24.tar.gz", hash = "sha256:1ef09f3b84b94e5cc816b21ade391b4c3b14aba3ad8dc75968fac50ffe6bbd1a"},
+]
+
+[package.dependencies]
+boto3 = ">=1.37.24"
+langchain-core = ">=0.3.62,<0.4.0"
+numpy = [
+    {version = ">=1,<2", markers = "python_version < \"3.12\""},
+    {version = ">=1.26.0,<3", markers = "python_version >= \"3.12\""},
+]
+pydantic = ">=2.10.0,<3"
+
+[[package]]
 name = "langchain-community"
 version = "0.3.20"
 description = "Community contributed LangChain integrations."
@@ -2695,25 +2717,22 @@ tenacity = ">=8.1.0,<8.4.0 || >8.4.0,<10"
 
 [[package]]
 name = "langchain-core"
-version = "0.3.48"
+version = "0.3.63"
 description = "Building applications with LLMs through composability"
 optional = true
-python-versions = "<4.0,>=3.9"
+python-versions = ">=3.9"
 groups = ["main"]
 markers = "extra == \"graph\" or extra == \"extras\""
 files = [
-    {file = "langchain_core-0.3.48-py3-none-any.whl", hash = "sha256:21e4fe84262b9c7ad8aefe7816439ede130893f8a64b8c965cd9695c2be91c73"},
-    {file = "langchain_core-0.3.48.tar.gz", hash = "sha256:be4b2fe36d8a11fb4b6b13e0808b12aea9f25e345624ffafe1d606afb6059f21"},
+    {file = "langchain_core-0.3.63-py3-none-any.whl", hash = "sha256:f91db8221b1bc6808f70b2e72fded1a94d50ee3f1dff1636fb5a5a514c64b7f5"},
+    {file = "langchain_core-0.3.63.tar.gz", hash = "sha256:e2e30cfbb7684a5a0319f6cbf065fc3c438bfd1060302f085a122527890fb01e"},
 ]
 
 [package.dependencies]
 jsonpatch = ">=1.33,<2.0"
-langsmith = ">=0.1.125,<0.4"
+langsmith = ">=0.1.126,<0.4"
 packaging = ">=23.2,<25"
-pydantic = [
-    {version = ">=2.5.2,<3.0.0", markers = "python_full_version < \"3.12.4\""},
-    {version = ">=2.7.4,<3.0.0", markers = "python_full_version >= \"3.12.4\""},
-]
+pydantic = ">=2.7.4"
 PyYAML = ">=5.3"
 tenacity = ">=8.1.0,<8.4.0 || >8.4.0,<10.0.0"
 typing-extensions = ">=4.7"
@@ -4328,7 +4347,6 @@ files = [
     {file = "psycopg2_binary-2.9.10-cp313-cp313-musllinux_1_2_i686.whl", hash = "sha256:bb89f0a835bcfc1d42ccd5f41f04870c1b936d8507c6df12b7737febc40f0909"},
     {file = "psycopg2_binary-2.9.10-cp313-cp313-musllinux_1_2_ppc64le.whl", hash = "sha256:f0c2d907a1e102526dd2986df638343388b94c33860ff3bbe1384130828714b1"},
     {file = "psycopg2_binary-2.9.10-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:f8157bed2f51db683f31306aa497311b560f2265998122abe1dce6428bd86567"},
-    {file = "psycopg2_binary-2.9.10-cp313-cp313-win_amd64.whl", hash = "sha256:27422aa5f11fbcd9b18da48373eb67081243662f9b46e6fd07c3eb46e4535142"},
     {file = "psycopg2_binary-2.9.10-cp38-cp38-macosx_12_0_x86_64.whl", hash = "sha256:eb09aa7f9cecb45027683bb55aebaaf45a0df8bf6de68801a6afdc7947bb09d4"},
     {file = "psycopg2_binary-2.9.10-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:b73d6d7f0ccdad7bc43e6d34273f70d587ef62f824d7261c4ae9b8b1b6af90e8"},
     {file = "psycopg2_binary-2.9.10-cp38-cp38-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:ce5ab4bf46a211a8e924d307c1b1fcda82368586a19d0a24f8ae166f5c784864"},
@@ -5673,7 +5691,7 @@ description = "An Amazon S3 Transfer Manager"
 optional = true
 python-versions = ">=3.9"
 groups = ["main"]
-markers = "extra == \"extras\""
+markers = "extra == \"graph\" or extra == \"extras\""
 files = [
     {file = "s3transfer-0.13.0-py3-none-any.whl", hash = "sha256:0148ef34d6dd964d0d8cf4311b2b21c474693e57c2e069ec708ce043d2b527be"},
     {file = "s3transfer-0.13.0.tar.gz", hash = "sha256:f5e6db74eb7776a37208001113ea7aa97695368242b364d73e91c981ac522177"},
@@ -7645,7 +7663,7 @@ cffi = ["cffi (>=1.11)"]
 [extras]
 dev = ["isort", "pytest", "ruff"]
 extras = ["boto3", "elasticsearch", "langchain-community", "langchain-memgraph", "opensearch-py", "sentence-transformers"]
-graph = ["langchain-neo4j", "neo4j", "rank-bm25"]
+graph = ["langchain-aws", "langchain-neo4j", "neo4j", "rank-bm25"]
 llms = ["google-genai", "google-generativeai", "groq", "litellm", "ollama", "together", "vertexai"]
 test = ["pytest", "pytest-asyncio", "pytest-mock"]
 vector-stores = ["azure-search-documents", "chromadb", "faiss-cpu", "pinecone", "pinecone-text", "pymochow", "pymongo", "upstash-vector", "vecs", "weaviate-client"]
@@ -7653,4 +7671,4 @@ vector-stores = ["azure-search-documents", "chromadb", "faiss-cpu", "pinecone", 
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9,<4.0"
-content-hash = "c7474e94146c95dddaf24a24c6b6523f5ba6b0cf4d9c5669b799ceb7505d72a8"
+content-hash = "47eb1bc76703575fb58d3554baedf10e4f9c76a71578c46abc4ddf7bf560403b"
