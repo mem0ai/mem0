@@ -577,7 +577,7 @@ async def deep_memory_query(search_query: str, memory_limit: int = None, chunk_l
 
 async def _deep_memory_query_impl(search_query: str, supa_uid: str, client_name: str, memory_limit: int = None, chunk_limit: int = None, include_full_docs: bool = True) -> str:
     """Optimized implementation of deep_memory_query"""
-    from app.utils.memory import get_memory_client
+    from app.utils.memory import get_memory_client, get_async_memory_client
     from app.utils.gemini import GeminiService
     from app.services.chunking_service import ChunkingService
     from app.models import Document
@@ -603,14 +603,14 @@ async def _deep_memory_query_impl(search_query: str, supa_uid: str, client_name:
                 return "Error: User or app not found"
             
             # Initialize services
-            memory_client = get_memory_client()
+            memory_client = await get_async_memory_client()
             gemini_service = GeminiService()
             chunking_service = ChunkingService()
             
             # 1. Get ALL memories for comprehensive context
             mem_fetch_start_time = time.time()
-            all_memories_result = memory_client.get_all(user_id=supa_uid, limit=memory_limit)
-            search_memories_result = memory_client.search(
+            all_memories_result = await memory_client.get_all(user_id=supa_uid, limit=memory_limit)
+            search_memories_result = await memory_client.search(
                 query=search_query,
                 user_id=supa_uid,
                 limit=memory_limit
