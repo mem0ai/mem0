@@ -1,5 +1,5 @@
 from typing import Any, Dict, Optional
-
+from azure.core.credentials import TokenCredential
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -8,6 +8,7 @@ class AzureAISearchConfig(BaseModel):
     service_name: str = Field(None, description="Azure AI Search service name")
     api_key: str = Field(None, description="API key for the Azure AI Search service")
     embedding_model_dims: int = Field(1536, description="Dimension of the embedding vector")
+    token_credential: Optional["TokenCredential"] = Field(description="Optional Credential to use Managed Identity", default=None)
     compression_type: Optional[str] = Field(
         None, description="Type of vector compression to use. Options: 'scalar', 'binary', or None"
     )

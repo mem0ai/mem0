@@ -12,19 +12,29 @@ class AzureOpenAIEmbedding(EmbeddingBase):
         super().__init__(config)
 
         api_key = self.config.azure_kwargs.api_key or os.getenv("EMBEDDING_AZURE_OPENAI_API_KEY")
+        use_token_credential = api_key is None and self.config.azure_kwargs.token_credential
         azure_deployment = self.config.azure_kwargs.azure_deployment or os.getenv("EMBEDDING_AZURE_DEPLOYMENT")
         azure_endpoint = self.config.azure_kwargs.azure_endpoint or os.getenv("EMBEDDING_AZURE_ENDPOINT")
         api_version = self.config.azure_kwargs.api_version or os.getenv("EMBEDDING_AZURE_API_VERSION")
         default_headers = self.config.azure_kwargs.default_headers
 
-        self.client = AzureOpenAI(
-            azure_deployment=azure_deployment,
-            azure_endpoint=azure_endpoint,
-            api_version=api_version,
-            api_key=api_key,
-            http_client=self.config.http_client,
-            default_headers=default_headers,
-        )
+        if use_token_credential:
+            self.client = AzureOpenAI(
+                azure_deployment=azure_deployment,
+                azure_endpoint=azure_endpoint,
+                api_version=api_version,
+                http_client=self.config.http_client,
+                default_headers=default_headers,
+                azure_ad_token_provider=self.config.azure_kwargs.token_credential)
+        else:
+            self.client = AzureOpenAI(
+                azure_deployment=azure_deployment,
+                azure_endpoint=azure_endpoint,
+                api_version=api_version,
+                api_key=api_key,
+                http_client=self.config.http_client,
+                default_headers=default_headers,
+            )
 
     def embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
         """

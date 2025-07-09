@@ -55,6 +55,7 @@ extras = [
     "elasticsearch>=8.0.0",
     "opensearch-py>=2.0.0",
     "langchain-memgraph>=0.1.0",
+    "azure-identity>=1.23.0"
 ]
 test = [
     "pytest>=8.2.2",
