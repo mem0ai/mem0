@@ -494,7 +494,7 @@ export default function KnowledgeGraph({ onMemorySelect }: KnowledgeGraphProps) 
       <Canvas 
         className={memories.length === 0 ? 'opacity-0' : 'opacity-100 transition-opacity duration-500'}
         camera={{ 
-          position: isMobile ? [0, 5, 15] : [0, 5, 20], 
+          position: isMobile ? [0, 2, 8] : [0, 3, 12], 
           fov: isMobile ? 75 : 60 
         }}
         gl={{ 
