@@ -635,6 +635,9 @@ async def create_memory(
                 
                 if mem0_id:
                     sql_memory.metadata_['mem0_id'] = mem0_id
+                    # Flag the JSON column as modified so SQLAlchemy detects the change
+                    from sqlalchemy.orm import flag_modified
+                    flag_modified(sql_memory, 'metadata_')
                     db.commit()
                     logger.info(f"✅ Updated SQL metadata with mem0_id: {mem0_id}")
                 else:
