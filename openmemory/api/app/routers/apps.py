@@ -143,7 +143,10 @@ async def get_app_details(
         "name": app.name,
         "is_active": app.is_active,
         "total_memories_created": db.query(func.count(Memory.id))
-            .filter(Memory.app_id == app.id)
+            .filter(
+                Memory.app_id == app.id,
+                Memory.state.in_([MemoryState.active, MemoryState.paused, MemoryState.archived])
+            )
             .scalar(),
         "total_memories_accessed": access_stats.total_memories_accessed or 0,
         "first_accessed": access_stats.first_accessed,
