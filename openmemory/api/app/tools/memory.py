@@ -61,7 +61,7 @@ async def add_memories(text: str, tags: Optional[list[str]] = None, priority: bo
     Set priority=True for core directives that should always be remembered.
     """
     # Lazy import
-    from app.utils.memory import get_memory_client
+    from app.utils.memory import get_async_memory_client
     import time
     start_time = time.time()
     
@@ -76,7 +76,7 @@ async def add_memories(text: str, tags: Optional[list[str]] = None, priority: bo
     logger.error(f"🔍 ADD_MEMORIES DEBUG - Memory content preview: {text[:100]}...")
 
     
-    memory_client = get_memory_client()
+    memory_client = await get_async_memory_client()
 
     if not supa_uid:
         return "Error: Supabase user_id not available in context"
@@ -148,14 +148,12 @@ async def add_memories(text: str, tags: Optional[list[str]] = None, priority: bo
 
             logger.info(f"🔍 DEBUG: Passing this metadata to mem0.add: {metadata}")
 
-            loop = asyncio.get_running_loop()
-            add_call = functools.partial(
-                memory_client.add,
+            # Call async memory client directly
+            response = await memory_client.add(
                 messages=[message_to_add],
                 user_id=supa_uid,
                 metadata=metadata
             )
-            response = await loop.run_in_executor(None, add_call)
 
             mem0_duration = time.time() - mem0_start_time
             logger.info(f"add_memories: mem0 client call for user {supa_uid} took {mem0_duration:.2f}s")
@@ -243,10 +241,10 @@ async def add_memories(text: str, tags: Optional[list[str]] = None, priority: bo
 async def _add_memories_background_claude(text: str, tags: Optional[list[str]], supa_uid: str, client_name: str, priority: bool = False):
     """Background memory processing for Claude Desktop - fire and forget"""
     try:
-        # Reuse the same logic as the synchronous version
-        from app.utils.memory import get_memory_client
+        # Use async memory client for proper response format
+        from app.utils.memory import get_async_memory_client
         
-        memory_client = get_memory_client()
+        memory_client = await get_async_memory_client()
         
         # Track memory addition (only if private analytics available)
         track_tool_usage('add_memories', {
@@ -292,16 +290,18 @@ async def _add_memories_background_claude(text: str, tags: Optional[list[str]], 
                 "content": text
             }
 
-            loop = asyncio.get_running_loop()
-            add_call = functools.partial(
-                memory_client.add,
+            # Call async memory client directly
+            response = await memory_client.add(
                 messages=[message_to_add],
                 user_id=supa_uid,
                 metadata=metadata
             )
-            response = await loop.run_in_executor(None, add_call)
+
+            logger.info(f"🔍 Background: mem0 response type: {type(response)}")
+            logger.info(f"🔍 Background: mem0 response preview: {str(response)[:200]}...")
 
             if isinstance(response, dict) and 'results' in response:
+                added_count = 0
                 for result in response['results']:
                     mem0_memory_id_str = result['id']
                     mem0_content = result.get('memory', text)
@@ -315,6 +315,8 @@ async def _add_memories_background_claude(text: str, tags: Optional[list[str]], 
                             metadata_={**result.get('metadata', {}), "mem0_id": mem0_memory_id_str}
                         )
                         db.add(sql_memory_record)
+                        added_count += 1
+                        logger.info(f"🔍 Background: Added SQL record for mem0_id {mem0_memory_id_str}: '{mem0_content[:50]}...')")
                     elif result.get('event') == 'DELETE':
                         sql_memory_record = db.query(Memory).filter(
                             text("metadata_->>'mem0_id' = :mem0_id"),
@@ -333,7 +335,12 @@ async def _add_memories_background_claude(text: str, tags: Optional[list[str]], 
                             db.add(history)
                             
                 db.commit()
+                logger.info(f"🔍 Background: Committed {added_count} SQL records to database")
                 logger.info(f"Background memory add completed for user {supa_uid}: {text[:50]}...")
+            else:
+                # Fallback: If response format is unexpected, log warning but don't fail
+                logger.warning(f"🔍 Background: Unexpected response format - no 'results' key found")
+                logger.warning(f"🔍 Background: Response: {response}")
         finally:
             db.close()
             
@@ -401,8 +408,8 @@ async def search_memory(query: str, limit: int = None, tags_filter: Optional[lis
 
 async def _search_memory_unified_impl(query: str, supa_uid: str, client_name: str, limit: int = 10, tags_filter: Optional[list[str]] = None) -> str:
     """Unified implementation that supports both basic search and tag filtering"""
-    from app.utils.memory import get_memory_client
-    memory_client = get_memory_client()
+    from app.utils.memory import get_async_memory_client
+    memory_client = await get_async_memory_client()
     db = SessionLocal()
     
     try:
@@ -427,10 +434,8 @@ async def _search_memory_unified_impl(query: str, supa_uid: str, client_name: st
         # We fetch a larger pool of results to filter from if a filter is applied
         fetch_limit = limit * 5 if tags_filter else limit
 
-        # Run blocking I/O in a separate thread
-        loop = asyncio.get_running_loop()
-        search_call = functools.partial(memory_client.search, query=query, user_id=supa_uid, limit=fetch_limit)
-        mem0_search_results = await loop.run_in_executor(None, search_call)
+        # Call async memory client directly
+        mem0_search_results = await memory_client.search(query=query, user_id=supa_uid, limit=fetch_limit)
         
         # 🚨 CRITICAL: Log the search results for debugging
         logger.info(f"🔍 SEARCH DEBUG - Query: {query}, Results count: {len(mem0_search_results.get('results', [])) if isinstance(mem0_search_results, dict) else len(mem0_search_results) if isinstance(mem0_search_results, list) else 0}")
@@ -511,16 +516,14 @@ async def search_memory_v2(query: str, limit: int = None, tags_filter: Optional[
 
 async def _search_memory_v2_impl(query: str, supa_uid: str, client_name: str, limit: int = 10, tags_filter: Optional[list[str]] = None) -> str:
     """Implementation of V2 search memory with post-fetch filtering."""
-    from app.utils.memory import get_memory_client
-    memory_client = get_memory_client()
+    from app.utils.memory import get_async_memory_client
+    memory_client = await get_async_memory_client()
     
     # We fetch a larger pool of results to filter from if a filter is applied
     fetch_limit = limit * 5 if tags_filter else limit
 
-    # Call the original search function without the metadata filter to avoid the bug
-    search_call = functools.partial(memory_client.search, query=query, user_id=supa_uid, limit=fetch_limit)
-    loop = asyncio.get_running_loop()
-    mem0_search_results = await loop.run_in_executor(None, search_call)
+    # Call async memory client directly
+    mem0_search_results = await memory_client.search(query=query, user_id=supa_uid, limit=fetch_limit)
     
     actual_results_list = []
     if isinstance(mem0_search_results, dict) and 'results' in mem0_search_results:
@@ -585,12 +588,12 @@ async def list_memories(limit: int = None) -> str:
 
 async def _list_memories_impl(supa_uid: str, client_name: str, limit: int = 20) -> str:
     """Implementation of list_memories with timeout protection"""
-    from app.utils.memory import get_memory_client
+    from app.utils.memory import get_async_memory_client
     import time
     start_time = time.time()
     logger.info(f"list_memories: Starting for user {supa_uid}")
 
-    memory_client = get_memory_client()
+    memory_client = await get_async_memory_client()
     db = SessionLocal()
     try:
         # Get user (but don't filter by specific app - show ALL memories)
@@ -607,10 +610,8 @@ async def _list_memories_impl(supa_uid: str, client_name: str, limit: int = 20) 
         # Get ALL memories for this user across all apps with limit
         fetch_start_time = time.time()
         
-        # Run blocking I/O in a separate thread
-        loop = asyncio.get_running_loop()
-        get_all_call = functools.partial(memory_client.get_all, user_id=supa_uid, limit=limit)
-        all_mem0_memories = await loop.run_in_executor(None, get_all_call)
+        # Call async memory client directly
+        all_mem0_memories = await memory_client.get_all(user_id=supa_uid, limit=limit)
 
         fetch_duration = time.time() - fetch_start_time
         
@@ -829,7 +830,7 @@ async def ask_memory(question: str) -> str:
 
 async def _lightweight_ask_memory_impl(question: str, supa_uid: str, client_name: str) -> str:
     """Lightweight ask_memory implementation for quick answers"""
-    from app.utils.memory import get_memory_client
+    from app.utils.memory import get_async_memory_client
     from mem0.llms.openai import OpenAILLM
     from mem0.configs.llms.base import BaseLlmConfig
     
@@ -849,17 +850,15 @@ async def _lightweight_ask_memory_impl(question: str, supa_uid: str, client_name
                 return f"Error: User ID validation failed. Security issue detected."
 
             # Initialize services
-            memory_client = get_memory_client()
+            memory_client = await get_async_memory_client()
             llm = OpenAILLM(config=BaseLlmConfig(model="gpt-4o-mini"))
             
             # 1. Quick memory search (limit to 10 for speed)
             search_start_time = time.time()
             logger.info(f"ask_memory: Starting memory search for user {supa_uid}")
             
-            # Run blocking I/O in a separate thread
-            loop = asyncio.get_running_loop()
-            search_call = functools.partial(memory_client.search, query=question, user_id=supa_uid, limit=10)
-            search_result = await loop.run_in_executor(None, search_call)
+            # Call async memory client directly
+            search_result = await memory_client.search(query=question, user_id=supa_uid, limit=10)
 
             search_duration = time.time() - search_start_time
             

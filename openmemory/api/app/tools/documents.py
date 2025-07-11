@@ -73,11 +73,11 @@ async def _process_document_background(
             app = get_or_create_app(db, user, "document_storage")
             logger.info(f"✅ [{job_id}] App retrieved/created: {app.id} (name: {app.name})")
             
-            # Import and initialize memory client
-            logger.info(f"🧠 [{job_id}] Initializing memory client...")
-            from app.utils.memory import get_memory_client
-            mem0_client = get_memory_client()
-            logger.info(f"✅ [{job_id}] Memory client initialized successfully")
+            # Import and initialize async memory client
+            logger.info(f"🧠 [{job_id}] Initializing async memory client...")
+            from app.utils.memory import get_async_memory_client
+            mem0_client = await get_async_memory_client()
+            logger.info(f"✅ [{job_id}] Async memory client initialized successfully")
             
             document_processing_status[job_id]["progress"] = 30
             document_processing_status[job_id]["message"] = "Storing document..."
@@ -239,14 +239,12 @@ async def _process_document_background(
                         "content": strategy["content"]
                     }
                     
-                    # Run mem0 call in executor (same as working code)
-                    add_call = functools.partial(
-                        mem0_client.add,
+                    # Call async memory client directly
+                    memory_result = await mem0_client.add(
                         messages=[message_to_add],
                         user_id=supa_uid,
                         metadata=strategy["metadata"]
                     )
-                    memory_result = await loop.run_in_executor(None, add_call)
                     
                     logger.info(f"🔍 [{job_id}] Strategy '{strategy['name']}' result: {type(memory_result)}")
                     logger.info(f"🔍 [{job_id}] Result content: {memory_result}")
