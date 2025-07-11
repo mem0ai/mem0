@@ -12,12 +12,12 @@ embedchain[community, opensource, elasticsearch, opensearch, weaviate, pinecone,
 sqlalchemy==2.0.22
 python-multipart==0.0.6
 youtube-transcript-api==0.6.1 
-pytube==15.0.0 
+langchain-yt-dlp==0.0.8 
 beautifulsoup4==4.12.3
 slack-sdk==3.21.3
 huggingface_hub==0.23.0
 gitpython==3.1.38
-yt_dlp==2023.11.14
+yt_dlp==2025.2.19
 PyGithub==1.59.1
 feedparser==6.0.10
 newspaper3k==0.2.8
