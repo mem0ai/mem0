@@ -167,11 +167,14 @@ async def add_memories(text: str, tags: Optional[list[str]] = None, priority: bo
                     mem0_memory_id_str = result['id']
                     mem0_content = result.get('memory', text)
 
+                    # Handle both sync (with 'event' field) and async (without 'event' field) responses
+                    event_type = result.get('event', 'ADD')  # Default to ADD for async responses
+
                     # Capture the ID of the first memory that is ADDED
-                    if result.get('event') == 'ADD' and not first_added_id:
+                    if event_type == 'ADD' and not first_added_id:
                         first_added_id = mem0_memory_id_str
 
-                    if result.get('event') == 'ADD':
+                    if event_type == 'ADD':
                         sql_memory_record = Memory(
                             user_id=user.id,
                             app_id=app.id,
@@ -186,7 +189,7 @@ async def add_memories(text: str, tags: Optional[list[str]] = None, priority: bo
                         # Don't create history for initial creation since old_state cannot be NULL
                         # The memory is created with state=active, which is sufficient
                         # History tracking starts from the first state change
-                    elif result.get('event') == 'DELETE':
+                    elif event_type == 'DELETE':
                         # Find the existing SQL memory record by mem0_id
                         sql_memory_record = db.query(Memory).filter(
                             text("metadata_->>'mem0_id' = :mem0_id"),
@@ -203,8 +206,9 @@ async def add_memories(text: str, tags: Optional[list[str]] = None, priority: bo
                                 new_state=MemoryState.deleted
                             )
                             db.add(history)
-                    elif result.get('event') == 'UPDATE':
-                        updated_count += 1
+                    elif event_type == 'UPDATE':
+                        # Handle UPDATE events (though rare in async responses)
+                        pass
                         
                 db_commit_start_time = time.time()
                 db.commit()
@@ -306,7 +310,10 @@ async def _add_memories_background_claude(text: str, tags: Optional[list[str]], 
                     mem0_memory_id_str = result['id']
                     mem0_content = result.get('memory', text)
 
-                    if result.get('event') == 'ADD':
+                    # Handle both sync (with 'event' field) and async (without 'event' field) responses
+                    event_type = result.get('event', 'ADD')  # Default to ADD for async responses
+                    
+                    if event_type == 'ADD':
                         sql_memory_record = Memory(
                             user_id=user.id,
                             app_id=app.id,
@@ -317,7 +324,7 @@ async def _add_memories_background_claude(text: str, tags: Optional[list[str]], 
                         db.add(sql_memory_record)
                         added_count += 1
                         logger.info(f"🔍 Background: Added SQL record for mem0_id {mem0_memory_id_str}: '{mem0_content[:50]}...')")
-                    elif result.get('event') == 'DELETE':
+                    elif event_type == 'DELETE':
                         sql_memory_record = db.query(Memory).filter(
                             text("metadata_->>'mem0_id' = :mem0_id"),
                             Memory.user_id == user.id
