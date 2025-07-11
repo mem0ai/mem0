@@ -561,41 +561,16 @@ async def create_memory(
     if not app_obj.is_active:
         raise HTTPException(status_code=403, detail=f"App {request.app_name} is currently paused. Cannot create new memories.")
 
-    # 1. Save to SQL database (existing behavior)
-    # Create simplified metadata schema for UI-created memories
-    ui_metadata = {
-        "source": "jeanmemory",  # UI source
-        "mem0_id": None  # Will be updated after Jean Memory V2 storage
-    }
-    # Merge with any additional metadata from request
-    if request.metadata:
-        ui_metadata.update(request.metadata)
-    
-    sql_memory = Memory(
-        user_id=user.id,
-        app_id=app_obj.id,
-        content=request.text,
-        metadata_=ui_metadata
-        # created_at and updated_at will be set automatically by the model
-    )
-    db.add(sql_memory)
-    try:
-        db.commit()
-        db.refresh(sql_memory)
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Database error: {e}")
-
-    # 2. Also save to Jean Memory V2 (NEW: dual storage)
+    # 1. First save to Jean Memory V2 to get mem0_id
+    mem0_id = None
     try:
         from app.utils.memory import get_async_memory_client
         memory_client = await get_async_memory_client()
         
-        # Prepare metadata for Jean Memory V2
+        # Prepare metadata for Jean Memory V2 (without sql_memory_id since we don't have it yet)
         jean_metadata = {
             'app_name': request.app_name,
             'app_id': str(app_obj.id),
-            'sql_memory_id': str(sql_memory.id),
             'created_via': 'rest_api'
         }
         if request.metadata:
@@ -603,7 +578,7 @@ async def create_memory(
         
         # Add to Jean Memory V2 (async) - Concise logging
         content_preview = request.text[:100] + ("..." if len(request.text) > 100 else "")
-        logger.info(f"📝 Adding to Jean Memory V2 - User: {supabase_user_id_str}, Content: '{content_preview}'")
+        logger.info(f"📝 Adding to Jean Memory V2 first - User: {supabase_user_id_str}, Content: '{content_preview}'")
         
         # Format message the same way as MCP tools
         message_to_add = {
@@ -617,52 +592,47 @@ async def create_memory(
             metadata=jean_metadata
         )
         
-        # Debug: Log the actual response structure
-        logger.info(f"🔍 UI Memory: Jean Memory V2 response type: {type(jean_result)}")
-        logger.info(f"🔍 UI Memory: Jean Memory V2 response preview: {str(jean_result)[:300]}...")
-        
-        # Log concise result and update SQL metadata with mem0_id
+        # Extract mem0_id from Jean Memory V2 response
         if isinstance(jean_result, dict) and 'results' in jean_result:
-            result_count = len(jean_result['results'])
-            logger.info(f"✅ Jean Memory V2 stored successfully - {result_count} result(s)")
-            
-            # Update SQL record with mem0_id from first result
             if jean_result['results'] and len(jean_result['results']) > 0:
                 first_result = jean_result['results'][0]
                 mem0_id = first_result.get('id')
-                logger.info(f"🔍 UI Memory: First result structure: {first_result}")
-                logger.info(f"🔍 UI Memory: Extracted mem0_id: {mem0_id}")
-                
-                if mem0_id:
-                    # Create a new metadata dict to ensure change detection
-                    updated_metadata = sql_memory.metadata_.copy()
-                    updated_metadata['mem0_id'] = mem0_id
-                    sql_memory.metadata_ = updated_metadata
-                    
-                    # Flag the JSON column as modified so SQLAlchemy detects the change
-                    from sqlalchemy.orm import flag_modified
-                    flag_modified(sql_memory, 'metadata_')
-                    
-                    try:
-                        db.commit()
-                        db.refresh(sql_memory)
-                        logger.info(f"✅ Updated SQL metadata with mem0_id: {mem0_id}")
-                        logger.info(f"🔍 Verified metadata after commit: {sql_memory.metadata_}")
-                    except Exception as commit_error:
-                        logger.error(f"❌ Failed to commit mem0_id update: {commit_error}")
-                        db.rollback()
-                else:
-                    logger.warning(f"⚠️ UI Memory: No 'id' field found in first result")
+                logger.info(f"✅ Jean Memory V2 stored successfully, got mem0_id: {mem0_id}")
             else:
-                logger.warning(f"⚠️ UI Memory: No results in jean_result")
+                logger.warning(f"⚠️ Jean Memory V2: No results in response")
         else:
-            logger.warning(f"⚠️ UI Memory: Unexpected jean_result format - no 'results' key")
-            logger.info(f"✅ Jean Memory V2 stored successfully")
+            logger.warning(f"⚠️ Jean Memory V2: Unexpected response format")
         
     except Exception as e:
-        # Log error but don't fail the request - SQL memory is primary
         logger.error(f"⚠️ Jean Memory V2 storage failed: {str(e)[:200]}...")
-        logger.info("✅ Memory saved to SQL database successfully")
+        # Continue with SQL storage even if Jean Memory V2 fails
+    
+    # 2. Create SQL memory with correct metadata from the start
+    sql_metadata = {}
+    if mem0_id:
+        sql_metadata['mem0_id'] = mem0_id
+        logger.info(f"🔍 Creating SQL memory with mem0_id: {mem0_id}")
+    else:
+        logger.warning(f"⚠️ Creating SQL memory without mem0_id")
+    
+    # Merge with any additional metadata from request
+    if request.metadata:
+        sql_metadata.update(request.metadata)
+    
+    sql_memory = Memory(
+        user_id=user.id,
+        app_id=app_obj.id,
+        content=request.text,
+        metadata_=sql_metadata
+    )
+    db.add(sql_memory)
+    try:
+        db.commit()
+        db.refresh(sql_memory)
+        logger.info(f"✅ SQL memory created with metadata: {sql_memory.metadata_}")
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
 
     return MemoryResponse(
         id=sql_memory.id,
