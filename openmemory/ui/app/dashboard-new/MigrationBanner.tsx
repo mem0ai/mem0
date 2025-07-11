@@ -98,6 +98,10 @@ export function MigrationBanner() {
     );
   }
 
+  // Hide banner if user's data has been successfully migrated
+  if (migrationStatus.isMigrated) {
+    return null;
+  }
 
   return (
     <Alert className={`mb-6 ${migrationStatus.isMigrated ? 'border-green-500' : 'border-yellow-500'}`}>
