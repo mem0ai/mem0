@@ -45,7 +45,7 @@ async def list_apps(
         .join(App, Memory.app_id == App.id)
         .filter(
             App.owner_id == user.id,
-            Memory.state.in_([MemoryState.active, MemoryState.paused, MemoryState.archived])
+            Memory.deleted_at.is_(None)
         )
         .group_by(Memory.app_id)
         .subquery('memory_counts_sq')
@@ -145,7 +145,7 @@ async def get_app_details(
         "total_memories_created": db.query(func.count(Memory.id))
             .filter(
                 Memory.app_id == app.id,
-                Memory.state.in_([MemoryState.active, MemoryState.paused, MemoryState.archived])
+                Memory.deleted_at.is_(None)
             )
             .scalar(),
         "total_memories_accessed": access_stats.total_memories_accessed or 0,
