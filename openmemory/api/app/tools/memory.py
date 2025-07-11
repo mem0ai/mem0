@@ -175,12 +175,19 @@ async def add_memories(text: str, tags: Optional[list[str]] = None, priority: bo
                         first_added_id = mem0_memory_id_str
 
                     if event_type == 'ADD':
+                        # Create simplified metadata schema
+                        sql_metadata = {
+                            "source": client_name,  # "claude", "cursor", etc.
+                            "mem0_id": mem0_memory_id_str
+                        }
+                        
                         sql_memory_record = Memory(
                             user_id=user.id,
                             app_id=app.id,
                             content=mem0_content,
                             state=MemoryState.active,
-                            metadata_={**result.get('metadata', {}), "mem0_id": mem0_memory_id_str}
+                            metadata_=sql_metadata
+                            # created_at and updated_at will be set automatically by the model
                         )
                         db.add(sql_memory_record)
                         db.flush()  # Flush to get the memory ID before creating history
@@ -314,12 +321,19 @@ async def _add_memories_background_claude(text: str, tags: Optional[list[str]], 
                     event_type = result.get('event', 'ADD')  # Default to ADD for async responses
                     
                     if event_type == 'ADD':
+                        # Create simplified metadata schema
+                        sql_metadata = {
+                            "source": client_name,  # "claude", "cursor", etc.
+                            "mem0_id": mem0_memory_id_str
+                        }
+                        
                         sql_memory_record = Memory(
                             user_id=user.id,
                             app_id=app.id,
                             content=mem0_content,
                             state=MemoryState.active,
-                            metadata_={**result.get('metadata', {}), "mem0_id": mem0_memory_id_str}
+                            metadata_=sql_metadata
+                            # created_at and updated_at will be set automatically by the model
                         )
                         db.add(sql_memory_record)
                         added_count += 1

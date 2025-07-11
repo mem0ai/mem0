@@ -562,12 +562,21 @@ async def create_memory(
         raise HTTPException(status_code=403, detail=f"App {request.app_name} is currently paused. Cannot create new memories.")
 
     # 1. Save to SQL database (existing behavior)
+    # Create simplified metadata schema for UI-created memories
+    ui_metadata = {
+        "source": "jeanmemory",  # UI source
+        "mem0_id": None  # Will be updated after Jean Memory V2 storage
+    }
+    # Merge with any additional metadata from request
+    if request.metadata:
+        ui_metadata.update(request.metadata)
+    
     sql_memory = Memory(
         user_id=user.id,
         app_id=app_obj.id,
         content=request.text,
-        metadata_=request.metadata,
-        created_at=datetime.datetime.now(UTC)
+        metadata_=ui_metadata
+        # created_at and updated_at will be set automatically by the model
     )
     db.add(sql_memory)
     try:
@@ -592,11 +601,9 @@ async def create_memory(
         if request.metadata:
             jean_metadata.update(request.metadata)
         
-        # Add to Jean Memory V2 (async)
-        logger.info(f"🔍 DEBUG: About to add memory to Jean Memory V2:")
-        logger.info(f"   User ID: {supabase_user_id_str}")
-        logger.info(f"   Content: '{request.text}'")
-        logger.info(f"   Metadata: {jean_metadata}")
+        # Add to Jean Memory V2 (async) - Concise logging
+        content_preview = request.text[:100] + ("..." if len(request.text) > 100 else "")
+        logger.info(f"📝 Adding to Jean Memory V2 - User: {supabase_user_id_str}, Content: '{content_preview}'")
         
         jean_result = await memory_client.add(
             messages=request.text,
@@ -604,12 +611,24 @@ async def create_memory(
             metadata=jean_metadata
         )
         
-        logger.info(f"🔍 DEBUG: Jean Memory V2 add result: {jean_result}")
-        logger.info(f"✅ Memory {sql_memory.id} stored in both SQL and Jean Memory V2")
+        # Log concise result and update SQL metadata with mem0_id
+        if isinstance(jean_result, dict) and 'results' in jean_result:
+            result_count = len(jean_result['results'])
+            logger.info(f"✅ Jean Memory V2 stored successfully - {result_count} result(s)")
+            
+            # Update SQL record with mem0_id from first result
+            if jean_result['results'] and len(jean_result['results']) > 0:
+                mem0_id = jean_result['results'][0].get('id')
+                if mem0_id:
+                    sql_memory.metadata_['mem0_id'] = mem0_id
+                    db.commit()
+                    logger.info(f"✅ Updated SQL metadata with mem0_id: {mem0_id}")
+        else:
+            logger.info(f"✅ Jean Memory V2 stored successfully")
         
     except Exception as e:
         # Log error but don't fail the request - SQL memory is primary
-        logger.error(f"⚠️ Failed to store memory in Jean Memory V2: {e}")
+        logger.error(f"⚠️ Jean Memory V2 storage failed: {str(e)[:200]}...")
         logger.info("✅ Memory saved to SQL database successfully")
 
     return MemoryResponse(
