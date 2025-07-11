@@ -634,12 +634,23 @@ async def create_memory(
                 logger.info(f"🔍 UI Memory: Extracted mem0_id: {mem0_id}")
                 
                 if mem0_id:
-                    sql_memory.metadata_['mem0_id'] = mem0_id
+                    # Create a new metadata dict to ensure change detection
+                    updated_metadata = sql_memory.metadata_.copy()
+                    updated_metadata['mem0_id'] = mem0_id
+                    sql_memory.metadata_ = updated_metadata
+                    
                     # Flag the JSON column as modified so SQLAlchemy detects the change
                     from sqlalchemy.orm import flag_modified
                     flag_modified(sql_memory, 'metadata_')
-                    db.commit()
-                    logger.info(f"✅ Updated SQL metadata with mem0_id: {mem0_id}")
+                    
+                    try:
+                        db.commit()
+                        db.refresh(sql_memory)
+                        logger.info(f"✅ Updated SQL metadata with mem0_id: {mem0_id}")
+                        logger.info(f"🔍 Verified metadata after commit: {sql_memory.metadata_}")
+                    except Exception as commit_error:
+                        logger.error(f"❌ Failed to commit mem0_id update: {commit_error}")
+                        db.rollback()
                 else:
                     logger.warning(f"⚠️ UI Memory: No 'id' field found in first result")
             else:
