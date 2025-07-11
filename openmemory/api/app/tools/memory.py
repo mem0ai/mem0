@@ -177,7 +177,6 @@ async def add_memories(text: str, tags: Optional[list[str]] = None, priority: bo
                     if event_type == 'ADD':
                         # Create simplified metadata schema
                         sql_metadata = {
-                            "source": client_name,  # "claude", "cursor", etc.
                             "mem0_id": mem0_memory_id_str
                         }
                         
@@ -323,7 +322,6 @@ async def _add_memories_background_claude(text: str, tags: Optional[list[str]], 
                     if event_type == 'ADD':
                         # Create simplified metadata schema
                         sql_metadata = {
-                            "source": client_name,  # "claude", "cursor", etc.
                             "mem0_id": mem0_memory_id_str
                         }
                         
