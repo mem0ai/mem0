@@ -605,11 +605,21 @@ async def create_memory(
         content_preview = request.text[:100] + ("..." if len(request.text) > 100 else "")
         logger.info(f"📝 Adding to Jean Memory V2 - User: {supabase_user_id_str}, Content: '{content_preview}'")
         
+        # Format message the same way as MCP tools
+        message_to_add = {
+            "role": "user", 
+            "content": request.text
+        }
+        
         jean_result = await memory_client.add(
-            messages=request.text,
+            messages=[message_to_add],
             user_id=supabase_user_id_str,
             metadata=jean_metadata
         )
+        
+        # Debug: Log the actual response structure
+        logger.info(f"🔍 UI Memory: Jean Memory V2 response type: {type(jean_result)}")
+        logger.info(f"🔍 UI Memory: Jean Memory V2 response preview: {str(jean_result)[:300]}...")
         
         # Log concise result and update SQL metadata with mem0_id
         if isinstance(jean_result, dict) and 'results' in jean_result:
@@ -618,12 +628,21 @@ async def create_memory(
             
             # Update SQL record with mem0_id from first result
             if jean_result['results'] and len(jean_result['results']) > 0:
-                mem0_id = jean_result['results'][0].get('id')
+                first_result = jean_result['results'][0]
+                mem0_id = first_result.get('id')
+                logger.info(f"🔍 UI Memory: First result structure: {first_result}")
+                logger.info(f"🔍 UI Memory: Extracted mem0_id: {mem0_id}")
+                
                 if mem0_id:
                     sql_memory.metadata_['mem0_id'] = mem0_id
                     db.commit()
                     logger.info(f"✅ Updated SQL metadata with mem0_id: {mem0_id}")
+                else:
+                    logger.warning(f"⚠️ UI Memory: No 'id' field found in first result")
+            else:
+                logger.warning(f"⚠️ UI Memory: No results in jean_result")
         else:
+            logger.warning(f"⚠️ UI Memory: Unexpected jean_result format - no 'results' key")
             logger.info(f"✅ Jean Memory V2 stored successfully")
         
     except Exception as e:
