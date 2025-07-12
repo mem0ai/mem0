@@ -226,7 +226,7 @@
                   "examples/personal-travel-assistant",
                   "examples/llama-index-mem0",
                   "examples/chrome-extension",
-                  "examples/document-writing",
+                  "examples/memory-guided-content-writing",
                   "examples/multimodal-demo",
                   "examples/personalized-deep-research",
                   "examples/mem0-agentic-tool",
