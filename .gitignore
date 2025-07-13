@@ -186,3 +186,5 @@ eval/
 qdrant_storage/
 .crossnote
 testing.ipynb
+
+uv.lock
