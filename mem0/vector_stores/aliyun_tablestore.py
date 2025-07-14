@@ -1,13 +1,13 @@
 import json
 import logging
-
-from mem0.vector_stores.base import VectorStoreBase
-from typing import Any, Optional, Dict
+from typing import Any, Dict, Optional
 
 import tablestore
-from tablestore_for_agent_memory.knowledge.knowledge_store import KnowledgeStore
 from tablestore_for_agent_memory.base.base_knowledge_store import Document
 from tablestore_for_agent_memory.base.filter import Filters
+from tablestore_for_agent_memory.knowledge.knowledge_store import KnowledgeStore
+
+from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
 

@@ -2,6 +2,7 @@ from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
+
 class AliyunTableStoreConfig(BaseModel):
     endpoint: str = Field(description="endpoint of tablestore")
     instance_name: str = Field(description="instance_name of tablestore")

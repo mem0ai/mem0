@@ -1,13 +1,12 @@
 import os
 import random
-
 import uuid
 
 import pytest
-
 from tablestore_for_agent_memory.util.tablestore_helper import TablestoreHelper
 
 from mem0.vector_stores.aliyun_tablestore import AliyunTableStore, OutputData
+
 
 @pytest.fixture
 def aliyun_tablestore_instance():
