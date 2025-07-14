@@ -1,3 +1,49 @@
+---
+title: LlamaIndex Multi-Agent Learning System
+---
+
+<Snippet file="security-compliance.mdx" />
+
+Build an intelligent multi-agent learning system that uses Mem0 to maintain persistent memory across multiple specialized agents. This example demonstrates how to create a tutoring system where different agents collaborate while sharing a unified memory layer.
+
+## Overview
+
+This example showcases a **Multi-Agent Personal Learning System** that combines:
+- **LlamaIndex AgentWorkflow** for multi-agent orchestration
+- **Mem0** for persistent, shared memory across agents
+- **Multi-agents** that collaborate on teaching tasks
+
+The system consists of two agents:
+- **TutorAgent**: Primary instructor for explanations and concept teaching
+- **PracticeAgent**: Generates exercises and tracks learning progress
+
+Both agents share the same memory context, enabling seamless collaboration and continuous learning from student interactions.
+
+## Key Features
+
+- **Persistent Memory**: Agents remember previous interactions across sessions
+- **Multi-Agent Collaboration**: Agents can hand off tasks to each other
+- **Personalized Learning**: Adapts to individual student needs and learning styles
+- **Progress Tracking**: Monitors learning patterns and skill development
+- **Memory-Driven Teaching**: References past struggles and successes
+
+## Prerequisites
+
+Install the required packages:
+
+```bash
+pip install llama-index-core llama-index-memory-mem0 openai python-dotenv
+```
+
+Set up your environment variables:
+- `MEM0_API_KEY`: Your Mem0 Platform API key
+- `OPENAI_API_KEY`: Your OpenAI API key
+
+You can obtain your Mem0 Platform API key from the [Mem0 Platform](https://app.mem0.ai).
+
+## Complete Implementation
+
+```python
 """
 Multi-Agent Personal Learning System: Mem0 + LlamaIndex AgentWorkflow Example
 
@@ -75,7 +121,7 @@ class MultiAgentLearningSystem:
             FunctionTool.from_defaults(async_fn=track_progress)
         ]
 
-        # === AGENTS ===
+        # AGENTS
         # Tutor Agent - Main teaching and explanation
         self.tutor_agent = FunctionAgent(
             name="TutorAgent",
@@ -208,3 +254,108 @@ if __name__ == "__main__":
         await run_learning_agent()
 
     asyncio.run(main())
+```
+
+## How It Works
+
+### 1. Memory Context Setup
+
+```python
+# Memory context for this student
+self.memory_context = {"user_id": student_id, "app": "learning_assistant"}
+self.memory = Mem0Memory.from_client(context=self.memory_context)
+```
+
+The memory context identifies the specific student and application, ensuring memory isolation and proper retrieval.
+
+### 2. Agent Collaboration
+
+```python
+# Agents can hand off to each other
+can_handoff_to=["PracticeAgent"]  # TutorAgent can hand off to PracticeAgent
+can_handoff_to=["TutorAgent"]     # PracticeAgent can hand off back
+```
+
+Agents collaborate seamlessly, with the TutorAgent handling explanations and the PracticeAgent managing exercises.
+
+### 3. Shared Memory
+
+```python
+# Both agents share the same memory instance
+response = await self.workflow.run(
+    user_msg=request,
+    memory=self.memory  # Shared across all agents
+)
+```
+
+All agents in the workflow share the same memory context, enabling true collaborative learning.
+
+### 4. Memory-Driven Interactions
+
+The system prompts guide agents to:
+- Reference previous learning sessions
+- Adapt to discovered learning styles
+- Build progressively on past lessons
+- Track and respond to learning patterns
+
+## Running the Example
+
+```python
+# Initialize the learning system
+learning_system = MultiAgentLearningSystem(student_id="Alexander")
+
+# Start a learning session
+response = await learning_system.start_learning_session(
+    "Vision Language Models",
+    "I'm new to machine learning but I have good hold on Python and have 4 years of work experience."
+)
+
+# Continue learning in a new session (memory persists)
+response2 = await learning_system.start_learning_session(
+    "Machine Learning",
+    "what all did I cover so far?"
+)
+
+# Check learning history
+history = await learning_system.get_learning_history()
+```
+
+## Expected Output
+
+The system will demonstrate memory-aware interactions:
+
+```
+Session 1:
+I understand you want to learn about Vision Language Models and you mentioned you're new to machine learning but have a strong Python background with 4 years of experience. That's a great foundation to build on!
+
+Let me start with an explanation tailored to your programming background...
+[Agent provides explanation and may hand off to PracticeAgent for exercises]
+
+Session 2:
+Based on our previous session, I remember we covered Vision Language Models and I noted that you have a strong Python background with 4 years of experience. You mentioned being new to machine learning, so we started with foundational concepts...
+[Agent references previous session and builds upon it]
+```
+
+## Key Benefits
+
+1. **Persistent Learning**: Agents remember across sessions, creating continuity
+2. **Collaborative Teaching**: Multiple specialized agents work together seamlessly
+3. **Personalized Adaptation**: System learns and adapts to individual learning styles
+4. **Scalable Architecture**: Easy to add more specialized agents
+5. **Memory Efficiency**: Shared memory prevents duplication and ensures consistency
+
+
+## Best Practices
+
+1. **Clear Agent Roles**: Define specific responsibilities for each agent
+2. **Memory Context**: Use descriptive context for memory isolation
+3. **Handoff Strategy**: Design clear handoff criteria between agents
+4. **Error Handling**: Implement robust error handling for memory operations
+5. **Memory Hygiene**: Regularly review and clean memory for optimal performance
+
+## Help & Resources
+
+- [LlamaIndex Agent Workflows](https://docs.llamaindex.ai/en/stable/use_cases/agents/)
+- [Mem0 Platform](https://app.mem0.ai/)
+
+<Snippet file="get-help.mdx" />
