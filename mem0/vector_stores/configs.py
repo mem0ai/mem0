@@ -21,6 +21,7 @@ class VectorStoreConfig(BaseModel):
         "upstash_vector": "UpstashVectorConfig",
         "azure_ai_search": "AzureAISearchConfig",
         "redis": "RedisDBConfig",
+        "valkey": "ValkeyConfig",
         "elasticsearch": "ElasticsearchConfig",
         "vertex_ai_vector_search": "GoogleMatchingEngineConfig",
         "opensearch": "OpenSearchConfig",

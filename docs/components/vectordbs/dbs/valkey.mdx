@@ -1,0 +1,153 @@
+---
+title: 'Valkey'
+description: 'Using Valkey as a vector store in Mem0'
+---
+
+# Valkey Vector Store
+
+Valkey is an open source (BSD) high-performance key/value datastore that supports a variety of workloads and rich datastructures including vector search.
+
+## Installation
+
+```bash
+pip install mem0ai[valkey]
+```
+
+## Configuration
+
+```python
+from mem0 import Memory
+from mem0.configs.vector_stores.valkey import ValkeyConfig
+
+config = ValkeyConfig(
+    valkey_url="valkey://localhost:6379",
+    collection_name="my_collection",
+    embedding_model_dims=1536,
+    index_type="hnsw"  # Optional, defaults to "hnsw"
+)
+
+memory = Memory(vector_store_config=config)
+```
+
+## Index Types
+
+Valkey supports two vector index algorithms:
+
+### HNSW (Default)
+The Hierarchical Navigable Small Worlds algorithm provides approximate results with fast query times.
+
+```python
+config = ValkeyConfig(
+    # ... other config ...
+    index_type="hnsw",
+    hnsw_m=16,                  # Connections per node (default)
+    hnsw_ef_construction=200,   # Build quality (default)
+    hnsw_ef_runtime=10          # Search quality (default)
+)
+```
+
+**Best for:**
+- Production workloads
+- Performance-critical applications
+- Large indexes
+- Cases where approximate results are acceptable
+
+### FLAT
+The Flat algorithm performs brute force linear search, providing exact results.
+
+```python
+config = ValkeyConfig(
+    # ... other config ...
+    index_type="flat"
+)
+```
+
+**Best for:**
+- Development/testing
+- Cases requiring exact results
+- Small enough indexes where linear search is practical
+- Result validation
+
+For detailed information on FLAT index parameters and configuration options, see the [Valkey Search FT.CREATE command documentation](https://github.com/valkey-io/valkey-search/blob/main/COMMANDS.md#ftcreate).
+
+## Index Selection Guide
+
+Choose based on your requirements:
+
+1. **HNSW** (Default) when:
+   - Query performance is critical
+   - Approximate results are acceptable
+   - Index size makes linear search impractical
+
+2. **FLAT** when:
+   - Exact results are required
+   - Linear search time is acceptable
+   - Validating search results
+   - Development/testing environment
+
+## HNSW Parameter Tuning
+
+Three parameters control HNSW performance:
+
+1. `hnsw_m`: Connections per node
+   - Higher: Better recall, more memory
+   - Lower: Less memory, lower recall
+   - Set at creation, cannot change
+
+2. `hnsw_ef_construction`: Build quality
+   - Higher: Better recall, slower build
+   - Lower: Faster build, lower recall
+   - Set at creation, cannot change
+
+3. `hnsw_ef_runtime`: Search quality
+   - Higher: Better recall, slower queries
+   - Lower: Faster queries, lower recall
+   - Can override per query
+
+For detailed information on index parameters, limits, and advanced configuration options, see the [Valkey Search FT.CREATE command documentation](https://github.com/valkey-io/valkey-search/blob/main/COMMANDS.md#ftcreate).
+
+## Example Configurations
+
+```python
+# High Accuracy
+config = ValkeyConfig(
+    valkey_url="valkey://localhost:6379",
+    collection_name="my_collection",
+    embedding_model_dims=1536,
+    index_type="hnsw",
+    hnsw_m=32,
+    hnsw_ef_construction=400,
+    hnsw_ef_runtime=40
+)
+
+# Fast Queries
+config = ValkeyConfig(
+    valkey_url="valkey://localhost:6379",
+    collection_name="my_collection",
+    embedding_model_dims=1536,
+    index_type="hnsw",
+    hnsw_m=8,
+    hnsw_ef_construction=40,
+    hnsw_ef_runtime=4
+)
+
+# Exact Results
+config = ValkeyConfig(
+    valkey_url="valkey://localhost:6379",
+    collection_name="my_collection",
+    embedding_model_dims=1536,
+    index_type="flat"
+)
+```
+
+## Parameter Limits and Advanced Configuration
+
+### HNSW Parameter Ranges
+- `hnsw_m`: Default 16, **maximum 512** (higher values increase memory usage)
+- `hnsw_ef_construction`: Default 200, **maximum 4096** (affects build time vs. quality trade-off)
+- `hnsw_ef_runtime`: Default 10, **maximum 4096** (can be overridden per query)
+
+### Additional Resources
+- **Complete parameter reference**: [Valkey Search FT.CREATE Documentation](https://github.com/valkey-io/valkey-search/blob/main/COMMANDS.md#ftcreate)
+- **Performance tuning guidelines**: See the official Valkey Search documentation for detailed performance optimization strategies
+- **Index size estimation**: Refer to the Valkey documentation for memory usage calculations based on your dataset size and parameters
