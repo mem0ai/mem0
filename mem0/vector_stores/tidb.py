@@ -65,14 +65,16 @@ class TiDB(VectorStoreBase):
 
         collections = self.list_cols()
         if config.collection_name not in collections:
-            self.create_col(config.embedding_model_dims)
+            self.create_col(config.collection_name, config.embedding_model_dims, "cosine")
 
-    def create_col(self, vector_size):
+    def create_col(self, name, vector_size, distance):
         """
         Create a new collection (table in TiDB).
 
         Args:
+            name (str): Name of the collection (not used).
             vector_size (int): Dimension of the embedding vector.
+            distance (str): Distance metric (not used - set to cosine).
         """
         self.cur.execute(
             f"""
@@ -118,14 +120,16 @@ class TiDB(VectorStoreBase):
 
         self.conn.commit()
 
-    def search(self, vectors, limit=5, filters=None):
+    def search(self, query, vectors, limit=5, filters=None):
         """
         Search for similar vectors.
 
         Args:
+            query (str): Query.
             vectors (List[float]): Query vector.
             limit (int, optional): Number of results to return. Defaults to 5.
             filters (Dict, optional): Filters to apply to the search. Defaults to None.
+            
 
         Returns:
             list: Search results.
@@ -244,13 +248,13 @@ class TiDB(VectorStoreBase):
         result = self.cur.fetchone()
         return {"name": result[0], "count": result[1], "size": result[2]}
 
-    def list(self, filters=None, limit=100):
+    def list(self, filters=None, limit=None):
         """
         List all vectors in a collection.
 
         Args:
             filters (Dict, optional): Filters to apply to the list.
-            limit (int, optional): Number of vectors to return. Defaults to 100.
+            limit (int, optional): Number of vectors to return. Defaults to None (no limit).
 
         Returns:
             List[OutputData]: List of vectors.
@@ -264,15 +268,17 @@ class TiDB(VectorStoreBase):
                 filter_params.append(str(v))
 
         filter_clause = "WHERE " + " AND ".join(filter_conditions) if filter_conditions else ""
-
+        limit_clause = "LIMIT %s" if limit is not None else ""
+        
         query = f"""
             SELECT id, vector, payload
             FROM {self.collection_name}
             {filter_clause}
-            LIMIT %s
+            {limit_clause}
         """
 
-        self.cur.execute(query, filter_params + [limit])
+        params = filter_params + ([limit] if limit is not None else [])
+        self.cur.execute(query, params)
 
         results = self.cur.fetchall()
         return [OutputData(id=str(r[0]), score=None, payload=json.loads(r[2]) if r[2] else {}) for r in results]
@@ -290,4 +296,4 @@ class TiDB(VectorStoreBase):
         """Reset the index by deleting and recreating it."""
         logger.warning(f"Resetting index {self.collection_name}...")
         self.delete_col()
-        self.create_col(self.embedding_model_dims)
+        self.create_col(self.collection_name, self.embedding_model_dims, "cosine")
