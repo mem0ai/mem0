@@ -45,3 +45,8 @@ Here are the parameters available for configuring TiDB:
 | `password` | TiDB password | `None` |
 | `host` | Hostname/IP of the TiDB server | `None` |
 | `port` | Port of the TiDB server (default MySQL protocol port is `4000`) | `None` |
+| `use_ssl` | Enable TLS connection (required for TiDB Cloud) | `True` |
+| `verify_cert` | Verify server certificate | `True` |
+| `ssl_ca` | Path to CA bundle (optional for TiDB Cloud) | `None` |
+| `ssl_cert` | Client certificate for mTLS | `None` |
+| `ssl_key` | Client private key for mTLS | `None` |

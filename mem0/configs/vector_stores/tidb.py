@@ -11,6 +11,11 @@ class TiDBConfig(BaseModel):
     database: str = Field("test", description="Database name")
     collection_name: str = Field("mem0", description="Default name for the collection")
     embedding_model_dims: Optional[int] = Field(1536, description="Dimensions of the embedding model")
+    use_ssl: bool = Field(True, description="Enable TLS")
+    verify_cert: bool = Field(True, description="Verify server certificate")
+    ssl_ca: Optional[str] = Field(None, description="Path to CA bundle")
+    ssl_cert: Optional[str] = Field(None, description="Client certificate (mTLS)")
+    ssl_key: Optional[str] = Field(None, description="Client private key (mTLS)")
 
     @model_validator(mode="before")
     def check_auth_and_connection(cls, values):

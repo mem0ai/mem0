@@ -47,7 +47,7 @@ class TestTiDB:
                 embedding_model_dims=384,
             )
 
-        assert any("CREATE TABLE IF NOT EXISTS test_collection" in str(call) for call in cursor.execute.call_args_list)
+        assert any("`test_collection`" in str(call) for call in cursor.execute.call_args_list)
 
     def test_create_col(self, tidb_store):
         store, cursor = tidb_store
@@ -57,7 +57,7 @@ class TestTiDB:
 
         cursor.execute.assert_called_once()
         call_args = cursor.execute.call_args[0][0]
-        assert "CREATE TABLE IF NOT EXISTS test_collection" in call_args
+        assert "`test_collection`" in call_args
         assert "VECTOR(768)" in call_args
 
     def test_search(self, tidb_store):
@@ -129,8 +129,7 @@ class TestTiDB:
 
         results = store.list(limit=10)
 
-        assert len(results) == 1
-        assert len(results[0]) == 2
-        assert isinstance(results[0][0], OutputData)
-        assert results[0][0].id == "id1"
-        assert results[0][0].payload == {"key": "value1"}
+        assert len(results) == 2
+        assert isinstance(results[0], OutputData)
+        assert results[0].id == "id1"
+        assert results[0].payload == {"key": "value1"}

@@ -9,6 +9,7 @@ try:
 except ImportError:
     raise ImportError("The 'pymysql' library is required. Please install it using 'pip install pymysql'.")
 
+from mem0.configs.vector_stores.tidb import TiDBConfig
 from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
@@ -21,16 +22,7 @@ class OutputData(BaseModel):
 
 
 class TiDB(VectorStoreBase):
-    def __init__(
-        self,
-        host,
-        port,
-        user,
-        password,
-        database,
-        collection_name,
-        embedding_model_dims,
-    ):
+    def __init__(self, **kwargs):
         """
         Initialize the TiDB vector store.
 
@@ -42,16 +34,38 @@ class TiDB(VectorStoreBase):
             database (str): Database name
             collection_name (str): Collection name
             embedding_model_dims (int): Dimension of the embedding vector
+            use_ssl (bool): Use SSL for connection
+            verify_cert (bool): Verify SSL certificates
         """
-        self.collection_name = collection_name
-        self.embedding_model_dims = embedding_model_dims
+        config = TiDBConfig(**kwargs)
+        self.collection_name = config.collection_name
+        self.embedding_model_dims = config.embedding_model_dims
 
-        self.conn = pymysql.connect(host=host, port=port, user=user, password=password, database=database)
+        ssl_params = {}
+        if config.use_ssl:
+            ssl_params["ssl_verify_cert"] = config.verify_cert
+            if config.ssl_ca:
+                ssl_params["ssl_ca"] = config.ssl_ca
+            if config.ssl_cert:
+                ssl_params["ssl_cert"] = config.ssl_cert
+            if config.ssl_key:
+                ssl_params["ssl_key"] = config.ssl_key
+        else:
+            ssl_params["ssl_disabled"] = True
+
+        self.conn = pymysql.connect(
+            host=config.host,
+            port=config.port,
+            user=config.user,
+            password=config.password,
+            database=config.database,
+            **ssl_params,
+        )
         self.cur = self.conn.cursor()
 
         collections = self.list_cols()
-        if collection_name not in collections:
-            self.create_col(embedding_model_dims)
+        if config.collection_name not in collections:
+            self.create_col(config.embedding_model_dims)
 
     def create_col(self, vector_size):
         """
@@ -62,7 +76,7 @@ class TiDB(VectorStoreBase):
         """
         self.cur.execute(
             f"""
-            CREATE TABLE IF NOT EXISTS {self.collection_name} (
+            CREATE TABLE IF NOT EXISTS `{self.collection_name}` (
                 id VARCHAR(36) PRIMARY KEY,
                 vector VECTOR({vector_size}),
                 payload JSON
@@ -261,7 +275,7 @@ class TiDB(VectorStoreBase):
         self.cur.execute(query, filter_params + [limit])
 
         results = self.cur.fetchall()
-        return [[OutputData(id=str(r[0]), score=None, payload=json.loads(r[2]) if r[2] else {}) for r in results]]
+        return [OutputData(id=str(r[0]), score=None, payload=json.loads(r[2]) if r[2] else {}) for r in results]
 
     def __del__(self):
         """
