@@ -410,28 +410,26 @@ async def handle_get_message(request: Request):
 async def handle_post_message(request: Request):
     return await handle_post_message(request)
 
-# async def handle_post_message(request: Request):
-#     """Handle POST messages for SSE"""
-#     try:
-#         body = await request.body()
+async def handle_post_message(request: Request):
+    """Handle POST messages for SSE"""
+    try:
+        body = await request.body()
 
-#         # Create a simple receive function that returns the body
-#         async def receive():
-#             return {"type": "http.request", "body": body, "more_body": False}
+        # Create a simple receive function that returns the body
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
 
-#         # Create a simple send function that does nothing
-#         async def send(message):
-#             return {}
+        # Create a simple send function that does nothing
+        async def send(message):
+            return {}
 
-#         # Call handle_post_message with the correct arguments
-#         await sse.handle_post_message(request.scope, receive, send)
+        # Call handle_post_message with the correct arguments
+        await sse.handle_post_message(request.scope, receive, send)
 
-#         # Return a success response
-#         return {"status": "ok"}
-#     finally:
-#         pass
-#         # Clean up context variable
-#         # client_name_var.reset(client_token)
+        # Return a success response
+        return {"status": "ok"}
+    finally:
+        pass
 
 def setup_mcp_server(app: FastAPI):
     """Setup MCP server with the FastAPI application"""
