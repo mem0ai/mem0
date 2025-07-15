@@ -51,8 +51,8 @@ export function Navbar() {
   const prefersReducedMotion = typeof window !== 'undefined' && 
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // Don't show navbar on landing page
-  if (pathname === "/") {
+  // Don't show navbar on landing page or auth page
+  if (pathname === "/" || pathname === "/auth") {
     return null;
   }
 

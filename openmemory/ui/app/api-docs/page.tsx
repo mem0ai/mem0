@@ -7,6 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import ParticleNetwork from '@/components/landing/ParticleNetwork';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
 
 const InteractiveDemo = () => {
   const [isRunning, setIsRunning] = useState(false);
@@ -407,94 +408,95 @@ graph TD
   `;
 
   return (
-    <DocsLayout navItems={navItems}>
-      <section id="introduction">
-        <h1 className="text-4xl font-bold text-foreground mb-4">Jean Memory API</h1>
-        <p className="text-xl text-muted-foreground mb-6">
-          Build personal or enterprise agents with human-like memory
-        </p>
-        
-        <div className="my-8">
-          <InteractiveDemo />
-        </div>
-
-        <p className="text-lg text-muted-foreground mb-4">
-          Welcome to the Jean Memory API documentation. This API provides a robust, unified memory layer for your AI applications, featuring secure API key authentication and powerful metadata filtering for advanced use cases.
-        </p>
-        <div className="flex items-center gap-4 p-4 bg-green-950/50 border border-green-800/60 rounded-lg">
-          <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-          <p className="text-green-300 text-sm">
-            <strong>Production Ready:</strong> Zero breaking changes, dual-path authentication, and enterprise-grade security.
+    <ProtectedRoute>
+      <DocsLayout navItems={navItems}>
+        <section id="introduction">
+          <h1 className="text-4xl font-bold text-foreground mb-4">Jean Memory API</h1>
+          <p className="text-xl text-muted-foreground mb-6">
+            Build personal or enterprise agents with human-like memory
           </p>
-        </div>
-      </section>
+          
+          <div className="my-8">
+            <InteractiveDemo />
+          </div>
 
-      <section id="authentication">
-        <h2 className="text-3xl font-bold text-foreground mb-4">Authentication</h2>
-        <p className="text-muted-foreground mb-4">
-          The API supports a dual-path authentication system to ensure both maximum flexibility for new developers and 100% backward compatibility for existing integrations like Claude Desktop.
-        </p>
-        <div className="space-y-6">
-          <div className="p-4 border border-border bg-card rounded-lg">
-            <h3 className="font-semibold text-foreground text-lg flex items-center mb-3"><Key className="w-5 h-5 mr-2 text-muted-foreground"/>Option 1: API Key (Recommended for API Users)</h3>
-            <p className="text-muted-foreground text-sm mt-1 mb-2">
-              For programmatic access, include your API key in the <code className="font-mono text-xs bg-muted px-1 rounded">X-Api-Key</code> header. This unlocks advanced features like metadata tagging and filtering.
+          <p className="text-lg text-muted-foreground mb-4">
+            Welcome to the Jean Memory API documentation. This API provides a robust, unified memory layer for your AI applications, featuring secure API key authentication and powerful metadata filtering for advanced use cases.
+          </p>
+          <div className="flex items-center gap-4 p-4 bg-green-950/50 border border-green-800/60 rounded-lg">
+            <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+            <p className="text-green-300 text-sm">
+              <strong>Production Ready:</strong> Zero breaking changes, dual-path authentication, and enterprise-grade security.
             </p>
-            <CodeBlock lang="http" code={`X-Api-Key: jean_sk_s8ad0fI7x2VD2KnyLewH0e3ajuRV_1mdWGgnsBJ6VA8`} />
           </div>
-          <div className="p-4 border border-border bg-card rounded-lg">
-            <h3 className="font-semibold text-foreground text-lg flex items-center mb-3"><Component className="w-5 h-5 mr-2 text-muted-foreground"/>Option 2: Headers (Claude Desktop & UI)</h3>
-            <p className="text-muted-foreground text-sm">
-              Used internally by existing integrations. Requires both <code className="font-mono text-xs bg-muted px-1 rounded">x-user-id</code> and <code className="font-mono text-xs bg-muted px-1 rounded">x-client-name</code> headers. This path serves a simplified toolset to ensure stability.
-            </p>
-            <CodeBlock lang="http" code={`x-user-id: your-supabase-user-id
-x-client-name: your-app-name`} />
-          </div>
-        </div>
-      </section>
-      
-      <section id="endpoints">
-        <h2 className="text-3xl font-bold text-foreground mb-4">Unified API Endpoint</h2>
-        <p className="text-muted-foreground mb-4">
-          All interactions for both authentication methods use a single, unified MCP endpoint. This endpoint accepts POST requests with a JSON-RPC 2.0 payload to execute memory tools.
-        </p>
-        <div className="flex items-center gap-2 mt-3">
-          <span className="font-mono text-xs font-bold text-foreground bg-muted px-2 py-1 rounded">POST</span>
-          <span className="font-mono text-sm text-muted-foreground">{API_URL}/mcp/messages/</span>
-        </div>
-         <div className="mt-6">
-            <h3 className="text-xl font-semibold text-foreground mb-2">Architecture Diagram</h3>
-            <p className="text-muted-foreground mb-4">This diagram illustrates how requests from different clients are routed through the unified endpoint to their respective tool schemas. <span className="block text-sm text-muted-foreground mt-1">Click the diagram to expand.</span></p>
-             <div className="cursor-zoom-in" onClick={() => setIsDiagramModalOpen(true)}>
-                <MermaidDiagram chart={architectureDiagram} />
+        </section>
+
+        <section id="authentication">
+          <h2 className="text-3xl font-bold text-foreground mb-4">Authentication</h2>
+          <p className="text-muted-foreground mb-4">
+            The API supports a dual-path authentication system to ensure both maximum flexibility for new developers and 100% backward compatibility for existing integrations like Claude Desktop.
+          </p>
+          <div className="space-y-6">
+            <div className="p-4 border border-border bg-card rounded-lg">
+              <h3 className="font-semibold text-foreground text-lg flex items-center mb-3"><Key className="w-5 h-5 mr-2 text-muted-foreground"/>Option 1: API Key (Recommended for API Users)</h3>
+              <p className="text-muted-foreground text-sm mt-1 mb-2">
+                For programmatic access, include your API key in the <code className="font-mono text-xs bg-muted px-1 rounded">X-Api-Key</code> header. This unlocks advanced features like metadata tagging and filtering.
+              </p>
+              <CodeBlock lang="http" code={`X-Api-Key: jean_sk_s8ad0fI7x2VD2KnyLewH0e3ajuRV_1mdWGgnsBJ6VA8`} />
             </div>
-         </div>
-      </section>
-
-      <section id="metadata-tags">
-        <h2 className="text-3xl font-bold text-foreground mb-4">Metadata & Tags</h2>
-        <p className="text-muted-foreground mb-4">
-          The API supports powerful metadata tagging for memory segmentation and organization. This feature allows API users to categorize memories and perform sophisticated filtering for multi-tenant applications, project isolation, and context-aware search.
-        </p>
+            <div className="p-4 border border-border bg-card rounded-lg">
+              <h3 className="font-semibold text-foreground text-lg flex items-center mb-3"><Component className="w-5 h-5 mr-2 text-muted-foreground"/>Option 2: Headers (Claude Desktop & UI)</h3>
+              <p className="text-muted-foreground text-sm">
+                Used internally by existing integrations. Requires both <code className="font-mono text-xs bg-muted px-1 rounded">x-user-id</code> and <code className="font-mono text-xs bg-muted px-1 rounded">x-client-name</code> headers. This path serves a simplified toolset to ensure stability.
+              </p>
+              <CodeBlock lang="http" code={`x-user-id: your-supabase-user-id
+x-client-name: your-app-name`} />
+            </div>
+          </div>
+        </section>
         
-        <Alert variant="default" className="bg-amber-950/50 border-amber-800/60 text-amber-300 mb-6">
-          <Component className="h-4 w-4 text-amber-400" />
-          <AlertTitle>API Users Only Feature</AlertTitle>
-          <AlertDescription>
-            Metadata and tag filtering capabilities are exclusively available to users authenticating with an <code className="font-mono text-xs">X-Api-Key</code>. Claude Desktop integrations receive a simplified toolset to ensure maximum stability and prevent UI complexity.
-          </AlertDescription>
-        </Alert>
+        <section id="endpoints">
+          <h2 className="text-3xl font-bold text-foreground mb-4">Unified API Endpoint</h2>
+          <p className="text-muted-foreground mb-4">
+            All interactions for both authentication methods use a single, unified MCP endpoint. This endpoint accepts POST requests with a JSON-RPC 2.0 payload to execute memory tools.
+          </p>
+          <div className="flex items-center gap-2 mt-3">
+            <span className="font-mono text-xs font-bold text-foreground bg-muted px-2 py-1 rounded">POST</span>
+            <span className="font-mono text-sm text-muted-foreground">{API_URL}/mcp/messages/</span>
+          </div>
+           <div className="mt-6">
+              <h3 className="text-xl font-semibold text-foreground mb-2">Architecture Diagram</h3>
+              <p className="text-muted-foreground mb-4">This diagram illustrates how requests from different clients are routed through the unified endpoint to their respective tool schemas. <span className="block text-sm text-muted-foreground mt-1">Click the diagram to expand.</span></p>
+               <div className="cursor-zoom-in" onClick={() => setIsDiagramModalOpen(true)}>
+                  <MermaidDiagram chart={architectureDiagram} />
+              </div>
+           </div>
+        </section>
 
-        <div className="space-y-8">
-          <div className="p-4 border border-border bg-card rounded-lg">
-            <h3 className="font-semibold text-foreground text-lg flex items-center mb-3">
-              <BrainCircuit className="w-5 h-5 mr-2 text-muted-foreground"/>
-              Adding Tagged Memories
-            </h3>
-            <p className="text-muted-foreground text-sm mb-3">
-              Use the optional <code className="font-mono text-xs bg-muted px-1 rounded">tags</code> parameter in the <code className="font-mono text-xs bg-muted px-1 rounded">add_memories</code> tool to categorize your information. Tags should be an array of strings.
-            </p>
-            <CodeBlock lang="json" code={`{
+        <section id="metadata-tags">
+          <h2 className="text-3xl font-bold text-foreground mb-4">Metadata & Tags</h2>
+          <p className="text-muted-foreground mb-4">
+            The API supports powerful metadata tagging for memory segmentation and organization. This feature allows API users to categorize memories and perform sophisticated filtering for multi-tenant applications, project isolation, and context-aware search.
+          </p>
+          
+          <Alert variant="default" className="bg-amber-950/50 border-amber-800/60 text-amber-300 mb-6">
+            <Component className="h-4 w-4 text-amber-400" />
+            <AlertTitle>API Users Only Feature</AlertTitle>
+            <AlertDescription>
+              Metadata and tag filtering capabilities are exclusively available to users authenticating with an <code className="font-mono text-xs">X-Api-Key</code>. Claude Desktop integrations receive a simplified toolset to ensure maximum stability and prevent UI complexity.
+            </AlertDescription>
+          </Alert>
+
+          <div className="space-y-8">
+            <div className="p-4 border border-border bg-card rounded-lg">
+              <h3 className="font-semibold text-foreground text-lg flex items-center mb-3">
+                <BrainCircuit className="w-5 h-5 mr-2 text-muted-foreground"/>
+                Adding Tagged Memories
+              </h3>
+              <p className="text-muted-foreground text-sm mb-3">
+                Use the optional <code className="font-mono text-xs bg-muted px-1 rounded">tags</code> parameter in the <code className="font-mono text-xs bg-muted px-1 rounded">add_memories</code> tool to categorize your information. Tags should be an array of strings.
+              </p>
+              <CodeBlock lang="json" code={`{
   "jsonrpc": "2.0",
   "method": "tools/call",
   "params": {
@@ -506,17 +508,17 @@ x-client-name: your-app-name`} />
   },
   "id": "req-123"
 }`} />
-          </div>
+            </div>
 
-          <div className="p-4 border border-border bg-card rounded-lg">
-            <h3 className="font-semibold text-foreground text-lg flex items-center mb-3">
-              <Server className="w-5 h-5 mr-2 text-muted-foreground"/>
-              Filtering by Tags
-            </h3>
-            <p className="text-muted-foreground text-sm mb-3">
-              Use the <code className="font-mono text-xs bg-muted px-1 rounded">search_memory_v2</code> tool with the <code className="font-mono text-xs bg-muted px-1 rounded">tags_filter</code> parameter to find memories that contain specific tags.
-            </p>
-            <CodeBlock lang="json" code={`{
+            <div className="p-4 border border-border bg-card rounded-lg">
+              <h3 className="font-semibold text-foreground text-lg flex items-center mb-3">
+                <Server className="w-5 h-5 mr-2 text-muted-foreground"/>
+                Filtering by Tags
+              </h3>
+              <p className="text-muted-foreground text-sm mb-3">
+                Use the <code className="font-mono text-xs bg-muted px-1 rounded">search_memory_v2</code> tool with the <code className="font-mono text-xs bg-muted px-1 rounded">tags_filter</code> parameter to find memories that contain specific tags.
+              </p>
+              <CodeBlock lang="json" code={`{
   "jsonrpc": "2.0",
   "method": "tools/call",
   "params": {
@@ -528,64 +530,64 @@ x-client-name: your-app-name`} />
   },
   "id": "req-124"
 }`} />
-            <div className="mt-4 p-3 bg-muted/50 border border-border rounded text-sm">
-              <strong className="text-foreground">⚡ Filtering Logic: AND</strong>
-              <p className="text-muted-foreground mt-1">
-                The filtering logic uses an <strong>AND</strong> condition. The search will only return memories that contain <strong>ALL</strong> of the tags specified in the <code className="font-mono text-xs">tags_filter</code> array.
-              </p>
+              <div className="mt-4 p-3 bg-muted/50 border border-border rounded text-sm">
+                <strong className="text-foreground">⚡ Filtering Logic: AND</strong>
+                <p className="text-muted-foreground mt-1">
+                  The filtering logic uses an <strong>AND</strong> condition. The search will only return memories that contain <strong>ALL</strong> of the tags specified in the <code className="font-mono text-xs">tags_filter</code> array.
+                </p>
+              </div>
             </div>
-          </div>
-          
-           <div className="p-4 border border-border bg-card rounded-lg">
-            <h3 className="font-semibold text-foreground text-lg flex items-center mb-3">
-              <Lightbulb className="w-5 h-5 mr-2 text-muted-foreground"/>
-              Best Practices for Tagging
-            </h3>
-            <div className="mt-3 p-3 bg-muted/50 border border-border rounded text-sm">
-              <ul className="list-disc list-inside space-y-2 text-muted-foreground">
-                <li><strong>Consistency is Key:</strong> Use a consistent naming convention (e.g., lowercase, kebab-case: `project-alpha`).</li>
-                <li><strong>Create Namespaces:</strong> Use prefixes to create logical groups (e.g., `proj:alpha`, `client:acme`, `source:slack`).</li>
-                <li><strong>Be Descriptive:</strong> Keep tags short but clear. Limit to 3-5 tags per memory for optimal performance and clarity.</li>
-                <li><strong>Plan for Queries:</strong> Design your tags based on how you plan to filter and retrieve the data later.</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="available-tools">
-        <h2 className="text-3xl font-bold text-foreground mb-4">Available Tools</h2>
-        <p className="text-muted-foreground mb-6">
-          The API exposes powerful, high-performance tools for memory interaction. The exact tools and parameters available depend on your authentication method.
-        </p>
-        <Alert variant="default" className="mb-8 bg-blue-950/50 border-blue-800/60 text-blue-300">
-            <Share2 className="h-4 w-4 text-blue-400" />
-            <AlertTitle>Client-Specific Tool Schemas</AlertTitle>
-            <AlertDescription>
-                To ensure stability and backward compatibility, the API serves different tool schemas based on the client:
-                <ul className="list-disc list-inside mt-2">
-                  <li><strong>API Users (<code className="font-mono text-xs">X-Api-Key</code>):</strong> Receive the full, advanced toolset including <code className="font-mono text-xs">search_memory_v2</code> and optional <code className="font-mono text-xs">tags</code> parameters.</li>
-                  <li><strong>Claude Desktop & UI Users:</strong> Receive a simpler, reliable set of tools without metadata parameters to prevent issues in legacy clients.</li>
+            
+             <div className="p-4 border border-border bg-card rounded-lg">
+              <h3 className="font-semibold text-foreground text-lg flex items-center mb-3">
+                <Lightbulb className="w-5 h-5 mr-2 text-muted-foreground"/>
+                Best Practices for Tagging
+              </h3>
+              <div className="mt-3 p-3 bg-muted/50 border border-border rounded text-sm">
+                <ul className="list-disc list-inside space-y-2 text-muted-foreground">
+                  <li><strong>Consistency is Key:</strong> Use a consistent naming convention (e.g., lowercase, kebab-case: `project-alpha`).</li>
+                  <li><strong>Create Namespaces:</strong> Use prefixes to create logical groups (e.g., `proj:alpha`, `client:acme`, `source:slack`).</li>
+                  <li><strong>Be Descriptive:</strong> Keep tags short but clear. Limit to 3-5 tags per memory for optimal performance and clarity.</li>
+                  <li><strong>Plan for Queries:</strong> Design your tags based on how you plan to filter and retrieve the data later.</li>
                 </ul>
-            </AlertDescription>
-        </Alert>
-        <div className="space-y-8">
+              </div>
+            </div>
+          </div>
+        </section>
 
-          {/* add_memories tool */}
-          <div className="p-6 border border-border rounded-lg bg-card">
-            <h3 className="font-mono text-lg text-primary mb-2">add_memories</h3>
-            <p className="text-muted-foreground mb-4">
-              Stores information in long-term memory. Use this to remember key facts, user preferences, or details from conversations.
-            </p>
-            <Alert variant="destructive" className="mb-4">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Important: Non-Deterministic Behavior</AlertTitle>
+        <section id="available-tools">
+          <h2 className="text-3xl font-bold text-foreground mb-4">Available Tools</h2>
+          <p className="text-muted-foreground mb-6">
+            The API exposes powerful, high-performance tools for memory interaction. The exact tools and parameters available depend on your authentication method.
+          </p>
+          <Alert variant="default" className="mb-8 bg-blue-950/50 border-blue-800/60 text-blue-300">
+              <Share2 className="h-4 w-4 text-blue-400" />
+              <AlertTitle>Client-Specific Tool Schemas</AlertTitle>
               <AlertDescription>
-                This tool does **not** store text verbatim. It uses an internal LLM to extract core facts, which may lead to rephrasing. Do not rely on exact string matching to verify stored memories. Instead, check for the presence of unique keywords or identifiers.
+                  To ensure stability and backward compatibility, the API serves different tool schemas based on the client:
+                  <ul className="list-disc list-inside mt-2">
+                    <li><strong>API Users (<code className="font-mono text-xs">X-Api-Key</code>):</strong> Receive the full, advanced toolset including <code className="font-mono text-xs">search_memory_v2</code> and optional <code className="font-mono text-xs">tags</code> parameters.</li>
+                    <li><strong>Claude Desktop & UI Users:</strong> Receive a simpler, reliable set of tools without metadata parameters to prevent issues in legacy clients.</li>
+                  </ul>
               </AlertDescription>
-            </Alert>
-            <h4 className="font-semibold text-foreground mb-2">Input Schema:</h4>
-            <CodeBlock lang="json" code={`{
+          </Alert>
+          <div className="space-y-8">
+
+            {/* add_memories tool */}
+            <div className="p-6 border border-border rounded-lg bg-card">
+              <h3 className="font-mono text-lg text-primary mb-2">add_memories</h3>
+              <p className="text-muted-foreground mb-4">
+                Stores information in long-term memory. Use this to remember key facts, user preferences, or details from conversations.
+              </p>
+              <Alert variant="destructive" className="mb-4">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Important: Non-Deterministic Behavior</AlertTitle>
+                <AlertDescription>
+                  This tool does **not** store text verbatim. It uses an internal LLM to extract core facts, which may lead to rephrasing. Do not rely on exact string matching to verify stored memories. Instead, check for the presence of unique keywords or identifiers.
+                </AlertDescription>
+              </Alert>
+              <h4 className="font-semibold text-foreground mb-2">Input Schema:</h4>
+              <CodeBlock lang="json" code={`{
   "text": {
     "type": "string",
     "description": "Important information to remember about the user (facts, preferences, insights, etc.)"
@@ -596,16 +598,16 @@ x-client-name: your-app-name`} />
     "description": "[API Users Only] Optional list of strings to categorize the memory (e.g., ['work', 'project-alpha'])."
   }
 }`} />
-          </div>
+            </div>
 
-          {/* search_memory tool */}
-          <div className="p-6 border border-border rounded-lg bg-card">
-            <h3 className="font-mono text-lg text-primary mb-2">search_memory</h3>
-            <p className="text-muted-foreground mb-4">
-              Performs a semantic search over memories. This is the standard search tool available to all clients and does not support tag filtering.
-            </p>
-            <h4 className="font-semibold text-foreground mb-2">Input Schema:</h4>
-            <CodeBlock lang="json" code={`{
+            {/* search_memory tool */}
+            <div className="p-6 border border-border rounded-lg bg-card">
+              <h3 className="font-mono text-lg text-primary mb-2">search_memory</h3>
+              <p className="text-muted-foreground mb-4">
+                Performs a semantic search over memories. This is the standard search tool available to all clients and does not support tag filtering.
+              </p>
+              <h4 className="font-semibold text-foreground mb-2">Input Schema:</h4>
+              <CodeBlock lang="json" code={`{
   "query": {
     "type": "string",
     "description": "Keywords or phrases to search for"
@@ -615,16 +617,16 @@ x-client-name: your-app-name`} />
     "description": "Maximum number of results to return (default: 10)"
   }
 }`} />
-          </div>
+            </div>
 
-          {/* search_memory_v2 tool */}
-          <div className="p-6 border border-border rounded-lg bg-card">
-            <h3 className="font-mono text-lg text-primary mb-2">search_memory_v2 <span className="text-xs font-sans text-white bg-zinc-700 px-2 py-1 rounded-full ml-2">API Users</span></h3>
-            <p className="text-muted-foreground mb-4">
-              An enhanced search tool that allows for powerful filtering by tags. This is the recommended search tool for all new development using API keys.
-            </p>
-            <h4 className="font-semibold text-foreground mb-2">Input Schema:</h4>
-            <CodeBlock lang="json" code={`{
+            {/* search_memory_v2 tool */}
+            <div className="p-6 border border-border rounded-lg bg-card">
+              <h3 className="font-mono text-lg text-primary mb-2">search_memory_v2 <span className="text-xs font-sans text-white bg-zinc-700 px-2 py-1 rounded-full ml-2">API Users</span></h3>
+              <p className="text-muted-foreground mb-4">
+                An enhanced search tool that allows for powerful filtering by tags. This is the recommended search tool for all new development using API keys.
+              </p>
+              <h4 className="font-semibold text-foreground mb-2">Input Schema:</h4>
+              <CodeBlock lang="json" code={`{
   "query": {
     "type": "string",
     "description": "Keywords or phrases to search for"
@@ -639,8 +641,8 @@ x-client-name: your-app-name`} />
     "description": "Optional. A list of tags to filter results. Returns only memories containing ALL specified tags."
   }
 }`} />
-            <h4 className="font-semibold text-foreground mt-4 mb-2">Example Payload:</h4>
-            <CodeBlock lang="json" code={`{
+              <h4 className="font-semibold text-foreground mt-4 mb-2">Example Payload:</h4>
+              <CodeBlock lang="json" code={`{
   "jsonrpc": "2.0",
   "method": "tools/call",
   "params": {
@@ -652,31 +654,31 @@ x-client-name: your-app-name`} />
   },
   "id": "req-125"
 }`} />
-          </div>
-          
-          {/* Other tools */}
-          <div className="p-6 border border-border rounded-lg bg-card">
-            <h3 className="font-mono text-lg text-primary mb-2">list_memories</h3>
-             <p className="text-muted-foreground mb-4">Browse recently stored memories. Useful for getting a quick overview or for confirming a memory was received before it is fully indexed for search.</p>
-          </div>
-          <div className="p-6 border border-border rounded-lg bg-card">
-            <h3 className="font-mono text-lg text-primary mb-2">ask_memory</h3>
-            <p className="text-muted-foreground mb-4">Provides a fast, conversational answer to a natural language question. Optimized for speed and should be preferred for simple queries.</p>
-          </div>
-           <div className="p-6 border border-border rounded-lg bg-card">
-            <h3 className="font-mono text-lg text-primary mb-2">deep_memory_query</h3>
-             <p className="text-muted-foreground mb-4">
-               A comprehensive, slow search that analyzes full documents. Use this for deep analysis that requires synthesizing information from large bodies of text. This is by far my favorite and most powerful tool.
-             </p>
-             <h4 className="font-semibold text-foreground mb-2">Input Schema:</h4>
-             <CodeBlock lang="json" code={`{
+            </div>
+            
+            {/* Other tools */}
+            <div className="p-6 border border-border rounded-lg bg-card">
+              <h3 className="font-mono text-lg text-primary mb-2">list_memories</h3>
+               <p className="text-muted-foreground mb-4">Browse recently stored memories. Useful for getting a quick overview or for confirming a memory was received before it is fully indexed for search.</p>
+            </div>
+            <div className="p-6 border border-border rounded-lg bg-card">
+              <h3 className="font-mono text-lg text-primary mb-2">ask_memory</h3>
+              <p className="text-muted-foreground mb-4">Provides a fast, conversational answer to a natural language question. Optimized for speed and should be preferred for simple queries.</p>
+            </div>
+             <div className="p-6 border border-border rounded-lg bg-card">
+              <h3 className="font-mono text-lg text-primary mb-2">deep_memory_query</h3>
+               <p className="text-muted-foreground mb-4">
+                 A comprehensive, slow search that analyzes full documents. Use this for deep analysis that requires synthesizing information from large bodies of text. This is by far my favorite and most powerful tool.
+               </p>
+               <h4 className="font-semibold text-foreground mb-2">Input Schema:</h4>
+               <CodeBlock lang="json" code={`{
   "search_query": {
     "type": "string",
     "description": "The complex, natural language question for deep analysis."
   }
 }`} />
-            <h4 className="font-semibold text-foreground mt-4 mb-2">Example Payload:</h4>
-            <CodeBlock lang="json" code={`{
+              <h4 className="font-semibold text-foreground mt-4 mb-2">Example Payload:</h4>
+              <CodeBlock lang="json" code={`{
   "jsonrpc": "2.0",
   "method": "tools/call",
   "params": {
@@ -687,46 +689,46 @@ x-client-name: your-app-name`} />
   },
   "id": "req-126"
 }`} />
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section id="key-concepts">
-        <h2 className="text-3xl font-bold text-foreground mb-4">Key Concepts for Developers</h2>
-        <p className="text-muted-foreground mb-4">
-          Understanding these architectural concepts is crucial for building reliable and performant applications with the Jean Memory API.
-        </p>
-        <Alert variant="default" className="bg-blue-950/50 border-blue-800/60 text-blue-300 mb-6">
-          <BrainCircuit className="h-4 w-4 text-blue-400" />
-          <AlertTitle>Core Concept: Asynchronous Indexing</AlertTitle>
-          <AlertDescription>
-            When you add a memory using <code className="font-mono text-xs">add_memories</code>, it is ingested immediately but is **not instantly searchable**. The memory enters a queue to be processed, embedded, and indexed into the vector database. This process is highly optimized but can take a few seconds.
-             <ul className="list-disc list-inside space-y-2 text-blue-200/80 text-sm mt-3">
-                <li>
-                  <strong>Best Practice:</strong> Decouple write and read operations. Do not design workflows that add a memory and then immediately search for it. Assume an indexing delay.
-                </li>
-                <li>
-                  <strong>Confirmation:</strong> Use <code className="font-mono text-xs">list_memories</code> to confirm a memory was *received*, as it often shows entries before they are fully indexed for search.
-                </li>
-              </ul>
-          </AlertDescription>
-        </Alert>
-      </section>
+        <section id="key-concepts">
+          <h2 className="text-3xl font-bold text-foreground mb-4">Key Concepts for Developers</h2>
+          <p className="text-muted-foreground mb-4">
+            Understanding these architectural concepts is crucial for building reliable and performant applications with the Jean Memory API.
+          </p>
+          <Alert variant="default" className="bg-blue-950/50 border-blue-800/60 text-blue-300 mb-6">
+            <BrainCircuit className="h-4 w-4 text-blue-400" />
+            <AlertTitle>Core Concept: Asynchronous Indexing</AlertTitle>
+            <AlertDescription>
+              When you add a memory using <code className="font-mono text-xs">add_memories</code>, it is ingested immediately but is **not instantly searchable**. The memory enters a queue to be processed, embedded, and indexed into the vector database. This process is highly optimized but can take a few seconds.
+               <ul className="list-disc list-inside space-y-2 text-blue-200/80 text-sm mt-3">
+                  <li>
+                    <strong>Best Practice:</strong> Decouple write and read operations. Do not design workflows that add a memory and then immediately search for it. Assume an indexing delay.
+                  </li>
+                  <li>
+                    <strong>Confirmation:</strong> Use <code className="font-mono text-xs">list_memories</code> to confirm a memory was *received*, as it often shows entries before they are fully indexed for search.
+                  </li>
+                </ul>
+            </AlertDescription>
+          </Alert>
+        </section>
 
-      <section id="error-handling">
-        <h2 className="text-3xl font-bold text-foreground mb-4">Error Handling</h2>
-        <p className="text-muted-foreground mb-4">
-          The API uses standard HTTP status codes and provides detailed JSON-RPC error objects. We perform robust parameter validation on all tool calls.
-        </p>
-        <Alert>
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Example: Invalid Parameters (HTTP 422)</AlertTitle>
-          <AlertDescription>
-            If you provide incorrect parameters (e.g., missing a required argument or using the wrong type), the API returns an <code className="font-mono text-xs">HTTP 422 Unprocessable Entity</code> status with a <code className="font-mono text-xs">-32602</code> error code in the body to help you debug.
-          </AlertDescription>
-        </Alert>
-         <h4 className="font-semibold text-foreground mt-6 mb-2">Example Error Response:</h4>
-         <CodeBlock lang="json" code={`
+        <section id="error-handling">
+          <h2 className="text-3xl font-bold text-foreground mb-4">Error Handling</h2>
+          <p className="text-muted-foreground mb-4">
+            The API uses standard HTTP status codes and provides detailed JSON-RPC error objects. We perform robust parameter validation on all tool calls.
+          </p>
+          <Alert>
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Example: Invalid Parameters (HTTP 422)</AlertTitle>
+            <AlertDescription>
+              If you provide incorrect parameters (e.g., missing a required argument or using the wrong type), the API returns an <code className="font-mono text-xs">HTTP 422 Unprocessable Entity</code> status with a <code className="font-mono text-xs">-32602</code> error code in the body to help you debug.
+            </AlertDescription>
+          </Alert>
+           <h4 className="font-semibold text-foreground mt-6 mb-2">Example Error Response:</h4>
+           <CodeBlock lang="json" code={`
 {
   "jsonrpc": "2.0",
   "error": {
@@ -736,59 +738,59 @@ x-client-name: your-app-name`} />
   "id": "req-123"
 }
 `} />
-      </section>
+        </section>
 
-      <section id="example-use-cases">
-        <h2 className="text-3xl font-bold text-foreground mb-4">Example Use Cases for Tagging</h2>
-        <p className="text-muted-foreground mb-6">
-          Metadata tagging unlocks powerful workflows for sophisticated AI applications. Here are a few examples.
-        </p>
-        <div className="space-y-8">
+        <section id="example-use-cases">
+          <h2 className="text-3xl font-bold text-foreground mb-4">Example Use Cases for Tagging</h2>
+          <p className="text-muted-foreground mb-6">
+            Metadata tagging unlocks powerful workflows for sophisticated AI applications. Here are a few examples.
+          </p>
+          <div className="space-y-8">
 
-          <div className="p-6 border border-border rounded-lg bg-card">
-            <h3 className="text-lg font-semibold text-foreground mb-2">🏢 Multi-Tenant Applications</h3>
-            <p className="text-muted-foreground mb-4">
-              Isolate data between different customers or users within your application. By tagging each memory with a unique `client_id`, you can ensure that searches for one client never return data from another.
-            </p>
-            <div className="bg-muted/50 p-3 rounded text-sm">
-              <strong className="text-foreground">Example Flow:</strong>
-              <ol className="list-decimal list-inside mt-2 space-y-1 text-muted-foreground">
-                <li>Agent adds memory for Client A: `add_memories(text: "...", tags: ["client:acme", "user:123"])`</li>
-                <li>Agent adds memory for Client B: `add_memories(text: "...", tags: ["client:globex", "user:456"])`</li>
-                <li>When serving Client A, agent searches: `search_memory_v2(query: "...", tags_filter: ["client:acme"])`</li>
-              </ol>
+            <div className="p-6 border border-border rounded-lg bg-card">
+              <h3 className="text-lg font-semibold text-foreground mb-2">🏢 Multi-Tenant Applications</h3>
+              <p className="text-muted-foreground mb-4">
+                Isolate data between different customers or users within your application. By tagging each memory with a unique `client_id`, you can ensure that searches for one client never return data from another.
+              </p>
+              <div className="bg-muted/50 p-3 rounded text-sm">
+                <strong className="text-foreground">Example Flow:</strong>
+                <ol className="list-decimal list-inside mt-2 space-y-1 text-muted-foreground">
+                  <li>Agent adds memory for Client A: `add_memories(text: "...", tags: ["client:acme", "user:123"])`</li>
+                  <li>Agent adds memory for Client B: `add_memories(text: "...", tags: ["client:globex", "user:456"])`</li>
+                  <li>When serving Client A, agent searches: `search_memory_v2(query: "...", tags_filter: ["client:acme"])`</li>
+                </ol>
+              </div>
+            </div>
+
+            <div className="p-6 border border-border rounded-lg bg-card">
+              <h3 className="text-lg font-semibold text-foreground mb-2">📋 Project Management Agent</h3>
+              <p className="text-muted-foreground mb-4">
+                Build an agent that helps teams stay organized. Tag memories with project names, sprint numbers, and task types to create a searchable knowledge base for each project.
+              </p>
+               <div className="bg-muted/50 p-3 rounded text-sm">
+                <strong className="text-foreground">Example Flow:</strong>
+                <ol className="list-decimal list-inside mt-2 space-y-1 text-muted-foreground">
+                  <li>Agent ingests a meeting summary: `add_memories(text: "...", tags: ["proj:phoenix", "sprint:3", "meeting-notes"])`</li>
+                  <li>A developer asks: "What were the action items from the last Project Phoenix sprint 3 meeting?"</li>
+                  <li>Agent searches: `search_memory_v2(query: "action items", tags_filter: ["proj:phoenix", "sprint:3"])`</li>
+                </ol>
+              </div>
             </div>
           </div>
+        </section>
 
-          <div className="p-6 border border-border rounded-lg bg-card">
-            <h3 className="text-lg font-semibold text-foreground mb-2">📋 Project Management Agent</h3>
-            <p className="text-muted-foreground mb-4">
-              Build an agent that helps teams stay organized. Tag memories with project names, sprint numbers, and task types to create a searchable knowledge base for each project.
-            </p>
-             <div className="bg-muted/50 p-3 rounded text-sm">
-              <strong className="text-foreground">Example Flow:</strong>
-              <ol className="list-decimal list-inside mt-2 space-y-1 text-muted-foreground">
-                <li>Agent ingests a meeting summary: `add_memories(text: "...", tags: ["proj:phoenix", "sprint:3", "meeting-notes"])`</li>
-                <li>A developer asks: "What were the action items from the last Project Phoenix sprint 3 meeting?"</li>
-                <li>Agent searches: `search_memory_v2(query: "action items", tags_filter: ["proj:phoenix", "sprint:3"])`</li>
-              </ol>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="python-example">
-        <h2 className="text-3xl font-bold text-foreground mb-4">Python Examples</h2>
-        <p className="text-muted-foreground mb-4">
-          Here's how to interact with the API using Python. Ensure your API key is set as an environment variable (`JEAN_API_KEY`).
-        </p>
-        
-        <div className="p-6 border border-border rounded-lg bg-card mb-8">
-            <h3 className="text-lg font-semibold text-foreground mb-2">Basic Example: Add and Search</h3>
-            <p className="text-muted-foreground mb-4">
-              A simple demonstration of adding a tagged memory and then retrieving it with a filtered search.
-            </p>
-            <CodeBlock lang="python" code={`
+        <section id="python-example">
+          <h2 className="text-3xl font-bold text-foreground mb-4">Python Examples</h2>
+          <p className="text-muted-foreground mb-4">
+            Here's how to interact with the API using Python. Ensure your API key is set as an environment variable (`JEAN_API_KEY`).
+          </p>
+          
+          <div className="p-6 border border-border rounded-lg bg-card mb-8">
+              <h3 className="text-lg font-semibold text-foreground mb-2">Basic Example: Add and Search</h3>
+              <p className="text-muted-foreground mb-4">
+                A simple demonstration of adding a tagged memory and then retrieving it with a filtered search.
+              </p>
+              <CodeBlock lang="python" code={`
 import requests
 import json
 import os
@@ -850,14 +852,14 @@ search_results = call_jean_api(search_payload)
 print("\\nSearch results:")
 print(json.dumps(search_results, indent=2))
         `} />
-        </div>
-        
-        <div className="p-6 border border-border rounded-lg bg-card">
-            <h3 className="text-lg font-semibold text-foreground mb-2">Advanced Example: Cross-Source Context Agent</h3>
-            <p className="text-muted-foreground mb-4">
-              A more complex workflow where an agent uses shared, tagged memory to provide context on an issue by combining information from different sources (e.g., Slack and Jira).
-            </p>
-            <CodeBlock lang="python" code={`
+          </div>
+          
+          <div className="p-6 border border-border rounded-lg bg-card">
+              <h3 className="text-lg font-semibold text-foreground mb-2">Advanced Example: Cross-Source Context Agent</h3>
+              <p className="text-muted-foreground mb-4">
+                A more complex workflow where an agent uses shared, tagged memory to provide context on an issue by combining information from different sources (e.g., Slack and Jira).
+              </p>
+              <CodeBlock lang="python" code={`
 # (Assumes helper function 'call_jean_api' from previous example)
 
 # --- Step 1: An agent ingests memories from different sources ---
@@ -915,18 +917,18 @@ This combines the original user report from Slack with the formal Jira ticket de
 else:
     print("Could not find any context for that ticket.")
         `} />
-        </div>
-      </section>
+          </div>
+        </section>
 
-      <section id="curl-example">
-        <h2 className="text-3xl font-bold text-foreground mb-4">cURL Examples</h2>
-        <p className="text-muted-foreground mb-4">
-          You can also interact with the API directly from your terminal using cURL.
-        </p>
+        <section id="curl-example">
+          <h2 className="text-3xl font-bold text-foreground mb-4">cURL Examples</h2>
+          <p className="text-muted-foreground mb-4">
+            You can also interact with the API directly from your terminal using cURL.
+          </p>
 
-        <div className="p-6 border border-border rounded-lg bg-card mb-8">
-            <h3 className="text-lg font-semibold text-foreground mb-2">Add a Memory with Tags</h3>
-            <CodeBlock lang="bash" code={`
+          <div className="p-6 border border-border rounded-lg bg-card mb-8">
+              <h3 className="text-lg font-semibold text-foreground mb-2">Add a Memory with Tags</h3>
+              <CodeBlock lang="bash" code={`
 curl -X POST ${API_URL}/mcp/messages/ \\
   -H "X-Api-Key: YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
@@ -943,11 +945,11 @@ curl -X POST ${API_URL}/mcp/messages/ \\
     "id": "curl-add-1"
   }'
         `} />
-        </div>
+          </div>
 
-        <div className="p-6 border border-border rounded-lg bg-card">
-            <h3 className="text-lg font-semibold text-foreground mb-2">Search with a Tag Filter</h3>
-            <CodeBlock lang="bash" code={`
+          <div className="p-6 border border-border rounded-lg bg-card">
+              <h3 className="text-lg font-semibold text-foreground mb-2">Search with a Tag Filter</h3>
+              <CodeBlock lang="bash" code={`
 curl -X POST ${API_URL}/mcp/messages/ \\
   -H "X-Api-Key: YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
@@ -964,14 +966,15 @@ curl -X POST ${API_URL}/mcp/messages/ \\
     "id": "curl-search-1"
   }'
         `} />
-        </div>
-      </section>
-      
-      {isDiagramModalOpen && (
-        <DiagramModal chart={architectureDiagram} onClose={() => setIsDiagramModalOpen(false)} />
-      )}
+          </div>
+        </section>
+        
+        {isDiagramModalOpen && (
+          <DiagramModal chart={architectureDiagram} onClose={() => setIsDiagramModalOpen(false)} />
+        )}
 
-    </DocsLayout>
+      </DocsLayout>
+    </ProtectedRoute>
   );
 };
 

@@ -19,6 +19,7 @@ import { SyncModal } from '@/components/dashboard/SyncModal';
 import { RequestIntegrationModal } from '@/components/dashboard/RequestIntegrationModal';
 import { RefreshAllButton, RefreshStatus } from "@/components/dashboard/RefreshAllButton";
 import { MigrationBanner } from "./MigrationBanner";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 // Define available apps with priorities
 interface AvailableApp {
@@ -355,7 +356,8 @@ export default function DashboardNew() {
   };
 
   return (
-    <div className="relative min-h-screen bg-background text-foreground">
+    <ProtectedRoute>
+      <div className="relative min-h-screen bg-background text-foreground">
       {/* Background Animation */}
       <div className="absolute inset-0 z-0 h-full w-full">
         <ParticleNetwork id="dashboard-particles" className="h-full w-full" interactive={false} particleCount={80} />
@@ -532,5 +534,6 @@ export default function DashboardNew() {
         onOpenChange={setIsRequestIntegrationModalOpen}
       />
     </div>
+    </ProtectedRoute>
   );
 } 

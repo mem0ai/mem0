@@ -11,6 +11,7 @@ import { DeepQueryDialog } from "./components/DeepQueryDialog";
 import { useMemoriesApi } from "@/hooks/useMemoriesApi";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store/store";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 export default function MemoriesPage() {
   const router = useRouter();
@@ -73,7 +74,8 @@ export default function MemoriesPage() {
   };
 
   return (
-    <div className="">
+    <ProtectedRoute>
+      <div className="">
       <UpdateMemory
         memoryId={updateMemoryDialog.memoryId || ""}
         memoryContent={updateMemoryDialog.memoryContent || ""}
@@ -107,5 +109,6 @@ export default function MemoriesPage() {
         </div>
       </main>
     </div>
+    </ProtectedRoute>
   );
 }

@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import ParticleNetwork from "@/components/landing/ParticleNetwork";
 import { Badge } from "@/components/ui/badge";
 import { RequestFeatureModal } from "@/components/tools/RequestFeatureModal";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 const tools = [
   {
@@ -64,7 +65,8 @@ export default function HowToUsePage() {
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
 
   return (
-    <div className="relative min-h-screen w-full bg-background">
+    <ProtectedRoute>
+      <div className="relative min-h-screen w-full bg-background">
       <div className="absolute inset-0 z-0 h-full w-full">
         <ParticleNetwork id="how-to-use-particles" className="h-full w-full" interactive={false} particleCount={80} />
       </div>
@@ -240,5 +242,6 @@ export default function HowToUsePage() {
         onOpenChange={setIsRequestModalOpen}
       />
     </div>
+    </ProtectedRoute>
   );
 } 
