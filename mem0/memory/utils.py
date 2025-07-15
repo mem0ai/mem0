@@ -1,5 +1,5 @@
-import re
 import hashlib
+import re
 
 from mem0.configs.prompts import FACT_RETRIEVAL_PROMPT
 
