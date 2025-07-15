@@ -28,6 +28,7 @@ export class PGVector implements VectorStore {
   private readonly dbName: string;
   private config: PGVectorConfig;
   private initializationPromise: Promise<void>;
+  private isInitialized: boolean = false;
 
   constructor(config: PGVectorConfig) {
     this.collectionName = config.collectionName || "memories";
@@ -44,7 +45,7 @@ export class PGVector implements VectorStore {
   }
 
   private createPool(database: string): Pool {
-    return new Pool({
+    const client = new Pool({
       database,
       user: this.config.user,
       password: this.config.password,
@@ -54,6 +55,15 @@ export class PGVector implements VectorStore {
       connectionTimeoutMillis: this.config.connectionTimeoutMs || 30000,
       idleTimeoutMillis: this.config.idleTimeoutMs || 10000,
     });
+
+    client.on("error", (err) => {
+      console.error("Postgres connection error:", err);
+      console.error("Trying to restore Postgres connection");
+      this.isInitialized = false;
+      this.initializationPromise = this.initialize();
+    });
+
+    return client;
   }
 
   private async executeWithRetry<T>(
@@ -77,7 +87,7 @@ export class PGVector implements VectorStore {
 
         const delay = baseDelay * Math.pow(backoffFactor, attempt - 1);
         console.warn(`${operationName} failed (attempt ${attempt}/${maxRetries}), retrying in ${delay}ms:`, error);
-        
+
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
@@ -87,10 +97,10 @@ export class PGVector implements VectorStore {
   }
 
   async initialize(): Promise<void> {
-    if (this.isInitializing()) {
+    if (this.isInitialized) {
       return;
     }
-
+    console.log("Initializing database");
     await this.executeWithRetry(async () => {
       // Check if database exists
       const dbExists = await this.checkDatabaseExists(this.dbName);
@@ -125,14 +135,11 @@ export class PGVector implements VectorStore {
         client.release();
       }
     }, "Database initialization");
+    this.isInitialized = true;
   }
 
   async waitForInitialization(): Promise<void> {
     await this.initializationPromise;
-  }
-
-  isInitializing(): boolean {
-    return this.initializationPromise !== undefined;
   }
 
   private async checkDatabaseExists(dbName: string): Promise<boolean> {
@@ -379,9 +386,6 @@ export class PGVector implements VectorStore {
   async getUserId(): Promise<string> {
     await this.initializationPromise;
     return await this.executeWithRetry(async () => {
-      // print current database name
-      const dbResult = await this.client.query("SELECT current_database()");
-      console.log("getUserId - current database:", dbResult.rows[0].current_database);
       const result = await this.client.query(
         "SELECT user_id FROM memory_migrations LIMIT 1",
       );
