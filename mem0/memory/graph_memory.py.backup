@@ -147,17 +147,15 @@ class MemoryGraph:
                 - 'contexts': The base data store response for each memory.
                 - 'entities': A list of strings representing the nodes and relationships
         """
+        agent_filter = ""
         params = {"user_id": filters["user_id"], "limit": limit}
-        
-        # Build node properties based on filters
-        node_props = ["user_id: $user_id"]
         if filters.get("agent_id"):
-            node_props.append("agent_id: $agent_id")
+            agent_filter = "AND n.agent_id = $agent_id AND m.agent_id = $agent_id"
             params["agent_id"] = filters["agent_id"]
-        node_props_str = ", ".join(node_props)
 
         query = f"""
-        MATCH (n {self.node_label} {{{node_props_str}}})-[r]->(m {self.node_label} {{{node_props_str}}})
+        MATCH (n {self.node_label} {{user_id: $user_id}})-[r]->(m {self.node_label} {{user_id: $user_id}})
+        WHERE 1=1 {agent_filter}
         RETURN n.name AS source, type(r) AS relationship, m.name AS target
         LIMIT $limit
         """
@@ -253,28 +251,26 @@ class MemoryGraph:
     def _search_graph_db(self, node_list, filters, limit=100):
         """Search similar nodes among and their respective incoming and outgoing relations."""
         result_relations = []
-        
-        # Build node properties for filtering
-        node_props = ["user_id: $user_id"]
+        agent_filter = ""
         if filters.get("agent_id"):
-            node_props.append("agent_id: $agent_id")
-        node_props_str = ", ".join(node_props)
+            agent_filter = "AND n.agent_id = $agent_id AND m.agent_id = $agent_id"
 
         for node in node_list:
             n_embedding = self.embedding_model.embed(node)
 
             cypher_query = f"""
-            MATCH (n {self.node_label} {{{node_props_str}}})
-            WHERE n.embedding IS NOT NULL
+            MATCH (n {self.node_label})
+            WHERE n.embedding IS NOT NULL AND n.user_id = $user_id
+            {agent_filter}
             WITH n, round(2 * vector.similarity.cosine(n.embedding, $n_embedding) - 1, 4) AS similarity // denormalize for backward compatibility
             WHERE similarity >= $threshold
             CALL {{
-                WITH n
-                MATCH (n)-[r]->(m {self.node_label} {{{node_props_str}}})
+                MATCH (n)-[r]->(m)
+                WHERE m.user_id = $user_id {agent_filter.replace("n.", "m.")} 
                 RETURN n.name AS source, elementId(n) AS source_id, type(r) AS relationship, elementId(r) AS relation_id, m.name AS destination, elementId(m) AS destination_id
                 UNION
-                WITH n  
-                MATCH (n)<-[r]-(m {self.node_label} {{{node_props_str}}})
+                MATCH (m)-[r]->(n)
+                WHERE m.user_id = $user_id {agent_filter.replace("n.", "m.")}
                 RETURN m.name AS source, elementId(m) AS source_id, type(r) AS relationship, elementId(r) AS relation_id, n.name AS destination, elementId(n) AS destination_id
             }}
             WITH distinct source, source_id, relationship, relation_id, destination, destination_id, similarity
@@ -343,7 +339,7 @@ class MemoryGraph:
             relationship = item["relationship"]
 
             # Build the agent filter for the query
-
+            agent_filter = ""
             params = {
                 "source_name": source,
                 "dest_name": destination,
@@ -351,7 +347,7 @@ class MemoryGraph:
             }
 
             if agent_id:
-    
+                agent_filter = "AND n.agent_id = $agent_id AND m.agent_id = $agent_id"
                 params["agent_id"] = agent_id
 
             # Delete the specific relationship between nodes
@@ -359,7 +355,7 @@ class MemoryGraph:
             MATCH (n {self.node_label} {{name: $source_name, user_id: $user_id}})
             -[r:{relationship}]->
             (m {self.node_label} {{name: $dest_name, user_id: $user_id}})
-            
+            WHERE 1=1 {agent_filter}
             DELETE r
             RETURN 
                 n.name AS source,
@@ -560,12 +556,15 @@ class MemoryGraph:
         return entity_list
 
     def _search_source_node(self, source_embedding, filters, threshold=0.9):
+        agent_filter = ""
+        if filters.get("agent_id"):
+            agent_filter = "AND source_candidate.agent_id = $agent_id"
 
         cypher = f"""
             MATCH (source_candidate {self.node_label})
             WHERE source_candidate.embedding IS NOT NULL 
             AND source_candidate.user_id = $user_id
-            
+            {agent_filter}
 
             WITH source_candidate,
             round(2 * vector.similarity.cosine(source_candidate.embedding, $source_embedding) - 1, 4) AS source_similarity // denormalize for backward compatibility
@@ -590,12 +589,15 @@ class MemoryGraph:
         return result
 
     def _search_destination_node(self, destination_embedding, filters, threshold=0.9):
+        agent_filter = ""
+        if filters.get("agent_id"):
+            agent_filter = "AND destination_candidate.agent_id = $agent_id"
 
         cypher = f"""
             MATCH (destination_candidate {self.node_label})
             WHERE destination_candidate.embedding IS NOT NULL 
             AND destination_candidate.user_id = $user_id
-            
+            {agent_filter}
 
             WITH destination_candidate,
             round(2 * vector.similarity.cosine(destination_candidate.embedding, $destination_embedding) - 1, 4) AS destination_similarity // denormalize for backward compatibility
