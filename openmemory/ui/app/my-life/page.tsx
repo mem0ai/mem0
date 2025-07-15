@@ -3,10 +3,11 @@
 import { useState } from "react";
 import KnowledgeGraph from "./components/KnowledgeGraph";
 import InteractiveExplorer from "./components/InteractiveExplorer";
+import AdvancedKnowledgeGraph from "./components/AdvancedKnowledgeGraph";
 // import ChatInterface from "./components/ChatInterface";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Network, Map, RotateCcw } from "lucide-react";
+import { MessageSquare, Network, Map, RotateCcw, Sparkles } from "lucide-react";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 /*
 import {
@@ -19,7 +20,7 @@ import {
 export default function MyLifePage() {
   const [selectedMemory, setSelectedMemory] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<"graph" | "chat">("graph");
-  const [viewMode, setViewMode] = useState<"explorer" | "graph">("explorer");
+  const [viewMode, setViewMode] = useState<"explorer" | "graph" | "advanced">("explorer");
   const [isChatOpen, setIsChatOpen] = useState(true);
 
   return (
@@ -38,6 +39,16 @@ export default function MyLifePage() {
           >
             <Map className="h-5 w-5" />
             <span className="text-xs">Explorer</span>
+          </Button>
+          <Button
+            variant={viewMode === "advanced" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setViewMode("advanced")}
+            className="flex flex-col items-center gap-1 h-12 w-12"
+            title="Advanced Graph"
+          >
+            <Sparkles className="h-5 w-5" />
+            <span className="text-xs">Advanced</span>
           </Button>
           <Button
             variant={viewMode === "graph" ? "default" : "ghost"}
@@ -63,6 +74,15 @@ export default function MyLifePage() {
           >
             <Map className="h-4 w-4" />
             Explorer
+          </Button>
+          <Button
+            variant={viewMode === "advanced" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setViewMode("advanced")}
+            className="flex items-center gap-2"
+          >
+            <Sparkles className="h-4 w-4" />
+            Advanced
           </Button>
           <Button
             variant={viewMode === "graph" ? "default" : "ghost"}
@@ -105,6 +125,10 @@ export default function MyLifePage() {
         
         {viewMode === "explorer" && (
           <InteractiveExplorer onMemorySelect={setSelectedMemory} />
+        )}
+        
+        {viewMode === "advanced" && (
+          <AdvancedKnowledgeGraph onMemorySelect={setSelectedMemory} />
         )}
         </motion.div>
       </div>

@@ -49,6 +49,9 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "1.0.4",
+    "cytoscape": "^3.28.1",
+    "cytoscape-cola": "^2.5.1",
+    "cytoscape-fcose": "^2.2.0",
     "date-fns": "^3.6.0",
     "embla-carousel-react": "8.5.1",
     "framer-motion": "^12.12.2",
@@ -83,6 +86,7 @@
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.16",
+    "@types/cytoscape": "^3.21.4",
     "@types/lodash": "^4.17.16",
     "@types/node": "^22",
     "@types/react": "^18",
