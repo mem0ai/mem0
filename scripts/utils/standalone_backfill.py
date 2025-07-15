@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Standalone narrative backfill script for production.
-Avoids import conflicts by using direct database operations.
+Now uses Jean Memory V2 for enhanced memory processing (same as live API).
 """
 
 import os
@@ -10,6 +10,7 @@ import asyncio
 import logging
 from datetime import datetime, timedelta, UTC
 import traceback
+from pathlib import Path
 
 # Minimal imports to avoid conflicts
 import google.generativeai as genai
@@ -19,6 +20,15 @@ from dotenv import load_dotenv
 
 # Load environment
 load_dotenv()
+
+# Add project root to Python path for Jean Memory V2 access
+current_dir = Path(__file__).parent.resolve()  # scripts/utils/
+scripts_dir = current_dir.parent  # scripts/
+project_root = scripts_dir.parent  # your-memory/
+
+# Add project root to Python path
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
 # Configuration
 MEMORY_THRESHOLD = 5
@@ -46,22 +56,19 @@ class GeminiService:
         self.model_pro = genai.GenerativeModel('gemini-2.5-pro')
     
     async def generate_narrative_pro(self, memories_text: str) -> str:
-        # Using the same proven prompt strategy as the production deep_memory system
+        # Using the EXACT same prompt as the live API generate_narrative_pro function
         prompt = f"""You are providing context for a conversation with this user. Analyze their memories and create a rich, synthesized understanding.
 
-USER'S MEMORIES AND CONTENT:
+USER'S MEMORIES:
 {memories_text}
 
-Create a comprehensive life narrative for this person to be used as a primer for new conversations. Focus on:
+Create a comprehensive but concise 'life narrative' for this person to be used as a primer for new conversations. Focus on:
+1. Who they are (personality, background, values)
+2. What they're working on (projects, goals, interests)  
+3. How to best interact with them (preferences, communication style)
+4. Key themes or recurring patterns in their life.
 
-1. **Who they are** - personality, background, values, and core interests
-2. **What they're working on** - current projects, goals, professional focus, and aspirations  
-3. **How to best interact with them** - communication preferences, decision-making style, and what they value in conversations
-4. **Key themes and patterns** - recurring topics, growth areas, and important relationships or experiences
-
-Provide a well-written, detailed narrative that captures the essence of this user. Use sophisticated reasoning to identify deeper patterns and insights beyond surface-level information. The goal is to give an AI assistant a complete understanding of who this person is and how to have meaningful, contextually-aware conversations with them.
-
-Write this as flowing, insightful paragraphs that synthesize their experiences into a coherent understanding of their character, motivations, and current life situation."""
+Provide a well-written, paragraph-based narrative that captures the essence of the user. Use sophisticated reasoning to identify deeper patterns and insights."""
         
         try:
             response = await self.model_pro.generate_content_async(
@@ -200,71 +207,100 @@ def get_eligible_users():
     finally:
         conn.close()
 
-def get_user_context_like_deep_memory(user_id: str):
-    """Get comprehensive user context using the same strategy as deep_memory_query"""
-    conn = get_db_connection()
+async def get_user_context_with_jean_memory_v2(user_id: str):
+    """Get comprehensive user context using Jean Memory V2 (same as live API)"""
     try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            # Use the same memory query pattern as deep_memory_query
-            query = """
-            SELECT m.content, m.created_at, m.metadata
-            FROM users u
-            INNER JOIN memories m ON u.id = m.user_id
-            WHERE u.user_id = %s 
-              AND m.state = 'active'
-            ORDER BY m.created_at DESC
-            LIMIT 150
-            """
+        # Import and initialize Jean Memory V2 (same as live API)
+        from jean_memory_v2.mem0_adapter_optimized import get_async_memory_client_v2_optimized
+        from jean_memory_v2.config import JeanMemoryConfig
+        
+        # Verify required environment variables (same as live API)
+        qdrant_host = os.getenv("QDRANT_HOST")
+        qdrant_api_key = os.getenv("QDRANT_API_KEY")
+        openai_api_key = os.getenv("OPENAI_API_KEY")
+        
+        required_vars = ["QDRANT_HOST", "OPENAI_API_KEY"]
+        missing_vars = [var for var in required_vars if not os.getenv(var)]
+        
+        if qdrant_host and qdrant_host != "localhost" and not qdrant_api_key:
+            missing_vars.append("QDRANT_API_KEY")
+        
+        if missing_vars:
+            logger.error(f"❌ Missing Jean Memory V2 environment variables: {missing_vars}")
+            return None
+        
+        # Create config from environment variables (same as live API)
+        config_dict = {
+            'OPENAI_API_KEY': openai_api_key,
+            'QDRANT_HOST': qdrant_host,
+            'QDRANT_PORT': os.getenv("QDRANT_PORT", "6333"),
+            'QDRANT_API_KEY': qdrant_api_key or "",
+            'NEO4J_URI': os.getenv("NEO4J_URI"),
+            'NEO4J_USER': os.getenv("NEO4J_USER"),
+            'NEO4J_PASSWORD': os.getenv("NEO4J_PASSWORD"),
+            'GEMINI_API_KEY': os.getenv("GEMINI_API_KEY") or "",
+            'MAIN_QDRANT_COLLECTION_NAME': os.getenv("MAIN_QDRANT_COLLECTION_NAME", "openmemory_dev")
+        }
+        
+        config = JeanMemoryConfig.from_dict(config_dict)
+        memory_client = get_async_memory_client_v2_optimized(config={'jean_memory_config': config})
+        
+        logger.info(f"✅ [User {user_id}] Jean Memory V2 initialized successfully")
+        
+        # Use the EXACT same search query as the live API
+        memory_results = await memory_client.search(
+            query="life experiences preferences goals work interests personality",
+            user_id=user_id,
+            limit=50
+        )
+        
+        logger.info(f"📊 [User {user_id}] Jean Memory V2 search completed")
+        
+        # Process memory results EXACTLY like the live API does
+        memories_text = []
+        if isinstance(memory_results, dict) and 'results' in memory_results:
+            memories = memory_results['results']
+        elif isinstance(memory_results, list):
+            memories = memory_results
+        else:
+            memories = []
+        
+        logger.info(f"📋 [User {user_id}] Found {len(memories)} memories from Jean Memory V2")
+        
+        # Filter for narrative generation (same as live API)
+        for mem in memories[:25]:  # Limit for narrative generation
+            content = mem.get('memory', mem.get('content', ''))
             
-            cur.execute(query, (user_id,))
-            memories = cur.fetchall()
+            if not content or not isinstance(content, str):
+                continue
             
-            if not memories:
-                return ""
+            content = content.strip()
             
-            # Filter and format memories like the production system does
-            memory_texts = []
-            for mem in memories:
-                content = mem['content'].strip()
-                # Skip very short or low-quality content
-                if len(content) > 15 and not content.lower().startswith(('ok', 'yes', 'no', 'thanks')):
-                    memory_texts.append(content)
+            # Skip empty content
+            if not content.strip():
+                continue
             
-            # Limit to prevent token overflow (like deep_memory does)
-            selected_memories = memory_texts[:80]  # Similar to deep_memory limits
+            # Skip very short content 
+            if len(content) < 5:
+                continue
             
-            # Format like deep_memory_query does
-            context = "=== USER MEMORIES ===\n\n"
-            context += "\n\n".join([f"Memory: {mem}" for mem in selected_memories])
-            
-            # Add document context if available (comprehensive but limited)
-            doc_query = """
-            SELECT d.title, d.document_type, d.content
-            FROM users u
-            INNER JOIN documents d ON u.id = d.user_id
-            WHERE u.user_id = %s
-            ORDER BY d.created_at DESC
-            LIMIT 10
-            """
-            
-            cur.execute(doc_query, (user_id,))
-            documents = cur.fetchall()
-            
-            if documents:
-                context += "\n\n=== WRITTEN CONTENT ===\n\n"
-                for doc in documents[:5]:  # Limit to prevent bloat
-                    title = doc['title']
-                    doc_type = doc['document_type']
-                    # Take first part of content for overview
-                    preview = doc['content'][:500] if len(doc['content']) > 500 else doc['content']
-                    context += f"Document: {title} ({doc_type})\nContent: {preview}\n\n"
-            
-            logger.info(f"[User {user_id}] Built context: {len(selected_memories)} memories + {len(documents)} documents = {len(context)} chars")
-            
-            return context
-            
-    finally:
-        conn.close()
+            # Include ALL other content (both user memories and graph insights)
+            memories_text.append(content)
+        
+        if not memories_text:
+            logger.warning(f"⚠️ [User {user_id}] No valid memories found from Jean Memory V2")
+            return None
+        
+        # Combine text for narrative generation
+        combined_text = "\n".join(memories_text)
+        
+        logger.info(f"✅ [User {user_id}] Built Jean Memory V2 context: {len(memories_text)} memories, {len(combined_text)} chars")
+        
+        return combined_text
+        
+    except Exception as e:
+        logger.error(f"❌ [User {user_id}] Failed to get Jean Memory V2 context: {str(e)}")
+        return None
 
 async def generate_narrative_for_user(user_id: str, gemini: GeminiService, retry_count: int = 0):
     """Generate narrative for a user using proven deep_memory strategy with robust retry logic"""
@@ -272,8 +308,8 @@ async def generate_narrative_for_user(user_id: str, gemini: GeminiService, retry
     logger.info(f"🤖 [User {user_id}] Generating narrative (attempt {attempt_num}/{MAX_RETRIES + 1})...")
     
     try:
-        # Get comprehensive context like deep_memory_query
-        context_text = get_user_context_like_deep_memory(user_id)
+        # Get comprehensive context using Jean Memory V2 (same as live API)
+        context_text = await get_user_context_with_jean_memory_v2(user_id)
         
         if not context_text or len(context_text) < 200:
             logger.warning(f"⚠️ [User {user_id}] Insufficient context ({len(context_text) if context_text else 0} chars)")
@@ -453,7 +489,7 @@ async def process_batch(user_ids, gemini):
 
 async def main():
     """Main function"""
-    logger.info("🚀 STANDALONE NARRATIVE BACKFILL STARTING")
+    logger.info("🚀 JEAN MEMORY V2 ENHANCED NARRATIVE BACKFILL STARTING")
     start_time = datetime.now()
     
     try:
@@ -507,7 +543,7 @@ async def main():
         duration = datetime.now() - start_time
         success_rate = (total_successful / total_users * 100) if total_users > 0 else 0
         
-        logger.info("🎉 NARRATIVE BACKFILL COMPLETED")
+        logger.info("🎉 JEAN MEMORY V2 ENHANCED NARRATIVE BACKFILL COMPLETED")
         logger.info(f"📊 RESULTS: {total_successful}/{total_users} successful ({success_rate:.1f}%)")
         logger.info(f"   • ✅ Successful: {total_successful}")
         logger.info(f"   • ❌ Failed: {total_failed}")
