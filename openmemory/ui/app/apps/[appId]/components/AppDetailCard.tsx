@@ -1,15 +1,13 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { PauseIcon, Loader2, PlayIcon, Download, Copy } from "lucide-react";
+import { PauseIcon, Loader2, PlayIcon, Download } from "lucide-react";
 import { useAppsApi } from "@/hooks/useAppsApi";
 import Image from "next/image";
 import { useDispatch, useSelector } from "react-redux";
 import { setAppDetails } from "@/store/appsSlice";
-import { BiEdit } from "react-icons/bi";
 import { constants } from "@/components/shared/source-app";
 import { RootState } from "@/store/store";
 import { toast } from "@/components/ui/use-toast";
-import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
 
 const capitalize = (str: string) => {
@@ -53,18 +51,6 @@ const AppDetailCard = ({
     ? "Pause Access"
     : "Unpause Access";
 
-  const installCommand =
-    currentApp?.name === 'claude'
-      ? `npx -y supergateway --stdio https://jean-memory-api-virginia.onrender.com/mcp/v2/claude/${user?.id}`
-      : `npx -y mcp-remote https://jean-memory-api-virginia.onrender.com/mcp/${currentApp?.name}/v2/${user?.id}`;
-
-  const handleCopy = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast({
-      title: "Copied to clipboard!",
-      description: "You can now run this command in your terminal.",
-    });
-  };
 
   const handleDownloadExtension = () => {
     // Download the HTTP v2 extension
@@ -164,7 +150,7 @@ const AppDetailCard = ({
 
           <hr className="border-border" />
 
-          {currentApp?.name?.toLowerCase() === 'claude' ? (
+          {currentApp?.name?.toLowerCase() === 'claude' && (
             <div>
               <p className="text-xs text-muted-foreground mb-2">Desktop Extension</p>
               <Button 
@@ -179,35 +165,6 @@ const AppDetailCard = ({
               <p className="text-xs text-muted-foreground">
                 One-click install for Claude Desktop
               </p>
-              <details className="mt-2">
-                <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
-                  Show manual install command
-                </summary>
-                <div className="flex items-center gap-2 mt-2">
-                  <Input
-                    readOnly
-                    value={installCommand}
-                    className="bg-background border-border text-xs truncate"
-                  />
-                  <Button size="icon" variant="ghost" onClick={() => handleCopy(installCommand)}>
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              </details>
-            </div>
-          ) : (
-            <div>
-              <p className="text-xs text-muted-foreground mb-2">Install Command</p>
-              <div className="flex items-center gap-2">
-                <Input
-                  readOnly
-                  value={installCommand}
-                  className="bg-background border-border text-xs truncate"
-                />
-                <Button size="icon" variant="ghost" onClick={() => handleCopy(installCommand)}>
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </div>
             </div>
           )}
 
