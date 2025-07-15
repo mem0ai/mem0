@@ -926,8 +926,8 @@ async def suggest_next_exploration(
     
     try:
         # Use Gemini for intelligent suggestions
-        from app.utils.gemini import create_gemini_client
-        gemini_client = create_gemini_client()
+        from app.utils.gemini import GeminiService
+        gemini_service = GeminiService()
         
         # Create context prompt
         path_context = " → ".join(current_path) if current_path else "Life Overview"
@@ -955,8 +955,8 @@ Return suggestions as a JSON array with this format:
 
 Keep suggestions concise and actionable."""
 
-        response = await gemini_client.generate_content_async(prompt)
-        response_text = response.text.strip()
+        response_text = await gemini_service.generate_response(prompt)
+        response_text = response_text.strip()
         
         # Try to parse JSON response
         import json
