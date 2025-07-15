@@ -21,7 +21,7 @@ export const AuthForm = () => {
   // Redirect to dashboard when user becomes authenticated
   React.useEffect(() => {
     if (user) {
-      router.replace('/dashboard-new');
+      router.replace('/dashboard');
     }
   }, [user, router]);
 
@@ -46,7 +46,12 @@ export const AuthForm = () => {
     }
 
     if (authError) {
-      setMessage(authError.message);
+      // Check for rate limit error
+      if (authError.message.toLowerCase().includes('rate limit')) {
+        setMessage('Too many attempts. Please wait an hour before trying again, or try using a different network/VPN.');
+      } else {
+        setMessage(authError.message);
+      }
     }
   };
   
@@ -220,6 +225,8 @@ export const AuthForm = () => {
             className={`mt-4 p-3 rounded-lg text-sm text-center border ${
               message.includes('successful') || message.includes('created') 
                 ? 'bg-green-900/20 text-green-300 border-green-800/50' 
+                : message.includes('Too many attempts')
+                ? 'bg-amber-900/20 text-amber-300 border-amber-800/50'
                 : 'bg-red-900/20 text-red-300 border-red-800/50'
             }`}
           >

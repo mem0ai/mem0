@@ -30,7 +30,7 @@ export default function LandingPage() {
   // useEffect(() => {
   //   if (!isLoading && user) {
   //     console.log('Landing page: User authenticated, redirecting to dashboard');
-  //     router.replace('/dashboard-new');
+  //     router.replace('/dashboard');
   //   }
   // }, [user, isLoading, router]);
 
@@ -135,7 +135,7 @@ export default function LandingPage() {
             >
               <Link
                 ref={buttonRef}
-                href={user ? "/dashboard-new" : "/auth?animate=true"}
+                href={user ? "/dashboard" : "/auth?animate=true"}
                 className="group relative inline-flex items-center justify-center gap-3 px-12 py-4 text-xl font-bold rounded-md bg-black text-white border border-gray-600 hover:bg-gray-800 transition-all duration-300 shadow-lg hover:shadow-xl hover:shadow-slate-500/10 hover:scale-105"
               >
                 <Key className="w-5 h-5 group-hover:-rotate-12 transition-transform" />

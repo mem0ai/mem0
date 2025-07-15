@@ -57,7 +57,7 @@ export function Navbar() {
   }
 
   const isActive = (href: string) => {
-    if (href === "/dashboard-new") return pathname === href || pathname === "/dashboard";
+    if (href === "/dashboard") return pathname === href;
     return pathname.startsWith(href);
   };
 
@@ -65,7 +65,7 @@ export function Navbar() {
   const inactiveClass = "text-muted-foreground";
 
   const navLinks = [
-    { href: "/dashboard-new", icon: <HiHome />, label: "Dashboard" },
+    { href: "/dashboard", icon: <HiHome />, label: "Dashboard" },
     { href: "/memories", icon: <HiMiniRectangleStack />, label: "Memories" },
     { href: "/my-life", icon: <Network className="w-4 h-4" />, label: "Life Graph" },
     { href: "/how-to-use-tools", icon: <Info className="w-4 h-4" />, label: "How to Use" },
@@ -76,7 +76,7 @@ export function Navbar() {
       <div className="container flex h-14 items-center px-4">
         {/* Left Side - Logo */}
         <div className="flex items-center flex-1">
-          <Link href="/dashboard-new" className="flex items-center gap-2">
+          <Link href="/dashboard" className="flex items-center gap-2">
             {mounted ? (
               <Image
                 src={

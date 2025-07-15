@@ -112,7 +112,7 @@ export default function SmsPreviewPage() {
 
           <p className="text-xs text-muted-foreground mt-8">
               This is a public mockup page for A2P 10DLC campaign verification. <br/>
-              Visit <a href="https://jean-memory-ui-virginia.onrender.com/dashboard-new" className="text-primary hover:underline">Jean Memory Dashboard</a> to connect your phone number.
+              Visit <a href="https://jean-memory-ui-virginia.onrender.com/dashboard" className="text-primary hover:underline">Jean Memory Dashboard</a> to connect your phone number.
           </p>
         </motion.div>
       </div>

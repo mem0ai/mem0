@@ -96,7 +96,7 @@ export default function ProPage() {
                     variant="outline"
                     asChild
                   >
-                    <Link href={user ? "/dashboard-new" : "/auth"}>
+                    <Link href={user ? "/dashboard" : "/auth"}>
                       {user ? "Your Dashboard" : "Get Started"}
                     </Link>
                   </Button>
