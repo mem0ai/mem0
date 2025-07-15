@@ -82,11 +82,11 @@ class AzureOpenAILLM(LLMBase):
             str: The generated response.
         """
 
-        user_prompt = messages[-1]['content']
+        user_prompt = messages[-1]["content"]
 
         user_prompt = user_prompt.replace("assistant", "ai")
 
-        messages[-1]['content'] = user_prompt
+        messages[-1]["content"] = user_prompt
 
         common_params = {
             "model": self.config.model,
