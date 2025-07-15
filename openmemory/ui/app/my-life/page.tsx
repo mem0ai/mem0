@@ -145,7 +145,7 @@ export default function MyLifePage() {
         </Collapsible>
       </div>
       */}
-    </div>
+      </div>
     </ProtectedRoute>
   );
 } 
