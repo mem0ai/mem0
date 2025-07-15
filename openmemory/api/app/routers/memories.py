@@ -842,41 +842,61 @@ async def expand_graph_node(
             limit=limit
         )
         
-        # Process results into graph structure
+        # Process results into graph structure (same pattern as life-graph-data)
         nodes = []
         edges = []
         clusters = []
         
-        if hasattr(memory_results, '__iter__'):
-            for i, memory in enumerate(memory_results):
-                if hasattr(memory, 'get'):
-                    content = memory.get('memory', memory.get('content', ''))
-                    memory_id = memory.get('id', f"expanded_{i}")
-                    score = memory.get('score', 0.5)
-                else:
-                    content = str(memory)
-                    memory_id = f"expanded_{i}"
-                    score = 0.5
-                
-                node = {
-                    'id': memory_id,
-                    'content': content,
-                    'type': 'memory',
-                    'score': score,
-                    'source': 'expansion',
-                    'parent_node': focal_node_id,
-                    'metadata': getattr(memory, 'metadata', {}) if hasattr(memory, 'metadata') else {}
-                }
-                nodes.append(node)
-                
-                # Create edge to parent node if specified
-                if focal_node_id:
-                    edges.append({
-                        'source': focal_node_id,
-                        'target': memory_id,
-                        'type': 'expansion',
-                        'weight': score
-                    })
+        # Extract memories from results (same as working life-graph-data endpoint)
+        memories = []
+        if isinstance(memory_results, dict) and 'results' in memory_results:
+            memories = memory_results['results']
+        elif isinstance(memory_results, list):
+            memories = memory_results
+        
+        logger.info(f"📊 Retrieved {len(memories)} memories for expansion")
+        
+        # Process memories for expansion
+        for i, memory in enumerate(memories):
+            content = memory.get('memory', memory.get('content', ''))
+            memory_id = memory.get('id', f"expanded_{i}")
+            score = memory.get('score', 0.5)
+            
+            # Skip empty memories
+            if not content or len(content.strip()) < 5:
+                continue
+            
+            node = {
+                'id': memory_id,
+                'content': content.strip(),
+                'type': 'memory',
+                'score': score,
+                'source': 'expansion',
+                'parent_node': focal_node_id,
+                'metadata': memory.get('metadata', {})
+            }
+            nodes.append(node)
+            
+            # Create edge to parent node if specified
+            if focal_node_id:
+                edges.append({
+                    'source': focal_node_id,
+                    'target': memory_id,
+                    'type': 'expansion',
+                    'weight': score
+                })
+        
+        # If no valid memories found, create a fallback node
+        if len(nodes) == 0:
+            nodes.append({
+                'id': f"no_results_{focal_node_id}",
+                'content': "No memories found for this topic. Try exploring a different area or add more memories to your collection.",
+                'type': 'message',
+                'score': 0.0,
+                'source': 'fallback',
+                'parent_node': focal_node_id,
+                'metadata': {}
+            })
         
         expansion_data = {
             'nodes': nodes,
