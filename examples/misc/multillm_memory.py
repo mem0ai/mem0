@@ -11,10 +11,23 @@ Data analyst analyzes user data → All models can reference previous research.
 """
 
 from dotenv import load_dotenv
+import logging
 from mem0 import MemoryClient
 from litellm import completion
 
 load_dotenv()
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('research_team.log')
+    ]
+)
+logger = logging.getLogger(__name__)
+
 
 # Initialize memory client (platform version)
 memory = MemoryClient()
@@ -112,10 +125,10 @@ def show_team_knowledge(project_id: str):
     memories = memory.get_all(user_id=project_id)
 
     if not memories:
-        print("No research found for this project")
+        logger.info("No research found for this project")
         return
 
-    print(f"Team Research Summary (Project: {project_id}):")
+    logger.info(f"Team Research Summary (Project: {project_id}):")
 
     # Group by contributor
     by_contributor = {}
@@ -127,9 +140,9 @@ def show_team_knowledge(project_id: str):
             by_contributor[contributor].append(mem.get("memory", ""))
 
     for contributor, research_items in by_contributor.items():
-        print(f"{contributor.upper()}:")
+        logger.info(f"{contributor.upper()}:")
         for i, item in enumerate(research_items[:3], 1):  # Show latest 3
-            print(f"   {i}. {item[:100]}...")
+            logger.info(f"   {i}. {item[:100]}...")
 
 
 def demo_research_team():
@@ -161,20 +174,20 @@ def demo_research_team():
         }
     ]
 
-    print("AI Research Team: Building a SaaS Product")
+    logger.info("AI Research Team: Building a SaaS Product")
 
     # Execute research pipeline
     for i, step in enumerate(research_pipeline, 1):
-        print(f"\nStage {i}: {step['stage']}")
-        print(f"Specialist: {step['specialist']}")
+        logger.info(f"\nStage {i}: {step['stage']}")
+        logger.info(f"Specialist: {step['specialist']}")
 
         result = research_with_specialist(step['task'], step['specialist'], project)
-        print(f"Task: {step['task']}")
-        print(f"Result: {result[:200]}...\n")
+        logger.info(f"Task: {step['task']}")
+        logger.info(f"Result: {result[:200]}...\n")
 
     show_team_knowledge(project)
 
 
 if __name__ == "__main__":
-    print("Multi-LLM Research Team")
+    logger.info("Multi-LLM Research Team")
     demo_research_team()
