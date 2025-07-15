@@ -143,7 +143,7 @@ def _group_memories_into_threads(memories: List[MemoryResponse]) -> List[MemoryR
         
         logger.info(f"🔍 Jean V2 lookup has {len(jean_memory_lookup)} entries")
         
-        # Group SQL memories with their related Jean Memory V2 memories
+        # Group SQL memories with related Jean Memory V2 memories using content similarity
         threaded_memories = []
         processed_jean_ids = set()
         
@@ -156,16 +156,42 @@ def _group_memories_into_threads(memories: List[MemoryResponse]) -> List[MemoryR
             else:
                 logger.info(f"🔍 SQL memory {sql_memory.id} has no metadata or mem0_id")
             
-            # Find related Jean Memory V2 memories
+            # Find related Jean Memory V2 memories using multiple approaches
             related_memories = []
+            
+            # Approach 1: Try exact mem0_id match first
             if mem0_id and mem0_id in jean_memory_lookup:
                 related_memory = jean_memory_lookup[mem0_id]
                 related_memories.append(related_memory)
-                processed_jean_ids.add(mem0_id)
-                logger.info(f"✅ Found thread match: SQL {sql_memory.id} → Jean V2 {related_memory.id}")
-            elif mem0_id:
-                logger.info(f"❌ No Jean V2 match for mem0_id: {mem0_id}")
-                logger.info(f"🔍 Available Jean V2 IDs: {list(jean_memory_lookup.keys())[:5]}...")  # Show first 5
+                processed_jean_ids.add(str(related_memory.id))
+                logger.info(f"✅ Found exact ID match: SQL {sql_memory.id} → Jean V2 {related_memory.id}")
+            else:
+                # Approach 2: Content similarity matching
+                sql_content = sql_memory.content.lower()
+                for jean_memory in jean_memories:
+                    if str(jean_memory.id) in processed_jean_ids:
+                        continue
+                    
+                    jean_content = jean_memory.content.lower()
+                    
+                    # Simple similarity check - shared words and length similarity
+                    sql_words = set(sql_content.split())
+                    jean_words = set(jean_content.split())
+                    
+                    if len(sql_words) > 2 and len(jean_words) > 2:  # Only for substantial content
+                        shared_words = sql_words.intersection(jean_words)
+                        similarity = len(shared_words) / max(len(sql_words), len(jean_words))
+                        
+                        # High similarity threshold for threading
+                        if similarity > 0.6:
+                            related_memories.append(jean_memory)
+                            processed_jean_ids.add(str(jean_memory.id))
+                            logger.info(f"✅ Found content match (sim={similarity:.2f}): SQL {sql_memory.id} → Jean V2 {jean_memory.id}")
+                            break  # Only take the best match
+                
+                if mem0_id and not related_memories:
+                    logger.info(f"❌ No match found for mem0_id: {mem0_id}")
+                    logger.info(f"🔍 Available Jean V2 IDs: {list(jean_memory_lookup.keys())[:5]}...")  # Show first 5
             
             # If we have related memories, add them to the primary memory's metadata
             if related_memories:
@@ -320,11 +346,20 @@ async def list_memories(
         # Get ALL memories from Jean Memory V2 (increase limit significantly)
         jean_limit = 1000  # Large limit to get all memories
         
-        jean_results = await memory_client.search(
-            query=jean_query,
-            user_id=supabase_user_id_str,
-            limit=jean_limit
-        )
+        # Try get_all for exact memory retrieval (enables threading)
+        # Fallback to search if get_all is not available or fails
+        try:
+            jean_results = await memory_client.get_all(
+                user_id=supabase_user_id_str,
+                limit=jean_limit
+            )
+        except (AttributeError, NotImplementedError):
+            # Fallback to search if get_all method doesn't exist
+            jean_results = await memory_client.search(
+                query=jean_query,
+                user_id=supabase_user_id_str,
+                limit=jean_limit
+            )
         
         # Process Jean Memory V2 results
         jean_memories = []
@@ -375,15 +410,20 @@ async def list_memories(
                 
                 # Generate a proper UUID for Jean Memory V2 results
                 memory_id_raw = jean_mem.get('id', f'jean_v2_{idx}')
+                logger.info(f"🔍 Jean V2 raw ID from search: {memory_id_raw} (type: {type(memory_id_raw)})")
+                
                 if isinstance(memory_id_raw, str) and not memory_id_raw.startswith('jean_v2_'):
                     # Try to parse as UUID first
                     try:
                         memory_id = UUID(memory_id_raw)
+                        logger.info(f"✅ Parsed Jean V2 UUID: {memory_id}")
                     except ValueError:
+                        logger.info(f"❌ Failed to parse UUID: {memory_id_raw}, generating hash-based UUID")
                         # Generate a deterministic UUID based on content
                         content_hash = hashlib.md5(f"{supabase_user_id_str}_{memory_content}_{idx}".encode()).hexdigest()
                         memory_id = UUID(content_hash[:32].ljust(32, '0'))
                 else:
+                    logger.info(f"🆔 Generating new UUID for Jean V2 memory")
                     # Generate a new UUID for Jean Memory V2 results
                     memory_id = uuid4()
                 
@@ -404,7 +444,19 @@ async def list_memories(
                 
                 # Store the original Jean Memory V2 ID for threading
                 enhanced_metadata = metadata.copy() if metadata else {}
-                enhanced_metadata['original_mem0_id'] = memory_id_raw
+                # Try to find the original mem0_id - it could be in metadata or the id field
+                original_mem0_id = memory_id_raw
+                
+                # Check if Jean Memory V2 stores the original SQL mem0_id in their metadata
+                if metadata and 'original_id' in metadata:
+                    original_mem0_id = metadata['original_id']
+                elif metadata and 'source_id' in metadata:
+                    original_mem0_id = metadata['source_id']
+                elif metadata and 'sql_memory_id' in metadata:
+                    original_mem0_id = metadata['sql_memory_id']
+                
+                enhanced_metadata['original_mem0_id'] = str(original_mem0_id)
+                logger.info(f"🔗 Storing Jean V2 memory with original_mem0_id: {original_mem0_id}")
                 
                 jean_response_item = MemoryResponse(
                     id=memory_id,
