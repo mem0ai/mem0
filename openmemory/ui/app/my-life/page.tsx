@@ -86,7 +86,6 @@ export default function MyLifePage() {
           Chat
         </Button>
         */}
-      </div>
 
       {/* Main Content Area */}
       <div className="flex flex-col flex-1 overflow-hidden">
