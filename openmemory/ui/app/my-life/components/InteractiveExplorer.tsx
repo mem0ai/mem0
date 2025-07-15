@@ -14,7 +14,6 @@ import {
   Search, 
   Sparkles,
   MoreHorizontal,
-  Eye,
   Brain,
   Heart,
   Briefcase,
@@ -518,7 +517,6 @@ export default function InteractiveExplorer({ onMemorySelect }: InteractiveExplo
                               style={{ color: node.metadata?.color }}
                             />
                           )}
-                          {node.type === 'memory' && <Eye className="h-4 w-4 text-muted-foreground" />}
                           <CardTitle className="text-sm font-medium leading-tight">
                             {node.title}
                           </CardTitle>
@@ -547,19 +545,6 @@ export default function InteractiveExplorer({ onMemorySelect }: InteractiveExplo
                         </CardDescription>
                       )}
                       
-                      {node.score && (
-                        <div className="flex items-center gap-2 mt-2">
-                          <div className="flex-1 bg-muted rounded-full h-1">
-                            <div 
-                              className="bg-primary h-1 rounded-full transition-all"
-                              style={{ width: `${Math.min(node.score * 100, 100)}%` }}
-                            />
-                          </div>
-                          <span className="text-xs text-muted-foreground">
-                            {Math.round(node.score * 100)}%
-                          </span>
-                        </div>
-                      )}
                     </CardContent>
                   </Card>
                 </motion.div>

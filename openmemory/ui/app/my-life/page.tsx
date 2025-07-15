@@ -24,24 +24,37 @@ export default function MyLifePage() {
 
   return (
     <ProtectedRoute>
-      <div className="h-[calc(100vh-3.5rem)] lg:h-[calc(100vh-3.5rem)] flex flex-col lg:flex-row bg-background text-foreground">
-      {/* View Mode Toggle */}
-      <div className="flex items-center justify-between gap-2 p-2 bg-card border-b border-border">
-        {/* Mobile View Toggle (left side) */}
-        <div className="lg:hidden flex items-center gap-2">
+      <div className="h-[calc(100vh-3.5rem)] lg:h-[calc(100vh-3.5rem)] flex bg-background text-foreground">
+      
+      {/* Vertical Sidebar for View Mode Toggle */}
+      <div className="hidden lg:flex flex-col w-16 bg-card border-r border-border">
+        <div className="flex flex-col gap-2 p-2">
           <Button
-            variant={mobileView === "graph" ? "default" : "ghost"}
+            variant={viewMode === "explorer" ? "default" : "ghost"}
             size="sm"
-            onClick={() => setMobileView("graph")}
-            className="flex items-center gap-2"
+            onClick={() => setViewMode("explorer")}
+            className="flex flex-col items-center gap-1 h-12 w-12"
+            title="Explorer"
           >
-            {viewMode === "explorer" ? <Map className="h-4 w-4" /> : <Network className="h-4 w-4" />}
-            {viewMode === "explorer" ? "Explorer" : "Graph"}
+            <Map className="h-5 w-5" />
+            <span className="text-xs">Explorer</span>
+          </Button>
+          <Button
+            variant={viewMode === "graph" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setViewMode("graph")}
+            className="flex flex-col items-center gap-1 h-12 w-12"
+            title="3D Graph"
+          >
+            <Network className="h-5 w-5" />
+            <span className="text-xs">3D Graph</span>
           </Button>
         </div>
+      </div>
 
-        {/* View Mode Toggle (center/right) */}
-        <div className="flex items-center gap-2">
+      {/* Mobile View Toggle */}
+      <div className="lg:hidden flex flex-col w-full">
+        <div className="flex items-center justify-center gap-2 p-2 bg-card border-b border-border">
           <Button
             variant={viewMode === "explorer" ? "default" : "ghost"}
             size="sm"
@@ -49,7 +62,7 @@ export default function MyLifePage() {
             className="flex items-center gap-2"
           >
             <Map className="h-4 w-4" />
-            <span className="hidden sm:inline">Explorer</span>
+            Explorer
           </Button>
           <Button
             variant={viewMode === "graph" ? "default" : "ghost"}
@@ -58,9 +71,10 @@ export default function MyLifePage() {
             className="flex items-center gap-2"
           >
             <Network className="h-4 w-4" />
-            <span className="hidden sm:inline">3D Graph</span>
+            3D Graph
           </Button>
         </div>
+      </div>
         {/*
         <Button
           variant={mobileView === "chat" ? "default" : "ghost"}
@@ -74,19 +88,15 @@ export default function MyLifePage() {
         */}
       </div>
 
-      {/* Main Content Section */}
-      <motion.div 
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.5 }}
-        className={`
-          ${mobileView === "graph" ? "flex" : "hidden"} 
-          flex-1 relative overflow-hidden 
-          lg:border-r border-border
-          h-[calc(100vh-7rem)] lg:h-full
-          lg:flex
-        `}
-      >
+      {/* Main Content Area */}
+      <div className="flex flex-col flex-1 overflow-hidden">
+        {/* Main Content Section */}
+        <motion.div 
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5 }}
+          className="flex-1 relative overflow-hidden"
+        >
         {viewMode === "graph" && (
           <>
             <div className="absolute inset-0 bg-gradient-to-br from-purple-900/10 via-transparent to-blue-900/10" />
@@ -97,7 +107,8 @@ export default function MyLifePage() {
         {viewMode === "explorer" && (
           <InteractiveExplorer onMemorySelect={setSelectedMemory} />
         )}
-      </motion.div>
+        </motion.div>
+      </div>
 
       {/* Chat Interface Section */}
       {/*

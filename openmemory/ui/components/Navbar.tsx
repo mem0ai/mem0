@@ -67,7 +67,7 @@ export function Navbar() {
   const navLinks = [
     { href: "/dashboard", icon: <HiHome />, label: "Dashboard" },
     { href: "/memories", icon: <HiMiniRectangleStack />, label: "Memories" },
-    { href: "/my-life", icon: <Network className="w-4 h-4" />, label: "Life Graph" },
+    { href: "/my-life", icon: <Network className="w-4 h-4" />, label: "My Life" },
     { href: "/how-to-use-tools", icon: <Info className="w-4 h-4" />, label: "How to Use" },
   ];
 
