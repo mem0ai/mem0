@@ -5,7 +5,7 @@ icon: "file-export"
 iconType: "solid"
 ---
 
-<Snippet file="paper-release.mdx" />
+<Snippet file="security-compliance.mdx" />
 
 ## Overview
 
@@ -109,6 +109,38 @@ response = client.create_memory_export(
 print(response)
 ```
 
+```javascript JavaScript
+// Basic Export request
+const response = await client.createMemoryExport({
+    schema: json_schema,
+    user_id: "alice"
+});
+
+// Export with custom instructions
+const export_instructions = `
+1. Create a comprehensive profile with detailed information in each category
+2. Only mark fields as "None" when absolutely no relevant information exists
+3. Base all information directly on the user's memories
+4. When contradictions exist, prioritize the most recent information
+5. Clearly distinguish between factual statements and inferences
+`;
+
+// For create operation, using only user_id filter as requested
+const filters = {
+    "AND": [
+        {"user_id": "alex"}
+    ]
+}
+
+const responseWithInstructions = await client.createMemoryExport({
+    schema: json_schema,
+    filters: filters,
+    export_instructions: export_instructions
+});
+
+console.log(responseWithInstructions);
+```
+
 ```bash cURL
 curl -X POST "https://api.mem0.ai/v1/memories/export/" \
      -H "Authorization: Token your-api-key" \
@@ -133,6 +165,40 @@ curl -X POST "https://api.mem0.ai/v1/memories/export/" \
 
 Once the export job is complete, you can retrieve the structured data in two ways:
 
+#### Using Export ID
+
+<CodeGroup>
+
+```python Python
+# Retrieve using export ID
+response = client.get_memory_export(memory_export_id="550e8400-e29b-41d4-a716-446655440000")
+print(response)
+```
+
+```javascript JavaScript
+// Retrieve using export ID
+const memory_export_id = "550e8400-e29b-41d4-a716-446655440000";
+
+const response = await client.getMemoryExport({
+    memory_export_id: memory_export_id
+});
+
+console.log(response);
+```
+
+```json Output
+{
+    "full_name": "John Doe",
+    "current_role": "Senior Software Engineer",
+    "years_experience": 8,
+    "employment_status": "full_time",
+    "education_level": "masters",
+    "skills": ["Python", "AWS", "Machine Learning"]
+}
+```
+
+</CodeGroup>
+
 #### Using Filters
 
 <CodeGroup>
@@ -150,27 +216,20 @@ response = client.get_memory_export(filters=filters)
 print(response)
 ```
 
-```json Output
-{
-    "full_name": "John Doe",
-    "current_role": "Senior Software Engineer",
-    "years_experience": 8,
-    "employment_status": "full_time",
-    "education_level": "masters",
-    "skills": ["Python", "AWS", "Machine Learning"]
+```javascript JavaScript
+// Retrieve using filters
+const filters = {
+    "AND": [
+        {"created_at": {"gte": "2024-07-10", "lte": "2024-07-20"}},
+        {"user_id": "alex"}
+    ]
 }
-```
 
-</CodeGroup>
+const response = await client.getMemoryExport({
+    filters: filters
+});
 
-#### Using Export ID
-
-<CodeGroup>
-
-```python Python
-# Retrieve using export ID
-response = client.get_memory_export(memory_export_id="550e8400-e29b-41d4-a716-446655440000")
-print(response)
+console.log(response);
 ```
 
 ```json Output

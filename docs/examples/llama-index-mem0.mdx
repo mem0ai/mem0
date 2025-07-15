@@ -1,7 +1,7 @@
 ---
 title: LlamaIndex ReAct Agent
 ---
-<Snippet file="paper-release.mdx" />
+<Snippet file="security-compliance.mdx" />
 
 Create a ReAct Agent with LlamaIndex which uses Mem0 as the memory store.
 
@@ -22,7 +22,7 @@ os.environ["OPENAI_API_KEY"] = "<your-openai-api-key>"
 llm = OpenAI(model="gpt-4o")
 ```
 
-Initialize the Mem0 client. You can find your API key [here](https://app.mem0.ai/dashboard/). Read about Mem0 [Open Source](https://docs.mem0.ai/open-source/quickstart).
+Initialize the Mem0 client. You can find your API key [here](https://app.mem0.ai/dashboard/api-keys). Read about Mem0 [Open Source](https://docs.mem0.ai/open-source/overview).
 ```python
 os.environ["MEM0_API_KEY"] = "<your-mem0-api-key>"
 
@@ -80,7 +80,7 @@ agent = FunctionCallingAgent.from_tools(
 ```
 
 Start the chat.
-<Note> The agent will use the Mem0 to store the relavant memories from the chat. </Note>
+<Note> The agent will use the Mem0 to store the relevant memories from the chat. </Note>
 
 Input
 ```python
@@ -139,7 +139,7 @@ Added user message to memory: I am feeling hungry, order me something and send m
 === LLM Response ===
 Please let me know your name and the dish you'd like to order, and I'll take care of it for you!
 ```
-<Note> The agent is not able to remember the past prefernces that user shared in previous chats. </Note>
+<Note> The agent is not able to remember the past preferences that user shared in previous chats. </Note>
 
 ### Using the agent WITH memory
 Input
@@ -171,4 +171,4 @@ Emailing... David
 === LLM Response ===
 I've ordered a pizza for you, and the bill has been sent to your email. Enjoy your meal! If there's anything else you need, feel free to let me know.
 ```
-<Note> The agent is able to remember the past prefernces that user shared and use them to perform actions. </Note>
+<Note> The agent is able to remember the past preferences that user shared and use them to perform actions. </Note>

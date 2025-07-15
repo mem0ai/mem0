@@ -3,7 +3,7 @@ title: Development
 icon: "code"
 ---
 
-<Snippet file="paper-release.mdx" />
+<Snippet file="security-compliance.mdx" />
 
 # Development Contributions
 
@@ -31,13 +31,18 @@ For detailed guidance on pull requests, refer to [GitHub's documentation](https:
 
 We use `hatch` as our package manager. Install it by following the [official instructions](https://hatch.pypa.io/latest/install/).
 
-⚠️ **Do NOT use `pip` or `conda` for dependency management.** Instead, run:
+⚠️ **Do NOT use `pip` or `conda` for dependency management.** Instead, follow these steps in order:
 
 ```bash
-make install_all
+# 1. Install base dependencies
+make install
 
-# Activate virtual environment
-hatch shell
+# 2. Activate virtual environment (this will install deps.)
+hatch shell (for default env)
+hatch -e dev_py_3_11 shell (for dev_py_3_11) (differences are mentioned in pyproject.toml)
+
+# 3. Install all optional dependencies
+make install_all
 ```
 
 ---

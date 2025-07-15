@@ -34,96 +34,91 @@ config = {
             "api_key": "vllm-api-key",
             "temperature": 0.7,
             "max_tokens": 100,
-        }
+        },
     },
-    "embedder": {
-        "provider": "openai",
-        "config": {
-            "model": "text-embedding-3-small"
-        }
-    },
+    "embedder": {"provider": "openai", "config": {"model": "text-embedding-3-small"}},
     "vector_store": {
         "provider": "qdrant",
-        "config": {
-            "collection_name": "vllm_memories",
-            "host": "localhost",
-            "port": 6333
-        }
-    }
+        "config": {"collection_name": "vllm_memories", "host": "localhost", "port": 6333},
+    },
 }
+
 
 def main():
     """
     Demonstrate vLLM integration with mem0
     """
     print("--> Initializing mem0 with vLLM...")
-    
+
     # Initialize memory with vLLM
     memory = Memory.from_config(config)
-    
+
     print("--> Memory initialized successfully!")
-    
+
     # Example conversations to store
     conversations = [
         {
             "messages": [
                 {"role": "user", "content": "I love playing chess on weekends"},
-                {"role": "assistant", "content": "That's great! Chess is an excellent strategic game that helps improve critical thinking."}
+                {
+                    "role": "assistant",
+                    "content": "That's great! Chess is an excellent strategic game that helps improve critical thinking.",
+                },
             ],
-            "user_id": "user_123"
+            "user_id": "user_123",
         },
         {
             "messages": [
                 {"role": "user", "content": "I'm learning Python programming"},
-                {"role": "assistant", "content": "Python is a fantastic language for beginners! What specific areas are you focusing on?"}
+                {
+                    "role": "assistant",
+                    "content": "Python is a fantastic language for beginners! What specific areas are you focusing on?",
+                },
             ],
-            "user_id": "user_123"
+            "user_id": "user_123",
         },
         {
             "messages": [
                 {"role": "user", "content": "I prefer working late at night, I'm more productive then"},
-                {"role": "assistant", "content": "Many people find they're more creative and focused during nighttime hours. It's important to maintain a consistent schedule that works for you."}
+                {
+                    "role": "assistant",
+                    "content": "Many people find they're more creative and focused during nighttime hours. It's important to maintain a consistent schedule that works for you.",
+                },
             ],
-            "user_id": "user_123"
-        }
+            "user_id": "user_123",
+        },
     ]
-    
+
     print("\n--> Adding memories using vLLM...")
-    
+
     # Add memories - now powered by vLLM's high-performance inference
     for i, conversation in enumerate(conversations, 1):
-        result = memory.add(
-            messages=conversation["messages"],
-            user_id=conversation["user_id"]
-        )
+        result = memory.add(messages=conversation["messages"], user_id=conversation["user_id"])
         print(f"Memory {i} added: {result}")
-    
+
     print("\n🔍 Searching memories...")
-    
+
     # Search memories - vLLM will process the search and memory operations
     search_queries = [
         "What does the user like to do on weekends?",
         "What is the user learning?",
-        "When is the user most productive?"
+        "When is the user most productive?",
     ]
-    
+
     for query in search_queries:
         print(f"\nQuery: {query}")
-        memories = memory.search(
-            query=query,
-            user_id="user_123"
-        )
-        
+        memories = memory.search(query=query, user_id="user_123")
+
         for memory_item in memories:
             print(f"  - {memory_item['memory']}")
-    
+
     print("\n--> Getting all memories for user...")
     all_memories = memory.get_all(user_id="user_123")
     print(f"Total memories stored: {len(all_memories)}")
-    
+
     for memory_item in all_memories:
         print(f"  - {memory_item['memory']}")
-    
+
     print("\n--> vLLM integration demo completed successfully!")
     print("\nBenefits of using vLLM:")
     print("  -> 2.7x higher throughput compared to standard implementations")

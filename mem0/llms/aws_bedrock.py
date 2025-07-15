@@ -10,7 +10,6 @@ except ImportError:
 
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.llms.base import LLMBase
-from mem0.memory.utils import extract_json
 
 PROVIDERS = ["ai21", "amazon", "anthropic", "cohere", "meta", "mistral", "stability", "writer"]
 
@@ -102,7 +101,7 @@ class AWSBedrockLLM(LLMBase):
             return processed_response
 
         response_body = response.get("body").read().decode()
-        response_json = json.loads(extract_json(response_body))
+        response_json = json.loads(response_body)
         return response_json.get("content", [{"text": ""}])[0].get("text", "")
 
     def _prepare_input(
@@ -190,10 +189,7 @@ class AWSBedrockLLM(LLMBase):
                 }
 
                 for prop, details in function["parameters"].get("properties", {}).items():
-                    new_tool["toolSpec"]["inputSchema"]["json"]["properties"][prop] = {
-                        "type": details.get("type", "string"),
-                        "description": details.get("description", ""),
-                    }
+                    new_tool["toolSpec"]["inputSchema"]["json"]["properties"][prop] = details
 
                 new_tools.append(new_tool)
 

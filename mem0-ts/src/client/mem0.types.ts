@@ -1,3 +1,8 @@
+interface Common {
+  project_id?: string | null;
+  org_id?: string | null;
+}
+
 export interface MemoryOptions {
   api_version?: API_VERSION | string;
   version?: API_VERSION | string;
@@ -25,6 +30,8 @@ export interface MemoryOptions {
   output_format?: string | OutputFormat;
   async_mode?: boolean;
   filter_memories?: boolean;
+  immutable?: boolean;
+  structured_data_schema?: Record<string, any>;
 }
 
 export interface ProjectOptions {
@@ -185,4 +192,15 @@ export interface FeedbackPayload {
   memory_id: string;
   feedback?: Feedback | null;
   feedback_reason?: string | null;
+}
+
+export interface CreateMemoryExportPayload extends Common {
+  schema: Record<string, any>;
+  filters: Record<string, any>;
+  export_instructions?: string;
+}
+
+export interface GetMemoryExportPayload extends Common {
+  filters?: Record<string, any>;
+  memory_export_id?: string;
 }

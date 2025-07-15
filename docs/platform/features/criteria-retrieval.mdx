@@ -4,24 +4,59 @@ icon: "magnifying-glass-plus"
 iconType: "solid"
 ---
 
-<Snippet file="paper-release.mdx" />
+<Snippet file="security-compliance.mdx" />
 
-Mem0's **Criteria Retrieval** feature allows you to retrieve memories based on specific criteria. This is useful when you need to find memories that match certain conditions or criteria, such as emotional content, sentiment, or other custom attributes.
 
-## Setting Up Custom Criteria
+Mem0’s **Criteria Retrieval** feature allows you to retrieve memories based on your defined criteria. It goes beyond generic semantic relevance and rank memories based on what matters to your application - emotional tone, intent, behavioral signals, or other custom traits.
 
-You can define custom criteria at the project level, assigning weights to each criterion. These weights will be normalized during memory retrieval.
+Instead of just searching for "how similar a memory is to this query?", you can define what *relevance* really means for your project. For example:
+
+- Prioritize joyful memories when building a wellness assistant
+- Downrank negative memories in a productivity-focused agent
+- Highlight curiosity in a tutoring agent
+
+You define **criteria** - custom attributes like "joy", "negativity", "confidence", or "urgency", and assign weights to control how they influence scoring. When you `search`, Mem0 uses these to re-rank memories that are semantically relevant, favoring those that better match your intent.
+
+This gives you nuanced, intent-aware memory search that adapts to your use case.
+
+
+
+## When to Use Criteria Retrieval
+
+Use Criteria Retrieval if:
+
+- You’re building an agent that should react to **emotions** or **behavioral signals**
+- You want to guide memory selection based on **context**, not just content
+- You have domain-specific signals like "risk", "positivity", "confidence", etc. that shape recall
+
+
+
+## Setting Up Criteria Retrieval
+
+Let’s walk through how to configure and use Criteria Retrieval step by step.
+
+### Initialize the Client
+
+Before defining any criteria, make sure to initialize the `MemoryClient` with your credentials and project ID:
 
 ```python
 from mem0 import MemoryClient
 
 client = MemoryClient(
-    api_key="mem0_api_key",
-    org_id="mem0_organization_id",
-    project_id="mem0_project_id"
+    api_key="your_mem0_api_key",
+    org_id="your_organization_id",
+    project_id="your_project_id"
 )
+```
 
-# Define custom criteria with weights
+### Define Your Criteria
+
+Each criterion includes:
+- A `name` (used in scoring)
+- A `description` (interpreted by the LLM)
+- A `weight` (how much it influences the final score)
+
+```python
 retrieval_criteria = [
     {
         "name": "joy",
@@ -39,19 +74,26 @@ retrieval_criteria = [
         "weight": 1
     }
 ]
-
-# Update project with custom criteria
-client.update_project(
-    retrieval_criteria=retrieval_criteria
-)
 ```
 
-## Using Criteria Retrieval
+### Apply Criteria to Your Project
+
+Once defined, register the criteria to your project:
+
+```python
+client.project.update(retrieval_criteria=retrieval_criteria)
+```
+
+Criteria apply project-wide. Once set, they affect all searches using `version="v2"`.
+
+
+## Example Walkthrough
 
 After setting up your criteria, you can use them to filter and retrieve memories. Here's an example:
 
+### Add Memories
+
 ```python
-# Add some example memories
 messages = [
     {"role": "user", "content": "What a beautiful sunny day! I feel so refreshed and ready to take on anything!"},
     {"role": "user", "content": "I've always wondered how storms form—what triggers them in the atmosphere?"},
@@ -60,125 +102,112 @@ messages = [
 ]
 
 client.add(messages, user_id="alice")
+```
 
-# Search with criteria-based filtering
+### Run Standard vs. Criteria-Based Search
+
+```python
+# With criteria
 filters = {
     "AND": [
         {"user_id": "alice"}
     ]
 }
 results_with_criteria = client.search(
-    query="Why I am feeling happy today?", 
-    filters=filters, 
+    query="Why I am feeling happy today?",
+    filters=filters,
     version="v2"
 )
 
-# Standard search without criteria filtering
+# Without criteria
 results_without_criteria = client.search(
-    query="Why I am feeling happy today?", 
+    query="Why I am feeling happy today?",
     user_id="alice"
 )
 ```
 
-## Search Results Comparison
-
-Let's compare the results from criteria-based retrieval versus standard retrieval to see how the emotional criteria affects ranking:
+### Compare Results
 
 ### Search Results (with Criteria)
 ```python
 [
-    {
-        "memory": "User feels refreshed and ready to take on anything on a beautiful sunny day",
-        "score": 0.666,
-        ...
-    },
-    {
-        "memory": "User finally has time to draw something after a long time",
-        "score": 0.616,
-        ...
-    },
-    {
-        "memory": "User is happy today",
-        "score": 0.500,
-        ...
-    },
-    {
-        "memory": "User is curious about how storms form and what triggers them in the atmosphere.",
-        "score": 0.400,
-        ...
-    },
-    {
-        "memory": "It has been raining for days, making everything feel heavier.",
-        "score": 0.116,
-        ...
-    }
+    {"memory": "User feels refreshed and ready to take on anything on a beautiful sunny day", "score": 0.666, ...},
+    {"memory": "User finally has time to draw something after a long time", "score": 0.616, ...},
+    {"memory": "User is happy today", "score": 0.500, ...},
+    {"memory": "User is curious about how storms form and what triggers them in the atmosphere.", "score": 0.400, ...},
+    {"memory": "It has been raining for days, making everything feel heavier.", "score": 0.116, ...}
 ]
 ```
 
 ### Search Results (without Criteria)
 ```python
 [
-    {
-        "memory": "User is happy today",
-        "score": 0.607,
-        ...
-    },
-    {
-        "memory": "User feels refreshed and ready to take on anything on a beautiful sunny day",
-        "score": 0.512,
-        ...
-    },
-    {
-        "memory": "It has been raining for days, making everything feel heavier.",
-        "score": 0.4617,
-        ...
-    },
-    {
-        "memory": "User is curious about how storms form and what triggers them in the atmosphere.",
-        "score": 0.340,
-        ...
-    },
-    {
-        "memory": "User finally has time to draw something after a long time",
-        "score": 0.336,
-        ...
-    }
+    {"memory": "User is happy today", "score": 0.607, ...},
+    {"memory": "User feels refreshed and ready to take on anything on a beautiful sunny day", "score": 0.512, ...},
+    {"memory": "It has been raining for days, making everything feel heavier.", "score": 0.4617, ...},
+    {"memory": "User is curious about how storms form and what triggers them in the atmosphere.", "score": 0.340, ...},
+    {"memory": "User finally has time to draw something after a long time", "score": 0.336, ...},
 ]
 ```
 
-Looking at the example results above, we can see how criteria-based filtering affects the output:
+## Search Results Comparison
 
 1. **Memory Ordering**: With criteria, memories with high joy scores (like feeling refreshed and drawing) are ranked higher, while without criteria, the most relevant memory ("User is happy today") comes first.
-
 2. **Score Distribution**: With criteria, scores are more spread out (0.116 to 0.666) and reflect the criteria weights, while without criteria, scores are more clustered (0.336 to 0.607) and based purely on relevance.
+3. **Trait Sensitivity**: “Rainy day” content is penalized due to negative tone. “Storm curiosity” is recognized and scored accordingly.
 
-3. **Negative Content**: With criteria, the negative memory about rain has a much lower score (0.116) due to the emotion criteria, while without criteria it maintains a relatively high score (0.4617) due to its relevance.
 
-4. **Curiosity Content**: The storm-related memory gets a moderate score (0.400) with criteria due to the curiosity weighting, while without criteria it's ranked lower (0.340) as it's less relevant to the happiness query.
 
-## Key Differences
+## Key Differences vs. Standard Search
 
-1. **Scoring**: With criteria, normalized scores (0-1) are used based on custom criteria weights, while without criteria, standard relevance scoring is used
-
-2. **Ordering**: With criteria, memories are first retrieved by relevance, then criteria-based filtering and prioritization is applied, while without criteria, ordering is solely by relevance
-
-3. **Filtering**: With criteria, post-retrieval filtering based on custom criteria (joy, curiosity, etc.) is available, which isn't available without criteria
+| Aspect                  | Standard Search                      | Criteria Retrieval                              |
+|-------------------------|--------------------------------------|-------------------------------------------------|
+| Ranking Logic           | Semantic similarity only             | Semantic + LLM-based criteria scoring           |
+| Control Over Relevance  | None                                 | Fully customizable with weighted criteria       |
+| Memory Reordering       | Static based on similarity           | Dynamically re-ranked by intent alignment       |
+| Emotional Sensitivity   | No tone or trait awareness           | Incorporates emotion, tone, or custom behaviors |
+| Version Required        | Defaults                             | `search(version="v2")`                          |
 
 <Note>
-When no custom criteria are specified, the search will default to standard relevance-based retrieval. In this case, results are returned based solely on their relevance to the query, without any additional filtering or prioritization that would normally be applied through criteria.
+If no criteria are defined for a project, `version="v2"` behaves like normal search.
 </Note>
+
+
+
+## Best Practices
+
+- Choose **3–5 criteria** that reflect your application’s intent
+- Make descriptions **clear and distinct**, those are interpreted by an LLM
+- Use **stronger weights** to amplify impact of important traits
+- Avoid redundant or ambiguous criteria (e.g. “positivity” + “joy”)
+- Always handle empty result sets in your application logic
+
+
 
 ## How It Works
 
-1. **Criteria Definition**: Define custom criteria with names, descriptions, and weights
-2. **Project Configuration**: Apply these criteria at the project level
-3. **Memory Retrieval**: Use v2 search with filters to retrieve memories based on your criteria
-4. **Weighted Scoring**: Memories are scored based on the defined criteria weights
+1. **Criteria Definition**: Define custom criteria with a name, description, and weight. These describe what matters in a memory (e.g., joy, urgency, empathy).
+2. **Project Configuration**: Register these criteria using `project.update()`. They apply at the project level and influence all searches using `version="v2"`.
+3. **Memory Retrieval**: When you perform a search with `version="v2"`, Mem0 first retrieves relevant memories based on the query and your defined criteria.
+4. **Weighted Scoring**: Each retrieved memory is evaluated and scored against the defined criteria and weights.
+
+This lets you prioritize memories that align with your agent’s goals and not just those that look similar to the query.
 
 <Note>
 Criteria retrieval is currently supported only in search v2. Make sure to use `version="v2"` when performing searches with custom criteria.
 </Note>
 
-If you have any questions, please feel free to reach out to us using one of the following methods:
+
+
+## Summary
+
+- Define what “relevant” means using criteria
+- Apply them per project via `project.update()`
+- Use `version="v2"` to activate criteria-aware search
+- Build agents that reason not just with relevance, but **contextual importance**
+
+---
+
+Need help designing or tuning your criteria?
 
 <Snippet file="get-help.mdx" />
