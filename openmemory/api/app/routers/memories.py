@@ -126,6 +126,7 @@ def _group_memories_into_threads(memories: List[MemoryResponse]) -> List[MemoryR
         # Create a lookup of Jean Memory V2 memories by their original mem0 ID
         # We need to store the original Jean Memory V2 ID for matching with SQL mem0_id
         jean_memory_lookup = {}
+        logger.info(f"🔍 Processing {len(jean_memories)} Jean Memory V2 memories for lookup")
         for memory in jean_memories:
             # Store both the generated UUID and try to get original ID from metadata
             jean_memory_lookup[str(memory.id)] = memory
@@ -134,6 +135,13 @@ def _group_memories_into_threads(memories: List[MemoryResponse]) -> List[MemoryR
                 original_id = memory.metadata_.get('original_mem0_id') or memory.metadata_.get('mem0_id')
                 if original_id:
                     jean_memory_lookup[str(original_id)] = memory
+                    logger.info(f"🔗 Jean V2 memory {memory.id} has original_mem0_id: {original_id}")
+                else:
+                    logger.info(f"📝 Jean V2 memory {memory.id} has no original_mem0_id in metadata")
+            else:
+                logger.info(f"📝 Jean V2 memory {memory.id} has no metadata")
+        
+        logger.info(f"🔍 Jean V2 lookup has {len(jean_memory_lookup)} entries")
         
         # Group SQL memories with their related Jean Memory V2 memories
         threaded_memories = []
@@ -144,6 +152,9 @@ def _group_memories_into_threads(memories: List[MemoryResponse]) -> List[MemoryR
             mem0_id = None
             if hasattr(sql_memory, 'metadata_') and sql_memory.metadata_:
                 mem0_id = sql_memory.metadata_.get('mem0_id')
+                logger.info(f"🔍 SQL memory {sql_memory.id} has mem0_id: {mem0_id}")
+            else:
+                logger.info(f"🔍 SQL memory {sql_memory.id} has no metadata or mem0_id")
             
             # Find related Jean Memory V2 memories
             related_memories = []
@@ -151,6 +162,10 @@ def _group_memories_into_threads(memories: List[MemoryResponse]) -> List[MemoryR
                 related_memory = jean_memory_lookup[mem0_id]
                 related_memories.append(related_memory)
                 processed_jean_ids.add(mem0_id)
+                logger.info(f"✅ Found thread match: SQL {sql_memory.id} → Jean V2 {related_memory.id}")
+            elif mem0_id:
+                logger.info(f"❌ No Jean V2 match for mem0_id: {mem0_id}")
+                logger.info(f"🔍 Available Jean V2 IDs: {list(jean_memory_lookup.keys())[:5]}...")  # Show first 5
             
             # If we have related memories, add them to the primary memory's metadata
             if related_memories:
@@ -181,6 +196,9 @@ def _group_memories_into_threads(memories: List[MemoryResponse]) -> List[MemoryR
     
         # Sort by created_at desc to maintain order
         threaded_memories.sort(key=lambda x: x.created_at, reverse=True)
+        
+        logger.info(f"🧵 Threading summary: {len(sql_memories)} SQL + {len(jean_memories)} Jean V2 → {len(threaded_memories)} final")
+        logger.info(f"🧵 Processed {len(processed_jean_ids)} Jean V2 memories in threads")
         
         return threaded_memories
     except Exception as e:
