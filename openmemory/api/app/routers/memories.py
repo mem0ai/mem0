@@ -29,8 +29,7 @@ from app.utils.permissions import check_memory_access_permissions
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/memories", tags=["memories"])
 
-# Create a dummy app UUID for Jean Memory V2 memories
-JEAN_MEMORY_V2_APP_ID = UUID("00000000-0000-0000-0000-000000000001")
+# REMOVED: Jean Memory V2 app ID no longer needed
 
 
 def get_memory_or_404(db: Session, memory_id: UUID, user_id: UUID) -> Memory:
@@ -251,7 +250,6 @@ async def list_memories(
     search_query: Optional[str] = None,
     sort_column: Optional[str] = Query(None, description="Column to sort by (memory, categories, app_name, created_at)"),
     sort_direction: Optional[str] = Query(None, description="Sort direction (asc or desc)"),
-    group_threads: Optional[bool] = Query(False, description="Group related memories into threads using mem0_id linking"),
     db: Session = Depends(get_db)
 ):
     supabase_user_id_str = str(current_supa_user.id)
@@ -335,165 +333,21 @@ async def list_memories(
         for mem in permitted_sql_memories
     ]
     
-    # Also fetch ALL memories from Jean Memory V2 (no pagination)
+    # REMOVED: Jean Memory V2 API call - using SQL database as single source of truth
+    # The SQL database already contains all memories with proper app_id references
     jean_response_items = []
-    try:
-        from app.utils.memory import get_async_memory_client
-        memory_client = await get_async_memory_client()
-        
-        # Use search query if provided, otherwise get recent memories
-        jean_query = search_query if search_query else "memories"
-        # Get ALL memories from Jean Memory V2 (increase limit significantly)
-        jean_limit = 1000  # Large limit to get all memories
-        
-        # Try get_all for exact memory retrieval (enables threading)
-        # Fallback to search if get_all is not available or fails
-        try:
-            jean_results = await memory_client.get_all(
-                user_id=supabase_user_id_str,
-                limit=jean_limit
-            )
-        except (AttributeError, NotImplementedError):
-            # Fallback to search if get_all method doesn't exist
-            jean_results = await memory_client.search(
-                query=jean_query,
-                user_id=supabase_user_id_str,
-                limit=jean_limit
-            )
-        
-        # Process Jean Memory V2 results
-        jean_memories = []
-        if isinstance(jean_results, dict) and 'results' in jean_results:
-            jean_memories = jean_results['results']
-        elif isinstance(jean_results, list):
-            jean_memories = jean_results
-        
-        # Convert Jean Memory V2 results to response format
-        # ONLY INCLUDE ACTUAL USER MEMORIES - Filter out graph-derived content
-        for idx, jean_mem in enumerate(jean_memories):
-            try:
-                # Extract fields with fallbacks
-                memory_content = jean_mem.get('memory', jean_mem.get('content', ''))
-                metadata = jean_mem.get('metadata', {})
-                
-                # FILTER OUT INVALID MEMORIES - Skip search terms and garbage
-                if not memory_content or not isinstance(memory_content, str):
-                    continue
-                
-                memory_content = memory_content.strip()
-                
-                # Skip obvious invalid data (but allow all valid user memories)
-                if not memory_content.strip():
-                    continue
-                
-                # ONLY INCLUDE MEMORIES FROM USER SOURCES (not graph-derived)
-                # Check metadata to see if this is a real user memory vs graph-generated content
-                source_app = metadata.get('app_name', '')
-                created_via = metadata.get('created_via', '')
-                
-                # FIXED: Allow Jean Memory V2 memories through - they are user memories with ontology enhancement
-                # Skip if this looks like graph-derived content rather than user input
-                if (source_app.lower() in ['system', 'auto_generated'] or
-                    created_via.lower() in ['auto', 'system_generated']):
-                    logger.info(f"🚫 Skipping auto-generated content: '{memory_content[:30]}...'")
-                    continue
-                    
-                # ALLOW Jean Memory V2 and jean memory through - these are enhanced user memories
-                if 'jean memory' in source_app.lower():
-                    logger.info(f"✅ Including Jean Memory V2 enhanced memory: '{memory_content[:30]}...'")
-                    pass  # Allow it through
-                
-                # Skip very short content that's likely not a real memory
-                if len(memory_content) < 10:
-                    logger.info(f"🚫 Skipping too short: '{memory_content}'")
-                    continue
-                
-                # Generate a proper UUID for Jean Memory V2 results
-                memory_id_raw = jean_mem.get('id', f'jean_v2_{idx}')
-                logger.info(f"🔍 Jean V2 raw ID from search: {memory_id_raw} (type: {type(memory_id_raw)})")
-                
-                if isinstance(memory_id_raw, str) and not memory_id_raw.startswith('jean_v2_'):
-                    # Try to parse as UUID first
-                    try:
-                        memory_id = UUID(memory_id_raw)
-                        logger.info(f"✅ Parsed Jean V2 UUID: {memory_id}")
-                    except ValueError:
-                        logger.info(f"❌ Failed to parse UUID: {memory_id_raw}, generating hash-based UUID")
-                        # Generate a deterministic UUID based on content
-                        content_hash = hashlib.md5(f"{supabase_user_id_str}_{memory_content}_{idx}".encode()).hexdigest()
-                        memory_id = UUID(content_hash[:32].ljust(32, '0'))
-                else:
-                    logger.info(f"🆔 Generating new UUID for Jean V2 memory")
-                    # Generate a new UUID for Jean Memory V2 results
-                    memory_id = uuid4()
-                
-                created_at = jean_mem.get('created_at')
-                metadata = jean_mem.get('metadata', {})
-                
-                # Parse created_at if it's a string
-                if isinstance(created_at, str):
-                    try:
-                        created_at = datetime.datetime.fromisoformat(created_at.replace('Z', '+00:00'))
-                    except:
-                        created_at = datetime.datetime.now(UTC)
-                elif not created_at:
-                    created_at = datetime.datetime.now(UTC)
-                
-                # Get app info from metadata
-                app_name = metadata.get('app_name', 'Jean Memory V2')
-                
-                # Store the original Jean Memory V2 ID for threading
-                enhanced_metadata = metadata.copy() if metadata else {}
-                # Try to find the original mem0_id - it could be in metadata or the id field
-                original_mem0_id = memory_id_raw
-                
-                # Check if Jean Memory V2 stores the original SQL mem0_id in their metadata
-                if metadata and 'original_id' in metadata:
-                    original_mem0_id = metadata['original_id']
-                elif metadata and 'source_id' in metadata:
-                    original_mem0_id = metadata['source_id']
-                elif metadata and 'sql_memory_id' in metadata:
-                    original_mem0_id = metadata['sql_memory_id']
-                
-                enhanced_metadata['original_mem0_id'] = str(original_mem0_id)
-                logger.info(f"🔗 Storing Jean V2 memory with original_mem0_id: {original_mem0_id}")
-                
-                jean_response_item = MemoryResponse(
-                    id=memory_id,
-                    content=memory_content,
-                    created_at=created_at,
-                    state='active',  # Jean Memory V2 memories are active
-                    app_id=JEAN_MEMORY_V2_APP_ID,  # Use dummy app ID for validation
-                    app_name=app_name,
-                    categories=[],  # Categories could be extracted from metadata if needed
-                    metadata_=enhanced_metadata
-                )
-                jean_response_items.append(jean_response_item)
-                logger.info(f"✅ Added valid Jean Memory V2 result: '{memory_content[:50]}...'")
-                
-            except Exception as e:
-                logger.error(f"Error processing Jean Memory V2 result: {e}")
-                continue
-        
-        logger.info(f"✅ Retrieved {len(jean_response_items)} Jean Memory V2 memories")
-        
-    except Exception as e:
-        logger.error(f"⚠️ Failed to fetch from Jean Memory V2: {e}")
-        logger.info("✅ Using SQL memories only")
 
-    # Combine ALL results (no pagination)
-    all_response_items = sql_response_items + jean_response_items
+    # Use SQL results only
+    all_response_items = sql_response_items
     
     # Sort combined results by created_at desc (most recent first)
     all_response_items.sort(key=lambda x: x.created_at, reverse=True)
     
-    logger.info(f"✅ Retrieved {len(sql_response_items)} SQL + {len(jean_response_items)} Jean Memory V2 memories")
+    logger.info(f"✅ Retrieved {len(sql_response_items)} memories from database")
     logger.info(f"📊 Total memories: {len(all_response_items)}")
 
-    # Apply memory threading if requested
-    if group_threads:
-        all_response_items = _group_memories_into_threads(all_response_items)
-        logger.info(f"🧵 Grouped memories into threads, final count: {len(all_response_items)}")
+    # REMOVED: Threading not needed when using single data source
+    # All memories come from SQL database with proper app_id references
 
     return all_response_items
 
