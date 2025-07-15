@@ -120,8 +120,9 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
       if (filters?.apps) {
         filters.apps.forEach(appId => params.append('app_id', appId));
       }
-      if (filters?.categories) {
-        filters.categories.forEach(catId => params.append('category_id', catId));
+      if (filters?.categories && filters.categories.length > 0) {
+        // Backend expects a comma-separated string of category names
+        params.append('categories', filters.categories.join(','));
       }
       if (filters?.sortColumn) params.append('sort_column', filters.sortColumn.toLowerCase());
       if (filters?.sortDirection) params.append('sort_direction', filters.sortDirection);

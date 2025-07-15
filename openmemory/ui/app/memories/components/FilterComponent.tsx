@@ -117,14 +117,13 @@ export default function FilterComponent({ onFilterChange }: { onFilterChange: ()
 
   const handleApplyFilters = async () => {
     try {
-      // Get category IDs for selected category names
-      const selectedCategoryIds = categories
-        .filter((cat) => tempSelectedCategories.includes(cat.name))
-        .map((cat) => cat.id);
+      // Use category names directly instead of converting to IDs
+      // The backend expects category names, not IDs
+      const selectedCategoryNames = tempSelectedCategories;
 
       // Update the global state with temporary selections
       dispatch(setSelectedApps(tempSelectedApps));
-      dispatch(setSelectedCategories(selectedCategoryIds));
+      dispatch(setSelectedCategories(selectedCategoryNames));
       dispatch({ type: "filters/setShowArchived", payload: showArchived });
 
       await onFilterChange();
