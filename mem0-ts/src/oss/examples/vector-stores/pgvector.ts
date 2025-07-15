@@ -25,6 +25,14 @@ export async function demoPGVector() {
         port: parseInt(process.env.PGVECTOR_PORT || "5432"),
         embeddingModelDims: 1536,
         hnsw: true,
+        // Connection pool configuration
+        maxConnections: 20,
+        connectionTimeoutMs: 30000,
+        idleTimeoutMs: 10000,
+        // Retry configuration
+        maxRetries: 3,
+        retryDelayMs: 1000,
+        retryBackoffFactor: 2,
       },
     },
     llm: {

@@ -3,7 +3,7 @@ import { demoMemoryStore } from "./memory";
 import { demoSupabase } from "./supabase";
 // import { demoQdrant } from "./qdrant";
 // import { demoRedis } from "./redis";
-// import { demoPGVector } from "./pgvector";
+import { demoPGVector } from "./pgvector";
 
 // Load environment variables
 dotenv.config();
@@ -18,7 +18,7 @@ async function main() {
     // Uncomment these as they are implemented
     // qdrant: demoQdrant,
     // redis: demoRedis,
-    // pgvector: demoPGVector,
+    pgvector: demoPGVector,
   };
 
   if (selectedStore) {
