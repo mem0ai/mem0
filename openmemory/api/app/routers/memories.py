@@ -99,6 +99,95 @@ def get_accessible_memory_ids(db: Session, app_id: UUID) -> Set[UUID]:
     return allowed_memory_ids
 
 
+def _group_memories_into_threads(memories: List[MemoryResponse]) -> List[MemoryResponse]:
+    """
+    Group related memories into threads using mem0_id linking.
+    
+    SQL memories with mem0_id will be grouped with their corresponding 
+    Jean Memory V2 enhanced memories. Returns primary memories with
+    related memories appended as a special 'thread_memories' field.
+    """
+    try:
+        if not memories:
+            return memories
+        
+        # Separate SQL and Jean Memory V2 memories
+        sql_memories = []
+        jean_memories = []
+        
+        for memory in memories:
+            # Check if it's a Jean Memory V2 memory (has the dummy app_id or specific app_name pattern)
+            if (hasattr(memory, 'app_name') and 
+                ('Jean Memory V2' in memory.app_name or 'jean memory' in memory.app_name.lower())):
+                jean_memories.append(memory)
+            else:
+                sql_memories.append(memory)
+        
+        # Create a lookup of Jean Memory V2 memories by their original mem0 ID
+        # We need to store the original Jean Memory V2 ID for matching with SQL mem0_id
+        jean_memory_lookup = {}
+        for memory in jean_memories:
+            # Store both the generated UUID and try to get original ID from metadata
+            jean_memory_lookup[str(memory.id)] = memory
+            # Also try to find the original Jean Memory V2 ID if stored in metadata
+            if hasattr(memory, 'metadata_') and memory.metadata_:
+                original_id = memory.metadata_.get('original_mem0_id') or memory.metadata_.get('mem0_id')
+                if original_id:
+                    jean_memory_lookup[str(original_id)] = memory
+        
+        # Group SQL memories with their related Jean Memory V2 memories
+        threaded_memories = []
+        processed_jean_ids = set()
+        
+        for sql_memory in sql_memories:
+            # Check if this SQL memory has a mem0_id that links to Jean Memory V2
+            mem0_id = None
+            if hasattr(sql_memory, 'metadata_') and sql_memory.metadata_:
+                mem0_id = sql_memory.metadata_.get('mem0_id')
+            
+            # Find related Jean Memory V2 memories
+            related_memories = []
+            if mem0_id and mem0_id in jean_memory_lookup:
+                related_memory = jean_memory_lookup[mem0_id]
+                related_memories.append(related_memory)
+                processed_jean_ids.add(mem0_id)
+            
+            # If we have related memories, add them to the primary memory's metadata
+            if related_memories:
+                # Create a copy of the memory with thread info
+                memory_dict = sql_memory.model_dump() if hasattr(sql_memory, 'model_dump') else sql_memory.__dict__.copy()
+                if 'metadata_' not in memory_dict or memory_dict['metadata_'] is None:
+                    memory_dict['metadata_'] = {}
+                
+                # Add thread information to metadata
+                memory_dict['metadata_']['thread_memories'] = [
+                    mem.model_dump() if hasattr(mem, 'model_dump') else mem.__dict__ 
+                    for mem in related_memories
+                ]
+                memory_dict['metadata_']['is_threaded'] = True
+                memory_dict['metadata_']['thread_count'] = len(related_memories)
+                
+                # Create new MemoryResponse with updated metadata
+                threaded_memory = MemoryResponse(**memory_dict)
+                threaded_memories.append(threaded_memory)
+            else:
+                # No related memories, add as-is
+                threaded_memories.append(sql_memory)
+        
+        # Add any unprocessed Jean Memory V2 memories (orphaned ones)
+        for jean_memory in jean_memories:
+            if str(jean_memory.id) not in processed_jean_ids:
+                threaded_memories.append(jean_memory)
+    
+        # Sort by created_at desc to maintain order
+        threaded_memories.sort(key=lambda x: x.created_at, reverse=True)
+        
+        return threaded_memories
+    except Exception as e:
+        logger.error(f"🧵 Threading failed with error: {e}")
+        return memories  # Return original memories if threading fails
+
+
 # List all memories with filtering (no pagination)
 @router.get("/", response_model=List[MemoryResponse])
 async def list_memories(
@@ -118,6 +207,7 @@ async def list_memories(
     search_query: Optional[str] = None,
     sort_column: Optional[str] = Query(None, description="Column to sort by (memory, categories, app_name, created_at)"),
     sort_direction: Optional[str] = Query(None, description="Sort direction (asc or desc)"),
+    group_threads: Optional[bool] = Query(False, description="Group related memories into threads using mem0_id linking"),
     db: Session = Depends(get_db)
 ):
     supabase_user_id_str = str(current_supa_user.id)
@@ -294,6 +384,10 @@ async def list_memories(
                 # Get app info from metadata
                 app_name = metadata.get('app_name', 'Jean Memory V2')
                 
+                # Store the original Jean Memory V2 ID for threading
+                enhanced_metadata = metadata.copy() if metadata else {}
+                enhanced_metadata['original_mem0_id'] = memory_id_raw
+                
                 jean_response_item = MemoryResponse(
                     id=memory_id,
                     content=memory_content,
@@ -302,7 +396,7 @@ async def list_memories(
                     app_id=JEAN_MEMORY_V2_APP_ID,  # Use dummy app ID for validation
                     app_name=app_name,
                     categories=[],  # Categories could be extracted from metadata if needed
-                    metadata_=metadata
+                    metadata_=enhanced_metadata
                 )
                 jean_response_items.append(jean_response_item)
                 logger.info(f"✅ Added valid Jean Memory V2 result: '{memory_content[:50]}...'")
@@ -325,6 +419,11 @@ async def list_memories(
     
     logger.info(f"✅ Retrieved {len(sql_response_items)} SQL + {len(jean_response_items)} Jean Memory V2 memories")
     logger.info(f"📊 Total memories: {len(all_response_items)}")
+
+    # Apply memory threading if requested
+    if group_threads:
+        all_response_items = _group_memories_into_threads(all_response_items)
+        logger.info(f"🧵 Grouped memories into threads, final count: {len(all_response_items)}")
 
     return all_response_items
 
@@ -370,8 +469,8 @@ async def get_user_narrative(
     # Check for existing cached narrative
     narrative = db.query(UserNarrative).filter(UserNarrative.user_id == user.id).first()
     
-    # Check if narrative is fresh (within 7 days) - TEMPORARILY DISABLED FOR DEBUG
-    if False and narrative:  # <-- Disabled to force regeneration
+    # Check if narrative is fresh (within 7 days) - RE-ENABLED CACHING
+    if narrative:  # Re-enabled to serve cached narratives
         now = datetime.datetime.now(narrative.generated_at.tzinfo or UTC)
         age_days = (now - narrative.generated_at).days
         

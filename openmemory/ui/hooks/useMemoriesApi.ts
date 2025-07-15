@@ -67,6 +67,7 @@ interface UseMemoriesApiReturn {
       sortColumn?: string;
       sortDirection?: 'asc' | 'desc';
       showArchived?: boolean;
+      groupThreads?: boolean;
     }
   ) => Promise<{ memories: Memory[]; total: number }>;
   fetchMemoryById: (memoryId: string) => Promise<void>;
@@ -103,6 +104,7 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
       sortColumn?: string;
       sortDirection?: 'asc' | 'desc';
       showArchived?: boolean;
+      groupThreads?: boolean;
     }
   ): Promise<{ memories: Memory[], total: number }> => {
     if (!user_id) {
@@ -124,6 +126,7 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
       if (filters?.sortColumn) params.append('sort_column', filters.sortColumn.toLowerCase());
       if (filters?.sortDirection) params.append('sort_direction', filters.sortDirection);
       if (filters?.showArchived) params.append('show_archived', String(filters.showArchived));
+      if (filters?.groupThreads) params.append('group_threads', String(filters.groupThreads));
 
       const response = await apiClient.get<ApiResponse>(
         `/api/v1/memories/`,

@@ -37,19 +37,18 @@ export default function MemoriesPage() {
       const searchQuery = searchParams.get("search") || "";
       const result = await fetchMemories(
         searchQuery,
-        currentPage,
-        itemsPerPage,
         {
           apps: filters.selectedApps,
           categories: filters.selectedCategories,
           sortColumn: filters.sortColumn,
           sortDirection: filters.sortDirection,
           showArchived: filters.showArchived,
+          groupThreads: true, // Enable threading for memories page
         }
       );
       setMemories(result.memories);
       setTotalItems(result.total);
-      setTotalPages(result.pages);
+      setTotalPages(Math.ceil(result.total / itemsPerPage));
     } catch (error) {
       console.error("Failed to fetch memories:", error);
     }
