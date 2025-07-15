@@ -10,6 +10,7 @@ You need MEM0_API_KEY and OPENAI_API_KEY to run the example.
 import asyncio
 from datetime import datetime
 from dotenv import load_dotenv
+import logging
 
 # LlamaIndex imports
 from llama_index.core.agent.workflow import AgentWorkflow, FunctionAgent
@@ -20,9 +21,20 @@ from llama_index.core.tools import FunctionTool
 from llama_index.memory.mem0 import Mem0Memory
 
 import warnings
-warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 load_dotenv()
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('learning_system.log')
+    ]
+)
+logger = logging.getLogger(__name__)
+
 
 
 class MultiAgentLearningSystem:
@@ -182,27 +194,27 @@ async def run_learning_agent():
     learning_system = MultiAgentLearningSystem(student_id="Alexander")
 
     # First session
-    print("Session 1:")
+    logger.info("Session 1:")
     response = await learning_system.start_learning_session(
         "Vision Language Models",
         "I'm new to machine learning but I have good hold on Python and have 4 years of work experience.")
-    print(response)
+    logger.info(response)
 
     # Second session - multi-agent memory will remember the first
-    print("\nSession 2:")
+    logger.info("\nSession 2:")
     response2 = await learning_system.start_learning_session(
         "Machine Learning", "what all did I cover so far?")
-    print(response2)
+    logger.info(response2)
 
     # Show what the multi-agent system remembers
-    print("\nLearning History:")
+    logger.info("\nLearning History:")
     history = await learning_system.get_learning_history()
-    print(history)
+    logger.info(history)
 
 
 if __name__ == "__main__":
     """Run the example"""
-    print("Multi-agent Learning System powered by LlamaIndex and Mem0")
+    logger.info("Multi-agent Learning System powered by LlamaIndex and Mem0")
 
     async def main():
         await run_learning_agent()
