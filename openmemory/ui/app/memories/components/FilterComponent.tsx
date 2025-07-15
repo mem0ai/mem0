@@ -33,7 +33,7 @@ import {
   setSelectedCategories,
   clearFilters,
 } from "@/store/filtersSlice";
-import { useMemoriesApi } from "@/hooks/useMemoriesApi";
+import SourceApp from "@/components/shared/source-app";
 
 const columns = [
   {
@@ -54,7 +54,6 @@ export default function FilterComponent({ onFilterChange }: { onFilterChange: ()
   const dispatch = useDispatch();
   const { fetchApps } = useAppsApi();
   const { fetchCategories, updateSort } = useFiltersApi();
-  const { fetchMemories } = useMemoriesApi();
   const [isOpen, setIsOpen] = useState(false);
   const [tempSelectedApps, setTempSelectedApps] = useState<string[]>([]);
   const [tempSelectedCategories, setTempSelectedCategories] = useState<
@@ -217,85 +216,89 @@ export default function FilterComponent({ onFilterChange }: { onFilterChange: ()
               </TabsTrigger>
             </TabsList>
             <TabsContent value="apps" className="mt-4">
-              <div className="space-y-3">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="select-all-apps"
-                    checked={
-                      apps.length > 0 && tempSelectedApps.length === apps.length
-                    }
-                    onCheckedChange={(checked) =>
-                      toggleAllApps(checked as boolean)
-                    }
-                    className="border-zinc-600 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-                  />
-                  <Label
-                    htmlFor="select-all-apps"
-                    className="text-sm font-normal text-zinc-300 cursor-pointer"
-                  >
-                    Select All
-                  </Label>
-                </div>
-                {apps.map((app) => (
-                  <div key={app.id} className="flex items-center space-x-2">
+              <div className="max-h-64 overflow-y-auto">
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2">
                     <Checkbox
-                      id={`app-${app.id}`}
-                      checked={tempSelectedApps.includes(app.id)}
-                      onCheckedChange={() => toggleAppFilter(app.id)}
-                      className="border-zinc-600 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-                    />
-                    <Label
-                      htmlFor={`app-${app.id}`}
-                      className="text-sm font-normal text-zinc-300 cursor-pointer"
-                    >
-                      {app.name}
-                    </Label>
-                  </div>
-                ))}
-              </div>
-            </TabsContent>
-            <TabsContent value="categories" className="mt-4">
-              <div className="space-y-3">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="select-all-categories"
-                    checked={
-                      categories.length > 0 &&
-                      tempSelectedCategories.length === categories.length
-                    }
-                    onCheckedChange={(checked) =>
-                      toggleAllCategories(checked as boolean)
-                    }
-                    className="border-zinc-600 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-                  />
-                  <Label
-                    htmlFor="select-all-categories"
-                    className="text-sm font-normal text-zinc-300 cursor-pointer"
-                  >
-                    Select All
-                  </Label>
-                </div>
-                {categories.map((category) => (
-                  <div
-                    key={category.name}
-                    className="flex items-center space-x-2"
-                  >
-                    <Checkbox
-                      id={`category-${category.name}`}
-                      checked={tempSelectedCategories.includes(category.name)}
-                      onCheckedChange={() =>
-                        toggleCategoryFilter(category.name)
+                      id="select-all-apps"
+                      checked={
+                        apps.length > 0 && tempSelectedApps.length === apps.length
+                      }
+                      onCheckedChange={(checked) =>
+                        toggleAllApps(checked as boolean)
                       }
                       className="border-zinc-600 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                     />
                     <Label
-                      htmlFor={`category-${category.name}`}
+                      htmlFor="select-all-apps"
                       className="text-sm font-normal text-zinc-300 cursor-pointer"
                     >
-                      {category.name}
+                      Select All
                     </Label>
                   </div>
-                ))}
+                  {apps.map((app) => (
+                    <div key={app.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`app-${app.id}`}
+                        checked={tempSelectedApps.includes(app.id)}
+                        onCheckedChange={() => toggleAppFilter(app.id)}
+                        className="border-zinc-600 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                      />
+                      <Label
+                        htmlFor={`app-${app.id}`}
+                        className="text-sm font-normal text-zinc-300 cursor-pointer flex-1"
+                      >
+                        <SourceApp source={app.name} />
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </TabsContent>
+            <TabsContent value="categories" className="mt-4">
+              <div className="max-h-64 overflow-y-auto">
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="select-all-categories"
+                      checked={
+                        categories.length > 0 &&
+                        tempSelectedCategories.length === categories.length
+                      }
+                      onCheckedChange={(checked) =>
+                        toggleAllCategories(checked as boolean)
+                      }
+                      className="border-zinc-600 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                    />
+                    <Label
+                      htmlFor="select-all-categories"
+                      className="text-sm font-normal text-zinc-300 cursor-pointer"
+                    >
+                      Select All
+                    </Label>
+                  </div>
+                  {categories.map((category) => (
+                    <div
+                      key={category.name}
+                      className="flex items-center space-x-2"
+                    >
+                      <Checkbox
+                        id={`category-${category.name}`}
+                        checked={tempSelectedCategories.includes(category.name)}
+                        onCheckedChange={() =>
+                          toggleCategoryFilter(category.name)
+                        }
+                        className="border-zinc-600 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                      />
+                      <Label
+                        htmlFor={`category-${category.name}`}
+                        className="text-sm font-normal text-zinc-300 cursor-pointer flex-1"
+                      >
+                        {category.name || category.id || 'Unknown Category'}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
               </div>
             </TabsContent>
             <TabsContent value="archived" className="mt-4">
