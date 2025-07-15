@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import KnowledgeGraph from "./components/KnowledgeGraph";
+import InteractiveExplorer from "./components/InteractiveExplorer";
 // import ChatInterface from "./components/ChatInterface";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Network } from "lucide-react";
+import { MessageSquare, Network, Map, RotateCcw } from "lucide-react";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 /*
 import {
@@ -18,22 +19,48 @@ import {
 export default function MyLifePage() {
   const [selectedMemory, setSelectedMemory] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<"graph" | "chat">("graph");
+  const [viewMode, setViewMode] = useState<"explorer" | "graph">("explorer");
   const [isChatOpen, setIsChatOpen] = useState(true);
 
   return (
     <ProtectedRoute>
       <div className="h-[calc(100vh-3.5rem)] lg:h-[calc(100vh-3.5rem)] flex flex-col lg:flex-row bg-background text-foreground">
-      {/* Mobile Toggle */}
-      <div className="lg:hidden flex items-center justify-center gap-2 p-2 bg-card border-b border-border">
-        <Button
-          variant={mobileView === "graph" ? "default" : "ghost"}
-          size="sm"
-          onClick={() => setMobileView("graph")}
-          className="flex items-center gap-2"
-        >
-          <Network className="h-4 w-4" />
-          Graph
-        </Button>
+      {/* View Mode Toggle */}
+      <div className="flex items-center justify-between gap-2 p-2 bg-card border-b border-border">
+        {/* Mobile View Toggle (left side) */}
+        <div className="lg:hidden flex items-center gap-2">
+          <Button
+            variant={mobileView === "graph" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setMobileView("graph")}
+            className="flex items-center gap-2"
+          >
+            {viewMode === "explorer" ? <Map className="h-4 w-4" /> : <Network className="h-4 w-4" />}
+            {viewMode === "explorer" ? "Explorer" : "Graph"}
+          </Button>
+        </div>
+
+        {/* View Mode Toggle (center/right) */}
+        <div className="flex items-center gap-2">
+          <Button
+            variant={viewMode === "explorer" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setViewMode("explorer")}
+            className="flex items-center gap-2"
+          >
+            <Map className="h-4 w-4" />
+            <span className="hidden sm:inline">Explorer</span>
+          </Button>
+          <Button
+            variant={viewMode === "graph" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setViewMode("graph")}
+            className="flex items-center gap-2"
+          >
+            <Network className="h-4 w-4" />
+            <span className="hidden sm:inline">3D Graph</span>
+          </Button>
+        </div>
         {/*
         <Button
           variant={mobileView === "chat" ? "default" : "ghost"}
@@ -47,7 +74,7 @@ export default function MyLifePage() {
         */}
       </div>
 
-      {/* Knowledge Graph Section */}
+      {/* Main Content Section */}
       <motion.div 
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
@@ -60,8 +87,16 @@ export default function MyLifePage() {
           lg:flex
         `}
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-900/10 via-transparent to-blue-900/10" />
-        <KnowledgeGraph onMemorySelect={setSelectedMemory} />
+        {viewMode === "graph" && (
+          <>
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-900/10 via-transparent to-blue-900/10" />
+            <KnowledgeGraph onMemorySelect={setSelectedMemory} />
+          </>
+        )}
+        
+        {viewMode === "explorer" && (
+          <InteractiveExplorer onMemorySelect={setSelectedMemory} />
+        )}
       </motion.div>
 
       {/* Chat Interface Section */}

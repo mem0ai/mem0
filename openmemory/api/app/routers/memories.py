@@ -798,6 +798,325 @@ async def get_life_graph_data(
         )
 
 
+# ITERATIVE EXPLORER ENDPOINTS FOR /MY-LIFE PAGE
+
+@router.post("/life-graph-expand")
+async def expand_graph_node(
+    request_data: dict,
+    current_supa_user: SupabaseUser = Depends(get_current_supa_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Expand a specific node in the life graph using focused search.
+    This endpoint enables iterative exploration by performing targeted searches
+    around a specific node or topic.
+    """
+    supabase_user_id_str = str(current_supa_user.id)
+    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
+    
+    # Extract parameters
+    focal_node_id = request_data.get('focal_node_id')
+    query = request_data.get('query', '')
+    depth = request_data.get('depth', 1)
+    strategy = request_data.get('strategy', 'NODE_HYBRID_SEARCH_NODE_DISTANCE')
+    limit = request_data.get('limit', 20)
+    
+    logger.info(f"🔍 Graph expansion: node={focal_node_id}, query='{query}', strategy={strategy}")
+    
+    try:
+        # Use the working memory client (same as life-graph-data)
+        from app.utils.memory import get_async_memory_client
+        memory_client = await get_async_memory_client()
+        
+        # Create focused search query
+        if not query.strip():
+            query = "related memories connected topics similar experiences"
+        
+        # Add context for focused search
+        focused_query = f"{query} related to {focal_node_id}" if focal_node_id else query
+        
+        # Search for related memories
+        memory_results = await memory_client.search(
+            query=focused_query,
+            user_id=supabase_user_id_str,
+            limit=limit
+        )
+        
+        # Process results into graph structure
+        nodes = []
+        edges = []
+        clusters = []
+        
+        if hasattr(memory_results, '__iter__'):
+            for i, memory in enumerate(memory_results):
+                if hasattr(memory, 'get'):
+                    content = memory.get('memory', memory.get('content', ''))
+                    memory_id = memory.get('id', f"expanded_{i}")
+                    score = memory.get('score', 0.5)
+                else:
+                    content = str(memory)
+                    memory_id = f"expanded_{i}"
+                    score = 0.5
+                
+                node = {
+                    'id': memory_id,
+                    'content': content,
+                    'type': 'memory',
+                    'score': score,
+                    'source': 'expansion',
+                    'parent_node': focal_node_id,
+                    'metadata': getattr(memory, 'metadata', {}) if hasattr(memory, 'metadata') else {}
+                }
+                nodes.append(node)
+                
+                # Create edge to parent node if specified
+                if focal_node_id:
+                    edges.append({
+                        'source': focal_node_id,
+                        'target': memory_id,
+                        'type': 'expansion',
+                        'weight': score
+                    })
+        
+        expansion_data = {
+            'nodes': nodes,
+            'edges': edges,
+            'clusters': clusters,
+            'metadata': {
+                'focal_node_id': focal_node_id,
+                'query': query,
+                'strategy': strategy,
+                'depth': depth,
+                'total_results': len(nodes),
+                'expansion_type': 'focused_search'
+            }
+        }
+        
+        logger.info(f"✅ Graph expansion complete: {len(nodes)} new nodes, {len(edges)} edges")
+        
+        return expansion_data
+        
+    except Exception as e:
+        logger.error(f"Graph expansion failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Graph expansion failed: {str(e)}"
+        )
+
+
+@router.post("/life-graph-suggest")
+async def suggest_next_exploration(
+    request_data: dict,
+    current_supa_user: SupabaseUser = Depends(get_current_supa_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Generate AI-powered suggestions for next exploration areas in the life graph.
+    Uses Gemini AI to analyze current exploration path and suggest relevant areas.
+    """
+    supabase_user_id_str = str(current_supa_user.id)
+    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
+    
+    # Extract parameters
+    current_path = request_data.get('current_path', [])
+    current_node = request_data.get('current_node', '')
+    context = request_data.get('context', '')
+    
+    logger.info(f"🤖 Generating exploration suggestions for path: {current_path}")
+    
+    try:
+        # Use Gemini for intelligent suggestions
+        from app.utils.gemini import create_gemini_client
+        gemini_client = create_gemini_client()
+        
+        # Create context prompt
+        path_context = " → ".join(current_path) if current_path else "Life Overview"
+        
+        prompt = f"""Based on the current exploration path: {path_context}
+Current focus: {current_node}
+Additional context: {context}
+
+Suggest 3-5 meaningful areas for further exploration in this person's life graph. 
+Focus on:
+1. Related people, places, or topics that would naturally connect
+2. Different time periods that might show growth or change
+3. Contrasting or complementary experiences
+4. Goals, outcomes, or lessons learned
+
+Return suggestions as a JSON array with this format:
+[
+  {{
+    "title": "Short descriptive title",
+    "description": "Brief explanation of why this would be interesting",
+    "query": "Search query to use for this exploration",
+    "type": "people|places|topics|temporal|outcomes"
+  }}
+]
+
+Keep suggestions concise and actionable."""
+
+        response = await gemini_client.generate_content_async(prompt)
+        response_text = response.text.strip()
+        
+        # Try to parse JSON response
+        import json
+        try:
+            suggestions = json.loads(response_text)
+        except json.JSONDecodeError:
+            # Fallback to structured suggestions if JSON parsing fails
+            suggestions = [
+                {
+                    "title": "Related People",
+                    "description": "Explore connections with people mentioned in this context",
+                    "query": f"people relationships connected to {current_node}",
+                    "type": "people"
+                },
+                {
+                    "title": "Similar Experiences",
+                    "description": "Find related experiences from different time periods",
+                    "query": f"similar experiences like {current_node}",
+                    "type": "temporal"
+                },
+                {
+                    "title": "Outcomes & Growth",
+                    "description": "Discover results and lessons from these experiences",
+                    "query": f"outcomes results growth from {current_node}",
+                    "type": "outcomes"
+                }
+            ]
+        
+        suggestion_data = {
+            'suggestions': suggestions,
+            'metadata': {
+                'current_path': current_path,
+                'current_node': current_node,
+                'generated_by': 'gemini_ai',
+                'context_used': bool(context)
+            }
+        }
+        
+        logger.info(f"✅ Generated {len(suggestions)} exploration suggestions")
+        
+        return suggestion_data
+        
+    except Exception as e:
+        logger.error(f"Suggestion generation failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Suggestion generation failed: {str(e)}"
+        )
+
+
+@router.get("/life-graph-clusters")
+async def get_life_graph_clusters(
+    current_supa_user: SupabaseUser = Depends(get_current_supa_user),
+    level: int = Query(1, description="Cluster level (1=topics, 2=subtopics, 3=memories)"),
+    limit: int = Query(30, description="Maximum number of clusters to return"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get hierarchical topic clusters for the life graph overview.
+    This provides the initial high-level view for iterative exploration.
+    """
+    supabase_user_id_str = str(current_supa_user.id)
+    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
+    
+    logger.info(f"📊 Getting life graph clusters (level {level}) for user {supabase_user_id_str}")
+    
+    try:
+        # Use the working memory client
+        from app.utils.memory import get_async_memory_client
+        memory_client = await get_async_memory_client()
+        
+        # Define cluster queries based on level
+        if level == 1:
+            # High-level life areas
+            cluster_queries = [
+                "personal relationships family friends",
+                "work career professional development",
+                "learning education skills knowledge",
+                "hobbies interests creative activities", 
+                "health fitness wellness lifestyle",
+                "travel places locations experiences",
+                "goals aspirations future plans",
+                "achievements accomplishments milestones"
+            ]
+        elif level == 2:
+            # More specific sub-topics
+            cluster_queries = [
+                "daily routines habits patterns",
+                "challenges problems difficulties",
+                "celebrations successes victories",
+                "projects work initiatives",
+                "conversations discussions meetings",
+                "decisions choices important moments",
+                "tools technology apps usage",
+                "finances money business"
+            ]
+        else:
+            # Memory-level clusters
+            cluster_queries = [
+                "recent memories current events",
+                "significant moments important experiences",
+                "repeated themes patterns behaviors",
+                "emotional memories feelings experiences"
+            ]
+        
+        clusters = []
+        
+        # Search for each cluster type
+        for i, query in enumerate(cluster_queries):
+            try:
+                results = await memory_client.search(
+                    query=query,
+                    user_id=supabase_user_id_str,
+                    limit=min(limit // len(cluster_queries) + 3, 10)
+                )
+                
+                memory_count = len(results) if hasattr(results, '__len__') else 0
+                
+                if memory_count > 0:
+                    # Extract cluster title from query
+                    cluster_title = " ".join(query.split()[:2]).title()
+                    
+                    cluster = {
+                        'id': f"cluster_{level}_{i}",
+                        'title': cluster_title,
+                        'query': query,
+                        'level': level,
+                        'memory_count': memory_count,
+                        'type': 'topic_cluster',
+                        'can_expand': True,
+                        'description': f"Explore {memory_count} memories about {cluster_title.lower()}"
+                    }
+                    clusters.append(cluster)
+                    
+            except Exception as e:
+                logger.warning(f"Cluster search failed for '{query}': {e}")
+                continue
+        
+        cluster_data = {
+            'clusters': clusters,
+            'metadata': {
+                'level': level,
+                'total_clusters': len(clusters),
+                'generated_at': datetime.datetime.now(UTC).isoformat(),
+                'user_id': supabase_user_id_str
+            }
+        }
+        
+        logger.info(f"✅ Generated {len(clusters)} clusters for level {level}")
+        
+        return cluster_data
+        
+    except Exception as e:
+        logger.error(f"Cluster generation failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Cluster generation failed: {str(e)}"
+        )
+
+
 # Get memory by ID
 @router.get("/{memory_id}", response_model=MemoryResponse)
 async def get_memory(
