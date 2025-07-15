@@ -13,7 +13,7 @@ import {
 } from '@/store/filtersSlice';
 
 interface CategoriesResponse {
-  categories: Category[];
+  categories: string[] | Category[];  // Backend returns string[], but we'll handle both
   total: number;
 }
 
@@ -55,8 +55,26 @@ export const useFiltersApi = (): UseFiltersApiReturn => {
         `/api/v1/memories/categories`, { params: { user_id: user_id } } 
       );
 
+      // Transform string array to Category objects if needed
+      const categoriesData = Array.isArray(response.data.categories) 
+        ? response.data.categories.map((cat, index) => {
+            if (typeof cat === 'string') {
+              // Backend returns string array, convert to Category objects
+              return {
+                id: `cat_${index}`,
+                name: cat,
+                description: '',
+                updated_at: new Date().toISOString(),
+                created_at: new Date().toISOString()
+              };
+            }
+            // Already a Category object
+            return cat;
+          })
+        : [];
+
       dispatch(setCategoriesSuccess({
-        categories: response.data.categories,
+        categories: categoriesData,
         total: response.data.total
       }));
       setIsLoading(false);
