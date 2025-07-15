@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from mem0.memory.graph_memory import GraphMemory
+from mem0.memory.graph_memory import MemoryGraph
 
 
 class TestNeo4jAgentIsolation:
@@ -23,10 +23,10 @@ class TestNeo4jAgentIsolation:
     
     @pytest.fixture
     def graph_memory(self, mock_neo4j_driver):
-        """Create GraphMemory instance with mocked driver"""
+        """Create MemoryGraph instance with mocked driver"""
         driver, session = mock_neo4j_driver
         with patch('mem0.memory.graph_memory.GraphDatabase.driver', return_value=driver):
-            memory = GraphMemory(
+            memory = MemoryGraph(
                 url="bolt://localhost:7687",
                 username="neo4j", 
                 password="password"
