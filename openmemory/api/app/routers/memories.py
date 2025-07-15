@@ -695,19 +695,8 @@ async def get_life_graph_data(
     user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
     
     try:
-        # Check cache first if enabled
-        if use_cache:
-            from app.utils.graph_cache import get_cached_graph_data
-            cached_data = get_cached_graph_data(
-                user_id=supabase_user_id_str,
-                query=focus_query,
-                limit=limit,
-                max_age_minutes=30
-            )
-            
-            if cached_data:
-                logger.info(f"🚀 Returning cached life graph data for user {supabase_user_id_str}")
-                return cached_data
+        # Skip caching for now - direct data generation
+        logger.info(f"🚀 Generating life graph data for user {supabase_user_id_str}")
         
         # Use the SAME memory client approach as Deep Life Query (which works!)
         from app.utils.memory import get_async_memory_client
@@ -751,40 +740,56 @@ async def get_life_graph_data(
                 'source': metadata.get('app_name', 'Jean Memory V2')
             })
         
-        # Create visualization data using working approach
-        from jean_memory_v2.search import _create_life_graph_visualization_data
+        # Create visualization data directly - simplified approach
+        nodes = []
+        edges = []
         
-        visualization_data = await _create_life_graph_visualization_data(
-            processed_memories,
-            include_entities=include_entities,
-            include_temporal_clusters=include_temporal_clusters,
-            synthesis=""  # No synthesis needed for now
-        )
+        # Convert memories to nodes
+        for i, memory in enumerate(processed_memories):
+            node = {
+                'id': memory['id'],
+                'title': memory['content'][:100] + '...' if len(memory['content']) > 100 else memory['content'],
+                'content': memory['content'],
+                'type': 'memory',
+                'created_at': memory.get('created_at'),
+                'source': memory.get('source', 'Unknown'),
+                'metadata': memory.get('metadata', {}),
+                'position': {
+                    'x': (i % 10) * 100,  # Simple grid layout
+                    'y': (i // 10) * 100,
+                    'z': 0
+                }
+            }
+            nodes.append(node)
         
-        # Add enhanced metadata
-        visualization_data['metadata'].update({
-            'search_method': 'working_memory_client',
-            'capabilities_used': {
-                'mem0_semantic_search': True,
-                'graphiti_graph_search': False,  # Not using direct Graphiti
-                'gemini_ai_synthesis': False,    # Not using AI synthesis yet
-                'temporal_pattern_analysis': include_temporal_clusters,
-                'relationship_mapping': True
-            },
-            'enhanced_entities_extracted': len([n for n in visualization_data['nodes'] if n.get('type') == 'entity']),
-            'temporal_patterns_identified': len([n for n in visualization_data['nodes'] if n.get('type') == 'temporal_pattern']),
-            'ai_insights': []
-        })
+        # Create basic edges between nearby memories
+        for i in range(len(nodes) - 1):
+            if i % 3 == 0:  # Connect every 3rd memory to reduce clutter
+                edges.append({
+                    'id': f"edge_{i}",
+                    'source': nodes[i]['id'],
+                    'target': nodes[i + 1]['id'],
+                    'type': 'temporal',
+                    'weight': 1
+                })
         
-        # Cache the results if caching is enabled
-        if use_cache:
-            from app.utils.graph_cache import cache_graph_data
-            cache_graph_data(
-                user_id=supabase_user_id_str,
-                query=focus_query,
-                limit=limit,
-                data=visualization_data
-            )
+        visualization_data = {
+            'nodes': nodes,
+            'edges': edges,
+            'clusters': [],
+            'metadata': {
+                'total_memories': len(processed_memories),
+                'total_nodes': len(nodes),
+                'total_edges': len(edges),
+                'focus_query': focus_query,
+                'generated_at': datetime.datetime.now(UTC).isoformat(),
+                'search_method': 'simplified_approach',
+                'include_entities': include_entities,
+                'include_temporal_clusters': include_temporal_clusters
+            }
+        }
+        
+        # Caching disabled for now - direct return
         
         logger.info(f"✅ Life graph data generated successfully: {len(visualization_data['nodes'])} nodes, {len(visualization_data['edges'])} edges")
         
