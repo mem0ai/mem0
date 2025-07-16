@@ -532,20 +532,6 @@ export default function InteractiveExplorer({ onMemorySelect }: InteractiveExplo
                         </Badge>
                       )}
                     </CardHeader>
-                    
-                    <CardContent className="pt-0">
-                      {node.description && (
-                        <CardDescription className="text-xs leading-relaxed">
-                          {isExpanded && node.type === 'memory' ? 
-                            node.description : 
-                            (node.description.length > 120 ? 
-                              `${node.description.substring(0, 120)}...` : 
-                              node.description)
-                          }
-                        </CardDescription>
-                      )}
-                      
-                    </CardContent>
                   </Card>
                 </motion.div>
               );

@@ -28,13 +28,13 @@ export default function MyLifePage() {
       <div className="h-[calc(100vh-3.5rem)] lg:h-[calc(100vh-3.5rem)] flex bg-background text-foreground">
       
       {/* Vertical Sidebar for View Mode Toggle */}
-      <div className="hidden lg:flex flex-col w-16 bg-card border-r border-border">
-        <div className="flex flex-col gap-2 p-2">
+      <div className="hidden lg:flex flex-col w-24 bg-card border-r border-border">
+        <div className="flex flex-col gap-2 p-3">
           <Button
             variant={viewMode === "explorer" ? "default" : "ghost"}
             size="sm"
             onClick={() => setViewMode("explorer")}
-            className="flex flex-col items-center gap-1 h-12 w-12"
+            className="flex flex-col items-center gap-1 h-14 w-18"
             title="Explorer"
           >
             <Map className="h-5 w-5" />
@@ -44,22 +44,24 @@ export default function MyLifePage() {
             variant={viewMode === "advanced" ? "default" : "ghost"}
             size="sm"
             onClick={() => setViewMode("advanced")}
-            className="flex flex-col items-center gap-1 h-12 w-12"
+            className="flex flex-col items-center gap-1 h-14 w-18"
             title="Advanced Graph"
           >
             <Sparkles className="h-5 w-5" />
-            <span className="text-xs">Advanced</span>
+            <span className="text-xs">Graph</span>
           </Button>
+          {/* 3D Graph tab - hidden for now but keeping code for later use
           <Button
             variant={viewMode === "graph" ? "default" : "ghost"}
             size="sm"
             onClick={() => setViewMode("graph")}
-            className="flex flex-col items-center gap-1 h-12 w-12"
+            className="flex flex-col items-center gap-1 h-14 w-18"
             title="3D Graph"
           >
             <Network className="h-5 w-5" />
             <span className="text-xs">3D Graph</span>
           </Button>
+          */}
         </div>
       </div>
 
@@ -82,8 +84,9 @@ export default function MyLifePage() {
             className="flex items-center gap-2"
           >
             <Sparkles className="h-4 w-4" />
-            Advanced
+            Graph
           </Button>
+          {/* 3D Graph tab - hidden for now but keeping code for later use
           <Button
             variant={viewMode === "graph" ? "default" : "ghost"}
             size="sm"
@@ -93,6 +96,7 @@ export default function MyLifePage() {
             <Network className="h-4 w-4" />
             3D Graph
           </Button>
+          */}
         </div>
       </div>
         {/*
