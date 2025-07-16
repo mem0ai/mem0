@@ -1,103 +1,133 @@
 ---
-title: Document Editing with Mem0
+title: Memory-Guided Content Writing
 ---
 <Snippet file="security-compliance.mdx" />
 
-This guide demonstrates how to leverage **Mem0** to edit documents efficiently, ensuring they align with your unique writing style and preferences.
+This guide demonstrates how to leverage **Mem0** to streamline content writing by applying your unique writing style and preferences using persistent memory.
 
-## **Why Use Mem0?**
+## Why Use Mem0?
 
-By integrating Mem0 into your workflow, you can streamline your document editing process with:
+Integrating Mem0 into your writing workflow helps you:
 
-1. **Persistent Writing Preferences**: Mem0 stores and recalls your style preferences, ensuring consistency across all documents.
-2. **Automated Enhancements**: Your stored preferences guide document refinements, making edits seamless and efficient.
-3. **Scalability & Reusability**: Your writing style can be applied to multiple documents, saving time and effort.
+1. **Store persistent writing preferences** ensuring consistent tone, formatting, and structure.
+2. **Automate content refinement** by retrieving preferences when rewriting or reviewing content.
+3. **Scale your writing style** so it applies consistently across multiple documents or sessions.
 
----
-## **Setup**
+## Setup
 
 ```python
 import os
+from openai import OpenAI
 from mem0 import MemoryClient
 
-# Set up Mem0 client
 os.environ["MEM0_API_KEY"] = "your-mem0-api-key"
-client = MemoryClient()
+os.environ["OPENAI_API_KEY"] = "your-openai-api-key"
 
-# Define constants
+
+# Set up Mem0 and OpenAI client
+client = MemoryClient()
+openai = OpenAI()
+
 USER_ID = "content_writer"
 RUN_ID = "smart_editing_session"
 ```
 
----
 ## **Storing Your Writing Preferences in Mem0**
 
 ```python
 def store_writing_preferences():
     """Store your writing preferences in Mem0."""
     
-    # Define writing preferences
     preferences = """My writing preferences:
 1. Use headings and sub-headings for structure.
-2. Keep paragraphs concise (8-10 sentences max).
+2. Keep paragraphs concise (8–10 sentences max).
 3. Incorporate specific numbers and statistics.
 4. Provide concrete examples.
 5. Use bullet points for clarity.
 6. Avoid jargon and buzzwords."""
 
-    # Store preferences in Mem0
-    preference_message = [
-        {"role": "user", "content": "Here are my writing style preferences"},
+    messages = [
+        {"role": "user", "content": "Here are my writing style preferences."},
         {"role": "assistant", "content": preferences}
     ]
-    
-    response = client.add(preference_message, user_id=USER_ID, run_id=RUN_ID, metadata={"type": "preferences", "category": "writing_style"})
-    
-    print("Writing preferences stored successfully.")
+
+    response = client.add(
+        messages,
+        user_id=USER_ID,
+        run_id=RUN_ID,
+        metadata={"type": "preferences", "category": "writing_style"}
+    )
+
     return response
 ```
 
----
-## **Editing Documents with Mem0**
+## **Editing Content Using Stored Preferences**
 
 ```python
-def edit_document_based_on_preferences(original_content):
-    """Edit a document using Mem0-based stored preferences."""
-    
-    # Retrieve stored preferences
-    query = "What are my writing style preferences?"
-    preferences_results = client.search(query, user_id=USER_ID, run_id=RUN_ID)
-    
-    if not preferences_results:
-        print("No writing preferences found.")
+def apply_writing_style(original_content):
+    """Use preferences stored in Mem0 to guide content rewriting."""
+
+    results = client.search(
+        query="What are my writing style preferences?",
+        version="v2",
+        filters={
+            "AND": [
+                {
+                    "user_id": USER_ID
+                },
+                {
+                    "run_id": RUN_ID
+                }
+            ]
+        },
+    )
+
+    if not results:
+        print("No preferences found.")
         return None
-    
-    # Extract preferences
-    preferences = ' '.join(memory["memory"] for memory in preferences_results)
-    
-    # Apply stored preferences to refine the document
-    edited_content = f"Applying stored preferences:\n{preferences}\n\nEdited Document:\n{original_content}"
-    
-    return edited_content
+
+    preferences = "\n".join(r["memory"] for r in results)
+
+    system_prompt = f"""
+You are a writing assistant.
+
+Apply the following writing style preferences to improve the user's content:
+
+Preferences:
+{preferences}
+"""
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": f"""Original Content:
+    {original_content}"""}
+    ]
+
+    response = openai.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=messages
+    )
+    clean_response = response.choices[0].message.content.strip()
+
+    return clean_response
 ```
 
----
-## **Complete Workflow: Document Editing**
+## **Complete Workflow: Content Editing**
 
 ```python
-def document_editing_workflow(content):
+def content_writing_workflow(content):
     """Automated workflow for editing a document based on writing preferences."""
     
-    # Step 1: Store writing preferences (if not already stored)
-    store_writing_preferences()
+    # Store writing preferences (if not already stored)
+    store_writing_preferences()  # Ideally done once, or with a conditional check
     
-    # Step 2: Edit the document with Mem0 preferences
-    edited_content = edit_document_based_on_preferences(content)
+    # Edit the document with Mem0 preferences
+    edited_content = apply_writing_style(content)
     
     if not edited_content:
         return "Failed to edit document."
     
-    # Step 3: Display results
+    # Display results
     print("\n=== ORIGINAL DOCUMENT ===\n")
     print(content)
     
@@ -107,7 +137,6 @@ def document_editing_workflow(content):
     return edited_content
 ```
 
----
 ## **Example Usage**
 
 ```python
@@ -125,10 +154,9 @@ We plan to launch the campaign in July and continue through September.
 """
 
 # Run the workflow
-result = document_editing_workflow(original_content)
+result = content_writing_workflow(original_content)
 ```
 
----
 ## **Expected Output**
 
 Your document will be transformed into a structured, well-formatted version based on your preferences.
@@ -182,4 +210,10 @@ This proposal outlines our strategy for the Q3 marketing campaign. We aim to sig
 We believe this strategy will effectively increase our market share. To achieve these goals, we need your support and collaboration. Let’s work together to make this campaign a success. Please review the proposal and provide your feedback by the end of the week.
 ```
 
-Mem0 creates a seamless, intelligent document editing experience—perfect for content creators, technical writers, and businesses alike!
+Mem0 enables a seamless, intelligent content-writing workflow, perfect for content creators, marketers, and technical writers looking to scale their personal tone and structure across work.
+
+## Help & Resources
+
+- [Mem0 Platform](https://app.mem0.ai/)
+
+<Snippet file="get-help.mdx" />
