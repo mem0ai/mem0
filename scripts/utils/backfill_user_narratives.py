@@ -92,40 +92,83 @@ async def generate_narrative_for_user(user_id: str, retry_count: int = 0) -> Opt
                 logger.warning(f"⚠️ [User {user_id}] User not found in database")
                 return None
             
-            logger.info(f"📝 [User {user_id}] Found user in database: {user.name or 'Unknown'}")
+            # Get user's full name for personalized narrative
+            user_full_name = ""
+            if user.firstname and user.lastname:
+                user_full_name = f"{user.firstname.strip()} {user.lastname.strip()}".strip()
+            elif user.firstname:
+                user_full_name = user.firstname.strip()
+            elif user.lastname:
+                user_full_name = user.lastname.strip()
             
-            # Get user's active memories
-            memories = db.query(Memory).filter(
-                Memory.user_id == user.id,
-                Memory.state == 'active'
-            ).order_by(Memory.created_at.desc()).limit(100).all()
+            logger.info(f"📝 [User {user_id}] Found user: {user_full_name or user.name or 'Unknown'}")
             
-            memory_count = len(memories)
-            logger.info(f"📊 [User {user_id}] Found {memory_count} active memories")
+            # Use Jean Memory V2 instead of direct database query
+            logger.info(f"🔍 [User {user_id}] Searching Jean Memory V2...")
+            from app.utils.memory import get_async_memory_client
+            memory_client = await get_async_memory_client()
+            
+            # Search for memories using enhanced query (same as API endpoint)
+            memory_results = await memory_client.search(
+                query="recent experiences recent memories current projects goals values personality growth life patterns recent reflections recent decisions recent insights recent challenges recent achievements how experiences align with values core beliefs life direction personal development recent learning recent relationships recent work recent thoughts",
+                user_id=user_id,
+                limit=50
+            )
+            
+            logger.info(f"📊 [User {user_id}] Retrieved memory results: {type(memory_results)}")
+            
+            # Process memory results (same logic as API endpoint)
+            memories_text_list = []
+            if isinstance(memory_results, dict) and 'results' in memory_results:
+                memories = memory_results['results']
+                logger.info(f"📝 [User {user_id}] Extracted {len(memories)} memories from dict results")
+            elif isinstance(memory_results, list):
+                memories = memory_results
+                logger.info(f"📝 [User {user_id}] Using list of {len(memories)} memories directly")
+            else:
+                memories = []
+                logger.warning(f"⚠️ [User {user_id}] No memories found - unexpected result type")
+            
+            # Filter memories for narrative generation (same as API)
+            for mem in memories[:25]:  # Limit for narrative generation
+                content = mem.get('memory', mem.get('content', ''))
+                
+                if not content or not isinstance(content, str):
+                    continue
+                
+                content = content.strip()
+                
+                # Skip empty or very short content
+                if not content.strip() or len(content) < 5:
+                    continue
+                
+                memories_text_list.append(content)
+            
+            memory_count = len(memories_text_list)
+            logger.info(f"📊 [User {user_id}] Found {memory_count} valid memories from Jean Memory V2")
             
             if memory_count < MEMORY_THRESHOLD:
                 logger.warning(f"⚠️ [User {user_id}] Insufficient memories ({memory_count} < {MEMORY_THRESHOLD}), skipping")
                 return None
             
-            # Extract memory content
-            memory_texts = [memory.content for memory in memories]
-            memories_text = "\n".join([f"• {mem}" for mem in memory_texts[:50]])  # Limit for prompt size
+            # Prepare memories text for generation
+            memories_text = "\n".join(memories_text_list)
             
-            logger.info(f"📄 [User {user_id}] Prepared {len(memory_texts)} memories for generation (text length: {len(memories_text)} chars)")
+            logger.info(f"📄 [User {user_id}] Prepared {memory_count} memories for generation (text length: {len(memories_text)} chars)")
 
         finally:
             db.close()
 
-        if not memory_texts:
+        if not memories_text_list:
             logger.warning(f"⚠️ [User {user_id}] No memory texts found")
             return None
 
         # Use Gemini Pro for high-quality generation with detailed logging
-        logger.info(f"🤖 [User {user_id}] Calling Gemini 2.5 Pro API...")
+        logger.info(f"🤖 [User {user_id}] Calling Gemini 2.5 Pro API with personalized name: '{user_full_name}'...")
         start_time = datetime.now()
         
         try:
-            analysis_response = await gemini_service.generate_narrative_pro(memories_text)
+            analysis_response = await gemini_service.generate_narrative_pro(memories_text, user_full_name)
             
             end_time = datetime.now()
             duration = (end_time - start_time).total_seconds()
