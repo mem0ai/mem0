@@ -1,0 +1,18 @@
+---
+title: Claude Code
+---
+
+<Snippet file="paper-release.mdx" />
+
+Integrate Claude Code with Mem0’s OpenMemory MCP for persistent memory using native SSE.
+
+## Overview
+
+Claude Code acts as an agent that communicates with Mem0’s MCP server. This enables real-time memory using Claude as a developer agent/assistant.
+
+## Setup Instructions
+The simple one liner to add Mem0’s MCP server with native SSE support (not translated into stdio) is:
+
+```bash
+claude mcp add -s user -t sse OpenMemory http://localhost:8765/mcp/openmemory/sse/$(whoami)
+```
