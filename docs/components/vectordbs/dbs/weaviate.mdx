@@ -42,6 +42,9 @@ Let's see the available parameters for the `weaviate` config:
 | Parameter | Description | Default Value |
 | --- | --- | --- |
 | `collection_name` | The name of the collection to store the vectors | `mem0` |
+| `client` | pre-defined weaviate client (`WeaviateClient`) | None
+| `custom` | whether to connect to custom weaviate client | False
+| `connection_config` | dictionary including the connection config for custom connection (only available with `custom = True`) | None
 | `embedding_model_dims` | Dimensions of the embedding model | `1536` |
 | `cluster_url` | URL for the Weaviate server | `None` |
 | `auth_client_secret` | API key for Weaviate authentication | `None` |
