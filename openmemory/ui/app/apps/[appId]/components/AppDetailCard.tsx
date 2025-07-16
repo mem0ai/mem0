@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { PauseIcon, Loader2, PlayIcon, Download } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { PauseIcon, Loader2, PlayIcon, Download, Copy } from "lucide-react";
+import { BiEdit } from "react-icons/bi";
 import { useAppsApi } from "@/hooks/useAppsApi";
 import Image from "next/image";
 import { useDispatch, useSelector } from "react-redux";
@@ -62,6 +64,14 @@ const AppDetailCard = ({
     toast({
       title: "Download Started",
       description: "The Claude Desktop Extension is downloading. Double-click the file to install.",
+    });
+  };
+
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Copied to clipboard",
+      description: "Install command copied successfully.",
     });
   };
 
@@ -150,7 +160,7 @@ const AppDetailCard = ({
 
           <hr className="border-border" />
 
-          {currentApp?.name?.toLowerCase() === 'claude' && (
+          {currentApp?.name?.toLowerCase() === 'claude' ? (
             <div>
               <p className="text-xs text-muted-foreground mb-2">Desktop Extension</p>
               <Button 
@@ -162,11 +172,36 @@ const AppDetailCard = ({
                 <Download className="mr-2 h-4 w-4" />
                 Download Extension
               </Button>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground mb-3">
                 One-click install for Claude Desktop
               </p>
+              
+              <details className="mt-4">
+                <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                  Manual Install Command
+                </summary>
+                <div className="mt-2 space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    For advanced users: copy and run this command
+                  </p>
+                  <div className="flex gap-2">
+                    <Input
+                      value={`curl -o claude-extension.zip "${process.env.NODE_ENV === 'development' ? 'http://localhost:8765' : 'https://jean-memory-api-virginia.onrender.com'}/download/claude-extension-http" && unzip claude-extension.zip && open claude-extension.mcp`}
+                      readOnly
+                      className="text-xs font-mono"
+                    />
+                    <Button
+                      onClick={() => handleCopy(`curl -o claude-extension.zip "${process.env.NODE_ENV === 'development' ? 'http://localhost:8765' : 'https://jean-memory-api-virginia.onrender.com'}/download/claude-extension-http" && unzip claude-extension.zip && open claude-extension.mcp`)}
+                      size="sm"
+                      variant="outline"
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              </details>
             </div>
-          )}
+          ) : null}
 
           <div className="flex gap-2 justify-end">
             <Button
