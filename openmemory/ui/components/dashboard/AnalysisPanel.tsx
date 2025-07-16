@@ -78,8 +78,8 @@ export function AnalysisPanel() {
     setError('');
 
     try {
-      // Call the backend narrative endpoint directly - it now handles Jean Memory V2 internally
-      const narrativeResponse = await apiClient.get('/api/v1/memories/narrative');
+      // Call the backend narrative endpoint with force_regenerate for manual generation
+      const narrativeResponse = await apiClient.get('/api/v1/memories/narrative?force_regenerate=true');
 
       if (narrativeResponse.data && narrativeResponse.data.narrative) {
         setNarrative(narrativeResponse.data.narrative);
