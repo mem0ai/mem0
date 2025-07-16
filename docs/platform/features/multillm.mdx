@@ -1,0 +1,161 @@
+---
+title: Custom LLM Configuration
+description: 'Use your preferred LLM providers and models with Mem0'
+icon: "brain-circuit"
+iconType: "solid"
+---
+
+Mem0 supports custom LLM configurations, allowing you to use any language model provider supported by [LiteLLM](https://www.litellm.ai/). This gives you the flexibility to choose the best model for your specific use case while maintaining full control over your AI infrastructure.
+
+## Supported Providers
+
+Mem0 supports a wide range of LLM providers, including:
+
+- **OpenAI** - GPT-4, GPT-3.5, and more
+- **Anthropic** - Claude 3.5 Sonnet, Claude 3 Haiku, etc.
+- **Google** - Gemini Pro, PaLM, Vertex AI models
+- **AWS Bedrock** - Amazon's managed AI service
+- And many more...
+
+For the complete list of supported providers, visit the [LiteLLM documentation](https://docs.litellm.ai/docs/providers).
+
+## Basic Usage
+
+Pass your custom LLM configuration to any memory operation using the `llm_config` parameter.
+
+### Using Anthropic Claude
+
+<CodeGroup>
+
+```python Python
+llm_config = {
+    "provider": "anthropic",
+    "model": "claude-3-5-sonnet-latest",
+    "api_key": "your-api-key-here"
+}
+
+messages = [
+    {"role": "user", "content": "I'm travelling to San Francisco"},
+]
+
+client.add(messages=messages, user_id="john", llm_config=llm_config)
+```
+
+```javascript JavaScript
+const llmConfig = {
+    provider: "anthropic",
+    model: "claude-3-5-sonnet-latest",
+    api_key: "your-api-key-here"
+};
+
+const messages = [
+    {role: "user", content: "I'm travelling to San Francisco"}
+];
+
+client.add(messages, { user_id: "john", llm_config: llmConfig })
+    .then(response => console.log(response))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+curl -X POST "https://api.mem0.ai/v1/memories/" \
+     -H "Authorization: Token your-mem0-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "messages": [
+             {"role": "user", "content": "I'm travelling to San Francisco"}
+         ],
+         "user_id": "john",
+         "llm_config": {
+             "provider": "anthropic",
+             "model": "claude-3-5-sonnet-latest",
+             "api_key": "your-api-key-here"
+         }
+     }'
+```
+
+```json Output
+{
+    "results": [
+        {
+            "memory": "Travelling to San Francisco",
+            "event": "ADD"
+        }
+    ]
+}
+```
+
+</CodeGroup>
+
+### Using Google Gemini
+
+<CodeGroup>
+
+```python Python
+llm_config = {
+    "provider": "gemini",
+    "model": "gemini-1.5-pro",
+    "api_key": "your-google-api-key-here"
+}
+
+messages = [
+    {"role": "user", "content": "I work as a software engineer at Google"},
+]
+
+client.add(messages=messages, user_id="user123", llm_config=llm_config)
+```
+
+```javascript JavaScript
+const llmConfig = {
+    provider: "gemini",
+    model: "gemini-1.5-pro",
+    api_key: "your-google-api-key-here"
+};
+
+const messages = [
+    {role: "user", content: "I work as a software engineer at Google"}
+];
+
+client.add(messages, { user_id: "user123", llm_config: llmConfig })
+    .then(response => console.log(response))
+    .catch(error => console.error(error));
+```
+
+</CodeGroup>
+
+<Note>
+When using custom LLM configurations, ensure your chosen model supports the tool calling capabilities and JSON output format required by Mem0. Most modern language models support these standard formats, but you should verify compatibility before deployment.
+</Note>
+
+## Configuration Parameters
+
+The `llm_config` object supports various parameters depending on your chosen provider:
+
+| Parameter | Description | Required | Example |
+|-----------|-------------|----------|---------|
+| `provider` | LLM provider name | ✅ | `"anthropic"`, `"openai"`, `"gemini"` |
+| `model` | Specific model to use | ✅ | `"claude-3-5-sonnet-latest"`, `"gpt-4o"` |
+| `api_key` | Authentication key | ✅* | `"sk-ant-api03-..."` |
+| `api_base` | Custom API endpoint | ❌ | `"https://api.custom-provider.com"` |
+| `api_version` | API version | ❌ | `"2024-02-15-preview"` |
+| `temperature` | Response randomness | ❌ | `0.7` |
+| `max_tokens` | Maximum response length | ❌ | `1000` |
+
+<Note>
+*API key requirements vary by provider. Some providers like Ollama running locally may not require an API key.
+</Note>
+
+
+## Use Cases
+
+### Cost & Performance Optimization
+- Use smaller, faster models for simple operations
+- Reserve powerful models for complex reasoning tasks
+- Mix local and cloud models for optimal performance
+- Deploy models in your own cloud infrastructure
+- Use local models (Ollama) when needed
+
+
+If you have any questions about using custom LLM configurations, please feel free to reach out to us using one of the following methods:
+
+<Snippet file="get-help.mdx" />
