@@ -378,6 +378,7 @@ async def get_categories(
 # Get or generate user narrative using Jean Memory V2.
 @router.get("/narrative")
 async def get_user_narrative(
+    force_regenerate: bool = False,
     current_supa_user: SupabaseUser = Depends(get_current_supa_user),
     db: Session = Depends(get_db)
 ):
@@ -389,16 +390,19 @@ async def get_user_narrative(
     user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    
+    logger.info(f"🔄 NARRATIVE REQUEST: user={supabase_user_id_str}, force_regenerate={force_regenerate}")
 
-    # Check for existing cached narrative
+    # Check for existing cached narrative (only if not forcing regeneration)
     narrative = db.query(UserNarrative).filter(UserNarrative.user_id == user.id).first()
     
-    # Check if narrative is fresh (within 7 days) - RE-ENABLED CACHING
-    if narrative:  # Re-enabled to serve cached narratives
+    # Only use cache if not forcing regeneration and narrative is fresh
+    if not force_regenerate and narrative:
         now = datetime.datetime.now(narrative.generated_at.tzinfo or UTC)
         age_days = (now - narrative.generated_at).days
         
         if age_days <= 7:  # Narrative is still fresh
+            logger.info(f"📋 RETURNING CACHED NARRATIVE: age={age_days} days, version={narrative.version}")
             return {
                 "narrative": narrative.narrative_content,
                 "generated_at": narrative.generated_at,
@@ -514,15 +518,17 @@ async def get_user_narrative(
         db.commit()
         db.refresh(narrative)
         
-        logger.info(f"✅ Generated new narrative for user {supabase_user_id_str} using Jean Memory V2")
+        logger.info(f"✅ Generated new narrative for user {supabase_user_id_str} using Jean Memory V2 (force_regenerate={force_regenerate})")
         
         return {
             "narrative": narrative.narrative_content,
             "generated_at": narrative.generated_at,
             "version": narrative.version,
             "age_days": 0,
-            "source": "jean_memory_v2",
-            "memory_count": len(memories_text)
+            "source": "jean_memory_v2_generated",
+            "memory_count": len(memories_text),
+            "user_full_name": user_full_name,
+            "force_regenerate": force_regenerate
         }
         
     except Exception as e:
