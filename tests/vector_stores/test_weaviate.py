@@ -1,15 +1,14 @@
 # import os
-# import uuid
-# import httpx
 # import unittest
+# import uuid
 # from unittest.mock import MagicMock, patch
 
 # import dotenv
+# import httpx
 # import weaviate
-# from weaviate.classes.query import MetadataQuery, Filter
 # from weaviate.exceptions import UnexpectedStatusCodeException
 
-# from mem0.vector_stores.weaviate import Weaviate, OutputData
+# from mem0.vector_stores.weaviate import Weaviate
 
 
 # class TestWeaviateDB(unittest.TestCase):
@@ -18,12 +17,12 @@
 #         dotenv.load_dotenv()
 
 #         cls.original_env = {
-#             'WEAVIATE_CLUSTER_URL': os.getenv('WEAVIATE_CLUSTER_URL', 'http://localhost:8080'),
-#             'WEAVIATE_API_KEY': os.getenv('WEAVIATE_API_KEY', 'test_api_key'),
+#             "WEAVIATE_CLUSTER_URL": os.getenv("WEAVIATE_CLUSTER_URL", "http://localhost:8080"),
+#             "WEAVIATE_API_KEY": os.getenv("WEAVIATE_API_KEY", "test_api_key"),
 #         }
 
-#         os.environ['WEAVIATE_CLUSTER_URL'] = 'http://localhost:8080'
-#         os.environ['WEAVIATE_API_KEY'] = 'test_api_key'
+#         os.environ["WEAVIATE_CLUSTER_URL"] = "http://localhost:8080"
+#         os.environ["WEAVIATE_API_KEY"] = "test_api_key"
 
 #     def setUp(self):
 #         self.client_mock = MagicMock(spec=weaviate.WeaviateClient)
@@ -32,15 +31,15 @@
 #         self.client_mock.collections.create.return_value = None
 #         self.client_mock.collections.delete.return_value = None
 
-#         patcher = patch('mem0.vector_stores.weaviate.weaviate.connect_to_local', return_value=self.client_mock)
+#         patcher = patch("mem0.vector_stores.weaviate.weaviate.connect_to_local", return_value=self.client_mock)
 #         self.mock_weaviate = patcher.start()
 #         self.addCleanup(patcher.stop)
 
 #         self.weaviate_db = Weaviate(
 #             collection_name="test_collection",
 #             embedding_model_dims=1536,
-#             cluster_url=os.getenv('WEAVIATE_CLUSTER_URL'),
-#             auth_client_secret=os.getenv('WEAVIATE_API_KEY'),
+#             cluster_url=os.getenv("WEAVIATE_CLUSTER_URL"),
+#             auth_client_secret=os.getenv("WEAVIATE_API_KEY"),
 #             additional_headers={"X-OpenAI-Api-Key": "test_key"},
 #         )
 
@@ -61,9 +60,7 @@
 #         self.client_mock.collections.exists.return_value = False
 #         self.weaviate_db.create_col(vector_size=1536)
 
-
 #         self.client_mock.collections.create.assert_called_once()
-
 
 #         self.client_mock.reset_mock()
 
@@ -114,7 +111,6 @@
 
 #         assert result.payload == expected_payload
 
-
 #     def test_get_not_found(self):
 #         mock_response = httpx.Response(status_code=404, json={"error": "Not found"})
 
@@ -122,15 +118,8 @@
 #             "Not found", mock_response
 #         )
 
-
 #     def test_search(self):
-#         mock_objects = [
-#             {
-#                 "uuid": "id1",
-#                 "properties": {"key1": "value1"},
-#                 "metadata": {"distance": 0.2}
-#             }
-#         ]
+#         mock_objects = [{"uuid": "id1", "properties": {"key1": "value1"}, "metadata": {"distance": 0.2}}]
 
 #         mock_response = MagicMock()
 #         mock_response.objects = []
@@ -193,7 +182,6 @@
 #         self.assertEqual(results[0][1].id, "id2")
 #         self.assertEqual(results[0][1].payload["key2"], "value2")
 
-
 #     def test_list_cols(self):
 #         mock_collection1 = MagicMock()
 #         mock_collection1.name = "collection1"
@@ -209,12 +197,57 @@
 
 #         self.client_mock.collections.list_all.assert_called_once()
 
-
 #     def test_delete_col(self):
 #         self.weaviate_db.delete_col()
 
 #         self.client_mock.collections.delete.assert_called_once_with("test_collection")
 
+#     def test_custom_weaviate_connection(self):
+#         """Test connecting to a custom Weaviate instance."""
+#         # Test with custom connection config
+#         connection_config = {
+#             "connection_params": {
+#                 "http_host": "custom-host",
+#                 "http_port": 8080,
+#                 "http_secure": False,
+#                 "grpc_host": "custom-host",
+#                 "grpc_port": 50051,
+#                 "grpc_secure": False,
+#             },
+#             "auth_credentials": None,
+#             "headers": {"X-Custom-Header": "custom-value"},
+#         }
 
-# if __name__ == '__main__':
+#         with patch(
+#             "mem0.vector_stores.weaviate.weaviate.connect_to_custom", return_value=self.client_mock
+#         ) as mock_connect:
+#             weaviate_db = Weaviate(
+#                 collection_name="test_collection",
+#                 embedding_model_dims=1536,
+#                 custom=True,
+#                 connection_config=connection_config,
+#             )
+
+#             # Verify that connect_to_custom was called with the correct config
+#             mock_connect.assert_called_once_with(**connection_config)
+
+#             # Verify that the client was set correctly
+#             self.assertEqual(weaviate_db.client, self.client_mock)
+#             self.assertEqual(weaviate_db.collection_name, "test_collection")
+#             self.assertEqual(weaviate_db.embedding_model_dims, 1536)
+
+#     def test_custom_weaviate_connection_without_config(self):
+#         """Test that custom connection raises ValueError when connection_config is missing."""
+#         with self.assertRaises(ValueError) as context:
+#             Weaviate(
+#                 collection_name="test_collection",
+#                 embedding_model_dims=1536,
+#                 custom=True,
+#                 connection_config=None,
+#             )
+
+#         self.assertIn("Connection configuration is required for custom Weaviate connection", str(context.exception))
+
+
+# if __name__ == "__main__":
 #     unittest.main()

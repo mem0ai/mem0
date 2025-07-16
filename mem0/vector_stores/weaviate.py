@@ -32,6 +32,9 @@ class Weaviate(VectorStoreBase):
         self,
         collection_name: str,
         embedding_model_dims: int,
+        client: weaviate.Client = None,
+        custom: bool = False,
+        connection_config: dict = None,
         cluster_url: str = None,
         auth_client_secret: str = None,
         additional_headers: dict = None,
@@ -47,14 +50,21 @@ class Weaviate(VectorStoreBase):
             auth_config (dict, optional): Authentication configuration for Weaviate. Defaults to None.
             additional_headers (dict, optional): Additional headers for requests. Defaults to None.
         """
-        if "localhost" in cluster_url:
-            self.client = weaviate.connect_to_local(headers=additional_headers)
+        if client:
+            self.client = client
         else:
-            self.client = weaviate.connect_to_wcs(
-                cluster_url=cluster_url,
-                auth_credentials=Auth.api_key(auth_client_secret),
-                headers=additional_headers,
-            )
+            if custom:
+                if not connection_config:
+                    raise ValueError("Connection configuration is required for custom Weaviate connection.")
+                self.client = weaviate.connect_to_custom(**connection_config)
+            elif cluster_url and "localhost" in cluster_url:
+                self.client = weaviate.connect_to_local(headers=additional_headers)
+            else:
+                self.client = weaviate.connect_to_weaviate_cloud(
+                    cluster_url=cluster_url,
+                    auth_credentials=Auth.api_key(auth_client_secret),
+                    headers=additional_headers,
+                )
 
         self.collection_name = collection_name
         self.embedding_model_dims = embedding_model_dims
