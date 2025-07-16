@@ -412,11 +412,20 @@ async def get_user_narrative(
         from app.utils.memory import get_async_memory_client
         memory_client = await get_async_memory_client()
         
-        # Get comprehensive memories from Jean Memory V2
+        # Get user's full name for personalized narrative (only if both names exist)
+        user_full_name = ""
+        if user.firstname and user.lastname:
+            user_full_name = f"{user.firstname.strip()} {user.lastname.strip()}".strip()
+        elif user.firstname:
+            user_full_name = user.firstname.strip()
+        elif user.lastname:
+            user_full_name = user.lastname.strip()
+        
+        # Get recent memories from Jean Memory V2 focused on life alignment
         logger.info(f"🔍 NARRATIVE DEBUG: Starting memory search for user {supabase_user_id_str}")
         
         memory_results = await memory_client.search(
-            query="life experiences preferences goals work interests personality",
+            query="recent memories recent experiences current goals current projects recent reflections personal values life alignment how my recent experiences align with my values personality growth",
             user_id=supabase_user_id_str,
             limit=50
         )
@@ -477,10 +486,10 @@ async def get_user_narrative(
         gemini = GeminiService()
         combined_text = "\n".join(memories_text)
         
-        logger.info(f"🧠 NARRATIVE DEBUG: Sending {len(combined_text)} characters to Gemini Pro")
+        logger.info(f"🧠 NARRATIVE DEBUG: Sending {len(combined_text)} characters to Gemini Pro for user {user_full_name}")
         logger.info(f"🧠 NARRATIVE DEBUG: Combined text preview: '{combined_text[:200]}...'")
         
-        narrative_content = await gemini.generate_narrative_pro(combined_text)
+        narrative_content = await gemini.generate_narrative_pro(combined_text, user_full_name)
         
         logger.info(f"🧠 NARRATIVE DEBUG: Generated narrative length: {len(narrative_content)} characters")
         logger.info(f"🧠 NARRATIVE DEBUG: Narrative preview: '{narrative_content[:200]}...'")

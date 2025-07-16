@@ -195,24 +195,32 @@ Return only the insights, one per line, without numbering or bullet points."""
             logger.error(f"Error generating narrative with Gemini: {e}")
             raise Exception(f"Failed to generate narrative with Gemini: {str(e)}")
     
-    async def generate_narrative_pro(self, memories_text: str) -> str:
+    async def generate_narrative_pro(self, memories_text: str, user_full_name: str = "") -> str:
         """
         Generate a high-quality user narrative using Gemini 2.5 Pro.
         Specifically designed for background batch processing where quality > speed.
         """
         try:
-            prompt = f"""You are providing context for a conversation with this user. Analyze their memories and create a rich, synthesized understanding.
+            # Only use name if it actually exists and is not empty
+            has_name = user_full_name and user_full_name.strip()
+            person_reference = user_full_name if has_name else "this person"
+            name_context = f"The person's name is {user_full_name}. " if has_name else ""
+            third_person_instruction = f"using {person_reference}'s name throughout" if has_name else "using third person perspective"
+            
+            prompt = f"""{name_context}Analyze their memories and create a rich life update narrative that helps them reflect on how their recent experiences align with their overall life values and personality.
 
-USER'S MEMORIES:
+USER'S MEMORIES (focusing on recent experiences and life alignment):
 {memories_text}
 
-Create a comprehensive but concise 'life narrative' for this person to be used as a primer for new conversations. Focus on:
-1. Who they are (personality, background, values)
-2. What they're working on (projects, goals, interests)  
-3. How to best interact with them (preferences, communication style)
-4. Key themes or recurring patterns in their life.
+Create a personalized 'life update narrative' that reads like a thoughtful reflection on how {person_reference}'s recent memories and experiences align with their deeper values and life direction. This should be:
 
-Provide a well-written, paragraph-based narrative that captures the essence of the user. Use sophisticated reasoning to identify deeper patterns and insights."""
+1. Written in third person {third_person_instruction}
+2. A introspective life update showing how recent experiences connect to their broader personality and values
+3. Focus on recent memories and how they align with their life as a whole
+4. Help them understand patterns between their recent actions and their core values
+5. Written as a thoughtful reflection that aids personal introspection
+
+Provide a well-written, paragraph-based narrative that captures how {person_reference}'s recent experiences reflect their values and personality. Use sophisticated reasoning to connect recent memories to deeper life themes."""
             
             # Use Pro model for maximum quality in background processing
             response = await self.model_pro.generate_content_async(
