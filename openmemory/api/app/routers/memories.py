@@ -429,7 +429,7 @@ async def get_user_narrative(
         logger.info(f"🔍 NARRATIVE DEBUG: Starting memory search for user {supabase_user_id_str}")
         
         memory_results = await memory_client.search(
-            query="recent memories recent experiences current goals current projects recent reflections personal values life alignment how my recent experiences align with my values personality growth",
+            query="recent experiences recent memories current projects goals values personality growth life patterns recent reflections recent decisions recent insights recent challenges recent achievements how experiences align with values core beliefs life direction personal development recent learning recent relationships recent work recent thoughts",
             user_id=supabase_user_id_str,
             limit=50
         )
