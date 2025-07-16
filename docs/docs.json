@@ -218,6 +218,7 @@
                   "examples/mem0-demo",
                   "examples/ai_companion_js",
                   "examples/collaborative-task-agent",
+                  "examples/llamaindex-multiagent-learning-system",
                   "examples/eliza_os",
                   "examples/mem0-mastra",
                   "examples/mem0-with-ollama",
