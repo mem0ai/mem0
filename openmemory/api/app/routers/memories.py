@@ -755,38 +755,383 @@ async def get_life_graph_data(
                 'source': metadata.get('app_name', 'Jean Memory V2')
             })
         
-        # Create visualization data directly - simplified approach
+        # Enhanced ontological entity extraction and visualization
+        entities = {}
+        entity_memory_map = {}
+        
+        if include_entities:
+            logger.info("🔍 Extracting entities using Jean Memory V2 ontological approach...")
+            
+            try:
+                # Use the same Custom Fact Extraction Prompt as Jean Memory V2 ingestion
+                fact_extraction_prompt = """
+Please extract structured facts about entities and their relationships from the provided text.
+Focus on extracting entities of types: Person, Place, Event, Topic, Object, Emotion.
+
+Entity types to extract:
+1. Person: Names, ages, occupations, locations, relationships, roles
+2. Place: Locations, addresses, place types, descriptions, buildings
+3. Event: Activities, meetings, experiences, occurrences, milestones
+4. Topic: Subjects, interests, categories, themes, skills
+5. Object: Items, products, belongings, purchases, tools
+6. Emotion: Feelings, moods, emotional states, reactions
+
+Return the extracted facts in JSON format:
+{
+    "facts": [
+        "Person: [name]",
+        "Person: [name] - [attribute]: [value]",
+        "Place: [name]",
+        "Place: [name] - [attribute]: [value]",
+        "Event: [name]",
+        "Event: [name] - [attribute]: [value]",
+        "Topic: [name]",
+        "Object: [name]",
+        "Emotion: [name]"
+    ]
+}
+
+Examples:
+Input: "I had coffee with Sarah at Blue Bottle yesterday. She's a software engineer at Google."
+Output: {"facts": [
+    "Person: Sarah",
+    "Person: Sarah - occupation: software engineer", 
+    "Person: Sarah - employer: Google",
+    "Place: Blue Bottle",
+    "Event: coffee meeting",
+    "Event: coffee meeting - participants: user, Sarah",
+    "Event: coffee meeting - location: Blue Bottle"
+]}
+
+Input: "Feeling excited about the new AI project launch at the office."
+Output: {"facts": [
+    "Emotion: excited",
+    "Topic: AI project",
+    "Event: project launch",
+    "Place: office"
+]}
+
+Text to analyze:
+"""
+                
+                # Try to use GPT-4o-mini for entity extraction
+                try:
+                    import openai
+                    import os
+                    import json
+                    
+                    # Initialize OpenAI client
+                    api_key = os.getenv('OPENAI_API_KEY')
+                    if not api_key:
+                        raise Exception("OpenAI API key not available")
+                    
+                    openai_client = openai.AsyncOpenAI(api_key=api_key)
+                    logger.info("✅ OpenAI client initialized for Jean Memory V2 aligned entity extraction")
+                    
+                    # Process memories in batches for efficiency (similar to Jean Memory V2 ingestion)
+                    batch_size = 10
+                    for i in range(0, min(len(processed_memories), 50), batch_size):  # Limit for performance
+                        batch = processed_memories[i:i + batch_size]
+                        
+                        for memory in batch:
+                            try:
+                                # Use GPT-4o-mini with the same approach as Jean Memory V2
+                                response = await openai_client.chat.completions.create(
+                                    model="gpt-4o-mini",
+                                    messages=[
+                                        {"role": "system", "content": fact_extraction_prompt},
+                                        {"role": "user", "content": memory['content'][:1500]}  # Limit content length
+                                    ],
+                                    temperature=0.1,
+                                    max_tokens=800
+                                )
+                                
+                                # Parse the structured response
+                                content = response.choices[0].message.content.strip()
+                                if content:
+                                    try:
+                                        # Try to parse JSON response
+                                        if content.startswith('{') and content.endswith('}'):
+                                            fact_data = json.loads(content)
+                                        else:
+                                            # Try to find JSON within the response
+                                            import re
+                                            json_match = re.search(r'\{[^}]*"facts"[^}]*\}', content, re.DOTALL)
+                                            if json_match:
+                                                fact_data = json.loads(json_match.group())
+                                            else:
+                                                continue
+                                        
+                                        # Process facts using Jean Memory V2 ontology structure
+                                        facts = fact_data.get('facts', [])
+                                        for fact in facts:
+                                            if not fact or not isinstance(fact, str):
+                                                continue
+                                            
+                                            # Parse fact format: "EntityType: EntityName" or "EntityType: EntityName - attribute: value"
+                                            parts = fact.split(': ', 1)
+                                            if len(parts) != 2:
+                                                continue
+                                            
+                                            entity_type = parts[0].strip().lower()
+                                            entity_info = parts[1].strip()
+                                            
+                                            # Extract entity name and attributes
+                                            if ' - ' in entity_info:
+                                                entity_name = entity_info.split(' - ')[0].strip()
+                                                attr_part = entity_info.split(' - ', 1)[1]
+                                                if ': ' in attr_part:
+                                                    attr_key, attr_value = attr_part.split(': ', 1)
+                                                    attributes = {attr_key.strip(): attr_value.strip()}
+                                                else:
+                                                    attributes = {}
+                                            else:
+                                                entity_name = entity_info
+                                                attributes = {}
+                                            
+                                            # Validate entity type is in our ontology
+                                            if entity_type not in ['person', 'place', 'event', 'topic', 'object', 'emotion']:
+                                                continue
+                                            
+                                            if entity_name and len(entity_name) > 1:
+                                                # Create entity ID consistent with Jean Memory V2 ontology
+                                                entity_id = f"{entity_type}_{entity_name.lower().replace(' ', '_').replace('-', '_')}"
+                                                
+                                                if entity_id not in entities:
+                                                    entities[entity_id] = {
+                                                        'id': entity_id,
+                                                        'name': entity_name,
+                                                        'type': entity_type,
+                                                        'mentions': 0,
+                                                        'attributes': attributes
+                                                    }
+                                                else:
+                                                    # Merge attributes
+                                                    entities[entity_id]['attributes'].update(attributes)
+                                                
+                                                entities[entity_id]['mentions'] += 1
+                                                entity_memory_map.setdefault(entity_id, []).append(memory['id'])
+                                        
+                                    except json.JSONDecodeError as e:
+                                        logger.warning(f"Failed to parse JSON from GPT response for memory {memory['id']}: {e}")
+                                        continue
+                                        
+                            except Exception as e:
+                                logger.warning(f"GPT entity extraction failed for memory {memory['id']}: {e}")
+                                continue
+                    
+                    logger.info(f"✅ Extracted {len(entities)} entities using Jean Memory V2 GPT-4o-mini approach")
+                    
+                except Exception as gpt_error:
+                    logger.warning(f"GPT-4o-mini entity extraction failed: {gpt_error}")
+                    # Fall back to basic entity extraction if GPT fails
+                    raise gpt_error
+                
+            except Exception as e:
+                logger.warning(f"Jean Memory V2 entity extraction failed: {e}")
+                logger.info("🔄 Falling back to basic entity extraction...")
+                
+                # Basic fallback using simple patterns for critical entities
+                import re
+                
+                basic_patterns = {
+                    'person': [r'\b[A-Z][a-z]+ [A-Z][a-z]+\b', r'\b(?:I|me|my|myself)\b'],
+                    'place': [r'\b(?:office|home|work|school|restaurant|cafe|park)\b'],
+                    'event': [r'\b(?:meeting|conference|party|project|trip)\b'],
+                    'topic': [r'\b(?:programming|business|health|learning|travel)\b'],
+                    'object': [r'\b(?:laptop|phone|car|book|app)\b'],
+                    'emotion': [r'\b(?:happy|sad|excited|frustrated|confident)\b']
+                }
+                
+                for memory in processed_memories:
+                    content = memory['content'].lower()
+                    memory_id = memory['id']
+                    
+                    for entity_type, patterns in basic_patterns.items():
+                        for pattern in patterns:
+                            matches = re.findall(pattern, content, re.IGNORECASE)
+                            for match in matches:
+                                if len(match.strip()) > 1:
+                                    entity_name = match.strip().title()
+                                    entity_id = f"{entity_type}_{entity_name.lower().replace(' ', '_')}"
+                                    
+                                    if entity_id not in entities:
+                                        entities[entity_id] = {
+                                            'id': entity_id,
+                                            'name': entity_name,
+                                            'type': entity_type,
+                                            'mentions': 0,
+                                            'attributes': {}
+                                        }
+                                    
+                                    entities[entity_id]['mentions'] += 1
+                                    entity_memory_map.setdefault(entity_id, []).append(memory_id)
+                
+                logger.info(f"✅ Extracted {len(entities)} entities using fallback approach")
+        
+        # Create enhanced visualization data
         nodes = []
         edges = []
         
-        # Convert memories to nodes
+        # Convert memories to nodes with safety checks
         for i, memory in enumerate(processed_memories):
+            if not memory.get('id') or not memory.get('content'):
+                continue
+                
+            content = str(memory['content'])
+            title = content[:80] + '...' if len(content) > 80 else content
+            
             node = {
-                'id': memory['id'],
-                'title': memory['content'][:100] + '...' if len(memory['content']) > 100 else memory['content'],
-                'content': memory['content'],
+                'id': str(memory['id']),
+                'title': title,
+                'content': content,
                 'type': 'memory',
                 'created_at': memory.get('created_at'),
                 'source': memory.get('source', 'Unknown'),
                 'metadata': memory.get('metadata', {}),
                 'position': {
-                    'x': (i % 10) * 100,  # Simple grid layout
-                    'y': (i // 10) * 100,
+                    'x': (i % 20) * 150,  # Improved spacing
+                    'y': (i // 20) * 150,
                     'z': 0
                 }
             }
             nodes.append(node)
         
-        # Create basic edges between nearby memories
-        for i in range(len(nodes) - 1):
-            if i % 3 == 0:  # Connect every 3rd memory to reduce clutter
+        # Add entity nodes with proper positioning
+        for i, (entity_id, entity) in enumerate(entities.items()):
+            if not entity.get('id') or not entity.get('name') or not entity.get('type'):
+                continue
+            
+            # Position entities by type for better organization
+            type_offsets = {
+                'person': {'x': 0, 'y': 0},
+                'place': {'x': 2000, 'y': 0},
+                'event': {'x': 4000, 'y': 0},
+                'topic': {'x': 0, 'y': 2000},
+                'object': {'x': 2000, 'y': 2000},
+                'emotion': {'x': 4000, 'y': 2000}
+            }
+            
+            offset = type_offsets.get(entity['type'], {'x': 0, 'y': 0})
+            x = offset['x'] + (i % 10) * 120
+            y = offset['y'] + (i // 10) * 120
+            
+            nodes.append({
+                'id': str(entity_id),
+                'title': str(entity['name']),
+                'content': f"{entity['type'].title()}: {entity['name']} (mentioned {entity['mentions']} times)",
+                'type': entity['type'],
+                'mentions': entity['mentions'],
+                'position': {'x': x, 'y': y, 'z': 0}
+            })
+        
+        # Create ontological relationships
+        edge_id = 0
+        
+        # Memory-to-entity edges using semantic edge types
+        for entity_id, memory_ids in entity_memory_map.items():
+            if entity_id not in entities:
+                continue
+                
+            entity_type = entities[entity_id]['type']
+            
+            for memory_id in memory_ids:
+                if not memory_id:
+                    continue
+                
+                # Determine edge type based on entity type (aligned with Jean Memory V2 ontology)
+                if entity_type == 'person':
+                    edge_type = 'participatedIn'
+                elif entity_type == 'place':
+                    edge_type = 'locatedAt'
+                elif entity_type == 'event':
+                    edge_type = 'participatedIn'
+                elif entity_type == 'topic':
+                    edge_type = 'relatedTo'
+                elif entity_type == 'object':
+                    edge_type = 'relatedTo'
+                elif entity_type == 'emotion':
+                    edge_type = 'expressed'
+                else:
+                    edge_type = 'mentions'
+                
                 edges.append({
-                    'id': f"edge_{i}",
-                    'source': nodes[i]['id'],
-                    'target': nodes[i + 1]['id'],
-                    'type': 'temporal',
+                    'id': f"edge_{edge_id}",
+                    'source': str(memory_id),
+                    'target': str(entity_id),
+                    'type': edge_type,
                     'weight': 1
                 })
+                edge_id += 1
+        
+        # Entity-to-entity edges (only for significant co-occurrences)
+        entity_pairs_processed = set()
+        for entity_id1, memory_ids1 in entity_memory_map.items():
+            for entity_id2, memory_ids2 in entity_memory_map.items():
+                if entity_id1 == entity_id2:
+                    continue
+                    
+                # Avoid duplicate pairs
+                pair_key = tuple(sorted([entity_id1, entity_id2]))
+                if pair_key in entity_pairs_processed:
+                    continue
+                entity_pairs_processed.add(pair_key)
+                
+                shared_memories = set(memory_ids1) & set(memory_ids2)
+                if len(shared_memories) >= 2:  # Only connect if they share multiple memories
+                    entity_type1 = entities[entity_id1]['type']
+                    entity_type2 = entities[entity_id2]['type']
+                    
+                    # Determine semantic edge type
+                    if (entity_type1 == 'person' and entity_type2 == 'place') or (entity_type1 == 'place' and entity_type2 == 'person'):
+                        edge_type = 'locatedAt'
+                    elif (entity_type1 == 'person' and entity_type2 == 'event') or (entity_type1 == 'event' and entity_type2 == 'person'):
+                        edge_type = 'participatedIn'
+                    elif (entity_type1 == 'event' and entity_type2 == 'place') or (entity_type1 == 'place' and entity_type2 == 'event'):
+                        edge_type = 'locatedAt'
+                    elif (entity_type1 == 'person' and entity_type2 == 'emotion') or (entity_type1 == 'emotion' and entity_type2 == 'person'):
+                        edge_type = 'expressed'
+                    else:
+                        edge_type = 'relatedTo'
+                    
+                    edges.append({
+                        'id': f"edge_{edge_id}",
+                        'source': str(entity_id1),
+                        'target': str(entity_id2),
+                        'type': edge_type,
+                        'weight': len(shared_memories)
+                    })
+                    edge_id += 1
+        
+        # Memory-to-memory similarity edges (limited for performance)
+        similarity_edges = 0
+        max_similarity_edges = 100
+        
+        for i, memory1 in enumerate(processed_memories):
+            if similarity_edges >= max_similarity_edges:
+                break
+                
+            for j, memory2 in enumerate(processed_memories[i+1:], i+1):
+                if similarity_edges >= max_similarity_edges:
+                    break
+                
+                # Calculate content similarity
+                content1_words = set(memory1['content'].lower().split())
+                content2_words = set(memory2['content'].lower().split())
+                
+                if len(content1_words) > 3 and len(content2_words) > 3:
+                    similarity = len(content1_words & content2_words) / len(content1_words | content2_words)
+                    
+                    if similarity > 0.3:  # Higher threshold for better quality
+                        edges.append({
+                            'id': f"edge_{edge_id}",
+                            'source': str(memory1['id']),
+                            'target': str(memory2['id']),
+                            'type': 'similar',
+                            'weight': similarity
+                        })
+                        edge_id += 1
+                        similarity_edges += 1
         
         visualization_data = {
             'nodes': nodes,
@@ -794,11 +1139,30 @@ async def get_life_graph_data(
             'clusters': [],
             'metadata': {
                 'total_memories': len(processed_memories),
+                'total_entities': len(entities),
                 'total_nodes': len(nodes),
                 'total_edges': len(edges),
+                'entity_counts': {
+                    'person': len([e for e in entities.values() if e['type'] == 'person']),
+                    'place': len([e for e in entities.values() if e['type'] == 'place']),
+                    'event': len([e for e in entities.values() if e['type'] == 'event']),
+                    'topic': len([e for e in entities.values() if e['type'] == 'topic']),
+                    'object': len([e for e in entities.values() if e['type'] == 'object']),
+                    'emotion': len([e for e in entities.values() if e['type'] == 'emotion'])
+                },
+                'edge_types': {
+                    'participatedIn': len([e for e in edges if e['type'] == 'participatedIn']),
+                    'locatedAt': len([e for e in edges if e['type'] == 'locatedAt']),
+                    'relatedTo': len([e for e in edges if e['type'] == 'relatedTo']),
+                    'expressed': len([e for e in edges if e['type'] == 'expressed']),
+                    'similar': len([e for e in edges if e['type'] == 'similar']),
+                    'mentions': len([e for e in edges if e['type'] == 'mentions'])
+                },
                 'focus_query': focus_query,
                 'generated_at': datetime.datetime.now(UTC).isoformat(),
-                'search_method': 'simplified_approach',
+                'search_method': 'ontological_pattern_matching',
+                'entity_extraction_method': 'jean_memory_v2_aligned_patterns',
+                'ontology_aligned': True,
                 'include_entities': include_entities,
                 'include_temporal_clusters': include_temporal_clusters
             }

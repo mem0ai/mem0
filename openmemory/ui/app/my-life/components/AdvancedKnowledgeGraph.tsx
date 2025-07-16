@@ -173,21 +173,23 @@ const VIEW_MODES: ViewMode[] = [
 ];
 
 const ENTITY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  'Person': User,
-  'Place': MapPin,
-  'Event': Calendar,
-  'Topic': Hash,
-  'Object': Package,
-  'Emotion': Heart
+  'person': User,
+  'place': MapPin,
+  'event': Calendar,
+  'topic': Hash,
+  'object': Package,
+  'emotion': Heart,
+  'memory': Brain,
+  'cluster': Network
 };
 
 const ENTITY_COLORS: Record<string, string> = {
-  'Person': '#3B82F6',      // Blue
-  'Place': '#10B981',       // Green
-  'Event': '#F59E0B',       // Amber
-  'Topic': '#8B5CF6',       // Purple
-  'Object': '#EF4444',      // Red
-  'Emotion': '#EC4899',     // Pink
+  'person': '#3B82F6',      // Blue
+  'place': '#10B981',       // Green
+  'event': '#F59E0B',       // Amber
+  'topic': '#8B5CF6',       // Purple
+  'object': '#EF4444',      // Red
+  'emotion': '#EC4899',     // Pink
   'memory': '#6B7280',      // Gray
   'cluster': '#1F2937'      // Dark Gray
 };
