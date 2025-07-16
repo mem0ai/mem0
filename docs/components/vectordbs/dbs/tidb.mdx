@@ -1,0 +1,52 @@
+[TiDB](https://github.com/pingcap/tidb) is an open-source, MySQL-compatible distributed SQL database that now supports a native `VECTOR` data type and similarity search functions such as `vec_cosine_distance`. Starting from TiDB 7.6 you can store embeddings directly inside TiDB and run ANN queries without additional extensions.
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "tidb",
+        "config": {
+            "user": "test",          # TiDB user
+            "password": "123",      # TiDB password
+            "host": "127.0.0.1",    # TiDB server host
+            "port": 4000,            # TiDB server port (HTTP / MySQL protocol)
+            "database": "test",     # Database to use
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I’m not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+### Config
+
+Here are the parameters available for configuring TiDB:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `database` | Name of the database/schema where the collection table will be created | `test` |
+| `collection_name` | Table name that stores the vectors | `mem0` |
+| `embedding_model_dims` | Dimensions of the embedding model | `1536` |
+| `user` | TiDB user name | `None` |
+| `password` | TiDB password | `None` |
+| `host` | Hostname/IP of the TiDB server | `None` |
+| `port` | Port of the TiDB server (default MySQL protocol port is `4000`) | `None` |
+| `use_ssl` | Enable TLS connection (required for TiDB Cloud) | `True` |
+| `verify_cert` | Verify server certificate | `True` |
+| `ssl_ca` | Path to CA bundle (optional for TiDB Cloud) | `None` |
+| `ssl_cert` | Client certificate for mTLS | `None` |
+| `ssl_key` | Client private key for mTLS | `None` |
