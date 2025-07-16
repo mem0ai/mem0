@@ -26,6 +26,8 @@ class ProfileResponse(BaseModel):
     user_id: str
     email: Optional[str]
     name: Optional[str]
+    firstname: Optional[str]
+    lastname: Optional[str]
     subscription_tier: str
     subscription_status: Optional[str]
     phone_number: Optional[str]
@@ -67,6 +69,26 @@ class VerificationCodeRequest(BaseModel):
 class SMSSettingsRequest(BaseModel):
     sms_enabled: bool
 
+class ProfileUpdateRequest(BaseModel):
+    firstname: Optional[str] = None
+    lastname: Optional[str] = None
+    
+    @validator('firstname', allow_reuse=True)
+    def validate_firstname(cls, v):
+        if v is not None and len(v.strip()) == 0:
+            return None
+        if v is not None and len(v.strip()) > 100:
+            raise ValueError('First name must be less than 100 characters')
+        return v.strip() if v else None
+    
+    @validator('lastname', allow_reuse=True)
+    def validate_lastname(cls, v):
+        if v is not None and len(v.strip()) == 0:
+            return None
+        if v is not None and len(v.strip()) > 100:
+            raise ValueError('Last name must be less than 100 characters')
+        return v.strip() if v else None
+
 # Profile endpoints
 @router.get("", response_model=ProfileResponse)
 async def get_profile(
@@ -81,6 +103,45 @@ async def get_profile(
         user_id=user.user_id,
         email=user.email,
         name=user.name,
+        firstname=user.firstname,
+        lastname=user.lastname,
+        subscription_tier=user.subscription_tier.value,
+        subscription_status=user.subscription_status,
+        phone_number=user.phone_number,
+        phone_verified=user.phone_verified or False,
+        sms_enabled=user.sms_enabled if user.sms_enabled is not None else True
+    )
+
+@router.put("", response_model=ProfileResponse)
+async def update_profile(
+    request: ProfileUpdateRequest,
+    current_supa_user: SupabaseUser = Depends(get_current_supa_user),
+    db: Session = Depends(get_db)
+):
+    """Update user profile information (firstname and lastname)"""
+    supabase_user_id_str = str(current_supa_user.id)
+    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
+    
+    # Update fields if provided
+    if request.firstname is not None:
+        user.firstname = request.firstname
+    if request.lastname is not None:
+        user.lastname = request.lastname
+    
+    try:
+        db.commit()
+        logger.info(f"Successfully updated profile for user {user.id}")
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to update profile for user {user.id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update profile")
+    
+    return ProfileResponse(
+        user_id=user.user_id,
+        email=user.email,
+        name=user.name,
+        firstname=user.firstname,
+        lastname=user.lastname,
         subscription_tier=user.subscription_tier.value,
         subscription_status=user.subscription_status,
         phone_number=user.phone_number,

@@ -19,6 +19,7 @@ import { SyncModal } from '@/components/dashboard/SyncModal';
 import { RequestIntegrationModal } from '@/components/dashboard/RequestIntegrationModal';
 import { RefreshAllButton, RefreshStatus } from "@/components/dashboard/RefreshAllButton";
 import { MigrationBanner } from "./MigrationBanner";
+import { ProfileCompletionBanner } from "./ProfileCompletionBanner";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 // Define available apps with priorities
@@ -367,6 +368,9 @@ export default function Dashboard() {
       <div className="relative z-10 container mx-auto px-4 max-w-7xl py-8">
         {/* Migration Banner */}
         <MigrationBanner />
+        
+        {/* Profile Completion Banner */}
+        <ProfileCompletionBanner />
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Side */}

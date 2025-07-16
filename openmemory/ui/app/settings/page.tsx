@@ -47,6 +47,8 @@ interface Profile {
   user_id: string;
   email: string | null;
   name: string | null;
+  firstname: string | null;
+  lastname: string | null;
   subscription_tier: string;
   subscription_status: string | null;
   phone_number: string | null;
@@ -76,6 +78,12 @@ export default function ApiKeysPage() {
   const [keyToRevoke, setKeyToRevoke] = useState<ApiKey | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // State for profile editing
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editFirstname, setEditFirstname] = useState("");
+  const [editLastname, setEditLastname] = useState("");
+  const [profileUpdateLoading, setProfileUpdateLoading] = useState(false);
+
   const handleApiError = (error: any, response?: Response) => {
     // Check if this is a subscription-related error (402 status)
     if (response?.status === 402 && typeof error.detail === 'object' && error.detail.error === 'subscription_required') {
@@ -101,6 +109,9 @@ export default function ApiKeysPage() {
       if (response.ok) {
         const data = await response.json();
         setProfile(data);
+        // Initialize edit fields with current values
+        setEditFirstname(data.firstname || "");
+        setEditLastname(data.lastname || "");
       }
     } catch (err: any) {
       console.error("Failed to fetch profile:", err);
@@ -205,6 +216,46 @@ export default function ApiKeysPage() {
     }, 2000);
   };
 
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!accessToken) return;
+
+    setProfileUpdateLoading(true);
+    try {
+      const response = await fetch("/api/v1/profile/", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          firstname: editFirstname.trim() || null,
+          lastname: editLastname.trim() || null,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Failed to update profile");
+      }
+
+      const updatedProfile = await response.json();
+      setProfile(updatedProfile);
+      setIsEditingProfile(false);
+      setError(null);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setProfileUpdateLoading(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditingProfile(false);
+    setEditFirstname(profile?.firstname || "");
+    setEditLastname(profile?.lastname || "");
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -222,6 +273,90 @@ export default function ApiKeysPage() {
             Generate New Key
           </Button>
         </div>
+
+        {/* Personal Information Card */}
+        {profile && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5 text-blue-500" />
+                Personal Information
+              </CardTitle>
+              <CardDescription>
+                Manage your personal details
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {!isEditingProfile ? (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-sm font-medium text-muted-foreground">First Name</div>
+                    <div className="text-lg">{profile.firstname || 'Not set'}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-muted-foreground">Last Name</div>
+                    <div className="text-lg">{profile.lastname || 'Not set'}</div>
+                  </div>
+                  <div className="col-span-2 mt-4">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setIsEditingProfile(true)}
+                    >
+                      Edit Personal Information
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleUpdateProfile} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="firstname" className="block text-sm font-medium text-muted-foreground mb-2">
+                        First Name
+                      </label>
+                      <Input
+                        id="firstname"
+                        type="text"
+                        value={editFirstname}
+                        onChange={(e) => setEditFirstname(e.target.value)}
+                        placeholder="Enter your first name"
+                        maxLength={100}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="lastname" className="block text-sm font-medium text-muted-foreground mb-2">
+                        Last Name
+                      </label>
+                      <Input
+                        id="lastname"
+                        type="text"
+                        value={editLastname}
+                        onChange={(e) => setEditLastname(e.target.value)}
+                        placeholder="Enter your last name"
+                        maxLength={100}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button 
+                      type="submit" 
+                      disabled={profileUpdateLoading}
+                    >
+                      {profileUpdateLoading ? 'Saving...' : 'Save Changes'}
+                    </Button>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={handleCancelEdit}
+                      disabled={profileUpdateLoading}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Subscription Status Card */}
         {profile && (

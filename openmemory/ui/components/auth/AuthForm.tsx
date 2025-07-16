@@ -14,6 +14,8 @@ export const AuthForm = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [firstname, setFirstname] = useState('');
+  const [lastname, setLastname] = useState('');
   const [message, setMessage] = useState('');
   const { signInWithPassword, signUpWithPassword, signInWithGoogle, signInWithGitHub, error, isLoading, user, isLocalDev } = useAuth();
   const router = useRouter();
@@ -37,9 +39,33 @@ export const AuthForm = () => {
         setMessage('Login successful! Redirecting...');
       }
     } else {
-      const { error: signUpError } = await signUpWithPassword({ email, password });
-      if (!signUpError) {
+      const { data, error: signUpError } = await signUpWithPassword({ email, password });
+      if (!signUpError && data.user) {
         setMessage('Account created! Please check your email to verify your account.');
+        
+        // If user provided name information, update their profile
+        if ((firstname.trim() || lastname.trim()) && data.session?.access_token) {
+          try {
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8765';
+            const response = await fetch(`${API_URL}/api/v1/profile/`, {
+              method: 'PUT',
+              headers: {
+                'Authorization': `Bearer ${data.session.access_token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                firstname: firstname.trim() || null,
+                lastname: lastname.trim() || null,
+              }),
+            });
+            
+            if (!response.ok) {
+              console.warn('Failed to update profile with name information:', await response.text());
+            }
+          } catch (error) {
+            console.warn('Error updating profile with name information:', error);
+          }
+        }
       } else {
         authError = signUpError;
       }
@@ -57,11 +83,25 @@ export const AuthForm = () => {
   
   const handleGoogleSignIn = async () => {
     setMessage('');
+    // Store name fields in sessionStorage for OAuth callback
+    if (!isLogin && (firstname.trim() || lastname.trim())) {
+      sessionStorage.setItem('pendingProfileUpdate', JSON.stringify({
+        firstname: firstname.trim() || null,
+        lastname: lastname.trim() || null,
+      }));
+    }
     await signInWithGoogle();
   };
 
   const handleGitHubSignIn = async () => {
     setMessage('');
+    // Store name fields in sessionStorage for OAuth callback
+    if (!isLogin && (firstname.trim() || lastname.trim())) {
+      sessionStorage.setItem('pendingProfileUpdate', JSON.stringify({
+        firstname: firstname.trim() || null,
+        lastname: lastname.trim() || null,
+      }));
+    }
     await signInWithGitHub();
   };
 
@@ -188,6 +228,38 @@ export const AuthForm = () => {
             )}
           </div>
 
+          {/* Name fields - only show during signup */}
+          {!isLogin && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="firstname" className="text-zinc-300 font-medium">First Name <span className="text-zinc-500 text-xs">(Optional)</span></Label>
+                <Input
+                  id="firstname"
+                  type="text"
+                  value={firstname}
+                  onChange={(e) => setFirstname(e.target.value)}
+                  placeholder="First name"
+                  disabled={isLoading}
+                  maxLength={100}
+                  className="h-11 bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-slate-500 focus:ring-slate-500/20"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastname" className="text-zinc-300 font-medium">Last Name <span className="text-zinc-500 text-xs">(Optional)</span></Label>
+                <Input
+                  id="lastname"
+                  type="text"
+                  value={lastname}
+                  onChange={(e) => setLastname(e.target.value)}
+                  placeholder="Last name"
+                  disabled={isLoading}
+                  maxLength={100}
+                  className="h-11 bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-slate-500 focus:ring-slate-500/20"
+                />
+              </div>
+            </div>
+          )}
+
           <Button 
             type="submit" 
             disabled={isLoading} 
@@ -209,6 +281,8 @@ export const AuthForm = () => {
               setMessage(''); 
               setEmail('');
               setPassword('');
+              setFirstname('');
+              setLastname('');
             }}
             className="text-sm text-zinc-400 hover:text-white transition-colors font-medium"
             disabled={isLoading}

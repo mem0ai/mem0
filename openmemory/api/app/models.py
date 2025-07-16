@@ -50,6 +50,8 @@ class User(Base):
     user_id = Column(String, nullable=False, unique=True, index=True)
     name = Column(String, nullable=True, index=True)
     email = Column(String, unique=True, nullable=True, index=True)
+    firstname = Column(String(100), nullable=True, index=True)
+    lastname = Column(String(100), nullable=True, index=True)
     metadata_ = Column('metadata', JSON, default=dict)
     
     # Subscription fields
