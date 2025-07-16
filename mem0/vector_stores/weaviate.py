@@ -46,6 +46,8 @@ class Weaviate(VectorStoreBase):
             collection_name (str): Name of the collection/class in Weaviate.
             embedding_model_dims (int): Dimensions of the embedding model.
             client (WeaviateClient, optional): Existing Weaviate client instance. Defaults to None.
+            custom (bool, optional): Whether to use a custom Weaviate connection. Defaults to False.
+            connection_config (dict, optional): Configuration for custom Weaviate connection. Defaults to None
             cluster_url (str, optional): URL for Weaviate server. Defaults to None.
             auth_config (dict, optional): Authentication configuration for Weaviate. Defaults to None.
             additional_headers (dict, optional): Additional headers for requests. Defaults to None.
