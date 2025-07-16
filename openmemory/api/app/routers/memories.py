@@ -689,7 +689,7 @@ async def create_memory(
 @router.get("/life-graph-data")
 async def get_life_graph_data(
     current_supa_user: SupabaseUser = Depends(get_current_supa_user),
-    limit: int = Query(50, description="Maximum number of memories to analyze"),
+    limit: int = Query(500, description="Maximum number of memories to analyze"),
     focus_query: Optional[str] = Query(None, description="Optional query to focus the graph on specific topics"),
     use_cache: bool = Query(True, description="Whether to use cached data"),
     include_entities: bool = Query(True, description="Whether to extract entities from memories"),

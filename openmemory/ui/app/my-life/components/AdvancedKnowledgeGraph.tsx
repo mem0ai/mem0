@@ -376,7 +376,7 @@ function AdvancedKnowledgeGraphInner({ onMemorySelect }: AdvancedKnowledgeGraphP
     try {
       const response = await apiClient.get('/api/v1/memories/life-graph-data', {
         params: {
-          limit: 100,
+          limit: 500,
           include_entities: true,
           include_temporal_clusters: viewMode.id === 'temporal',
           focus_query: searchQuery || undefined
@@ -695,7 +695,10 @@ function AdvancedKnowledgeGraphInner({ onMemorySelect }: AdvancedKnowledgeGraphP
                   <Button 
                     size="sm" 
                     className="mt-3"
-                    onClick={() => onMemorySelect?.(selectedNode.id)}
+                    onClick={() => {
+                      // Navigate to memory details page
+                      window.location.href = `/memory/${selectedNode.id}`;
+                    }}
                   >
                     View Memory Details
                     <ChevronRight className="w-4 h-4 ml-1" />
