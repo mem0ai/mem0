@@ -1,0 +1,74 @@
+---
+title: Aliyun Tablestore vector_store
+---
+
+[Aliyun Tablestore](https://www.aliyun.com/product/ots) Tablestore provides Serverless table storage services for massive structured data, and provides a one-stop IoTstore solution for deep optimization of IoT scenarios. It is suitable for structured data storage in scenarios such as massive bills, IM messages, IoT, Internet of Vehicles, risk control, and recommendations, and provides low-cost storage of massive data, millisecond-level online data query and retrieval, and flexible data analysis capabilities.
+
+### Installation
+
+Aliyun Tablestore support requires additional dependencies. Install them with:
+
+```bash
+pip install tablestore-for-agent-memory
+```
+
+### Prerequisites
+
+Before using Aliyun Tablestore with Mem0, you need to get TABLESTORE_ACCESS_KEY_ID and TABLESTORE_ACCESS_KEY_SECRET, then set up a tablestore instance in Aliyun.
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+config = {
+    "vector_store": {
+        "provider": "aliyun_tablestore",
+        "config": {
+            "vector_dimension": 1536,
+            "endpoint": "<your_endpoint>",
+            "instance_name": "<your_instance_name>",
+            "access_key_id": "<your_access_key_id>",
+            "access_key_secret": "<your_access_key_secret>",
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movie? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+### Config
+
+#### Available Parameters
+
+Here are the available parameters for the `aliyun_tablestore` config:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `endpoint` | endpoint of aliyun tablestore | Required |
+| `instance_name` | instance_name of aliyun tablestore | Required |
+| `access_key_id` | access_key_id of aliyun tablestore | Required |
+| `access_key_secret` | access_key_secret of aliyun tablestore | Required |
+| `vector_dimension` | dimension of vector | `1536` |
+| `sts_token` | sts_token of tablestore | None |
+| `collection_name` | name of the collection | `mem0` |
+| `search_index_name` | index name | `mem0_search_index` |
+| `text_field` | name of the text in table field | `text` |
+| `embedding_field` | name of the embedding field | `embedding` |
+| `vector_metric_type` | metric type for vector | `VM_COSINE` |
+
+#### Distance Metrics
+
+The following distance metrics are supported:
+
+- `VM_EUCLIDEAN`: Euclidean Distance
+- `VM_COSINE`: Cosine Similarity
+- `VM_DOT_PRODUCT`: Dot Product

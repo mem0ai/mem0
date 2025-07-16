@@ -38,6 +38,7 @@ vector_stores = [
     "azure-search-documents>=11.4.0b8",
     "pymongo>=4.13.2",
     "pymochow>=2.2.9",
+    "tablestore-for-agent-memory>=1.0.1",
 ]
 llms = [
     "groq>=0.3.0",
