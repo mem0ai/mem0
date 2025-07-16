@@ -14,7 +14,9 @@ if not DATABASE_URL:
 # SQLAlchemy engine & session
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False}  # Needed for SQLite
+    connect_args={
+        "options": "-csearch_path=openmemory,public"
+    }
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

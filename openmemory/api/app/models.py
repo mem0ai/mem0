@@ -48,12 +48,13 @@ class User(Base):
 
     apps = relationship("App", back_populates="owner")
     memories = relationship("Memory", back_populates="user")
+    __table_args__ = {'schema': 'openmemory'}
 
 
 class App(Base):
     __tablename__ = "apps"
     id = Column(UUID, primary_key=True, default=lambda: uuid.uuid4())
-    owner_id = Column(UUID, ForeignKey("users.id"), nullable=False, index=True)
+    owner_id = Column(UUID, ForeignKey("openmemory.users.id"), nullable=False, index=True)
     name = Column(String, nullable=False, index=True)
     description = Column(String)
     metadata_ = Column('metadata', JSON, default=dict)
@@ -68,6 +69,7 @@ class App(Base):
 
     __table_args__ = (
         sa.UniqueConstraint('owner_id', 'name', name='idx_app_owner_name'),
+        {'schema': 'openmemory'}
     )
 
 
@@ -80,13 +82,14 @@ class Config(Base):
     updated_at = Column(DateTime,
                         default=get_current_utc_time,
                         onupdate=get_current_utc_time)
+    __table_args__ = {'schema': 'openmemory'}
 
 
 class Memory(Base):
     __tablename__ = "memories"
     id = Column(UUID, primary_key=True, default=lambda: uuid.uuid4())
-    user_id = Column(UUID, ForeignKey("users.id"), nullable=False, index=True)
-    app_id = Column(UUID, ForeignKey("apps.id"), nullable=False, index=True)
+    user_id = Column(UUID, ForeignKey("openmemory.users.id"), nullable=False, index=True)
+    app_id = Column(UUID, ForeignKey("openmemory.apps.id"), nullable=False, index=True)
     content = Column(String, nullable=False)
     vector = Column(String)
     metadata_ = Column('metadata', JSON, default=dict)
@@ -100,12 +103,13 @@ class Memory(Base):
 
     user = relationship("User", back_populates="memories")
     app = relationship("App", back_populates="memories")
-    categories = relationship("Category", secondary="memory_categories", back_populates="memories")
+    categories = relationship("Category", secondary="openmemory.memory_categories", back_populates="memories")
 
     __table_args__ = (
         Index('idx_memory_user_state', 'user_id', 'state'),
         Index('idx_memory_app_state', 'app_id', 'state'),
         Index('idx_memory_user_app', 'user_id', 'app_id'),
+        {'schema': 'openmemory'}
     )
 
 
@@ -119,13 +123,15 @@ class Category(Base):
                         default=get_current_utc_time,
                         onupdate=get_current_utc_time)
 
-    memories = relationship("Memory", secondary="memory_categories", back_populates="categories")
+    memories = relationship("Memory", secondary="openmemory.memory_categories", back_populates="categories")
+    __table_args__ = {'schema': 'openmemory'}
 
 memory_categories = Table(
     "memory_categories", Base.metadata,
-    Column("memory_id", UUID, ForeignKey("memories.id"), primary_key=True, index=True),
-    Column("category_id", UUID, ForeignKey("categories.id"), primary_key=True, index=True),
-    Index('idx_memory_category', 'memory_id', 'category_id')
+    Column("memory_id", UUID, ForeignKey("openmemory.memories.id"), primary_key=True, index=True),
+    Column("category_id", UUID, ForeignKey("openmemory.categories.id"), primary_key=True, index=True),
+    Index('idx_memory_category', 'memory_id', 'category_id'),
+    schema='openmemory'
 )
 
 
@@ -142,6 +148,7 @@ class AccessControl(Base):
     __table_args__ = (
         Index('idx_access_subject', 'subject_type', 'subject_id'),
         Index('idx_access_object', 'object_type', 'object_id'),
+        {'schema': 'openmemory'}
     )
 
 
@@ -155,14 +162,15 @@ class ArchivePolicy(Base):
 
     __table_args__ = (
         Index('idx_policy_criteria', 'criteria_type', 'criteria_id'),
+        {'schema': 'openmemory'}
     )
 
 
 class MemoryStatusHistory(Base):
     __tablename__ = "memory_status_history"
     id = Column(UUID, primary_key=True, default=lambda: uuid.uuid4())
-    memory_id = Column(UUID, ForeignKey("memories.id"), nullable=False, index=True)
-    changed_by = Column(UUID, ForeignKey("users.id"), nullable=False, index=True)
+    memory_id = Column(UUID, ForeignKey("openmemory.memories.id"), nullable=False, index=True)
+    changed_by = Column(UUID, ForeignKey("openmemory.users.id"), nullable=False, index=True)
     old_state = Column(Enum(MemoryState), nullable=False, index=True)
     new_state = Column(Enum(MemoryState), nullable=False, index=True)
     changed_at = Column(DateTime, default=get_current_utc_time, index=True)
@@ -170,14 +178,15 @@ class MemoryStatusHistory(Base):
     __table_args__ = (
         Index('idx_history_memory_state', 'memory_id', 'new_state'),
         Index('idx_history_user_time', 'changed_by', 'changed_at'),
+        {'schema': 'openmemory'}
     )
 
 
 class MemoryAccessLog(Base):
     __tablename__ = "memory_access_logs"
     id = Column(UUID, primary_key=True, default=lambda: uuid.uuid4())
-    memory_id = Column(UUID, ForeignKey("memories.id"), nullable=False, index=True)
-    app_id = Column(UUID, ForeignKey("apps.id"), nullable=False, index=True)
+    memory_id = Column(UUID, ForeignKey("openmemory.memories.id"), nullable=False, index=True)
+    app_id = Column(UUID, ForeignKey("openmemory.apps.id"), nullable=False, index=True)
     accessed_at = Column(DateTime, default=get_current_utc_time, index=True)
     access_type = Column(String, nullable=False, index=True)
     metadata_ = Column('metadata', JSON, default=dict)
@@ -185,6 +194,7 @@ class MemoryAccessLog(Base):
     __table_args__ = (
         Index('idx_access_memory_time', 'memory_id', 'accessed_at'),
         Index('idx_access_app_time', 'app_id', 'accessed_at'),
+        {'schema': 'openmemory'}
     )
 
 def categorize_memory(memory: Memory, db: Session) -> None:

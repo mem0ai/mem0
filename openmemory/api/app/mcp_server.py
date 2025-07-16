@@ -176,26 +176,43 @@ async def search_memory(query: str) -> str:
             filters = qdrant_models.Filter(must=conditions)
             embeddings = memory_client.embedding_model.embed(query, "search")
             
-            hits = memory_client.vector_store.client.query_points(
-                collection_name=memory_client.vector_store.collection_name,
-                query=embeddings,
-                query_filter=filters,
-                limit=10,
-            )
+            # Perform search using the appropriate vector store
+            if hasattr(memory_client.vector_store, 'client'):  # Qdrant
+                hits = memory_client.vector_store.client.query_points(
+                    collection_name=memory_client.vector_store.collection_name,
+                    query=embeddings,
+                    query_filter=filters,
+                    limit=10,
+                )
+                memories = hits.points
+            else:  # pgvector
+                hits = memory_client.vector_store.search(
+                    query=query,
+                    vectors=embeddings,
+                    limit=10,
+                    filters={"user_id": uid}
+                )
+                memories = hits
 
             # Process search results
-            memories = hits.points
-            memories = [
-                {
+            processed_memories = []
+            for memory in memories:
+                if hasattr(memory, 'payload'):  # Qdrant
+                    payload = memory.payload
+                    score = memory.score
+                else:  # pgvector
+                    payload = memory.payload
+                    score = memory.score
+
+                processed_memories.append({
                     "id": memory.id,
-                    "memory": memory.payload["data"],
-                    "hash": memory.payload.get("hash"),
-                    "created_at": memory.payload.get("created_at"),
-                    "updated_at": memory.payload.get("updated_at"),
-                    "score": memory.score,
-                }
-                for memory in memories
-            ]
+                    "memory": payload["data"],
+                    "hash": payload.get("hash"),
+                    "created_at": payload.get("created_at"),
+                    "updated_at": payload.get("updated_at"),
+                    "score": score,
+                })
+            memories = processed_memories
 
             # Log memory access for each memory found
             if isinstance(memories, dict) and 'results' in memories:
@@ -335,7 +352,7 @@ async def delete_all_memories() -> str:
             # delete the accessible memories only
             for memory_id in accessible_memory_ids:
                 try:
-                    memory_client.delete(memory_id)
+                    memory_client.delete(str(memory_id))
                 except Exception as delete_error:
                     logging.warning(f"Failed to delete memory {memory_id} from vector store: {delete_error}")
 

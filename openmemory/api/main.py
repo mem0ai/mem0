@@ -10,7 +10,21 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
 
+from sqlalchemy import event
+from sqlalchemy.schema import CreateSchema
+
 app = FastAPI(title="OpenMemory API")
+
+
+from sqlalchemy import inspect
+
+@event.listens_for(Base.metadata, 'before_create')
+def create_schema(target, connection, **kw):
+    schema = 'openmemory'
+    if not connection.dialect.has_schema(connection, schema):
+        connection.execute(CreateSchema(schema))
+
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -86,3 +100,7 @@ app.include_router(config_router)
 
 # Add pagination support
 add_pagination(app)
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8765, reload=True)

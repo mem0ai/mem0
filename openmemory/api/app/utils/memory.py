@@ -135,15 +135,25 @@ def reset_memory_client():
 
 def get_default_memory_config():
     """Get default memory client configuration with sensible defaults."""
-    return {
-        "vector_store": {
+    pg_vector = {
+        "provider": "pgvector",
+        "config": {
+            "user": "env:DB_USER",
+            "password": "env:DB_PASSWORD",
+            "host": "env:DB_HOST",
+            "port": "5432",
+        }
+    }
+    qdrant = {
             "provider": "qdrant",
             "config": {
                 "collection_name": "openmemory",
                 "host": "mem0_store",
                 "port": 6333,
             }
-        },
+        }
+    return {
+        "vector_store": pg_vector,
         "llm": {
             "provider": "openai",
             "config": {
