@@ -31,6 +31,7 @@ import { AzureOpenAIEmbedder } from "../embeddings/azure";
 import { LangchainLLM } from "../llms/langchain";
 import { LangchainEmbedder } from "../embeddings/langchain";
 import { LangchainVectorStore } from "../vector_stores/langchain";
+import { TogetherEmbedder } from "../embeddings/together";
 
 export class EmbedderFactory {
   static create(provider: string, config: EmbeddingConfig): Embedder {
@@ -46,6 +47,8 @@ export class EmbedderFactory {
         return new AzureOpenAIEmbedder(config);
       case "langchain":
         return new LangchainEmbedder(config);
+      case "together":
+        return new TogetherEmbedder(config);
       default:
         throw new Error(`Unsupported embedder provider: ${provider}`);
     }
