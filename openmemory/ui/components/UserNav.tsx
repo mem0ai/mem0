@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProfile } from "@/hooks/useProfile";
 import { LogOut, Settings, Code, Star, MessageSquare, Book, ShieldCheck } from "lucide-react";
 import { RiApps2AddFill } from "react-icons/ri";
 import Link from "next/link";
@@ -20,11 +21,14 @@ import { Icons } from "./icons";
 
 export function UserNav() {
   const { user, signOut } = useAuth();
+  const { profile, getDisplayName } = useProfile();
   const router = useRouter();
 
   if (!user) {
     return null;
   }
+
+  const displayName = getDisplayName() || user.user_metadata.full_name || user.email?.split('@')[0] || 'User';
 
   return (
     <DropdownMenu>
@@ -39,7 +43,7 @@ export function UserNav() {
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{user.user_metadata.full_name}</p>
+            <p className="text-sm font-medium leading-none">{displayName}</p>
             <p className="text-xs leading-none text-muted-foreground">
               {user.email}
             </p>
