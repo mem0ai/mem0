@@ -57,17 +57,17 @@ def _get_docker_host_url():
     if custom_host:
         print(f"Using custom Ollama host from OLLAMA_HOST: {custom_host}")
         return custom_host.replace('http://', '').replace('https://', '').split(':')[0]
-    
+
     # Check if we're running inside Docker
     if not os.path.exists('/.dockerenv'):
         # Not in Docker, return localhost as-is
         return "localhost"
-    
+
     print("Detected Docker environment, adjusting host URL for Ollama...")
-    
+
     # Try different host resolution strategies
     host_candidates = []
-    
+
     # 1. host.docker.internal (works on Docker Desktop for Mac/Windows)
     try:
         socket.gethostbyname('host.docker.internal')
@@ -75,7 +75,7 @@ def _get_docker_host_url():
         print("Found host.docker.internal")
     except socket.gaierror:
         pass
-    
+
     # 2. Docker bridge gateway (typically 172.17.0.1 on Linux)
     try:
         with open('/proc/net/route', 'r') as f:
@@ -89,12 +89,12 @@ def _get_docker_host_url():
                     break
     except (FileNotFoundError, IndexError, ValueError):
         pass
-    
+
     # 3. Fallback to common Docker bridge IP
     if not host_candidates:
         host_candidates.append('172.17.0.1')
         print("Using fallback Docker bridge IP: 172.17.0.1")
-    
+
     # Return the first available candidate
     return host_candidates[0]
 
@@ -107,9 +107,9 @@ def _fix_ollama_urls(config_section):
     """
     if not config_section or "config" not in config_section:
         return config_section
-    
+
     ollama_config = config_section["config"]
-    
+
     # Set default ollama_base_url if not provided
     if "ollama_base_url" not in ollama_config:
         ollama_config["ollama_base_url"] = "http://host.docker.internal:11434"
@@ -122,7 +122,7 @@ def _fix_ollama_urls(config_section):
                 new_url = url.replace("localhost", docker_host).replace("127.0.0.1", docker_host)
                 ollama_config["ollama_base_url"] = new_url
                 print(f"Adjusted Ollama URL from {url} to {new_url}")
-    
+
     return config_section
 
 
@@ -135,6 +135,7 @@ def reset_memory_client():
 
 def get_default_memory_config():
     """Get default memory client configuration with sensible defaults."""
+
     pg_vector = {
         "provider": "pgvector",
         "config": {
@@ -145,15 +146,23 @@ def get_default_memory_config():
         }
     }
     qdrant = {
-            "provider": "qdrant",
-            "config": {
-                "collection_name": "openmemory",
-                "host": "mem0_store",
-                "port": 6333,
-            }
+        "provider": "qdrant",
+        "config": {
+            "collection_name": "openmemory",
+            "host": "env:QDRANT_HOST",
+            "port": 6333,
         }
+    }
     return {
-        "vector_store": pg_vector,
+        "vector_store": {
+            "provider": "pgvector",
+            "config": {
+                "user": "env:DB_USER",
+                "password": "env:DB_PASSWORD",
+                "host": "env:DB_HOST",
+                "port": "5432",
+            }
+        },
         "llm": {
             "provider": "openai",
             "config": {
@@ -199,6 +208,19 @@ def _parse_environment_variables(config_dict):
     return config_dict
 
 
+def deep_merge(source, destination):
+    """
+    Deeply merge two dictionaries. Modifies destination in place.
+    """
+    for key, value in source.items():
+        if isinstance(value, dict):
+            node = destination.setdefault(key, {})
+            deep_merge(value, node)
+        else:
+            destination[key] = value
+    return destination
+
+
 def get_memory_client(custom_instructions: str = None):
     """
     Get or initialize the Mem0 client.
@@ -215,48 +237,60 @@ def get_memory_client(custom_instructions: str = None):
     global _memory_client, _config_hash
 
     try:
-        # Start with default configuration
+        # 1. Start with default configuration
         config = get_default_memory_config()
-        
+
+        # 2. Check for and apply custom config file
+        custom_config_path = 'config.json'
+        if os.path.exists(custom_config_path):
+            print(f"Found custom configuration at {custom_config_path}, merging with defaults.")
+            try:
+                with open(custom_config_path, 'r') as f:
+                    custom_config = json.load(f)
+                # Deep merge custom config into the default config
+                config = deep_merge(custom_config, config)
+            except Exception as e:
+                print(f"Warning: Failed to load or parse custom config file: {e}")
+
         # Variable to track custom instructions
         db_custom_instructions = None
-        
-        # Load configuration from database
+
+        # 3. Load configuration from database (for backward compatibility and specific overrides)
         try:
             db = SessionLocal()
             db_config = db.query(ConfigModel).filter(ConfigModel.key == "main").first()
-            
+
             if db_config:
                 json_config = db_config.value
-                
+
                 # Extract custom instructions from openmemory settings
                 if "openmemory" in json_config and "custom_instructions" in json_config["openmemory"]:
                     db_custom_instructions = json_config["openmemory"]["custom_instructions"]
-                
+
                 # Override defaults with configurations from the database
                 if "mem0" in json_config:
                     mem0_config = json_config["mem0"]
-                    
+
                     # Update LLM configuration if available
                     if "llm" in mem0_config and mem0_config["llm"] is not None:
                         config["llm"] = mem0_config["llm"]
-                        
+
                         # Fix Ollama URLs for Docker if needed
                         if config["llm"].get("provider") == "ollama":
                             config["llm"] = _fix_ollama_urls(config["llm"])
-                    
+
                     # Update Embedder configuration if available
                     if "embedder" in mem0_config and mem0_config["embedder"] is not None:
                         config["embedder"] = mem0_config["embedder"]
-                        
+
                         # Fix Ollama URLs for Docker if needed
                         if config["embedder"].get("provider") == "ollama":
                             config["embedder"] = _fix_ollama_urls(config["embedder"])
             else:
                 print("No configuration found in database, using defaults")
-                    
+
             db.close()
-                            
+
         except Exception as e:
             print(f"Warning: Error loading configuration from database: {e}")
             print("Using default configuration")
@@ -267,14 +301,14 @@ def get_memory_client(custom_instructions: str = None):
         if instructions_to_use:
             config["custom_fact_extraction_prompt"] = instructions_to_use
 
-        # ALWAYS parse environment variables in the final config
+        # 4. ALWAYS parse environment variables in the final config
         # This ensures that even default config values like "env:OPENAI_API_KEY" get parsed
         print("Parsing environment variables in final config...")
         config = _parse_environment_variables(config)
 
         # Check if config has changed by comparing hashes
         current_config_hash = _get_config_hash(config)
-        
+
         # Only reinitialize if config changed or client doesn't exist
         if _memory_client is None or _config_hash != current_config_hash:
             print(f"Initializing memory client with config hash: {current_config_hash}")
@@ -288,9 +322,9 @@ def get_memory_client(custom_instructions: str = None):
                 _memory_client = None
                 _config_hash = None
                 return None
-        
+
         return _memory_client
-        
+
     except Exception as e:
         print(f"Warning: Exception occurred while initializing memory client: {e}")
         print("Server will continue running with limited memory functionality")
