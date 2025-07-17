@@ -6,6 +6,11 @@ from mem0.configs.embeddings.base import BaseEmbedderConfig
 from mem0.embeddings.azure_openai import AzureOpenAIEmbedding
 
 
+class MockTokenCredential:
+    def get_token(self, *args, **kwargs):
+        return "mock_token"
+
+
 @pytest.fixture
 def mock_openai_client():
     with patch("mem0.embeddings.azure_openai.AzureOpenAI") as mock_openai:
@@ -50,3 +55,20 @@ def test_embed_text_with_default_headers(default_headers, expected_header):
     assert embedder.client.api_key == "test"
     assert embedder.client._api_version == "test_version"
     assert embedder.client.default_headers.get("Test") == expected_header
+
+
+def test_embed_text_with_token_credential():
+    fake_token_cred = MockTokenCredential()
+    config = BaseEmbedderConfig(
+        model="text-embedding-ada-002",
+        azure_kwargs={
+            "token_credential": fake_token_cred,
+            "api_version": "test_version",
+            "azure_endpoint": "test_endpoint",
+            "azuer_deployment": "test_deployment"
+        },
+    )
+
+    embedder = AzureOpenAIEmbedding(config)
+    assert embedder.config.azure_kwargs.token_credential == fake_token_cred
+
