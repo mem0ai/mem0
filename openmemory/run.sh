@@ -6,12 +6,15 @@ echo "🚀 Starting OpenMemory installation..."
 
 # Set environment variables
 OPENAI_API_KEY="${OPENAI_API_KEY:-}"
+OPENROUTER_API_KEY="${OPENROUTER_API_KEY:-}"
 USER="${USER:-$(whoami)}"
 NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-http://localhost:8765}"
 
-if [ -z "$OPENAI_API_KEY" ]; then
-  echo "❌ OPENAI_API_KEY not set. Please run with: curl -sL https://raw.githubusercontent.com/mem0ai/mem0/main/openmemory/run.sh | OPENAI_API_KEY=your_api_key bash"
-  echo "❌ OPENAI_API_KEY not set. You can also set it as global environment variable: export OPENAI_API_KEY=your_api_key"
+if [ -z "$OPENAI_API_KEY" ] && [ -z "$OPENROUTER_API_KEY" ]; then
+  echo "❌ Neither OPENAI_API_KEY nor OPENROUTER_API_KEY is set."
+  echo "   Provide one of them when running:"
+  echo "   curl -sL https://raw.githubusercontent.com/mem0ai/mem0/main/openmemory/run.sh | OPENAI_API_KEY=your_api_key bash"
+  echo "   or   OPENROUTER_API_KEY=your_key bash"
   exit 1
 fi
 
@@ -49,6 +52,7 @@ fi
 
 # Export required variables for Compose and frontend
 export OPENAI_API_KEY
+export OPENROUTER_API_KEY
 export USER
 export NEXT_PUBLIC_API_URL
 export NEXT_PUBLIC_USER_ID="$USER"
@@ -68,6 +72,7 @@ services:
     image: mem0/openmemory-mcp:latest
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - USER=${USER}
       - QDRANT_HOST=mem0_store
       - QDRANT_PORT=6333

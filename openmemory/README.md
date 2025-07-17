@@ -8,7 +8,7 @@ OpenMemory is your personal memory layer for LLMs - private, portable, and open-
 
 ### Prerequisites
 - Docker
-- OpenAI API Key
+- OpenAI API Key (or an OpenRouter API Key)
 
 You can quickly run OpenMemory by running the following command:
 
@@ -16,10 +16,10 @@ You can quickly run OpenMemory by running the following command:
 curl -sL https://raw.githubusercontent.com/mem0ai/mem0/main/openmemory/run.sh | bash
 ```
 
-You should set the `OPENAI_API_KEY` as a global environment variable:
+You should set either `OPENAI_API_KEY` or `OPENROUTER_API_KEY` as a global environment variable:
 
 ```bash
-export OPENAI_API_KEY=your_api_key
+export OPENAI_API_KEY=your_api_key # or export OPENROUTER_API_KEY=your_openrouter_key
 ```
 
 You can also set the `OPENAI_API_KEY` as a parameter to the script:
@@ -33,7 +33,7 @@ curl -sL https://raw.githubusercontent.com/mem0ai/mem0/main/openmemory/run.sh | 
 - Docker and Docker Compose
 - Python 3.9+ (for backend development)
 - Node.js (for frontend development)
-- OpenAI API Key (required for LLM interactions, run `cp api/.env.example api/.env` then change **OPENAI_API_KEY** to yours)
+- An API key for your language model: either **OPENAI_API_KEY** or **OPENROUTER_API_KEY** (run `cp api/.env.example api/.env` and set one of them)
 
 ## Quickstart
 
