@@ -25,7 +25,7 @@ from app.database import SessionLocal
 from app.models import Memory, MemoryAccessLog, MemoryState, MemoryStatusHistory
 from app.utils.db import get_user_and_app
 # Utility helpers and database functions
-from app.utils.memory import get_memory_client
+from app.utils.memory import get_memory_client, get_default_user_id
 from app.utils.permissions import check_memory_access_permissions
 from app.utils.mcp_helpers import with_error_handling, validate_memory_client, retry_operation
 # Import argument models from the routes package. When this code runs inside the
@@ -59,6 +59,23 @@ def get_memory_client_safe():
 user_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("user_id")
 client_name_var: contextvars.ContextVar[str] = contextvars.ContextVar("client_name")
 
+
+def get_consistent_user_context() -> tuple[str, str]:
+    """Return user_id and client_name with sane defaults and debug logging."""
+    uid = user_id_var.get(None)
+    client_name = client_name_var.get(None)
+
+    if not uid:
+        uid = get_default_user_id()
+        logging.warning("No user_id found, using default: %s", uid)
+
+    if not client_name:
+        client_name = "openmemory"
+        logging.warning("No client_name found, using default: %s", client_name)
+
+    logging.info("Using context - user_id: %s, client_name: %s", uid, client_name)
+    return uid, client_name
+
 # Create a router for MCP endpoints
 mcp_router = APIRouter(prefix="/mcp")
 
@@ -71,13 +88,8 @@ sse = SseServerTransport("/mcp/messages/")
 )
 @with_error_handling("add_memories")
 async def add_memories(args: AddMemoriesArgs) -> dict:
-    uid = user_id_var.get(None)
-    client_name = client_name_var.get(None)
-
-    if not uid:
-        return {"error": "user_id not provided"}
-    if not client_name:
-        return {"error": "client_name not provided"}
+    uid, client_name = get_consistent_user_context()
+    logging.debug("add_memories called with uid=%s client=%s", uid, client_name)
 
     memory_client = get_memory_client_safe()
     if not memory_client or not await validate_memory_client(memory_client):
@@ -134,12 +146,8 @@ async def add_memories(args: AddMemoriesArgs) -> dict:
 @mcp.tool(description="Search through stored memories. This method is called EVERYTIME the user asks anything.")
 @with_error_handling("search_memory")
 async def search_memory(args: SearchMemoryArgs) -> dict:
-    uid = user_id_var.get(None)
-    client_name = client_name_var.get(None)
-    if not uid:
-        return {"error": "user_id not provided"}
-    if not client_name:
-        return {"error": "client_name not provided"}
+    uid, client_name = get_consistent_user_context()
+    logging.debug("search_memory called with uid=%s client=%s", uid, client_name)
 
     memory_client = get_memory_client_safe()
     if not memory_client or not await validate_memory_client(memory_client):
@@ -201,12 +209,8 @@ async def search_memory(args: SearchMemoryArgs) -> dict:
 @mcp.tool(description="List all memories in the user's memory")
 @with_error_handling("list_memories")
 async def list_memories() -> dict:
-    uid = user_id_var.get(None)
-    if not uid:
-        return {"error": "user_id not provided"}
-    client_name = client_name_var.get(None)
-    if not client_name:
-        return {"error": "client_name not provided"}
+    uid, client_name = get_consistent_user_context()
+    logging.debug("list_memories called with uid=%s client=%s", uid, client_name)
 
     memory_client = get_memory_client_safe()
     if not memory_client or not await validate_memory_client(memory_client):
@@ -270,12 +274,8 @@ async def list_memories() -> dict:
 @mcp.tool(description="Delete all memories in the user's memory")
 @with_error_handling("delete_all_memories")
 async def delete_all_memories() -> dict:
-    uid = user_id_var.get(None)
-    client_name = client_name_var.get(None)
-    if not uid:
-        return {"error": "user_id not provided"}
-    if not client_name:
-        return {"error": "client_name not provided"}
+    uid, client_name = get_consistent_user_context()
+    logging.debug("delete_all_memories called with uid=%s client=%s", uid, client_name)
 
     memory_client = get_memory_client_safe()
     if not memory_client or not await validate_memory_client(memory_client):
