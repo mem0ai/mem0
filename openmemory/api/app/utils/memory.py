@@ -141,11 +141,11 @@ async def get_async_memory_client(custom_instructions: str = None):
         # Get async Jean Memory V2 OPTIMIZED adapter with explicit config
         memory_instance = get_async_memory_client_v2_optimized(config={'jean_memory_config': config})
         
-        print(f"✅ Async Jean Memory V2 OPTIMIZED initialized successfully - Enhanced multi-source memory ready (3-5x faster)")
+        logger.info("✅ Async Jean Memory V2 OPTIMIZED initialized successfully - Enhanced multi-source memory ready (3-5x faster)")
         return memory_instance
 
     except Exception as e:
         # Enhanced logging
-        print(f"ERROR: Error initializing async Jean Memory V2 client: {e}")
-        print("Falling back to basic configuration...")
+        logger.error(f"Error initializing async Jean Memory V2 client: {e}")
+        logger.info("Falling back to basic configuration...")
         raise Exception(f"Could not initialize async Jean Memory V2 client: {e}")

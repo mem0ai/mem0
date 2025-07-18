@@ -1,5 +1,4 @@
 import datetime
-import hashlib
 import logging
 # Python 3.10 compatibility for datetime.UTC
 try:
