@@ -49,6 +49,7 @@ def upgrade() -> None:
         # Table created successfully
     else:
         # Table already exists, skipping creation
+        pass
 
 
 def downgrade() -> None:
