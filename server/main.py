@@ -30,7 +30,14 @@ MEMGRAPH_URI = os.environ.get("MEMGRAPH_URI", "bolt://localhost:7687")
 MEMGRAPH_USERNAME = os.environ.get("MEMGRAPH_USERNAME", "memgraph")
 MEMGRAPH_PASSWORD = os.environ.get("MEMGRAPH_PASSWORD", "mem0graph")
 
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+# 自定义OpenAI API环境变量
+CUSTOM_OPENAI_API_URL = os.environ.get("CUSTOM_OPENAI_API_URL")
+CUSTOM_OPENAI_API_KEY = os.environ.get("CUSTOM_OPENAI_API_KEY")
+
+# 如果设置了自定义值，则使用自定义值
+OPENAI_API_KEY = CUSTOM_OPENAI_API_KEY or os.environ.get("OPENAI_API_KEY")
+OPENAI_BASE_URL = CUSTOM_OPENAI_API_URL or os.environ.get("OPENAI_BASE_URL")
+
 HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/history/history.db")
 
 DEFAULT_CONFIG = {
@@ -50,8 +57,23 @@ DEFAULT_CONFIG = {
         "provider": "neo4j",
         "config": {"url": NEO4J_URI, "username": NEO4J_USERNAME, "password": NEO4J_PASSWORD},
     },
-    "llm": {"provider": "openai", "config": {"api_key": OPENAI_API_KEY, "temperature": 0.2, "model": "gpt-4o"}},
-    "embedder": {"provider": "openai", "config": {"api_key": OPENAI_API_KEY, "model": "text-embedding-3-small"}},
+    "llm": {
+        "provider": "openai", 
+        "config": {
+            "api_key": OPENAI_API_KEY, 
+            "temperature": 0.2, 
+            "model": "gpt-4o",
+            "base_url": OPENAI_BASE_URL  # 添加base_url支持
+        }
+    },
+    "embedder": {
+        "provider": "openai", 
+        "config": {
+            "api_key": OPENAI_API_KEY, 
+            "model": "text-embedding-3-small",
+            "base_url": OPENAI_BASE_URL  # 添加base_url支持
+        }
+    },
     "history_db_path": HISTORY_DB_PATH,
 }
 
@@ -208,6 +230,59 @@ def reset_memory():
         return {"message": "All memories reset"}
     except Exception as e:
         logging.exception("Error in reset_memory:")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/categories", summary="Get all categories")
+def get_categories(
+    user_id: Optional[str] = None,
+    agent_id: Optional[str] = None,
+    run_id: Optional[str] = None
+):
+    """获取所有可用分类"""
+    try:
+        params = {k: v for k, v in {
+            "user_id": user_id,
+            "agent_id": agent_id,
+            "run_id": run_id
+        }.items() if v is not None}
+        
+        return MEMORY_INSTANCE.get_categories(**params)
+    except Exception as e:
+        logging.exception("Error in get_categories:")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/memories/{memory_id}/categories/{category}", summary="Add memory to category")
+def add_to_category(memory_id: str, category: str):
+    """将记忆添加到分类"""
+    try:
+        return MEMORY_INSTANCE.add_to_category(memory_id=memory_id, category=category)
+    except Exception as e:
+        logging.exception("Error in add_to_category:")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/categories/{category}/memories", summary="Get memories by category")
+def get_memories_by_category(
+    category: str,
+    user_id: Optional[str] = None,
+    agent_id: Optional[str] = None,
+    run_id: Optional[str] = None,
+    limit: int = 100
+):
+    """获取特定分类的所有记忆"""
+    try:
+        params = {k: v for k, v in {
+            "user_id": user_id,
+            "agent_id": agent_id,
+            "run_id": run_id,
+            "limit": limit
+        }.items() if v is not None}
+        
+        return MEMORY_INSTANCE.search_by_category(category=category, **params)
+    except Exception as e:
+        logging.exception("Error in get_memories_by_category:")
         raise HTTPException(status_code=500, detail=str(e))
 
 

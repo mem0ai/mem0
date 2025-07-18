@@ -59,6 +59,20 @@ class MemoryConfig(BaseModel):
         description="Custom prompt for the update memory",
         default=None,
     )
+    extraction: Dict[str, Any] = Field(
+        description="Configuration for memory extraction and role priorities",
+        default_factory=lambda: {
+            "role_weights": {
+                "user": {"user_id_context": 1.0, "agent_id_context": 0.7},
+                "assistant": {"user_id_context": 0.7, "agent_id_context": 1.0}
+            },
+            "important_keywords": [
+                "我喜欢", "我不喜欢", "我的", "我是", "我想", "我需要", 
+                "我必须", "我希望", "I like", "I don't like", "my", 
+                "I am", "I want", "I need", "I must", "I wish"
+            ]
+        }
+    )
 
 
 class AzureConfig(BaseModel):

@@ -318,7 +318,16 @@ class Memory(MemoryBase):
                 )
             return returned_memories
 
-        parsed_messages = parse_messages(messages)
+        # 使用优化的记忆提取逻辑
+        user_id = filters.get("user_id")
+        agent_id = filters.get("agent_id")
+        extracted_memories = self._extract_memories(messages, user_id=user_id, agent_id=agent_id)
+        if extracted_memories:
+            # 如果有提取的记忆，则使用它们
+            parsed_messages = "\n".join([mem["content"] for mem in extracted_memories])
+        else:
+            # 否则使用原始解析
+            parsed_messages = parse_messages(messages)
 
         if self.config.custom_fact_extraction_prompt:
             system_prompt = self.config.custom_fact_extraction_prompt
@@ -968,6 +977,244 @@ class Memory(MemoryBase):
     def chat(self, query):
         raise NotImplementedError("Chat function not implemented yet.")
 
+    def get_categories(
+        self,
+        *,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None
+    ):
+        """
+        Get all unique categories used in memories.
+
+        Args:
+            user_id (str, optional): ID of the user to filter categories for. Defaults to None.
+            agent_id (str, optional): ID of the agent to filter categories for. Defaults to None.
+            run_id (str, optional): ID of the run to filter categories for. Defaults to None.
+
+        Returns:
+            list: List of unique category strings.
+        """
+        _, effective_filters = _build_filters_and_metadata(
+            user_id=user_id, agent_id=agent_id, run_id=run_id
+        )
+
+        # Capture telemetry
+        keys, encoded_ids = process_telemetry_filters(effective_filters)
+        capture_event(
+            "mem0.get_categories",
+            self,
+            {
+                "keys": keys,
+                "encoded_ids": encoded_ids,
+                "sync_type": "sync",
+            },
+        )
+
+        # Get all memories
+        memories = self._get_all_from_vector_store(effective_filters, limit=1000)
+
+        # Extract all unique categories
+        categories = set()
+        for memory in memories:
+            if "metadata" in memory and memory["metadata"] and "category" in memory["metadata"]:
+                if isinstance(memory["metadata"]["category"], list):
+                    for category in memory["metadata"]["category"]:
+                        categories.add(category)
+                else:
+                    categories.add(memory["metadata"]["category"])
+
+        return sorted(list(categories))
+
+    def add_to_category(
+        self,
+        memory_id: str,
+        category: str
+    ):
+        """
+        Add a memory to a category by updating its metadata.
+
+        Args:
+            memory_id (str): ID of the memory to add to the category.
+            category (str): Category to add the memory to.
+
+        Returns:
+            dict: Result of the operation.
+        """
+        logger.info(f"Adding memory {memory_id} to category {category}")
+        capture_event("mem0.add_to_category", self, {"memory_id": memory_id, "category": category, "sync_type": "sync"})
+
+        try:
+            # Get the existing memory
+            existing_memory = self.vector_store.get(vector_id=memory_id)
+        except Exception:
+            logger.error(f"Error getting memory with ID {memory_id}")
+            raise ValueError(f"Error getting memory with ID {memory_id}. Please provide a valid 'memory_id'")
+
+        # Create new metadata with category added
+        new_metadata = deepcopy(existing_memory.payload)
+
+        # Initialize metadata field if not exists
+        if "metadata" not in new_metadata:
+            new_metadata["metadata"] = {}
+
+        # Handle category field, ensuring it's a list for multiple categories
+        if "category" in new_metadata["metadata"]:
+            if isinstance(new_metadata["metadata"]["category"], list):
+                if category not in new_metadata["metadata"]["category"]:
+                    new_metadata["metadata"]["category"].append(category)
+            else:
+                current_category = new_metadata["metadata"]["category"]
+                if current_category != category:
+                    new_metadata["metadata"]["category"] = [current_category, category]
+        else:
+            new_metadata["metadata"]["category"] = category
+
+        # Update the memory's metadata
+        data = existing_memory.payload.get("data", "")
+        existing_embeddings = {data: self.embedding_model.embed(data, "update")}
+        self._update_memory(memory_id, data, existing_embeddings, new_metadata)
+
+        return {"message": "Memory added to category successfully!"}
+
+    def search_by_category(
+        self,
+        category: str,
+        *,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        limit: int = 100
+    ):
+        """
+        Search for memories by category.
+
+        Args:
+            category (str): Category to search for.
+            user_id (str, optional): ID of the user to search for. Defaults to None.
+            agent_id (str, optional): ID of the agent to search for. Defaults to None.
+            run_id (str, optional): ID of the run to search for. Defaults to None.
+            limit (int, optional): Limit the number of results. Defaults to 100.
+
+        Returns:
+            dict: A dictionary containing the search results.
+        """
+        # Build base filters for user_id, agent_id, run_id
+        input_filters = {"metadata.category": category}
+        _, effective_filters = _build_filters_and_metadata(
+            user_id=user_id, agent_id=agent_id, run_id=run_id, input_filters=input_filters
+        )
+
+        # Capture telemetry
+        keys, encoded_ids = process_telemetry_filters(effective_filters)
+        capture_event(
+            "mem0.search_by_category",
+            self,
+            {
+                "category": category,
+                "limit": limit,
+                "keys": keys,
+                "encoded_ids": encoded_ids,
+                "sync_type": "sync",
+            },
+        )
+
+        # Get memories by category
+        memories = self._get_all_from_vector_store(effective_filters, limit)
+
+        # Filter memories by category (double check since not all vector stores support nested filters)
+        filtered_memories = []
+        for memory in memories:
+            if "metadata" in memory and memory["metadata"]:
+                memory_category = memory["metadata"].get("category")
+                if memory_category:
+                    if isinstance(memory_category, list) and category in memory_category:
+                        filtered_memories.append(memory)
+                    elif memory_category == category:
+                        filtered_memories.append(memory)
+
+        if self.api_version == "v1.0":
+            warnings.warn(
+                "The current API output format is deprecated. "
+                "To use the latest format, set `api_version='v1.1'`. "
+                "The current format will be removed in mem0ai 1.1.0 and later versions.",
+                category=DeprecationWarning,
+                stacklevel=2,
+            )
+            return {"results": filtered_memories}
+        else:
+            return {"results": filtered_memories}
+
+    def _extract_memories(self, messages, user_id=None, agent_id=None):
+        """
+        根据提供的ID确定优先角色，并提取有价值的记忆。
+        
+        在用户上下文(user_id存在且agent_id不存在)时，用户消息权重更高；
+        在代理上下文(agent_id存在)时，助手消息权重更高。
+        
+        Args:
+            messages: 消息列表
+            user_id: 用户ID
+            agent_id: 代理ID
+            
+        Returns:
+            list: 提取的记忆列表
+        """
+        # 根据提供的ID确定优先角色和上下文类型
+        primary_role = "user" if user_id and not agent_id else "assistant"
+        context = "user_id_context" if user_id and not agent_id else "agent_id_context"
+        
+        # 获取角色权重配置
+        role_weights = self.config.extraction.get("role_weights", {
+            "user": {"user_id_context": 1.0, "agent_id_context": 0.7},
+            "assistant": {"user_id_context": 0.7, "agent_id_context": 1.0}
+        })
+        
+        # 获取重要关键词
+        important_keywords = self.config.extraction.get("important_keywords", [
+            "我喜欢", "我不喜欢", "我的", "我是", "我想", "我需要", "我必须",
+            "I like", "I don't like", "my", "I am", "I want", "I need", "I must"
+        ])
+        
+        # 应用权重进行记忆提取
+        extracted_memories = []
+        for message in messages:
+            if not isinstance(message, dict) or "role" not in message or "content" not in message:
+                continue
+                
+            role = message.get("role")
+            if role not in ["user", "assistant"]:
+                continue
+                
+            # 获取内容
+            content = message.get("content", "")
+            if not content or isinstance(content, list):  # 跳过空内容或复杂内容
+                continue
+                
+            # 根据角色和上下文应用权重
+            weight = role_weights.get(role, {}).get(context, 0.5)
+            
+            # 检查是否是重要记忆（包含重要关键词）
+            is_important = any(keyword in content for keyword in important_keywords)
+            
+            # 提取标准：高权重(优先角色)或包含重要关键词
+            if weight > 0.7 or is_important:
+                extracted_memories.append({
+                    "content": content,
+                    "role": role,
+                    "weight": weight,
+                    "is_important": is_important
+                })
+        
+        # 对提取的记忆按重要性和权重排序
+        extracted_memories.sort(key=lambda x: (x.get("is_important", False), x.get("weight", 0)), reverse=True)
+        
+        # 记录提取情况
+        logger.info(f"Extracted {len(extracted_memories)} memories from {len(messages)} messages.")
+        logger.info(f"Primary role: {primary_role}, Context: {context}")
+        
+        return extracted_memories
+
 
 class AsyncMemory(MemoryBase):
     def __init__(self, config: MemoryConfig = MemoryConfig()):
@@ -1122,7 +1369,7 @@ class AsyncMemory(MemoryBase):
                     or message_dict.get("role") is None
                     or message_dict.get("content") is None
                 ):
-                    logger.warning(f"Skipping invalid message format (async): {message_dict}")
+                    logger.warning(f"Skipping invalid message format: {message_dict}")
                     continue
 
                 if message_dict["role"] == "system":
@@ -1150,18 +1397,31 @@ class AsyncMemory(MemoryBase):
                 )
             return returned_memories
 
-        parsed_messages = parse_messages(messages)
+        # 使用优化的记忆提取逻辑
+        user_id = effective_filters.get("user_id")
+        agent_id = effective_filters.get("agent_id")
+        extracted_memories = await self._extract_memories(messages, user_id=user_id, agent_id=agent_id)
+        if extracted_memories:
+            # 如果有提取的记忆，则使用它们
+            parsed_messages = "\n".join([mem["content"] for mem in extracted_memories])
+        else:
+            # 否则使用原始解析
+            parsed_messages = parse_messages(messages)
+
         if self.config.custom_fact_extraction_prompt:
             system_prompt = self.config.custom_fact_extraction_prompt
             user_prompt = f"Input:\n{parsed_messages}"
         else:
             system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages)
 
-        response = await asyncio.to_thread(
-            self.llm.generate_response,
-            messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
+        response = await self.llm.agenerate_response(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
             response_format={"type": "json_object"},
         )
+
         try:
             response = remove_code_blocks(response)
             new_retrieved_facts = json.loads(response)["facts"]
@@ -1844,3 +2104,242 @@ class AsyncMemory(MemoryBase):
 
     async def chat(self, query):
         raise NotImplementedError("Chat function not implemented yet.")
+
+    async def get_categories(
+        self,
+        *,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None
+    ):
+        """
+        Get all unique categories used in memories asynchronously.
+
+        Args:
+            user_id (str, optional): ID of the user to filter categories for. Defaults to None.
+            agent_id (str, optional): ID of the agent to filter categories for. Defaults to None.
+            run_id (str, optional): ID of the run to filter categories for. Defaults to None.
+
+        Returns:
+            list: List of unique category strings.
+        """
+        _, effective_filters = _build_filters_and_metadata(
+            user_id=user_id, agent_id=agent_id, run_id=run_id
+        )
+
+        # Capture telemetry
+        keys, encoded_ids = process_telemetry_filters(effective_filters)
+        capture_event(
+            "mem0.get_categories",
+            self,
+            {
+                "keys": keys,
+                "encoded_ids": encoded_ids,
+                "sync_type": "async",
+            },
+        )
+
+        # Get all memories
+        memories = await self._get_all_from_vector_store(effective_filters, limit=1000)
+
+        # Extract all unique categories
+        categories = set()
+        for memory in memories:
+            if "metadata" in memory and memory["metadata"] and "category" in memory["metadata"]:
+                if isinstance(memory["metadata"]["category"], list):
+                    for category in memory["metadata"]["category"]:
+                        categories.add(category)
+                else:
+                    categories.add(memory["metadata"]["category"])
+
+        return sorted(list(categories))
+
+    async def add_to_category(
+        self,
+        memory_id: str,
+        category: str
+    ):
+        """
+        Add a memory to a category by updating its metadata asynchronously.
+
+        Args:
+            memory_id (str): ID of the memory to add to the category.
+            category (str): Category to add the memory to.
+
+        Returns:
+            dict: Result of the operation.
+        """
+        logger.info(f"Adding memory {memory_id} to category {category}")
+        capture_event("mem0.add_to_category", self, {"memory_id": memory_id, "category": category, "sync_type": "async"})
+
+        try:
+            # Get the existing memory
+            existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
+        except Exception:
+            logger.error(f"Error getting memory with ID {memory_id}")
+            raise ValueError(f"Error getting memory with ID {memory_id}. Please provide a valid 'memory_id'")
+
+        # Create new metadata with category added
+        new_metadata = deepcopy(existing_memory.payload)
+
+        # Initialize metadata field if not exists
+        if "metadata" not in new_metadata:
+            new_metadata["metadata"] = {}
+
+        # Handle category field, ensuring it's a list for multiple categories
+        if "category" in new_metadata["metadata"]:
+            if isinstance(new_metadata["metadata"]["category"], list):
+                if category not in new_metadata["metadata"]["category"]:
+                    new_metadata["metadata"]["category"].append(category)
+            else:
+                current_category = new_metadata["metadata"]["category"]
+                if current_category != category:
+                    new_metadata["metadata"]["category"] = [current_category, category]
+        else:
+            new_metadata["metadata"]["category"] = category
+
+        # Update the memory's metadata
+        data = existing_memory.payload.get("data", "")
+        embeddings = await asyncio.to_thread(self.embedding_model.embed, data, "update")
+        existing_embeddings = {data: embeddings}
+        await self._update_memory(memory_id, data, existing_embeddings, new_metadata)
+
+        return {"message": "Memory added to category successfully!"}
+
+    async def search_by_category(
+        self,
+        category: str,
+        *,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        limit: int = 100
+    ):
+        """
+        Search for memories by category asynchronously.
+
+        Args:
+            category (str): Category to search for.
+            user_id (str, optional): ID of the user to search for. Defaults to None.
+            agent_id (str, optional): ID of the agent to search for. Defaults to None.
+            run_id (str, optional): ID of the run to search for. Defaults to None.
+            limit (int, optional): Limit the number of results. Defaults to 100.
+
+        Returns:
+            dict: A dictionary containing the search results.
+        """
+        # Build base filters for user_id, agent_id, run_id
+        input_filters = {"metadata.category": category}
+        _, effective_filters = _build_filters_and_metadata(
+            user_id=user_id, agent_id=agent_id, run_id=run_id, input_filters=input_filters
+        )
+
+        # Capture telemetry
+        keys, encoded_ids = process_telemetry_filters(effective_filters)
+        capture_event(
+            "mem0.search_by_category",
+            self,
+            {
+                "category": category,
+                "limit": limit,
+                "keys": keys,
+                "encoded_ids": encoded_ids,
+                "sync_type": "async",
+            },
+        )
+
+        # Get memories by category
+        memories = await self._get_all_from_vector_store(effective_filters, limit)
+
+        # Filter memories by category (double check since not all vector stores support nested filters)
+        filtered_memories = []
+        for memory in memories:
+            if "metadata" in memory and memory["metadata"]:
+                memory_category = memory["metadata"].get("category")
+                if memory_category:
+                    if isinstance(memory_category, list) and category in memory_category:
+                        filtered_memories.append(memory)
+                    elif memory_category == category:
+                        filtered_memories.append(memory)
+
+        if self.api_version == "v1.0":
+            warnings.warn(
+                "The current API output format is deprecated. "
+                "To use the latest format, set `api_version='v1.1'`. "
+                "The current format will be removed in mem0ai 1.1.0 and later versions.",
+                category=DeprecationWarning,
+                stacklevel=2,
+            )
+            return {"results": filtered_memories}
+        else:
+            return {"results": filtered_memories}
+
+    async def _extract_memories(self, messages, user_id=None, agent_id=None):
+        """
+        根据提供的ID确定优先角色，并提取有价值的记忆。
+        
+        在用户上下文(user_id存在且agent_id不存在)时，用户消息权重更高；
+        在代理上下文(agent_id存在)时，助手消息权重更高。
+        
+        Args:
+            messages: 消息列表
+            user_id: 用户ID
+            agent_id: 代理ID
+            
+        Returns:
+            list: 提取的记忆列表
+        """
+        # 根据提供的ID确定优先角色和上下文类型
+        primary_role = "user" if user_id and not agent_id else "assistant"
+        context = "user_id_context" if user_id and not agent_id else "agent_id_context"
+        
+        # 获取角色权重配置
+        role_weights = self.config.extraction.get("role_weights", {
+            "user": {"user_id_context": 1.0, "agent_id_context": 0.7},
+            "assistant": {"user_id_context": 0.7, "agent_id_context": 1.0}
+        })
+        
+        # 获取重要关键词
+        important_keywords = self.config.extraction.get("important_keywords", [
+            "我喜欢", "我不喜欢", "我的", "我是", "我想", "我需要", "我必须",
+            "I like", "I don't like", "my", "I am", "I want", "I need", "I must"
+        ])
+        
+        # 应用权重进行记忆提取
+        extracted_memories = []
+        for message in messages:
+            if not isinstance(message, dict) or "role" not in message or "content" not in message:
+                continue
+                
+            role = message.get("role")
+            if role not in ["user", "assistant"]:
+                continue
+                
+            # 获取内容
+            content = message.get("content", "")
+            if not content or isinstance(content, list):  # 跳过空内容或复杂内容
+                continue
+                
+            # 根据角色和上下文应用权重
+            weight = role_weights.get(role, {}).get(context, 0.5)
+            
+            # 检查是否是重要记忆（包含重要关键词）
+            is_important = any(keyword in content for keyword in important_keywords)
+            
+            # 提取标准：高权重(优先角色)或包含重要关键词
+            if weight > 0.7 or is_important:
+                extracted_memories.append({
+                    "content": content,
+                    "role": role,
+                    "weight": weight,
+                    "is_important": is_important
+                })
+        
+        # 对提取的记忆按重要性和权重排序
+        extracted_memories.sort(key=lambda x: (x.get("is_important", False), x.get("weight", 0)), reverse=True)
+        
+        # 记录提取情况
+        logger.info(f"Extracted {len(extracted_memories)} memories from {len(messages)} messages.")
+        logger.info(f"Primary role: {primary_role}, Context: {context}")
+        
+        return extracted_memories

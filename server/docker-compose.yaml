@@ -24,6 +24,8 @@ services:
     environment:
       - PYTHONDONTWRITEBYTECODE=1  # Prevents Python from writing .pyc files
       - PYTHONUNBUFFERED=1  # Ensures Python output is sent straight to terminal
+      - CUSTOM_OPENAI_API_URL=${CUSTOM_OPENAI_API_URL:-}  # 支持自定义OpenAI API URL
+      - CUSTOM_OPENAI_API_KEY=${CUSTOM_OPENAI_API_KEY:-}  # 支持自定义OpenAI API KEY
 
   postgres:
       image: ankane/pgvector:v0.5.1

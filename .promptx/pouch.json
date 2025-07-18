@@ -1,0 +1,17 @@
+{
+  "currentState": "initialized",
+  "stateHistory": [
+    {
+      "from": "initial",
+      "command": "init",
+      "timestamp": "2025-07-18T15:52:08.247Z",
+      "args": [
+        {
+          "workingDirectory": "/opt/mem0ai",
+          "ideType": "vscode"
+        }
+      ]
+    }
+  ],
+  "lastUpdated": "2025-07-18T15:52:08.265Z"
+}
