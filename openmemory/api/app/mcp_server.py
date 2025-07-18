@@ -20,6 +20,7 @@ import datetime
 import json
 import logging
 import uuid
+import asyncio
 
 from app.database import SessionLocal
 from app.models import Memory, MemoryAccessLog, MemoryState, MemoryStatusHistory
