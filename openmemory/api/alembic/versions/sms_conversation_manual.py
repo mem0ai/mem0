@@ -83,4 +83,5 @@ def downgrade() -> None:
         
         # Table removed successfully
     else:
-        # Table doesn't exist, skipping removal 
+        # Table doesn't exist, skipping removal
+        pass 
