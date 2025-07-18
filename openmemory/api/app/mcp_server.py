@@ -26,7 +26,11 @@ from app.models import Memory, MemoryAccessLog, MemoryState, MemoryStatusHistory
 from app.utils.db import get_user_and_app
 from app.utils.memory import get_memory_client
 from app.utils.permissions import check_memory_access_permissions
-from openmemory.api.routes.mcp import SearchMemoryArgs, AddMemoriesArgs
+# Import argument models from the routes package. When this code runs inside the
+# Docker image, the working directory is the `openmemory` package itself, so we
+# reference the sibling `routes` package directly without the top-level
+# `openmemory` prefix to avoid import errors.
+from routes.mcp import SearchMemoryArgs, AddMemoriesArgs
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.routing import APIRouter
