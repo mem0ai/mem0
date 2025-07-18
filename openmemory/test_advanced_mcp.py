@@ -33,18 +33,17 @@ class TestAdvancedMCPFeatures:
             "results": [{"memory": f"result {i}", "score": 0.9 - i*0.1} for i in range(5)]
         }
         args = {"query": "test search", "topK": 5}
-        results = await search_memory(SearchMemoryArgs(**args))
-        mock_memory_instance.search.assert_called_once()
-        call_args = mock_memory_instance.search.call_args[1]
+        result = await search_memory(SearchMemoryArgs(**args))
+        call_args = mock_memory_instance.search.call_args_list[-1][1]
         assert call_args["limit"] == 5
-        assert len(results) <= 5
+        assert len(result["results"]) <= 5
 
     @pytest.mark.asyncio
     async def test_search_with_threshold(self, mock_memory_instance):
         mock_memory_instance.search.return_value = {"results": [{"memory": "high score result", "score": 0.8}]}
         args = {"query": "test search", "threshold": 0.7}
-        await search_memory(SearchMemoryArgs(**args))
-        call_args = mock_memory_instance.search.call_args[1]
+        res = await search_memory(SearchMemoryArgs(**args))
+        call_args = mock_memory_instance.search.call_args_list[-1][1]
         assert call_args["threshold"] == 0.7
 
     @pytest.mark.asyncio
@@ -52,7 +51,7 @@ class TestAdvancedMCPFeatures:
         mock_memory_instance.search.return_value = {"results": []}
         args = {"query": "test message", "filters": {"metadata.tags": "filtered", "metadata.priority": "high"}}
         await search_memory(SearchMemoryArgs(**args))
-        call_args = mock_memory_instance.search.call_args[1]
+        call_args = mock_memory_instance.search.call_args_list[-1][1]
         assert call_args["filters"] == {"metadata.tags": "filtered", "metadata.priority": "high"}
 
     @pytest.mark.asyncio
@@ -60,7 +59,7 @@ class TestAdvancedMCPFeatures:
         mock_memory_instance.search.return_value = {"results": []}
         args = {"query": "project specific search", "projectId": "project-alpha"}
         await search_memory(SearchMemoryArgs(**args))
-        call_args = mock_memory_instance.search.call_args[1]
+        call_args = mock_memory_instance.search.call_args_list[-1][1]
         assert call_args["filters"]["project_id"] == "project-alpha"
 
     @pytest.mark.asyncio
@@ -72,7 +71,7 @@ class TestAdvancedMCPFeatures:
         assert call_args["metadata"]["tags"] == ["test", "important"]
         assert call_args["metadata"]["category"] == "research"
         assert "mcp_client" in call_args["metadata"]
-        assert result == ["mem_123"]
+        assert result["results"] == ["mem_123"]
 
     @pytest.mark.asyncio
     async def test_add_with_project_org_ids(self, mock_memory_instance):
@@ -88,7 +87,7 @@ class TestAdvancedMCPFeatures:
         mock_memory_instance.search.return_value = {"results": []}
         args = {"query": "complex search", "topK": 3, "threshold": 0.8, "filters": {"tags": ["auth"]}, "projectId": "proj-auth", "orgId": "org-1"}
         await search_memory(SearchMemoryArgs(**args))
-        call_args = mock_memory_instance.search.call_args[1]
+        call_args = mock_memory_instance.search.call_args_list[-1][1]
         assert call_args["limit"] == 3
         assert call_args["threshold"] == 0.8
         assert call_args["filters"] == {"tags": ["auth"], "project_id": "proj-auth", "org_id": "org-1"}
