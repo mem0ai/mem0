@@ -18,6 +18,7 @@ class TestAdvancedMCPFeatures:
     def mock_memory_instance(self):
         with patch('openmemory.api.app.mcp_server.get_memory_client_safe') as mock:
             mock_instance = MagicMock()
+            mock_instance.embedding_model.embed.return_value = [0.1]
             mock.return_value = mock_instance
             token_uid = user_id_var.set('test_user')
             token_client = client_name_var.set('test_client')

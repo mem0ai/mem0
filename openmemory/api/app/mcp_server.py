@@ -146,6 +146,12 @@ async def add_memories(args: AddMemoriesArgs) -> dict:
 @mcp.tool(description="Search through stored memories. This method is called EVERYTIME the user asks anything.")
 @with_error_handling("search_memory")
 async def search_memory(args: SearchMemoryArgs) -> dict:
+    # DEBUGGING INFORMATION
+    logging.info("\ud83d\udd0d SEARCH_MEMORY DEBUG:")
+    logging.info("  Raw query: %r", args.query)
+    logging.info("  Query type: %s", type(args.query))
+    logging.info("  Query length: %s", len(args.query) if args.query else "None")
+
     uid, client_name = get_consistent_user_context()
     logging.debug("search_memory called with uid=%s client=%s", uid, client_name)
 
@@ -153,57 +159,92 @@ async def search_memory(args: SearchMemoryArgs) -> dict:
     if not memory_client or not await validate_memory_client(memory_client):
         return {"error": "Memory system unavailable"}
 
-    search_params = {"query": args.query, "user_id": uid}
-    filters = {}
-    if args.top_k is not None:
-        search_params["limit"] = args.top_k
-    if args.threshold is not None:
-        search_params["threshold"] = args.threshold
-    if args.filters:
-        filters.update(args.filters)
-    if args.project_id:
-        filters["project_id"] = args.project_id
-    if args.org_id:
-        filters["org_id"] = args.org_id
+    try:
+        # FIX 1: Validate and sanitize query
+        query = args.query.strip() if args.query else ""
 
-    result = None
-    if filters:
+        # FIX 2: Handle empty queries before embedding
+        if not query:
+            logging.info("Empty query detected, using database fallback")
+            try:
+                db = SessionLocal()
+                memories = (
+                    db.query(Memory)
+                    .filter(Memory.user_id == uid, Memory.state == MemoryState.active)
+                    .limit(args.top_k or 10)
+                    .all()
+                )
+
+                results = [
+                    {
+                        "id": str(memory.id),
+                        "memory": memory.content,
+                        "created_at": memory.created_at.isoformat(),
+                        "score": 1.0,
+                    }
+                    for memory in memories
+                ]
+
+                return {"success": True, "results": results}
+            except Exception as e:
+                return {"error": f"Database fallback failed: {e}"}
+
+        # FIX 3: Validate embedding generation before search
         try:
+            test_embedding = memory_client.embedding_model.embed(query, "search")
+            if not test_embedding or len(test_embedding) == 0:
+                logging.error("Empty embedding generated for query: '%s'", query)
+                db = SessionLocal()
+                memories = (
+                    db.query(Memory)
+                    .filter(
+                        Memory.user_id == uid,
+                        Memory.state == MemoryState.active,
+                        Memory.content.ilike(f"%{query}%"),
+                    )
+                    .limit(args.top_k or 10)
+                    .all()
+                )
+
+                results = [
+                    {
+                        "id": str(memory.id),
+                        "memory": memory.content,
+                        "created_at": memory.created_at.isoformat(),
+                        "score": 0.8,
+                    }
+                    for memory in memories
+                ]
+
+                return {"success": True, "results": results, "method": "text_search_fallback"}
+
+        except Exception as embed_error:
+            logging.error("Embedding generation failed: %s", embed_error)
+            return {"error": f"Embedding generation failed: {embed_error}"}
+
+        # FIX 4: Original search with better error handling
+        search_params = {"query": query, "user_id": uid}
+        if args.top_k is not None:
+            search_params["limit"] = args.top_k
+        if args.threshold is not None:
+            search_params["threshold"] = args.threshold
+
+        filters = {}
+        if args.filters:
+            filters.update(args.filters)
+        if args.project_id:
+            filters["project_id"] = args.project_id
+        if args.org_id:
+            filters["org_id"] = args.org_id
+        if filters:
             search_params["filters"] = filters
-            result = memory_client.search(**search_params)
-            if not result or "results" not in result:
-                raise Exception("No valid response from filtered search")
-        except Exception as e:
-            logging.warning(f"Native filtering failed: {e}")
-            search_params.pop("filters", None)
-            result = None
 
-    if result is None:
-        try:
-            result = memory_client.search(**search_params)
-            if filters and result and "results" in result:
-                filtered = []
-                for mem in result["results"]:
-                    meta = mem.get("metadata", {})
-                    match = True
-                    for k, v in filters.items():
-                        if meta.get(k) != v:
-                            match = False
-                            break
-                    if match:
-                        filtered.append(mem)
-                result["results"] = filtered
-        except Exception as e:
-            logging.error(f"Search operation failed: {e}")
-            return {"error": f"Search failed: {e}"}
+        result = memory_client.search(**search_params)
+        return {"success": True, "results": result.get("results", [])}
 
-    return {
-        "success": True,
-        "results": result.get("results", []),
-        "count": len(result.get("results", [])),
-        "filters_applied": filters,
-        "method": "native_filtering" if filters else "no_filtering",
-    }
+    except Exception as e:
+        logging.exception("Search failed: %s", e)
+        return {"error": f"Search operation failed: {e}"}
 
 
 @mcp.tool(description="List all memories in the user's memory")
