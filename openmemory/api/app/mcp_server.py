@@ -70,9 +70,15 @@ def get_consistent_user_context() -> tuple[str, str]:
         uid = get_default_user_id()
         logging.warning("No user_id found, using default: %s", uid)
 
+    if not isinstance(uid, str):
+        uid = str(uid)
+
     if not client_name:
         client_name = "openmemory"
         logging.warning("No client_name found, using default: %s", client_name)
+
+    if not isinstance(client_name, str):
+        client_name = str(client_name)
 
     logging.info("Using context - user_id: %s, client_name: %s", uid, client_name)
     return uid, client_name
@@ -111,7 +117,7 @@ async def add_memories(args: AddMemoriesArgs) -> dict:
         async def _add_one():
             return memory_client.add(
                 [{"role": "user", "content": message}],
-                user_id=uid,
+                user_id=str(uid),
                 metadata=meta.copy(),
             )
 
@@ -126,7 +132,7 @@ async def add_memories(args: AddMemoriesArgs) -> dict:
 
             await asyncio.sleep(0.1)
             verification = memory_client.search(
-                query=message[:30], user_id=uid, limit=5
+                query=message[:30], user_id=str(uid), limit=5
             )
             if not verification.get("results"):
                 failed_messages.append(f"Memory {i+1} not found after adding")
@@ -171,7 +177,7 @@ async def search_memory(args: SearchMemoryArgs) -> dict:
                 db = SessionLocal()
                 memories = (
                     db.query(Memory)
-                    .filter(Memory.user_id == uid, Memory.state == MemoryState.active)
+                    .filter(Memory.user_id == str(uid), Memory.state == MemoryState.active)
                     .limit(args.top_k or 10)
                     .all()
                 )
@@ -199,7 +205,7 @@ async def search_memory(args: SearchMemoryArgs) -> dict:
                 memories = (
                     db.query(Memory)
                     .filter(
-                        Memory.user_id == uid,
+                        Memory.user_id == str(uid),
                         Memory.state == MemoryState.active,
                         Memory.content.ilike(f"%{query}%"),
                     )
@@ -260,9 +266,9 @@ async def list_memories() -> dict:
 
     db = SessionLocal()
     try:
-        user, app = get_user_and_app(db, user_id=uid, app_id=client_name)
+        user, app = get_user_and_app(db, user_id=str(uid), app_id=str(client_name))
         try:
-            result = memory_client.get_all(user_id=uid)
+            result = memory_client.get_all(user_id=str(uid))
             if result and "results" in result and result["results"]:
                 return {
                     "success": True,
@@ -274,7 +280,7 @@ async def list_memories() -> dict:
             logging.warning(f"get_all method failed: {e}")
 
         try:
-            result = memory_client.search(query="*", user_id=uid, limit=1000)
+            result = memory_client.search(query="*", user_id=str(uid), limit=1000)
             if result and "results" in result:
                 return {
                     "success": True,
@@ -324,7 +330,7 @@ async def delete_all_memories() -> dict:
         return {"error": "Memory system unavailable"}
 
     try:
-        all_memories = memory_client.get_all(user_id=uid)
+        all_memories = memory_client.get_all(user_id=str(uid))
         initial_count = len(all_memories.get("results", [])) if all_memories else 0
         if initial_count == 0:
             return {"success": True, "message": "No memories to delete"}
@@ -333,12 +339,12 @@ async def delete_all_memories() -> dict:
 
     db = SessionLocal()
     try:
-        user, app = get_user_and_app(db, user_id=uid, app_id=client_name)
+        user, app = get_user_and_app(db, user_id=str(uid), app_id=str(client_name))
         user_memories = db.query(Memory).filter(Memory.user_id == user.id).all()
         accessible_memory_ids = [m.id for m in user_memories if check_memory_access_permissions(db, m, app.id)]
 
         try:
-            memory_client.delete_all(user_id=uid)
+            memory_client.delete_all(user_id=str(uid))
         except Exception:
             for memory_id in accessible_memory_ids:
                 try:
@@ -346,7 +352,7 @@ async def delete_all_memories() -> dict:
                 except Exception as e:
                     logging.warning(f"Failed to delete memory {memory_id}: {e}")
 
-        remaining = memory_client.get_all(user_id=uid)
+        remaining = memory_client.get_all(user_id=str(uid))
         remaining_count = len(remaining.get("results", [])) if remaining else 0
         if remaining_count > 0:
             return {
