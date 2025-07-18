@@ -10,8 +10,12 @@ import os
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-# Admin security key - you should set this in your environment
-ADMIN_SECRET_KEY = os.getenv("ADMIN_SECRET_KEY", "CHANGE_THIS_IN_PRODUCTION")
+# Admin security key - MUST be set in environment for security
+ADMIN_SECRET_KEY = os.getenv("ADMIN_SECRET_KEY")
+
+if not ADMIN_SECRET_KEY or ADMIN_SECRET_KEY == "CHANGE_THIS_IN_PRODUCTION":
+    logger.error("❌ ADMIN_SECRET_KEY must be set in environment variables for security")
+    raise ValueError("ADMIN_SECRET_KEY environment variable is required and cannot be the default value")
 
 def verify_admin_access(x_admin_key: str = Header(None)):
     """Verify admin access with secret key"""

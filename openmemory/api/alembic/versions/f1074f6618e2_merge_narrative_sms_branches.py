@@ -1,4 +1,4 @@
-"""empty message
+"""merge migrations - resolve narrative and sms branches
 
 Revision ID: f1074f6618e2
 Revises: 0d81e543af1a, 6a4b2e8f5c91
