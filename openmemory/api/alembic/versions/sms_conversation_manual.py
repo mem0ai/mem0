@@ -46,9 +46,9 @@ def upgrade() -> None:
         op.create_index(op.f('ix_sms_conversations_user_id'), 'sms_conversations', ['user_id'])
         op.create_index(op.f('ix_sms_conversations_created_at'), 'sms_conversations', ['created_at'])
         
-        print("✅ Created sms_conversations table for SMS conversation continuity")
+        # Table created successfully
     else:
-        print("ℹ️  sms_conversations table already exists, skipping creation")
+        # Table already exists, skipping creation
 
 
 def downgrade() -> None:
@@ -80,6 +80,6 @@ def downgrade() -> None:
         # Drop enum type
         op.execute("DROP TYPE IF EXISTS smsrole")
         
-        print("✅ Removed sms_conversations table")
+        # Table removed successfully
     else:
-        print("ℹ️  sms_conversations table doesn't exist, skipping removal") 
+        # Table doesn't exist, skipping removal 

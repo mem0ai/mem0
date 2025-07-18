@@ -23,7 +23,7 @@ env_files = [
 for env_file in env_files:
     if env_file.exists():
         load_dotenv(env_file)
-        print(f"Loaded environment from: {env_file}")
+        logger.info(f"Loaded environment from: {env_file}")
 
 class Config:
     """Central configuration class for the application"""
@@ -286,7 +286,7 @@ if os.getenv("SKIP_CONFIG_VALIDATION") != "true":
         config.validate()
         config.log_configuration()
     except ValueError as e:
-        print(f"Warning: {e}")
-        print(f"Environment: {config.environment_name}")
+        logger.warning(f"Configuration warning: {e}")
+        logger.info(f"Environment: {config.environment_name}")
         if config.is_local_development:
-            print("💡 Tip: Make sure you've run the setup script and added your API keys")
+            logger.info("Tip: Make sure you've run the setup script and added your API keys")

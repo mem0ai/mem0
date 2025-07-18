@@ -355,7 +355,7 @@ def categorize_memory(memory: Memory, db: Session) -> None:
         db.commit()
     except Exception as e:
         db.rollback()
-        print(f"Error categorizing memory: {e}")
+        logger.error(f"Error categorizing memory: {e}")
 
 
 @event.listens_for(Memory, 'after_insert')

@@ -1,6 +1,9 @@
 import os
 import sys
+import logging
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 # Calculate project root more explicitly
 # Current file path: /path/to/your-memory/openmemory/api/app/utils/memory.py
@@ -49,20 +52,20 @@ def get_memory_client(custom_instructions: str = None):
         neo4j_available = all(os.getenv(var) for var in neo4j_vars)
         
         if not neo4j_available:
-            print("⚠️ Neo4j variables not found - Jean Memory V2 will run in mem0-only mode")
-            print("To enable graph memory, set: NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD")
+            logger.warning("Neo4j variables not found - Jean Memory V2 will run in mem0-only mode")
+            logger.info("To enable graph memory, set: NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD")
         
         # Get Jean Memory V2 OPTIMIZED adapter - provides 100% mem0 API compatibility with 3-5x performance
         # The adapter automatically handles async/sync contexts
         memory_instance = get_memory_client_v2_optimized()
         
-        print(f"✅ Jean Memory V2 initialized successfully - Enhanced multi-source memory ready")
+        logger.info("Jean Memory V2 initialized successfully - Enhanced multi-source memory ready")
         return memory_instance
 
     except Exception as e:
         # Enhanced logging
-        print(f"ERROR: Error initializing Jean Memory V2 client: {e}")
-        print("Falling back to basic configuration...")
+        logger.error(f"Error initializing Jean Memory V2 client: {e}")
+        logger.info("Falling back to basic configuration...")
         raise Exception(f"Could not initialize Jean Memory V2 client: {e}")
 
 
@@ -97,16 +100,11 @@ async def get_async_memory_client(custom_instructions: str = None):
         neo4j_available = all(os.getenv(var) for var in neo4j_vars)
         
         if not neo4j_available:
-            print("⚠️ Neo4j variables not found - Jean Memory V2 will run in mem0-only mode")
-            print("To enable graph memory, set: NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD")
+            logger.warning("Neo4j variables not found - Jean Memory V2 will run in mem0-only mode")
+            logger.info("To enable graph memory, set: NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD")
         
-        # DEBUG: Check what environment variables are actually available
-        print(f"🔧 DEBUG: Environment variables check:")
-        print(f"   NEO4J_URI from env: {os.getenv('NEO4J_URI')}")
-        print(f"   NEO4J_USER from env: {os.getenv('NEO4J_USER')}")
-        print(f"   NEO4J_PASSWORD from env: {'*' * 8 if os.getenv('NEO4J_PASSWORD') else 'None'}...")
-        print(f"   QDRANT_HOST from env: {os.getenv('QDRANT_HOST')}")
-        print(f"   OPENAI_API_KEY from env: {'*' * 8 if os.getenv('OPENAI_API_KEY') else 'None'}...")
+        # Validate environment variables
+        logger.debug("Checking environment variables for Jean Memory V2 configuration")
         
         # Create config from current environment variables (FIXED: No hardcoded values)
         from jean_memory_v2.config import JeanMemoryConfig
@@ -135,11 +133,7 @@ async def get_async_memory_client(custom_instructions: str = None):
             'MAIN_QDRANT_COLLECTION_NAME': os.getenv("MAIN_QDRANT_COLLECTION_NAME", "openmemory_dev")
         }
         
-        print(f"🔧 DEBUG: Config values being passed to Jean Memory V2:")
-        print(f"   NEO4J_URI: {config_dict['NEO4J_URI']}")
-        print(f"   NEO4J_USER: {config_dict['NEO4J_USER']}")
-        print(f"   NEO4J_PASSWORD: {'*' * 8 if config_dict['NEO4J_PASSWORD'] else 'None'}...")
-        print(f"   QDRANT_HOST: {config_dict['QDRANT_HOST']}")
+        logger.debug("Initializing Jean Memory V2 with environment configuration")
         
         # Create config from environment variables (clean config without hardcoded values)
         config = JeanMemoryConfig.from_dict(config_dict)
