@@ -4,7 +4,8 @@ import pytest
 import asyncio
 from unittest.mock import patch, MagicMock
 
-# Ensure 'app' package is importable
+# Ensure packages under 'api' are importable for both 'openmemory.api' and 'app'
+sys.path.insert(0, os.path.dirname(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "api"))
 
 from openmemory.api.app.mcp_server import search_memory, add_memories, SearchMemoryArgs, AddMemoriesArgs
