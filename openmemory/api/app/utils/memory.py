@@ -142,6 +142,7 @@ def get_default_memory_config():
                 "collection_name": "openmemory",
                 "host": "mem0_store",
                 "port": 6333,
+                "embedding_model_dims": 1024,
             }
         },
         "llm": {
@@ -289,3 +290,9 @@ def get_memory_client(custom_instructions: str = None):
 
 def get_default_user_id():
     return "default_user"
+
+
+def get_memory_instance():
+    """Alias for get_memory_client for external modules."""
+    return get_memory_client()
+
