@@ -2,8 +2,8 @@ from typing import Optional, Dict, Any, List
 
 from pydantic import BaseModel, Field
 
-from api.app.utils.memory import get_memory_instance
-from api.app.config import USER_ID
+from app.utils.memory import get_memory_instance
+from app.config import USER_ID
 
 
 def get_current_user() -> str:
