@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Send, Sparkles, Brain, MessageSquare, Plus, Search, BookOpen, Shield, Info } from "lucide-react";
 import Link from "next/link";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 
 interface Message {
   id: string;
