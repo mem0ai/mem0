@@ -18,8 +18,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/use-toast";
 import { useMemoriesApi } from "@/hooks/useMemoriesApi";
-import { useDispatch, useSelector } from "react-redux";
-import { RootState } from "@/store/store";
+// import { useDispatch, useSelector } from "react-redux";
+// import { RootState } from "@/store/store";
 import SourceApp from "@/components/shared/source-app";
 import { useRouter } from "next/navigation";
 import Categories from "@/components/shared/categories";
