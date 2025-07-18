@@ -26,6 +26,7 @@ from app.models import Memory, MemoryAccessLog, MemoryState, MemoryStatusHistory
 from app.utils.db import get_user_and_app
 from app.utils.memory import get_memory_client
 from app.utils.permissions import check_memory_access_permissions
+from openmemory.api.routes.mcp import SearchMemoryArgs, AddMemoriesArgs
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.routing import APIRouter
@@ -59,185 +60,72 @@ mcp_router = APIRouter(prefix="/mcp")
 sse = SseServerTransport("/mcp/messages/")
 
 @mcp.tool(description="Add a new memory. This method is called everytime the user informs anything about themselves, their preferences, or anything that has any relevant information which can be useful in the future conversation. This can also be called when the user asks you to remember something.")
-async def add_memories(text: str) -> str:
+async def add_memories(args: AddMemoriesArgs) -> dict:
     uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
 
     if not uid:
-        return "Error: user_id not provided"
+        return {"error": "user_id not provided"}
     if not client_name:
-        return "Error: client_name not provided"
+        return {"error": "client_name not provided"}
 
     # Get memory client safely
     memory_client = get_memory_client_safe()
     if not memory_client:
-        return "Error: Memory system is currently unavailable. Please try again later."
+        return {"error": "Memory system is currently unavailable. Please try again later."}
 
     try:
-        db = SessionLocal()
-        try:
-            # Get or create user and app
-            user, app = get_user_and_app(db, user_id=uid, app_id=client_name)
-
-            # Check if app is active
-            if not app.is_active:
-                return f"Error: App {app.name} is currently paused on OpenMemory. Cannot create new memories."
-
-            response = memory_client.add(text,
-                                         user_id=uid,
-                                         metadata={
-                                            "source_app": "openmemory",
-                                            "mcp_client": client_name,
-                                        })
-
-            # Process the response and update database
-            if isinstance(response, dict) and 'results' in response:
-                for result in response['results']:
-                    memory_id = uuid.UUID(result['id'])
-                    memory = db.query(Memory).filter(Memory.id == memory_id).first()
-
-                    if result['event'] == 'ADD':
-                        if not memory:
-                            memory = Memory(
-                                id=memory_id,
-                                user_id=user.id,
-                                app_id=app.id,
-                                content=result['memory'],
-                                state=MemoryState.active
-                            )
-                            db.add(memory)
-                        else:
-                            memory.state = MemoryState.active
-                            memory.content = result['memory']
-
-                        # Create history entry
-                        history = MemoryStatusHistory(
-                            memory_id=memory_id,
-                            changed_by=user.id,
-                            old_state=MemoryState.deleted if memory else None,
-                            new_state=MemoryState.active
-                        )
-                        db.add(history)
-
-                    elif result['event'] == 'DELETE':
-                        if memory:
-                            memory.state = MemoryState.deleted
-                            memory.deleted_at = datetime.datetime.now(datetime.UTC)
-                            # Create history entry
-                            history = MemoryStatusHistory(
-                                memory_id=memory_id,
-                                changed_by=user.id,
-                                old_state=MemoryState.active,
-                                new_state=MemoryState.deleted
-                            )
-                            db.add(history)
-
-                db.commit()
-
-            return response
-        finally:
-            db.close()
+        meta = {"source_app": "openmemory", "mcp_client": client_name}
+        if args.metadata:
+            meta.update(args.metadata)
+        result = memory_client.add(
+            [{"role": "user", "content": m} for m in args.messages],
+            user_id=uid,
+            metadata=meta,
+            project_id=args.project_id,
+            org_id=args.org_id,
+        )
+        return result
     except Exception as e:
         logging.exception(f"Error adding to memory: {e}")
-        return f"Error adding to memory: {e}"
+        return {"error": f"Error adding to memory: {e}"}
 
 
 @mcp.tool(description="Search through stored memories. This method is called EVERYTIME the user asks anything.")
-async def search_memory(query: str) -> str:
+async def search_memory(args: SearchMemoryArgs) -> dict:
     uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
     if not uid:
-        return "Error: user_id not provided"
+        return {"error": "user_id not provided"}
     if not client_name:
-        return "Error: client_name not provided"
+        return {"error": "client_name not provided"}
 
     # Get memory client safely
     memory_client = get_memory_client_safe()
     if not memory_client:
-        return "Error: Memory system is currently unavailable. Please try again later."
+        return {"error": "Memory system is currently unavailable. Please try again later."}
 
     try:
-        db = SessionLocal()
-        try:
-            # Get or create user and app
-            user, app = get_user_and_app(db, user_id=uid, app_id=client_name)
+        search_params = {
+            "query": args.query,
+            "user_id": uid,
+        }
+        if args.top_k is not None:
+            search_params["limit"] = args.top_k
+        if args.threshold is not None:
+            search_params["threshold"] = args.threshold
+        if args.filters is not None:
+            search_params["filters"] = args.filters
+        if args.project_id is not None:
+            search_params["project_id"] = args.project_id
+        if args.org_id is not None:
+            search_params["org_id"] = args.org_id
 
-            # Get accessible memory IDs based on ACL
-            user_memories = db.query(Memory).filter(Memory.user_id == user.id).all()
-            accessible_memory_ids = [memory.id for memory in user_memories if check_memory_access_permissions(db, memory, app.id)]
-            
-            conditions = [qdrant_models.FieldCondition(key="user_id", match=qdrant_models.MatchValue(value=uid))]
-            
-            if accessible_memory_ids:
-                # Convert UUIDs to strings for Qdrant
-                accessible_memory_ids_str = [str(memory_id) for memory_id in accessible_memory_ids]
-                conditions.append(qdrant_models.HasIdCondition(has_id=accessible_memory_ids_str))
-
-            filters = qdrant_models.Filter(must=conditions)
-            embeddings = memory_client.embedding_model.embed(query, "search")
-            
-            hits = memory_client.vector_store.client.query_points(
-                collection_name=memory_client.vector_store.collection_name,
-                query=embeddings,
-                query_filter=filters,
-                limit=10,
-            )
-
-            # Process search results
-            memories = hits.points
-            memories = [
-                {
-                    "id": memory.id,
-                    "memory": memory.payload["data"],
-                    "hash": memory.payload.get("hash"),
-                    "created_at": memory.payload.get("created_at"),
-                    "updated_at": memory.payload.get("updated_at"),
-                    "score": memory.score,
-                }
-                for memory in memories
-            ]
-
-            # Log memory access for each memory found
-            if isinstance(memories, dict) and 'results' in memories:
-                print(f"Memories: {memories}")
-                for memory_data in memories['results']:
-                    if 'id' in memory_data:
-                        memory_id = uuid.UUID(memory_data['id'])
-                        # Create access log entry
-                        access_log = MemoryAccessLog(
-                            memory_id=memory_id,
-                            app_id=app.id,
-                            access_type="search",
-                            metadata_={
-                                "query": query,
-                                "score": memory_data.get('score'),
-                                "hash": memory_data.get('hash')
-                            }
-                        )
-                        db.add(access_log)
-                db.commit()
-            else:
-                for memory in memories:
-                    memory_id = uuid.UUID(memory['id'])
-                    # Create access log entry
-                    access_log = MemoryAccessLog(
-                        memory_id=memory_id,
-                        app_id=app.id,
-                        access_type="search",
-                        metadata_={
-                            "query": query,
-                            "score": memory.get('score'),
-                            "hash": memory.get('hash')
-                        }
-                    )
-                    db.add(access_log)
-                db.commit()
-            return json.dumps(memories, indent=2)
-        finally:
-            db.close()
+        results = memory_client.search(**search_params)
+        return results.get("results", [])
     except Exception as e:
         logging.exception(e)
-        return f"Error searching memory: {e}"
+        return {"error": f"Error searching memory: {e}"}
 
 
 @mcp.tool(description="List all memories in the user's memory")
