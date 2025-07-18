@@ -207,21 +207,21 @@ Return only the insights, one per line, without numbering or bullet points."""
             name_context = f"The person's name is {user_full_name}. " if has_name else ""
             third_person_instruction = f"using {person_reference}'s name throughout" if has_name else "using third person perspective"
             
-            prompt = f"""{name_context}Create a rich life update narrative that helps them reflect on how their recent experiences align with their overall life values and personality.
+            prompt = f"""{name_context}Create a rich life update narrative that helps them reflect on how their recent experiences align with their overall life values and personality. The user's context is provided below, including both short-form memories and long-form documents.
 
-USER'S MEMORIES (focusing on recent experiences and life alignment):
+USER'S CONTEXT:
 {memories_text}
 
-Write a thoughtful life reflection {third_person_instruction} that shows how recent experiences connect to broader personality and values. Requirements:
+Write a thoughtful life reflection {third_person_instruction} that synthesizes insights from BOTH memories and documents to show how recent experiences connect to broader personality and values. Requirements:
 
-1. Start directly with the narrative content - NO titles, headers, or introductory phrases like "Based on analysis" or "A Life Update for [Name]"
-2. Begin immediately with substantive insights about how recent experiences reflect core values
-3. {"Bold the FIRST mention of " + person_reference + "'s name using **name** markdown formatting" if has_name else "Use third person perspective throughout"}
-4. Focus on recent memories and how they align with life as a whole
-5. Show patterns between recent actions and core values
-6. Write as thoughtful reflection that aids personal introspection
+1. Start directly with the narrative content - NO titles, headers, or introductory phrases like "Based on analysis" or "A Life Update for [Name]".
+2. Begin immediately with substantive insights about how recent experiences reflect core values.
+3. Use a temporal context: who are they and what are they working on leading up to this moment, to prime any conversation with an AI.
+4. Focus on how their actions, as seen in memories and documents, align with their life as a whole.
+5. Identify and discuss key themes, recurring patterns, or central questions from the full context.
+6. Write as a thoughtful reflection that aids personal introspection.
 
-Provide a well-written, paragraph-based narrative that captures how recent experiences reflect values and personality. Use sophisticated reasoning to connect recent memories to deeper life themes. Begin immediately with meaningful content."""
+Provide a well-written, paragraph-based narrative that captures how recent experiences reflect values and personality. Use sophisticated reasoning to connect recent memories and documents to deeper life themes. Begin immediately with meaningful content."""
             
             # Use Pro model for maximum quality in background processing
             response = await self.model_pro.generate_content_async(

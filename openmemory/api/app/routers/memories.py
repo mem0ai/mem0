@@ -20,7 +20,7 @@ from gotrue.types import User as SupabaseUser
 from app.utils.db import get_or_create_user, get_user_and_app
 from app.models import (
     Memory, MemoryState, MemoryAccessLog, App,
-    MemoryStatusHistory, User, Category, AccessControl, UserNarrative
+    MemoryStatusHistory, User, Category, AccessControl, UserNarrative, Document
 )
 from app.schemas import MemoryResponse, PaginatedMemoryResponse
 from app.utils.permissions import check_memory_access_permissions
@@ -241,7 +241,7 @@ async def get_user_narrative(
         memory_results = await memory_client.search(
             query="recent experiences recent memories current projects goals values personality growth life patterns recent reflections recent decisions recent insights recent challenges recent achievements how experiences align with values core beliefs life direction personal development recent learning recent relationships recent work recent thoughts",
             user_id=supabase_user_id_str,
-            limit=50
+            limit=100
         )
         
         logger.info(f"🔍 NARRATIVE DEBUG: Raw search results type: {type(memory_results)}")
@@ -260,7 +260,7 @@ async def get_user_narrative(
             logger.warning(f"🔍 NARRATIVE DEBUG: No memories found - unexpected result type")
         
         # Filter for narrative generation (less aggressive - include all meaningful content)
-        for mem in memories[:25]:  # Limit for narrative generation
+        for mem in memories[:50]:  # Limit for narrative generation
             content = mem.get('memory', mem.get('content', ''))
             
             if not content or not isinstance(content, str):
@@ -294,16 +294,39 @@ async def get_user_narrative(
                 "memory_count": 0
             }
         
+        # Fetch user documents
+        documents = db.query(Document).filter(Document.user_id == user.id).order_by(Document.created_at.desc()).limit(20).all()
+        documents_text = ""
+        if documents:
+            logger.info(f"📚 Found {len(documents)} documents for narrative generation.")
+            documents_text = "\n\n".join([f"--- Document: {doc.title} ---\n{doc.content}" for doc in documents])
+        
+        if not memories_text and not documents:
+            # Return a helpful message instead of raising an error
+            return {
+                "narrative": "You have no memories or documents! Please add some to see your Life Narrative.",
+                "generated_at": datetime.datetime.now(UTC),
+                "version": "empty",
+                "age_days": 0,
+                "source": "generated",
+                "memory_count": 0
+            }
+        
         # Generate narrative using Gemini (same as MCP orchestration)
         from app.utils.gemini import GeminiService
         
         gemini = GeminiService()
-        combined_text = "\n".join(memories_text)
+        combined_memories = "\n".join(memories_text)
         
-        logger.info(f"🧠 NARRATIVE DEBUG: Sending {len(combined_text)} characters to Gemini Pro for user {user_full_name}")
-        logger.info(f"🧠 NARRATIVE DEBUG: Combined text preview: '{combined_text[:200]}...'")
+        # Create a new combined context with documents
+        combined_context = f"=== USER'S MEMORIES ===\n{combined_memories}"
+        if documents_text:
+            combined_context += f"\n\n=== USER'S DOCUMENTS ===\n{documents_text}"
+
+        logger.info(f"🧠 NARRATIVE DEBUG: Sending {len(combined_context)} characters to Gemini Pro for user {user_full_name}")
+        logger.info(f"🧠 NARRATIVE DEBUG: Combined context preview: '{combined_context[:200]}...'")
         
-        narrative_content = await gemini.generate_narrative_pro(combined_text, user_full_name)
+        narrative_content = await gemini.generate_narrative_pro(combined_context, user_full_name)
         
         logger.info(f"🧠 NARRATIVE DEBUG: Generated narrative length: {len(narrative_content)} characters")
         logger.info(f"🧠 NARRATIVE DEBUG: Narrative preview: '{narrative_content[:200]}...'")

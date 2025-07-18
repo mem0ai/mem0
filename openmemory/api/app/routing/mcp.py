@@ -101,7 +101,8 @@ async def handle_request_logic(request: Request, body: dict, background_tasks: B
             return JSONResponse(content={"status": "acknowledged"})
         elif method_name in ["resources/list", "prompts/list"]:
             return JSONResponse(content={"jsonrpc": "2.0", "result": {method_name.split('/')[0]: []}, "id": request_id})
-
+        elif method_name == "resources/templates/list":
+            return JSONResponse(content={"jsonrpc": "2.0", "result": {"templates": []}, "id": request_id})
         else:
             return JSONResponse(status_code=404, content={"error": f"Method '{method_name}' not found"})
 
