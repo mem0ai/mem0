@@ -82,12 +82,15 @@ async def add_memories(args: AddMemoriesArgs) -> dict:
         meta = {"source_app": "openmemory", "mcp_client": client_name}
         if args.metadata:
             meta.update(args.metadata)
+        if args.project_id is not None:
+            meta["project_id"] = args.project_id
+        if args.org_id is not None:
+            meta["org_id"] = args.org_id
+
         result = memory_client.add(
             [{"role": "user", "content": m} for m in args.messages],
             user_id=uid,
             metadata=meta,
-            project_id=args.project_id,
-            org_id=args.org_id,
         )
         return result
     except Exception as e:
@@ -114,16 +117,17 @@ async def search_memory(args: SearchMemoryArgs) -> dict:
             "query": args.query,
             "user_id": uid,
         }
+        filters = args.filters.copy() if args.filters else {}
         if args.top_k is not None:
             search_params["limit"] = args.top_k
         if args.threshold is not None:
             search_params["threshold"] = args.threshold
-        if args.filters is not None:
-            search_params["filters"] = args.filters
         if args.project_id is not None:
-            search_params["project_id"] = args.project_id
+            filters["project_id"] = args.project_id
         if args.org_id is not None:
-            search_params["org_id"] = args.org_id
+            filters["org_id"] = args.org_id
+        if filters:
+            search_params["filters"] = filters
 
         results = memory_client.search(**search_params)
         return results.get("results", [])

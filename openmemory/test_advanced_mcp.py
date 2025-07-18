@@ -61,7 +61,7 @@ class TestAdvancedMCPFeatures:
         args = {"query": "project specific search", "projectId": "project-alpha"}
         await search_memory(SearchMemoryArgs(**args))
         call_args = mock_memory_instance.search.call_args[1]
-        assert call_args["project_id"] == "project-alpha"
+        assert call_args["filters"]["project_id"] == "project-alpha"
 
     @pytest.mark.asyncio
     async def test_add_with_metadata(self, mock_memory_instance):
@@ -80,8 +80,8 @@ class TestAdvancedMCPFeatures:
         args = {"messages": ["Scoped message"], "projectId": "proj-1", "orgId": "org-1"}
         await add_memories(AddMemoriesArgs(**args))
         call_args = mock_memory_instance.add.call_args[1]
-        assert call_args["project_id"] == "proj-1"
-        assert call_args["org_id"] == "org-1"
+        assert call_args["metadata"]["project_id"] == "proj-1"
+        assert call_args["metadata"]["org_id"] == "org-1"
 
     @pytest.mark.asyncio
     async def test_combined_advanced_search(self, mock_memory_instance):
@@ -91,9 +91,7 @@ class TestAdvancedMCPFeatures:
         call_args = mock_memory_instance.search.call_args[1]
         assert call_args["limit"] == 3
         assert call_args["threshold"] == 0.8
-        assert call_args["filters"] == {"tags": ["auth"]}
-        assert call_args["project_id"] == "proj-auth"
-        assert call_args["org_id"] == "org-1"
+        assert call_args["filters"] == {"tags": ["auth"], "project_id": "proj-auth", "org_id": "org-1"}
 
 
 @pytest.mark.integration

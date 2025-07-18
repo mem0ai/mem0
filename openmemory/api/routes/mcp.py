@@ -29,16 +29,17 @@ async def search_memory_handler(arguments: Dict[str, Any]) -> List[Dict[str, Any
         "query": args.query,
         "user_id": current_user,
     }
+    filters = args.filters.copy() if args.filters else {}
     if args.top_k is not None:
         search_params["limit"] = args.top_k
     if args.threshold is not None:
         search_params["threshold"] = args.threshold
-    if args.filters is not None:
-        search_params["filters"] = args.filters
     if args.project_id is not None:
-        search_params["project_id"] = args.project_id
+        filters["project_id"] = args.project_id
     if args.org_id is not None:
-        search_params["org_id"] = args.org_id
+        filters["org_id"] = args.org_id
+    if filters:
+        search_params["filters"] = filters
 
     results = memory_client.search(**search_params)
     return results.get("results", [])
@@ -61,12 +62,13 @@ async def add_memories_handler(arguments: Dict[str, Any]) -> Dict[str, Any]:
         "messages": [{"role": "user", "content": m} for m in args.messages],
         "user_id": current_user,
     }
-    if args.metadata is not None:
-        add_params["metadata"] = args.metadata
+    meta = args.metadata.copy() if args.metadata else {}
     if args.project_id is not None:
-        add_params["project_id"] = args.project_id
+        meta["project_id"] = args.project_id
     if args.org_id is not None:
-        add_params["org_id"] = args.org_id
+        meta["org_id"] = args.org_id
+    if meta:
+        add_params["metadata"] = meta
 
     result = memory_client.add(**add_params)
     return {"success": True, "memory_ids": result}
