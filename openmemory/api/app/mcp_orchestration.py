@@ -16,12 +16,12 @@ import functools
 from app.database import SessionLocal
 from app.models import Memory, MemoryState, UserNarrative
 from app.utils.db import get_user_and_app
+from app.utils.mcp_modules.cache_manager import ContextCacheManager
+from app.utils.mcp_modules.ai_service import MCPAIService
+from app.utils.mcp_modules.background_tasks import MCPBackgroundTaskHandler
+from app.utils.mcp_modules.memory_analysis import MemoryAnalyzer
 
 logger = logging.getLogger(__name__)
-
-# Session-based context cache - stores user context profiles
-_context_cache: Dict[str, Dict] = {}
-_cache_ttl_minutes = 30  # Context cache TTL
 
 # Narrative cache TTL in days
 NARRATIVE_TTL_DAYS = 7
@@ -34,6 +34,10 @@ class SmartContextOrchestrator:
     def __init__(self):
         self._tools_cache = None
         self._gemini_service = None
+        self.cache_manager = ContextCacheManager()
+        self.ai_service = MCPAIService()
+        self.background_handler = MCPBackgroundTaskHandler(self)
+        self.memory_analyzer = MemoryAnalyzer(self)
     
     def _get_tools(self):
         if self._tools_cache is None:
@@ -62,78 +66,11 @@ class SmartContextOrchestrator:
         Uses AI to create a comprehensive context engineering plan.
         This is the core "brain" of the orchestrator - implementing top-down context theory.
         """
-        gemini = self._get_gemini()
-        
-        # OPTIMIZED: Much more focused, concise prompt for faster processing
-        strategy = 'deep_understanding' if is_new_conversation else 'relevant_context'
-        should_save = str(is_new_conversation or 'remember' in user_message.lower()).lower()
-        # Safely handle user message in JSON by escaping quotes
-        safe_message = user_message.replace('"', '\\"').replace('\n', '\\n')
-        memorable_content = f'"{safe_message}"' if (is_new_conversation or 'remember' in user_message.lower()) else 'null'
-        
-        prompt = f"""Analyze this message for context engineering. Respond with JSON only:
-
-Message: "{user_message}"
-New conversation: {is_new_conversation}
-
-{{
-  "context_strategy": "{strategy}",
-  "search_queries": ["1-3 search terms"],
-  "should_save_memory": {should_save},
-  "memorable_content": {memorable_content}
-}}"""
-
-        try:
-            # Increased timeout to 12 seconds to handle occasional slow responses
-            response_text = await asyncio.wait_for(
-                gemini.generate_response(prompt),
-                timeout=12.0
-            )
-            
-            # Extract JSON from response
-            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
-            if json_match:
-                plan = json.loads(json_match.group())
-                logger.info(f"✅ AI Context Plan: {plan}")
-                return plan
-            else:
-                logger.warning("No JSON found in AI response, using fallback")
-                return self._get_fallback_plan(user_message, is_new_conversation)
-                
-        except asyncio.TimeoutError:
-            logger.warning(f"⏰ AI planner timed out after 12s, using fallback")
-            return self._get_fallback_plan(user_message, is_new_conversation)
-        except Exception as e:
-            logger.error(f"❌ Error creating AI context plan: {e}. Defaulting to simple search.", exc_info=True)
-            return self._get_fallback_plan(user_message, is_new_conversation)
+        return await self.ai_service.create_context_plan(user_message, is_new_conversation)
 
     def _get_fallback_plan(self, user_message: str, is_new_conversation: bool) -> Dict:
         """Fast fallback when AI planning fails or times out"""
-        
-        # Detect if user wants deeper analysis
-        deeper_analysis_keywords = ["deeper", "more detail", "comprehensive", "tell me more", "elaborate", "analyze"]
-        wants_deeper = any(keyword in user_message.lower() for keyword in deeper_analysis_keywords)
-        
-        # Choose strategy based on request type
-        if wants_deeper and not is_new_conversation:
-            context_strategy = "comprehensive_analysis"
-            search_queries = ["comprehensive analysis of user's background, projects, and expertise"]
-        elif is_new_conversation:
-            context_strategy = "deep_understanding"
-            search_queries = [user_message, "user's core identity and background", "user's current projects and interests"]
-        else:
-            context_strategy = "relevant_context"
-            search_queries = [user_message]
-        
-        return {
-            "user_intent": "fallback_search",
-            "context_strategy": context_strategy,
-            "search_queries": search_queries,
-            "should_save_memory": is_new_conversation or ("remember" in user_message.lower()),
-            "save_with_priority": "always remember" in user_message.lower(),
-            "memorable_content": user_message if is_new_conversation or "remember" in user_message.lower() else None,
-            "understanding_enhancement": f"Fallback context engineering: {user_message}" if is_new_conversation else None
-        }
+        return self.ai_service._get_fallback_plan(user_message, is_new_conversation)
     
     def _should_use_deep_analysis(self, user_message: str, is_new_conversation: bool) -> bool:
         """
@@ -142,32 +79,7 @@ New conversation: {is_new_conversation}
         Deep analysis provides comprehensive context but takes 30-60 seconds.
         Use for: new conversations, rich personal content, or explicit deep requests.
         """
-        # Always use deep analysis for new conversations - this is prime learning moment
-        if is_new_conversation:
-            return True
-        
-        # Rich personal content indicators
-        rich_content_indicators = [
-            'i am', 'i love', 'i follow', 'i used to', 'i really', 'i believe', 'i work on',
-            'my background', 'my experience', 'entrepreneurship', 'important to me', 'my values',
-            'my goals', 'i build', 'i founded', 'my company', 'my vision'
-        ]
-        
-        # Check for rich personal content
-        message_lower = user_message.lower()
-        if len(user_message) > 100 and any(indicator in message_lower for indicator in rich_content_indicators):
-            return True
-        
-        # Explicit requests for deep analysis
-        deep_request_indicators = [
-            'go deep', 'tell me everything', 'comprehensive', 'what do you know about me',
-            'who am i', 'deeper', 'analyze me', 'understand me'
-        ]
-        
-        if any(indicator in message_lower for indicator in deep_request_indicators):
-            return True
-        
-        return False
+        return self.memory_analyzer.should_use_deep_analysis(user_message, is_new_conversation)
 
     async def _deep_memory_orchestration(
         self, 
@@ -1640,13 +1552,10 @@ def get_smart_orchestrator() -> SmartContextOrchestrator:
 
 def clear_context_cache():
     """Clear the context cache (useful for testing)"""
-    global _context_cache
-    _context_cache.clear()
+    from app.utils.mcp_modules.cache_manager import clear_context_cache as clear_cache
+    clear_cache()
 
 def get_cache_stats() -> Dict:
     """Get context cache statistics"""
-    return {
-        "cache_size": len(_context_cache),
-        "cache_keys": list(_context_cache.keys()),
-        "ttl_minutes": _cache_ttl_minutes
-    } 
+    from app.utils.mcp_modules.cache_manager import get_cache_stats as get_stats
+    return get_stats() 
