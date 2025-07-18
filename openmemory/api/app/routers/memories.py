@@ -25,6 +25,14 @@ from app.models import (
 )
 from app.schemas import MemoryResponse, PaginatedMemoryResponse
 from app.utils.permissions import check_memory_access_permissions
+from .memories_modules.utils import (
+    get_memory_or_404, update_memory_state, get_accessible_memory_ids,
+    group_memories_into_threads
+)
+from .memories_modules.schemas import (
+    CreateMemoryRequestData, DeleteMemoriesRequestData, PauseMemoriesRequestData,
+    UpdateMemoryRequestData, FilterMemoriesRequestData
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/memories", tags=["memories"])
@@ -32,203 +40,6 @@ router = APIRouter(prefix="/memories", tags=["memories"])
 # REMOVED: Jean Memory V2 app ID no longer needed
 
 
-def get_memory_or_404(db: Session, memory_id: UUID, user_id: UUID) -> Memory:
-    memory = db.query(Memory).filter(Memory.id == memory_id, Memory.user_id == user_id).first()
-    if not memory:
-        raise HTTPException(status_code=404, detail="Memory not found or you do not have permission")
-    return memory
-
-
-def update_memory_state(db: Session, memory_id: UUID, new_state: MemoryState, changed_by_user_id: UUID):
-    memory = get_memory_or_404(db, memory_id, changed_by_user_id)
-    
-    old_state = memory.state
-    memory.state = new_state
-    if new_state == MemoryState.archived:
-        memory.archived_at = datetime.datetime.now(UTC)
-    elif new_state == MemoryState.deleted:
-        memory.deleted_at = datetime.datetime.now(UTC)
-
-    history = MemoryStatusHistory(
-        memory_id=memory_id,
-        changed_by=changed_by_user_id,
-        old_state=old_state,
-        new_state=new_state
-    )
-    db.add(history)
-
-
-def get_accessible_memory_ids(db: Session, app_id: UUID) -> Set[UUID]:
-    """
-    Get the set of memory IDs that the app has access to based on app-level ACL rules.
-    Returns all memory IDs if no specific restrictions are found.
-    """
-    # Get app-level access controls
-    app_access = db.query(AccessControl).filter(
-        AccessControl.subject_type == "app",
-        AccessControl.subject_id == app_id,
-        AccessControl.object_type == "memory"
-    ).all()
-
-    # If no app-level rules exist, return None to indicate all memories are accessible
-    if not app_access:
-        return None
-
-    # Initialize sets for allowed and denied memory IDs
-    allowed_memory_ids = set()
-    denied_memory_ids = set()
-
-    # Process app-level rules
-    for rule in app_access:
-        if rule.effect == "allow":
-            if rule.object_id:  # Specific memory access
-                allowed_memory_ids.add(rule.object_id)
-            else:  # All memories access
-                return None  # All memories allowed
-        elif rule.effect == "deny":
-            if rule.object_id:  # Specific memory denied
-                denied_memory_ids.add(rule.object_id)
-            else:  # All memories denied
-                return set()  # No memories accessible
-
-    # Remove denied memories from allowed set
-    if allowed_memory_ids:
-        allowed_memory_ids -= denied_memory_ids
-
-    return allowed_memory_ids
-
-
-def _group_memories_into_threads(memories: List[MemoryResponse]) -> List[MemoryResponse]:
-    """
-    Group related memories into threads using mem0_id linking.
-    
-    SQL memories with mem0_id will be grouped with their corresponding 
-    Jean Memory V2 enhanced memories. Returns primary memories with
-    related memories appended as a special 'thread_memories' field.
-    """
-    try:
-        if not memories:
-            return memories
-        
-        # Separate SQL and Jean Memory V2 memories
-        sql_memories = []
-        jean_memories = []
-        
-        for memory in memories:
-            # Check if it's a Jean Memory V2 memory (has the dummy app_id or specific app_name pattern)
-            if (hasattr(memory, 'app_name') and 
-                ('Jean Memory V2' in memory.app_name or 'jean memory' in memory.app_name.lower())):
-                jean_memories.append(memory)
-            else:
-                sql_memories.append(memory)
-        
-        # Create a lookup of Jean Memory V2 memories by their original mem0 ID
-        # We need to store the original Jean Memory V2 ID for matching with SQL mem0_id
-        jean_memory_lookup = {}
-        logger.info(f"🔍 Processing {len(jean_memories)} Jean Memory V2 memories for lookup")
-        for memory in jean_memories:
-            # Store both the generated UUID and try to get original ID from metadata
-            jean_memory_lookup[str(memory.id)] = memory
-            # Also try to find the original Jean Memory V2 ID if stored in metadata
-            if hasattr(memory, 'metadata_') and memory.metadata_:
-                original_id = memory.metadata_.get('original_mem0_id') or memory.metadata_.get('mem0_id')
-                if original_id:
-                    jean_memory_lookup[str(original_id)] = memory
-                    logger.info(f"🔗 Jean V2 memory {memory.id} has original_mem0_id: {original_id}")
-                else:
-                    logger.info(f"📝 Jean V2 memory {memory.id} has no original_mem0_id in metadata")
-            else:
-                logger.info(f"📝 Jean V2 memory {memory.id} has no metadata")
-        
-        logger.info(f"🔍 Jean V2 lookup has {len(jean_memory_lookup)} entries")
-        
-        # Group SQL memories with related Jean Memory V2 memories using content similarity
-        threaded_memories = []
-        processed_jean_ids = set()
-        
-        for sql_memory in sql_memories:
-            # Check if this SQL memory has a mem0_id that links to Jean Memory V2
-            mem0_id = None
-            if hasattr(sql_memory, 'metadata_') and sql_memory.metadata_:
-                mem0_id = sql_memory.metadata_.get('mem0_id')
-                logger.info(f"🔍 SQL memory {sql_memory.id} has mem0_id: {mem0_id}")
-            else:
-                logger.info(f"🔍 SQL memory {sql_memory.id} has no metadata or mem0_id")
-            
-            # Find related Jean Memory V2 memories using multiple approaches
-            related_memories = []
-            
-            # Approach 1: Try exact mem0_id match first
-            if mem0_id and mem0_id in jean_memory_lookup:
-                related_memory = jean_memory_lookup[mem0_id]
-                related_memories.append(related_memory)
-                processed_jean_ids.add(str(related_memory.id))
-                logger.info(f"✅ Found exact ID match: SQL {sql_memory.id} → Jean V2 {related_memory.id}")
-            else:
-                # Approach 2: Content similarity matching
-                sql_content = sql_memory.content.lower()
-                for jean_memory in jean_memories:
-                    if str(jean_memory.id) in processed_jean_ids:
-                        continue
-                    
-                    jean_content = jean_memory.content.lower()
-                    
-                    # Simple similarity check - shared words and length similarity
-                    sql_words = set(sql_content.split())
-                    jean_words = set(jean_content.split())
-                    
-                    if len(sql_words) > 2 and len(jean_words) > 2:  # Only for substantial content
-                        shared_words = sql_words.intersection(jean_words)
-                        similarity = len(shared_words) / max(len(sql_words), len(jean_words))
-                        
-                        # High similarity threshold for threading
-                        if similarity > 0.6:
-                            related_memories.append(jean_memory)
-                            processed_jean_ids.add(str(jean_memory.id))
-                            logger.info(f"✅ Found content match (sim={similarity:.2f}): SQL {sql_memory.id} → Jean V2 {jean_memory.id}")
-                            break  # Only take the best match
-                
-                if mem0_id and not related_memories:
-                    logger.info(f"❌ No match found for mem0_id: {mem0_id}")
-                    logger.info(f"🔍 Available Jean V2 IDs: {list(jean_memory_lookup.keys())[:5]}...")  # Show first 5
-            
-            # If we have related memories, add them to the primary memory's metadata
-            if related_memories:
-                # Create a copy of the memory with thread info
-                memory_dict = sql_memory.model_dump() if hasattr(sql_memory, 'model_dump') else sql_memory.__dict__.copy()
-                if 'metadata_' not in memory_dict or memory_dict['metadata_'] is None:
-                    memory_dict['metadata_'] = {}
-                
-                # Add thread information to metadata
-                memory_dict['metadata_']['thread_memories'] = [
-                    mem.model_dump() if hasattr(mem, 'model_dump') else mem.__dict__ 
-                    for mem in related_memories
-                ]
-                memory_dict['metadata_']['is_threaded'] = True
-                memory_dict['metadata_']['thread_count'] = len(related_memories)
-                
-                # Create new MemoryResponse with updated metadata
-                threaded_memory = MemoryResponse(**memory_dict)
-                threaded_memories.append(threaded_memory)
-            else:
-                # No related memories, add as-is
-                threaded_memories.append(sql_memory)
-        
-        # Add any unprocessed Jean Memory V2 memories (orphaned ones)
-        for jean_memory in jean_memories:
-            if str(jean_memory.id) not in processed_jean_ids:
-                threaded_memories.append(jean_memory)
-    
-        # Sort by created_at desc to maintain order
-        threaded_memories.sort(key=lambda x: x.created_at, reverse=True)
-        
-        logger.info(f"🧵 Threading summary: {len(sql_memories)} SQL + {len(jean_memories)} Jean V2 → {len(threaded_memories)} final")
-        logger.info(f"🧵 Processed {len(processed_jean_ids)} Jean V2 memories in threads")
-        
-        return threaded_memories
-    except Exception as e:
-        logger.error(f"🧵 Threading failed with error: {e}")
-        return memories  # Return original memories if threading fails
 
 
 # List all memories with filtering (no pagination)
@@ -578,11 +389,6 @@ async def get_user_narrative(
             }
 
 
-class CreateMemoryRequestData(BaseModel):
-    text: str
-    metadata: dict = {}
-    infer: bool = True
-    app_name: str
 
 
 # Create new memory
@@ -1617,8 +1423,6 @@ async def get_memory(
     raise HTTPException(status_code=404, detail="Memory not found or you do not have permission")
 
 
-class DeleteMemoriesRequestData(BaseModel):
-    memory_ids: List[UUID]
 
 
 # Delete multiple memories
@@ -1716,12 +1520,6 @@ async def archive_memories(
     return {"message": f"Successfully archived {archived_count} memories. Not found: {not_found_count}."}
 
 
-class PauseMemoriesRequestData(BaseModel):
-    memory_ids: Optional[List[UUID]] = None
-    category_ids: Optional[List[UUID]] = None
-    app_id: Optional[UUID] = None
-    global_pause_for_user: bool = False
-    state: Optional[MemoryState] = MemoryState.paused
 
 
 # Pause access to memories
@@ -1819,8 +1617,6 @@ async def get_memory_access_log(
     }
 
 
-class UpdateMemoryRequestData(BaseModel):
-    memory_content: str
 
 
 # Update a memory
@@ -1859,15 +1655,6 @@ async def update_memory(
     )
 
 
-class FilterMemoriesRequestData(BaseModel):
-    search_query: Optional[str] = None
-    app_ids: Optional[List[UUID]] = None
-    category_ids: Optional[List[UUID]] = None
-    sort_column: Optional[str] = None
-    sort_direction: Optional[str] = None
-    from_date: Optional[int] = None
-    to_date: Optional[int] = None
-    show_archived: Optional[bool] = False
 
 
 @router.post("/filter", response_model=List[MemoryResponse])
