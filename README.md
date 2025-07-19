@@ -151,6 +151,18 @@ For detailed integration steps, see the [Quickstart](https://docs.mem0.ai/quicks
 - Community: [Discord](https://mem0.dev/DiG) · [Twitter](https://x.com/mem0ai)
 - Contact: founders@mem0.ai
 
+### 📚 Handling API Errors
+If you encounter a `500 Internal Server Error` while using `client.add()`:
+
+- ✅ Check that your input is formatted correctly:
+  ```python
+  [{"role": "user", "content": "Hello!"}]
+
+- 🔄 Try sending a simpler message or retrying after a few minutes
+
+This may happen due to backend instability or malformed requests. Mem0 is actively improving stability—see Issue #3190 for updates.
+
+
 ## Citation
 
 We now have a paper you can cite:
