@@ -141,7 +141,7 @@ def get_default_memory_config():
             "config": {
                 "collection_name": "openmemory",
                 "host": "mem0_store",
-                "port": 6333,
+                "port": 6333
             }
         },
         "llm": {
@@ -169,23 +169,35 @@ def _parse_environment_variables(config_dict):
     Parse environment variables in config values.
     Converts 'env:VARIABLE_NAME' to actual environment variable values.
     """
+    print(f"🔧 [_parse_environment_variables] Parsing config: {type(config_dict)}")
+    
     if isinstance(config_dict, dict):
         parsed_config = {}
         for key, value in config_dict.items():
+            print(f"🔧 [_parse_environment_variables] Processing key '{key}' with value: {value}")
+            
             if isinstance(value, str) and value.startswith("env:"):
                 env_var = value.split(":", 1)[1]
                 env_value = os.environ.get(env_var)
+                print(f"🔧 [_parse_environment_variables] Looking for env var '{env_var}'")
+                
                 if env_value:
                     parsed_config[key] = env_value
-                    print(f"Loaded {env_var} from environment for {key}")
+                    print(f"✅ [_parse_environment_variables] Loaded {env_var} from environment for {key}")
                 else:
-                    print(f"Warning: Environment variable {env_var} not found, keeping original value")
+                    print(f"⚠️ [_parse_environment_variables] Environment variable {env_var} not found, keeping original value")
                     parsed_config[key] = value
             elif isinstance(value, dict):
+                print(f"🔧 [_parse_environment_variables] Recursively parsing dict for key '{key}'")
                 parsed_config[key] = _parse_environment_variables(value)
             else:
                 parsed_config[key] = value
+                print(f"🔧 [_parse_environment_variables] Keeping non-env value for key '{key}': {value}")
+        
+        print(f"🔧 [_parse_environment_variables] Parsed config result: {json.dumps(parsed_config, indent=2)}")
         return parsed_config
+    
+    print(f"🔧 [_parse_environment_variables] Not a dict, returning as-is: {config_dict}")
     return config_dict
 
 
@@ -204,86 +216,126 @@ def get_memory_client(custom_instructions: str = None):
     """
     global _memory_client, _config_hash
 
+    print("🔍 [get_memory_client] Starting memory client initialization...")
+    
     try:
         # Start with default configuration
+        print("📋 [get_memory_client] Getting default memory config...")
         config = get_default_memory_config()
+        print(f"📋 [get_memory_client] Default config: {json.dumps(config, indent=2)}")
         
         # Variable to track custom instructions
         db_custom_instructions = None
         
         # Load configuration from database
+        print("🗄️ [get_memory_client] Loading configuration from database...")
         try:
             db = SessionLocal()
+            print("🗄️ [get_memory_client] Database session created")
+            
             db_config = db.query(ConfigModel).filter(ConfigModel.key == "main").first()
+            print(f"🗄️ [get_memory_client] Database config found: {db_config is not None}")
             
             if db_config:
                 json_config = db_config.value
+                print(f"🗄️ [get_memory_client] Database config value: {json.dumps(json_config, indent=2)}")
                 
                 # Extract custom instructions from openmemory settings
                 if "openmemory" in json_config and "custom_instructions" in json_config["openmemory"]:
                     db_custom_instructions = json_config["openmemory"]["custom_instructions"]
+                    print(f"📝 [get_memory_client] Custom instructions from DB: {db_custom_instructions}")
                 
                 # Override defaults with configurations from the database
                 if "mem0" in json_config:
                     mem0_config = json_config["mem0"]
+                    print(f"🔧 [get_memory_client] Mem0 config from DB: {json.dumps(mem0_config, indent=2)}")
                     
                     # Update LLM configuration if available
                     if "llm" in mem0_config and mem0_config["llm"] is not None:
+                        print("🔧 [get_memory_client] Updating LLM config from DB...")
                         config["llm"] = mem0_config["llm"]
                         
                         # Fix Ollama URLs for Docker if needed
                         if config["llm"].get("provider") == "ollama":
+                            print("🐳 [get_memory_client] Fixing Ollama URLs for Docker...")
                             config["llm"] = _fix_ollama_urls(config["llm"])
                     
                     # Update Embedder configuration if available
                     if "embedder" in mem0_config and mem0_config["embedder"] is not None:
+                        print("🔧 [get_memory_client] Updating embedder config from DB...")
                         config["embedder"] = mem0_config["embedder"]
                         
                         # Fix Ollama URLs for Docker if needed
                         if config["embedder"].get("provider") == "ollama":
+                            print("🐳 [get_memory_client] Fixing Ollama URLs for Docker...")
                             config["embedder"] = _fix_ollama_urls(config["embedder"])
+                else:
+                    print("⚠️ [get_memory_client] No mem0 config in database")
             else:
-                print("No configuration found in database, using defaults")
+                print("⚠️ [get_memory_client] No configuration found in database, using defaults")
                     
             db.close()
+            print("🗄️ [get_memory_client] Database session closed")
                             
         except Exception as e:
-            print(f"Warning: Error loading configuration from database: {e}")
-            print("Using default configuration")
+            print(f"❌ [get_memory_client] Error loading configuration from database: {e}")
+            print("⚠️ [get_memory_client] Using default configuration")
             # Continue with default configuration if database config can't be loaded
 
         # Use custom_instructions parameter first, then fall back to database value
         instructions_to_use = custom_instructions or db_custom_instructions
         if instructions_to_use:
+            print(f"📝 [get_memory_client] Using custom instructions: {instructions_to_use}")
             config["custom_fact_extraction_prompt"] = instructions_to_use
+        else:
+            print("📝 [get_memory_client] No custom instructions to use")
 
         # ALWAYS parse environment variables in the final config
         # This ensures that even default config values like "env:OPENAI_API_KEY" get parsed
-        print("Parsing environment variables in final config...")
+        print("🔧 [get_memory_client] Parsing environment variables in final config...")
         config = _parse_environment_variables(config)
+        print(f"🔧 [get_memory_client] Final config after env parsing: {json.dumps(config, indent=2)}")
 
         # Check if config has changed by comparing hashes
         current_config_hash = _get_config_hash(config)
+        print(f"🔍 [get_memory_client] Current config hash: {current_config_hash}")
+        print(f"🔍 [get_memory_client] Previous config hash: {_config_hash}")
+        print(f"🔍 [get_memory_client] Memory client exists: {_memory_client is not None}")
         
         # Only reinitialize if config changed or client doesn't exist
         if _memory_client is None or _config_hash != current_config_hash:
-            print(f"Initializing memory client with config hash: {current_config_hash}")
+            print(f"🚀 [get_memory_client] Initializing memory client with config hash: {current_config_hash}")
             try:
+                print("🚀 [get_memory_client] Calling Memory.from_config()...")
                 _memory_client = Memory.from_config(config_dict=config)
                 _config_hash = current_config_hash
-                print("Memory client initialized successfully")
+                print("✅ [get_memory_client] Memory client initialized successfully")
+                print(f"✅ [get_memory_client] Memory client type: {type(_memory_client)}")
+                print(f"✅ [get_memory_client] Memory client attributes: {dir(_memory_client)}")
             except Exception as init_error:
-                print(f"Warning: Failed to initialize memory client: {init_error}")
-                print("Server will continue running with limited memory functionality")
+                print(f"❌ [get_memory_client] Failed to initialize memory client: {init_error}")
+                print(f"❌ [get_memory_client] Error type: {type(init_error)}")
+                print(f"❌ [get_memory_client] Error details: {str(init_error)}")
+                import traceback
+                print(f"❌ [get_memory_client] Full traceback:")
+                traceback.print_exc()
+                print("⚠️ [get_memory_client] Server will continue running with limited memory functionality")
                 _memory_client = None
                 _config_hash = None
                 return None
+        else:
+            print("♻️ [get_memory_client] Using existing memory client (config unchanged)")
         
+        print(f"✅ [get_memory_client] Returning memory client: {_memory_client}")
         return _memory_client
         
     except Exception as e:
-        print(f"Warning: Exception occurred while initializing memory client: {e}")
-        print("Server will continue running with limited memory functionality")
+        print(f"❌ [get_memory_client] Exception occurred while initializing memory client: {e}")
+        print(f"❌ [get_memory_client] Error type: {type(e)}")
+        import traceback
+        print(f"❌ [get_memory_client] Full traceback:")
+        traceback.print_exc()
+        print("⚠️ [get_memory_client] Server will continue running with limited memory functionality")
         return None
 
 
