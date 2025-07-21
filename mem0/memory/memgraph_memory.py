@@ -54,12 +54,21 @@ class MemoryGraph:
         # 1. Create vector index (created Entity label on all nodes)
         # 2. Create label property index for performance optimizations
         embedding_dims = self.config.embedder.config["embedding_dims"]
-        create_vector_index_query = f"CREATE VECTOR INDEX memzero ON :Entity(embedding) WITH CONFIG {{'dimension': {embedding_dims}, 'capacity': 1000, 'metric': 'cos'}};"
-        self.graph.query(create_vector_index_query, params={})
-        create_label_prop_index_query = "CREATE INDEX ON :Entity(user_id);"
-        self.graph.query(create_label_prop_index_query, params={})
-        create_label_index_query = "CREATE INDEX ON :Entity;"
-        self.graph.query(create_label_index_query, params={})
+        try:
+            create_vector_index_query = f"CREATE VECTOR INDEX memzero ON :Entity(embedding) WITH CONFIG {{'dimension': {embedding_dims}, 'capacity': 1000, 'metric': 'cos'}};"
+            self.graph.query(create_vector_index_query, params={})
+        except Exception:
+            pass
+        try:
+            create_label_prop_index_query = "CREATE INDEX ON :Entity(user_id);"
+            self.graph.query(create_label_prop_index_query, params={})
+        except Exception:
+            pass
+        try:
+            create_label_index_query = "CREATE INDEX ON :Entity;"
+            self.graph.query(create_label_index_query, params={})
+        except Exception:
+            pass
 
     def add(self, data, filters):
         """
