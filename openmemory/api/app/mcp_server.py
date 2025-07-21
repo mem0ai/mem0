@@ -478,10 +478,6 @@ async def handle_get_message(request: Request):
     return await handle_post_message(request)
 
 
-@mcp_router.post("/{client_name}/sse/{user_id}/messages/")
-async def handle_post_message(request: Request):
-    return await handle_post_message(request)
-
 async def handle_post_message(request: Request):
     """Handle POST messages for SSE"""
     try:
@@ -502,6 +498,7 @@ async def handle_post_message(request: Request):
         return {"status": "ok"}
     finally:
         pass
+
 
 def setup_mcp_server(app: FastAPI):
     """Setup MCP server with the FastAPI application"""
