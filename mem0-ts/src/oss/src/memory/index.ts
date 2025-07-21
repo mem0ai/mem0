@@ -271,7 +271,12 @@ export class Memory {
     const newMessageEmbeddings: Record<string, number[]> = {};
     const retrievedOldMemory: Array<{ id: string; text: string }> = [];
 
-    const embeddedInput = await this.embedder.embedBatch(facts);
+    let embeddedInput: number[][] = [];
+    if (facts.length > 0) {
+      embeddedInput = await this.embedder.embedBatch(facts);
+    } else {
+      embeddedInput = [];
+    }
 
     // Create embeddings and search for similar memories
     for (const [index, fact] of facts.entries()) {

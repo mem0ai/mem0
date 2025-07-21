@@ -91,7 +91,7 @@
     "typescript": "5.5.4"
   },
   "dependencies": {
-    "axios": "1.7.7",
+    "axios": "^1.10.0",
     "openai": "^4.93.0",
     "uuid": "9.0.1",
     "zod": "^3.24.1"
@@ -102,7 +102,7 @@
     "@google/genai": "^1.2.0",
     "@langchain/core": "^0.3.44",
     "@mistralai/mistralai": "^1.5.2",
-    "@qdrant/js-client-rest": "1.13.0",
+    "@qdrant/js-client-rest": "^1.15.0",
     "@supabase/supabase-js": "^2.49.1",
     "@types/jest": "29.5.14",
     "@types/pg": "8.11.0",
