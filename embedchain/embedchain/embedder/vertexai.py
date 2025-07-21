@@ -11,7 +11,10 @@ class VertexAIEmbedder(BaseEmbedder):
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
         super().__init__(config=config)
 
-        embeddings = VertexAIEmbeddings(model_name=config.model)
+        kwargs = {}
+        if getattr(config, "max_batch_size", None) is not None:
+            kwargs["max_batch_size"] = config.max_batch_size
+        embeddings = VertexAIEmbeddings(model_name=config.model, **kwargs)
         embedding_fn = BaseEmbedder._langchain_default_concept(embeddings)
         self.set_embedding_fn(embedding_fn=embedding_fn)
 

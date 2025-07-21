@@ -18,6 +18,7 @@ class BaseEmbedderConfig:
         model_kwargs: Optional[Dict[str, Any]] = None,
         http_client_proxies: Optional[Union[Dict, str]] = None,
         http_async_client_proxies: Optional[Union[Dict, str]] = None,
+        max_batch_size: Optional[int] = None,
     ):
         """
         Initialize a new instance of an embedder config class.
@@ -53,3 +54,4 @@ class BaseEmbedderConfig:
         self.http_async_client = (
             httpx.AsyncClient(proxies=http_async_client_proxies) if http_async_client_proxies else None
         )
+        self.max_batch_size = max_batch_size
