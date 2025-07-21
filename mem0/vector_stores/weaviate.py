@@ -13,7 +13,7 @@ except ImportError:
 
 import weaviate.classes.config as wvcc
 from weaviate.classes.init import Auth
-from weaviate.classes.query import Filter, MetadataQuery
+from weaviate.classes.query import Filter, MetadataQuery, Sort
 from weaviate.util import get_valid_uuid
 
 from mem0.vector_stores.base import VectorStoreBase
@@ -286,22 +286,49 @@ class Weaviate(VectorStoreBase):
             return schema
         return None
 
-    def list(self, filters=None, limit=100) -> List[OutputData]:
+    def list(self, filters=None, limit=100, sort=None) -> List[OutputData]:
         """
         List all vectors in a collection.
+        
+        Args:
+            filters (dict, optional): Filters to apply to the list. Defaults to None.
+            limit (int, optional): Number of vectors to return. Defaults to 100.
+            sort (dict, optional): Sort configuration. Defaults to None.
+                Format: {"property": "field_name", "order": "asc" or "desc"}
         """
         collection = self.client.collections.get(self.collection_name)
+
+        # Handle filters
         filter_conditions = []
         if filters:
             for key, value in filters.items():
                 if value and key in ["user_id", "agent_id", "run_id"]:
                     filter_conditions.append(Filter.by_property(key).equal(value))
         combined_filter = Filter.all_of(filter_conditions) if filter_conditions else None
-        response = collection.query.fetch_objects(
-            limit=limit,
-            filters=combined_filter,
-            return_properties=["hash", "created_at", "updated_at", "user_id", "agent_id", "run_id", "data", "category"],
-        )
+        
+        # Handle sorting
+        sort_config = None
+        if sort and isinstance(sort, dict):
+            property_name = sort.get("property")
+            order = sort.get("order", "asc")
+            if property_name:
+                # Convert order string to boolean for ascending parameter
+                ascending = order.lower() == "asc"
+                sort_config = Sort.by_property(property_name, ascending=ascending)
+        
+        # Build fetch_objects parameters
+        fetch_params = {
+            "limit": limit,
+            "filters": combined_filter,
+            "return_properties": ["hash", "created_at", "updated_at", "user_id", "agent_id", "run_id", "data", "category"],
+        }
+        
+        # Only add sort parameter if sort_config is not None
+        if sort_config is not None:
+            fetch_params["sort"] = sort_config
+        
+        # fetch_objects
+        response = collection.query.fetch_objects(**fetch_params)
         results = []
         for obj in response.objects:
             payload = obj.properties.copy()
