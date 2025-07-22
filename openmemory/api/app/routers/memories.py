@@ -570,11 +570,6 @@ async def filter_memories(
         # Default sorting
         query = query.order_by(Memory.id.asc(), Memory.created_at.desc())
 
-    # Add eager loading for categories and make the query distinct
-    query = query.options(
-        joinedload(Memory.categories)
-    ).distinct(Memory.id)
-
     # Use fastapi-pagination's paginate function
     return sqlalchemy_paginate(
         query,
