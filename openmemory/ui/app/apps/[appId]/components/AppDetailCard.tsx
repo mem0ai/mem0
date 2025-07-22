@@ -109,7 +109,7 @@ const AppDetailCard = ({
             <p className="font-medium">
               {selectedApp.details.first_accessed
                 ? new Date(
-                    selectedApp.details.first_accessed
+                    selectedApp.details.first_accessed + "Z"
                   ).toLocaleDateString("en-US", {
                     day: "numeric",
                     month: "short",
@@ -126,7 +126,7 @@ const AppDetailCard = ({
             <p className="font-medium">
               {selectedApp.details.last_accessed
                 ? new Date(
-                    selectedApp.details.last_accessed
+                    selectedApp.details.last_accessed + "Z"
                   ).toLocaleDateString("en-US", {
                     day: "numeric",
                     month: "short",
