@@ -2,13 +2,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from mem0.client.main import MemoryClient
+from mem0 import Memory
 
 
 @pytest.fixture
 def memory_client():
-    with patch.object(MemoryClient, "__init__", return_value=None):
-        client = MemoryClient()
+    with patch.object(Memory, "__init__", return_value=None):
+        client = Memory()
         client.add = MagicMock(return_value={"results": [{"id": "1", "memory": "Name is John Doe.", "event": "ADD"}]})
         client.get = MagicMock(return_value={"id": "1", "memory": "Name is John Doe."})
         client.update = MagicMock(return_value={"message": "Memory updated successfully!"})
