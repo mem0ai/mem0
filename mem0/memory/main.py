@@ -31,7 +31,12 @@ from mem0.memory.utils import (
     process_telemetry_filters,
     remove_code_blocks,
 )
-from mem0.utils.factory import EmbedderFactory, LlmFactory, VectorStoreFactory
+from mem0.utils.factory import (
+    EmbedderFactory,
+    GraphStoreFactory,
+    LlmFactory,
+    VectorStoreFactory,
+)
 
 
 def _build_filters_and_metadata(
@@ -136,14 +141,8 @@ class Memory(MemoryBase):
         self.enable_graph = False
 
         if self.config.graph_store.config:
-            if self.config.graph_store.provider == "memgraph":
-                from mem0.memory.memgraph_memory import MemoryGraph
-            elif self.config.graph_store.provider == "neptune":
-                from mem0.graphs.neptune.main import MemoryGraph
-            else:
-                from mem0.memory.graph_memory import MemoryGraph
-
-            self.graph = MemoryGraph(self.config)
+            provider = self.config.graph_store.provider
+            self.graph = GraphStoreFactory.create(provider, self.config)
             self.enable_graph = True
         else:
             self.graph = None
@@ -989,14 +988,8 @@ class AsyncMemory(MemoryBase):
         self.enable_graph = False
 
         if self.config.graph_store.config:
-            if self.config.graph_store.provider == "memgraph":
-                from mem0.memory.memgraph_memory import MemoryGraph
-            elif self.config.graph_store.provider == "neptune":
-                from mem0.graphs.neptune.main import MemoryGraph
-            else:
-                from mem0.memory.graph_memory import MemoryGraph
-
-            self.graph = MemoryGraph(self.config)
+            provider = self.config.graph_store.provider
+            self.graph = GraphStoreFactory.create(provider, self.config)
             self.enable_graph = True
         else:
             self.graph = None
