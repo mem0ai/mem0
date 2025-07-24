@@ -510,7 +510,7 @@ export class RedisDB implements VectorStore {
 
       return {
         id: vectorId,
-        payload,
+        payload: toCamelCase(payload),
       };
     } catch (error) {
       console.error("Error getting vector:", error);
