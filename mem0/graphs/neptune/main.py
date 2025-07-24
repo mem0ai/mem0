@@ -114,7 +114,8 @@ class MemoryGraph(NeptuneBase):
                         destination.mentions = 1
                         {destination_extra_set}
                     ON MATCH SET
-                        destination.mentions = coalesce(destination.mentions, 0) + 1
+                        destination.mentions = coalesce(destination.mentions, 0) + 1,
+                        destination.updated = timestamp()
                     WITH source, destination, $dest_embedding as dest_embedding
                     CALL neptune.algo.vectors.upsert(destination, dest_embedding)
                     WITH source, destination
@@ -140,7 +141,7 @@ class MemoryGraph(NeptuneBase):
                     MATCH (destination)
                     WHERE id(destination) = $destination_id
                     SET 
-                        destination.mentions = coalesce(destination.mentions, 0) + 1
+                        destination.mentions = coalesce(destination.mentions, 0) + 1,
                         destination.updated = timestamp()
                     WITH destination
                     MERGE (source {source_label} {{name: $source_name, user_id: $user_id}})
