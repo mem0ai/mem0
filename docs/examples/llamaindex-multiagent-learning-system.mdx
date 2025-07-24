@@ -213,8 +213,8 @@ class MultiAgentLearningSystem:
                 query="learning machine learning"
             )
 
-            if memories and len(memories):
-                history = "\n".join(f"- {m['memory']}" for m in memories)
+            if memories and memories.get('results'):
+                history = "\n".join(f"- {m['memory']}" for m in memories['results'])
                 return history
             else:
                 return "No learning history found yet. Let's start building your profile!"
