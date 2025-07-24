@@ -8,6 +8,31 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2025-07-24" description="v0.1.115">
+
+**New Features & Updates:**
+- Enhanced project management via `client.project` and `AsyncMemoryClient.project` interfaces
+- Full support for project CRUD operations (create, read, update, delete)
+- Project member management: add, update, remove, and list members
+- Manage project settings including custom instructions, categories, retrieval criteria, and graph enablement
+- Both sync and async support for all project management operations
+
+**Improvements:**
+- **Documentation:**
+  - Added detailed API reference and usage examples for new project management methods.
+  - Updated all docs to use `client.project.get()` and `client.project.update()` instead of deprecated methods.
+  
+- **Deprecation:**
+  - Marked `get_project()` and `update_project()` as deprecated (these methods were already present); added warnings to guide users to the new API.
+
+**Bug Fixes:**
+- **Tests:**
+  - Fixed Gemini embedder and LLM test mocks for correct error handling and argument structure.
+- **vLLM:**
+  - Fixed duplicate import in vLLM module.
+
+</Update>
+
 <Update label="2025-07-05" description="v0.1.114">
 
 **New Features:**
