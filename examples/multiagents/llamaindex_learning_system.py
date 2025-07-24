@@ -8,33 +8,28 @@ You need MEM0_API_KEY and OPENAI_API_KEY to run the example.
 """
 
 import asyncio
-from datetime import datetime
-from dotenv import load_dotenv
 import logging
+from datetime import datetime
+
+from dotenv import load_dotenv
 
 # LlamaIndex imports
 from llama_index.core.agent.workflow import AgentWorkflow, FunctionAgent
-from llama_index.llms.openai import OpenAI
 from llama_index.core.tools import FunctionTool
+from llama_index.llms.openai import OpenAI
 
 # Memory integration
 from llama_index.memory.mem0 import Mem0Memory
-
-import warnings
 
 load_dotenv()
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler('learning_system.log')
-    ]
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler(), logging.FileHandler("learning_system.log")],
 )
 logger = logging.getLogger(__name__)
-
 
 
 class MultiAgentLearningSystem:
@@ -51,9 +46,7 @@ class MultiAgentLearningSystem:
 
         # Memory context for this student
         self.memory_context = {"user_id": student_id, "app": "learning_assistant"}
-        self.memory = Mem0Memory.from_client(
-            context=self.memory_context
-        )
+        self.memory = Mem0Memory.from_client(context=self.memory_context)
 
         self._setup_agents()
 
@@ -84,7 +77,7 @@ class MultiAgentLearningSystem:
         # Convert to FunctionTools
         tools = [
             FunctionTool.from_defaults(async_fn=assess_understanding),
-            FunctionTool.from_defaults(async_fn=track_progress)
+            FunctionTool.from_defaults(async_fn=track_progress),
         ]
 
         # === AGENTS ===
@@ -111,7 +104,7 @@ class MultiAgentLearningSystem:
             """,
             tools=tools,
             llm=self.llm,
-            can_handoff_to=["PracticeAgent"]
+            can_handoff_to=["PracticeAgent"],
         )
 
         # Practice Agent - Exercises and reinforcement
@@ -137,7 +130,7 @@ class MultiAgentLearningSystem:
             """,
             tools=tools,
             llm=self.llm,
-            can_handoff_to=["TutorAgent"]
+            can_handoff_to=["TutorAgent"],
         )
 
         # Create the multi-agent workflow
@@ -148,8 +141,8 @@ class MultiAgentLearningSystem:
                 "current_topic": "",
                 "student_level": "beginner",
                 "learning_style": "unknown",
-                "session_goals": []
-            }
+                "session_goals": [],
+            },
         )
 
     async def start_learning_session(self, topic: str, student_message: str = "") -> str:
@@ -163,10 +156,7 @@ class MultiAgentLearningSystem:
             request = f"I want to learn about {topic}."
 
         # The magic happens here - multi-agent memory is automatically shared!
-        response = await self.workflow.run(
-            user_msg=request,
-            memory=self.memory
-        )
+        response = await self.workflow.run(user_msg=request, memory=self.memory)
 
         return str(response)
 
@@ -174,10 +164,7 @@ class MultiAgentLearningSystem:
         """Show what the system remembers about this student"""
         try:
             # Search memory for learning patterns
-            memories = self.memory.search(
-                user_id=self.student_id,
-                query="learning machine learning"
-            )
+            memories = self.memory.search(user_id=self.student_id, query="learning machine learning")
 
             if memories and len(memories):
                 history = "\n".join(f"- {m['memory']}" for m in memories)
@@ -190,20 +177,19 @@ class MultiAgentLearningSystem:
 
 
 async def run_learning_agent():
-
     learning_system = MultiAgentLearningSystem(student_id="Alexander")
 
     # First session
     logger.info("Session 1:")
     response = await learning_system.start_learning_session(
         "Vision Language Models",
-        "I'm new to machine learning but I have good hold on Python and have 4 years of work experience.")
+        "I'm new to machine learning but I have good hold on Python and have 4 years of work experience.",
+    )
     logger.info(response)
 
     # Second session - multi-agent memory will remember the first
     logger.info("\nSession 2:")
-    response2 = await learning_system.start_learning_session(
-        "Machine Learning", "what all did I cover so far?")
+    response2 = await learning_system.start_learning_session("Machine Learning", "what all did I cover so far?")
     logger.info(response2)
 
     # Show what the multi-agent system remembers
