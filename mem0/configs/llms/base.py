@@ -1,3 +1,4 @@
+import os
 from abc import ABC
 from typing import Dict, Optional, Union
 
@@ -47,9 +48,10 @@ class BaseLlmConfig(ABC):
         # vLLM specific
         vllm_base_url: Optional[str] = "http://localhost:8000/v1",
         # AWS Bedrock specific
-        aws_access_key_id: Optional[str] = None,
-        aws_secret_access_key: Optional[str] = None,
-        aws_region: Optional[str] = "us-west-2",
+        aws_access_key_id: Optional[str] = os.environ.get("AWS_ACCESS_KEY_ID", None),
+        aws_secret_access_key: Optional[str] = os.environ.get("AWS_SECRET_ACCESS_KEY", None),
+        aws_session_token: Optional[str] = os.environ.get("AWS_SESSION_TOKEN", None),
+        aws_region: Optional[str] = os.environ.get("AWS_REGION", "us-west-2"),
     ):
         """
         Initializes a configuration class instance for the LLM.
@@ -102,6 +104,14 @@ class BaseLlmConfig(ABC):
         :type lmstudio_response_format: Optional[Dict], optional
         :param vllm_base_url: vLLM base URL to be use, defaults to "http://localhost:8000/v1"
         :type vllm_base_url: Optional[str], optional
+        :param aws_access_key_id: AWS access key ID, defaults to None
+        :type aws_access_key_id: Optional[str], optional
+        :param aws_secret_access_key: AWS secret access key, defaults to None
+        :type aws_secret_access_key: Optional[str], optional
+        :param aws_session_token: AWS session token, defaults to None
+        :type aws_session_token: Optional[str], optional
+        :param aws_region: AWS region, defaults to "us-west-2"
+        :type aws_region: Optional[str], optional
         """
 
         self.model = model
@@ -149,4 +159,5 @@ class BaseLlmConfig(ABC):
         # AWS Bedrock specific
         self.aws_access_key_id = aws_access_key_id
         self.aws_secret_access_key = aws_secret_access_key
+        self.aws_session_token = aws_session_token
         self.aws_region = aws_region

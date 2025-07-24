@@ -1,5 +1,4 @@
 import json
-import os
 import re
 from typing import Any, Dict, List, Optional
 
@@ -28,24 +27,12 @@ class AWSBedrockLLM(LLMBase):
         if not self.config.model:
             self.config.model = "anthropic.claude-3-5-sonnet-20240620-v1:0"
 
-        # Get AWS config from environment variables or use defaults
-        aws_access_key = os.environ.get("AWS_ACCESS_KEY_ID", "")
-        aws_secret_key = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
-        aws_region = os.environ.get("AWS_REGION", "us-west-2")
-
-        # Check if AWS config is provided in the config
-        if hasattr(self.config, "aws_access_key_id"):
-            aws_access_key = self.config.aws_access_key_id
-        if hasattr(self.config, "aws_secret_access_key"):
-            aws_secret_key = self.config.aws_secret_access_key
-        if hasattr(self.config, "aws_region"):
-            aws_region = self.config.aws_region
-
         self.client = boto3.client(
             "bedrock-runtime",
-            region_name=aws_region,
-            aws_access_key_id=aws_access_key if aws_access_key else None,
-            aws_secret_access_key=aws_secret_key if aws_secret_key else None,
+            region_name=self.config.aws_region,
+            aws_access_key_id=self.config.aws_access_key_id,
+            aws_secret_access_key=self.config.aws_secret_access_key,
+            aws_session_token=self.config.aws_session_token,
         )
 
         self.model_kwargs = {
