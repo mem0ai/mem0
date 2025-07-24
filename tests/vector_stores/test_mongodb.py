@@ -75,14 +75,14 @@ def test_insert(mongo_vector_fixture):
 
 def test_search(mongo_vector_fixture):
     mongo_vector, mock_collection, _ = mongo_vector_fixture
-    query_vector = [0.1] * 1536
+    vectors = [0.1] * 1536
     mock_collection.aggregate.return_value = [
         {"_id": "id1", "score": 0.9, "payload": {"key": "value1"}},
         {"_id": "id2", "score": 0.8, "payload": {"key": "value2"}},
     ]
     mock_collection.list_search_indexes.return_value = ["test_collection_vector_index"]
 
-    results = mongo_vector.search("query_str", query_vector, limit=2)
+    results = mongo_vector.search("query_str", vectors, limit=2)
     mock_collection.list_search_indexes.assert_called_with(name="test_collection_vector_index")
     mock_collection.aggregate.assert_called_once_with(
         [
@@ -91,7 +91,7 @@ def test_search(mongo_vector_fixture):
                     "index": "test_collection_vector_index",
                     "limit": 2,
                     "numCandidates": 2,
-                    "queryVector": query_vector,
+                    "queryVector": vectors,
                     "path": "embedding",
                 },
             },
