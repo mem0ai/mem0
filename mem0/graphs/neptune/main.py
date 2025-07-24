@@ -110,6 +110,7 @@ class MemoryGraph(NeptuneBase):
                     MERGE (destination {destination_label} {{name: $destination_name, user_id: $user_id}})
                     ON CREATE SET
                         destination.created = timestamp(),
+                        destination.updated = timestamp(),
                         destination.mentions = 1
                         {destination_extra_set}
                     ON MATCH SET
@@ -120,9 +121,11 @@ class MemoryGraph(NeptuneBase):
                     MERGE (source)-[r:{relationship}]->(destination)
                     ON CREATE SET 
                         r.created = timestamp(),
+                        r.updated = timestamp(),
                         r.mentions = 1
                     ON MATCH SET
-                        r.mentions = coalesce(r.mentions, 0) + 1
+                        r.mentions = coalesce(r.mentions, 0) + 1,
+                        r.updated = timestamp()
                     RETURN source.name AS source, type(r) AS relationship, destination.name AS target
                     """
 
