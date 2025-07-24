@@ -54,12 +54,24 @@ class MemoryGraph:
         # 1. Create vector index (created Entity label on all nodes)
         # 2. Create label property index for performance optimizations
         embedding_dims = self.config.embedder.config["embedding_dims"]
-        create_vector_index_query = f"CREATE VECTOR INDEX memzero ON :Entity(embedding) WITH CONFIG {{'dimension': {embedding_dims}, 'capacity': 1000, 'metric': 'cos'}};"
-        self.graph.query(create_vector_index_query, params={})
-        create_label_prop_index_query = "CREATE INDEX ON :Entity(user_id);"
-        self.graph.query(create_label_prop_index_query, params={})
-        create_label_index_query = "CREATE INDEX ON :Entity;"
-        self.graph.query(create_label_index_query, params={})
+        index_info = self._fetch_existing_indexes()
+        # Create vector index if not exists
+        if not any(idx.get("index_name") == "memzero" for idx in index_info["vector_index_exists"]):
+            self.graph.query(
+            f"CREATE VECTOR INDEX memzero ON :Entity(embedding) WITH CONFIG {{'dimension': {embedding_dims}, 'capacity': 1000, 'metric': 'cos'}};"
+            )
+        # Create label+property index if not exists
+        if not any(
+            idx.get("index type") == "label+property" and idx.get("label") == "Entity"
+            for idx in index_info["index_exists"]
+        ):
+            self.graph.query("CREATE INDEX ON :Entity(user_id);")
+        # Create label index if not exists
+        if not any(
+            idx.get("index type") == "label" and idx.get("label") == "Entity"
+            for idx in index_info["index_exists"]
+        ):
+            self.graph.query("CREATE INDEX ON :Entity;")
 
     def add(self, data, filters):
         """
@@ -601,3 +613,18 @@ class MemoryGraph:
 
         result = self.graph.query(cypher, params=params)
         return result
+    
+    def _fetch_existing_indexes(self):
+        """
+        Retrieves information about existing indexes and vector indexes in the Memgraph database.
+
+        Returns:
+            dict: A dictionary containing lists of existing indexes and vector indexes.
+        """
+        
+        index_exists = list(self.graph.query("SHOW INDEX INFO;"))
+        vector_index_exists = list(self.graph.query("SHOW VECTOR INDEX INFO;"))
+        return {
+            "index_exists": index_exists,
+            "vector_index_exists": vector_index_exists
+        }
