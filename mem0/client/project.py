@@ -5,8 +5,8 @@ from typing import Any, Dict, List, Optional
 import httpx
 from pydantic import BaseModel, Field
 
-from mem0.memory.telemetry import capture_client_event
 from mem0.client.utils import api_error_handler
+from mem0.memory.telemetry import capture_client_event
 
 logger = logging.getLogger(__name__)
 
@@ -16,18 +16,9 @@ class ProjectConfig(BaseModel):
     Configuration for project management operations.
     """
 
-    org_id: Optional[str] = Field(
-        default=None,
-        description="Organization ID"
-    )
-    project_id: Optional[str] = Field(
-        default=None,
-        description="Project ID"
-    )
-    user_email: Optional[str] = Field(
-        default=None,
-        description="User email"
-    )
+    org_id: Optional[str] = Field(default=None, description="Organization ID")
+    project_id: Optional[str] = Field(default=None, description="Project ID")
+    user_email: Optional[str] = Field(default=None, description="User email")
 
     class Config:
         validate_assignment = True
@@ -64,11 +55,7 @@ class BaseProject(ABC):
             self.config = config
         else:
             # Create config from parameters
-            self.config = ProjectConfig(
-                org_id=org_id,
-                project_id=project_id,
-                user_email=user_email
-            )
+            self.config = ProjectConfig(org_id=org_id, project_id=project_id, user_email=user_email)
 
     @property
     def org_id(self) -> Optional[str]:
@@ -93,13 +80,9 @@ class BaseProject(ABC):
             ValueError: If org_id or project_id are not set.
         """
         if not (self.config.org_id and self.config.project_id):
-            raise ValueError(
-                "org_id and project_id must be set to access project operations"
-            )
+            raise ValueError("org_id and project_id must be set to access project operations")
 
-    def _prepare_params(
-        self, kwargs: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+    def _prepare_params(self, kwargs: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Prepare query parameters for API requests.
 
@@ -124,9 +107,7 @@ class BaseProject(ABC):
 
         return {k: v for k, v in kwargs.items() if v is not None}
 
-    def _prepare_org_params(
-        self, kwargs: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+    def _prepare_org_params(self, kwargs: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Prepare query parameters for organization-level API requests.
 
@@ -423,7 +404,7 @@ class Project(BaseProject):
                 "custom_instructions": custom_instructions,
                 "custom_categories": custom_categories,
                 "retrieval_criteria": retrieval_criteria,
-                "enable_graph": enable_graph
+                "enable_graph": enable_graph,
             }
         )
         response = self._client.patch(
@@ -716,7 +697,7 @@ class AsyncProject(BaseProject):
                 "custom_instructions": custom_instructions,
                 "custom_categories": custom_categories,
                 "retrieval_criteria": retrieval_criteria,
-                "enable_graph": enable_graph
+                "enable_graph": enable_graph,
             }
         )
         response = await self._client.patch(
