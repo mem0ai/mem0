@@ -31,6 +31,7 @@ class Qdrant(VectorStoreBase):
         url: str = None,
         api_key: str = None,
         on_disk: bool = False,
+        timeout: int = 30,
     ):
         """
         Initialize the Qdrant vector store.
@@ -45,6 +46,7 @@ class Qdrant(VectorStoreBase):
             url (str, optional): Full URL for Qdrant server. Defaults to None.
             api_key (str, optional): API key for Qdrant server. Defaults to None.
             on_disk (bool, optional): Enables persistent storage. Defaults to False.
+            timeout (int, optional): HTTP timeout in seconds. Defaults to 30.
         """
         if client:
             self.client = client
@@ -63,7 +65,10 @@ class Qdrant(VectorStoreBase):
                     if os.path.exists(path) and os.path.isdir(path):
                         shutil.rmtree(path)
 
-            self.client = QdrantClient(**params)
+            # Create QdrantClient with timeout configuration
+            import httpx
+            httpx_client = httpx.Client(timeout=120.0)  # 120 sekundový timeout pro všechny operace
+            self.client = QdrantClient(**params, httpx_client=httpx_client)
 
         self.collection_name = collection_name
         self.embedding_model_dims = embedding_model_dims
