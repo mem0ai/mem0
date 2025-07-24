@@ -10,6 +10,10 @@ TEMPERATURE = 0.7
 MAX_TOKENS = 100
 TOP_P = 1.0
 
+class MockTokenCredential:
+    def get_token(self, *args, **kwargs):
+        return "mock_token"
+
 
 @pytest.fixture
 def mock_openai_client():
@@ -128,3 +132,19 @@ def test_generate_with_http_proxies(default_headers):
             default_headers=default_headers,
         )
         mock_http_client.assert_called_once_with(proxies="http://testproxy.mem0.net:8000")
+
+
+def test_llm_config_with_token_credential():
+    fake_token_cred = MockTokenCredential()
+    config = BaseLlmConfig(
+        model="text-embedding-ada-002",
+        azure_kwargs={
+            "token_credential": fake_token_cred,
+            "api_version": "test_version",
+            "azure_endpoint": "test_endpoint",
+            "azuer_deployment": "test_deployment"
+        },
+    )
+
+    embedder = AzureOpenAILLM(config)
+    assert embedder.config.azure_kwargs.token_credential == fake_token_cred
