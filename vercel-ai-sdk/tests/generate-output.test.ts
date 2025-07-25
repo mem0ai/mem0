@@ -1,4 +1,5 @@
-import { generateText, LanguageModelV1Prompt, streamText } from "ai";
+import { generateText, streamText } from "ai";
+import { LanguageModelV2Prompt } from '@ai-sdk/provider';
 import { addMemories } from "../src";
 import { testConfig } from "../config/test-config";
 
@@ -19,7 +20,7 @@ describe.each(testConfig.providers)('TESTS: Generate/Stream Text with model %s',
 
   beforeAll(async () => {
     // Add some test memories before all tests
-    const messages: LanguageModelV1Prompt = [
+    const messages: LanguageModelV2Prompt = [
       {
         role: "user",
         content: [
@@ -55,7 +56,7 @@ describe.each(testConfig.providers)('TESTS: Generate/Stream Text with model %s',
           content: [
             { type: "text", text: "Suggest me a good car to buy." },
             { type: "text", text: "Write only the car name and it's color." },
-          ],
+          ]
         }
       ],
     });
@@ -65,7 +66,7 @@ describe.each(testConfig.providers)('TESTS: Generate/Stream Text with model %s',
   });
 
   it("should stream text using Mem0 provider", async () => {
-    const { textStream } = await streamText({
+    const { textStream } = streamText({
       model: mem0(provider.activeModel, {
         user_id: userId, // Use the uniform userId
       }),

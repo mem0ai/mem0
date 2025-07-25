@@ -29,18 +29,12 @@ describe("Tool Calls Tests", () => {
     const result = await generateText({
       model: mem0OpenAI("gpt-4o"),
       tools: {
-        weather: tool({
+        weather: {
           description: "Get the weather in a location",
           parameters: z.object({
-            location: z
-              .string()
-              .describe("The location to get the weather for"),
+            location: z.string().describe("The location to get the weather for"),
           }),
-          execute: async ({ location }) => ({
-            location,
-            temperature: 72 + Math.floor(Math.random() * 21) - 10,
-          }),
-        }),
+        },
       },
       prompt: "What is the temperature in the city that I live in?",
     });
@@ -65,18 +59,12 @@ describe("Tool Calls Tests", () => {
     const result = await generateText({
       model: mem0Anthropic("claude-3-haiku-20240307"),
       tools: {
-        weather: tool({
+        weather: {
           description: "Get the weather in a location",
           parameters: z.object({
-            location: z
-              .string()
-              .describe("The location to get the weather for"),
+            location: z.string().describe("The location to get the weather for"),
           }),
-          execute: async ({ location }) => ({
-            location,
-            temperature: 72 + Math.floor(Math.random() * 21) - 10,
-          }),
-        }),
+        },
       },
       prompt: "What is the temperature in the city that I live in?",
     });
