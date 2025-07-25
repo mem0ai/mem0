@@ -10,6 +10,8 @@ import warnings
 from copy import deepcopy
 from datetime import datetime
 from typing import Any, Dict, Optional
+from mem0.client.utils import remove_code_blocks, clean_json_response
+
 
 import pytz
 from pydantic import ValidationError
@@ -336,6 +338,7 @@ class Memory(MemoryBase):
 
         try:
             response = remove_code_blocks(response)
+            response = clean_json_response(response)
             new_retrieved_facts = json.loads(response)["facts"]
         except Exception as e:
             logger.error(f"Error in new_retrieved_facts: {e}")
@@ -386,6 +389,7 @@ class Memory(MemoryBase):
 
             try:
                 response = remove_code_blocks(response)
+                response = clean_json_response(response)
                 new_memories_with_actions = json.loads(response)
             except Exception as e:
                 logger.error(f"Invalid JSON response: {e}")
@@ -1164,6 +1168,7 @@ class AsyncMemory(MemoryBase):
         )
         try:
             response = remove_code_blocks(response)
+            response = clean_json_response(response)
             new_retrieved_facts = json.loads(response)["facts"]
         except Exception as e:
             logger.error(f"Error in new_retrieved_facts: {e}")
@@ -1217,6 +1222,7 @@ class AsyncMemory(MemoryBase):
                 response = ""
             try:
                 response = remove_code_blocks(response)
+                response = clean_json_response(response)
                 new_memories_with_actions = json.loads(response)
             except Exception as e:
                 logger.error(f"Invalid JSON response: {e}")
