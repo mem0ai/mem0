@@ -7,7 +7,15 @@ export class GoogleLLM implements LLM {
   private model: string;
 
   constructor(config: LLMConfig) {
-    this.google = new GoogleGenAI({ apiKey: config.apiKey });
+    this.google = new GoogleGenAI({
+      apiKey: config.apiKey,
+      httpOptions: {
+        baseUrl: config.baseURL,
+        headers: {
+          ...(config.headers ?? {}),
+        },
+      },
+    });
     this.model = config.model || "gemini-2.0-flash";
   }
 
