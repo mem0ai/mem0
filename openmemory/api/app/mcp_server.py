@@ -134,7 +134,7 @@ async def add_memories(text: str) -> str:
 
                 db.commit()
 
-            return response
+            return json.dumps(response, indent=2, ensure_ascii=False)
         finally:
             db.close()
     except Exception as e:
@@ -232,7 +232,7 @@ async def search_memory(query: str) -> str:
                     )
                     db.add(access_log)
                 db.commit()
-            return json.dumps(memories, indent=2)
+            return json.dumps(memories, indent=2, ensure_ascii=False)
         finally:
             db.close()
     except Exception as e:
@@ -301,7 +301,7 @@ async def list_memories() -> str:
                         db.add(access_log)
                         filtered_memories.append(memory)
                 db.commit()
-            return json.dumps(filtered_memories, indent=2)
+            return json.dumps(filtered_memories, indent=2, ensure_ascii=False)
         finally:
             db.close()
     except Exception as e:
@@ -374,7 +374,7 @@ async def delete_all_memories() -> str:
         return f"Error deleting memories: {e}"
 
 
-@mcp_router.get("/{client_name}/sse/{user_id}")
+@mcp_router.api_route("/{client_name}/sse/{user_id}", methods=["GET", "POST"])
 async def handle_sse(request: Request):
     """Handle SSE connections for a specific user and client"""
     # Extract user_id and client_name from path parameters
