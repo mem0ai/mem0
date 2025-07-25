@@ -2,7 +2,8 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import { retrieveMemories } from "../../src";
-import { generateText, LanguageModelV1Prompt } from "ai";
+import { generateText } from "ai";
+import { LanguageModelV2Prompt } from '@ai-sdk/provider';
 import { testConfig } from "../../config/test-config";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 
@@ -18,7 +19,7 @@ describe("GOOGLE Integration Tests", () => {
   });
 
   it("should retrieve memories and generate text using Google provider", async () => {
-    const messages: LanguageModelV1Prompt = [
+    const messages: LanguageModelV2Prompt = [
       {
         role: "user",
         content: [

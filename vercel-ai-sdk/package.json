@@ -26,18 +26,18 @@
   "author": "Saket Aryan <saketaryan2002@gmail.com>",
   "license": "Apache-2.0",
   "dependencies": {
-    "@ai-sdk/anthropic": "1.1.12",
-    "@ai-sdk/cohere": "1.1.12",
-    "@ai-sdk/google": "1.2.18",
-    "@ai-sdk/groq": "1.1.11",
-    "@ai-sdk/openai": "1.1.15",
-    "@ai-sdk/provider": "1.0.9",
-    "@ai-sdk/provider-utils": "2.1.10",
-    "ai": "4.1.46",
+    "@ai-sdk/anthropic": "2.0.0-beta.8",
+    "@ai-sdk/cohere": "2.0.0-beta.5",
+    "@ai-sdk/google": "2.0.0-beta.13",
+    "@ai-sdk/groq": "2.0.0-beta.6",
+    "@ai-sdk/openai": "2.0.0-beta.11",
+    "@ai-sdk/provider": "2.0.0-beta.1",
+    "@ai-sdk/provider-utils": "3.0.0-beta.5",
+    "ai": "5.0.0-beta.25",
     "dotenv": "^16.4.5",
     "mem0ai": "^2.1.12",
     "partial-json": "0.1.7",
-    "zod": "^3.0.0"
+    "zod": "^3.25.0"
   },
   "devDependencies": {
     "@edge-runtime/vm": "^3.2.0",

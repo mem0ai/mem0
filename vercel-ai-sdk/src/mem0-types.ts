@@ -1,10 +1,7 @@
 import { Mem0ProviderSettings } from "./mem0-provider";
-import { OpenAIChatSettings } from "@ai-sdk/openai/internal";
-import { AnthropicMessagesSettings } from "@ai-sdk/anthropic/internal";
-import {
-  LanguageModelV1
-} from "@ai-sdk/provider";
-
+// import { OpenAIChatSettings } from "@ai-sdk/openai";
+// import { AnthropicMessagesSettings } from "@ai-sdk/anthropic";
+import { LanguageModelV2 } from '@ai-sdk/provider';
 export type Mem0ChatModelId =
   | (string & NonNullable<unknown>);
 
@@ -34,8 +31,8 @@ export interface Mem0ConfigSettings {
 export interface Mem0ChatConfig extends Mem0ConfigSettings, Mem0ProviderSettings {}
 
 export interface Mem0Config extends Mem0ConfigSettings {}
-export interface Mem0ChatSettings extends OpenAIChatSettings, AnthropicMessagesSettings, Mem0ConfigSettings {}
+export interface Mem0ChatSettings extends Mem0ConfigSettings {}
 
-export interface Mem0StreamResponse extends Awaited<ReturnType<LanguageModelV1['doStream']>> {
+export interface Mem0StreamResponse extends Awaited<ReturnType<LanguageModelV2['doStream']>> {
   memories: any;
 }
