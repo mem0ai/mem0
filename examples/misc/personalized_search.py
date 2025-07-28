@@ -114,29 +114,6 @@ def create_personalized_search_agent(user_context):
     prompt = ChatPromptTemplate.from_messages([
         ("system", f"""You are a personalized search assistant. You help users find information that's relevant to their specific context and preferences.
 
-USER CONTEXT AND MEMORIES:
-{user_context}
-
-YOUR ROLE:
-1. Analyze the user's query and their personal context/memories above
-2. Look for patterns in their memories to understand their preferences, location, lifestyle, family situation, etc.
-3. Create enhanced search queries that incorporate relevant personal context to ultimately do search
-4. Use the tavily_search tool everytime with enhanced queries to find personalized results
-
-INSTRUCTIONS:
-- Study the user memories carefully to understand their situation
-- Only use context that you can clearly identify from their previous interactions
-- If memories mention specific locations, consider them for local searches
-- If memories reveal dietary preferences or restrictions, factor those in for food-related queries
-- If memories show family context, consider family-friendly options
-- If memories indicate work style or interests, incorporate those when relevant
-- Use tavily_search tool everytime with enhanced queries
-
-Do NOT assume anything not present in the user memories.
-
-
-You are a personalized search assistant. You help users find information that's relevant to their specific context and preferences.
-
 USER CONTEXT AND PREFERENCES:
 {user_context}
 
