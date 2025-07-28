@@ -67,7 +67,8 @@ class Qdrant(VectorStoreBase):
 
             # Create QdrantClient with timeout configuration
             import httpx
-            httpx_client = httpx.Client(timeout=120.0)  # 120 sekundový timeout pro všechny operace
+            print(f"[Qdrant.__init__] Initializing QdrantClient with params: {params}, on_disk={on_disk}, timeout={timeout}")
+            httpx_client = httpx.Client(timeout=300.0)  # 300 sekundový timeout pro všechny operace
             self.client = QdrantClient(**params, httpx_client=httpx_client)
 
         self.collection_name = collection_name
@@ -90,11 +91,18 @@ class Qdrant(VectorStoreBase):
             if collection.name == self.collection_name:
                 logger.debug(f"Collection {self.collection_name} already exists. Skipping creation.")
                 return
-
-        self.client.create_collection(
-            collection_name=self.collection_name,
-            vectors_config=VectorParams(size=vector_size, distance=distance, on_disk=on_disk),
-        )
+        try:
+            print(f"[Qdrant.create_col] Creating collection '{self.collection_name}' on Qdrant (vector_size={vector_size}, on_disk={on_disk}, distance={distance})")
+            self.client.create_collection(
+                collection_name=self.collection_name,
+                vectors_config=VectorParams(size=vector_size, distance=distance, on_disk=on_disk),
+            )
+            print(f"[Qdrant.create_col] Collection '{self.collection_name}' created successfully.")
+        except Exception as e:
+            print(f"[Qdrant.create_col] Failed to create collection '{self.collection_name}': {e}")
+            import traceback
+            traceback.print_exc()
+            raise
 
     def insert(self, vectors: list, payloads: list = None, ids: list = None):
         """

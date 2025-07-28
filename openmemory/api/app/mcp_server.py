@@ -131,12 +131,31 @@ async def add_memories(text: str) -> str:
             print(f"🚀 [add_memories] Memory client type: {type(memory_client)}")
             print(f"🚀 [add_memories] Memory client methods: {[m for m in dir(memory_client) if not m.startswith('_')]}")
             
+            # Detailní logování parametrů
+            print(f"🚀 [add_memories] === DETAILNÍ PARAMETRY ===")
+            print(f"🚀 [add_memories] text: '{text}'")
+            print(f"🚀 [add_memories] user_id: '{uid}'")
+            print(f"🚀 [add_memories] metadata: {{'source_app': 'openmemory', 'mcp_client': '{client_name}'}}")
+            print(f"🚀 [add_memories] memory_client.config: {memory_client.config}")
+            print(f"🚀 [add_memories] memory_client.config.vector_store: {memory_client.config.vector_store}")
+            print(f"🚀 [add_memories] memory_client.config.vector_store.config: {memory_client.config.vector_store.config}")
+            print(f"🚀 [add_memories] memory_client.config.vector_store.config.collection_name: {memory_client.config.vector_store.config.collection_name}")
+            print(f"🚀 [add_memories] memory_client.vector_store: {memory_client.vector_store}")
+            print(f"🚀 [add_memories] memory_client.vector_store.collection_name: {memory_client.vector_store.collection_name}")
+            print(f"🚀 [add_memories] === KONEC PARAMETRŮ ===")
+            
+            print(f"🚀 [add_memories] Volám memory_client.add() s text={text}, user_id={uid}, metadata={{'source_app': 'openmemory', 'mcp_client': {client_name}}}")
             response = memory_client.add(text,
                                          user_id=uid,
                                          metadata={
                                             "source_app": "openmemory",
                                             "mcp_client": client_name,
                                         })
+            print(f"✅ [add_memories] Odpověď memory_client.add(): {response}")
+            if isinstance(response, dict) and 'results' in response and not response['results']:
+                print(f"⚠️ [add_memories] memory_client.add() vrátil prázdné results!")
+                print(f"⚠️ [add_memories] Celá odpověď: {json.dumps(response, indent=2)}")
+            
             logger.info(f"[add_memories] memory_client.add() response: {response}")
             print(f"✅ [add_memories] memory_client.add() response: {response}")
 
@@ -455,6 +474,24 @@ async def handle_sse(request: Request):
     client_name = request.path_params.get("client_name")
     client_token = client_name_var.set(client_name or "")
 
+    class LoggingWriteStream:
+        def __init__(self, original_write_stream):
+            self._original = original_write_stream
+
+        async def send(self, data):
+            logger.info(f"[SSE] Sending data: {data!r}")
+            print(f"[SSE] Sending data: {data!r}")
+            await self._original.send(data)
+
+        def __getattr__(self, name):
+            return getattr(self._original, name)
+
+        async def __aenter__(self):
+            return await self._original.__aenter__()
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return await self._original.__aexit__(exc_type, exc_val, exc_tb)
+
     try:
         # Handle SSE connection
         async with sse.connect_sse(
@@ -462,9 +499,10 @@ async def handle_sse(request: Request):
             request.receive,
             request._send,
         ) as (read_stream, write_stream):
+            logging_write_stream = LoggingWriteStream(write_stream)
             await mcp._mcp_server.run(
                 read_stream,
-                write_stream,
+                logging_write_stream,
                 mcp._mcp_server.create_initialization_options(),
             )
     finally:
@@ -477,11 +515,30 @@ async def handle_sse(request: Request):
 async def handle_get_message(request: Request):
     return await handle_post_message(request)
 
+@mcp_router.get("/messages/")
+async def handle_get_message_get(request: Request):
+    session_id = request.query_params.get("session_id", "")
+    try:
+        body = await request.body()
+    except Exception:
+        body = b""
+    headers = dict(request.headers)
+    logger.info(f"[handle_get_message_get] GET /mcp/messages/ session_id={session_id} HEADERS: {headers} QUERY: {dict(request.query_params)} BODY: {body.decode('utf-8', errors='replace')}")
+    print(f"[handle_get_message_get] GET /mcp/messages/ session_id={session_id} HEADERS: {headers} QUERY: {dict(request.query_params)} BODY: {body.decode('utf-8', errors='replace')}")
+    response = {"status": "ok", "message": "GET /mcp/messages/ není implementováno, pouze logování."}
+    logger.info(f"[handle_get_message_get] RESPONSE: {response}")
+    print(f"[handle_get_message_get] RESPONSE: {response}")
+    return response
+
 
 async def handle_post_message(request: Request):
     """Handle POST messages for SSE"""
     try:
         body = await request.body()
+        session_id = request.query_params.get("session_id", "")
+        headers = dict(request.headers)
+        logger.info(f"[handle_post_message] POST /mcp/messages/ session_id={session_id} HEADERS: {headers} BODY: {body.decode('utf-8', errors='replace')}")
+        print(f"[handle_post_message] POST /mcp/messages/ session_id={session_id} HEADERS: {headers} BODY: {body.decode('utf-8', errors='replace')}")
 
         # Create a simple receive function that returns the body
         async def receive():
@@ -495,7 +552,10 @@ async def handle_post_message(request: Request):
         await sse.handle_post_message(request.scope, receive, send)
 
         # Return a success response
-        return {"status": "ok"}
+        response = {"status": "ok"}
+        logger.info(f"[handle_post_message] RESPONSE: {response}")
+        print(f"[handle_post_message] RESPONSE: {response}")
+        return response
     finally:
         pass
 

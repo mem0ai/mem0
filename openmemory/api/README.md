@@ -40,6 +40,63 @@ Once the server is running, you can access the API documentation at:
 - Swagger UI: `http://localhost:8765/docs`
 - ReDoc: `http://localhost:8765/redoc`
 
+## Testing MCP Server
+
+### Using MCP Inspector (Recommended)
+
+The official MCP Inspector tool is the best way to test MCP servers:
+
+```bash
+npx @modelcontextprotocol/inspector http://localhost:8765/mcp/cursor/sse/rmatena
+```
+
+This provides an interactive interface to test all MCP tools and see the raw protocol messages.
+
+### Using Memory Inspect Tool in Cursor
+
+Alternatively, you can use the built-in Memory Inspect Tool in Cursor IDE:
+1. Open Cursor
+2. Go to Memory Inspect Tool in the left panel
+3. Test your MCP server functions
+
+### Manual Testing
+
+You can also test the MCP server manually using curl:
+
+```bash
+# Test SSE connection
+curl -N http://localhost:8765/mcp/cursor/sse/rmatena
+
+# Test MCP initialization
+curl -X POST http://localhost:8765/mcp/messages/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "initialize",
+    "params": {
+      "protocolVersion": "2024-11-05",
+      "capabilities": {"tools": {}},
+      "clientInfo": {"name": "cursor", "version": "1.0.0"}
+    }
+  }'
+```
+
+### Automated Testing
+
+Run the automated test suite:
+
+```bash
+# Run all tests
+make test
+
+# Run specific MCP tests
+python tests/test_openmemory_mcp.py
+
+# View test logs
+docker-compose logs -f openmemory-mcp
+```
+
 ## Project Structure
 
 - `app/`: Main application code

@@ -125,9 +125,16 @@ class Memory(MemoryBase):
             self.config.embedder.config,
             self.config.vector_store.config,
         )
-        self.vector_store = VectorStoreFactory.create(
-            self.config.vector_store.provider, self.config.vector_store.config
-        )
+        print(f"[Memory.__init__] Initializing vector_store with provider: {self.config.vector_store.provider}, config: {self.config.vector_store.config}")
+        try:
+            self.vector_store = VectorStoreFactory.create(
+                self.config.vector_store.provider, self.config.vector_store.config
+            )
+        except Exception as e:
+            print(f"[Memory.__init__] Failed to initialize vector_store: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
         self.llm = LlmFactory.create(self.config.llm.provider, self.config.llm.config)
         self.db = SQLiteManager(self.config.history_db_path)
         self.collection_name = self.config.vector_store.config.collection_name
@@ -147,13 +154,18 @@ class Memory(MemoryBase):
             self.enable_graph = True
         else:
             self.graph = None
-        self.config.vector_store.config.collection_name = "mem0migrations"
+        
+        # Vytvoř kopii konfigurace pro telemetrický vector store
+        telemetry_config = deepcopy(self.config.vector_store.config)
+        telemetry_config.collection_name = "mem0migrations"
+        
         if self.config.vector_store.provider in ["faiss", "qdrant"]:
             provider_path = f"migrations_{self.config.vector_store.provider}"
-            self.config.vector_store.config.path = os.path.join(mem0_dir, provider_path)
-            os.makedirs(self.config.vector_store.config.path, exist_ok=True)
+            telemetry_config.path = os.path.join(mem0_dir, provider_path)
+            os.makedirs(telemetry_config.path, exist_ok=True)
+        
         self._telemetry_vector_store = VectorStoreFactory.create(
-            self.config.vector_store.provider, self.config.vector_store.config
+            self.config.vector_store.provider, telemetry_config
         )
         capture_event("mem0.init", self, {"sync_type": "sync"})
 

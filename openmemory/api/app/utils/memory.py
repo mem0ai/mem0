@@ -301,7 +301,9 @@ def get_memory_client(custom_instructions: str = None):
         print(f"🔍 [get_memory_client] Current config hash: {current_config_hash}")
         print(f"🔍 [get_memory_client] Previous config hash: {_config_hash}")
         print(f"🔍 [get_memory_client] Memory client exists: {_memory_client is not None}")
-        
+        print("🔧 [get_memory_client] About to initialize Memory with config:")
+        print(json.dumps(config, indent=2))
+        print(f"🔧 [get_memory_client] vector_store config: {json.dumps(config.get('vector_store', {}), indent=2)}")
         # Only reinitialize if config changed or client doesn't exist
         if _memory_client is None or _config_hash != current_config_hash:
             print(f"🚀 [get_memory_client] Initializing memory client with config hash: {current_config_hash}")
@@ -316,6 +318,7 @@ def get_memory_client(custom_instructions: str = None):
                 print(f"❌ [get_memory_client] Failed to initialize memory client: {init_error}")
                 print(f"❌ [get_memory_client] Error type: {type(init_error)}")
                 print(f"❌ [get_memory_client] Error details: {str(init_error)}")
+                print(f"❌ [get_memory_client] Tried to initialize with config: {json.dumps(config, indent=2)}")
                 import traceback
                 print(f"❌ [get_memory_client] Full traceback:")
                 traceback.print_exc()
