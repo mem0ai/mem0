@@ -1,5 +1,6 @@
 import { generateText, streamText } from "ai";
 import { LanguageModelV2Prompt } from '@ai-sdk/provider';
+import { simulateStreamingMiddleware, wrapLanguageModel } from 'ai';
 import { addMemories } from "../src";
 import { testConfig } from "../config/test-config";
 
@@ -65,11 +66,20 @@ describe.each(testConfig.providers)('TESTS: Generate/Stream Text with model %s',
     expect(text.length).toBeGreaterThan(0);
   });
 
-  it("should stream text using Mem0 provider", async () => {
+  it("should stream text using Mem0 provider with new streaming approach", async () => {
+    // Create the base model
+    const baseModel = mem0(provider.activeModel, {
+      user_id: userId,
+    });
+
+    // Wrap with streaming middleware using the new Vercel AI SDK 5.0 approach
+    const model = wrapLanguageModel({
+      model: baseModel,
+      middleware: simulateStreamingMiddleware(),
+    });
+
     const { textStream } = streamText({
-      model: mem0(provider.activeModel, {
-        user_id: userId, // Use the uniform userId
-      }),
+      model,
       prompt: "Suggest me a good car to buy! Write only the car name and it's color.",
     });
   

@@ -7,6 +7,7 @@ import {
 } from '@ai-sdk/provider';
 
 import { LanguageModelV2 } from '@ai-sdk/provider';
+import { simulateStreamingMiddleware, wrapLanguageModel } from 'ai';
 
 import { Mem0ChatConfig, Mem0ChatModelId, Mem0ChatSettings, Mem0ConfigSettings, Mem0StreamResponse } from "./mem0-types";
 import { Mem0ClassSelector } from "./mem0-provider-selector";
@@ -212,7 +213,13 @@ export class Mem0GenericLanguageModel implements LanguageModelV2 {
       // Process memories and update prompts
       const { memories, messagesPrompts: updatedPrompts } = await this.processMemories(messagesPrompts, mem0Config);
 
-      const model = selector.createProvider();
+      const baseModel = selector.createProvider();
+
+      // Wrap the model with streaming middleware using the new Vercel AI SDK 5.0 approach
+      const model = wrapLanguageModel({
+        model: baseModel,
+        middleware: simulateStreamingMiddleware(),
+      });
 
       const streamResponse = await model.doStream({
         ...options,
