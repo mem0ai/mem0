@@ -305,7 +305,7 @@ config = MemoryConfig(
 - **langchain** - LangChain embeddings
 - **aws_bedrock** - AWS Bedrock embeddings
 
-#### Vector Store Providers (17 supported)
+#### Vector Store Providers (18 supported)
 - **qdrant** - Qdrant vector database (default)
 - **chroma** - ChromaDB
 - **pinecone** - Pinecone vector database
@@ -323,6 +323,7 @@ config = MemoryConfig(
 - **supabase** - Supabase vector
 - **baidu** - Baidu vector database
 - **langchain** - LangChain vector stores
+- **s3_vectors** - Amazon S3 Vectors
 
 #### Graph Store Providers (3 supported)
 - **neo4j** - Neo4j graph database
