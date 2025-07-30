@@ -58,7 +58,7 @@ class MemoryGraph:
         # Create vector index if not exists
         if not any(idx.get("index_name") == "memzero" for idx in index_info["vector_index_exists"]):
             self.graph.query(
-            f"CREATE VECTOR INDEX memzero ON :Entity(embedding) WITH CONFIG {{'dimension': {embedding_dims}, 'capacity': 1000, 'metric': 'cos'}};"
+                f"CREATE VECTOR INDEX memzero ON :Entity(embedding) WITH CONFIG {{'dimension': {embedding_dims}, 'capacity': 1000, 'metric': 'cos'}};"
             )
         # Create label+property index if not exists
         if not any(
@@ -68,8 +68,7 @@ class MemoryGraph:
             self.graph.query("CREATE INDEX ON :Entity(user_id);")
         # Create label index if not exists
         if not any(
-            idx.get("index type") == "label" and idx.get("label") == "Entity"
-            for idx in index_info["index_exists"]
+            idx.get("index type") == "label" and idx.get("label") == "Entity" for idx in index_info["index_exists"]
         ):
             self.graph.query("CREATE INDEX ON :Entity;")
 
@@ -613,7 +612,7 @@ class MemoryGraph:
 
         result = self.graph.query(cypher, params=params)
         return result
-    
+
     def _fetch_existing_indexes(self):
         """
         Retrieves information about existing indexes and vector indexes in the Memgraph database.
@@ -621,10 +620,7 @@ class MemoryGraph:
         Returns:
             dict: A dictionary containing lists of existing indexes and vector indexes.
         """
-        
+
         index_exists = list(self.graph.query("SHOW INDEX INFO;"))
         vector_index_exists = list(self.graph.query("SHOW VECTOR INDEX INFO;"))
-        return {
-            "index_exists": index_exists,
-            "vector_index_exists": vector_index_exists
-        }
+        return {"index_exists": index_exists, "vector_index_exists": vector_index_exists}

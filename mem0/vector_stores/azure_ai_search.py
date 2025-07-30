@@ -11,6 +11,7 @@ from mem0.vector_stores.base import VectorStoreBase
 try:
     from azure.core.credentials import AzureKeyCredential
     from azure.core.exceptions import ResourceNotFoundError
+    from azure.identity import DefaultAzureCredential
     from azure.search.documents import SearchClient
     from azure.search.documents.indexes import SearchIndexClient
     from azure.search.documents.indexes.models import (
@@ -77,14 +78,21 @@ class AzureAISearch(VectorStoreBase):
         self.hybrid_search = hybrid_search
         self.vector_filter_mode = vector_filter_mode
 
+        # If the API key is not provided or is a placeholder, use DefaultAzureCredential.
+        if api_key is None or api_key == "" or api_key == "your-api-key":
+            credential = DefaultAzureCredential()
+            api_key = None
+        else:
+            credential = AzureKeyCredential(api_key)
+
         self.search_client = SearchClient(
             endpoint=f"https://{service_name}.search.windows.net",
             index_name=self.index_name,
-            credential=AzureKeyCredential(api_key),
+            credential=credential,
         )
         self.index_client = SearchIndexClient(
             endpoint=f"https://{service_name}.search.windows.net",
-            credential=AzureKeyCredential(api_key),
+            credential=credential,
         )
 
         self.search_client._client._config.user_agent_policy.add_user_agent("mem0")
