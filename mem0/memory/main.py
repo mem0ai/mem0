@@ -1202,6 +1202,8 @@ class AsyncMemory(MemoryBase):
             temp_uuid_mapping[str(idx)] = item["id"]
             retrieved_old_memory[idx]["id"] = str(idx)
 
+        new_memories_with_actions = {}
+
         if new_retrieved_facts:
             function_calling_prompt = get_update_memory_messages(
                 retrieved_old_memory, new_retrieved_facts, self.config.custom_update_memory_prompt
