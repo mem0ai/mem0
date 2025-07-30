@@ -729,7 +729,7 @@
 											"id": {
 												"type": "string"
 											},
-											"name": {
+											"memory": {
 												"type": "string"
 											},
 											"input": {
@@ -780,7 +780,7 @@
 										},
 										"required": [
 											"id",
-											"name",
+											"memory",
 											"created_at",
 											"updated_at",
 											"total_memories",
@@ -1151,7 +1151,7 @@
 											"id": {
 												"type": "string"
 											},
-											"name": {
+											"memory": {
 												"type": "string"
 											},
 											"created_at": {
@@ -1188,7 +1188,7 @@
 										},
 										"required": [
 											"id",
-											"name",
+											"memory",
 											"created_at",
 											"updated_at",
 											"total_memories",
