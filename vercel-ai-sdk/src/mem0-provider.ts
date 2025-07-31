@@ -1,10 +1,9 @@
 import { ProviderV2 } from '@ai-sdk/provider';
 import { LanguageModelV2 } from '@ai-sdk/provider';
-import { loadApiKey, withoutTrailingSlash } from "@ai-sdk/provider-utils";
+import { withoutTrailingSlash } from "@ai-sdk/provider-utils";
 import { Mem0ChatModelId, Mem0ChatSettings, Mem0Config } from "./mem0-types";
-import { OpenAIProviderSettings } from "@ai-sdk/openai";
 import { Mem0GenericLanguageModel } from "./mem0-generic-language-model";
-import { AnthropicProviderSettings } from "@ai-sdk/anthropic";
+import { LLMProviderSettings } from "./mem0-types";
 
 export interface Mem0Provider extends ProviderV2 {
   (modelId: Mem0ChatModelId, settings?: Mem0ChatSettings): LanguageModelV2;
@@ -43,7 +42,7 @@ export interface Mem0ProviderSettings {
   /**
    * The configuration for the provider.
    */
-  config?: OpenAIProviderSettings | AnthropicProviderSettings;
+  config?: LLMProviderSettings ;
 }
 
 export function createMem0(

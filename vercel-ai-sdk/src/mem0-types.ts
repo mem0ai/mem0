@@ -1,7 +1,9 @@
 import { Mem0ProviderSettings } from "./mem0-provider";
-// import { OpenAIChatSettings } from "@ai-sdk/openai";
-// import { AnthropicMessagesSettings } from "@ai-sdk/anthropic";
+import { OpenAIProviderSettings } from "@ai-sdk/openai";
+import { AnthropicProviderSettings } from "@ai-sdk/anthropic";
 import { LanguageModelV2 } from '@ai-sdk/provider';
+import { CohereProviderSettings } from "@ai-sdk/cohere";
+import { GroqProviderSettings } from "@ai-sdk/groq";
 export type Mem0ChatModelId =
   | (string & NonNullable<unknown>);
 
@@ -29,6 +31,8 @@ export interface Mem0ConfigSettings {
 }
 
 export interface Mem0ChatConfig extends Mem0ConfigSettings, Mem0ProviderSettings {}
+
+export interface LLMProviderSettings extends OpenAIProviderSettings, AnthropicProviderSettings, CohereProviderSettings, GroqProviderSettings {}
 
 export interface Mem0Config extends Mem0ConfigSettings {}
 export interface Mem0ChatSettings extends Mem0ConfigSettings {}
