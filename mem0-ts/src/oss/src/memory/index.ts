@@ -187,26 +187,33 @@ export class Memory {
 
     const final_parsedMessages = await parse_vision_messages(parsedMessages);
 
-    // Add to vector store
-    const vectorStoreResult = await this.addToVectorStore(
+    // Create promises for vector store and graph store additions
+    const vectorStorePromise = this.addToVectorStore(
       final_parsedMessages,
       metadata,
       filters,
       infer,
     );
 
-    // Add to graph store if available
-    let graphResult;
+    let graphPromise;
     if (this.graphMemory) {
-      try {
-        graphResult = await this.graphMemory.add(
+      graphPromise = this.graphMemory
+        .add(
           final_parsedMessages.map((m) => m.content).join("\n"),
           filters,
-        );
-      } catch (error) {
-        console.error("Error adding to graph memory:", error);
-      }
+        )
+        .catch((error) => {
+          console.error("Error adding to graph memory:", error);
+          return undefined; // Ensure Promise.all doesn't fail on graph error
+        });
+    } else {
+      graphPromise = Promise.resolve(undefined);
     }
+
+    const [vectorStoreResult, graphResult] = await Promise.all([
+      vectorStorePromise,
+      graphPromise,
+    ]);
 
     return {
       results: vectorStoreResult,
