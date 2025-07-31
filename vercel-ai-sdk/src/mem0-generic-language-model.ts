@@ -21,7 +21,9 @@ const generateRandomId = () => {
 export class Mem0GenericLanguageModel implements LanguageModelV2 {
   readonly specificationVersion = "v2";
   readonly defaultObjectGenerationMode = "json";
+  // We don't support images for now
   readonly supportsImageUrls = false;
+  // Allow All Media Types for now
   readonly supportedUrls: Record<string, RegExp[]> = {
     '*': [/.*/]
   };
@@ -140,41 +142,27 @@ export class Mem0GenericLanguageModel implements LanguageModelV2 {
         return ans;
       }
       
-      // Create sources array with existing sources
-      const sources: LanguageModelV2Source[] = [];
-      
-      // Add a combined source with all memories
-      if (Array.isArray(memories) && memories?.length > 0) {
-        sources.push({
-          type: "source",
-          title: "Mem0 Memories",
-          sourceType: "url",
-          id: "mem0-" + generateRandomId(),
-          url: "https://app.mem0.ai",
-          providerMetadata: {
-            mem0: {
-              memories: memories,
-              memoriesText: memories?.map((memory: any) => memory?.memory).join("\n\n")
-            }
-          }
-        });
-        
-        // Add individual memory sources for more detailed information
-        memories?.forEach((memory: any) => {
-          sources.push({
+      try {
+        // Create sources array with existing sources
+        const sources: LanguageModelV2Source[] = [
+          {
             type: "source",
-            title: memory.title || "Memory",
+            title: "Mem0 Memories",
             sourceType: "url",
-            id: "mem0-memory-" + generateRandomId(),
+            id: "mem0-" + generateRandomId(),
             url: "https://app.mem0.ai",
             providerMetadata: {
               mem0: {
-                memory: memory,
-                memoryText: memory?.memory
-              }
-            }
-          });
-        });
+                memories: memories,
+                memoriesText: memories
+                  ?.map((memory: any) => memory?.memory)
+                  .join("\n\n"),
+              },
+            },
+          },
+        ];
+      } catch (e) {
+        console.error("Error while creating sources");
       }
  
       return {
