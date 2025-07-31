@@ -6,6 +6,10 @@ from app.models import App, Memory, MemoryAccessLog, MemoryState
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import desc, func
 from sqlalchemy.orm import Session, joinedload
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s %(message)s')
+logger = logging.getLogger("openmemory.routers.apps")
 
 router = APIRouter(prefix="/api/v1/apps", tags=["apps"])
 
@@ -27,6 +31,7 @@ async def list_apps(
     page_size: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
+    logger.info(f"Listing apps with name: {name}, is_active: {is_active}, sort_by: {sort_by}, sort_direction: {sort_direction}, page: {page}, page_size: {page_size}")
     # Create a subquery for memory counts
     memory_counts = db.query(
         Memory.app_id,
@@ -80,6 +85,7 @@ async def list_apps(
 
     total = query.count()
     apps = query.offset((page - 1) * page_size).limit(page_size).all()
+    logger.info(f"Found {total} apps. Returning {len(apps)} apps.")
 
     return {
         "total": total,
@@ -103,6 +109,7 @@ async def get_app_details(
     app_id: UUID,
     db: Session = Depends(get_db)
 ):
+    logger.info(f"Getting details for app with ID: {app_id}")
     app = get_app_or_404(db, app_id)
 
     # Get memory access statistics
@@ -111,6 +118,7 @@ async def get_app_details(
         func.min(MemoryAccessLog.accessed_at).label("first_accessed"),
         func.max(MemoryAccessLog.accessed_at).label("last_accessed")
     ).filter(MemoryAccessLog.app_id == app_id).first()
+    logger.info(f"Access stats for app {app_id}: total_accessed={access_stats.total_memories_accessed}, first_accessed={access_stats.first_accessed}, last_accessed={access_stats.last_accessed}")
 
     return {
         "is_active": app.is_active,
@@ -130,6 +138,7 @@ async def list_app_memories(
     page_size: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
+    logger.info(f"Listing memories for app with ID: {app_id}, page: {page}, page_size: {page_size}")
     get_app_or_404(db, app_id)
     query = db.query(Memory).filter(
         Memory.app_id == app_id,
@@ -139,6 +148,7 @@ async def list_app_memories(
     query = query.options(joinedload(Memory.categories))
     total = query.count()
     memories = query.order_by(Memory.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    logger.info(f"Found {total} memories for app {app_id}. Returning {len(memories)} memories.")
 
     return {
         "total": total,
@@ -166,6 +176,7 @@ async def list_app_accessed_memories(
     page_size: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
+    logger.info(f"Listing accessed memories for app with ID: {app_id}, page: {page}, page_size: {page_size}")
     
     # Get memories with access counts
     query = db.query(
@@ -187,6 +198,7 @@ async def list_app_accessed_memories(
 
     total = query.count()
     results = query.offset((page - 1) * page_size).limit(page_size).all()
+    logger.info(f"Found {total} accessed memories for app {app_id}. Returning {len(results)} memories.")
 
     return {
         "total": total,
@@ -217,7 +229,9 @@ async def update_app_details(
     is_active: bool,
     db: Session = Depends(get_db)
 ):
+    logger.info(f"Updating app details for app with ID: {app_id}, is_active: {is_active}")
     app = get_app_or_404(db, app_id)
     app.is_active = is_active
     db.commit()
+    logger.info(f"App details updated successfully for app {app_id}")
     return {"status": "success", "message": "Updated app details successfully"}

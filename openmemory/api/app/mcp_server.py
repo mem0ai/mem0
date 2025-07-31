@@ -39,13 +39,37 @@ load_dotenv()
 # Initialize MCP
 mcp = FastMCP("mem0-mcp-server")
 
+# Nastav základní konfiguraci loggeru (pokud není nastavena jinde)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s %(message)s')
+logger = logging.getLogger("openmemory.mcp_server")
+
 # Don't initialize memory client at import time - do it lazily when needed
 def get_memory_client_safe():
     """Get memory client with error handling. Returns None if client cannot be initialized."""
     try:
-        return get_memory_client()
+        logger.info("[get_memory_client_safe] Attempting to get memory client...")
+        print("🔍 [get_memory_client_safe] Starting safe memory client retrieval...")
+        
+        memory_client = get_memory_client()
+        print(f"🔍 [get_memory_client_safe] get_memory_client() returned: {memory_client}")
+        print(f"🔍 [get_memory_client_safe] Type: {type(memory_client)}")
+        
+        if memory_client is None:
+            print("❌ [get_memory_client_safe] Memory client is None!")
+            logger.warning("[get_memory_client_safe] Memory client is None")
+        else:
+            print("✅ [get_memory_client_safe] Memory client retrieved successfully")
+            logger.info("[get_memory_client_safe] Memory client retrieved successfully")
+        
+        return memory_client
     except Exception as e:
-        logging.warning(f"Failed to get memory client: {e}")
+        print(f"❌ [get_memory_client_safe] Exception occurred: {e}")
+        print(f"❌ [get_memory_client_safe] Exception type: {type(e)}")
+        import traceback
+        print(f"❌ [get_memory_client_safe] Full traceback:")
+        traceback.print_exc()
+        
+        logger.warning(f"[get_memory_client_safe] Failed to get memory client: {e}")
         return None
 
 # Context variables for user_id and client_name
@@ -63,41 +87,90 @@ async def add_memories(text: str) -> str:
     uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
 
+    logger.info(f"[add_memories] Called with user_id={uid}, client_name={client_name}, text={text}")
+    print(f"🔍 [add_memories] Called with user_id={uid}, client_name={client_name}, text={text}")
+
     if not uid:
+        logger.error("[add_memories] user_id not provided")
+        print("❌ [add_memories] user_id not provided")
         return "Error: user_id not provided"
     if not client_name:
+        logger.error("[add_memories] client_name not provided")
+        print("❌ [add_memories] client_name not provided")
         return "Error: client_name not provided"
 
-    # Get memory client safely
+    print("🔍 [add_memories] Getting memory client safely...")
     memory_client = get_memory_client_safe()
+    print(f"🔍 [add_memories] Memory client result: {memory_client}")
+    
     if not memory_client:
+        logger.error("[add_memories] Memory system is currently unavailable.")
+        print("❌ [add_memories] Memory system is currently unavailable.")
         return "Error: Memory system is currently unavailable. Please try again later."
 
+    print("✅ [add_memories] Memory client obtained successfully, proceeding with database operations...")
+    
     try:
         db = SessionLocal()
+        print("🗄️ [add_memories] Database session created")
+        
         try:
-            # Get or create user and app
+            logger.info(f"[add_memories] Getting/creating user and app for user_id={uid}, app_id={client_name}")
+            print(f"🗄️ [add_memories] Getting/creating user and app for user_id={uid}, app_id={client_name}")
+            
             user, app = get_user_and_app(db, user_id=uid, app_id=client_name)
+            print(f"✅ [add_memories] User and app obtained: user={user}, app={app}")
 
-            # Check if app is active
             if not app.is_active:
+                logger.warning(f"[add_memories] App {app.name} is paused. Cannot create new memories.")
+                print(f"⚠️ [add_memories] App {app.name} is paused. Cannot create new memories.")
                 return f"Error: App {app.name} is currently paused on OpenMemory. Cannot create new memories."
 
+            logger.info(f"[add_memories] Calling memory_client.add() for user_id={uid}")
+            print(f"🚀 [add_memories] Calling memory_client.add() for user_id={uid}")
+            print(f"🚀 [add_memories] Memory client type: {type(memory_client)}")
+            print(f"🚀 [add_memories] Memory client methods: {[m for m in dir(memory_client) if not m.startswith('_')]}")
+            
+            # Detailní logování parametrů
+            print(f"🚀 [add_memories] === DETAILNÍ PARAMETRY ===")
+            print(f"🚀 [add_memories] text: '{text}'")
+            print(f"🚀 [add_memories] user_id: '{uid}'")
+            print(f"🚀 [add_memories] metadata: {{'source_app': 'openmemory', 'mcp_client': '{client_name}'}}")
+            print(f"🚀 [add_memories] memory_client.config: {memory_client.config}")
+            print(f"🚀 [add_memories] memory_client.config.vector_store: {memory_client.config.vector_store}")
+            print(f"🚀 [add_memories] memory_client.config.vector_store.config: {memory_client.config.vector_store.config}")
+            print(f"🚀 [add_memories] memory_client.config.vector_store.config.collection_name: {memory_client.config.vector_store.config.collection_name}")
+            print(f"🚀 [add_memories] memory_client.vector_store: {memory_client.vector_store}")
+            print(f"🚀 [add_memories] memory_client.vector_store.collection_name: {memory_client.vector_store.collection_name}")
+            print(f"🚀 [add_memories] === KONEC PARAMETRŮ ===")
+            
+            print(f"🚀 [add_memories] Volám memory_client.add() s text={text}, user_id={uid}, metadata={{'source_app': 'openmemory', 'mcp_client': {client_name}}}")
             response = memory_client.add(text,
                                          user_id=uid,
                                          metadata={
                                             "source_app": "openmemory",
                                             "mcp_client": client_name,
                                         })
+            print(f"✅ [add_memories] Odpověď memory_client.add(): {response}")
+            if isinstance(response, dict) and 'results' in response and not response['results']:
+                print(f"⚠️ [add_memories] memory_client.add() vrátil prázdné results!")
+                print(f"⚠️ [add_memories] Celá odpověď: {json.dumps(response, indent=2)}")
+            
+            logger.info(f"[add_memories] memory_client.add() response: {response}")
+            print(f"✅ [add_memories] memory_client.add() response: {response}")
 
-            # Process the response and update database
             if isinstance(response, dict) and 'results' in response:
+                print(f"📊 [add_memories] Processing {len(response['results'])} results...")
                 for result in response['results']:
                     memory_id = uuid.UUID(result['id'])
                     memory = db.query(Memory).filter(Memory.id == memory_id).first()
+                    logger.info(f"[add_memories] Processing result: {result}")
+                    print(f"📊 [add_memories] Processing result: {result}")
 
                     if result['event'] == 'ADD':
                         if not memory:
+                            logger.info(f"[add_memories] Creating new Memory record for id={memory_id}")
+                            print(f"📝 [add_memories] Creating new Memory record for id={memory_id}")
                             memory = Memory(
                                 id=memory_id,
                                 user_id=user.id,
@@ -107,10 +180,11 @@ async def add_memories(text: str) -> str:
                             )
                             db.add(memory)
                         else:
+                            logger.info(f"[add_memories] Updating existing Memory record for id={memory_id}")
+                            print(f"📝 [add_memories] Updating existing Memory record for id={memory_id}")
                             memory.state = MemoryState.active
                             memory.content = result['memory']
 
-                        # Create history entry
                         history = MemoryStatusHistory(
                             memory_id=memory_id,
                             changed_by=user.id,
@@ -121,9 +195,10 @@ async def add_memories(text: str) -> str:
 
                     elif result['event'] == 'DELETE':
                         if memory:
+                            logger.info(f"[add_memories] Marking Memory id={memory_id} as deleted")
+                            print(f"🗑️ [add_memories] Marking Memory id={memory_id} as deleted")
                             memory.state = MemoryState.deleted
                             memory.deleted_at = datetime.datetime.now(datetime.UTC)
-                            # Create history entry
                             history = MemoryStatusHistory(
                                 memory_id=memory_id,
                                 changed_by=user.id,
@@ -133,12 +208,28 @@ async def add_memories(text: str) -> str:
                             db.add(history)
 
                 db.commit()
+                logger.info(f"[add_memories] DB commit successful for user_id={uid}")
+                print(f"✅ [add_memories] DB commit successful for user_id={uid}")
 
-            return response
+            logger.info(f"[add_memories] Returning response: {response}")
+            print(f"✅ [add_memories] Returning response: {response}")
+            
+            # Convert response to string for MCP tool
+            if isinstance(response, dict):
+                return json.dumps(response, indent=2)
+            else:
+                return str(response)
         finally:
             db.close()
+            logger.info(f"[add_memories] DB session closed for user_id={uid}")
+            print(f"🗄️ [add_memories] DB session closed for user_id={uid}")
     except Exception as e:
-        logging.exception(f"Error adding to memory: {e}")
+        logger.exception(f"[add_memories] Error adding to memory: {e}")
+        print(f"❌ [add_memories] Error adding to memory: {e}")
+        print(f"❌ [add_memories] Error type: {type(e)}")
+        import traceback
+        print(f"❌ [add_memories] Full traceback:")
+        traceback.print_exc()
         return f"Error adding to memory: {e}"
 
 
@@ -383,6 +474,24 @@ async def handle_sse(request: Request):
     client_name = request.path_params.get("client_name")
     client_token = client_name_var.set(client_name or "")
 
+    class LoggingWriteStream:
+        def __init__(self, original_write_stream):
+            self._original = original_write_stream
+
+        async def send(self, data):
+            logger.info(f"[SSE] Sending data: {data!r}")
+            print(f"[SSE] Sending data: {data!r}")
+            await self._original.send(data)
+
+        def __getattr__(self, name):
+            return getattr(self._original, name)
+
+        async def __aenter__(self):
+            return await self._original.__aenter__()
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return await self._original.__aexit__(exc_type, exc_val, exc_tb)
+
     try:
         # Handle SSE connection
         async with sse.connect_sse(
@@ -390,9 +499,10 @@ async def handle_sse(request: Request):
             request.receive,
             request._send,
         ) as (read_stream, write_stream):
+            logging_write_stream = LoggingWriteStream(write_stream)
             await mcp._mcp_server.run(
                 read_stream,
-                write_stream,
+                logging_write_stream,
                 mcp._mcp_server.create_initialization_options(),
             )
     finally:
@@ -405,15 +515,30 @@ async def handle_sse(request: Request):
 async def handle_get_message(request: Request):
     return await handle_post_message(request)
 
+@mcp_router.get("/messages/")
+async def handle_get_message_get(request: Request):
+    session_id = request.query_params.get("session_id", "")
+    try:
+        body = await request.body()
+    except Exception:
+        body = b""
+    headers = dict(request.headers)
+    logger.info(f"[handle_get_message_get] GET /mcp/messages/ session_id={session_id} HEADERS: {headers} QUERY: {dict(request.query_params)} BODY: {body.decode('utf-8', errors='replace')}")
+    print(f"[handle_get_message_get] GET /mcp/messages/ session_id={session_id} HEADERS: {headers} QUERY: {dict(request.query_params)} BODY: {body.decode('utf-8', errors='replace')}")
+    response = {"status": "ok", "message": "GET /mcp/messages/ není implementováno, pouze logování."}
+    logger.info(f"[handle_get_message_get] RESPONSE: {response}")
+    print(f"[handle_get_message_get] RESPONSE: {response}")
+    return response
 
-@mcp_router.post("/{client_name}/sse/{user_id}/messages/")
-async def handle_post_message(request: Request):
-    return await handle_post_message(request)
 
 async def handle_post_message(request: Request):
     """Handle POST messages for SSE"""
     try:
         body = await request.body()
+        session_id = request.query_params.get("session_id", "")
+        headers = dict(request.headers)
+        logger.info(f"[handle_post_message] POST /mcp/messages/ session_id={session_id} HEADERS: {headers} BODY: {body.decode('utf-8', errors='replace')}")
+        print(f"[handle_post_message] POST /mcp/messages/ session_id={session_id} HEADERS: {headers} BODY: {body.decode('utf-8', errors='replace')}")
 
         # Create a simple receive function that returns the body
         async def receive():
@@ -427,9 +552,13 @@ async def handle_post_message(request: Request):
         await sse.handle_post_message(request.scope, receive, send)
 
         # Return a success response
-        return {"status": "ok"}
+        response = {"status": "ok"}
+        logger.info(f"[handle_post_message] RESPONSE: {response}")
+        print(f"[handle_post_message] RESPONSE: {response}")
+        return response
     finally:
         pass
+
 
 def setup_mcp_server(app: FastAPI):
     """Setup MCP server with the FastAPI application"""

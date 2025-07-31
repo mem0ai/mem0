@@ -18,6 +18,7 @@ dependencies = [
     "posthog>=3.5.0",
     "pytz>=2024.1",
     "sqlalchemy>=2.0.31",
+    "pytest>=7.0.0",
 ]
 
 [project.optional-dependencies]

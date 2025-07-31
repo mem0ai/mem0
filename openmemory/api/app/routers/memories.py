@@ -26,6 +26,9 @@ from sqlalchemy.orm import Session, joinedload
 
 router = APIRouter(prefix="/api/v1/memories", tags=["memories"])
 
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s %(message)s')
+logger = logging.getLogger("openmemory.routers.memories")
+
 
 def get_memory_or_404(db: Session, memory_id: UUID) -> Memory:
     memory = db.query(Memory).filter(Memory.id == memory_id).first()
@@ -123,6 +126,8 @@ async def list_memories(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    logger.info(f"[list_memories] Called with params: user_id={user_id}, app_id={app_id}, from_date={from_date}, to_date={to_date}, categories={categories}, search_query={search_query}, sort_column={sort_column}, sort_direction={sort_direction}")
+
     # Build base query
     query = db.query(Memory).filter(
         Memory.user_id == user.id,
@@ -172,6 +177,7 @@ async def list_memories(
     paginated_results.items = filtered_items
     paginated_results.total = len(filtered_items)
 
+    logger.info(f"[list_memories] Returning {paginated_results.total} memories")
     return paginated_results
 
 
@@ -185,6 +191,8 @@ async def get_categories(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    logger.info(f"[get_categories] Called with user_id={user_id}")
+
     # Get unique categories associated with the user's memories
     # Get all memories
     memories = db.query(Memory).filter(Memory.user_id == user.id, Memory.state != MemoryState.deleted, Memory.state != MemoryState.archived).all()
@@ -193,6 +201,7 @@ async def get_categories(
     # Get unique categories
     unique_categories = list(set(categories))
 
+    logger.info(f"[get_categories] Returning {len(unique_categories)} unique categories")
     return {
         "categories": unique_categories,
         "total": len(unique_categories)
@@ -229,8 +238,7 @@ async def create_memory(
     if not app_obj.is_active:
         raise HTTPException(status_code=403, detail=f"App {request.app} is currently paused on OpenMemory. Cannot create new memories.")
 
-    # Log what we're about to do
-    logging.info(f"Creating memory for user_id: {request.user_id} with app: {request.app}")
+    logger.info(f"[create_memory] Creating memory for user_id: {request.user_id} with app: {request.app}")
     
     # Try to get memory client safely
     try:
@@ -314,6 +322,7 @@ async def get_memory(
     db: Session = Depends(get_db)
 ):
     memory = get_memory_or_404(db, memory_id)
+    logger.info(f"[get_memory] Getting memory with id: {memory_id}")
     return {
         "id": memory.id,
         "text": memory.content,
@@ -340,6 +349,8 @@ async def delete_memories(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    logger.info(f"[delete_memories] Deleting {len(request.memory_ids)} memories for user_id: {request.user_id}")
+
     for memory_id in request.memory_ids:
         update_memory_state(db, memory_id, MemoryState.deleted, user.id)
     return {"message": f"Successfully deleted {len(request.memory_ids)} memories"}
@@ -352,6 +363,7 @@ async def archive_memories(
     user_id: UUID,
     db: Session = Depends(get_db)
 ):
+    logger.info(f"[archive_memories] Archiving {len(memory_ids)} memories for user_id: {user_id}")
     for memory_id in memory_ids:
         update_memory_state(db, memory_id, MemoryState.archived, user_id)
     return {"message": f"Successfully archived {len(memory_ids)} memories"}
@@ -386,6 +398,8 @@ async def pause_memories(
     
     user_id = user.id
     
+    logger.info(f"[pause_memories] Pausing memories: global_pause={global_pause}, all_for_app={all_for_app}, app_id={app_id}, memory_ids={memory_ids}, category_ids={category_ids}, state={state}, user_id={user_id}")
+
     if global_pause:
         # Pause all memories
         memories = db.query(Memory).filter(
@@ -506,6 +520,8 @@ async def filter_memories(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    logger.info(f"[filter_memories] Filtering memories for user_id: {request.user_id}, show_archived: {request.show_archived}, search_query: {request.search_query}, app_ids: {request.app_ids}, category_ids: {request.category_ids}, sort_column: {request.sort_column}, sort_direction: {request.sort_direction}, from_date: {request.from_date}, to_date: {request.to_date}")
+
     # Build base query
     query = db.query(Memory).filter(
         Memory.user_id == user.id,
@@ -572,7 +588,7 @@ async def filter_memories(
     ).distinct(Memory.id)
 
     # Use fastapi-pagination's paginate function
-    return sqlalchemy_paginate(
+    paginated_results = sqlalchemy_paginate(
         query,
         Params(page=request.page, size=request.size),
         transformer=lambda items: [
@@ -589,6 +605,9 @@ async def filter_memories(
             for memory in items
         ]
     )
+
+    logger.info(f"[filter_memories] Returning {paginated_results.total} memories after filtering")
+    return paginated_results
 
 
 @router.get("/{memory_id}/related", response_model=Page[MemoryResponse])

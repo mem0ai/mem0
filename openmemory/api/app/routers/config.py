@@ -6,6 +6,10 @@ from app.utils.memory import reset_memory_client
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s %(message)s')
+logger = logging.getLogger("openmemory.routers.config")
 
 router = APIRouter(prefix="/api/v1/config", tags=["config"])
 
@@ -124,12 +128,15 @@ def save_config_to_db(db: Session, config: Dict[str, Any], key: str = "main"):
 @router.get("/", response_model=ConfigSchema)
 async def get_configuration(db: Session = Depends(get_db)):
     """Get the current configuration."""
+    logger.info(f"[GET /api/v1/config] Called with params: key=main")
     config = get_config_from_db(db)
+    logger.info(f"[GET /api/v1/config] Returning config: {config}")
     return config
 
 @router.put("/", response_model=ConfigSchema)
 async def update_configuration(config: ConfigSchema, db: Session = Depends(get_db)):
     """Update the configuration."""
+    logger.info(f"[PUT /api/v1/config] Called with params: key=main")
     current_config = get_config_from_db(db)
     
     # Convert to dict for processing
@@ -147,6 +154,7 @@ async def update_configuration(config: ConfigSchema, db: Session = Depends(get_d
     # Save the configuration to database
     save_config_to_db(db, updated_config)
     reset_memory_client()
+    logger.info(f"[PUT /api/v1/config] Updated config: {updated_config}")
     return updated_config
 
 @router.post("/reset", response_model=ConfigSchema)
@@ -169,13 +177,16 @@ async def reset_configuration(db: Session = Depends(get_db)):
 @router.get("/mem0/llm", response_model=LLMProvider)
 async def get_llm_configuration(db: Session = Depends(get_db)):
     """Get only the LLM configuration."""
+    logger.info(f"[GET /api/v1/config/mem0/llm] Called with params: key=main")
     config = get_config_from_db(db)
     llm_config = config.get("mem0", {}).get("llm", {})
+    logger.info(f"[GET /api/v1/config/mem0/llm] Returning LLM config: {llm_config}")
     return llm_config
 
 @router.put("/mem0/llm", response_model=LLMProvider)
 async def update_llm_configuration(llm_config: LLMProvider, db: Session = Depends(get_db)):
     """Update only the LLM configuration."""
+    logger.info(f"[PUT /api/v1/config/mem0/llm] Called with params: key=main")
     current_config = get_config_from_db(db)
     
     # Ensure mem0 key exists
@@ -188,18 +199,22 @@ async def update_llm_configuration(llm_config: LLMProvider, db: Session = Depend
     # Save the configuration to database
     save_config_to_db(db, current_config)
     reset_memory_client()
+    logger.info(f"[PUT /api/v1/config/mem0/llm] Updated LLM config: {current_config['mem0']['llm']}")
     return current_config["mem0"]["llm"]
 
 @router.get("/mem0/embedder", response_model=EmbedderProvider)
 async def get_embedder_configuration(db: Session = Depends(get_db)):
     """Get only the Embedder configuration."""
+    logger.info(f"[GET /api/v1/config/mem0/embedder] Called with params: key=main")
     config = get_config_from_db(db)
     embedder_config = config.get("mem0", {}).get("embedder", {})
+    logger.info(f"[GET /api/v1/config/mem0/embedder] Returning Embedder config: {embedder_config}")
     return embedder_config
 
 @router.put("/mem0/embedder", response_model=EmbedderProvider)
 async def update_embedder_configuration(embedder_config: EmbedderProvider, db: Session = Depends(get_db)):
     """Update only the Embedder configuration."""
+    logger.info(f"[PUT /api/v1/config/mem0/embedder] Called with params: key=main")
     current_config = get_config_from_db(db)
     
     # Ensure mem0 key exists
@@ -212,18 +227,22 @@ async def update_embedder_configuration(embedder_config: EmbedderProvider, db: S
     # Save the configuration to database
     save_config_to_db(db, current_config)
     reset_memory_client()
+    logger.info(f"[PUT /api/v1/config/mem0/embedder] Updated Embedder config: {current_config['mem0']['embedder']}")
     return current_config["mem0"]["embedder"]
 
 @router.get("/openmemory", response_model=OpenMemoryConfig)
 async def get_openmemory_configuration(db: Session = Depends(get_db)):
     """Get only the OpenMemory configuration."""
+    logger.info(f"[GET /api/v1/config/openmemory] Called with params: key=main")
     config = get_config_from_db(db)
     openmemory_config = config.get("openmemory", {})
+    logger.info(f"[GET /api/v1/config/openmemory] Returning OpenMemory config: {openmemory_config}")
     return openmemory_config
 
 @router.put("/openmemory", response_model=OpenMemoryConfig)
 async def update_openmemory_configuration(openmemory_config: OpenMemoryConfig, db: Session = Depends(get_db)):
     """Update only the OpenMemory configuration."""
+    logger.info(f"[PUT /api/v1/config/openmemory] Called with params: key=main")
     current_config = get_config_from_db(db)
     
     # Ensure openmemory key exists
@@ -236,4 +255,5 @@ async def update_openmemory_configuration(openmemory_config: OpenMemoryConfig, d
     # Save the configuration to database
     save_config_to_db(db, current_config)
     reset_memory_client()
+    logger.info(f"[PUT /api/v1/config/openmemory] Updated OpenMemory config: {current_config['openmemory']}")
     return current_config["openmemory"] 
