@@ -16,8 +16,8 @@ config = {
     "vector_store": {
         "provider": "azure_ai_search",
         "config": {
-            "service_name": "ai-search-test",
-            "api_key": "*****",
+            "service_name": "<your-azure-ai-search-service-name>",
+            "api_key": "<your-api-key>",
             "collection_name": "mem0", 
             "embedding_model_dims": 1536
         }
@@ -41,8 +41,8 @@ config = {
     "vector_store": {
         "provider": "azure_ai_search",
         "config": {
-            "service_name": "ai-search-test",
-            "api_key": "*****",
+            "service_name": "<your-azure-ai-search-service-name>",
+            "api_key": "<your-api-key>",
             "collection_name": "mem0", 
             "embedding_model_dims": 1536,
             "compression_type": "binary",
@@ -59,12 +59,53 @@ config = {
     "vector_store": {
         "provider": "azure_ai_search",
         "config": {
-            "service_name": "ai-search-test",
-            "api_key": "*****",
+            "service_name": "<your-azure-ai-search-service-name>",
+            "api_key": "<your-api-key>",
             "collection_name": "mem0", 
             "embedding_model_dims": 1536,
             "hybrid_search": True,
             "vector_filter_mode": "postFilter"
+        }
+    }
+}
+```
+
+## Using Azure Identity for Authentication
+If you prefer to use Azure Identity for authentication instead of an API key, you will need to set the Azure AI Search service to use RBAC:
+
+To enable Role-Based Access Control (RBAC) for Azure AI Search, follow these steps:
+
+1. In the Azure Portal, navigate to your **Azure AI Search** service.
+2. In the left menu, select **Settings** > **Keys**.
+3. Change the authentication setting to **Role-based access control**, or to **Both** if you need API key compatibility. The default is “Key-based authentication”—you must switch it to use Azure roles.
+4. **Go to Access Control (IAM):**
+    - In the Azure Portal, select your Search service.
+    - Click **Access Control (IAM)** on the left.
+5. **Add a Role Assignment:**
+    - Click **Add** > **Add role assignment**.
+6. **Choose Role:**
+    - Mem0 requires the **Search Service Contributor** role.
+7. **Choose Member** 
+    - To assign to a User, Group, Service Principle or Managed Identity:
+        - For production it is recommended to use a service principal or managed identity.
+            - For a service principal: select **User, group, or service principal** and search for the service principal.
+            - For a managed identity: select **Managed identity** and choose the managed identity.
+        - For development, you can assign the role to a user account.
+            - For development: select ***User, group, or service principal** and pick a Azure Entra ID account (the same used with `az login`).
+8. **Complete the Assignment:**
+    - Click **Review + Assign**.
+
+If you are using Azure Identity, do not set the `api_key` in the configuration.
+```python
+config = {
+    "vector_store": {
+        "provider": "azure_ai_search",
+        "config": {
+            "service_name": "<your-azure-ai-search-service-name>",
+            "collection_name": "mem0", 
+            "embedding_model_dims": 1536,
+            "compression_type": "binary",
+            "use_float16": True  # Use half precision for storage efficiency
         }
     }
 }
@@ -75,7 +116,7 @@ config = {
 | Parameter | Description | Default Value | Options |
 | --- | --- | --- | --- |
 | `service_name` | Azure AI Search service name | Required | - |
-| `api_key` | API key of the Azure AI Search service | Required | - |
+| `api_key` | API key of the Azure AI Search service | Optional | If not present, the Azure Identity credential chain will be used |
 | `collection_name` | The name of the collection/index to store vectors | `mem0` | Any valid index name |
 | `embedding_model_dims` | Dimensions of the embedding model | `1536` | Any integer value |
 | `compression_type` | Type of vector compression to use | `none` | `none`, `scalar`, `binary` |
