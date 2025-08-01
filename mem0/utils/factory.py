@@ -89,6 +89,7 @@ class VectorStoreFactory:
         "weaviate": "mem0.vector_stores.weaviate.Weaviate",
         "faiss": "mem0.vector_stores.faiss.FAISS",
         "langchain": "mem0.vector_stores.langchain.Langchain",
+        "aliyun_tablestore": "mem0.vector_stores.aliyun_tablestore.AliyunTableStore",
     }
 
     @classmethod
