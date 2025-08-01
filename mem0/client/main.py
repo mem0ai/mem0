@@ -7,10 +7,10 @@ from typing import Any, Dict, List, Optional
 import httpx
 import requests
 
+from mem0.client.project import AsyncProject, Project
+from mem0.client.utils import api_error_handler
 from mem0.memory.setup import get_user_id, setup_config
 from mem0.memory.telemetry import capture_client_event
-from mem0.client.project import Project, AsyncProject
-from mem0.client.utils import api_error_handler
 
 logger = logging.getLogger(__name__)
 

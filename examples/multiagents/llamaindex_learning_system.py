@@ -8,14 +8,15 @@ You need MEM0_API_KEY and OPENAI_API_KEY to run the example.
 """
 
 import asyncio
-from datetime import datetime
-from dotenv import load_dotenv
 import logging
+from datetime import datetime
+
+from dotenv import load_dotenv
 
 # LlamaIndex imports
 from llama_index.core.agent.workflow import AgentWorkflow, FunctionAgent
-from llama_index.llms.openai import OpenAI
 from llama_index.core.tools import FunctionTool
+from llama_index.llms.openai import OpenAI
 
 # Memory integration
 from llama_index.memory.mem0 import Mem0Memory
