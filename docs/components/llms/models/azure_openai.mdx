@@ -120,7 +120,7 @@ config = {
 }
 ```
 
-As an alternative to using an API key, the Azure Identity credential chain can be used to authenticate with Azure OpenAI. The table below shows the order of precedence for credential application:
+As an alternative to using an API key, the Azure Identity credential chain can be used to authenticate with Azure OpenAI. The list below shows the order of precedence for credential application:
 
 1. **Environment Credential:**
 Azure client ID, secret, tenant ID, or certificate in environment variables for service principal authentication.
@@ -145,7 +145,7 @@ Uses the session from Azure Developer CLI (`azd auth login`).
 
 <Note> If an API is provided, it will be used for authentication over an Azure Identity </Note>
 
-To enable Role-Based Access Control (RBAC) for Azure OpenAI
+Role-Based Access Control (RBAC) for Azure OpenAI on by default. To enable the needed role, follow these steps:
 - In the Azure portal, go to the **Azure OpenAI** resource.
 - Select **Access control (IAM)** in the left-hand menu. This is where you will manage role assignments for RBAC.
 - Click **Add** > **Add role assignment**.
@@ -163,6 +163,7 @@ Below is a sample configuration for using Azure OpenAI with the Mem0 library:
 ```python
 import os
 from mem0 import Memory
+# You can set the values directly in the config dictionary or use environment variables
 
 os.environ["LLM_AZURE_DEPLOYMENT"] = "your-deployment-name"
 os.environ["LLM_AZURE_ENDPOINT"] = "your-api-base-url"
@@ -176,9 +177,9 @@ config = {
             "temperature": 0.1,
             "max_tokens": 2000,
             "azure_kwargs": {
-                  "azure_deployment": "",
-                  "api_version": "",
-                  "azure_endpoint": "",
+                  "azure_deployment": "<your-deployment-name>",
+                  "api_version": "<version-to-use>",
+                  "azure_endpoint": "<your-api-base-url>",
                   "default_headers": {
                     "CustomHeader": "your-custom-header",
                   }
@@ -187,6 +188,23 @@ config = {
     }
 }
 ```
+
+**Environment Variables to set to use Azure Identity Credential:**
+* For an Environment Credential, you will need to setup a Service Principal and set the following environment variables:
+  - `AZURE_TENANT_ID`: Your Azure Active Directory tenant ID.
+  - `AZURE_CLIENT_ID`: The client ID of your service principal or managed identity.
+  - `AZURE_CLIENT_SECRET`: The client secret of your service principal.
+* For a User-Assigned Managed Identity, you will need to set the following environment variable:
+  - `AZURE_CLIENT_ID`: The client ID of the user-assigned managed identity.
+* For a System-Assigned Managed Identity, no additional environment variables are needed.
+
+**Developer logins to use for a Azure Identity Credential:**
+* For an Azure CLI Credential, you need to have the Azure CLI installed and logged in with `az login`.
+* For an Azure PowerShell Credential, you need to have the Azure PowerShell module installed and logged in with `Connect-AzAccount`.
+* For an Azure Developer CLI Credential, you need to have the Azure Developer CLI installed and logged in with `azd auth login`.
+
+Troubleshooting tips for [Azure Identity](https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/identity/azure-identity/TROUBLESHOOTING.md#troubleshoot-environmentcredential-authentication-issues).
+
 
 ## Config
 
