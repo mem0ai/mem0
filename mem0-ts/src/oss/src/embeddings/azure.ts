@@ -1,6 +1,7 @@
 import { AzureOpenAI } from "openai";
 import { Embedder } from "./base";
 import { EmbeddingConfig } from "../types";
+import { logger } from "../utils/logger";
 
 export class AzureOpenAIEmbedder implements Embedder {
   private client: AzureOpenAI;
@@ -30,10 +31,12 @@ export class AzureOpenAIEmbedder implements Embedder {
   }
 
   async embedBatch(texts: string[]): Promise<number[][]> {
+    logger.debug(`Embedding batch of ${texts.length} texts`);
     const response = await this.client.embeddings.create({
       model: this.model,
       input: texts,
     });
+
     return response.data.map((item) => item.embedding);
   }
 }
