@@ -25,6 +25,7 @@ class MilvusDBConfig(BaseModel):
     collection_name: str = Field("mem0", description="Name of the collection")
     embedding_model_dims: int = Field(1536, description="Dimensions of the embedding model")
     metric_type: str = Field("L2", description="Metric type for similarity search")
+    db_name: str = Field("", description="Name of the database")
 
     @model_validator(mode="before")
     @classmethod
