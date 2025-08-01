@@ -20,8 +20,6 @@ from llama_index.core.tools import FunctionTool
 # Memory integration
 from llama_index.memory.mem0 import Mem0Memory
 
-import warnings
-
 load_dotenv()
 
 # Configure logging
