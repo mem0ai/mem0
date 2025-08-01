@@ -220,6 +220,7 @@
                   "examples/ai_companion_js",
                   "examples/collaborative-task-agent",
                   "examples/llamaindex-multiagent-learning-system",
+                  "examples/personalized-search-tavily-mem0",
                   "examples/eliza_os",
                   "examples/mem0-mastra",
                   "examples/mem0-with-ollama",
