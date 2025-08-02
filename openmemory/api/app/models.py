@@ -16,6 +16,7 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
+    Text,
     Table,
     event,
 )
@@ -90,6 +91,8 @@ class Memory(Base):
     content = Column(String, nullable=False)
     vector = Column(String)
     metadata_ = Column('metadata', JSON, default=dict)
+    project_id = Column(Text, nullable=True)
+    org_id = Column(Text, nullable=True)
     state = Column(Enum(MemoryState), default=MemoryState.active, index=True)
     created_at = Column(DateTime, default=get_current_utc_time, index=True)
     updated_at = Column(DateTime,
