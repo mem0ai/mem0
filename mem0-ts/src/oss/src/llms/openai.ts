@@ -10,6 +10,9 @@ export class OpenAILLM implements LLM {
     this.openai = new OpenAI({
       apiKey: config.apiKey,
       baseURL: config.baseURL,
+      defaultHeaders: {
+        ...(config.headers ?? {}),
+      },
     });
     this.model = config.model || "gpt-4o-mini";
   }
