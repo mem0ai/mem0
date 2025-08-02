@@ -16,6 +16,7 @@ class AzureOpenAIStructuredLLM(LLMBase):
             self.config.model = "gpt-4o-2024-08-06"
 
         api_key = os.getenv("LLM_AZURE_OPENAI_API_KEY") or self.config.azure_kwargs.api_key
+        use_token_credential = api_key is None and self.config.azure_kwargs.token_credential
         azure_deployment = os.getenv("LLM_AZURE_DEPLOYMENT") or self.config.azure_kwargs.azure_deployment
         azure_endpoint = os.getenv("LLM_AZURE_ENDPOINT") or self.config.azure_kwargs.azure_endpoint
         api_version = os.getenv("LLM_AZURE_API_VERSION") or self.config.azure_kwargs.api_version
@@ -30,6 +31,23 @@ class AzureOpenAIStructuredLLM(LLMBase):
             http_client=self.config.http_client,
             default_headers=default_headers,
         )
+        if use_token_credential:
+            self.client = AzureOpenAI(
+                azure_deployment=azure_deployment,
+                azure_endpoint=azure_endpoint,
+                api_version=api_version,
+                http_client=self.config.http_client,
+                default_headers=default_headers,
+                azure_ad_token_provider=self.config.azure_kwargs.token_credential)
+        else:
+            self.client = AzureOpenAI(
+                azure_deployment=azure_deployment,
+                azure_endpoint=azure_endpoint,
+                api_version=api_version,
+                api_key=api_key,
+                http_client=self.config.http_client,
+                default_headers=default_headers,
+            )
 
     def generate_response(
         self,
