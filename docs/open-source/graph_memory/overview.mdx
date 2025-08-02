@@ -236,6 +236,8 @@ m = Memory.from_config(config_dict=config)
 
 Mem0 now supports Amazon Neptune Analytics as a graph store provider. This integration allows you to use Neptune Analytics for storing and querying graph-based memories.
 
+You can use Neptune Analytics as part of an Amazon tech stack [Setup AWS Bedrock, AOSS, and Neptune](https://docs.mem0.ai/examples/aws_example#aws-bedrock-and-aoss)
+
 #### Instance Setup
 
 Create an Amazon Neptune Analytics instance in your AWS account following the [AWS documentation](https://docs.aws.amazon.com/neptune-analytics/latest/userguide/get-started.html).
@@ -266,12 +268,8 @@ The Neptune memory store uses AWS LangChain Python API to connect to Neptune ins
 ```python Python
 from mem0 import Memory
 
-# This example must connect to a neptune-graph instance with 1536 vector dimensions specified.
+# This example must connect to a neptune-graph instance with `1024` vector dimensions specified.
 config = {
-    "embedder": {
-        "provider": "openai",
-        "config": {"model": "text-embedding-3-large", "embedding_dims": 1536},
-    },
     "graph_store": {
         "provider": "neptune",
         "config": {
