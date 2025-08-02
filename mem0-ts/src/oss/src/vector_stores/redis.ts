@@ -254,7 +254,11 @@ export class RedisDB implements VectorStore {
         for (let i = 0; i < module.length; i += 2) {
           moduleMap.set(module[i], module[i + 1]);
         }
-        return moduleMap.get("name")?.toLowerCase() === "search";
+        const moduleName = moduleMap.get("name");
+        return (
+          moduleName?.toLowerCase() === "search" ||
+          moduleName?.toLowerCase() === "searchlight"
+        );
       });
 
       if (!hasSearch) {
