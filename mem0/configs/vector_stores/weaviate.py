@@ -10,6 +10,11 @@ class WeaviateConfig(BaseModel):
 
     collection_name: str = Field("mem0", description="Name of the collection")
     embedding_model_dims: int = Field(1536, description="Dimensions of the embedding model")
+    client: Optional[WeaviateClient] = Field(None, description="Weaviate client instance for predefined connections")
+    custom: bool = Field(False, description="Whether to use a custom Weaviate connection")
+    connection_config: Optional[Dict[str, Any]] = Field(
+        None, description="Configuration for custom Weaviate connection"
+    )
     cluster_url: Optional[str] = Field(None, description="URL for Weaviate server")
     auth_client_secret: Optional[str] = Field(None, description="API key for Weaviate authentication")
     additional_headers: Optional[Dict[str, str]] = Field(None, description="Additional headers for requests")
@@ -18,9 +23,11 @@ class WeaviateConfig(BaseModel):
     @classmethod
     def check_connection_params(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         cluster_url = values.get("cluster_url")
+        client = values.get("client")
+        custom_connection = values.get("custom", False) and values.get("connection_config") is not None
 
-        if not cluster_url:
-            raise ValueError("'cluster_url' must be provided.")
+        if not any([cluster_url, client, custom_connection]):
+            raise ValueError("At least one of 'cluster_url', 'client', or 'connection_config' must be provided.")
 
         return values
 
