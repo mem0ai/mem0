@@ -106,3 +106,25 @@ class VectorStoreFactory:
     def reset(cls, instance):
         instance.reset()
         return instance
+
+
+class GraphStoreFactory:
+    """
+    Factory for creating MemoryGraph instances for different graph store providers.
+    Usage: GraphStoreFactory.create(provider_name, config)
+    """
+    
+    provider_to_class = {
+        "memgraph": "mem0.memory.memgraph_memory.MemoryGraph",
+        "neptune": "mem0.graphs.neptune.main.MemoryGraph",
+        "default": "mem0.memory.graph_memory.MemoryGraph",
+    }
+
+    @classmethod
+    def create(cls, provider_name, config):
+        class_type = cls.provider_to_class.get(provider_name, cls.provider_to_class["default"])
+        try:
+            GraphClass = load_class(class_type)
+        except (ImportError, AttributeError) as e:
+            raise ImportError(f"Could not import MemoryGraph for provider '{provider_name}': {e}")
+        return GraphClass(config)
