@@ -148,6 +148,17 @@ class MongoDB(VectorStoreBase):
                 {"$set": {"score": {"$meta": "vectorSearchScore"}}},
                 {"$project": {"embedding": 0}},
             ]
+            
+            # Add filter stage if filters are provided
+            if filters:
+                filter_conditions = []
+                for key, value in filters.items():
+                    filter_conditions.append({"payload." + key: value})
+                
+                if filter_conditions:
+                    # Add a $match stage after vector search to apply filters
+                    pipeline.insert(1, {"$match": {"$and": filter_conditions}})
+            
             results = list(collection.aggregate(pipeline))
             logger.info(f"Vector search completed. Found {len(results)} documents.")
         except Exception as e:
@@ -271,7 +282,15 @@ class MongoDB(VectorStoreBase):
             List[OutputData]: List of vectors.
         """
         try:
-            query = filters or {}
+            query = {}
+            if filters:
+                # Apply filters to the payload field
+                filter_conditions = []
+                for key, value in filters.items():
+                    filter_conditions.append({"payload." + key: value})
+                if filter_conditions:
+                    query = {"$and": filter_conditions}
+            
             cursor = self.collection.find(query).limit(limit)
             results = [OutputData(id=str(doc["_id"]), score=None, payload=doc.get("payload")) for doc in cursor]
             logger.info(f"Retrieved {len(results)} documents from collection '{self.collection_name}'.")
