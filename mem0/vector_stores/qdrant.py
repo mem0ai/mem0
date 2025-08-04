@@ -148,6 +148,9 @@ class Qdrant(VectorStoreBase):
         Returns:
             Filter: The created Filter object.
         """
+        if not filters:
+            return None
+            
         conditions = []
         for key, value in filters.items():
             if isinstance(value, dict) and "gte" in value and "lte" in value:
@@ -258,7 +261,7 @@ class Qdrant(VectorStoreBase):
             with_payload=True,
             with_vectors=False,
         )
-        return result
+        return result.points
 
     def reset(self):
         """Reset the index by deleting and recreating it."""
