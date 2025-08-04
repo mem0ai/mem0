@@ -12,14 +12,13 @@ class VllmEmbedding(EmbeddingBase):
         super().__init__(config)
 
         # Default embedding model
-        self.config.model = self.config.model or "intfloat/e5-mistral-7b-instruct"
+        self.config.model = self.config.model
         self.config.embedding_dims = self.config.embedding_dims or 4096
 
         api_key = self.config.api_key or os.getenv("VLLM_API_KEY") or "vllm-api-key"
         base_url = (
             self.config.vllm_base_url 
-            or os.getenv("VLLM_BASE_URL") 
-            or "http://localhost:8000/v1"
+            or os.getenv("VLLM_BASE_URL")
         )
 
         self.client = OpenAI(api_key=api_key, base_url=base_url)
@@ -36,7 +35,6 @@ class VllmEmbedding(EmbeddingBase):
             list: The embedding vector.
         """
         text = text.replace("\n", " ")
-        
         response = self.client.embeddings.create(
             input=[text], 
             model=self.config.model

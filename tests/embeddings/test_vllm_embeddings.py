@@ -46,12 +46,12 @@ def test_vllm_embedding_embed(mock_vllm_client):
     text = "Hello, world!"
     result = embedder.embed(text)
     
-    # Verify the call
+    # Verify the call (E5 models use 'passage:' prefix for document embeddings)
     mock_vllm_client.embeddings.create.assert_called_once_with(
-        input=["Hello, world!"],
+        input=["passage: Hello, world!"],
         model="intfloat/e5-mistral-7b-instruct"
     )
-    
+
     assert result == [0.1, 0.2, 0.3, 0.4]
 
 
@@ -65,8 +65,8 @@ def test_vllm_embedding_text_preprocessing(mock_vllm_client):
     
     text = "Hello,\nworld!"
     embedder.embed(text)
-    
+
     mock_vllm_client.embeddings.create.assert_called_once_with(
-        input=["Hello, world!"],
+        input=["passage: Hello, world!"],
         model="intfloat/e5-mistral-7b-instruct"
     )
