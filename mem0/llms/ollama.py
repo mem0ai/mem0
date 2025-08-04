@@ -23,7 +23,7 @@ class OllamaLLM(LLMBase):
         Ensure the specified model exists locally. If not, pull it from Ollama.
         """
         local_models = self.client.list()["models"]
-        if not any(model.get("name") == self.config.model for model in local_models):
+        if not any(model.get("model") == self.config.model for model in local_models):
             self.client.pull(self.config.model)
 
     def _parse_response(self, response, tools):
