@@ -160,8 +160,9 @@ class Langchain(VectorStoreBase):
             if hasattr(self.client, "_collection") and hasattr(self.client._collection, "get"):
                 # Convert mem0 filters to Chroma where clause if needed
                 where_clause = None
-                if filters and "user_id" in filters:
-                    where_clause = {"user_id": filters["user_id"]}
+                if filters:
+                    # Handle all filters, not just user_id
+                    where_clause = filters
 
                 result = self.client._collection.get(where=where_clause, limit=limit)
 

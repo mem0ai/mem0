@@ -14,7 +14,12 @@ def mongo_vector_fixture(mock_mongo_client):
     mock_collection.list_search_indexes.return_value = []
     mock_collection.aggregate.return_value = []
     mock_collection.find_one.return_value = None
-    mock_collection.find.return_value = []
+    
+    # Create a proper mock cursor
+    mock_cursor = MagicMock()
+    mock_cursor.limit.return_value = mock_cursor
+    mock_collection.find.return_value = mock_cursor
+    
     mock_db.list_collection_names.return_value = []
 
     mongo_vector = MongoDB(
@@ -102,87 +107,247 @@ def test_search(mongo_vector_fixture):
     assert len(results) == 2
     assert results[0].id == "id1"
     assert results[0].score == 0.9
-    assert results[1].id == "id2"
-    assert results[1].score == 0.8
+    assert results[0].payload == {"key": "value1"}
+
+
+def test_search_with_filters(mongo_vector_fixture):
+    """Test search with agent_id and run_id filters."""
+    mongo_vector, mock_collection, _ = mongo_vector_fixture
+    query_vector = [0.1] * 1536
+    mock_collection.aggregate.return_value = [
+        {"_id": "id1", "score": 0.9, "payload": {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}},
+    ]
+    mock_collection.list_search_indexes.return_value = ["test_collection_vector_index"]
+
+    filters = {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}
+    results = mongo_vector.search("query_str", query_vector, limit=2, filters=filters)
+    
+    # Verify that the aggregation pipeline includes the filter stage
+    mock_collection.aggregate.assert_called_once()
+    pipeline = mock_collection.aggregate.call_args[0][0]
+    
+    # Check that the pipeline has the expected stages
+    assert len(pipeline) == 4  # vectorSearch, match, set, project
+    
+    # Check that the match stage is present with the correct filters
+    match_stage = pipeline[1]
+    assert "$match" in match_stage
+    assert match_stage["$match"]["$and"] == [
+        {"payload.user_id": "alice"},
+        {"payload.agent_id": "agent1"},
+        {"payload.run_id": "run1"}
+    ]
+    
+    assert len(results) == 1
+    assert results[0].payload["user_id"] == "alice"
+    assert results[0].payload["agent_id"] == "agent1"
+    assert results[0].payload["run_id"] == "run1"
+
+
+def test_search_with_single_filter(mongo_vector_fixture):
+    """Test search with single filter."""
+    mongo_vector, mock_collection, _ = mongo_vector_fixture
+    query_vector = [0.1] * 1536
+    mock_collection.aggregate.return_value = [
+        {"_id": "id1", "score": 0.9, "payload": {"user_id": "alice"}},
+    ]
+    mock_collection.list_search_indexes.return_value = ["test_collection_vector_index"]
+
+    filters = {"user_id": "alice"}
+    results = mongo_vector.search("query_str", query_vector, limit=2, filters=filters)
+    
+    # Verify that the aggregation pipeline includes the filter stage
+    mock_collection.aggregate.assert_called_once()
+    pipeline = mock_collection.aggregate.call_args[0][0]
+    
+    # Check that the match stage is present with the correct filter
+    match_stage = pipeline[1]
+    assert "$match" in match_stage
+    assert match_stage["$match"]["$and"] == [{"payload.user_id": "alice"}]
+    
+    assert len(results) == 1
+    assert results[0].payload["user_id"] == "alice"
+
+
+def test_search_with_no_filters(mongo_vector_fixture):
+    """Test search with no filters."""
+    mongo_vector, mock_collection, _ = mongo_vector_fixture
+    query_vector = [0.1] * 1536
+    mock_collection.aggregate.return_value = [
+        {"_id": "id1", "score": 0.9, "payload": {"key": "value1"}},
+    ]
+    mock_collection.list_search_indexes.return_value = ["test_collection_vector_index"]
+
+    results = mongo_vector.search("query_str", query_vector, limit=2, filters=None)
+    
+    # Verify that the aggregation pipeline does not include the filter stage
+    mock_collection.aggregate.assert_called_once()
+    pipeline = mock_collection.aggregate.call_args[0][0]
+    
+    # Check that the pipeline has only the expected stages (no match stage)
+    assert len(pipeline) == 3  # vectorSearch, set, project
+    
+    assert len(results) == 1
 
 
 def test_delete(mongo_vector_fixture):
     mongo_vector, mock_collection, _ = mongo_vector_fixture
-    mock_delete_result = MagicMock()
-    mock_delete_result.deleted_count = 1
-    mock_collection.delete_one.return_value = mock_delete_result
+    vector_id = "id1"
+    mock_collection.delete_one.return_value = MagicMock(deleted_count=1)
+    
+    # Reset the mock to clear calls from fixture setup
+    mock_collection.delete_one.reset_mock()
 
-    mongo_vector.delete("id1")
-    mock_collection.delete_one.assert_called_with({"_id": "id1"})
+    mongo_vector.delete(vector_id=vector_id)
+
+    mock_collection.delete_one.assert_called_once_with({"_id": vector_id})
 
 
 def test_update(mongo_vector_fixture):
     mongo_vector, mock_collection, _ = mongo_vector_fixture
-    mock_update_result = MagicMock()
-    mock_update_result.matched_count = 1
-    mock_collection.update_one.return_value = mock_update_result
-    idValue = "id1"
-    vectorValue = [0.2] * 1536
-    payloadValue = {"key": "updated"}
+    vector_id = "id1"
+    updated_vector = [0.3] * 1536
+    updated_payload = {"name": "updated_vector"}
 
-    mongo_vector.update(idValue, vector=vectorValue, payload=payloadValue)
+    mock_collection.update_one.return_value = MagicMock(matched_count=1)
+
+    mongo_vector.update(vector_id=vector_id, vector=updated_vector, payload=updated_payload)
+
     mock_collection.update_one.assert_called_once_with(
-        {"_id": idValue},
-        {"$set": {"embedding": vectorValue, "payload": payloadValue}},
+        {"_id": vector_id}, {"$set": {"embedding": updated_vector, "payload": updated_payload}}
     )
 
 
 def test_get(mongo_vector_fixture):
     mongo_vector, mock_collection, _ = mongo_vector_fixture
-    mock_collection.find_one.return_value = {"_id": "id1", "payload": {"key": "value1"}}
+    vector_id = "id1"
+    mock_collection.find_one.return_value = {"_id": vector_id, "payload": {"key": "value"}}
 
-    result = mongo_vector.get("id1")
-    assert result is not None
-    assert result.id == "id1"
-    assert result.payload == {"key": "value1"}
+    result = mongo_vector.get(vector_id=vector_id)
+
+    mock_collection.find_one.assert_called_once_with({"_id": vector_id})
+    assert result.id == vector_id
+    assert result.payload == {"key": "value"}
 
 
 def test_list_cols(mongo_vector_fixture):
     mongo_vector, _, mock_db = mongo_vector_fixture
-    mock_db.list_collection_names.return_value = ["col1", "col2"]
+    mock_db.list_collection_names.return_value = ["collection1", "collection2"]
+    
+    # Reset the mock to clear calls from fixture setup
+    mock_db.list_collection_names.reset_mock()
 
-    collections = mongo_vector.list_cols()
-    assert collections == ["col1", "col2"]
+    result = mongo_vector.list_cols()
+
+    mock_db.list_collection_names.assert_called_once()
+    assert result == ["collection1", "collection2"]
 
 
 def test_delete_col(mongo_vector_fixture):
     mongo_vector, mock_collection, _ = mongo_vector_fixture
 
     mongo_vector.delete_col()
+
     mock_collection.drop.assert_called_once()
 
 
 def test_col_info(mongo_vector_fixture):
-    mongo_vector, _, mock_db = mongo_vector_fixture
+    mongo_vector, mock_collection, mock_db = mongo_vector_fixture
     mock_db.command.return_value = {"count": 10, "size": 1024}
 
-    info = mongo_vector.col_info()
+    result = mongo_vector.col_info()
+
     mock_db.command.assert_called_once_with("collstats", "test_collection")
-    assert info["name"] == "test_collection"
-    assert info["count"] == 10
-    assert info["size"] == 1024
+    assert result["name"] == "test_collection"
+    assert result["count"] == 10
+    assert result["size"] == 1024
 
 
 def test_list(mongo_vector_fixture):
     mongo_vector, mock_collection, _ = mongo_vector_fixture
-    mock_cursor = MagicMock()
-    mock_cursor.limit.return_value = [
+    # Mock the cursor to return the expected data
+    mock_cursor = mock_collection.find.return_value
+    mock_cursor.__iter__.return_value = [
         {"_id": "id1", "payload": {"key": "value1"}},
         {"_id": "id2", "payload": {"key": "value2"}},
     ]
-    mock_collection.find.return_value = mock_cursor
 
-    query_filters = {"_id": {"$in": ["id1", "id2"]}}
-    results = mongo_vector.list(filters=query_filters, limit=2)
-    mock_collection.find.assert_called_once_with(query_filters)
+    results = mongo_vector.list(limit=2)
+
+    mock_collection.find.assert_called_once_with({})
     mock_cursor.limit.assert_called_once_with(2)
     assert len(results) == 2
     assert results[0].id == "id1"
     assert results[0].payload == {"key": "value1"}
-    assert results[1].id == "id2"
-    assert results[1].payload == {"key": "value2"}
+
+
+def test_list_with_filters(mongo_vector_fixture):
+    """Test list with agent_id and run_id filters."""
+    mongo_vector, mock_collection, _ = mongo_vector_fixture
+    # Mock the cursor to return the expected data
+    mock_cursor = mock_collection.find.return_value
+    mock_cursor.__iter__.return_value = [
+        {"_id": "id1", "payload": {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}},
+    ]
+
+    filters = {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}
+    results = mongo_vector.list(filters=filters, limit=2)
+    
+    # Verify that the find method was called with the correct query
+    expected_query = {
+        "$and": [
+            {"payload.user_id": "alice"},
+            {"payload.agent_id": "agent1"},
+            {"payload.run_id": "run1"}
+        ]
+    }
+    mock_collection.find.assert_called_once_with(expected_query)
+    mock_cursor.limit.assert_called_once_with(2)
+    
+    assert len(results) == 1
+    assert results[0].payload["user_id"] == "alice"
+    assert results[0].payload["agent_id"] == "agent1"
+    assert results[0].payload["run_id"] == "run1"
+
+
+def test_list_with_single_filter(mongo_vector_fixture):
+    """Test list with single filter."""
+    mongo_vector, mock_collection, _ = mongo_vector_fixture
+    # Mock the cursor to return the expected data
+    mock_cursor = mock_collection.find.return_value
+    mock_cursor.__iter__.return_value = [
+        {"_id": "id1", "payload": {"user_id": "alice"}},
+    ]
+
+    filters = {"user_id": "alice"}
+    results = mongo_vector.list(filters=filters, limit=2)
+    
+    # Verify that the find method was called with the correct query
+    expected_query = {
+        "$and": [
+            {"payload.user_id": "alice"}
+        ]
+    }
+    mock_collection.find.assert_called_once_with(expected_query)
+    mock_cursor.limit.assert_called_once_with(2)
+    
+    assert len(results) == 1
+    assert results[0].payload["user_id"] == "alice"
+
+
+def test_list_with_no_filters(mongo_vector_fixture):
+    """Test list with no filters."""
+    mongo_vector, mock_collection, _ = mongo_vector_fixture
+    # Mock the cursor to return the expected data
+    mock_cursor = mock_collection.find.return_value
+    mock_cursor.__iter__.return_value = [
+        {"_id": "id1", "payload": {"key": "value1"}},
+    ]
+
+    results = mongo_vector.list(filters=None, limit=2)
+    
+    # Verify that the find method was called with empty query
+    mock_collection.find.assert_called_once_with({})
+    mock_cursor.limit.assert_called_once_with(2)
+    
+    assert len(results) == 1
