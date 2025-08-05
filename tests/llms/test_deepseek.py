@@ -4,6 +4,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from mem0.configs.llms.base import BaseLlmConfig
+from mem0.configs.llms.deepseek import DeepSeekConfig
 from mem0.llms.deepseek import DeepSeekLLM
 
 
@@ -24,13 +25,13 @@ def test_deepseek_llm_base_url():
     # case2: with env variable DEEPSEEK_API_BASE
     provider_base_url = "https://api.provider.com/v1/"
     os.environ["DEEPSEEK_API_BASE"] = provider_base_url
-    config = BaseLlmConfig(model="deepseek-chat", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key")
+    config = DeepSeekConfig(model="deepseek-chat", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key")
     llm = DeepSeekLLM(config)
     assert str(llm.client.base_url) == provider_base_url
 
     # case3: with config.deepseek_base_url
     config_base_url = "https://api.config.com/v1/"
-    config = BaseLlmConfig(
+    config = DeepSeekConfig(
         model="deepseek-chat",
         temperature=0.7,
         max_tokens=100,

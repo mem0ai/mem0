@@ -10,21 +10,20 @@ Example: GPT-4 analyzes a tech stack → Claude writes documentation →
 Data analyst analyzes user data → All models can reference previous research.
 """
 
-from dotenv import load_dotenv
 import logging
-from mem0 import MemoryClient
+
+from dotenv import load_dotenv
 from litellm import completion
+
+from mem0 import MemoryClient
 
 load_dotenv()
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler('research_team.log')
-    ]
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler(), logging.FileHandler("research_team.log")],
 )
 logger = logging.getLogger(__name__)
 
@@ -36,16 +35,16 @@ memory = MemoryClient()
 RESEARCH_TEAM = {
     "tech_analyst": {
         "model": "gpt-4o",
-        "role": "Technical Analyst - Code review, architecture, and technical decisions"
+        "role": "Technical Analyst - Code review, architecture, and technical decisions",
     },
     "writer": {
         "model": "claude-3-5-sonnet-20241022",
-        "role": "Documentation Writer - Clear explanations and user guides"
+        "role": "Documentation Writer - Clear explanations and user guides",
     },
     "data_analyst": {
         "model": "gpt-4o-mini",
-        "role": "Data Analyst - Insights, trends, and data-driven recommendations"
-    }
+        "role": "Data Analyst - Insights, trends, and data-driven recommendations",
+    },
 }
 
 
@@ -65,11 +64,7 @@ def get_team_knowledge(topic: str, project_id: str) -> str:
     return "Team Knowledge Base: Empty - starting fresh research"
 
 
-def research_with_specialist(
-        task: str,
-        specialist: str,
-        project_id: str
-) -> str:
+def research_with_specialist(task: str, specialist: str, project_id: str) -> str:
     """Assign research task to specialist with access to team knowledge"""
 
     if specialist not in RESEARCH_TEAM:
@@ -91,30 +86,20 @@ Provide actionable insights in your area of expertise."""
     # Call the specialist's model
     response = completion(
         model=spec_info["model"],
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": task}
-        ]
+        messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": task}],
     )
 
     result = response.choices[0].message.content
 
     # Store research in shared knowledge base using both user_id and agent_id
-    research_entry = [
-        {"role": "user", "content": f"Task: {task}"},
-        {"role": "assistant", "content": result}
-    ]
+    research_entry = [{"role": "user", "content": f"Task: {task}"}, {"role": "assistant", "content": result}]
 
     memory.add(
         research_entry,
         user_id=project_id,  # Project-level memory
         agent_id=specialist,  # Agent-specific memory
-        metadata={
-            "contributor": specialist,
-            "task_type": "research",
-            "model_used": spec_info["model"]
-        },
-        output_format="v1.1"
+        metadata={"contributor": specialist, "task_type": "research", "model_used": spec_info["model"]},
+        output_format="v1.1",
     )
 
     return result
@@ -155,23 +140,23 @@ def demo_research_team():
         {
             "stage": "Technical Architecture",
             "specialist": "tech_analyst",
-            "task": "Analyze the best tech stack for a multi-tenant SaaS platform handling 10k+ users. Consider scalability, cost, and development speed."
+            "task": "Analyze the best tech stack for a multi-tenant SaaS platform handling 10k+ users. Consider scalability, cost, and development speed.",
         },
         {
             "stage": "Product Documentation",
             "specialist": "writer",
-            "task": "Based on the technical analysis, write a clear product overview and user onboarding guide for our SaaS platform."
+            "task": "Based on the technical analysis, write a clear product overview and user onboarding guide for our SaaS platform.",
         },
         {
             "stage": "Market Analysis",
             "specialist": "data_analyst",
-            "task": "Analyze market trends and pricing strategies for our SaaS platform. What metrics should we track?"
+            "task": "Analyze market trends and pricing strategies for our SaaS platform. What metrics should we track?",
         },
         {
             "stage": "Strategic Decision",
             "specialist": "tech_analyst",
-            "task": "Given our technical architecture, documentation, and market analysis - what should be our MVP feature priority?"
-        }
+            "task": "Given our technical architecture, documentation, and market analysis - what should be our MVP feature priority?",
+        },
     ]
 
     logger.info("AI Research Team: Building a SaaS Product")
@@ -181,7 +166,7 @@ def demo_research_team():
         logger.info(f"\nStage {i}: {step['stage']}")
         logger.info(f"Specialist: {step['specialist']}")
 
-        result = research_with_specialist(step['task'], step['specialist'], project)
+        result = research_with_specialist(step["task"], step["specialist"], project)
         logger.info(f"Task: {step['task']}")
         logger.info(f"Result: {result[:200]}...\n")
 

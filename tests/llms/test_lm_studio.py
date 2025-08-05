@@ -2,7 +2,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from mem0.configs.llms.base import BaseLlmConfig
+from mem0.configs.llms.lmstudio import LMStudioConfig
 from mem0.llms.lmstudio import LMStudioLLM
 
 
@@ -18,7 +18,7 @@ def mock_lm_studio_client():
 
 
 def test_generate_response_without_tools(mock_lm_studio_client):
-    config = BaseLlmConfig(
+    config = LMStudioConfig(
         model="lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
         temperature=0.7,
         max_tokens=100,
@@ -45,7 +45,7 @@ def test_generate_response_without_tools(mock_lm_studio_client):
 
 
 def test_generate_response_specifying_response_format(mock_lm_studio_client):
-    config = BaseLlmConfig(
+    config = LMStudioConfig(
         model="lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
         temperature=0.7,
         max_tokens=100,
