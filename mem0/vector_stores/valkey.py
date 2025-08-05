@@ -89,6 +89,88 @@ class ValkeyDB(VectorStoreBase):
         # Create the index schema
         self._create_index(embedding_model_dims)
 
+    def _build_index_schema(self, collection_name, embedding_dims, distance_metric, prefix):
+        """
+        Build the FT.CREATE command for index creation.
+
+        Args:
+            collection_name (str): Name of the collection/index
+            embedding_dims (int): Vector embedding dimensions
+            distance_metric (str): Distance metric (e.g., "COSINE", "L2", "IP")
+            prefix (str): Key prefix for the index
+
+        Returns:
+            list: Complete FT.CREATE command as list of arguments
+        """
+        # Build the vector field configuration based on index type
+        if self.index_type == "hnsw":
+            vector_config = [
+                "embedding",
+                "VECTOR",
+                "HNSW",
+                "12",  # Attribute count: TYPE, FLOAT32, DIM, dims, DISTANCE_METRIC, metric, M, m, EF_CONSTRUCTION, ef_construction, EF_RUNTIME, ef_runtime
+                "TYPE",
+                "FLOAT32",
+                "DIM",
+                str(embedding_dims),
+                "DISTANCE_METRIC",
+                distance_metric,
+                "M",
+                str(self.hnsw_m),
+                "EF_CONSTRUCTION",
+                str(self.hnsw_ef_construction),
+                "EF_RUNTIME",
+                str(self.hnsw_ef_runtime),
+            ]
+        elif self.index_type == "flat":
+            vector_config = [
+                "embedding",
+                "VECTOR",
+                "FLAT",
+                "6",  # Attribute count: TYPE, FLOAT32, DIM, dims, DISTANCE_METRIC, metric
+                "TYPE",
+                "FLOAT32",
+                "DIM",
+                str(embedding_dims),
+                "DISTANCE_METRIC",
+                distance_metric,
+            ]
+        else:
+            # This should never happen due to constructor validation, but be defensive
+            raise ValueError(f"Unsupported index_type: {self.index_type}. Must be 'hnsw' or 'flat'")
+
+        # Build the complete command (comma is default separator for TAG fields)
+        cmd = [
+            "FT.CREATE",
+            collection_name,
+            "ON",
+            "HASH",
+            "PREFIX",
+            "1",
+            prefix,
+            "SCHEMA",
+            "memory_id",
+            "TAG",
+            "hash",
+            "TAG",
+            "agent_id",
+            "TAG",
+            "run_id",
+            "TAG",
+            "user_id",
+            "TAG",
+            "memory",
+            "TAG",
+            "metadata",
+            "TAG",
+            "created_at",
+            "NUMERIC",
+            "updated_at",
+            "NUMERIC",
+        ] + vector_config
+
+        return cmd
+
     def _create_index(self, embedding_model_dims):
         """
         Create the search index with the specified schema.
@@ -124,86 +206,17 @@ class ValkeyDB(VectorStoreBase):
                 logger.exception(f"Error checking index existence: {e}")
                 raise
 
-        # Build the vector field configuration based on index type
-        if self.index_type == "hnsw":
-            vector_config = [
-                "embedding",
-                "VECTOR",
-                "HNSW",
-                "12",  # Attribute count: TYPE, FLOAT32, DIM, dims, DISTANCE_METRIC, COSINE, M, m, EF_CONSTRUCTION, ef_construction, EF_RUNTIME, ef_runtime
-                "TYPE",
-                "FLOAT32",
-                "DIM",
-                str(embedding_model_dims),
-                "DISTANCE_METRIC",
-                "COSINE",
-                "M",
-                str(self.hnsw_m),
-                "EF_CONSTRUCTION",
-                str(self.hnsw_ef_construction),
-                "EF_RUNTIME",
-                str(self.hnsw_ef_runtime),
-            ]
-        else:  # flat
-            vector_config = [
-                "embedding",
-                "VECTOR",
-                "FLAT",
-                "6",  # Attribute count: TYPE, FLOAT32, DIM, dims, DISTANCE_METRIC, COSINE
-                "TYPE",
-                "FLOAT32",
-                "DIM",
-                str(embedding_model_dims),
-                "DISTANCE_METRIC",
-                "COSINE",
-            ]
-
-        # Create the index using raw command
-        cmd = [
-            "FT.CREATE",
+        # Build and execute the index creation command
+        cmd = self._build_index_schema(
             self.collection_name,
-            "ON",
-            "HASH",
-            "PREFIX",
-            "1",
+            embedding_model_dims,
+            "COSINE",  # Fixed distance metric for initialization
             self.prefix,
-            "SCHEMA",
-            "memory_id",
-            "TAG",
-            "SEPARATOR",
-            ",",
-            "hash",
-            "TAG",
-            "SEPARATOR",
-            ",",
-            "agent_id",
-            "TAG",
-            "SEPARATOR",
-            ",",
-            "run_id",
-            "TAG",
-            "SEPARATOR",
-            ",",
-            "user_id",
-            "TAG",
-            "SEPARATOR",
-            ",",
-            "memory",
-            "TAG",
-            "SEPARATOR",
-            ",",
-            "metadata",
-            "TAG",
-            "SEPARATOR",
-            ",",
-            "created_at",
-            "NUMERIC",
-            "updated_at",
-            "NUMERIC",
-        ] + vector_config
+        )
 
         try:
             self.client.execute_command(*cmd)
+            logger.info(f"Successfully created {self.index_type.upper()} index {self.collection_name}")
         except Exception as e:
             logger.exception(f"Error creating index {self.collection_name}: {e}")
             raise
@@ -226,89 +239,16 @@ class ValkeyDB(VectorStoreBase):
         distance_metric = distance or "COSINE"
         prefix = f"mem0:{collection_name}"
 
-        # Try to drop the index if it exists
-        try:
-            self._drop_index(collection_name)
-        except Exception as e:
-            logger.warning(f"Error dropping existing index {collection_name}: {e}")
+        # Try to drop the index if it exists (cleanup before creation)
+        self._drop_index(collection_name, log_level="silent")
 
-        # Build the vector field configuration based on index type
-        if self.index_type == "hnsw":
-            vector_config = [
-                "embedding",
-                "VECTOR",
-                "HNSW",
-                "12",  # Attribute count: TYPE, FLOAT32, DIM, dims, DISTANCE_METRIC, metric, M, m, EF_CONSTRUCTION, ef_construction, EF_RUNTIME, ef_runtime
-                "TYPE",
-                "FLOAT32",
-                "DIM",
-                str(embedding_dims),
-                "DISTANCE_METRIC",
-                distance_metric,
-                "M",
-                str(self.hnsw_m),
-                "EF_CONSTRUCTION",
-                str(self.hnsw_ef_construction),
-                "EF_RUNTIME",
-                str(self.hnsw_ef_runtime),
-            ]
-        else:  # flat
-            vector_config = [
-                "embedding",
-                "VECTOR",
-                "FLAT",
-                "6",  # Attribute count: TYPE, FLOAT32, DIM, dims, DISTANCE_METRIC, metric
-                "TYPE",
-                "FLOAT32",
-                "DIM",
-                str(embedding_dims),
-                "DISTANCE_METRIC",
-                distance_metric,
-            ]
-
-        # Create the index using raw command
-        cmd = [
-            "FT.CREATE",
+        # Build and execute the index creation command
+        cmd = self._build_index_schema(
             collection_name,
-            "ON",
-            "HASH",
-            "PREFIX",
-            "1",
+            embedding_dims,
+            distance_metric,  # Configurable distance metric
             prefix,
-            "SCHEMA",
-            "memory_id",
-            "TAG",
-            "SEPARATOR",
-            ",",
-            "hash",
-            "TAG",
-            "SEPARATOR",
-            ",",
-            "agent_id",
-            "TAG",
-            "SEPARATOR",
-            ",",
-            "run_id",
-            "TAG",
-            "SEPARATOR",
-            ",",
-            "user_id",
-            "TAG",
-            "SEPARATOR",
-            ",",
-            "memory",
-            "TAG",
-            "SEPARATOR",
-            ",",
-            "metadata",
-            "TAG",
-            "SEPARATOR",
-            ",",
-            "created_at",
-            "NUMERIC",
-            "updated_at",
-            "NUMERIC",
-        ] + vector_config
+        )
 
         try:
             self.client.execute_command(*cmd)
@@ -403,9 +343,9 @@ class ValkeyDB(VectorStoreBase):
         filter_expr = " ".join(filter_parts)
         return f"{filter_expr} =>{knn_part}"
 
-    def _execute_search_with_fallback(self, query, params):
+    def _execute_search(self, query, params):
         """
-        Execute a search query with fallback options if the initial query fails.
+        Execute a search query.
 
         Args:
             query (str): The search query to execute.
@@ -415,32 +355,10 @@ class ValkeyDB(VectorStoreBase):
             The search results.
         """
         try:
-            # Execute the search
             return self.client.ft(self.collection_name).search(query, query_params=params)
         except ResponseError as e:
-            logger.warning(f"Search error: {e}")
-
-            # Try alternative syntax if the first attempt fails
-            if "Invalid filter expression" in str(e):
-                logger.warning("Trying alternative filter syntax")
-
-                # Try with parentheses around the filter expression
-                if not query.startswith("*"):
-                    alternative_query = f"({query.split(' =>')[0]}) =>{query.split(' =>')[1]}"
-                    logger.info(f"Retry with query: {alternative_query}")
-
-                    try:
-                        return self.client.ft(self.collection_name).search(alternative_query, query_params=params)
-                    except ResponseError as e2:
-                        logger.warning(f"Second attempt failed: {e2}")
-
-                # Last resort: try without filters
-                logger.warning("Falling back to search without filters")
-                fallback_query = f"*=>{query.split(' =>')[1]}" if "=>" in query else query
-                return self.client.ft(self.collection_name).search(fallback_query, query_params=params)
-            else:
-                # Re-raise other exceptions
-                raise
+            logger.error(f"Search failed with query '{query}': {e}")
+            raise
 
     def _process_search_results(self, results):
         """
@@ -507,6 +425,7 @@ class ValkeyDB(VectorStoreBase):
         if self.index_type == "hnsw" and ef_runtime is not None:
             knn_part = f"[KNN {limit} @embedding $vec_param EF_RUNTIME {ef_runtime} AS vector_score]"
         else:
+            # For FLAT indexes or when ef_runtime is None, use basic KNN
             knn_part = f"[KNN {limit} @embedding $vec_param AS vector_score]"
 
         # Build the complete query
@@ -518,8 +437,8 @@ class ValkeyDB(VectorStoreBase):
         # Set up the query parameters
         params = {"vec_param": vector_bytes}
 
-        # Execute the search with fallback
-        results = self._execute_search_with_fallback(q, params)
+        # Execute the search
+        results = self._execute_search(q, params)
 
         # Process the results
         return self._process_search_results(results)
@@ -723,18 +642,32 @@ class ValkeyDB(VectorStoreBase):
             logger.exception(f"Error listing collections: {e}")
             raise
 
-    def _drop_index(self, collection_name):
+    def _drop_index(self, collection_name, log_level="error"):
         """
         Drop an index by name using the documented FT.DROPINDEX command.
 
         Args:
             collection_name (str): Name of the index to drop.
+            log_level (str): Logging level for missing index ("silent", "info", "error").
         """
         try:
             self.client.execute_command("FT.DROPINDEX", collection_name)
             logger.info(f"Successfully deleted index {collection_name}")
             return True
+        except ResponseError as e:
+            if "Unknown index name" in str(e):
+                # Index doesn't exist - handle based on context
+                if log_level == "silent":
+                    pass  # No logging in situations where this is expected such as initial index creation
+                elif log_level == "info":
+                    logger.info(f"Index {collection_name} doesn't exist, skipping deletion")
+                return False
+            else:
+                # Real error - always log and raise
+                logger.error(f"Error deleting index {collection_name}: {e}")
+                raise
         except Exception as e:
+            # Non-ResponseError exceptions - always log and raise
             logger.error(f"Error deleting index {collection_name}: {e}")
             raise
 
@@ -742,7 +675,7 @@ class ValkeyDB(VectorStoreBase):
         """
         Delete the current collection (index).
         """
-        return self._drop_index(self.collection_name)
+        return self._drop_index(self.collection_name, log_level="info")
 
     def col_info(self, name=None):
         """

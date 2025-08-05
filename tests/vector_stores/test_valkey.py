@@ -264,16 +264,40 @@ def test_delete_col(valkey_db, mock_valkey_client):
     # Reset the mock to clear previous calls
     mock_valkey_client.execute_command.reset_mock()
 
-    # Call delete_col
-    valkey_db.delete_col()
+    # Test successful deletion
+    result = valkey_db.delete_col()
+    assert result is True
 
     # Check that execute_command was called with the correct command
     mock_valkey_client.execute_command.assert_called_once_with("FT.DROPINDEX", "test_collection")
 
-    # Test error handling
+    # Test error handling - real errors should still raise
     mock_valkey_client.execute_command.side_effect = ResponseError("Error dropping index")
     with pytest.raises(ResponseError, match="Error dropping index"):
         valkey_db.delete_col()
+
+    # Test idempotent behavior - "Unknown index name" should return False, not raise
+    mock_valkey_client.execute_command.side_effect = ResponseError("Unknown index name")
+    result = valkey_db.delete_col()
+    assert result is False
+
+
+def test_context_aware_logging(valkey_db, mock_valkey_client):
+    """Test that _drop_index handles different log levels correctly."""
+    # Mock "Unknown index name" error
+    mock_valkey_client.execute_command.side_effect = ResponseError("Unknown index name")
+
+    # Test silent mode - should not log anything (we can't easily test log output, but ensure no exception)
+    result = valkey_db._drop_index("test_collection", log_level="silent")
+    assert result is False
+
+    # Test info mode - should not raise exception
+    result = valkey_db._drop_index("test_collection", log_level="info")
+    assert result is False
+
+    # Test default mode - should not raise exception
+    result = valkey_db._drop_index("test_collection")
+    assert result is False
 
 
 def test_col_info(valkey_db, mock_valkey_client):
@@ -352,29 +376,23 @@ def test_list(valkey_db, mock_valkey_client):
     assert results[0][0].payload["data"] == "test_data"
 
 
-def test_search_with_fallback(valkey_db, mock_valkey_client):
-    """Test search with fallback when the first attempt fails."""
-    # Mock search to fail on first attempt with "Invalid filter expression"
+def test_search_error_handling(valkey_db, mock_valkey_client):
+    """Test search error handling when query fails."""
+    # Mock search to fail with an error
     mock_ft = mock_valkey_client.ft.return_value
-    mock_ft.search.side_effect = [
-        ResponseError("Invalid filter expression"),  # First call fails
-        MagicMock(docs=[]),  # Second call succeeds
-    ]
+    mock_ft.search.side_effect = ResponseError("Invalid filter expression")
 
-    # Call search
-    valkey_db.search(
-        query="test query",
-        vectors=np.random.rand(1536).tolist(),
-        limit=5,
-        filters={"user_id": "test_user"},
-    )
+    # Call search should raise the error
+    with pytest.raises(ResponseError, match="Invalid filter expression"):
+        valkey_db.search(
+            query="test query",
+            vectors=np.random.rand(1536).tolist(),
+            limit=5,
+            filters={"user_id": "test_user"},
+        )
 
-    # Check that search was called twice
-    assert mock_ft.search.call_count == 2
-
-    # Check that the second call used the alternative query format
-    args, kwargs = mock_ft.search.call_args_list[1]
-    assert args[0].startswith("(")  # Should have parentheses around filter
+    # Check that search was called once
+    assert mock_ft.search.call_count == 1
 
 
 def test_drop_index_error_handling(valkey_db, mock_valkey_client):
@@ -382,15 +400,30 @@ def test_drop_index_error_handling(valkey_db, mock_valkey_client):
     # Reset the mock to clear previous calls
     mock_valkey_client.execute_command.reset_mock()
 
-    # Mock execute_command to raise an error
+    # Test 1: Real error (not "Unknown index name") should raise
     mock_valkey_client.execute_command.side_effect = ResponseError("Error dropping index")
-
-    # Call _drop_index should raise the error
     with pytest.raises(ResponseError, match="Error dropping index"):
         valkey_db._drop_index("test_collection")
 
-    # Check that execute_command was called once with the correct command
-    mock_valkey_client.execute_command.assert_called_once_with("FT.DROPINDEX", "test_collection")
+    # Test 2: "Unknown index name" with default log_level should return False
+    mock_valkey_client.execute_command.side_effect = ResponseError("Unknown index name")
+    result = valkey_db._drop_index("test_collection")
+    assert result is False
+
+    # Test 3: "Unknown index name" with silent log_level should return False
+    mock_valkey_client.execute_command.side_effect = ResponseError("Unknown index name")
+    result = valkey_db._drop_index("test_collection", log_level="silent")
+    assert result is False
+
+    # Test 4: "Unknown index name" with info log_level should return False
+    mock_valkey_client.execute_command.side_effect = ResponseError("Unknown index name")
+    result = valkey_db._drop_index("test_collection", log_level="info")
+    assert result is False
+
+    # Test 5: Successful deletion should return True
+    mock_valkey_client.execute_command.side_effect = None  # Reset to success
+    result = valkey_db._drop_index("test_collection")
+    assert result is True
 
 
 def test_reset(valkey_db, mock_valkey_client):
@@ -506,32 +539,6 @@ def test_process_document_fields(valkey_db):
     assert payload["hash"] == "test_hash"
     assert "data" in payload  # Should have default value
     assert "created_at" in payload  # Should have default value
-
-
-def test_search_with_fallback_last_resort(valkey_db, mock_valkey_client):
-    """Test search with fallback to no filters when all attempts fail."""
-    # Mock search to fail on first and second attempts
-    mock_ft = mock_valkey_client.ft.return_value
-    mock_ft.search.side_effect = [
-        ResponseError("Invalid filter expression"),  # First call fails
-        ResponseError("Second attempt failed"),  # Second call fails
-        MagicMock(docs=[]),  # Third call succeeds
-    ]
-
-    # Call search
-    valkey_db.search(
-        query="test query",
-        vectors=np.random.rand(1536).tolist(),
-        limit=5,
-        filters={"user_id": "test_user"},
-    )
-
-    # Check that search was called three times
-    assert mock_ft.search.call_count == 3
-
-    # Check that the third call used the fallback query format (no filters)
-    args, kwargs = mock_ft.search.call_args_list[2]
-    assert args[0].startswith("*=>")  # Should start with * (no filters)
 
 
 def test_init_connection_error():
