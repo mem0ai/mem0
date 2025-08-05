@@ -53,7 +53,7 @@ class OpenSearchDB(VectorStoreBase):
                     "vector_field": {
                         "type": "knn_vector",
                         "dimension": self.embedding_model_dims,
-                        "method": {"engine": "nmslib", "name": "hnsw", "space_type": "cosinesimil"},
+                        "method": {"engine": "faiss", "name": "hnsw", "space_type": "cosinesimil"},
                     },
                     "metadata": {"type": "object", "properties": {"user_id": {"type": "keyword"}}},
                 }
@@ -75,7 +75,7 @@ class OpenSearchDB(VectorStoreBase):
                     "vector_field": {
                         "type": "knn_vector",
                         "dimension": vector_size,
-                        "method": {"engine": "nmslib", "name": "hnsw", "space_type": "cosinesimil"},
+                        "method": {"engine": "faiss", "name": "hnsw", "space_type": "cosinesimil"},
                     },
                     "payload": {"type": "object"},
                     "id": {"type": "keyword"},
