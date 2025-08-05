@@ -7,7 +7,7 @@ title: Vercel AI SDK
 The [**Mem0 AI SDK Provider**](https://www.npmjs.com/package/@mem0/vercel-ai-provider) is a library developed by **Mem0** to integrate with the Vercel AI SDK. This library brings enhanced AI interaction capabilities to your applications by introducing persistent memory functionality.
 
 <Note type="info">
-  🎉 Exciting news! Mem0 AI SDK now supports <strong>Graph Memory</strong>.
+  🎉 Exciting news! Mem0 AI SDK now supports <strong>Vercel AI SDK V5</strong>.
 </Note>
 
 ## Overview
@@ -42,13 +42,11 @@ npm install @mem0/vercel-ai-provider
       mem0ApiKey: "m0-xxx",
       apiKey: "provider-api-key",
       config: {
-        compatibility: "strict",
+        // Options for LLM Provider
       },
       // Optional Mem0 Global Config
       mem0Config: {
         user_id: "mem0-user-id",
-        org_id: "mem0-org-id",
-        project_id: "mem0-project-id",
       },
     });
     ```
@@ -60,10 +58,10 @@ npm install @mem0/vercel-ai-provider
 3. Add Memories to Enhance Context:
 
     ```typescript
-    import { LanguageModelV1Prompt } from "ai";
+    import { LanguageModelV2Prompt } from "@ai-sdk/provider";
     import { addMemories } from "@mem0/vercel-ai-provider";
 
-    const messages: LanguageModelV1Prompt = [
+    const messages: LanguageModelV2Prompt = [
       { role: "user", content: [{ type: "text", text: "I love red cars." }] },
     ];
 
@@ -73,9 +71,9 @@ npm install @mem0/vercel-ai-provider
 ### Standalone Features:
 
     ```typescript
-    await addMemories(messages, { user_id: "borat", mem0ApiKey: "m0-xxx", org_id: "org_xx", project_id: "proj_xx" });
-    await retrieveMemories(prompt, { user_id: "borat", mem0ApiKey: "m0-xxx", org_id: "org_xx", project_id: "proj_xx" });
-    await getMemories(prompt, { user_id: "borat", mem0ApiKey: "m0-xxx", org_id: "org_xx", project_id: "proj_xx" });
+    await addMemories(messages, { user_id: "borat", mem0ApiKey: "m0-xxx" });
+    await retrieveMemories(prompt, { user_id: "borat", mem0ApiKey: "m0-xxx" });
+    await getMemories(prompt, { user_id: "borat", mem0ApiKey: "m0-xxx" });
     ```
      > For standalone features, such as `addMemories`, `retrieveMemories`, and `getMemories`, you must either set `MEM0_API_KEY` as an environment variable or pass it directly in the function call.
 
@@ -144,7 +142,7 @@ npm install @mem0/vercel-ai-provider
 
     const mem0 = createMem0();
 
-    const { textStream } = await streamText({
+    const { textStream } = streamText({
         model: mem0("gpt-4-turbo", {
             user_id: "borat",
         }),
@@ -231,9 +229,7 @@ The `getMemories` function will return an object with two keys: `results` and `r
 |----------|-------------------|
 | OpenAI | openai |
 | Anthropic | anthropic |
-| Gemini | gemini |
 | Google | google |
-| Mistral | mistral |
 | Groq | groq |
 
 > **Note**: You can use `google` as provider for Gemini (Google) models. They are same and internally they use `@ai-sdk/google` package.
