@@ -23,16 +23,11 @@ describe.each(testConfig.providers)('TEXT/STREAM PROPERTIES: Tests with model %s
         user_id: userId, // Use the uniform userId
       }),
       prompt: "Write only the name of the car I prefer and its color.",
-      onChunk({ chunk }) {
-        if (chunk.type === 'text') {
-          // Store chunk text for assertions
-          chunkTexts.push(chunk.text);
-        }
-      },
     });
 
     // Wait for the stream to complete
     for await (const _ of textStream) {
+      chunkTexts.push(_);
     }
 
     // Ensure chunks are collected
@@ -46,9 +41,6 @@ describe.each(testConfig.providers)('TEXT/STREAM PROPERTIES: Tests with model %s
         user_id: userId, // Use the uniform userId
       }),
       prompt: "Write only the name of the car I prefer and its color.",
-      onFinish({ text, finishReason, usage }) {
-
-      },
     });
   });
 
