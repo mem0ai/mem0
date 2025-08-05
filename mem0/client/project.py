@@ -7,6 +7,12 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from mem0.client.utils import api_error_handler
 from mem0.memory.telemetry import capture_client_event
+from mem0.exceptions import (
+    AuthenticationError,
+    RateLimitError,
+    ValidationError,
+    NetworkError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +147,10 @@ class BaseProject(ABC):
             Dictionary containing the requested project fields.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            NetworkError: If network connectivity issues occur.
             ValueError: If org_id or project_id are not set.
         """
         pass
@@ -159,7 +168,10 @@ class BaseProject(ABC):
             Dictionary containing the created project details.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            NetworkError: If network connectivity issues occur.
             ValueError: If org_id is not set.
         """
         pass
@@ -185,7 +197,10 @@ class BaseProject(ABC):
             Dictionary containing the API response.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            NetworkError: If network connectivity issues occur.
             ValueError: If org_id or project_id are not set.
         """
         pass
@@ -199,7 +214,10 @@ class BaseProject(ABC):
             Dictionary containing the API response.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            NetworkError: If network connectivity issues occur.
             ValueError: If org_id or project_id are not set.
         """
         pass
@@ -213,7 +231,10 @@ class BaseProject(ABC):
             Dictionary containing the list of project members.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            NetworkError: If network connectivity issues occur.
             ValueError: If org_id or project_id are not set.
         """
         pass
@@ -231,7 +252,10 @@ class BaseProject(ABC):
             Dictionary containing the API response.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            NetworkError: If network connectivity issues occur.
             ValueError: If org_id or project_id are not set.
         """
         pass
@@ -249,7 +273,10 @@ class BaseProject(ABC):
             Dictionary containing the API response.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            NetworkError: If network connectivity issues occur.
             ValueError: If org_id or project_id are not set.
         """
         pass
@@ -266,7 +293,10 @@ class BaseProject(ABC):
             Dictionary containing the API response.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            NetworkError: If network connectivity issues occur.
             ValueError: If org_id or project_id are not set.
         """
         pass
@@ -310,7 +340,10 @@ class Project(BaseProject):
             Dictionary containing the requested project fields.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            NetworkError: If network connectivity issues occur.
             ValueError: If org_id or project_id are not set.
         """
         params = self._prepare_params({"fields": fields})
@@ -339,7 +372,10 @@ class Project(BaseProject):
             Dictionary containing the created project details.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            NetworkError: If network connectivity issues occur.
             ValueError: If org_id is not set.
         """
         if not self.config.org_id:
@@ -382,7 +418,10 @@ class Project(BaseProject):
             Dictionary containing the API response.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            NetworkError: If network connectivity issues occur.
             ValueError: If org_id or project_id are not set.
         """
         if (
@@ -432,7 +471,10 @@ class Project(BaseProject):
             Dictionary containing the API response.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            NetworkError: If network connectivity issues occur.
             ValueError: If org_id or project_id are not set.
         """
         response = self._client.delete(
@@ -455,7 +497,10 @@ class Project(BaseProject):
             Dictionary containing the list of project members.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            NetworkError: If network connectivity issues occur.
             ValueError: If org_id or project_id are not set.
         """
         response = self._client.get(
@@ -482,7 +527,10 @@ class Project(BaseProject):
             Dictionary containing the API response.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            NetworkError: If network connectivity issues occur.
             ValueError: If org_id or project_id are not set.
         """
         if role not in ["READER", "OWNER"]:
@@ -515,7 +563,10 @@ class Project(BaseProject):
             Dictionary containing the API response.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            NetworkError: If network connectivity issues occur.
             ValueError: If org_id or project_id are not set.
         """
         if role not in ["READER", "OWNER"]:
@@ -547,7 +598,10 @@ class Project(BaseProject):
             Dictionary containing the API response.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            NetworkError: If network connectivity issues occur.
             ValueError: If org_id or project_id are not set.
         """
         params = {"email": email}
@@ -603,7 +657,10 @@ class AsyncProject(BaseProject):
             Dictionary containing the requested project fields.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            NetworkError: If network connectivity issues occur.
             ValueError: If org_id or project_id are not set.
         """
         params = self._prepare_params({"fields": fields})
@@ -632,7 +689,10 @@ class AsyncProject(BaseProject):
             Dictionary containing the created project details.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            NetworkError: If network connectivity issues occur.
             ValueError: If org_id is not set.
         """
         if not self.config.org_id:
@@ -675,7 +735,10 @@ class AsyncProject(BaseProject):
             Dictionary containing the API response.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            NetworkError: If network connectivity issues occur.
             ValueError: If org_id or project_id are not set.
         """
         if (
@@ -725,7 +788,10 @@ class AsyncProject(BaseProject):
             Dictionary containing the API response.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            NetworkError: If network connectivity issues occur.
             ValueError: If org_id or project_id are not set.
         """
         response = await self._client.delete(
@@ -748,7 +814,10 @@ class AsyncProject(BaseProject):
             Dictionary containing the list of project members.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            NetworkError: If network connectivity issues occur.
             ValueError: If org_id or project_id are not set.
         """
         response = await self._client.get(
@@ -775,7 +844,10 @@ class AsyncProject(BaseProject):
             Dictionary containing the API response.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            NetworkError: If network connectivity issues occur.
             ValueError: If org_id or project_id are not set.
         """
         if role not in ["READER", "OWNER"]:
@@ -808,7 +880,10 @@ class AsyncProject(BaseProject):
             Dictionary containing the API response.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            NetworkError: If network connectivity issues occur.
             ValueError: If org_id or project_id are not set.
         """
         if role not in ["READER", "OWNER"]:
@@ -840,7 +915,10 @@ class AsyncProject(BaseProject):
             Dictionary containing the API response.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            NetworkError: If network connectivity issues occur.
             ValueError: If org_id or project_id are not set.
         """
         params = {"email": email}
