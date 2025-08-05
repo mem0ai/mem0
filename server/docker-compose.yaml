@@ -52,7 +52,7 @@ services:
       interval: 1s
       timeout: 10s
       retries: 20
-      start_period: 3s
+      start_period: 90s
     ports:
       - "8474:7474" # HTTP
       - "8687:7687" # Bolt
