@@ -1,4 +1,6 @@
-import { generateText, LanguageModelV1Prompt, streamText } from "ai";
+import { generateText, streamText } from "ai";
+import { LanguageModelV2Prompt } from '@ai-sdk/provider';
+import { simulateStreamingMiddleware, wrapLanguageModel } from 'ai';
 import { addMemories } from "../src";
 import { testConfig } from "../config/test-config";
 
@@ -19,7 +21,7 @@ describe.each(testConfig.providers)('TESTS: Generate/Stream Text with model %s',
 
   beforeAll(async () => {
     // Add some test memories before all tests
-    const messages: LanguageModelV1Prompt = [
+    const messages: LanguageModelV2Prompt = [
       {
         role: "user",
         content: [
@@ -55,7 +57,7 @@ describe.each(testConfig.providers)('TESTS: Generate/Stream Text with model %s',
           content: [
             { type: "text", text: "Suggest me a good car to buy." },
             { type: "text", text: "Write only the car name and it's color." },
-          ],
+          ]
         }
       ],
     });
@@ -64,11 +66,20 @@ describe.each(testConfig.providers)('TESTS: Generate/Stream Text with model %s',
     expect(text.length).toBeGreaterThan(0);
   });
 
-  it("should stream text using Mem0 provider", async () => {
-    const { textStream } = await streamText({
-      model: mem0(provider.activeModel, {
-        user_id: userId, // Use the uniform userId
-      }),
+  it("should stream text using Mem0 provider with new streaming approach", async () => {
+    // Create the base model
+    const baseModel = mem0(provider.activeModel, {
+      user_id: userId,
+    });
+
+    // Wrap with streaming middleware using the new Vercel AI SDK 5.0 approach
+    const model = wrapLanguageModel({
+      model: baseModel,
+      middleware: simulateStreamingMiddleware(),
+    });
+
+    const { textStream } = streamText({
+      model,
       prompt: "Suggest me a good car to buy! Write only the car name and it's color.",
     });
   
