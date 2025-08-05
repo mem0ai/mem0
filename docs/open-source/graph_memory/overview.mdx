@@ -268,7 +268,7 @@ The Neptune memory store uses AWS LangChain Python API to connect to Neptune ins
 ```python Python
 from mem0 import Memory
 
-# This example must connect to a neptune-graph instance with `1024` vector dimensions specified.
+# Provided neptune-graph instance must have the same vector dimensions as the embedder provider.
 config = {
     "graph_store": {
         "provider": "neptune",
