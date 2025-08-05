@@ -1,4 +1,4 @@
-import { LanguageModelV1, LanguageModelV1CallOptions } from "ai";
+import { LanguageModelV2, LanguageModelV2CallOptions } from "@ai-sdk/provider";
 import { Mem0ProviderSettings } from "./mem0-provider";
 import { createOpenAI, OpenAIProviderSettings } from "@ai-sdk/openai";
 import { CohereProviderSettings, createCohere } from "@ai-sdk/cohere";
@@ -7,13 +7,15 @@ import { createGoogleGenerativeAI, GoogleGenerativeAIProviderSettings } from "@a
 import { createGroq, GroqProviderSettings } from "@ai-sdk/groq";
 
 // Define a private provider field
-class Mem0AITextGenerator implements LanguageModelV1 {
-    readonly specificationVersion = "v1";
+class Mem0AITextGenerator implements LanguageModelV2 {
+    readonly specificationVersion = "v2";
     readonly defaultObjectGenerationMode = "json";
     readonly supportsImageUrls = false;
     readonly modelId: string;
     readonly provider = "mem0";
-
+    readonly supportedUrls: Record<string, RegExp[]> = {
+        '*': [/.*/]
+    };
     private languageModel: any; // Use any type to avoid version conflicts
 
     constructor(modelId: string, config: Mem0ProviderSettings, provider_config: ProviderSettings) {
@@ -68,14 +70,14 @@ class Mem0AITextGenerator implements LanguageModelV1 {
         }
     }
     
-    async doGenerate(options: LanguageModelV1CallOptions): Promise<Awaited<ReturnType<LanguageModelV1['doGenerate']>>> {
+    async doGenerate(options: LanguageModelV2CallOptions): Promise<Awaited<ReturnType<LanguageModelV2['doGenerate']>>> {
         const result = await this.languageModel.doGenerate(options);
-        return result as Awaited<ReturnType<LanguageModelV1['doGenerate']>>;
+        return result as Awaited<ReturnType<LanguageModelV2['doGenerate']>>;
     }
 
-    async doStream(options: LanguageModelV1CallOptions): Promise<Awaited<ReturnType<LanguageModelV1['doStream']>>> {
+    async doStream(options: LanguageModelV2CallOptions): Promise<Awaited<ReturnType<LanguageModelV2['doStream']>>> {
         const result = await this.languageModel.doStream(options);
-        return result as Awaited<ReturnType<LanguageModelV1['doStream']>>;
+        return result as Awaited<ReturnType<LanguageModelV2['doStream']>>;
     }
 }
 
