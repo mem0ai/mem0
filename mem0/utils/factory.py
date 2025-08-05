@@ -1,8 +1,15 @@
 import importlib
-from typing import Optional
+from typing import Dict, Optional, Union
 
 from mem0.configs.embeddings.base import BaseEmbedderConfig
+from mem0.configs.llms.anthropic import AnthropicConfig
+from mem0.configs.llms.azure import AzureOpenAIConfig
 from mem0.configs.llms.base import BaseLlmConfig
+from mem0.configs.llms.deepseek import DeepSeekConfig
+from mem0.configs.llms.lmstudio import LMStudioConfig
+from mem0.configs.llms.ollama import OllamaConfig
+from mem0.configs.llms.openai import OpenAIConfig
+from mem0.configs.llms.vllm import VllmConfig
 from mem0.embeddings.mock import MockEmbeddings
 
 
@@ -13,35 +20,111 @@ def load_class(class_type):
 
 
 class LlmFactory:
+    """
+    Factory for creating LLM instances with appropriate configurations.
+    Supports both old-style BaseLlmConfig and new provider-specific configs.
+    """
+
+    # Provider mappings with their config classes
     provider_to_class = {
-        "ollama": "mem0.llms.ollama.OllamaLLM",
-        "openai": "mem0.llms.openai.OpenAILLM",
-        "groq": "mem0.llms.groq.GroqLLM",
-        "together": "mem0.llms.together.TogetherLLM",
-        "aws_bedrock": "mem0.llms.aws_bedrock.AWSBedrockLLM",
-        "litellm": "mem0.llms.litellm.LiteLLM",
-        "azure_openai": "mem0.llms.azure_openai.AzureOpenAILLM",
-        "openai_structured": "mem0.llms.openai_structured.OpenAIStructuredLLM",
-        "anthropic": "mem0.llms.anthropic.AnthropicLLM",
-        "azure_openai_structured": "mem0.llms.azure_openai_structured.AzureOpenAIStructuredLLM",
-        "gemini": "mem0.llms.gemini.GeminiLLM",
-        "deepseek": "mem0.llms.deepseek.DeepSeekLLM",
-        "xai": "mem0.llms.xai.XAILLM",
-        "sarvam": "mem0.llms.sarvam.SarvamLLM",
-        "lmstudio": "mem0.llms.lmstudio.LMStudioLLM",
-        "vllm": "mem0.llms.vllm.VllmLLM",
-        "langchain": "mem0.llms.langchain.LangchainLLM",
+        "ollama": ("mem0.llms.ollama.OllamaLLM", OllamaConfig),
+        "openai": ("mem0.llms.openai.OpenAILLM", OpenAIConfig),
+        "groq": ("mem0.llms.groq.GroqLLM", BaseLlmConfig),
+        "together": ("mem0.llms.together.TogetherLLM", BaseLlmConfig),
+        "aws_bedrock": ("mem0.llms.aws_bedrock.AWSBedrockLLM", BaseLlmConfig),
+        "litellm": ("mem0.llms.litellm.LiteLLM", BaseLlmConfig),
+        "azure_openai": ("mem0.llms.azure_openai.AzureOpenAILLM", AzureOpenAIConfig),
+        "openai_structured": ("mem0.llms.openai_structured.OpenAIStructuredLLM", OpenAIConfig),
+        "anthropic": ("mem0.llms.anthropic.AnthropicLLM", AnthropicConfig),
+        "azure_openai_structured": ("mem0.llms.azure_openai_structured.AzureOpenAIStructuredLLM", AzureOpenAIConfig),
+        "gemini": ("mem0.llms.gemini.GeminiLLM", BaseLlmConfig),
+        "deepseek": ("mem0.llms.deepseek.DeepSeekLLM", DeepSeekConfig),
+        "xai": ("mem0.llms.xai.XAILLM", BaseLlmConfig),
+        "sarvam": ("mem0.llms.sarvam.SarvamLLM", BaseLlmConfig),
+        "lmstudio": ("mem0.llms.lmstudio.LMStudioLLM", LMStudioConfig),
+        "vllm": ("mem0.llms.vllm.VllmLLM", VllmConfig),
+        "langchain": ("mem0.llms.langchain.LangchainLLM", BaseLlmConfig),
     }
 
     @classmethod
-    def create(cls, provider_name, config):
-        class_type = cls.provider_to_class.get(provider_name)
-        if class_type:
-            llm_instance = load_class(class_type)
-            base_config = BaseLlmConfig(**config)
-            return llm_instance(base_config)
-        else:
+    def create(cls, provider_name: str, config: Optional[Union[BaseLlmConfig, Dict]] = None, **kwargs):
+        """
+        Create an LLM instance with the appropriate configuration.
+
+        Args:
+            provider_name (str): The provider name (e.g., 'openai', 'anthropic')
+            config: Configuration object or dict. If None, will create default config
+            **kwargs: Additional configuration parameters
+
+        Returns:
+            Configured LLM instance
+
+        Raises:
+            ValueError: If provider is not supported
+        """
+        if provider_name not in cls.provider_to_class:
             raise ValueError(f"Unsupported Llm provider: {provider_name}")
+
+        class_type, config_class = cls.provider_to_class[provider_name]
+        llm_class = load_class(class_type)
+
+        # Handle configuration
+        if config is None:
+            # Create default config with kwargs
+            config = config_class(**kwargs)
+        elif isinstance(config, dict):
+            # Merge dict config with kwargs
+            config.update(kwargs)
+            config = config_class(**config)
+        elif isinstance(config, BaseLlmConfig):
+            # Convert base config to provider-specific config if needed
+            if config_class != BaseLlmConfig:
+                # Convert to provider-specific config
+                config_dict = {
+                    "model": config.model,
+                    "temperature": config.temperature,
+                    "api_key": config.api_key,
+                    "max_tokens": config.max_tokens,
+                    "top_p": config.top_p,
+                    "top_k": config.top_k,
+                    "enable_vision": config.enable_vision,
+                    "vision_details": config.vision_details,
+                    "http_client_proxies": config.http_client,
+                }
+                config_dict.update(kwargs)
+                config = config_class(**config_dict)
+            else:
+                # Use base config as-is
+                pass
+        else:
+            # Assume it's already the correct config type
+            pass
+
+        return llm_class(config)
+
+    @classmethod
+    def register_provider(cls, name: str, class_path: str, config_class=None):
+        """
+        Register a new provider.
+
+        Args:
+            name (str): Provider name
+            class_path (str): Full path to LLM class
+            config_class: Configuration class for the provider (defaults to BaseLlmConfig)
+        """
+        if config_class is None:
+            config_class = BaseLlmConfig
+        cls.provider_to_class[name] = (class_path, config_class)
+
+    @classmethod
+    def get_supported_providers(cls) -> list:
+        """
+        Get list of supported providers.
+
+        Returns:
+            list: List of supported provider names
+        """
+        return list(cls.provider_to_class.keys())
 
 
 class EmbedderFactory:
