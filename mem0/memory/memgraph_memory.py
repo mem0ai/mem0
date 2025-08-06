@@ -3,7 +3,7 @@ import logging
 from mem0.memory.utils import format_entities
 
 try:
-    from langchain_memgraph import Memgraph
+    from langchain_memgraph.graphs.memgraph import Memgraph
 except ImportError:
     raise ImportError("langchain_memgraph is not installed. Please install it using pip install langchain-memgraph")
 
@@ -54,12 +54,23 @@ class MemoryGraph:
         # 1. Create vector index (created Entity label on all nodes)
         # 2. Create label property index for performance optimizations
         embedding_dims = self.config.embedder.config["embedding_dims"]
-        create_vector_index_query = f"CREATE VECTOR INDEX memzero ON :Entity(embedding) WITH CONFIG {{'dimension': {embedding_dims}, 'capacity': 1000, 'metric': 'cos'}};"
-        self.graph.query(create_vector_index_query, params={})
-        create_label_prop_index_query = "CREATE INDEX ON :Entity(user_id);"
-        self.graph.query(create_label_prop_index_query, params={})
-        create_label_index_query = "CREATE INDEX ON :Entity;"
-        self.graph.query(create_label_index_query, params={})
+        index_info = self._fetch_existing_indexes()
+        # Create vector index if not exists
+        if not any(idx.get("index_name") == "memzero" for idx in index_info["vector_index_exists"]):
+            self.graph.query(
+                f"CREATE VECTOR INDEX memzero ON :Entity(embedding) WITH CONFIG {{'dimension': {embedding_dims}, 'capacity': 1000, 'metric': 'cos'}};"
+            )
+        # Create label+property index if not exists
+        if not any(
+            idx.get("index type") == "label+property" and idx.get("label") == "Entity"
+            for idx in index_info["index_exists"]
+        ):
+            self.graph.query("CREATE INDEX ON :Entity(user_id);")
+        # Create label index if not exists
+        if not any(
+            idx.get("index type") == "label" and idx.get("label") == "Entity" for idx in index_info["index_exists"]
+        ):
+            self.graph.query("CREATE INDEX ON :Entity;")
 
     def add(self, data, filters):
         """
@@ -76,8 +87,8 @@ class MemoryGraph:
 
         # TODO: Batch queries with APOC plugin
         # TODO: Add more filter support
-        deleted_entities = self._delete_entities(to_be_deleted, filters["user_id"])
-        added_entities = self._add_entities(to_be_added, filters["user_id"], entity_type_map)
+        deleted_entities = self._delete_entities(to_be_deleted, filters)
+        added_entities = self._add_entities(to_be_added, filters, entity_type_map)
 
         return {"deleted_entities": deleted_entities, "added_entities": added_entities}
 
@@ -162,7 +173,7 @@ class MemoryGraph:
             LIMIT $limit
             """
             params = {"user_id": filters["user_id"], "limit": limit}
-        
+
         results = self.graph.query(query, params=params)
 
         final_results = []
@@ -318,7 +329,7 @@ class MemoryGraph:
                     "user_id": filters["user_id"],
                     "limit": limit,
                 }
-            
+
             ans = self.graph.query(cypher_query, params=params)
             result_relations.extend(ans)
 
@@ -356,7 +367,7 @@ class MemoryGraph:
         user_id = filters["user_id"]
         agent_id = filters.get("agent_id", None)
         results = []
-        
+
         for item in to_be_deleted:
             source = item["source"]
             destination = item["destination"]
@@ -369,7 +380,7 @@ class MemoryGraph:
                 "dest_name": destination,
                 "user_id": user_id,
             }
-            
+
             if agent_id:
                 agent_filter = "AND n.agent_id = $agent_id AND m.agent_id = $agent_id"
                 params["agent_id"] = agent_id
@@ -386,10 +397,10 @@ class MemoryGraph:
                 m.name AS target,
                 type(r) AS relationship
             """
-            
+
             result = self.graph.query(cypher, params=params)
             results.append(result)
-        
+
         return results
 
     # added Entity label to all nodes for vector search to work
@@ -398,7 +409,7 @@ class MemoryGraph:
         user_id = filters["user_id"]
         agent_id = filters.get("agent_id", None)
         results = []
-        
+
         for item in to_be_added:
             # entities
             source = item["source"]
@@ -421,7 +432,7 @@ class MemoryGraph:
             agent_id_clause = ""
             if agent_id:
                 agent_id_clause = ", agent_id: $agent_id"
-            
+
             # TODO: Create a cypher query and common params for all the cases
             if not destination_node_search_result and source_node_search_result:
                 cypher = f"""
@@ -446,7 +457,7 @@ class MemoryGraph:
                 }
                 if agent_id:
                     params["agent_id"] = agent_id
-                
+
             elif destination_node_search_result and not source_node_search_result:
                 cypher = f"""
                     MATCH (destination:Entity)
@@ -470,7 +481,7 @@ class MemoryGraph:
                 }
                 if agent_id:
                     params["agent_id"] = agent_id
-                
+
             elif source_node_search_result and destination_node_search_result:
                 cypher = f"""
                     MATCH (source:Entity)
@@ -490,7 +501,7 @@ class MemoryGraph:
                 }
                 if agent_id:
                     params["agent_id"] = agent_id
-                
+
             else:
                 cypher = f"""
                     MERGE (n:{source_type}:Entity {{name: $source_name, user_id: $user_id{agent_id_clause}}})
@@ -512,7 +523,7 @@ class MemoryGraph:
                 }
                 if agent_id:
                     params["agent_id"] = agent_id
-                
+
             result = self.graph.query(cypher, params=params)
             results.append(result)
         return results
@@ -528,7 +539,7 @@ class MemoryGraph:
         """Search for source nodes with similar embeddings."""
         user_id = filters["user_id"]
         agent_id = filters.get("agent_id", None)
-        
+
         if agent_id:
             cypher = """
                 CALL vector_search.search("memzero", 1, $source_embedding) 
@@ -567,7 +578,7 @@ class MemoryGraph:
         """Search for destination nodes with similar embeddings."""
         user_id = filters["user_id"]
         agent_id = filters.get("agent_id", None)
-        
+
         if agent_id:
             cypher = """
                 CALL vector_search.search("memzero", 1, $destination_embedding) 
@@ -601,3 +612,15 @@ class MemoryGraph:
 
         result = self.graph.query(cypher, params=params)
         return result
+
+    def _fetch_existing_indexes(self):
+        """
+        Retrieves information about existing indexes and vector indexes in the Memgraph database.
+
+        Returns:
+            dict: A dictionary containing lists of existing indexes and vector indexes.
+        """
+
+        index_exists = list(self.graph.query("SHOW INDEX INFO;"))
+        vector_index_exists = list(self.graph.query("SHOW VECTOR INDEX INFO;"))
+        return {"index_exists": index_exists, "vector_index_exists": vector_index_exists}

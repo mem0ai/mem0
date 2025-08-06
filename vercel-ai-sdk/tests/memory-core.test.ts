@@ -1,5 +1,5 @@
 import { addMemories, retrieveMemories } from "../src";
-import { LanguageModelV1Prompt } from "ai";
+import { LanguageModelV2Prompt } from '@ai-sdk/provider';
 import { testConfig } from "../config/test-config";
 
 describe("Memory Core Functions", () => {
@@ -8,7 +8,7 @@ describe("Memory Core Functions", () => {
 
   describe("addMemories", () => {
     it("should successfully add memories and return correct format", async () => {
-      const messages: LanguageModelV1Prompt = [
+      const messages: LanguageModelV2Prompt = [
         {
           role: "user",
           content: [
@@ -34,7 +34,7 @@ describe("Memory Core Functions", () => {
   describe("retrieveMemories", () => {
     beforeEach(async () => {
       // Add some test memories before each retrieval test
-      const messages: LanguageModelV1Prompt = [
+      const messages: LanguageModelV2Prompt = [
         {
           role: "user",
           content: [
@@ -56,7 +56,7 @@ describe("Memory Core Functions", () => {
     });
 
     it("should retrieve memories with array of prompts", async () => {
-      const messages: LanguageModelV1Prompt = [
+      const messages: LanguageModelV2Prompt = [
         {
           role: "user",
           content: [

@@ -5,8 +5,8 @@ from pydantic import BaseModel
 
 try:
     from pymongo import MongoClient
-    from pymongo.operations import SearchIndexModel
     from pymongo.errors import PyMongoError
+    from pymongo.operations import SearchIndexModel
 except ImportError:
     raise ImportError("The 'pymongo' library is required. Please install it using 'pip install pymongo'.")
 
@@ -26,13 +26,7 @@ class MongoDB(VectorStoreBase):
     VECTOR_TYPE = "knnVector"
     SIMILARITY_METRIC = "cosine"
 
-    def __init__(
-        self,
-        db_name: str,
-        collection_name: str,
-        embedding_model_dims: int,
-        mongo_uri: str
-    ):
+    def __init__(self, db_name: str, collection_name: str, embedding_model_dims: int, mongo_uri: str):
         """
         Initialize the MongoDB vector store with vector search capabilities.
 
@@ -46,9 +40,7 @@ class MongoDB(VectorStoreBase):
         self.embedding_model_dims = embedding_model_dims
         self.db_name = db_name
 
-        self.client = MongoClient(
-            mongo_uri
-        )
+        self.client = MongoClient(mongo_uri)
         self.db = self.client[db_name]
         self.collection = self.create_col()
 
@@ -169,7 +161,7 @@ class MongoDB(VectorStoreBase):
                 {"$set": {"score": {"$meta": "vectorSearchScore"}}},
                 {"$project": {"embedding": 0}},
             ]
-
+            
             # Add filters if provided
             if filters:
                 pipeline.insert(1, {"$match": filters})
@@ -297,7 +289,15 @@ class MongoDB(VectorStoreBase):
             List[OutputData]: List of vectors.
         """
         try:
-            query = filters or {}
+            query = {}
+            if filters:
+                # Apply filters to the payload field
+                filter_conditions = []
+                for key, value in filters.items():
+                    filter_conditions.append({"payload." + key: value})
+                if filter_conditions:
+                    query = {"$and": filter_conditions}
+            
             cursor = self.collection.find(query).limit(limit)
             results = [OutputData(id=str(doc["_id"]), score=None, payload=doc.get("payload")) for doc in cursor]
             logger.info(f"Retrieved {len(results)} documents from collection '{self.collection_name}'.")
@@ -305,7 +305,7 @@ class MongoDB(VectorStoreBase):
         except PyMongoError as e:
             logger.error(f"Error listing documents: {e}")
             return []
-    
+
     def reset(self):
         """Reset the collection by deleting and recreating it."""
         logger.warning(f"Resetting collection {self.collection_name}...")
