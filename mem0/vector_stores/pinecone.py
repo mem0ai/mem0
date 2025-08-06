@@ -36,6 +36,7 @@ class PineconeDB(VectorStoreBase):
         metric: str,
         batch_size: int,
         extra_params: Optional[Dict[str, Any]],
+        namespace: Optional[str] = None,
     ):
         """
         Initialize the Pinecone vector store.
@@ -52,6 +53,7 @@ class PineconeDB(VectorStoreBase):
             metric (str, optional): Distance metric for vector similarity. Defaults to "cosine".
             batch_size (int, optional): Batch size for operations. Defaults to 100.
             extra_params (Dict, optional): Additional parameters for Pinecone client. Defaults to None.
+            namespace (str, optional): Namespace for the collection. Defaults to None.
         """
         if client:
             self.client = client
@@ -73,6 +75,7 @@ class PineconeDB(VectorStoreBase):
         self.hybrid_search = hybrid_search
         self.metric = metric
         self.batch_size = batch_size
+        self.namespace = namespace
 
         self.sparse_encoder = None
         if self.hybrid_search:
@@ -148,11 +151,11 @@ class PineconeDB(VectorStoreBase):
             items.append(vector_record)
 
             if len(items) >= self.batch_size:
-                self.index.upsert(vectors=items)
+                self.index.upsert(vectors=items, namespace=self.namespace)
                 items = []
 
         if items:
-            self.index.upsert(vectors=items)
+            self.index.upsert(vectors=items, namespace=self.namespace)
 
     def _parse_output(self, data: Dict) -> List[OutputData]:
         """
@@ -233,7 +236,7 @@ class PineconeDB(VectorStoreBase):
                 sparse_vector = self.sparse_encoder.encode_queries(query_text)
                 query_params["sparse_vector"] = sparse_vector
 
-        response = self.index.query(**query_params)
+        response = self.index.query(**query_params, namespace=self.namespace)
 
         results = self._parse_output(response.matches)
         return results
@@ -245,7 +248,7 @@ class PineconeDB(VectorStoreBase):
         Args:
             vector_id (Union[str, int]): ID of the vector to delete.
         """
-        self.index.delete(ids=[str(vector_id)])
+        self.index.delete(ids=[str(vector_id)], namespace=self.namespace)
 
     def update(self, vector_id: Union[str, int], vector: Optional[List[float]] = None, payload: Optional[Dict] = None):
         """
@@ -270,7 +273,7 @@ class PineconeDB(VectorStoreBase):
                 sparse_vector = self.sparse_encoder.encode_documents(payload["text"])
                 item["sparse_values"] = sparse_vector
 
-        self.index.upsert(vectors=[item])
+        self.index.upsert(vectors=[item], namespace=self.namespace)
 
     def get(self, vector_id: Union[str, int]) -> OutputData:
         """
@@ -283,7 +286,7 @@ class PineconeDB(VectorStoreBase):
             dict: Retrieved vector or None if not found.
         """
         try:
-            response = self.index.fetch(ids=[str(vector_id)])
+            response = self.index.fetch(ids=[str(vector_id)], namespace=self.namespace)
             if str(vector_id) in response.vectors:
                 return self._parse_output(response.vectors[str(vector_id)])
             return None
@@ -346,7 +349,7 @@ class PineconeDB(VectorStoreBase):
             query_params["filter"] = filter_dict
 
         try:
-            response = self.index.query(**query_params)
+            response = self.index.query(**query_params, namespace=self.namespace)
             response = response.to_dict()
             results = self._parse_output(response["matches"])
             return [results]
@@ -362,7 +365,13 @@ class PineconeDB(VectorStoreBase):
             int: Total number of vectors.
         """
         stats = self.index.describe_index_stats()
-        return stats.total_vector_count
+        if self.namespace:
+            # Safely get the namespace stats and return vector_count, defaulting to 0 if not found
+            namespace_summary = (stats.namespaces or {}).get(self.namespace)
+            if namespace_summary:
+                return namespace_summary.vector_count or 0
+            return 0
+        return stats.total_vector_count or 0
 
     def reset(self):
         """

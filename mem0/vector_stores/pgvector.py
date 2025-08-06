@@ -2,13 +2,28 @@ import json
 import logging
 from typing import List, Optional
 
+from psycopg.types.json import Json
 from pydantic import BaseModel
 
+# Try to import psycopg (psycopg3) first, then fall back to psycopg2
 try:
-    import psycopg2
-    from psycopg2.extras import execute_values
+    import psycopg
+    from psycopg import execute_values
+    PSYCOPG_VERSION = 3
+    logger = logging.getLogger(__name__)
+    logger.info("Using psycopg (psycopg3) for PostgreSQL connections")
 except ImportError:
-    raise ImportError("The 'psycopg2' library is required. Please install it using 'pip install psycopg2'.")
+    try:
+        import psycopg2
+        from psycopg2.extras import execute_values
+        PSYCOPG_VERSION = 2
+        logger = logging.getLogger(__name__)
+        logger.info("Using psycopg2 for PostgreSQL connections")
+    except ImportError:
+        raise ImportError(
+            "Neither 'psycopg' nor 'psycopg2' library is available. "
+            "Please install one of them using 'pip install psycopg' or 'pip install psycopg2'."
+        )
 
 from mem0.vector_stores.base import VectorStoreBase
 
@@ -75,7 +90,11 @@ class PGVector(VectorStoreBase):
                 else:
                     # Add sslmode to connection string
                     connection_string = f"{connection_string} sslmode={sslmode}"
-            self.conn = psycopg2.connect(connection_string)
+            
+            if PSYCOPG_VERSION == 3:
+                self.conn = psycopg.connect(connection_string)
+            else:
+                self.conn = psycopg2.connect(connection_string)
             self.connection_pool = None
         else:
             # Use individual connection parameters
@@ -88,9 +107,13 @@ class PGVector(VectorStoreBase):
             }
             if sslmode:
                 conn_params['sslmode'] = sslmode
-            self.conn = psycopg2.connect(**conn_params)
+            
+            if PSYCOPG_VERSION == 3:
+                self.conn = psycopg.connect(**conn_params)
+            else:
+                self.conn = psycopg2.connect(**conn_params)
             self.connection_pool = None
-
+        
         self.cur = self.conn.cursor()
 
         collections = self.list_cols()
@@ -221,10 +244,19 @@ class PGVector(VectorStoreBase):
                 (vector, vector_id),
             )
         if payload:
-            self.cur.execute(
-                f"UPDATE {self.collection_name} SET payload = %s WHERE id = %s",
-                (psycopg2.extras.Json(payload), vector_id),
-            )
+            # Handle JSON serialization based on psycopg version
+            if PSYCOPG_VERSION == 3:
+                # psycopg3 uses psycopg.types.json.Json
+                self.cur.execute(
+                    f"UPDATE {self.collection_name} SET payload = %s WHERE id = %s",
+                    (Json(payload), vector_id),
+                )
+            else:
+                # psycopg2 uses psycopg2.extras.Json
+                self.cur.execute(
+                    f"UPDATE {self.collection_name} SET payload = %s WHERE id = %s",
+                    (psycopg2.extras.Json(payload), vector_id),
+                )
         self.conn.commit()
 
     def get(self, vector_id) -> OutputData:
