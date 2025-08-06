@@ -48,6 +48,9 @@ class PGVector(VectorStoreBase):
         port,
         diskann,
         hnsw,
+        sslmode=None,
+        connection_string=None,
+        connection_pool=None,
     ):
         """
         Initialize the PGVector database.
@@ -62,20 +65,54 @@ class PGVector(VectorStoreBase):
             port (int, optional): Database port
             diskann (bool, optional): Use DiskANN for faster search
             hnsw (bool, optional): Use HNSW for faster search
+            sslmode (str, optional): SSL mode for PostgreSQL connection (e.g., 'require', 'prefer', 'disable')
+            connection_string (str, optional): PostgreSQL connection string (overrides individual connection parameters)
+            connection_pool (Any, optional): psycopg2 connection pool object (overrides connection string and individual parameters)
         """
         self.collection_name = collection_name
         self.use_diskann = diskann
         self.use_hnsw = hnsw
         self.embedding_model_dims = embedding_model_dims
 
-        if PSYCOPG_VERSION == 3:
-            self.conn = psycopg.connect(
-                dbname=dbname, user=user, password=password, host=host, port=port
-            )
+        # Connection setup with priority: connection_pool > connection_string > individual parameters
+        if connection_pool is not None:
+            # Use provided connection pool
+            self.conn = connection_pool.getconn()
+            self.connection_pool = connection_pool
+        elif connection_string is not None:
+            # Use connection string
+            if sslmode:
+                # Append sslmode to connection string if provided
+                if 'sslmode=' in connection_string:
+                    # Replace existing sslmode
+                    import re
+                    connection_string = re.sub(r'sslmode=[^ ]*', f'sslmode={sslmode}', connection_string)
+                else:
+                    # Add sslmode to connection string
+                    connection_string = f"{connection_string} sslmode={sslmode}"
+            
+            if PSYCOPG_VERSION == 3:
+                self.conn = psycopg.connect(connection_string)
+            else:
+                self.conn = psycopg2.connect(connection_string)
+            self.connection_pool = None
         else:
-            self.conn = psycopg2.connect(
-                dbname=dbname, user=user, password=password, host=host, port=port
-            )
+            # Use individual connection parameters
+            conn_params = {
+                'dbname': dbname,
+                'user': user,
+                'password': password,
+                'host': host,
+                'port': port
+            }
+            if sslmode:
+                conn_params['sslmode'] = sslmode
+            
+            if PSYCOPG_VERSION == 3:
+                self.conn = psycopg.connect(**conn_params)
+            else:
+                self.conn = psycopg2.connect(**conn_params)
+            self.connection_pool = None
         
         self.cur = self.conn.cursor()
 
@@ -317,7 +354,12 @@ class PGVector(VectorStoreBase):
         if hasattr(self, "cur"):
             self.cur.close()
         if hasattr(self, "conn"):
-            self.conn.close()
+            if hasattr(self, "connection_pool") and self.connection_pool is not None:
+                # Return connection to pool instead of closing it
+                self.connection_pool.putconn(self.conn)
+            else:
+                # Close the connection directly
+                self.conn.close()
 
     def reset(self):
         """Reset the index by deleting and recreating it."""
