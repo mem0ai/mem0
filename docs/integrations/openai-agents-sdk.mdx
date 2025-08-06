@@ -47,8 +47,8 @@ mem0 = MemoryClient()
 def search_memory(query: str, user_id: str) -> str:
     """Search through past conversations and memories"""
     memories = mem0.search(query, user_id=user_id, limit=3)
-    if memories:
-        return "\n".join([f"- {mem['memory']}" for mem in memories])
+    if memories and memories.get('results'):
+        return "\n".join([f"- {mem['memory']}" for mem in memories['results']])
     return "No relevant memories found."
 
 @function_tool

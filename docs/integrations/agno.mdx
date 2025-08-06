@@ -128,7 +128,7 @@ def chat_user(
     if user_input:
         # Search for relevant memories
         memories = client.search(user_input, user_id=user_id)
-        memory_context = "\n".join(f"- {m['memory']}" for m in memories)
+        memory_context = "\n".join(f"- {m['memory']}" for m in memories.get('results', []))
 
         # Construct the prompt
         prompt = f"""
