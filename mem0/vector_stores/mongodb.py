@@ -112,7 +112,7 @@ class MongoDB(VectorStoreBase):
             logger.error(f"Error inserting data: {e}")
 
     def search(
-        self, query: str, query_vector: List[float], limit=5, filters: Optional[Dict] = None
+        self, query: str, vectors: List[float], limit=5, filters: Optional[Dict] = None
     ) -> List[OutputData]:
         """
         Search for similar vectors using the vector search index.
@@ -141,7 +141,7 @@ class MongoDB(VectorStoreBase):
                         "index": self.index_name,
                         "limit": limit,
                         "numCandidates": limit,
-                        "queryVector": query_vector,
+                        "queryVector": vectors,
                         "path": "embedding",
                     }
                 },
