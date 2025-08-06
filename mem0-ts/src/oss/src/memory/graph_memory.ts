@@ -1,6 +1,5 @@
 import neo4j, { Driver } from "neo4j-driver";
 import { BM25 } from "../utils/bm25";
-import { GraphStoreConfig } from "../graphs/configs";
 import { MemoryConfig } from "../types";
 import { EmbedderFactory, LLMFactory } from "../utils/factory";
 import { Embedder } from "../embeddings/base";
@@ -23,15 +22,6 @@ interface SearchOutput {
   similarity: number;
 }
 
-interface ToolCall {
-  name: string;
-  arguments: string;
-}
-
-interface LLMResponse {
-  toolCalls?: ToolCall[];
-}
-
 interface Tool {
   type: string;
   function: {
@@ -51,7 +41,6 @@ export class MemoryGraph {
   private config: MemoryConfig;
   private graph: Driver;
   private embeddingModel: Embedder;
-  private llm: LLM;
   private structuredLlm: LLM;
   private llmProvider: string;
   private threshold: number;
@@ -80,17 +69,28 @@ export class MemoryGraph {
     );
 
     this.llmProvider = "openai";
+    let llmConfig = this.config.llm?.config;
+
     if (this.config.llm?.provider) {
       this.llmProvider = this.config.llm.provider;
     }
+
     if (this.config.graphStore?.llm?.provider) {
       this.llmProvider = this.config.graphStore.llm.provider;
     }
 
-    this.llm = LLMFactory.create(this.llmProvider, this.config.llm.config);
-    this.structuredLlm = LLMFactory.create(
+    if (this.config.graphStore?.llm?.config) {
+      llmConfig = this.config.graphStore.llm.config;
+    }
+
+    const isStructuredProvider = [
       "openai_structured",
-      this.config.llm.config,
+      "azure_openai_structured",
+    ].includes(this.llmProvider);
+
+    this.structuredLlm = LLMFactory.create(
+      isStructuredProvider ? this.llmProvider : "openai_structured",
+      llmConfig,
     );
     this.threshold = 0.7;
   }
@@ -141,6 +141,7 @@ export class MemoryGraph {
     const searchOutput = await this._searchGraphDb(
       Object.keys(entityTypeMap),
       filters,
+      limit,
     );
 
     if (!searchOutput.length) {
@@ -313,8 +314,9 @@ export class MemoryGraph {
     const session = this.graph.session();
 
     try {
-      for (const node of nodeList) {
-        const nEmbedding = await this.embeddingModel.embed(node);
+      const embeddedNodes = await this.embeddingModel.embedBatch(nodeList);
+      for (const [index, node] of nodeList.entries()) {
+        const nEmbedding = embeddedNodes[index];
 
         const cypher = `
           MATCH (n)
@@ -423,7 +425,7 @@ export class MemoryGraph {
           -[r:${relationship}]->
           (m {name: $dest_name, user_id: $user_id})
           DELETE r
-          RETURN 
+          RETURN
               n.name AS source,
               m.name AS target,
               type(r) AS relationship
@@ -453,13 +455,20 @@ export class MemoryGraph {
     const session = this.graph.session();
 
     try {
-      for (const item of toBeAdded) {
+      const sources = toBeAdded.map((item) => item.source);
+      const destinations = toBeAdded.map((item) => item.destination);
+      const allToEmbed = [...sources, ...destinations];
+      const allEmbeddings = await this.embeddingModel.embedBatch(allToEmbed);
+      // Use the precomputed embeddings in the for loop
+      for (let i = 0; i < toBeAdded.length; i++) {
+        const item = toBeAdded[i];
         const { source, destination, relationship } = item;
         const sourceType = entityTypeMap[source] || "unknown";
         const destinationType = entityTypeMap[destination] || "unknown";
 
-        const sourceEmbedding = await this.embeddingModel.embed(source);
-        const destEmbedding = await this.embeddingModel.embed(destination);
+        // Use the embeddings from allEmbeddings
+        const sourceEmbedding = allEmbeddings[i];
+        const destEmbedding = allEmbeddings[i + toBeAdded.length];
 
         const sourceNodeSearchResult = await this._searchSourceNode(
           sourceEmbedding,
@@ -485,7 +494,7 @@ export class MemoryGraph {
                 destination.created = timestamp(),
                 destination.embedding = $destination_embedding
             MERGE (source)-[r:${relationship}]->(destination)
-            ON CREATE SET 
+            ON CREATE SET
                 r.created = timestamp()
             RETURN source.name AS source, type(r) AS relationship, destination.name AS target
           `;
@@ -508,7 +517,7 @@ export class MemoryGraph {
                 source.created = timestamp(),
                 source.embedding = $source_embedding
             MERGE (source)-[r:${relationship}]->(destination)
-            ON CREATE SET 
+            ON CREATE SET
                 r.created = timestamp()
             RETURN source.name AS source, type(r) AS relationship, destination.name AS target
           `;
@@ -529,7 +538,7 @@ export class MemoryGraph {
             MATCH (destination)
             WHERE elementId(destination) = $destination_id
             MERGE (source)-[r:${relationship}]->(destination)
-            ON CREATE SET 
+            ON CREATE SET
                 r.created_at = timestamp(),
                 r.updated_at = timestamp()
             RETURN source.name AS source, type(r) AS relationship, destination.name AS target
@@ -590,7 +599,7 @@ export class MemoryGraph {
     try {
       const cypher = `
         MATCH (source_candidate)
-        WHERE source_candidate.embedding IS NOT NULL 
+        WHERE source_candidate.embedding IS NOT NULL
         AND source_candidate.user_id = $user_id
 
         WITH source_candidate,
@@ -636,7 +645,7 @@ export class MemoryGraph {
     try {
       const cypher = `
         MATCH (destination_candidate)
-        WHERE destination_candidate.embedding IS NOT NULL 
+        WHERE destination_candidate.embedding IS NOT NULL
         AND destination_candidate.user_id = $user_id
 
         WITH destination_candidate,
