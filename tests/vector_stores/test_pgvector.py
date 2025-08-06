@@ -709,6 +709,440 @@ class TestPGVector(unittest.TestCase):
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
     @patch('mem0.vector_stores.pgvector.psycopg.connect')
     @patch('mem0.vector_stores.pgvector.psycopg2.connect')
+    def test_search_with_filters_psycopg3(self, mock_psycopg2_connect, mock_psycopg_connect):
+        """Test search with filters using psycopg3."""
+        mock_psycopg_connect.return_value = self.mock_conn
+        self.mock_cursor.fetchall.return_value = [
+            (self.test_ids[0], 0.1, {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}),
+        ]
+        
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False
+        )
+        
+        filters = {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}
+        results = pgvector.search("test query", [0.1, 0.2, 0.3], limit=2, filters=filters)
+        
+        # Verify search query was executed with filters
+        search_calls = [call for call in self.mock_cursor.execute.call_args_list 
+                       if "SELECT id, vector <=" in str(call) and "WHERE" in str(call)]
+        self.assertTrue(len(search_calls) > 0)
+        
+        # Verify results
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].id, self.test_ids[0])
+        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[0].payload["user_id"], "alice")
+        self.assertEqual(results[0].payload["agent_id"], "agent1")
+        self.assertEqual(results[0].payload["run_id"], "run1")
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
+    @patch('mem0.vector_stores.pgvector.psycopg2.connect')
+    def test_search_with_filters_psycopg2(self, mock_connect):
+        """Test search with filters using psycopg2."""
+        mock_connect.return_value = self.mock_conn
+        self.mock_cursor.fetchall.return_value = [
+            (self.test_ids[0], 0.1, {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}),
+        ]
+        
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False
+        )
+        
+        filters = {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}
+        results = pgvector.search("test query", [0.1, 0.2, 0.3], limit=2, filters=filters)
+        
+        # Verify search query was executed with filters
+        search_calls = [call for call in self.mock_cursor.execute.call_args_list 
+                       if "SELECT id, vector <=" in str(call) and "WHERE" in str(call)]
+        self.assertTrue(len(search_calls) > 0)
+        
+        # Verify results
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].id, self.test_ids[0])
+        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[0].payload["user_id"], "alice")
+        self.assertEqual(results[0].payload["agent_id"], "agent1")
+        self.assertEqual(results[0].payload["run_id"], "run1")
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.psycopg.connect')
+    @patch('mem0.vector_stores.pgvector.psycopg2.connect')
+    def test_search_with_single_filter_psycopg3(self, mock_psycopg2_connect, mock_psycopg_connect):
+        """Test search with single filter using psycopg3."""
+        mock_psycopg_connect.return_value = self.mock_conn
+        self.mock_cursor.fetchall.return_value = [
+            (self.test_ids[0], 0.1, {"user_id": "alice"}),
+        ]
+        
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False
+        )
+        
+        filters = {"user_id": "alice"}
+        results = pgvector.search("test query", [0.1, 0.2, 0.3], limit=2, filters=filters)
+        
+        # Verify search query was executed with single filter
+        search_calls = [call for call in self.mock_cursor.execute.call_args_list 
+                       if "SELECT id, vector <=" in str(call) and "WHERE" in str(call)]
+        self.assertTrue(len(search_calls) > 0)
+        
+        # Verify results
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].id, self.test_ids[0])
+        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[0].payload["user_id"], "alice")
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
+    @patch('mem0.vector_stores.pgvector.psycopg2.connect')
+    def test_search_with_single_filter_psycopg2(self, mock_connect):
+        """Test search with single filter using psycopg2."""
+        mock_connect.return_value = self.mock_conn
+        self.mock_cursor.fetchall.return_value = [
+            (self.test_ids[0], 0.1, {"user_id": "alice"}),
+        ]
+        
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False
+        )
+        
+        filters = {"user_id": "alice"}
+        results = pgvector.search("test query", [0.1, 0.2, 0.3], limit=2, filters=filters)
+        
+        # Verify search query was executed with single filter
+        search_calls = [call for call in self.mock_cursor.execute.call_args_list 
+                       if "SELECT id, vector <=" in str(call) and "WHERE" in str(call)]
+        self.assertTrue(len(search_calls) > 0)
+        
+        # Verify results
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].id, self.test_ids[0])
+        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[0].payload["user_id"], "alice")
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.psycopg.connect')
+    @patch('mem0.vector_stores.pgvector.psycopg2.connect')
+    def test_search_with_no_filters_psycopg3(self, mock_psycopg2_connect, mock_psycopg_connect):
+        """Test search with no filters using psycopg3."""
+        mock_psycopg_connect.return_value = self.mock_conn
+        self.mock_cursor.fetchall.return_value = [
+            (self.test_ids[0], 0.1, {"key": "value1"}),
+            (self.test_ids[1], 0.2, {"key": "value2"}),
+        ]
+        
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False
+        )
+        
+        results = pgvector.search("test query", [0.1, 0.2, 0.3], limit=2, filters=None)
+        
+        # Verify search query was executed without WHERE clause
+        search_calls = [call for call in self.mock_cursor.execute.call_args_list 
+                       if "SELECT id, vector <=" in str(call) and "WHERE" not in str(call)]
+        self.assertTrue(len(search_calls) > 0)
+        
+        # Verify results
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0].id, self.test_ids[0])
+        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[1].id, self.test_ids[1])
+        self.assertEqual(results[1].score, 0.2)
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
+    @patch('mem0.vector_stores.pgvector.psycopg2.connect')
+    def test_search_with_no_filters_psycopg2(self, mock_connect):
+        """Test search with no filters using psycopg2."""
+        mock_connect.return_value = self.mock_conn
+        self.mock_cursor.fetchall.return_value = [
+            (self.test_ids[0], 0.1, {"key": "value1"}),
+            (self.test_ids[1], 0.2, {"key": "value2"}),
+        ]
+        
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False
+        )
+        
+        results = pgvector.search("test query", [0.1, 0.2, 0.3], limit=2, filters=None)
+        
+        # Verify search query was executed without WHERE clause
+        search_calls = [call for call in self.mock_cursor.execute.call_args_list 
+                       if "SELECT id, vector <=" in str(call) and "WHERE" not in str(call)]
+        self.assertTrue(len(search_calls) > 0)
+        
+        # Verify results
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0].id, self.test_ids[0])
+        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[1].id, self.test_ids[1])
+        self.assertEqual(results[1].score, 0.2)
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.psycopg.connect')
+    @patch('mem0.vector_stores.pgvector.psycopg2.connect')
+    def test_list_with_filters_psycopg3(self, mock_psycopg2_connect, mock_psycopg_connect):
+        """Test list with filters using psycopg3."""
+        mock_psycopg_connect.return_value = self.mock_conn
+        self.mock_cursor.fetchall.return_value = [
+            (self.test_ids[0], [0.1, 0.2, 0.3], {"user_id": "alice", "agent_id": "agent1"}),
+        ]
+        
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False
+        )
+        
+        filters = {"user_id": "alice", "agent_id": "agent1"}
+        results = pgvector.list(filters=filters, limit=2)
+        
+        # Verify list query was executed with filters
+        list_calls = [call for call in self.mock_cursor.execute.call_args_list 
+                     if "SELECT id, vector, payload" in str(call) and "WHERE" in str(call)]
+        self.assertTrue(len(list_calls) > 0)
+        
+        # Verify results
+        self.assertEqual(len(results), 1)  # Returns list of lists
+        self.assertEqual(len(results[0]), 1)
+        self.assertEqual(results[0][0].id, self.test_ids[0])
+        self.assertEqual(results[0][0].payload["user_id"], "alice")
+        self.assertEqual(results[0][0].payload["agent_id"], "agent1")
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
+    @patch('mem0.vector_stores.pgvector.psycopg2.connect')
+    def test_list_with_filters_psycopg2(self, mock_connect):
+        """Test list with filters using psycopg2."""
+        mock_connect.return_value = self.mock_conn
+        self.mock_cursor.fetchall.return_value = [
+            (self.test_ids[0], [0.1, 0.2, 0.3], {"user_id": "alice", "agent_id": "agent1"}),
+        ]
+        
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False
+        )
+        
+        filters = {"user_id": "alice", "agent_id": "agent1"}
+        results = pgvector.list(filters=filters, limit=2)
+        
+        # Verify list query was executed with filters
+        list_calls = [call for call in self.mock_cursor.execute.call_args_list 
+                     if "SELECT id, vector, payload" in str(call) and "WHERE" in str(call)]
+        self.assertTrue(len(list_calls) > 0)
+        
+        # Verify results
+        self.assertEqual(len(results), 1)  # Returns list of lists
+        self.assertEqual(len(results[0]), 1)
+        self.assertEqual(results[0][0].id, self.test_ids[0])
+        self.assertEqual(results[0][0].payload["user_id"], "alice")
+        self.assertEqual(results[0][0].payload["agent_id"], "agent1")
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.psycopg.connect')
+    @patch('mem0.vector_stores.pgvector.psycopg2.connect')
+    def test_list_with_single_filter_psycopg3(self, mock_psycopg2_connect, mock_psycopg_connect):
+        """Test list with single filter using psycopg3."""
+        mock_psycopg_connect.return_value = self.mock_conn
+        self.mock_cursor.fetchall.return_value = [
+            (self.test_ids[0], [0.1, 0.2, 0.3], {"user_id": "alice"}),
+        ]
+        
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False
+        )
+        
+        filters = {"user_id": "alice"}
+        results = pgvector.list(filters=filters, limit=2)
+        
+        # Verify list query was executed with single filter
+        list_calls = [call for call in self.mock_cursor.execute.call_args_list 
+                     if "SELECT id, vector, payload" in str(call) and "WHERE" in str(call)]
+        self.assertTrue(len(list_calls) > 0)
+        
+        # Verify results
+        self.assertEqual(len(results), 1)  # Returns list of lists
+        self.assertEqual(len(results[0]), 1)
+        self.assertEqual(results[0][0].id, self.test_ids[0])
+        self.assertEqual(results[0][0].payload["user_id"], "alice")
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
+    @patch('mem0.vector_stores.pgvector.psycopg2.connect')
+    def test_list_with_single_filter_psycopg2(self, mock_connect):
+        """Test list with single filter using psycopg2."""
+        mock_connect.return_value = self.mock_conn
+        self.mock_cursor.fetchall.return_value = [
+            (self.test_ids[0], [0.1, 0.2, 0.3], {"user_id": "alice"}),
+        ]
+        
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False
+        )
+        
+        filters = {"user_id": "alice"}
+        results = pgvector.list(filters=filters, limit=2)
+        
+        # Verify list query was executed with single filter
+        list_calls = [call for call in self.mock_cursor.execute.call_args_list 
+                     if "SELECT id, vector, payload" in str(call) and "WHERE" in str(call)]
+        self.assertTrue(len(list_calls) > 0)
+        
+        # Verify results
+        self.assertEqual(len(results), 1)  # Returns list of lists
+        self.assertEqual(len(results[0]), 1)
+        self.assertEqual(results[0][0].id, self.test_ids[0])
+        self.assertEqual(results[0][0].payload["user_id"], "alice")
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.psycopg.connect')
+    @patch('mem0.vector_stores.pgvector.psycopg2.connect')
+    def test_list_with_no_filters_psycopg3(self, mock_psycopg2_connect, mock_psycopg_connect):
+        """Test list with no filters using psycopg3."""
+        mock_psycopg_connect.return_value = self.mock_conn
+        self.mock_cursor.fetchall.return_value = [
+            (self.test_ids[0], [0.1, 0.2, 0.3], {"key": "value1"}),
+            (self.test_ids[1], [0.4, 0.5, 0.6], {"key": "value2"}),
+        ]
+        
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False
+        )
+        
+        results = pgvector.list(filters=None, limit=2)
+        
+        # Verify list query was executed without WHERE clause
+        list_calls = [call for call in self.mock_cursor.execute.call_args_list 
+                     if "SELECT id, vector, payload" in str(call) and "WHERE" not in str(call)]
+        self.assertTrue(len(list_calls) > 0)
+        
+        # Verify results
+        self.assertEqual(len(results), 1)  # Returns list of lists
+        self.assertEqual(len(results[0]), 2)
+        self.assertEqual(results[0][0].id, self.test_ids[0])
+        self.assertEqual(results[0][1].id, self.test_ids[1])
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
+    @patch('mem0.vector_stores.pgvector.psycopg2.connect')
+    def test_list_with_no_filters_psycopg2(self, mock_connect):
+        """Test list with no filters using psycopg2."""
+        mock_connect.return_value = self.mock_conn
+        self.mock_cursor.fetchall.return_value = [
+            (self.test_ids[0], [0.1, 0.2, 0.3], {"key": "value1"}),
+            (self.test_ids[1], [0.4, 0.5, 0.6], {"key": "value2"}),
+        ]
+        
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False
+        )
+        
+        results = pgvector.list(filters=None, limit=2)
+        
+        # Verify list query was executed without WHERE clause
+        list_calls = [call for call in self.mock_cursor.execute.call_args_list 
+                     if "SELECT id, vector, payload" in str(call) and "WHERE" not in str(call)]
+        self.assertTrue(len(list_calls) > 0)
+        
+        # Verify results
+        self.assertEqual(len(results), 1)  # Returns list of lists
+        self.assertEqual(len(results[0]), 2)
+        self.assertEqual(results[0][0].id, self.test_ids[0])
+        self.assertEqual(results[0][1].id, self.test_ids[1])
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.psycopg.connect')
+    @patch('mem0.vector_stores.pgvector.psycopg2.connect')
     def test_reset_psycopg3(self, mock_psycopg2_connect, mock_psycopg_connect):
         """Test reset with psycopg3."""
         mock_psycopg_connect.return_value = self.mock_conn
