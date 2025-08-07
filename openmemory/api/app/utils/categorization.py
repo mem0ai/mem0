@@ -4,11 +4,24 @@ from typing import List
 from app.utils.prompts import MEMORY_CATEGORIZATION_PROMPT
 from dotenv import load_dotenv
 from openai import OpenAI
+import os
 from pydantic import BaseModel
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 load_dotenv()
-openai_client = OpenAI()
+if os.environ.get("OPENROUTER_API_KEY"):
+    openai_client = OpenAI(
+        api_key=os.environ.get("OPENROUTER_API_KEY"),
+        base_url=os.getenv("OPENROUTER_API_BASE")
+        or "https://openrouter.ai/api/v1",
+    )
+else:
+    openai_client = OpenAI(
+        api_key=os.getenv("OPENAI_API_KEY"),
+        base_url=os.getenv("OPENAI_API_BASE")
+        or os.getenv("OPENAI_BASE_URL")
+        or "https://api.openai.com/v1",
+    )
 
 
 class MemoryCategories(BaseModel):
