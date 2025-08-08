@@ -63,7 +63,6 @@ class OpenAIConfig(BaseLlmConfig):
             enable_vision=enable_vision,
             vision_details=vision_details,
             http_client_proxies=http_client_proxies,
-            response_callback=response_callback,
         )
 
         # OpenAI-specific parameters
