@@ -1,6 +1,6 @@
 """
 Simple test to validate Neo4j Cypher syntax fixes
-Tests that our agent_id fixes generate valid Cypher without undefined variables
+Tests that our agent_id and run_id fixes generate valid Cypher without undefined variables
 """
 
 from unittest.mock import Mock, patch
@@ -36,6 +36,11 @@ class TestNeo4jCypherSyntaxFix:
         assert "node_props" in content
         assert "agent_id: $agent_id" in content
         
+        # Ensure run_id follows the same pattern
+        # Check for absence of problematic run_id patterns
+        assert "AND n.run_id = $run_id AND m.run_id = $run_id" not in content
+        assert "WHERE 1=1 {run_id_filter}" not in content
+        
     def test_no_undefined_variables_in_cypher(self):
         """Test that we don't have undefined variable patterns"""
         with open('mem0/memory/graph_memory.py', 'r') as f:
@@ -50,6 +55,13 @@ class TestNeo4jCypherSyntaxFix:
                 preceding_lines = lines[max(0, i-10):i]
                 match_found = any('MATCH' in prev_line and ' m ' in prev_line for prev_line in preceding_lines)
                 assert match_found, f"Line {i+1}: WHERE clause references 'm' without MATCH definition"
+            
+            # Also check for run_id patterns that might have similar issues
+            if 'WHERE' in line and 'm.run_id' in line:
+                # Check if there's a MATCH clause before this that defines 'm'
+                preceding_lines = lines[max(0, i-10):i]
+                match_found = any('MATCH' in prev_line and ' m ' in prev_line for prev_line in preceding_lines)
+                assert match_found, f"Line {i+1}: WHERE clause references 'm.run_id' without MATCH definition"
 
     def test_agent_id_integration_syntax(self):
         """Test that agent_id is properly integrated into MATCH clauses"""
@@ -63,4 +75,131 @@ class TestNeo4jCypherSyntaxFix:
         
         # Should use the node properties in MATCH clauses
         assert '{{{node_props_str}}}' in content or '{node_props_str}' in content
+
+    def test_run_id_integration_syntax(self):
+        """Test that run_id is properly integrated into MATCH clauses"""
+        with open('mem0/memory/graph_memory.py', 'r') as f:
+            content = f.read()
+        
+        # Should have node property building logic for run_id
+        assert 'node_props = [' in content
+        assert 'node_props.append("run_id: $run_id")' in content
+        assert 'node_props_str = ", ".join(node_props)' in content
+        
+        # Should use the node properties in MATCH clauses
+        assert '{{{node_props_str}}}' in content or '{node_props_str}' in content
+
+    def test_agent_id_filter_patterns(self):
+        """Test that agent_id filtering follows the correct pattern"""
+        with open('mem0/memory/graph_memory.py', 'r') as f:
+            content = f.read()
+        
+        # Check that agent_id is handled in filters
+        assert 'if filters.get("agent_id"):' in content
+        assert 'params["agent_id"] = filters["agent_id"]' in content
+        
+        # Check that agent_id is used in node properties
+        assert 'node_props.append("agent_id: $agent_id")' in content
+
+    def test_run_id_filter_patterns(self):
+        """Test that run_id filtering follows the same pattern as agent_id"""
+        with open('mem0/memory/graph_memory.py', 'r') as f:
+            content = f.read()
+        
+        # Check that run_id is handled in filters
+        assert 'if filters.get("run_id"):' in content
+        assert 'params["run_id"] = filters["run_id"]' in content
+        
+        # Check that run_id is used in node properties
+        assert 'node_props.append("run_id: $run_id")' in content
+
+    def test_agent_id_cypher_generation(self):
+        """Test that agent_id is properly included in Cypher query generation"""
+        with open('mem0/memory/graph_memory.py', 'r') as f:
+            content = f.read()
+        
+        # Check that the dynamic property building pattern exists
+        assert 'node_props = [' in content
+        assert 'node_props_str = ", ".join(node_props)' in content
+        
+        # Check that agent_id is handled in the pattern
+        assert 'if filters.get(' in content
+        assert 'node_props.append(' in content
+        
+        # Verify the pattern is used in MATCH clauses
+        assert '{{{node_props_str}}}' in content or '{node_props_str}' in content
+
+    def test_run_id_cypher_generation(self):
+        """Test that run_id is properly included in Cypher query generation"""
+        with open('mem0/memory/graph_memory.py', 'r') as f:
+            content = f.read()
+        
+        # Check that the dynamic property building pattern exists
+        assert 'node_props = [' in content
+        assert 'node_props_str = ", ".join(node_props)' in content
+        
+        # Check that run_id is handled in the pattern
+        assert 'if filters.get(' in content
+        assert 'node_props.append(' in content
+        
+        # Verify the pattern is used in MATCH clauses
+        assert '{{{node_props_str}}}' in content or '{node_props_str}' in content
+
+    def test_agent_id_implementation_pattern(self):
+        """Test that the code structure supports agent_id implementation"""
+        with open('mem0/memory/graph_memory.py', 'r') as f:
+            content = f.read()
+        
+        # Verify that agent_id pattern is used consistently
+        assert 'node_props = [' in content
+        assert 'node_props_str = ", ".join(node_props)' in content
+        assert 'if filters.get("agent_id"):' in content
+        assert 'node_props.append("agent_id: $agent_id")' in content
+
+    def test_run_id_implementation_pattern(self):
+        """Test that the code structure supports run_id implementation"""
+        with open('mem0/memory/graph_memory.py', 'r') as f:
+            content = f.read()
+        
+        # Verify that run_id pattern is used consistently
+        assert 'node_props = [' in content
+        assert 'node_props_str = ", ".join(node_props)' in content
+        assert 'if filters.get("run_id"):' in content
+        assert 'node_props.append("run_id: $run_id")' in content
+
+    def test_user_identity_integration(self):
+        """Test that both agent_id and run_id are properly integrated into user identity"""
+        with open('mem0/memory/graph_memory.py', 'r') as f:
+            content = f.read()
+        
+        # Check that user_identity building includes both agent_id and run_id
+        assert 'user_identity = f"user_id: {filters[\'user_id\']}"' in content
+        assert 'user_identity += f", agent_id: {filters[\'agent_id\']}"' in content
+        assert 'user_identity += f", run_id: {filters[\'run_id\']}"' in content
+
+    def test_search_methods_integration(self):
+        """Test that both agent_id and run_id are properly integrated into search methods"""
+        with open('mem0/memory/graph_memory.py', 'r') as f:
+            content = f.read()
+        
+        # Check that search methods handle both agent_id and run_id
+        assert 'where_conditions.append("source_candidate.agent_id = $agent_id")' in content
+        assert 'where_conditions.append("source_candidate.run_id = $run_id")' in content
+        assert 'where_conditions.append("destination_candidate.agent_id = $agent_id")' in content
+        assert 'where_conditions.append("destination_candidate.run_id = $run_id")' in content
+
+    def test_add_entities_integration(self):
+        """Test that both agent_id and run_id are properly integrated into add_entities"""
+        with open('mem0/memory/graph_memory.py', 'r') as f:
+            content = f.read()
+        
+        # Check that add_entities handles both agent_id and run_id
+        assert 'agent_id = filters.get("agent_id", None)' in content
+        assert 'run_id = filters.get("run_id", None)' in content
+        
+        # Check that merge properties include both
+        assert 'if agent_id:' in content
+        assert 'if run_id:' in content
+        assert 'merge_props.append("agent_id: $agent_id")' in content
+        assert 'merge_props.append("run_id: $run_id")' in content
 
