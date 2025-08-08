@@ -646,6 +646,7 @@ class Memory(MemoryBase):
             raise ValueError("At least one of 'user_id', 'agent_id', or 'run_id' must be specified.")
 
         keys, encoded_ids = process_telemetry_filters(effective_filters)
+        # 请求的元信息
         capture_event(
             "mem0.search",
             self,
@@ -659,8 +660,11 @@ class Memory(MemoryBase):
             },
         )
 
+        # 启用线程池，同时进行两个搜索
         with concurrent.futures.ThreadPoolExecutor() as executor:
+            # 向量搜索
             future_memories = executor.submit(self._search_vector_store, query, effective_filters, limit, threshold)
+            # 图谱搜索
             future_graph_entities = (
                 executor.submit(self.graph.search, query, effective_filters, limit) if self.enable_graph else None
             )

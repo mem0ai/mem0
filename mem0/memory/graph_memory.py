@@ -81,6 +81,8 @@ class MemoryGraph:
         # TODO: Batch queries with APOC plugin
         # TODO: Add more filter support
         deleted_entities = self._delete_entities(to_be_deleted, filters)
+
+        # Add the new entities to the graph，with enbedding
         added_entities = self._add_entities(to_be_added, filters, entity_type_map)
 
         return {"deleted_entities": deleted_entities, "added_entities": added_entities}
@@ -248,7 +250,7 @@ class MemoryGraph:
         logger.debug(f"Extracted entities: {entities}")
         return entities
 
-    def _search_graph_db(self, node_list, filters, limit=100):
+    def  _search_graph_db(self, node_list, filters, limit=100):
         """Search similar nodes among and their respective incoming and outgoing relations."""
         result_relations = []
         agent_filter = ""
@@ -402,7 +404,6 @@ class MemoryGraph:
                 if agent_id:
                     merge_props.append("agent_id: $agent_id")
                 merge_props_str = ", ".join(merge_props)
-
                 cypher = f"""
                 MATCH (source)
                 WHERE elementId(source) = $source_id
