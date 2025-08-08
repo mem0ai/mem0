@@ -91,8 +91,7 @@ class DeepSeekLLM(LLMBase):
         Returns:
             str: The generated response.
         """
-        # Get common parameters
-        params = self._get_common_params(**kwargs)
+        params = self._get_supported_params(messages=messages, **kwargs)
         params.update(
             {
                 "model": self.config.model,

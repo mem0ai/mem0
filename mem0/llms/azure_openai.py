@@ -110,27 +110,13 @@ class AzureOpenAILLM(LLMBase):
 
         messages[-1]["content"] = user_prompt
 
-        # Get common parameters
-        params = self._get_common_params(**kwargs)
-        params.update(
-            {
-                "model": self.config.model,
-                "messages": messages,
-            }
-        )
-
-        if self.config.model in {"o3-mini", "o1-preview", "o1"}:
-            # Use common params for these models
-            pass
-        else:
-            # Add additional parameters for other models
-            params.update(
-                {
-                    "temperature": self.config.temperature,
-                    "max_tokens": self.config.max_tokens,
-                    "top_p": self.config.top_p,
-                }
-            )
+        params = self._get_supported_params(messages=messages, **kwargs)
+        
+        # Add model and messages
+        params.update({
+            "model": self.config.model,
+            "messages": messages,
+        })
 
         if tools:
             params["tools"] = tools

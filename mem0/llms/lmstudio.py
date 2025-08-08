@@ -91,8 +91,7 @@ class LMStudioLLM(LLMBase):
         Returns:
             str: The generated response.
         """
-        # Get common parameters
-        params = self._get_common_params(**kwargs)
+        params = self._get_supported_params(messages=messages, **kwargs)
         params.update(
             {
                 "model": self.config.model,
@@ -100,13 +99,11 @@ class LMStudioLLM(LLMBase):
             }
         )
 
-        # Handle response format - LM Studio defaults to json_object
         if self.config.lmstudio_response_format:
             params["response_format"] = self.config.lmstudio_response_format
         elif response_format:
             params["response_format"] = response_format
         else:
-            # Default to json_object for LM Studio
             params["response_format"] = {"type": "json_object"}
 
         if tools:
