@@ -36,7 +36,7 @@ Here's the parameters available for configuring pgvector:
 
 | Parameter | Description | Default Value |
 | --- | --- | --- |
-| `dbname` | The name of the  | `postgres` |
+| `dbname` | The name of the database | `postgres` |
 | `collection_name` | The name of the collection | `mem0` |
 | `embedding_model_dims` | Dimensions of the embedding model | `1536` |
 | `user` | User name to connect to the database | `None` |
@@ -45,3 +45,11 @@ Here's the parameters available for configuring pgvector:
 | `port` | The port where the Postgres server is running | `None` |
 | `diskann` | Whether to use diskann for vector similarity search (requires pgvectorscale) | `True` |
 | `hnsw` | Whether to use hnsw for vector similarity search | `False` |
+| `sslmode` | SSL mode for PostgreSQL connection (e.g., 'require', 'prefer', 'disable') | `None` |
+| `connection_string` | PostgreSQL connection string (overrides individual connection parameters) | `None` |
+| `connection_pool` | psycopg2 connection pool object (overrides connection string and individual parameters) | `None` |
+
+**Note**: The connection parameters have the following priority:
+1. `connection_pool` (highest priority)
+2. `connection_string`
+3. Individual connection parameters (`user`, `password`, `host`, `port`, `sslmode`)
