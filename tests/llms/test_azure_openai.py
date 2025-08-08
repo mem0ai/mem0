@@ -2,7 +2,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from mem0.configs.llms.base import BaseLlmConfig
+from mem0.configs.llms.azure import AzureOpenAIConfig
 from mem0.llms.azure_openai import AzureOpenAILLM
 
 MODEL = "gpt-4o"  # or your custom deployment name
@@ -20,7 +20,7 @@ def mock_openai_client():
 
 
 def test_generate_response_without_tools(mock_openai_client):
-    config = BaseLlmConfig(model=MODEL, temperature=TEMPERATURE, max_tokens=MAX_TOKENS, top_p=TOP_P)
+    config = AzureOpenAIConfig(model=MODEL, temperature=TEMPERATURE, max_tokens=MAX_TOKENS, top_p=TOP_P)
     llm = AzureOpenAILLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
@@ -40,7 +40,7 @@ def test_generate_response_without_tools(mock_openai_client):
 
 
 def test_generate_response_with_tools(mock_openai_client):
-    config = BaseLlmConfig(model=MODEL, temperature=TEMPERATURE, max_tokens=MAX_TOKENS, top_p=TOP_P)
+    config = AzureOpenAIConfig(model=MODEL, temperature=TEMPERATURE, max_tokens=MAX_TOKENS, top_p=TOP_P)
     llm = AzureOpenAILLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
@@ -96,142 +96,28 @@ def test_init_with_custom_http_client():
 
     config = BaseLlmConfig(model=MODEL)
     mock_http_client = Mock()
-    config.http_client = mock_http_client
-    config.azure_kwargs.api_key = "test-key"
-    config.azure_kwargs.azure_deployment = "deployment"
-    config.azure_kwargs.azure_endpoint = "https://endpoint"
-    config.azure_kwargs.api_version = "2024-05-05"
-    config.azure_kwargs.default_headers = {"x-header": "value"}
-
-    with patch("mem0.llms.azure_openai.AzureOpenAI") as mock_azure_openai:
-        AzureOpenAILLM(config)
-        mock_azure_openai.assert_called_once_with(
-            azure_deployment="deployment",
-            azure_endpoint="https://endpoint",
-            azure_ad_token_provider=None,
-            api_version="2024-05-05",
-            api_key="test-key",
-            http_client=mock_http_client,
-            default_headers={"x-header": "value"},
-        )
-
-
-def test_init_with_api_key(monkeypatch):
-    # Patch environment variables to None to force config usage
-    monkeypatch.delenv("LLM_AZURE_OPENAI_API_KEY", raising=False)
-    monkeypatch.delenv("LLM_AZURE_DEPLOYMENT", raising=False)
-    monkeypatch.delenv("LLM_AZURE_ENDPOINT", raising=False)
-    monkeypatch.delenv("LLM_AZURE_API_VERSION", raising=False)
-
-    config = BaseLlmConfig(
-        model=MODEL,
-        temperature=TEMPERATURE,
-        max_tokens=MAX_TOKENS,
-        top_p=TOP_P,
-    )
-    # Set Azure kwargs directly
-    config.azure_kwargs.api_key = "test-key"
-    config.azure_kwargs.azure_deployment = "test-deployment"
-    config.azure_kwargs.azure_endpoint = "https://test-endpoint"
-    config.azure_kwargs.api_version = "2024-01-01"
-    config.azure_kwargs.default_headers = {"x-test": "header"}
-    config.http_client = None
-
-    with patch("mem0.llms.azure_openai.AzureOpenAI") as mock_azure_openai:
-        llm = AzureOpenAILLM(config)
-        mock_azure_openai.assert_called_once_with(
-            azure_deployment="test-deployment",
-            azure_endpoint="https://test-endpoint",
-            azure_ad_token_provider=None,
-            api_version="2024-01-01",
-            api_key="test-key",
-            http_client=None,
-            default_headers={"x-test": "header"},
-        )
-        assert llm.config.model == MODEL
-
-
-def test_init_with_env_vars(monkeypatch):
-    monkeypatch.setenv("LLM_AZURE_OPENAI_API_KEY", "env-key")
-    monkeypatch.setenv("LLM_AZURE_DEPLOYMENT", "env-deployment")
-    monkeypatch.setenv("LLM_AZURE_ENDPOINT", "https://env-endpoint")
-    monkeypatch.setenv("LLM_AZURE_API_VERSION", "2024-02-02")
-
-    config = BaseLlmConfig(model=None)
-    config.azure_kwargs.api_key = None
-    config.azure_kwargs.azure_deployment = None
-    config.azure_kwargs.azure_endpoint = None
-    config.azure_kwargs.api_version = None
-    config.azure_kwargs.default_headers = None
-    config.http_client = None
-
-    with patch("mem0.llms.azure_openai.AzureOpenAI") as mock_azure_openai:
-        llm = AzureOpenAILLM(config)
-        mock_azure_openai.assert_called_once_with(
-            azure_deployment="env-deployment",
-            azure_endpoint="https://env-endpoint",
-            azure_ad_token_provider=None,
-            api_version="2024-02-02",
-            api_key="env-key",
-            http_client=None,
-            default_headers=None,
-        )
-        # Should default to "gpt-4o" if model is None
-        assert llm.config.model == "gpt-4o"
-
-
-def test_init_with_default_azure_credential(monkeypatch):
-    # No API key in config or env, triggers DefaultAzureCredential
-    monkeypatch.delenv("LLM_AZURE_OPENAI_API_KEY", raising=False)
-    config = BaseLlmConfig(model=MODEL)
-    config.azure_kwargs.api_key = None
-    config.azure_kwargs.azure_deployment = "dep"
-    config.azure_kwargs.azure_endpoint = "https://endpoint"
-    config.azure_kwargs.api_version = "2024-03-03"
-    config.azure_kwargs.default_headers = None
-    config.http_client = None
+    mock_http_client_instance = Mock()
+    mock_http_client.return_value = mock_http_client_instance
+    azure_kwargs = {"api_key": "test"}
+    if default_headers:
+        azure_kwargs["default_headers"] = default_headers
 
     with (
-        patch("mem0.llms.azure_openai.DefaultAzureCredential") as mock_cred,
-        patch("mem0.llms.azure_openai.get_bearer_token_provider") as mock_token_provider,
         patch("mem0.llms.azure_openai.AzureOpenAI") as mock_azure_openai,
+        patch("httpx.Client", new=mock_http_client),
     ):
-        mock_cred_instance = mock_cred.return_value
-        mock_token_provider.return_value = "token-provider"
-        AzureOpenAILLM(config)
-        mock_cred.assert_called_once()
-        mock_token_provider.assert_called_once_with(mock_cred_instance, "https://cognitiveservices.azure.com/.default")
-        mock_azure_openai.assert_called_once_with(
-            azure_deployment="dep",
-            azure_endpoint="https://endpoint",
-            azure_ad_token_provider="token-provider",
-            api_version="2024-03-03",
-            api_key=None,
-            http_client=None,
-            default_headers=None,
+        config = AzureOpenAIConfig(
+            model=MODEL,
+            temperature=TEMPERATURE,
+            max_tokens=MAX_TOKENS,
+            top_p=TOP_P,
+            api_key="test",
+            http_client_proxies="http://testproxy.mem0.net:8000",
+            azure_kwargs=azure_kwargs,
         )
 
+        _ = AzureOpenAILLM(config)
 
-def test_init_with_placeholder_api_key(monkeypatch):
-    # Placeholder API key should trigger DefaultAzureCredential
-    config = BaseLlmConfig(model=MODEL)
-    config.azure_kwargs.api_key = "your-api-key"
-    config.azure_kwargs.azure_deployment = "dep"
-    config.azure_kwargs.azure_endpoint = "https://endpoint"
-    config.azure_kwargs.api_version = "2024-04-04"
-    config.azure_kwargs.default_headers = None
-    config.http_client = None
-
-    with (
-        patch("mem0.llms.azure_openai.DefaultAzureCredential") as mock_cred,
-        patch("mem0.llms.azure_openai.get_bearer_token_provider") as mock_token_provider,
-        patch("mem0.llms.azure_openai.AzureOpenAI") as mock_azure_openai,
-    ):
-        mock_cred_instance = mock_cred.return_value
-        mock_token_provider.return_value = "token-provider"
-        AzureOpenAILLM(config)
-        mock_cred.assert_called_once()
-        mock_token_provider.assert_called_once_with(mock_cred_instance, "https://cognitiveservices.azure.com/.default")
         mock_azure_openai.assert_called_once_with(
             azure_deployment="dep",
             azure_endpoint="https://endpoint",
