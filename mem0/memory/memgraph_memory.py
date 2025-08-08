@@ -116,9 +116,11 @@ class MemoryGraph:
         search_outputs_sequence = [
             [item["source"], item["relationship"], item["destination"]] for item in search_output
         ]
+        # 基于词频与逆文档频率的文本匹配算法对所有关系三元组重新排序
         bm25 = BM25Okapi(search_outputs_sequence)
 
         tokenized_query = query.split(" ")
+        # 获取前5个与query最相关的关系三元组
         reranked_results = bm25.get_top_n(tokenized_query, search_outputs_sequence, n=5)
 
         search_results = []
@@ -265,76 +267,129 @@ class MemoryGraph:
         logger.debug(f"Extracted entities: {entities}")
         return entities
 
+
     def _search_graph_db(self, node_list, filters, limit=100):
-        """Search similar nodes among and their respective incoming and outgoing relations."""
+        """
+        In Memgraph: Given a list of nodes, compute their embedding, and find similar nodes with their relationships.
+        Uses MAGE's cosine similarity.
+        """
         result_relations = []
 
         for node in node_list:
             n_embedding = self.embedding_model.embed(node)
+            embedding_literal = "[" + ", ".join(f"{v:.6f}" for v in n_embedding) + "]"
 
-            # Build query based on whether agent_id is provided
+            agent_filter_n = "AND n.agent_id = $agent_id" if filters.get("agent_id") else ""
+            agent_filter_m = "AND m.agent_id = $agent_id" if filters.get("agent_id") else ""
+
+            cypher_query = f"""
+            MATCH (n:Entity)
+            WHERE n.embedding IS NOT NULL AND n.user_id = $user_id {agent_filter_n}
+            WITH n, 2 * mage.similarity.cosine(n.embedding, {embedding_literal}) - 1 AS similarity
+            WHERE similarity >= $threshold
+
+            CALL {{
+                MATCH (n)-[r]->(m:Entity)
+                WHERE m.user_id = $user_id {agent_filter_m}
+                RETURN n.name AS source, id(n) AS source_id, type(r) AS relationship, id(r) AS relation_id, m.name AS destination, id(m) AS destination_id
+                UNION
+                MATCH (m:Entity)-[r]->(n)
+                WHERE m.user_id = $user_id {agent_filter_m}
+                RETURN m.name AS source, id(m) AS source_id, type(r) AS relationship, id(r) AS relation_id, n.name AS destination, id(n) AS destination_id
+            }}
+            WITH DISTINCT source, source_id, relationship, relation_id, destination, destination_id, similarity
+            RETURN source, source_id, relationship, relation_id, destination, destination_id, similarity
+            ORDER BY similarity DESC
+            LIMIT $limit
+            """
+
+            params = {
+                "user_id": filters["user_id"],
+                "threshold": self.threshold,
+                "limit": limit
+            }
             if filters.get("agent_id"):
-                cypher_query = """
-                MATCH (n:Entity {user_id: $user_id, agent_id: $agent_id})-[r]->(m:Entity)
-                WHERE n.embedding IS NOT NULL
-                WITH collect(n) AS nodes1, collect(m) AS nodes2, r
-                CALL node_similarity.cosine_pairwise("embedding", nodes1, nodes2)
-                YIELD node1, node2, similarity
-                WITH node1, node2, similarity, r
-                WHERE similarity >= $threshold
-                RETURN node1.name AS source, id(node1) AS source_id, type(r) AS relationship, id(r) AS relation_id, node2.name AS destination, id(node2) AS destination_id, similarity
-                UNION
-                MATCH (n:Entity {user_id: $user_id, agent_id: $agent_id})<-[r]-(m:Entity)
-                WHERE n.embedding IS NOT NULL
-                WITH collect(n) AS nodes1, collect(m) AS nodes2, r
-                CALL node_similarity.cosine_pairwise("embedding", nodes1, nodes2)
-                YIELD node1, node2, similarity
-                WITH node1, node2, similarity, r
-                WHERE similarity >= $threshold
-                RETURN node2.name AS source, id(node2) AS source_id, type(r) AS relationship, id(r) AS relation_id, node1.name AS destination, id(node1) AS destination_id, similarity
-                ORDER BY similarity DESC
-                LIMIT $limit;
-                """
-                params = {
-                    "n_embedding": n_embedding,
-                    "threshold": self.threshold,
-                    "user_id": filters["user_id"],
-                    "agent_id": filters["agent_id"],
-                    "limit": limit,
-                }
-            else:
-                cypher_query = """
-                MATCH (n:Entity {user_id: $user_id})-[r]->(m:Entity)
-                WHERE n.embedding IS NOT NULL
-                WITH collect(n) AS nodes1, collect(m) AS nodes2, r
-                CALL node_similarity.cosine_pairwise("embedding", nodes1, nodes2)
-                YIELD node1, node2, similarity
-                WITH node1, node2, similarity, r
-                WHERE similarity >= $threshold
-                RETURN node1.name AS source, id(node1) AS source_id, type(r) AS relationship, id(r) AS relation_id, node2.name AS destination, id(node2) AS destination_id, similarity
-                UNION
-                MATCH (n:Entity {user_id: $user_id})<-[r]-(m:Entity)
-                WHERE n.embedding IS NOT NULL
-                WITH collect(n) AS nodes1, collect(m) AS nodes2, r
-                CALL node_similarity.cosine_pairwise("embedding", nodes1, nodes2)
-                YIELD node1, node2, similarity
-                WITH node1, node2, similarity, r
-                WHERE similarity >= $threshold
-                RETURN node2.name AS source, id(node2) AS source_id, type(r) AS relationship, id(r) AS relation_id, node1.name AS destination, id(node1) AS destination_id, similarity
-                ORDER BY similarity DESC
-                LIMIT $limit;
-                """
-                params = {
-                    "n_embedding": n_embedding,
-                    "threshold": self.threshold,
-                    "user_id": filters["user_id"],
-                    "limit": limit,
-                }
+                params["agent_id"] = filters["agent_id"]
 
-            ans = self.graph.query(cypher_query, params=params)
-            result_relations.extend(ans)
+            results = self.graph.execute_and_fetch(cypher_query, params=params)
+            result_relations.extend(list(results))
 
         return result_relations
+
+
+
+    # memgraph_memory _search_graph_db() the 'n_embedding' of the user query is not used for similarity calculation.
+    # github issue #3230
+    # def _search_graph_db(self, node_list, filters, limit=100):
+    #     """Search similar nodes among and their respective incoming and outgoing relations."""
+    #     result_relations = []
+
+    #     for node in node_list:
+    #         n_embedding = self.embedding_model.embed(node)
+
+    #         # Build query based on whether agent_id is provided
+    #         if filters.get("agent_id"):
+    #             cypher_query = """
+    #             MATCH (n:Entity {user_id: $user_id, agent_id: $agent_id})-[r]->(m:Entity)
+    #             WHERE n.embedding IS NOT NULL
+    #             WITH collect(n) AS nodes1, collect(m) AS nodes2, r
+    #             CALL node_similarity.cosine_pairwise("embedding", nodes1, nodes2)
+    #             YIELD node1, node2, similarity
+    #             WITH node1, node2, similarity, r
+    #             WHERE similarity >= $threshold
+    #             RETURN node1.name AS source, id(node1) AS source_id, type(r) AS relationship, id(r) AS relation_id, node2.name AS destination, id(node2) AS destination_id, similarity
+    #             UNION
+    #             MATCH (n:Entity {user_id: $user_id, agent_id: $agent_id})<-[r]-(m:Entity)
+    #             WHERE n.embedding IS NOT NULL
+    #             WITH collect(n) AS nodes1, collect(m) AS nodes2, r
+    #             CALL node_similarity.cosine_pairwise("embedding", nodes1, nodes2)
+    #             YIELD node1, node2, similarity
+    #             WITH node1, node2, similarity, r
+    #             WHERE similarity >= $threshold
+    #             RETURN node2.name AS source, id(node2) AS source_id, type(r) AS relationship, id(r) AS relation_id, node1.name AS destination, id(node1) AS destination_id, similarity
+    #             ORDER BY similarity DESC
+    #             LIMIT $limit;
+    #             """
+    #             params = {
+    #                 "n_embedding": n_embedding,
+    #                 "threshold": self.threshold,
+    #                 "user_id": filters["user_id"],
+    #                 "agent_id": filters["agent_id"],
+    #                 "limit": limit,
+    #             }
+    #         else:
+    #             cypher_query = """
+    #             MATCH (n:Entity {user_id: $user_id})-[r]->(m:Entity)
+    #             WHERE n.embedding IS NOT NULL
+    #             WITH collect(n) AS nodes1, collect(m) AS nodes2, r
+    #             CALL node_similarity.cosine_pairwise("embedding", nodes1, nodes2)
+    #             YIELD node1, node2, similarity
+    #             WITH node1, node2, similarity, r
+    #             WHERE similarity >= $threshold
+    #             RETURN node1.name AS source, id(node1) AS source_id, type(r) AS relationship, id(r) AS relation_id, node2.name AS destination, id(node2) AS destination_id, similarity
+    #             UNION
+    #             MATCH (n:Entity {user_id: $user_id})<-[r]-(m:Entity)
+    #             WHERE n.embedding IS NOT NULL
+    #             WITH collect(n) AS nodes1, collect(m) AS nodes2, r
+    #             CALL node_similarity.cosine_pairwise("embedding", nodes1, nodes2)
+    #             YIELD node1, node2, similarity
+    #             WITH node1, node2, similarity, r
+    #             WHERE similarity >= $threshold
+    #             RETURN node2.name AS source, id(node2) AS source_id, type(r) AS relationship, id(r) AS relation_id, node1.name AS destination, id(node1) AS destination_id, similarity
+    #             ORDER BY similarity DESC
+    #             LIMIT $limit;
+    #             """
+    #             params = {
+    #                 "n_embedding": n_embedding,
+    #                 "threshold": self.threshold,
+    #                 "user_id": filters["user_id"],
+    #                 "limit": limit,
+    #             }
+
+    #         ans = self.graph.query(cypher_query, params=params)
+    #         result_relations.extend(ans)
+
+    #     return result_relations
 
     def _get_delete_entities_from_search_output(self, search_output, data, filters):
         """Get the entities to be deleted from the search output."""
@@ -451,7 +506,7 @@ class MemoryGraph:
                     """
 
                 params = {
-                    "source_id": source_node_search_result[0]["id(source_candidate)"],
+                    "sou rce_id": source_node_search_result[0]["id(source_candidate)"],
                     "destination_name": destination,
                     "destination_embedding": dest_embedding,
                     "user_id": user_id,
@@ -542,6 +597,7 @@ class MemoryGraph:
         agent_id = filters.get("agent_id", None)
 
         if agent_id:
+            # vector_search.search是 Memgraph 的向量搜索函数，用于基于向量相似性查找节点
             cypher = """
                 CALL vector_search.search("memzero", 1, $source_embedding) 
                 YIELD distance, node, similarity
