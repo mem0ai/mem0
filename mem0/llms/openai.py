@@ -100,14 +100,12 @@ class OpenAILLM(LLMBase):
         Returns:
             json: The generated response.
         """
-        # Get common parameters
-        params = self._get_common_params(**kwargs)
-        params.update(
-            {
-                "model": self.config.model,
-                "messages": messages,
-            }
-        )
+        params = self._get_supported_params(messages=messages, **kwargs)
+        
+        params.update({
+            "model": self.config.model,
+            "messages": messages,
+        })
 
         if os.getenv("OPENROUTER_API_KEY"):
             openrouter_params = {}
