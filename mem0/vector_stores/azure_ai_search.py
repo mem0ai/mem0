@@ -5,6 +5,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
+from mem0.memory.utils import extract_json
 from mem0.vector_stores.base import VectorStoreBase
 
 try:
@@ -233,7 +234,7 @@ class AzureAISearch(VectorStoreBase):
 
         results = []
         for result in search_results:
-            payload = json.loads(result["payload"])
+            payload = json.loads(extract_json(result["payload"]))
             results.append(OutputData(id=result["id"], score=result["@search.score"], payload=payload))
         return results
 
@@ -288,7 +289,8 @@ class AzureAISearch(VectorStoreBase):
             result = self.search_client.get_document(key=vector_id)
         except ResourceNotFoundError:
             return None
-        return OutputData(id=result["id"], score=None, payload=json.loads(result["payload"]))
+        payload = json.loads(extract_json(result["payload"]))
+        return OutputData(id=result["id"], score=None, payload=payload)
 
     def list_cols(self) -> List[str]:
         """
@@ -335,7 +337,7 @@ class AzureAISearch(VectorStoreBase):
         search_results = self.search_client.search(search_text="*", filter=filter_expression, top=limit)
         results = []
         for result in search_results:
-            payload = json.loads(result["payload"])
+            payload = json.loads(extract_json(result["payload"]))
             results.append(OutputData(id=result["id"], score=result["@search.score"], payload=payload))
         return [results]
 

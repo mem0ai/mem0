@@ -3,7 +3,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from mem0.configs.llms.base import BaseLlmConfig
+from mem0.configs.llms.openai import OpenAIConfig
 from mem0.llms.openai import OpenAILLM
 
 
@@ -17,22 +17,22 @@ def mock_openai_client():
 
 def test_openai_llm_base_url():
     # case1: default config: with openai official base url
-    config = BaseLlmConfig(model="gpt-4o", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key")
+    config = OpenAIConfig(model="gpt-4o", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key")
     llm = OpenAILLM(config)
     # Note: openai client will parse the raw base_url into a URL object, which will have a trailing slash
     assert str(llm.client.base_url) == "https://api.openai.com/v1/"
 
     # case2: with env variable OPENAI_API_BASE
     provider_base_url = "https://api.provider.com/v1"
-    os.environ["OPENAI_API_BASE"] = provider_base_url
-    config = BaseLlmConfig(model="gpt-4o", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key")
+    os.environ["OPENAI_BASE_URL"] = provider_base_url
+    config = OpenAIConfig(model="gpt-4o", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key")
     llm = OpenAILLM(config)
     # Note: openai client will parse the raw base_url into a URL object, which will have a trailing slash
     assert str(llm.client.base_url) == provider_base_url + "/"
 
     # case3: with config.openai_base_url
     config_base_url = "https://api.config.com/v1"
-    config = BaseLlmConfig(
+    config = OpenAIConfig(
         model="gpt-4o", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key", openai_base_url=config_base_url
     )
     llm = OpenAILLM(config)
@@ -41,7 +41,7 @@ def test_openai_llm_base_url():
 
 
 def test_generate_response_without_tools(mock_openai_client):
-    config = BaseLlmConfig(model="gpt-4o", temperature=0.7, max_tokens=100, top_p=1.0)
+    config = OpenAIConfig(model="gpt-4o", temperature=0.7, max_tokens=100, top_p=1.0)
     llm = OpenAILLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
@@ -61,7 +61,7 @@ def test_generate_response_without_tools(mock_openai_client):
 
 
 def test_generate_response_with_tools(mock_openai_client):
-    config = BaseLlmConfig(model="gpt-4o", temperature=0.7, max_tokens=100, top_p=1.0)
+    config = OpenAIConfig(model="gpt-4o", temperature=0.7, max_tokens=100, top_p=1.0)
     llm = OpenAILLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
@@ -110,10 +110,7 @@ def test_response_callback_invocation(mock_openai_client):
     # Setup mock callback
     mock_callback = Mock()
     
-    config = BaseLlmConfig(
-        model="gpt-4o",
-        response_callback=mock_callback
-    )
+    config = OpenAIConfig(model="gpt-4o", response_callback=mock_callback)
     llm = OpenAILLM(config)
     messages = [{"role": "user", "content": "Test callback"}]
     
@@ -134,7 +131,7 @@ def test_response_callback_invocation(mock_openai_client):
 
 
 def test_no_response_callback(mock_openai_client):
-    config = BaseLlmConfig(model="gpt-4o")
+    config = OpenAIConfig(model="gpt-4o")
     llm = OpenAILLM(config)
     messages = [{"role": "user", "content": "Test no callback"}]
     
@@ -156,10 +153,7 @@ def test_callback_exception_handling(mock_openai_client):
     def faulty_callback(*args):
         raise ValueError("Callback error")
     
-    config = BaseLlmConfig(
-        model="gpt-4o",
-        response_callback=faulty_callback
-    )
+    config = OpenAIConfig(model="gpt-4o", response_callback=faulty_callback)
     llm = OpenAILLM(config)
     messages = [{"role": "user", "content": "Test exception"}]
     
@@ -178,10 +172,7 @@ def test_callback_exception_handling(mock_openai_client):
 
 def test_callback_with_tools(mock_openai_client):
     mock_callback = Mock()
-    config = BaseLlmConfig(
-        model="gpt-4o",
-        response_callback=mock_callback
-    )
+    config = OpenAIConfig(model="gpt-4o", response_callback=mock_callback)
     llm = OpenAILLM(config)
     messages = [{"role": "user", "content": "Test tools"}]
     tools = [

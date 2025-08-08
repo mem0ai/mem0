@@ -1,15 +1,36 @@
 import json
 import os
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 from openai import AzureOpenAI
 
+from mem0.configs.llms.azure import AzureOpenAIConfig
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.llms.base import LLMBase
+from mem0.memory.utils import extract_json
 
 
 class AzureOpenAILLM(LLMBase):
-    def __init__(self, config: Optional[BaseLlmConfig] = None):
+    def __init__(self, config: Optional[Union[BaseLlmConfig, AzureOpenAIConfig, Dict]] = None):
+        # Convert to AzureOpenAIConfig if needed
+        if config is None:
+            config = AzureOpenAIConfig()
+        elif isinstance(config, dict):
+            config = AzureOpenAIConfig(**config)
+        elif isinstance(config, BaseLlmConfig) and not isinstance(config, AzureOpenAIConfig):
+            # Convert BaseLlmConfig to AzureOpenAIConfig
+            config = AzureOpenAIConfig(
+                model=config.model,
+                temperature=config.temperature,
+                api_key=config.api_key,
+                max_tokens=config.max_tokens,
+                top_p=config.top_p,
+                top_k=config.top_k,
+                enable_vision=config.enable_vision,
+                vision_details=config.vision_details,
+                http_client_proxies=config.http_client,
+            )
+
         super().__init__(config)
 
         # Model name should match the custom deployment name chosen for it.
@@ -53,7 +74,7 @@ class AzureOpenAILLM(LLMBase):
                     processed_response["tool_calls"].append(
                         {
                             "name": tool_call.function.name,
-                            "arguments": json.loads(tool_call.function.arguments),
+                            "arguments": json.loads(extract_json(tool_call.function.arguments)),
                         }
                     )
 
@@ -67,6 +88,7 @@ class AzureOpenAILLM(LLMBase):
         response_format=None,
         tools: Optional[List[Dict]] = None,
         tool_choice: str = "auto",
+        **kwargs,
     ):
         """
         Generate a response based on the given messages using Azure OpenAI.
@@ -76,28 +98,41 @@ class AzureOpenAILLM(LLMBase):
             response_format (str or object, optional): Format of the response. Defaults to "text".
             tools (list, optional): List of tools that the model can call. Defaults to None.
             tool_choice (str, optional): Tool choice method. Defaults to "auto".
+            **kwargs: Additional Azure OpenAI-specific parameters.
 
         Returns:
             str: The generated response.
         """
 
-        common_params = {
-            "model": self.config.model,
-            "messages": messages,
-        }
+        user_prompt = messages[-1]["content"]
+
+        user_prompt = user_prompt.replace("assistant", "ai")
+
+        messages[-1]["content"] = user_prompt
+
+        # Get common parameters
+        params = self._get_common_params(**kwargs)
+        params.update(
+            {
+                "model": self.config.model,
+                "messages": messages,
+            }
+        )
 
         if self.config.model in {"o3-mini", "o1-preview", "o1"}:
-            params = common_params
+            # Use common params for these models
+            pass
         else:
-            params = {
-                **common_params,
-                "temperature": self.config.temperature,
-                "max_tokens": self.config.max_tokens,
-                "top_p": self.config.top_p,
-            }
-        if response_format:
-            params["response_format"] = response_format
-        if tools:  # TODO: Remove tools if no issues found with new memory addition logic
+            # Add additional parameters for other models
+            params.update(
+                {
+                    "temperature": self.config.temperature,
+                    "max_tokens": self.config.max_tokens,
+                    "top_p": self.config.top_p,
+                }
+            )
+
+        if tools:
             params["tools"] = tools
             params["tool_choice"] = tool_choice
 

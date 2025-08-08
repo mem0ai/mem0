@@ -1,5 +1,5 @@
-import re
 import hashlib
+import re
 
 from mem0.configs.prompts import FACT_RETRIEVAL_PROMPT
 
@@ -44,6 +44,20 @@ def remove_code_blocks(content: str) -> str:
     pattern = r"^```[a-zA-Z0-9]*\n([\s\S]*?)\n```$"
     match = re.match(pattern, content.strip())
     return match.group(1).strip() if match else content.strip()
+
+
+def extract_json(text):
+    """
+    Extracts JSON content from a string, removing enclosing triple backticks and optional 'json' tag if present.
+    If no code block is found, returns the text as-is.
+    """
+    text = text.strip()
+    match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
+    if match:
+        json_str = match.group(1)
+    else:
+        json_str = text  # assume it's raw JSON
+    return json_str
 
 
 def get_image_description(image_obj, llm, vision_details):

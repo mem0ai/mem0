@@ -52,16 +52,16 @@ jobs:
         with:
           path: .venv
           key: venv-mem0-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
+      - name: Install GEOS Libraries
+        run: sudo apt-get update && sudo apt-get install -y libgeos-dev
       - name: Install dependencies
         run: |
-          make install_all
-          pip install -e ".[test]"
-          pip install pinecone pinecone-text
+          pip install --upgrade pip
+          pip install -e ".[test,graph,vector_stores,llms,extras]"
+          pip install ruff
         if: steps.cached-hatch-dependencies.outputs.cache-hit != 'true'
-      - name: Run Formatting
-        run: |
-          mkdir -p .ruff_cache && chmod -R 777 .ruff_cache
-          hatch run format
+      - name: Run Linting
+        run: make lint
       - name: Run tests and generate coverage report
         run: make test
 
