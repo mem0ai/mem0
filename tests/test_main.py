@@ -23,11 +23,13 @@ def memory_instance():
         patch("mem0.utils.factory.LlmFactory") as mock_llm,
         patch("mem0.memory.telemetry.capture_event"),
         patch("mem0.memory.graph_memory.MemoryGraph"),
+        patch("mem0.utils.factory.GraphStoreFactory") as mock_graph_store,
     ):
         mock_embedder.create.return_value = Mock()
         mock_vector_store.create.return_value = Mock()
         mock_vector_store.create.return_value.search.return_value = []
         mock_llm.create.return_value = Mock()
+        mock_graph_store.create.return_value = Mock()
 
         config = MemoryConfig(version="v1.1")
         config.graph_store.config = {"some_config": "value"}
@@ -42,11 +44,13 @@ def memory_custom_instance():
         patch("mem0.utils.factory.LlmFactory") as mock_llm,
         patch("mem0.memory.telemetry.capture_event"),
         patch("mem0.memory.graph_memory.MemoryGraph"),
+        patch("mem0.utils.factory.GraphStoreFactory") as mock_graph_store,
     ):
         mock_embedder.create.return_value = Mock()
         mock_vector_store.create.return_value = Mock()
         mock_vector_store.create.return_value.search.return_value = []
         mock_llm.create.return_value = Mock()
+        mock_graph_store.create.return_value = Mock()
 
         config = MemoryConfig(
             version="v1.1",
