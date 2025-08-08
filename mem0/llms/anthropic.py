@@ -70,8 +70,7 @@ class AnthropicLLM(LLMBase):
             else:
                 filtered_messages.append(message)
 
-        # Get common parameters
-        params = self._get_common_params(**kwargs)
+        params = self._get_supported_params(messages=messages, **kwargs)
         params.update(
             {
                 "model": self.config.model,
