@@ -317,80 +317,6 @@ class MemoryGraph:
         return result_relations
 
 
-
-    # memgraph_memory _search_graph_db() the 'n_embedding' of the user query is not used for similarity calculation.
-    # github issue #3230
-    # def _search_graph_db(self, node_list, filters, limit=100):
-    #     """Search similar nodes among and their respective incoming and outgoing relations."""
-    #     result_relations = []
-
-    #     for node in node_list:
-    #         n_embedding = self.embedding_model.embed(node)
-
-    #         # Build query based on whether agent_id is provided
-    #         if filters.get("agent_id"):
-    #             cypher_query = """
-    #             MATCH (n:Entity {user_id: $user_id, agent_id: $agent_id})-[r]->(m:Entity)
-    #             WHERE n.embedding IS NOT NULL
-    #             WITH collect(n) AS nodes1, collect(m) AS nodes2, r
-    #             CALL node_similarity.cosine_pairwise("embedding", nodes1, nodes2)
-    #             YIELD node1, node2, similarity
-    #             WITH node1, node2, similarity, r
-    #             WHERE similarity >= $threshold
-    #             RETURN node1.name AS source, id(node1) AS source_id, type(r) AS relationship, id(r) AS relation_id, node2.name AS destination, id(node2) AS destination_id, similarity
-    #             UNION
-    #             MATCH (n:Entity {user_id: $user_id, agent_id: $agent_id})<-[r]-(m:Entity)
-    #             WHERE n.embedding IS NOT NULL
-    #             WITH collect(n) AS nodes1, collect(m) AS nodes2, r
-    #             CALL node_similarity.cosine_pairwise("embedding", nodes1, nodes2)
-    #             YIELD node1, node2, similarity
-    #             WITH node1, node2, similarity, r
-    #             WHERE similarity >= $threshold
-    #             RETURN node2.name AS source, id(node2) AS source_id, type(r) AS relationship, id(r) AS relation_id, node1.name AS destination, id(node1) AS destination_id, similarity
-    #             ORDER BY similarity DESC
-    #             LIMIT $limit;
-    #             """
-    #             params = {
-    #                 "n_embedding": n_embedding,
-    #                 "threshold": self.threshold,
-    #                 "user_id": filters["user_id"],
-    #                 "agent_id": filters["agent_id"],
-    #                 "limit": limit,
-    #             }
-    #         else:
-    #             cypher_query = """
-    #             MATCH (n:Entity {user_id: $user_id})-[r]->(m:Entity)
-    #             WHERE n.embedding IS NOT NULL
-    #             WITH collect(n) AS nodes1, collect(m) AS nodes2, r
-    #             CALL node_similarity.cosine_pairwise("embedding", nodes1, nodes2)
-    #             YIELD node1, node2, similarity
-    #             WITH node1, node2, similarity, r
-    #             WHERE similarity >= $threshold
-    #             RETURN node1.name AS source, id(node1) AS source_id, type(r) AS relationship, id(r) AS relation_id, node2.name AS destination, id(node2) AS destination_id, similarity
-    #             UNION
-    #             MATCH (n:Entity {user_id: $user_id})<-[r]-(m:Entity)
-    #             WHERE n.embedding IS NOT NULL
-    #             WITH collect(n) AS nodes1, collect(m) AS nodes2, r
-    #             CALL node_similarity.cosine_pairwise("embedding", nodes1, nodes2)
-    #             YIELD node1, node2, similarity
-    #             WITH node1, node2, similarity, r
-    #             WHERE similarity >= $threshold
-    #             RETURN node2.name AS source, id(node2) AS source_id, type(r) AS relationship, id(r) AS relation_id, node1.name AS destination, id(node1) AS destination_id, similarity
-    #             ORDER BY similarity DESC
-    #             LIMIT $limit;
-    #             """
-    #             params = {
-    #                 "n_embedding": n_embedding,
-    #                 "threshold": self.threshold,
-    #                 "user_id": filters["user_id"],
-    #                 "limit": limit,
-    #             }
-
-    #         ans = self.graph.query(cypher_query, params=params)
-    #         result_relations.extend(ans)
-
-    #     return result_relations
-
     def _get_delete_entities_from_search_output(self, search_output, data, filters):
         """Get the entities to be deleted from the search output."""
         search_output_string = format_entities(search_output)
@@ -506,7 +432,7 @@ class MemoryGraph:
                     """
 
                 params = {
-                    "sou rce_id": source_node_search_result[0]["id(source_candidate)"],
+                    "source_id": source_node_search_result[0]["id(source_candidate)"],
                     "destination_name": destination,
                     "destination_embedding": dest_embedding,
                     "user_id": user_id,
