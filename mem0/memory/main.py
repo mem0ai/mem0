@@ -159,8 +159,8 @@ class Memory(MemoryBase):
     @classmethod
     def from_config(cls, config_dict: Dict[str, Any]):
         try:
-            config = cls._process_config(config_dict)
-            config = MemoryConfig(**config_dict)
+            processed_config = cls._process_config(config_dict)
+            config = MemoryConfig(**processed_config)
         except ValidationError as e:
             logger.error(f"Configuration validation error: {e}")
             raise
@@ -999,8 +999,8 @@ class AsyncMemory(MemoryBase):
     @classmethod
     async def from_config(cls, config_dict: Dict[str, Any]):
         try:
-            config = cls._process_config(config_dict)
-            config = MemoryConfig(**config_dict)
+            processed_config = cls._process_config(config_dict)
+            config = MemoryConfig(**processed_config)
         except ValidationError as e:
             logger.error(f"Configuration validation error: {e}")
             raise
