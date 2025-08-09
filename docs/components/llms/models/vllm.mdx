@@ -17,11 +17,11 @@ title: vLLM
 2. **Start vLLM server**:
 
    ```bash
-   # For testing with a small model
-   vllm serve microsoft/DialoGPT-medium --port 8000
-
-   # For production with a larger model (requires GPU)
+   # For LLM (text generation)
    vllm serve Qwen/Qwen2.5-32B-Instruct --port 8000
+
+   # For embeddings (on a different port)
+   vllm serve intfloat/e5-mistral-7b-instruct --task embed --port 8001
    ```
 
 ## Usage
@@ -52,6 +52,38 @@ messages = [
     {"role": "assistant", "content": "Got it! I'll avoid thrillers and suggest sci-fi movies instead."}
 ]
 m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+## Using vLLM Embeddings
+
+You can also use vLLM for embeddings by running an embedding model on a separate port:
+
+```python
+import os
+from mem0 import Memory
+
+config = {
+    "llm": {
+        "provider": "vllm",
+        "config": {
+            "model": "Qwen/Qwen2.5-32B-Instruct",
+            "vllm_base_url": "http://localhost:8000/v1",
+            "temperature": 0.1,
+            "max_tokens": 2000,
+        }
+    },
+    "embedder": {
+        "provider": "vllm",
+        "config": {
+            "model": "intfloat/e5-mistral-7b-instruct",
+            "vllm_base_url": "http://localhost:8001/v1"  # Different port for embeddings
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("I love programming with Python", user_id="alice")
+results = m.search("What does Alice like?", user_id="alice")
 ```
 
 ## Configuration Parameters
