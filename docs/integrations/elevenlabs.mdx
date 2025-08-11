@@ -152,7 +152,7 @@ Define the two key memory functions that will be registered as tools:
         )
 
         # Extract and join the memory texts
-        memories = ' '.join([result["memory"] for result in results])
+        memories = ' '.join([result["memory"] for result in results.get('results', [])])
         print("[ Memories ]", memories)
 
         if memories:

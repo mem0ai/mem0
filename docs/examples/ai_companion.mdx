@@ -87,8 +87,8 @@ class Companion:
 
         previous_memories = self.memory.search(question, user_id=user_id_to_use)
         relevant_memories_text = ""
-        if previous_memories:
-            relevant_memories_text = '\n'.join(mem["memory"] for mem in previous_memories)
+        if previous_memories and previous_memories.get('results'):
+            relevant_memories_text = '\n'.join(mem["memory"] for mem in previous_memories['results'])
 
         prompt = f"User input: {question}\nPrevious {check_answer} memories: {relevant_memories_text}"
 
@@ -146,7 +146,7 @@ def print_memories(user_id, label):
     memories = ai_companion.get_memories(user_id=user_id)
     if memories:
         for m in memories:
-            print(f"- {m['text']}")
+            print(f"- {m['memory']}")
     else:
         print("No memories found.")
 

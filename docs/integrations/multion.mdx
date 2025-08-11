@@ -71,7 +71,7 @@ Define search command and retrieve relevant memories from Mem0.
 command = "Find papers on arxiv that I should read based on my interests."
 
 relevant_memories = memory.search(command, user_id=USER_ID, limit=3)
-relevant_memories_text = '\n'.join(mem['text'] for mem in relevant_memories)
+relevant_memories_text = '\n'.join(mem['memory'] for mem in relevant_memories['results'])
 print(f"Relevant memories:")
 print(relevant_memories_text)
 ```
@@ -98,9 +98,9 @@ def get_travel_info(question, use_memory=True):
     if use_memory:
         previous_memories = memory_client.search(question, user_id=USER_ID)
         relevant_memories_text = ""
-        if previous_memories:
+        if previous_memories and previous_memories.get('results'):
             print("Using previous memories to enhance the search...")
-            relevant_memories_text = '\n'.join(mem["memory"] for mem in previous_memories)
+            relevant_memories_text = '\n'.join(mem["memory"] for mem in previous_memories['results'])
         
         command = "Find travel information based on my interests:"
         prompt = f"{command}\n Question: {question} \n My preferences: {relevant_memories_text}"
