@@ -1,4 +1,5 @@
 import logging
+import re
 
 from mem0.memory.utils import format_entities
 
@@ -531,9 +532,66 @@ class MemoryGraph:
     def _remove_spaces_from_entities(self, entity_list):
         for item in entity_list:
             item["source"] = item["source"].lower().replace(" ", "_")
-            item["relationship"] = item["relationship"].lower().replace(" ", "_")
+            # Use the sanitization function for relationships to handle special characters
+            item["relationship"] = self._sanitize_relationship_for_cypher(item["relationship"].lower().replace(" ", "_"))
             item["destination"] = item["destination"].lower().replace(" ", "_")
         return entity_list
+
+    def _sanitize_relationship_for_cypher(self, relationship):
+        """
+        Sanitize relationship text to make it safe for use in Cypher queries.
+        This prevents issues with special characters like ellipsis (...) in Chinese text.
+        """
+        # Replace problematic characters that can interfere with Cypher syntax
+        sanitized = relationship
+        # Replace ellipsis and other problematic characters with safe alternatives
+        sanitized = sanitized.replace("...", "_ellipsis_")
+        sanitized = sanitized.replace("…", "_ellipsis_")  # Unicode ellipsis
+        sanitized = sanitized.replace("。", "_period_")   # Chinese period
+        sanitized = sanitized.replace("，", "_comma_")    # Chinese comma
+        sanitized = sanitized.replace("；", "_semicolon_") # Chinese semicolon
+        sanitized = sanitized.replace("：", "_colon_")    # Chinese colon
+        sanitized = sanitized.replace("！", "_exclamation_") # Chinese exclamation
+        sanitized = sanitized.replace("？", "_question_")   # Chinese question mark
+        sanitized = sanitized.replace("（", "_lparen_")     # Chinese left parenthesis
+        sanitized = sanitized.replace("）", "_rparen_")     # Chinese right parenthesis
+        sanitized = sanitized.replace("【", "_lbracket_")   # Chinese left bracket
+        sanitized = sanitized.replace("】", "_rbracket_")   # Chinese right bracket
+        sanitized = sanitized.replace("《", "_langle_")     # Chinese left angle bracket
+        sanitized = sanitized.replace("》", "_rangle_")     # Chinese right angle bracket
+        
+        # Remove or replace other potentially problematic characters
+        sanitized = sanitized.replace("'", "_apostrophe_")
+        sanitized = sanitized.replace('"', "_quote_")
+        sanitized = sanitized.replace("\\", "_backslash_")
+        sanitized = sanitized.replace("/", "_slash_")
+        sanitized = sanitized.replace("|", "_pipe_")
+        sanitized = sanitized.replace("&", "_ampersand_")
+        sanitized = sanitized.replace("=", "_equals_")
+        sanitized = sanitized.replace("+", "_plus_")
+        sanitized = sanitized.replace("*", "_asterisk_")
+        sanitized = sanitized.replace("^", "_caret_")
+        sanitized = sanitized.replace("%", "_percent_")
+        sanitized = sanitized.replace("$", "_dollar_")
+        sanitized = sanitized.replace("#", "_hash_")
+        sanitized = sanitized.replace("@", "_at_")
+        sanitized = sanitized.replace("!", "_bang_")
+        sanitized = sanitized.replace("?", "_question_")
+        sanitized = sanitized.replace("(", "_lparen_")
+        sanitized = sanitized.replace(")", "_rparen_")
+        sanitized = sanitized.replace("[", "_lbracket_")
+        sanitized = sanitized.replace("]", "_rbracket_")
+        sanitized = sanitized.replace("{", "_lbrace_")
+        sanitized = sanitized.replace("}", "_rbrace_")
+        sanitized = sanitized.replace("<", "_langle_")
+        sanitized = sanitized.replace(">", "_rangle_")
+        
+        # Replace multiple consecutive underscores with single underscore
+        sanitized = re.sub(r'_+', '_', sanitized)
+        # Remove leading and trailing underscores
+        sanitized = sanitized.strip('_')
+        
+        return sanitized
 
     def _search_source_node(self, source_embedding, filters, threshold=0.9):
         """Search for source nodes with similar embeddings."""
