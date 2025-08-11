@@ -104,7 +104,7 @@ def demonstrate_sync_memory(local_config, sample_messages, sample_preferences, u
             results = memory.search(query, user_id=user_id)
         
             if results and "results" in results:
-                for j, result in enumerate(results): 
+                for j, result in enumerate(results['results']): 
                     print(f"Result {j+1}: {result.get('memory', 'N/A')}")
             else:
                 print("No results found")
