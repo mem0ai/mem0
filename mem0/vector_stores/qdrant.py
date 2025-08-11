@@ -261,7 +261,7 @@ class Qdrant(VectorStoreBase):
             with_payload=True,
             with_vectors=False,
         )
-        return result.points
+        return result
 
     def reset(self):
         """Reset the index by deleting and recreating it."""
