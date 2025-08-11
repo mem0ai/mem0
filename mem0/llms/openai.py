@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from typing import Dict, List, Optional, Union
 
@@ -100,14 +101,12 @@ class OpenAILLM(LLMBase):
         Returns:
             json: The generated response.
         """
-        # Get common parameters
-        params = self._get_common_params(**kwargs)
-        params.update(
-            {
-                "model": self.config.model,
-                "messages": messages,
-            }
-        )
+        params = self._get_supported_params(messages=messages, **kwargs)
+        
+        params.update({
+            "model": self.config.model,
+            "messages": messages,
+        })
 
         if os.getenv("OPENROUTER_API_KEY"):
             openrouter_params = {}
@@ -130,6 +129,13 @@ class OpenAILLM(LLMBase):
         if tools:  # TODO: Remove tools if no issues found with new memory addition logic
             params["tools"] = tools
             params["tool_choice"] = tool_choice
-
         response = self.client.chat.completions.create(**params)
-        return self._parse_response(response, tools)
+        parsed_response = self._parse_response(response, tools)
+        if self.config.response_callback:
+            try:
+                self.config.response_callback(self, response, params)
+            except Exception as e:
+                # Log error but don't propagate
+                logging.error(f"Error due to callback: {e}")
+                pass
+        return parsed_response

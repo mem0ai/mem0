@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Any, Callable, List, Optional
 
 from mem0.configs.llms.base import BaseLlmConfig
 
@@ -28,6 +28,8 @@ class OpenAIConfig(BaseLlmConfig):
         openrouter_base_url: Optional[str] = None,
         site_url: Optional[str] = None,
         app_name: Optional[str] = None,
+        # Response monitoring callback
+        response_callback: Optional[Callable[[Any, dict, dict], None]] = None,
     ):
         """
         Initialize OpenAI configuration.
@@ -48,6 +50,7 @@ class OpenAIConfig(BaseLlmConfig):
             openrouter_base_url: OpenRouter base URL, defaults to None
             site_url: Site URL for OpenRouter, defaults to None
             app_name: Application name for OpenRouter, defaults to None
+            response_callback: Optional callback for monitoring LLM responses.
         """
         # Initialize base parameters
         super().__init__(
@@ -69,3 +72,5 @@ class OpenAIConfig(BaseLlmConfig):
         self.openrouter_base_url = openrouter_base_url
         self.site_url = site_url
         self.app_name = app_name
+        # Response monitoring
+        self.response_callback = response_callback
