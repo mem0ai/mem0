@@ -231,7 +231,7 @@ class TestQdrant(unittest.TestCase):
             score=0.95, 
             payload={"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}
         )
-        self.client_mock.scroll.return_value = MagicMock(points=[mock_point])
+        self.client_mock.scroll.return_value = [mock_point]
 
         filters = {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}
         results = self.qdrant.list(filters=filters, limit=10)
@@ -247,6 +247,7 @@ class TestQdrant(unittest.TestCase):
         self.assertIsInstance(scroll_filter, Filter)
         self.assertEqual(len(scroll_filter.must), 3)  # user_id, agent_id, run_id
 
+        # The list method returns the result directly
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].payload["user_id"], "alice")
         self.assertEqual(results[0].payload["agent_id"], "agent1")
@@ -259,7 +260,7 @@ class TestQdrant(unittest.TestCase):
             score=0.95, 
             payload={"user_id": "alice"}
         )
-        self.client_mock.scroll.return_value = MagicMock(points=[mock_point])
+        self.client_mock.scroll.return_value = [mock_point]
 
         filters = {"user_id": "alice"}
         results = self.qdrant.list(filters=filters, limit=10)
@@ -270,19 +271,21 @@ class TestQdrant(unittest.TestCase):
         self.assertIsInstance(scroll_filter, Filter)
         self.assertEqual(len(scroll_filter.must), 1)  # Only user_id
 
+        # The list method returns the result directly
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].payload["user_id"], "alice")
 
     def test_list_with_no_filters(self):
         """Test list with no filters."""
         mock_point = MagicMock(id=str(uuid.uuid4()), score=0.95, payload={"key": "value"})
-        self.client_mock.scroll.return_value = MagicMock(points=[mock_point])
+        self.client_mock.scroll.return_value = [mock_point]
 
         results = self.qdrant.list(filters=None, limit=10)
 
         call_args = self.client_mock.scroll.call_args[1]
         self.assertIsNone(call_args["scroll_filter"])
 
+        # The list method returns the result directly
         self.assertEqual(len(results), 1)
 
     def test_delete_col(self):
