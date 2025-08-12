@@ -9,6 +9,7 @@ CONFIG_YAMLS = [
     "configs/chunker.yaml",
     "configs/cohere.yaml",
     "configs/together.yaml",
+    "configs/nebius.yaml",
     "configs/ollama.yaml",
     "configs/full-stack.yaml",
     "configs/gpt4.yaml",

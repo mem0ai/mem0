@@ -13,6 +13,7 @@ Embedchain comes with built-in support for various popular large language models
   <Card title="Anthropic" href="#anthropic"></Card>
   <Card title="Cohere" href="#cohere"></Card>
   <Card title="Together" href="#together"></Card>
+  <Card title="Nebius AI Studio" href="#nebius"></Card>
   <Card title="Ollama" href="#ollama"></Card>
   <Card title="vLLM" href="#vllm"></Card>
   <Card title="Clarifai" href="#clarifai"></Card>
@@ -319,6 +320,49 @@ llm:
     temperature: 0.5
     max_tokens: 1000
     top_p: 1
+```
+
+</CodeGroup>
+
+
+## Nebius AI Studio
+
+Install related dependencies using the following command:
+
+```bash
+pip install --upgrade 'embedchain[nebius]'
+```
+
+Set the `NEBIUS_API_KEY` as environment variable which you can find on their [Account settings page](https://studio.nebius.com/?modals=create-api-key).
+
+Once you have the API key, you are all set to use it with Embedchain.
+
+<CodeGroup>
+
+```python main.py
+import os
+from embedchain import App
+
+os.environ["NEBIUS_API_KEY"] = "xxx"
+
+# load llm configuration from config.yaml file
+app = App.from_config(config_path="config.yaml")
+```
+
+```yaml config.yaml
+llm:
+  provider: nebius
+  config:
+    model: meta-llama/Meta-Llama-3.1-70B-Instruct
+    max_tokens: 1000
+    temperature: 0.9
+    top_p: 1.0
+    stream: false
+
+embedder:
+  provider: nebius
+  config:
+    model: Qwen/Qwen3-Embedding-8B
 ```
 
 </CodeGroup>
@@ -847,6 +891,7 @@ The list of paid LLMs that support token usage are:
 - Anthropic
 - Cohere
 - Together
+- Nebius AI Studio
 - Groq
 - Mistral AI
 - NVIDIA AI

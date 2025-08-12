@@ -1,0 +1,45 @@
+---
+title: Nebius AI Studio
+---
+
+To use Nebius embedding models, set the `NEBIUS_API_KEY` environment variable. You can obtain the Nebius API key from the [Nebius Platform](https://studio.nebius.com/?modals=create-api-key).
+
+### Usage
+
+<Note> The `embedding_model_dims` parameter for `vector_store` should be set to `` for Nebius embedder. </Note>
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["NEBIUS_API_KEY"] = "your_api_key"
+os.environ["OPENAI_API_KEY"] = "your_api_key" # For LLM
+
+config = {
+    "embedder": {
+        "provider": "nebius",
+        "config": {
+            "model": "Qwen/Qwen3-Embedding-8B"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I’m not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="john")
+```
+
+### Config
+
+Here are the parameters available for configuring Nebius embedder:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `model` | The name of the embedding model to use | `Qwen/Qwen3-Embedding-8B` |
+| `embedding_dims` | Dimensions of the embedding model | `768` |
+| `api_key` | The Nebius API key | `None` |

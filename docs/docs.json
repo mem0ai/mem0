@@ -116,6 +116,7 @@
                           "components/llms/models/azure_openai",
                           "components/llms/models/ollama",
                           "components/llms/models/together",
+                          "components/llms/models/nebius",
                           "components/llms/models/groq",
                           "components/llms/models/litellm",
                           "components/llms/models/mistral_AI",
@@ -180,6 +181,7 @@
                           "components/embedders/models/gemini",
                           "components/embedders/models/lmstudio",
                           "components/embedders/models/together",
+                          "components/embedders/models/nebius",
                           "components/embedders/models/langchain",
                           "components/embedders/models/aws_bedrock"
                         ]

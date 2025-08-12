@@ -820,5 +820,29 @@
     "together/mistralai/Mixtral-8x7B-Instruct-v0.1": {
         "input_cost_per_token": 0.0000006,
         "output_cost_per_token": 0.0000006
+    },
+    "nebius/meta-llama/Meta-Llama-3.1-70B-Instruct" : {
+        "input_cost_per_token": 0.00000013,
+        "output_cost_per_token": 0.0000004
+    },
+    "nebius/deepseek-ai/DeepSeek-R1-0528":{
+        "input_cost_per_token": 0.0000008,
+        "output_cost_per_token": 0.0000024
+    },
+    "nebius/Qwen/Qwen3-235B-A22B-Instruct-2507":{
+        "input_cost_per_token": 0.0000002,
+        "output_cost_per_token": 0.0000006
+    },
+    "nebius/Qwen/Qwen3-Embedding-8B":{
+        "input_cost_per_token": 0.00000001,
+        "output_cost_per_token": 0.00000001
+    },
+    "nebius/BAAI/bge-en-icl":{
+        "input_cost_per_token": 0.00000001,
+        "output_cost_per_token": 0.00000001
+    },
+    "nebius/BAAI/bge-multilingual-gemma2": {
+        "input_cost_per_token": 0.00000001,
+        "output_cost_per_token": 0.00000001
     }
 }

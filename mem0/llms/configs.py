@@ -16,6 +16,7 @@ class LlmConfig(BaseModel):
             "anthropic",
             "groq",
             "together",
+            "nebius",
             "aws_bedrock",
             "litellm",
             "azure_openai",
