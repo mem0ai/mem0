@@ -85,6 +85,7 @@
                     "group": "Features",
                     "icon": "star",
                     "pages": [
+                      "open-source/features/overview",
                       "open-source/features/async-memory",
                       "open-source/features/openai_compatibility",
                       "open-source/features/custom-fact-extraction-prompt",
