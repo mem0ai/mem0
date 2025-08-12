@@ -79,11 +79,11 @@ class AzureAISearch(VectorStoreBase):
         self.vector_filter_mode = vector_filter_mode
 
         # If the API key is not provided or is a placeholder, use DefaultAzureCredential.
-        if api_key is None or api_key == "" or api_key == "your-api-key":
+        if self.api_key is None or self.api_key == "" or self.api_key == "your-api-key":
             credential = DefaultAzureCredential()
-            api_key = None
+            self.api_key = None
         else:
-            credential = AzureKeyCredential(api_key)
+            credential = AzureKeyCredential(self.api_key)
 
         self.search_client = SearchClient(
             endpoint=f"https://{service_name}.search.windows.net",
@@ -366,16 +366,23 @@ class AzureAISearch(VectorStoreBase):
             # Delete the collection
             self.delete_col()
 
+            # If the API key is not provided or is a placeholder, use DefaultAzureCredential.
+            if self.api_key is None or self.api_key == "" or self.api_key == "your-api-key":
+                credential = DefaultAzureCredential()
+                self.api_key = None
+            else:
+                credential = AzureKeyCredential(self.api_key)
+
             # Reinitialize the clients
             service_endpoint = f"https://{self.service_name}.search.windows.net"
             self.search_client = SearchClient(
                 endpoint=service_endpoint,
                 index_name=self.index_name,
-                credential=AzureKeyCredential(self.api_key),
+                credential=credential,
             )
             self.index_client = SearchIndexClient(
                 endpoint=service_endpoint,
-                credential=AzureKeyCredential(self.api_key),
+                credential=credential,
             )
 
             # Add user agent
