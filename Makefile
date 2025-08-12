@@ -50,3 +50,6 @@ test-py-3.10:
 
 test-py-3.11:
 	hatch run dev_py_3_11:test
+
+test-py-3.12:
+	hatch run dev_py_3_12:test
