@@ -18,6 +18,7 @@ dependencies = [
     "posthog>=3.5.0",
     "pytz>=2024.1",
     "sqlalchemy>=2.0.31",
+    "protobuf>=5.29.0,<6.0.0",
 ]
 
 [project.optional-dependencies]
@@ -30,7 +31,7 @@ graph = [
 vector_stores = [
     "vecs>=0.4.0",
     "chromadb>=0.4.24",
-    "weaviate-client>=4.4.0",
+    "weaviate-client>=4.4.0,<4.15.0",
     "pinecone<=7.3.0",
     "pinecone-text>=0.10.0",
     "faiss-cpu>=1.7.4",
