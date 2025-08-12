@@ -68,10 +68,15 @@ await memory.search(
 
 #### List memories
 
-List all memories for a `user_id`, `agent_id`, or `run_id`:
+List all memories for a `user_id`, `agent_id`, and/or `run_id`:
 
 ```python Python
 await memory.get_all(user_id="alice")
+
+# Get memories with agent and run context
+await memory.get_all(user_id="alice", agent_id="assistant")
+await memory.get_all(user_id="alice", run_id="session-001")
+await memory.get_all(user_id="alice", agent_id="assistant", run_id="session-001")
 ```
 
 #### Get specific memory
@@ -110,6 +115,35 @@ await memory.delete_all(user_id="alice")
 ```
 
 Note: At least one filter (user_id, agent_id, or run_id) is required when using delete_all.
+
+### Advanced Memory Organization
+
+AsyncMemory supports the same three-parameter organization system as the synchronous Memory class:
+
+```python Python
+# Store memories with full context
+await memory.add(
+    messages=[{"role": "user", "content": "I prefer vegetarian food"}],
+    user_id="alice",
+    agent_id="diet-assistant",
+    run_id="consultation-001"
+)
+
+# Retrieve memories with different scopes
+all_user_memories = await memory.get_all(user_id="alice")
+agent_memories = await memory.get_all(user_id="alice", agent_id="diet-assistant")
+session_memories = await memory.get_all(user_id="alice", run_id="consultation-001")
+specific_memories = await memory.get_all(
+    user_id="alice", 
+    agent_id="diet-assistant", 
+    run_id="consultation-001"
+)
+
+# Search with context
+general_search = await memory.search("What do you know about me?", user_id="alice")
+agent_search = await memory.search("What do you know about me?", user_id="alice", agent_id="diet-assistant")
+session_search = await memory.search("What do you know about me?", user_id="alice", run_id="consultation-001")
+```
 
 #### Memory History
 
