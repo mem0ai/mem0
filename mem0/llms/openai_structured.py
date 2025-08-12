@@ -18,6 +18,38 @@ class OpenAIStructuredLLM(LLMBase):
         base_url = self.config.openai_base_url or os.getenv("OPENAI_API_BASE") or "https://api.openai.com/v1"
         self.client = OpenAI(api_key=api_key, base_url=base_url)
 
+
+    def _parse_response(self, response, tools):
+        """
+        Process the response based on whether tools are used or not.
+
+        Args:
+            response: The raw response from API.
+            tools: The list of tools provided in the request.
+
+        Returns:
+            str or dict: The processed response.
+        """
+        if tools:
+            processed_response = {
+                "content": response.choices[0].message.content,
+                "tool_calls": [],
+            }
+            import json
+            if response.choices[0].message.tool_calls:
+                for tool_call in response.choices[0].message.tool_calls:
+                    processed_response["tool_calls"].append(
+                        {
+                            "name": tool_call.function.name,
+                            "arguments": json.loads(tool_call.function.arguments),
+                        }
+                    )
+
+            return processed_response
+        else:
+            return response.choices[0].message.content
+
+
     def generate_response(
         self,
         messages: List[Dict[str, str]],
@@ -49,4 +81,4 @@ class OpenAIStructuredLLM(LLMBase):
             params["tool_choice"] = tool_choice
 
         response = self.client.beta.chat.completions.parse(**params)
-        return response.choices[0].message.content
+        return self._parse_response(response, tools)
