@@ -447,16 +447,13 @@ class MemoryClient:
         """Batch update memories.
 
         Args:
-            memories: List of memory dictionaries to update. Each dictionary
-                      must contain:
+            memories: List of memory dictionaries to update. Each dictionary must contain:
                 - memory_id (str): ID of the memory to update
-                - text (str): New text content for the memory
+                - text (str, optional): New text content for the memory
+                - metadata (dict, optional): New metadata for the memory
 
         Returns:
-            str: Message indicating the success of the batch update.
-
-        Raises:
-            APIError: If the API request fails.
+            Dict[str, Any]: The response from the server.
         """
         response = self.client.put("/v1/batch/", json={"memories": memories})
         response.raise_for_status()
@@ -1232,16 +1229,13 @@ class AsyncMemoryClient:
         """Batch update memories.
 
         Args:
-            memories: List of memory dictionaries to update. Each dictionary
-                      must contain:
+            memories: List of memory dictionaries to update. Each dictionary must contain:
                 - memory_id (str): ID of the memory to update
-                - text (str): New text content for the memory
+                - text (str, optional): New text content for the memory
+                - metadata (dict, optional): New metadata for the memory
 
         Returns:
-            str: Message indicating the success of the batch update.
-
-        Raises:
-            APIError: If the API request fails.
+            Dict[str, Any]: The response from the server.
         """
         response = await self.async_client.put("/v1/batch/", json={"memories": memories})
         response.raise_for_status()
