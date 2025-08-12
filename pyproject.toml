@@ -114,6 +114,16 @@ features = [
   "extras",
 ]
 
+[tool.hatch.envs.dev_py_3_12]
+python = "3.12"
+features = [
+  "test",
+  "graph",
+  "vector_stores",
+  "llms",
+  "extras",
+]
+
 [tool.hatch.envs.default.scripts]
 format = [
     "ruff format",

@@ -25,6 +25,7 @@ We use `hatch` for managing development environments. To set up:
 hatch shell dev_py_3_9   # Python 3.9
 hatch shell dev_py_3_10  # Python 3.10  
 hatch shell dev_py_3_11  # Python 3.11
+hatch shell dev_py_3_12  # Python 3.12
 
 # The environment will automatically install all dev dependencies
 # Run tests within the activated shell:
@@ -51,6 +52,7 @@ make test
 make test-py-3.9   # Python 3.9 environment
 make test-py-3.10  # Python 3.10 environment
 make test-py-3.11  # Python 3.11 environment
+make test-py-3.12  # Python 3.12 environment
 
 # When using hatch shells, run tests with:
 make test  # After activating a shell with hatch shell test_XX
