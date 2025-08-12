@@ -1,7 +1,6 @@
 import logging
-import re
 
-from mem0.memory.utils import format_entities
+from mem0.memory.utils import format_entities, sanitize_relationship_for_cypher
 
 try:
     from langchain_memgraph.graphs.memgraph import Memgraph
@@ -41,13 +40,20 @@ class MemoryGraph:
             {"enable_embeddings": True},
         )
 
-        self.llm_provider = "openai_structured"
-        if self.config.llm.provider:
+        # Default to openai if no specific provider is configured
+        self.llm_provider = "openai"
+        if self.config.llm and self.config.llm.provider:
             self.llm_provider = self.config.llm.provider
-        if self.config.graph_store.llm:
+        if self.config.graph_store and self.config.graph_store.llm and self.config.graph_store.llm.provider:
             self.llm_provider = self.config.graph_store.llm.provider
 
-        self.llm = LlmFactory.create(self.llm_provider, self.config.llm.config)
+        # Get LLM config with proper null checks
+        llm_config = None
+        if self.config.graph_store and self.config.graph_store.llm and hasattr(self.config.graph_store.llm, "config"):
+            llm_config = self.config.graph_store.llm.config
+        elif hasattr(self.config.llm, "config"):
+            llm_config = self.config.llm.config
+        self.llm = LlmFactory.create(self.llm_provider, llm_config)
         self.user_id = None
         self.threshold = 0.7
 
@@ -537,31 +543,9 @@ class MemoryGraph:
         for item in entity_list:
             item["source"] = item["source"].lower().replace(" ", "_")
             # Use the sanitization function for relationships to handle special characters
-            item["relationship"] = self._sanitize_relationship_for_cypher(item["relationship"].lower().replace(" ", "_"))
+            item["relationship"] = sanitize_relationship_for_cypher(item["relationship"].lower().replace(" ", "_"))
             item["destination"] = item["destination"].lower().replace(" ", "_")
         return entity_list
-
-    def _sanitize_relationship_for_cypher(self, relationship):
-        """Sanitize relationship text for Cypher queries by replacing problematic characters."""
-        char_map = {
-            "...": "_ellipsis_", "…": "_ellipsis_", "。": "_period_", "，": "_comma_",
-            "；": "_semicolon_", "：": "_colon_", "！": "_exclamation_", "？": "_question_",
-            "（": "_lparen_", "）": "_rparen_", "【": "_lbracket_", "】": "_rbracket_",
-            "《": "_langle_", "》": "_rangle_", "'": "_apostrophe_", '"': "_quote_",
-            "\\": "_backslash_", "/": "_slash_", "|": "_pipe_", "&": "_ampersand_",
-            "=": "_equals_", "+": "_plus_", "*": "_asterisk_", "^": "_caret_",
-            "%": "_percent_", "$": "_dollar_", "#": "_hash_", "@": "_at_",
-            "!": "_bang_", "?": "_question_", "(": "_lparen_", ")": "_rparen_",
-            "[": "_lbracket_", "]": "_rbracket_", "{": "_lbrace_", "}": "_rbrace_",
-            "<": "_langle_", ">": "_rangle_"
-        }
-        
-        # Apply replacements and clean up
-        sanitized = relationship
-        for old, new in char_map.items():
-            sanitized = sanitized.replace(old, new)
-        
-        return re.sub(r'_+', '_', sanitized).strip('_')
 
     def _search_source_node(self, source_embedding, filters, threshold=0.9):
         """Search for source nodes with similar embeddings."""
