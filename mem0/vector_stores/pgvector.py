@@ -2,20 +2,20 @@ import json
 import logging
 from typing import List, Optional
 
-from psycopg.types.json import Json
 from pydantic import BaseModel
 
 # Try to import psycopg (psycopg3) first, then fall back to psycopg2
 try:
     import psycopg
     from psycopg import execute_values
+    from psycopg.types.json import Json
     PSYCOPG_VERSION = 3
     logger = logging.getLogger(__name__)
     logger.info("Using psycopg (psycopg3) for PostgreSQL connections")
 except ImportError:
     try:
         import psycopg2
-        from psycopg2.extras import execute_values
+        from psycopg2.extras import execute_values, Json
         PSYCOPG_VERSION = 2
         logger = logging.getLogger(__name__)
         logger.info("Using psycopg2 for PostgreSQL connections")
