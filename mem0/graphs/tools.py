@@ -249,23 +249,23 @@ RELATIONS_STRUCT_TOOL = {
                     "items": {
                         "type": "object",
                         "properties": {
-                            "source_entity": {
+                            "source": {
                                 "type": "string",
                                 "description": "The source entity of the relationship.",
                             },
-                            "relatationship": {
+                            "relationship": {
                                 "type": "string",
                                 "description": "The relationship between the source and destination entities.",
                             },
-                            "destination_entity": {
+                            "destination": {
                                 "type": "string",
                                 "description": "The destination entity of the relationship.",
                             },
                         },
                         "required": [
-                            "source_entity",
-                            "relatationship",
-                            "destination_entity",
+                            "source",
+                            "relationship",
+                            "destination",
                         ],
                         "additionalProperties": False,
                     },

@@ -196,7 +196,7 @@ class GraphStoreFactory:
     Factory for creating MemoryGraph instances for different graph store providers.
     Usage: GraphStoreFactory.create(provider_name, config)
     """
-    
+
     provider_to_class = {
         "memgraph": "mem0.memory.memgraph_memory.MemoryGraph",
         "neptune": "mem0.graphs.neptune.main.MemoryGraph",
