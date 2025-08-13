@@ -1384,31 +1384,21 @@ class AsyncMemory(MemoryBase):
             "mem0.get_all", self, {"limit": limit, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"}
         )
 
-        vector_store_task = asyncio.create_task(
-            self._get_all_from_vector_store(effective_filters, limit)
-        )
+        vector_store_task = asyncio.create_task(self._get_all_from_vector_store(effective_filters, limit))
 
         graph_task = None
         if self.enable_graph:
             graph_get_all = getattr(self.graph, "get_all", None)
             if callable(graph_get_all):
                 if asyncio.iscoroutinefunction(graph_get_all):
-                    graph_task = asyncio.create_task(
-                        graph_get_all(effective_filters, limit)
-                    )
+                    graph_task = asyncio.create_task(graph_get_all(effective_filters, limit))
                 else:
-                    graph_task = asyncio.create_task(
-                        asyncio.to_thread(graph_get_all, effective_filters, limit)
-                    )
+                    graph_task = asyncio.create_task(asyncio.to_thread(graph_get_all, effective_filters, limit))
 
         results_dict = {}
         if graph_task:
-            vector_store_result, graph_entities_result = await asyncio.gather(
-                vector_store_task, graph_task
-            )
-            results_dict.update(
-                {"results": vector_store_result, "relations": graph_entities_result}
-            )
+            vector_store_result, graph_entities_result = await asyncio.gather(vector_store_task, graph_task)
+            results_dict.update({"results": vector_store_result, "relations": graph_entities_result})
         else:
             results_dict.update({"results": await vector_store_task})
 

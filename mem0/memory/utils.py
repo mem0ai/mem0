@@ -131,3 +131,54 @@ def process_telemetry_filters(filters):
         encoded_ids["run_id"] = hashlib.md5(filters["run_id"].encode()).hexdigest()
 
     return list(filters.keys()), encoded_ids
+
+
+def sanitize_relationship_for_cypher(relationship) -> str:
+    """Sanitize relationship text for Cypher queries by replacing problematic characters."""
+    char_map = {
+        "...": "_ellipsis_",
+        "…": "_ellipsis_",
+        "。": "_period_",
+        "，": "_comma_",
+        "；": "_semicolon_",
+        "：": "_colon_",
+        "！": "_exclamation_",
+        "？": "_question_",
+        "（": "_lparen_",
+        "）": "_rparen_",
+        "【": "_lbracket_",
+        "】": "_rbracket_",
+        "《": "_langle_",
+        "》": "_rangle_",
+        "'": "_apostrophe_",
+        '"': "_quote_",
+        "\\": "_backslash_",
+        "/": "_slash_",
+        "|": "_pipe_",
+        "&": "_ampersand_",
+        "=": "_equals_",
+        "+": "_plus_",
+        "*": "_asterisk_",
+        "^": "_caret_",
+        "%": "_percent_",
+        "$": "_dollar_",
+        "#": "_hash_",
+        "@": "_at_",
+        "!": "_bang_",
+        "?": "_question_",
+        "(": "_lparen_",
+        ")": "_rparen_",
+        "[": "_lbracket_",
+        "]": "_rbracket_",
+        "{": "_lbrace_",
+        "}": "_rbrace_",
+        "<": "_langle_",
+        ">": "_rangle_",
+    }
+
+    # Apply replacements and clean up
+    sanitized = relationship
+    for old, new in char_map.items():
+        sanitized = sanitized.replace(old, new)
+
+    return re.sub(r"_+", "_", sanitized).strip("_")
