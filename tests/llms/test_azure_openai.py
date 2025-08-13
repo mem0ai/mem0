@@ -2,7 +2,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from mem0.configs.llms.base import BaseLlmConfig
+from mem0.configs.llms.azure import AzureOpenAIConfig
 from mem0.llms.azure_openai import AzureOpenAILLM
 
 MODEL = "gpt-4o"  # or your custom deployment name
@@ -20,7 +20,7 @@ def mock_openai_client():
 
 
 def test_generate_response_without_tools(mock_openai_client):
-    config = BaseLlmConfig(model=MODEL, temperature=TEMPERATURE, max_tokens=MAX_TOKENS, top_p=TOP_P)
+    config = AzureOpenAIConfig(model=MODEL, temperature=TEMPERATURE, max_tokens=MAX_TOKENS, top_p=TOP_P)
     llm = AzureOpenAILLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
@@ -40,7 +40,7 @@ def test_generate_response_without_tools(mock_openai_client):
 
 
 def test_generate_response_with_tools(mock_openai_client):
-    config = BaseLlmConfig(model=MODEL, temperature=TEMPERATURE, max_tokens=MAX_TOKENS, top_p=TOP_P)
+    config = AzureOpenAIConfig(model=MODEL, temperature=TEMPERATURE, max_tokens=MAX_TOKENS, top_p=TOP_P)
     llm = AzureOpenAILLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
@@ -107,7 +107,7 @@ def test_generate_with_http_proxies(default_headers):
         patch("mem0.llms.azure_openai.AzureOpenAI") as mock_azure_openai,
         patch("httpx.Client", new=mock_http_client),
     ):
-        config = BaseLlmConfig(
+        config = AzureOpenAIConfig(
             model=MODEL,
             temperature=TEMPERATURE,
             max_tokens=MAX_TOKENS,

@@ -2,7 +2,7 @@
 title: Livekit
 ---
 
-<Snippet file="paper-release.mdx" />
+<Snippet file="blank-notif.mdx" />
 
 This guide demonstrates how to create a memory-enabled voice assistant using LiveKit, Deepgram, OpenAI, and Mem0, focusing on creating an intelligent, context-aware travel planning agent.
 
@@ -12,10 +12,12 @@ Before you begin, make sure you have:
 
 1. Installed Livekit Agents SDK with voice dependencies of silero and deepgram:
 ```bash
-pip install livekit-agents[voice] \
+pip install livekit livekit-agents \
 livekit-plugins-silero \
 livekit-plugins-deepgram \
-livekit-plugins-openai
+livekit-plugins-openai \
+livekit-plugins-turn-detector \
+livekit-plugins-noise-cancellation
 ```
 
 2. Installed Mem0 SDK:
@@ -42,284 +44,123 @@ Let's break down the key components of this implementation using LiveKit Agents:
 ### 1. Setting Up Dependencies and Environment
 
 ```python
-import asyncio
-import logging
 import os
-from typing import List, Dict, Any, Annotated
-
-import aiohttp
+import logging
+from pathlib import Path
 from dotenv import load_dotenv
+
+from mem0 import AsyncMemoryClient
+
 from livekit.agents import (
+    JobContext,
+    WorkerOptions,
+    cli,
+    ChatContext,
+    ChatMessage,
+    RoomInputOptions,
     Agent,
     AgentSession,
-    AutoSubscribe,
-    JobContext,
-    llm,
-    function_tool,
-    RunContext,
-    cli,
-    WorkerOptions,
-    ModelSettings,
 )
-from livekit.plugins import deepgram, openai, silero
-from livekit.plugins.turn_detector.multilingual import MultilingualModel
-from mem0 import AsyncMemoryClient
+from livekit.plugins import openai, silero, deepgram, noise_cancellation
+from livekit.plugins.turn_detector.english import EnglishModel
 
 # Load environment variables
 load_dotenv()
 
-# Configure logging
-logger = logging.getLogger("memory-assistant")
-logger.setLevel(logging.INFO)
-
-# Define a global user ID for simplicity
-USER_ID = "voice_user"
-
-# Initialize Mem0 client
-mem0 = AsyncMemoryClient()
 ```
 
-This section handles:
-- Importing required modules
-- Loading environment variables
-- Setting up logging
-- Extracting user identification
-- Initializing the Mem0 client
-
-### 2. Memory Enrichment Function
+### 2. Mem0 Client and Agent Definition
 
 ```python
-async def _enrich_with_memory(chat_ctx: llm.ChatContext):
-    """Add memories and augment chat context with relevant memories"""
-    if not chat_ctx.messages:
-        return
-
-    # Get the latest user message
-    user_msg = chat_ctx.messages[-1]
-    if user_msg.role != "user":
-        return
-
-    user_content = user_msg.text_content()
-    if not user_content:
-        return
-
-    # Store user message in Mem0
-    await mem0.add(
-        [{"role": "user", "content": user_content}],
-        user_id=USER_ID
-    )
-
-    # Search for relevant memories
-    results = await mem0.search(
-        user_content,
-        user_id=USER_ID,
-    )
-
-    # Augment context with retrieved memories
-    if results:
-        memories = ' '.join([result["memory"] for result in results])
-        logger.info(f"Enriching with memory: {memories}")
-
-        # Add memory context as a assistant message
-        memory_msg = llm.ChatMessage.create(
-            text=f"Relevant Memory: {memories}\n",
-            role="assistant",
-        )
-
-        # Modify chat context with retrieved memories
-        chat_ctx.messages[-1] = memory_msg
-        chat_ctx.messages.append(user_msg)
-```
-
-This function:
-- Stores user messages in Mem0
-- Performs semantic search for relevant memories
-- Augments the chat context with retrieved memories
-- Enables contextually aware responses
-
-### 3. Prewarm and Entrypoint Functions
-
-```python
-def prewarm_process(proc):
-    """Preload components to speed up session start"""
-    proc.userdata["vad"] = silero.VAD.load()
-
-async def entrypoint(ctx: JobContext):
-    """Main entrypoint for the memory-enabled voice agent"""
-
-    # Connect to LiveKit room
-    await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
-
-    # Create agent session with modern 1.0 architecture
-    session = AgentSession(
-        stt=deepgram.STT(),
-        llm=openai.LLM(model="gpt-4o-mini"),
-        tts=openai.TTS(),
-        vad=silero.VAD.load(),
-        turn_detection=MultilingualModel(),
-    )
-
-    # Create memory-enabled agent
-    agent = MemoryEnabledAgent()
-
-    # Start the session
-    await session.start(
-        room=ctx.room,
-        agent=agent,
-    )
-
-    # Initial greeting
-    await session.generate_reply(
-        instructions="Greet the user warmly as George the travel guide and ask how you can help them plan their next adventure."
-    )
-```
-
-The entrypoint function:
-- Connects to LiveKit room
-- Initializes Mem0 memory client
-- Create agent session using `AgentSession` orchestrator with memory enrichment
-- Uses modern turn detection with `MultilingualModel()`
-- Starts the agent with an initial greeting
-
-## Create a Memory-Enabled Voice Agent
-
-Now that we've explained each component, here's the complete implementation that combines OpenAI Agents SDK for voice with Mem0's memory capabilities:
-
-```python
-import asyncio
-import logging
-import os
-from typing import AsyncIterable, Any
-
-from dotenv import load_dotenv
-from livekit.agents import (
-    Agent,
-    AgentSession,
-    JobContext,
-    llm,
-    function_tool,
-    RunContext,
-    cli,
-    WorkerOptions,
-    ModelSettings,
-)
-from livekit.plugins import deepgram, openai, silero
-from livekit.plugins.turn_detector.multilingual import MultilingualModel
-from mem0 import AsyncMemoryClient
-
-# Load environment variables
-load_dotenv()
-
-# Configure logging
-logger = logging.getLogger("memory-assistant")
-logger.setLevel(logging.INFO)
-
-# Define a global user ID for simplicity
-USER_ID = "voice_user"
-
-# Initialize Mem0 memory client
-mem0 = AsyncMemoryClient()
+# User ID for RAG data in Mem0
+RAG_USER_ID = "livekit-mem0"
+mem0_client = AsyncMemoryClient()
 
 class MemoryEnabledAgent(Agent):
-    """Travel guide agent with Mem0 memory integration"""
-
-    def __init__(self):
+    """
+    An agent that can answer questions using RAG (Retrieval Augmented Generation) with Mem0.
+    """
+    def __init__(self) -> None:
         super().__init__(
             instructions="""
-            You are a helpful voice assistant.
-            You are a travel guide named George and will help the user to plan a travel trip of their dreams.
-            You should help the user plan for various adventures like work retreats, family vacations or solo backpacking trips.
-            You should be careful to not suggest anything that would be dangerous, illegal or inappropriate.
-            You can remember past interactions and use them to inform your answers.
-            Use semantic memory retrieval to provide contextually relevant responses.
-            """
+                You are a helpful voice assistant.
+                You are a travel guide named George and will help the user to plan a travel trip of their dreams.
+                You should help the user plan for various adventures like work retreats, family vacations or solo backpacking trips.
+                You should be careful to not suggest anything that would be dangerous, illegal or inappropriate.
+                You can remember past interactions and use them to inform your answers.
+                Use semantic memory retrieval to provide contextually relevant responses.
+            """,
+        )
+        self._seen_results = set()  # Track previously seen result IDs
+        logger.info(f"Mem0 Agent initialized. Using user_id: {RAG_USER_ID}")
+
+    async def on_enter(self):
+        self.session.generate_reply(
+            instructions="Briefly greet the user and offer your assistance."
         )
 
-    async def llm_node(
-        self,
-        chat_ctx: llm.ChatContext,
-        tools: list[llm.FunctionTool],
-        model_settings: ModelSettings,
-    ) -> AsyncIterable[llm.ChatChunk]:
-        """Override LLM node to add memory enrichment before inference"""
-
-        # Enrich context with memory before LLM inference
-        await self._enrich_with_memory(chat_ctx)
-
-        # Call default LLM node with enriched context
-        async for chunk in Agent.default.llm_node(self, chat_ctx, tools, model_settings):
-            yield chunk
-
-    async def _enrich_with_memory(self, chat_ctx: llm.ChatContext):
-        """Add memories and augment chat context with relevant memories"""
-        if not chat_ctx.messages:
-            return
-
-        # Get the latest user message
-        user_msg = chat_ctx.messages[-1]
-        if user_msg.role != "user":
-            return
-
-        user_content = user_msg.text_content()
-        if not user_content:
-            return
-
-        # Store user message in Mem0
-        await mem0.add(
-            [{"role": "user", "content": user_content}],
-            user_id=USER_ID
-        )
-
-        # Search for relevant memories
-        results = await mem0.search(
-            user_content,
-            user_id=USER_ID,
-        )
-
-        # Augment context with retrieved memories
-        if results:
-            memories = ' '.join([result["memory"] for result in results])
-            logger.info(f"Enriching with memory: {memories}")
-
-            # Add memory context as a assistant message
-            memory_msg = llm.ChatMessage.create(
-                text=f"Relevant Memory: {memories}\n",
-                role="assistant",
+    async def on_user_turn_completed(self, turn_ctx: ChatContext, new_message: ChatMessage) -> None:
+        # Persist the user message in Mem0
+        try:
+            logger.info(f"Adding user message to Mem0: {new_message.text_content}")
+            add_result = await mem0_client.add(
+                [{"role": "user", "content": new_message.text_content}],
+                user_id=RAG_USER_ID
             )
+            logger.info(f"Mem0 add result (user): {add_result}")
+        except Exception as e:
+            logger.warning(f"Failed to store user message in Mem0: {e}")
 
-            # Modify chat context with retrieved memories
-            chat_ctx.messages[-1] = memory_msg
-            chat_ctx.messages.append(user_msg)
+        # RAG: Retrieve relevant context from Mem0 and inject as assistant message
+        try:
+            logger.info("About to await mem0_client.search for RAG context")
+            search_results = await mem0_client.search(
+                new_message.text_content,
+                user_id=RAG_USER_ID,
+            )
+            logger.info(f"mem0_client.search returned: {search_results}")
+            if search_results and search_results.get('results', []):
+                context_parts = []
+                for result in search_results.get('results', []):
+                    paragraph = result.get("memory") or result.get("text")
+                    if paragraph:
+                        source = "mem0 Memories"
+                        if "from [" in paragraph:
+                            source = paragraph.split("from [")[1].split("]")[0]
+                            paragraph = paragraph.split("]")[1].strip()
+                        context_parts.append(f"Source: {source}\nContent: {paragraph}\n")
+                if context_parts:
+                    full_context = "\n\n".join(context_parts)
+                    logger.info(f"Injecting RAG context: {full_context}")
+                    turn_ctx.add_message(role="assistant", content=full_context)
+                    await self.update_chat_ctx(turn_ctx)
+        except Exception as e:
+            logger.warning(f"Failed to inject RAG context from Mem0: {e}")
 
-def prewarm_process(proc):
-    """Preload components to speed up session start"""
-    proc.userdata["vad"] = silero.VAD.load()
+        await super().on_user_turn_completed(turn_ctx, new_message)
+```
 
+### 3. Entrypoint and Session Setup
+
+```python
 async def entrypoint(ctx: JobContext):
-    """Main entrypoint for the memory-enabled voice agent"""
+    """Main entrypoint for the agent."""
+    await ctx.connect()
 
-    # Connect to LiveKit room
-    await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
-
-    # Initialize Mem0 client
-    mem0 = AsyncMemoryClient()
-
-    # Create agent session with modern 1.0 architecture
     session = AgentSession(
         stt=deepgram.STT(),
         llm=openai.LLM(model="gpt-4o-mini"),
-        tts=openai.TTS(),
+        tts=openai.TTS(voice="ash",),
+        turn_detection=EnglishModel(),
         vad=silero.VAD.load(),
-        turn_detection=MultilingualModel(),
     )
 
-    # Create memory-enabled agent
-    agent = MemoryEnabledAgent()
-
-    # Start the session
     await session.start(
+        agent=MemoryEnabledAgent(),
         room=ctx.room,
-        agent=agent,
+        room_input_options=RoomInputOptions(
+            noise_cancellation=noise_cancellation.BVC(),
+        ),
     )
 
     # Initial greeting
@@ -330,10 +171,7 @@ async def entrypoint(ctx: JobContext):
 
 # Run the application
 if __name__ == "__main__":
-    cli.run_app(WorkerOptions(
-        entrypoint_fnc=entrypoint,
-        prewarm_fnc=prewarm_process
-    ))
+    cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint))
 ```
 
 ## Key Features of This Implementation
@@ -354,6 +192,11 @@ To run this example:
 4. Run the script with Python 3.11 or newer and with the following command:
 ```sh
 python mem0-livekit-voice-agent.py start
+```
+or to start your agent in console mode to run inside your terminal:
+
+```sh
+python mem0-livekit-voice-agent.py console
 ```
 5. After the script starts, you can interact with the voice agent using [Livekit's Agent Platform](https://agents-playground.livekit.io/) and connect to the agent inorder to start conversations.
 
@@ -383,3 +226,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger("memory_voice_agent")
 ```
+
+- Check the logs for any issues with API keys, connectivity, or memory operations.
+- Ensure your `.env` file is correctly configured and loaded.
+
+
+## Help & Resources
+
+- [LiveKit Documentation](https://docs.livekit.io/)
+- [Mem0 Platform](https://app.mem0.ai/)
+- Need assistance? Reach out through:
+
+<Snippet file="get-help.mdx" />

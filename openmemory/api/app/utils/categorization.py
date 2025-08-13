@@ -1,11 +1,11 @@
 import logging
 from typing import List
 
+from app.utils.prompts import MEMORY_CATEGORIZATION_PROMPT
 from dotenv import load_dotenv
 from openai import OpenAI
 from pydantic import BaseModel
 from tenacity import retry, stop_after_attempt, wait_exponential
-from app.utils.prompts import MEMORY_CATEGORIZATION_PROMPT
 
 load_dotenv()
 openai_client = OpenAI()
@@ -24,11 +24,10 @@ def get_categories_for_memory(memory: str) -> List[str]:
         ]
 
         # Let OpenAI handle the pydantic parsing directly
-        completion = openai_client.chat.completions.with_response_format(
-            response_format=MemoryCategories
-        ).create(
+        completion = openai_client.beta.chat.completions.parse(
             model="gpt-4o-mini",
             messages=messages,
+            response_format=MemoryCategories,
             temperature=0
         )
 

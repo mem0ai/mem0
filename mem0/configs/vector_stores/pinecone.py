@@ -18,6 +18,7 @@ class PineconeConfig(BaseModel):
     metric: str = Field("cosine", description="Distance metric for vector similarity")
     batch_size: int = Field(100, description="Batch size for operations")
     extra_params: Optional[Dict[str, Any]] = Field(None, description="Additional parameters for Pinecone client")
+    namespace: Optional[str] = Field(None, description="Namespace for the collection")
 
     @model_validator(mode="before")
     @classmethod

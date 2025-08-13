@@ -2,7 +2,7 @@
 title: AI Companion
 ---
 
-<Snippet file="paper-release.mdx" />
+<Snippet file="blank-notif.mdx" />
 
 You can create a personalised AI Companion using Mem0. This guide will walk you through the necessary steps and provide the complete code to get you started.
 
@@ -61,7 +61,7 @@ class Companion:
         check_prompt = f"""
         Analyze the given input and determine whether the user is primarily:
         1) Talking about themselves or asking for personal advice. They may use words like "I" for this. 
-        2) Inquiring about the AI companions's capabilities or characteristics They may use words like "you" for this. 
+        2) Inquiring about the AI companion's capabilities or characteristics They may use words like "you" for this.
 
         Respond with a single word:
         - 'user' if the input is focused on the user
@@ -87,8 +87,8 @@ class Companion:
 
         previous_memories = self.memory.search(question, user_id=user_id_to_use)
         relevant_memories_text = ""
-        if previous_memories:
-            relevant_memories_text = '\n'.join(mem["memory"] for mem in previous_memories)
+        if previous_memories and previous_memories.get('results'):
+            relevant_memories_text = '\n'.join(mem["memory"] for mem in previous_memories['results'])
 
         prompt = f"User input: {question}\nPrevious {check_answer} memories: {relevant_memories_text}"
 
@@ -146,7 +146,7 @@ def print_memories(user_id, label):
     memories = ai_companion.get_memories(user_id=user_id)
     if memories:
         for m in memories:
-            print(f"- {m['text']}")
+            print(f"- {m['memory']}")
     else:
         print("No memories found.")
 

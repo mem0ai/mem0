@@ -15,22 +15,22 @@ Key features:
 - Environment variable parsing for API keys
 """
 
-import logging
+import contextvars
+import datetime
 import json
-from mcp.server.fastmcp import FastMCP
-from mcp.server.sse import SseServerTransport
+import logging
+import uuid
+
+from app.database import SessionLocal
+from app.models import Memory, MemoryAccessLog, MemoryState, MemoryStatusHistory
+from app.utils.db import get_user_and_app
 from app.utils.memory import get_memory_client
+from app.utils.permissions import check_memory_access_permissions
+from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.routing import APIRouter
-import contextvars
-import os
-from dotenv import load_dotenv
-from app.database import SessionLocal
-from app.models import Memory, MemoryState, MemoryStatusHistory, MemoryAccessLog
-from app.utils.db import get_user_and_app
-import uuid
-import datetime
-from app.utils.permissions import check_memory_access_permissions
+from mcp.server.fastmcp import FastMCP
+from mcp.server.sse import SseServerTransport
 from qdrant_client import models as qdrant_models
 
 # Load environment variables
@@ -430,12 +430,10 @@ async def handle_post_message(request: Request):
         return {"status": "ok"}
     finally:
         pass
-        # Clean up context variable
-        # client_name_var.reset(client_token)
 
 def setup_mcp_server(app: FastAPI):
     """Setup MCP server with the FastAPI application"""
-    mcp._mcp_server.name = f"mem0-mcp-server"
+    mcp._mcp_server.name = "mem0-mcp-server"
 
     # Include MCP router in the FastAPI app
     app.include_router(mcp_router)
