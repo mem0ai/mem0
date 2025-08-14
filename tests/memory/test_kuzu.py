@@ -1,4 +1,3 @@
-import kuzu
 import numpy as np
 import pytest
 from unittest.mock import Mock, patch
