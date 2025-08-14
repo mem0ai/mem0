@@ -134,7 +134,7 @@ class Memory(MemoryBase):
             self.config.vector_store.provider, self.config.vector_store.config
         )
         self.llm = LlmFactory.create(self.config.llm.provider, self.config.llm.config)
-        self.db = StorageManager(self.config.history_url, **self.config.history_args)
+        self.db = StorageManager(self.config.history_db_url, **self.config.history_db_args)
         self.collection_name = self.config.vector_store.config.collection_name
         self.api_version = self.config.version
 
@@ -952,7 +952,7 @@ class Memory(MemoryBase):
             self.db.connection.execute("DROP TABLE IF EXISTS history")
             self.db.connection.close()
 
-        self.db = StorageManager(self.config.history_url, **self.config.history_args)
+        self.db = StorageManager(self.config.history_db_url, **self.config.history_db_args)
 
         if hasattr(self.vector_store, "reset"):
             self.vector_store = VectorStoreFactory.reset(self.vector_store)
@@ -981,7 +981,7 @@ class AsyncMemory(MemoryBase):
             self.config.vector_store.provider, self.config.vector_store.config
         )
         self.llm = LlmFactory.create(self.config.llm.provider, self.config.llm.config)
-        self.db = StorageManager(self.config.history_url, **self.config.history_args)
+        self.db = StorageManager(self.config.history_db_url, **self.config.history_db_args)
         self.collection_name = self.config.vector_store.config.collection_name
         self.api_version = self.config.version
 
@@ -1835,7 +1835,7 @@ class AsyncMemory(MemoryBase):
             await asyncio.to_thread(lambda: self.db.connection.execute("DROP TABLE IF EXISTS history"))
             await asyncio.to_thread(self.db.connection.close)
 
-        self.db = StorageManager(self.config.history_url, **self.config.history_args)
+        self.db = StorageManager(self.config.history_db_url, **self.config.history_db_args)
 
         self.vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config

@@ -39,12 +39,12 @@ class MemoryConfig(BaseModel):
         description="Configuration for the embedding model",
         default_factory=EmbedderConfig,
     )
-    history_url: str = Field(
+    history_db_url: str = Field(
         description="history database url",
         default=f"sqlite:///{os.path.join(mem0_dir, 'history.db')}",
     )
-    history_args: Optional[dict[str, Any]] = Field(
-        description="history args",
+    history_db_args: Optional[dict[str, Any]] = Field(
+        description="history database args",
         default={},
     )
     graph_store: GraphStoreConfig = Field(
