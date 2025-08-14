@@ -2,22 +2,74 @@
 title: Features
 icon: "wrench"
 iconType: "solid"
+description: "Comprehensive overview of Mem0's memory management capabilities for AI apps"
 ---
 
-<Snippet file="blank-notif.mdx" />
+Mem0 provides two deployment options, each with distinct capabilities designed for different use cases. Choose the one that best fits your development needs and infrastructure requirements.
 
-## Core features
+## Platform vs Open Source
 
-- **User, Session, and AI Agent Memory**: Retains information across sessions and interactions for users and AI agents, ensuring continuity and context.
-- **Adaptive Personalization**: Continuously updates memories based on user interactions and feedback.
-- **Developer-Friendly API**: Offers a straightforward API for seamless integration into various applications.
-- **Platform Consistency**: Ensures consistent behavior and data across different platforms and devices.
-- **Managed Service**: Provides a hosted solution for easy deployment and maintenance.
-- **Save Costs**: Saves costs by adding relevant memories instead of complete transcripts to context window
+<CardGroup cols={2}>
+  <Card title="Mem0 Platform" icon="cloud" href="/platform/overview">
+    **Managed Service** - Production-ready with advanced features
+    • Advanced retrieval algorithms
+    • Contextual memory processing
+    • Enterprise security & compliance
+    • Multimodal support
+    • Custom categories & instructions
+    • Memory export & webhooks
+    • Graph memory relationships
+  </Card>
+  <Card title="Open Source" icon="code" href="/open-source/overview">
+    **Self-Hosted** - Full control over your infrastructure
 
+    • Core memory operations (add, search, update, delete)
+    • Async client support
+    • Custom fact extraction prompts
+    • OpenAI API compatibility
+    • REST API server
+    • Multimodal support
+    • Local deployment options
+  </Card>
+</CardGroup>
 
+## Core Memory Capabilities
 
+All Mem0 implementations provide these fundamental memory management features:
 
-If you have any questions, please feel free to reach out to us using one of the following methods:
+### Memory Lifecycle
+- **Add Memories**: Store new information with automatic deduplication and relevance filtering
+- **Search & Retrieve**: Find relevant memories using semantic search and advanced filtering
+- **Update Memories**: Modify existing memories while maintaining context and relationships
+- **Delete Memories**: Remove outdated or irrelevant information with cascade options
+
+### Intelligence Features
+- **Adaptive Personalization**: Continuously learns and updates based on user interactions
+- **Context Preservation**: Maintains conversation context across sessions and interactions
+- **Semantic Understanding**: Uses advanced NLP to extract and store meaningful information
+- **Cost Optimization**: Reduces token usage by storing only relevant context
+
+## Getting Started
+
+<CardGroup cols={3}>
+  <Card title="Platform Quickstart" icon="rocket" href="/platform/quickstart">
+    Get started with Mem0 Platform in minutes
+  </Card>
+  <Card title="Python OSS Guide" icon="python" href="/open-source/python-quickstart">
+    Self-host with Python SDK
+  </Card>
+  <Card title="Node.js OSS Guide" icon="node" href="/open-source/node-quickstart">
+    Self-host with Node.js SDK
+  </Card>
+</CardGroup>
+
+## Developer Resources
+
+- **Multi-Language SDKs**: Python, Node.js, and REST API support
+- **Comprehensive Examples**: Real-world implementation patterns and use cases
+- **Integration Guides**: Ready-to-use integrations with popular AI frameworks
+- **Flexible Configuration**: Customizable to fit your specific requirements
+
+## Need Help?
 
 <Snippet file="get-help.mdx" />
