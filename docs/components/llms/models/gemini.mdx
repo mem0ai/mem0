@@ -1,8 +1,10 @@
 ---
-title: Google AI
+title: Gemini
 ---
 
-To use the Gemini model, set the `GOOGLE_API_KEY` environment variable. You can obtain the Google/Gemini API key from [Google AI Studio](https://aistudio.google.com/app/apikey).
+ 
+
+To use the Gemini model, set the `GEMINI_API_KEY` environment variable. You can obtain the Gemini API key from [Google AI Studio](https://aistudio.google.com/app/apikey).
 
 > **Note:** As of the latest release, Mem0 uses the new `google.genai` SDK instead of the deprecated `google.generativeai`. All message formatting and model interaction now use the updated `types` module from `google.genai`.
 
@@ -16,7 +18,7 @@ import os
 from mem0 import Memory
 
 os.environ["OPENAI_API_KEY"] = "your-openai-api-key"  # Used for embedding model
-os.environ["GOOGLE_API_KEY"] = "your-gemini-api-key"
+os.environ["GEMINI_API_KEY"] = "your-gemini-api-key"
 
 config = {
     "llm": {
