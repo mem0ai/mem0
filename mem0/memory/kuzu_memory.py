@@ -1,5 +1,4 @@
 import logging
-import re
 
 from mem0.memory.utils import format_entities
 
@@ -32,51 +31,61 @@ class MemoryGraph:
         self.config = config
 
         self.embedding_model = EmbedderFactory.create(
-            self.config.embedder.provider, self.config.embedder.config, self.config.vector_store.config
+            self.config.embedder.provider,
+            self.config.embedder.config,
+            self.config.vector_store.config,
         )
         self.embedding_dims = self.embedding_model.config.embedding_dims
 
         self.db = kuzu.Database(self.config.graph_store.config.db)
         self.graph = kuzu.Connection(self.db)
-        self.node_labels = set()
-        self.rel_labels = set()
 
-        # Always use the same node table.
         self.node_label = ":Entity"
-        self.kuzu_create_node_table(self.node_label)
+        self.rel_label = ":CONNECTED_TO"
+        self.kuzu_create_schema()
 
-        self.llm_provider = "openai_structured"
-        if self.config.llm.provider:
+        # Default to openai if no specific provider is configured
+        self.llm_provider = "openai"
+        if self.config.llm and self.config.llm.provider:
             self.llm_provider = self.config.llm.provider
-        if self.config.graph_store.llm:
+        if self.config.graph_store and self.config.graph_store.llm and self.config.graph_store.llm.provider:
             self.llm_provider = self.config.graph_store.llm.provider
+        # Get LLM config with proper null checks
+        llm_config = None
+        if self.config.graph_store and self.config.graph_store.llm and hasattr(self.config.graph_store.llm, "config"):
+            llm_config = self.config.graph_store.llm.config
+        elif hasattr(self.config.llm, "config"):
+            llm_config = self.config.llm.config
+        self.llm = LlmFactory.create(self.llm_provider, llm_config)
 
-        self.llm = LlmFactory.create(self.llm_provider, self.config.llm.config)
         self.user_id = None
         self.threshold = 0.7
 
-    def kuzu_create_node_table(self, node_label):
-        assert node_label[0] == ":", f"Node label does not begin with colon: {node_label}"
-        assert len(node_label) > 1, "Node label is empty"
-
-        if node_label not in self.node_labels:
-            self.kuzu_execute(
-                f"CREATE NODE TABLE IF NOT EXISTS {node_label[1:]}(id SERIAL PRIMARY KEY, user_id STRING, name STRING, mentions INT64, created TIMESTAMP, embedding FLOAT[{self.embedding_dims}]);"
-            )
-            self.node_labels.add(node_label)
-
-    def kuzu_create_rel_table(self, rel_label, src_table, dst_table):
-        assert len(rel_label) > 0, "Rel label is empty"
-        assert src_table[0] == ":", f"Src label does not begin with colon: {dst_table}"
-        assert len(src_table) > 1, "Src label is empty"
-        assert dst_table[0] == ":", f"Dst label does not begin with colon: {dst_table}"
-        assert len(dst_table) > 1, "Dst label is empty"
-
-        if rel_label not in self.rel_labels:
-            self.kuzu_execute(
-                f"CREATE REL TABLE IF NOT EXISTS {rel_label}(FROM {src_table[1:]} TO {dst_table[1:]}, mentions INT64, created TIMESTAMP, updated TIMESTAMP);"
-            )
-            self.rel_labels.add(rel_label)
+    def kuzu_create_schema(self):
+        self.kuzu_execute(
+            f"""
+            CREATE NODE TABLE IF NOT EXISTS Entity(
+                id SERIAL PRIMARY KEY,
+                user_id STRING,
+                agent_id STRING,
+                run_id STRING,
+                name STRING,
+                mentions INT64,
+                created TIMESTAMP,
+                embedding FLOAT[{self.embedding_dims}]);
+            """
+        )
+        self.kuzu_execute(
+            """
+            CREATE REL TABLE IF NOT EXISTS CONNECTED_TO(
+                FROM Entity TO Entity,
+                name STRING,
+                mentions INT64,
+                created TIMESTAMP,
+                updated TIMESTAMP
+            );
+            """
+        )
 
     def kuzu_execute(self, query, parameters=None):
         results = self.graph.execute(query, parameters)
@@ -90,16 +99,13 @@ class MemoryGraph:
             data (str): The data to add to the graph.
             filters (dict): A dictionary containing filters to be applied during the addition.
         """
-
         entity_type_map = self._retrieve_nodes_from_data(data, filters)
         to_be_added = self._establish_nodes_relations_from_data(data, filters, entity_type_map)
         search_output = self._search_graph_db(node_list=list(entity_type_map.keys()), filters=filters)
         to_be_deleted = self._get_delete_entities_from_search_output(search_output, data, filters)
 
-        # TODO: Batch queries
-        # TODO: Add more filter support
-        deleted_entities = self._delete_entities(to_be_deleted, filters["user_id"])
-        added_entities = self._add_entities(to_be_added, filters["user_id"], entity_type_map)
+        deleted_entities = self._delete_entities(to_be_deleted, filters)
+        added_entities = self._add_entities(to_be_added, filters, entity_type_map)
 
         return {"deleted_entities": deleted_entities, "added_entities": added_entities}
 
@@ -135,21 +141,34 @@ class MemoryGraph:
         for item in reranked_results:
             search_results.append({"source": item[0], "relationship": item[1], "destination": item[2]})
 
+        logger.info(f"Returned {len(search_results)} search results")
+
         return search_results
 
     def delete_all(self, filters):
+        # Build node properties for filtering
+        node_props = ["user_id: $user_id"]
+        if filters.get("agent_id"):
+            node_props.append("agent_id: $agent_id")
+        if filters.get("run_id"):
+            node_props.append("run_id: $run_id")
+        node_props_str = ", ".join(node_props)
+
         cypher = f"""
-        MATCH (n {self.node_label} {{user_id: $user_id}})
+        MATCH (n {self.node_label} {{{node_props_str}}})
         DETACH DELETE n
         """
         params = {"user_id": filters["user_id"]}
+        if filters.get("agent_id"):
+            params["agent_id"] = filters["agent_id"]
+        if filters.get("run_id"):
+            params["run_id"] = filters["run_id"]
         self.kuzu_execute(cypher, parameters=params)
 
     def get_all(self, filters, limit=100):
         """
         Retrieves all nodes and relationships from the graph database based on optional filtering criteria.
-
-        Args:
+         Args:
             filters (dict): A dictionary containing filters to be applied during the retrieval.
             limit (int): The maximum number of nodes and relationships to retrieve. Defaults to 100.
         Returns:
@@ -157,13 +176,30 @@ class MemoryGraph:
                 - 'contexts': The base data store response for each memory.
                 - 'entities': A list of strings representing the nodes and relationships
         """
-        # return all nodes and relationships
+
+        params = {
+            "user_id": filters["user_id"],
+            "limit": limit,
+        }
+        # Build node properties based on filters
+        node_props = ["user_id: $user_id"]
+        if filters.get("agent_id"):
+            node_props.append("agent_id: $agent_id")
+            params["agent_id"] = filters["agent_id"]
+        if filters.get("run_id"):
+            node_props.append("run_id: $run_id")
+            params["run_id"] = filters["run_id"]
+        node_props_str = ", ".join(node_props)
+
         query = f"""
-        MATCH (n {self.node_label} {{user_id: $user_id}})-[r]->(m {self.node_label} {{user_id: $user_id}})
-        RETURN n.name AS source, label(r) AS relationship, m.name AS target
+        MATCH (n {self.node_label} {{{node_props_str}}})-[r]->(m {self.node_label} {{{node_props_str}}})
+        RETURN
+            n.name AS source,
+            r.name AS relationship,
+            m.name AS target
         LIMIT $limit
         """
-        results = self.kuzu_execute(query, parameters={"user_id": filters["user_id"], "limit": limit})
+        results = self.kuzu_execute(query, params=params)
 
         final_results = []
         for result in results:
@@ -174,6 +210,8 @@ class MemoryGraph:
                     "target": result["target"],
                 }
             )
+
+        logger.info(f"Retrieved {len(final_results)} relationships")
 
         return final_results
 
@@ -208,27 +246,30 @@ class MemoryGraph:
 
         entity_type_map = {k.lower().replace(" ", "_"): v.lower().replace(" ", "_") for k, v in entity_type_map.items()}
         logger.debug(f"Entity type map: {entity_type_map}\n search_results={search_results}")
-
         return entity_type_map
 
     def _establish_nodes_relations_from_data(self, data, filters, entity_type_map):
-        """Eshtablish relations among the extracted nodes."""
+        """Establish relations among the extracted nodes."""
+
+        # Compose user identification string for prompt
+        user_identity = f"user_id: {filters['user_id']}"
+        if filters.get("agent_id"):
+            user_identity += f", agent_id: {filters['agent_id']}"
+        if filters.get("run_id"):
+            user_identity += f", run_id: {filters['run_id']}"
+
         if self.config.graph_store.custom_prompt:
+            system_content = EXTRACT_RELATIONS_PROMPT.replace("USER_ID", user_identity)
+            # Add the custom prompt line if configured
+            system_content = system_content.replace("CUSTOM_PROMPT", f"4. {self.config.graph_store.custom_prompt}")
             messages = [
-                {
-                    "role": "system",
-                    "content": EXTRACT_RELATIONS_PROMPT.replace("USER_ID", filters["user_id"]).replace(
-                        "CUSTOM_PROMPT", f"4. {self.config.graph_store.custom_prompt}"
-                    ),
-                },
+                {"role": "system", "content": system_content},
                 {"role": "user", "content": data},
             ]
         else:
+            system_content = EXTRACT_RELATIONS_PROMPT.replace("USER_ID", user_identity)
             messages = [
-                {
-                    "role": "system",
-                    "content": EXTRACT_RELATIONS_PROMPT.replace("USER_ID", filters["user_id"]),
-                },
+                {"role": "system", "content": system_content},
                 {"role": "user", "content": f"List of entities: {list(entity_type_map.keys())}. \n\nText: {data}"},
             ]
 
@@ -242,44 +283,70 @@ class MemoryGraph:
         )
 
         entities = []
-        if extracted_entities["tool_calls"]:
-            entities = extracted_entities["tool_calls"][0]["arguments"]["entities"]
+        if extracted_entities.get("tool_calls"):
+            entities = extracted_entities["tool_calls"][0].get("arguments", {}).get("entities", [])
 
         entities = self._remove_spaces_from_entities(entities)
         logger.debug(f"Extracted entities: {entities}")
-
         return entities
 
     def _search_graph_db(self, node_list, filters, limit=100):
         """Search similar nodes among and their respective incoming and outgoing relations."""
         result_relations = []
+
+        # Build node properties for filtering
+        node_props = ["user_id: $user_id"]
+        if filters.get("agent_id"):
+            node_props.append("agent_id: $agent_id")
+        if filters.get("run_id"):
+            node_props.append("run_id: $run_id")
+        node_props_str = ", ".join(node_props)
+
         for node in node_list:
             n_embedding = self.embedding_model.embed(node)
 
-            results = []
             params = {
                 "n_embedding": n_embedding,
                 "threshold": self.threshold,
                 "user_id": filters["user_id"],
                 "limit": limit,
             }
+            if filters.get("agent_id"):
+                params["agent_id"] = filters["agent_id"]
+            if filters.get("run_id"):
+                params["run_id"] = filters["run_id"]
+
+            results = []
             for cypher in [
                 f"""
-                MATCH (n {self.node_label})
-                WHERE n.embedding IS NOT NULL AND n.user_id = $user_id
+                MATCH (n {self.node_label} {{{node_props_str}}})
+                WHERE n.embedding IS NOT NULL
                 WITH n, round(2 * array_cosine_similarity(n.embedding, CAST($n_embedding,'FLOAT[{self.embedding_dims}]')) - 1, 4) AS similarity // denormalize for backward compatibility
                 WHERE similarity >= CAST($threshold, 'DOUBLE')
-                MATCH (n)-[r]->(m)
-                RETURN n.name AS source, id(n) AS source_id, label(r) AS relationship, id(r) AS relation_id, m.name AS destination, id(m) AS destination_id, similarity
+                MATCH (n)-[r]->(m {self.node_label} {{{node_props_str}}})
+                RETURN
+                    n.name AS source,
+                    id(n) AS source_id,
+                    r.name AS relationship,
+                    id(r) AS relation_id,
+                    m.name AS destination,
+                    id(m) AS destination_id,
+                    similarity
                 LIMIT $limit
                 """,
                 f"""
-                MATCH (n {self.node_label})
-                WHERE n.embedding IS NOT NULL AND n.user_id = $user_id
+                MATCH (n {self.node_label} {{{node_props_str}}})
+                WHERE n.embedding IS NOT NULL
                 WITH n, round(2 * array_cosine_similarity(n.embedding, CAST($n_embedding,'FLOAT[{self.embedding_dims}]')) - 1, 4) AS similarity // denormalize for backward compatibility
                 WHERE similarity >= CAST($threshold, 'DOUBLE')
-                MATCH (m)-[r]->(n)
-                RETURN n.name AS source, id(n) AS source_id, label(r) AS relationship, id(r) AS relation_id, m.name AS destination, id(m) AS destination_id, similarity
+                MATCH (n)<-[r]-(m {self.node_label} {{{node_props_str}}})
+                RETURN
+                    n.name AS source, id(n) AS source_id,
+                    r.name AS relationship,
+                    id(r) AS relation_id,
+                    m.name AS destination,
+                    id(m) AS destination_id,
+                    similarity
                 LIMIT $limit
                 """,
             ]:
@@ -293,7 +360,15 @@ class MemoryGraph:
     def _get_delete_entities_from_search_output(self, search_output, data, filters):
         """Get the entities to be deleted from the search output."""
         search_output_string = format_entities(search_output)
-        system_prompt, user_prompt = get_delete_messages(search_output_string, data, filters["user_id"])
+
+        # Compose user identification string for prompt
+        user_identity = f"user_id: {filters['user_id']}"
+        if filters.get("agent_id"):
+            user_identity += f", agent_id: {filters['agent_id']}"
+        if filters.get("run_id"):
+            user_identity += f", run_id: {filters['run_id']}"
+
+        system_prompt, user_prompt = get_delete_messages(search_output_string, data, user_identity)
 
         _tools = [DELETE_MEMORY_TOOL_GRAPH]
         if self.llm_provider in ["azure_openai_structured", "openai_structured"]:
@@ -310,51 +385,68 @@ class MemoryGraph:
         )
 
         to_be_deleted = []
-        for item in memory_updates["tool_calls"]:
-            if item["name"] == "delete_graph_memory":
-                to_be_deleted.append(item["arguments"])
-        # in case if it is not in the correct format
+        for item in memory_updates.get("tool_calls", []):
+            if item.get("name") == "delete_graph_memory":
+                to_be_deleted.append(item.get("arguments"))
+        # Clean entities formatting
         to_be_deleted = self._remove_spaces_from_entities(to_be_deleted)
         logger.debug(f"Deleted relationships: {to_be_deleted}")
-
         return to_be_deleted
 
-    def _delete_entities(self, to_be_deleted, user_id):
+    def _delete_entities(self, to_be_deleted, filters):
         """Delete the entities from the graph."""
+        user_id = filters["user_id"]
+        agent_id = filters.get("agent_id", None)
+        run_id = filters.get("run_id", None)
         results = []
+
         for item in to_be_deleted:
             source = item["source"]
             destination = item["destination"]
             relationship = item["relationship"]
 
-            if relationship not in self.rel_labels:
-                logger.debug(f"Tried to delete rel type that does not exist: {relationship}")
-                continue
-
-            # Delete the specific relationship between nodes
-            cypher = f"""
-            MATCH (n {self.node_label} {{name: $source_name, user_id: $user_id}})
-            -[r:{relationship}]->
-            (m {self.node_label} {{name: $dest_name, user_id: $user_id}})
-            DELETE r
-            RETURN
-                n.name AS source,
-                m.name AS target,
-                label(r) AS relationship
-            """
             params = {
                 "source_name": source,
                 "dest_name": destination,
                 "user_id": user_id,
+                "relationship_name": relationship,
             }
-            result = self.kuzu_execute(cypher, parameters=params)
+            # Build node properties for filtering
+            source_props = ["name: $source_name", "user_id: $user_id"]
+            dest_props = ["name: $dest_name", "user_id: $user_id"]
+            if agent_id:
+                source_props.append("agent_id: $agent_id")
+                dest_props.append("agent_id: $agent_id")
+                params["agent_id"] = agent_id
+            if run_id:
+                source_props.append("run_id: $run_id")
+                dest_props.append("run_id: $run_id")
+                params["run_id"] = run_id
+            source_props_str = ", ".join(source_props)
+            dest_props_str = ", ".join(dest_props)
 
+            # Delete the specific relationship between nodes
+            cypher = f"""
+            MATCH (n {self.node_label} {{{source_props_str}}})
+            -[r {self.rel_label} {{name: $relationship_name}}]->
+            (m {self.node_label} {{{dest_props_str}}})
+            DELETE r
+            RETURN
+                n.name AS source,
+                r.name AS relationship
+                m.name AS target,
+            """
+
+            result = self.graph.query(cypher, params=params)
             results.append(result)
 
         return results
 
-    def _add_entities(self, to_be_added, user_id, entity_type_map):
+    def _add_entities(self, to_be_added, filters, entity_type_map):
         """Add the new entities to the graph. Merge the nodes if they already exist."""
+        user_id = filters["user_id"]
+        agent_id = filters.get("agent_id", None)
+        run_id = filters.get("run_id", None)
         results = []
         for item in to_be_added:
             # entities
@@ -364,42 +456,18 @@ class MemoryGraph:
             destination = item["destination"]
             destination_label = self.node_label
 
-            relationship = kuzu_sanitize_table_name(item["relationship"])
-            self.kuzu_create_rel_table(relationship, source_label, destination_label)
+            relationship = item["relationship"]
+            relationship_label = self.rel_label
 
             # embeddings
             source_embedding = self.embedding_model.embed(source)
             dest_embedding = self.embedding_model.embed(destination)
 
             # search for the nodes with the closest embeddings
-            source_node_search_result = self._search_source_node(source_embedding, user_id, threshold=0.9)
-            destination_node_search_result = self._search_destination_node(dest_embedding, user_id, threshold=0.9)
+            source_node_search_result = self._search_source_node(source_embedding, filters, threshold=0.9)
+            destination_node_search_result = self._search_destination_node(dest_embedding, filters, threshold=0.9)
 
-            # TODO: Create a cypher query and common params for all the cases
             if not destination_node_search_result and source_node_search_result:
-                cypher = f"""
-                    MATCH (source)
-                    WHERE id(source) = internal_id($table_id, $offset_id)
-                    SET source.mentions = coalesce(source.mentions, 0) + 1
-                    WITH source
-                    MERGE (destination {destination_label} {{name: $destination_name, user_id: $user_id}})
-                    ON CREATE SET
-                        destination.created = current_timestamp(),
-                        destination.mentions = 1,
-                        destination.embedding = CAST($destination_embedding,'FLOAT[{self.embedding_dims}]')
-                    ON MATCH SET
-                        destination.mentions = coalesce(destination.mentions, 0) + 1,
-                        destination.embedding = CAST($destination_embedding,'FLOAT[{self.embedding_dims}]')
-                    WITH source, destination
-                    MERGE (source)-[r:{relationship}]->(destination)
-                    ON CREATE SET
-                        r.created = current_timestamp(),
-                        r.mentions = 1
-                    ON MATCH SET
-                        r.mentions = coalesce(r.mentions, 0) + 1
-                    RETURN source.name AS source, label(r) AS relationship, destination.name AS target
-                    """
-
                 params = {
                     "table_id": source_node_search_result[0]["id"]["table"],
                     "offset_id": source_node_search_result[0]["id"]["offset"],
@@ -407,30 +475,42 @@ class MemoryGraph:
                     "destination_embedding": dest_embedding,
                     "user_id": user_id,
                 }
-            elif destination_node_search_result and not source_node_search_result:
-                cypher = f"""
-                    MATCH (destination)
-                    WHERE id(destination) = internal_id($table_id, $offset_id)
-                    SET destination.mentions = coalesce(destination.mentions, 0) + 1
-                    WITH destination
-                    MERGE (source {source_label} {{name: $source_name, user_id: $user_id}})
-                    ON CREATE SET
-                        source.created = current_timestamp(),
-                        source.mentions = 1,
-                        source.embedding = CAST($source_embedding,'FLOAT[{self.embedding_dims}]')
-                    ON MATCH SET
-                        source.mentions = coalesce(source.mentions, 0) + 1,
-                        source.embedding = CAST($source_embedding,'FLOAT[{self.embedding_dims}]')
-                    WITH source, destination
-                    MERGE (source)-[r:{relationship}]->(destination)
-                    ON CREATE SET
-                        r.created = current_timestamp(),
-                        r.mentions = 1
-                    ON MATCH SET
-                        r.mentions = coalesce(r.mentions, 0) + 1
-                    RETURN source.name AS source, label(r) AS relationship, destination.name AS target
-                    """
+                # Build source MERGE properties
+                merge_props = ["name: $destination_name", "user_id: $user_id"]
+                if agent_id:
+                    merge_props.append("agent_id: $agent_id")
+                    params["agent_id"] = agent_id
+                if run_id:
+                    merge_props.append("run_id: $run_id")
+                    params["run_id"] = run_id
+                merge_props_str = ", ".join(merge_props)
 
+                cypher = f"""
+                MATCH (source)
+                WHERE id(source) = internal_id($table_id, $offset_id)
+                SET source.mentions = coalesce(source.mentions, 0) + 1
+                WITH source
+                MERGE (destination {destination_label} {{{merge_props_str}}})
+                ON CREATE SET
+                    destination.created = current_timestamp(),
+                    destination.mentions = 1,
+                    destination.embedding = CAST($destination_embedding,'FLOAT[{self.embedding_dims}]')
+                ON MATCH SET
+                    destination.mentions = coalesce(destination.mentions, 0) + 1
+                    destination.embedding = CAST($destination_embedding,'FLOAT[{self.embedding_dims}]')
+                WITH source, destination
+                MERGE (source)-[r {relationship_label} {{name: $relationship_name}}]->(destination)
+                ON CREATE SET
+                    r.created = current_timestamp(),
+                    r.mentions = 1,
+                ON MATCH SET
+                    r.mentions = coalesce(r.mentions, 0) + 1
+                RETURN
+                    source.name AS source,
+                    r.name AS relationship,
+                    destination.name AS target
+                """
+            elif destination_node_search_result and not source_node_search_result:
                 params = {
                     "table_id": destination_node_search_result[0]["id"]["table"],
                     "offset_id": destination_node_search_result[0]["id"]["offset"],
@@ -438,66 +518,128 @@ class MemoryGraph:
                     "source_embedding": source_embedding,
                     "user_id": user_id,
                 }
+                # Build source MERGE properties
+                merge_props = ["name: $source_name", "user_id: $user_id"]
+                if agent_id:
+                    merge_props.append("agent_id: $agent_id")
+                    params["agent_id"] = agent_id
+                if run_id:
+                    merge_props.append("run_id: $run_id")
+                    params["run_id"] = run_id
+                merge_props_str = ", ".join(merge_props)
+
+                cypher = f"""
+                MATCH (destination)
+                WHERE id(destination) = internal_id($table_id, $offset_id)
+                SET destination.mentions = coalesce(destination.mentions, 0) + 1
+                WITH destination
+                MERGE (source {source_label} {{{merge_props_str}}})
+                ON CREATE SET
+                    source.created = current_timestamp(),
+                    source.mentions = 1
+                    source.embedding = CAST($source_embedding,'FLOAT[{self.embedding_dims}]')
+                ON MATCH SET
+                    source.mentions = coalesce(source.mentions, 0) + 1
+                    source.embedding = CAST($source_embedding,'FLOAT[{self.embedding_dims}]')
+                WITH source, destination
+                MERGE (source)-[r {relationship_label} {{name: $relationship_name}}]->(destination)
+                ON CREATE SET
+                    r.created = current_timestamp(),
+                    r.mentions = 1
+                ON MATCH SET
+                    r.mentions = coalesce(r.mentions, 0) + 1
+                RETURN
+                    source.name AS source,
+                    r.name AS relationship,
+                    destination.name AS target
+                """
             elif source_node_search_result and destination_node_search_result:
                 cypher = f"""
-                    MATCH (source)
-                    WHERE id(source) = internal_id($src_table, $src_offset)
-                    SET source.mentions = coalesce(source.mentions, 0) + 1
-                    WITH source
-                    MATCH (destination)
-                    WHERE id(destination) = internal_id($dst_table, $dst_offset)
-                    SET destination.mentions = coalesce(destination.mentions) + 1
-                    MERGE (source)-[r:{relationship}]->(destination)
-                    ON CREATE SET
-                        r.created = current_timestamp(),
-                        r.updated = current_timestamp(),
-                        r.mentions = 1
-                    ON MATCH SET r.mentions = coalesce(r.mentions, 0) + 1
-                    RETURN source.name AS source, label(r) AS relationship, destination.name AS target
-                    """
+                MATCH (source)
+                WHERE id(source) = internal_id($src_table, $src_offset)
+                SET source.mentions = coalesce(source.mentions, 0) + 1
+                WITH source
+                MATCH (destination)
+                WHERE id(destination) = internal_id($dst_table, $dst_offset)
+                SET destination.mentions = coalesce(destination.mentions, 0) + 1
+                MERGE (source)-[r {relationship_label} {{name: $relationship_name}}]->(destination)
+                ON CREATE SET
+                    r.created = current_timestamp(),
+                    r.updated = current_timestamp(),
+                    r.mentions = 1
+                ON MATCH SET r.mentions = coalesce(r.mentions, 0) + 1
+                RETURN
+                    source.name AS source,
+                    r.name AS relationship,
+                    destination.name AS target
+                """
+
                 params = {
                     "src_table": source_node_search_result[0]["id"]["table"],
                     "src_offset": source_node_search_result[0]["id"]["offset"],
                     "dst_table": destination_node_search_result[0]["id"]["table"],
                     "dst_offset": destination_node_search_result[0]["id"]["offset"],
+                    "relationship_name": relationship,
                 }
+                if agent_id:
+                    params["agent_id"] = agent_id
+                if run_id:
+                    params["run_id"] = run_id
             else:
-                cypher = f"""
-                    MERGE (source {source_label} {{name: $source_name, user_id: $user_id}})
-                    ON CREATE SET
-                        source.created = current_timestamp(),
-                        source.mentions = 1,
-                        source.embedding = CAST($source_embedding,'FLOAT[{self.embedding_dims}]')
-                    ON MATCH SET
-                        source.mentions = coalesce(source.mentions, 0) + 1,
-                        source.embedding = CAST($source_embedding,'FLOAT[{self.embedding_dims}]')
-                    WITH source
-                    MERGE (destination {destination_label} {{name: $dest_name, user_id: $user_id}})
-                    ON CREATE SET
-                        destination.created = current_timestamp(),
-                        destination.mentions = 1,
-                        destination.embedding = CAST($dest_embedding,'FLOAT[{self.embedding_dims}]')
-                    ON MATCH SET
-                        destination.mentions = coalesce(destination.mentions, 0) + 1,
-                        destination.embedding = CAST($dest_embedding,'FLOAT[{self.embedding_dims}]')
-                    WITH source, destination
-                    MERGE (source)-[rel:{relationship}]->(destination)
-                    ON CREATE SET
-                        rel.created = current_timestamp(),
-                        rel.mentions = 1
-                    ON MATCH SET
-                        rel.mentions = coalesce(rel.mentions, 0) + 1
-                    RETURN source.name AS source, label(rel) AS relationship, destination.name AS target
-                    """
                 params = {
                     "source_name": source,
                     "dest_name": destination,
+                    "relationship_name": relationship,
                     "source_embedding": source_embedding,
                     "dest_embedding": dest_embedding,
                     "user_id": user_id,
                 }
-            result = self.kuzu_execute(cypher, parameters=params)
+                # Build dynamic MERGE props for both source and destination
+                source_props = ["name: $source_name", "user_id: $user_id"]
+                dest_props = ["name: $dest_name", "user_id: $user_id"]
+                if agent_id:
+                    source_props.append("agent_id: $agent_id")
+                    dest_props.append("agent_id: $agent_id")
+                    params["agent_id"] = agent_id
+                if run_id:
+                    source_props.append("run_id: $run_id")
+                    dest_props.append("run_id: $run_id")
+                    params["run_id"] = run_id
+                source_props_str = ", ".join(source_props)
+                dest_props_str = ", ".join(dest_props)
 
+                cypher = f"""
+                MERGE (source {source_label} {{{source_props_str}}})
+                ON CREATE SET
+                    source.created = timestamp(),
+                    source.mentions = 1,
+                    source.embedding = CAST($source_embedding,'FLOAT[{self.embedding_dims}]')
+                ON MATCH SET
+                    source.mentions = coalesce(source.mentions, 0) + 1,
+                    source.embedding = CAST($source_embedding,'FLOAT[{self.embedding_dims}]')
+                WITH source
+                MERGE (destination {destination_label} {{{dest_props_str}}})
+                ON CREATE SET
+                    destination.created = timestamp(),
+                    destination.mentions = 1,
+                    destination.embedding = CAST($dest_embedding,'FLOAT[{self.embedding_dims}]')
+                ON MATCH SET
+                    destination.mentions = coalesce(destination.mentions, 0) + 1,
+                    destination.embedding = CAST($dest_embedding,'FLOAT[{self.embedding_dims}]')
+                WITH source, destination
+                MERGE (source)-[rel {relationship_label} {{name: $relationship_name}}]->(destination)
+                ON CREATE SET
+                    rel.created = timestamp(),
+                    rel.mentions = 1
+                ON MATCH SET
+                    rel.mentions = coalesce(rel.mentions, 0) + 1
+                RETURN
+                    source.name AS source,
+                    rel.name AS relationship,
+                    destination.name AS target
+                """
+
+            result = self.kuzu_execute(cypher, parameters=params)
             results.append(result)
         return results
 
@@ -508,14 +650,28 @@ class MemoryGraph:
             item["destination"] = item["destination"].lower().replace(" ", "_")
         return entity_list
 
-    def _search_source_node(self, source_embedding, user_id, threshold=0.9):
+    def _search_source_node(self, source_embedding, filters, threshold=0.9):
+        params = {
+            "source_embedding": source_embedding,
+            "user_id": filters["user_id"],
+            "threshold": threshold,
+        }
+        where_conditions = ["source_candidate.embedding IS NOT NULL", "source_candidate.user_id = $user_id"]
+        if filters.get("agent_id"):
+            where_conditions.append("source_candidate.agent_id = $agent_id")
+            params["agent_id"] = filters["agent_id"]
+        if filters.get("run_id"):
+            where_conditions.append("source_candidate.run_id = $run_id")
+            params["run_id"] = filters["run_id"]
+        where_clause = " AND ".join(where_conditions)
+
         cypher = f"""
             MATCH (source_candidate {self.node_label})
-            WHERE source_candidate.embedding IS NOT NULL
-            AND source_candidate.user_id = $user_id
+            WHERE {where_clause}
 
             WITH source_candidate,
             round(2 * array_cosine_similarity(source_candidate.embedding, CAST($source_embedding,'FLOAT[{self.embedding_dims}]')) - 1, 4) AS source_similarity // denormalize for backward compatibility
+
             WHERE source_similarity >= $threshold
 
             WITH source_candidate, source_similarity
@@ -525,19 +681,26 @@ class MemoryGraph:
             RETURN id(source_candidate) as id
             """
 
-        params = {
-            "source_embedding": source_embedding,
-            "user_id": user_id,
-            "threshold": threshold,
-        }
-
         return self.kuzu_execute(cypher, parameters=params)
 
-    def _search_destination_node(self, destination_embedding, user_id, threshold=0.9):
+    def _search_destination_node(self, destination_embedding, filters, threshold=0.9):
+        params = {
+            "destination_embedding": destination_embedding,
+            "user_id": filters["user_id"],
+            "threshold": threshold,
+        }
+        where_conditions = ["destination_candidate.embedding IS NOT NULL", "destination_candidate.user_id = $user_id"]
+        if filters.get("agent_id"):
+            where_conditions.append("destination_candidate.agent_id = $agent_id")
+            params["agent_id"] = filters["agent_id"]
+        if filters.get("run_id"):
+            where_conditions.append("destination_candidate.run_id = $run_id")
+            params["run_id"] = filters["run_id"]
+        where_clause = " AND ".join(where_conditions)
+
         cypher = f"""
             MATCH (destination_candidate {self.node_label})
-            WHERE destination_candidate.embedding IS NOT NULL
-            AND destination_candidate.user_id = $user_id
+            WHERE {where_clause}
 
             WITH destination_candidate,
             round(2 * array_cosine_similarity(destination_candidate.embedding, CAST($destination_embedding,'FLOAT[{self.embedding_dims}]')) - 1, 4) AS destination_similarity // denormalize for backward compatibility
@@ -550,14 +713,14 @@ class MemoryGraph:
 
             RETURN id(destination_candidate) as id
             """
-        params = {
-            "destination_embedding": destination_embedding,
-            "user_id": user_id,
-            "threshold": threshold,
-        }
 
         return self.kuzu_execute(cypher, parameters=params)
 
-
-def kuzu_sanitize_table_name(table_str):
-    return re.sub(r"[^a-z0-9_]", "_", table_str.lower())
+    # Reset is not defined in base.py
+    def reset(self):
+        """Reset the graph by clearing all nodes and relationships."""
+        logger.warning("Clearing graph...")
+        cypher_query = """
+        MATCH (n) DETACH DELETE n
+        """
+        return self.kuzu_execute(cypher_query)
