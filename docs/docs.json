@@ -22,7 +22,7 @@
                 "group": "Getting Started",
                 "icon": "rocket",
                 "pages": [
-                  "what-is-mem0",
+                  "introduction",
                   "quickstart",
                   "faqs"
                 ]
