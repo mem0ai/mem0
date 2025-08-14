@@ -63,7 +63,7 @@ class MemoryGraph:
 
     def kuzu_create_schema(self):
         self.kuzu_execute(
-            f"""
+            """
             CREATE NODE TABLE IF NOT EXISTS Entity(
                 id SERIAL PRIMARY KEY,
                 user_id STRING,
@@ -72,7 +72,7 @@ class MemoryGraph:
                 name STRING,
                 mentions INT64,
                 created TIMESTAMP,
-                embedding FLOAT[{self.embedding_dims}]);
+                embedding FLOAT[]);
             """
         )
         self.kuzu_execute(
@@ -109,7 +109,7 @@ class MemoryGraph:
 
         return {"deleted_entities": deleted_entities, "added_entities": added_entities}
 
-    def search(self, query, filters, limit=100):
+    def search(self, query, filters, limit=5):
         """
         Search for memories and related graph data.
 
@@ -135,7 +135,7 @@ class MemoryGraph:
         bm25 = BM25Okapi(search_outputs_sequence)
 
         tokenized_query = query.split(" ")
-        reranked_results = bm25.get_top_n(tokenized_query, search_outputs_sequence, n=5)
+        reranked_results = bm25.get_top_n(tokenized_query, search_outputs_sequence, n=limit)
 
         search_results = []
         for item in reranked_results:
@@ -199,7 +199,7 @@ class MemoryGraph:
             m.name AS target
         LIMIT $limit
         """
-        results = self.kuzu_execute(query, params=params)
+        results = self.kuzu_execute(query, parameters=params)
 
         final_results = []
         for result in results:
@@ -290,67 +290,52 @@ class MemoryGraph:
         logger.debug(f"Extracted entities: {entities}")
         return entities
 
-    def _search_graph_db(self, node_list, filters, limit=100):
+    def _search_graph_db(self, node_list, filters, limit=100, threshold=None):
         """Search similar nodes among and their respective incoming and outgoing relations."""
         result_relations = []
 
+        params = {
+            "threshold": threshold if threshold else self.threshold,
+            "user_id": filters["user_id"],
+            "limit": limit,
+        }
         # Build node properties for filtering
         node_props = ["user_id: $user_id"]
         if filters.get("agent_id"):
             node_props.append("agent_id: $agent_id")
+            params["agent_id"] = filters["agent_id"]
         if filters.get("run_id"):
             node_props.append("run_id: $run_id")
+            params["run_id"] = filters["run_id"]
         node_props_str = ", ".join(node_props)
 
         for node in node_list:
             n_embedding = self.embedding_model.embed(node)
-
-            params = {
-                "n_embedding": n_embedding,
-                "threshold": self.threshold,
-                "user_id": filters["user_id"],
-                "limit": limit,
-            }
-            if filters.get("agent_id"):
-                params["agent_id"] = filters["agent_id"]
-            if filters.get("run_id"):
-                params["run_id"] = filters["run_id"]
+            params["n_embedding"] = n_embedding
 
             results = []
-            for cypher in [
-                f"""
-                MATCH (n {self.node_label} {{{node_props_str}}})
-                WHERE n.embedding IS NOT NULL
-                WITH n, round(2 * array_cosine_similarity(n.embedding, CAST($n_embedding,'FLOAT[{self.embedding_dims}]')) - 1, 4) AS similarity // denormalize for backward compatibility
-                WHERE similarity >= CAST($threshold, 'DOUBLE')
-                MATCH (n)-[r]->(m {self.node_label} {{{node_props_str}}})
-                RETURN
-                    n.name AS source,
-                    id(n) AS source_id,
-                    r.name AS relationship,
-                    id(r) AS relation_id,
-                    m.name AS destination,
-                    id(m) AS destination_id,
-                    similarity
-                LIMIT $limit
-                """,
-                f"""
-                MATCH (n {self.node_label} {{{node_props_str}}})
-                WHERE n.embedding IS NOT NULL
-                WITH n, round(2 * array_cosine_similarity(n.embedding, CAST($n_embedding,'FLOAT[{self.embedding_dims}]')) - 1, 4) AS similarity // denormalize for backward compatibility
-                WHERE similarity >= CAST($threshold, 'DOUBLE')
-                MATCH (n)<-[r]-(m {self.node_label} {{{node_props_str}}})
-                RETURN
-                    n.name AS source, id(n) AS source_id,
-                    r.name AS relationship,
-                    id(r) AS relation_id,
-                    m.name AS destination,
-                    id(m) AS destination_id,
-                    similarity
-                LIMIT $limit
-                """,
+            for match_fragment in [
+                f"(n)-[r]->(m {self.node_label} {{{node_props_str}}}) WITH n as src, r, m as dst, similarity",
+                f"(m {self.node_label} {{{node_props_str}}})-[r]->(n) WITH m as src, r, n as dst, similarity"
             ]:
-                results.extend(self.kuzu_execute(cypher, parameters=params))
+                results.extend(self.kuzu_execute(
+                    f"""
+                    MATCH (n {self.node_label} {{{node_props_str}}})
+                    WHERE n.embedding IS NOT NULL
+                    WITH n, array_cosine_similarity(n.embedding, CAST($n_embedding,'FLOAT[{self.embedding_dims}]')) AS similarity
+                    WHERE similarity >= CAST($threshold, 'DOUBLE')
+                    MATCH {match_fragment}
+                    RETURN
+                        src.name AS source,
+                        id(src) AS source_id,
+                        r.name AS relationship,
+                        id(r) AS relation_id,
+                        dst.name AS destination,
+                        id(dst) AS destination_id,
+                        similarity
+                    LIMIT $limit
+                    """,
+                    parameters=params))
 
             # Kuzu does not support sort/limit over unions. Do it manually for now.
             result_relations.extend(sorted(results, key=lambda x: x["similarity"], reverse=True)[:limit])
@@ -433,11 +418,11 @@ class MemoryGraph:
             DELETE r
             RETURN
                 n.name AS source,
-                r.name AS relationship
-                m.name AS target,
+                r.name AS relationship,
+                m.name AS target
             """
 
-            result = self.graph.query(cypher, params=params)
+            result = self.kuzu_execute(cypher, parameters=params)
             results.append(result)
 
         return results
@@ -473,6 +458,7 @@ class MemoryGraph:
                     "offset_id": source_node_search_result[0]["id"]["offset"],
                     "destination_name": destination,
                     "destination_embedding": dest_embedding,
+                    "relationship_name": relationship,
                     "user_id": user_id,
                 }
                 # Build source MERGE properties
@@ -496,13 +482,13 @@ class MemoryGraph:
                     destination.mentions = 1,
                     destination.embedding = CAST($destination_embedding,'FLOAT[{self.embedding_dims}]')
                 ON MATCH SET
-                    destination.mentions = coalesce(destination.mentions, 0) + 1
+                    destination.mentions = coalesce(destination.mentions, 0) + 1,
                     destination.embedding = CAST($destination_embedding,'FLOAT[{self.embedding_dims}]')
                 WITH source, destination
                 MERGE (source)-[r {relationship_label} {{name: $relationship_name}}]->(destination)
                 ON CREATE SET
                     r.created = current_timestamp(),
-                    r.mentions = 1,
+                    r.mentions = 1
                 ON MATCH SET
                     r.mentions = coalesce(r.mentions, 0) + 1
                 RETURN
@@ -517,6 +503,7 @@ class MemoryGraph:
                     "source_name": source,
                     "source_embedding": source_embedding,
                     "user_id": user_id,
+                    "relationship_name": relationship,
                 }
                 # Build source MERGE properties
                 merge_props = ["name: $source_name", "user_id: $user_id"]
@@ -581,10 +568,6 @@ class MemoryGraph:
                     "dst_offset": destination_node_search_result[0]["id"]["offset"],
                     "relationship_name": relationship,
                 }
-                if agent_id:
-                    params["agent_id"] = agent_id
-                if run_id:
-                    params["run_id"] = run_id
             else:
                 params = {
                     "source_name": source,
@@ -611,7 +594,7 @@ class MemoryGraph:
                 cypher = f"""
                 MERGE (source {source_label} {{{source_props_str}}})
                 ON CREATE SET
-                    source.created = timestamp(),
+                    source.created = current_timestamp(),
                     source.mentions = 1,
                     source.embedding = CAST($source_embedding,'FLOAT[{self.embedding_dims}]')
                 ON MATCH SET
@@ -620,7 +603,7 @@ class MemoryGraph:
                 WITH source
                 MERGE (destination {destination_label} {{{dest_props_str}}})
                 ON CREATE SET
-                    destination.created = timestamp(),
+                    destination.created = current_timestamp(),
                     destination.mentions = 1,
                     destination.embedding = CAST($dest_embedding,'FLOAT[{self.embedding_dims}]')
                 ON MATCH SET
@@ -629,7 +612,7 @@ class MemoryGraph:
                 WITH source, destination
                 MERGE (source)-[rel {relationship_label} {{name: $relationship_name}}]->(destination)
                 ON CREATE SET
-                    rel.created = timestamp(),
+                    rel.created = current_timestamp(),
                     rel.mentions = 1
                 ON MATCH SET
                     rel.mentions = coalesce(rel.mentions, 0) + 1
@@ -641,6 +624,7 @@ class MemoryGraph:
 
             result = self.kuzu_execute(cypher, parameters=params)
             results.append(result)
+
         return results
 
     def _remove_spaces_from_entities(self, entity_list):
@@ -670,15 +654,15 @@ class MemoryGraph:
             WHERE {where_clause}
 
             WITH source_candidate,
-            round(2 * array_cosine_similarity(source_candidate.embedding, CAST($source_embedding,'FLOAT[{self.embedding_dims}]')) - 1, 4) AS source_similarity // denormalize for backward compatibility
+            array_cosine_similarity(source_candidate.embedding, CAST($source_embedding,'FLOAT[{self.embedding_dims}]')) AS source_similarity
 
             WHERE source_similarity >= $threshold
 
             WITH source_candidate, source_similarity
             ORDER BY source_similarity DESC
-            LIMIT 1
+            LIMIT 2
 
-            RETURN id(source_candidate) as id
+            RETURN id(source_candidate) as id, source_similarity
             """
 
         return self.kuzu_execute(cypher, parameters=params)
@@ -703,15 +687,15 @@ class MemoryGraph:
             WHERE {where_clause}
 
             WITH destination_candidate,
-            round(2 * array_cosine_similarity(destination_candidate.embedding, CAST($destination_embedding,'FLOAT[{self.embedding_dims}]')) - 1, 4) AS destination_similarity // denormalize for backward compatibility
+            array_cosine_similarity(destination_candidate.embedding, CAST($destination_embedding,'FLOAT[{self.embedding_dims}]')) AS destination_similarity
 
             WHERE destination_similarity >= $threshold
 
             WITH destination_candidate, destination_similarity
             ORDER BY destination_similarity DESC
-            LIMIT 1
+            LIMIT 2
 
-            RETURN id(destination_candidate) as id
+            RETURN id(destination_candidate) as id, destination_similarity
             """
 
         return self.kuzu_execute(cypher, parameters=params)

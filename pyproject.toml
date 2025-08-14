@@ -70,6 +70,9 @@ dev = [
     "pytest>=8.2.2",
 ]
 
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
 [tool.hatch.build]
 include = [
     "mem0/**/*.py",
