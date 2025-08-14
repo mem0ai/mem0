@@ -22,7 +22,7 @@ from mem0.configs.prompts import (
 )
 from mem0.memory.base import MemoryBase
 from mem0.memory.setup import mem0_dir, setup_config
-from mem0.memory.storage import SQLiteManager
+from mem0.memory.storage import StorageManager
 from mem0.memory.telemetry import capture_event
 from mem0.memory.utils import (
     get_fact_retrieval_messages,
@@ -134,7 +134,7 @@ class Memory(MemoryBase):
             self.config.vector_store.provider, self.config.vector_store.config
         )
         self.llm = LlmFactory.create(self.config.llm.provider, self.config.llm.config)
-        self.db = SQLiteManager(self.config.history_db_path)
+        self.db = StorageManager(self.config.history_url, **self.config.history_args)
         self.collection_name = self.config.vector_store.config.collection_name
         self.api_version = self.config.version
 
@@ -952,7 +952,7 @@ class Memory(MemoryBase):
             self.db.connection.execute("DROP TABLE IF EXISTS history")
             self.db.connection.close()
 
-        self.db = SQLiteManager(self.config.history_db_path)
+        self.db = StorageManager(self.config.history_url, **self.config.history_args)
 
         if hasattr(self.vector_store, "reset"):
             self.vector_store = VectorStoreFactory.reset(self.vector_store)
@@ -981,7 +981,7 @@ class AsyncMemory(MemoryBase):
             self.config.vector_store.provider, self.config.vector_store.config
         )
         self.llm = LlmFactory.create(self.config.llm.provider, self.config.llm.config)
-        self.db = SQLiteManager(self.config.history_db_path)
+        self.db = StorageManager(self.config.history_url, **self.config.history_args)
         self.collection_name = self.config.vector_store.config.collection_name
         self.api_version = self.config.version
 
@@ -1835,7 +1835,7 @@ class AsyncMemory(MemoryBase):
             await asyncio.to_thread(lambda: self.db.connection.execute("DROP TABLE IF EXISTS history"))
             await asyncio.to_thread(self.db.connection.close)
 
-        self.db = SQLiteManager(self.config.history_db_path)
+        self.db = StorageManager(self.config.history_url, **self.config.history_args)
 
         self.vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config
