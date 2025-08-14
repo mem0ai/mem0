@@ -100,6 +100,7 @@ export function FormView({ settings, onChange }: FormViewProps) {
     "Azure OpenAI": "azure_openai",
     "Ollama": "ollama",
     "Together": "together",
+    "Nebius AI Studio": "nebius",
     "Groq": "groq",
     "Litellm": "litellm",
     "Mistral AI": "mistralai",
@@ -121,6 +122,7 @@ export function FormView({ settings, onChange }: FormViewProps) {
     "Gemini": "gemini",
     "LM Studio": "lmstudio",
     "Together": "together",
+    "Nebius AI Studio": "nebius",
     "LangChain": "langchain",
     "AWS Bedrock": "aws_bedrock",
   }

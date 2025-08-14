@@ -145,3 +145,8 @@ test = [
 [tool.ruff]
 line-length = 120
 exclude = ["embedchain/", "openmemory/"]
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.12.8"
+isort = "^6.0.1"
+

@@ -406,6 +406,7 @@ def validate_config(config_data):
                     "huggingface",
                     "cohere",
                     "together",
+                    "nebius",
                     "gpt4all",
                     "ollama",
                     "jina",

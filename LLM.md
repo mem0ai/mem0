@@ -274,13 +274,14 @@ config = MemoryConfig(
 
 ### Supported Providers
 
-#### LLM Providers (19 supported)
+#### LLM Providers (20 supported)
 - **openai** - OpenAI GPT models (default)
 - **anthropic** - Claude models
 - **gemini** - Google Gemini
 - **groq** - Groq inference
 - **ollama** - Local Ollama models
 - **together** - Together AI
+- **nebius** - Nebius AI Stufio models
 - **aws_bedrock** - AWS Bedrock models
 - **azure_openai** - Azure OpenAI
 - **litellm** - LiteLLM proxy
@@ -293,7 +294,7 @@ config = MemoryConfig(
 - **openai_structured** - OpenAI with structured output
 - **azure_openai_structured** - Azure OpenAI with structured output
 
-#### Embedding Providers (10 supported)
+#### Embedding Providers (11 supported)
 - **openai** - OpenAI embeddings (default)
 - **ollama** - Ollama embeddings
 - **huggingface** - HuggingFace models
@@ -301,6 +302,7 @@ config = MemoryConfig(
 - **gemini** - Google Gemini embeddings
 - **vertexai** - Google Vertex AI
 - **together** - Together AI embeddings
+- **nebius** - Nebius AI Studio embeddings
 - **lmstudio** - LM Studio embeddings
 - **langchain** - LangChain embeddings
 - **aws_bedrock** - AWS Bedrock embeddings

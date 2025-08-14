@@ -1,0 +1,13 @@
+llm:
+  provider: nebius
+  config:
+    model: meta-llama/Meta-Llama-3.1-70B-Instruct
+    max_tokens: 1000
+    temperature: 0.9
+    top_p: 1.0
+    stream: false
+
+embedder:
+  provider: nebius
+  config:
+    model: Qwen/Qwen3-Embedding-8B
