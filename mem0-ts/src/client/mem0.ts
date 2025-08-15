@@ -13,6 +13,8 @@ import {
   WebhookPayload,
   Message,
   FeedbackPayload,
+  CreateMemoryExportPayload,
+  GetMemoryExportPayload,
 } from "./mem0.types";
 import { captureClientEvent, generateHash } from "./telemetry";
 
@@ -159,16 +161,9 @@ export default class MemoryClient {
     return jsonResponse;
   }
 
-  _preparePayload(
-    messages: string | Array<Message>,
-    options: MemoryOptions,
-  ): object {
+  _preparePayload(messages: Array<Message>, options: MemoryOptions): object {
     const payload: any = {};
-    if (typeof messages === "string") {
-      payload.messages = [{ role: "user", content: messages }];
-    } else if (Array.isArray(messages)) {
-      payload.messages = messages;
-    }
+    payload.messages = messages;
     return { ...payload, ...options };
   }
 
@@ -179,27 +174,45 @@ export default class MemoryClient {
   }
 
   async ping(): Promise<void> {
-    const response = await fetch(`${this.host}/v1/ping/`, {
-      headers: {
-        Authorization: `Token ${this.apiKey}`,
-      },
-    });
+    try {
+      const response = await this._fetchWithErrorHandling(
+        `${this.host}/v1/ping/`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Token ${this.apiKey}`,
+          },
+        },
+      );
 
-    const data = await response.json();
+      if (!response || typeof response !== "object") {
+        throw new APIError("Invalid response format from ping endpoint");
+      }
 
-    if (data.status !== "ok") {
-      throw new Error("API Key is invalid");
+      if (response.status !== "ok") {
+        throw new APIError(response.message || "API Key is invalid");
+      }
+
+      const { org_id, project_id, user_email } = response;
+
+      // Only update if values are actually present
+      if (org_id && !this.organizationId) this.organizationId = org_id;
+      if (project_id && !this.projectId) this.projectId = project_id;
+      if (user_email) this.telemetryId = user_email;
+    } catch (error: any) {
+      // Convert generic errors to APIError with meaningful messages
+      if (error instanceof APIError) {
+        throw error;
+      } else {
+        throw new APIError(
+          `Failed to ping server: ${error.message || "Unknown error"}`,
+        );
+      }
     }
-
-    const { org_id, project_id, user_email } = data;
-
-    this.organizationId = this.organizationId || org_id || null;
-    this.projectId = this.projectId || project_id || null;
-    this.telemetryId = user_email || "";
   }
 
   async add(
-    messages: string | Array<Message>,
+    messages: Array<Message>,
     options: MemoryOptions = {},
   ): Promise<Array<Memory>> {
     if (this.telemetryId === "") await this.ping();
@@ -218,7 +231,7 @@ export default class MemoryClient {
     }
 
     if (options.api_version) {
-      options.version = options.api_version.toString();
+      options.version = options.api_version.toString() || "v2";
     }
 
     const payload = this._preparePayload(messages, options);
@@ -686,6 +699,57 @@ export default class MemoryClient {
     this._captureEvent("feedback", [payloadKeys]);
     const response = await this._fetchWithErrorHandling(
       `${this.host}/v1/feedback/`,
+      {
+        method: "POST",
+        headers: this.headers,
+        body: JSON.stringify(data),
+      },
+    );
+    return response;
+  }
+
+  async createMemoryExport(
+    data: CreateMemoryExportPayload,
+  ): Promise<{ message: string; id: string }> {
+    if (this.telemetryId === "") await this.ping();
+    this._captureEvent("create_memory_export", []);
+
+    // Return if missing filters or schema
+    if (!data.filters || !data.schema) {
+      throw new Error("Missing filters or schema");
+    }
+
+    // Add Org and Project ID
+    data.org_id = this.organizationId?.toString() || null;
+    data.project_id = this.projectId?.toString() || null;
+
+    const response = await this._fetchWithErrorHandling(
+      `${this.host}/v1/exports/`,
+      {
+        method: "POST",
+        headers: this.headers,
+        body: JSON.stringify(data),
+      },
+    );
+
+    return response;
+  }
+
+  async getMemoryExport(
+    data: GetMemoryExportPayload,
+  ): Promise<{ message: string; id: string }> {
+    if (this.telemetryId === "") await this.ping();
+    this._captureEvent("get_memory_export", []);
+
+    if (!data.memory_export_id && !data.filters) {
+      throw new Error("Missing memory_export_id or filters");
+    }
+
+    data.org_id = this.organizationId?.toString() || "";
+    data.project_id = this.projectId?.toString() || "";
+
+    const response = await this._fetchWithErrorHandling(
+      `${this.host}/v1/exports/get/`,
       {
         method: "POST",
         headers: this.headers,

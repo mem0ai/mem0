@@ -1,0 +1,130 @@
+---
+title: AWS Bedrock
+---
+
+This integration demonstrates how to use **Mem0** with **AWS Bedrock** and **Amazon OpenSearch Service (AOSS)** to enable persistent, semantic memory in intelligent agents.
+
+## Overview
+
+In this guide, you'll:
+
+1. Configure AWS credentials to enable Bedrock and OpenSearch access
+2. Set up the Mem0 SDK to use Bedrock for embeddings and LLM
+3. Store and retrieve memories using OpenSearch as a vector store
+4. Build memory-aware applications with scalable cloud infrastructure
+
+## Prerequisites
+
+- AWS account with access to:
+  - Bedrock foundation models (e.g., Titan, Claude)
+  - OpenSearch Service with a configured domain
+- Python 3.8+
+- Valid AWS credentials (via environment or IAM role)
+
+## Setup and Installation
+
+Install required packages:
+
+```bash
+pip install mem0ai boto3 opensearch-py
+```
+
+Set environment variables:
+
+Be sure to configure your AWS credentials using environment variables, IAM roles, or the AWS CLI.
+
+```python
+import os
+
+os.environ['AWS_REGION'] = 'us-west-2'
+os.environ['AWS_ACCESS_KEY_ID'] = 'AKIA...'
+os.environ['AWS_SECRET_ACCESS_KEY'] = 'AS...'
+```
+
+## Initialize Mem0 Integration
+
+Import necessary modules and configure Mem0:
+
+```python
+import boto3
+from opensearchpy import OpenSearch, RequestsHttpConnection, AWSV4SignerAuth
+from mem0.memory.main import Memory
+
+region = 'us-west-2'
+service = 'aoss'
+credentials = boto3.Session().get_credentials()
+auth = AWSV4SignerAuth(credentials, region, service)
+
+config = {
+    "embedder": {
+        "provider": "aws_bedrock",
+        "config": {
+            "model": "amazon.titan-embed-text-v2:0"
+        }
+    },
+    "llm": {
+        "provider": "aws_bedrock",
+        "config": {
+            "model": "anthropic.claude-3-5-haiku-20241022-v1:0",
+            "temperature": 0.1,
+            "max_tokens": 2000
+        }
+    },
+    "vector_store": {
+        "provider": "opensearch",
+        "config": {
+            "collection_name": "mem0",
+            "host": "your-opensearch-domain.us-west-2.es.amazonaws.com",
+            "port": 443,
+            "http_auth": auth,
+            "embedding_model_dims": 1024,
+            "connection_class": RequestsHttpConnection,
+            "pool_maxsize": 20,
+            "use_ssl": True,
+            "verify_certs": True
+        }
+    }
+}
+
+# Initialize memory system
+m = Memory.from_config(config)
+```
+
+## Memory Operations
+
+Use Mem0 with your Bedrock-powered LLM and OpenSearch storage backend:
+
+```python
+# Store conversational context
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller?"},
+    {"role": "user", "content": "I prefer sci-fi."},
+    {"role": "assistant", "content": "Noted! I'll suggest sci-fi movies next time."}
+]
+
+m.add(messages, user_id="alice", metadata={"category": "movie_recommendations"})
+
+# Search for memory
+relevant = m.search("What kind of movies does Alice like?", user_id="alice")
+
+# Retrieve all user memories
+all_memories = m.get_all(user_id="alice")
+```
+
+## Key Features
+
+1. **Serverless Memory Embeddings**: Use Titan or other Bedrock models for fast, cloud-native embeddings
+2. **Scalable Vector Search**: Store and retrieve vectorized memories via OpenSearch
+3. **Seamless AWS Auth**: Uses AWS IAM or environment variables to securely authenticate
+4. **User-specific Memory Spaces**: Memories are isolated per user ID
+5. **Persistent Memory Context**: Maintain and recall history across sessions
+
+## Help
+
+- [AWS Bedrock Documentation](https://docs.aws.amazon.com/bedrock/)
+- [Amazon OpenSearch Service Docs](https://docs.aws.amazon.com/opensearch-service/)
+- [Mem0 Platform](https://app.mem0.ai)
+
+<Snippet file="get-help.mdx" />
+

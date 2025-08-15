@@ -1,0 +1,23 @@
+# Ignore all .env files
+**/.env
+
+
+# Ignore all database files
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+
+# Ignore logs
+**/*.log
+
+# Ignore runtime data
+**/node_modules
+**/__pycache__
+**/.pytest_cache
+**/.coverage
+**/coverage
+
+# Ignore Docker runtime files
+**/.dockerignore
+**/Dockerfile
+**/docker-compose*.yml 

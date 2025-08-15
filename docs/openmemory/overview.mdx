@@ -1,0 +1,123 @@
+---
+title: Overview
+icon: "info"
+iconType: "solid"
+---
+
+## 🚀 Hosted OpenMemory MCP Now Available!
+
+#### Sign Up Now - [app.openmemory.dev](https://app.openmemory.dev)
+
+Everything you love about OpenMemory MCP but with zero setup.
+
+✅ Works with all MCP-compatible tools (Claude Desktop, Cursor...)  
+✅ Same standard memory ops: `add_memories`, `search_memory`, etc  
+✅ One-click provisioning, no Docker required  
+✅ Powered by Mem0  
+
+Add shared, persistent, low-friction memory to your MCP-compatible clients in seconds.
+
+### 🌟 Get Started Now
+**Sign up and get your access key at [app.openmemory.dev](https://app.openmemory.dev)**
+
+Example installation: `npx @openmemory/install --client claude --env OPENMEMORY_API_KEY=your-key`
+
+OpenMemory is a local memory infrastructure powered by Mem0 that lets you carry your memory across any AI app. It provides a unified memory layer that stays with you, enabling agents and assistants to remember what matters across applications.
+
+<img src="https://github.com/user-attachments/assets/3c701757-ad82-4afa-bfbe-e049c2b4320b" alt="OpenMemory UI" />
+
+## What is the OpenMemory MCP Server
+
+The OpenMemory MCP Server is a private, local-first memory server that creates a shared, persistent memory layer for your MCP-compatible tools. This runs entirely on your machine, enabling seamless context handoff across tools. Whether you're switching between development, planning, or debugging environments, your AI assistants can access relevant memory without needing repeated instructions.
+
+The OpenMemory MCP Server ensures all memory stays local, structured, and under your control with no cloud sync or external storage.
+
+## OpenMemory Easy Setup
+
+### Prerequisites
+- Docker
+- OpenAI API Key
+
+You can quickly run OpenMemory by running the following command:
+
+```bash
+curl -sL https://raw.githubusercontent.com/mem0ai/mem0/main/openmemory/run.sh | bash
+```
+
+You should set the `OPENAI_API_KEY` as a global environment variable:
+
+```bash
+export OPENAI_API_KEY=your_api_key
+```
+
+You can also set the `OPENAI_API_KEY` as a parameter to the script:
+
+```bash
+curl -sL https://raw.githubusercontent.com/mem0ai/mem0/main/openmemory/run.sh | OPENAI_API_KEY=your_api_key bash
+```
+
+This will start the OpenMemory server and the OpenMemory UI. Deleting the container will lead to the deletion of the memory store.
+We suggest you follow the instructions [here](/openmemory/quickstart#setting-up-openmemory) to set up OpenMemory on your local machine, with more persistent memory store.
+
+## How the OpenMemory MCP Server Works
+
+Built around the Model Context Protocol (MCP), the OpenMemory MCP Server exposes a standardized set of memory tools:
+- `add_memories`: Store new memory objects
+- `search_memory`: Retrieve relevant memories
+- `list_memories`: View all stored memory
+- `delete_all_memories`: Clear memory entirely
+
+Any MCP-compatible tool can connect to the server and use these APIs to persist and access memory.
+
+## What It Enables
+
+### Cross-Client Memory Access
+Store context in Cursor and retrieve it later in Claude or Windsurf without repeating yourself.
+
+### Fully Local Memory Store
+All memory is stored on your machine. Nothing goes to the cloud. You maintain full ownership and control.
+
+### Unified Memory UI
+The built-in OpenMemory dashboard provides a central view of everything stored. Add, browse, delete and control memory access to clients directly from the dashboard.
+
+## Supported Clients
+
+The OpenMemory MCP Server is compatible with any client that supports the Model Context Protocol. This includes:
+- Cursor
+- Claude Desktop
+- Windsurf
+- Cline, and more.
+
+As more AI systems adopt MCP, your private memory becomes more valuable.
+
+## Real-World Examples
+
+### Scenario 1: Cross-Tool Project Flow 
+Define technical requirements of a project in Claude Desktop. Build in Cursor. Debug issues in Windsurf - all with shared context passed through OpenMemory.
+
+### Scenario 2: Preferences That Persist 
+Set your preferred code style or tone in one tool. When you switch to another MCP client, it can access those same preferences without redefining them.
+
+### Scenario 3: Project Knowledge
+Save important project details once, then access them from any compatible AI tool, no more repetitive explanations.
+
+## Conclusion
+
+The OpenMemory MCP Server brings memory to MCP-compatible tools without giving up control or privacy. It solves a foundational limitation in modern LLM workflows: the loss of context across tools, sessions, and environments.
+
+By standardizing memory operations and keeping all data local, it reduces token overhead, improves performance, and unlocks more intelligent interactions across the growing ecosystem of AI assistants.
+
+This is just the beginning. The MCP server is the first core layer in the OpenMemory platform - a broader effort to make memory portable, private, and interoperable across AI systems.
+
+## Getting Started Today
+
+- Repository: [GitHub](https://github.com/mem0ai/mem0/tree/main/openmemory)
+- Join our community: [Discord](https://discord.gg/6PzXDgEjG5)
+
+With OpenMemory, your AI memories stay private, portable, and under your control, exactly where they belong.
+
+OpenMemory: Your memories, your control.
+
+## Contributing
+
+OpenMemory is open source and we welcome contributions. Please see the [CONTRIBUTING.md](https://github.com/mem0ai/mem0/blob/main/openmemory/CONTRIBUTING.md) file for more information.

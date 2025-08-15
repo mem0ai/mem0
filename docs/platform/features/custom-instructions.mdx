@@ -1,0 +1,338 @@
+---
+title: Custom Instructions
+description: 'Control how Mem0 extracts and stores memories using natural language guidelines'
+icon: "pencil"
+iconType: "solid"
+---
+
+## What are Custom Instructions?
+
+Custom instructions are natural language guidelines that tell Mem0 exactly what information to extract and remember from conversations. Think of them as smart filters that ensure your AI application captures only the most relevant data for your specific use case.
+
+<CodeGroup>
+```python Python
+# Simple example: Health app focusing on wellness
+prompt = """
+Extract only health and wellness information:
+- Symptoms, medications, and treatments
+- Exercise routines and dietary habits
+- Doctor appointments and health goals
+
+Exclude: Personal identifiers, financial data
+"""
+
+client.project.update(custom_instructions=prompt)
+```
+
+```javascript JavaScript
+// Simple example: Health app focusing on wellness
+const prompt = `
+Extract only health and wellness information:
+- Symptoms, medications, and treatments
+- Exercise routines and dietary habits
+- Doctor appointments and health goals
+
+Exclude: Personal identifiers, financial data
+`;
+
+await client.project.update({ custom_instructions: prompt });
+```
+</CodeGroup>
+
+## Why Use Custom Instructions?
+
+- **Focus on What Matters**: Only capture information relevant to your application
+- **Maintain Privacy**: Explicitly exclude sensitive data like passwords or personal identifiers
+- **Ensure Consistency**: All memories follow the same extraction rules across your project
+- **Improve Quality**: Filter out noise and irrelevant conversations
+
+## How to Set Custom Instructions
+
+### Basic Setup
+
+<CodeGroup>
+```python Python
+# Set instructions for your project
+client.project.update(custom_instructions="Your guidelines here...")
+
+# Retrieve current instructions
+response = client.project.get(fields=["custom_instructions"])
+print(response["custom_instructions"])
+```
+
+```javascript JavaScript
+// Set instructions for your project
+await client.project.update({ custom_instructions: "Your guidelines here..." });
+
+// Retrieve current instructions
+const response = await client.project.get({ fields: ["custom_instructions"] });
+console.log(response.custom_instructions);
+```
+</CodeGroup>
+
+### Best Practice Template
+
+Structure your instructions using this proven template:
+
+```
+Your Task: [Brief description of what to extract]
+
+Information to Extract:
+1. [Category 1]:
+   - [Specific details]
+   - [What to look for]
+
+2. [Category 2]:
+   - [Specific details]
+   - [What to look for]
+
+Guidelines:
+- [Processing rules]
+- [Quality requirements]
+
+Exclude:
+- [Sensitive data to avoid]
+- [Irrelevant information]
+```
+
+## Real-World Examples
+
+<Tabs>
+  <Tab title="E-commerce Customer Support">
+<CodeGroup>
+```python Python
+instructions = """
+Extract customer service information for better support:
+
+1. Product Issues:
+   - Product names, SKUs, defects
+   - Return/exchange requests
+   - Quality complaints
+
+2. Customer Preferences:
+   - Preferred brands, sizes, colors
+   - Shopping frequency and habits
+   - Price sensitivity
+
+3. Service Experience:
+   - Satisfaction with support
+   - Resolution time expectations
+   - Communication preferences
+
+Exclude: Payment card numbers, passwords, personal identifiers.
+"""
+
+client.project.update(custom_instructions=instructions)
+```
+
+```javascript JavaScript
+const instructions = `
+Extract customer service information for better support:
+
+1. Product Issues:
+   - Product names, SKUs, defects
+   - Return/exchange requests
+   - Quality complaints
+
+2. Customer Preferences:
+   - Preferred brands, sizes, colors
+   - Shopping frequency and habits
+   - Price sensitivity
+
+3. Service Experience:
+   - Satisfaction with support
+   - Resolution time expectations
+   - Communication preferences
+
+Exclude: Payment card numbers, passwords, personal identifiers.
+`;
+
+await client.project.update({ custom_instructions: instructions });
+```
+</CodeGroup>
+  </Tab>
+  <Tab title="Personalized Learning Platform">
+<CodeGroup>
+```python Python
+education_prompt = """
+Extract learning-related information for personalized education:
+
+1. Learning Progress:
+   - Course completions and current modules
+   - Skills acquired and improvement areas
+   - Learning goals and objectives
+
+2. Student Preferences:
+   - Learning styles (visual, audio, hands-on)
+   - Time availability and scheduling
+   - Subject interests and career goals
+
+3. Performance Data:
+   - Assignment feedback and patterns
+   - Areas of struggle or strength
+   - Study habits and engagement
+
+Exclude: Specific grades, personal identifiers, financial information.
+"""
+
+client.project.update(custom_instructions=education_prompt)
+```
+
+```javascript JavaScript
+const educationPrompt = `
+Extract learning-related information for personalized education:
+
+1. Learning Progress:
+   - Course completions and current modules
+   - Skills acquired and improvement areas
+   - Learning goals and objectives
+
+2. Student Preferences:
+   - Learning styles (visual, audio, hands-on)
+   - Time availability and scheduling
+   - Subject interests and career goals
+
+3. Performance Data:
+   - Assignment feedback and patterns
+   - Areas of struggle or strength
+   - Study habits and engagement
+
+Exclude: Specific grades, personal identifiers, financial information.
+`;
+
+await client.project.update({ custom_instructions: educationPrompt });
+```
+</CodeGroup>
+  </Tab>
+  <Tab title="AI Financial Advisor">
+<CodeGroup>
+```python Python
+finance_prompt = """
+Extract financial planning information for advisory services:
+
+1. Financial Goals:
+   - Retirement and investment objectives
+   - Risk tolerance and preferences
+   - Short-term and long-term goals
+
+2. Life Events:
+   - Career and income changes
+   - Family changes (marriage, children)
+   - Major planned purchases
+
+3. Investment Interests:
+   - Asset allocation preferences
+   - ESG or ethical investment interests
+   - Previous investment experience
+
+Exclude: Account numbers, SSNs, passwords, specific financial amounts.
+"""
+
+client.project.update(custom_instructions=finance_prompt)
+```
+
+```javascript JavaScript
+const financePrompt = `
+Extract financial planning information for advisory services:
+
+1. Financial Goals:
+   - Retirement and investment objectives
+   - Risk tolerance and preferences
+   - Short-term and long-term goals
+
+2. Life Events:
+   - Career and income changes
+   - Family changes (marriage, children)
+   - Major planned purchases
+
+3. Investment Interests:
+   - Asset allocation preferences
+   - ESG or ethical investment interests
+   - Previous investment experience
+
+Exclude: Account numbers, SSNs, passwords, specific financial amounts.
+`;
+
+await client.project.update({ custom_instructions: financePrompt });
+```
+</CodeGroup>
+  </Tab>
+</Tabs>
+
+## Advanced Techniques
+
+### Conditional Processing
+
+Handle different conversation types with conditional logic:
+
+<CodeGroup>
+```python Python
+advanced_prompt = """
+Extract information based on conversation context:
+
+IF customer support conversation:
+- Issue type, severity, resolution status
+- Customer satisfaction indicators
+
+IF sales conversation:
+- Product interests, budget range
+- Decision timeline and influencers
+
+IF onboarding conversation:
+- User experience level
+- Feature interests and priorities
+
+Always exclude personal identifiers and maintain professional context.
+"""
+
+client.project.update(custom_instructions=advanced_prompt)
+```
+</CodeGroup>
+
+### Testing Your Instructions
+
+Always test your custom instructions with real messages examples:
+
+<CodeGroup>
+```python Python
+# Test with sample messages
+messages = [
+    {"role": "user", "content": "I'm having billing issues with my subscription"},
+    {"role": "assistant", "content": "I can help with that. What's the specific problem?"},
+    {"role": "user", "content": "I'm being charged twice each month"}
+]
+
+# Add the messages and check extracted memories
+result = client.add(messages, user_id="test_user")
+memories = client.get_all(user_id="test_user")
+
+# Review if the right information was extracted
+for memory in memories:
+    print(f"Extracted: {memory['memory']}")
+```
+</CodeGroup>
+
+## Best Practices
+
+### ✅ Do
+- **Be specific** about what information to extract
+- **Use clear categories** to organize your instructions
+- **Test with real conversations** before deploying
+- **Explicitly state exclusions** for privacy and compliance
+- **Start simple** and iterate based on results
+
+### ❌ Don't
+- Make instructions too long or complex
+- Create conflicting rules within your guidelines
+- Be overly restrictive (balance specificity with flexibility)
+- Forget to exclude sensitive information
+- Skip testing with diverse conversation examples
+
+## Common Issues and Solutions
+
+| Issue | Solution |
+|-------|----------|
+| **Instructions too long** | Break into focused categories, keep concise |
+| **Missing important data** | Add specific examples of what to capture |
+| **Capturing irrelevant info** | Strengthen exclusion rules and be more specific |
+| **Inconsistent results** | Clarify guidelines and test with more examples |

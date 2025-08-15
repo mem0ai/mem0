@@ -1,0 +1,148 @@
+---
+title: Memory Timestamps
+description: 'Add timestamps to your memories to maintain chronological accuracy and historical context'
+icon: "clock"
+iconType: "solid"
+---
+
+## Overview
+
+The Memory Timestamps feature allows you to specify when a memory was created, regardless of when it's actually added to the system. This powerful capability enables you to:
+
+- Maintain accurate chronological ordering of memories
+- Import historical data with proper timestamps
+- Create memories that reflect when events actually occurred
+- Build timelines with precise temporal information
+
+By leveraging custom timestamps, you can ensure that your memory system maintains an accurate representation of when information was generated or events occurred.
+
+## Benefits of Custom Timestamps
+
+Custom timestamps offer several important benefits:
+
+• **Historical Accuracy**: Preserve the exact timing of past events and information.
+
+• **Data Migration**: Seamlessly migrate existing data while maintaining original timestamps.
+
+• **Time-Sensitive Analysis**: Enable time-based analysis and pattern recognition across memories.
+
+• **Consistent Chronology**: Maintain proper ordering of memories for coherent storytelling.
+
+## Using Custom Timestamps
+
+When adding new memories, you can specify a custom timestamp to indicate when the memory was created. This timestamp will be used instead of the current time.
+
+### Adding Memories with Custom Timestamps
+
+<CodeGroup>
+
+```python Python
+import os
+import time
+from datetime import datetime, timedelta
+
+from mem0 import MemoryClient
+
+os.environ["MEM0_API_KEY"] = "your-api-key"
+
+client = MemoryClient()
+
+# Get the current time
+current_time = datetime.now()
+
+# Calculate 5 days ago
+five_days_ago = current_time - timedelta(days=5)
+
+# Convert to Unix timestamp (seconds since epoch)
+unix_timestamp = int(five_days_ago.timestamp())
+
+# Add memory with custom timestamp
+messages = [
+    {"role": "user", "content": "I'm travelling to SF"}
+]
+client.add(messages, user_id="user1", timestamp=unix_timestamp)
+```
+
+```javascript JavaScript
+import MemoryClient from 'mem0ai';
+const client = new MemoryClient({ apiKey: 'your-api-key' });
+
+// Get the current time
+const currentTime = new Date();
+
+// Calculate 5 days ago
+const fiveDaysAgo = new Date();
+fiveDaysAgo.setDate(currentTime.getDate() - 5);
+
+// Convert to Unix timestamp (seconds since epoch)
+const unixTimestamp = Math.floor(fiveDaysAgo.getTime() / 1000);
+
+// Add memory with custom timestamp
+const messages = [
+    {"role": "user", "content": "I'm travelling to SF"}
+]
+client.add(messages, { user_id: "user1", timestamp: unixTimestamp })
+    .then(response => console.log(response))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+curl -X POST "https://api.mem0.ai/v1/memories/" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "messages": [{"role": "user", "content": "I'm travelling to SF"}],
+         "user_id": "user1",
+         "timestamp": 1721577600
+     }'
+```
+
+```json Output
+{
+    "results": [
+        {
+            "id": "a1b2c3d4-e5f6-4g7h-8i9j-k0l1m2n3o4p5",
+            "data": {"memory": "Travelling to SF"},
+            "event": "ADD"
+        }
+    ]
+}
+```
+
+</CodeGroup>
+
+### Timestamp Format
+
+When specifying a custom timestamp, you should provide a Unix timestamp (seconds since epoch). This is an integer representing the number of seconds that have elapsed since January 1, 1970 (UTC).
+
+For example, to create a memory with a timestamp of January 1, 2023:
+
+<CodeGroup>
+
+```python Python
+# January 1, 2023 timestamp
+january_2023_timestamp = 1672531200  # Unix timestamp for 2023-01-01 00:00:00 UTC
+
+messages = [
+    {"role": "user", "content": "I'm travelling to SF"}
+]
+client.add(messages, user_id="user1", timestamp=january_2023_timestamp)
+```
+
+```javascript JavaScript
+// January 1, 2023 timestamp
+const january2023Timestamp = 1672531200;  // Unix timestamp for 2023-01-01 00:00:00 UTC
+
+const messages = [
+    {"role": "user", "content": "I'm travelling to SF"}
+]
+client.add(messages, { user_id: "user1", timestamp: january2023Timestamp })
+    .then(response => console.log(response))
+    .catch(error => console.error(error));
+```
+
+</CodeGroup>
+
+If you have any questions, please feel free to reach out to us using one of the following methods:
+
+<Snippet file="get-help.mdx" />

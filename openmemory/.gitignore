@@ -1,0 +1,14 @@
+*.db
+.env*
+!.env.example
+!.env.dev
+!ui/lib
+.venv/
+__pycache__
+.DS_Store
+node_modules/
+*.log
+api/.openmemory*
+**/.next
+.openmemory/
+ui/package-lock.json

@@ -1,9 +1,13 @@
 /* eslint-disable camelcase */
 import {
-  LanguageModelV1,
-  LanguageModelV1CallOptions,
-  LanguageModelV1Message,
-} from "@ai-sdk/provider";
+  LanguageModelV2CallOptions,
+  LanguageModelV2Message,
+  LanguageModelV2Source,
+  LanguageModelV2StreamPart
+} from '@ai-sdk/provider';
+
+import { LanguageModelV2 } from '@ai-sdk/provider';
+import { simulateStreamingMiddleware, wrapLanguageModel } from 'ai';
 
 import { Mem0ChatConfig, Mem0ChatModelId, Mem0ChatSettings, Mem0ConfigSettings, Mem0StreamResponse } from "./mem0-types";
 import { Mem0ClassSelector } from "./mem0-provider-selector";
@@ -14,10 +18,15 @@ const generateRandomId = () => {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 }
 
-export class Mem0GenericLanguageModel implements LanguageModelV1 {
-  readonly specificationVersion = "v1";
+export class Mem0GenericLanguageModel implements LanguageModelV2 {
+  readonly specificationVersion = "v2";
   readonly defaultObjectGenerationMode = "json";
+  // We don't support images for now
   readonly supportsImageUrls = false;
+  // Allow All Media Types for now
+  readonly supportedUrls: Record<string, RegExp[]> = {
+    '*': [/.*/]
+  };
 
   constructor(
     public readonly modelId: Mem0ChatModelId,
@@ -30,10 +39,14 @@ export class Mem0GenericLanguageModel implements LanguageModelV1 {
 
   provider: string;
 
-  private async processMemories(messagesPrompts: LanguageModelV1Message[], mem0Config: Mem0ConfigSettings) {
+  private async processMemories(messagesPrompts: LanguageModelV2Message[], mem0Config: Mem0ConfigSettings) {
+    try {
     // Add New Memories
     addMemories(messagesPrompts, mem0Config).then((res) => {
       return res;
+    }).catch((e) => {
+      console.error("Error while adding memories");
+      return { memories: [], messagesPrompts: [] };
     });
 
     // Get Memories
@@ -41,23 +54,23 @@ export class Mem0GenericLanguageModel implements LanguageModelV1 {
 
     const mySystemPrompt = "These are the memories I have stored. Give more weightage to the question by users and try to answer that first. You have to modify your answer based on the memories I have provided. If the memories are irrelevant you can ignore them. Also don't reply to this section of the prompt, or the memories, they are only for your reference. The System prompt starts after text System Message: \n\n";
 
-    const isGraphEnabled = mem0Config.enable_graph;
+    const isGraphEnabled = mem0Config?.enable_graph;
   
     let memoriesText = "";
     let memoriesText2 = "";
     try {
       // @ts-ignore
       if (isGraphEnabled) {
-        memoriesText = memories.results.map((memory: any) => {
-          return `Memory: ${memory.memory}\n\n`;
+        memoriesText = memories?.results?.map((memory: any) => {
+          return `Memory: ${memory?.memory}\n\n`;
         }).join("\n\n");
 
-        memoriesText2 = memories.relations.map((memory: any) => {
-          return `Relation: ${memory.source} -> ${memory.relationship} -> ${memory.target} \n\n`;
+        memoriesText2 = memories?.relations?.map((memory: any) => {
+          return `Relation: ${memory?.source} -> ${memory?.relationship} -> ${memory?.target} \n\n`;
         }).join("\n\n");
       } else {
-        memoriesText = memories.map((memory: any) => {
-          return `Memory: ${memory.memory}\n\n`;
+        memoriesText = memories?.map((memory: any) => {
+          return `Memory: ${memory?.memory}\n\n`;
         }).join("\n\n");
       }
     } catch(e) {
@@ -72,24 +85,28 @@ export class Mem0GenericLanguageModel implements LanguageModelV1 {
     const memoriesPrompt = `System Message: ${mySystemPrompt} ${memoriesText} ${graphPrompt} `;
 
     // System Prompt - The memories go as a system prompt
-    const systemPrompt: LanguageModelV1Message = {
+    const systemPrompt: LanguageModelV2Message = {
       role: "system",
       content: memoriesPrompt
     };
 
     // Add the system prompt to the beginning of the messages if there are memories
-    if (memories.length > 0) {
+    if (memories?.length > 0) {
       messagesPrompts.unshift(systemPrompt);
     }
 
     if (isGraphEnabled) {
-      memories = memories.results;
+      memories = memories?.results;
     }
 
     return { memories, messagesPrompts };
+    } catch(e) {
+      console.error("Error while processing memories");
+      return { memories: [], messagesPrompts };
+    }
   }
 
-  async doGenerate(options: LanguageModelV1CallOptions): Promise<Awaited<ReturnType<LanguageModelV1['doGenerate']>>> {
+  async doGenerate(options: LanguageModelV2CallOptions): Promise<Awaited<ReturnType<LanguageModelV2['doGenerate']>>> {
     try {   
       const provider = this.config.provider;
       const mem0_api_key = this.config.mem0ApiKey;
@@ -121,48 +138,36 @@ export class Mem0GenericLanguageModel implements LanguageModelV1 {
       });
       
       // If there are no memories, return the original response
-      if (!memories || memories.length === 0) {
+      if (!memories || memories?.length === 0) {
         return ans;
       }
       
-      // Create sources array with existing sources
-      const sources = [...(ans.sources || [])];
-      
-      // Add a combined source with all memories
-      if (Array.isArray(memories) && memories.length > 0) {
-        sources.push({
-          title: "Mem0 Memories",
-          sourceType: "url",
-          id: "mem0-" + generateRandomId(),
-          url: "https://app.mem0.ai",
-          providerMetadata: {
-            mem0: {
-              memories: memories,
-              memoriesText: memories.map((memory: any) => memory.memory).join("\n\n")
-            }
-          }
-        });
-        
-        // Add individual memory sources for more detailed information
-        memories.forEach((memory: any) => {
-          sources.push({
-            title: memory.title || "Memory",
+      try {
+        // Create sources array with existing sources
+        const sources: LanguageModelV2Source[] = [
+          {
+            type: "source",
+            title: "Mem0 Memories",
             sourceType: "url",
-            id: "mem0-memory-" + generateRandomId(),
+            id: "mem0-" + generateRandomId(),
             url: "https://app.mem0.ai",
             providerMetadata: {
               mem0: {
-                memory: memory,
-                memoryText: memory.memory
-              }
-            }
-          });
-        });
+                memories: memories,
+                memoriesText: memories
+                  ?.map((memory: any) => memory?.memory)
+                  .join("\n\n"),
+              },
+            },
+          },
+        ];
+      } catch (e) {
+        console.error("Error while creating sources");
       }
  
       return {
         ...ans,
-        sources
+        // sources
       };
     } catch (error) {
       // Handle errors properly
@@ -171,7 +176,7 @@ export class Mem0GenericLanguageModel implements LanguageModelV1 {
     }
   }
 
-  async doStream(options: LanguageModelV1CallOptions): Promise<Awaited<ReturnType<LanguageModelV1['doStream']>>> {
+  async doStream(options: LanguageModelV2CallOptions): Promise<Awaited<ReturnType<LanguageModelV2['doStream']>>> {
     try {
       const provider = this.config.provider;
       const mem0_api_key = this.config.mem0ApiKey;
@@ -196,7 +201,13 @@ export class Mem0GenericLanguageModel implements LanguageModelV1 {
       // Process memories and update prompts
       const { memories, messagesPrompts: updatedPrompts } = await this.processMemories(messagesPrompts, mem0Config);
 
-      const model = selector.createProvider();
+      const baseModel = selector.createProvider();
+
+      // Wrap the model with streaming middleware using the new Vercel AI SDK 5.0 approach
+      const model = wrapLanguageModel({
+        model: baseModel,
+        middleware: simulateStreamingMiddleware(),
+      });
 
       const streamResponse = await model.doStream({
         ...options,
@@ -204,7 +215,7 @@ export class Mem0GenericLanguageModel implements LanguageModelV1 {
       });
 
       // If there are no memories, return the original stream
-      if (!memories || memories.length === 0) {
+      if (!memories || memories?.length === 0) {
         return streamResponse;
       }
 
@@ -216,38 +227,36 @@ export class Mem0GenericLanguageModel implements LanguageModelV1 {
         start(controller) {
           // Add source chunks for each memory at the beginning
           try {
-            if (Array.isArray(memories) && memories.length > 0) {
+            if (Array.isArray(memories) && memories?.length > 0) {
               // Create a single source that contains all memories
               controller.enqueue({
                 type: 'source',
-                source: {
-                  title: "Mem0 Memories",
-                  sourceType: "url",
-                  id: "mem0-" + generateRandomId(),
-                  url: "https://app.mem0.ai",
-                  providerMetadata: {
-                    mem0: {
-                      memories: memories,
-                      memoriesText: memories.map((memory: any) => memory.memory).join("\n\n")
-                    }
+                title: "Mem0 Memories",
+                sourceType: "url",
+                id: "mem0-" + generateRandomId(),
+                url: "https://app.mem0.ai",
+
+                providerOptions: {
+                  mem0: {
+                    memories: memories,
+                    memoriesText: memories?.map((memory: any) => memory?.memory).join("\n\n")
                   }
                 }
               });
               
               // Also add individual memory sources for more detailed information
-              memories.forEach((memory: any) => {
+              memories?.forEach((memory: any) => {
                 controller.enqueue({
                   type: 'source',
-                  source: {
-                    title: memory.title || "Memory",
-                    sourceType: "url",
-                    id: "mem0-memory-" + generateRandomId(),
-                    url: "https://app.mem0.ai",
-                    providerMetadata: {
-                      mem0: {
-                        memory: memory,
-                        memoryText: memory.memory
-                      }
+                  title: memory?.title || "Memory",
+                  sourceType: "url",
+                  id: "mem0-memory-" + generateRandomId(),
+                  url: "https://app.mem0.ai",
+
+                  providerOptions: {
+                    mem0: {
+                      memory: memory,
+                      memoryText: memory?.memory
                     }
                   }
                 });
@@ -269,10 +278,8 @@ export class Mem0GenericLanguageModel implements LanguageModelV1 {
       // Return a new stream response with our enhanced stream
       return {
         stream: enhancedStream,
-        rawCall: streamResponse.rawCall,
-        rawResponse: streamResponse.rawResponse,
         request: streamResponse.request,
-        warnings: streamResponse.warnings
+        response: streamResponse.response,
       };
     } catch (error) {
       console.error("Error in doStream:", error);

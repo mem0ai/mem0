@@ -102,7 +102,7 @@ class Weaviate(VectorStoreBase):
             distance (str, optional): Distance metric for vector similarity. Defaults to "cosine".
         """
         if self.client.collections.exists(self.collection_name):
-            logging.debug(f"Collection {self.collection_name} already exists. Skipping creation.")
+            logger.debug(f"Collection {self.collection_name} already exists. Skipping creation.")
             return
 
         properties = [
@@ -308,7 +308,7 @@ class Weaviate(VectorStoreBase):
             payload["id"] = str(obj.uuid).split("'")[0]
             results.append(OutputData(id=str(obj.uuid).split("'")[0], score=1.0, payload=payload))
         return [results]
-    
+
     def reset(self):
         """Reset the index by deleting and recreating it."""
         logger.warning(f"Resetting index {self.collection_name}...")

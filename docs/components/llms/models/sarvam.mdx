@@ -1,0 +1,73 @@
+---
+title: Sarvam AI
+---
+
+**Sarvam AI** is an Indian AI company developing language models with a focus on Indian languages and cultural context. Their latest model **Sarvam-M** is designed to understand and generate content in multiple Indian languages while maintaining high performance in English.
+
+To use Sarvam AI's models, please set the `SARVAM_API_KEY` which you can get from their [platform](https://dashboard.sarvam.ai/).
+
+## Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your-api-key" # used for embedding model
+os.environ["SARVAM_API_KEY"] = "your-api-key"
+
+config = {
+    "llm": {
+        "provider": "sarvam",
+        "config": {
+            "model": "sarvam-m",
+            "temperature": 0.7,
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alex")
+```
+
+## Advanced Usage with Sarvam-Specific Features
+
+```python
+import os
+from mem0 import Memory
+
+config = {
+    "llm": {
+        "provider": "sarvam",
+        "config": {
+            "model": {
+                "name": "sarvam-m",
+                "reasoning_effort": "high",  # Enable advanced reasoning
+                "frequency_penalty": 0.1,    # Reduce repetition
+                "seed": 42                   # For deterministic outputs
+            },
+            "temperature": 0.3,
+            "max_tokens": 2000,
+            "api_key": "your-sarvam-api-key"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+
+# Example with Hindi conversation
+messages = [
+    {"role": "user", "content": "मैं SBI में joint account खोलना चाहता हूँ।"},
+    {"role": "assistant", "content": "SBI में joint account खोलने के लिए आपको कुछ documents की जरूरत होगी। क्या आप जानना चाहते हैं कि कौन से documents चाहिए?"}
+]
+m.add(messages, user_id="rajesh", metadata={"language": "hindi", "topic": "banking"})
+```
+
+## Config
+
+All available parameters for the `sarvam` config are present in [Master List of All Params in Config](../config).
