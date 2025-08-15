@@ -3,15 +3,17 @@ import logging
 import uuid
 from datetime import datetime
 from typing import Optional, List
-
+from databricks.sdk.service.catalog import ColumnInfo, ColumnTypeName, TableInfo, TableType, DataSourceFormat
 import pytz
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.vectorsearch import (
     VectorIndexType,
     DeltaSyncVectorIndexSpecRequest,
+    DirectAccessVectorIndexSpec,
     EmbeddingSourceColumn,
     PipelineType,
 )
+from databricks.sdk.service.vectorsearch import VectorIndexType
 from pydantic import BaseModel
 from mem0.memory.utils import extract_json
 from mem0.vector_stores.base import VectorStoreBase
@@ -24,85 +26,91 @@ class MemoryResult(BaseModel):
     score: Optional[float]
     payload: Optional[dict]
 
-
-# Standard schema fields matching other vector stores
-DEFAULT_SCHEMA_FIELDS = [
-    "id",
-    "hash",
-    "agent_id",
-    "run_id",
-    "user_id",
-    "memory",
-    "metadata",
-    "created_at",
-    "updated_at",
-]
-
 excluded_keys = {"user_id", "agent_id", "run_id", "hash", "data", "created_at", "updated_at"}
-
 
 class Databricks(VectorStoreBase):
     def __init__(
         self,
         workspace_url: str,
         access_token: Optional[str] = None,
-        service_principal_client_id: Optional[str] = None,
-        service_principal_client_secret: Optional[str] = None,
+        client_id: Optional[str] = None,
+        client_secret: Optional[str] = None,
+        azure_client_id: Optional[str] = None,
+        azure_client_secret: Optional[str] = None,
         endpoint_name: str = None,
-        index_name: str = None,
-        source_table_name: str = None,
-        primary_key: str = "id",
-        embedding_vector_column: str = "embedding",
-        embedding_source_column: Optional[str] = None,
+        catalog: str = None,
+        schema: str = None,
+        table_name: str = None,
+        index_name: str = "mem0",
+        index_type: str = "DELTA_SYNC",
         embedding_model_endpoint_name: Optional[str] = None,
         embedding_dimension: int = 1536,
         endpoint_type: str = "STANDARD",
-        pipeline_type: str = "TRIGGERED",
-        collection_name: str = "mem0",
-        warehouse_id: Optional[str] = None,
+        pipeline_type: str = "TRIGGERED"
     ):
         """
         Initialize the Databricks Vector Search vector store.
 
         Args:
             workspace_url (str): Databricks workspace URL.
-            access_token (str, optional): Personal access token.
-            service_principal_client_id (str, optional): Service principal client ID.
-            service_principal_client_secret (str, optional): Service principal client secret.
+            access_token (str, optional): Personal access token for authentication.
+            client_id (str, optional): Service principal client ID for authentication.
+            client_secret (str, optional): Service principal client secret for authentication.
+            azure_client_id (str, optional): Azure AD application client ID (for Azure Databricks).
+            azure_client_secret (str, optional): Azure AD application client secret (for Azure Databricks).
             endpoint_name (str): Vector search endpoint name.
-            index_name (str): Vector search index name.
-            source_table_name (str): Source Delta table name.
-            primary_key (str): Primary key column name.
-            embedding_vector_column (str): Embedding vector column name.
-            embedding_source_column (str, optional): Text column for embeddings.
-            embedding_model_endpoint_name (str, optional): Embedding model endpoint.
-            embedding_dimension (int): Vector embedding dimensions.
-            endpoint_type (str): Endpoint type (STANDARD or STORAGE_OPTIMIZED).
-            pipeline_type (str): Pipeline type (TRIGGERED or CONTINUOUS).
-            collection_name (str): Collection name.
+            catalog (str): Unity Catalog catalog name.
+            schema (str): Unity Catalog schema name.
+            table_name (str): Source Delta table name.
+            index_name (str, optional): Vector search index name (default: "mem0").
+            index_type (str, optional): Index type, either "DELTA_SYNC" or "DIRECT_ACCESS" (default: "DELTA_SYNC").
+            embedding_model_endpoint_name (str, optional): Embedding model endpoint for Databricks-computed embeddings.
+            embedding_dimension (int, optional): Vector embedding dimensions (default: 1536).
+            endpoint_type (str, optional): Endpoint type, either "STANDARD" or "STORAGE_OPTIMIZED" (default: "STANDARD").
+            pipeline_type (str, optional): Sync pipeline type, either "TRIGGERED" or "CONTINUOUS" (default: "TRIGGERED").
+            **kwargs: Additional keyword arguments for advanced configuration.
         """
         self.workspace_url = workspace_url
         self.endpoint_name = endpoint_name
+        self.catalog = catalog
+        self.schema = schema
+        self.table_name = table_name
         self.index_name = index_name
-        self.source_table_name = source_table_name
-        self.primary_key = primary_key
-        self.embedding_vector_column = embedding_vector_column
-        self.embedding_source_column = embedding_source_column
+        self.index_type = index_type
         self.embedding_model_endpoint_name = embedding_model_endpoint_name
         self.embedding_dimension = embedding_dimension
         self.endpoint_type = endpoint_type
         self.pipeline_type = pipeline_type
-        self.collection_name = collection_name
-        self.warehouse_id = warehouse_id
+
+        self.columns = [
+            ColumnInfo(name="memory_id", type=ColumnTypeName.STRING, nullable=False, comment="Primary key"),
+            ColumnInfo(name="hash", type=ColumnTypeName.STRING, nullable=True, comment="Hash of the memory content"),
+            ColumnInfo(name="agent_id", type=ColumnTypeName.STRING, nullable=True, comment="ID of the agent"),
+            ColumnInfo(name="run_id", type=ColumnTypeName.STRING, nullable=True, comment="ID of the run"),
+            ColumnInfo(name="user_id", type=ColumnTypeName.STRING, nullable=True, comment="ID of the user"),
+            ColumnInfo(name="memory", type=ColumnTypeName.STRING, nullable=True, comment="Memory content"),
+            ColumnInfo(name="metadata", type=ColumnTypeName.STRING, nullable=True, comment="Additional metadata"),
+            ColumnInfo(name="created_at", type=ColumnTypeName.TIMESTAMP, nullable=True, comment="Creation timestamp"),
+            ColumnInfo(name="updated_at", type=ColumnTypeName.TIMESTAMP, nullable=True, comment="Last update timestamp"),
+        ],
+        self.embedding_column = ColumnInfo(name="embedding", type=ColumnTypeName.ARRAY, element_type=ColumnTypeName.FLOAT, nullable=True, comment="Embedding vector")
 
         # Initialize Databricks workspace client
         client_config = {}
-        if service_principal_client_id and service_principal_client_secret:
+        if client_id and client_secret:
             client_config.update(
                 {
                     "host": workspace_url,
-                    "client_id": service_principal_client_id,
-                    "client_secret": service_principal_client_secret,
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                }
+            )
+        elif azure_client_id and azure_client_secret:
+            client_config.update(
+                {
+                    "host": workspace_url,
+                    "azure_client_id": azure_client_id,
+                    "azure_client_secret": azure_client_secret,
                 }
             )
         elif access_token:
@@ -147,65 +155,44 @@ class Databricks(VectorStoreBase):
         """Ensure the source Delta table exists with the proper schema."""
         try:
             # Try to get table info
-            self.client.tables.get(self.source_table_name)
-            logger.info(f"Source table '{self.source_table_name}' already exists")
+            fully_qualified_name = f"{self.catalog}.{self.schema}.{self.table_name}"
+            self.client.tables.get(fully_qualified_name)
+            logger.info(f"Source table '{fully_qualified_name}' already exists")
             return
         except Exception:
-            logger.info(f"Source table '{self.source_table_name}' does not exist, creating it...")
+            logger.info(f"Source table '{fully_qualified_name}' does not exist, creating it...")
 
         # Create the table using SQL
-        if self.embedding_source_column and self.embedding_model_endpoint_name:
-            # Table for Databricks-computed embeddings
-            create_table_sql = f"""
-            CREATE TABLE {self.source_table_name} (
-                {self.primary_key} STRING NOT NULL,
-                hash STRING,
-                agent_id STRING,
-                run_id STRING,
-                user_id STRING,
-                memory STRING,
-                metadata STRING,
-                created_at TIMESTAMP,
-                updated_at TIMESTAMP,
-                PRIMARY KEY ({self.primary_key})
-            ) USING DELTA
-            TBLPROPERTIES (
-                'delta.enableChangeDataFeed' = 'true'
+        if self.index_type == VectorIndexType.DELTA_SYNC:
+            self.client.tables.create(
+                name=self.table_name,
+                catalog_name=self.catalog,
+                schema_name=self.schema,
+                table_type=TableType.MANAGED,
+                data_source_format=DataSourceFormat.DELTA,
+                columns=self.columns,
+                properties={"delta.enableChangeDataFeed": "true"}
             )
-            """
-        else:
+            logger.info(f"Successfully created source table '{self.table_name}' with Delta Sync")
+        elif self.index_type == VectorIndexType.DIRECT_ACCESS:
             # Table for self-managed embeddings
-            create_table_sql = f"""
-            CREATE TABLE {self.source_table_name} (
-                {self.primary_key} STRING NOT NULL,
-                hash STRING,
-                agent_id STRING,
-                run_id STRING,
-                user_id STRING,
-                memory STRING,
-                metadata STRING,
-                created_at TIMESTAMP,
-                updated_at TIMESTAMP,
-                {self.embedding_vector_column} ARRAY<FLOAT>,
-                PRIMARY KEY ({self.primary_key})
-            ) USING DELTA
-            TBLPROPERTIES (
-                'delta.enableChangeDataFeed' = 'true'
+            columns = self.columns.append(self.embedding_column)
+            self.client.tables.create(
+                name=self.table_name,
+                catalog_name=self.catalog,
+                schema_name=self.schema,
+                table_type=TableType.MANAGED,
+                data_source_format=DataSourceFormat.DELTA,
+                columns=columns,
+                properties={"delta.enableChangeDataFeed": "true"}
             )
-            """
-
-        # Execute the CREATE TABLE statement
-        response = self.client.statement_execution.execute_statement(
-            statement=create_table_sql, warehouse_id=self.warehouse_id, wait_timeout="30s"
-        )
-
-        if response.status.state == "SUCCEEDED":
-            logger.info(f"Successfully created source table '{self.source_table_name}'")
+            logger.info(f"Successfully created source table '{self.table_name}' for self-managed embeddings")
         else:
-            error_msg = f"Failed to create source table '{self.source_table_name}': {response.status.error}"
+            error_msg = f"Unsupported index type: {self.index_type}. Only DELTA_SYNC and DIRECT_ACCESS are supported."
             logger.error(error_msg)
             raise ValueError(error_msg)
 
+    #! Made it here with the new code...
     def create_col(self, name=None, vector_size=None, distance=None):
         """
         Create a new collection (index).
@@ -250,7 +237,7 @@ class Databricks(VectorStoreBase):
                 )
             else:
                 # Self-managed embeddings
-                delta_sync_spec = DeltaSyncVectorIndexSpecRequest(
+                delta_sync_spec = DirectAccessVectorIndexSpec(
                     source_table=self.source_table_name,
                     pipeline_type=PipelineType.CONTINUOUS
                     if self.pipeline_type == "CONTINUOUS"

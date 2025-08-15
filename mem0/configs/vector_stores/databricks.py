@@ -8,24 +8,22 @@ class DatabricksConfig(BaseModel):
 
     workspace_url: str = Field(..., description="Databricks workspace URL")
     access_token: Optional[str] = Field(None, description="Personal access token for authentication")
-    service_principal_client_id: Optional[str] = Field(None, description="Service principal client ID")
-    service_principal_client_secret: Optional[str] = Field(None, description="Service principal client secret")
+    client_id: Optional[str] = Field(None, description="Databricks Service principal client ID")
+    client_secret: Optional[str] = Field(None, description="Databricks Service principal client secret")
+    azure_client_id: Optional[str] = Field(None, description="Azure AD application client ID (for Azure Databricks)")
+    azure_client_secret: Optional[str] = Field(None, description="Azure AD application client secret (for Azure Databricks)")
     endpoint_name: str = Field(..., description="Vector search endpoint name")
-    index_name: str = Field(..., description="Vector search index name (format: catalog.schema.index)")
-    source_table_name: str = Field(..., description="Source Delta table name (format: catalog.schema.table)")
-    primary_key: str = Field("id", description="Primary key column name")
-    embedding_vector_column: str = Field("embedding", description="Embedding vector column name")
-    embedding_source_column: Optional[str] = Field(
-        None, description="Text column for embeddings (if Databricks computes embeddings)"
-    )
+    catalog: str = Field(..., description="The Unity Catalog catalog name")
+    schema: str = Field(..., description="The Unity Catalog schama name")
+    table_name: str = Field(..., description="Source Delta table name")
+    index_name: str = Field("mem0", description="Vector search index name")
+    index_type: str = Field("DELTA_SYNC", description="Index type: DELTA_SYNC or DIRECT_ACCESS")
     embedding_model_endpoint_name: Optional[str] = Field(
         None, description="Embedding model endpoint for Databricks-computed embeddings"
     )
     embedding_dimension: int = Field(1536, description="Vector embedding dimensions")
     endpoint_type: str = Field("STANDARD", description="Endpoint type: STANDARD or STORAGE_OPTIMIZED")
     pipeline_type: str = Field("TRIGGERED", description="Sync pipeline type: TRIGGERED or CONTINUOUS")
-    collection_name: str = Field("mem0", description="Collection name (used as index suffix if needed)")
-    warehouse_id: Optional[str] = Field(None, description="Databricks SQL warehouse ID (if using SQL warehouse)")
 
     @model_validator(mode="before")
     @classmethod
