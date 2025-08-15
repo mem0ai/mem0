@@ -42,6 +42,7 @@ class MemgraphConfig(BaseModel):
 
 
 class NeptuneConfig(BaseModel):
+    app_id: Optional[str] = Field("Mem0", description="APP_ID for the connection")
     endpoint: Optional[str] = (
         Field(
             None,
