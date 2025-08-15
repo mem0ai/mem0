@@ -22,7 +22,7 @@
                 "group": "Getting Started",
                 "icon": "rocket",
                 "pages": [
-                  "what-is-mem0",
+                  "introduction",
                   "quickstart",
                   "faqs"
                 ]
@@ -50,6 +50,7 @@
                 "pages": [
                   "platform/overview",
                   "platform/quickstart",
+                  "platform/advanced-memory-operations",
                   {
                     "group": "Features",
                     "icon": "star",
@@ -85,6 +86,7 @@
                     "group": "Features",
                     "icon": "star",
                     "pages": [
+                      "open-source/features/overview",
                       "open-source/features/async-memory",
                       "open-source/features/openai_compatibility",
                       "open-source/features/custom-fact-extraction-prompt",
@@ -152,6 +154,8 @@
                           "components/vectordbs/dbs/elasticsearch",
                           "components/vectordbs/dbs/opensearch",
                           "components/vectordbs/dbs/supabase",
+                          "components/vectordbs/dbs/upstash-vector",
+                          "components/vectordbs/dbs/vectorize",
                           "components/vectordbs/dbs/vertex_ai",
                           "components/vectordbs/dbs/weaviate",
                           "components/vectordbs/dbs/faiss",

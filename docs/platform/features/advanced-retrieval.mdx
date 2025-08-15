@@ -2,174 +2,282 @@
 title: Advanced Retrieval
 icon: "magnifying-glass"
 iconType: "solid"
+description: "Advanced memory search with keyword expansion, intelligent reranking, and precision filtering"
 ---
 
-<Snippet file="blank-notif.mdx" />
+## What is Advanced Retrieval?
 
-Mem0’s **Advanced Retrieval** provides additional control over how memories are selected and ranked during search. While the default search uses embedding-based semantic similarity, Advanced Retrieval introduces specialized options to improve recall, ranking accuracy, or filtering based on specific use case.
+Advanced Retrieval gives you precise control over how memories are found and ranked. While basic search uses semantic similarity, these advanced options help you find exactly what you need, when you need it.
 
-You can enable any of the following modes independently or together:
+<CodeGroup>
 
-- Keyword Search
-- Reranking
-- Filtering
+## Search Enhancement Options
 
-Each enhancement can be toggled independently via the `search()` API call. These flags are off by default. These are useful when building agents that require fine-grained retrieval control
+### Keyword Search
+**Expands results** to include memories with specific terms, names, and technical keywords.
 
-## Keyword Search
-
-Keyword search expands the result set by including memories that contain lexically similar terms and important keywords from the query, even if they're not semantically similar.
-
-### When to use
-- You are searching for specific entities, names, or technical terms
-- When you need comprehensive coverage of a topic
-- You want broader recall at the cost of slight noise
-
-
-### API Usage
-```python
+<Tabs>
+  <Tab title="When to Use">
+- Searching for specific entities, names, or technical terms
+- Need comprehensive coverage of a topic  
+- Want broader recall even if some results are less relevant
+- Working with domain-specific terminology
+</Tab>
+<Tab title="How it Works">
+```python Python
+# Find memories containing specific food-related terms
 results = client.search(
-    query="What are my food preferences?",
+    query="What foods should I avoid?",
     keyword_search=True,
-    user_id="alex"
+    user_id="user123"
 )
+
+# Results might include:
+# ✓ "Allergic to peanuts and shellfish"  
+# ✓ "Lactose intolerant - avoid dairy"
+# ✓ "Mentioned avoiding gluten last week"
 ```
+  </Tab>
+  <Tab title="Performance">
+- **Latency**: ~10ms additional
+- **Recall**: Significantly increased
+- **Precision**: Slightly decreased
+- **Best for**: Entity search, comprehensive coverage
+</Tab>
+</Tabs>
 
-### Example
+### Reranking  
+**Reorders results** using deep semantic understanding to put the most relevant memories first.
 
-**Without keyword_search:**
-- "Vegetarian. Allergic to nuts."
-- "Prefers spicy food and enjoys Thai cuisine"
-
-**With keyword_search=True:**
-- "Vegetarian. Allergic to nuts."
-- "Prefers spicy food and enjoys Thai cuisine"
-- "Mentioned disliking seafood during restaurant discussion"
-
-### Trade-offs
-- Increases recall
-- May slightly reduce precision
-- Adds ~10ms latency
-
-
-
-## Reranking
-
-Reranking reorders the retrieved results using a deep semantic relevance model that improves the position of the most relevant matches.
-
-### When to use
-- You rely on top-1 or top-N precision
-- When result order is critical for your application
-- You want consistent result quality across sessions
-
-### API Usage
-```python
+<Tabs>
+  <Tab title="When to Use">
+- Need the most relevant result at the top
+- Result order is critical for your application
+- Want consistent quality across different queries
+- Building user-facing features where accuracy matters
+</Tab>
+<Tab title="How it Works">
+```python Python
+# Get the most relevant travel plans first
 results = client.search(
-    query="What are my travel plans?",
+    query="What are my upcoming travel plans?",
     rerank=True,
-    user_id="alex"
+    user_id="user123"
 )
+
+# Before reranking:        After reranking:
+# 1. "Went to Paris"   →   1. "Tokyo trip next month"
+# 2. "Tokyo trip next" →   2. "Need to book hotel in Tokyo"  
+# 3. "Need hotel"      →   3. "Went to Paris last year"
 ```
+</Tab>
+<Tab title="Performance">
+- **Latency**: 150-200ms additional
+- **Accuracy**: Significantly improved
+- **Ordering**: Much more relevant
+- **Best for**: Top-N precision, user-facing results
+</Tab>
+</Tabs>
 
-### Example
+### Memory Filtering
+**Filters results** to keep only the most precisely relevant memories.
 
-**Without rerank:**
-1. "Traveled to France last year"
-2. "Planning a trip to Japan next month"
-3. "Interested in visiting Tokyo restaurants"
-
-**With rerank=True:**
-1. "Planning a trip to Japan next month"
-2. "Interested in visiting Tokyo restaurants"
-3. "Traveled to France last year"
-
-### Trade-offs
-- Significantly improves result ordering accuracy
-- Ensures most relevant memories appear first
-- Adds ~150–200ms latency
-- Higher computational cost
-
-
-
-## Filtering
-
-Filtering allows you to narrow down search results by applying specific criteria from the set of retrieved memories.
-
-### When to use
-- You require highly specific results
-- You are working with huge amount of data where noise is problematic
-- You require quality over quantity results
-
-### API Usage
-```python
+<Tabs>
+<Tab title="When to Use">
+- Need highly specific, focused results
+- Working with large datasets where noise is problematic  
+- Quality over quantity is essential
+- Building production or safety-critical applications
+</Tab>
+<Tab title="How it Works">
+```python Python
+# Get only the most relevant dietary restrictions
 results = client.search(
     query="What are my dietary restrictions?",
     filter_memories=True,
-    user_id="alex"
+    user_id="user123"
 )
+
+# Before filtering:           After filtering:
+# • "Allergic to nuts"    →   • "Allergic to nuts"
+# • "Likes Italian food"  →   • "Vegetarian diet"
+# • "Vegetarian diet"     →   
+# • "Eats dinner at 7pm"  →   
 ```
+</Tab>
+<Tab title="Performance">
+- **Latency**: 200-300ms additional
+- **Precision**: Maximized
+- **Recall**: May be reduced
+- **Best for**: Focused queries, production systems
+</Tab>
+</Tabs>
 
-### Example
+## Real-World Use Cases
 
-**Without filtering:**
-- "Vegetarian. Allergic to nuts."
-- "I enjoy cooking Italian food on weekends"
-- "Mentioned disliking seafood during restaurant discussion"
-- "Prefers to eat dinner at 7pm"
-
-**With filter_memories=True:**
-- "Vegetarian. Allergic to nuts."
-- "Mentioned disliking seafood during restaurant discussion"
-
-### Trade-offs
-- Maximizes precision (highly relevant results only)
-- May reduce recall (filters out some relevant memories)
-- Adds ~200-300ms latency
-- Best for focused, specific queries
-
-
-
-## Combining Modes
-
-You can combine all three retrieval modes as needed:
-
-```python
+<Tabs>
+<Tab title="Personal AI Assistant">
+```python Python
+# Smart home assistant finding device preferences
 results = client.search(
-    query="What are my travel plans?",
-    keyword_search=True,
-    rerank=True,
-    filter_memories=True,
-    user_id="alex"
+    query="How do I like my bedroom temperature?",
+    keyword_search=True,    # Find specific temperature mentions
+    rerank=True,           # Get most recent preferences first
+    user_id="user123"
 )
+
+# Finds: "Keep bedroom at 68°F", "Too cold last night at 65°F", etc.
+```
+</Tab>
+<Tab title="Customer Support">
+```python Python
+# Find specific product issues with high precision
+results = client.search(
+    query="Problems with premium subscription billing",
+    keyword_search=True,     # Find "premium", "billing", "subscription"
+    filter_memories=True,    # Only billing-related issues
+    user_id="customer456"
+)
+
+# Returns only relevant billing problems, not general questions
+```
+</Tab>
+<Tab title="Healthcare AI">
+```python Python
+# Critical medical information needs perfect accuracy
+results = client.search(
+    query="Patient allergies and contraindications",
+    rerank=True,            # Most important info first
+    filter_memories=True,   # Only medical restrictions
+    user_id="patient789"
+)
+
+# Ensures critical allergy info appears first and filters out non-medical data
+```
+</Tab>
+<Tab title="Learning Platform">
+```python Python
+# Find learning progress for specific topics
+results = client.search(
+    query="Python programming progress and difficulties",
+    keyword_search=True,    # Find "Python", "programming", specific concepts
+    rerank=True,           # Recent progress first
+    user_id="student123"
+)
+
+# Gets comprehensive view of Python learning journey
+```
+</Tab>
+</Tabs>
+
+## Choosing the Right Combination
+
+### Recommended Configurations
+
+<CodeGroup>
+```python Python
+# Fast and broad - good for exploration
+def quick_search(query, user_id):
+    return client.search(
+        query=query,
+        keyword_search=True,
+        user_id=user_id
+    )
+
+# Balanced - good for most applications  
+def standard_search(query, user_id):
+    return client.search(
+        query=query,
+        keyword_search=True,
+        rerank=True,
+        user_id=user_id
+    )
+
+# High precision - good for critical applications
+def precise_search(query, user_id):
+    return client.search(
+        query=query,
+        rerank=True,
+        filter_memories=True,
+        user_id=user_id
+    )
 ```
 
-This configuration broadens the candidate pool with keywords, improves ordering via rerank, and finally cuts noise with filtering.
-<Note> Combining all modes may add up to ~450ms latency per query. </Note>
+```javascript JavaScript
+// Fast and broad - good for exploration
+function quickSearch(query, userId) {
+    return client.search(query, {
+        user_id: userId,
+        keyword_search: true
+    });
+}
 
+// Balanced - good for most applications
+function standardSearch(query, userId) {
+    return client.search(query, {
+        user_id: userId,
+        keyword_search: true,
+        rerank: true
+    });
+}
 
+// High precision - good for critical applications  
+function preciseSearch(query, userId) {
+    return client.search(query, {
+        user_id: userId,
+        rerank: true,
+        filter_memories: true
+    });
+}
+```
+</CodeGroup>
 
-## Performance Benchmarks
+## Best Practices
 
-| **Mode**         | **Approximate Latency** |
-|------------------|-------------------------|
-| `keyword_search` | &lt;10ms                   |
-| `rerank`         | 150–200ms               |
-| `filter_memories`| 200–300ms               |
+### ✅ Do
+- **Start simple** with just one enhancement and measure impact
+- **Use keyword search** for entity-heavy queries (names, places, technical terms)
+- **Use reranking** when the top result quality matters most
+- **Use filtering** for production systems where precision is critical
+- **Handle empty results** gracefully when filtering is too aggressive
+- **Monitor latency** and adjust based on your application's needs
 
+### ❌ Don't
+- Enable all options by default without measuring necessity
+- Use filtering for broad exploratory queries
+- Ignore latency impact in real-time applications
+- Forget to handle cases where filtering returns no results
+- Use advanced retrieval for simple, fast lookup scenarios
 
+## Performance Guidelines
 
-## Best Practices & Limitations
+### Latency Expectations
 
-- Use `keyword_search` for broader recall when query context is limited
-- Use `rerank` to prioritize the top-most relevant result
-- Use `filter_memories` in production-facing or safety-critical agents
-- Combine filtering and reranking for maximum accuracy
-- Filters may eliminate all results—always handle the empty set gracefully
-- Filtering uses LLM evaluation and may be rate-limited depending on your plan
+```python Python
+# Performance monitoring example
+import time
 
-<Note> You can enable or disable these search modes by passing the respective parameters to the `search` method. There is no required sequence for these modes, and any combination can be used based on your needs. </Note>
+start_time = time.time()
+results = client.search(
+    query="user preferences",
+    keyword_search=True,  # +10ms
+    rerank=True,         # +150ms
+    filter_memories=True, # +250ms
+    user_id="user123"
+)
+latency = time.time() - start_time
+print(f"Search completed in {latency:.2f}s")  # ~0.41s expected
+```
+
+### Optimization Tips
+
+1. **Cache frequent queries** to avoid repeated advanced processing
+2. **Use session-specific search** with `run_id` to reduce search space
+3. **Implement fallback logic** when filtering returns empty results
+4. **Monitor and alert** on search latency patterns
 
 ---
-If you have any questions, please feel free to reach out to us using one of the following methods:
+
+**Ready to enhance your search?** Start with keyword search for broader coverage, add reranking for better ordering, and use filtering when precision is critical.
 
 <Snippet file="get-help.mdx" />

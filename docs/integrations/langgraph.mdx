@@ -2,8 +2,6 @@
 title: LangGraph
 ---
 
-<Snippet file="blank-notif.mdx" />
-
 Build a personalized Customer Support AI Agent using LangGraph for conversation flow and Mem0 for memory retention. This integration enables context-aware and efficient support experiences.
 
 ## Overview
@@ -68,7 +66,7 @@ def chatbot(state: State):
     memories = mem0.search(messages[-1].content, user_id=user_id)
 
     context = "Relevant information from previous conversations:\n"
-    for memory in memories:
+    for memory in memories.get('results', []):
         context += f"- {memory['memory']}\n"
 
     system_message = SystemMessage(content=f"""You are a helpful customer support assistant. Use the provided context to personalize your responses and remember user preferences and past interactions.

@@ -1,7 +1,5 @@
 Build conversational AI agents with memory capabilities. This integration combines AutoGen for creating AI agents with Mem0 for memory management, enabling context-aware and personalized interactions.
 
-<Snippet file="blank-notif.mdx" />
-
 ## Overview
 
 In this guide, we'll explore an example of creating a conversational AI system with memory:
@@ -68,7 +66,7 @@ Create a function to get context-aware responses based on user's question and pr
 ```python
 def get_context_aware_response(question):
     relevant_memories = memory_client.search(question, user_id=USER_ID)
-    context = "\n".join([m["memory"] for m in relevant_memories])
+    context = "\n".join([m["memory"] for m in relevant_memories.get('results', [])])
 
     prompt = f"""Answer the user question considering the previous interactions:
     Previous interactions:
@@ -100,7 +98,7 @@ manager = ConversableAgent(
 
 def escalate_to_manager(question):
     relevant_memories = memory_client.search(question, user_id=USER_ID)
-    context = "\n".join([m["memory"] for m in relevant_memories])
+    context = "\n".join([m["memory"] for m in relevant_memories.get('results', [])])
 
     prompt = f"""
     Context from previous interactions:

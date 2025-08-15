@@ -2,8 +2,6 @@
 title: Langchain
 ---
 
-<Snippet file="blank-notif.mdx" />
-
 Build a personalized Travel Agent AI using LangChain for conversation flow and Mem0 for memory retention. This integration enables context-aware and efficient travel planning experiences.
 
 ## Overview
@@ -64,7 +62,7 @@ Create functions to handle context retrieval, response generation, and addition 
 def retrieve_context(query: str, user_id: str) -> List[Dict]:
     """Retrieve relevant context from Mem0"""
     memories = mem0.search(query, user_id=user_id)
-    serialized_memories = ' '.join([mem["memory"] for mem in memories])
+    serialized_memories = ' '.join([mem["memory"] for mem in memories.get('results', [])])
     context = [
         {
             "role": "system", 

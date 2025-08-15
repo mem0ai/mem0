@@ -1,7 +1,6 @@
 ---
 title: Memory-Guided Content Writing
 ---
-<Snippet file="blank-notif.mdx" />
 
 This guide demonstrates how to leverage **Mem0** to streamline content writing by applying your unique writing style and preferences using persistent memory.
 
@@ -86,7 +85,7 @@ def apply_writing_style(original_content):
         print("No preferences found.")
         return None
 
-    preferences = "\n".join(r["memory"] for r in results)
+    preferences = "\n".join(r["memory"] for r in results.get('results', []))
 
     system_prompt = f"""
 You are a writing assistant.

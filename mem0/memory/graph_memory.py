@@ -1,6 +1,6 @@
 import logging
 
-from mem0.memory.utils import format_entities
+from mem0.memory.utils import format_entities, sanitize_relationship_for_cypher
 
 try:
     from langchain_neo4j import Neo4jGraph
@@ -55,13 +55,20 @@ class MemoryGraph:
             except Exception:
                 pass
 
-        self.llm_provider = "openai_structured"
-        if self.config.llm.provider:
+        # Default to openai if no specific provider is configured
+        self.llm_provider = "openai"
+        if self.config.llm and self.config.llm.provider:
             self.llm_provider = self.config.llm.provider
-        if self.config.graph_store.llm:
+        if self.config.graph_store and self.config.graph_store.llm and self.config.graph_store.llm.provider:
             self.llm_provider = self.config.graph_store.llm.provider
 
-        self.llm = LlmFactory.create(self.llm_provider, self.config.llm.config)
+        # Get LLM config with proper null checks
+        llm_config = None
+        if self.config.graph_store and self.config.graph_store.llm and hasattr(self.config.graph_store.llm, "config"):
+            llm_config = self.config.graph_store.llm.config
+        elif hasattr(self.config.llm, "config"):
+            llm_config = self.config.llm.config
+        self.llm = LlmFactory.create(self.llm_provider, llm_config)
         self.user_id = None
         self.threshold = 0.7
 
@@ -129,7 +136,7 @@ class MemoryGraph:
         if filters.get("run_id"):
             node_props.append("run_id: $run_id")
         node_props_str = ", ".join(node_props)
-        
+
         cypher = f"""
         MATCH (n {self.node_label} {{{node_props_str}}})
         DETACH DELETE n
@@ -153,7 +160,7 @@ class MemoryGraph:
                 - 'entities': A list of strings representing the nodes and relationships
         """
         params = {"user_id": filters["user_id"], "limit": limit}
-        
+
         # Build node properties based on filters
         node_props = ["user_id: $user_id"]
         if filters.get("agent_id"):
@@ -263,7 +270,7 @@ class MemoryGraph:
     def _search_graph_db(self, node_list, filters, limit=100):
         """Search similar nodes among and their respective incoming and outgoing relations."""
         result_relations = []
-        
+
         # Build node properties for filtering
         node_props = ["user_id: $user_id"]
         if filters.get("agent_id"):
@@ -383,7 +390,7 @@ class MemoryGraph:
                 dest_props.append("run_id: $run_id")
             source_props_str = ", ".join(source_props)
             dest_props_str = ", ".join(dest_props)
-            
+
             # Delete the specific relationship between nodes
             cypher = f"""
             MATCH (n {self.node_label} {{{source_props_str}}})
@@ -601,17 +608,14 @@ class MemoryGraph:
     def _remove_spaces_from_entities(self, entity_list):
         for item in entity_list:
             item["source"] = item["source"].lower().replace(" ", "_")
-            item["relationship"] = item["relationship"].lower().replace(" ", "_")
+            # Use the sanitization function for relationships to handle special characters
+            item["relationship"] = sanitize_relationship_for_cypher(item["relationship"].lower().replace(" ", "_"))
             item["destination"] = item["destination"].lower().replace(" ", "_")
         return entity_list
 
     def _search_source_node(self, source_embedding, filters, threshold=0.9):
-
         # Build WHERE conditions
-        where_conditions = [
-            "source_candidate.embedding IS NOT NULL",
-            "source_candidate.user_id = $user_id"
-        ]
+        where_conditions = ["source_candidate.embedding IS NOT NULL", "source_candidate.user_id = $user_id"]
         if filters.get("agent_id"):
             where_conditions.append("source_candidate.agent_id = $agent_id")
         if filters.get("run_id"):
@@ -647,12 +651,8 @@ class MemoryGraph:
         return result
 
     def _search_destination_node(self, destination_embedding, filters, threshold=0.9):
-
         # Build WHERE conditions
-        where_conditions = [
-            "destination_candidate.embedding IS NOT NULL",
-            "destination_candidate.user_id = $user_id"
-        ]
+        where_conditions = ["destination_candidate.embedding IS NOT NULL", "destination_candidate.user_id = $user_id"]
         if filters.get("agent_id"):
             where_conditions.append("destination_candidate.agent_id = $agent_id")
         if filters.get("run_id"):

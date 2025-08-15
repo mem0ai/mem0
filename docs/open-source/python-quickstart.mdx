@@ -5,8 +5,6 @@ icon: "python"
 iconType: "solid"
 ---
 
-<Snippet file="blank-notif.mdx" />
-
 > Welcome to the Mem0 quickstart guide. This guide will help you get up and running with Mem0 in no time.
 
 ## Installation
@@ -116,6 +114,9 @@ messages = [
 
 # Store inferred memories (default behavior)
 result = m.add(messages, user_id="alice", metadata={"category": "movie_recommendations"})
+
+# Store memories with agent and run context
+result = m.add(messages, user_id="alice", agent_id="movie-assistant", run_id="session-001", metadata={"category": "movie_recommendations"})
 
 # Store raw messages without inference
 # result = m.add(messages, user_id="alice", metadata={"category": "movie_recommendations"}, infer=False)
@@ -337,6 +338,35 @@ m.delete_all(user_id="alice")
 m.reset() # Reset all memories
 ```
 
+## Advanced Memory Organization
+
+Mem0 supports three key parameters for organizing memories:
+
+- **`user_id`**: Organize memories by user identity
+- **`agent_id`**: Organize memories by AI agent or assistant
+- **`run_id`**: Organize memories by session, workflow, or execution context
+
+### Using All Three Parameters
+
+```python
+# Store memories with full context
+m.add("User prefers vegetarian food", 
+      user_id="alice", 
+      agent_id="diet-assistant", 
+      run_id="consultation-001")
+
+# Retrieve memories with different scopes
+all_user_memories = m.get_all(user_id="alice")
+agent_memories = m.get_all(user_id="alice", agent_id="diet-assistant")
+session_memories = m.get_all(user_id="alice", run_id="consultation-001")
+specific_memories = m.get_all(user_id="alice", agent_id="diet-assistant", run_id="consultation-001")
+
+# Search with context
+general_search = m.search("What do you know about me?", user_id="alice")
+agent_search = m.search("What do you know about me?", user_id="alice", agent_id="diet-assistant")
+session_search = m.search("What do you know about me?", user_id="alice", run_id="consultation-001")
+```
+
 ## Configuration Parameters
 
 Mem0 offers extensive configuration options to customize its behavior according to your needs. These configurations span across different components like vector stores, language models, embedders, and graph stores.
@@ -452,40 +482,7 @@ If you have a `Mem0 API key`, you can use it to initialize the client. Alternati
 
 Mem0 supports several language models (LLMs) through integration with various [providers](https://litellm.vercel.app/docs/providers).
 
-## Use Mem0 Platform
-
-```python
-from mem0.proxy.main import Mem0
-
-client = Mem0(api_key="m0-xxx")
-
-# First interaction: Storing user preferences
-messages = [
-  {
-    "role": "user",
-    "content": "I love indian food but I cannot eat pizza since allergic to cheese."
-  },
-]
-user_id = "alice"
-chat_completion = client.chat.completions.create(messages=messages, model="gpt-4o-mini", user_id=user_id)
-# Memory saved after this will look like: "Loves Indian food. Allergic to cheese and cannot eat pizza."
-
-# Second interaction: Leveraging stored memory
-messages = [
-  {
-    "role": "user",
-    "content": "Suggest restaurants in San Francisco to eat.",
-  }
-]
-
-chat_completion = client.chat.completions.create(messages=messages, model="gpt-4o-mini", user_id=user_id)
-print(chat_completion.choices[0].message.content)
-# Answer: You might enjoy Indian restaurants in San Francisco, such as Amber India, Dosa, or Curry Up Now, which offer delicious options without cheese.
-```
-
-In this example, you can see how the second response is tailored based on the information provided in the first interaction. Mem0 remembers the user's preference for Indian food and their cheese allergy, using this information to provide more relevant and personalized restaurant suggestions in San Francisco.
-
-### Use Mem0 OSS
+## Use Mem0 OSS
 
 ```python
 config = {
@@ -510,42 +507,6 @@ chat_completion = client.chat.completions.create(
     model="gpt-4o",
 )
 ```
-
-## APIs
-
-Get started with using Mem0 APIs in your applications. For more details, refer to the [Platform](../platform/quickstart).
-
-Here is an example of how to use Mem0 APIs:
-
-```python
-import os
-from mem0 import MemoryClient
-
-os.environ["MEM0_API_KEY"] = "your-api-key"
-
-client = MemoryClient() # get api_key from https://app.mem0.ai/
-
-# Store messages
-messages = [
-    {"role": "user", "content": "Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts."},
-    {"role": "assistant", "content": "Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions."}
-]
-result = client.add(messages, user_id="alex")
-print(result)
-
-# Retrieve memories
-all_memories = client.get_all(user_id="alex")
-print(all_memories)
-
-# Search memories
-query = "What do you know about me?"
-related_memories = client.search(query, user_id="alex")
-
-# Get memory history
-history = client.history(memory_id="m1")
-print(history)
-```
-
 
 ## Contributing
 

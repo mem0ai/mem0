@@ -1,8 +1,6 @@
 ---
 title: Agno
 ---
-<Snippet file="blank-notif.mdx" />
-
 
 This integration of [**Mem0**](https://github.com/mem0ai/mem0) with [Agno](https://github.com/agno-agi/agno, enables persistent, multimodal memory for Agno-based agents - improving personalization, context awareness, and continuity across conversations.
 
@@ -128,7 +126,7 @@ def chat_user(
     if user_input:
         # Search for relevant memories
         memories = client.search(user_input, user_id=user_id)
-        memory_context = "\n".join(f"- {m['memory']}" for m in memories)
+        memory_context = "\n".join(f"- {m['memory']}" for m in memories.get('results', []))
 
         # Construct the prompt
         prompt = f"""

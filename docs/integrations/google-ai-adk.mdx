@@ -2,8 +2,6 @@
 title: Google Agent Development Kit
 ---
 
-<Snippet file="blank-notif.mdx" />
-
 Integrate [**Mem0**](https://github.com/mem0ai/mem0) with [Google Agent Development Kit (ADK)](https://github.com/google/adk-python), an open-source framework for building multi-agent workflows. This integration enables agents to access persistent memory across conversations, enhancing context retention and personalization.
 
 ## Overview
@@ -49,8 +47,8 @@ mem0 = MemoryClient()
 def search_memory(query: str, user_id: str) -> dict:
     """Search through past conversations and memories"""
     memories = mem0.search(query, user_id=user_id)
-    if memories:
-        memory_context = "\n".join([f"- {mem['memory']}" for mem in memories])
+    if memories.get('results', []):
+        memory_context = "\n".join([f"- {mem['memory']}" for mem in memories.get('results', [])])
         return {"status": "success", "memories": memory_context}
     return {"status": "no_memories", "message": "No relevant memories found"}
 

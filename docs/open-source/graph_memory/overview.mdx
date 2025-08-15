@@ -5,8 +5,6 @@ icon: "info"
 iconType: "solid"
 ---
 
-<Snippet file="blank-notif.mdx" />
-
 Mem0 now supports **Graph Memory**.
 With Graph Memory, users can now create and utilize complex relationships between pieces of information, allowing for more nuanced and context-aware responses. 
 This integration enables users to leverage the strengths of both vector-based and graph-based approaches, resulting in more accurate and comprehensive information retrieval and generation.
@@ -50,8 +48,8 @@ allowfullscreen
 ## Initialize Graph Memory
 
 To initialize Graph Memory you'll need to set up your configuration with graph
-store providers. Currently, we support [Neo4j](#initialize-neo4j) and
-[Memgraph](#initialize-memgraph) as graph store providers. 
+store providers. Currently, we support [Neo4j](#initialize-neo4j), [Memgraph](#initialize-memgraph),
+and [Neptune Analytics](#initialize-neptune-analytics) as graph store providers.
 
 
 ### Initialize Neo4j
@@ -236,6 +234,8 @@ m = Memory.from_config(config_dict=config)
 
 Mem0 now supports Amazon Neptune Analytics as a graph store provider. This integration allows you to use Neptune Analytics for storing and querying graph-based memories.
 
+You can use Neptune Analytics as part of an Amazon tech stack [Setup AWS Bedrock, AOSS, and Neptune](https://docs.mem0.ai/examples/aws_example#aws-bedrock-and-aoss)
+
 #### Instance Setup
 
 Create an Amazon Neptune Analytics instance in your AWS account following the [AWS documentation](https://docs.aws.amazon.com/neptune-analytics/latest/userguide/get-started.html).
@@ -266,12 +266,8 @@ The Neptune memory store uses AWS LangChain Python API to connect to Neptune ins
 ```python Python
 from mem0 import Memory
 
-# This example must connect to a neptune-graph instance with 1536 vector dimensions specified.
+# Provided neptune-graph instance must have the same vector dimensions as the embedder provider.
 config = {
-    "embedder": {
-        "provider": "openai",
-        "config": {"model": "text-embedding-3-large", "embedding_dims": 1536},
-    },
     "graph_store": {
         "provider": "neptune",
         "config": {
@@ -298,7 +294,7 @@ The Mem0's graph supports the following operations:
 ### Add Memories
 
 <Note>
-Mem0 with Graph Memory supports both "user_id" and "agent_id" parameters. You can use either or both to organize your memories. Use "userId" and "agentId" in NodeSDK.
+Mem0 with Graph Memory supports "user_id", "agent_id", and "run_id" parameters. You can use any combination of these to organize your memories. Use "userId", "agentId", and "runId" in NodeSDK.
 </Note>
 
 <CodeGroup>
@@ -308,6 +304,9 @@ m.add("I like pizza", user_id="alice")
 
 # Using both user_id and agent_id
 m.add("I like pizza", user_id="alice", agent_id="food-assistant")
+
+# Using all three parameters for maximum organization
+m.add("I like pizza", user_id="alice", agent_id="food-assistant", run_id="session-123")
 ```
 
 ```typescript TypeScript
@@ -333,6 +332,12 @@ m.get_all(user_id="alice")
 
 # Get all memories for a specific agent belonging to a user
 m.get_all(user_id="alice", agent_id="food-assistant")
+
+# Get all memories for a specific run/session
+m.get_all(user_id="alice", run_id="session-123")
+
+# Get all memories for a specific agent and run combination
+m.get_all(user_id="alice", agent_id="food-assistant", run_id="session-123")
 ```
 
 ```typescript TypeScript
@@ -377,6 +382,12 @@ m.search("tell me my name.", user_id="alice")
 
 # Search memories for a specific agent belonging to a user
 m.search("tell me my name.", user_id="alice", agent_id="food-assistant")
+
+# Search memories for a specific run/session
+m.search("tell me my name.", user_id="alice", run_id="session-123")
+
+# Search memories for a specific agent and run combination
+m.search("tell me my name.", user_id="alice", agent_id="food-assistant", run_id="session-123")
 ```
 
 ```typescript TypeScript
@@ -613,12 +624,13 @@ memory.search("Who is spiderman?", { userId: "alice123" });
 ## Using Multiple Agents with Graph Memory
 
 
-When working with multiple agents, you can use the "agent_id" parameter to organize memories by both user and agent. This allows you to:
-
+When working with multiple agents and sessions, you can use the "agent_id" and "run_id" parameters to organize memories by user, agent, and run context. This allows you to:
 
 1. Create agent-specific knowledge graphs
 2. Share common knowledge between agents
 3. Isolate sensitive or specialized information to specific agents
+4. Track conversation sessions and runs separately
+5. Maintain context across different execution contexts
 
 ### Example: Multi-Agent Setup
 
@@ -629,10 +641,17 @@ m.add("I prefer Italian cuisine", user_id="bob", agent_id="food-assistant")
 m.add("I'm allergic to peanuts", user_id="bob", agent_id="health-assistant")
 m.add("I live in Seattle", user_id="bob")  # Shared across all agents
 
+# Add memories for specific runs/sessions
+m.add("Current session: discussing dinner plans", user_id="bob", agent_id="food-assistant", run_id="dinner-session-001")
+m.add("Previous session: allergy consultation", user_id="bob", agent_id="health-assistant", run_id="health-session-001")
+
 # Search within specific agent context
 food_preferences = m.search("What food do I like?", user_id="bob", agent_id="food-assistant")
 health_info = m.search("What are my allergies?", user_id="bob", agent_id="health-assistant")
 location = m.search("Where do I live?", user_id="bob")  # Searches across all agents
+
+# Search within specific run context
+current_session = m.search("What are we discussing?", user_id="bob", run_id="dinner-session-001")
 ```
 
 ```typescript TypeScript

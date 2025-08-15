@@ -2,7 +2,6 @@
 title: Personal AI Travel Assistant
 ---
 
-<Snippet file="blank-notif.mdx" />
 
 Create a personalized AI Travel Assistant using Mem0. This guide provides step-by-step instructions and the complete code to get you started.
 
@@ -155,11 +154,11 @@ class PersonalTravelAssistant:
 
     def get_memories(self, user_id):
         memories = self.memory.get_all(user_id=user_id)
-        return [m['memory'] for m in memories['memories']]
+        return [m['memory'] for m in memories.get('results', [])]
 
     def search_memories(self, query, user_id):
         memories = self.memory.search(query, user_id=user_id)
-        return [m['memory'] for m in memories['memories']]
+        return [m['memory'] for m in memories.get('results', [])]
 
 # Usage example
 user_id = "traveler_123"

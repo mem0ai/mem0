@@ -2,8 +2,6 @@
 title: ElevenLabs
 ---
 
-<Snippet file="blank-notif.mdx" />
-
 Create voice-based conversational AI agents with memory capabilities by integrating ElevenLabs and Mem0. This integration enables persistent, context-aware voice interactions that remember past conversations.
 
 ## Overview
@@ -152,7 +150,7 @@ Define the two key memory functions that will be registered as tools:
         )
 
         # Extract and join the memory texts
-        memories = ' '.join([result["memory"] for result in results])
+        memories = ' '.join([result["memory"] for result in results.get('results', [])])
         print("[ Memories ]", memories)
 
         if memories:
