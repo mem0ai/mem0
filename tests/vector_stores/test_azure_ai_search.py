@@ -10,6 +10,11 @@ from mem0.configs.vector_stores.azure_ai_search import AzureAISearchConfig
 from mem0.vector_stores.azure_ai_search import AzureAISearch
 
 
+class MockTokenCredential:
+    def get_token(self, *args, **kwargs):
+        return "mock_token"
+
+
 # Fixture to patch SearchClient and SearchIndexClient and create an instance of AzureAISearch.
 @pytest.fixture
 def mock_clients():
@@ -96,6 +101,17 @@ def test_config_validation_valid():
     assert config.collection_name == "custom-index"
     assert config.compression_type == "scalar"
     assert config.use_float16 is True
+
+def test_config_validation_token_credential():
+    """Test that a token credential can be used instead of an API key."""
+    config = AzureAISearchConfig(
+        service_name="test-service",
+        token_credential=MockTokenCredential(),
+        embedding_model_dims=768,
+    )
+    assert config.service_name == "test-service"
+    assert isinstance(config.token_credential, MockTokenCredential)
+    assert config.api_key is None  # API key should not be set when using token credential
 
 
 def test_config_validation_invalid_compression_type():
