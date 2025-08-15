@@ -1,17 +1,13 @@
 import json
-from datetime import datetime
-from unittest.mock import MagicMock, patch
-
 import pytest
-import pytz
-
+from unittest.mock import MagicMock, patch
 from mem0.vector_stores.databricks import Databricks
 
 
 @pytest.fixture
-def mock_databricks_client():
-    """Create a mock Databricks Vector Search client."""
-    with patch("databricks.vector_search.client.VectorSearchClient") as mock_client_class:
+def mock_vector_search_client():
+    """Create a mock VectorSearchClient."""
+    with patch('mem0.vector_stores.databricks.VectorSearchClient') as mock_client_class:
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
         
@@ -32,12 +28,8 @@ def mock_databricks_client():
 
 
 @pytest.fixture
-def databricks_db(mock_databricks_client):
+def databricks_db(mock_vector_search_client):
     """Create a Databricks instance with a mock client."""
-    # Mock the endpoint and index existence checks
-    mock_databricks_client.get_endpoint.return_value = MagicMock()
-    mock_databricks_client.get_index.return_value = MagicMock()
-    
     databricks_db = Databricks(
         workspace_url="https://test.databricks.com",
         access_token="test_token",
@@ -48,15 +40,12 @@ def databricks_db(mock_databricks_client):
     )
     
     # Replace the client with our mock
-    databricks_db.client = mock_databricks_client
+    databricks_db.client = mock_vector_search_client
     return databricks_db
 
 
-def test_init_with_access_token(mock_databricks_client):
+def test_init_with_access_token(mock_vector_search_client):
     """Test initialization with personal access token."""
-    mock_databricks_client.get_endpoint.return_value = MagicMock()
-    mock_databricks_client.get_index.return_value = MagicMock()
-    
     db = Databricks(
         workspace_url="https://test.databricks.com",
         access_token="test_token",
@@ -70,11 +59,8 @@ def test_init_with_access_token(mock_databricks_client):
     assert db.index_name == "test_index"
 
 
-def test_init_with_service_principal(mock_databricks_client):
+def test_init_with_service_principal(mock_vector_search_client):
     """Test initialization with service principal credentials."""
-    mock_databricks_client.get_endpoint.return_value = MagicMock()
-    mock_databricks_client.get_index.return_value = MagicMock()
-    
     db = Databricks(
         workspace_url="https://test.databricks.com",
         service_principal_client_id="test_client_id",
@@ -89,11 +75,11 @@ def test_init_with_service_principal(mock_databricks_client):
     assert db.index_name == "test_index"
 
 
-def test_endpoint_creation_when_not_exists(mock_databricks_client):
+def test_endpoint_creation_when_not_exists(mock_vector_search_client):
     """Test endpoint creation when it doesn't exist."""
     # Mock endpoint not existing initially
-    mock_databricks_client.get_endpoint.side_effect = [Exception("Not found"), MagicMock()]
-    mock_databricks_client.get_index.return_value = MagicMock()
+    mock_vector_search_client.get_endpoint.side_effect = [Exception("Not found"), MagicMock()]
+    mock_vector_search_client.get_index.return_value = MagicMock()
     
     Databricks(
         workspace_url="https://test.databricks.com",
@@ -104,17 +90,17 @@ def test_endpoint_creation_when_not_exists(mock_databricks_client):
     )
     
     # Check that create_endpoint was called
-    mock_databricks_client.create_endpoint.assert_called_once_with(
+    mock_vector_search_client.create_endpoint.assert_called_once_with(
         name="test_endpoint",
         endpoint_type="STANDARD"
     )
 
 
-def test_index_creation_when_not_exists(mock_databricks_client):
+def test_index_creation_when_not_exists(mock_vector_search_client):
     """Test index creation when it doesn't exist."""
     # Mock index not existing initially
-    mock_databricks_client.get_endpoint.return_value = MagicMock()
-    mock_databricks_client.get_index.side_effect = [Exception("Not found"), MagicMock()]
+    mock_vector_search_client.get_endpoint.return_value = MagicMock()
+    mock_vector_search_client.get_index.side_effect = [Exception("Not found"), MagicMock()]
     
     Databricks(
         workspace_url="https://test.databricks.com",
@@ -126,25 +112,25 @@ def test_index_creation_when_not_exists(mock_databricks_client):
     )
     
     # Check that create_delta_sync_index was called
-    mock_databricks_client.create_delta_sync_index.assert_called_once()
+    mock_vector_search_client.create_delta_sync_index.assert_called_once()
 
 
-def test_create_col(databricks_db, mock_databricks_client):
+def test_create_col(databricks_db, mock_vector_search_client):
     """Test creating a new collection (index)."""
     # Mock index creation
     mock_new_index = MagicMock()
-    mock_databricks_client.create_delta_sync_index.return_value = mock_new_index
+    mock_vector_search_client.create_delta_sync_index.return_value = mock_new_index
     
     # Call create_col
     result = databricks_db.create_col(name="new_index", vector_size=768)
     
     # Check that create_delta_sync_index was called
-    mock_databricks_client.create_delta_sync_index.assert_called()
+    mock_vector_search_client.create_delta_sync_index.assert_called()
     assert result == mock_new_index
     assert databricks_db.index_name == "new_index"
 
 
-def test_search_with_text_query(databricks_db, mock_databricks_client):
+def test_search_with_text_query(databricks_db, mock_vector_search_client):
     """Test search with text query."""
     # Set up for text-based search
     databricks_db.embedding_source_column = "text"
@@ -193,7 +179,7 @@ def test_search_with_text_query(databricks_db, mock_databricks_client):
     assert results[0].score == 0.95
 
 
-def test_search_with_vector_query(databricks_db, mock_databricks_client):
+def test_search_with_vector_query(databricks_db, mock_vector_search_client):
     """Test search with vector query."""
     # Mock search results
     mock_results = {
@@ -234,7 +220,7 @@ def test_search_with_vector_query(databricks_db, mock_databricks_client):
     assert results[0].score == 0.85
 
 
-def test_search_with_storage_optimized_filters(databricks_db, mock_databricks_client):
+def test_search_with_storage_optimized_filters(databricks_db, mock_vector_search_client):
     """Test search with storage-optimized endpoint filters."""
     # Set endpoint type to storage-optimized
     databricks_db.endpoint_type = "STORAGE_OPTIMIZED"
@@ -261,7 +247,7 @@ def test_search_with_storage_optimized_filters(databricks_db, mock_databricks_cl
     assert " AND " in filter_str
 
 
-def test_get(databricks_db, mock_databricks_client):
+def test_get(databricks_db, mock_vector_search_client):
     """Test getting a vector by ID."""
     # Mock search results for get operation
     mock_results = {
@@ -301,7 +287,7 @@ def test_get(databricks_db, mock_databricks_client):
     assert result.payload["key"] == "value"  # From metadata
 
 
-def test_get_not_found(databricks_db, mock_databricks_client):
+def test_get_not_found(databricks_db, mock_vector_search_client):
     """Test getting a vector that doesn't exist."""
     # Mock empty search results
     mock_results = {"result": {"data_array": []}}
@@ -313,47 +299,49 @@ def test_get_not_found(databricks_db, mock_databricks_client):
         databricks_db.get("test_id")
 
 
-def test_list_cols(databricks_db, mock_databricks_client):
+def test_list_cols(databricks_db, mock_vector_search_client):
     """Test listing collections (indexes)."""
-    # Mock list_indexes response
-    mock_databricks_client.list_indexes.return_value = {
-        "vector_indexes": [
-            {"name": "index1"},
-            {"name": "index2"}
-        ]
+    # Mock list_indexes response - create objects with name attributes
+    mock_index1 = MagicMock()
+    mock_index1.name = "index1"
+    mock_index2 = MagicMock()
+    mock_index2.name = "index2"
+    
+    mock_vector_search_client.list_indexes.return_value = {
+        "vector_indexes": [mock_index1, mock_index2]
     }
     
     # Call list_cols
     result = databricks_db.list_cols()
     
     # Check that list_indexes was called
-    mock_databricks_client.list_indexes.assert_called_once_with(endpoint_name="test_endpoint")
+    mock_vector_search_client.list_indexes.assert_called_once_with(endpoint_name="test_endpoint")
     
     # Check result
     assert result == ["index1", "index2"]
 
 
-def test_delete_col(databricks_db, mock_databricks_client):
+def test_delete_col(databricks_db, mock_vector_search_client):
     """Test deleting a collection (index)."""
     # Call delete_col
     databricks_db.delete_col()
     
     # Check that delete_index was called
-    mock_databricks_client.delete_index.assert_called_once_with("test_catalog.test_schema.test_index")
+    mock_vector_search_client.delete_index.assert_called_once_with("test_catalog.test_schema.test_index")
 
 
-def test_col_info(databricks_db, mock_databricks_client):
+def test_col_info(databricks_db, mock_vector_search_client):
     """Test getting collection info."""
     # Mock index description
     mock_index = MagicMock()
     mock_index.describe.return_value = {"index_type": "DELTA_SYNC", "status": "READY"}
-    mock_databricks_client.get_index.return_value = mock_index
+    mock_vector_search_client.get_index.return_value = mock_index
     
     # Call col_info
     result = databricks_db.col_info()
     
     # Check that get_index and describe were called
-    mock_databricks_client.get_index.assert_called_with("test_catalog.test_schema.test_index")
+    mock_vector_search_client.get_index.assert_called_with("test_catalog.test_schema.test_index")
     mock_index.describe.assert_called_once()
     
     # Check result
@@ -361,7 +349,7 @@ def test_col_info(databricks_db, mock_databricks_client):
     assert result["status"] == "READY"
 
 
-def test_list(databricks_db, mock_databricks_client):
+def test_list(databricks_db, mock_vector_search_client):
     """Test listing memories."""
     # Mock search results
     mock_results = {
@@ -408,7 +396,7 @@ def test_list(databricks_db, mock_databricks_client):
     assert results[0][1].payload["type"] == "memory2"
 
 
-def test_reset(databricks_db, mock_databricks_client):
+def test_reset(databricks_db, mock_vector_search_client):
     """Test resetting an index."""
     # Mock the methods called during reset
     with patch.object(databricks_db, "delete_col") as mock_delete, \
@@ -473,7 +461,7 @@ def test_format_timestamp(databricks_db):
     assert len(formatted) > 0
 
 
-def test_search_error_handling(databricks_db, mock_databricks_client):
+def test_search_error_handling(databricks_db, mock_vector_search_client):
     """Test search error handling."""
     # Mock similarity_search to raise an exception
     mock_index = databricks_db.index
@@ -484,7 +472,7 @@ def test_search_error_handling(databricks_db, mock_databricks_client):
         databricks_db.search(query="test", vectors=[0.1, 0.2], limit=5)
 
 
-def test_list_error_handling(databricks_db, mock_databricks_client):
+def test_list_error_handling(databricks_db, mock_vector_search_client):
     """Test list error handling."""
     # Mock similarity_search to raise an exception
     mock_index = databricks_db.index
@@ -495,7 +483,7 @@ def test_list_error_handling(databricks_db, mock_databricks_client):
     assert results == [[]]
 
 
-def test_search_with_invalid_metadata(databricks_db, mock_databricks_client):
+def test_search_with_invalid_metadata(databricks_db, mock_vector_search_client):
     """Test search with invalid JSON metadata."""
     # Mock search results with invalid metadata
     mock_results = {
@@ -524,10 +512,10 @@ def test_search_with_invalid_metadata(databricks_db, mock_databricks_client):
     # Metadata should not be added due to JSON error
 
 
-def test_create_index_with_embedding_model(mock_databricks_client):
+def test_create_index_with_embedding_model(mock_vector_search_client):
     """Test index creation with Databricks-computed embeddings."""
-    mock_databricks_client.get_endpoint.return_value = MagicMock()
-    mock_databricks_client.get_index.side_effect = Exception("Not found")
+    mock_vector_search_client.get_endpoint.return_value = MagicMock()
+    mock_vector_search_client.get_index.side_effect = Exception("Not found")
     
     db = Databricks(
         workspace_url="https://test.databricks.com",
@@ -540,18 +528,18 @@ def test_create_index_with_embedding_model(mock_databricks_client):
     )
     
     # Check that create_delta_sync_index was called with embedding model
-    mock_databricks_client.create_delta_sync_index.assert_called_once()
-    args, kwargs = mock_databricks_client.create_delta_sync_index.call_args
+    mock_vector_search_client.create_delta_sync_index.assert_called_once()
+    args, kwargs = mock_vector_search_client.create_delta_sync_index.call_args
     assert "embedding_source_column" in kwargs
     assert "embedding_model_endpoint_name" in kwargs
     assert kwargs["embedding_source_column"] == "text"
     assert kwargs["embedding_model_endpoint_name"] == "e5-small-v2"
 
 
-def test_create_index_with_self_managed_embeddings(mock_databricks_client):
+def test_create_index_with_self_managed_embeddings(mock_vector_search_client):
     """Test index creation with self-managed embeddings."""
-    mock_databricks_client.get_endpoint.return_value = MagicMock()
-    mock_databricks_client.get_index.side_effect = Exception("Not found")
+    mock_vector_search_client.get_endpoint.return_value = MagicMock()
+    mock_vector_search_client.get_index.side_effect = Exception("Not found")
     
     db = Databricks(
         workspace_url="https://test.databricks.com",
@@ -563,18 +551,18 @@ def test_create_index_with_self_managed_embeddings(mock_databricks_client):
     )
     
     # Check that create_delta_sync_index was called with self-managed settings
-    mock_databricks_client.create_delta_sync_index.assert_called_once()
-    args, kwargs = mock_databricks_client.create_delta_sync_index.call_args
+    mock_vector_search_client.create_delta_sync_index.assert_called_once()
+    args, kwargs = mock_vector_search_client.create_delta_sync_index.call_args
     assert "embedding_dimension" in kwargs
     assert "embedding_vector_column" in kwargs
     assert kwargs["embedding_dimension"] == 768
     assert kwargs["embedding_vector_column"] == "embedding"
 
 
-def test_storage_optimized_endpoint_type(mock_databricks_client):
+def test_storage_optimized_endpoint_type(mock_vector_search_client):
     """Test creation with storage-optimized endpoint type."""
-    mock_databricks_client.get_endpoint.side_effect = Exception("Not found")
-    mock_databricks_client.get_index.return_value = MagicMock()
+    mock_vector_search_client.get_endpoint.side_effect = Exception("Not found")
+    mock_vector_search_client.get_index.return_value = MagicMock()
     
     db = Databricks(
         workspace_url="https://test.databricks.com",
@@ -586,7 +574,7 @@ def test_storage_optimized_endpoint_type(mock_databricks_client):
     )
     
     # Check that endpoint was created with correct type
-    mock_databricks_client.create_endpoint.assert_called_once_with(
+    mock_vector_search_client.create_endpoint.assert_called_once_with(
         name="test_endpoint",
         endpoint_type="STORAGE_OPTIMIZED"
     )
@@ -596,7 +584,7 @@ def test_storage_optimized_endpoint_type(mock_databricks_client):
 
 def test_client_initialization_error():
     """Test error handling during client initialization."""
-    with patch("databricks.vector_search.client.VectorSearchClient") as mock_client_class:
+    with patch("mem0.vector_stores.databricks.VectorSearchClient") as mock_client_class:
         mock_client_class.side_effect = Exception("Failed to initialize client")
         
         with pytest.raises(Exception, match="Failed to initialize client"):
