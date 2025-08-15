@@ -40,6 +40,7 @@ vector_stores = [
     "psycopg>=3.2.8",
     "pymongo>=4.13.2",
     "pymochow>=2.2.9",
+    "databricks-vectorsearch>=0.57.0",
 ]
 llms = [
     "groq>=0.3.0",
