@@ -1,0 +1,78 @@
+---
+title: Amazon S3 Vectors
+---
+
+[Amazon S3 Vectors](https://aws.amazon.com/s3/features/vectors/) is a purpose-built, cost-optimized vector storage and query service for semantic search and AI applications. It provides S3-level elasticity and durability with sub-second query performance.
+
+### Installation
+
+S3 Vectors support requires additional dependencies. Install them with:
+
+```bash
+pip install boto3
+```
+
+### Usage
+
+To use Amazon S3 Vectors with Mem0, you need to have an AWS account and the necessary IAM permissions (`s3vectors:*`). Ensure your environment is configured with AWS credentials (e.g., via `~/.aws/credentials` or environment variables).
+
+```python
+import os
+from mem0 import Memory
+
+# Ensure your AWS credentials are configured in your environment
+# e.g., by setting AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_DEFAULT_REGION
+
+config = {
+    "vector_store": {
+        "provider": "s3_vectors",
+        "config": {
+            "vector_bucket_name": "my-mem0-vector-bucket",
+            "index_name": "my-memories-index",
+            "embedding_model_dims": 1536,
+            "distance_metric": "cosine",
+            "region_name": "us-east-1"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movie? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+### Config
+
+Here are the available parameters for the `s3_vectors` config:
+
+| Parameter              | Description                                                          | Default Value |
+| ---------------------- | -------------------------------------------------------------------- | ------------- |
+| `vector_bucket_name`   | The name of the S3 Vector bucket to use. It will be created if it doesn't exist. | Required      |
+| `index_name`           | The name of the vector index within the bucket.                        | `mem0`        |
+| `embedding_model_dims` | Dimensions of the embedding model. Must match your embedder.         | `1536`        |
+| `distance_metric`      | Distance metric for similarity search. Options: `cosine`, `euclidean`. | `cosine`      |
+| `region_name`          | The AWS region where the bucket and index reside.                    | `None` (uses default from AWS config) |
+
+### IAM Permissions
+
+Your AWS identity (user or role) needs permissions to perform actions on S3 Vectors. A minimal policy would look like this:
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": "s3vectors:*",
+            "Resource": "*"
+        }
+    ]
+}
+```
+
+For production, it is recommended to scope down the resource ARN to your specific buckets and indexes.
