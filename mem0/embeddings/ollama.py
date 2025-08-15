@@ -33,10 +33,10 @@ class OllamaEmbedding(EmbeddingBase):
 
     def _ensure_model_exists(self):
         """
-        Ensure the specified model exists locally. If not, pull it from Ollama.
+         Ensure the specified model exists locally. If not, pull it from Ollama.
         """
         local_models = self.client.list()["models"]
-        if not any(model.get("name") == self.config.model for model in local_models):
+        if not any(hasattr(model, 'model') and model.model == self.config.model for model in local_models): 
             self.client.pull(self.config.model)
 
     def embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
