@@ -35,7 +35,7 @@ class MemoryResult:
         self.score = score
 
 
-class DatabricksDB(VectorStoreBase):
+class Databricks(VectorStoreBase):
     def __init__(
         self,
         workspace_url: str,

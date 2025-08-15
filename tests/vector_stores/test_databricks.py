@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import pytz
 
-from mem0.vector_stores.databricks import DatabricksDB
+from mem0.vector_stores.databricks import Databricks
 
 
 @pytest.fixture
@@ -33,12 +33,12 @@ def mock_databricks_client():
 
 @pytest.fixture
 def databricks_db(mock_databricks_client):
-    """Create a DatabricksDB instance with a mock client."""
+    """Create a Databricks instance with a mock client."""
     # Mock the endpoint and index existence checks
     mock_databricks_client.get_endpoint.return_value = MagicMock()
     mock_databricks_client.get_index.return_value = MagicMock()
     
-    databricks_db = DatabricksDB(
+    databricks_db = Databricks(
         workspace_url="https://test.databricks.com",
         access_token="test_token",
         endpoint_name="test_endpoint",
@@ -57,7 +57,7 @@ def test_init_with_access_token(mock_databricks_client):
     mock_databricks_client.get_endpoint.return_value = MagicMock()
     mock_databricks_client.get_index.return_value = MagicMock()
     
-    db = DatabricksDB(
+    db = Databricks(
         workspace_url="https://test.databricks.com",
         access_token="test_token",
         endpoint_name="test_endpoint",
@@ -75,7 +75,7 @@ def test_init_with_service_principal(mock_databricks_client):
     mock_databricks_client.get_endpoint.return_value = MagicMock()
     mock_databricks_client.get_index.return_value = MagicMock()
     
-    db = DatabricksDB(
+    db = Databricks(
         workspace_url="https://test.databricks.com",
         service_principal_client_id="test_client_id",
         service_principal_client_secret="test_client_secret",
@@ -95,7 +95,7 @@ def test_endpoint_creation_when_not_exists(mock_databricks_client):
     mock_databricks_client.get_endpoint.side_effect = [Exception("Not found"), MagicMock()]
     mock_databricks_client.get_index.return_value = MagicMock()
     
-    DatabricksDB(
+    Databricks(
         workspace_url="https://test.databricks.com",
         access_token="test_token",
         endpoint_name="test_endpoint",
@@ -116,7 +116,7 @@ def test_index_creation_when_not_exists(mock_databricks_client):
     mock_databricks_client.get_endpoint.return_value = MagicMock()
     mock_databricks_client.get_index.side_effect = [Exception("Not found"), MagicMock()]
     
-    DatabricksDB(
+    Databricks(
         workspace_url="https://test.databricks.com",
         access_token="test_token",
         endpoint_name="test_endpoint",
@@ -529,7 +529,7 @@ def test_create_index_with_embedding_model(mock_databricks_client):
     mock_databricks_client.get_endpoint.return_value = MagicMock()
     mock_databricks_client.get_index.side_effect = Exception("Not found")
     
-    db = DatabricksDB(
+    db = Databricks(
         workspace_url="https://test.databricks.com",
         access_token="test_token",
         endpoint_name="test_endpoint",
@@ -553,7 +553,7 @@ def test_create_index_with_self_managed_embeddings(mock_databricks_client):
     mock_databricks_client.get_endpoint.return_value = MagicMock()
     mock_databricks_client.get_index.side_effect = Exception("Not found")
     
-    db = DatabricksDB(
+    db = Databricks(
         workspace_url="https://test.databricks.com",
         access_token="test_token",
         endpoint_name="test_endpoint",
@@ -576,7 +576,7 @@ def test_storage_optimized_endpoint_type(mock_databricks_client):
     mock_databricks_client.get_endpoint.side_effect = Exception("Not found")
     mock_databricks_client.get_index.return_value = MagicMock()
     
-    db = DatabricksDB(
+    db = Databricks(
         workspace_url="https://test.databricks.com",
         access_token="test_token",
         endpoint_name="test_endpoint",
@@ -600,7 +600,7 @@ def test_client_initialization_error():
         mock_client_class.side_effect = Exception("Failed to initialize client")
         
         with pytest.raises(Exception, match="Failed to initialize client"):
-            DatabricksDB(
+            Databricks(
                 workspace_url="https://test.databricks.com",
                 access_token="test_token",
                 endpoint_name="test_endpoint",
