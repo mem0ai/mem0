@@ -2,6 +2,7 @@ from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
+from databricks.sdk.service.vectorsearch import EndpointType, VectorIndexType, PipelineType
 
 class DatabricksConfig(BaseModel):
     """Configuration for Databricks Vector Search vector store."""
@@ -19,13 +20,13 @@ class DatabricksConfig(BaseModel):
     schema: str = Field(..., description="The Unity Catalog schama name")
     table_name: str = Field(..., description="Source Delta table name")
     index_name: str = Field("mem0", description="Vector search index name")
-    index_type: str = Field("DELTA_SYNC", description="Index type: DELTA_SYNC or DIRECT_ACCESS")
+    index_type: VectorIndexType = Field("DELTA_SYNC", description="Index type: DELTA_SYNC or DIRECT_ACCESS")
     embedding_model_endpoint_name: Optional[str] = Field(
         None, description="Embedding model endpoint for Databricks-computed embeddings"
     )
     embedding_dimension: int = Field(1536, description="Vector embedding dimensions")
-    endpoint_type: str = Field("STANDARD", description="Endpoint type: STANDARD or STORAGE_OPTIMIZED")
-    pipeline_type: str = Field("TRIGGERED", description="Sync pipeline type: TRIGGERED or CONTINUOUS")
+    endpoint_type: EndpointType = Field("STANDARD", description="Endpoint type: STANDARD or STORAGE_OPTIMIZED")
+    pipeline_type: PipelineType = Field("TRIGGERED", description="Sync pipeline type: TRIGGERED or CONTINUOUS")
     warehouse_id: Optional[str] = Field(None, description="Databricks SQL warehouse ID")
     query_type: str = Field("ANN", description="Query type: `ANN` and `HYBRID`")
 
@@ -56,20 +57,6 @@ class DatabricksConfig(BaseModel):
                 "Either access_token or both client_id/client_secret or azure_client_id/azure_client_secret must be provided"
             )
 
-        return self
-
-    @model_validator(mode="after")
-    def validate_endpoint_type(self):
-        """Validate endpoint type."""
-        if self.endpoint_type not in ["STANDARD", "STORAGE_OPTIMIZED"]:
-            raise ValueError("endpoint_type must be either 'STANDARD' or 'STORAGE_OPTIMIZED'")
-        return self
-
-    @model_validator(mode="after")
-    def validate_pipeline_type(self):
-        """Validate pipeline type."""
-        if self.pipeline_type not in ["TRIGGERED", "CONTINUOUS"]:
-            raise ValueError("pipeline_type must be either 'TRIGGERED' or 'CONTINUOUS'")
         return self
 
     model_config = {

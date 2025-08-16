@@ -1,7 +1,6 @@
 import json
 import logging
 import uuid
-from datetime import datetime
 from typing import Optional, List
 from databricks.sdk.service.catalog import ColumnInfo, ColumnTypeName, TableType, DataSourceFormat
 from databricks.sdk import WorkspaceClient
@@ -12,8 +11,6 @@ from databricks.sdk.service.vectorsearch import (
     EmbeddingSourceColumn,
     EmbeddingVectorColumn,
 )
-import uuid
-from databricks.sdk.service.vectorsearch import VectorIndexType
 from pydantic import BaseModel
 from mem0.memory.utils import extract_json
 from mem0.vector_stores.base import VectorStoreBase
@@ -75,6 +72,7 @@ class Databricks(VectorStoreBase):
             warehouse_id (str, optional): Databricks SQL warehouse ID (if using SQL warehouse).
             query_type (str, optional): Query type, either "ANN" or "HYBRID" (default: "ANN").
         """
+        # Basic identifiers
         self.workspace_url = workspace_url
         self.endpoint_name = endpoint_name
         self.catalog = catalog
@@ -84,6 +82,7 @@ class Databricks(VectorStoreBase):
         self.index_name = index_name
         self.fully_qualified_index_name = f"{self.catalog}.{self.schema}.{self.index_name}"
 
+        # Configuration
         self.index_type = index_type
         self.embedding_model_endpoint_name = embedding_model_endpoint_name
         self.embedding_dimension = embedding_dimension
@@ -92,28 +91,24 @@ class Databricks(VectorStoreBase):
         self.warehouse_id = warehouse_id
         self.query_type = query_type
 
+        # Schema
         self.columns = [
-            ColumnInfo(name="memory_id", type_name=ColumnTypeName.STRING, nullable=False, comment="Primary key"),
-            ColumnInfo(
-                name="hash", type_name=ColumnTypeName.STRING, nullable=True, comment="Hash of the memory content"
-            ),
-            ColumnInfo(name="agent_id", type_name=ColumnTypeName.STRING, nullable=True, comment="ID of the agent"),
-            ColumnInfo(name="run_id", type_name=ColumnTypeName.STRING, nullable=True, comment="ID of the run"),
-            ColumnInfo(name="user_id", type_name=ColumnTypeName.STRING, nullable=True, comment="ID of the user"),
-            ColumnInfo(name="memory", type_name=ColumnTypeName.STRING, nullable=True, comment="Memory content"),
-            ColumnInfo(name="metadata", type_name=ColumnTypeName.STRING, nullable=True, comment="Additional metadata"),
-            ColumnInfo(
-                name="created_at", type_name=ColumnTypeName.TIMESTAMP, nullable=True, comment="Creation timestamp"
-            ),
-            ColumnInfo(
-                name="updated_at", type_name=ColumnTypeName.TIMESTAMP, nullable=True, comment="Last update timestamp"
-            ),
+            ColumnInfo(name="memory_id", type_name=ColumnTypeName.STRING, type_text="STRING", nullable=False, comment="Primary key"),
+            ColumnInfo(name="hash", type_name=ColumnTypeName.STRING, type_text="STRING", nullable=True, comment="Hash of the memory content"),
+            ColumnInfo(name="agent_id", type_name=ColumnTypeName.STRING, type_text="STRING", nullable=True, comment="ID of the agent"),
+            ColumnInfo(name="run_id", type_name=ColumnTypeName.STRING, type_text="STRING", nullable=True, comment="ID of the run"),
+            ColumnInfo(name="user_id", type_name=ColumnTypeName.STRING, type_text="STRING", nullable=True, comment="ID of the user"),
+            ColumnInfo(name="memory", type_name=ColumnTypeName.STRING, type_text="STRING", nullable=True, comment="Memory content"),
+            ColumnInfo(name="metadata", type_name=ColumnTypeName.STRING, type_text="STRING", nullable=True, comment="Additional metadata"),
+            ColumnInfo(name="created_at", type_name=ColumnTypeName.TIMESTAMP, type_text="TIMESTAMP", nullable=True, comment="Creation timestamp"),
+            ColumnInfo(name="updated_at", type_name=ColumnTypeName.TIMESTAMP, type_text="TIMESTAMP", nullable=True, comment="Last update timestamp"),
         ]
         if self.index_type == VectorIndexType.DIRECT_ACCESS:
             self.columns.append(
                 ColumnInfo(
                     name="embedding",
                     type_name=ColumnTypeName.ARRAY,
+                    type_text="ARRAY<FLOAT>",
                     element_type=ColumnTypeName.FLOAT,
                     nullable=True,
                     comment="Embedding vector",
@@ -157,13 +152,13 @@ class Databricks(VectorStoreBase):
 
         # Check if index exists and create if needed
         collections = self.list_cols()
-        if self.index_name not in collections:
+        if self.fully_qualified_index_name not in collections and self.index_name not in collections:
             self.create_col()
 
     def _ensure_endpoint_exists(self):
         """Ensure the vector search endpoint exists, create if it doesn't."""
         try:
-            self.client.vector_search_endpoints.get_endpoint(name=self.endpoint_name)
+            self.client.vector_search_endpoints.get_endpoint(endpoint_name=self.endpoint_name)
             logger.info(f"Vector search endpoint '{self.endpoint_name}' already exists")
         except Exception:
             # Endpoint doesn't exist, create it
@@ -179,25 +174,23 @@ class Databricks(VectorStoreBase):
 
     def _ensure_source_table_exists(self):
         """Ensure the source Delta table exists with the proper schema."""
-        fully_qualified_name = f"{self.catalog}.{self.schema}.{self.table_name}"
-        check = self.client.tables.exists(fully_qualified_name)
+        check = self.client.tables.exists(self.fully_qualified_table_name)
 
         if check.table_exists:
-            logger.info(f"Source table '{fully_qualified_name}' already exists")
-            return
+            logger.info(f"Source table '{self.fully_qualified_table_name}' already exists")
         else:
-            logger.info(f"Source table '{fully_qualified_name}' does not exist, creating it...")
-
-        self.client.tables.create(
-            name=self.table_name,
-            catalog_name=self.catalog,
-            schema_name=self.schema,
-            table_type=TableType.MANAGED,
-            data_source_format=DataSourceFormat.DELTA,
-            columns=self.columns,
-            properties={"delta.enableChangeDataFeed": "true"},
-        )
-        logger.info(f"Successfully created source table '{self.table_name}'")
+            logger.info(f"Source table '{self.fully_qualified_table_name}' does not exist, creating it...")
+            self.client.tables.create(
+                name=self.table_name,
+                catalog_name=self.catalog,
+                schema_name=self.schema,
+                table_type=TableType.MANAGED,
+                data_source_format=DataSourceFormat.DELTA,
+                storage_location=None, # Use default storage location
+                columns=self.columns,
+                properties={"delta.enableChangeDataFeed": "true"},
+            )
+            logger.info(f"Successfully created source table '{self.table_name}'")
 
     def create_col(self, name=None, vector_size=None, distance=None):
         """
@@ -232,7 +225,7 @@ class Databricks(VectorStoreBase):
             index = self.client.vector_search_indexes.create_index(
                 name=self.fully_qualified_index_name,
                 endpoint_name=self.endpoint_name,
-                primary_key="id",
+                primary_key=self.primary_key,
                 index_type=self.index_type,
                 delta_sync_index_spec=DeltaSyncVectorIndexSpecRequest(
                     source_table=self.fully_qualified_table_name,
@@ -250,7 +243,7 @@ class Databricks(VectorStoreBase):
             index = self.client.vector_search_indexes.create_index(
                 name=self.fully_qualified_index_name,
                 endpoint_name=self.endpoint_name,
-                primary_key="id",
+                primary_key=self.primary_key,
                 index_type=self.index_type,
                 direct_access_index_spec=DirectAccessVectorIndexSpec(
                     embedding_source_columns=embedding_source_columns,
@@ -361,7 +354,7 @@ class Databricks(VectorStoreBase):
                 # Map columns to values
                 row_dict = dict(zip(self.column_names, row)) if isinstance(row, (list, tuple)) else row
                 score = row_dict.get("score") or (
-                    row[-1] if isinstance(row, (list, tuple)) and len(row) > len(columns) else None
+                    row[-1] if isinstance(row, (list, tuple)) and len(row) > len(self.column_names) else None
                 )
                 payload = {k: row_dict.get(k) for k in self.column_names}
                 # Parse metadata if present
@@ -386,9 +379,9 @@ class Databricks(VectorStoreBase):
             vector_id (str): ID of the vector to delete.
         """
         try:
-            logger.info(f"Deleting vector with ID {vector_id} from Delta table {self.source_table_name}")
+            logger.info(f"Deleting vector with ID {vector_id} from Delta table {self.fully_qualified_table_name}")
 
-            delete_sql = f"""DELETE FROM {self.source_table_name} WHERE memory_id = '{vector_id}'"""
+            delete_sql = f"DELETE FROM {self.fully_qualified_table_name} WHERE {self.primary_key} = '{vector_id}'"
 
             response = self.client.statement_execution.execute_statement(
                 statement=delete_sql, warehouse_id=self.warehouse_id, wait_timeout="30s"
@@ -534,8 +527,13 @@ class Databricks(VectorStoreBase):
         Delete the current collection (index).
         """
         try:
-            self.client.vector_search_indexes.delete_index(index_name=self.index_name)
-            logger.info(f"Successfully deleted index '{self.index_name}'")
+            # Try fully qualified first
+            try:
+                self.client.vector_search_indexes.delete_index(index_name=self.fully_qualified_index_name)
+                logger.info(f"Successfully deleted index '{self.fully_qualified_index_name}'")
+            except Exception:
+                self.client.vector_search_indexes.delete_index(index_name=self.index_name)
+                logger.info(f"Successfully deleted index '{self.index_name}' (short name)")
         except Exception as e:
             logger.error(f"Failed to delete index '{self.index_name}': {e}")
             raise
