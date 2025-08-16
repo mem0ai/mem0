@@ -24,6 +24,7 @@ class DatabricksConfig(BaseModel):
     embedding_dimension: int = Field(1536, description="Vector embedding dimensions")
     endpoint_type: str = Field("STANDARD", description="Endpoint type: STANDARD or STORAGE_OPTIMIZED")
     pipeline_type: str = Field("TRIGGERED", description="Sync pipeline type: TRIGGERED or CONTINUOUS")
+    warehouse_id: Optional[str] = Field(None, description="Databricks SQL warehouse ID")
 
     @model_validator(mode="before")
     @classmethod

@@ -12,7 +12,10 @@ from databricks.sdk.service.vectorsearch import (
     DirectAccessVectorIndexSpec,
     EmbeddingSourceColumn,
     PipelineType,
+    EmbeddingVectorColumn
 )
+import uuid
+from datetime import datetime
 from databricks.sdk.service.vectorsearch import VectorIndexType
 from pydantic import BaseModel
 from mem0.memory.utils import extract_json
@@ -46,7 +49,8 @@ class Databricks(VectorStoreBase):
         embedding_model_endpoint_name: Optional[str] = None,
         embedding_dimension: int = 1536,
         endpoint_type: str = "STANDARD",
-        pipeline_type: str = "TRIGGERED"
+        pipeline_type: str = "TRIGGERED",
+        warehouse_id: Optional[str] = None,
     ):
         """
         Initialize the Databricks Vector Search vector store.
@@ -68,32 +72,38 @@ class Databricks(VectorStoreBase):
             embedding_dimension (int, optional): Vector embedding dimensions (default: 1536).
             endpoint_type (str, optional): Endpoint type, either "STANDARD" or "STORAGE_OPTIMIZED" (default: "STANDARD").
             pipeline_type (str, optional): Sync pipeline type, either "TRIGGERED" or "CONTINUOUS" (default: "TRIGGERED").
-            **kwargs: Additional keyword arguments for advanced configuration.
+            warehouse_id (str, optional): Databricks SQL warehouse ID (if using SQL warehouse).
         """
         self.workspace_url = workspace_url
         self.endpoint_name = endpoint_name
         self.catalog = catalog
         self.schema = schema
         self.table_name = table_name
+        self.fully_qualified_table_name = f"{self.catalog}.{self.schema}.{self.table_name}"
         self.index_name = index_name
+        self.fully_qualified_index_name = f"{self.catalog}.{self.schema}.{self.index_name}"
+
         self.index_type = index_type
         self.embedding_model_endpoint_name = embedding_model_endpoint_name
         self.embedding_dimension = embedding_dimension
         self.endpoint_type = endpoint_type
         self.pipeline_type = pipeline_type
+        self.warehouse_id = warehouse_id
 
         self.columns = [
-            ColumnInfo(name="memory_id", type=ColumnTypeName.STRING, nullable=False, comment="Primary key"),
-            ColumnInfo(name="hash", type=ColumnTypeName.STRING, nullable=True, comment="Hash of the memory content"),
-            ColumnInfo(name="agent_id", type=ColumnTypeName.STRING, nullable=True, comment="ID of the agent"),
-            ColumnInfo(name="run_id", type=ColumnTypeName.STRING, nullable=True, comment="ID of the run"),
-            ColumnInfo(name="user_id", type=ColumnTypeName.STRING, nullable=True, comment="ID of the user"),
-            ColumnInfo(name="memory", type=ColumnTypeName.STRING, nullable=True, comment="Memory content"),
-            ColumnInfo(name="metadata", type=ColumnTypeName.STRING, nullable=True, comment="Additional metadata"),
-            ColumnInfo(name="created_at", type=ColumnTypeName.TIMESTAMP, nullable=True, comment="Creation timestamp"),
-            ColumnInfo(name="updated_at", type=ColumnTypeName.TIMESTAMP, nullable=True, comment="Last update timestamp"),
-        ],
-        self.embedding_column = ColumnInfo(name="embedding", type=ColumnTypeName.ARRAY, element_type=ColumnTypeName.FLOAT, nullable=True, comment="Embedding vector")
+            ColumnInfo(name="memory_id", type_name=ColumnTypeName.STRING, nullable=False, comment="Primary key"),
+            ColumnInfo(name="hash", type_name=ColumnTypeName.STRING, nullable=True, comment="Hash of the memory content"),
+            ColumnInfo(name="agent_id", type_name=ColumnTypeName.STRING, nullable=True, comment="ID of the agent"),
+            ColumnInfo(name="run_id", type_name=ColumnTypeName.STRING, nullable=True, comment="ID of the run"),
+            ColumnInfo(name="user_id", type_name=ColumnTypeName.STRING, nullable=True, comment="ID of the user"),
+            ColumnInfo(name="memory", type_name=ColumnTypeName.STRING, nullable=True, comment="Memory content"),
+            ColumnInfo(name="metadata", type_name=ColumnTypeName.STRING, nullable=True, comment="Additional metadata"),
+            ColumnInfo(name="created_at", type_name=ColumnTypeName.TIMESTAMP, nullable=True, comment="Creation timestamp"),
+            ColumnInfo(name="updated_at", type_name=ColumnTypeName.TIMESTAMP, nullable=True, comment="Last update timestamp"),
+        ]
+        if self.index_type == VectorIndexType.DIRECT_ACCESS:
+            self.columns.append(ColumnInfo(name="embedding", type_name=ColumnTypeName.ARRAY, element_type=ColumnTypeName.FLOAT, nullable=True, comment="Embedding vector"))
+        self.column_names = [col.name for col in self.columns]
 
         # Initialize Databricks workspace client
         client_config = {}
@@ -153,46 +163,26 @@ class Databricks(VectorStoreBase):
 
     def _ensure_source_table_exists(self):
         """Ensure the source Delta table exists with the proper schema."""
-        try:
-            # Try to get table info
-            fully_qualified_name = f"{self.catalog}.{self.schema}.{self.table_name}"
-            self.client.tables.get(fully_qualified_name)
+        fully_qualified_name = f"{self.catalog}.{self.schema}.{self.table_name}"
+        check = self.client.tables.exists(fully_qualified_name)
+
+        if check.table_exists:
             logger.info(f"Source table '{fully_qualified_name}' already exists")
             return
-        except Exception:
+        else:
             logger.info(f"Source table '{fully_qualified_name}' does not exist, creating it...")
 
-        # Create the table using SQL
-        if self.index_type == VectorIndexType.DELTA_SYNC:
-            self.client.tables.create(
-                name=self.table_name,
-                catalog_name=self.catalog,
-                schema_name=self.schema,
-                table_type=TableType.MANAGED,
-                data_source_format=DataSourceFormat.DELTA,
-                columns=self.columns,
-                properties={"delta.enableChangeDataFeed": "true"}
-            )
-            logger.info(f"Successfully created source table '{self.table_name}' with Delta Sync")
-        elif self.index_type == VectorIndexType.DIRECT_ACCESS:
-            # Table for self-managed embeddings
-            columns = self.columns.append(self.embedding_column)
-            self.client.tables.create(
-                name=self.table_name,
-                catalog_name=self.catalog,
-                schema_name=self.schema,
-                table_type=TableType.MANAGED,
-                data_source_format=DataSourceFormat.DELTA,
-                columns=columns,
-                properties={"delta.enableChangeDataFeed": "true"}
-            )
-            logger.info(f"Successfully created source table '{self.table_name}' for self-managed embeddings")
-        else:
-            error_msg = f"Unsupported index type: {self.index_type}. Only DELTA_SYNC and DIRECT_ACCESS are supported."
-            logger.error(error_msg)
-            raise ValueError(error_msg)
+        self.client.tables.create(
+            name=self.table_name,
+            catalog_name=self.catalog,
+            schema_name=self.schema,
+            table_type=TableType.MANAGED,
+            data_source_format=DataSourceFormat.DELTA,
+            columns=self.columns,
+            properties={"delta.enableChangeDataFeed": "true"}
+        )
+        logger.info(f"Successfully created source table '{self.table_name}'")
 
-    #! Made it here with the new code...
     def create_col(self, name=None, vector_size=None, distance=None):
         """
         Create a new collection (index).
@@ -206,164 +196,102 @@ class Databricks(VectorStoreBase):
             The index object.
         """
         # Determine index configuration
-        if name:
-            # Creating a new named index
-            index_name = name
-            embedding_dims = vector_size or self.embedding_dimension
-        else:
-            # Creating the default index
-            index_name = self.index_name
-            embedding_dims = vector_size or self.embedding_dimension
-
-        try:
-            logger.info(f"Creating vector search index '{index_name}'")
-
-            # First, ensure the source Delta table exists
-            self._ensure_source_table_exists()
-
-            if self.embedding_source_column and self.embedding_model_endpoint_name:
-                # Databricks will compute embeddings
-                delta_sync_spec = DeltaSyncVectorIndexSpecRequest(
-                    source_table=self.source_table_name,
-                    pipeline_type=PipelineType.CONTINUOUS
-                    if self.pipeline_type == "CONTINUOUS"
-                    else PipelineType.TRIGGERED,
-                    embedding_source_columns=[
-                        EmbeddingSourceColumn(
-                            name=self.embedding_source_column,
-                            embedding_model_endpoint_name=self.embedding_model_endpoint_name,
-                        )
-                    ],
-                )
-            else:
-                # Self-managed embeddings
-                delta_sync_spec = DirectAccessVectorIndexSpec(
-                    source_table=self.source_table_name,
-                    pipeline_type=PipelineType.CONTINUOUS
-                    if self.pipeline_type == "CONTINUOUS"
-                    else PipelineType.TRIGGERED,
-                    embedding_dimension=embedding_dims,
-                    embedding_vector_columns=[{"name": self.embedding_vector_column}],
-                )
-
-            # Create the index
-            index = self.client.vector_search_indexes.create_index(
-                name=index_name,
-                endpoint_name=self.endpoint_name,
-                primary_key=self.primary_key,
-                index_type=VectorIndexType.DELTA_SYNC,
-                delta_sync_index_spec=delta_sync_spec,
+        embedding_dims = vector_size or self.embedding_dimension
+        embedding_source_columns=[
+            EmbeddingSourceColumn(
+                name="memory",
+                embedding_model_endpoint_name=self.embedding_model_endpoint_name,
             )
+        ]
 
-            # If creating the default index, store it as instance variable
-            if not name:
-                self.index = index
+        logger.info(f"Creating vector search index '{self.fully_qualified_index_name}'")
 
-            logger.info(f"Successfully created vector search index '{index_name}'")
+        # First, ensure the source Delta table exists
+        self._ensure_source_table_exists()
 
-        except Exception as e:
-            logger.error(f"Failed to create vector search index '{index_name}': {e}")
-            raise
+        if self.index_type not in [VectorIndexType.DELTA_SYNC, VectorIndexType.DIRECT_ACCESS]:
+            raise ValueError("index_type must be either 'DELTA_SYNC' or 'DIRECT_ACCESS'")
+        
+        if self.index_type == VectorIndexType.DELTA_SYNC:
+            index = self.client.vector_search_indexes.create_index(
+                name=self.fully_qualified_index_name,
+                endpoint_name=self.endpoint_name,
+                primary_key="id",
+                index_type=self.index_type,
+                delta_sync_index_spec=DeltaSyncVectorIndexSpecRequest(
+                    source_table=self.fully_qualified_table_name,
+                    pipeline_type=self.pipeline_type,
+                    columns_to_sync=self.column_names,
+                    embedding_source_columns=embedding_source_columns
+                ),
+            )
+            logger.info(f"Successfully created vector search index '{self.fully_qualified_index_name}' with DELTA_SYNC type")
+            return index
+
+        elif self.index_type == VectorIndexType.DIRECT_ACCESS:
+            index = self.client.vector_search_indexes.create_index(
+                name=self.fully_qualified_index_name,
+                endpoint_name=self.endpoint_name,
+                primary_key="id",
+                index_type=self.index_type,
+                direct_access_index_spec=DirectAccessVectorIndexSpec(
+                    embedding_source_columns=embedding_source_columns,
+                    
+                    embedding_vector_columns=[EmbeddingVectorColumn(name="embedding", embedding_dimension=embedding_dims)],
+                ),
+            )
+            logger.info(f"Successfully created vector search index '{self.fully_qualified_index_name}' with DIRECT_ACCESS type")
+            return index
+        else:
+            error_msg = f"Unsupported index type: {self.index_type}. Must be either 'DELTA_SYNC' or 'DIRECT_ACCESS'."
+            logger.error(error_msg)
+            raise ValueError(error_msg)
 
     def insert(self, vectors: list, payloads: list = None, ids: list = None):
         """
-        Insert vectors into the Delta table (will sync to index).
-
-        For Databricks delta_sync indexes with automatic embedding computation,
-        the vectors parameter is ignored and only text is stored for Databricks to process.
+        Insert vectors into the index.
 
         Args:
-            vectors (list): List of vectors to insert (ignored for auto-embedding mode).
-            payloads (list, optional): List of payloads corresponding to vectors.
-            ids (list, optional): List of IDs corresponding to vectors.
+            vectors (List[List[float]]): List of vectors to insert.
+            payloads (List[Dict], optional): List of payloads corresponding to vectors.
+            ids (List[str], optional): List of IDs corresponding to vectors.
         """
-        try:
-            # For delta_sync with auto-embedding, we only need payloads, not vectors
-            if self.embedding_source_column and self.embedding_model_endpoint_name:
-                if not payloads:
-                    logger.warning("No payloads provided for insertion (required for Databricks auto-embedding)")
-                    return
-                logger.info(
-                    f"Inserting {len(payloads)} rows into Delta table {self.source_table_name} (auto-embedding mode)"
-                )
-            else:
-                if not vectors:
-                    logger.warning("No vectors provided for insertion")
-                    return
-                logger.info(f"Inserting {len(vectors)} vectors into Delta table {self.source_table_name}")
+        # Determine the number of items to process
+        num_items = len(payloads) if payloads else len(vectors) if vectors else 0    
 
-            # Prepare data for insertion
-            current_time = datetime.now(pytz.timezone("UTC")).isoformat()
-
-            # Determine the number of items to process
-            num_items = len(payloads) if payloads else len(vectors) if vectors else 0
-
-            for i in range(num_items):
-                # Generate ID if not provided
-                record_id = ids[i] if ids and i < len(ids) else str(uuid.uuid4())
-                payload = payloads[i] if payloads and i < len(payloads) else {}
-
-                # Extract required fields from payload
-                agent_id = payload.get("agent_id", "")
-                run_id = payload.get("run_id", "")
-                user_id = payload.get("user_id", "")
-                memory_text = payload.get("data", payload.get("memory", ""))
-
-                # Handle metadata
-                metadata_dict = {}
-                for key, value in payload.items():
-                    if key not in excluded_keys:
-                        metadata_dict[key] = value
-                metadata_json = json.dumps(metadata_dict) if metadata_dict else "{}"
-
-                # Prepare SQL based on embedding type
-                if self.embedding_source_column and self.embedding_model_endpoint_name:
-                    # For Databricks-computed embeddings (no vector column needed)
-                    # Databricks will automatically compute embeddings from the text
-                    insert_sql = f"""
-                    INSERT INTO {self.source_table_name} VALUES (
-                        '{record_id}',
-                        '{agent_id}',
-                        '{run_id}',
-                        '{user_id}',
-                        '{memory_text.replace("'", "''")}',
-                        '{metadata_json.replace("'", "''")}',
-                        '{current_time}',
-                        '{current_time}',
-                        '{memory_text.replace("'", "''")}'
-                    )
-                    """
+        value_tuples = []
+        for i in range(num_items):
+            values = []
+            for col in self.columns:
+                if col.name == "memory_id":
+                    val = ids[i] if ids and i < len(ids) else str(uuid.uuid4())
+                elif col.name == "embedding":
+                    val = vectors[i] if vectors and i < len(vectors) else []
+                elif col.name == "memory":
+                    val = payloads[i].get('data') if payloads and i < len(payloads) else None
                 else:
-                    # For self-managed embeddings (with vector column)
-                    vector = vectors[i] if vectors and i < len(vectors) else []
-                    insert_sql = f"""
-                    INSERT INTO {self.source_table_name} VALUES (
-                        '{record_id}',
-                        '{agent_id}',
-                        '{run_id}',
-                        '{user_id}',
-                        '{memory_text.replace("'", "''")}',
-                        '{metadata_json.replace("'", "''")}',
-                        '{current_time}',
-                        '{current_time}',
-                        array({",".join(map(str, vector))})
-                    )
-                    """
+                    val = payloads[i].get(col.name) if payloads and i < len(payloads) else None
+                values.append(val)
+            value_tuples.append(f"({', '.join([str(v) if v is not None else 'NULL' for v in values])})")
 
-                # Execute the insert
-                response = self.client.statement_execution.execute_statement(
-                    statement=insert_sql, warehouse_id=None, wait_timeout="30s"
-                )
+        insert_sql = f"INSERT INTO {self.fully_qualified_table_name} ({', '.join(self.column_names)}) VALUES {', '.join(value_tuples)}"
 
-                if response.status.state != "SUCCEEDED":
-                    logger.error(f"Failed to insert item {i}: {response.status.error}")
-
-            logger.info(f"Successfully inserted {num_items} items into Delta table")
-
+        # Execute the insert
+        try:
+            response = self.client.statement_execution.execute_statement(
+                statement=insert_sql, warehouse_id=None, wait_timeout="30s"
+            )
+            if response.status.state == "SUCCEEDED":
+                logger.info(f"Successfully inserted {num_items} items into Delta table {self.fully_qualified_table_name}")
+                return
+            else:
+                logger.error(f"Failed to insert items: {response.status.error}")
+                raise Exception(f"Insert operation failed: {response.status.error}")
         except Exception as e:
             logger.error(f"Insert operation failed: {e}")
             raise
 
+    #! Here now
     def search(self, query: str, vectors: list, limit: int = 5, filters: dict = None) -> List[MemoryResult]:
         """
         Search for similar vectors.
