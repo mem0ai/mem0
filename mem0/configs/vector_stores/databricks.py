@@ -11,7 +11,9 @@ class DatabricksConfig(BaseModel):
     client_id: Optional[str] = Field(None, description="Databricks Service principal client ID")
     client_secret: Optional[str] = Field(None, description="Databricks Service principal client secret")
     azure_client_id: Optional[str] = Field(None, description="Azure AD application client ID (for Azure Databricks)")
-    azure_client_secret: Optional[str] = Field(None, description="Azure AD application client secret (for Azure Databricks)")
+    azure_client_secret: Optional[str] = Field(
+        None, description="Azure AD application client secret (for Azure Databricks)"
+    )
     endpoint_name: str = Field(..., description="Vector search endpoint name")
     catalog: str = Field(..., description="The Unity Catalog catalog name")
     schema: str = Field(..., description="The Unity Catalog schama name")
@@ -25,6 +27,7 @@ class DatabricksConfig(BaseModel):
     endpoint_type: str = Field("STANDARD", description="Endpoint type: STANDARD or STORAGE_OPTIMIZED")
     pipeline_type: str = Field("TRIGGERED", description="Sync pipeline type: TRIGGERED or CONTINUOUS")
     warehouse_id: Optional[str] = Field(None, description="Databricks SQL warehouse ID")
+    query_type: str = Field("ANN", description="Query type: `ANN` and `HYBRID`")
 
     @model_validator(mode="before")
     @classmethod

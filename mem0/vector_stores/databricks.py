@@ -3,19 +3,16 @@ import logging
 import uuid
 from datetime import datetime
 from typing import Optional, List
-from databricks.sdk.service.catalog import ColumnInfo, ColumnTypeName, TableInfo, TableType, DataSourceFormat
-import pytz
+from databricks.sdk.service.catalog import ColumnInfo, ColumnTypeName, TableType, DataSourceFormat
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.vectorsearch import (
     VectorIndexType,
     DeltaSyncVectorIndexSpecRequest,
     DirectAccessVectorIndexSpec,
     EmbeddingSourceColumn,
-    PipelineType,
-    EmbeddingVectorColumn
+    EmbeddingVectorColumn,
 )
 import uuid
-from datetime import datetime
 from databricks.sdk.service.vectorsearch import VectorIndexType
 from pydantic import BaseModel
 from mem0.memory.utils import extract_json
@@ -29,7 +26,9 @@ class MemoryResult(BaseModel):
     score: Optional[float]
     payload: Optional[dict]
 
+
 excluded_keys = {"user_id", "agent_id", "run_id", "hash", "data", "created_at", "updated_at"}
+
 
 class Databricks(VectorStoreBase):
     def __init__(
@@ -51,6 +50,7 @@ class Databricks(VectorStoreBase):
         endpoint_type: str = "STANDARD",
         pipeline_type: str = "TRIGGERED",
         warehouse_id: Optional[str] = None,
+        query_type: str = "ANN",
     ):
         """
         Initialize the Databricks Vector Search vector store.
@@ -73,6 +73,7 @@ class Databricks(VectorStoreBase):
             endpoint_type (str, optional): Endpoint type, either "STANDARD" or "STORAGE_OPTIMIZED" (default: "STANDARD").
             pipeline_type (str, optional): Sync pipeline type, either "TRIGGERED" or "CONTINUOUS" (default: "TRIGGERED").
             warehouse_id (str, optional): Databricks SQL warehouse ID (if using SQL warehouse).
+            query_type (str, optional): Query type, either "ANN" or "HYBRID" (default: "ANN").
         """
         self.workspace_url = workspace_url
         self.endpoint_name = endpoint_name
@@ -89,20 +90,35 @@ class Databricks(VectorStoreBase):
         self.endpoint_type = endpoint_type
         self.pipeline_type = pipeline_type
         self.warehouse_id = warehouse_id
+        self.query_type = query_type
 
         self.columns = [
             ColumnInfo(name="memory_id", type_name=ColumnTypeName.STRING, nullable=False, comment="Primary key"),
-            ColumnInfo(name="hash", type_name=ColumnTypeName.STRING, nullable=True, comment="Hash of the memory content"),
+            ColumnInfo(
+                name="hash", type_name=ColumnTypeName.STRING, nullable=True, comment="Hash of the memory content"
+            ),
             ColumnInfo(name="agent_id", type_name=ColumnTypeName.STRING, nullable=True, comment="ID of the agent"),
             ColumnInfo(name="run_id", type_name=ColumnTypeName.STRING, nullable=True, comment="ID of the run"),
             ColumnInfo(name="user_id", type_name=ColumnTypeName.STRING, nullable=True, comment="ID of the user"),
             ColumnInfo(name="memory", type_name=ColumnTypeName.STRING, nullable=True, comment="Memory content"),
             ColumnInfo(name="metadata", type_name=ColumnTypeName.STRING, nullable=True, comment="Additional metadata"),
-            ColumnInfo(name="created_at", type_name=ColumnTypeName.TIMESTAMP, nullable=True, comment="Creation timestamp"),
-            ColumnInfo(name="updated_at", type_name=ColumnTypeName.TIMESTAMP, nullable=True, comment="Last update timestamp"),
+            ColumnInfo(
+                name="created_at", type_name=ColumnTypeName.TIMESTAMP, nullable=True, comment="Creation timestamp"
+            ),
+            ColumnInfo(
+                name="updated_at", type_name=ColumnTypeName.TIMESTAMP, nullable=True, comment="Last update timestamp"
+            ),
         ]
         if self.index_type == VectorIndexType.DIRECT_ACCESS:
-            self.columns.append(ColumnInfo(name="embedding", type_name=ColumnTypeName.ARRAY, element_type=ColumnTypeName.FLOAT, nullable=True, comment="Embedding vector"))
+            self.columns.append(
+                ColumnInfo(
+                    name="embedding",
+                    type_name=ColumnTypeName.ARRAY,
+                    element_type=ColumnTypeName.FLOAT,
+                    nullable=True,
+                    comment="Embedding vector",
+                )
+            )
         self.column_names = [col.name for col in self.columns]
 
         # Initialize Databricks workspace client
@@ -179,7 +195,7 @@ class Databricks(VectorStoreBase):
             table_type=TableType.MANAGED,
             data_source_format=DataSourceFormat.DELTA,
             columns=self.columns,
-            properties={"delta.enableChangeDataFeed": "true"}
+            properties={"delta.enableChangeDataFeed": "true"},
         )
         logger.info(f"Successfully created source table '{self.table_name}'")
 
@@ -197,7 +213,7 @@ class Databricks(VectorStoreBase):
         """
         # Determine index configuration
         embedding_dims = vector_size or self.embedding_dimension
-        embedding_source_columns=[
+        embedding_source_columns = [
             EmbeddingSourceColumn(
                 name="memory",
                 embedding_model_endpoint_name=self.embedding_model_endpoint_name,
@@ -211,7 +227,7 @@ class Databricks(VectorStoreBase):
 
         if self.index_type not in [VectorIndexType.DELTA_SYNC, VectorIndexType.DIRECT_ACCESS]:
             raise ValueError("index_type must be either 'DELTA_SYNC' or 'DIRECT_ACCESS'")
-        
+
         if self.index_type == VectorIndexType.DELTA_SYNC:
             index = self.client.vector_search_indexes.create_index(
                 name=self.fully_qualified_index_name,
@@ -222,10 +238,12 @@ class Databricks(VectorStoreBase):
                     source_table=self.fully_qualified_table_name,
                     pipeline_type=self.pipeline_type,
                     columns_to_sync=self.column_names,
-                    embedding_source_columns=embedding_source_columns
+                    embedding_source_columns=embedding_source_columns,
                 ),
             )
-            logger.info(f"Successfully created vector search index '{self.fully_qualified_index_name}' with DELTA_SYNC type")
+            logger.info(
+                f"Successfully created vector search index '{self.fully_qualified_index_name}' with DELTA_SYNC type"
+            )
             return index
 
         elif self.index_type == VectorIndexType.DIRECT_ACCESS:
@@ -236,11 +254,14 @@ class Databricks(VectorStoreBase):
                 index_type=self.index_type,
                 direct_access_index_spec=DirectAccessVectorIndexSpec(
                     embedding_source_columns=embedding_source_columns,
-                    
-                    embedding_vector_columns=[EmbeddingVectorColumn(name="embedding", embedding_dimension=embedding_dims)],
+                    embedding_vector_columns=[
+                        EmbeddingVectorColumn(name="embedding", embedding_dimension=embedding_dims)
+                    ],
                 ),
             )
-            logger.info(f"Successfully created vector search index '{self.fully_qualified_index_name}' with DIRECT_ACCESS type")
+            logger.info(
+                f"Successfully created vector search index '{self.fully_qualified_index_name}' with DIRECT_ACCESS type"
+            )
             return index
         else:
             error_msg = f"Unsupported index type: {self.index_type}. Must be either 'DELTA_SYNC' or 'DIRECT_ACCESS'."
@@ -257,7 +278,7 @@ class Databricks(VectorStoreBase):
             ids (List[str], optional): List of IDs corresponding to vectors.
         """
         # Determine the number of items to process
-        num_items = len(payloads) if payloads else len(vectors) if vectors else 0    
+        num_items = len(payloads) if payloads else len(vectors) if vectors else 0
 
         value_tuples = []
         for i in range(num_items):
@@ -268,7 +289,7 @@ class Databricks(VectorStoreBase):
                 elif col.name == "embedding":
                     val = vectors[i] if vectors and i < len(vectors) else []
                 elif col.name == "memory":
-                    val = payloads[i].get('data') if payloads and i < len(payloads) else None
+                    val = payloads[i].get("data") if payloads and i < len(payloads) else None
                 else:
                     val = payloads[i].get(col.name) if payloads and i < len(payloads) else None
                 values.append(val)
@@ -279,10 +300,12 @@ class Databricks(VectorStoreBase):
         # Execute the insert
         try:
             response = self.client.statement_execution.execute_statement(
-                statement=insert_sql, warehouse_id=None, wait_timeout="30s"
+                statement=insert_sql, warehouse_id=self.warehouse_id, wait_timeout="30s"
             )
             if response.status.state == "SUCCEEDED":
-                logger.info(f"Successfully inserted {num_items} items into Delta table {self.fully_qualified_table_name}")
+                logger.info(
+                    f"Successfully inserted {num_items} items into Delta table {self.fully_qualified_table_name}"
+                )
                 return
             else:
                 logger.error(f"Failed to insert items: {response.status.error}")
@@ -291,14 +314,13 @@ class Databricks(VectorStoreBase):
             logger.error(f"Insert operation failed: {e}")
             raise
 
-    #! Here now
     def search(self, query: str, vectors: list, limit: int = 5, filters: dict = None) -> List[MemoryResult]:
         """
-        Search for similar vectors.
+        Search for similar vectors or text using the Databricks Vector Search index.
 
         Args:
-            query (str): Search query text.
-            vectors (list): Query vector.
+            query (str): Search query text (for text-based search).
+            vectors (list): Query vector (for vector-based search).
             limit (int): Maximum number of results.
             filters (dict): Filters to apply.
 
@@ -306,58 +328,51 @@ class Databricks(VectorStoreBase):
             List of MemoryResult objects.
         """
         try:
-            # Prepare filters for Databricks
-            filters_json = None
-            if filters:
-                # Convert filters to JSON string format for the new SDK
-                import json
+            filters_json = json.dumps(filters) if filters else None
 
-                filters_json = json.dumps(filters)
-
-            # Perform vector search using the new SDK
-            if self.embedding_source_column and query:
-                # Text-based search (Databricks computes embeddings)
-                results = self.client.vector_search_indexes.query_index(
-                    index_name=self.index_name,
-                    columns=DEFAULT_SCHEMA_FIELDS,
+            # Choose query type
+            if self.index_type == VectorIndexType.DELTA_SYNC and query:
+                # Text-based search
+                sdk_results = self.client.vector_search_indexes.query_index(
+                    index_name=self.fully_qualified_index_name,
+                    columns=self.column_names,
                     query_text=query,
                     num_results=limit,
                     filters_json=filters_json,
                 )
-            else:
-                # Vector-based search (self-managed embeddings)
-                results = self.client.vector_search_indexes.query_index(
-                    index_name=self.index_name,
-                    columns=DEFAULT_SCHEMA_FIELDS,
+            elif self.index_type == VectorIndexType.DIRECT_ACCESS and vectors:
+                # Vector-based search
+                sdk_results = self.client.vector_search_indexes.query_index(
+                    index_name=self.fully_qualified_index_name,
+                    columns=self.column_names,
                     query_vector=vectors,
                     num_results=limit,
                     filters_json=filters_json,
                 )
+            else:
+                raise ValueError("Must provide query text for DELTA_SYNC or vectors for DIRECT_ACCESS.")
 
-            # The new SDK returns results in a different format
-            result_data = results.result if hasattr(results, "result") else results
+            # Parse results
+            result_data = sdk_results.result if hasattr(sdk_results, "result") else sdk_results
             data_array = result_data.data_array if hasattr(result_data, "data_array") else []
 
-            results = []
-            for result in data_array:
-                # Extract metadata and score
-                metadata = json.loads(result[DEFAULT_SCHEMA_FIELDS.index("metadata")])
-                score = result[-1]
-
-                payload = {
-                    "id": result[DEFAULT_SCHEMA_FIELDS.index(self.primary_key)],
-                    "memory": result[DEFAULT_SCHEMA_FIELDS.index("memory")],
-                    "hash": result[DEFAULT_SCHEMA_FIELDS.index("hash")],
-                    "created_at": result[DEFAULT_SCHEMA_FIELDS.index("created_at")],
-                    "updated_at": result[DEFAULT_SCHEMA_FIELDS.index("updated_at")],
-                    "user_id": result[DEFAULT_SCHEMA_FIELDS.index("user_id")],
-                    "agent_id": result[DEFAULT_SCHEMA_FIELDS.index("agent_id")],
-                    "run_id": result[DEFAULT_SCHEMA_FIELDS.index("run_id")],
-                    **metadata,
-                }
-
-                results.append(MemoryResult(id=id, score=score, payload=payload))
-            return results
+            memory_results = []
+            for row in data_array:
+                # Map columns to values
+                row_dict = dict(zip(self.column_names, row)) if isinstance(row, (list, tuple)) else row
+                score = row_dict.get("score") or (
+                    row[-1] if isinstance(row, (list, tuple)) and len(row) > len(columns) else None
+                )
+                payload = {k: row_dict.get(k) for k in self.column_names}
+                # Parse metadata if present
+                if "metadata" in payload and payload["metadata"]:
+                    try:
+                        payload.update(json.loads(payload["metadata"]))
+                    except Exception:
+                        pass
+                memory_id = row_dict.get("memory_id") or row_dict.get("id")
+                memory_results.append(MemoryResult(id=memory_id, score=score, payload=payload))
+            return memory_results
 
         except Exception as e:
             logger.error(f"Search failed: {e}")
@@ -373,13 +388,10 @@ class Databricks(VectorStoreBase):
         try:
             logger.info(f"Deleting vector with ID {vector_id} from Delta table {self.source_table_name}")
 
-            delete_sql = f"""
-            DELETE FROM {self.source_table_name} 
-            WHERE {self.primary_key} = '{vector_id}'
-            """
+            delete_sql = f"""DELETE FROM {self.source_table_name} WHERE memory_id = '{vector_id}'"""
 
             response = self.client.statement_execution.execute_statement(
-                statement=delete_sql, warehouse_id=None, wait_timeout="30s"
+                statement=delete_sql, warehouse_id=self.warehouse_id, wait_timeout="30s"
             )
 
             if response.status.state == "SUCCEEDED":
@@ -400,71 +412,41 @@ class Databricks(VectorStoreBase):
             vector (list, optional): New vector values.
             payload (dict, optional): New payload data.
         """
+
+        update_sql = f"UPDATE {self.fully_qualified_table_name} SET "
+        set_clauses = []
+        if not vector_id:
+            logger.error("vector_id is required for update operation")
+            return
+        if vector is not None:
+            if not isinstance(vector, list):
+                logger.error("vector must be a list of float values")
+                return
+            set_clauses.append(f"embedding = {vector}")
+        if payload:
+            if not isinstance(payload, dict):
+                logger.error("payload must be a dictionary")
+                return
+            for key, value in payload.items():
+                if key not in excluded_keys:
+                    set_clauses.append(f"{key} = '{value}'")
+
+        if not set_clauses:
+            logger.error("No fields to update")
+            return
+        update_sql += ", ".join(set_clauses)
+        update_sql += f" WHERE memory_id = '{vector_id}'"
         try:
-            if not vector_id:
-                logger.error("vector_id is required for update operation")
-                return
-
-            logger.info(f"Updating vector with ID {vector_id} in Delta table {self.source_table_name}")
-
-            # Build SET clause based on what needs to be updated
-            set_clauses = []
-            current_time = datetime.now(pytz.timezone("UTC")).isoformat()
-            set_clauses.append(f"updated_at = '{current_time}'")
-
-            if payload:
-                # Extract fields from payload
-                if "memory" in payload or "data" in payload:
-                    memory_text = payload.get("data", payload.get("memory", ""))
-                    escaped_memory = memory_text.replace("'", "''")
-                    set_clauses.append(f"memory = '{escaped_memory}'")
-
-                if "hash" in payload:
-                    set_clauses.append(f"hash = '{payload['hash']}'")
-
-                if "agent_id" in payload:
-                    set_clauses.append(f"agent_id = '{payload['agent_id']}'")
-
-                if "run_id" in payload:
-                    set_clauses.append(f"run_id = '{payload['run_id']}'")
-
-                if "user_id" in payload:
-                    set_clauses.append(f"user_id = '{payload['user_id']}'")
-
-                # Handle metadata
-                metadata_dict = {}
-                for key, value in payload.items():
-                    if key not in excluded_keys:
-                        metadata_dict[key] = value
-                if metadata_dict:
-                    metadata_json = json.dumps(metadata_dict)
-                    escaped_metadata = metadata_json.replace("'", "''")
-                    set_clauses.append(f"metadata = '{escaped_metadata}'")
-
-            if vector and not (self.embedding_source_column and self.embedding_model_endpoint_name):
-                # Update vector for self-managed embeddings
-                vector_array = f"array({','.join(map(str, vector))})"
-                set_clauses.append(f"{self.embedding_vector_column} = {vector_array}")
-
-            if len(set_clauses) <= 1:  # Only updated_at
-                logger.warning("No fields to update")
-                return
-
-            update_sql = f"""
-            UPDATE {self.source_table_name} 
-            SET {", ".join(set_clauses)}
-            WHERE {self.primary_key} = '{vector_id}'
-            """
+            logger.info(f"Updating vector with ID {vector_id} in Delta table {self.fully_qualified_table_name}")
 
             response = self.client.statement_execution.execute_statement(
-                statement=update_sql, warehouse_id=None, wait_timeout="30s"
+                statement=update_sql, warehouse_id=self.warehouse_id, wait_timeout="30s"
             )
 
             if response.status.state == "SUCCEEDED":
                 logger.info(f"Successfully updated vector with ID {vector_id}")
             else:
                 logger.error(f"Failed to update vector with ID {vector_id}: {response.status.error}")
-
         except Exception as e:
             logger.error(f"Update operation failed for vector ID {vector_id}: {e}")
             raise
@@ -485,8 +467,8 @@ class Databricks(VectorStoreBase):
             filters_json = json.dumps(filters)
 
             results = self.client.vector_search_indexes.query_index(
-                index_name=self.index_name,
-                columns=["*"],  # Get all columns
+                index_name=self.fully_qualified_index_name,
+                columns=self.column_names,
                 query_text="",  # Empty query, rely on filters
                 num_results=1,
                 filters_json=filters_json,
@@ -571,12 +553,12 @@ class Databricks(VectorStoreBase):
         try:
             index_name = name or self.index_name
             index = self.client.vector_search_indexes.get_index(index_name=index_name)
-            return {"name": index.name, "fields": DEFAULT_SCHEMA_FIELDS}
+            return {"name": index.name, "fields": self.columns}
         except Exception as e:
             logger.error(f"Failed to get info for index '{name or self.index_name}': {e}")
             raise
 
-    def list(self, filters: dict = None, limit: int = None) -> list:
+    def list(self, filters: dict = None, limit: int = None) -> list[MemoryResult]:
         """
         List all recent created memories from the vector store.
 
@@ -588,78 +570,32 @@ class Databricks(VectorStoreBase):
             List containing list of MemoryResult objects.
         """
         try:
-            # Use empty query to get all results, sorted by created_at
-            filters_json = None
-            if filters:
-                # Convert filters to JSON string format for the new SDK
-                filters_json = json.dumps(filters)
-
-            # Get results using the new SDK
-            num_results = limit or 100  # Default limit
-            results = self.client.vector_search_indexes.query_index(
-                index_name=self.index_name,
-                columns=DEFAULT_SCHEMA_FIELDS,  # Get all columns
-                query_text="",  # Empty query to get all
+            filters_json = json.dumps(filters) if filters else None
+            num_results = limit or 100
+            columns = self.column_names
+            sdk_results = self.client.vector_search_indexes.query_index(
+                index_name=self.fully_qualified_index_name,
+                columns=columns,
+                query_text="",
                 num_results=num_results,
                 filters_json=filters_json,
             )
-
-            # Convert results to MemoryResult format
-            memory_results = []
-            result_data = results.result if hasattr(results, "result") else results
+            result_data = sdk_results.result if hasattr(sdk_results, "result") else sdk_results
             data_array = result_data.data_array if hasattr(result_data, "data_array") else []
 
-            for result in data_array:
-                row_data = result if isinstance(result, dict) else result.__dict__
-
-                # Build payload following the standard schema
-                payload = {
-                    "hash": row_data.get("hash", "unknown"),
-                    "data": row_data.get("memory", row_data.get("data", "unknown")),
-                    "created_at": row_data.get("created_at"),
-                }
-
-                # Add updated_at if available
-                if "updated_at" in row_data:
-                    payload["updated_at"] = row_data.get("updated_at")
-
-                # Add optional fields
-                for field in ["agent_id", "run_id", "user_id"]:
-                    if field in row_data:
-                        payload[field] = row_data[field]
-
-                # Add metadata
-                if "metadata" in row_data:
+            memory_results = []
+            for row in data_array:
+                row_dict = dict(zip(columns, row)) if isinstance(row, (list, tuple)) else row
+                payload = {k: row_dict.get(k) for k in columns}
+                # Parse metadata if present
+                if "metadata" in payload and payload["metadata"]:
                     try:
-                        metadata = json.loads(extract_json(row_data["metadata"]))
-                        payload.update(metadata)
-                    except (json.JSONDecodeError, TypeError):
-                        logger.warning(f"Failed to parse metadata: {row_data.get('metadata')}")
-
-                memory_id = row_data.get("memory_id", row_data.get(self.primary_key, "unknown"))
+                        payload.update(json.loads(payload["metadata"]))
+                    except Exception:
+                        pass
+                memory_id = row_dict.get("memory_id") or row_dict.get("id")
                 memory_results.append(MemoryResult(id=memory_id, payload=payload))
-
-            return [memory_results]  # Return as nested list to match interface
-
+            return memory_results
         except Exception as e:
             logger.error(f"Failed to list memories: {e}")
-            return [[]]  # Return empty nested list on error
-
-    def reset(self):
-        """
-        Reset the index by deleting and recreating it.
-        """
-        try:
-            logger.warning(f"Resetting index {self.index_name}...")
-
-            # Delete the current index
-            self.delete_col()
-
-            # Recreate the index
-            self.create_col()
-
-            logger.info(f"Successfully reset index {self.index_name}")
-
-        except Exception as e:
-            logger.error(f"Failed to reset index {self.index_name}: {e}")
-            raise
+            return []
