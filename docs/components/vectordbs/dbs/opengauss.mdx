@@ -1,0 +1,46 @@
+[openGauss](https://gitee.com/opengaussorg) is an enterpris-grade open source relational database which support vector store with high-performance, high-performance, high-security, high-reliablity.
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "opengauss",
+        "config": {
+            "user": "test",
+            "password": "123",
+            "host": "127.0.0.1",
+            "port": "5432",
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I’m not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+### Config
+
+Here's the parameters available for configuring openGauss:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `dbname` | The name of the  | `postgres` |
+| `collection_name` | The name of the collection | `mem0` |
+| `embedding_model_dims` | Dimensions of the embedding model | `1536` |
+| `user` | User name to connect to the database | `None` |
+| `password` | Password to connect to the database | `None` |
+| `host` | The host where the Postgres server is running | `None` |
+| `port` | The port where the Postgres server is running | `None` |
+| `hnsw` | Whether to use hnsw for vector similarity search | `True` |

@@ -28,6 +28,7 @@ class VectorStoreConfig(BaseModel):
         "weaviate": "WeaviateConfig",
         "faiss": "FAISSConfig",
         "langchain": "LangchainConfig",
+        "opengauss": "OpenGaussConfig",
     }
 
     @model_validator(mode="after")
