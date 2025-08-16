@@ -3,6 +3,7 @@ import logging
 import uuid
 from typing import Optional, List
 from databricks.sdk.service.catalog import ColumnInfo, ColumnTypeName, TableType, DataSourceFormat
+from databricks.sdk.service.catalog import TableConstraint, PrimaryKeyConstraint
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.vectorsearch import (
     VectorIndexType,
@@ -93,27 +94,18 @@ class Databricks(VectorStoreBase):
 
         # Schema
         self.columns = [
-            ColumnInfo(name="memory_id", type_name=ColumnTypeName.STRING, type_text="STRING", nullable=False, comment="Primary key"),
-            ColumnInfo(name="hash", type_name=ColumnTypeName.STRING, type_text="STRING", nullable=True, comment="Hash of the memory content"),
-            ColumnInfo(name="agent_id", type_name=ColumnTypeName.STRING, type_text="STRING", nullable=True, comment="ID of the agent"),
-            ColumnInfo(name="run_id", type_name=ColumnTypeName.STRING, type_text="STRING", nullable=True, comment="ID of the run"),
-            ColumnInfo(name="user_id", type_name=ColumnTypeName.STRING, type_text="STRING", nullable=True, comment="ID of the user"),
-            ColumnInfo(name="memory", type_name=ColumnTypeName.STRING, type_text="STRING", nullable=True, comment="Memory content"),
-            ColumnInfo(name="metadata", type_name=ColumnTypeName.STRING, type_text="STRING", nullable=True, comment="Additional metadata"),
-            ColumnInfo(name="created_at", type_name=ColumnTypeName.TIMESTAMP, type_text="TIMESTAMP", nullable=True, comment="Creation timestamp"),
-            ColumnInfo(name="updated_at", type_name=ColumnTypeName.TIMESTAMP, type_text="TIMESTAMP", nullable=True, comment="Last update timestamp"),
+            ColumnInfo(name="memory_id", type_name=ColumnTypeName.STRING, type_text="STRING", type_json='{"type":"STRING"}', nullable=False, comment="Primary key", position=0),
+            ColumnInfo(name="hash", type_name=ColumnTypeName.STRING, type_text="STRING", type_json='{"type":"STRING"}', comment="Hash of the memory content", position=1),
+            ColumnInfo(name="agent_id", type_name=ColumnTypeName.STRING, type_text="STRING", type_json='{"type":"STRING"}', comment="ID of the agent", position=2),
+            ColumnInfo(name="run_id", type_name=ColumnTypeName.STRING, type_text="STRING", type_json='{"type":"STRING"}', comment="ID of the run", position=3),
+            ColumnInfo(name="user_id", type_name=ColumnTypeName.STRING, type_text="STRING", type_json='{"type":"STRING"}', comment="ID of the user", position=4),
+            ColumnInfo(name="memory", type_name=ColumnTypeName.STRING, type_text="STRING", type_json='{"type":"STRING"}', comment="Memory content", position=5),
+            ColumnInfo(name="metadata", type_name=ColumnTypeName.STRING, type_text="STRING", type_json='{"type":"STRING"}', comment="Additional metadata", position=6),
+            ColumnInfo(name="created_at", type_name=ColumnTypeName.TIMESTAMP, type_text="TIMESTAMP", type_json='{"type":"TIMESTAMP"}', comment="Creation timestamp", position=7),
+            ColumnInfo(name="updated_at", type_name=ColumnTypeName.TIMESTAMP, type_text="TIMESTAMP", type_json='{"type":"TIMESTAMP"}', comment="Last update timestamp", position=8),
         ]
         if self.index_type == VectorIndexType.DIRECT_ACCESS:
-            self.columns.append(
-                ColumnInfo(
-                    name="embedding",
-                    type_name=ColumnTypeName.ARRAY,
-                    type_text="ARRAY<FLOAT>",
-                    element_type=ColumnTypeName.FLOAT,
-                    nullable=True,
-                    comment="Embedding vector",
-                )
-            )
+            self.columns.append(ColumnInfo(name="embedding",type_name=ColumnTypeName.ARRAY,type_text="ARRAY<FLOAT>",type_json='{"type":"ARRAY","element":"FLOAT","element_nullable":false}',nullable=True,comment="Embedding vector",position=9))
         self.column_names = [col.name for col in self.columns]
 
         # Initialize Databricks workspace client
@@ -190,7 +182,17 @@ class Databricks(VectorStoreBase):
                 columns=self.columns,
                 properties={"delta.enableChangeDataFeed": "true"},
             )
-            logger.info(f"Successfully created source table '{self.table_name}'")
+            logger.info(f"Successfully created source table '{self.fully_qualified_table_name}'")
+            self.client.table_constraints.create(
+                full_name_arg="logistics_dev.ai.dev_memory",
+                constraint=TableConstraint(
+                    primary_key_constraint=PrimaryKeyConstraint(
+                        name="pk_dev_memory",  # Name of the primary key constraint
+                        child_columns=["memory_id"],  # Columns that make up the primary key
+                    )
+                )
+            )
+            logger.info(f"Successfully created primary key constraint on 'memory_id' for table '{self.fully_qualified_table_name}'")
 
     def create_col(self, name=None, vector_size=None, distance=None):
         """
