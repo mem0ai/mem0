@@ -2,6 +2,7 @@ import json
 import logging
 import uuid
 from typing import Optional, List
+from datetime import datetime, date
 from databricks.sdk.service.catalog import ColumnInfo, ColumnTypeName, TableType, DataSourceFormat
 from databricks.sdk.service.catalog import TableConstraint, PrimaryKeyConstraint
 from databricks.sdk import WorkspaceClient
@@ -20,9 +21,9 @@ logger = logging.getLogger(__name__)
 
 
 class MemoryResult(BaseModel):
-    id: Optional[str]
-    score: Optional[float]
-    payload: Optional[dict]
+    id: Optional[str] = None
+    score: Optional[float] = None
+    payload: Optional[dict] = None
 
 
 excluded_keys = {"user_id", "agent_id", "run_id", "hash", "data", "created_at", "updated_at"}
@@ -41,13 +42,13 @@ class Databricks(VectorStoreBase):
         catalog: str = None,
         schema: str = None,
         table_name: str = None,
-        index_name: str = "mem0",
+        collection_name: str = "mem0",
         index_type: str = "DELTA_SYNC",
         embedding_model_endpoint_name: Optional[str] = None,
         embedding_dimension: int = 1536,
         endpoint_type: str = "STANDARD",
         pipeline_type: str = "TRIGGERED",
-        warehouse_id: Optional[str] = None,
+        warehouse_name: Optional[str] = None,
         query_type: str = "ANN",
     ):
         """
@@ -70,7 +71,7 @@ class Databricks(VectorStoreBase):
             embedding_dimension (int, optional): Vector embedding dimensions (default: 1536).
             endpoint_type (str, optional): Endpoint type, either "STANDARD" or "STORAGE_OPTIMIZED" (default: "STANDARD").
             pipeline_type (str, optional): Sync pipeline type, either "TRIGGERED" or "CONTINUOUS" (default: "TRIGGERED").
-            warehouse_id (str, optional): Databricks SQL warehouse ID (if using SQL warehouse).
+            warehouse_name (str, optional): Databricks SQL warehouse Name (if using SQL warehouse).
             query_type (str, optional): Query type, either "ANN" or "HYBRID" (default: "ANN").
         """
         # Basic identifiers
@@ -80,7 +81,7 @@ class Databricks(VectorStoreBase):
         self.schema = schema
         self.table_name = table_name
         self.fully_qualified_table_name = f"{self.catalog}.{self.schema}.{self.table_name}"
-        self.index_name = index_name
+        self.index_name = collection_name
         self.fully_qualified_index_name = f"{self.catalog}.{self.schema}.{self.index_name}"
 
         # Configuration
@@ -89,23 +90,96 @@ class Databricks(VectorStoreBase):
         self.embedding_dimension = embedding_dimension
         self.endpoint_type = endpoint_type
         self.pipeline_type = pipeline_type
-        self.warehouse_id = warehouse_id
         self.query_type = query_type
 
         # Schema
         self.columns = [
-            ColumnInfo(name="memory_id", type_name=ColumnTypeName.STRING, type_text="STRING", type_json='{"type":"STRING"}', nullable=False, comment="Primary key", position=0),
-            ColumnInfo(name="hash", type_name=ColumnTypeName.STRING, type_text="STRING", type_json='{"type":"STRING"}', comment="Hash of the memory content", position=1),
-            ColumnInfo(name="agent_id", type_name=ColumnTypeName.STRING, type_text="STRING", type_json='{"type":"STRING"}', comment="ID of the agent", position=2),
-            ColumnInfo(name="run_id", type_name=ColumnTypeName.STRING, type_text="STRING", type_json='{"type":"STRING"}', comment="ID of the run", position=3),
-            ColumnInfo(name="user_id", type_name=ColumnTypeName.STRING, type_text="STRING", type_json='{"type":"STRING"}', comment="ID of the user", position=4),
-            ColumnInfo(name="memory", type_name=ColumnTypeName.STRING, type_text="STRING", type_json='{"type":"STRING"}', comment="Memory content", position=5),
-            ColumnInfo(name="metadata", type_name=ColumnTypeName.STRING, type_text="STRING", type_json='{"type":"STRING"}', comment="Additional metadata", position=6),
-            ColumnInfo(name="created_at", type_name=ColumnTypeName.TIMESTAMP, type_text="TIMESTAMP", type_json='{"type":"TIMESTAMP"}', comment="Creation timestamp", position=7),
-            ColumnInfo(name="updated_at", type_name=ColumnTypeName.TIMESTAMP, type_text="TIMESTAMP", type_json='{"type":"TIMESTAMP"}', comment="Last update timestamp", position=8),
+            ColumnInfo(
+                name="memory_id",
+                type_name=ColumnTypeName.STRING,
+                type_text="string",
+                type_json='{"type":"string"}',
+                nullable=False,
+                comment="Primary key",
+                position=0,
+            ),
+            ColumnInfo(
+                name="hash",
+                type_name=ColumnTypeName.STRING,
+                type_text="string",
+                type_json='{"type":"string"}',
+                comment="Hash of the memory content",
+                position=1,
+            ),
+            ColumnInfo(
+                name="agent_id",
+                type_name=ColumnTypeName.STRING,
+                type_text="string",
+                type_json='{"type":"string"}',
+                comment="ID of the agent",
+                position=2,
+            ),
+            ColumnInfo(
+                name="run_id",
+                type_name=ColumnTypeName.STRING,
+                type_text="string",
+                type_json='{"type":"string"}',
+                comment="ID of the run",
+                position=3,
+            ),
+            ColumnInfo(
+                name="user_id",
+                type_name=ColumnTypeName.STRING,
+                type_text="string",
+                type_json='{"type":"string"}',
+                comment="ID of the user",
+                position=4,
+            ),
+            ColumnInfo(
+                name="memory",
+                type_name=ColumnTypeName.STRING,
+                type_text="string",
+                type_json='{"type":"string"}',
+                comment="Memory content",
+                position=5,
+            ),
+            ColumnInfo(
+                name="metadata",
+                type_name=ColumnTypeName.STRING,
+                type_text="string",
+                type_json='{"type":"string"}',
+                comment="Additional metadata",
+                position=6,
+            ),
+            ColumnInfo(
+                name="created_at",
+                type_name=ColumnTypeName.TIMESTAMP,
+                type_text="timestamp",
+                type_json='{"type":"timestamp"}',
+                comment="Creation timestamp",
+                position=7,
+            ),
+            ColumnInfo(
+                name="updated_at",
+                type_name=ColumnTypeName.TIMESTAMP,
+                type_text="timestamp",
+                type_json='{"type":"timestamp"}',
+                comment="Last update timestamp",
+                position=8,
+            ),
         ]
         if self.index_type == VectorIndexType.DIRECT_ACCESS:
-            self.columns.append(ColumnInfo(name="embedding",type_name=ColumnTypeName.ARRAY,type_text="ARRAY<FLOAT>",type_json='{"type":"ARRAY","element":"FLOAT","element_nullable":false}',nullable=True,comment="Embedding vector",position=9))
+            self.columns.append(
+                ColumnInfo(
+                    name="embedding",
+                    type_name=ColumnTypeName.ARRAY,
+                    type_text="array<float>",
+                    type_json='{"type":"array","element":"float","element_nullable":false}',
+                    nullable=True,
+                    comment="Embedding vector",
+                    position=9,
+                )
+            )
         self.column_names = [col.name for col in self.columns]
 
         # Initialize Databricks workspace client
@@ -139,12 +213,15 @@ class Databricks(VectorStoreBase):
             logger.error(f"Failed to initialize Databricks workspace client: {e}")
             raise
 
+        # Get the warehouse ID by name
+        self.warehouse_id = next((w.id for w in self.client.warehouses.list() if w.name == warehouse_name), None)
+
         # Initialize endpoint (required in Databricks)
         self._ensure_endpoint_exists()
 
         # Check if index exists and create if needed
         collections = self.list_cols()
-        if self.fully_qualified_index_name not in collections and self.index_name not in collections:
+        if self.fully_qualified_index_name not in collections:
             self.create_col()
 
     def _ensure_endpoint_exists(self):
@@ -178,7 +255,7 @@ class Databricks(VectorStoreBase):
                 schema_name=self.schema,
                 table_type=TableType.MANAGED,
                 data_source_format=DataSourceFormat.DELTA,
-                storage_location=None, # Use default storage location
+                storage_location=None,  # Use default storage location
                 columns=self.columns,
                 properties={"delta.enableChangeDataFeed": "true"},
             )
@@ -190,9 +267,11 @@ class Databricks(VectorStoreBase):
                         name="pk_dev_memory",  # Name of the primary key constraint
                         child_columns=["memory_id"],  # Columns that make up the primary key
                     )
-                )
+                ),
             )
-            logger.info(f"Successfully created primary key constraint on 'memory_id' for table '{self.fully_qualified_table_name}'")
+            logger.info(
+                f"Successfully created primary key constraint on 'memory_id' for table '{self.fully_qualified_table_name}'"
+            )
 
     def create_col(self, name=None, vector_size=None, distance=None):
         """
@@ -223,45 +302,79 @@ class Databricks(VectorStoreBase):
         if self.index_type not in [VectorIndexType.DELTA_SYNC, VectorIndexType.DIRECT_ACCESS]:
             raise ValueError("index_type must be either 'DELTA_SYNC' or 'DIRECT_ACCESS'")
 
-        if self.index_type == VectorIndexType.DELTA_SYNC:
-            index = self.client.vector_search_indexes.create_index(
-                name=self.fully_qualified_index_name,
-                endpoint_name=self.endpoint_name,
-                primary_key=self.primary_key,
-                index_type=self.index_type,
-                delta_sync_index_spec=DeltaSyncVectorIndexSpecRequest(
-                    source_table=self.fully_qualified_table_name,
-                    pipeline_type=self.pipeline_type,
-                    columns_to_sync=self.column_names,
-                    embedding_source_columns=embedding_source_columns,
-                ),
-            )
-            logger.info(
-                f"Successfully created vector search index '{self.fully_qualified_index_name}' with DELTA_SYNC type"
-            )
-            return index
+        try:
+            if self.index_type == VectorIndexType.DELTA_SYNC:
+                index = self.client.vector_search_indexes.create_index(
+                    name=self.fully_qualified_index_name,
+                    endpoint_name=self.endpoint_name,
+                    primary_key="memory_id",
+                    index_type=self.index_type,
+                    delta_sync_index_spec=DeltaSyncVectorIndexSpecRequest(
+                        source_table=self.fully_qualified_table_name,
+                        pipeline_type=self.pipeline_type,
+                        columns_to_sync=self.column_names,
+                        embedding_source_columns=embedding_source_columns,
+                    ),
+                )
+                logger.info(
+                    f"Successfully created vector search index '{self.fully_qualified_index_name}' with DELTA_SYNC type"
+                )
+                return index
 
-        elif self.index_type == VectorIndexType.DIRECT_ACCESS:
-            index = self.client.vector_search_indexes.create_index(
-                name=self.fully_qualified_index_name,
-                endpoint_name=self.endpoint_name,
-                primary_key=self.primary_key,
-                index_type=self.index_type,
-                direct_access_index_spec=DirectAccessVectorIndexSpec(
-                    embedding_source_columns=embedding_source_columns,
-                    embedding_vector_columns=[
-                        EmbeddingVectorColumn(name="embedding", embedding_dimension=embedding_dims)
-                    ],
-                ),
-            )
-            logger.info(
-                f"Successfully created vector search index '{self.fully_qualified_index_name}' with DIRECT_ACCESS type"
-            )
-            return index
-        else:
-            error_msg = f"Unsupported index type: {self.index_type}. Must be either 'DELTA_SYNC' or 'DIRECT_ACCESS'."
-            logger.error(error_msg)
-            raise ValueError(error_msg)
+            elif self.index_type == VectorIndexType.DIRECT_ACCESS:
+                index = self.client.vector_search_indexes.create_index(
+                    name=self.fully_qualified_index_name,
+                    endpoint_name=self.endpoint_name,
+                    primary_key="memory_id",
+                    index_type=self.index_type,
+                    direct_access_index_spec=DirectAccessVectorIndexSpec(
+                        embedding_source_columns=embedding_source_columns,
+                        embedding_vector_columns=[
+                            EmbeddingVectorColumn(name="embedding", embedding_dimension=embedding_dims)
+                        ],
+                    ),
+                )
+                logger.info(
+                    f"Successfully created vector search index '{self.fully_qualified_index_name}' with DIRECT_ACCESS type"
+                )
+                return index
+        except Exception as e:
+            logger.error(f"Error making index_type: {self.index_type} for index {self.fully_qualified_index_name}: {e}")
+
+    def _format_sql_value(self, v):
+        """
+        Format a Python value into a safe SQL literal for Databricks.
+        """
+        if v is None:
+            return "NULL"
+        if isinstance(v, bool):
+            return "TRUE" if v else "FALSE"
+        if isinstance(v, (int, float)):
+            return str(v)
+        if isinstance(v, (datetime, date)):
+            return f"'{v.isoformat()}'"
+        if isinstance(v, list):
+            # Render arrays (assume numeric or string elements)
+            elems = []
+            for x in v:
+                if x is None:
+                    elems.append("NULL")
+                elif isinstance(x, (int, float)):
+                    elems.append(str(x))
+                else:
+                    s = str(x).replace("'", "''")
+                    elems.append(f"'{s}'")
+            return f"array({', '.join(elems)})"
+        if isinstance(v, dict):
+            try:
+                s = json.dumps(v)
+            except Exception:
+                s = str(v)
+            s = s.replace("'", "''")
+            return f"'{s}'"
+        # Fallback: treat as string
+        s = str(v).replace("'", "''")
+        return f"'{s}'"
 
     def insert(self, vectors: list, payloads: list = None, ids: list = None):
         """
@@ -288,7 +401,8 @@ class Databricks(VectorStoreBase):
                 else:
                     val = payloads[i].get(col.name) if payloads and i < len(payloads) else None
                 values.append(val)
-            value_tuples.append(f"({', '.join([str(v) if v is not None else 'NULL' for v in values])})")
+            formatted = [self._format_sql_value(v) for v in values]
+            value_tuples.append(f"({', '.join(formatted)})")
 
         insert_sql = f"INSERT INTO {self.fully_qualified_table_name} ({', '.join(self.column_names)}) VALUES {', '.join(value_tuples)}"
 
@@ -297,7 +411,7 @@ class Databricks(VectorStoreBase):
             response = self.client.statement_execution.execute_statement(
                 statement=insert_sql, warehouse_id=self.warehouse_id, wait_timeout="30s"
             )
-            if response.status.state == "SUCCEEDED":
+            if response.status.state.value == "SUCCEEDED":
                 logger.info(
                     f"Successfully inserted {num_items} items into Delta table {self.fully_qualified_table_name}"
                 )
@@ -333,6 +447,7 @@ class Databricks(VectorStoreBase):
                     columns=self.column_names,
                     query_text=query,
                     num_results=limit,
+                    query_type=self.query_type,
                     filters_json=filters_json,
                 )
             elif self.index_type == VectorIndexType.DIRECT_ACCESS and vectors:
@@ -342,6 +457,7 @@ class Databricks(VectorStoreBase):
                     columns=self.column_names,
                     query_vector=vectors,
                     num_results=limit,
+                    query_type=self.query_type,
                     filters_json=filters_json,
                 )
             else:
@@ -359,12 +475,7 @@ class Databricks(VectorStoreBase):
                     row[-1] if isinstance(row, (list, tuple)) and len(row) > len(self.column_names) else None
                 )
                 payload = {k: row_dict.get(k) for k in self.column_names}
-                # Parse metadata if present
-                if "metadata" in payload and payload["metadata"]:
-                    try:
-                        payload.update(json.loads(payload["metadata"]))
-                    except Exception:
-                        pass
+                payload["data"] = payload.get("memory", "")
                 memory_id = row_dict.get("memory_id") or row_dict.get("id")
                 memory_results.append(MemoryResult(id=memory_id, score=score, payload=payload))
             return memory_results
@@ -383,13 +494,13 @@ class Databricks(VectorStoreBase):
         try:
             logger.info(f"Deleting vector with ID {vector_id} from Delta table {self.fully_qualified_table_name}")
 
-            delete_sql = f"DELETE FROM {self.fully_qualified_table_name} WHERE {self.primary_key} = '{vector_id}'"
+            delete_sql = f"DELETE FROM {self.fully_qualified_table_name} WHERE memory_id = '{vector_id}'"
 
             response = self.client.statement_execution.execute_statement(
                 statement=delete_sql, warehouse_id=self.warehouse_id, wait_timeout="30s"
             )
 
-            if response.status.state == "SUCCEEDED":
+            if response.status.state.value == "SUCCEEDED":
                 logger.info(f"Successfully deleted vector with ID {vector_id}")
             else:
                 logger.error(f"Failed to delete vector with ID {vector_id}: {response.status.error}")
@@ -438,7 +549,7 @@ class Databricks(VectorStoreBase):
                 statement=update_sql, warehouse_id=self.warehouse_id, wait_timeout="30s"
             )
 
-            if response.status.state == "SUCCEEDED":
+            if response.status.state.value == "SUCCEEDED":
                 logger.info(f"Successfully updated vector with ID {vector_id}")
             else:
                 logger.error(f"Failed to update vector with ID {vector_id}: {response.status.error}")
@@ -458,14 +569,15 @@ class Databricks(VectorStoreBase):
         """
         try:
             # Use query with ID filter to retrieve the specific vector
-            filters = {self.primary_key: vector_id}
+            filters = {"memory_id": vector_id}
             filters_json = json.dumps(filters)
 
             results = self.client.vector_search_indexes.query_index(
                 index_name=self.fully_qualified_index_name,
                 columns=self.column_names,
-                query_text="",  # Empty query, rely on filters
+                query_text=" ",  # Empty query, rely on filters
                 num_results=1,
+                query_type=self.query_type,
                 filters_json=filters_json,
             )
 
@@ -503,7 +615,7 @@ class Databricks(VectorStoreBase):
                 except (json.JSONDecodeError, TypeError):
                     logger.warning(f"Failed to parse metadata: {row_data.get('metadata')}")
 
-            memory_id = row_data.get("memory_id", row_data.get(self.primary_key, vector_id))
+            memory_id = row_data.get("memory_id", row_data.get("memory_id", vector_id))
             return MemoryResult(id=memory_id, payload=payload)
 
         except Exception as e:
@@ -576,8 +688,9 @@ class Databricks(VectorStoreBase):
             sdk_results = self.client.vector_search_indexes.query_index(
                 index_name=self.fully_qualified_index_name,
                 columns=columns,
-                query_text="",
+                query_text=" ",
                 num_results=num_results,
+                query_type=self.query_type,
                 filters_json=filters_json,
             )
             result_data = sdk_results.result if hasattr(sdk_results, "result") else sdk_results
