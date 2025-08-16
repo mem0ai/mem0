@@ -599,3 +599,48 @@ class Databricks(VectorStoreBase):
         except Exception as e:
             logger.error(f"Failed to list memories: {e}")
             return []
+
+    def reset(self):
+        """Reset the vector search index and underlying source table.
+
+        This will attempt to delete the existing index (both fully qualified and short name forms
+        for robustness), drop the backing Delta table, recreate the table with the expected schema,
+        and finally recreate the index. Use with caution as all existing data will be removed.
+        """
+        fq_index = self.fully_qualified_index_name
+        logger.warning(f"Resetting Databricks vector search index '{fq_index}'...")
+        try:
+            # Try deleting via fully qualified name first
+            try:
+                self.client.vector_search_indexes.delete_index(index_name=fq_index)
+                logger.info(f"Deleted index '{fq_index}'")
+            except Exception as e_fq:
+                logger.debug(f"Failed deleting fully qualified index name '{fq_index}': {e_fq}. Trying short name...")
+                try:
+                    # Fallback to existing helper which may use short name
+                    self.delete_col()
+                except Exception as e_short:
+                    logger.debug(f"Failed deleting short index name '{self.index_name}': {e_short}")
+
+            # Drop the backing table (if it exists)
+            try:
+                drop_sql = f"DROP TABLE IF EXISTS {self.fully_qualified_table_name}"
+                resp = self.client.statement_execution.execute_statement(
+                    statement=drop_sql, warehouse_id=self.warehouse_id, wait_timeout="30s"
+                )
+                if getattr(resp.status, "state", None) == "SUCCEEDED":
+                    logger.info(f"Dropped table '{self.fully_qualified_table_name}'")
+                else:
+                    logger.warning(
+                        f"Attempted to drop table '{self.fully_qualified_table_name}' but state was {getattr(resp.status, 'state', 'UNKNOWN')}: {getattr(resp.status, 'error', None)}"
+                    )
+            except Exception as e_drop:
+                logger.warning(f"Failed to drop table '{self.fully_qualified_table_name}': {e_drop}")
+
+            # Recreate table & index
+            self._ensure_source_table_exists()
+            self.create_col()
+            logger.info(f"Successfully reset index '{fq_index}'")
+        except Exception as e:
+            logger.error(f"Error resetting index '{fq_index}': {e}")
+            raise
