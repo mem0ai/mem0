@@ -27,6 +27,7 @@ graph = [
     "langchain-aws>=0.2.23",
     "neo4j>=5.23.1",
     "rank-bm25>=0.2.2",
+    "kuzu>=0.11.0",
 ]
 vector_stores = [
     "vecs>=0.4.0",
@@ -69,6 +70,9 @@ dev = [
     "isort>=5.13.2",
     "pytest>=8.2.2",
 ]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
 
 [tool.hatch.build]
 include = [
