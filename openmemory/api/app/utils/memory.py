@@ -152,20 +152,20 @@ def reset_memory_client():
 
 
 def get_default_memory_config():
-    """Get default memory client configuration with sensible defaults."""
+    # """Get default memory client configuration with sensible defaults."""
 
-    print(f"✅ Memory Configuration initialized:")
-    print(f"   📍 LLM Base URL: {OPENAI_BASE_URL}")
-    print(f"   🤖 LLM Model: {OPENAI_MODEL}")
-    print(
-        f"   🔑 LLM API Key: {'***' + OPENAI_API_KEY[-4:] if len(OPENAI_API_KEY) > 4 else '***'}"
-    )
-    print(f"   📍 Embedding Base URL: {OPENAI_EMBEDDING_MODEL_BASE_URL}")
-    print(f"   🎯 Embedding Model: {OPENAI_EMBEDDING_MODEL}")
-    print(f"   📊 Embedding Dims: {OPENAI_EMBEDDING_MODEL_DIMS}")
-    print(
-        f"   🔑 Embedding API Key: {'***' + OPENAI_EMBEDDING_MODEL_API_KEY[-4:] if len(OPENAI_EMBEDDING_MODEL_API_KEY) > 4 else '***'}"
-    )
+    # print(f"✅ Memory Configuration initialized:")
+    # print(f"   📍 LLM Base URL: {OPENAI_BASE_URL}")
+    # print(f"   🤖 LLM Model: {OPENAI_MODEL}")
+    # print(
+    #     f"   🔑 LLM API Key: {'***' + OPENAI_API_KEY[-4:] if len(OPENAI_API_KEY) > 4 else '***'}"
+    # )
+    # print(f"   📍 Embedding Base URL: {OPENAI_EMBEDDING_MODEL_BASE_URL}")
+    # print(f"   🎯 Embedding Model: {OPENAI_EMBEDDING_MODEL}")
+    # print(f"   📊 Embedding Dims: {OPENAI_EMBEDDING_MODEL_DIMS}")
+    # print(
+    #     f"   🔑 Embedding API Key: {'***' + OPENAI_EMBEDDING_MODEL_API_KEY[-4:] if len(OPENAI_EMBEDDING_MODEL_API_KEY) > 4 else '***'}"
+    # )
 
     return {
         "vector_store": {
