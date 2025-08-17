@@ -19,14 +19,20 @@ def mock_openai():
 def memory_instance():
     with (
         patch("mem0.utils.factory.EmbedderFactory") as mock_embedder,
-        patch("mem0.utils.factory.VectorStoreFactory") as mock_vector_store,
+        patch("mem0.memory.main.VectorStoreFactory") as mock_vector_store,
         patch("mem0.utils.factory.LlmFactory") as mock_llm,
         patch("mem0.memory.telemetry.capture_event"),
         patch("mem0.memory.graph_memory.MemoryGraph"),
+        patch("mem0.memory.main.GraphStoreFactory") as mock_graph_store,
     ):
         mock_embedder.create.return_value = Mock()
         mock_vector_store.create.return_value = Mock()
+        mock_vector_store.create.return_value.search.return_value = []
         mock_llm.create.return_value = Mock()
+        
+        # Create a mock instance that won't try to access config attributes
+        mock_graph_instance = Mock()
+        mock_graph_store.create.return_value = mock_graph_instance
 
         config = MemoryConfig(version="v1.1")
         config.graph_store.config = {"some_config": "value"}
@@ -37,14 +43,20 @@ def memory_instance():
 def memory_custom_instance():
     with (
         patch("mem0.utils.factory.EmbedderFactory") as mock_embedder,
-        patch("mem0.utils.factory.VectorStoreFactory") as mock_vector_store,
+        patch("mem0.memory.main.VectorStoreFactory") as mock_vector_store,
         patch("mem0.utils.factory.LlmFactory") as mock_llm,
         patch("mem0.memory.telemetry.capture_event"),
         patch("mem0.memory.graph_memory.MemoryGraph"),
+        patch("mem0.memory.main.GraphStoreFactory") as mock_graph_store,
     ):
         mock_embedder.create.return_value = Mock()
         mock_vector_store.create.return_value = Mock()
+        mock_vector_store.create.return_value.search.return_value = []
         mock_llm.create.return_value = Mock()
+        
+        # Create a mock instance that won't try to access config attributes
+        mock_graph_instance = Mock()
+        mock_graph_store.create.return_value = mock_graph_instance
 
         config = MemoryConfig(
             version="v1.1",
@@ -250,7 +262,11 @@ def test_get_all(memory_instance, version, enable_graph, expected_result):
 
 def test_custom_prompts(memory_custom_instance):
     messages = [{"role": "user", "content": "Test message"}]
+    from mem0.embeddings.mock import MockEmbeddings
+
     memory_custom_instance.llm.generate_response = Mock()
+    memory_custom_instance.llm.generate_response.return_value = '{"facts": ["fact1", "fact2"]}'
+    memory_custom_instance.embedding_model = MockEmbeddings()
 
     with patch("mem0.memory.main.parse_messages", return_value="Test message") as mock_parse_messages:
         with patch(
@@ -273,7 +289,7 @@ def test_custom_prompts(memory_custom_instance):
             ## custom update memory prompt
             ##
             mock_get_update_memory_messages.assert_called_once_with(
-                [], [], memory_custom_instance.config.custom_update_memory_prompt
+                [], ["fact1", "fact2"], memory_custom_instance.config.custom_update_memory_prompt
             )
 
             memory_custom_instance.llm.generate_response.assert_any_call(

@@ -1,13 +1,14 @@
-import json
 import logging
 import os
 
 from openai import OpenAI
 from typing import List
+
+from app.utils.prompts import MEMORY_CATEGORIZATION_PROMPT
 from dotenv import load_dotenv
+from openai import OpenAI
 from pydantic import BaseModel
 from tenacity import retry, stop_after_attempt, wait_exponential
-from app.utils.prompts import MEMORY_CATEGORIZATION_PROMPT
 
 load_dotenv()
 
@@ -67,4 +68,9 @@ def get_categories_for_memory(memory: str) -> List[str]:
         # TODO: Validate categories later may be
         return categories
     except Exception as e:
-        raise e
+        logging.error(f"[ERROR] Failed to get categories: {e}")
+        try:
+            logging.debug(f"[DEBUG] Raw response: {completion.choices[0].message.content}")
+        except Exception as debug_e:
+            logging.debug(f"[DEBUG] Could not extract raw response: {debug_e}")
+        raise

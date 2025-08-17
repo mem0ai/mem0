@@ -5,8 +5,6 @@ icon: "tags"
 iconType: "solid"
 ---
 
-<Snippet file="paper-release.mdx" />
-
 ## How to set custom categories?
 
 You can now create custom categories tailored to your specific needs, instead of using the default categories such as travel, sports, music, and more (see [default categories](#default-categories) below). **When custom categories are provided, they will override the default categories.**
@@ -35,7 +33,7 @@ new_categories = [
     {"personal_information": "Basic information about the user including name, preferences, and personality traits"}
 ]
 
-response = client.update_project(custom_categories = new_categories)
+response = client.project.update(custom_categories=new_categories)
 print(response)
 ```
 
@@ -75,7 +73,7 @@ You can also retrieve the current custom categories:
 <CodeGroup>
 ```python Code
 # Get current custom categories
-categories = client.get_project(fields=["custom_categories"])
+categories = client.project.get(fields=["custom_categories"])
 print(categories)
 ```
 
@@ -185,11 +183,11 @@ Name is Alice (personal_details)
 ```
 </CodeGroup>
 
-You can check whether default categories are being used by calling `get_project()`. If `custom_categories` returns `None`, it means the default categories are being used.
+You can check whether default categories are being used by calling `project.get()`. If `custom_categories` returns `None`, it means the default categories are being used.
 
 <CodeGroup>
 ```python Code
-client.get_project(["custom_categories"])
+client.project.get(["custom_categories"])
 ```
 
 ```json Output

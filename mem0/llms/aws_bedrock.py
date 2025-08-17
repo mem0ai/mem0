@@ -189,10 +189,7 @@ class AWSBedrockLLM(LLMBase):
                 }
 
                 for prop, details in function["parameters"].get("properties", {}).items():
-                    new_tool["toolSpec"]["inputSchema"]["json"]["properties"][prop] = {
-                        "type": details.get("type", "string"),
-                        "description": details.get("description", ""),
-                    }
+                    new_tool["toolSpec"]["inputSchema"]["json"]["properties"][prop] = details
 
                 new_tools.append(new_tool)
 
