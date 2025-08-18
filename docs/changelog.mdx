@@ -7,21 +7,33 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2025-07-24" description="v0.1.116">
 
 **New Features:**
-- **Databricks Vector Search:** Added comprehensive support for Databricks Vector Search as a vector store provider
-  - Delta Sync Index integration with automatic synchronization from Delta tables
-  - Dual authentication support (Service Principal and Personal Access Token)
-  - Both STANDARD and STORAGE_OPTIMIZED endpoint types supported
-  - Self-managed and Databricks-computed embedding options
-  - Auto-creation of endpoints and indexes when not present
-  - Unity Catalog integration for secure data governance
+- **Pinecone:** Added namespace support and improved type safety
+- **Milvus:** Added db_name field to MilvusDBConfig
+- **Vector Stores:** Added multi-id filters support
+- **Vercel AI SDK:** Migration to AI SDK V5.0
+- **Python Support:** Added Python 3.12 support
+- **Graph Memory:** Added sanitizer methods for nodes and relationships
+- **LLM Monitoring:** Added monitoring callback support
 
 **Improvements:**
-- **Documentation:**
-  - Added detailed Databricks Vector Search configuration guide with authentication methods
-  - Updated vector databases overview to include Databricks option
-  - Enhanced vector store documentation with embedding configuration examples
+- **Performance:** Improved async handling in AsyncMemory class
+- **Documentation:** Added async add announcement, personalized search docs, Neptune examples, V5 migration docs
+- **Configuration:** Refactored base class config for LLMs, added sslmode for pgvector
+- **Dependencies:** Updated psycopg to version 3, updated Docker compose
+
+**Bug Fixes:**
+- **Tests:** Fixed failing tests and restricted package versions
+- **Memgraph:** Fixed async attribute errors, n_embeddings usage, and indexing issues
+- **Vector Stores:** Fixed Qdrant cloud indexing, Neo4j Cypher syntax, and LLM parameters
+- **Graph Store:** Fixed LM config prioritization
+- **Dependencies:** Fixed JSON import for psycopg
+
+**Refactoring:**
+- **Google AI:** Refactored from Gemini to Google AI
+- **Base Classes:** Refactored LLM base class configuration
 
 </Update>
 
