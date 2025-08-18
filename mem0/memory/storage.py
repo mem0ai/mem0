@@ -1,7 +1,7 @@
 import logging
 import uuid
 from datetime import datetime
-from typing import Any, Optional, Union
+from typing import Any, List, Optional, Union
 
 from sqlalchemy import (
     Column,
@@ -88,7 +88,7 @@ class StorageManager:
         db.commit()
         db.refresh(entry)
 
-    def get_history(self, memory_id: str) -> list[type[History]]:
+    def get_history(self, memory_id: str) -> List[History]:
         db = next(self._get_db())
         results = (
             db.query(History)
