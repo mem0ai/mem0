@@ -21,7 +21,7 @@ def _setup_mocks(mocker):
     mock_llm = mocker.MagicMock()
     mocker.patch("mem0.utils.factory.LlmFactory.create", mock_llm)
 
-    mocker.patch("mem0.memory.storage.SQLiteManager", mocker.MagicMock())
+    mocker.patch("mem0.memory.storage.StorageManager", mocker.MagicMock())
 
     return mock_llm, mock_vector_store
 
