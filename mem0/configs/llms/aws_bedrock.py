@@ -1,5 +1,6 @@
 from typing import Optional, Dict, Any, List
 from mem0.configs.llms.base import BaseLlmConfig
+import os
 
 
 class AWSBedrockConfig(BaseLlmConfig):
@@ -92,13 +93,16 @@ class AWSBedrockConfig(BaseLlmConfig):
         }
 
         if self.aws_access_key_id:
-            config["aws_access_key_id"] = self.aws_access_key_id
+            config["aws_access_key_id"] = self.aws_access_key_id or os.getenv("AWS_ACCESS_KEY_ID")
+            
         if self.aws_secret_access_key:
-            config["aws_secret_access_key"] = self.aws_secret_access_key
+            config["aws_secret_access_key"] = self.aws_secret_access_key or os.getenv("AWS_SECRET_ACCESS_KEY")
+            
         if self.aws_session_token:
-            config["aws_session_token"] = self.aws_session_token
+            config["aws_session_token"] = self.aws_session_token or os.getenv("AWS_SESSION_TOKEN")
+            
         if self.aws_profile:
-            config["profile_name"] = self.aws_profile
+            config["profile_name"] = self.aws_profile or os.getenv("AWS_PROFILE")
 
         return config
 
@@ -137,12 +141,12 @@ class AWSBedrockConfig(BaseLlmConfig):
     def get_supported_regions(self) -> List[str]:
         """Get list of AWS regions that support Bedrock."""
         return [
-            "us-east-1",      # N. Virginia
-            "us-west-2",      # Oregon
-            "us-east-2",      # Ohio
-            "eu-west-1",      # Ireland
-            "ap-southeast-1", # Singapore
-            "ap-northeast-1", # Tokyo
+            "us-east-1",
+            "us-west-2",
+            "us-east-2",
+            "eu-west-1",
+            "ap-southeast-1",
+            "ap-northeast-1",
         ]
 
     def get_model_capabilities(self) -> Dict[str, Any]:
