@@ -265,12 +265,17 @@ class MemoryClient:
     ) -> Dict[str, Any]:
         """
         Update a memory by ID.
+        
         Args:
             memory_id (str): Memory ID.
-            text (str, optional): Data to update in the memory.
+            text (str, optional): New content to update the memory with.
             metadata (dict, optional): Metadata to update in the memory.
+            
         Returns:
             Dict[str, Any]: The response from the server.
+            
+        Example:
+            >>> client.update(memory_id="mem_123", text="Likes to play tennis on weekends")
         """
         if text is None and metadata is None:
             raise ValueError("Either text or metadata must be provided for update.")
@@ -1054,13 +1059,18 @@ class AsyncMemoryClient:
         self, memory_id: str, text: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
-        Update a memory by ID.
+        Update a memory by ID asynchronously.
+        
         Args:
             memory_id (str): Memory ID.
-            text (str, optional): Data to update in the memory.
+            text (str, optional): New content to update the memory with.
             metadata (dict, optional): Metadata to update in the memory.
+            
         Returns:
             Dict[str, Any]: The response from the server.
+            
+        Example:
+            >>> await client.update(memory_id="mem_123", text="Likes to play tennis on weekends")
         """
         if text is None and metadata is None:
             raise ValueError("Either text or metadata must be provided for update.")
