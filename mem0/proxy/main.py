@@ -11,16 +11,11 @@ import mem0
 try:
     import litellm
 except ImportError:
-    user_input = input("The 'litellm' library is required. Install it now? [y/N]: ")
-    if user_input.lower() == "y":
-        try:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "litellm"])
-            import litellm
-        except subprocess.CalledProcessError:
-            print("Failed to install 'litellm'. Please install it manually using 'pip install litellm'.")
-            sys.exit(1)
-    else:
-        raise ImportError("The required 'litellm' library is not installed.")
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "litellm"])
+        import litellm
+    except subprocess.CalledProcessError:
+        print("Failed to install 'litellm'. Please install it manually using 'pip install litellm'.")
         sys.exit(1)
 
 from mem0 import Memory, MemoryClient
