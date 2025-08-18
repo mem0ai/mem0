@@ -10,6 +10,7 @@ except ImportError:
     raise ImportError("Elasticsearch requires extra dependencies. Install with `pip install elasticsearch`") from None
 
 from mem0.vector_stores.elasticsearch import ElasticsearchDB, OutputData
+from mem0.configs.vector_stores.elasticsearch import ElasticsearchConfig
 
 
 class TestElasticsearchDB(unittest.TestCase):
@@ -309,3 +310,49 @@ class TestElasticsearchDB(unittest.TestCase):
 
         # Verify delete call
         self.client_mock.indices.delete.assert_called_once_with(index="test_collection")
+
+    def test_es_config(self):
+        config = {"host": "localhost", "port": 9200, "user": "elastic", "password": "password"}
+        es_config = ElasticsearchConfig(**config)
+        
+        # Assert that the config object was created successfully
+        self.assertIsNotNone(es_config)
+        self.assertIsInstance(es_config, ElasticsearchConfig)
+        
+        # Assert that the configuration values are correctly set
+        self.assertEqual(es_config.host, "localhost")
+        self.assertEqual(es_config.port, 9200)
+        self.assertEqual(es_config.user, "elastic")
+        self.assertEqual(es_config.password, "password")
+
+    def test_es_valid_headers(self):
+        config = {
+            "host": "localhost",
+            "port": 9200,
+            "user": "elastic",
+            "password": "password",
+            "headers": {"x-extra-info": "my-mem0-instance"},
+        }
+        es_config = ElasticsearchConfig(**config)
+        self.assertIsNotNone(es_config.headers)
+        self.assertEqual(len(es_config.headers), 1)
+        self.assertEqual(es_config.headers["x-extra-info"], "my-mem0-instance")
+
+    def test_es_invalid_headers(self):
+        base_config = {
+            "host": "localhost",
+            "port": 9200,
+            "user": "elastic",
+            "password": "password",
+        }
+        
+        invalid_headers = [
+            "not-a-dict",  # Non-dict headers
+            {"x-extra-info": 123},  # Non-string values
+            {123: "456"},  # Non-string keys
+        ]
+        
+        for headers in invalid_headers:
+            with self.assertRaises(ValueError):
+                config = {**base_config, "headers": headers}
+                ElasticsearchConfig(**config)
