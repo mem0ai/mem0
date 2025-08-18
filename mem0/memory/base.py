@@ -32,10 +32,10 @@ class MemoryBase(ABC):
 
         Args:
             memory_id (str): ID of the memory to update.
-            data (dict): Data to update the memory with.
+            data (str): New content to update the memory with.
 
         Returns:
-            dict: Updated memory.
+            dict: Success message indicating the memory was updated.
         """
         pass
 
