@@ -1,0 +1,103 @@
+from typing import Optional, Dict, Any
+from mem0.configs.llms.base import BaseLlmConfig
+
+
+class AWSBedrockConfig(BaseLlmConfig):
+    """
+    Configuration class for AWS Bedrock LLM integration.
+    
+    Supports all available Bedrock models with automatic provider detection.
+    """
+    
+    def __init__(
+        self,
+        model: Optional[str] = None,
+        temperature: float = 0.1,
+        max_tokens: int = 2000,
+        top_p: float = 0.9,
+        top_k: int = 1,
+        aws_access_key_id: Optional[str] = None,
+        aws_secret_access_key: Optional[str] = None,
+        aws_region: str = "us-west-2",
+        aws_session_token: Optional[str] = None,
+        aws_profile: Optional[str] = None,
+        model_kwargs: Optional[Dict[str, Any]] = None,
+        **kwargs
+    ):
+        """
+        Initialize AWS Bedrock configuration.
+        
+        Args:
+            model: Bedrock model identifier (e.g., "anthropic.claude-3-5-sonnet-20240620-v1:0")
+            temperature: Controls randomness (0.0 to 2.0)
+            max_tokens: Maximum tokens to generate
+            top_p: Nucleus sampling parameter (0.0 to 1.0)
+            top_k: Top-k sampling parameter (1 to 40)
+            aws_access_key_id: AWS access key (optional, uses env vars if not provided)
+            aws_secret_access_key: AWS secret key (optional, uses env vars if not provided)
+            aws_region: AWS region for Bedrock service
+            aws_session_token: AWS session token for temporary credentials
+            aws_profile: AWS profile name for credentials
+            model_kwargs: Additional model-specific parameters
+            **kwargs: Additional arguments passed to base class
+        """
+        super().__init__(
+            model=model or "anthropic.claude-3-5-sonnet-20240620-v1:0",
+            temperature=temperature,
+            max_tokens=max_tokens,
+            top_p=top_p,
+            top_k=top_k,
+            **kwargs
+        )
+        
+        self.aws_access_key_id = aws_access_key_id
+        self.aws_secret_access_key = aws_secret_access_key
+        self.aws_region = aws_region
+        self.aws_session_token = aws_session_token
+        self.aws_profile = aws_profile
+        self.model_kwargs = model_kwargs or {}
+    
+    @property
+    def provider(self) -> str:
+        """Get the provider from the model identifier."""
+        if not self.model or '.' not in self.model:
+            return "unknown"
+        return self.model.split('.')[0]
+    
+    @property
+    def model_name(self) -> str:
+        """Get the model name without provider prefix."""
+        if not self.model or '.' not in self.model:
+            return self.model
+        return '.'.join(self.model.split('.')[1:])
+    
+    def get_model_config(self) -> Dict[str, Any]:
+        """Get model-specific configuration parameters."""
+        base_config = {
+            "temperature": self.temperature,
+            "max_tokens": self.max_tokens,
+            "top_p": self.top_p,
+            "top_k": self.top_k,
+        }
+        
+        # Add custom model kwargs
+        base_config.update(self.model_kwargs)
+        
+        return base_config
+    
+    def get_aws_config(self) -> Dict[str, Any]:
+        """Get AWS configuration parameters."""
+        config = {
+            "region_name": self.aws_region,
+        }
+        
+        if self.aws_access_key_id:
+            config["aws_access_key_id"] = self.aws_access_key_id
+        if self.aws_secret_access_key:
+            config["aws_secret_access_key"] = self.aws_secret_access_key
+        if self.aws_session_token:
+            config["aws_session_token"] = self.aws_session_token
+        if self.aws_profile:
+            config["profile_name"] = self.aws_profile
+            
+        return config
