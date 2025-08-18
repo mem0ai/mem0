@@ -16,7 +16,10 @@ from mem0.llms.base import LLMBase
 
 logger = logging.getLogger(__name__)
 
-PROVIDERS = ["ai21", "amazon", "anthropic", "cohere", "meta", "mistral", "stability", "writer", "deepseek", "gpt-oss"]
+PROVIDERS = [
+    "ai21", "amazon", "anthropic", "cohere", "meta", "mistral", "stability", "writer", 
+    "deepseek", "gpt-oss", "perplexity", "snowflake", "titan", "command", "j2", "llama"
+]
 
 
 def extract_provider(model: str) -> str:
@@ -115,16 +118,22 @@ class AWSBedrockLLM(LLMBase):
 
     def _initialize_provider_settings(self):
         """Initialize provider-specific settings and capabilities."""
-        # Determine capabilities based on provider
-        self.supports_tools = self.provider in ["anthropic", "cohere"]
-        self.supports_vision = self.provider in ["anthropic", "amazon"]
-        self.supports_streaming = self.provider in ["anthropic", "cohere", "mistral"]
+        # Determine capabilities based on provider and model
+        self.supports_tools = self.provider in ["anthropic", "cohere", "amazon"]
+        self.supports_vision = self.provider in ["anthropic", "amazon", "meta", "mistral"]
+        self.supports_streaming = self.provider in ["anthropic", "cohere", "mistral", "amazon", "meta"]
 
         # Set message formatting method
         if self.provider == "anthropic":
             self._format_messages = self._format_messages_anthropic
         elif self.provider == "cohere":
             self._format_messages = self._format_messages_cohere
+        elif self.provider == "amazon":
+            self._format_messages = self._format_messages_amazon
+        elif self.provider == "meta":
+            self._format_messages = self._format_messages_meta
+        elif self.provider == "mistral":
+            self._format_messages = self._format_messages_mistral
         else:
             self._format_messages = self._format_messages_generic
 
@@ -157,6 +166,53 @@ class AWSBedrockLLM(LLMBase):
 
         return "\n".join(formatted_messages)
 
+    def _format_messages_amazon(self, messages: List[Dict[str, str]]) -> List[Dict[str, Any]]:
+        """Format messages for Amazon models (including Nova)."""
+        formatted_messages = []
+        
+        for message in messages:
+            role = message["role"]
+            content = message["content"]
+            
+            if role == "system":
+                # Amazon models support system messages
+                formatted_messages.append({"role": "system", "content": content})
+            elif role == "user":
+                formatted_messages.append({"role": "user", "content": content})
+            elif role == "assistant":
+                formatted_messages.append({"role": "assistant", "content": content})
+        
+        return formatted_messages
+
+    def _format_messages_meta(self, messages: List[Dict[str, str]]) -> str:
+        """Format messages for Meta models."""
+        formatted_messages = []
+        
+        for message in messages:
+            role = message["role"].capitalize()
+            content = message["content"]
+            formatted_messages.append(f"{role}: {content}")
+        
+        return "\n".join(formatted_messages)
+
+    def _format_messages_mistral(self, messages: List[Dict[str, str]]) -> List[Dict[str, Any]]:
+        """Format messages for Mistral models."""
+        formatted_messages = []
+        
+        for message in messages:
+            role = message["role"]
+            content = message["content"]
+            
+            if role == "system":
+                # Mistral supports system messages
+                formatted_messages.append({"role": "system", "content": content})
+            elif role == "user":
+                formatted_messages.append({"role": "user", "content": content})
+            elif role == "assistant":
+                formatted_messages.append({"role": "assistant", "content": content})
+        
+        return formatted_messages
+
     def _format_messages_generic(self, messages: List[Dict[str, str]]) -> str:
         """Generic message formatting for other providers."""
         formatted_messages = []
@@ -187,6 +243,8 @@ class AWSBedrockLLM(LLMBase):
             "ai21": {"max_tokens": "maxTokens", "top_p": "topP"},
             "mistral": {"max_tokens": "max_tokens"},
             "cohere": {"max_tokens": "max_tokens", "top_p": "p"},
+            "amazon": {"max_tokens": "maxTokenCount", "top_p": "topP"},
+            "anthropic": {"max_tokens": "max_tokens", "top_p": "top_p"},
         }
 
         # Apply provider mappings
@@ -199,18 +257,29 @@ class AWSBedrockLLM(LLMBase):
         if self.provider == "cohere" and "cohere.command" in self.config.model:
             input_body["message"] = input_body.pop("prompt")
         elif self.provider == "amazon":
-            input_body = {
-                "inputText": prompt,
-                "textGenerationConfig": {
-                    "maxTokenCount": self.model_config.get("max_tokens", 5000),
-                    "topP": self.model_config.get("top_p", 0.9),
+            # Amazon Nova and other Amazon models
+            if "nova" in self.config.model.lower():
+                # Nova models use the converse API format
+                input_body = {
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": self.model_config.get("max_tokens", 5000),
                     "temperature": self.model_config.get("temperature", 0.1),
-                },
-            }
-            # Remove None values
-            input_body["textGenerationConfig"] = {
-                k: v for k, v in input_body["textGenerationConfig"].items() if v is not None
-            }
+                    "top_p": self.model_config.get("top_p", 0.9),
+                }
+            else:
+                # Legacy Amazon models
+                input_body = {
+                    "inputText": prompt,
+                    "textGenerationConfig": {
+                        "maxTokenCount": self.model_config.get("max_tokens", 5000),
+                        "topP": self.model_config.get("top_p", 0.9),
+                        "temperature": self.model_config.get("temperature", 0.1),
+                    },
+                }
+                # Remove None values
+                input_body["textGenerationConfig"] = {
+                    k: v for k, v in input_body["textGenerationConfig"].items() if v is not None
+                }
         elif self.provider == "anthropic":
             input_body = {
                 "messages": [{"role": "user", "content": [{"type": "text", "text": prompt}]}],
@@ -218,6 +287,20 @@ class AWSBedrockLLM(LLMBase):
                 "temperature": self.model_config.get("temperature", 0.1),
                 "top_p": self.model_config.get("top_p", 0.9),
                 "anthropic_version": "bedrock-2023-05-31",
+            }
+        elif self.provider == "meta":
+            input_body = {
+                "prompt": prompt,
+                "max_gen_len": self.model_config.get("max_tokens", 5000),
+                "temperature": self.model_config.get("temperature", 0.1),
+                "top_p": self.model_config.get("top_p", 0.9),
+            }
+        elif self.provider == "mistral":
+            input_body = {
+                "prompt": prompt,
+                "max_tokens": self.model_config.get("max_tokens", 5000),
+                "temperature": self.model_config.get("temperature", 0.1),
+                "top_p": self.model_config.get("top_p", 0.9),
             }
         else:
             # Generic case - add all model config parameters
@@ -300,7 +383,16 @@ class AWSBedrockLLM(LLMBase):
             if self.provider == "anthropic":
                 return response_json.get("content", [{"text": ""}])[0].get("text", "")
             elif self.provider == "amazon":
-                return response_json.get("completion", "")
+                # Handle both Nova and legacy Amazon models
+                if "nova" in self.config.model.lower():
+                    # Nova models return content in a different format
+                    if "content" in response_json:
+                        return response_json["content"][0]["text"]
+                    elif "completion" in response_json:
+                        return response_json["completion"]
+                else:
+                    # Legacy Amazon models
+                    return response_json.get("completion", "")
             elif self.provider == "meta":
                 return response_json.get("generation", "")
             elif self.provider == "mistral":
@@ -331,6 +423,7 @@ class AWSBedrockLLM(LLMBase):
         response_format: Optional[str] = None,
         tools: Optional[List[Dict]] = None,
         tool_choice: str = "auto",
+        stream: bool = False,
         **kwargs,
     ) -> Union[str, Dict[str, Any]]:
         """
@@ -341,6 +434,7 @@ class AWSBedrockLLM(LLMBase):
             response_format: Response format specification
             tools: List of tools for function calling
             tool_choice: Tool choice method
+            stream: Whether to stream the response
             **kwargs: Additional parameters
 
         Returns:
@@ -349,20 +443,22 @@ class AWSBedrockLLM(LLMBase):
         try:
             if tools and self.supports_tools:
                 # Use converse method for tool-enabled models
-                return self._generate_with_tools(messages, tools)
+                return self._generate_with_tools(messages, tools, stream)
             else:
                 # Use standard invoke_model method
-                return self._generate_standard(messages)
+                return self._generate_standard(messages, stream)
 
         except Exception as e:
             logger.error(f"Failed to generate response: {e}")
             raise RuntimeError(f"Failed to generate response: {e}")
 
-    def _generate_with_tools(self, messages: List[Dict[str, str]], tools: List[Dict]) -> Dict[str, Any]:
+    def _generate_with_tools(self, messages: List[Dict[str, str]], tools: List[Dict], stream: bool = False) -> Dict[str, Any]:
         """Generate response with tool calling support."""
         # Format messages for tool-enabled models
         if self.provider == "anthropic":
             formatted_messages = self._format_messages_anthropic(messages)
+        elif self.provider == "amazon":
+            formatted_messages = self._format_messages_amazon(messages)
         else:
             formatted_messages = [{"role": "user", "content": messages[-1]["content"]}]
 
@@ -386,7 +482,7 @@ class AWSBedrockLLM(LLMBase):
 
         return self._parse_response(response, tools)
 
-    def _generate_standard(self, messages: List[Dict[str, str]]) -> str:
+    def _generate_standard(self, messages: List[Dict[str, str]], stream: bool = False) -> str:
         """Generate standard text response."""
         # Format messages according to provider
         if self.provider == "anthropic":
@@ -398,6 +494,28 @@ class AWSBedrockLLM(LLMBase):
                 "top_p": self.model_config.get("top_p", 0.9),
                 "anthropic_version": "bedrock-2023-05-31",
             }
+        elif self.provider == "amazon" and "nova" in self.config.model.lower():
+            # Nova models use converse API even without tools
+            formatted_messages = self._format_messages_amazon(messages)
+            input_body = {
+                "messages": formatted_messages,
+                "max_tokens": self.model_config.get("max_tokens", 5000),
+                "temperature": self.model_config.get("temperature", 0.1),
+                "top_p": self.model_config.get("top_p", 0.9),
+            }
+            
+            # Use converse API for Nova models
+            response = self.client.converse(
+                modelId=self.config.model,
+                messages=input_body["messages"],
+                inferenceConfig={
+                    "maxTokens": input_body["max_tokens"],
+                    "temperature": input_body["temperature"],
+                    "topP": input_body["top_p"],
+                }
+            )
+            
+            return self._parse_response(response)
         else:
             prompt = self._format_messages(messages)
             input_body = self._prepare_input(prompt)
@@ -461,13 +579,23 @@ class AWSBedrockLLM(LLMBase):
         """Validate if the model is accessible."""
         try:
             # Try to invoke the model with a minimal request
-            test_body = json.dumps({"prompt": "test"})
-            self.client.invoke_model(
-                body=test_body,
-                modelId=self.config.model,
-                accept="application/json",
-                contentType="application/json",
-            )
+            if self.provider == "amazon" and "nova" in self.config.model.lower():
+                # Test Nova model with converse API
+                test_messages = [{"role": "user", "content": "test"}]
+                self.client.converse(
+                    modelId=self.config.model,
+                    messages=test_messages,
+                    inferenceConfig={"maxTokens": 10}
+                )
+            else:
+                # Test other models with invoke_model
+                test_body = json.dumps({"prompt": "test"})
+                self.client.invoke_model(
+                    body=test_body,
+                    modelId=self.config.model,
+                    accept="application/json",
+                    contentType="application/json",
+                )
             return True
         except Exception:
             return False
