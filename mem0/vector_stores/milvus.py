@@ -27,6 +27,7 @@ class MilvusDB(VectorStoreBase):
         self,
         url: str,
         token: str,
+        database: str,
         collection_name: str,
         embedding_model_dims: int,
         metric_type: MetricType,
@@ -36,14 +37,16 @@ class MilvusDB(VectorStoreBase):
         Args:
             url (str): Full URL for Milvus/Zilliz server.
             token (str): Token/api_key for Zilliz server / for local setup defaults to None.
+            database (str): Name of the database (defaults to default).
             collection_name (str): Name of the collection (defaults to mem0).
             embedding_model_dims (int): Dimensions of the embedding model (defaults to 1536).
             metric_type (MetricType): Metric type for similarity search (defaults to L2).
         """
+        self.database = database
         self.collection_name = collection_name
         self.embedding_model_dims = embedding_model_dims
         self.metric_type = metric_type
-        self.client = MilvusClient(uri=url, token=token)
+        self.client = MilvusClient(uri=url, db_name=database, token=token)
         self.create_col(
             collection_name=self.collection_name,
             vector_size=self.embedding_model_dims,
