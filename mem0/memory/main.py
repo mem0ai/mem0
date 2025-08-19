@@ -31,7 +31,12 @@ from mem0.memory.utils import (
     process_telemetry_filters,
     remove_code_blocks,
 )
-from mem0.utils.factory import EmbedderFactory, LlmFactory, VectorStoreFactory
+from mem0.utils.factory import (
+    EmbedderFactory,
+    GraphStoreFactory,
+    LlmFactory,
+    VectorStoreFactory,
+)
 
 
 def _build_filters_and_metadata(
@@ -136,14 +141,8 @@ class Memory(MemoryBase):
         self.enable_graph = False
 
         if self.config.graph_store.config:
-            if self.config.graph_store.provider == "memgraph":
-                from mem0.memory.memgraph_memory import MemoryGraph
-            elif self.config.graph_store.provider == "neptune":
-                from mem0.graphs.neptune.main import MemoryGraph
-            else:
-                from mem0.memory.graph_memory import MemoryGraph
-
-            self.graph = MemoryGraph(self.config)
+            provider = self.config.graph_store.provider
+            self.graph = GraphStoreFactory.create(provider, self.config)
             self.enable_graph = True
         else:
             self.graph = None
@@ -731,10 +730,14 @@ class Memory(MemoryBase):
 
         Args:
             memory_id (str): ID of the memory to update.
-            data (dict): Data to update the memory with.
+            data (str): New content to update the memory with.
 
         Returns:
-            dict: Updated memory.
+            dict: Success message indicating the memory was updated.
+
+        Example:
+            >>> m.update(memory_id="mem_123", data="Likes to play tennis on weekends")
+            {'message': 'Memory updated successfully!'}
         """
         capture_event("mem0.update", self, {"memory_id": memory_id, "sync_type": "sync"})
 
@@ -989,12 +992,20 @@ class AsyncMemory(MemoryBase):
         self.enable_graph = False
 
         if self.config.graph_store.config:
-            from mem0.memory.graph_memory import MemoryGraph
-
-            self.graph = MemoryGraph(self.config)
+            provider = self.config.graph_store.provider
+            self.graph = GraphStoreFactory.create(provider, self.config)
             self.enable_graph = True
         else:
             self.graph = None
+
+        self.config.vector_store.config.collection_name = "mem0migrations"
+        if self.config.vector_store.provider in ["faiss", "qdrant"]:
+            provider_path = f"migrations_{self.config.vector_store.provider}"
+            self.config.vector_store.config.path = os.path.join(mem0_dir, provider_path)
+            os.makedirs(self.config.vector_store.config.path, exist_ok=True)
+        self._telemetry_vector_store = VectorStoreFactory.create(
+            self.config.vector_store.provider, self.config.vector_store.config
+        )
 
         capture_event("mem0.init", self, {"sync_type": "async"})
 
@@ -1221,6 +1232,8 @@ class AsyncMemory(MemoryBase):
             except Exception as e:
                 logger.error(f"Invalid JSON response: {e}")
                 new_memories_with_actions = {}
+        else:
+            new_memories_with_actions = {}
 
         returned_memories = []
         try:
@@ -1386,21 +1399,23 @@ class AsyncMemory(MemoryBase):
             "mem0.get_all", self, {"limit": limit, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"}
         )
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future_memories = executor.submit(self._get_all_from_vector_store, effective_filters, limit)
-            future_graph_entities = (
-                executor.submit(self.graph.get_all, effective_filters, limit) if self.enable_graph else None
-            )
+        vector_store_task = asyncio.create_task(self._get_all_from_vector_store(effective_filters, limit))
 
-            concurrent.futures.wait(
-                [future_memories, future_graph_entities] if future_graph_entities else [future_memories]
-            )
-
-            all_memories_result = future_memories.result()
-            graph_entities_result = future_graph_entities.result() if future_graph_entities else None
-
+        graph_task = None
         if self.enable_graph:
-            return {"results": all_memories_result, "relations": graph_entities_result}
+            graph_get_all = getattr(self.graph, "get_all", None)
+            if callable(graph_get_all):
+                if asyncio.iscoroutinefunction(graph_get_all):
+                    graph_task = asyncio.create_task(graph_get_all(effective_filters, limit))
+                else:
+                    graph_task = asyncio.create_task(asyncio.to_thread(graph_get_all, effective_filters, limit))
+
+        results_dict = {}
+        if graph_task:
+            vector_store_result, graph_entities_result = await asyncio.gather(vector_store_task, graph_task)
+            results_dict.update({"results": vector_store_result, "relations": graph_entities_result})
+        else:
+            results_dict.update({"results": await vector_store_task})
 
         if self.api_version == "v1.0":
             warnings.warn(
@@ -1410,9 +1425,9 @@ class AsyncMemory(MemoryBase):
                 category=DeprecationWarning,
                 stacklevel=2,
             )
-            return all_memories_result
-        else:
-            return {"results": all_memories_result}
+            return results_dict["results"]
+
+        return results_dict
 
     async def _get_all_from_vector_store(self, filters, limit):
         memories_result = await asyncio.to_thread(self.vector_store.list, filters=filters, limit=limit)
@@ -1578,10 +1593,14 @@ class AsyncMemory(MemoryBase):
 
         Args:
             memory_id (str): ID of the memory to update.
-            data (dict): Data to update the memory with.
+            data (str): New content to update the memory with.
 
         Returns:
-            dict: Updated memory.
+            dict: Success message indicating the memory was updated.
+
+        Example:
+            >>> await m.update(memory_id="mem_123", data="Likes to play tennis on weekends")
+            {'message': 'Memory updated successfully!'}
         """
         capture_event("mem0.update", self, {"memory_id": memory_id, "sync_type": "async"})
 

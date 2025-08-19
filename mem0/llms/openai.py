@@ -1,17 +1,37 @@
 import json
+import logging
 import os
-import warnings
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 from openai import OpenAI
 
 from mem0.configs.llms.base import BaseLlmConfig
+from mem0.configs.llms.openai import OpenAIConfig
 from mem0.llms.base import LLMBase
 from mem0.memory.utils import extract_json
 
 
 class OpenAILLM(LLMBase):
-    def __init__(self, config: Optional[BaseLlmConfig] = None):
+    def __init__(self, config: Optional[Union[BaseLlmConfig, OpenAIConfig, Dict]] = None):
+        # Convert to OpenAIConfig if needed
+        if config is None:
+            config = OpenAIConfig()
+        elif isinstance(config, dict):
+            config = OpenAIConfig(**config)
+        elif isinstance(config, BaseLlmConfig) and not isinstance(config, OpenAIConfig):
+            # Convert BaseLlmConfig to OpenAIConfig
+            config = OpenAIConfig(
+                model=config.model,
+                temperature=config.temperature,
+                api_key=config.api_key,
+                max_tokens=config.max_tokens,
+                top_p=config.top_p,
+                top_k=config.top_k,
+                enable_vision=config.enable_vision,
+                vision_details=config.vision_details,
+                http_client_proxies=config.http_client,
+            )
+
         super().__init__(config)
 
         if not self.config.model:
@@ -26,18 +46,7 @@ class OpenAILLM(LLMBase):
             )
         else:
             api_key = self.config.api_key or os.getenv("OPENAI_API_KEY")
-            base_url = (
-                self.config.openai_base_url
-                or os.getenv("OPENAI_API_BASE")
-                or os.getenv("OPENAI_BASE_URL")
-                or "https://api.openai.com/v1"
-            )
-            if os.environ.get("OPENAI_API_BASE"):
-                warnings.warn(
-                    "The environment variable 'OPENAI_API_BASE' is deprecated and will be removed in the 0.1.80. "
-                    "Please use 'OPENAI_BASE_URL' instead.",
-                    DeprecationWarning,
-                )
+            base_url = self.config.openai_base_url or os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1"
 
             self.client = OpenAI(api_key=api_key, base_url=base_url)
 
@@ -77,6 +86,7 @@ class OpenAILLM(LLMBase):
         response_format=None,
         tools: Optional[List[Dict]] = None,
         tool_choice: str = "auto",
+        **kwargs,
     ):
         """
         Generate a JSON response based on the given messages using OpenAI.
@@ -86,17 +96,17 @@ class OpenAILLM(LLMBase):
             response_format (str or object, optional): Format of the response. Defaults to "text".
             tools (list, optional): List of tools that the model can call. Defaults to None.
             tool_choice (str, optional): Tool choice method. Defaults to "auto".
+            **kwargs: Additional OpenAI-specific parameters.
 
         Returns:
             json: The generated response.
         """
-        params = {
+        params = self._get_supported_params(messages=messages, **kwargs)
+        
+        params.update({
             "model": self.config.model,
             "messages": messages,
-            "temperature": self.config.temperature,
-            "max_tokens": self.config.max_tokens,
-            "top_p": self.config.top_p,
-        }
+        })
 
         if os.getenv("OPENROUTER_API_KEY"):
             openrouter_params = {}
@@ -119,6 +129,13 @@ class OpenAILLM(LLMBase):
         if tools:  # TODO: Remove tools if no issues found with new memory addition logic
             params["tools"] = tools
             params["tool_choice"] = tool_choice
-
         response = self.client.chat.completions.create(**params)
-        return self._parse_response(response, tools)
+        parsed_response = self._parse_response(response, tools)
+        if self.config.response_callback:
+            try:
+                self.config.response_callback(self, response, params)
+            except Exception as e:
+                # Log error but don't propagate
+                logging.error(f"Error due to callback: {e}")
+                pass
+        return parsed_response

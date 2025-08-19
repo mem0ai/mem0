@@ -265,12 +265,17 @@ class MemoryClient:
     ) -> Dict[str, Any]:
         """
         Update a memory by ID.
+        
         Args:
             memory_id (str): Memory ID.
-            text (str, optional): Data to update in the memory.
+            text (str, optional): New content to update the memory with.
             metadata (dict, optional): Metadata to update in the memory.
+            
         Returns:
             Dict[str, Any]: The response from the server.
+            
+        Example:
+            >>> client.update(memory_id="mem_123", text="Likes to play tennis on weekends")
         """
         if text is None and metadata is None:
             raise ValueError("Either text or metadata must be provided for update.")
@@ -447,16 +452,13 @@ class MemoryClient:
         """Batch update memories.
 
         Args:
-            memories: List of memory dictionaries to update. Each dictionary
-                      must contain:
+            memories: List of memory dictionaries to update. Each dictionary must contain:
                 - memory_id (str): ID of the memory to update
-                - text (str): New text content for the memory
+                - text (str, optional): New text content for the memory
+                - metadata (dict, optional): New metadata for the memory
 
         Returns:
-            str: Message indicating the success of the batch update.
-
-        Raises:
-            APIError: If the API request fails.
+            Dict[str, Any]: The response from the server.
         """
         response = self.client.put("/v1/batch/", json={"memories": memories})
         response.raise_for_status()
@@ -1057,13 +1059,18 @@ class AsyncMemoryClient:
         self, memory_id: str, text: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
-        Update a memory by ID.
+        Update a memory by ID asynchronously.
+        
         Args:
             memory_id (str): Memory ID.
-            text (str, optional): Data to update in the memory.
+            text (str, optional): New content to update the memory with.
             metadata (dict, optional): Metadata to update in the memory.
+            
         Returns:
             Dict[str, Any]: The response from the server.
+            
+        Example:
+            >>> await client.update(memory_id="mem_123", text="Likes to play tennis on weekends")
         """
         if text is None and metadata is None:
             raise ValueError("Either text or metadata must be provided for update.")
@@ -1232,16 +1239,13 @@ class AsyncMemoryClient:
         """Batch update memories.
 
         Args:
-            memories: List of memory dictionaries to update. Each dictionary
-                      must contain:
+            memories: List of memory dictionaries to update. Each dictionary must contain:
                 - memory_id (str): ID of the memory to update
-                - text (str): New text content for the memory
+                - text (str, optional): New text content for the memory
+                - metadata (dict, optional): New metadata for the memory
 
         Returns:
-            str: Message indicating the success of the batch update.
-
-        Raises:
-            APIError: If the API request fails.
+            Dict[str, Any]: The response from the server.
         """
         response = await self.async_client.put("/v1/batch/", json={"memories": memories})
         response.raise_for_status()

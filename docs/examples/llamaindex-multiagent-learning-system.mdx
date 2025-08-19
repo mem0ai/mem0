@@ -2,7 +2,7 @@
 title: LlamaIndex Multi-Agent Learning System
 ---
 
-<Snippet file="security-compliance.mdx" />
+<Snippet file="blank-notif.mdx" />
 
 Build an intelligent multi-agent learning system that uses Mem0 to maintain persistent memory across multiple specialized agents. This example demonstrates how to create a tutoring system where different agents collaborate while sharing a unified memory layer.
 
@@ -213,8 +213,8 @@ class MultiAgentLearningSystem:
                 query="learning machine learning"
             )
 
-            if memories and len(memories):
-                history = "\n".join(f"- {m['memory']}" for m in memories)
+            if memories and memories.get('results'):
+                history = "\n".join(f"- {m['memory']}" for m in memories['results'])
                 return history
             else:
                 return "No learning history found yet. Let's start building your profile!"

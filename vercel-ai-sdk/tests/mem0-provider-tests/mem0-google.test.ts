@@ -2,7 +2,8 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import { createMem0 } from "../../src";
-import { generateText, LanguageModelV1Prompt } from "ai";
+import { generateText } from "ai";
+import { LanguageModelV2Prompt } from '@ai-sdk/provider';
 import { testConfig } from "../../config/test-config";
 
 describe("GOOGLE MEM0 Tests", () => {
@@ -22,7 +23,7 @@ describe("GOOGLE MEM0 Tests", () => {
   });
 
   it("should retrieve memories and generate text using Google provider", async () => {
-    const messages: LanguageModelV1Prompt = [
+    const messages: LanguageModelV2Prompt = [
       {
         role: "user",
         content: [
@@ -34,7 +35,7 @@ describe("GOOGLE MEM0 Tests", () => {
 
     const { text } = await generateText({
       // @ts-ignore
-      model: mem0("gemini-2.5-pro-preview-05-06"),
+      model: mem0("gemini-1.5-flash"),
       messages: messages
     });
 
@@ -48,7 +49,7 @@ describe("GOOGLE MEM0 Tests", () => {
 
     const { text } = await generateText({
       // @ts-ignore
-      model: mem0("gemini-2.5-pro-preview-05-06"),
+      model: mem0("gemini-1.5-flash"),
       prompt: prompt
     });
 

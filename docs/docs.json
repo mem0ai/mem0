@@ -22,7 +22,7 @@
                 "group": "Getting Started",
                 "icon": "rocket",
                 "pages": [
-                  "what-is-mem0",
+                  "introduction",
                   "quickstart",
                   "faqs"
                 ]
@@ -50,6 +50,7 @@
                 "pages": [
                   "platform/overview",
                   "platform/quickstart",
+                  "platform/advanced-memory-operations",
                   {
                     "group": "Features",
                     "icon": "star",
@@ -59,6 +60,7 @@
                       "platform/features/async-client",
                       "platform/features/advanced-retrieval",
                       "platform/features/criteria-retrieval",
+                      "platform/features/multimodal-support",
                       "platform/features/selective-memory",
                       "platform/features/custom-categories",
                       "platform/features/custom-instructions",
@@ -84,6 +86,7 @@
                     "group": "Features",
                     "icon": "star",
                     "pages": [
+                      "open-source/features/overview",
                       "open-source/features/async-memory",
                       "open-source/features/openai_compatibility",
                       "open-source/features/custom-fact-extraction-prompt",
@@ -120,7 +123,6 @@
                           "components/llms/models/mistral_AI",
                           "components/llms/models/google_AI",
                           "components/llms/models/aws_bedrock",
-                          "components/llms/models/gemini",
                           "components/llms/models/deepseek",
                           "components/llms/models/xAI",
                           "components/llms/models/sarvam",
@@ -152,11 +154,14 @@
                           "components/vectordbs/dbs/elasticsearch",
                           "components/vectordbs/dbs/opensearch",
                           "components/vectordbs/dbs/supabase",
+                          "components/vectordbs/dbs/upstash-vector",
+                          "components/vectordbs/dbs/vectorize",
                           "components/vectordbs/dbs/vertex_ai",
                           "components/vectordbs/dbs/weaviate",
                           "components/vectordbs/dbs/faiss",
                           "components/vectordbs/dbs/langchain",
-                          "components/vectordbs/dbs/baidu"
+                          "components/vectordbs/dbs/baidu",
+                          "components/vectordbs/dbs/databricks"
                         ]
                       }
                     ]
@@ -176,7 +181,7 @@
                           "components/embedders/models/ollama",
                           "components/embedders/models/huggingface",
                           "components/embedders/models/vertexai",
-                          "components/embedders/models/gemini",
+                          "components/embedders/models/google_AI",
                           "components/embedders/models/lmstudio",
                           "components/embedders/models/together",
                           "components/embedders/models/langchain",
@@ -219,6 +224,7 @@
                   "examples/ai_companion_js",
                   "examples/collaborative-task-agent",
                   "examples/llamaindex-multiagent-learning-system",
+                  "examples/personalized-search-tavily-mem0",
                   "examples/eliza_os",
                   "examples/mem0-mastra",
                   "examples/mem0-with-ollama",
