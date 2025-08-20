@@ -1,11 +1,11 @@
 import logging
 from typing import List
 
+from app.utils.prompts import MEMORY_CATEGORIZATION_PROMPT
 from dotenv import load_dotenv
 from openai import OpenAI
 from pydantic import BaseModel
 from tenacity import retry, stop_after_attempt, wait_exponential
-from app.utils.prompts import MEMORY_CATEGORIZATION_PROMPT
 
 load_dotenv()
 openai_client = OpenAI()

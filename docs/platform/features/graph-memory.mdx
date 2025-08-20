@@ -5,8 +5,6 @@ iconType: "solid"
 description: "Enable graph-based memory retrieval for more contextually relevant results"
 ---
 
-<Snippet file="security-compliance.mdx" />
-
 ## Overview
 
 Graph Memory enhances memory pipeline by creating relationships between entities in your data. It builds a network of interconnected information for more contextually relevant search results.
@@ -297,7 +295,7 @@ client = MemoryClient(
 )
 
 # Enable graph memory for all operations in this project
-client.update_project(enable_graph=True, version="v1")
+client.project.update(enable_graph=True)
 
 # Now all add operations will use graph memory by default
 messages = [

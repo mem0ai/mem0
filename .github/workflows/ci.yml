@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.11"]
+        python-version: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v3
       - name: Set up Python ${{ matrix.python-version }}
@@ -58,11 +58,10 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -e ".[test,graph,vector_stores,llms,extras]"
+          pip install ruff
         if: steps.cached-hatch-dependencies.outputs.cache-hit != 'true'
-      - name: Run Formatting
-        run: |
-          mkdir -p .ruff_cache && chmod -R 777 .ruff_cache
-          hatch run format
+      - name: Run Linting
+        run: make lint
       - name: Run tests and generate coverage report
         run: make test
 
@@ -72,7 +71,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.9", "3.10", "3.11"]
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v3
       - name: Set up Python ${{ matrix.python-version }}

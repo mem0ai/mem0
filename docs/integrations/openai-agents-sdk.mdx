@@ -2,15 +2,13 @@
 title: OpenAI Agents SDK
 ---
 
-<Snippet file="security-compliance.mdx" />
-
 Integrate [**Mem0**](https://github.com/mem0ai/mem0) with [OpenAI Agents SDK](https://github.com/openai/openai-agents-python), a lightweight framework for building multi-agent workflows. This integration enables agents to access persistent memory across conversations, enhancing context retention and personalization.
 
 ## Overview
 
 1. Store and retrieve memories from Mem0 within OpenAI agents
 2. Multi-agent workflows with shared memory
-3. Semantic search for relevant past conversations
+3. Retrieve relevant memories for past conversations
 4. Personalized responses based on user history
 
 ## Prerequisites
@@ -44,15 +42,15 @@ mem0 = MemoryClient()
 
 # Define memory tools for the agent
 @function_tool
-def search_memory(query: str, user_id: str = "default") -> str:
+def search_memory(query: str, user_id: str) -> str:
     """Search through past conversations and memories"""
     memories = mem0.search(query, user_id=user_id, limit=3)
-    if memories:
-        return "\n".join([f"- {mem['memory']}" for mem in memories])
+    if memories and memories.get('results'):
+        return "\n".join([f"- {mem['memory']}" for mem in memories['results']])
     return "No relevant memories found."
 
 @function_tool
-def save_memory(content: str, user_id: str = "default") -> str:
+def save_memory(content: str, user_id: str) -> str:
     """Save important information to memory"""
     mem0.add([{"role": "user", "content": content}], user_id=user_id)
     return "Information saved to memory."
@@ -68,7 +66,7 @@ agent = Agent(
     model="gpt-4o"
 )
 
-def chat_with_memory(user_input: str, user_id: str) -> str:
+def chat_with_agent(user_input: str, user_id: str) -> str:
     """
     Handle user input with automatic memory integration.
 
@@ -82,22 +80,24 @@ def chat_with_memory(user_input: str, user_id: str) -> str:
     # Run the agent (it will automatically use memory tools when needed)
     result = Runner.run_sync(agent, user_input)
 
-    # Store the conversation in memory
-    conversation = [
-        {"role": "user", "content": user_input},
-        {"role": "assistant", "content": result.final_output}
-    ]
-    mem0.add(conversation, user_id=user_id)
-
     return result.final_output
 
 # Example usage
 if __name__ == "__main__":
-    response = chat_with_memory(
+
+    # preferences will be saved in memory (using save_memory tool)
+    response_1 = chat_with_agent(
         "I love Italian food and I'm planning a trip to Rome next month",
         user_id="alice"
     )
-    print(response)
+    print(response_1)
+
+    # memory will be retrieved using search_memory tool to answer the user query
+    response_2 = chat_with_agent(
+        "Give me some recommendations for food",
+        user_id="alice"
+    )
+    print(response_2)
 ```
 
 ## Multi-Agent Workflow with Handoffs
@@ -133,12 +133,11 @@ triage_agent = Agent(
     For travel-related questions (trips, hotels, flights, destinations), hand off to Travel Planner.
     For health-related questions (fitness, diet, wellness, exercise), hand off to Health Advisor.
     For general questions, you can handle them directly using available tools.""",
-    tools=[get_user_context],
     handoffs=[travel_agent, health_agent],
     model="gpt-4o"
 )
 
-def chat_with_handoffs(user_input: str, user_id: str = "default") -> str:
+def chat_with_handoffs(user_input: str, user_id: str) -> str:
     """
     Handle user input with automatic agent handoffs and memory integration.
 
@@ -230,5 +229,6 @@ mem0.add(
 
 - [OpenAI Agents SDK Documentation](https://openai.github.io/openai-agents-python/)
 - [Mem0 Platform](https://app.mem0.ai/)
+- If you need further assistance, please feel free to reach out to us through the following methods:
 
 <Snippet file="get-help.mdx" />

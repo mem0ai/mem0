@@ -68,7 +68,7 @@ class RAGManager:
     def clean_chat_history(self, chat_history):
         cleaned_chat_history = ""
         for c in chat_history:
-            cleaned_chat_history += f"{c['timestamp']} | {c['speaker']}: " f"{c['text']}\n"
+            cleaned_chat_history += f"{c['timestamp']} | {c['speaker']}: {c['text']}\n"
 
         return cleaned_chat_history
 

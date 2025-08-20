@@ -2,7 +2,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from mem0.configs.llms.base import BaseLlmConfig
+from mem0.configs.llms.ollama import OllamaConfig
 from mem0.llms.ollama import OllamaLLM
 
 
@@ -16,7 +16,7 @@ def mock_ollama_client():
 
 
 def test_generate_response_without_tools(mock_ollama_client):
-    config = BaseLlmConfig(model="llama3.1:70b", temperature=0.7, max_tokens=100, top_p=1.0)
+    config = OllamaConfig(model="llama3.1:70b", temperature=0.7, max_tokens=100, top_p=1.0)
     llm = OllamaLLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
