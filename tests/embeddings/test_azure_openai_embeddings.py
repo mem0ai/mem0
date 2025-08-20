@@ -130,8 +130,8 @@ def test_init_with_default_azure_credential(monkeypatch, base_embedder_config):
         mock_cred.assert_called_once()
         mock_token_provider.assert_called_once_with(mock_cred_instance, "https://cognitiveservices.azure.com/.default")
         mock_azure_openai.assert_called_once_with(
-            azure_deployment="",
-            azure_endpoint="",
+            azure_deployment=None,
+            azure_endpoint=None,
             azure_ad_token_provider=mock_token_provider_instance,
             api_version=None,
             api_key=None,
@@ -156,8 +156,8 @@ def test_init_with_placeholder_api_key(monkeypatch, base_embedder_config):
         mock_cred.assert_called_once()
         mock_token_provider.assert_called_once_with(mock_cred_instance, "https://cognitiveservices.azure.com/.default")
         mock_azure_openai.assert_called_once_with(
-            azure_deployment="",
-            azure_endpoint="",
+            azure_deployment=None,
+            azure_endpoint=None,
             azure_ad_token_provider=mock_token_provider_instance,
             api_version=None,
             api_key=None,

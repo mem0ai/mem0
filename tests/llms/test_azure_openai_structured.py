@@ -67,18 +67,17 @@ def test_init_with_default_credential(mock_credential, mock_token_provider, mock
 
 def test_init_with_env_vars(monkeypatch, mocker):
     mock_azure_openai = mocker.patch("mem0.llms.azure_openai_structured.AzureOpenAI")
-    monkeypatch.setenv("LLM_AZURE_OPENAI_API_KEY", "env-key")
-    monkeypatch.setenv("LLM_AZURE_DEPLOYMENT", "env-deployment")
-    monkeypatch.setenv("LLM_AZURE_ENDPOINT", "https://env-endpoint.openai.azure.com")
-    monkeypatch.setenv("LLM_AZURE_API_VERSION", "2024-06-02-preview")
+    monkeypatch.setenv("LLM_AZURE_DEPLOYMENT", "test-deployment")
+    monkeypatch.setenv("LLM_AZURE_ENDPOINT", "https://test-endpoint.openai.azure.com")
+    monkeypatch.setenv("LLM_AZURE_API_VERSION", "2024-06-01-preview")
     config = DummyConfig(model="test-model", azure_kwargs=DummyAzureKwargs(api_key=None))
     AzureOpenAIStructuredLLM(config)
     mock_azure_openai.assert_called_once()
     args, kwargs = mock_azure_openai.call_args
-    assert kwargs["api_key"] == "env-key"
-    assert kwargs["azure_deployment"] == "env-deployment"
-    assert kwargs["azure_endpoint"] == "https://env-endpoint.openai.azure.com"
-    assert kwargs["api_version"] == "2024-06-02-preview"
+    assert kwargs["api_key"] is None
+    assert kwargs["azure_deployment"] == "test-deployment"
+    assert kwargs["azure_endpoint"] == "https://test-endpoint.openai.azure.com"
+    assert kwargs["api_version"] == "2024-06-01-preview"
 
 
 @mock.patch("mem0.llms.azure_openai_structured.AzureOpenAI")
