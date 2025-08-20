@@ -304,7 +304,7 @@ config = MemoryConfig(
 - **langchain** - LangChain embeddings
 - **aws_bedrock** - AWS Bedrock embeddings
 
-#### Vector Store Providers (18 supported)
+#### Vector Store Providers (19 supported)
 - **qdrant** - Qdrant vector database (default)
 - **chroma** - ChromaDB
 - **pinecone** - Pinecone vector database
@@ -325,7 +325,7 @@ config = MemoryConfig(
 - **s3_vectors** - Amazon S3 Vectors
 - **databricks** - Databricks vector stores
 
-#### Graph Store Providers (3 supported)
+#### Graph Store Providers (4 supported)
 - **neo4j** - Neo4j graph database
 - **memgraph** - Memgraph
 - **neptune** - AWS Neptune Analytics
