@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from mem0 import Memory
+from mem0.configs.base import MemoryConfig
 
 
 @pytest.fixture
@@ -63,3 +64,34 @@ def test_list_memories(memory_client):
     memories = memory_client.get_all(user_id="test_user")
     assert data1 in memories
     assert data2 in memories
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_collection_name_preserved_after_reset(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    test_collection_name = "mem0"
+    config = MemoryConfig()
+    config.vector_store.config.collection_name = test_collection_name
+
+    memory = Memory(config)
+
+    assert memory.collection_name == test_collection_name
+    assert memory.config.vector_store.config.collection_name == test_collection_name
+
+    memory.reset()
+
+    assert memory.collection_name == test_collection_name
+    assert memory.config.vector_store.config.collection_name == test_collection_name
+
+    reset_calls = [call for call in mock_vector_factory.call_args_list if len(mock_vector_factory.call_args_list) > 2]
+    if reset_calls:
+        reset_config = reset_calls[-1][0][1]  
+        assert reset_config.collection_name == test_collection_name, f"Reset used wrong collection name: {reset_config.collection_name}"
