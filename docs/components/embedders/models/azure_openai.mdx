@@ -77,45 +77,11 @@ await memory.add(messages, { userId: "john" });
 ```
 </CodeGroup>
 
-As an alternative to using an API key, the Azure Identity credential chain can be used to authenticate with Azure OpenAI. The list below shows the order of precedence for credential application:
+As an alternative to using an API key, the Azure Identity credential chain can be used to authenticate with [Azure OpenAI role-based security](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/how-to/role-based-access-control). 
 
-1. **Environment Credential:**
-Azure client ID, secret, tenant ID, or certificate in environment variables for service principal authentication.
+<Note> If an API key is provided, it will be used for authentication over an Azure Identity </Note>
 
-2. **Workload Identity Credential:**
-Utilizes Azure Workload Identity (relevant for Kubernetes and Azure workloads).
-
-3. **Managed Identity Credential:**
-Authenticates as a Managed Identity (for apps/services hosted in Azure with Managed Identity enabled), this is the most secure production credential.
-
-4. **Shared Token Cache Credential / Visual Studio Credential (Windows only):**
-Uses cached credentials from Visual Studio sign-ins (and sometimes VS Code if SSO is enabled).
-
-5. **Azure CLI Credential:**
-Uses the currently logged-in user from the Azure CLI (`az login`), this is the most common development credential.
-
-6. **Azure PowerShell Credential:**
-Uses the identity from Azure PowerShell (`Connect-AzAccount`).
-
-7. **Azure Developer CLI Credential:**
-Uses the session from Azure Developer CLI (`azd auth login`).
-
-<Note> If an API is provided, it will be used for authentication over an Azure Identity </Note>
-
-Role-Based Access Control (RBAC) for Azure OpenAI on by default. To enable the needed role, follow these steps:
-- In the Azure portal, go to the **Azure OpenAI** resource.
-- Select **Access control (IAM)** in the left-hand menu. This is where you will manage role assignments for RBAC.
-- Click **Add** > **Add role assignment**.
-- Select the **Cognitive Services OpenAI Contributor** role.
-- On the **Members** tab, choose:
-  - For production it is recommended to use a service principal or managed identity.
-    - For a service principal: select **User, group, or service principal** and search for the service principal.
-    - For a managed identity: select **Managed identity** and choose the managed identity.
-  - For development, you can assign the role to a user account.
-    - For development: select **User, group, or service principal** and pick a Azure Entra ID account (the same used with `az login`).
-- Click **Review + assign**.
-
-Below is a sample configuration for using Azure OpenAI with the Mem0 library:
+Below is a sample configuration for using Mem0 with Azure OpenAI and Azure Identity:
 
 ```python
 import os
@@ -146,22 +112,7 @@ config = {
 }
 ```
 
-**Environment Variables to set to use Azure Identity Credential:**
-* For an Environment Credential, you will need to setup a Service Principal and set the following environment variables:
-  - `AZURE_TENANT_ID`: Your Azure Active Directory tenant ID.
-  - `AZURE_CLIENT_ID`: The client ID of your service principal or managed identity.
-  - `AZURE_CLIENT_SECRET`: The client secret of your service principal.
-* For a User-Assigned Managed Identity, you will need to set the following environment variable:
-  - `AZURE_CLIENT_ID`: The client ID of the user-assigned managed identity.
-* For a System-Assigned Managed Identity, no additional environment variables are needed.
-
-**Developer logins to use for a Azure Identity Credential:**
-* For an Azure CLI Credential, you need to have the Azure CLI installed and logged in with `az login`.
-* For an Azure PowerShell Credential, you need to have the Azure PowerShell module installed and logged in with `Connect-AzAccount`.
-* For an Azure Developer CLI Credential, you need to have the Azure Developer CLI installed and logged in with `azd auth login`.
-
-Troubleshooting tips for [Azure Identity](https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/identity/azure-identity/TROUBLESHOOTING.md#troubleshoot-environmentcredential-authentication-issues).
-
+Refer to [Azure Identity troubleshooting tips](https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/identity/azure-identity/TROUBLESHOOTING.md#troubleshoot-environmentcredential-authentication-issues) for setting up an Azure Identity credential.
 
 ### Config
 
