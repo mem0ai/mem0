@@ -11,6 +11,7 @@ from mem0.vector_stores.base import VectorStoreBase
 try:
     from azure.core.credentials import AzureKeyCredential
     from azure.core.exceptions import ResourceNotFoundError
+    from azure.identity import DefaultAzureCredential
     from azure.search.documents import SearchClient
     from azure.search.documents.indexes import SearchIndexClient
     from azure.search.documents.indexes.models import (
@@ -77,14 +78,21 @@ class AzureAISearch(VectorStoreBase):
         self.hybrid_search = hybrid_search
         self.vector_filter_mode = vector_filter_mode
 
+        # If the API key is not provided or is a placeholder, use DefaultAzureCredential.
+        if self.api_key is None or self.api_key == "" or self.api_key == "your-api-key":
+            credential = DefaultAzureCredential()
+            self.api_key = None
+        else:
+            credential = AzureKeyCredential(self.api_key)
+
         self.search_client = SearchClient(
             endpoint=f"https://{service_name}.search.windows.net",
             index_name=self.index_name,
-            credential=AzureKeyCredential(api_key),
+            credential=credential,
         )
         self.index_client = SearchIndexClient(
             endpoint=f"https://{service_name}.search.windows.net",
-            credential=AzureKeyCredential(api_key),
+            credential=credential,
         )
 
         self.search_client._client._config.user_agent_policy.add_user_agent("mem0")
@@ -358,16 +366,23 @@ class AzureAISearch(VectorStoreBase):
             # Delete the collection
             self.delete_col()
 
+            # If the API key is not provided or is a placeholder, use DefaultAzureCredential.
+            if self.api_key is None or self.api_key == "" or self.api_key == "your-api-key":
+                credential = DefaultAzureCredential()
+                self.api_key = None
+            else:
+                credential = AzureKeyCredential(self.api_key)
+
             # Reinitialize the clients
             service_endpoint = f"https://{self.service_name}.search.windows.net"
             self.search_client = SearchClient(
                 endpoint=service_endpoint,
                 index_name=self.index_name,
-                credential=AzureKeyCredential(self.api_key),
+                credential=credential,
             )
             self.index_client = SearchIndexClient(
                 endpoint=service_endpoint,
-                credential=AzureKeyCredential(self.api_key),
+                credential=credential,
             )
 
             # Add user agent
