@@ -13,7 +13,7 @@ class TestNeptuneMemory(unittest.TestCase):
 
         # Create a mock config
         self.config = MagicMock()
-        self.config.graph_store.config.endpoint = "neptune-db://test-graph"
+        self.config.graph_store.config.endpoint = "neptune-graph://test-graph"
         self.config.graph_store.config.base_label = True
         self.config.llm.provider = "openai_structured"
         self.config.graph_store.llm = None
@@ -28,7 +28,7 @@ class TestNeptuneMemory(unittest.TestCase):
         self.mock_llm = MagicMock()
 
         # Patch the necessary components
-        self.neptune_analytics_graph_patcher = patch("mem0.graphs.neptune.neptunedb.NeptuneGraph")
+        self.neptune_analytics_graph_patcher = patch("mem0.graphs.neptune.neptunegraph.NeptuneAnalyticsGraph")
         self.mock_neptune_analytics_graph = self.neptune_analytics_graph_patcher.start()
         self.mock_neptune_analytics_graph.return_value = self.mock_graph
 
