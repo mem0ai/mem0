@@ -21,7 +21,7 @@
 
 <p align="center">
   <a href="https://mem0.dev/DiG">
-    <img src="https://dcbadge.vercel.app/api/server/6PzXDgEjG5?style=flat" alt="Mem0 Discord">
+    <img src="https://img.shields.io/badge/Discord-%235865F2.svg?&logo=discord&logoColor=white" alt="Mem0 Discord">
   </a>
   <a href="https://pepy.tech/project/mem0ai">
     <img src="https://img.shields.io/pypi/dm/mem0ai" alt="Mem0 PyPI - Downloads">
