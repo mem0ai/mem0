@@ -146,13 +146,15 @@ class Memory(MemoryBase):
             self.enable_graph = True
         else:
             self.graph = None
-        self.config.vector_store.config.collection_name = "mem0migrations"
+
+        telemetry_config = deepcopy(self.config.vector_store.config)
+        telemetry_config.collection_name = "mem0migrations"
         if self.config.vector_store.provider in ["faiss", "qdrant"]:
             provider_path = f"migrations_{self.config.vector_store.provider}"
-            self.config.vector_store.config.path = os.path.join(mem0_dir, provider_path)
-            os.makedirs(self.config.vector_store.config.path, exist_ok=True)
+            telemetry_config.path = os.path.join(mem0_dir, provider_path)
+            os.makedirs(telemetry_config.path, exist_ok=True)
         self._telemetry_vector_store = VectorStoreFactory.create(
-            self.config.vector_store.provider, self.config.vector_store.config
+            self.config.vector_store.provider, telemetry_config
         )
         capture_event("mem0.init", self, {"sync_type": "sync"})
 
