@@ -29,6 +29,8 @@ class VectorStoreConfig(BaseModel):
         "weaviate": "WeaviateConfig",
         "faiss": "FAISSConfig",
         "langchain": "LangchainConfig",
+        "tair_vector": "TairVectorConfig",
+        "lindorm_search": "LindormSearchConfig"
     }
 
     @model_validator(mode="after")
