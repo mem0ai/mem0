@@ -204,6 +204,7 @@ class GraphStoreFactory:
         "neptune": "mem0.graphs.neptune.main.MemoryGraph",
         "kuzu": "mem0.memory.kuzu_memory.MemoryGraph",
         "default": "mem0.memory.graph_memory.MemoryGraph",
+        "dynamodb": "mem0.dynamodb.graph_store.DynamoDBMemoryGraph"
     }
 
     @classmethod
@@ -214,3 +215,25 @@ class GraphStoreFactory:
         except (ImportError, AttributeError) as e:
             raise ImportError(f"Could not import MemoryGraph for provider '{provider_name}': {e}")
         return GraphClass(config)
+
+
+class ConversationStoreFactory:
+    """
+    Factory for creating conversation store instances for different providers.
+    Usage: ConversationStoreFactory.create(provider_name, config)
+    """
+
+    provider_to_class = {
+        "dynamodb": "mem0.dynamodb.conversation_store.DynamoDBConversationStore"
+    }
+
+    @classmethod
+    def create(cls, provider_name, config):
+        class_type = cls.provider_to_class.get(provider_name)
+        if not class_type:
+            raise ValueError(f"Unsupported conversation store provider: {provider_name}")
+        try:
+            ConversationStoreClass = load_class(class_type)
+        except (ImportError, AttributeError) as e:
+            raise ImportError(f"Could not import conversation store for provider '{provider_name}': {e}")
+        return ConversationStoreClass(config)

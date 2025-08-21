@@ -32,6 +32,7 @@ from mem0.memory.utils import (
     remove_code_blocks,
 )
 from mem0.utils.factory import (
+    ConversationStoreFactory,
     EmbedderFactory,
     GraphStoreFactory,
     LlmFactory,
@@ -134,7 +135,15 @@ class Memory(MemoryBase):
             self.config.vector_store.provider, self.config.vector_store.config
         )
         self.llm = LlmFactory.create(self.config.llm.provider, self.config.llm.config)
-        self.db = SQLiteManager(self.config.history_db_path)
+        
+        # Use ConversationStoreFactory to create the appropriate conversation store
+        if hasattr(self.config, 'conversation_store') and self.config.conversation_store:
+            self.db = ConversationStoreFactory.create(
+                self.config.conversation_store.provider, 
+                self.config.conversation_store.config
+            )
+        else:
+            self.db = SQLiteManager(self.config.history_db_path)
         self.collection_name = self.config.vector_store.config.collection_name
         self.api_version = self.config.version
 
