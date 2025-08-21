@@ -7,10 +7,10 @@ try:
 except ImportError:
     raise ImportError("YouTube video requires extra dependencies. Install with `pip install youtube-transcript-api`")
 try:
-    from langchain_community.document_loaders import YoutubeLoader
+    from langchain_yt_dlp.youtube_loader import YoutubeLoaderDL
     from langchain_community.document_loaders.youtube import _parse_video_id
 except ImportError:
-    raise ImportError("YouTube video requires extra dependencies. Install with `pip install pytube==15.0.0`") from None
+    raise ImportError("YouTube video requires extra dependencies. Install with `pip install yt-dlp==2025.2.19 langchain-yt-dlp==0.0.8`") from None
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils.misc import clean_string
@@ -33,7 +33,7 @@ class YoutubeVideoLoader(BaseLoader):
             logging.exception(f"Failed to fetch transcript for video {url}")
             transcript = "Unavailable"
 
-        loader = YoutubeLoader.from_youtube_url(url, add_video_info=True, language=languages)
+        loader = YoutubeLoaderDL.from_youtube_url(url, add_video_info=True)
         doc = loader.load()
         output = []
         if not len(doc):
