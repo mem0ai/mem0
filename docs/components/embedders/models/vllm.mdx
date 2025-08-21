@@ -1,0 +1,103 @@
+---
+title: vLLM
+---
+
+[vLLM](https://docs.vllm.ai/) is a high-performance inference engine that supports both text generation and embeddings. You can use vLLM to run embedding models locally for private and cost-effective embeddings.
+
+## Prerequisites
+
+1. **Install vLLM**:
+   ```bash
+   pip install vllm
+   ```
+
+2. **Start vLLM embedding server**:
+   ```bash
+   vllm serve intfloat/e5-mistral-7b-instruct --task embed --port 8001
+   ```
+
+## Usage
+
+```python
+import os
+from mem0 import Memory
+
+config = {
+    "embedder": {
+        "provider": "vllm",
+        "config": {
+            "model": "intfloat/e5-mistral-7b-instruct",
+            "vllm_base_url": "http://localhost:8001/v1"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thrillers, but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thrillers and suggest sci-fi movies instead."}
+]
+m.add(messages, user_id="alice")
+```
+
+## Popular Embedding Models
+
+Here are some recommended embedding models to use with vLLM:
+
+### High-Quality Models
+```bash
+# Excellent general-purpose embedding model
+vllm serve intfloat/e5-mistral-7b-instruct --task embed --port 8001
+
+# Strong multilingual support
+vllm serve intfloat/multilingual-e5-large --task embed --port 8001
+
+# Code-specific embeddings
+vllm serve jinaai/jina-embeddings-v2-base-code --task embed --port 8001
+```
+
+## Configuration Parameters
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `model` | The name of the embedding model to use | `intfloat/e5-mistral-7b-instruct` |
+| `embedding_dims` | Dimensions of the embedding model | `4096` |
+| `vllm_base_url` | vLLM server URL for embeddings | `http://localhost:8000/v1` |
+| `api_key` | API key (dummy for local) | `vllm-api-key` |
+
+## Environment Variables
+
+You can set these environment variables instead of specifying them in config:
+
+```bash
+export VLLM_BASE_URL="http://localhost:8001/v1"
+export VLLM_API_KEY="your-vllm-api-key"
+```
+
+## Benefits
+
+- **Local & Private**: Keep your data completely private
+- **High Performance**: Optimized inference with vLLM
+- **Cost Effective**: No per-token charges
+- **Flexible**: Support for various embedding models
+- **Consistent**: Same infrastructure as vLLM text generation
+
+## Troubleshooting
+
+1. **Server not responding**: Make sure vLLM embedding server is running
+   ```bash
+   curl http://localhost:8001/health
+   ```
+
+2. **Wrong task**: Ensure you start the server with `--task embed`
+   ```bash
+   vllm serve intfloat/e5-mistral-7b-instruct --task embed --port 8001
+   ```
+
+3. **Model not found**: Check that the embedding model is supported by vLLM
+
+## Config
+
+All available parameters for the `vllm` embedder config are present in [Master List of All Params in Config](../config).
