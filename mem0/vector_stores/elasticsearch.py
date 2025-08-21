@@ -31,12 +31,14 @@ class ElasticsearchDB(VectorStoreBase):
                 cloud_id=config.cloud_id,
                 api_key=config.api_key,
                 verify_certs=config.verify_certs,
+                headers= config.headers or {},
             )
         else:
             self.client = Elasticsearch(
                 hosts=[f"{config.host}" if config.port is None else f"{config.host}:{config.port}"],
                 basic_auth=(config.user, config.password) if (config.user and config.password) else None,
                 verify_certs=config.verify_certs,
+                headers= config.headers or {},
             )
 
         self.collection_name = config.collection_name

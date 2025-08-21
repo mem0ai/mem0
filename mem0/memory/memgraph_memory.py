@@ -1,9 +1,9 @@
 import logging
 
-from mem0.memory.utils import format_entities
+from mem0.memory.utils import format_entities, sanitize_relationship_for_cypher
 
 try:
-    from langchain_memgraph import Memgraph
+    from langchain_memgraph.graphs.memgraph import Memgraph
 except ImportError:
     raise ImportError("langchain_memgraph is not installed. Please install it using pip install langchain-memgraph")
 
@@ -40,13 +40,20 @@ class MemoryGraph:
             {"enable_embeddings": True},
         )
 
-        self.llm_provider = "openai_structured"
-        if self.config.llm.provider:
+        # Default to openai if no specific provider is configured
+        self.llm_provider = "openai"
+        if self.config.llm and self.config.llm.provider:
             self.llm_provider = self.config.llm.provider
-        if self.config.graph_store.llm:
+        if self.config.graph_store and self.config.graph_store.llm and self.config.graph_store.llm.provider:
             self.llm_provider = self.config.graph_store.llm.provider
 
-        self.llm = LlmFactory.create(self.llm_provider, self.config.llm.config)
+        # Get LLM config with proper null checks
+        llm_config = None
+        if self.config.graph_store and self.config.graph_store.llm and hasattr(self.config.graph_store.llm, "config"):
+            llm_config = self.config.graph_store.llm.config
+        elif hasattr(self.config.llm, "config"):
+            llm_config = self.config.llm.config
+        self.llm = LlmFactory.create(self.llm_provider, llm_config)
         self.user_id = None
         self.threshold = 0.7
 
@@ -54,12 +61,23 @@ class MemoryGraph:
         # 1. Create vector index (created Entity label on all nodes)
         # 2. Create label property index for performance optimizations
         embedding_dims = self.config.embedder.config["embedding_dims"]
-        create_vector_index_query = f"CREATE VECTOR INDEX memzero ON :Entity(embedding) WITH CONFIG {{'dimension': {embedding_dims}, 'capacity': 1000, 'metric': 'cos'}};"
-        self.graph.query(create_vector_index_query, params={})
-        create_label_prop_index_query = "CREATE INDEX ON :Entity(user_id);"
-        self.graph.query(create_label_prop_index_query, params={})
-        create_label_index_query = "CREATE INDEX ON :Entity;"
-        self.graph.query(create_label_index_query, params={})
+        index_info = self._fetch_existing_indexes()
+        # Create vector index if not exists
+        if not any(idx.get("index_name") == "memzero" for idx in index_info["vector_index_exists"]):
+            self.graph.query(
+                f"CREATE VECTOR INDEX memzero ON :Entity(embedding) WITH CONFIG {{'dimension': {embedding_dims}, 'capacity': 1000, 'metric': 'cos'}};"
+            )
+        # Create label+property index if not exists
+        if not any(
+            idx.get("index type") == "label+property" and idx.get("label") == "Entity"
+            for idx in index_info["index_exists"]
+        ):
+            self.graph.query("CREATE INDEX ON :Entity(user_id);")
+        # Create label index if not exists
+        if not any(
+            idx.get("index type") == "label" and idx.get("label") == "Entity" for idx in index_info["index_exists"]
+        ):
+            self.graph.query("CREATE INDEX ON :Entity;")
 
     def add(self, data, filters):
         """
@@ -76,8 +94,8 @@ class MemoryGraph:
 
         # TODO: Batch queries with APOC plugin
         # TODO: Add more filter support
-        deleted_entities = self._delete_entities(to_be_deleted, filters["user_id"])
-        added_entities = self._add_entities(to_be_added, filters["user_id"], entity_type_map)
+        deleted_entities = self._delete_entities(to_be_deleted, filters)
+        added_entities = self._add_entities(to_be_added, filters, entity_type_map)
 
         return {"deleted_entities": deleted_entities, "added_entities": added_entities}
 
@@ -162,7 +180,7 @@ class MemoryGraph:
             LIMIT $limit
             """
             params = {"user_id": filters["user_id"], "limit": limit}
-        
+
         results = self.graph.query(query, params=params)
 
         final_results = []
@@ -263,23 +281,25 @@ class MemoryGraph:
             # Build query based on whether agent_id is provided
             if filters.get("agent_id"):
                 cypher_query = """
-                MATCH (n:Entity {user_id: $user_id, agent_id: $agent_id})-[r]->(m:Entity)
+                MATCH (n:Entity {user_id: $user_id, agent_id: $agent_id})
                 WHERE n.embedding IS NOT NULL
-                WITH collect(n) AS nodes1, collect(m) AS nodes2, r
-                CALL node_similarity.cosine_pairwise("embedding", nodes1, nodes2)
+                WITH n, $n_embedding as n_embedding
+                CALL node_similarity.cosine_pairwise("embedding", [n_embedding], [n.embedding])
                 YIELD node1, node2, similarity
-                WITH node1, node2, similarity, r
+                WITH n, similarity
                 WHERE similarity >= $threshold
-                RETURN node1.name AS source, id(node1) AS source_id, type(r) AS relationship, id(r) AS relation_id, node2.name AS destination, id(node2) AS destination_id, similarity
+                MATCH (n)-[r]->(m:Entity)
+                RETURN n.name AS source, id(n) AS source_id, type(r) AS relationship, id(r) AS relation_id, m.name AS destination, id(m) AS destination_id, similarity
                 UNION
-                MATCH (n:Entity {user_id: $user_id, agent_id: $agent_id})<-[r]-(m:Entity)
+                MATCH (n:Entity {user_id: $user_id, agent_id: $agent_id})
                 WHERE n.embedding IS NOT NULL
-                WITH collect(n) AS nodes1, collect(m) AS nodes2, r
-                CALL node_similarity.cosine_pairwise("embedding", nodes1, nodes2)
+                WITH n, $n_embedding as n_embedding
+                CALL node_similarity.cosine_pairwise("embedding", [n_embedding], [n.embedding])
                 YIELD node1, node2, similarity
-                WITH node1, node2, similarity, r
+                WITH n, similarity
                 WHERE similarity >= $threshold
-                RETURN node2.name AS source, id(node2) AS source_id, type(r) AS relationship, id(r) AS relation_id, node1.name AS destination, id(node1) AS destination_id, similarity
+                MATCH (m:Entity)-[r]->(n)
+                RETURN m.name AS source, id(m) AS source_id, type(r) AS relationship, id(r) AS relation_id, n.name AS destination, id(n) AS destination_id, similarity
                 ORDER BY similarity DESC
                 LIMIT $limit;
                 """
@@ -292,23 +312,25 @@ class MemoryGraph:
                 }
             else:
                 cypher_query = """
-                MATCH (n:Entity {user_id: $user_id})-[r]->(m:Entity)
+                MATCH (n:Entity {user_id: $user_id})
                 WHERE n.embedding IS NOT NULL
-                WITH collect(n) AS nodes1, collect(m) AS nodes2, r
-                CALL node_similarity.cosine_pairwise("embedding", nodes1, nodes2)
+                WITH n, $n_embedding as n_embedding
+                CALL node_similarity.cosine_pairwise("embedding", [n_embedding], [n.embedding])
                 YIELD node1, node2, similarity
-                WITH node1, node2, similarity, r
+                WITH n, similarity
                 WHERE similarity >= $threshold
-                RETURN node1.name AS source, id(node1) AS source_id, type(r) AS relationship, id(r) AS relation_id, node2.name AS destination, id(node2) AS destination_id, similarity
+                MATCH (n)-[r]->(m:Entity)
+                RETURN n.name AS source, id(n) AS source_id, type(r) AS relationship, id(r) AS relation_id, m.name AS destination, id(m) AS destination_id, similarity
                 UNION
-                MATCH (n:Entity {user_id: $user_id})<-[r]-(m:Entity)
+                MATCH (n:Entity {user_id: $user_id})
                 WHERE n.embedding IS NOT NULL
-                WITH collect(n) AS nodes1, collect(m) AS nodes2, r
-                CALL node_similarity.cosine_pairwise("embedding", nodes1, nodes2)
+                WITH n, $n_embedding as n_embedding
+                CALL node_similarity.cosine_pairwise("embedding", [n_embedding], [n.embedding])
                 YIELD node1, node2, similarity
-                WITH node1, node2, similarity, r
+                WITH n, similarity
                 WHERE similarity >= $threshold
-                RETURN node2.name AS source, id(node2) AS source_id, type(r) AS relationship, id(r) AS relation_id, node1.name AS destination, id(node1) AS destination_id, similarity
+                MATCH (m:Entity)-[r]->(n)
+                RETURN m.name AS source, id(m) AS source_id, type(r) AS relationship, id(r) AS relation_id, n.name AS destination, id(n) AS destination_id, similarity
                 ORDER BY similarity DESC
                 LIMIT $limit;
                 """
@@ -318,7 +340,7 @@ class MemoryGraph:
                     "user_id": filters["user_id"],
                     "limit": limit,
                 }
-            
+
             ans = self.graph.query(cypher_query, params=params)
             result_relations.extend(ans)
 
@@ -356,7 +378,7 @@ class MemoryGraph:
         user_id = filters["user_id"]
         agent_id = filters.get("agent_id", None)
         results = []
-        
+
         for item in to_be_deleted:
             source = item["source"]
             destination = item["destination"]
@@ -369,7 +391,7 @@ class MemoryGraph:
                 "dest_name": destination,
                 "user_id": user_id,
             }
-            
+
             if agent_id:
                 agent_filter = "AND n.agent_id = $agent_id AND m.agent_id = $agent_id"
                 params["agent_id"] = agent_id
@@ -386,10 +408,10 @@ class MemoryGraph:
                 m.name AS target,
                 type(r) AS relationship
             """
-            
+
             result = self.graph.query(cypher, params=params)
             results.append(result)
-        
+
         return results
 
     # added Entity label to all nodes for vector search to work
@@ -398,7 +420,7 @@ class MemoryGraph:
         user_id = filters["user_id"]
         agent_id = filters.get("agent_id", None)
         results = []
-        
+
         for item in to_be_added:
             # entities
             source = item["source"]
@@ -421,7 +443,7 @@ class MemoryGraph:
             agent_id_clause = ""
             if agent_id:
                 agent_id_clause = ", agent_id: $agent_id"
-            
+
             # TODO: Create a cypher query and common params for all the cases
             if not destination_node_search_result and source_node_search_result:
                 cypher = f"""
@@ -446,7 +468,7 @@ class MemoryGraph:
                 }
                 if agent_id:
                     params["agent_id"] = agent_id
-                
+
             elif destination_node_search_result and not source_node_search_result:
                 cypher = f"""
                     MATCH (destination:Entity)
@@ -470,7 +492,7 @@ class MemoryGraph:
                 }
                 if agent_id:
                     params["agent_id"] = agent_id
-                
+
             elif source_node_search_result and destination_node_search_result:
                 cypher = f"""
                     MATCH (source:Entity)
@@ -490,7 +512,7 @@ class MemoryGraph:
                 }
                 if agent_id:
                     params["agent_id"] = agent_id
-                
+
             else:
                 cypher = f"""
                     MERGE (n:{source_type}:Entity {{name: $source_name, user_id: $user_id{agent_id_clause}}})
@@ -512,7 +534,7 @@ class MemoryGraph:
                 }
                 if agent_id:
                     params["agent_id"] = agent_id
-                
+
             result = self.graph.query(cypher, params=params)
             results.append(result)
         return results
@@ -520,7 +542,8 @@ class MemoryGraph:
     def _remove_spaces_from_entities(self, entity_list):
         for item in entity_list:
             item["source"] = item["source"].lower().replace(" ", "_")
-            item["relationship"] = item["relationship"].lower().replace(" ", "_")
+            # Use the sanitization function for relationships to handle special characters
+            item["relationship"] = sanitize_relationship_for_cypher(item["relationship"].lower().replace(" ", "_"))
             item["destination"] = item["destination"].lower().replace(" ", "_")
         return entity_list
 
@@ -528,7 +551,7 @@ class MemoryGraph:
         """Search for source nodes with similar embeddings."""
         user_id = filters["user_id"]
         agent_id = filters.get("agent_id", None)
-        
+
         if agent_id:
             cypher = """
                 CALL vector_search.search("memzero", 1, $source_embedding) 
@@ -567,7 +590,7 @@ class MemoryGraph:
         """Search for destination nodes with similar embeddings."""
         user_id = filters["user_id"]
         agent_id = filters.get("agent_id", None)
-        
+
         if agent_id:
             cypher = """
                 CALL vector_search.search("memzero", 1, $destination_embedding) 
@@ -601,3 +624,15 @@ class MemoryGraph:
 
         result = self.graph.query(cypher, params=params)
         return result
+
+    def _fetch_existing_indexes(self):
+        """
+        Retrieves information about existing indexes and vector indexes in the Memgraph database.
+
+        Returns:
+            dict: A dictionary containing lists of existing indexes and vector indexes.
+        """
+
+        index_exists = list(self.graph.query("SHOW INDEX INFO;"))
+        vector_index_exists = list(self.graph.query("SHOW VECTOR INDEX INFO;"))
+        return {"index_exists": index_exists, "vector_index_exists": vector_index_exists}

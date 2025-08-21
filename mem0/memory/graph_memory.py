@@ -1,6 +1,6 @@
 import logging
 
-from mem0.memory.utils import format_entities
+from mem0.memory.utils import format_entities, sanitize_relationship_for_cypher
 
 try:
     from langchain_neo4j import Neo4jGraph
@@ -55,13 +55,20 @@ class MemoryGraph:
             except Exception:
                 pass
 
-        self.llm_provider = "openai_structured"
-        if self.config.llm.provider:
+        # Default to openai if no specific provider is configured
+        self.llm_provider = "openai"
+        if self.config.llm and self.config.llm.provider:
             self.llm_provider = self.config.llm.provider
-        if self.config.graph_store.llm:
+        if self.config.graph_store and self.config.graph_store.llm and self.config.graph_store.llm.provider:
             self.llm_provider = self.config.graph_store.llm.provider
 
-        self.llm = LlmFactory.create(self.llm_provider, self.config.llm.config)
+        # Get LLM config with proper null checks
+        llm_config = None
+        if self.config.graph_store and self.config.graph_store.llm and hasattr(self.config.graph_store.llm, "config"):
+            llm_config = self.config.graph_store.llm.config
+        elif hasattr(self.config.llm, "config"):
+            llm_config = self.config.llm.config
+        self.llm = LlmFactory.create(self.llm_provider, llm_config)
         self.user_id = None
         self.threshold = 0.7
 
@@ -122,20 +129,24 @@ class MemoryGraph:
         return search_results
 
     def delete_all(self, filters):
+        # Build node properties for filtering
+        node_props = ["user_id: $user_id"]
         if filters.get("agent_id"):
-            cypher = f"""
-            MATCH (n {self.node_label} {{user_id: $user_id, agent_id: $agent_id}})
-            DETACH DELETE n
-            """
-            params = {"user_id": filters["user_id"], "agent_id": filters["agent_id"]}
-        else:
-            cypher = f"""
-            MATCH (n {self.node_label} {{user_id: $user_id}})
-            DETACH DELETE n
-            """
-            params = {"user_id": filters["user_id"]}
-        self.graph.query(cypher, params=params)
+            node_props.append("agent_id: $agent_id")
+        if filters.get("run_id"):
+            node_props.append("run_id: $run_id")
+        node_props_str = ", ".join(node_props)
 
+        cypher = f"""
+        MATCH (n {self.node_label} {{{node_props_str}}})
+        DETACH DELETE n
+        """
+        params = {"user_id": filters["user_id"]}
+        if filters.get("agent_id"):
+            params["agent_id"] = filters["agent_id"]
+        if filters.get("run_id"):
+            params["run_id"] = filters["run_id"]
+        self.graph.query(cypher, params=params)
 
     def get_all(self, filters, limit=100):
         """
@@ -148,15 +159,20 @@ class MemoryGraph:
                 - 'contexts': The base data store response for each memory.
                 - 'entities': A list of strings representing the nodes and relationships
         """
-        agent_filter = ""
         params = {"user_id": filters["user_id"], "limit": limit}
+
+        # Build node properties based on filters
+        node_props = ["user_id: $user_id"]
         if filters.get("agent_id"):
-            agent_filter = "AND n.agent_id = $agent_id AND m.agent_id = $agent_id"
+            node_props.append("agent_id: $agent_id")
             params["agent_id"] = filters["agent_id"]
+        if filters.get("run_id"):
+            node_props.append("run_id: $run_id")
+            params["run_id"] = filters["run_id"]
+        node_props_str = ", ".join(node_props)
 
         query = f"""
-        MATCH (n {self.node_label} {{user_id: $user_id}})-[r]->(m {self.node_label} {{user_id: $user_id}})
-        WHERE 1=1 {agent_filter}
+        MATCH (n {self.node_label} {{{node_props_str}}})-[r]->(m {self.node_label} {{{node_props_str}}})
         RETURN n.name AS source, type(r) AS relationship, m.name AS target
         LIMIT $limit
         """
@@ -175,7 +191,6 @@ class MemoryGraph:
         logger.info(f"Retrieved {len(final_results)} relationships")
 
         return final_results
-
 
     def _retrieve_nodes_from_data(self, data, filters):
         """Extracts all the entities mentioned in the query."""
@@ -212,17 +227,17 @@ class MemoryGraph:
     def _establish_nodes_relations_from_data(self, data, filters, entity_type_map):
         """Establish relations among the extracted nodes."""
 
-    # Compose user identification string for prompt
+        # Compose user identification string for prompt
         user_identity = f"user_id: {filters['user_id']}"
         if filters.get("agent_id"):
             user_identity += f", agent_id: {filters['agent_id']}"
+        if filters.get("run_id"):
+            user_identity += f", run_id: {filters['run_id']}"
 
         if self.config.graph_store.custom_prompt:
             system_content = EXTRACT_RELATIONS_PROMPT.replace("USER_ID", user_identity)
             # Add the custom prompt line if configured
-            system_content = system_content.replace(
-                "CUSTOM_PROMPT", f"4. {self.config.graph_store.custom_prompt}"
-            )
+            system_content = system_content.replace("CUSTOM_PROMPT", f"4. {self.config.graph_store.custom_prompt}")
             messages = [
                 {"role": "system", "content": system_content},
                 {"role": "user", "content": data},
@@ -254,26 +269,30 @@ class MemoryGraph:
     def _search_graph_db(self, node_list, filters, limit=100):
         """Search similar nodes among and their respective incoming and outgoing relations."""
         result_relations = []
-        agent_filter = ""
+
+        # Build node properties for filtering
+        node_props = ["user_id: $user_id"]
         if filters.get("agent_id"):
-            agent_filter = "AND n.agent_id = $agent_id AND m.agent_id = $agent_id"
+            node_props.append("agent_id: $agent_id")
+        if filters.get("run_id"):
+            node_props.append("run_id: $run_id")
+        node_props_str = ", ".join(node_props)
 
         for node in node_list:
             n_embedding = self.embedding_model.embed(node)
 
             cypher_query = f"""
-            MATCH (n {self.node_label})
-            WHERE n.embedding IS NOT NULL AND n.user_id = $user_id
-            {agent_filter}
+            MATCH (n {self.node_label} {{{node_props_str}}})
+            WHERE n.embedding IS NOT NULL
             WITH n, round(2 * vector.similarity.cosine(n.embedding, $n_embedding) - 1, 4) AS similarity // denormalize for backward compatibility
             WHERE similarity >= $threshold
             CALL {{
-                MATCH (n)-[r]->(m)
-                WHERE m.user_id = $user_id {agent_filter.replace("n.", "m.")} 
+                WITH n
+                MATCH (n)-[r]->(m {self.node_label} {{{node_props_str}}})
                 RETURN n.name AS source, elementId(n) AS source_id, type(r) AS relationship, elementId(r) AS relation_id, m.name AS destination, elementId(m) AS destination_id
                 UNION
-                MATCH (m)-[r]->(n)
-                WHERE m.user_id = $user_id {agent_filter.replace("n.", "m.")}
+                WITH n  
+                MATCH (n)<-[r]-(m {self.node_label} {{{node_props_str}}})
                 RETURN m.name AS source, elementId(m) AS source_id, type(r) AS relationship, elementId(r) AS relation_id, n.name AS destination, elementId(n) AS destination_id
             }}
             WITH distinct source, source_id, relationship, relation_id, destination, destination_id, similarity
@@ -290,6 +309,8 @@ class MemoryGraph:
             }
             if filters.get("agent_id"):
                 params["agent_id"] = filters["agent_id"]
+            if filters.get("run_id"):
+                params["run_id"] = filters["run_id"]
 
             ans = self.graph.query(cypher_query, params=params)
             result_relations.extend(ans)
@@ -304,6 +325,8 @@ class MemoryGraph:
         user_identity = f"user_id: {filters['user_id']}"
         if filters.get("agent_id"):
             user_identity += f", agent_id: {filters['agent_id']}"
+        if filters.get("run_id"):
+            user_identity += f", run_id: {filters['run_id']}"
 
         system_prompt, user_prompt = get_delete_messages(search_output_string, data, user_identity)
 
@@ -334,47 +357,62 @@ class MemoryGraph:
         """Delete the entities from the graph."""
         user_id = filters["user_id"]
         agent_id = filters.get("agent_id", None)
+        run_id = filters.get("run_id", None)
         results = []
-        
+
         for item in to_be_deleted:
             source = item["source"]
             destination = item["destination"]
             relationship = item["relationship"]
 
             # Build the agent filter for the query
-            agent_filter = ""
+
             params = {
                 "source_name": source,
                 "dest_name": destination,
                 "user_id": user_id,
             }
-            
+
             if agent_id:
-                agent_filter = "AND n.agent_id = $agent_id AND m.agent_id = $agent_id"
                 params["agent_id"] = agent_id
+            if run_id:
+                params["run_id"] = run_id
+
+            # Build node properties for filtering
+            source_props = ["name: $source_name", "user_id: $user_id"]
+            dest_props = ["name: $dest_name", "user_id: $user_id"]
+            if agent_id:
+                source_props.append("agent_id: $agent_id")
+                dest_props.append("agent_id: $agent_id")
+            if run_id:
+                source_props.append("run_id: $run_id")
+                dest_props.append("run_id: $run_id")
+            source_props_str = ", ".join(source_props)
+            dest_props_str = ", ".join(dest_props)
 
             # Delete the specific relationship between nodes
             cypher = f"""
-            MATCH (n {self.node_label} {{name: $source_name, user_id: $user_id}})
+            MATCH (n {self.node_label} {{{source_props_str}}})
             -[r:{relationship}]->
-            (m {self.node_label} {{name: $dest_name, user_id: $user_id}})
-            WHERE 1=1 {agent_filter}
+            (m {self.node_label} {{{dest_props_str}}})
+            
             DELETE r
             RETURN 
                 n.name AS source,
                 m.name AS target,
                 type(r) AS relationship
             """
-            
+
             result = self.graph.query(cypher, params=params)
             results.append(result)
-        
+
         return results
 
     def _add_entities(self, to_be_added, filters, entity_type_map):
         """Add the new entities to the graph. Merge the nodes if they already exist."""
         user_id = filters["user_id"]
         agent_id = filters.get("agent_id", None)
+        run_id = filters.get("run_id", None)
         results = []
         for item in to_be_added:
             # entities
@@ -404,6 +442,8 @@ class MemoryGraph:
                 merge_props = ["name: $destination_name", "user_id: $user_id"]
                 if agent_id:
                     merge_props.append("agent_id: $agent_id")
+                if run_id:
+                    merge_props.append("run_id: $run_id")
                 merge_props_str = ", ".join(merge_props)
 
                 cypher = f"""
@@ -429,7 +469,7 @@ class MemoryGraph:
                     r.mentions = coalesce(r.mentions, 0) + 1
                 RETURN source.name AS source, type(r) AS relationship, destination.name AS target
                 """
-                
+
                 params = {
                     "source_id": source_node_search_result[0]["elementId(source_candidate)"],
                     "destination_name": destination,
@@ -438,12 +478,16 @@ class MemoryGraph:
                 }
                 if agent_id:
                     params["agent_id"] = agent_id
+                if run_id:
+                    params["run_id"] = run_id
 
             elif destination_node_search_result and not source_node_search_result:
                 # Build source MERGE properties
                 merge_props = ["name: $source_name", "user_id: $user_id"]
                 if agent_id:
                     merge_props.append("agent_id: $agent_id")
+                if run_id:
+                    merge_props.append("run_id: $run_id")
                 merge_props_str = ", ".join(merge_props)
 
                 cypher = f"""
@@ -478,6 +522,8 @@ class MemoryGraph:
                 }
                 if agent_id:
                     params["agent_id"] = agent_id
+                if run_id:
+                    params["run_id"] = run_id
 
             elif source_node_search_result and destination_node_search_result:
                 cypher = f"""
@@ -504,6 +550,8 @@ class MemoryGraph:
                 }
                 if agent_id:
                     params["agent_id"] = agent_id
+                if run_id:
+                    params["run_id"] = run_id
 
             else:
                 # Build dynamic MERGE props for both source and destination
@@ -512,6 +560,9 @@ class MemoryGraph:
                 if agent_id:
                     source_props.append("agent_id: $agent_id")
                     dest_props.append("agent_id: $agent_id")
+                if run_id:
+                    source_props.append("run_id: $run_id")
+                    dest_props.append("run_id: $run_id")
                 source_props_str = ", ".join(source_props)
                 dest_props_str = ", ".join(dest_props)
 
@@ -547,6 +598,8 @@ class MemoryGraph:
                 }
                 if agent_id:
                     params["agent_id"] = agent_id
+                if run_id:
+                    params["run_id"] = run_id
             result = self.graph.query(cypher, params=params)
             results.append(result)
         return results
@@ -560,20 +613,23 @@ class MemoryGraph:
             if "destination" not in item and "destination_entity" in item:
                 item["destination"] = item["destination_entity"]
             item["source"] = item["source"].lower().replace(" ", "_")
-            item["relationship"] = item["relationship"].lower().replace(" ", "_")
+            # Use the sanitization function for relationships to handle special characters
+            item["relationship"] = sanitize_relationship_for_cypher(item["relationship"].lower().replace(" ", "_"))
             item["destination"] = item["destination"].lower().replace(" ", "_")
         return entity_list
 
     def _search_source_node(self, source_embedding, filters, threshold=0.9):
-        agent_filter = ""
+        # Build WHERE conditions
+        where_conditions = ["source_candidate.embedding IS NOT NULL", "source_candidate.user_id = $user_id"]
         if filters.get("agent_id"):
-            agent_filter = "AND source_candidate.agent_id = $agent_id"
+            where_conditions.append("source_candidate.agent_id = $agent_id")
+        if filters.get("run_id"):
+            where_conditions.append("source_candidate.run_id = $run_id")
+        where_clause = " AND ".join(where_conditions)
 
         cypher = f"""
             MATCH (source_candidate {self.node_label})
-            WHERE source_candidate.embedding IS NOT NULL 
-            AND source_candidate.user_id = $user_id
-            {agent_filter}
+            WHERE {where_clause}
 
             WITH source_candidate,
             round(2 * vector.similarity.cosine(source_candidate.embedding, $source_embedding) - 1, 4) AS source_similarity // denormalize for backward compatibility
@@ -593,21 +649,24 @@ class MemoryGraph:
         }
         if filters.get("agent_id"):
             params["agent_id"] = filters["agent_id"]
+        if filters.get("run_id"):
+            params["run_id"] = filters["run_id"]
 
         result = self.graph.query(cypher, params=params)
         return result
 
-
     def _search_destination_node(self, destination_embedding, filters, threshold=0.9):
-        agent_filter = ""
+        # Build WHERE conditions
+        where_conditions = ["destination_candidate.embedding IS NOT NULL", "destination_candidate.user_id = $user_id"]
         if filters.get("agent_id"):
-            agent_filter = "AND destination_candidate.agent_id = $agent_id"
+            where_conditions.append("destination_candidate.agent_id = $agent_id")
+        if filters.get("run_id"):
+            where_conditions.append("destination_candidate.run_id = $run_id")
+        where_clause = " AND ".join(where_conditions)
 
         cypher = f"""
             MATCH (destination_candidate {self.node_label})
-            WHERE destination_candidate.embedding IS NOT NULL 
-            AND destination_candidate.user_id = $user_id
-            {agent_filter}
+            WHERE {where_clause}
 
             WITH destination_candidate,
             round(2 * vector.similarity.cosine(destination_candidate.embedding, $destination_embedding) - 1, 4) AS destination_similarity // denormalize for backward compatibility
@@ -628,6 +687,17 @@ class MemoryGraph:
         }
         if filters.get("agent_id"):
             params["agent_id"] = filters["agent_id"]
+        if filters.get("run_id"):
+            params["run_id"] = filters["run_id"]
 
         result = self.graph.query(cypher, params=params)
         return result
+
+    # Reset is not defined in base.py
+    def reset(self):
+        """Reset the graph by clearing all nodes and relationships."""
+        logger.warning("Clearing graph...")
+        cypher_query = """
+        MATCH (n) DETACH DELETE n
+        """
+        return self.graph.query(cypher_query)
