@@ -134,6 +134,9 @@ async def add_memories(text: str) -> str:
 
                 db.commit()
 
+            if not isinstance(response, str):
+                response = json.dumps(response, indent=2)
+
             return response
         finally:
             db.close()
