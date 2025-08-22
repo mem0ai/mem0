@@ -7,9 +7,9 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
-<Update label="2025-07-24" description="v0.1.116">
+<Update label="2025-08-14" description="v0.1.116">
 
-**New Features:**
+**New Features & Updates:**
 - **Pinecone:** Added namespace support and improved type safety
 - **Milvus:** Added db_name field to MilvusDBConfig
 - **Vector Stores:** Added multi-id filters support
@@ -19,17 +19,36 @@ mode: "wide"
 - **LLM Monitoring:** Added monitoring callback support
 
 **Improvements:**
-- **Performance:** Improved async handling in AsyncMemory class
-- **Documentation:** Added async add announcement, personalized search docs, Neptune examples, V5 migration docs
-- **Configuration:** Refactored base class config for LLMs, added sslmode for pgvector
-- **Dependencies:** Updated psycopg to version 3, updated Docker compose
+- **Performance:**
+  - Improved async handling in AsyncMemory class
+- **Documentation:**
+  - Added async add announcement
+  - Added personalized search docs
+  - Added Neptune examples
+  - Added V5 migration docs
+- **Configuration:**
+  - Refactored base class config for LLMs
+  - Added sslmode for pgvector
+- **Dependencies:**
+  - Updated psycopg to version 3
+  - Updated Docker compose
 
 **Bug Fixes:**
-- **Tests:** Fixed failing tests and restricted package versions
-- **Memgraph:** Fixed async attribute errors, n_embeddings usage, and indexing issues
-- **Vector Stores:** Fixed Qdrant cloud indexing, Neo4j Cypher syntax, and LLM parameters
-- **Graph Store:** Fixed LM config prioritization
-- **Dependencies:** Fixed JSON import for psycopg
+- **Tests:**
+  - Fixed failing tests
+  - Restricted package versions
+- **Memgraph:**
+  - Fixed async attribute errors
+  - Fixed n_embeddings usage
+  - Fixed indexing issues
+- **Vector Stores:**
+  - Fixed Qdrant cloud indexing
+  - Fixed Neo4j Cypher syntax
+  - Fixed LLM parameters
+- **Graph Store:**
+  - Fixed LM config prioritization
+- **Dependencies:**
+  - Fixed JSON import for psycopg
 
 **Refactoring:**
 - **Google AI:** Refactored from Gemini to Google AI
