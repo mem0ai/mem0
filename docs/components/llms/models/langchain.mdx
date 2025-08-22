@@ -46,34 +46,34 @@ m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
 
 ```typescript TypeScript
-import { Memory } from "mem0ai";
+import { Memory } from 'mem0ai/oss';
 import { ChatOpenAI } from "@langchain/openai";
 
-const openai_model = new ChatOpenAI({
-    model: "gpt-4o",
+// Initialize a LangChain model directly
+const openaiModel = new ChatOpenAI({
+    modelName: "gpt-4",
     temperature: 0.2,
-    max_tokens: 2000
-})
+    maxTokens: 2000,
+    apiKey: process.env.OPENAI_API_KEY,
+});
 
 const config = {
-    "llm": {
-        "provider": "langchain",
-        "config": {
-            "model": openai_model
-        }
-    }
-}
+  llm: {
+    provider: 'langchain',
+    config: {
+      model: openaiModel,
+    },
+  },
+};
 
 const memory = new Memory(config);
-
 const messages = [
-    { role: "user", content: "I'm planning to watch a movie tonight. Any recommendations?" },
-    { role: "assistant", content: "How about a thriller movies? They can be quite engaging." },
-    { role: "user", content: "I'm not a big fan of thriller movies but I love sci-fi movies." },
-    { role: "assistant", content: "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future." }
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
 ]
-
-memory.add(messages, user_id="alice", metadata={"category": "movies"})
+await memory.add(messages, { userId: "alice", metadata: { category: "movies" } });
 ```
 </CodeGroup>
 
