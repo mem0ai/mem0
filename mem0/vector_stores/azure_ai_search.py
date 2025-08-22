@@ -132,11 +132,18 @@ class AzureAISearch(VectorStoreBase):
                 )
             ]
         # If no compression is desired, compression_configurations remains empty.
+
         fields = [
             SimpleField(name="id", type=SearchFieldDataType.String, key=True),
             SimpleField(name="user_id", type=SearchFieldDataType.String, filterable=True),
             SimpleField(name="run_id", type=SearchFieldDataType.String, filterable=True),
             SimpleField(name="agent_id", type=SearchFieldDataType.String, filterable=True),
+            SearchField(name="memory", type=SearchFieldDataType.String, searchable=True),
+            SimpleField(name="hash", type=SearchFieldDataType.String, filterable=True),
+            SearchField(name="metadata", type=SearchFieldDataType.String, filterable=True),
+            SimpleField(name="memory_type", type=SearchFieldDataType.String, filterable=True),
+            SimpleField(name="created_at", type=SearchFieldDataType.String, filterable=True),
+            SimpleField(name="updated_at", type=SearchFieldDataType.String, filterable=True),
             SearchField(
                 name="vector",
                 type=vector_type,
@@ -162,12 +169,45 @@ class AzureAISearch(VectorStoreBase):
         self.index_client.create_or_update_index(index)
 
     def _generate_document(self, vector, payload, id):
+        """
+        Generate a document for Azure AI Search with proper field mapping.
+        
+        Args:
+            vector: The embedding vector
+            payload: Dictionary containing all the memory data
+            id: The document ID
+            
+        Returns:
+            dict: Document ready for Azure AI Search insertion
+        """
         document = {"id": id, "vector": vector, "payload": json.dumps(payload)}
-        # Extract additional fields if they exist.
-        for field in ["user_id", "run_id", "agent_id"]:
-            if field in payload:
-                document[field] = payload[field]
+        
+        # Map payload fields to Azure AI Search document fields
+        field_mappings = {
+            "user_id": "user_id",
+            "agent_id": "agent_id",
+            "run_id": "run_id",
+            "data": "memory",           # payload["data"] maps to document["memory"]
+            "hash": "hash",
+            "created_at": "created_at",
+            "updated_at": "updated_at",
+            "memory_type": "memory_type"
+        }
+        
+        for payload_key, doc_field in field_mappings.items():
+            if payload_key in payload:
+                document[doc_field] = payload[payload_key]
+        
+        # Handle metadata field specially since it might be a nested dict
+        if "metadata" in payload:
+            metadata = payload["metadata"]
+            if isinstance(metadata, dict):
+                document["metadata"] = json.dumps(metadata)
+            else:
+                document["metadata"] = str(metadata) if metadata is not None else None
+        
         return document
+
 
     # Note: Explicit "insert" calls may later be decoupled from memory management decisions.
     def insert(self, vectors, payloads=None, ids=None):
@@ -262,7 +302,7 @@ class AzureAISearch(VectorStoreBase):
 
     def update(self, vector_id, vector=None, payload=None):
         """
-        Update a vector and its payload.
+        Update a vector and its payload with proper field mapping.
 
         Args:
             vector_id (str): ID of the vector to update.
@@ -270,13 +310,37 @@ class AzureAISearch(VectorStoreBase):
             payload (Dict, optional): Updated payload.
         """
         document = {"id": vector_id}
+        
         if vector:
             document["vector"] = vector
+            
         if payload:
-            json_payload = json.dumps(payload)
-            document["payload"] = json_payload
-            for field in ["user_id", "run_id", "agent_id"]:
-                document[field] = payload.get(field)
+            document["payload"] = json.dumps(payload)
+            
+            # Apply the same field mappings as _generate_document
+            field_mappings = {
+                "user_id": "user_id",
+                "agent_id": "agent_id",
+                "run_id": "run_id",
+                "data": "memory",
+                "hash": "hash",
+                "created_at": "created_at",
+                "updated_at": "updated_at",
+                "memory_type": "memory_type"
+            }
+            
+            for payload_key, doc_field in field_mappings.items():
+                if payload_key in payload:
+                    document[doc_field] = payload[payload_key]
+            
+            # Handle metadata field specially
+            if "metadata" in payload:
+                metadata = payload["metadata"]
+                if isinstance(metadata, dict):
+                    document["metadata"] = json.dumps(metadata)
+                else:
+                    document["metadata"] = str(metadata) if metadata is not None else None
+        
         response = self.search_client.merge_or_upload_documents(documents=[document])
         for doc in response:
             if not hasattr(doc, "status_code") and doc.get("status_code") != 200:

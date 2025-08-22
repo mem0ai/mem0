@@ -280,16 +280,18 @@ def test_create_col(azure_ai_search_instance):
 
     # Check basic properties
     assert index.name == "test-index"
-    assert len(index.fields) == 6  # id, user_id, run_id, agent_id, vector, payload
+    assert len(index.fields) == 12  # Updated: now includes all mem0 fields
 
-    # Check that required fields are present
+    # Check that all required fields are present (updated list)
     field_names = [f.name for f in index.fields]
-    assert "id" in field_names
-    assert "vector" in field_names
-    assert "payload" in field_names
-    assert "user_id" in field_names
-    assert "run_id" in field_names
-    assert "agent_id" in field_names
+    expected_fields = [
+        "id", "user_id", "run_id", "agent_id", "memory", 
+        "hash", "metadata", "memory_type", "created_at", 
+        "updated_at", "vector", "payload"
+    ]
+    
+    for field in expected_fields:
+        assert field in field_names, f"Expected field '{field}' not found in index"
 
     # Check that id is the key field
     id_field = next(f for f in index.fields if f.name == "id")
@@ -664,3 +666,222 @@ def test_init_calls_create_col_if_collection_missing(mock_clients):
         embedding_model_dims=16,
     )
     mock_index_client.create_or_update_index.assert_called_once()
+
+
+# --- Tests for Field Mapping Fix ---
+
+def test_generate_document_maps_all_mem0_fields(azure_ai_search_instance):
+    """Test that _generate_document properly maps all mem0 payload fields to document fields."""
+    instance, _, _ = azure_ai_search_instance
+    
+    # Sample payload that mem0 would create
+    test_payload = {
+        "user_id": "user123",
+        "agent_id": "agent456", 
+        "run_id": "run789",
+        "data": "User likes playing chess",  # This should map to "memory" field
+        "hash": "abcd1234efgh5678",
+        "created_at": "2025-08-22T10:30:00-07:00",
+        "updated_at": "2025-08-22T10:35:00-07:00",
+        "memory_type": "episodic",
+        "metadata": {"category": "hobbies", "confidence": 0.95}
+    }
+    
+    test_vector = [0.1, 0.2, 0.3]
+    test_id = "doc123"
+    
+    # Generate document using the private method
+    document = instance._generate_document(test_vector, test_payload, test_id)
+    
+    # Verify core fields
+    assert document["id"] == test_id
+    assert document["vector"] == test_vector
+    assert document["payload"] == json.dumps(test_payload)
+    
+    # Verify field mappings that fix the null field issue
+    assert document["user_id"] == "user123"
+    assert document["agent_id"] == "agent456"
+    assert document["run_id"] == "run789"
+    assert document["memory"] == "User likes playing chess"  # data -> memory mapping
+    assert document["hash"] == "abcd1234efgh5678"
+    assert document["created_at"] == "2025-08-22T10:30:00-07:00"
+    assert document["updated_at"] == "2025-08-22T10:35:00-07:00"
+    assert document["memory_type"] == "episodic"
+    
+    # Metadata should be JSON serialized
+    expected_metadata = json.dumps({"category": "hobbies", "confidence": 0.95})
+    assert document["metadata"] == expected_metadata
+
+
+def test_generate_document_handles_missing_optional_fields(azure_ai_search_instance):
+    """Test that _generate_document handles missing optional fields gracefully."""
+    instance, _, _ = azure_ai_search_instance
+    
+    # Minimal payload with only required fields
+    minimal_payload = {
+        "user_id": "user123",
+        "data": "User likes reading",
+        "hash": "xyz789"
+    }
+    
+    document = instance._generate_document([0.1, 0.2], minimal_payload, "doc456")
+    
+    # Should have required fields mapped
+    assert document["user_id"] == "user123"
+    assert document["memory"] == "User likes reading"  # data -> memory
+    assert document["hash"] == "xyz789"
+    
+    # Missing fields should not be in document (Azure will set them to null)
+    assert "agent_id" not in document
+    assert "run_id" not in document
+    assert "created_at" not in document
+    assert "updated_at" not in document
+    assert "memory_type" not in document
+    assert "metadata" not in document
+
+
+def test_generate_document_handles_metadata_types(azure_ai_search_instance):
+    """Test that _generate_document properly handles different metadata types."""
+    instance, _, _ = azure_ai_search_instance
+    
+    # Test with dict metadata (should be JSON serialized)
+    payload_with_dict_metadata = {
+        "user_id": "user123",
+        "data": "Test content",
+        "metadata": {"category": "test", "tags": ["tag1", "tag2"]}
+    }
+    
+    document = instance._generate_document([0.1], payload_with_dict_metadata, "doc1")
+    assert document["metadata"] == json.dumps({"category": "test", "tags": ["tag1", "tag2"]})
+    
+    # Test with string metadata (should remain as string)
+    payload_with_string_metadata = {
+        "user_id": "user123",
+        "data": "Test content",
+        "metadata": "simple string metadata"
+    }
+    
+    document = instance._generate_document([0.1], payload_with_string_metadata, "doc2")
+    assert document["metadata"] == "simple string metadata"
+    
+    # Test with None metadata (should be converted to string)
+    payload_with_none_metadata = {
+        "user_id": "user123",
+        "data": "Test content", 
+        "metadata": None
+    }
+    
+    document = instance._generate_document([0.1], payload_with_none_metadata, "doc3")
+    assert document["metadata"] is None
+
+
+def test_insert_with_field_mapping_integration(azure_ai_search_instance):
+    """Test that insert method uses the field mapping correctly."""
+    instance, mock_search_client, _ = azure_ai_search_instance
+    
+    # Mock successful response
+    mock_search_client.upload_documents.return_value = [
+        {"status": True, "id": "doc1", "status_code": 201}
+    ]
+    
+    # Use realistic mem0 payload
+    vectors = [[0.1, 0.2, 0.3]]
+    payloads = [{
+        "user_id": "user123",
+        "agent_id": "agent456",
+        "data": "User enjoys hiking on weekends", 
+        "hash": "hash123",
+        "created_at": "2025-08-22T12:00:00-07:00",
+        "memory_type": "episodic"
+    }]
+    ids = ["doc1"]
+    
+    instance.insert(vectors, payloads, ids)
+    
+    # Verify the document was created with proper field mapping
+    mock_search_client.upload_documents.assert_called_once()
+    args, _ = mock_search_client.upload_documents.call_args
+    documents = args[0]
+    
+    doc = documents[0]
+    assert doc["id"] == "doc1"
+    assert doc["vector"] == [0.1, 0.2, 0.3]
+    assert doc["payload"] == json.dumps(payloads[0])
+    
+    # Verify field mappings
+    assert doc["user_id"] == "user123"
+    assert doc["agent_id"] == "agent456"
+    assert doc["memory"] == "User enjoys hiking on weekends"  # data -> memory
+    assert doc["hash"] == "hash123"
+    assert doc["created_at"] == "2025-08-22T12:00:00-07:00"
+    assert doc["memory_type"] == "episodic"
+
+
+def test_update_with_field_mapping(azure_ai_search_instance):
+    """Test that update method uses proper field mapping."""
+    instance, mock_search_client, _ = azure_ai_search_instance
+    
+    # Mock successful response
+    mock_search_client.merge_or_upload_documents.return_value = [
+        {"status": True, "id": "doc123", "status_code": 200}
+    ]
+    
+    update_payload = {
+        "user_id": "user123",
+        "data": "Updated: User loves hiking and camping",
+        "hash": "new_hash_value",
+        "updated_at": "2025-08-22T13:00:00-07:00",
+        "metadata": {"category": "outdoor_activities", "updated": True}
+    }
+    
+    instance.update("doc123", payload=update_payload)
+    
+    # Verify the call was made with properly mapped fields
+    mock_search_client.merge_or_upload_documents.assert_called_once()
+    args, kwargs = mock_search_client.merge_or_upload_documents.call_args
+    documents = kwargs["documents"]
+    doc = documents[0]
+    
+    assert doc["id"] == "doc123"
+    assert doc["payload"] == json.dumps(update_payload)
+    assert doc["user_id"] == "user123"
+    assert doc["memory"] == "Updated: User loves hiking and camping"  # data -> memory
+    assert doc["hash"] == "new_hash_value"
+    assert doc["updated_at"] == "2025-08-22T13:00:00-07:00"
+    
+    # Verify metadata is JSON serialized
+    expected_metadata = json.dumps({"category": "outdoor_activities", "updated": True})
+    assert doc["metadata"] == expected_metadata
+
+
+def test_create_col_includes_all_mem0_fields(azure_ai_search_instance):
+    """Test that create_col creates schema with all mem0 fields."""
+    instance, _, mock_index_client = azure_ai_search_instance
+    
+    # create_col is called during initialization, check the call
+    mock_index_client.create_or_update_index.assert_called_once()
+    
+    # Verify the index configuration
+    args, _ = mock_index_client.create_or_update_index.call_args
+    index = args[0]
+    
+    # Check that all expected fields are present in schema
+    field_names = [f.name for f in index.fields]
+    expected_fields = [
+        "id", "user_id", "run_id", "agent_id", "memory", 
+        "hash", "metadata", "memory_type", "created_at", 
+        "updated_at", "vector", "payload"
+    ]
+    
+    for expected_field in expected_fields:
+        assert expected_field in field_names, f"Field '{expected_field}' missing from schema"
+    
+    # Verify specific field properties
+    memory_field = next(f for f in index.fields if f.name == "memory")
+    assert memory_field.searchable is True  # memory should be searchable
+    
+    metadata_field = next(f for f in index.fields if f.name == "metadata") 
+    assert metadata_field.filterable is True  # metadata should be filterable, not searchable
+    
+    hash_field = next(f for f in index.fields if f.name == "hash")
+    assert hash_field.filterable is True  # hash should be filterable
