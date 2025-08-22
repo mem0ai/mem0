@@ -3,10 +3,39 @@ title: "Product Updates"
 mode: "wide"
 ---
 
-<Snippet file="blank-notif.mdx" />
-
+ 
 <Tabs>
 <Tab title="Python">
+
+<Update label="2025-07-24" description="v0.1.116">
+
+**New Features:**
+- **Pinecone:** Added namespace support and improved type safety
+- **Milvus:** Added db_name field to MilvusDBConfig
+- **Vector Stores:** Added multi-id filters support
+- **Vercel AI SDK:** Migration to AI SDK V5.0
+- **Python Support:** Added Python 3.12 support
+- **Graph Memory:** Added sanitizer methods for nodes and relationships
+- **LLM Monitoring:** Added monitoring callback support
+
+**Improvements:**
+- **Performance:** Improved async handling in AsyncMemory class
+- **Documentation:** Added async add announcement, personalized search docs, Neptune examples, V5 migration docs
+- **Configuration:** Refactored base class config for LLMs, added sslmode for pgvector
+- **Dependencies:** Updated psycopg to version 3, updated Docker compose
+
+**Bug Fixes:**
+- **Tests:** Fixed failing tests and restricted package versions
+- **Memgraph:** Fixed async attribute errors, n_embeddings usage, and indexing issues
+- **Vector Stores:** Fixed Qdrant cloud indexing, Neo4j Cypher syntax, and LLM parameters
+- **Graph Store:** Fixed LM config prioritization
+- **Dependencies:** Fixed JSON import for psycopg
+
+**Refactoring:**
+- **Google AI:** Refactored from Gemini to Google AI
+- **Base Classes:** Refactored LLM base class configuration
+
+</Update>
 
 <Update label="2025-07-24" description="v0.1.115">
 
@@ -153,7 +182,7 @@ mode: "wide"
 <Update label="2025-06-11" description="v0.1.107">
 
 **Improvements:**
-- **Documentation:** 
+- **Documentation:**
   - Updated Livekit documentation migration
   - Updated OpenMemory hosted version documentation
 - **Core:** Updated categorization flow
@@ -190,7 +219,7 @@ mode: "wide"
 - **LLM:** Added support for OpenAI compatible LLM providers with baseUrl configuration
 
 **Improvements:**
-- **Documentation:** 
+- **Documentation:**
   - Fixed broken links
   - Improved Graph Memory features documentation clarity
   - Updated enable_graph documentation
@@ -207,14 +236,14 @@ mode: "wide"
 - **OpenMemory:** Added LLM and Embedding Providers support
 
 **Improvements:**
-- **Documentation:** 
+- **Documentation:**
   - Updated memory export documentation
   - Enhanced role-based memory attribution rules documentation
   - Updated API reference and messages documentation
   - Added Mastra and Raycast documentation
   - Added NOT filter documentation for Search and GetAll V2
   - Announced Claude 4 support
-- **Core:** 
+- **Core:**
   - Removed support for passing string as input in client.add()
   - Added support for sarvam-m model
 - **TypeScript SDK:** Fixed types from message interface
@@ -231,7 +260,7 @@ mode: "wide"
 - **Neo4j:** Added base label configuration support
 
 **Improvements:**
-- **Documentation:** 
+- **Documentation:**
   - Updated Healthcare example index
   - Enhanced collaborative task agent documentation clarity
   - Added criteria-based filtering documentation
@@ -327,7 +356,7 @@ mode: "wide"
 - **Vector Stores:** Added reset function for VectorDBs
 
 **Improvements:**
-- **Documentation:** 
+- **Documentation:**
   - Updated timestamp and expiration_date documentation
   - Fixed v2 search documentation
   - Added "memory" in EC "Custom config" section
@@ -366,12 +395,12 @@ mode: "wide"
 
 **New Features:**
 - **LLM Integrations:** Added Azure OpenAI Embedding Model
-- **Examples:** 
+- **Examples:**
   - Added movie recommendation using grok3
   - Added Voice Assistant using Elevenlabs
 
 **Improvements:**
-- **Documentation:** 
+- **Documentation:**
   - Added keywords AI
   - Reformatted navbar page URLs
   - Updated changelog
@@ -386,7 +415,7 @@ mode: "wide"
 - **LLM Integrations:** Added Mistral AI as LLM provider
 
 **Improvements:**
-- **Documentation:** 
+- **Documentation:**
   - Updated changelog
   - Fixed memory exclusion example
   - Updated xAI documentation
@@ -403,7 +432,7 @@ mode: "wide"
 
 **New Features:**
 - **Langchain Integration:** Added support for Langchain VectorStores
-- **Examples:** 
+- **Examples:**
   - Added personal assistant example
   - Added personal study buddy example
   - Added YouTube assistant Chrome extension example
@@ -577,7 +606,6 @@ mode: "wide"
 **Improvements:**
 - **OSS:** Added baseURL param in LLM Config.
 </Update>
-  
 <Update label="2025-05-23" description="v2.1.26">
 **Improvements:**
 - **Client:** Removed type `string` from `messages` interface
@@ -992,6 +1020,11 @@ mode: "wide"
 
 <Tab title="Vercel AI SDK">
 
+<Update label="2025-08-05" description="v2.0.1">
+**New Features:**
+- **Vercel AI SDK:** Added a new param `host` to the config.
+</Update>
+
 <Update label="2025-08-05" description="v2.0.0">
 **New Features:**
 - **Vercel AI SDK:** Migration to AI SDK V5.
@@ -1014,7 +1047,7 @@ mode: "wide"
 
 <Update label="2025-05-08" description="v1.0.3">
 **Improvements:**
-- **Vercel AI SDK:** Added support for graceful failure in cases services are down. 
+- **Vercel AI SDK:** Added support for graceful failure in cases services are down.
 </Update>
 
 <Update label="2025-05-01" description="v1.0.1">

@@ -146,13 +146,15 @@ class Memory(MemoryBase):
             self.enable_graph = True
         else:
             self.graph = None
-        self.config.vector_store.config.collection_name = "mem0migrations"
+
+        telemetry_config = deepcopy(self.config.vector_store.config)
+        telemetry_config.collection_name = "mem0migrations"
         if self.config.vector_store.provider in ["faiss", "qdrant"]:
             provider_path = f"migrations_{self.config.vector_store.provider}"
-            self.config.vector_store.config.path = os.path.join(mem0_dir, provider_path)
-            os.makedirs(self.config.vector_store.config.path, exist_ok=True)
+            telemetry_config.path = os.path.join(mem0_dir, provider_path)
+            os.makedirs(telemetry_config.path, exist_ok=True)
         self._telemetry_vector_store = VectorStoreFactory.create(
-            self.config.vector_store.provider, self.config.vector_store.config
+            self.config.vector_store.provider, telemetry_config
         )
         capture_event("mem0.init", self, {"sync_type": "sync"})
 
@@ -730,10 +732,14 @@ class Memory(MemoryBase):
 
         Args:
             memory_id (str): ID of the memory to update.
-            data (dict): Data to update the memory with.
+            data (str): New content to update the memory with.
 
         Returns:
-            dict: Updated memory.
+            dict: Success message indicating the memory was updated.
+
+        Example:
+            >>> m.update(memory_id="mem_123", data="Likes to play tennis on weekends")
+            {'message': 'Memory updated successfully!'}
         """
         capture_event("mem0.update", self, {"memory_id": memory_id, "sync_type": "sync"})
 
@@ -994,6 +1000,15 @@ class AsyncMemory(MemoryBase):
         else:
             self.graph = None
 
+        self.config.vector_store.config.collection_name = "mem0migrations"
+        if self.config.vector_store.provider in ["faiss", "qdrant"]:
+            provider_path = f"migrations_{self.config.vector_store.provider}"
+            self.config.vector_store.config.path = os.path.join(mem0_dir, provider_path)
+            os.makedirs(self.config.vector_store.config.path, exist_ok=True)
+        self._telemetry_vector_store = VectorStoreFactory.create(
+            self.config.vector_store.provider, self.config.vector_store.config
+        )
+
         capture_event("mem0.init", self, {"sync_type": "async"})
 
     @classmethod
@@ -1219,6 +1234,8 @@ class AsyncMemory(MemoryBase):
             except Exception as e:
                 logger.error(f"Invalid JSON response: {e}")
                 new_memories_with_actions = {}
+        else:
+            new_memories_with_actions = {}
 
         returned_memories = []
         try:
@@ -1578,10 +1595,14 @@ class AsyncMemory(MemoryBase):
 
         Args:
             memory_id (str): ID of the memory to update.
-            data (dict): Data to update the memory with.
+            data (str): New content to update the memory with.
 
         Returns:
-            dict: Updated memory.
+            dict: Success message indicating the memory was updated.
+
+        Example:
+            >>> await m.update(memory_id="mem_123", data="Likes to play tennis on weekends")
+            {'message': 'Memory updated successfully!'}
         """
         capture_event("mem0.update", self, {"memory_id": memory_id, "sync_type": "async"})
 
