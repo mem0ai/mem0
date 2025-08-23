@@ -110,19 +110,23 @@ class MemoryGraph(NeptuneBase):
                     MERGE (destination {destination_label} {{name: $destination_name, user_id: $user_id}})
                     ON CREATE SET
                         destination.created = timestamp(),
+                        destination.updated = timestamp(),
                         destination.mentions = 1
                         {destination_extra_set}
                     ON MATCH SET
-                        destination.mentions = coalesce(destination.mentions, 0) + 1
+                        destination.mentions = coalesce(destination.mentions, 0) + 1,
+                        destination.updated = timestamp()
                     WITH source, destination, $dest_embedding as dest_embedding
                     CALL neptune.algo.vectors.upsert(destination, dest_embedding)
                     WITH source, destination
                     MERGE (source)-[r:{relationship}]->(destination)
                     ON CREATE SET 
                         r.created = timestamp(),
+                        r.updated = timestamp(),
                         r.mentions = 1
                     ON MATCH SET
-                        r.mentions = coalesce(r.mentions, 0) + 1
+                        r.mentions = coalesce(r.mentions, 0) + 1,
+                        r.updated = timestamp()
                     RETURN source.name AS source, type(r) AS relationship, destination.name AS target
                     """
 
@@ -136,24 +140,30 @@ class MemoryGraph(NeptuneBase):
             cypher = f"""
                     MATCH (destination)
                     WHERE id(destination) = $destination_id
-                    SET destination.mentions = coalesce(destination.mentions, 0) + 1
+                    SET 
+                        destination.mentions = coalesce(destination.mentions, 0) + 1,
+                        destination.updated = timestamp()
                     WITH destination
                     MERGE (source {source_label} {{name: $source_name, user_id: $user_id}})
                     ON CREATE SET
                         source.created = timestamp(),
+                        source.updated = timestamp(),
                         source.mentions = 1
                         {source_extra_set}
                     ON MATCH SET
-                        source.mentions = coalesce(source.mentions, 0) + 1
+                        source.mentions = coalesce(source.mentions, 0) + 1,
+                        source.updated = timestamp()
                     WITH source, destination, $source_embedding as source_embedding
                     CALL neptune.algo.vectors.upsert(source, source_embedding)
                     WITH source, destination
                     MERGE (source)-[r:{relationship}]->(destination)
                     ON CREATE SET 
                         r.created = timestamp(),
+                        r.updated = timestamp(),
                         r.mentions = 1
                     ON MATCH SET
-                        r.mentions = coalesce(r.mentions, 0) + 1
+                        r.mentions = coalesce(r.mentions, 0) + 1,
+                        r.updated = timestamp()
                     RETURN source.name AS source, type(r) AS relationship, destination.name AS target
                     """
 
@@ -167,11 +177,15 @@ class MemoryGraph(NeptuneBase):
             cypher = f"""
                     MATCH (source)
                     WHERE id(source) = $source_id
-                    SET source.mentions = coalesce(source.mentions, 0) + 1
+                    SET 
+                        source.mentions = coalesce(source.mentions, 0) + 1,
+                        source.updated = timestamp()
                     WITH source
                     MATCH (destination)
                     WHERE id(destination) = $destination_id
-                    SET destination.mentions = coalesce(destination.mentions) + 1
+                    SET 
+                        destination.mentions = coalesce(destination.mentions) + 1,
+                        destination.updated = timestamp()
                     MERGE (source)-[r:{relationship}]->(destination)
                     ON CREATE SET 
                         r.created_at = timestamp(),
@@ -189,23 +203,35 @@ class MemoryGraph(NeptuneBase):
             cypher = f"""
                     MERGE (n {source_label} {{name: $source_name, user_id: $user_id}})
                     ON CREATE SET n.created = timestamp(),
+                                  n.updated = timestamp(),
                                   n.mentions = 1
                                   {source_extra_set}
-                    ON MATCH SET n.mentions = coalesce(n.mentions, 0) + 1
+                    ON MATCH SET 
+                                n.mentions = coalesce(n.mentions, 0) + 1,
+                                n.updated = timestamp()
                     WITH n, $source_embedding as source_embedding
                     CALL neptune.algo.vectors.upsert(n, source_embedding)
                     WITH n
                     MERGE (m {destination_label} {{name: $dest_name, user_id: $user_id}})
-                    ON CREATE SET m.created = timestamp(),
-                                  m.mentions = 1
-                                  {destination_extra_set}
-                    ON MATCH SET m.mentions = coalesce(m.mentions, 0) + 1
+                    ON CREATE SET 
+                                m.created = timestamp(),
+                                m.updated = timestamp(),
+                                m.mentions = 1
+                                {destination_extra_set}
+                    ON MATCH SET 
+                                m.updated = timestamp(),
+                                m.mentions = coalesce(m.mentions, 0) + 1
                     WITH n, m, $dest_embedding as dest_embedding
                     CALL neptune.algo.vectors.upsert(m, dest_embedding)
                     WITH n, m
                     MERGE (n)-[rel:{relationship}]->(m)
-                    ON CREATE SET rel.created = timestamp(), rel.mentions = 1
-                    ON MATCH SET rel.mentions = coalesce(rel.mentions, 0) + 1
+                    ON CREATE SET 
+                                rel.created = timestamp(),
+                                rel.updated = timestamp(),
+                                rel.mentions = 1
+                    ON MATCH SET 
+                                rel.updated = timestamp(),
+                                rel.mentions = coalesce(rel.mentions, 0) + 1
                     RETURN n.name AS source, type(rel) AS relationship, m.name AS target
                     """
             params = {
