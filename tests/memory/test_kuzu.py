@@ -11,6 +11,7 @@ class TestKuzu:
         "alice": np.random.uniform(0.0, 0.9, 384).tolist(),
         "bob": np.random.uniform(0.0, 0.9, 384).tolist(),
         "charlie": np.random.uniform(0.0, 0.9, 384).tolist(),
+        "existing_source": np.random.uniform(0.0, 0.9, 384).tolist(),
     }
 
     @pytest.fixture
@@ -77,6 +78,7 @@ class TestKuzu:
         assert kuzu_memory.embedding_dims == 384
         assert kuzu_memory.llm == mock_llm
         assert kuzu_memory.threshold == 0.7
+
 
     @patch("mem0.memory.kuzu_memory.EmbedderFactory")
     @patch("mem0.memory.kuzu_memory.LlmFactory")
