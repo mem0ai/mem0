@@ -4,6 +4,7 @@ from .base import NeptuneBase
 
 try:
     from langchain_aws import NeptuneAnalyticsGraph
+    from botocore.config import Config
 except ImportError:
     raise ImportError("langchain_aws is not installed. Please install it using 'make install_all'.")
 
@@ -16,9 +17,11 @@ class MemoryGraph(NeptuneBase):
 
         self.graph = None
         endpoint = self.config.graph_store.config.endpoint
+        app_id = self.config.graph_store.config.app_id
         if endpoint and endpoint.startswith("neptune-graph://"):
             graph_identifier = endpoint.replace("neptune-graph://", "")
-            self.graph = NeptuneAnalyticsGraph(graph_identifier)
+            self.graph = NeptuneAnalyticsGraph(graph_identifier = graph_identifier,
+                                               config = Config(user_agent_appid=app_id))
 
         if not self.graph:
             raise ValueError("Unable to create a Neptune client: missing 'endpoint' in config")
