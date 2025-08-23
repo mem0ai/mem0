@@ -522,12 +522,12 @@ class MemoryGraph:
                 WITH destination
                 MERGE (source {source_label} {{{merge_props_str}}})
                 ON CREATE SET
-                    source.created = current_timestamp(),
-                    source.mentions = 1,
-                    source.embedding = CAST($source_embedding,'FLOAT[{self.embedding_dims}]')
+                source.created = current_timestamp(),
+                source.mentions = 1,
+                source.embedding = CAST($source_embedding,'FLOAT[{self.embedding_dims}]')
                 ON MATCH SET
-                    source.mentions = coalesce(source.mentions, 0) + 1,
-                    source.embedding = CAST($source_embedding,'FLOAT[{self.embedding_dims}]')
+                source.mentions = coalesce(source.mentions, 0) + 1,
+                source.embedding = CAST($source_embedding,'FLOAT[{self.embedding_dims}]')
                 WITH source, destination
                 MERGE (source)-[r {relationship_label} {{name: $relationship_name}}]->(destination)
                 ON CREATE SET

@@ -11,7 +11,7 @@ class TestKuzu:
         "alice": np.random.uniform(0.0, 0.9, 384).tolist(),
         "bob": np.random.uniform(0.0, 0.9, 384).tolist(),
         "charlie": np.random.uniform(0.0, 0.9, 384).tolist(),
-        "existing_source": np.random.uniform(0.0, 0.9, 384).tolist(),
+        "dave": np.random.uniform(0.0, 0.9, 384).tolist(),
     }
 
     @pytest.fixture
@@ -111,12 +111,21 @@ class TestKuzu:
         assert get_node_count(kuzu_memory) == 3
         assert get_edge_count(kuzu_memory) == 4
 
+        data3 = [
+            {"source": "dave", "destination": "alice", "relationship": "admires"}
+        ]
+        result = kuzu_memory._add_entities(data3, filters, {})
+        assert result[0] == [{"source": "dave", "relationship": "admires", "target": "alice"}]
+        assert get_node_count(kuzu_memory) == 4  # dave is new
+        assert get_edge_count(kuzu_memory) == 5
+
         results = kuzu_memory.get_all(filters)
         assert set([f"{result['source']}_{result['relationship']}_{result['target']}" for result in results]) == set([
             "alice_knows_bob",
             "bob_knows_charlie",
             "charlie_likes_alice",
-            "charlie_knows_alice"
+            "charlie_knows_alice",
+            "dave_admires_alice"
         ])
 
         results = kuzu_memory._search_graph_db(["bob"], filters, threshold=0.8)
@@ -127,15 +136,15 @@ class TestKuzu:
 
         result = kuzu_memory._delete_entities(data2, filters)
         assert result[0] == [{"source": "charlie", "relationship": "likes", "target": "alice"}]
-        assert get_node_count(kuzu_memory) == 3
-        assert get_edge_count(kuzu_memory) == 3
+        assert get_node_count(kuzu_memory) == 4
+        assert get_edge_count(kuzu_memory) == 4
 
         result = kuzu_memory._delete_entities(data1, filters)
         assert result[0] == [{"source": "alice", "relationship": "knows", "target": "bob"}]
         assert result[1] == [{"source": "bob", "relationship": "knows", "target": "charlie"}]
         assert result[2] == [{"source": "charlie", "relationship": "knows", "target": "alice"}]
-        assert get_node_count(kuzu_memory) == 3
-        assert get_edge_count(kuzu_memory) == 0
+        assert get_node_count(kuzu_memory) == 4
+        assert get_edge_count(kuzu_memory) == 1
 
         result = kuzu_memory.delete_all(filters)
         assert get_node_count(kuzu_memory) == 0
