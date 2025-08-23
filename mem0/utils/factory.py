@@ -173,6 +173,7 @@ class VectorStoreFactory:
         "weaviate": "mem0.vector_stores.weaviate.Weaviate",
         "faiss": "mem0.vector_stores.faiss.FAISS",
         "langchain": "mem0.vector_stores.langchain.Langchain",
+        "s3_vectors": "mem0.vector_stores.s3_vectors.S3Vectors",
     }
 
     @classmethod
