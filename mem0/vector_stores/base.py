@@ -48,7 +48,7 @@ class VectorStoreBase(ABC):
         pass
 
     @abstractmethod
-    def list(self, filters=None, limit=None):
+    def list(self, filters=None, limit=None, sort=None):
         """List all memories."""
         pass
 
