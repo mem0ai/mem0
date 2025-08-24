@@ -1,48 +1,154 @@
-[tool.poetry]
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
 name = "mem0ai"
-version = "0.1.77"
+version = "0.1.116"
 description = "Long-term memory for AI Agents"
-authors = ["Mem0 <founders@mem0.ai>"]
-exclude = [
-    "db",
-    "configs",
-    "notebooks",
-    "embedchain",
-]
-packages = [
-    { include = "mem0" },
+authors = [
+    { name = "Mem0", email = "founders@mem0.ai" }
 ]
 readme = "README.md"
+requires-python = ">=3.9,<4.0"
+dependencies = [
+    "qdrant-client>=1.9.1",
+    "pydantic>=2.7.3",
+    "openai>=1.90.0,<1.100.0",
+    "posthog>=3.5.0",
+    "pytz>=2024.1",
+    "sqlalchemy>=2.0.31",
+    "protobuf>=5.29.0,<6.0.0",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.9,<4.0"
-qdrant-client = "^1.9.1"
-pydantic = "^2.7.3"
-openai = "^1.33.0"
-posthog = "^3.5.0"
-pytz = "^2024.1"
-sqlalchemy = "^2.0.31"
-langchain-neo4j = "^0.4.0"
-neo4j = "^5.23.1"
-rank-bm25 = "^0.2.2"
-azure-search-documents = "^11.5.0"
-psycopg2-binary = "^2.9.10"
+[project.optional-dependencies]
+graph = [
+    "langchain-neo4j>=0.4.0",
+    "langchain-aws>=0.2.23",
+    "neo4j>=5.23.1",
+    "rank-bm25>=0.2.2",
+    "kuzu>=0.11.0",
+]
+vector_stores = [
+    "vecs>=0.4.0",
+    "chromadb>=0.4.24",
+    "weaviate-client>=4.4.0,<4.15.0",
+    "pinecone<=7.3.0",
+    "pinecone-text>=0.10.0",
+    "faiss-cpu>=1.7.4",
+    "upstash-vector>=0.1.0",
+    "azure-search-documents>=11.4.0b8",
+    "psycopg>=3.2.8",
+    "pymongo>=4.13.2",
+    "pymochow>=2.2.9",
+    "databricks-sdk>=0.63.0",
+    "azure-identity>=1.24.0",
+]
+llms = [
+    "groq>=0.3.0",
+    "together>=0.2.10",
+    "litellm>=1.74.0",
+    "openai>=1.90.0,<1.100.0",
+    "ollama>=0.1.0",
+    "vertexai>=0.1.0",
+    "google-generativeai>=0.3.0",
+    "google-genai>=1.0.0",
+]
+extras = [
+    "boto3>=1.34.0",
+    "langchain-community>=0.0.0",
+    "sentence-transformers>=5.0.0",
+    "elasticsearch>=8.0.0",
+    "opensearch-py>=2.0.0",
+    "langchain-memgraph>=0.1.0",
+]
+test = [
+    "pytest>=8.2.2",
+    "pytest-mock>=3.14.0",
+    "pytest-asyncio>=0.23.7",
+]
+dev = [
+    "ruff>=0.6.5",
+    "isort>=5.13.2",
+    "pytest>=8.2.2",
+]
 
-[tool.poetry.extras]
-graph = ["langchain-neo4j", "neo4j", "rank-bm25"]
+[tool.pytest.ini_options]
+pythonpath = ["."]
 
-[tool.poetry.group.test.dependencies]
-pytest = "^8.2.2"
+[tool.hatch.build]
+include = [
+    "mem0/**/*.py",
+]
+exclude = [
+    "**/*",
+    "!mem0/**/*.py",
+]
 
-[tool.poetry.group.dev.dependencies]
-ruff = "^0.6.5"
-isort = "^5.13.2"
-pytest = "^8.2.2"
+[tool.hatch.build.targets.wheel]
+packages = ["mem0"]
+only-include = ["mem0"]
 
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[tool.hatch.build.targets.wheel.shared-data]
+"README.md" = "README.md"
+
+[tool.hatch.envs.dev_py_3_9]
+python = "3.9"
+features = [
+  "test",
+  "graph",
+  "vector_stores",
+  "llms",
+  "extras",
+]
+
+[tool.hatch.envs.dev_py_3_10]
+python = "3.10"
+features = [
+  "test",
+  "graph",
+  "vector_stores",
+  "llms",
+  "extras",
+]
+
+[tool.hatch.envs.dev_py_3_11]
+python = "3.11"
+features = [
+  "test",
+  "graph",
+  "vector_stores",
+  "llms",
+  "extras",
+]
+
+[tool.hatch.envs.dev_py_3_12]
+python = "3.12"
+features = [
+  "test",
+  "graph",
+  "vector_stores",
+  "llms",
+  "extras",
+]
+
+[tool.hatch.envs.default.scripts]
+format = [
+    "ruff format",
+]
+format-check = [
+    "ruff format --check",
+]
+lint = [
+    "ruff check",
+]
+lint-fix = [
+    "ruff check --fix",
+]
+test = [
+    "pytest tests/ {args}",
+]
 
 [tool.ruff]
 line-length = 120
-exclude = ["embedchain/"]
+exclude = ["embedchain/", "openmemory/"]

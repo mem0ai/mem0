@@ -9,8 +9,8 @@ try:
 except ImportError:
     raise ImportError("The 'vecs' library is required. Please install it using 'pip install vecs'.")
 
+from mem0.configs.vector_stores.supabase import IndexMeasure, IndexMethod
 from mem0.vector_stores.base import VectorStoreBase
-from mem0.configs.vector_stores.supabase import IndexMethod, IndexMeasure
 
 logger = logging.getLogger(__name__)
 
@@ -229,3 +229,9 @@ class Supabase(VectorStoreBase):
         records = self.collection.fetch(ids=ids)
 
         return [[OutputData(id=str(record[0]), score=None, payload=record[2]) for record in records]]
+
+    def reset(self):
+        """Reset the index by deleting and recreating it."""
+        logger.warning(f"Resetting index {self.collection_name}...")
+        self.delete_col()
+        self.create_col(self.embedding_model_dims)

@@ -4,7 +4,6 @@ icon: "question"
 iconType: "solid"
 ---
 
-
 <AccordionGroup>
     <Accordion title="How does Mem0 work?">
         Mem0 utilizes a sophisticated hybrid database system to efficiently manage and retrieve memories for AI agents and assistants. Each memory is linked to a unique identifier, such as a user ID or agent ID, enabling Mem0 to organize and access memories tailored to specific individuals or contexts.
@@ -13,7 +12,7 @@ iconType: "solid"
 
         When an AI agent or LLM needs to access memories, it employs the `search` method. Mem0 conducts a comprehensive search across these data stores, retrieving relevant information from each.
 
-        The retrieved memories can be seamlessly integrated into the LLM's prompt as required, enhancing the personalization and relevance of responses.
+        The retrieved memories can be seamlessly integrated into the system prompt as required, enhancing the personalization and relevance of responses.
   </Accordion>
 
     <Accordion title="What are the key features of Mem0?">
@@ -22,7 +21,7 @@ iconType: "solid"
         - **Developer-Friendly API**: Offers a straightforward API for seamless integration into various applications.
         - **Platform Consistency**: Ensures consistent behavior and data across different platforms and devices.
         - **Managed Service**: Provides a hosted solution for easy deployment and maintenance.
-        - **Save Costs**: Saves costs by adding relevent memories instead of complete transcripts to context window
+        - **Save Costs**: Saves costs by adding relevant memories instead of complete transcripts to context window
     </Accordion>
 
     <Accordion title="How Mem0 is different from traditional RAG?">
@@ -123,6 +122,23 @@ iconType: "solid"
         - **Custom tags**: Any domain-specific categorization relevant to your application
 
         This flexibility allows you to create highly contextually aware AI applications that can adapt to specific user needs and situations. Metadata provides an additional dimension for memory retrieval, enabling more precise and relevant responses.
+    </Accordion>
+
+    <Accordion title="How do I disable telemetry in Mem0?">
+        To disable telemetry in Mem0, you can set the `MEM0_TELEMETRY` environment variable to `False`:
+
+        ```bash
+        MEM0_TELEMETRY=False
+        ```
+
+        You can also disable telemetry programmatically in your code:
+
+        ```python
+        import os
+        os.environ["MEM0_TELEMETRY"] = "False"
+        ```
+
+        Setting this environment variable will prevent Mem0 from collecting and sending any usage data, ensuring complete privacy for your application.
     </Accordion>
 
 </AccordionGroup>

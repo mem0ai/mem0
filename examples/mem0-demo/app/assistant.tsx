@@ -45,7 +45,7 @@ const useUserId = () => {
 export const Assistant = () => {
   const { userId, resetUserId } = useUserId();
   const runtime = useChatRuntime({
-    api: "https://demo.mem0.ai/api/chat",
+    api: "/api/chat",
     body: { userId },
   });
 
@@ -91,8 +91,8 @@ export const Assistant = () => {
             </button>
             <GithubButton url="https://github.com/mem0ai/mem0/tree/main/examples" />
 
-            <Link href={"https://app.mem0.ai/"} target="_blank" className="py-2 ml-2 px-4 font-semibold dark:bg-zinc-100 dark:hover:bg-zinc-200 bg-zinc-800 text-white rounded-full hover:bg-zinc-900 dark:text-[#475569]">
-              Save Memories
+            <Link href={"https://app.mem0.ai/"} target="_blank" className="py-1 ml-2 px-4 font-semibold dark:bg-zinc-100 dark:hover:bg-zinc-200 bg-zinc-800 text-white rounded-full hover:bg-zinc-900 dark:text-[#475569]">
+              Playground
             </Link>
           </div>
         </header>

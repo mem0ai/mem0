@@ -11,21 +11,16 @@ import mem0
 try:
     import litellm
 except ImportError:
-    user_input = input("The 'litellm' library is required. Install it now? [y/N]: ")
-    if user_input.lower() == "y":
-        try:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "litellm"])
-            import litellm
-        except subprocess.CalledProcessError:
-            print("Failed to install 'litellm'. Please install it manually using 'pip install litellm'.")
-            sys.exit(1)
-    else:
-        raise ImportError("The required 'litellm' library is not installed.")
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "litellm"])
+        import litellm
+    except subprocess.CalledProcessError:
+        print("Failed to install 'litellm'. Please install it manually using 'pip install litellm'.")
         sys.exit(1)
 
 from mem0 import Memory, MemoryClient
 from mem0.configs.prompts import MEMORY_ANSWER_PROMPT
-from mem0.memory.telemetry import capture_client_event
+from mem0.memory.telemetry import capture_client_event, capture_event
 
 logger = logging.getLogger(__name__)
 
@@ -143,7 +138,10 @@ class Completions:
             api_key=api_key,
             model_list=model_list,
         )
-        capture_client_event("mem0.chat.create", self.mem0_client)
+        if isinstance(self.mem0_client, Memory):
+            capture_event("mem0.chat.create", self.mem0_client)
+        else:
+            capture_client_event("mem0.chat.create", self.mem0_client)
         return response
 
     def _prepare_messages(self, messages: List[dict]) -> List[dict]:

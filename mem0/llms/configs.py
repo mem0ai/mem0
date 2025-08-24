@@ -24,7 +24,10 @@ class LlmConfig(BaseModel):
             "gemini",
             "deepseek",
             "xai",
+            "sarvam",
             "lmstudio",
+            "vllm",
+            "langchain",
         ):
             return v
         else:

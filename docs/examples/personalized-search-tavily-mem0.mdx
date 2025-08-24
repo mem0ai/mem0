@@ -1,0 +1,190 @@
+---
+title: 'Personalized Search with Mem0 and Tavily'
+---
+
+<Snippet file="security-compliance.mdx" />
+
+Imagine asking a search assistant for "coffee shops nearby" and instead of generic results, it shows remote-work-friendly cafes with great wifi in your city because it remembers you mentioned working remotely before. Or when you search for "lunchbox ideas for kids" it knows you have a **7-year-old daughter** and recommends **peanut-free options** that align with her allergy.
+
+That's what we are going to build today, a **Personalized Search Assistant** powered by **Mem0** for memory and [Tavily](https://tavily.com) for real-time search.
+
+
+## Why Personalized Search
+
+Most assistants treat every query like they’ve never seen you before. That means repeating yourself about your location, diet, or preferences, and getting results that feel generic.
+
+- With **Mem0**, your assistant builds a memory of the user’s world.
+- With **Tavily**, it fetches fresh and accurate results in real time.
+
+Together, they make every interaction **smarter, faster, and more personal**.
+
+## Prerequisites
+
+Before you begin, make sure you have:
+
+1. Installed the dependencies:
+```bash
+pip install langchain mem0ai langchain-tavily langchain-openai
+```
+
+2. Set up your API keys in a .env file:
+```bash
+OPENAI_API_KEY=your-openai-key
+TAVILY_API_KEY=your-tavily-key
+MEM0_API_KEY=your-mem0-key
+```
+
+## Code Walkthrough
+Let’s break down the main components.
+
+### 1: Initialize Mem0 with Custom Instructions
+
+We configure Mem0 with custom instructions that guide it to infer user memories tailored specifically for our usecase.
+
+```python
+from mem0 import MemoryClient
+
+mem0_client = MemoryClient()
+
+mem0_client.project.update(
+    custom_instructions='''
+INFER THE MEMORIES FROM USER QUERIES EVEN IF IT'S A QUESTION.
+
+We are building personalized search for which we need to understand about user's preferences and life
+and extract facts and memories accordingly.
+'''
+)
+```
+Now, if a user casually mentions "I need to pick up my daughter", or "What's the weather at Los Angeles", Mem0 remembers they have a daughter or user is somewhat interested/connected with Los Angeles in terms of location, those will be referred for future searches.
+
+### 2. Simulating User History
+To test personalization, we preload some sample conversation history for a user:
+
+```python
+def setup_user_history(user_id):
+    conversations = [
+        [{"role": "user", "content": "What will be the weather today at Los Angeles? I need to pick up my daughter from office."},
+         {"role": "assistant", "content": "I'll check the weather in LA for you."}],
+        [{"role": "user", "content": "I'm looking for vegan restaurants in Santa Monica"},
+         {"role": "assistant", "content": "I'll find great vegan options in Santa Monica."}],
+        [{"role": "user", "content": "My 7-year-old daughter is allergic to peanuts"},
+         {"role": "assistant", "content": "I'll remember to check for peanut-free options."}],
+        [{"role": "user", "content": "I work remotely and need coffee shops with good wifi"},
+         {"role": "assistant", "content": "I'll find remote-work-friendly coffee shops."}],
+        [{"role": "user", "content": "We love hiking and outdoor activities on weekends"},
+         {"role": "assistant", "content": "Great! I'll keep your outdoor activity preferences in mind."}],
+    ]
+
+    for conversation in conversations:
+        mem0_client.add(conversation, user_id=user_id, output_format="v1.1")
+```
+This gives the agent a baseline understanding of the user’s lifestyle and needs.
+
+### 3. Retrieving User Context from Memory
+When a user makes a new search query, we retrieve relevant memories to enhance the search query:
+
+```python
+def get_user_context(user_id, query):
+    filters = {"AND": [{"user_id": user_id}]}
+    user_memories = mem0_client.search(query=query, version="v2", filters=filters)
+
+    if user_memories:
+        context = "\n".join([f"- {memory['memory']}" for memory in user_memories])
+        return context
+    else:
+        return "No previous user context available."
+```
+This context is injected into the search agent so results are personalized.
+
+### 4. Creating the Personalized Search Agent
+The agent uses Tavily search, but always augments search queries with user context:
+
+```python
+def create_personalized_search_agent(user_context):
+    tavily_search = TavilySearch(
+        max_results=10,
+        search_depth="advanced",
+        include_answer=True,
+        topic="general"
+    )
+
+    tools = [tavily_search]
+
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", f"""You are a personalized search assistant.
+
+USER CONTEXT AND PREFERENCES:
+{user_context}
+
+YOUR ROLE:
+1. Analyze the user's query and context.
+2. Enhance the query with relevant personal memories.
+3. Always use tavily_search for results.
+4. Explain which memories influenced personalization.
+"""),
+        MessagesPlaceholder(variable_name="messages"),
+        MessagesPlaceholder(variable_name="agent_scratchpad"),
+    ])
+
+    agent = create_openai_tools_agent(llm=llm, tools=tools, prompt=prompt)
+    return AgentExecutor(agent=agent, tools=tools, verbose=True, return_intermediate_steps=True)
+```
+
+### 5. Run a Personalized Search
+The workflow ties everything together:
+
+```python
+def conduct_personalized_search(user_id, query):
+    user_context = get_user_context(user_id, query)
+    agent_executor = create_personalized_search_agent(user_context)
+
+    response = agent_executor.invoke({"messages": [HumanMessage(content=query)]})
+    return {"agent_response": response['output']}
+```
+
+### 6. Store New Interactions
+Every new query/response pair is stored for future personalization:
+
+```python
+def store_search_interaction(user_id, original_query, agent_response):
+    interaction = [
+        {"role": "user", "content": f"Searched for: {original_query}"},
+        {"role": "assistant", "content": f"Results based on preferences: {agent_response}"}
+    ]
+    mem0_client.add(messages=interaction, user_id=user_id, output_format="v1.1")
+```
+
+### Full Example Run
+
+```python
+if __name__ == "__main__":
+    user_id = "john"
+    setup_user_history(user_id)
+
+    queries = [
+        "good coffee shops nearby for working",
+        "what can I make for my kid in lunch?"
+    ]
+
+    for q in queries:
+        results = conduct_personalized_search(user_id, q)
+        print(f"\nQuery: {q}")
+        print(f"Personalized Response: {results['agent_response']}")
+```
+
+## How It Works in Practice
+Here’s how personalization plays out:
+
+- Context Gathering: User previously mentioned living in Los Angeles, being vegan, and having a 7-year-old daughter allergic to peanuts.
+- Enhanced Search Query:
+Query -> "good coffee shops nearby for working"
+Enhanced Query -> "good coffee shops in Los Angeles with strong wifi, remote-work-friendly"
+- Personalized Results: The assistant only returns wifi-friendly, work-friendly cafes near Los Angeles.
+- Memory Update: Interaction is saved for better future recommendations.
+
+## Conclusion
+With Mem0 + Tavily, you can build a search assistant that doesn’t just fetch results but it understands the person behind the query.
+
+Whether for shopping, travel, or daily life, this approach turns a generic search into a truly personalized experience.
+
+Full Code: [Personalized Search GitHub](https://github.com/mem0ai/mem0/blob/main/examples/misc/personalized_search.py)

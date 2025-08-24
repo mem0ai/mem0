@@ -5,12 +5,11 @@ title: Vercel AI SDK
 The [**Mem0 AI SDK Provider**](https://www.npmjs.com/package/@mem0/vercel-ai-provider) is a library developed by **Mem0** to integrate with the Vercel AI SDK. This library brings enhanced AI interaction capabilities to your applications by introducing persistent memory functionality.
 
 <Note type="info">
-  🎉 Exciting news! Mem0 AI SDK now supports <strong>Tools Call</strong>.
+  🎉 Exciting news! Mem0 AI SDK now supports <strong>Vercel AI SDK V5</strong>.
 </Note>
 
 ## Overview
 
-In this guide, we'll create a Travel Agent AI that:
 1. 🧠 Offers persistent memory storage for conversational AI
 2. 🔄 Enables smooth integration with the Vercel AI SDK
 3. 🚀 Ensures compatibility with multiple LLM providers
@@ -41,13 +40,11 @@ npm install @mem0/vercel-ai-provider
       mem0ApiKey: "m0-xxx",
       apiKey: "provider-api-key",
       config: {
-        compatibility: "strict",
+        // Options for LLM Provider
       },
       // Optional Mem0 Global Config
       mem0Config: {
         user_id: "mem0-user-id",
-        org_id: "mem0-org-id",
-        project_id: "mem0-project-id",
       },
     });
     ```
@@ -59,10 +56,10 @@ npm install @mem0/vercel-ai-provider
 3. Add Memories to Enhance Context:
 
     ```typescript
-    import { LanguageModelV1Prompt } from "ai";
+    import { LanguageModelV2Prompt } from "@ai-sdk/provider";
     import { addMemories } from "@mem0/vercel-ai-provider";
 
-    const messages: LanguageModelV1Prompt = [
+    const messages: LanguageModelV2Prompt = [
       { role: "user", content: [{ type: "text", text: "I love red cars." }] },
     ];
 
@@ -72,13 +69,15 @@ npm install @mem0/vercel-ai-provider
 ### Standalone Features:
 
     ```typescript
-    await addMemories(messages, { user_id: "borat", mem0ApiKey: "m0-xxx", org_id: "org_xx", project_id: "proj_xx" });
-    await retrieveMemories(prompt, { user_id: "borat", mem0ApiKey: "m0-xxx", org_id: "org_xx", project_id: "proj_xx" });
-    await getMemories(prompt, { user_id: "borat", mem0ApiKey: "m0-xxx", org_id: "org_xx", project_id: "proj_xx" });
+    await addMemories(messages, { user_id: "borat", mem0ApiKey: "m0-xxx" });
+    await retrieveMemories(prompt, { user_id: "borat", mem0ApiKey: "m0-xxx" });
+    await getMemories(prompt, { user_id: "borat", mem0ApiKey: "m0-xxx" });
     ```
      > For standalone features, such as `addMemories`, `retrieveMemories`, and `getMemories`, you must either set `MEM0_API_KEY` as an environment variable or pass it directly in the function call.
 
      > `getMemories` will return raw memories in the form of an array of objects, while `retrieveMemories` will return a response in string format with a system prompt ingested with the retrieved memories.
+
+     > `getMemories` is an object with two keys: `results` and `relations` if `enable_graph` is enabled. Otherwise, it will return an array of objects.
 
 ### 1. Basic Text Generation with Memory Context
 
@@ -141,7 +140,7 @@ npm install @mem0/vercel-ai-provider
 
     const mem0 = createMem0();
 
-    const { textStream } = await streamText({
+    const { textStream } = streamText({
         model: mem0("gpt-4-turbo", {
             user_id: "borat",
         }),
@@ -191,6 +190,48 @@ npm install @mem0/vercel-ai-provider
     console.log(result);
     ```
 
+### 5. Get sources from memory
+
+```typescript
+const { text, sources } = await generateText({
+    model: mem0("gpt-4-turbo"),
+    prompt: "Suggest me a good car to buy!",
+});
+
+console.log(sources);
+```
+
+The same can be done for `streamText` as well.
+
+## Graph Memory
+
+Mem0 AI SDK now supports Graph Memory. You can enable it by setting `enable_graph` to `true` in the `mem0Config` object.
+
+```typescript
+const mem0 = createMem0({
+  mem0Config: { enable_graph: true },
+});
+```
+
+You can also pass `enable_graph` in the standalone functions. This includes `getMemories`, `retrieveMemories`, and `addMemories`.
+
+```typescript
+const memories = await getMemories(prompt, { user_id: "borat", mem0ApiKey: "m0-xxx", enable_graph: true });
+```
+
+The `getMemories` function will return an object with two keys: `results` and `relations`, if `enable_graph` is set to `true`. Otherwise, it will return an array of objects.
+
+## Supported LLM Providers
+
+| Provider | Configuration Value |
+|----------|-------------------|
+| OpenAI | openai |
+| Anthropic | anthropic |
+| Google | google |
+| Groq | groq |
+
+> **Note**: You can use `google` as provider for Gemini (Google) models. They are same and internally they use `@ai-sdk/google` package.
+
 ## Key Features
 
 - `createMem0()`: Initializes a new Mem0 provider instance.
@@ -211,8 +252,8 @@ Mem0’s Vercel AI SDK enables the creation of intelligent, context-aware applic
 
 ## Help
 
-- For more details on Vercel AI SDK, visit the [Vercel AI SDK documentation](https://sdk.vercel.ai/docs/introduction).
-- For Mem0 documentation, refer to the [Mem0 Platform](https://app.mem0.ai/).
+- For more details on Vercel AI SDK, visit the [Vercel AI SDK documentation](https://sdk.vercel.ai/docs/introduction)
+- [Mem0 Platform](https://app.mem0.ai/)
 - If you need further assistance, please feel free to reach out to us through following methods:
 
 <Snippet file="get-help.mdx" />

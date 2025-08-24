@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field, model_validator
 
 class VectorStoreConfig(BaseModel):
     provider: str = Field(
-        description="Provider of the vector store (e.g., 'qdrant', 'chroma')",
+        description="Provider of the vector store (e.g., 'qdrant', 'chroma', 'upstash_vector')",
         default="qdrant",
     )
     config: Optional[Dict] = Field(description="Configuration for the specific vector store", default=None)
@@ -15,14 +15,21 @@ class VectorStoreConfig(BaseModel):
         "chroma": "ChromaDbConfig",
         "pgvector": "PGVectorConfig",
         "pinecone": "PineconeConfig",
+        "mongodb": "MongoDBConfig",
         "milvus": "MilvusDBConfig",
+        "baidu": "BaiduDBConfig",
+        "upstash_vector": "UpstashVectorConfig",
         "azure_ai_search": "AzureAISearchConfig",
         "redis": "RedisDBConfig",
+        "databricks": "DatabricksConfig",
         "elasticsearch": "ElasticsearchConfig",
         "vertex_ai_vector_search": "GoogleMatchingEngineConfig",
         "opensearch": "OpenSearchConfig",
         "supabase": "SupabaseConfig",
         "weaviate": "WeaviateConfig",
+        "faiss": "FAISSConfig",
+        "langchain": "LangchainConfig",
+        "s3_vectors": "S3VectorsConfig",
     }
 
     @model_validator(mode="after")

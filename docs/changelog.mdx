@@ -1,0 +1,1080 @@
+---
+title: "Product Updates"
+mode: "wide"
+---
+
+ 
+<Tabs>
+<Tab title="Python">
+
+<Update label="2025-08-14" description="v0.1.116">
+
+**New Features & Updates:**
+- **Pinecone:** Added namespace support and improved type safety
+- **Milvus:** Added db_name field to MilvusDBConfig
+- **Vector Stores:** Added multi-id filters support
+- **Vercel AI SDK:** Migration to AI SDK V5.0
+- **Python Support:** Added Python 3.12 support
+- **Graph Memory:** Added sanitizer methods for nodes and relationships
+- **LLM Monitoring:** Added monitoring callback support
+
+**Improvements:**
+- **Performance:**
+  - Improved async handling in AsyncMemory class
+- **Documentation:**
+  - Added async add announcement
+  - Added personalized search docs
+  - Added Neptune examples
+  - Added V5 migration docs
+- **Configuration:**
+  - Refactored base class config for LLMs
+  - Added sslmode for pgvector
+- **Dependencies:**
+  - Updated psycopg to version 3
+  - Updated Docker compose
+
+**Bug Fixes:**
+- **Tests:**
+  - Fixed failing tests
+  - Restricted package versions
+- **Memgraph:**
+  - Fixed async attribute errors
+  - Fixed n_embeddings usage
+  - Fixed indexing issues
+- **Vector Stores:**
+  - Fixed Qdrant cloud indexing
+  - Fixed Neo4j Cypher syntax
+  - Fixed LLM parameters
+- **Graph Store:**
+  - Fixed LM config prioritization
+- **Dependencies:**
+  - Fixed JSON import for psycopg
+
+**Refactoring:**
+- **Google AI:** Refactored from Gemini to Google AI
+- **Base Classes:** Refactored LLM base class configuration
+
+</Update>
+
+<Update label="2025-07-24" description="v0.1.115">
+
+**New Features & Updates:**
+- Enhanced project management via `client.project` and `AsyncMemoryClient.project` interfaces
+- Full support for project CRUD operations (create, read, update, delete)
+- Project member management: add, update, remove, and list members
+- Manage project settings including custom instructions, categories, retrieval criteria, and graph enablement
+- Both sync and async support for all project management operations
+
+**Improvements:**
+- **Documentation:**
+  - Added detailed API reference and usage examples for new project management methods.
+  - Updated all docs to use `client.project.get()` and `client.project.update()` instead of deprecated methods.
+  
+- **Deprecation:**
+  - Marked `get_project()` and `update_project()` as deprecated (these methods were already present); added warnings to guide users to the new API.
+
+**Bug Fixes:**
+- **Tests:**
+  - Fixed Gemini embedder and LLM test mocks for correct error handling and argument structure.
+- **vLLM:**
+  - Fixed duplicate import in vLLM module.
+
+</Update>
+
+<Update label="2025-07-05" description="v0.1.114">
+
+**New Features:**
+- **OpenAI Agents:** Added OpenAI agents SDK support
+- **Amazon Neptune:** Added Amazon Neptune Analytics graph_store configuration and integration
+- **vLLM:** Added vLLM support
+
+**Improvements:**
+- **Documentation:** 
+  - Added SOC2 and HIPAA compliance documentation
+  - Enhanced group chat feature documentation for platform
+  - Added Google AI ADK Integration documentation
+  - Fixed documentation images and links
+- **Setup:** Fixed Mem0 setup, logging, and documentation issues
+
+**Bug Fixes:**
+- **MongoDB:** Fixed MongoDB Vector Store misaligned strings and classes
+- **vLLM:** Fixed missing OpenAI import in vLLM module and call errors
+- **Dependencies:** Fixed CI issues related to missing dependencies
+- **Installation:** Reverted pip install changes
+
+</Update>
+
+<Update label="2025-06-30" description="v0.1.113">
+
+**Bug Fixes:**
+- **Gemini:** Fixed Gemini embedder configuration
+
+</Update>
+
+<Update label="2025-06-27" description="v0.1.112">
+
+**New Features:**
+- **Memory:** Added immutable parameter to add method
+- **OpenMemory:** Added async_mode parameter support
+
+**Improvements:**
+- **Documentation:** 
+  - Enhanced platform feature documentation
+  - Fixed documentation links
+  - Added async_mode documentation
+- **MongoDB:** Fixed MongoDB configuration name
+
+**Bug Fixes:**
+- **Bedrock:** Fixed Bedrock LLM, embeddings, tools, and temporary credentials
+- **Memory:** Fixed memory categorization by updating dependencies and correcting API usage
+- **Gemini:** Fixed Gemini Embeddings and LLM issues
+
+</Update>
+
+<Update label="2025-06-23" description="v0.1.111">
+
+**New Features:**
+- **OpenMemory:** 
+  - Added OpenMemory augment support
+  - Added OpenMemory Local Support using new library
+- **vLLM:** Added vLLM support integration
+
+**Improvements:**
+- **Documentation:** 
+  - Added MCP Client Integration Guide and updated installation commands
+  - Improved Agent Id documentation for Mem0 OSS Graph Memory
+- **Core:** Added JSON parsing to solve hallucination errors
+
+**Bug Fixes:**
+- **Gemini:** Fixed Gemini Embeddings migration
+
+</Update>
+
+<Update label="2025-06-20" description="v0.1.110">
+
+**New Features:**
+- **Baidu:** Added Baidu vector database integration
+
+**Improvements:**
+- **Documentation:** 
+  - Updated changelog
+  - Fixed example in quickstart page
+  - Updated client.update() method documentation in OpenAPI specification
+- **OpenSearch:** Updated logger warning
+
+**Bug Fixes:**
+- **CI:** Fixed failing CI pipeline
+
+</Update>
+
+<Update label="2025-06-19" description="v0.1.109">
+
+**New Features:**
+- **AgentOps:** Added AgentOps integration
+- **LM Studio:** Added response_format parameter for LM Studio configuration
+- **Examples:** Added Memory agent powered by voice (Cartesia + Agno)
+
+**Improvements:**
+- **AI SDK:** Added output_format parameter
+- **Client:** Enhanced update method to support metadata
+- **Google:** Added Google Genai library support
+
+**Bug Fixes:**
+- **Build:** Fixed Build CI failure
+- **Pinecone:** Fixed pinecone for async memory
+
+</Update>
+
+<Update label="2025-06-14" description="v0.1.108">
+
+**New Features:**
+- **MongoDB:** Added MongoDB Vector Store support
+- **Client:** Added client support for summary functionality
+
+**Improvements:**
+- **Pinecone:** Fixed pinecone version issues
+- **OpenSearch:** Added logger support
+- **Testing:** Added python version test environments
+
+</Update>
+
+<Update label="2025-06-11" description="v0.1.107">
+
+**Improvements:**
+- **Documentation:**
+  - Updated Livekit documentation migration
+  - Updated OpenMemory hosted version documentation
+- **Core:** Updated categorization flow
+- **Storage:** Fixed migration issues
+
+</Update>
+
+<Update label="2025-06-09" description="v0.1.106">
+
+**New Features:**
+- **Cloudflare:** Added Cloudflare vector store support
+- **Search:** Added threshold parameter to search functionality
+- **API:** Added wildcard character support for v2 Memory APIs
+
+**Improvements:**
+- **Documentation:** Updated README docs for OpenMemory environment setup
+- **Core:** Added support for unique user IDs
+
+**Bug Fixes:**
+- **Core:** Fixed error handling exceptions
+
+</Update>
+
+<Update label="2025-06-03" description="v0.1.104">
+
+**Bug Fixes:**
+- **Vector Stores:** Fixed GET_ALL functionality for FAISS and OpenSearch
+
+</Update>
+
+<Update label="2025-06-02" description="v0.1.103">
+
+**New Features:**
+- **LLM:** Added support for OpenAI compatible LLM providers with baseUrl configuration
+
+**Improvements:**
+- **Documentation:**
+  - Fixed broken links
+  - Improved Graph Memory features documentation clarity
+  - Updated enable_graph documentation
+- **TypeScript SDK:** Updated Google SDK peer dependency version
+- **Client:** Added async mode parameter
+
+</Update>
+
+<Update label="2025-05-26" description="v0.1.102">
+
+**New Features:**
+- **Examples:** Added Neo4j example
+- **AI SDK:** Added Google provider support
+- **OpenMemory:** Added LLM and Embedding Providers support
+
+**Improvements:**
+- **Documentation:**
+  - Updated memory export documentation
+  - Enhanced role-based memory attribution rules documentation
+  - Updated API reference and messages documentation
+  - Added Mastra and Raycast documentation
+  - Added NOT filter documentation for Search and GetAll V2
+  - Announced Claude 4 support
+- **Core:**
+  - Removed support for passing string as input in client.add()
+  - Added support for sarvam-m model
+- **TypeScript SDK:** Fixed types from message interface
+
+**Bug Fixes:**
+- **Memory:** Prevented saving prompt artifacts as memory when no new facts are present
+- **OpenMemory:** Fixed typos in MCP tool description
+
+</Update>
+
+<Update label="2025-05-15" description="v0.1.101">
+
+**New Features:**
+- **Neo4j:** Added base label configuration support
+
+**Improvements:**
+- **Documentation:**
+  - Updated Healthcare example index
+  - Enhanced collaborative task agent documentation clarity
+  - Added criteria-based filtering documentation
+- **OpenMemory:** Added cURL command for easy installation
+- **Build:** Migrated to Hatch build system
+
+</Update>
+
+<Update label="2025-05-10" description="v0.1.100">
+
+**New Features:**
+- **Memory:** Added Group Chat Memory Feature support
+- **Examples:** Added Healthcare assistant using Mem0 and Google ADK
+
+**Bug Fixes:**
+- **SSE:** Fixed SSE connection issues
+- **MCP:** Fixed memories not appearing in MCP clients added from Dashboard
+
+</Update>
+
+<Update label="2025-05-07" description="v0.1.99">
+
+**New Features:**
+- **OpenMemory:** Added OpenMemory support
+- **Neo4j:** Added weights to Neo4j model
+- **AWS:** Added support for Opsearch Serverless
+- **Examples:** Added ElizaOS Example
+
+**Improvements:**
+- **Documentation:** Updated Azure AI documentation
+- **AI SDK:** Added missing parameters and updated demo application
+- **OSS:** Fixed AOSS and AWS BedRock LLM
+
+</Update>
+
+<Update label="2025-04-30" description="v0.1.98">
+
+**New Features:**
+- **Neo4j:** Added support for Neo4j database
+- **AWS:** Added support for AWS Bedrock Embeddings
+
+**Improvements:**
+- **Client:** Updated delete_users() to use V2 API endpoints
+- **Documentation:** Updated timestamp and dual-identity memory management docs
+- **Neo4j:** Improved Neo4j queries and removed warnings
+- **AI SDK:** Added support for graceful failure when services are down
+
+**Bug Fixes:**
+- Fixed AI SDK filters
+- Fixed new memories wrong type
+- Fixed duplicated metadata issue while adding/updating memories
+
+</Update>
+
+<Update label="2025-04-23" description="v0.1.97">
+
+**New Features:**
+- **HuggingFace:** Added support for HF Inference
+
+**Bug Fixes:**
+- Fixed proxy for Mem0
+
+</Update>
+
+<Update label="2025-04-16" description="v0.1.96">
+
+**New Features:**
+- **Vercel AI SDK:** Added Graph Memory support
+
+**Improvements:**
+- **Documentation:** Fixed timestamp and README links
+- **Client:** Updated TS client to use proper types for deleteUsers
+- **Dependencies:** Removed unnecessary dependencies from base package
+
+</Update>
+
+<Update label="2025-04-09" description="v0.1.95">
+
+**Improvements:**
+- **Client:** Fixed Ping Method for using default org_id and project_id
+- **Documentation:** Updated documentation
+
+**Bug Fixes:**
+- Fixed mem0-migrations issue
+
+</Update>
+
+<Update label="2025-04-26" description="v0.1.94">
+
+**New Features:**
+- **Integrations:** Added Memgraph integration
+- **Memory:** Added timestamp support
+- **Vector Stores:** Added reset function for VectorDBs
+
+**Improvements:**
+- **Documentation:**
+  - Updated timestamp and expiration_date documentation
+  - Fixed v2 search documentation
+  - Added "memory" in EC "Custom config" section
+  - Fixed typos in the json config sample
+
+</Update>
+
+<Update label="2025-04-21" description="v0.1.93">
+
+**Improvements:**
+- **Vector Stores:** Initialized embedding_model_dims in all vectordbs
+
+**Bug Fixes:**
+- **Documentation:** Fixed agno link
+
+</Update>
+
+<Update label="2025-04-18" description="v0.1.92">
+
+**New Features:**
+- **Memory:** Added Memory Reset functionality
+- **Client:** Added support for Custom Instructions
+- **Examples:** Added Fitness Checker powered by memory
+
+**Improvements:**
+- **Core:** Updated capture_event
+- **Documentation:** Fixed curl for v2 get_all
+
+**Bug Fixes:**
+- **Vector Store:** Fixed user_id functionality
+- **Client:** Various client improvements
+
+</Update>
+
+<Update label="2025-04-16" description="v0.1.91">
+
+**New Features:**
+- **LLM Integrations:** Added Azure OpenAI Embedding Model
+- **Examples:**
+  - Added movie recommendation using grok3
+  - Added Voice Assistant using Elevenlabs
+
+**Improvements:**
+- **Documentation:**
+  - Added keywords AI
+  - Reformatted navbar page URLs
+  - Updated changelog
+  - Updated openai.mdx
+- **FAISS:** Silenced FAISS info logs
+
+</Update>
+
+<Update label="2025-04-11" description="v0.1.90">
+
+**New Features:**
+- **LLM Integrations:** Added Mistral AI as LLM provider
+
+**Improvements:**
+- **Documentation:**
+  - Updated changelog
+  - Fixed memory exclusion example
+  - Updated xAI documentation
+  - Updated YouTube Chrome extension example documentation
+
+**Bug Fixes:**
+- **Core:** Fixed EmbedderFactory.create() in GraphMemory
+- **Azure OpenAI:** Added patch to fix Azure OpenAI
+- **Telemetry:** Fixed telemetry issue
+
+</Update>
+
+<Update label="2025-04-11" description="v0.1.89">
+
+**New Features:**
+- **Langchain Integration:** Added support for Langchain VectorStores
+- **Examples:**
+  - Added personal assistant example
+  - Added personal study buddy example
+  - Added YouTube assistant Chrome extension example
+  - Added agno example
+  - Updated OpenAI Responses API examples
+- **Vector Store:** Added capability to store user_id in vector database
+- **Async Memory:** Added async support for OSS
+
+**Improvements:**
+- **Documentation:** Updated formatting and examples
+
+</Update>
+
+<Update label="2025-04-09" description="v0.1.87">
+
+**New Features:**
+- **Upstash Vector:** Added support for Upstash Vector store
+
+**Improvements:**
+- **Code Quality:** Removed redundant code lines
+- **Build:** Updated MAKEFILE
+- **Documentation:** Updated memory export documentation
+
+</Update>
+
+<Update label="2025-04-07" description="v0.1.86">
+
+**Improvements:**
+- **FAISS:** Added embedding_dims parameter to FAISS vector store
+
+</Update>
+
+<Update label="2025-04-07" description="v0.1.84">
+
+**New Features:**
+- **Langchain Embedder:** Added Langchain embedder integration
+
+**Improvements:**
+- **Langchain LLM:** Updated Langchain LLM integration to directly pass the Langchain object LLM
+</Update>
+
+<Update label="2025-04-07" description="v0.1.83">
+
+**Bug Fixes:**
+- **Langchain LLM:** Fixed issues with Langchain LLM integration
+</Update>
+
+<Update label="2025-04-07" description="v0.1.82">
+
+**New Features:**
+- **LLM Integrations:** Added support for Langchain LLMs, Google as new LLM and embedder
+- **Development:** Added development docker compose
+
+**Improvements:**
+- **Output Format:** Set output_format='v1.1' and updated documentation
+
+**Documentation:**
+- **Integrations:** Added LMStudio and Together.ai documentation
+- **API Reference:** Updated output_format documentation
+- **Integrations:** Added PipeCat integration documentation
+- **Integrations:** Added Flowise integration documentation for Mem0 memory setup
+
+**Bug Fixes:**
+- **Tests:** Fixed failing unit tests
+</Update>
+
+<Update label="2025-04-02" description="v0.1.79">
+
+**New Features:**
+- **FAISS Support:** Added FAISS vector store support
+
+</Update>
+
+<Update label="2025-04-02" description="v0.1.78">
+
+**New Features:**
+- **Livekit Integration:** Added Mem0 livekit example
+- **Evaluation:** Added evaluation framework and tools
+
+**Documentation:**
+- **Multimodal:** Updated multimodal documentation
+- **Examples:** Added examples for email processing
+- **API Reference:** Updated API reference section
+- **Elevenlabs:** Added Elevenlabs integration example
+
+**Bug Fixes:**
+- **OpenAI Environment Variables:** Fixed issues with OpenAI environment variables
+- **Deployment Errors:** Added `package.json` file to fix deployment errors
+- **Tools:** Fixed tools issues and improved formatting
+- **Docs:** Updated API reference section for `expiration date`
+</Update>
+
+<Update label="2025-03-26" description="v0.1.77">
+
+**Bug Fixes:**
+- **OpenAI Environment Variables:** Fixed issues with OpenAI environment variables
+- **Deployment Errors:** Added `package.json` file to fix deployment errors
+- **Tools:** Fixed tools issues and improved formatting
+- **Docs:** Updated API reference section for `expiration date`
+</Update>
+
+<Update label="2025-03-19" description="v0.1.76">
+**New Features:**
+- **Supabase Vector Store:** Added support for Supabase Vector Store
+- **Supabase History DB:** Added Supabase History DB to run Mem0 OSS on Serverless
+- **Feedback Method:** Added feedback method to client
+
+**Bug Fixes:**
+- **Azure OpenAI:** Fixed issues with Azure OpenAI
+- **Azure AI Search:** Fixed test cases for Azure AI Search
+</Update>
+
+</Tab>
+
+<Tab title="TypeScript">
+
+<Update label="2025-08-04" description="v2.1.37">
+**New Features:**
+- **OSS:** Added `RedisCloud` search module check
+</Update>
+
+<Update label="2025-07-08" description="v2.1.36">
+**New Features:**
+- **Client:** Added `structured_data_schema` param to `add` method.
+</Update>
+
+<Update label="2025-07-08" description="v2.1.35">
+**New Features:**
+- **Client:** Added `createMemoryExport` and `getMemoryExport` methods.
+</Update>
+
+<Update label="2025-07-03" description="v2.1.34">
+**New Features:**
+- **OSS:** Added Gemini support
+</Update>
+
+<Update label="2025-06-24" description="v2.1.33">
+**Improvement :**
+- **Client:** Added `immutable` param to `add` method.
+</Update>
+
+<Update label="2025-06-20" description="v2.1.32">
+**Improvement :**
+- **Client:** Made `api_version` V2 as default.
+</Update>
+
+<Update label="2025-06-17" description="v2.1.31">
+**Improvement :**
+- **Client:** Added param `filter_memories`.
+</Update>
+
+<Update label="2025-06-06" description="v2.1.30">
+**New Features:**
+- **OSS:** Added Cloudflare support
+
+**Improvements:**
+- **OSS:** Fixed baseURL param in LLM Config.
+</Update>
+
+<Update label="2025-05-30" description="v2.1.29">
+**Improvements:**
+- **Client:** Added Async Mode Param for `add` method.
+</Update>
+
+<Update label="2025-05-30" description="v2.1.28">
+**Improvements:**
+- **SDK:** Update Google SDK Peer Dependency Version.
+</Update>
+
+<Update label="2025-05-27" description="v2.1.27">
+**Improvements:**
+- **OSS:** Added baseURL param in LLM Config.
+</Update>
+<Update label="2025-05-23" description="v2.1.26">
+**Improvements:**
+- **Client:** Removed type `string` from `messages` interface
+</Update>
+
+<Update label="2025-05-08" description="v2.1.25">
+**Improvements:**
+- **Client:** Improved error handling in client.
+</Update>
+
+<Update label="2025-05-06" description="v2.1.24">
+**New Features:**
+- **Client:** Added new param `output_format` to match Python SDK.
+- **Client:** Added new enum `OutputFormat` for `v1.0` and `v1.1`
+</Update>
+
+<Update label="2025-05-05" description="v2.1.23">
+**New Features:**
+- **Client:** Updated `deleteUsers` to use `v2` API.
+- **Client:** Deprecated `deleteUser` and added deprecation warning.
+</Update>
+
+<Update label="2025-05-02" description="v2.1.22">
+**New Features:**
+- **Client:** Updated `deleteUser` to use `entity_id` and `entity_type`
+</Update>
+
+<Update label="2025-05-01" description="v2.1.21">
+**Improvements:**
+- **OSS SDK:** Bumped version of `@anthropic-ai/sdk` to `0.40.1`
+</Update>
+
+<Update label="2025-04-28" description="v2.1.20">
+**Improvements:**
+- **Client:** Fixed `organizationId` and `projectId` being assigned to default in `ping` method
+</Update>
+
+<Update label="2025-04-22" description="v2.1.19">
+**Improvements:**
+- **Client:** Added support for `timestamps`
+</Update>
+
+<Update label="2025-04-17" description="v2.1.18">
+**Improvements:**
+- **Client:** Added support for custom instructions
+</Update>
+
+<Update label="2025-04-15" description="v2.1.17">
+**New Features:**
+- **OSS SDK:** Added support for Langchain LLM
+- **OSS SDK:** Added support for Langchain Embedder
+- **OSS SDK:** Added support for Langchain Vector Store
+- **OSS SDK:** Added support for Azure OpenAI Embedder
+
+
+**Improvements:**
+- **OSS SDK:** Changed `model` in LLM and Embedder to use type any from `string` to use langchain llm models
+- **OSS SDK:** Added client to vector store config for langchain vector store
+- **OSS SDK:** - Updated Azure OpenAI to use new OpenAI SDK
+</Update>
+
+<Update label="2025-04-11" description="v2.1.16-patch.1">
+**Bug Fixes:**
+- **Azure OpenAI:** Fixed issues with Azure OpenAI
+</Update>
+
+<Update label="2025-04-11" description="v2.1.16">
+**New Features:**
+- **Azure OpenAI:** Added support for Azure OpenAI
+- **Mistral LLM:** Added Mistral LLM integration in OSS
+
+**Improvements:**
+- **Zod:** Updated Zod to 3.24.1 to avoid conflicts with other packages
+</Update>
+
+<Update label="2025-04-09" description="v2.1.15">
+**Improvements:**
+- **Client:** Added support for Mem0 to work with Chrome Extensions
+</Update>
+
+<Update label="2025-04-01" description="v2.1.14">
+**New Features:**
+- **Mastra Example:** Added Mastra example
+- **Integrations:** Added Flowise integration documentation for Mem0 memory setup
+
+**Improvements:**
+- **Demo:** Updated Demo Mem0AI
+- **Client:** Enhanced Ping method in Mem0 Client
+- **AI SDK:** Updated AI SDK implementation
+</Update>
+
+<Update label="2025-03-29" description="v2.1.13">
+**Improvements:**
+- **Introduced `ping` method to check if API key is valid and populate org/project id**
+</Update>
+
+<Update label="2025-03-29" description="AI SDK v1.0.0">
+**New Features:**
+- **Vercel AI SDK Update:** Support threshold and rerank
+
+**Improvements:**
+- **Made add calls async to avoid blocking**
+- **Bump `mem0ai` to use `2.1.12`**
+
+</Update>
+
+<Update label="2025-03-26" description="v2.1.12">
+**New Features:**
+- **Mem0 OSS:** Support infer param
+
+**Improvements:**
+- **Updated Supabase TS Docs**
+- **Made package size smaller**
+
+</Update>
+
+<Update label="2025-03-19" description="v2.1.11">
+**New Features:**
+- **Supabase Vector Store Integration**
+- **Feedback Method**
+</Update>
+
+</Tab>
+
+<Tab title="Platform">
+
+<Update label="2025-07-23" description="">
+
+**Bug Fixes:**
+- **Memory:** Fixed ADD functionality
+
+</Update>
+
+<Update label="2025-07-19" description="">
+
+**New Features:**
+- **UI:** Added Settings UI and latency display
+- **Performance:** Neo4j query optimization
+
+**Bug Fixes:**
+- **OpenMemory:** Fixed OMM raising unnecessary exceptions
+
+</Update>
+
+<Update label="2025-07-18" description="">
+
+**Improvements:**
+- **UI:** Updated Event UI
+- **Performance:** Fixed N+1 query issue in semantic_search_v2 by optimizing MemorySerializer field selection
+
+**Bug Fixes:**
+- **Memory:** Fixed duplicate memory index sentry error
+
+</Update>
+
+<Update label="2025-07-17" description="">
+
+**New Features:**
+- **UI:** New Settings Page
+- **Memory:** Duplicate memories entities support
+
+**Improvements:**
+- **Performance:** Optimized semantic search and get_all APIs by eliminating N+1 queries
+
+</Update>
+
+<Update label="2025-07-16" description="">
+
+**New Features:**
+- **Database:** Implemented read replica routing with enhanced logging and app-specific DB routing
+
+**Improvements:**
+- **Performance:** Improved query performance in search v2 and get all v2 endpoints
+
+**Bug Fixes:**
+- **API:** Fixed pagination for get all API
+
+</Update>
+
+<Update label="2025-07-12" description="">
+
+**Bug Fixes:**
+- **Graph:** Fixed social graph bugs and connection issues
+
+</Update>
+
+<Update label="2025-07-11" description="">
+
+**Improvements:**
+- **Rate Limiting:** New rate limit for V2 Search
+
+**Bug Fixes:**
+- **Slack:** Fixed Slack rate limit error with backend improvements
+
+</Update>
+
+<Update label="2025-07-10" description="">
+
+**Improvements:**
+- **Performance:** 
+  - Changed connection pooling time to 5 minutes
+  - Separated graph lambdas for better performance
+
+</Update>
+
+<Update label="2025-07-09" description="">
+
+**Improvements:**
+- **Graph:** Graph Optimizations V2 and memory improvements
+
+</Update>
+
+<Update label="2025-07-08" description="">
+
+**New Features:**
+- **Database:** Added read replica support for improved database performance
+- **UI:** Implemented UI changes for Users Page
+- **Feedback:** Enabled feedback functionality
+
+**Bug Fixes:**
+- **Serializer:** Fixed GET ALL Serializer
+
+</Update>
+
+<Update label="2025-07-05" description="">
+
+**New Features:**
+- **UI:** User Page Revamp and New Users Page
+
+</Update>
+
+<Update label="2025-07-04" description="">
+
+**New Features:**
+- **Users:** New Users Page implementation
+- **Tools:** Added script to backfill memory categories
+
+**Bug Fixes:**
+- **Filters:** Fixed Filters Get All functionality
+
+</Update>
+
+<Update label="2025-07-03" description="">
+
+**Improvements:**
+- **Graph:** Graph Memory optimization
+- **Memory:** Fixed exact memories and semantically similar memories retrieval
+
+</Update>
+
+<Update label="2025-07-02" description="">
+
+**Improvements:**
+- **Categorization:** Refactored categorization logic to utilize Gemini 2.5 Flash and improve message handling
+
+</Update>
+
+<Update label="2025-07-01" description="">
+
+**Bug Fixes:**
+- **Memory:** Fixed old_memory issue in Async memory addition lambda
+- **Events:** Fixed missing events
+
+</Update>
+
+<Update label="2025-06-30" description="">
+
+**Improvements:**
+- **Graph:** Improvements to graph memory and added user to LTM-STM
+
+</Update>
+
+<Update label="2025-06-28" description="">
+
+**New Features:**
+- **Graph:** Added support for SQS in graph memory addition
+- **Testing:** Added Locust load testing script and Grafana Dashboard
+
+</Update>
+
+<Update label="2025-06-27" description="">
+
+**Improvements:**
+- **Rate Limiting:** Updated rate limiting for ADD API to 1000/min
+- **Performance:** Improved Neo4j performance
+
+</Update>
+
+<Update label="2025-06-26" description="">
+
+**New Features:**
+- **Memory:** Edit Memory From Drawer functionality
+- **API:** Added Topic Suggestions API Endpoint
+
+</Update>
+
+<Update label="2025-06-25" description="">
+
+**New Features:**
+- **Group Chat:** Group-Chat v2 with Actor-Aware Memories
+- **Memory:** Editable Metadata in Memories
+- **UI:** Memory Actions Badges
+
+</Update>
+
+<Update label="2025-06-19" description="">
+
+**New Features:**
+- **Rate Limiting:** Implemented comprehensive rate limiting system
+
+**Improvements:**
+- **Performance:** Added performance indexes for memory stats query
+
+**Bug Fixes:**
+- **Search:** Fixed search events not respecting top-k parameter
+
+</Update>
+
+<Update label="2025-06-18" description="">
+
+**New Features:**
+- **Memory Management:** Implemented OpenAI Batch API for Memory Cleaning with fallback
+- **Playground:** Added Claude 4 support on Playground
+
+**Improvements:**
+- **Memory:** Added ability to update memory metadata
+
+</Update>
+
+<Update label="2025-06-17" description="">
+
+**New Features:**
+- **UI:** New Memories Page UI design
+
+</Update>
+
+<Update label="2025-06-16" description="">
+
+**Improvements:**
+- **Infrastructure:** Migrated to Application Load Balancer (ALB)
+
+</Update>
+
+<Update label="2025-06-13" description="">
+
+**Improvements:**
+- **Memory Management:** Enhanced Memory Management with Cosine Similarity Fallback
+
+</Update>
+
+<Update label="2025-06-11" description="">
+
+**New Features:**
+- **OMM:** Added OMM Script and UI functionality
+
+**Improvements:**
+- **API:** Added filters validation to semantic_search_v2 endpoint
+
+</Update>
+
+<Update label="2025-06-09" description="">
+
+**New Features:**
+- **Intercom:** Set Intercom events for ADD and SEARCH operations
+- **OpenMemory:** Added Posthog integration and feedback functionality
+- **MCP:** New JavaScript MCP Server with feedback support
+
+**Improvements:**
+- **Structured Data:** Enhanced structured data handling in memory management
+
+</Update>
+
+<Update label="2025-06-06" description="">
+
+**New Features:**
+- **OAuth:** Added Mem0 OAuth integration
+- **OMM:** Added OMM-Mem0 sync for deleted memories
+
+</Update>
+
+<Update label="2025-06-05" description="">
+
+**New Features:**
+- **Filters:** Implemented Wildcard Filters and refactored filter logic in V2 Views
+
+</Update>
+
+<Update label="2025-06-02" description="">
+
+**New Features:**
+- **OpenMemory Cloud:** Added OpenMemory Cloud support
+- **Structured Data:** Added 'structured_attributes' field to Memory model
+
+</Update>
+
+<Update label="2025-05-30" description="">
+
+**New Features:**
+- **Projects:** Added version and enable_graph to project views
+- **OpenMemory:** Added Postgres support for OpenMemory
+
+</Update>
+
+<Update label="2025-05-19" description="">
+
+**Bug Fixes:**
+- **Core:** Fixed unicode error in user_id, agent_id, run_id and app_id
+
+</Update>
+
+</Tab>
+
+<Tab title="Vercel AI SDK">
+
+<Update label="2025-08-05" description="v2.0.1">
+**New Features:**
+- **Vercel AI SDK:** Added a new param `host` to the config.
+</Update>
+
+<Update label="2025-08-05" description="v2.0.0">
+**New Features:**
+- **Vercel AI SDK:** Migration to AI SDK V5.
+</Update>
+
+<Update label="2025-06-15" description="v1.0.6">
+**New Features:**
+- **Vercel AI SDK:** Added param `filter_memories`.
+</Update>
+
+<Update label="2025-05-23" description="v1.0.5">
+**New Features:**
+- **Vercel AI SDK:** Added support for Google provider.
+</Update>
+
+<Update label="2025-05-10" description="v1.0.4">
+**New Features:**
+- **Vercel AI SDK:** Added support for new param `output_format`.
+</Update>
+
+<Update label="2025-05-08" description="v1.0.3">
+**Improvements:**
+- **Vercel AI SDK:** Added support for graceful failure in cases services are down.
+</Update>
+
+<Update label="2025-05-01" description="v1.0.1">
+**New Features:**
+- **Vercel AI SDK:** Added support for graph memories
+</Update>
+
+</Tab>
+
+</Tabs>
+

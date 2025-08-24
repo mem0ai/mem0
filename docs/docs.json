@@ -19,10 +19,10 @@
             "tab": "Documentation",
             "groups": [
               {
-                "group": "Get Started",
+                "group": "Getting Started",
                 "icon": "rocket",
                 "pages": [
-                  "overview",
+                  "introduction",
                   "quickstart",
                   "faqs"
                 ]
@@ -32,7 +32,16 @@
                 "icon": "brain",
                 "pages": [
                   "core-concepts/memory-types",
-                  "core-concepts/memory-operations"
+                  {
+                    "group": "Memory Operations",
+                    "icon": "gear",
+                    "pages": [
+                      "core-concepts/memory-operations/add",
+                      "core-concepts/memory-operations/search",
+                      "core-concepts/memory-operations/update",
+                      "core-concepts/memory-operations/delete"
+                    ]
+                  }
                 ]
               },
               {
@@ -41,23 +50,27 @@
                 "pages": [
                   "platform/overview",
                   "platform/quickstart",
+                  "platform/advanced-memory-operations",
                   {
                     "group": "Features",
                     "icon": "star",
                     "pages": [
-                      "features/platform-overview",
-                      "features/advanced-retrieval",
-                      "features/contextual-add",
-                      "features/multimodal-support",
-                      "features/selective-memory",
-                      "features/custom-categories",
-                      "features/custom-instructions",
-                      "features/direct-import",
-                      "features/async-client",
-                      "features/memory-export",
-                      "features/webhooks",
-                      "features/graph-memory",
-                      "features/feedback-mechanism"
+                      "platform/features/platform-overview",
+                      "platform/features/contextual-add",
+                      "platform/features/async-client",
+                      "platform/features/advanced-retrieval",
+                      "platform/features/criteria-retrieval",
+                      "platform/features/multimodal-support",
+                      "platform/features/selective-memory",
+                      "platform/features/custom-categories",
+                      "platform/features/custom-instructions",
+                      "platform/features/direct-import",
+                      "platform/features/memory-export",
+                      "platform/features/timestamp",
+                      "platform/features/expiration-date",
+                      "platform/features/webhooks",
+                      "platform/features/feedback-mechanism",
+                      "platform/features/group-chat"
                     ]
                   }
                 ]
@@ -66,17 +79,19 @@
                 "group": "Open Source",
                 "icon": "code-branch",
                 "pages": [
-                  "open-source/quickstart",
+                  "open-source/overview",
                   "open-source/python-quickstart",
                   "open-source/node-quickstart",
                   {
                     "group": "Features",
-                    "icon": "wrench",
+                    "icon": "star",
                     "pages": [
-                      "features/openai_compatibility",
-                      "features/custom-fact-extraction-prompt",
-                      "features/custom-update-memory-prompt",
-                      "open-source/multimodal-support",
+                      "open-source/features/overview",
+                      "open-source/features/async-memory",
+                      "open-source/features/openai_compatibility",
+                      "open-source/features/custom-fact-extraction-prompt",
+                      "open-source/features/custom-update-memory-prompt",
+                      "open-source/features/multimodal-support",
                       "open-source/features/rest-api"
                     ]
                   },
@@ -108,9 +123,12 @@
                           "components/llms/models/mistral_AI",
                           "components/llms/models/google_AI",
                           "components/llms/models/aws_bedrock",
-                          "components/llms/models/gemini",
                           "components/llms/models/deepseek",
-                          "components/llms/models/xAI"
+                          "components/llms/models/xAI",
+                          "components/llms/models/sarvam",
+                          "components/llms/models/lmstudio",
+                          "components/llms/models/langchain",
+                          "components/llms/models/vllm"
                         ]
                       }
                     ]
@@ -130,13 +148,21 @@
                           "components/vectordbs/dbs/pgvector",
                           "components/vectordbs/dbs/milvus",
                           "components/vectordbs/dbs/pinecone",
-                          "components/vectordbs/dbs/azure_ai_search",
+                          "components/vectordbs/dbs/mongodb",
+                          "components/vectordbs/dbs/azure",
                           "components/vectordbs/dbs/redis",
                           "components/vectordbs/dbs/elasticsearch",
                           "components/vectordbs/dbs/opensearch",
                           "components/vectordbs/dbs/supabase",
-                          "components/vectordbs/dbs/vertex_ai_vector_search",
-                          "components/vectordbs/dbs/weaviate"
+                          "components/vectordbs/dbs/upstash-vector",
+                          "components/vectordbs/dbs/vectorize",
+                          "components/vectordbs/dbs/vertex_ai",
+                          "components/vectordbs/dbs/weaviate",
+                          "components/vectordbs/dbs/faiss",
+                          "components/vectordbs/dbs/langchain",
+                          "components/vectordbs/dbs/baidu",
+                          "components/vectordbs/dbs/s3_vectors",
+                          "components/vectordbs/dbs/databricks"
                         ]
                       }
                     ]
@@ -156,7 +182,11 @@
                           "components/embedders/models/ollama",
                           "components/embedders/models/huggingface",
                           "components/embedders/models/vertexai",
-                          "components/embedders/models/gemini"
+                          "components/embedders/models/google_AI",
+                          "components/embedders/models/lmstudio",
+                          "components/embedders/models/together",
+                          "components/embedders/models/langchain",
+                          "components/embedders/models/aws_bedrock"
                         ]
                       }
                     ]
@@ -174,27 +204,45 @@
             ]
           },
           {
+            "tab": "OpenMemory",
+            "icon": "square-terminal",
+            "pages": [
+              "openmemory/overview",
+              "openmemory/quickstart",
+              "openmemory/integrations"
+            ]
+          },
+          {
             "tab": "Examples",
             "groups": [
               {
                 "group": "💡 Examples",
                 "icon": "lightbulb",
                 "pages": [
-                  "examples/overview",
+                  "examples",
+                  "examples/aws_example",
                   "examples/mem0-demo",
                   "examples/ai_companion_js",
+                  "examples/collaborative-task-agent",
+                  "examples/llamaindex-multiagent-learning-system",
+                  "examples/personalized-search-tavily-mem0",
+                  "examples/eliza_os",
+                  "examples/mem0-mastra",
                   "examples/mem0-with-ollama",
                   "examples/personal-ai-tutor",
                   "examples/customer-support-agent",
                   "examples/personal-travel-assistant",
                   "examples/llama-index-mem0",
                   "examples/chrome-extension",
-                  "examples/document-writing",
+                  "examples/memory-guided-content-writing",
                   "examples/multimodal-demo",
                   "examples/personalized-deep-research",
                   "examples/mem0-agentic-tool",
                   "examples/openai-inbuilt-tools",
-                  "examples/mem0-openai-voice-demo"
+                  "examples/mem0-openai-voice-demo",
+                  "examples/mem0-google-adk-healthcare-assistant",
+                  "examples/email_processing",
+                  "examples/youtube-assistant"
                 ]
               }
             ]
@@ -206,16 +254,27 @@
                 "group": "Integrations",
                 "icon": "plug",
                 "pages": [
-                  "integrations/overview",
-                  "integrations/vercel-ai-sdk",
-                  "integrations/crewai",
-                  "integrations/autogen",
+                  "integrations",
                   "integrations/langchain",
                   "integrations/langgraph",
                   "integrations/llama-index",
+                  "integrations/agno",
+                  "integrations/autogen",
+                  "integrations/crewai",
+                  "integrations/openai-agents-sdk",
+                  "integrations/google-ai-adk",
+                  "integrations/mastra",
+                  "integrations/vercel-ai-sdk",
+                  "integrations/livekit",
+                  "integrations/pipecat",
+                  "integrations/elevenlabs",
+                  "integrations/aws-bedrock",
+                  "integrations/flowise",
                   "integrations/langchain-tools",
+                  "integrations/agentops",
+                  "integrations/keywords",
                   "integrations/dify",
-                  "integrations/mcp-server"
+                  "integrations/raycast"
                 ]
               }
             ]
@@ -228,7 +287,7 @@
                 "group": "API Reference",
                 "icon": "terminal",
                 "pages": [
-                  "api-reference/overview",
+                  "api-reference",
                   {
                     "group": "Memory APIs",
                     "icon": "microchip",
@@ -271,6 +330,18 @@
                     ]
                   },
                   {
+                    "group": "Project APIs",
+                    "icon": "folder",
+                    "pages": [
+                      "api-reference/project/create-project",
+                      "api-reference/project/get-projects",
+                      "api-reference/project/get-project",
+                      "api-reference/project/get-project-members",
+                      "api-reference/project/add-project-member",
+                      "api-reference/project/delete-project"
+                    ]
+                  },
+                  {
                     "group": "Webhook APIs",
                     "icon": "webhook",
                     "pages": [
@@ -283,33 +354,21 @@
                 ]
               }
             ]
+          },
+          {
+            "tab": "Changelog",
+            "icon": "clock",
+            "groups": [
+              {
+                "group": "Product Updates",
+                "icon": "rocket",
+                "pages": [
+                  "changelog"
+                ]
+              }
+            ]
           }
         ]
-      },
-      {
-        "anchor": "Your Dashboard",
-        "href": "https://app.mem0.ai",
-        "icon": "chart-simple"
-      },
-      {
-        "anchor": "Demo",
-        "href": "https://mem0.dev/demo",
-        "icon": "play"
-      },
-      {
-        "anchor": "Discord",
-        "href": "https://mem0.dev/DiD",
-        "icon": "discord"
-      },
-      {
-        "anchor": "GitHub",
-        "href": "https://github.com/mem0ai/mem0",
-        "icon": "github"
-      },
-      {
-        "anchor": "Support",
-        "href": "mailto:founders@mem0.ai",
-        "icon": "envelope"
       }
     ]
   },

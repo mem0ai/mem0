@@ -1,0 +1,54 @@
+---
+title: MCP Client Integration Guide
+icon: "plug"
+iconType: "solid"
+---
+
+## Connecting an MCP Client
+
+Once your OpenMemory server is running locally, you can connect any compatible MCP client to your personal memory stream. This enables a seamless memory layer integration for AI tools and agents.
+
+Ensure the following environment variables are correctly set in your configuration files:
+
+**In `/ui/.env`:**
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8765
+NEXT_PUBLIC_USER_ID=<user-id>
+```
+
+**In `/api/.env`:**
+```env
+OPENAI_API_KEY=sk-xxx
+USER=<user-id>
+```
+
+These values define where your MCP server is running and which user's memory is accessed.
+
+### MCP Client Setup
+
+Use the following one step command to configure OpenMemory Local MCP to a client. The general command format is as follows:
+
+```bash
+npx @openmemory/install local http://localhost:8765/mcp/<client-name>/sse/<user-id> --client <client-name>
+```
+
+Replace `<client-name>` with the desired client name and `<user-id>` with the value specified in your environment variables.
+
+### Example Commands for Supported Clients
+
+| Client      | Command |
+|-------------|---------|
+| Claude      | `npx install-mcp http://localhost:8765/mcp/claude/sse/<user-id> --client claude` |
+| Cursor      | `npx install-mcp http://localhost:8765/mcp/cursor/sse/<user-id> --client cursor` |
+| Cline       | `npx install-mcp http://localhost:8765/mcp/cline/sse/<user-id> --client cline` |
+| RooCline    | `npx install-mcp http://localhost:8765/mcp/roocline/sse/<user-id> --client roocline` |
+| Windsurf    | `npx install-mcp http://localhost:8765/mcp/windsurf/sse/<user-id> --client windsurf` |
+| Witsy       | `npx install-mcp http://localhost:8765/mcp/witsy/sse/<user-id> --client witsy` |
+| Enconvo     | `npx install-mcp http://localhost:8765/mcp/enconvo/sse/<user-id> --client enconvo` |
+| Augment     | `npx install-mcp http://localhost:8765/mcp/augment/sse/<user-id> --client augment` |
+
+### What This Does
+
+Running one of the above commands registers the specified MCP client and connects it to your OpenMemory server. This enables the client to stream and store contextual memory for the provided user ID.
+
+The connection status and memory activity can be monitored via the OpenMemory UI at [http://localhost:3000](http://localhost:3000).

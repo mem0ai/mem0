@@ -1,0 +1,144 @@
+# Mem0
+
+> Mem0 is a self-improving memory layer for LLM applications, enabling personalized AI experiences that retain context across sessions, adapt over time, and reduce costs by intelligently storing and retrieving relevant information.
+
+Mem0 provides both a managed platform and open-source solutions for adding persistent memory to AI agents and applications. Unlike traditional RAG systems that are stateless, Mem0 creates stateful agents that remember user preferences, learn from interactions, and evolve behavior over time.
+
+Key differentiators:
+- **Stateful vs Stateless**: Retains context across sessions rather than forgetting after each interaction
+- **Intelligent Memory Management**: Uses LLMs to extract, filter, and organize relevant information
+- **Dual Storage Architecture**: Combines vector embeddings with graph databases for comprehensive memory
+- **Sub-50ms Retrieval**: Lightning-fast memory lookups for real-time applications
+- **Multimodal Support**: Handles text, images, and documents seamlessly
+
+## Getting Started
+
+- [Introduction](https://docs.mem0.ai/introduction): Overview of Mem0's memory layer for AI agents, including stateless vs stateful agents and how memory fits in the agent stack
+- [Quickstart Guide](https://docs.mem0.ai/quickstart): Get started with either Mem0 Platform (managed) or Open Source in minutes
+- [Platform Overview](https://docs.mem0.ai/platform/overview): Managed solution with 4-line integration, sub-50ms latency, and intuitive dashboard
+- [Open Source Overview](https://docs.mem0.ai/open-source/overview): Self-hosted solution with full infrastructure control and customization
+
+## Core Concepts
+
+- [Memory Types](https://docs.mem0.ai/core-concepts/memory-types): Working memory (short-term session awareness), factual memory (structured knowledge), episodic memory (past conversations), and semantic memory (general knowledge)
+- [Memory Operations - Add](https://docs.mem0.ai/core-concepts/memory-operations/add): How Mem0 processes conversations through information extraction, conflict resolution, and dual storage
+- [Memory Operations - Search](https://docs.mem0.ai/core-concepts/memory-operations/search): Retrieval of relevant memories using semantic search with query processing and result ranking
+- [Memory Operations - Update](https://docs.mem0.ai/core-concepts/memory-operations/update): Modifying existing memories when new information conflicts or supplements stored data
+- [Memory Operations - Delete](https://docs.mem0.ai/core-concepts/memory-operations/delete): Removing outdated or irrelevant memories to maintain memory quality
+
+## Platform (Managed Solution)
+
+- [Platform Quickstart](https://docs.mem0.ai/platform/quickstart): Complete guide to using Mem0 Platform with Python, JavaScript, and cURL examples
+- [Advanced Memory Operations](https://docs.mem0.ai/platform/advanced-memory-operations): Sophisticated memory management techniques for complex applications
+- [Graph Memory](https://docs.mem0.ai/platform/features/graph-memory): Build and query relationships between entities for contextually relevant retrieval
+- [Advanced Retrieval](https://docs.mem0.ai/platform/features/advanced-retrieval): Enhanced search with keyword search, reranking, and filtering capabilities
+- [Multimodal Support](https://docs.mem0.ai/platform/features/multimodal-support): Integration of images and documents (JPG, PNG, MDX, TXT, PDF) via URLs or Base64
+- [Memory Customization](https://docs.mem0.ai/platform/features/selective-memory): Selective memory storage through inclusion and exclusion rules
+- [Custom Categories](https://docs.mem0.ai/platform/features/custom-categories): Define domain-specific categories to improve memory organization
+- [Async Client](https://docs.mem0.ai/platform/features/async-client): Non-blocking operations for high-concurrency applications
+- [Memory Export](https://docs.mem0.ai/platform/features/memory-export): Export memories in structured formats using customizable Pydantic schemas
+
+## Open Source
+
+- [Python Quickstart](https://docs.mem0.ai/open-source/python-quickstart): Installation, configuration, and usage examples for Python SDK
+- [Node.js Quickstart](https://docs.mem0.ai/open-source/node-quickstart): Installation, configuration, and usage examples for Node.js SDK
+- [OpenAI Compatibility](https://docs.mem0.ai/open-source/features/openai_compatibility): Seamless integration with OpenAI-compatible APIs
+- [Custom Fact Extraction](https://docs.mem0.ai/open-source/features/custom-fact-extraction-prompt): Tailor information extraction for specific use cases
+- [REST API Server](https://docs.mem0.ai/open-source/features/rest-api): FastAPI-based server with core operations and OpenAPI documentation
+- [Graph Memory Overview](https://docs.mem0.ai/open-source/graph_memory/overview): Build and query entity relationships using graph stores like Neo4j
+
+## Components
+
+- [LLM Overview](https://docs.mem0.ai/components/llms/overview): Comprehensive guide to Large Language Model integration and configuration options
+- [Vector Database Overview](https://docs.mem0.ai/components/vectordbs/overview): Guide to supported vector databases for semantic memory storage
+- [Embeddings Overview](https://docs.mem0.ai/components/embedders/overview): Embedding model configuration for semantic understanding
+
+### Supported LLMs
+
+- [OpenAI](https://docs.mem0.ai/components/llms/models/openai): Integration with OpenAI models including GPT-4 and structured outputs
+- [Anthropic](https://docs.mem0.ai/components/llms/models/anthropic): Claude model integration with advanced reasoning capabilities
+- [Google AI](https://docs.mem0.ai/components/llms/models/google_AI): Gemini model integration for multimodal applications
+- [Groq](https://docs.mem0.ai/components/llms/models/groq): High-performance LPU optimized models for fast inference
+- [AWS Bedrock](https://docs.mem0.ai/components/llms/models/aws_bedrock): Enterprise-grade AWS managed model integration
+- [Azure OpenAI](https://docs.mem0.ai/components/llms/models/azure_openai): Microsoft Azure hosted OpenAI models for enterprise environments
+- [Ollama](https://docs.mem0.ai/components/llms/models/ollama): Local model deployment for privacy-focused applications
+- [vLLM](https://docs.mem0.ai/components/llms/models/vllm): High-performance inference framework
+- [LM Studio](https://docs.mem0.ai/components/llms/models/lmstudio): Local model management and deployment
+- [Together](https://docs.mem0.ai/components/llms/models/together): Open-source model inference platform
+- [DeepSeek](https://docs.mem0.ai/components/llms/models/deepseek): Advanced reasoning models
+- [Sarvam](https://docs.mem0.ai/components/llms/models/sarvam): Indian language models
+- [XAI](https://docs.mem0.ai/components/llms/models/xai): xAI models integration
+- [LiteLLM](https://docs.mem0.ai/components/llms/models/litellm): Unified LLM interface and proxy
+- [LangChain](https://docs.mem0.ai/components/llms/models/langchain): LangChain LLM integration
+- [OpenAI Structured](https://docs.mem0.ai/components/llms/models/openai_structured): OpenAI with structured output support
+- [Azure OpenAI Structured](https://docs.mem0.ai/components/llms/models/azure_openai_structured): Azure OpenAI with structured outputs
+
+### Supported Vector Databases
+
+- [Qdrant](https://docs.mem0.ai/components/vectordbs/dbs/qdrant): High-performance vector similarity search engine
+- [Pinecone](https://docs.mem0.ai/components/vectordbs/dbs/pinecone): Managed vector database with serverless and pod deployment options
+- [Chroma](https://docs.mem0.ai/components/vectordbs/dbs/chroma): AI-native open-source vector database optimized for speed
+- [Weaviate](https://docs.mem0.ai/components/vectordbs/dbs/weaviate): Open-source vector search engine with built-in ML capabilities
+- [PGVector](https://docs.mem0.ai/components/vectordbs/dbs/pgvector): PostgreSQL extension for vector similarity search
+- [Milvus](https://docs.mem0.ai/components/vectordbs/dbs/milvus): Open-source vector database for AI applications at scale
+- [Redis](https://docs.mem0.ai/components/vectordbs/dbs/redis): Real-time vector storage and search with Redis Stack
+- [Supabase](https://docs.mem0.ai/components/vectordbs/dbs/supabase): Open-source Firebase alternative with vector support
+- [Upstash Vector](https://docs.mem0.ai/components/vectordbs/dbs/upstash_vector): Serverless vector database
+- [Elasticsearch](https://docs.mem0.ai/components/vectordbs/dbs/elasticsearch): Distributed search and analytics engine
+- [OpenSearch](https://docs.mem0.ai/components/vectordbs/dbs/opensearch): Open-source search and analytics platform
+- [FAISS](https://docs.mem0.ai/components/vectordbs/dbs/faiss): Facebook AI Similarity Search library
+- [MongoDB](https://docs.mem0.ai/components/vectordbs/dbs/mongodb): Document database with vector search capabilities
+- [Azure AI Search](https://docs.mem0.ai/components/vectordbs/dbs/azure_ai_search): Microsoft's enterprise search service
+- [Vertex AI Vector Search](https://docs.mem0.ai/components/vectordbs/dbs/vertex_ai_vector_search): Google Cloud's vector search service
+- [Databricks](https://docs.mem0.ai/components/vectordbs/dbs/databricks): Delta Lake integration for vector search
+- [Baidu](https://docs.mem0.ai/components/vectordbs/dbs/baidu): Baidu vector database integration
+- [LangChain](https://docs.mem0.ai/components/vectordbs/dbs/langchain): LangChain vector store integration
+- [S3 Vectors](https://docs.mem0.ai/components/vectordbs/dbs/s3_vectors): Amazon S3 Vectors integration
+
+### Supported Embeddings
+
+- [OpenAI Embeddings](https://docs.mem0.ai/components/embedders/models/openai): High-quality text embeddings with customizable dimensions
+- [Azure OpenAI Embeddings](https://docs.mem0.ai/components/embedders/models/azure_openai): Enterprise Azure-hosted embedding models
+- [Google AI](https://docs.mem0.ai/components/embedders/models/google_ai): Gemini embedding models
+- [AWS Bedrock](https://docs.mem0.ai/components/embedders/models/aws_bedrock): Amazon embedding models through Bedrock
+- [Hugging Face](https://docs.mem0.ai/components/embedders/models/hugging_face): Open-source embedding models for local deployment
+- [Vertex AI](https://docs.mem0.ai/components/embedders/models/vertexai): Google Cloud's enterprise embedding models
+- [Ollama](https://docs.mem0.ai/components/embedders/models/ollama): Local embedding models for privacy-focused applications
+- [Together](https://docs.mem0.ai/components/embedders/models/together): Open-source model embeddings
+- [LM Studio](https://docs.mem0.ai/components/embedders/models/lmstudio): Local model embeddings
+- [LangChain](https://docs.mem0.ai/components/embedders/models/langchain): LangChain embedder integration
+
+## Integrations
+
+- [LangChain](https://docs.mem0.ai/integrations/langchain): Seamless integration with LangChain framework for enhanced agent capabilities
+- [LangGraph](https://docs.mem0.ai/integrations/langgraph): Build stateful, multi-actor applications with persistent memory
+- [LlamaIndex](https://docs.mem0.ai/integrations/llama-index): Enhanced RAG applications with intelligent memory layer
+- [CrewAI](https://docs.mem0.ai/integrations/crewai): Multi-agent systems with shared and individual memory capabilities
+- [AutoGen](https://docs.mem0.ai/integrations/autogen): Microsoft's multi-agent conversation framework with memory
+- [Vercel AI SDK](https://docs.mem0.ai/integrations/vercel-ai-sdk): Build AI-powered web applications with persistent memory
+- [Flowise](https://docs.mem0.ai/integrations/flowise): No-code LLM workflow builder with memory capabilities
+- [Dify](https://docs.mem0.ai/integrations/dify): LLMOps platform integration for production AI applications
+
+## Examples and Use Cases
+
+- [Personal AI Tutor](https://docs.mem0.ai/examples/personal-ai-tutor): Build an AI tutor that remembers learning progress and adapts teaching methods
+- [Customer Support Agent](https://docs.mem0.ai/examples/customer-support-agent): Create support agents that remember customer history and preferences
+- [Personalized Travel Assistant](https://docs.mem0.ai/examples/personal-travel-assistant): Develop travel agents that learn from past trips and preferences
+- [Memory-Guided Content Writing](https://docs.mem0.ai/examples/memory-guided-content-writing): Build content generators that remember writing style and topic preferences
+- [Collaborative Task Agent](https://docs.mem0.ai/examples/collaborative-task-agent): Multi-agent systems with shared memory for team coordination
+
+## API Reference
+
+- [Memory APIs](https://docs.mem0.ai/api-reference/memory/add-memories): Comprehensive API documentation for memory operations
+- [Add Memories](https://docs.mem0.ai/api-reference/memory/add-memories): REST API for storing new memories with detailed request/response formats
+- [Search Memories](https://docs.mem0.ai/api-reference/memory/v2-search-memories): Advanced search API with filtering and ranking capabilities
+- [Get All Memories](https://docs.mem0.ai/api-reference/memory/v2-get-memories): Retrieve all memories with pagination and filtering options
+- [Update Memory](https://docs.mem0.ai/api-reference/memory/update-memory): Modify existing memories with conflict resolution
+- [Delete Memory](https://docs.mem0.ai/api-reference/memory/delete-memory): Remove memories individually or in batches
+
+## Optional
+
+- [FAQs](https://docs.mem0.ai/faqs): Frequently asked questions about Mem0's capabilities and implementation details
+- [Changelog](https://docs.mem0.ai/changelog): Detailed product updates and version history for tracking new features and improvements
+- [Contributing Guide](https://docs.mem0.ai/contributing/development): Guidelines for contributing to Mem0's open-source development
+- [OpenMemory](https://docs.mem0.ai/openmemory/overview): Open-source memory infrastructure for research and experimentation

@@ -37,28 +37,31 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.11"]
+        python-version: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v3
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install poetry
-        uses: snok/install-poetry@v1
-        with:
-          version: 1.4.2
-          virtualenvs-create: true
-          virtualenvs-in-project: true
+      - name: Install Hatch
+        run: pip install hatch
       - name: Load cached venv
-        id: cached-poetry-dependencies
+        id: cached-hatch-dependencies
         uses: actions/cache@v3
         with:
           path: .venv
-          key: venv-mem0-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
+          key: venv-mem0-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
+      - name: Install GEOS Libraries
+        run: sudo apt-get update && sudo apt-get install -y libgeos-dev
       - name: Install dependencies
-        run: make install_all
-        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test,graph,vector_stores,llms,extras]"
+          pip install ruff
+        if: steps.cached-hatch-dependencies.outputs.cache-hit != 'true'
+      - name: Run Linting
+        run: make lint
       - name: Run tests and generate coverage report
         run: make test
 
@@ -68,28 +71,28 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.9", "3.10", "3.11"]
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v3
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install poetry
-        uses: snok/install-poetry@v1
-        with:
-          version: 1.4.2
-          virtualenvs-create: true
-          virtualenvs-in-project: true
+      - name: Install Hatch
+        run: pip install hatch
       - name: Load cached venv
-        id: cached-poetry-dependencies
+        id: cached-hatch-dependencies
         uses: actions/cache@v3
         with:
           path: .venv
-          key: venv-embedchain-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
+          key: venv-embedchain-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
       - name: Install dependencies
         run: cd embedchain && make install_all
-        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        if: steps.cached-hatch-dependencies.outputs.cache-hit != 'true'
+      - name: Run Formatting
+        run: |
+          mkdir -p embedchain/.ruff_cache && chmod -R 777 embedchain/.ruff_cache
+          cd embedchain && hatch run format
       - name: Lint with ruff
         run: cd embedchain && make lint
       - name: Run tests and generate coverage report

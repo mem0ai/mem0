@@ -22,6 +22,7 @@ class BaseEmbedderConfig(ABC):
         openai_base_url: Optional[str] = None,
         # Huggingface specific
         model_kwargs: Optional[dict] = None,
+        huggingface_base_url: Optional[str] = None,
         # AzureOpenAI specific
         azure_kwargs: Optional[AzureConfig] = {},
         http_client_proxies: Optional[Union[Dict, str]] = None,
@@ -30,8 +31,14 @@ class BaseEmbedderConfig(ABC):
         memory_add_embedding_type: Optional[str] = None,
         memory_update_embedding_type: Optional[str] = None,
         memory_search_embedding_type: Optional[str] = None,
+        # Gemini specific
+        output_dimensionality: Optional[str] = None,
         # LM Studio specific
         lmstudio_base_url: Optional[str] = "http://localhost:1234/v1",
+        # AWS Bedrock specific
+        aws_access_key_id: Optional[str] = None,
+        aws_secret_access_key: Optional[str] = None,
+        aws_region: Optional[str] = "us-west-2",
     ):
         """
         Initializes a configuration class instance for the Embeddings.
@@ -46,6 +53,8 @@ class BaseEmbedderConfig(ABC):
         :type ollama_base_url: Optional[str], optional
         :param model_kwargs: key-value arguments for the huggingface embedding model, defaults a dict inside init
         :type model_kwargs: Optional[Dict[str, Any]], defaults a dict inside init
+        :param huggingface_base_url: Huggingface base URL to be use, defaults to None
+        :type huggingface_base_url: Optional[str], optional
         :param openai_base_url: Openai base URL to be use, defaults to "https://api.openai.com/v1"
         :type openai_base_url: Optional[str], optional
         :param azure_kwargs: key-value arguments for the AzureOpenAI embedding model, defaults a dict inside init
@@ -77,7 +86,7 @@ class BaseEmbedderConfig(ABC):
 
         # Huggingface specific
         self.model_kwargs = model_kwargs or {}
-
+        self.huggingface_base_url = huggingface_base_url
         # AzureOpenAI specific
         self.azure_kwargs = AzureConfig(**azure_kwargs) or {}
 
@@ -87,5 +96,13 @@ class BaseEmbedderConfig(ABC):
         self.memory_update_embedding_type = memory_update_embedding_type
         self.memory_search_embedding_type = memory_search_embedding_type
 
+        # Gemini specific
+        self.output_dimensionality = output_dimensionality
+
         # LM Studio specific
         self.lmstudio_base_url = lmstudio_base_url
+
+        # AWS Bedrock specific
+        self.aws_access_key_id = aws_access_key_id
+        self.aws_secret_access_key = aws_secret_access_key
+        self.aws_region = aws_region

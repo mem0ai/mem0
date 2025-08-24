@@ -1,0 +1,27 @@
+@keyframes fadeSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-slide-down {
+  opacity: 0;
+  animation: fadeSlideDown 0.5s ease-out forwards;
+}
+
+.delay-1 {
+  animation-delay: 0.07s;
+}
+
+.delay-2 {
+  animation-delay: 0.14s;
+}
+
+.delay-3 {
+  animation-delay: 0.21s;
+}

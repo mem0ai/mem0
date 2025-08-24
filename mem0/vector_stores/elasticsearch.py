@@ -31,16 +31,18 @@ class ElasticsearchDB(VectorStoreBase):
                 cloud_id=config.cloud_id,
                 api_key=config.api_key,
                 verify_certs=config.verify_certs,
+                headers= config.headers or {},
             )
         else:
             self.client = Elasticsearch(
                 hosts=[f"{config.host}" if config.port is None else f"{config.host}:{config.port}"],
                 basic_auth=(config.user, config.password) if (config.user and config.password) else None,
                 verify_certs=config.verify_certs,
+                headers= config.headers or {},
             )
 
         self.collection_name = config.collection_name
-        self.vector_dim = config.embedding_model_dims
+        self.embedding_model_dims = config.embedding_model_dims
 
         # Create index only if auto_create_index is True
         if config.auto_create_index:
@@ -58,7 +60,12 @@ class ElasticsearchDB(VectorStoreBase):
             "mappings": {
                 "properties": {
                     "text": {"type": "text"},
-                    "vector": {"type": "dense_vector", "dims": self.vector_dim, "index": True, "similarity": "cosine"},
+                    "vector": {
+                        "type": "dense_vector",
+                        "dims": self.embedding_model_dims,
+                        "index": True,
+                        "similarity": "cosine",
+                    },
                     "metadata": {"type": "object", "properties": {"user_id": {"type": "keyword"}}},
                 }
             },
@@ -222,3 +229,9 @@ class ElasticsearchDB(VectorStoreBase):
             )
 
         return [results]
+
+    def reset(self):
+        """Reset the index by deleting and recreating it."""
+        logger.warning(f"Resetting index {self.collection_name}...")
+        self.delete_col()
+        self.create_index()
