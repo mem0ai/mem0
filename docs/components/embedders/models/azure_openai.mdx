@@ -77,6 +77,43 @@ await memory.add(messages, { userId: "john" });
 ```
 </CodeGroup>
 
+As an alternative to using an API key, the Azure Identity credential chain can be used to authenticate with [Azure OpenAI role-based security](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/how-to/role-based-access-control). 
+
+<Note> If an API key is provided, it will be used for authentication over an Azure Identity </Note>
+
+Below is a sample configuration for using Mem0 with Azure OpenAI and Azure Identity:
+
+```python
+import os
+from mem0 import Memory
+# You can set the values directly in the config dictionary or use environment variables
+
+os.environ["LLM_AZURE_DEPLOYMENT"] = "your-deployment-name"
+os.environ["LLM_AZURE_ENDPOINT"] = "your-api-base-url"
+os.environ["LLM_AZURE_API_VERSION"] = "version-to-use"
+
+config = {
+    "llm": {
+        "provider": "azure_openai_structured",
+        "config": {
+            "model": "your-deployment-name",
+            "temperature": 0.1,
+            "max_tokens": 2000,
+            "azure_kwargs": {
+                  "azure_deployment": "<your-deployment-name>",
+                  "api_version": "<version-to-use>",
+                  "azure_endpoint": "<your-api-base-url>",
+                  "default_headers": {
+                    "CustomHeader": "your-custom-header",
+                  }
+              }
+        }
+    }
+}
+```
+
+Refer to [Azure Identity troubleshooting tips](https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/identity/azure-identity/TROUBLESHOOTING.md#troubleshoot-environmentcredential-authentication-issues) for setting up an Azure Identity credential.
+
 ### Config
 
 Here are the parameters available for configuring Azure OpenAI embedder:

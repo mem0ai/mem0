@@ -1,4 +1,4 @@
-import { LanguageModelV1Prompt } from 'ai';
+import { LanguageModelV2Prompt } from '@ai-sdk/provider';
 import { Mem0ConfigSettings } from './mem0-types';
 import { loadApiKey } from '@ai-sdk/provider-utils';
 interface Message {
@@ -6,7 +6,7 @@ interface Message {
     content: string | Array<{type: string, text: string}>;
 }
 
-const flattenPrompt = (prompt: LanguageModelV1Prompt) => {
+const flattenPrompt = (prompt: LanguageModelV2Prompt) => {
     try {
         return prompt.map((part) => {
             if (part.role === "user") {
@@ -23,7 +23,7 @@ const flattenPrompt = (prompt: LanguageModelV1Prompt) => {
     }
 }
 
-const convertToMem0Format = (messages: LanguageModelV1Prompt) => {
+const convertToMem0Format = (messages: LanguageModelV2Prompt) => {
     try {
         return messages.flatMap((message: any) => {
             try {
@@ -115,7 +115,8 @@ const searchInternalMemories = async (query: string, config?: Mem0ConfigSettings
             }),
         };
 
-        const response = await fetch('https://api.mem0.ai/v2/memories/search/', options);
+        const baseUrl = config?.host || 'https://api.mem0.ai';
+        const response = await fetch(`${baseUrl}/v2/memories/search/`, options);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -127,7 +128,7 @@ const searchInternalMemories = async (query: string, config?: Mem0ConfigSettings
     }
 }
 
-const addMemories = async (messages: LanguageModelV1Prompt, config?: Mem0ConfigSettings) => {
+const addMemories = async (messages: LanguageModelV2Prompt, config?: Mem0ConfigSettings) => {
     try {
         let finalMessages: Array<Message> = [];
         if (typeof messages === "string") {
@@ -160,7 +161,8 @@ const updateMemories = async (messages: Array<Message>, config?: Mem0ConfigSetti
             body: JSON.stringify({messages, ...config}),
         };
 
-        const response = await fetch('https://api.mem0.ai/v1/memories/', options);
+        const baseUrl = config?.host || 'https://api.mem0.ai';
+        const response = await fetch(`${baseUrl}/v1/memories/`, options);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -172,7 +174,7 @@ const updateMemories = async (messages: Array<Message>, config?: Mem0ConfigSetti
     }
 }
 
-const retrieveMemories = async (prompt: LanguageModelV1Prompt | string, config?: Mem0ConfigSettings) => {
+const retrieveMemories = async (prompt: LanguageModelV2Prompt | string, config?: Mem0ConfigSettings) => {
     try {
         const message = typeof prompt === 'string' ? prompt : flattenPrompt(prompt);
         const systemPrompt = "These are the memories I have stored. Give more weightage to the question by users and try to answer that first. You have to modify your answer based on the memories I have provided. If the memories are irrelevant you can ignore them. Also don't reply to this section of the prompt, or the memories, they are only for your reference. The System prompt starts after text System Message: \n\n";
@@ -208,7 +210,7 @@ const retrieveMemories = async (prompt: LanguageModelV1Prompt | string, config?:
     }
 }
 
-const getMemories = async (prompt: LanguageModelV1Prompt | string, config?: Mem0ConfigSettings) => {
+const getMemories = async (prompt: LanguageModelV2Prompt | string, config?: Mem0ConfigSettings) => {
     try {
         const message = typeof prompt === 'string' ? prompt : flattenPrompt(prompt);
         const memories = await searchInternalMemories(message, config);
@@ -223,7 +225,7 @@ const getMemories = async (prompt: LanguageModelV1Prompt | string, config?: Mem0
     }
 }
 
-const searchMemories = async (prompt: LanguageModelV1Prompt | string, config?: Mem0ConfigSettings) => {
+const searchMemories = async (prompt: LanguageModelV2Prompt | string, config?: Mem0ConfigSettings) => {
     try {
         const message = typeof prompt === 'string' ? prompt : flattenPrompt(prompt);
         const memories = await searchInternalMemories(message, config);

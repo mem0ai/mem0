@@ -1,16 +1,39 @@
 import json
 import os
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
+from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 from openai import AzureOpenAI
 
+from mem0.configs.llms.azure import AzureOpenAIConfig
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.llms.base import LLMBase
 from mem0.memory.utils import extract_json
 
+SCOPE = "https://cognitiveservices.azure.com/.default"
+
 
 class AzureOpenAILLM(LLMBase):
-    def __init__(self, config: Optional[BaseLlmConfig] = None):
+    def __init__(self, config: Optional[Union[BaseLlmConfig, AzureOpenAIConfig, Dict]] = None):
+        # Convert to AzureOpenAIConfig if needed
+        if config is None:
+            config = AzureOpenAIConfig()
+        elif isinstance(config, dict):
+            config = AzureOpenAIConfig(**config)
+        elif isinstance(config, BaseLlmConfig) and not isinstance(config, AzureOpenAIConfig):
+            # Convert BaseLlmConfig to AzureOpenAIConfig
+            config = AzureOpenAIConfig(
+                model=config.model,
+                temperature=config.temperature,
+                api_key=config.api_key,
+                max_tokens=config.max_tokens,
+                top_p=config.top_p,
+                top_k=config.top_k,
+                enable_vision=config.enable_vision,
+                vision_details=config.vision_details,
+                http_client_proxies=config.http_client,
+            )
+
         super().__init__(config)
 
         # Model name should match the custom deployment name chosen for it.
@@ -23,9 +46,21 @@ class AzureOpenAILLM(LLMBase):
         api_version = self.config.azure_kwargs.api_version or os.getenv("LLM_AZURE_API_VERSION")
         default_headers = self.config.azure_kwargs.default_headers
 
+        # If the API key is not provided or is a placeholder, use DefaultAzureCredential.
+        if api_key is None or api_key == "" or api_key == "your-api-key":
+            self.credential = DefaultAzureCredential()
+            azure_ad_token_provider = get_bearer_token_provider(
+                self.credential,
+                SCOPE,
+            )
+            api_key = None
+        else:
+            azure_ad_token_provider = None
+
         self.client = AzureOpenAI(
             azure_deployment=azure_deployment,
             azure_endpoint=azure_endpoint,
+            azure_ad_token_provider=azure_ad_token_provider,
             api_version=api_version,
             api_key=api_key,
             http_client=self.config.http_client,
@@ -68,6 +103,7 @@ class AzureOpenAILLM(LLMBase):
         response_format=None,
         tools: Optional[List[Dict]] = None,
         tool_choice: str = "auto",
+        **kwargs,
     ):
         """
         Generate a response based on the given messages using Azure OpenAI.
@@ -77,34 +113,27 @@ class AzureOpenAILLM(LLMBase):
             response_format (str or object, optional): Format of the response. Defaults to "text".
             tools (list, optional): List of tools that the model can call. Defaults to None.
             tool_choice (str, optional): Tool choice method. Defaults to "auto".
+            **kwargs: Additional Azure OpenAI-specific parameters.
 
         Returns:
             str: The generated response.
         """
 
-        user_prompt = messages[-1]['content']
+        user_prompt = messages[-1]["content"]
 
         user_prompt = user_prompt.replace("assistant", "ai")
 
-        messages[-1]['content'] = user_prompt
+        messages[-1]["content"] = user_prompt
 
-        common_params = {
+        params = self._get_supported_params(messages=messages, **kwargs)
+        
+        # Add model and messages
+        params.update({
             "model": self.config.model,
             "messages": messages,
-        }
+        })
 
-        if self.config.model in {"o3-mini", "o1-preview", "o1"}:
-            params = common_params
-        else:
-            params = {
-                **common_params,
-                "temperature": self.config.temperature,
-                "max_tokens": self.config.max_tokens,
-                "top_p": self.config.top_p,
-            }
-        if response_format:
-            params["response_format"] = response_format
-        if tools:  # TODO: Remove tools if no issues found with new memory addition logic
+        if tools:
             params["tools"] = tools
             params["tool_choice"] = tool_choice
 

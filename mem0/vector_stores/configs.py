@@ -21,6 +21,7 @@ class VectorStoreConfig(BaseModel):
         "upstash_vector": "UpstashVectorConfig",
         "azure_ai_search": "AzureAISearchConfig",
         "redis": "RedisDBConfig",
+        "databricks": "DatabricksConfig",
         "elasticsearch": "ElasticsearchConfig",
         "vertex_ai_vector_search": "GoogleMatchingEngineConfig",
         "opensearch": "OpenSearchConfig",
@@ -29,6 +30,7 @@ class VectorStoreConfig(BaseModel):
         "faiss": "FAISSConfig",
         "langchain": "LangchainConfig",
         "aliyun_tablestore": "AliyunTableStoreConfig",
+        "s3_vectors": "S3VectorsConfig",
     }
 
     @model_validator(mode="after")

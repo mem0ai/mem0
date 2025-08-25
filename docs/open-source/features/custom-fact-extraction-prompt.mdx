@@ -5,8 +5,6 @@ icon: "pencil"
 iconType: "solid"
 ---
 
-<Snippet file="security-compliance.mdx" />
-
 ## Introduction to Custom Fact Extraction Prompt
 
 Custom fact extraction prompt allow you to tailor the behavior of your Mem0 instance to specific use cases or domains. 
@@ -88,7 +86,7 @@ config = {
     "version": "v1.1"
 }
 
-m = Memory.from_config(config_dict=config, user_id="alice")
+m = Memory.from_config(config_dict=config)
 ```
 
 ```typescript TypeScript

@@ -3,10 +3,169 @@ title: "Product Updates"
 mode: "wide"
 ---
 
-<Snippet file="security-compliance.mdx" />
-
+ 
 <Tabs>
 <Tab title="Python">
+
+<Update label="2025-08-14" description="v0.1.116">
+
+**New Features & Updates:**
+- **Pinecone:** Added namespace support and improved type safety
+- **Milvus:** Added db_name field to MilvusDBConfig
+- **Vector Stores:** Added multi-id filters support
+- **Vercel AI SDK:** Migration to AI SDK V5.0
+- **Python Support:** Added Python 3.12 support
+- **Graph Memory:** Added sanitizer methods for nodes and relationships
+- **LLM Monitoring:** Added monitoring callback support
+
+**Improvements:**
+- **Performance:**
+  - Improved async handling in AsyncMemory class
+- **Documentation:**
+  - Added async add announcement
+  - Added personalized search docs
+  - Added Neptune examples
+  - Added V5 migration docs
+- **Configuration:**
+  - Refactored base class config for LLMs
+  - Added sslmode for pgvector
+- **Dependencies:**
+  - Updated psycopg to version 3
+  - Updated Docker compose
+
+**Bug Fixes:**
+- **Tests:**
+  - Fixed failing tests
+  - Restricted package versions
+- **Memgraph:**
+  - Fixed async attribute errors
+  - Fixed n_embeddings usage
+  - Fixed indexing issues
+- **Vector Stores:**
+  - Fixed Qdrant cloud indexing
+  - Fixed Neo4j Cypher syntax
+  - Fixed LLM parameters
+- **Graph Store:**
+  - Fixed LM config prioritization
+- **Dependencies:**
+  - Fixed JSON import for psycopg
+
+**Refactoring:**
+- **Google AI:** Refactored from Gemini to Google AI
+- **Base Classes:** Refactored LLM base class configuration
+
+</Update>
+
+<Update label="2025-07-24" description="v0.1.115">
+
+**New Features & Updates:**
+- Enhanced project management via `client.project` and `AsyncMemoryClient.project` interfaces
+- Full support for project CRUD operations (create, read, update, delete)
+- Project member management: add, update, remove, and list members
+- Manage project settings including custom instructions, categories, retrieval criteria, and graph enablement
+- Both sync and async support for all project management operations
+
+**Improvements:**
+- **Documentation:**
+  - Added detailed API reference and usage examples for new project management methods.
+  - Updated all docs to use `client.project.get()` and `client.project.update()` instead of deprecated methods.
+  
+- **Deprecation:**
+  - Marked `get_project()` and `update_project()` as deprecated (these methods were already present); added warnings to guide users to the new API.
+
+**Bug Fixes:**
+- **Tests:**
+  - Fixed Gemini embedder and LLM test mocks for correct error handling and argument structure.
+- **vLLM:**
+  - Fixed duplicate import in vLLM module.
+
+</Update>
+
+<Update label="2025-07-05" description="v0.1.114">
+
+**New Features:**
+- **OpenAI Agents:** Added OpenAI agents SDK support
+- **Amazon Neptune:** Added Amazon Neptune Analytics graph_store configuration and integration
+- **vLLM:** Added vLLM support
+
+**Improvements:**
+- **Documentation:** 
+  - Added SOC2 and HIPAA compliance documentation
+  - Enhanced group chat feature documentation for platform
+  - Added Google AI ADK Integration documentation
+  - Fixed documentation images and links
+- **Setup:** Fixed Mem0 setup, logging, and documentation issues
+
+**Bug Fixes:**
+- **MongoDB:** Fixed MongoDB Vector Store misaligned strings and classes
+- **vLLM:** Fixed missing OpenAI import in vLLM module and call errors
+- **Dependencies:** Fixed CI issues related to missing dependencies
+- **Installation:** Reverted pip install changes
+
+</Update>
+
+<Update label="2025-06-30" description="v0.1.113">
+
+**Bug Fixes:**
+- **Gemini:** Fixed Gemini embedder configuration
+
+</Update>
+
+<Update label="2025-06-27" description="v0.1.112">
+
+**New Features:**
+- **Memory:** Added immutable parameter to add method
+- **OpenMemory:** Added async_mode parameter support
+
+**Improvements:**
+- **Documentation:** 
+  - Enhanced platform feature documentation
+  - Fixed documentation links
+  - Added async_mode documentation
+- **MongoDB:** Fixed MongoDB configuration name
+
+**Bug Fixes:**
+- **Bedrock:** Fixed Bedrock LLM, embeddings, tools, and temporary credentials
+- **Memory:** Fixed memory categorization by updating dependencies and correcting API usage
+- **Gemini:** Fixed Gemini Embeddings and LLM issues
+
+</Update>
+
+<Update label="2025-06-23" description="v0.1.111">
+
+**New Features:**
+- **OpenMemory:** 
+  - Added OpenMemory augment support
+  - Added OpenMemory Local Support using new library
+- **vLLM:** Added vLLM support integration
+
+**Improvements:**
+- **Documentation:** 
+  - Added MCP Client Integration Guide and updated installation commands
+  - Improved Agent Id documentation for Mem0 OSS Graph Memory
+- **Core:** Added JSON parsing to solve hallucination errors
+
+**Bug Fixes:**
+- **Gemini:** Fixed Gemini Embeddings migration
+
+</Update>
+
+<Update label="2025-06-20" description="v0.1.110">
+
+**New Features:**
+- **Baidu:** Added Baidu vector database integration
+
+**Improvements:**
+- **Documentation:** 
+  - Updated changelog
+  - Fixed example in quickstart page
+  - Updated client.update() method documentation in OpenAPI specification
+- **OpenSearch:** Updated logger warning
+
+**Bug Fixes:**
+- **CI:** Fixed failing CI pipeline
+
+</Update>
 
 <Update label="2025-06-19" description="v0.1.109">
 
@@ -42,7 +201,7 @@ mode: "wide"
 <Update label="2025-06-11" description="v0.1.107">
 
 **Improvements:**
-- **Documentation:** 
+- **Documentation:**
   - Updated Livekit documentation migration
   - Updated OpenMemory hosted version documentation
 - **Core:** Updated categorization flow
@@ -79,7 +238,7 @@ mode: "wide"
 - **LLM:** Added support for OpenAI compatible LLM providers with baseUrl configuration
 
 **Improvements:**
-- **Documentation:** 
+- **Documentation:**
   - Fixed broken links
   - Improved Graph Memory features documentation clarity
   - Updated enable_graph documentation
@@ -96,14 +255,14 @@ mode: "wide"
 - **OpenMemory:** Added LLM and Embedding Providers support
 
 **Improvements:**
-- **Documentation:** 
+- **Documentation:**
   - Updated memory export documentation
   - Enhanced role-based memory attribution rules documentation
   - Updated API reference and messages documentation
   - Added Mastra and Raycast documentation
   - Added NOT filter documentation for Search and GetAll V2
   - Announced Claude 4 support
-- **Core:** 
+- **Core:**
   - Removed support for passing string as input in client.add()
   - Added support for sarvam-m model
 - **TypeScript SDK:** Fixed types from message interface
@@ -120,7 +279,7 @@ mode: "wide"
 - **Neo4j:** Added base label configuration support
 
 **Improvements:**
-- **Documentation:** 
+- **Documentation:**
   - Updated Healthcare example index
   - Enhanced collaborative task agent documentation clarity
   - Added criteria-based filtering documentation
@@ -216,7 +375,7 @@ mode: "wide"
 - **Vector Stores:** Added reset function for VectorDBs
 
 **Improvements:**
-- **Documentation:** 
+- **Documentation:**
   - Updated timestamp and expiration_date documentation
   - Fixed v2 search documentation
   - Added "memory" in EC "Custom config" section
@@ -255,12 +414,12 @@ mode: "wide"
 
 **New Features:**
 - **LLM Integrations:** Added Azure OpenAI Embedding Model
-- **Examples:** 
+- **Examples:**
   - Added movie recommendation using grok3
   - Added Voice Assistant using Elevenlabs
 
 **Improvements:**
-- **Documentation:** 
+- **Documentation:**
   - Added keywords AI
   - Reformatted navbar page URLs
   - Updated changelog
@@ -275,7 +434,7 @@ mode: "wide"
 - **LLM Integrations:** Added Mistral AI as LLM provider
 
 **Improvements:**
-- **Documentation:** 
+- **Documentation:**
   - Updated changelog
   - Fixed memory exclusion example
   - Updated xAI documentation
@@ -292,7 +451,7 @@ mode: "wide"
 
 **New Features:**
 - **Langchain Integration:** Added support for Langchain VectorStores
-- **Examples:** 
+- **Examples:**
   - Added personal assistant example
   - Added personal study buddy example
   - Added YouTube assistant Chrome extension example
@@ -409,6 +568,16 @@ mode: "wide"
 
 <Tab title="TypeScript">
 
+<Update label="2025-08-04" description="v2.1.37">
+**New Features:**
+- **OSS:** Added `RedisCloud` search module check
+</Update>
+
+<Update label="2025-07-08" description="v2.1.36">
+**New Features:**
+- **Client:** Added `structured_data_schema` param to `add` method.
+</Update>
+
 <Update label="2025-07-08" description="v2.1.35">
 **New Features:**
 - **Client:** Added `createMemoryExport` and `getMemoryExport` methods.
@@ -456,7 +625,6 @@ mode: "wide"
 **Improvements:**
 - **OSS:** Added baseURL param in LLM Config.
 </Update>
-  
 <Update label="2025-05-23" description="v2.1.26">
 **Improvements:**
 - **Client:** Removed type `string` from `messages` interface
@@ -491,7 +659,7 @@ mode: "wide"
 
 <Update label="2025-04-28" description="v2.1.20">
 **Improvements:**
-- **Client:** Fixed `organizationId` and `projectId` being asssigned to default in `ping` method
+- **Client:** Fixed `organizationId` and `projectId` being assigned to default in `ping` method
 </Update>
 
 <Update label="2025-04-22" description="v2.1.19">
@@ -550,7 +718,7 @@ mode: "wide"
 
 <Update label="2025-03-29" description="v2.1.13">
 **Improvements:**
-- **Introuced `ping` method to check if API key is valid and populate org/project id**
+- **Introduced `ping` method to check if API key is valid and populate org/project id**
 </Update>
 
 <Update label="2025-03-29" description="AI SDK v1.0.0">
@@ -582,6 +750,185 @@ mode: "wide"
 </Tab>
 
 <Tab title="Platform">
+
+<Update label="2025-07-23" description="">
+
+**Bug Fixes:**
+- **Memory:** Fixed ADD functionality
+
+</Update>
+
+<Update label="2025-07-19" description="">
+
+**New Features:**
+- **UI:** Added Settings UI and latency display
+- **Performance:** Neo4j query optimization
+
+**Bug Fixes:**
+- **OpenMemory:** Fixed OMM raising unnecessary exceptions
+
+</Update>
+
+<Update label="2025-07-18" description="">
+
+**Improvements:**
+- **UI:** Updated Event UI
+- **Performance:** Fixed N+1 query issue in semantic_search_v2 by optimizing MemorySerializer field selection
+
+**Bug Fixes:**
+- **Memory:** Fixed duplicate memory index sentry error
+
+</Update>
+
+<Update label="2025-07-17" description="">
+
+**New Features:**
+- **UI:** New Settings Page
+- **Memory:** Duplicate memories entities support
+
+**Improvements:**
+- **Performance:** Optimized semantic search and get_all APIs by eliminating N+1 queries
+
+</Update>
+
+<Update label="2025-07-16" description="">
+
+**New Features:**
+- **Database:** Implemented read replica routing with enhanced logging and app-specific DB routing
+
+**Improvements:**
+- **Performance:** Improved query performance in search v2 and get all v2 endpoints
+
+**Bug Fixes:**
+- **API:** Fixed pagination for get all API
+
+</Update>
+
+<Update label="2025-07-12" description="">
+
+**Bug Fixes:**
+- **Graph:** Fixed social graph bugs and connection issues
+
+</Update>
+
+<Update label="2025-07-11" description="">
+
+**Improvements:**
+- **Rate Limiting:** New rate limit for V2 Search
+
+**Bug Fixes:**
+- **Slack:** Fixed Slack rate limit error with backend improvements
+
+</Update>
+
+<Update label="2025-07-10" description="">
+
+**Improvements:**
+- **Performance:** 
+  - Changed connection pooling time to 5 minutes
+  - Separated graph lambdas for better performance
+
+</Update>
+
+<Update label="2025-07-09" description="">
+
+**Improvements:**
+- **Graph:** Graph Optimizations V2 and memory improvements
+
+</Update>
+
+<Update label="2025-07-08" description="">
+
+**New Features:**
+- **Database:** Added read replica support for improved database performance
+- **UI:** Implemented UI changes for Users Page
+- **Feedback:** Enabled feedback functionality
+
+**Bug Fixes:**
+- **Serializer:** Fixed GET ALL Serializer
+
+</Update>
+
+<Update label="2025-07-05" description="">
+
+**New Features:**
+- **UI:** User Page Revamp and New Users Page
+
+</Update>
+
+<Update label="2025-07-04" description="">
+
+**New Features:**
+- **Users:** New Users Page implementation
+- **Tools:** Added script to backfill memory categories
+
+**Bug Fixes:**
+- **Filters:** Fixed Filters Get All functionality
+
+</Update>
+
+<Update label="2025-07-03" description="">
+
+**Improvements:**
+- **Graph:** Graph Memory optimization
+- **Memory:** Fixed exact memories and semantically similar memories retrieval
+
+</Update>
+
+<Update label="2025-07-02" description="">
+
+**Improvements:**
+- **Categorization:** Refactored categorization logic to utilize Gemini 2.5 Flash and improve message handling
+
+</Update>
+
+<Update label="2025-07-01" description="">
+
+**Bug Fixes:**
+- **Memory:** Fixed old_memory issue in Async memory addition lambda
+- **Events:** Fixed missing events
+
+</Update>
+
+<Update label="2025-06-30" description="">
+
+**Improvements:**
+- **Graph:** Improvements to graph memory and added user to LTM-STM
+
+</Update>
+
+<Update label="2025-06-28" description="">
+
+**New Features:**
+- **Graph:** Added support for SQS in graph memory addition
+- **Testing:** Added Locust load testing script and Grafana Dashboard
+
+</Update>
+
+<Update label="2025-06-27" description="">
+
+**Improvements:**
+- **Rate Limiting:** Updated rate limiting for ADD API to 1000/min
+- **Performance:** Improved Neo4j performance
+
+</Update>
+
+<Update label="2025-06-26" description="">
+
+**New Features:**
+- **Memory:** Edit Memory From Drawer functionality
+- **API:** Added Topic Suggestions API Endpoint
+
+</Update>
+
+<Update label="2025-06-25" description="">
+
+**New Features:**
+- **Group Chat:** Group-Chat v2 with Actor-Aware Memories
+- **Memory:** Editable Metadata in Memories
+- **UI:** Memory Actions Badges
+
+</Update>
 
 <Update label="2025-06-19" description="">
 
@@ -692,6 +1039,16 @@ mode: "wide"
 
 <Tab title="Vercel AI SDK">
 
+<Update label="2025-08-05" description="v2.0.1">
+**New Features:**
+- **Vercel AI SDK:** Added a new param `host` to the config.
+</Update>
+
+<Update label="2025-08-05" description="v2.0.0">
+**New Features:**
+- **Vercel AI SDK:** Migration to AI SDK V5.
+</Update>
+
 <Update label="2025-06-15" description="v1.0.6">
 **New Features:**
 - **Vercel AI SDK:** Added param `filter_memories`.
@@ -709,7 +1066,7 @@ mode: "wide"
 
 <Update label="2025-05-08" description="v1.0.3">
 **Improvements:**
-- **Vercel AI SDK:** Added support for graceful failure in cases services are down. 
+- **Vercel AI SDK:** Added support for graceful failure in cases services are down.
 </Update>
 
 <Update label="2025-05-01" description="v1.0.1">
