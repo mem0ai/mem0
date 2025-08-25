@@ -1,5 +1,6 @@
 import logging
 
+from tests.memory.neptune_memory_example import embedding_model_dims
 from .base import NeptuneBase
 
 try:
@@ -41,6 +42,11 @@ class MemoryGraph(NeptuneBase):
         # fetch the vector store as a provider
         self.vector_store_provider = self.config.vector_store.provider
         self.vector_store = NeptuneBase._create_vector_store(self.vector_store_provider, self.config)
+
+        # initialize indices in the vector provider
+        embedding_model_dims = self.vector_store.embedding_model_dims
+        for col_name in ["node_name_and_summary", "community_name", "episode_content", "edge_name_and_fact"]:
+            self.vector_store.col_name(col_name, embedding_model_dims)
 
         self.llm = NeptuneBase._create_llm(self.config, self.llm_provider)
         self.user_id = None
@@ -336,7 +342,7 @@ class MemoryGraph(NeptuneBase):
         params = {"user_id": filters["user_id"], "limit": limit}
         return cypher, params
 
-    def _search_graph_db_cypher(self, n_embedding, filters, limit):
+    def _search_graph_db_impl(self, n_embedding, filters, limit):
         """
         Returns the OpenCypher query and parameters to search for similar nodes in the memory store
 
