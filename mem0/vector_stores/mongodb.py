@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List, Optional
+from typing import List, Optional, Dict, Any
 
 from pydantic import BaseModel
 
@@ -45,10 +45,17 @@ class MongoDB(VectorStoreBase):
         self.collection = self.create_col()
 
     def create_col(self):
-        """Create new collection with vector search index."""
+        """
+        Create a new collection with vector search index.
+
+        Returns:
+            Collection: MongoDB collection object or None if creation fails.
+        """
         try:
             database = self.client[self.db_name]
             collection_names = database.list_collection_names()
+
+            # Create collection if it doesn't exist
             if self.collection_name not in collection_names:
                 logger.info(f"Collection '{self.collection_name}' does not exist. Creating it now.")
                 collection = database[self.collection_name]
@@ -59,6 +66,7 @@ class MongoDB(VectorStoreBase):
             else:
                 collection = database[self.collection_name]
 
+            # Create vector search index if it doesn't exist
             self.index_name = f"{self.collection_name}_vector_index"
             found_indexes = list(collection.list_search_indexes(name=self.index_name))
             if found_indexes:
@@ -111,15 +119,13 @@ class MongoDB(VectorStoreBase):
         except PyMongoError as e:
             logger.error(f"Error inserting data: {e}")
 
-    def search(
-        self, query: str, query_vector: List[float], limit=5, filters: Optional[Dict] = None
-    ) -> List[OutputData]:
+    def search(self, query: str, vectors: List[List[float]], limit: int =5, filters: Optional[Dict] = None) -> List[OutputData]:
         """
         Search for similar vectors using the vector search index.
 
         Args:
             query (str): Query string
-            query_vector (List[float]): Query vector.
+            vectors (List[List[float]]): Query vectors (we'll use the first one).
             limit (int, optional): Number of results to return. Defaults to 5.
             filters (Dict, optional): Filters to apply to the search.
 
@@ -131,6 +137,13 @@ class MongoDB(VectorStoreBase):
         if not found_indexes:
             logger.error(f"Index '{self.index_name}' does not exist.")
             return []
+
+        # Use the first vector from the vectors list
+        if not vectors or not vectors[0]:
+            logger.error("No query vector provided for search.")
+            return []
+
+        query_vector = vectors[0]
 
         results = []
         try:
@@ -149,16 +162,10 @@ class MongoDB(VectorStoreBase):
                 {"$project": {"embedding": 0}},
             ]
             
-            # Add filter stage if filters are provided
+            # Add filters if provided
             if filters:
-                filter_conditions = []
-                for key, value in filters.items():
-                    filter_conditions.append({"payload." + key: value})
-                
-                if filter_conditions:
-                    # Add a $match stage after vector search to apply filters
-                    pipeline.insert(1, {"$match": {"$and": filter_conditions}})
-            
+                pipeline.insert(1, {"$match": filters})
+
             results = list(collection.aggregate(pipeline))
             logger.info(f"Vector search completed. Found {len(results)} documents.")
         except Exception as e:
@@ -300,10 +307,10 @@ class MongoDB(VectorStoreBase):
             return []
 
     def reset(self):
-        """Reset the index by deleting and recreating it."""
-        logger.warning(f"Resetting index {self.collection_name}...")
+        """Reset the collection by deleting and recreating it."""
+        logger.warning(f"Resetting collection {self.collection_name}...")
         self.delete_col()
-        self.collection = self.create_col(self.collection_name)
+        self.collection = self.create_col()
 
     def __del__(self) -> None:
         """Close the database connection when the object is deleted."""
