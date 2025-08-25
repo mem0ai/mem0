@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-logging.getLogger("mem0.graphs.neptune.neptunedb").setLevel(logging.DEBUG)
+logging.getLogger("mem0.graphs.neptune.neptunegraph").setLevel(logging.DEBUG)
 logging.getLogger("mem0.graphs.neptune.base").setLevel(logging.DEBUG)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -21,9 +21,12 @@ logging.basicConfig(
 
 bedrock_embedder_model = "amazon.titan-embed-text-v2:0"
 bedrock_llm_model = "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
-embedding_model_dims = 1536
+embedding_model_dims = 1024
+
+# embedding_model_dims = 1536
 
 neptune_host = os.environ.get("GRAPH_HOST")
+neptune_graph_identifier = os.environ.get("GRAPH_ID")
 
 opensearch_host = os.environ.get("OS_HOST")
 opensearch_port = 443
@@ -61,9 +64,9 @@ config = {
         },
     },
     "graph_store": {
-        "provider": "neptunedb",
+        "provider": "neptune",
         "config": {
-            "endpoint": f"neptune-db://{neptune_host}",
+            "endpoint": f"neptune-graph://{neptune_graph_identifier}",
         },
     },
 }

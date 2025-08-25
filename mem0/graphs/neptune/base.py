@@ -388,14 +388,14 @@ class NeptuneBase(ABC):
 
         for node in node_list:
             n_embedding = self.embedding_model.embed(node)
-            cypher_query, params = self._search_graph_db_cypher(n_embedding, filters, limit)
+            cypher_query, params = self._search_graph_db_impl(n_embedding, filters, limit)
             ans = self.graph.query(cypher_query, params=params)
             result_relations.extend(ans)
 
         return result_relations
 
     @abstractmethod
-    def _search_graph_db_cypher(self, n_embedding, filters, limit):
+    def _search_graph_db_impl(self, n_embedding, filters, limit):
         """
         Returns the OpenCypher query and parameters to search for similar nodes in the memory store
         """
