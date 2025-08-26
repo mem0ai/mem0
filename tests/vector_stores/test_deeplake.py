@@ -30,22 +30,14 @@ def deeplake_instance(mock_deeplake):
     """Create a DeepLake instance with mocked dependencies"""
     mock_dl, mock_client = mock_deeplake
     
-    # Patch missing imports in the deeplake module
-    with patch("mem0.vector_stores.deeplake.uuid") as mock_uuid, \
-         patch("mem0.vector_stores.deeplake.defaultdict", defaultdict), \
-         patch("mem0.vector_stores.deeplake.re") as mock_re:
-        
-        mock_uuid.uuid4.return_value = "test-uuid-1234"
-        mock_re.sub.return_value = "sanitized_key"
-        
-        # Create instance with test parameters
-        instance = DeepLake(
-            url="mem://test-collection",
-            embedding_model_dims=384,
-            quantize=False
-        )
-        
-        yield instance, mock_client
+    # Create instance with test parameters (no need to patch imports anymore)
+    instance = DeepLake(
+        url="mem://test-collection",
+        embedding_model_dims=384,
+        quantize=False
+    )
+    
+    yield instance, mock_client
 
 
 class TestDeepLakeInit:
@@ -56,17 +48,13 @@ class TestDeepLakeInit:
         mock_dl, mock_client = mock_deeplake
         mock_dl.exists.return_value = False
         
-        with patch("mem0.vector_stores.deeplake.uuid"), \
-             patch("mem0.vector_stores.deeplake.defaultdict", defaultdict), \
-             patch("mem0.vector_stores.deeplake.re"):
-            
-            instance = DeepLake(
-                url="mem://test-new",
-                embedding_model_dims=768,
-                quantize=True,
-                creds={"key": "value"},
-                token="test-token"
-            )
+        instance = DeepLake(
+            url="mem://test-new",
+            embedding_model_dims=768,
+            quantize=True,
+            creds={"key": "value"},
+            token="test-token"
+        )
         
         # Verify collection creation
         mock_dl.create.assert_called_once()
@@ -96,14 +84,10 @@ class TestDeepLakeInit:
         mock_dl, mock_client = mock_deeplake
         mock_dl.exists.return_value = True
         
-        with patch("mem0.vector_stores.deeplake.uuid"), \
-             patch("mem0.vector_stores.deeplake.defaultdict", defaultdict), \
-             patch("mem0.vector_stores.deeplake.re"):
-            
-            instance = DeepLake(
-                url="mem://existing-collection", 
-                embedding_model_dims=512
-            )
+        instance = DeepLake(
+            url="mem://existing-collection", 
+            embedding_model_dims=512
+        )
         
         # Should open existing collection, not create new one
         mock_dl.open.assert_called_once_with(
@@ -139,8 +123,8 @@ class TestDeepLakeInsert:
         """Test insertion without providing IDs (should auto-generate)"""
         instance, mock_client = deeplake_instance
         
-        with patch("mem0.vector_stores.deeplake.uuid") as mock_uuid:
-            mock_uuid.uuid4.side_effect = [
+        with patch("uuid.uuid4") as mock_uuid:
+            mock_uuid.side_effect = [
                 type('obj', (), {'__str__': lambda: 'auto-id-1'})(),
                 type('obj', (), {'__str__': lambda: 'auto-id-2'})()
             ]
@@ -193,12 +177,14 @@ class TestDeepLakeSearch:
         """Test basic vector search"""
         instance, mock_client = deeplake_instance
         
-        # Mock query response
+        # Mock query response - DeepLake search should include score from COSINE_SIMILARITY
         mock_result = {
             "id": ["id1", "id2"],
             "payload": [{"data": "test1"}, {"data": "test2"}],
-            "score": [0.9, 0.8]
+            "score": [0.9, 0.8]  # Scores from COSINE_SIMILARITY 
         }
+        # Mock len() to return 2 for the results
+        mock_result.__len__ = lambda: 2
         mock_client.query.return_value = mock_result
         
         vectors = [0.1, 0.2, 0.3]
@@ -221,11 +207,13 @@ class TestDeepLakeSearch:
         """Test search with filters"""
         instance, mock_client = deeplake_instance
         
-        mock_client.query.return_value = {
+        mock_result = {
             "id": ["id1"],
             "payload": [{"data": "test1"}],
             "score": [0.9]
         }
+        mock_result.__len__ = lambda: 1
+        mock_client.query.return_value = mock_result
         
         with patch.object(instance, '_build_filter_expression') as mock_filter:
             mock_filter.return_value = "sanitized_key = 'test'"
@@ -247,7 +235,11 @@ class TestDeepLakeSearch:
     def test_search_no_results(self, deeplake_instance):
         """Test search with no results"""
         instance, mock_client = deeplake_instance
-        mock_client.query.return_value = {}
+        
+        # Mock empty result
+        mock_result = {}
+        mock_result.__len__ = lambda: 0
+        mock_client.query.return_value = mock_result
         
         results = instance.search(query="test", vectors=[0.1, 0.2])
         
@@ -353,20 +345,37 @@ class TestDeepLakeGet:
     """Test vector retrieval functionality"""
     
     def test_get_existing_vector(self, deeplake_instance):
-        """Test getting an existing vector - Note: this tests the buggy implementation"""
+        """Test getting an existing vector"""
         instance, mock_client = deeplake_instance
         
-        # The current implementation has a bug: it references 'results' instead of 'query_results'
-        # We'll test the intended behavior
+        # Mock the correct response structure 
         mock_client.query.return_value = {
-            "vector_id": ["test-id"],
+            "id": ["test-id"],
             "payload": [{"data": "test"}]
         }
         
-        # This will likely raise a NameError due to the bug in the implementation
-        # but we can test the intended functionality
-        with pytest.raises(NameError):  # Due to 'results' undefined variable
-            result = instance.get("test-id")
+        result = instance.get("test-id")
+        
+        # Verify query was called correctly
+        query_sql = mock_client.query.call_args[0][0]
+        assert "WHERE id = 'test-id'" in query_sql
+        
+        # Verify result structure
+        assert result.id == "test-id"
+        assert result.payload == {"data": "test"}
+        assert result.score is None
+    
+    def test_get_nonexistent_vector(self, deeplake_instance):
+        """Test getting a non-existent vector"""
+        instance, mock_client = deeplake_instance
+        
+        # Mock empty query result
+        mock_client.query.return_value = {}
+        
+        result = instance.get("nonexistent-id")
+        
+        # Should return None for non-existent vectors
+        assert result is None
 
 
 class TestDeepLakeList:
@@ -432,14 +441,11 @@ class TestDeepLakeUtility:
         """Test key sanitization"""
         instance, mock_client = deeplake_instance
         
-        with patch("mem0.vector_stores.deeplake.re") as mock_re:
-            mock_re.sub.return_value = "clean_key"
-            
-            result = instance._sanitize_key("test-key!")
-            
-            # Verify regex substitution was called
-            mock_re.sub.assert_called_once_with(r"[^\w]", "", "test-key!")
-            assert result == "clean_key"
+        # Test actual functionality since re is now imported
+        result = instance._sanitize_key("test-key!@#")
+        
+        # Should remove non-word characters
+        assert result == "testkey"
     
     def test_collection_exists(self, deeplake_instance):
         """Test collection existence check"""
@@ -499,18 +505,11 @@ class TestDeepLakeIntegration:
         mock_deeplake_module.types.Dict.return_value = "dict"
         mock_deeplake_module.IndexingMode.Always = "always"
         
-        with patch("mem0.vector_stores.deeplake.uuid") as mock_uuid, \
-             patch("mem0.vector_stores.deeplake.defaultdict", defaultdict), \
-             patch("mem0.vector_stores.deeplake.re") as mock_re:
-            
-            mock_uuid.uuid4.return_value = "test-id"
-            mock_re.sub.return_value = "clean_key"
-            
-            # Create instance
-            instance = DeepLake(
-                url="mem://lifecycle-test",
-                embedding_model_dims=256
-            )
+        # Create instance (no need to patch imports)
+        instance = DeepLake(
+            url="mem://lifecycle-test",
+            embedding_model_dims=256
+        )
             
             # Test insert
             instance.insert(

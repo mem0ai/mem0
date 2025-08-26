@@ -222,7 +222,7 @@ class DeepLake(VectorStoreBase):
         if len(query_results) == 0:
             logger.warning(f"Vector {vector_id} not found in collection {self.url}")
             return
-        return OutputData(id=query_results["vector_id"][0], score=None, payload=query_results["payload"][0])
+        return OutputData(id=query_results["id"][0], score=None, payload=query_results["payload"][0])
         
     def list_cols(self):
         """
