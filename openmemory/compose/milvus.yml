@@ -26,7 +26,7 @@ services:
     volumes:
       - ./data/milvus/minio:/minio_data
 
-  mem0_store:
+  mem0-store:
     image: milvusdb/milvus:v2.4.7
     restart: unless-stopped
     command: ["milvus", "run", "standalone"]

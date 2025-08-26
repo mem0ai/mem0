@@ -115,18 +115,18 @@ EOF
   case "$vector_store" in
     weaviate)
       cat >> docker-compose.yml <<EOF
-      - WEAVIATE_HOST=mem0_store
+      - WEAVIATE_HOST=mem0-store
       - WEAVIATE_PORT=8080
 EOF
       ;;
     redis)
       cat >> docker-compose.yml <<EOF
-      - REDIS_URL=redis://mem0_store:6379
+      - REDIS_URL=redis://mem0-store:6379
 EOF
       ;;
     pgvector)
       cat >> docker-compose.yml <<EOF
-      - PG_HOST=mem0_store
+      - PG_HOST=mem0-store
       - PG_PORT=5432
       - PG_DB=mem0
       - PG_USER=mem0
@@ -135,25 +135,25 @@ EOF
       ;;
     qdrant)
       cat >> docker-compose.yml <<EOF
-      - QDRANT_HOST=mem0_store
+      - QDRANT_HOST=mem0-store
       - QDRANT_PORT=6333
 EOF
       ;;
     chroma)
       cat >> docker-compose.yml <<EOF
-      - CHROMA_HOST=mem0_store
+      - CHROMA_HOST=mem0-store
       - CHROMA_PORT=8000
 EOF
       ;;
     milvus)
       cat >> docker-compose.yml <<EOF
-      - MILVUS_HOST=mem0_store
+      - MILVUS_HOST=mem0-store
       - MILVUS_PORT=19530
 EOF
       ;;
     elasticsearch)
       cat >> docker-compose.yml <<EOF
-      - ELASTICSEARCH_HOST=mem0_store
+      - ELASTICSEARCH_HOST=mem0-store
       - ELASTICSEARCH_PORT=9200
       - ELASTICSEARCH_USER=elastic
       - ELASTICSEARCH_PASSWORD=changeme
@@ -167,7 +167,7 @@ EOF
     *)
       echo "⚠️ Unknown vector store: $vector_store. Using default Qdrant configuration."
       cat >> docker-compose.yml <<EOF
-      - QDRANT_HOST=mem0_store
+      - QDRANT_HOST=mem0-store
       - QDRANT_PORT=6333
 EOF
       ;;
@@ -190,7 +190,7 @@ EOF
   else
     cat >> docker-compose.yml <<EOF
     depends_on:
-      - mem0_store
+      - mem0-store
     ports:
       - "8765:8765"
     volumes:
@@ -279,7 +279,7 @@ if [ "$VECTOR_STORE" = "milvus" ]; then
   echo "🧩 Configuring vector store (milvus) in backend..."
   curl -fsS -X PUT "${NEXT_PUBLIC_API_URL}/api/v1/config/mem0/vector_store" \
     -H 'Content-Type: application/json' \
-    -d "{\"provider\":\"milvus\",\"config\":{\"collection_name\":\"openmemory\",\"embedding_model_dims\":${EMBEDDING_DIMS},\"url\":\"http://mem0_store:19530\",\"token\":\"\",\"db_name\":\"\",\"metric_type\":\"COSINE\"}}" >/dev/null || true
+    -d "{\"provider\":\"milvus\",\"config\":{\"collection_name\":\"openmemory\",\"embedding_model_dims\":${EMBEDDING_DIMS},\"url\":\"http://mem0-store:19530\",\"token\":\"\",\"db_name\":\"\",\"metric_type\":\"COSINE\"}}" >/dev/null || true
 elif [ "$VECTOR_STORE" = "weaviate" ]; then
   echo "⏳ Waiting for API to be ready at ${NEXT_PUBLIC_API_URL}..."
   for i in {1..60}; do
@@ -292,7 +292,7 @@ elif [ "$VECTOR_STORE" = "weaviate" ]; then
   echo "🧩 Configuring vector store (weaviate) in backend..."
   curl -fsS -X PUT "${NEXT_PUBLIC_API_URL}/api/v1/config/mem0/vector_store" \
     -H 'Content-Type: application/json' \
-    -d "{\"provider\":\"weaviate\",\"config\":{\"collection_name\":\"openmemory\",\"embedding_model_dims\":${EMBEDDING_DIMS},\"cluster_url\":\"http://mem0_store:8080\"}}" >/dev/null || true
+    -d "{\"provider\":\"weaviate\",\"config\":{\"collection_name\":\"openmemory\",\"embedding_model_dims\":${EMBEDDING_DIMS},\"cluster_url\":\"http://mem0-store:8080\"}}" >/dev/null || true
 elif [ "$VECTOR_STORE" = "redis" ]; then
   echo "⏳ Waiting for API to be ready at ${NEXT_PUBLIC_API_URL}..."
   for i in {1..60}; do
@@ -305,7 +305,7 @@ elif [ "$VECTOR_STORE" = "redis" ]; then
   echo "🧩 Configuring vector store (redis) in backend..."
   curl -fsS -X PUT "${NEXT_PUBLIC_API_URL}/api/v1/config/mem0/vector_store" \
     -H 'Content-Type: application/json' \
-    -d "{\"provider\":\"redis\",\"config\":{\"collection_name\":\"openmemory\",\"embedding_model_dims\":${EMBEDDING_DIMS},\"redis_url\":\"redis://mem0_store:6379\"}}" >/dev/null || true
+    -d "{\"provider\":\"redis\",\"config\":{\"collection_name\":\"openmemory\",\"embedding_model_dims\":${EMBEDDING_DIMS},\"redis_url\":\"redis://mem0-store:6379\"}}" >/dev/null || true
 elif [ "$VECTOR_STORE" = "pgvector" ]; then
   echo "⏳ Waiting for API to be ready at ${NEXT_PUBLIC_API_URL}..."
   for i in {1..60}; do
@@ -318,7 +318,7 @@ elif [ "$VECTOR_STORE" = "pgvector" ]; then
   echo "🧩 Configuring vector store (pgvector) in backend..."
   curl -fsS -X PUT "${NEXT_PUBLIC_API_URL}/api/v1/config/mem0/vector_store" \
     -H 'Content-Type: application/json' \
-    -d "{\"provider\":\"pgvector\",\"config\":{\"collection_name\":\"openmemory\",\"embedding_model_dims\":${EMBEDDING_DIMS},\"dbname\":\"mem0\",\"user\":\"mem0\",\"password\":\"mem0\",\"host\":\"mem0_store\",\"port\":5432,\"diskann\":false,\"hnsw\":true}}" >/dev/null || true
+    -d "{\"provider\":\"pgvector\",\"config\":{\"collection_name\":\"openmemory\",\"embedding_model_dims\":${EMBEDDING_DIMS},\"dbname\":\"mem0\",\"user\":\"mem0\",\"password\":\"mem0\",\"host\":\"mem0-store\",\"port\":5432,\"diskann\":false,\"hnsw\":true}}" >/dev/null || true
 elif [ "$VECTOR_STORE" = "qdrant" ]; then
   echo "⏳ Waiting for API to be ready at ${NEXT_PUBLIC_API_URL}..."
   for i in {1..60}; do
@@ -331,7 +331,7 @@ elif [ "$VECTOR_STORE" = "qdrant" ]; then
   echo "🧩 Configuring vector store (qdrant) in backend..."
   curl -fsS -X PUT "${NEXT_PUBLIC_API_URL}/api/v1/config/mem0/vector_store" \
     -H 'Content-Type: application/json' \
-    -d "{\"provider\":\"qdrant\",\"config\":{\"collection_name\":\"openmemory\",\"embedding_model_dims\":${EMBEDDING_DIMS},\"host\":\"mem0_store\",\"port\":6333}}" >/dev/null || true
+    -d "{\"provider\":\"qdrant\",\"config\":{\"collection_name\":\"openmemory\",\"embedding_model_dims\":${EMBEDDING_DIMS},\"host\":\"mem0-store\",\"port\":6333}}" >/dev/null || true
 elif [ "$VECTOR_STORE" = "chroma" ]; then
   echo "⏳ Waiting for API to be ready at ${NEXT_PUBLIC_API_URL}..."
   for i in {1..60}; do
@@ -344,7 +344,7 @@ elif [ "$VECTOR_STORE" = "chroma" ]; then
   echo "🧩 Configuring vector store (chroma) in backend..."
   curl -fsS -X PUT "${NEXT_PUBLIC_API_URL}/api/v1/config/mem0/vector_store" \
     -H 'Content-Type: application/json' \
-    -d "{\"provider\":\"chroma\",\"config\":{\"collection_name\":\"openmemory\",\"host\":\"mem0_store\",\"port\":8000}}" >/dev/null || true
+    -d "{\"provider\":\"chroma\",\"config\":{\"collection_name\":\"openmemory\",\"host\":\"mem0-store\",\"port\":8000}}" >/dev/null || true
 elif [ "$VECTOR_STORE" = "elasticsearch" ]; then
   echo "⏳ Waiting for API to be ready at ${NEXT_PUBLIC_API_URL}..."
   for i in {1..60}; do
@@ -357,7 +357,7 @@ elif [ "$VECTOR_STORE" = "elasticsearch" ]; then
   echo "🧩 Configuring vector store (elasticsearch) in backend..."
   curl -fsS -X PUT "${NEXT_PUBLIC_API_URL}/api/v1/config/mem0/vector_store" \
     -H 'Content-Type: application/json' \
-    -d "{\"provider\":\"elasticsearch\",\"config\":{\"collection_name\":\"openmemory\",\"embedding_model_dims\":${EMBEDDING_DIMS},\"host\":\"http://mem0_store\",\"port\":9200,\"user\":\"elastic\",\"password\":\"changeme\",\"verify_certs\":false,\"use_ssl\":false}}" >/dev/null || true
+    -d "{\"provider\":\"elasticsearch\",\"config\":{\"collection_name\":\"openmemory\",\"embedding_model_dims\":${EMBEDDING_DIMS},\"host\":\"http://mem0-store\",\"port\":9200,\"user\":\"elastic\",\"password\":\"changeme\",\"verify_certs\":false,\"use_ssl\":false}}" >/dev/null || true
 elif [ "$VECTOR_STORE" = "faiss" ]; then
   echo "⏳ Waiting for API to be ready at ${NEXT_PUBLIC_API_URL}..."
   for i in {1..60}; do

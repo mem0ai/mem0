@@ -1,5 +1,5 @@
 services:
-  mem0_store:
+  mem0-store:
     image: opensearchproject/opensearch:2.13.0
     restart: unless-stopped
     user: "1000:1000"
