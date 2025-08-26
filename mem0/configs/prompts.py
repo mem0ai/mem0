@@ -293,13 +293,25 @@ def get_update_memory_messages(retrieved_old_memory_dict, response_content, cust
         global DEFAULT_UPDATE_MEMORY_PROMPT
         custom_update_memory_prompt = DEFAULT_UPDATE_MEMORY_PROMPT
 
-    return f"""{custom_update_memory_prompt}
 
+    if retrieved_old_memory_dict:
+        current_memory_part = f"""
     Below is the current content of my memory which I have collected till now. You have to update it in the following format only:
 
     ```
     {retrieved_old_memory_dict}
     ```
+
+    """
+    else:
+        current_memory_part = """
+    Current memory is empty.
+
+    """
+
+    return f"""{custom_update_memory_prompt}
+
+    {current_memory_part}
 
     The new retrieved facts are mentioned in the triple backticks. You have to analyze the new retrieved facts and determine whether these facts should be added, updated, or deleted in the memory.
 
