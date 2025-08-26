@@ -29,6 +29,7 @@ class VectorStoreConfig(BaseModel):
         "weaviate": "WeaviateConfig",
         "faiss": "FAISSConfig",
         "langchain": "LangchainConfig",
+        "aliyun_tablestore": "AliyunTableStoreConfig",
         "s3_vectors": "S3VectorsConfig",
     }
 

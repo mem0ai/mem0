@@ -174,6 +174,7 @@ class VectorStoreFactory:
         "faiss": "mem0.vector_stores.faiss.FAISS",
         "langchain": "mem0.vector_stores.langchain.Langchain",
         "s3_vectors": "mem0.vector_stores.s3_vectors.S3Vectors",
+        "aliyun_tablestore": "mem0.vector_stores.aliyun_tablestore.AliyunTableStore",
     }
 
     @classmethod

@@ -160,6 +160,7 @@
                           "components/vectordbs/dbs/weaviate",
                           "components/vectordbs/dbs/faiss",
                           "components/vectordbs/dbs/langchain",
+                          "components/vectordbs/dbs/aliyun_tablestore",
                           "components/vectordbs/dbs/baidu",
                           "components/vectordbs/dbs/s3_vectors",
                           "components/vectordbs/dbs/databricks"
