@@ -111,9 +111,7 @@ class MongoDB(VectorStoreBase):
         except PyMongoError as e:
             logger.error(f"Error inserting data: {e}")
 
-    def search(
-        self, query: str, vectors: List[float], limit=5, filters: Optional[Dict] = None
-    ) -> List[OutputData]:
+    def search(self, query: str, vectors: List[float], limit=5, filters: Optional[Dict] = None) -> List[OutputData]:
         """
         Search for similar vectors using the vector search index.
 
@@ -148,17 +146,17 @@ class MongoDB(VectorStoreBase):
                 {"$set": {"score": {"$meta": "vectorSearchScore"}}},
                 {"$project": {"embedding": 0}},
             ]
-            
+
             # Add filter stage if filters are provided
             if filters:
                 filter_conditions = []
                 for key, value in filters.items():
                     filter_conditions.append({"payload." + key: value})
-                
+
                 if filter_conditions:
                     # Add a $match stage after vector search to apply filters
                     pipeline.insert(1, {"$match": {"$and": filter_conditions}})
-            
+
             results = list(collection.aggregate(pipeline))
             logger.info(f"Vector search completed. Found {len(results)} documents.")
         except Exception as e:
@@ -290,7 +288,7 @@ class MongoDB(VectorStoreBase):
                     filter_conditions.append({"payload." + key: value})
                 if filter_conditions:
                     query = {"$and": filter_conditions}
-            
+
             cursor = self.collection.find(query).limit(limit)
             results = [OutputData(id=str(doc["_id"]), score=None, payload=doc.get("payload")) for doc in cursor]
             logger.info(f"Retrieved {len(results)} documents from collection '{self.collection_name}'.")
