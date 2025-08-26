@@ -93,6 +93,7 @@ Key differentiators:
 - [Databricks](https://docs.mem0.ai/components/vectordbs/dbs/databricks): Delta Lake integration for vector search
 - [Baidu](https://docs.mem0.ai/components/vectordbs/dbs/baidu): Baidu vector database integration
 - [LangChain](https://docs.mem0.ai/components/vectordbs/dbs/langchain): LangChain vector store integration
+- [S3 Vectors](https://docs.mem0.ai/components/vectordbs/dbs/s3_vectors): Amazon S3 Vectors integration
 
 ### Supported Embeddings
 

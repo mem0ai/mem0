@@ -3,6 +3,7 @@ import uuid
 from typing import Dict, List, Mapping, Optional
 
 from pydantic import BaseModel
+from urllib.parse import urlparse
 
 try:
     import weaviate
@@ -12,7 +13,7 @@ except ImportError:
     )
 
 import weaviate.classes.config as wvcc
-from weaviate.classes.init import Auth
+from weaviate.classes.init import Auth, AdditionalConfig, Timeout
 from weaviate.classes.query import Filter, MetadataQuery
 from weaviate.util import get_valid_uuid
 
@@ -47,13 +48,35 @@ class Weaviate(VectorStoreBase):
             auth_config (dict, optional): Authentication configuration for Weaviate. Defaults to None.
             additional_headers (dict, optional): Additional headers for requests. Defaults to None.
         """
-        if "localhost" in cluster_url:
+        if "localhost" in cluster_url: 
             self.client = weaviate.connect_to_local(headers=additional_headers)
-        else:
+        elif auth_client_secret: 
             self.client = weaviate.connect_to_wcs(
                 cluster_url=cluster_url,
                 auth_credentials=Auth.api_key(auth_client_secret),
                 headers=additional_headers,
+            )
+        else:
+            parsed = urlparse(cluster_url)  # e.g., http://mem0_store:8080
+            http_host = parsed.hostname or "localhost"
+            http_port = parsed.port or (443 if parsed.scheme == "https" else 8080)
+            http_secure = parsed.scheme == "https"
+
+            # Weaviate gRPC defaults (inside Docker network)
+            grpc_host = http_host
+            grpc_port = 50051
+            grpc_secure = False
+
+            self.client = weaviate.connect_to_custom(
+                http_host,
+                http_port,
+                http_secure,
+                grpc_host,
+                grpc_port,
+                grpc_secure,
+                headers=additional_headers,
+                skip_init_checks=True,
+                additional_config=AdditionalConfig(timeout=Timeout(init=2.0))
             )
 
         self.collection_name = collection_name
