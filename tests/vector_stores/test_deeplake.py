@@ -123,11 +123,9 @@ class TestDeepLakeInsert:
         """Test insertion without providing IDs (should auto-generate)"""
         instance, mock_client = deeplake_instance
         
-        with patch("uuid.uuid4") as mock_uuid:
-            mock_uuid.side_effect = [
-                type('obj', (), {'__str__': lambda: 'auto-id-1'})(),
-                type('obj', (), {'__str__': lambda: 'auto-id-2'})()
-            ]
+        # Mock uuid.uuid4() properly
+        with patch("mem0.vector_stores.deeplake.uuid.uuid4") as mock_uuid:
+            mock_uuid.side_effect = ["auto-id-1", "auto-id-2"]
             
             vectors = [[0.1, 0.2], [0.3, 0.4]]
             payloads = [{"test": "data1"}, {"test": "data2"}]
@@ -177,14 +175,16 @@ class TestDeepLakeSearch:
         """Test basic vector search"""
         instance, mock_client = deeplake_instance
         
-        # Mock query response - DeepLake search should include score from COSINE_SIMILARITY
-        mock_result = {
+        # Create proper mock that behaves like a list-containing dict
+        class MockQueryResult(dict):
+            def __len__(self):
+                return 2
+                
+        mock_result = MockQueryResult({
             "id": ["id1", "id2"],
             "payload": [{"data": "test1"}, {"data": "test2"}],
-            "score": [0.9, 0.8]  # Scores from COSINE_SIMILARITY 
-        }
-        # Mock len() to return 2 for the results
-        mock_result.__len__ = lambda: 2
+            "score": [0.9, 0.8]
+        })
         mock_client.query.return_value = mock_result
         
         vectors = [0.1, 0.2, 0.3]
@@ -207,12 +207,15 @@ class TestDeepLakeSearch:
         """Test search with filters"""
         instance, mock_client = deeplake_instance
         
-        mock_result = {
+        class MockQueryResult(dict):
+            def __len__(self):
+                return 1
+                
+        mock_result = MockQueryResult({
             "id": ["id1"],
             "payload": [{"data": "test1"}],
             "score": [0.9]
-        }
-        mock_result.__len__ = lambda: 1
+        })
         mock_client.query.return_value = mock_result
         
         with patch.object(instance, '_build_filter_expression') as mock_filter:
@@ -237,8 +240,11 @@ class TestDeepLakeSearch:
         instance, mock_client = deeplake_instance
         
         # Mock empty result
-        mock_result = {}
-        mock_result.__len__ = lambda: 0
+        class MockEmptyResult(dict):
+            def __len__(self):
+                return 0
+                
+        mock_result = MockEmptyResult()
         mock_client.query.return_value = mock_result
         
         results = instance.search(query="test", vectors=[0.1, 0.2])
@@ -291,7 +297,12 @@ class TestDeepLakeDelete:
         instance, mock_client = deeplake_instance
         
         # Mock empty query result
-        mock_client.query.return_value = {"row_id": []}
+        class MockEmptyResult(dict):
+            def __len__(self):
+                return 0
+                
+        mock_result = MockEmptyResult({"row_id": []})
+        mock_client.query.return_value = mock_result
         
         instance.delete("nonexistent-id")
         
@@ -333,7 +344,14 @@ class TestDeepLakeUpdate:
     def test_update_nonexistent_vector(self, deeplake_instance):
         """Test updating a non-existent vector"""
         instance, mock_client = deeplake_instance
-        mock_client.query.return_value = {"row_id": []}
+        
+        # Mock empty query result
+        class MockEmptyResult(dict):
+            def __len__(self):
+                return 0
+                
+        mock_result = MockEmptyResult({"row_id": []})
+        mock_client.query.return_value = mock_result
         
         instance.update("nonexistent-id", vector=[0.1, 0.2])
         
@@ -407,10 +425,15 @@ class TestDeepLakeList:
         """Test listing with filters"""
         instance, mock_client = deeplake_instance
         
-        mock_client.query.return_value = {
+        class MockQueryResult(dict):
+            def __len__(self):
+                return 1
+                
+        mock_result = MockQueryResult({
             "id": ["id1"],
             "payload": [{"data": "test1"}]
-        }
+        })
+        mock_client.query.return_value = mock_result
         
         with patch.object(instance, '_build_filter_expression') as mock_filter:
             mock_filter.return_value = "user_id = 'test'"
@@ -510,40 +533,45 @@ class TestDeepLakeIntegration:
             url="mem://lifecycle-test",
             embedding_model_dims=256
         )
-            
-            # Test insert
-            instance.insert(
-                vectors=[[0.1, 0.2]], 
-                payloads=[{"test": "data"}], 
-                ids=["test-id"]
-            )
-            mock_client.append.assert_called_once()
-            
-            # Test search
-            mock_client.query.return_value = {
-                "id": ["test-id"],
-                "payload": [{"test": "data"}],
-                "score": [0.95]
-            }
-            
-            results = instance.search("test", [0.1, 0.2])
-            assert len(results) == 1
-            assert results[0].id == "test-id"
-            
-            # Test update
-            mock_client.query.return_value = {"row_id": [0]}
-            mock_client.__getitem__ = Mock(return_value={
-                "vector": Mock(), 
-                "payload": Mock()
-            })
-            
-            instance.update("test-id", payload={"updated": "data"})
-            mock_client.commit.assert_called()
-            
-            # Test delete
-            mock_client.query.return_value = {"row_id": [0]}
-            instance.delete("test-id")
-            mock_client.delete.assert_called_with(0)
+        
+        # Test insert
+        instance.insert(
+            vectors=[[0.1, 0.2]], 
+            payloads=[{"test": "data"}], 
+            ids=["test-id"]
+        )
+        mock_client.append.assert_called_once()
+        
+        # Test search
+        class MockQueryResult(dict):
+            def __len__(self):
+                return 1
+                
+        search_result = MockQueryResult({
+            "id": ["test-id"],
+            "payload": [{"test": "data"}],
+            "score": [0.95]
+        })
+        mock_client.query.return_value = search_result
+        
+        results = instance.search("test", [0.1, 0.2])
+        assert len(results) == 1
+        assert results[0].id == "test-id"
+        
+        # Test update
+        mock_client.query.return_value = {"row_id": [0]}
+        mock_client.__getitem__ = Mock(return_value={
+            "vector": Mock(), 
+            "payload": Mock()
+        })
+        
+        instance.update("test-id", payload={"updated": "data"})
+        mock_client.commit.assert_called()
+        
+        # Test delete
+        mock_client.query.return_value = {"row_id": [0]}
+        instance.delete("test-id")
+        mock_client.delete.assert_called_with(0)
 
 
 if __name__ == "__main__":
