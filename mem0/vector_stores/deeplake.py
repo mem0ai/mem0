@@ -197,24 +197,47 @@ class DeepLake(VectorStoreBase):
     @abstractmethod
     def list_cols(self):
         """List all collections."""
-        pass
+        return [self.url]
 
     @abstractmethod
     def delete_col(self):
         """Delete a collection."""
+        logger.warning("Delete collection operation is not supported for DeepLake")
         pass
 
     @abstractmethod
     def col_info(self):
         """Get information about a collection."""
-        pass
+        return {
+            "url": self.url,
+        }
 
     @abstractmethod
     def list(self, filters=None, limit=None):
         """List all memories."""
-        pass
+        where_clause = ""
+        if filters:
+            where_clause = f"WHERE {self._build_filter_expression(filters)}"
+
+        search_results = self.client.query(f'''
+            SELECT *
+            {where_clause}
+            LIMIT {limit}
+        ''')
+
+        if len(search_results) == 0:
+            return [[]]
+
+        payloads = search_results["payload"][:]
+        ids = search_results["id"][:]
+
+        results = []
+        for i in range(len(search_results)):
+            results.append(OutputData(id=ids[i], score=None, payload=payloads[i]))
+        return [results]
 
     @abstractmethod
     def reset(self):
         """Reset by delete the collection and recreate it."""
+        logger.warning("Reset operation is not supported for DeepLake")
         pass
