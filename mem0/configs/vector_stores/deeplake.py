@@ -7,7 +7,7 @@ class DeepLakeConfig(BaseModel):
     try:
         import deeplake
     except ImportError:
-        raise ImportError("The 'deeplake' library is required. Please install it using 'pip install chromadb'.")
+        raise ImportError("The 'deeplake' library is required. Please install it using 'pip install deeplake'.")
 
     url: str = Field("mem://mem0", description="Default url for the collection")
     creds: Optional[dict] = Field(None, description="Authentication credentials")
