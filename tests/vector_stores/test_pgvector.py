@@ -1,3 +1,5 @@
+import importlib
+import sys
 import unittest
 import uuid
 from unittest.mock import MagicMock, patch
@@ -181,8 +183,7 @@ class TestPGVector(unittest.TestCase):
     def test_insert_psycopg3(self, mock_get_cursor, mock_connection_pool):
         """Test vector insertion with psycopg3."""
         # Set up mock pool and cursor
-        mock_pool = MagicMock()
-        mock_connection_pool.return_value = mock_pool
+        mock_connection_pool.return_value = self.mock_pool_psycopg
         
         # Configure the _get_cursor mock to return our mock cursor
         mock_get_cursor.return_value.__enter__.return_value = self.mock_cursor
@@ -224,48 +225,73 @@ class TestPGVector(unittest.TestCase):
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
     @patch.object(PGVector, '_get_cursor')
-    @patch('mem0.vector_stores.pgvector.execute_values')
-    def test_insert_psycopg2(self, mock_execute_values, mock_get_cursor, mock_connection_pool):
-        """Test vector insertion with psycopg2."""
-        # Set up mock pool and cursor
+    def test_insert_psycopg2(self, mock_get_cursor, mock_connection_pool):
+        """
+        Test vector insertion with psycopg2.
+        This test ensures that PGVector.insert uses psycopg2.extras.execute_values for batch inserts
+        and that the data passed to execute_values is correctly formatted.
+        """
+        # --- Setup mocks for psycopg2 and its submodules ---
+        mock_execute_values = MagicMock()
         mock_pool = MagicMock()
-        mock_connection_pool.return_value = mock_pool
-        
-        # Configure the _get_cursor mock to return our mock cursor
-        mock_get_cursor.return_value.__enter__.return_value = self.mock_cursor
-        mock_get_cursor.return_value.__exit__.return_value = None
-        
-        self.mock_cursor.fetchall.return_value = []  # No existing collections
-        
-        pgvector = PGVector(
-            dbname="test_db",
-            collection_name="test_collection",
-            embedding_model_dims=3,
-            user="test_user",
-            password="test_pass",
-            host="localhost",
-            port=5432,
-            diskann=False,
-            hnsw=False,
-            minconn=1,
-            maxconn=4
-        )
-        
-        pgvector.insert(self.test_vectors, self.test_payloads, self.test_ids)
-        
-        # Verify the _get_cursor context manager was called
-        mock_get_cursor.assert_called()
-        
-        # Verify execute_values was called (psycopg2 uses execute_values)
-        mock_execute_values.assert_called_once()
-        call_args = mock_execute_values.call_args
-        self.assertIn("INSERT INTO test_collection", call_args[0][1])
-        
-        # Verify data format
-        data_arg = call_args[0][2]
-        self.assertEqual(len(data_arg), 2)
-        self.assertEqual(data_arg[0][0], self.test_ids[0])
-        self.assertEqual(data_arg[1][0], self.test_ids[1])
+
+        # Mock psycopg2.extras with execute_values
+        mock_psycopg2_extras = MagicMock()
+        mock_psycopg2_extras.execute_values = mock_execute_values
+
+        mock_psycopg2_pool = MagicMock()
+        mock_psycopg2_pool.ThreadedConnectionPool = mock_pool
+
+        # Mock psycopg2 root module
+        mock_psycopg2 = MagicMock()
+        mock_psycopg2.extras = mock_psycopg2_extras
+        mock_psycopg2.pool = mock_psycopg2_pool
+
+        # Patch sys.modules so that imports in PGVector use our mocks
+        with patch.dict('sys.modules', {
+            'psycopg': None,  # Ensure psycopg3 is not available
+            'psycopg_pool': None,
+            'psycopg.types.json': None,
+            'psycopg2': mock_psycopg2,
+            'psycopg2.extras': mock_psycopg2_extras,
+            'psycopg2.pool': mock_psycopg2_pool
+        }):
+            # Force reload of PGVector to pick up the mocked modules
+            if 'mem0.vector_stores.pgvector' in sys.modules:
+                importlib.reload(sys.modules['mem0.vector_stores.pgvector'])
+
+            mock_connection_pool.return_value = self.mock_pool_psycopg
+            mock_get_cursor.return_value.__enter__.return_value = self.mock_cursor
+            mock_get_cursor.return_value.__exit__.return_value = None
+            self.mock_cursor.fetchall.return_value = []
+
+            pgvector = PGVector(
+                dbname="test_db",
+                collection_name="test_collection",
+                embedding_model_dims=3,
+                user="test_user",
+                password="test_pass",
+                host="localhost",
+                port=5432,
+                diskann=False,
+                hnsw=False,
+                minconn=1,
+                maxconn=4
+            )
+
+            pgvector.insert(self.test_vectors, self.test_payloads, self.test_ids)
+
+            mock_get_cursor.assert_called()
+            mock_execute_values.assert_called_once()
+            call_args = mock_execute_values.call_args
+
+            self.assertIn("INSERT INTO test_collection", call_args[0][1])
+
+            # The data argument should be a list of tuples, one per vector
+            data_arg = call_args[0][2]
+            self.assertEqual(len(data_arg), 2)
+            self.assertEqual(data_arg[0][0], self.test_ids[0])
+            self.assertEqual(data_arg[1][0], self.test_ids[1])
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
