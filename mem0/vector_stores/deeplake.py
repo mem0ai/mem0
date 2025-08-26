@@ -33,6 +33,8 @@ class DeepLake(VectorStoreBase):
 
         Args:
             url (str): The URL of the DeepLake database.
+            embedding_model_dims (int): Dimension of the embedding vector.
+            quantize (bool, optional): Whether to quantize the vectors. Defaults to False.
             creds (Dict, optional): Credentials for the DeepLake database.
             token (str, optional): Token for the DeepLake database.
         """
@@ -70,9 +72,15 @@ class DeepLake(VectorStoreBase):
         self.client = deeplake.create(self.url, creds=self.creds, token=self.token, schema=schema)
         self.client.indexing_mode = deeplake.IndexingMode.Always
 
-    @abstractmethod
     def insert(self, vectors, payloads=None, ids=None):
-        """Insert vectors into a collection."""
+        """
+        Insert vectors into the index.
+
+        Args:
+            vectors (List[List[float]]): List of vectors to insert.
+            payloads (List[Dict], optional): List of payloads corresponding to vectors.
+            ids (List[str], optional): List of IDs corresponding to vectors.
+        """
         logger.info(f"Inserting {len(vectors)} vectors into collection {self.url}")
         if not ids:
             ids = [str(uuid.uuid4()) for _ in range(len(vectors))]
@@ -116,9 +124,19 @@ class DeepLake(VectorStoreBase):
         filter_expression = " AND ".join(filter_conditions)
         return filter_expression
 
-    @abstractmethod
-    def search(self, query, vectors, limit=5, filters=None):
-        """Search for similar vectors."""
+    def search(self, query, vectors, limit=5, filters=None) -> List[OutputData]:
+        """
+        Search for similar vectors.
+
+        Args:
+            query (str): Query.
+            vectors (List[float]): Query vector.
+            limit (int, optional): Number of results to return. Defaults to 5.
+            filters (Dict, optional): Filters to apply to the search. Defaults to None.
+
+        Returns:
+            List[OutputData]: Search results.
+        """
         where_clause = ""
         if filters:
             where_clause = f"WHERE {self._build_filter_expression(filters)}"
@@ -143,9 +161,11 @@ class DeepLake(VectorStoreBase):
             results.append(OutputData(id=ids[i], score=scores[i], payload=payloads[i]))
         return results
         
-    @abstractmethod
     def delete(self, vector_id):
-        """Delete a vector by ID."""        
+        """Delete a vector by ID.
+        Args:
+            vector_id (str): ID of the vector to delete.
+        """
         query = (
             f"SELECT * FROM (SELECT *, ROW_NUMBER() as row_id) WHERE id = '{vector_id}'"
         )
@@ -159,9 +179,13 @@ class DeepLake(VectorStoreBase):
             self.client.delete(idx)
         self.client.commit()
 
-    @abstractmethod
     def update(self, vector_id, vector=None, payload=None):
-        """Update a vector and its payload."""
+        """Update a vector and its payload.
+        Args:
+            vector_id (str): ID of the vector to update.
+            vector (List[float], optional): Updated vector.
+            payload (Dict, optional): Updated payload.
+        """
         query = (
             f"SELECT * FROM (SELECT *, ROW_NUMBER() as row_id) WHERE id = '{vector_id}'"
         )
@@ -180,9 +204,13 @@ class DeepLake(VectorStoreBase):
 
         self.client.commit()
 
-    @abstractmethod
     def get(self, vector_id) -> Optional[OutputData]:
-        """Retrieve a vector by ID."""
+        """Retrieve a vector by ID.
+        Args:
+            vector_id (str): ID of the vector to retrieve.
+        Returns:
+            Optional[OutputData]: Retrieved vector or None if not found.
+        """
         query = (
             f"SELECT * FROM (SELECT *, ROW_NUMBER() as row_id) WHERE id = '{vector_id}'"
         )
@@ -193,28 +221,40 @@ class DeepLake(VectorStoreBase):
             return
         return OutputData(id=query_results["vector_id"][0], score=None, payload=query_results["payload"][0])
         
-
-    @abstractmethod
     def list_cols(self):
-        """List all collections."""
+        """
+        List all collections (indexes).
+        Returns:
+            List[str]: List of collection names.
+        """
         return [self.url]
 
-    @abstractmethod
     def delete_col(self):
         """Delete a collection."""
         logger.warning("Delete collection operation is not supported for DeepLake")
         pass
 
-    @abstractmethod
     def col_info(self):
-        """Get information about a collection."""
+        """
+        Get information about a collection (index).
+        Returns:
+            Dict: Collection information.
+        """
         return {
             "url": self.url,
         }
 
-    @abstractmethod
-    def list(self, filters=None, limit=None):
-        """List all memories."""
+    def list(self, filters=None, limit=100):
+        """
+        List all vectors in the index.
+
+        Args:
+            filters (dict, optional): Filters to apply to the list.
+            limit (int, optional): Number of vectors to return. Defaults to 100.
+
+        Returns:
+            List[List[OutputData]]: List of vectors.
+        """
         where_clause = ""
         if filters:
             where_clause = f"WHERE {self._build_filter_expression(filters)}"
@@ -236,7 +276,6 @@ class DeepLake(VectorStoreBase):
             results.append(OutputData(id=ids[i], score=None, payload=payloads[i]))
         return [results]
 
-    @abstractmethod
     def reset(self):
         """Reset by delete the collection and recreate it."""
         logger.warning("Reset operation is not supported for DeepLake")
