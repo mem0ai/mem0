@@ -41,7 +41,6 @@ class DeepLake(VectorStoreBase):
             creds (Dict, optional): Credentials for the DeepLake database.
             token (str, optional): Token for the DeepLake database.
         """
-        exists = deeplake.exists(url, creds=creds, token=token)
 
         self.url = url
         self.creds = creds

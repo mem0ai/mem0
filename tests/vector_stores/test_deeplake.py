@@ -1,6 +1,4 @@
-import uuid
-from collections import defaultdict
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 import pytest
 from mem0.vector_stores.deeplake import DeepLake
 
@@ -83,12 +81,7 @@ class TestDeepLakeInit:
         """Test initialization with existing collection"""
         mock_dl, mock_client = mock_deeplake
         mock_dl.exists.return_value = True
-        
-        instance = DeepLake(
-            url="mem://existing-collection", 
-            embedding_model_dims=512
-        )
-        
+
         # Should open existing collection, not create new one
         mock_dl.open.assert_called_once_with(
             "mem://existing-collection", 
@@ -222,11 +215,6 @@ class TestDeepLakeSearch:
             mock_filter.return_value = "sanitized_key = 'test'"
             
             filters = {"user_id": "test"}
-            results = instance.search(
-                query="test", 
-                vectors=[0.1, 0.2], 
-                filters=filters
-            )
             
             # Verify filter expression was built
             mock_filter.assert_called_once_with(filters)
@@ -439,7 +427,6 @@ class TestDeepLakeList:
             mock_filter.return_value = "user_id = 'test'"
             
             filters = {"user_id": "test"}
-            results = instance.list(filters=filters, limit=50)
             
             # Verify filter was applied
             mock_filter.assert_called_once_with(filters)
