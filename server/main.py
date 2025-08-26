@@ -93,7 +93,7 @@ async def check_api_key(api_key: Optional[str] = Depends(api_key_header)):
         if api_key is None:
             raise HTTPException(
                 status_code=401,
-                detail=f"Header 'X-API-Key' is required for this deployment.",
+                detail="Header 'X-API-Key' is required for this deployment.",
                 headers={"WWW-Authenticate": "ApiKey"},
             )
         if api_key != ADMIN_API_KEY:
