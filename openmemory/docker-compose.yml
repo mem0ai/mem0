@@ -1,27 +1,14 @@
 services:
-  redis:
-    image: redis/redis-stack:latest
-    command:
-    - redis-server
-    - --loadmodule
-    - /opt/redis-stack/lib/redisearch.so
-    - --requirepass
-    - ${REDIS_PASSWORD}
-    - --maxmemory
-    - 16gb
-    - --maxmemory-policy
-    - allkeys-lru
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+    - "127.0.0.1:6333:6333"
     volumes:
-    - redis_data:/data
+    - qdrant_data:/qdrant/storage
     healthcheck:
-      test:
-      - CMD
-      - redis-cli
-      - -a
-      - ${REDIS_PASSWORD}
-      - ping
-      interval: 30s
-      retries: 3
+      test: ["CMD", "wget", "http://localhost:6333/readyz", "-q", "-O", "/dev/null"]
+      interval: 20s
+      retries: 5
     networks:
     - memnet
   postgres:
@@ -67,8 +54,8 @@ services:
       NEO4J_URI: ${NEO4J_URI}
       NEO4J_USERNAME: ${NEO4J_USERNAME}
       NEO4J_PASSWORD: ${NEO4J_PASSWORD}
-      REDIS_URL: ${REDIS_URL}
-      REDIS_COLLECTION_NAME: ${REDIS_COLLECTION_NAME}
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: 6333
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       ENABLE_DEEP_READINESS: "true"
       # Keycloak OIDC validation (required for ChatGPT OAuth)
@@ -79,8 +66,8 @@ services:
       # Strict CORS: allow trusted origins and local UI during development
       CORS_ALLOWED_ORIGINS: https://chat.openai.com,https://chatgpt.com,https://memory.onemainarmy.com,https://fullmem.drjlabs.com,http://localhost:3000,http://127.0.0.1:3000
     depends_on:
-      redis:
-        condition: service_healthy
+      qdrant:
+        condition: service_started
       postgres:
         condition: service_started
       neo4j:
@@ -130,7 +117,7 @@ services:
     networks:
     - memnet
 volumes:
-  redis_data:
+  qdrant_data:
   pg_data:
   neo4j_data:
 networks:
