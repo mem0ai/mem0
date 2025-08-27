@@ -1,0 +1,3 @@
+services:
+  # FAISS is a local file-based vector store, so no separate container is needed
+  # Data will be persisted through volume mounts in the main application

@@ -152,30 +152,130 @@ def reset_memory_client():
 
 
 def get_default_memory_config():
-    # """Get default memory client configuration with sensible defaults."""
+    """Get default memory client configuration with sensible defaults."""
+    # Detect vector store based on environment variables
+    vector_store_config = {
+        "collection_name": "openmemory",
+        "host": "mem0_store",
+    }
 
-    # print(f"✅ Memory Configuration initialized:")
-    # print(f"   📍 LLM Base URL: {OPENAI_BASE_URL}")
-    # print(f"   🤖 LLM Model: {OPENAI_MODEL}")
-    # print(
-    #     f"   🔑 LLM API Key: {'***' + OPENAI_API_KEY[-4:] if len(OPENAI_API_KEY) > 4 else '***'}"
-    # )
-    # print(f"   📍 Embedding Base URL: {OPENAI_EMBEDDING_MODEL_BASE_URL}")
-    # print(f"   🎯 Embedding Model: {OPENAI_EMBEDDING_MODEL}")
-    # print(f"   📊 Embedding Dims: {OPENAI_EMBEDDING_MODEL_DIMS}")
-    # print(
-    #     f"   🔑 Embedding API Key: {'***' + OPENAI_EMBEDDING_MODEL_API_KEY[-4:] if len(OPENAI_EMBEDDING_MODEL_API_KEY) > 4 else '***'}"
-    # )
+    # Check for different vector store configurations based on environment variables
+    if os.environ.get("CHROMA_HOST") and os.environ.get("CHROMA_PORT"):
+        vector_store_provider = "chroma"
+        vector_store_config.update(
+            {
+                "host": os.environ.get("CHROMA_HOST"),
+                "port": int(os.environ.get("CHROMA_PORT")),
+            }
+        )
+    elif os.environ.get("QDRANT_HOST") and os.environ.get("QDRANT_PORT"):
+        vector_store_provider = "qdrant"
+        vector_store_config.update(
+            {
+                "host": os.environ.get("QDRANT_HOST"),
+                "port": int(os.environ.get("QDRANT_PORT")),
+            }
+        )
+    elif os.environ.get("WEAVIATE_CLUSTER_URL") or (
+        os.environ.get("WEAVIATE_HOST") and os.environ.get("WEAVIATE_PORT")
+    ):
+        vector_store_provider = "weaviate"
+        # Prefer an explicit cluster URL if provided; otherwise build from host/port
+        cluster_url = os.environ.get("WEAVIATE_CLUSTER_URL")
+        if not cluster_url:
+            weaviate_host = os.environ.get("WEAVIATE_HOST")
+            weaviate_port = int(os.environ.get("WEAVIATE_PORT"))
+            cluster_url = f"http://{weaviate_host}:{weaviate_port}"
+        vector_store_config = {
+            "collection_name": "openmemory",
+            "cluster_url": cluster_url,
+        }
+    elif os.environ.get("REDIS_URL"):
+        vector_store_provider = "redis"
+        vector_store_config = {
+            "collection_name": "openmemory",
+            "redis_url": os.environ.get("REDIS_URL"),
+        }
+    elif os.environ.get("PG_HOST") and os.environ.get("PG_PORT"):
+        vector_store_provider = "pgvector"
+        vector_store_config.update(
+            {
+                "host": os.environ.get("PG_HOST"),
+                "port": int(os.environ.get("PG_PORT")),
+                "dbname": os.environ.get("PG_DB", "mem0"),
+                "user": os.environ.get("PG_USER", "mem0"),
+                "password": os.environ.get("PG_PASSWORD", "mem0"),
+            }
+        )
+    elif os.environ.get("MILVUS_HOST") and os.environ.get("MILVUS_PORT"):
+        vector_store_provider = "milvus"
+        # Construct the full URL as expected by MilvusDBConfig
+        milvus_host = os.environ.get("MILVUS_HOST")
+        milvus_port = int(os.environ.get("MILVUS_PORT"))
+        milvus_url = f"http://{milvus_host}:{milvus_port}"
+
+        vector_store_config = {
+            "collection_name": "openmemory",
+            "url": milvus_url,
+            "token": os.environ.get(
+                "MILVUS_TOKEN", ""
+            ),  # Always include, empty string for local setup
+            "db_name": os.environ.get("MILVUS_DB_NAME", ""),
+            "embedding_model_dims": OPENAI_EMBEDDING_MODEL_DIMS,
+            "metric_type": "COSINE",  # Using COSINE for better semantic similarity
+        }
+    elif os.environ.get("ELASTICSEARCH_HOST") and os.environ.get("ELASTICSEARCH_PORT"):
+        vector_store_provider = "elasticsearch"
+        # Construct the full URL with scheme since Elasticsearch client expects it
+        elasticsearch_host = os.environ.get("ELASTICSEARCH_HOST")
+        elasticsearch_port = int(os.environ.get("ELASTICSEARCH_PORT"))
+        # Use http:// scheme since we're not using SSL
+        full_host = f"http://{elasticsearch_host}"
+
+        vector_store_config.update(
+            {
+                "host": full_host,
+                "port": elasticsearch_port,
+                "user": os.environ.get("ELASTICSEARCH_USER", "elastic"),
+                "password": os.environ.get("ELASTICSEARCH_PASSWORD", "changeme"),
+                "verify_certs": False,
+                "use_ssl": False,
+                "embedding_model_dims": OPENAI_EMBEDDING_MODEL_DIMS,
+            }
+        )
+    elif os.environ.get("OPENSEARCH_HOST") and os.environ.get("OPENSEARCH_PORT"):
+        vector_store_provider = "opensearch"
+        vector_store_config.update(
+            {
+                "host": os.environ.get("OPENSEARCH_HOST"),
+                "port": int(os.environ.get("OPENSEARCH_PORT")),
+            }
+        )
+    elif os.environ.get("FAISS_PATH"):
+        vector_store_provider = "faiss"
+        vector_store_config = {
+            "collection_name": "openmemory",
+            "path": os.environ.get("FAISS_PATH"),
+            "embedding_model_dims": OPENAI_EMBEDDING_MODEL_DIMS,
+            "distance_strategy": "cosine",
+        }
+    else:
+        # Default fallback to Qdrant
+        vector_store_provider = "qdrant"
+        vector_store_config.update(
+            {
+                "port": 6333,
+            }
+        )
+
+    print(
+        f"Auto-detected vector store: {vector_store_provider} with config: {vector_store_config}"
+    )
 
     return {
         "vector_store": {
-            "provider": "qdrant",
-            "config": {
-                "collection_name": "openmemory",
-                "host": "mem0_store",
-                "port": 6333,
-                "embedding_model_dims": OPENAI_EMBEDDING_MODEL_DIMS,
-            },
+            "provider": vector_store_provider,
+            "config": vector_store_config,
         },
         "llm": {
             "provider": "openai",
@@ -288,6 +388,12 @@ def get_memory_client(custom_instructions: str = None):
                         # Fix Ollama URLs for Docker if needed
                         if config["embedder"].get("provider") == "ollama":
                             config["embedder"] = _fix_ollama_urls(config["embedder"])
+
+                    if (
+                        "vector_store" in mem0_config
+                        and mem0_config["vector_store"] is not None
+                    ):
+                        config["vector_store"] = mem0_config["vector_store"]
             else:
                 print("No configuration found in database, using defaults")
 

@@ -62,6 +62,16 @@ Key differentiators:
 - [AWS Bedrock](https://docs.mem0.ai/components/llms/models/aws_bedrock): Enterprise-grade AWS managed model integration
 - [Azure OpenAI](https://docs.mem0.ai/components/llms/models/azure_openai): Microsoft Azure hosted OpenAI models for enterprise environments
 - [Ollama](https://docs.mem0.ai/components/llms/models/ollama): Local model deployment for privacy-focused applications
+- [vLLM](https://docs.mem0.ai/components/llms/models/vllm): High-performance inference framework
+- [LM Studio](https://docs.mem0.ai/components/llms/models/lmstudio): Local model management and deployment
+- [Together](https://docs.mem0.ai/components/llms/models/together): Open-source model inference platform
+- [DeepSeek](https://docs.mem0.ai/components/llms/models/deepseek): Advanced reasoning models
+- [Sarvam](https://docs.mem0.ai/components/llms/models/sarvam): Indian language models
+- [XAI](https://docs.mem0.ai/components/llms/models/xai): xAI models integration
+- [LiteLLM](https://docs.mem0.ai/components/llms/models/litellm): Unified LLM interface and proxy
+- [LangChain](https://docs.mem0.ai/components/llms/models/langchain): LangChain LLM integration
+- [OpenAI Structured](https://docs.mem0.ai/components/llms/models/openai_structured): OpenAI with structured output support
+- [Azure OpenAI Structured](https://docs.mem0.ai/components/llms/models/azure_openai_structured): Azure OpenAI with structured outputs
 
 ### Supported Vector Databases
 
@@ -72,14 +82,31 @@ Key differentiators:
 - [PGVector](https://docs.mem0.ai/components/vectordbs/dbs/pgvector): PostgreSQL extension for vector similarity search
 - [Milvus](https://docs.mem0.ai/components/vectordbs/dbs/milvus): Open-source vector database for AI applications at scale
 - [Redis](https://docs.mem0.ai/components/vectordbs/dbs/redis): Real-time vector storage and search with Redis Stack
+- [Supabase](https://docs.mem0.ai/components/vectordbs/dbs/supabase): Open-source Firebase alternative with vector support
+- [Upstash Vector](https://docs.mem0.ai/components/vectordbs/dbs/upstash_vector): Serverless vector database
+- [Elasticsearch](https://docs.mem0.ai/components/vectordbs/dbs/elasticsearch): Distributed search and analytics engine
+- [OpenSearch](https://docs.mem0.ai/components/vectordbs/dbs/opensearch): Open-source search and analytics platform
+- [FAISS](https://docs.mem0.ai/components/vectordbs/dbs/faiss): Facebook AI Similarity Search library
+- [MongoDB](https://docs.mem0.ai/components/vectordbs/dbs/mongodb): Document database with vector search capabilities
+- [Azure AI Search](https://docs.mem0.ai/components/vectordbs/dbs/azure_ai_search): Microsoft's enterprise search service
+- [Vertex AI Vector Search](https://docs.mem0.ai/components/vectordbs/dbs/vertex_ai_vector_search): Google Cloud's vector search service
+- [Databricks](https://docs.mem0.ai/components/vectordbs/dbs/databricks): Delta Lake integration for vector search
+- [Baidu](https://docs.mem0.ai/components/vectordbs/dbs/baidu): Baidu vector database integration
+- [LangChain](https://docs.mem0.ai/components/vectordbs/dbs/langchain): LangChain vector store integration
+- [S3 Vectors](https://docs.mem0.ai/components/vectordbs/dbs/s3_vectors): Amazon S3 Vectors integration
 
 ### Supported Embeddings
 
 - [OpenAI Embeddings](https://docs.mem0.ai/components/embedders/models/openai): High-quality text embeddings with customizable dimensions
 - [Azure OpenAI Embeddings](https://docs.mem0.ai/components/embedders/models/azure_openai): Enterprise Azure-hosted embedding models
+- [Google AI](https://docs.mem0.ai/components/embedders/models/google_ai): Gemini embedding models
+- [AWS Bedrock](https://docs.mem0.ai/components/embedders/models/aws_bedrock): Amazon embedding models through Bedrock
 - [Hugging Face](https://docs.mem0.ai/components/embedders/models/hugging_face): Open-source embedding models for local deployment
-- [Vertex AI](https://docs.mem0.ai/components/embedders/models/google_ai): Google Cloud's enterprise embedding models
-- [Ollama Embeddings](https://docs.mem0.ai/components/embedders/models/ollama): Local embedding models for privacy-focused applications
+- [Vertex AI](https://docs.mem0.ai/components/embedders/models/vertexai): Google Cloud's enterprise embedding models
+- [Ollama](https://docs.mem0.ai/components/embedders/models/ollama): Local embedding models for privacy-focused applications
+- [Together](https://docs.mem0.ai/components/embedders/models/together): Open-source model embeddings
+- [LM Studio](https://docs.mem0.ai/components/embedders/models/lmstudio): Local model embeddings
+- [LangChain](https://docs.mem0.ai/components/embedders/models/langchain): LangChain embedder integration
 
 ## Integrations
 

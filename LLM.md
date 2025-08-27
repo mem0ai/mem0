@@ -86,7 +86,6 @@ const memory = new Memory({
 const result = await memory.add('My name is John', { userId: 'john' });
 ```
 
-
 ## Core API Reference
 
 ### Memory Class (Self-Hosted)
@@ -305,7 +304,7 @@ config = MemoryConfig(
 - **langchain** - LangChain embeddings
 - **aws_bedrock** - AWS Bedrock embeddings
 
-#### Vector Store Providers (17 supported)
+#### Vector Store Providers (19 supported)
 - **qdrant** - Qdrant vector database (default)
 - **chroma** - ChromaDB
 - **pinecone** - Pinecone vector database
@@ -323,11 +322,14 @@ config = MemoryConfig(
 - **supabase** - Supabase vector
 - **baidu** - Baidu vector database
 - **langchain** - LangChain vector stores
+- **s3_vectors** - Amazon S3 Vectors
+- **databricks** - Databricks vector stores
 
-#### Graph Store Providers (3 supported)
+#### Graph Store Providers (4 supported)
 - **neo4j** - Neo4j graph database
 - **memgraph** - Memgraph
 - **neptune** - AWS Neptune Analytics
+- **kuzu** - Kuzu Graph database
 
 ### Configuration Examples
 
@@ -415,6 +417,54 @@ config = MemoryConfig(
 )
 ```
 
+#### LLM Providers
+- **OpenAI** - GPT-4, GPT-3.5-turbo, and structured outputs
+- **Anthropic** - Claude models with advanced reasoning
+- **Google AI** - Gemini models for multimodal applications
+- **AWS Bedrock** - Enterprise-grade AWS managed models
+- **Azure OpenAI** - Microsoft Azure hosted OpenAI models
+- **Groq** - High-performance LPU optimized models
+- **Together** - Open-source model inference platform
+- **Ollama** - Local model deployment for privacy
+- **vLLM** - High-performance inference framework
+- **LM Studio** - Local model management
+- **DeepSeek** - Advanced reasoning models
+- **Sarvam** - Indian language models
+- **XAI** - xAI models
+- **LiteLLM** - Unified LLM interface
+- **LangChain** - LangChain LLM integration
+
+#### Vector Store Providers
+- **Chroma** - AI-native open-source vector database
+- **Qdrant** - High-performance vector similarity search
+- **Pinecone** - Managed vector database with serverless options
+- **Weaviate** - Open-source vector search engine
+- **PGVector** - PostgreSQL extension for vector search
+- **Milvus** - Open-source vector database for scale
+- **Redis** - Real-time vector storage with Redis Stack
+- **Supabase** - Open-source Firebase alternative
+- **Upstash Vector** - Serverless vector database
+- **Elasticsearch** - Distributed search and analytics
+- **OpenSearch** - Open-source search and analytics
+- **FAISS** - Facebook AI Similarity Search
+- **MongoDB** - Document database with vector search
+- **Azure AI Search** - Microsoft's search service
+- **Vertex AI Vector Search** - Google Cloud vector search
+- **Databricks Vector Search** - Delta Lake integration
+- **Baidu** - Baidu vector database
+- **LangChain** - LangChain vector store integration
+
+#### Embedding Providers
+- **OpenAI** - High-quality text embeddings
+- **Azure OpenAI** - Enterprise Azure-hosted embeddings
+- **Google AI** - Gemini embedding models
+- **AWS Bedrock** - Amazon embedding models
+- **Hugging Face** - Open-source embedding models
+- **Vertex AI** - Google Cloud enterprise embeddings
+- **Ollama** - Local embedding models
+- **Together** - Open-source model embeddings
+- **LM Studio** - Local model embeddings
+- **LangChain** - LangChain embedder integration
 
 ## TypeScript/JavaScript SDK
 
@@ -569,6 +619,7 @@ print(result["relations"])   # Graph relationships
 - **Neo4j**: Full-featured graph database with Cypher queries
 - **Memgraph**: High-performance in-memory graph database
 - **Neptune**: AWS managed graph database service
+- **kuzu** - OSS Kuzu Graph database
 
 ### Multimodal Memory
 
