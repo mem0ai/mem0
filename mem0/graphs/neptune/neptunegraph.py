@@ -69,27 +69,198 @@ class MemoryGraph(NeptuneBase):
         logger.debug(f"_delete_entities\n  query={cypher}")
         return cypher, params
 
-    def _add_entities_cypher(
-        self,
-        source_node_list,
-        source,
-        source_embedding,
-        source_type,
-        destination_node_list,
-        destination,
-        dest_embedding,
-        destination_type,
-        relationship,
-        user_id,
+    def _add_entities_by_source_cypher(
+            self,
+            source_node_list,
+            destination,
+            dest_embedding,
+            destination_type,
+            relationship,
+            user_id,
     ):
         """
         Returns the OpenCypher query and parameters for adding entities in the graph DB
 
         :param source_node_list: list of source nodes
+        :param destination: destination name
+        :param dest_embedding: destination embedding
+        :param destination_type: destination node label
+        :param relationship: relationship label
+        :param user_id: user id to use
+        :return: str, dict
+        """
+
+        destination_label = self.node_label if self.node_label else f":`{destination_type}`"
+        destination_extra_set = f", destination:`{destination_type}`" if self.node_label else ""
+
+        cypher = f"""
+                MATCH (source {{user_id: $user_id}})
+                WHERE id(source) = $source_id
+                SET source.mentions = coalesce(source.mentions, 0) + 1
+                WITH source
+                MERGE (destination {destination_label} {{name: $destination_name, user_id: $user_id}})
+                ON CREATE SET
+                    destination.created = timestamp(),
+                    destination.updated = timestamp(),
+                    destination.mentions = 1
+                    {destination_extra_set}
+                ON MATCH SET
+                    destination.mentions = coalesce(destination.mentions, 0) + 1,
+                    destination.updated = timestamp()
+                WITH source, destination, $dest_embedding as dest_embedding
+                CALL neptune.algo.vectors.upsert(destination, dest_embedding)
+                WITH source, destination
+                MERGE (source)-[r:{relationship}]->(destination)
+                ON CREATE SET 
+                    r.created = timestamp(),
+                    r.updated = timestamp(),
+                    r.mentions = 1
+                ON MATCH SET
+                    r.mentions = coalesce(r.mentions, 0) + 1,
+                    r.updated = timestamp()
+                RETURN source.name AS source, type(r) AS relationship, destination.name AS target
+                """
+
+        params = {
+            "source_id": source_node_list[0]["id(source_candidate)"],
+            "destination_name": destination,
+            "dest_embedding": dest_embedding,
+            "user_id": user_id,
+        }
+        logger.debug(
+            f"_add_entities:\n  source_node_search_result={source_node_list[0]}\n  query={cypher}"
+        )
+        return cypher, params
+
+    def _add_entities_by_destination_cypher(
+            self,
+            source,
+            source_embedding,
+            source_type,
+            destination_node_list,
+            relationship,
+            user_id,
+    ):
+        """
+        Returns the OpenCypher query and parameters for adding entities in the graph DB
+
         :param source: source node name
         :param source_embedding: source node embedding
         :param source_type: source node label
         :param destination_node_list: list of dest nodes
+        :param relationship: relationship label
+        :param user_id: user id to use
+        :return: str, dict
+        """
+
+        source_label = self.node_label if self.node_label else f":`{source_type}`"
+        source_extra_set = f", source:`{source_type}`" if self.node_label else ""
+
+        cypher = f"""
+                MATCH (destination {{user_id: $user_id}})
+                WHERE id(destination) = $destination_id
+                SET 
+                    destination.mentions = coalesce(destination.mentions, 0) + 1,
+                    destination.updated = timestamp()
+                WITH destination
+                MERGE (source {source_label} {{name: $source_name, user_id: $user_id}})
+                ON CREATE SET
+                    source.created = timestamp(),
+                    source.updated = timestamp(),
+                    source.mentions = 1
+                    {source_extra_set}
+                ON MATCH SET
+                    source.mentions = coalesce(source.mentions, 0) + 1,
+                    source.updated = timestamp()
+                WITH source, destination, $source_embedding as source_embedding
+                CALL neptune.algo.vectors.upsert(source, source_embedding)
+                WITH source, destination
+                MERGE (source)-[r:{relationship}]->(destination)
+                ON CREATE SET 
+                    r.created = timestamp(),
+                    r.updated = timestamp(),
+                    r.mentions = 1
+                ON MATCH SET
+                    r.mentions = coalesce(r.mentions, 0) + 1,
+                    r.updated = timestamp()
+                RETURN source.name AS source, type(r) AS relationship, destination.name AS target
+                """
+
+        params = {
+            "destination_id": destination_node_list[0]["id(destination_candidate)"],
+            "source_name": source,
+            "source_embedding": source_embedding,
+            "user_id": user_id,
+        }
+        logger.debug(
+            f"_add_entities:\n  destination_node_search_result={destination_node_list[0]}\n  query={cypher}"
+        )
+        return cypher, params
+
+    def _add_relationship_entities_cypher(
+                self,
+                source_node_list,
+                destination_node_list,
+                relationship,
+                user_id,
+        ):
+        """
+        Returns the OpenCypher query and parameters for adding entities in the graph DB
+
+        :param source_node_list: list of source node ids
+        :param destination_node_list: list of dest node ids
+        :param relationship: relationship label
+        :param user_id: user id to use
+        :return: str, dict
+        """
+
+        cypher = f"""
+                MATCH (source {{user_id: $user_id}})
+                WHERE id(source) = $source_id
+                SET 
+                    source.mentions = coalesce(source.mentions, 0) + 1,
+                    source.updated = timestamp()
+                WITH source
+                MATCH (destination {{user_id: $user_id}})
+                WHERE id(destination) = $destination_id
+                SET 
+                    destination.mentions = coalesce(destination.mentions) + 1,
+                    destination.updated = timestamp()
+                MERGE (source)-[r:{relationship}]->(destination)
+                ON CREATE SET 
+                    r.created_at = timestamp(),
+                    r.updated_at = timestamp(),
+                    r.mentions = 1
+                ON MATCH SET r.mentions = coalesce(r.mentions, 0) + 1
+                RETURN source.name AS source, type(r) AS relationship, destination.name AS target
+                """
+        params = {
+            "source_id": source_node_list[0]["id(source_candidate)"],
+            "destination_id": destination_node_list[0]["id(destination_candidate)"],
+            "user_id": user_id,
+        }
+        logger.debug(
+            f"_add_entities:\n  destination_node_search_result={destination_node_list[0]}\n  source_node_search_result={source_node_list[0]}\n  query={cypher}"
+        )
+        return cypher, params
+
+    def _add_new_entities_cypher(
+                self,
+                source,
+                source_embedding,
+                source_type,
+                destination,
+                dest_embedding,
+                destination_type,
+                relationship,
+                user_id,
+        ):
+        """
+        Returns the OpenCypher query and parameters for adding entities in the graph DB
+
+        :param source: source node name
+        :param source_embedding: source node embedding
+        :param source_type: source node label
         :param destination: destination name
         :param dest_embedding: destination embedding
         :param destination_type: destination node label
@@ -103,149 +274,49 @@ class MemoryGraph(NeptuneBase):
         destination_label = self.node_label if self.node_label else f":`{destination_type}`"
         destination_extra_set = f", destination:`{destination_type}`" if self.node_label else ""
 
-        # Refactor this code with the graph_memory.py implementation
-        if not destination_node_list and source_node_list:
-            cypher = f"""
-                    MATCH (source)
-                    WHERE id(source) = $source_id
-                    SET source.mentions = coalesce(source.mentions, 0) + 1
-                    WITH source
-                    MERGE (destination {destination_label} {{name: $destination_name, user_id: $user_id}})
-                    ON CREATE SET
-                        destination.created = timestamp(),
-                        destination.updated = timestamp(),
-                        destination.mentions = 1
+        cypher = f"""
+            MERGE (n {source_label} {{name: $source_name, user_id: $user_id}})
+            ON CREATE SET n.created = timestamp(),
+                          n.updated = timestamp(),
+                          n.mentions = 1
+                          {source_extra_set}
+            ON MATCH SET 
+                        n.mentions = coalesce(n.mentions, 0) + 1,
+                        n.updated = timestamp()
+            WITH n, $source_embedding as source_embedding
+            CALL neptune.algo.vectors.upsert(n, source_embedding)
+            WITH n
+            MERGE (m {destination_label} {{name: $dest_name, user_id: $user_id}})
+            ON CREATE SET 
+                        m.created = timestamp(),
+                        m.updated = timestamp(),
+                        m.mentions = 1
                         {destination_extra_set}
-                    ON MATCH SET
-                        destination.mentions = coalesce(destination.mentions, 0) + 1,
-                        destination.updated = timestamp()
-                    WITH source, destination, $dest_embedding as dest_embedding
-                    CALL neptune.algo.vectors.upsert(destination, dest_embedding)
-                    WITH source, destination
-                    MERGE (source)-[r:{relationship}]->(destination)
-                    ON CREATE SET 
-                        r.created = timestamp(),
-                        r.updated = timestamp(),
-                        r.mentions = 1
-                    ON MATCH SET
-                        r.mentions = coalesce(r.mentions, 0) + 1,
-                        r.updated = timestamp()
-                    RETURN source.name AS source, type(r) AS relationship, destination.name AS target
-                    """
-
-            params = {
-                "source_id": source_node_list[0]["id(source_candidate)"],
-                "destination_name": destination,
-                "dest_embedding": dest_embedding,
-                "user_id": user_id,
-            }
-        elif destination_node_list and not source_node_list:
-            cypher = f"""
-                    MATCH (destination)
-                    WHERE id(destination) = $destination_id
-                    SET 
-                        destination.mentions = coalesce(destination.mentions, 0) + 1,
-                        destination.updated = timestamp()
-                    WITH destination
-                    MERGE (source {source_label} {{name: $source_name, user_id: $user_id}})
-                    ON CREATE SET
-                        source.created = timestamp(),
-                        source.updated = timestamp(),
-                        source.mentions = 1
-                        {source_extra_set}
-                    ON MATCH SET
-                        source.mentions = coalesce(source.mentions, 0) + 1,
-                        source.updated = timestamp()
-                    WITH source, destination, $source_embedding as source_embedding
-                    CALL neptune.algo.vectors.upsert(source, source_embedding)
-                    WITH source, destination
-                    MERGE (source)-[r:{relationship}]->(destination)
-                    ON CREATE SET 
-                        r.created = timestamp(),
-                        r.updated = timestamp(),
-                        r.mentions = 1
-                    ON MATCH SET
-                        r.mentions = coalesce(r.mentions, 0) + 1,
-                        r.updated = timestamp()
-                    RETURN source.name AS source, type(r) AS relationship, destination.name AS target
-                    """
-
-            params = {
-                "destination_id": destination_node_list[0]["id(destination_candidate)"],
-                "source_name": source,
-                "source_embedding": source_embedding,
-                "user_id": user_id,
-            }
-        elif source_node_list and destination_node_list:
-            cypher = f"""
-                    MATCH (source)
-                    WHERE id(source) = $source_id
-                    SET 
-                        source.mentions = coalesce(source.mentions, 0) + 1,
-                        source.updated = timestamp()
-                    WITH source
-                    MATCH (destination)
-                    WHERE id(destination) = $destination_id
-                    SET 
-                        destination.mentions = coalesce(destination.mentions) + 1,
-                        destination.updated = timestamp()
-                    MERGE (source)-[r:{relationship}]->(destination)
-                    ON CREATE SET 
-                        r.created_at = timestamp(),
-                        r.updated_at = timestamp(),
-                        r.mentions = 1
-                    ON MATCH SET r.mentions = coalesce(r.mentions, 0) + 1
-                    RETURN source.name AS source, type(r) AS relationship, destination.name AS target
-                    """
-            params = {
-                "source_id": source_node_list[0]["id(source_candidate)"],
-                "destination_id": destination_node_list[0]["id(destination_candidate)"],
-                "user_id": user_id,
-            }
-        else:
-            cypher = f"""
-                    MERGE (n {source_label} {{name: $source_name, user_id: $user_id}})
-                    ON CREATE SET n.created = timestamp(),
-                                  n.updated = timestamp(),
-                                  n.mentions = 1
-                                  {source_extra_set}
-                    ON MATCH SET 
-                                n.mentions = coalesce(n.mentions, 0) + 1,
-                                n.updated = timestamp()
-                    WITH n, $source_embedding as source_embedding
-                    CALL neptune.algo.vectors.upsert(n, source_embedding)
-                    WITH n
-                    MERGE (m {destination_label} {{name: $dest_name, user_id: $user_id}})
-                    ON CREATE SET 
-                                m.created = timestamp(),
-                                m.updated = timestamp(),
-                                m.mentions = 1
-                                {destination_extra_set}
-                    ON MATCH SET 
-                                m.updated = timestamp(),
-                                m.mentions = coalesce(m.mentions, 0) + 1
-                    WITH n, m, $dest_embedding as dest_embedding
-                    CALL neptune.algo.vectors.upsert(m, dest_embedding)
-                    WITH n, m
-                    MERGE (n)-[rel:{relationship}]->(m)
-                    ON CREATE SET 
-                                rel.created = timestamp(),
-                                rel.updated = timestamp(),
-                                rel.mentions = 1
-                    ON MATCH SET 
-                                rel.updated = timestamp(),
-                                rel.mentions = coalesce(rel.mentions, 0) + 1
-                    RETURN n.name AS source, type(rel) AS relationship, m.name AS target
-                    """
-            params = {
-                "source_name": source,
-                "dest_name": destination,
-                "source_embedding": source_embedding,
-                "dest_embedding": dest_embedding,
-                "user_id": user_id,
-            }
+            ON MATCH SET 
+                        m.updated = timestamp(),
+                        m.mentions = coalesce(m.mentions, 0) + 1
+            WITH n, m, $dest_embedding as dest_embedding
+            CALL neptune.algo.vectors.upsert(m, dest_embedding)
+            WITH n, m
+            MERGE (n)-[rel:{relationship}]->(m)
+            ON CREATE SET 
+                        rel.created = timestamp(),
+                        rel.updated = timestamp(),
+                        rel.mentions = 1
+            ON MATCH SET 
+                        rel.updated = timestamp(),
+                        rel.mentions = coalesce(rel.mentions, 0) + 1
+            RETURN n.name AS source, type(rel) AS relationship, m.name AS target
+            """
+        params = {
+            "source_name": source,
+            "dest_name": destination,
+            "source_embedding": source_embedding,
+            "dest_embedding": dest_embedding,
+            "user_id": user_id,
+        }
         logger.debug(
-            f"_add_entities:\n  destination_node_search_result={destination_node_list}\n  source_node_search_result={source_node_list}\n  query={cypher}"
+            f"_add_new_entities_cypher:\n  query={cypher}"
         )
         return cypher, params
 
