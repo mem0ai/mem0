@@ -253,7 +253,6 @@ class NeptuneBase(ABC):
             results.append(result)
         return results
 
-    @abstractmethod
     def _add_entities_cypher(
         self,
         source_node_list,
@@ -270,6 +269,85 @@ class NeptuneBase(ABC):
         """
         Returns the OpenCypher query and parameters for adding entities in the graph DB
         """
+        if not destination_node_list and source_node_list:
+            return self._add_entities_by_source_cypher(
+                source_node_list,
+                destination,
+                dest_embedding,
+                destination_type,
+                relationship,
+                user_id)
+        elif destination_node_list and not source_node_list:
+            return self._add_entities_by_destination_cypher(
+                source,
+                source_embedding,
+                source_type,
+                destination_node_list,
+                relationship,
+                user_id)
+        elif source_node_list and destination_node_list:
+            return self._add_relationship_entities_cypher(
+                source_node_list,
+                destination_node_list,
+                relationship,
+                user_id)
+        # else source_node_list and destination_node_list are None
+        return self._add_new_entities_cypher(
+            source,
+            source_embedding,
+            source_type,
+            destination,
+            dest_embedding,
+            destination_type,
+            relationship,
+            user_id)
+
+    @abstractmethod
+    def _add_entities_by_source_cypher(
+            self,
+            source_node_list,
+            destination,
+            dest_embedding,
+            destination_type,
+            relationship,
+            user_id,
+    ):
+        pass
+
+    @abstractmethod
+    def _add_entities_by_destination_cypher(
+            self,
+            source,
+            source_embedding,
+            source_type,
+            destination_node_list,
+            relationship,
+            user_id,
+    ):
+        pass
+
+    @abstractmethod
+    def _add_relationship_entities_cypher(
+            self,
+            source_node_list,
+            destination_node_list,
+            relationship,
+            user_id,
+    ):
+        pass
+
+    @abstractmethod
+    def _add_new_entities_cypher(
+            self,
+            source,
+            source_embedding,
+            source_type,
+            destination,
+            dest_embedding,
+            destination_type,
+            relationship,
+            user_id,
+    ):
         pass
 
     def search(self, query, filters, limit=100):
