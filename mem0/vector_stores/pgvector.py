@@ -52,6 +52,7 @@ class PGVector(VectorStoreBase):
         maxconn,
         sslmode=None,
         connection_string=None,
+        connection_pool=None,
     ):
         """
         Initialize the PGVector database.
@@ -70,13 +71,19 @@ class PGVector(VectorStoreBase):
             maxconn (int): Maximum number of connections allowed in the connection pool
             sslmode (str, optional): SSL mode for PostgreSQL connection (e.g., 'require', 'prefer', 'disable')
             connection_string (str, optional): PostgreSQL connection string (overrides individual connection parameters)
+            connection_pool (Any, optional): psycopg2 connection pool object (overrides connection string and individual parameters)
         """
         self.collection_name = collection_name
         self.use_diskann = diskann
         self.use_hnsw = hnsw
         self.embedding_model_dims = embedding_model_dims
-        
-        if connection_string:
+        self.connection_pool = None
+
+        # Connection setup with priority: connection_pool > connection_string > individual parameters
+        if connection_pool is not None:
+            # Use provided connection pool
+            self.connection_pool = connection_pool
+        elif connection_string:
             if sslmode:
                 # Append sslmode to connection string if provided
                 if 'sslmode=' in connection_string:
@@ -91,12 +98,13 @@ class PGVector(VectorStoreBase):
             if sslmode:
                 connection_string = f"{connection_string} sslmode={sslmode}"
         
-        if PSYCOPG_VERSION == 3:
-            # psycopg3 ConnectionPool
-            self.pool = ConnectionPool(conninfo=connection_string, min_size=minconn, max_size=maxconn, open=True)
-        else:
-            # psycopg2 ThreadedConnectionPool
-            self.pool = ConnectionPool(minconn=minconn, maxconn=maxconn, dsn=connection_string)
+        if self.connection_pool is None:
+            if PSYCOPG_VERSION == 3:
+                # psycopg3 ConnectionPool
+                self.connection_pool = ConnectionPool(conninfo=connection_string, min_size=minconn, max_size=maxconn, open=True)
+            else:
+                # psycopg2 ThreadedConnectionPool
+                self.connection_pool = ConnectionPool(minconn=minconn, maxconn=maxconn, dsn=connection_string)
 
         collections = self.list_cols()
         if collection_name not in collections:
@@ -110,7 +118,7 @@ class PGVector(VectorStoreBase):
         """
         if PSYCOPG_VERSION == 3:
             # psycopg3 auto-manages commit/rollback and pool return
-            with self.pool.connection() as conn:
+            with self.connection_pool.connection() as conn:
                 with conn.cursor() as cur:
                     try:
                         yield cur
@@ -122,7 +130,7 @@ class PGVector(VectorStoreBase):
                         raise
         else:
             # psycopg2 manual getconn/putconn
-            conn = self.pool.getconn()
+            conn = self.connection_pool.getconn()
             cur = conn.cursor()
             try:
                 yield cur
@@ -134,7 +142,7 @@ class PGVector(VectorStoreBase):
                 raise exc
             finally:
                 cur.close()
-                self.pool.putconn(conn)
+                self.connection_pool.putconn(conn)
 
     def create_col(self) -> None:
         """
@@ -383,9 +391,9 @@ class PGVector(VectorStoreBase):
         try:
             # Close pool appropriately
             if PSYCOPG_VERSION == 3:
-                self.pool.close()
+                self.connection_pool.close()
             else:
-                self.pool.closeall()
+                self.connection_pool.closeall()
         except Exception:
             pass
 

@@ -124,7 +124,7 @@ class TestPGVector(unittest.TestCase):
         
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
-        
+
         # Verify vector extension and table creation
         self.mock_cursor.execute.assert_any_call("CREATE EXTENSION IF NOT EXISTS vector")
         table_creation_calls = [call for call in self.mock_cursor.execute.call_args_list 
@@ -134,6 +134,113 @@ class TestPGVector(unittest.TestCase):
         # Verify pgvector instance properties
         self.assertEqual(pgvector.collection_name, "test_collection")
         self.assertEqual(pgvector.embedding_model_dims, 3)
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    @patch.object(PGVector, '_get_cursor')
+    def test_create_col_psycopg3_with_explicit_pool(self, mock_get_cursor, mock_connection_pool):
+        """
+        Test collection creation with psycopg3 when an explicit psycopg_pool.ConnectionPool is provided.
+        This ensures that PGVector uses the provided pool and still performs collection creation logic.
+        """
+        # Set up a real (mocked) psycopg_pool.ConnectionPool instance
+        explicit_pool = MagicMock(name="ExplicitPsycopgPool")
+        # The patch for ConnectionPool should not be used in this case, but we patch it for isolation
+        mock_connection_pool.return_value = MagicMock(name="ShouldNotBeUsed")
+
+        # Configure the _get_cursor mock to return our mock cursor as a context manager
+        mock_get_cursor.return_value.__enter__.return_value = self.mock_cursor
+        mock_get_cursor.return_value.__exit__.return_value = None
+
+        # Simulate no existing collections in the database
+        self.mock_cursor.fetchall.return_value = []
+
+        # Pass the explicit pool to PGVector
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False,
+            minconn=1,
+            maxconn=4,
+            connection_pool=explicit_pool
+        )
+
+        # Verify the _get_cursor context manager was called
+        mock_get_cursor.assert_called()
+
+        mock_connection_pool.assert_not_called()
+
+
+        # Verify vector extension and table creation
+        self.mock_cursor.execute.assert_any_call("CREATE EXTENSION IF NOT EXISTS vector")
+        table_creation_calls = [call for call in self.mock_cursor.execute.call_args_list 
+                              if "CREATE TABLE IF NOT EXISTS test_collection" in str(call)]
+        self.assertTrue(len(table_creation_calls) > 0)
+
+        # Verify pgvector instance properties
+        self.assertEqual(pgvector.collection_name, "test_collection")
+        self.assertEqual(pgvector.embedding_model_dims, 3)
+        # Ensure the pool used is the explicit one
+        self.assertIs(pgvector.connection_pool, explicit_pool)
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    @patch.object(PGVector, '_get_cursor')
+    def test_create_col_psycopg2_with_explicit_pool(self, mock_get_cursor, mock_connection_pool):
+        """
+        Test collection creation with psycopg2 when an explicit psycopg2 ThreadedConnectionPool is provided.
+        This ensures that PGVector uses the provided pool and still performs collection creation logic.
+        """
+        # Set up a real (mocked) psycopg2 ThreadedConnectionPool instance
+        explicit_pool = MagicMock(name="ExplicitPsycopg2Pool")
+        # The patch for ConnectionPool should not be used in this case, but we patch it for isolation
+        mock_connection_pool.return_value = MagicMock(name="ShouldNotBeUsed")
+
+        # Configure the _get_cursor mock to return our mock cursor as a context manager
+        mock_get_cursor.return_value.__enter__.return_value = self.mock_cursor
+        mock_get_cursor.return_value.__exit__.return_value = None
+
+        # Simulate no existing collections in the database
+        self.mock_cursor.fetchall.return_value = []
+
+        # Pass the explicit pool to PGVector
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False,
+            minconn=1,
+            maxconn=4,
+            connection_pool=explicit_pool
+        )
+
+        # Verify the _get_cursor context manager was called
+        mock_get_cursor.assert_called()
+
+        mock_connection_pool.assert_not_called()
+
+        # Verify vector extension and table creation
+        self.mock_cursor.execute.assert_any_call("CREATE EXTENSION IF NOT EXISTS vector")
+        table_creation_calls = [call for call in self.mock_cursor.execute.call_args_list 
+                              if "CREATE TABLE IF NOT EXISTS test_collection" in str(call)]
+        self.assertTrue(len(table_creation_calls) > 0)
+
+        # Verify pgvector instance properties
+        self.assertEqual(pgvector.collection_name, "test_collection")
+        self.assertEqual(pgvector.embedding_model_dims, 3)
+        # Ensure the pool used is the explicit one
+        self.assertIs(pgvector.connection_pool, explicit_pool)
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
