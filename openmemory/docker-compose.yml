@@ -1,8 +1,6 @@
 services:
   qdrant:
     image: qdrant/qdrant:latest
-    ports:
-    - "127.0.0.1:6333:6333"
     volumes:
     - qdrant_data:/qdrant/storage
     healthcheck:
