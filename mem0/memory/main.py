@@ -266,10 +266,10 @@ class Memory(MemoryBase):
 
         if self.api_version == "v1.0":
             warnings.warn(
-                "The current add API output format is deprecated. "
-                "To use the latest format, set `api_version='v1.1'`. "
-                "The current format will be removed in mem0ai 1.1.0 and later versions.",
-                category=DeprecationWarning,
+                "The v1.0 API format is deprecated and will be removed in mem0ai 2.0.0. "
+                "Please upgrade to v1.1 format which returns a dict with 'results' key. "
+                "Set version='v1.1' in your MemoryConfig.",
+                DeprecationWarning,
                 stacklevel=2,
             )
             return vector_store_result
@@ -563,10 +563,10 @@ class Memory(MemoryBase):
 
         if self.api_version == "v1.0":
             warnings.warn(
-                "The current get_all API output format is deprecated. "
-                "To use the latest format, set `api_version='v1.1'` (which returns a dict with a 'results' key). "
-                "The current format (direct list for v1.0) will be removed in mem0ai 1.1.0 and later versions.",
-                category=DeprecationWarning,
+                "The v1.0 API format is deprecated and will be removed in mem0ai 2.0.0. "
+                "Please upgrade to v1.1 format which returns a dict with 'results' key. "
+                "Set version='v1.1' in your MemoryConfig.",
+                DeprecationWarning,
                 stacklevel=2,
             )
             return all_memories_result
@@ -678,10 +678,10 @@ class Memory(MemoryBase):
 
         if self.api_version == "v1.0":
             warnings.warn(
-                "The current search API output format is deprecated. "
-                "To use the latest format, set `api_version='v1.1'`. "
-                "The current format will be removed in mem0ai 1.1.0 and later versions.",
-                category=DeprecationWarning,
+                "The v1.0 API format is deprecated and will be removed in mem0ai 2.0.0. "
+                "Please upgrade to v1.1 format which returns a dict with 'results' key. "
+                "Set version='v1.1' in your MemoryConfig.",
+                DeprecationWarning,
                 stacklevel=2,
             )
             return {"results": original_memories}
@@ -1104,10 +1104,10 @@ class AsyncMemory(MemoryBase):
 
         if self.api_version == "v1.0":
             warnings.warn(
-                "The current add API output format is deprecated. "
-                "To use the latest format, set `api_version='v1.1'`. "
-                "The current format will be removed in mem0ai 1.1.0 and later versions.",
-                category=DeprecationWarning,
+                "The v1.0 API format is deprecated and will be removed in mem0ai 2.0.0. "
+                "Please upgrade to v1.1 format which returns a dict with 'results' key. "
+                "Set version='v1.1' in your MemoryConfig.",
+                DeprecationWarning,
                 stacklevel=2,
             )
             return vector_store_result
@@ -1421,10 +1421,10 @@ class AsyncMemory(MemoryBase):
 
         if self.api_version == "v1.0":
             warnings.warn(
-                "The current get_all API output format is deprecated. "
-                "To use the latest format, set `api_version='v1.1'` (which returns a dict with a 'results' key). "
-                "The current format (direct list for v1.0) will be removed in mem0ai 1.1.0 and later versions.",
-                category=DeprecationWarning,
+                "The v1.0 API format is deprecated and will be removed in mem0ai 2.0.0. "
+                "Please upgrade to v1.1 format which returns a dict with 'results' key. "
+                "Set version='v1.1' in your MemoryConfig.",
+                DeprecationWarning,
                 stacklevel=2,
             )
             return results_dict["results"]
@@ -1539,10 +1539,10 @@ class AsyncMemory(MemoryBase):
 
         if self.api_version == "v1.0":
             warnings.warn(
-                "The current search API output format is deprecated. "
-                "To use the latest format, set `api_version='v1.1'`. "
-                "The current format will be removed in mem0ai 1.1.0 and later versions.",
-                category=DeprecationWarning,
+                "The v1.0 API format is deprecated and will be removed in mem0ai 2.0.0. "
+                "Please upgrade to v1.1 format which returns a dict with 'results' key. "
+                "Set version='v1.1' in your MemoryConfig.",
+                DeprecationWarning,
                 stacklevel=2,
             )
             return {"results": original_memories}

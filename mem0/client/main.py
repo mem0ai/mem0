@@ -133,7 +133,7 @@ class MemoryClient:
         Args:
             messages: A list of message dictionaries.
             **kwargs: Additional parameters such as user_id, agent_id, app_id,
-                      metadata, filters.
+                      metadata, filters, output_format.
 
         Returns:
             A dictionary containing the API response.
@@ -142,18 +142,12 @@ class MemoryClient:
             APIError: If the API request fails.
         """
         kwargs = self._prepare_params(kwargs)
-        if kwargs.get("output_format") != "v1.1":
+        # Handle output_format parameter for add operations (default to v1.1)
+        if "output_format" not in kwargs:
             kwargs["output_format"] = "v1.1"
-            warnings.warn(
-                (
-                    "output_format='v1.0' is deprecated therefore setting it to "
-                    "'v1.1' by default. Check out the docs for more information: "
-                    "https://docs.mem0.ai/platform/quickstart#4-1-create-memories"
-                ),
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        kwargs["version"] = "v2"
+        kwargs.pop("async_mode", None)  # Remove async_mode as it's now default
+        
+        # For add operations, use output_format parameter (keep it in kwargs)
         payload = self._prepare_payload(messages, kwargs)
         response = self.client.post("/v1/memories/", json=payload)
         response.raise_for_status()
@@ -182,13 +176,12 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def get_all(self, version: str = "v1", **kwargs) -> List[Dict[str, Any]]:
+    def get_all(self, **kwargs) -> List[Dict[str, Any]]:
         """Retrieve all memories, with optional filtering.
 
         Args:
-            version: The API version to use for the search endpoint.
             **kwargs: Optional parameters for filtering (user_id, agent_id,
-                      app_id, top_k).
+                      app_id, top_k, page, page_size, version).
 
         Returns:
             A list of dictionaries containing memories.
@@ -197,17 +190,19 @@ class MemoryClient:
             APIError: If the API request fails.
         """
         params = self._prepare_params(kwargs)
-        if version == "v1":
-            response = self.client.get(f"/{version}/memories/", params=params)
-        elif version == "v2":
-            if "page" in params and "page_size" in params:
-                query_params = {
-                    "page": params.pop("page"),
-                    "page_size": params.pop("page_size"),
-                }
-                response = self.client.post(f"/{version}/memories/", json=params, params=query_params)
-            else:
-                response = self.client.post(f"/{version}/memories/", json=params)
+        # Handle version parameter for get operations (default to v2)
+        version = kwargs.pop("version", "v2")
+        params.pop("output_format", None)  # Remove output_format for get operations
+        params.pop("async_mode", None)
+        
+        if "page" in params and "page_size" in params:
+            query_params = {
+                "page": params.pop("page"),
+                "page_size": params.pop("page_size"),
+            }
+            response = self.client.post(f"/{version}/memories/", json=params, params=query_params)
+        else:
+            response = self.client.post(f"/{version}/memories/", json=params)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
@@ -223,14 +218,13 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def search(self, query: str, version: str = "v1", **kwargs) -> List[Dict[str, Any]]:
+    def search(self, query: str, **kwargs) -> List[Dict[str, Any]]:
         """Search memories based on a query.
 
         Args:
             query: The search query string.
-            version: The API version to use for the search endpoint.
             **kwargs: Additional parameters such as user_id, agent_id, app_id,
-                      top_k, filters.
+                      top_k, filters, version.
 
         Returns:
             A list of dictionaries containing search results.
@@ -240,7 +234,13 @@ class MemoryClient:
         """
         payload = {"query": query}
         params = self._prepare_params(kwargs)
+        # Handle version parameter for search operations (default to v2)
+        version = kwargs.pop("version", "v2")
+        params.pop("output_format", None)  # Remove output_format for search operations
+        params.pop("async_mode", None)
+        
         payload.update(params)
+        
         response = self.client.post(f"/{version}/memories/search/", json=payload)
         response.raise_for_status()
         if "metadata" in kwargs:
@@ -979,18 +979,12 @@ class AsyncMemoryClient:
     @api_error_handler
     async def add(self, messages: List[Dict[str, str]], **kwargs) -> Dict[str, Any]:
         kwargs = self._prepare_params(kwargs)
-        if kwargs.get("output_format") != "v1.1":
+        # Handle output_format parameter for add operations (default to v1.1)
+        if "output_format" not in kwargs:
             kwargs["output_format"] = "v1.1"
-            warnings.warn(
-                (
-                    "output_format='v1.0' is deprecated therefore setting it to "
-                    "'v1.1' by default. Check out the docs for more information: "
-                    "https://docs.mem0.ai/platform/quickstart#4-1-create-memories"
-                ),
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        kwargs["version"] = "v2"
+        kwargs.pop("async_mode", None)  # Remove async_mode as it's now default
+        
+        # For add operations, use output_format parameter (keep it in kwargs)
         payload = self._prepare_payload(messages, kwargs)
         response = await self.async_client.post("/v1/memories/", json=payload)
         response.raise_for_status()
@@ -1008,19 +1002,21 @@ class AsyncMemoryClient:
         return response.json()
 
     @api_error_handler
-    async def get_all(self, version: str = "v1", **kwargs) -> List[Dict[str, Any]]:
+    async def get_all(self, **kwargs) -> List[Dict[str, Any]]:
         params = self._prepare_params(kwargs)
-        if version == "v1":
-            response = await self.async_client.get(f"/{version}/memories/", params=params)
-        elif version == "v2":
-            if "page" in params and "page_size" in params:
-                query_params = {
-                    "page": params.pop("page"),
-                    "page_size": params.pop("page_size"),
-                }
-                response = await self.async_client.post(f"/{version}/memories/", json=params, params=query_params)
-            else:
-                response = await self.async_client.post(f"/{version}/memories/", json=params)
+        # Handle version parameter for get operations (default to v2)
+        version = kwargs.pop("version", "v2")
+        params.pop("output_format", None)  # Remove output_format for get operations
+        params.pop("async_mode", None)
+        
+        if "page" in params and "page_size" in params:
+            query_params = {
+                "page": params.pop("page"),
+                "page_size": params.pop("page_size"),
+            }
+            response = await self.async_client.post(f"/{version}/memories/", json=params, params=query_params)
+        else:
+            response = await self.async_client.post(f"/{version}/memories/", json=params)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
@@ -1036,9 +1032,16 @@ class AsyncMemoryClient:
         return response.json()
 
     @api_error_handler
-    async def search(self, query: str, version: str = "v1", **kwargs) -> List[Dict[str, Any]]:
+    async def search(self, query: str, **kwargs) -> List[Dict[str, Any]]:
         payload = {"query": query}
-        payload.update(self._prepare_params(kwargs))
+        params = self._prepare_params(kwargs)
+        # Handle version parameter for search operations (default to v2)
+        version = kwargs.pop("version", "v2")
+        params.pop("output_format", None)  # Remove output_format for search operations
+        params.pop("async_mode", None)
+        
+        payload.update(params)
+        
         response = await self.async_client.post(f"/{version}/memories/search/", json=payload)
         response.raise_for_status()
         if "metadata" in kwargs:
