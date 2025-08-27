@@ -553,28 +553,30 @@ async def filter_memories(
         query = query.filter(Memory.created_at <= to_datetime)
 
     # Apply sorting
+    # Postgres requires DISTINCT ON (...) queries to have ORDER BY start with the DISTINCT keys.
+    # Since we use distinct(Memory.id) below, we must order by Memory.id first to avoid errors.
     if request.sort_column and request.sort_direction:
         sort_direction = request.sort_direction.lower()
-        if sort_direction not in ['asc', 'desc']:
+        if sort_direction not in ["asc", "desc"]:
             raise HTTPException(status_code=400, detail="Invalid sort direction")
 
         sort_mapping = {
-            'memory': Memory.content,
-            'app_name': App.name,
-            'created_at': Memory.created_at
+            "memory": Memory.content,
+            "app_name": App.name,
+            "created_at": Memory.created_at,
         }
 
         if request.sort_column not in sort_mapping:
             raise HTTPException(status_code=400, detail="Invalid sort column")
 
         sort_field = sort_mapping[request.sort_column]
-        if sort_direction == 'desc':
-            query = query.order_by(sort_field.desc())
+        if sort_direction == "desc":
+            query = query.order_by(Memory.id.asc(), sort_field.desc())
         else:
-            query = query.order_by(sort_field.asc())
+            query = query.order_by(Memory.id.asc(), sort_field.asc())
     else:
-        # Default sorting
-        query = query.order_by(Memory.created_at.desc())
+        # Default sorting with Memory.id first (required with DISTINCT ON)
+        query = query.order_by(Memory.id.asc(), Memory.created_at.desc())
 
     # Add eager loading for categories and make the query distinct
     query = query.options(
