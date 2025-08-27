@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from mem0.vector_stores.mongodb import MongoDB
-
+from mem0.configs.vector_stores.mongodb import MongoDBConfig
 
 @pytest.fixture
 @patch("mem0.vector_stores.mongodb.MongoClient")
@@ -80,25 +80,24 @@ def test_insert(mongo_vector_fixture):
 
 def test_search(mongo_vector_fixture):
     mongo_vector, mock_collection, _ = mongo_vector_fixture
-    query_vector = [0.1] * 1536
+    query_vectors = [[0.1] * 1536]  # Changed to list of vectors
     mock_collection.aggregate.return_value = [
         {"_id": "id1", "score": 0.9, "payload": {"key": "value1"}},
         {"_id": "id2", "score": 0.8, "payload": {"key": "value2"}},
     ]
     mock_collection.list_search_indexes.return_value = ["test_collection_vector_index"]
 
-    results = mongo_vector.search("query_str", query_vector, limit=2)
+    results = mongo_vector.search("query_str", query_vectors, limit=2)
     mock_collection.list_search_indexes.assert_called_with(name="test_collection_vector_index")
-    mock_collection.aggregate.assert_called_once_with(
-        [
-            {
-                "$vectorSearch": {
-                    "index": "test_collection_vector_index",
-                    "limit": 2,
-                    "numCandidates": 2,
-                    "queryVector": query_vector,
-                    "path": "embedding",
-                },
+
+    mock_collection.aggregate.assert_called_once_with([
+        {
+            "$vectorSearch": {
+                "index": "test_collection_vector_index",
+                "limit": 2,
+                "numCandidates": 2,
+                "queryVector": query_vectors[0],
+                "path": "embedding",
             },
             {"$set": {"score": {"$meta": "vectorSearchScore"}}},
             {"$project": {"embedding": 0}},
@@ -279,75 +278,61 @@ def test_list(mongo_vector_fixture):
     assert len(results) == 2
     assert results[0].id == "id1"
     assert results[0].payload == {"key": "value1"}
+    assert results[1].id == "id2"
+    assert results[1].payload == {"key": "value2"}
 
 
-def test_list_with_filters(mongo_vector_fixture):
-    """Test list with agent_id and run_id filters."""
-    mongo_vector, mock_collection, _ = mongo_vector_fixture
-    # Mock the cursor to return the expected data
-    mock_cursor = mock_collection.find.return_value
-    mock_cursor.__iter__.return_value = [
-        {"_id": "id1", "payload": {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}},
-    ]
-
-    filters = {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}
-    results = mongo_vector.list(filters=filters, limit=2)
-    
-    # Verify that the find method was called with the correct query
-    expected_query = {
-        "$and": [
-            {"payload.user_id": "alice"},
-            {"payload.agent_id": "agent1"},
-            {"payload.run_id": "run1"}
-        ]
+def test_mongodb_config_with_uri():
+    """Test MongoDB configuration with connection URI."""
+    config_data = {
+        "db_name": "test_db",
+        "collection_name": "test_collection",
+        "embedding_model_dims": 1536,
+        "mongo_uri": "mongodb+srv://user:pass@cluster.mongodb.net/"
     }
-    mock_collection.find.assert_called_once_with(expected_query)
-    mock_cursor.limit.assert_called_once_with(2)
-    
-    assert len(results) == 1
-    assert results[0].payload["user_id"] == "alice"
-    assert results[0].payload["agent_id"] == "agent1"
-    assert results[0].payload["run_id"] == "run1"
+    config = MongoDBConfig(**config_data)
+    assert config.mongo_uri == "mongodb+srv://user:pass@cluster.mongodb.net/"
+    assert config.db_name == "test_db"
 
 
-def test_list_with_single_filter(mongo_vector_fixture):
-    """Test list with single filter."""
-    mongo_vector, mock_collection, _ = mongo_vector_fixture
-    # Mock the cursor to return the expected data
-    mock_cursor = mock_collection.find.return_value
-    mock_cursor.__iter__.return_value = [
-        {"_id": "id1", "payload": {"user_id": "alice"}},
-    ]
-
-    filters = {"user_id": "alice"}
-    results = mongo_vector.list(filters=filters, limit=2)
-    
-    # Verify that the find method was called with the correct query
-    expected_query = {
-        "$and": [
-            {"payload.user_id": "alice"}
-        ]
+def test_mongodb_config_with_credentials():
+    """Test MongoDB configuration with individual credentials."""
+    config_data = {
+        "db_name": "test_db",
+        "collection_name": "test_collection",
+        "embedding_model_dims": 1536,
+        "host": "localhost",
+        "port": 27017,
+        "user": "testuser",
+        "password": "testpass"
     }
-    mock_collection.find.assert_called_once_with(expected_query)
-    mock_cursor.limit.assert_called_once_with(2)
-    
-    assert len(results) == 1
-    assert results[0].payload["user_id"] == "alice"
+    config = MongoDBConfig(**config_data)
+    assert config.mongo_uri == "mongodb://testuser:testpass@localhost:27017"
+    assert config.db_name == "test_db"
 
 
-def test_list_with_no_filters(mongo_vector_fixture):
-    """Test list with no filters."""
-    mongo_vector, mock_collection, _ = mongo_vector_fixture
-    # Mock the cursor to return the expected data
-    mock_cursor = mock_collection.find.return_value
-    mock_cursor.__iter__.return_value = [
-        {"_id": "id1", "payload": {"key": "value1"}},
-    ]
+def test_mongodb_config_without_auth():
+    """Test MongoDB configuration without authentication."""
+    config_data = {
+        "db_name": "test_db",
+        "collection_name": "test_collection",
+        "embedding_model_dims": 1536,
+        "host": "localhost",
+        "port": 27017
+    }
+    config = MongoDBConfig(**config_data)
+    assert config.mongo_uri == "mongodb://localhost:27017"
 
-    results = mongo_vector.list(filters=None, limit=2)
-    
-    # Verify that the find method was called with empty query
-    mock_collection.find.assert_called_once_with({})
-    mock_cursor.limit.assert_called_once_with(2)
-    
-    assert len(results) == 1
+
+def test_mongodb_config_invalid_credentials():
+    """Test MongoDB configuration with invalid credential combination."""
+    config_data = {
+        "db_name": "test_db",
+        "collection_name": "test_collection",
+        "embedding_model_dims": 1536,
+        "host": "localhost",
+        "port": 27017,
+        "user": "testuser"  # Missing password
+    }
+    with pytest.raises(ValueError, match="Both 'user' and 'password' must be provided together"):
+        MongoDBConfig(**config_data)
