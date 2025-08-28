@@ -41,6 +41,7 @@ services:
       OPENMEMORY_TOKEN_api: ${API_TOKEN:-your-secret-token}:${USER:-drj}
     networks:
     - memnet
+    - traefik
   openmemory-api:
     build: ./api
     ports:
@@ -73,11 +74,18 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=traefik
-      - traefik.http.routers.openmemory.rule=Host(`memory.onemainarmy.com`)
+      # Protected API router (/api, /mcp) — requires ForwardAuth
+      - traefik.http.routers.openmemory.rule=Host(`memory.onemainarmy.com`) && (PathPrefix(`/api`) || PathPrefix(`/mcp`))
       - traefik.http.routers.openmemory.entrypoints=websecure
       - traefik.http.routers.openmemory.tls=true
       # Apply auth, security and rate-limit middlewares
       - traefik.http.routers.openmemory.middlewares=openmemory-auth,openmemory-ratelimit,openmemory-headers
+      # Public router for OpenAPI + Docs — NO ForwardAuth
+      - traefik.http.routers.openmemory-openapi.rule=Host(`memory.onemainarmy.com`) && (Path(`/openapi.json`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`))
+      - traefik.http.routers.openmemory-openapi.entrypoints=websecure
+      - traefik.http.routers.openmemory-openapi.tls=true
+      - traefik.http.routers.openmemory-openapi.middlewares=openmemory-ratelimit,openmemory-headers
+      - traefik.http.routers.openmemory-openapi.service=openmemory
       # ForwardAuth middleware
       - traefik.http.middlewares.openmemory-auth.forwardauth.address=http://auth-service:8080/auth
       - traefik.http.middlewares.openmemory-auth.forwardauth.authResponseHeaders=X-User-ID,X-Auth-Method

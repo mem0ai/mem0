@@ -1,4 +1,4 @@
-MEMORY_CATEGORIZATION_PROMPT = """Your task is to assign each piece of information (or “memory”) to one or more of the following categories. Feel free to use multiple categories per item when appropriate.
+MEMORY_CATEGORIZATION_PROMPT = """Your task is to assign each piece of information (or "memory") to one or more of the following categories. Feel free to use multiple categories per item when appropriate.
 
 - Personal: family, friends, home, hobbies, lifestyle
 - Relationships: social network, significant others, colleagues
@@ -20,6 +20,18 @@ MEMORY_CATEGORIZATION_PROMPT = """Your task is to assign each piece of informati
 - News: articles, headlines, trending topics
 - Organization: meetings, appointments, calendars
 - Goals: ambitions, KPIs, long‑term objectives
+
+# CUSTOM CATEGORIES (Add your specific categories here)
+- Software Development: coding, programming, debugging, software architecture
+- Data Science: machine learning, data analysis, statistics, research
+- Creative Writing: stories, poetry, content creation, blogging
+- Photography: photos, images, visual content, camera equipment
+- Music Production: composing, recording, instruments, audio engineering
+- Cooking: recipes, food preparation, culinary skills, kitchen equipment
+- Gardening: plants, landscaping, outdoor activities, horticulture
+- Gaming: video games, board games, esports, gaming equipment
+- Fitness: workouts, sports, physical activities, exercise routines
+- Meditation: mindfulness, spiritual practices, mental wellness, relaxation
 
 Guidelines:
 - Return only the categories under 'categories' key in the JSON format.
