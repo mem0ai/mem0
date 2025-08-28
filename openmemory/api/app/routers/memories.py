@@ -260,6 +260,8 @@ async def create_memory(
         
         # Process Qdrant response
         if isinstance(qdrant_response, dict) and 'results' in qdrant_response:
+            created_memories = []
+            
             for result in qdrant_response['results']:
                 if result['event'] == 'ADD':
                     # Get the Qdrant-generated ID
@@ -294,9 +296,17 @@ async def create_memory(
                     )
                     db.add(history)
                     
-                    db.commit()
+                    created_memories.append(memory)
+            
+            # Commit all changes at once
+            if created_memories:
+                db.commit()
+                for memory in created_memories:
                     db.refresh(memory)
-                    return memory
+                
+                # Return the first memory (for API compatibility)
+                # but all memories are now saved to the database
+                return created_memories[0]
     except Exception as qdrant_error:
         logging.warning(f"Qdrant operation failed: {qdrant_error}.")
         # Return a json response with the error
