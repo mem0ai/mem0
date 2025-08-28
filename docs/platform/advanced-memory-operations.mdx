@@ -283,7 +283,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 
 ### Search with Custom Filters
 
-Our advanced search allows you to set custom search filters. You can filter by user_id, agent_id, app_id, run_id, created_at, updated_at, categories, and text. The filters support logical operators (AND, OR) and comparison operators (in, gte, lte, gt, lt, ne, contains, icontains, *). The wildcard character (*) matches everything for a specific field.
+Our advanced search allows you to set custom search filters. You can filter by user_id, agent_id, app_id, run_id, created_at, updated_at, categories, and text. The filters support logical operators (AND, OR) and comparison operators (in, gte, lte, gt, lt, ne, contains, icontains, `*`). The wildcard character (`*`) matches everything for a specific field.
 
 Here you need to define `version` as `v2` in the search method.
 
@@ -691,7 +691,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex&keywords=to play&page
 
 #### Get all memories using custom filters
 
-Our advanced retrieval allows you to set custom filters when fetching memories. You can filter by user_id, agent_id, app_id, run_id, created_at, updated_at, categories, and keywords. The filters support logical operators (AND, OR) and comparison operators (in, gte, lte, gt, lt, ne, contains, icontains, *). The wildcard character (*) matches everything for a specific field.
+Our advanced retrieval allows you to set custom filters when fetching memories. You can filter by user_id, agent_id, app_id, run_id, created_at, updated_at, categories, and keywords. The filters support logical operators (AND, OR) and comparison operators (in, gte, lte, gt, lt, ne, contains, icontains, `*`). The wildcard character (`*`) matches everything for a specific field.
 
 Here you need to define `version` as `v2` in the get_all method.
 
