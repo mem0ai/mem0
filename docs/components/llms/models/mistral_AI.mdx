@@ -16,7 +16,7 @@ os.environ["MISTRAL_API_KEY"] = "your-api-key"
 
 config = {
     "llm": {
-        "provider": "litellm",
+        "provider": "mistral",
         "config": {
             "model": "open-mixtral-8x7b",
             "temperature": 0.1,
@@ -63,4 +63,4 @@ await memory.add(messages, { userId: "alice", metadata: { category: "movies" } }
 
 ## Config
 
-All available parameters for the `litellm` config are present in [Master List of All Params in Config](../config).
+All available parameters for the `mistral` config are present in [Master List of All Params in Config](../config).
