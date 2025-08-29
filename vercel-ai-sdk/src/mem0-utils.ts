@@ -115,7 +115,8 @@ const searchInternalMemories = async (query: string, config?: Mem0ConfigSettings
             }),
         };
 
-        const response = await fetch('https://api.mem0.ai/v2/memories/search/', options);
+        const baseUrl = config?.host || 'https://api.mem0.ai';
+        const response = await fetch(`${baseUrl}/v2/memories/search/`, options);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -160,7 +161,8 @@ const updateMemories = async (messages: Array<Message>, config?: Mem0ConfigSetti
             body: JSON.stringify({messages, ...config}),
         };
 
-        const response = await fetch('https://api.mem0.ai/v1/memories/', options);
+        const baseUrl = config?.host || 'https://api.mem0.ai';
+        const response = await fetch(`${baseUrl}/v1/memories/`, options);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }

@@ -1,0 +1,43 @@
+services:
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.5
+    restart: unless-stopped
+    environment:
+      - ETCD_AUTO_COMPACTION_MODE=revision
+      - ETCD_QUOTA_BACKEND_BYTES=4294967296
+      - ETCD_SNAPSHOT_COUNT=50000
+      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
+      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd:2379
+      - ETCD_LISTEN_PEER_URLS=http://0.0.0.0:2380
+      - ETCD_INITIAL_ADVERTISE_PEER_URLS=http://etcd:2380
+      - ETCD_INITIAL_CLUSTER=default=http://etcd:2380
+      - ETCD_NAME=default
+      - ETCD_DATA_DIR=/etcd
+    volumes:
+      - ./data/milvus/etcd:/etcd
+
+  minio:
+    image: minio/minio:RELEASE.2023-10-25T06-33-25Z
+    restart: unless-stopped
+    command: server /minio_data
+    environment:
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+    volumes:
+      - ./data/milvus/minio:/minio_data
+
+  mem0_store:
+    image: milvusdb/milvus:v2.4.7
+    restart: unless-stopped
+    command: ["milvus", "run", "standalone"]
+    depends_on:
+      - etcd
+      - minio
+    environment:
+      - ETCD_ENDPOINTS=etcd:2379
+      - MINIO_ADDRESS=minio:9000
+    ports:
+      - "19530:19530"
+      - "9091:9091"
+    volumes:
+      - ./data/milvus/milvus:/var/lib/milvus

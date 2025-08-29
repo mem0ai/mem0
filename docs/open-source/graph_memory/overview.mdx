@@ -6,7 +6,7 @@ iconType: "solid"
 ---
 
 Mem0 now supports **Graph Memory**.
-With Graph Memory, users can now create and utilize complex relationships between pieces of information, allowing for more nuanced and context-aware responses. 
+With Graph Memory, users can now create and utilize complex relationships between pieces of information, allowing for more nuanced and context-aware responses.
 This integration enables users to leverage the strengths of both vector-based and graph-based approaches, resulting in more accurate and comprehensive information retrieval and generation.
 
 <Note>
@@ -48,8 +48,7 @@ allowfullscreen
 ## Initialize Graph Memory
 
 To initialize Graph Memory you'll need to set up your configuration with graph
-store providers. Currently, we support [Neo4j](#initialize-neo4j), [Memgraph](#initialize-memgraph),
-and [Neptune Analytics](#initialize-neptune-analytics) as graph store providers.
+store providers. Currently, we support [Neo4j](#initialize-neo4j), [Memgraph](#initialize-memgraph), [Neptune Analytics](#initialize-neptune-analytics), and [Kuzu](#initialize-kuzu) as graph store providers.
 
 
 ### Initialize Neo4j
@@ -181,7 +180,7 @@ The `--schema-info-enabled` flag is set to `True` for more performant schema
 generation.
 
 Additional information can be found on [Memgraph
-documentation](https://memgraph.com/docs). 
+documentation](https://memgraph.com/docs).
 
 User can also customize the LLM for Graph Memory from the [Supported LLM list](https://docs.mem0.ai/components/llms/overview) with three levels of configuration:
 
@@ -288,8 +287,54 @@ m = Memory.from_config(config_dict=config)
 
 - For more details on how to connect, configure, and use the graph_memory graph store, see the [Neptune Analytics example notebook](examples/graph-db-demo/neptune-analytics-example.ipynb).
 
+### Initialize Kuzu
+
+[Kuzu](https://kuzudb.com) is a fully local in-process graph database system that runs openCypher queries.
+Kuzu comes embedded into the Python package and there is no additional setup required.
+
+Kuzu needs a path to a file where it will store the graph database. For example:
+
+<CodeGroup>
+```python Python
+config = {
+    "graph_store": {
+        "provider": "kuzu",
+        "config": {
+            "db": "/tmp/mem0-example.kuzu"
+        }
+    }
+}
+```
+</CodeGroup>
+
+Kuzu can also store its database in memory. Note that in this mode, all stored memories will be lost
+after the program has finished executing.
+
+<CodeGroup>
+```python Python
+config = {
+    "graph_store": {
+        "provider": "kuzu",
+        "config": {
+            "db": ":memory:"
+        }
+    }
+}
+```
+</CodeGroup>
+
+You can then use the above configuration in the usual way:
+
+<CodeGroup>
+```python Python
+from mem0 import Memory
+
+m = Memory.from_config(config_dict=config)
+```
+</CodeGroup>
+
 ## Graph Operations
-The Mem0's graph supports the following operations:
+Mem0's graph memory supports the following operations:
 
 ### Add Memories
 
