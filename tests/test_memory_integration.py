@@ -135,7 +135,6 @@ def test_azure_config_structure():
 
     assert azure_config["embedder"]["provider"] == "azure_openai"
     assert "azure_kwargs" in azure_config["embedder"]["config"]
-             
 
 
 def test_memory_messages_format():
