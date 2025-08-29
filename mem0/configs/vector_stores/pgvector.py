@@ -11,19 +11,21 @@ class PGVectorConfig(BaseModel):
     password: Optional[str] = Field(None, description="Database password")
     host: Optional[str] = Field(None, description="Database host. Default is localhost")
     port: Optional[int] = Field(None, description="Database port. Default is 1536")
-    diskann: Optional[bool] = Field(True, description="Use diskann for approximate nearest neighbors search")
-    hnsw: Optional[bool] = Field(False, description="Use hnsw for faster search")
+    diskann: Optional[bool] = Field(False, description="Use diskann for approximate nearest neighbors search")
+    hnsw: Optional[bool] = Field(True, description="Use hnsw for faster search")
+    minconn: Optional[int] = Field(1, description="Minimum number of connections in the pool")
+    maxconn: Optional[int] = Field(5, description="Maximum number of connections in the pool")
     # New SSL and connection options
     sslmode: Optional[str] = Field(None, description="SSL mode for PostgreSQL connection (e.g., 'require', 'prefer', 'disable')")
     connection_string: Optional[str] = Field(None, description="PostgreSQL connection string (overrides individual connection parameters)")
-    connection_pool: Optional[Any] = Field(None, description="psycopg2 connection pool object (overrides connection string and individual parameters)")
+    connection_pool: Optional[Any] = Field(None, description="psycopg connection pool object (overrides connection string and individual parameters)")
 
     @model_validator(mode="before")
     def check_auth_and_connection(cls, values):
         # If connection_pool is provided, skip validation of individual connection parameters
         if values.get("connection_pool") is not None:
             return values
-        
+
         # If connection_string is provided, skip validation of individual connection parameters
         if values.get("connection_string") is not None:
             return values
@@ -32,9 +34,9 @@ class PGVectorConfig(BaseModel):
         user, password = values.get("user"), values.get("password")
         host, port = values.get("host"), values.get("port")
         if not user and not password:
-            raise ValueError("Both 'user' and 'password' must be provided when not using connection_string or connection_pool.")
+            raise ValueError("Both 'user' and 'password' must be provided when not using connection_string.")
         if not host and not port:
-            raise ValueError("Both 'host' and 'port' must be provided when not using connection_string or connection_pool.")
+            raise ValueError("Both 'host' and 'port' must be provided when not using connection_string.")
         return values
 
     @model_validator(mode="before")
