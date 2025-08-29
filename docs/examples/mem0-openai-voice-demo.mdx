@@ -134,10 +134,10 @@ async def search_memories(
     )
     
     # Format and return the results
-    if not results.get('results', []):
+    if not results:
         return "I don't have any relevant memories about this topic."
     
-    memories = [f"• {result['memory']}" for result in results.get('results', [])]
+    memories = [f"• {result['memory']}" for result in results]
     return "Here's what I remember that might be relevant:\n" + "\n".join(memories)
 ```
 
@@ -350,10 +350,10 @@ async def search_memories(
     )
     
     # Format and return the results
-    if not results.get('results', []):
+    if not results:
         return "I don't have any relevant memories about this topic."
     
-    memories = [f"• {result['memory']}" for result in results.get('results', [])]
+    memories = [f"• {result['memory']}" for result in results]
     return "Here's what I remember that might be relevant:\n" + "\n".join(memories)
 
 # Create the agent with memory-enabled tools

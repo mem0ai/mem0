@@ -150,11 +150,10 @@ Define the two key memory functions that will be registered as tools:
         )
 
         # Extract and join the memory texts
-        memories = ' '.join([result["memory"] for result in results.get('results', [])])
-        print("[ Memories ]", memories)
-
-        if memories:
-            return memories
+        if results:
+          memories = ' '.join([result["memory"] for result in results])
+          print("[ Memories ]", memories)
+          return memories
         return "No memories found"
 ```
 
