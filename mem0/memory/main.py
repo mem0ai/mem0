@@ -151,7 +151,7 @@ class Memory(MemoryBase):
 
         if self.config.graph_store.config:
             provider = self.config.graph_store.provider
-            self.graph = GraphStoreFactory.create(provider, self.config)
+            self.graph = GraphStoreFactory.create(provider, self.config.graph_store.config)
             self.enable_graph = True
         else:
             self.graph = None
@@ -1004,7 +1004,7 @@ class AsyncMemory(MemoryBase):
 
         if self.config.graph_store.config:
             provider = self.config.graph_store.provider
-            self.graph = GraphStoreFactory.create(provider, self.config)
+            self.graph = GraphStoreFactory.create(provider, self.config.graph_store.config)
             self.enable_graph = True
         else:
             self.graph = None

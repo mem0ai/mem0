@@ -13,9 +13,9 @@ from mem0.dynamodb.conversation_store import DynamoDBConversationStore
 from mem0.dynamodb.graph_store import DynamoDBMemoryGraph
 
 __all__ = [
-    'DynamoDBConfig',
-    'DynamoDBConversationConfig', 
-    'DynamoDBGraphConfig',
-    'DynamoDBConversationStore',
-    'DynamoDBMemoryGraph'
+    "DynamoDBConfig",
+    "DynamoDBConversationConfig",
+    "DynamoDBGraphConfig",
+    "DynamoDBConversationStore",
+    "DynamoDBMemoryGraph",
 ]

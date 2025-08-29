@@ -3,6 +3,7 @@ from typing import Dict, Optional, Union
 
 from mem0.configs.embeddings.base import BaseEmbedderConfig
 from mem0.configs.llms.anthropic import AnthropicConfig
+from mem0.configs.llms.aws_bedrock import AWSBedrockConfig
 from mem0.configs.llms.azure import AzureOpenAIConfig
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.configs.llms.deepseek import DeepSeekConfig
@@ -31,7 +32,7 @@ class LlmFactory:
         "openai": ("mem0.llms.openai.OpenAILLM", OpenAIConfig),
         "groq": ("mem0.llms.groq.GroqLLM", BaseLlmConfig),
         "together": ("mem0.llms.together.TogetherLLM", BaseLlmConfig),
-        "aws_bedrock": ("mem0.llms.aws_bedrock.AWSBedrockLLM", BaseLlmConfig),
+        "aws_bedrock": ("mem0.llms.aws_bedrock.AWSBedrockLLM", AWSBedrockConfig),
         "litellm": ("mem0.llms.litellm.LiteLLM", BaseLlmConfig),
         "azure_openai": ("mem0.llms.azure_openai.AzureOpenAILLM", AzureOpenAIConfig),
         "openai_structured": ("mem0.llms.openai_structured.OpenAIStructuredLLM", OpenAIConfig),
@@ -224,16 +225,27 @@ class ConversationStoreFactory:
     """
 
     provider_to_class = {
-        "dynamodb": "mem0.dynamodb.conversation_store.DynamoDBConversationStore"
+        "dynamodb": ("mem0.dynamodb.conversation_store.DynamoDBConversationStore", "mem0.dynamodb.config.DynamoDBConversationConfig")
     }
 
     @classmethod
     def create(cls, provider_name, config):
-        class_type = cls.provider_to_class.get(provider_name)
-        if not class_type:
+        provider_info = cls.provider_to_class.get(provider_name)
+        if not provider_info:
             raise ValueError(f"Unsupported conversation store provider: {provider_name}")
+        
+        store_class_path, config_class_path = provider_info
+        
         try:
-            ConversationStoreClass = load_class(class_type)
+            ConversationStoreClass = load_class(store_class_path)
+            ConfigClass = load_class(config_class_path)
         except (ImportError, AttributeError) as e:
             raise ImportError(f"Could not import conversation store for provider '{provider_name}': {e}")
-        return ConversationStoreClass(config)
+        
+        # Create config object if it's a dict
+        if isinstance(config, dict):
+            config_obj = ConfigClass(**config)
+        else:
+            config_obj = config
+            
+        return ConversationStoreClass(config_obj)
