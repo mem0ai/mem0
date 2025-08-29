@@ -39,6 +39,7 @@ vector_stores = [
     "upstash-vector>=0.1.0",
     "azure-search-documents>=11.4.0b8",
     "psycopg>=3.2.8",
+    "psycopg-pool>=3.2.6,<4.0.0",
     "pymongo>=4.13.2",
     "pymochow>=2.2.9",
     "databricks-sdk>=0.63.0",
