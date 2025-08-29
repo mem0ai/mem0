@@ -136,6 +136,40 @@ def test_azure_config_structure():
     assert azure_config["embedder"]["provider"] == "azure_openai"
     assert "azure_kwargs" in azure_config["embedder"]["config"]
 
+def test_aws_bedrock_region(monkeypatch):
+    """Test that AWS Bedrock configuration structure is properly formatted"""
+
+    # Test AWS Bedrock configuration structure (without actual credentials)
+    monkeypatch.setenv("AWS_REGION", "ap-south-1")
+    aws_bedrock_config = {
+        "llm": {
+            "provider": "aws_bedrock",
+            "config": {
+                "model": "amazon.titan-embed-text-v1",
+                "temperature": 0.1,
+                "max_tokens": 1500,
+            },
+        },
+        "vector_store": {
+            "provider": "chroma",
+            "config": {
+                "collection_name": "test_collection",
+                "path": "./test_db",
+            },
+        },
+        "embedder": {
+            "provider": "aws_bedrock",
+            "config": {
+                "model": "amazon.titan-embed-text-v1",
+            },
+        },
+    }
+    
+    memory = Memory.from_config(aws_bedrock_config)
+
+    assert memory.embedding_model.client.meta.region_name == "ap-south-1"
+    assert memory.llm.client.meta.region_name == "ap-south-1"
+
 
 def test_memory_messages_format():
     """Test that memory messages are properly formatted"""
