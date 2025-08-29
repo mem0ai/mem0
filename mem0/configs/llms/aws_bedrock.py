@@ -1,6 +1,7 @@
-from typing import Optional, Dict, Any, List
-from mem0.configs.llms.base import BaseLlmConfig
 import os
+from typing import Any, Dict, List, Optional
+
+from mem0.configs.llms.base import BaseLlmConfig
 
 
 class AWSBedrockConfig(BaseLlmConfig):
@@ -19,7 +20,7 @@ class AWSBedrockConfig(BaseLlmConfig):
         top_k: int = 1,
         aws_access_key_id: Optional[str] = None,
         aws_secret_access_key: Optional[str] = None,
-        aws_region: str = "us-west-2",
+        aws_region: str = "",
         aws_session_token: Optional[str] = None,
         aws_profile: Optional[str] = None,
         model_kwargs: Optional[Dict[str, Any]] = None,
@@ -53,7 +54,7 @@ class AWSBedrockConfig(BaseLlmConfig):
 
         self.aws_access_key_id = aws_access_key_id
         self.aws_secret_access_key = aws_secret_access_key
-        self.aws_region = aws_region
+        self.aws_region = aws_region or os.getenv("AWS_REGION", "us-west-2")
         self.aws_session_token = aws_session_token
         self.aws_profile = aws_profile
         self.model_kwargs = model_kwargs or {}
