@@ -117,9 +117,9 @@ class MemoryEnabledAgent(Agent):
                 user_id=RAG_USER_ID,
             )
             logger.info(f"mem0_client.search returned: {search_results}")
-            if search_results and search_results.get('results', []):
+            if search_results:
                 context_parts = []
-                for result in search_results.get('results', []):
+                for result in search_results:
                     paragraph = result.get("memory") or result.get("text")
                     if paragraph:
                         source = "mem0 Memories"

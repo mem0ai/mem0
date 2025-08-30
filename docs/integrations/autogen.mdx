@@ -66,7 +66,7 @@ Create a function to get context-aware responses based on user's question and pr
 ```python
 def get_context_aware_response(question):
     relevant_memories = memory_client.search(question, user_id=USER_ID)
-    context = "\n".join([m["memory"] for m in relevant_memories.get('results', [])])
+    context = "\n".join([m["memory"] for m in relevant_memories])
 
     prompt = f"""Answer the user question considering the previous interactions:
     Previous interactions:

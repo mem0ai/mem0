@@ -82,8 +82,8 @@ def retrieve_patient_info(query: str) -> dict:
     )
 
     # Format and return the results
-    if results and len(results) > 0:
-        memories = [memory["memory"] for memory in results.get('results', [])]
+    if results:
+        memories = [memory["memory"] for memory in results]
         return {
             "status": "success",
             "memories": memories,
