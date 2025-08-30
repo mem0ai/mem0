@@ -1,0 +1,41 @@
+[Deep Lake](https://www.deeplake.ai/) is a Database for AI powered by a storage format optimized for deep-learning applications.
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+config = {
+    "vector_store": {
+        "provider": "deeplake",
+        "config": {
+            "url": "mem://mem0",
+            "creds": None, // See: https://docs.deeplake.ai/latest/api/dataset/
+            "token": None,
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I’m not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+### Config
+
+Here are the parameters available for configuring Deep Lake:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `url` | The url of the collection | `mem://mem0` |
+| `client` | Custom client for Deep Lake | `None` |
+| `cred` | The authentication credentials for Deep Lake | `None` |
+| `token` | The Activeloop token | `None` |
+| `embedding_model_dims` | Dimension of the embedding vector | `768` |
+| `quantize` | Whether to quantize the vectors | `False` |

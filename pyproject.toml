@@ -44,6 +44,7 @@ vector_stores = [
     "pymochow>=2.2.9",
     "databricks-sdk>=0.63.0",
     "azure-identity>=1.24.0",
+    "deeplake>=4.2.14",
     "redis>=5.0.0,<6.0.0",
     "redisvl>=0.1.0,<1.0.0",
     "elasticsearch>=8.0.0,<9.0.0",
