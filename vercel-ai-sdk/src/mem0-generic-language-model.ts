@@ -2,17 +2,16 @@
 import {
   LanguageModelV2CallOptions,
   LanguageModelV2Message,
-  LanguageModelV2Source,
-  LanguageModelV2StreamPart
+  LanguageModelV2Source
 } from '@ai-sdk/provider';
 
 import { LanguageModelV2 } from '@ai-sdk/provider';
-import { simulateStreamingMiddleware, wrapLanguageModel } from 'ai';
+// streaming uses provider-native doStream; no middleware needed
 
 import { Mem0ChatConfig, Mem0ChatModelId, Mem0ChatSettings, Mem0ConfigSettings, Mem0StreamResponse } from "./mem0-types";
 import { Mem0ClassSelector } from "./mem0-provider-selector";
 import { Mem0ProviderSettings } from "./mem0-provider";
-import { addMemories, getMemories, retrieveMemories } from "./mem0-utils";
+import { addMemories, getMemories } from "./mem0-utils";
 
 const generateRandomId = () => {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
@@ -203,13 +202,8 @@ export class Mem0GenericLanguageModel implements LanguageModelV2 {
 
       const baseModel = selector.createProvider();
 
-      // Wrap the model with streaming middleware using the new Vercel AI SDK 5.0 approach
-      const model = wrapLanguageModel({
-        model: baseModel,
-        middleware: simulateStreamingMiddleware(),
-      });
-
-      const streamResponse = await model.doStream({
+      // Use the provider's native streaming directly to avoid buffering
+      const streamResponse = await baseModel.doStream({
         ...options,
         prompt: updatedPrompts,
       });
@@ -219,65 +213,9 @@ export class Mem0GenericLanguageModel implements LanguageModelV2 {
         return streamResponse;
       }
 
-      // Create a new stream that includes memory sources
-      const originalStream = streamResponse.stream;
-      
-      // Create a transform stream that adds memory sources at the beginning
-      const transformStream = new TransformStream({
-        start(controller) {
-          // Add source chunks for each memory at the beginning
-          try {
-            if (Array.isArray(memories) && memories?.length > 0) {
-              // Create a single source that contains all memories
-              controller.enqueue({
-                type: 'source',
-                title: "Mem0 Memories",
-                sourceType: "url",
-                id: "mem0-" + generateRandomId(),
-                url: "https://app.mem0.ai",
-
-                providerOptions: {
-                  mem0: {
-                    memories: memories,
-                    memoriesText: memories?.map((memory: any) => memory?.memory).join("\n\n")
-                  }
-                }
-              });
-              
-              // Also add individual memory sources for more detailed information
-              memories?.forEach((memory: any) => {
-                controller.enqueue({
-                  type: 'source',
-                  title: memory?.title || "Memory",
-                  sourceType: "url",
-                  id: "mem0-memory-" + generateRandomId(),
-                  url: "https://app.mem0.ai",
-
-                  providerOptions: {
-                    mem0: {
-                      memory: memory,
-                      memoryText: memory?.memory
-                    }
-                  }
-                });
-              });
-            }
-          } catch (error) {
-            console.error("Error adding memory sources:", error);
-          }
-        },
-        transform(chunk, controller) {
-          // Pass through all chunks from the original stream
-          controller.enqueue(chunk);
-        }
-      });
-
-      // Pipe the original stream through our transform stream
-      const enhancedStream = originalStream.pipeThrough(transformStream);
-
-      // Return a new stream response with our enhanced stream
+      // Return stream untouched for true streaming behavior
       return {
-        stream: enhancedStream,
+        stream: streamResponse.stream,
         request: streamResponse.request,
         response: streamResponse.response,
       };
