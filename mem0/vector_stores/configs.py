@@ -30,6 +30,7 @@ class VectorStoreConfig(BaseModel):
         "faiss": "FAISSConfig",
         "langchain": "LangchainConfig",
         "s3_vectors": "S3VectorsConfig",
+        "deeplake": "DeepLakeConfig",
     }
 
     @model_validator(mode="after")

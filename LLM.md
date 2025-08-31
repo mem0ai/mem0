@@ -324,6 +324,7 @@ config = MemoryConfig(
 - **langchain** - LangChain vector stores
 - **s3_vectors** - Amazon S3 Vectors
 - **databricks** - Databricks vector stores
+- **deeplake** - Deep Lake
 
 #### Graph Store Providers (4 supported)
 - **neo4j** - Neo4j graph database
