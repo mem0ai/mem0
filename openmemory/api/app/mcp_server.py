@@ -133,7 +133,7 @@ async def add_memories(text: str) -> str:
 
                 db.commit()
 
-            return response
+            return json.dumps(response, indent=2)
         finally:
             db.close()
     except Exception as e:
@@ -386,8 +386,19 @@ async def handle_get_message(request: Request):
 
 
 @mcp_router.post("/{client_name}/sse/{user_id}/messages/")
-async def handle_post_message(request: Request):
-    return await handle_post_message(request)
+async def handle_post_message_with_params(request: Request):
+    # Extract user_id and client_name from path parameters and set context variables
+    uid = request.path_params.get("user_id")
+    client_name = request.path_params.get("client_name")
+    user_token = user_id_var.set(uid or "")
+    client_token = client_name_var.set(client_name or "")
+    
+    try:
+        return await handle_post_message(request)
+    finally:
+        # Clean up context variables
+        user_id_var.reset(user_token)
+        client_name_var.reset(client_token)
 
 async def handle_post_message(request: Request):
     """Handle POST messages for SSE"""
