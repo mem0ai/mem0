@@ -5,6 +5,8 @@ import uuid as _uuid
 
 import pytest
 
+os.environ.setdefault("OPENAI_API_KEY", "test-key")
+
 
 class Hit:
     def __init__(self, id, score, payload):
