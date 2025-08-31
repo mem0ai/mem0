@@ -1,7 +1,14 @@
+import os
+
 import pytest
 
+# ruff: noqa: E402
+
+
+os.environ.setdefault("OPENAI_API_KEY", "test-key")
+
 # Import the module under test
-from app.mcp_server import (
+from app.mcp_server import (  # noqa: E402
     add_memories,
     client_name_var,
     delete_all_memories,
@@ -10,8 +17,8 @@ from app.mcp_server import (
     setup_mcp_server,
     user_id_var,
 )
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
+from fastapi import FastAPI  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
 
 
 @pytest.mark.asyncio
