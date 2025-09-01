@@ -29,14 +29,27 @@ client.search(query)  # Uses v2 API endpoint
 client.get_all()  # Uses v2 API endpoint
 ```
 
-### 2. API Versioning Behavior
+### 2. API Versioning Strategy Clarification
 
-**New API versioning behavior:**
+**IMPORTANT: Understanding the New Versioning Strategy**
 
-- **Add operations**: Use v1 endpoint by default, v1.1 when `output_format="v1.1"` is specified  
-- **Get/Search operations**: Always use v2 endpoints for enhanced filtering capabilities
-- **Removed parameters**: `version` parameter from `get_all()` and `search()` methods
-- **Async mode**: Now default behavior (no parameter needed)
+The API versioning strategy in mem0ai 1.0.0 has been unified and simplified:
+
+#### **Endpoint vs Format Distinction**
+- **API Endpoints** (`/v1/`, `/v2/`): Control which REST API version to use
+- **Response Formats** (v1.0, v1.1): Control the structure of the returned data
+
+#### **New Unified Strategy:**
+- **Add operations**: Always use `/v1/` endpoint with v1.1 response format (no more output_format parameter)
+- **Search operations**: Always use `/v2/` endpoint with v1.1 response format  
+- **Get_all operations**: Always use `/v2/` endpoint with v1.1 response format
+- **Response format**: All operations now return v1.1 format (`{"results": [...]}`)
+
+#### **What Changed:**
+- ✅ **Consistent response format**: Everything returns v1.1 format
+- ✅ **Simplified API**: No more `output_format` or `version` parameters to manage
+- ✅ **Endpoint optimization**: Add uses v1, Search/Get use v2 for best performance
+- ❌ **Removed v1.0 support**: v1.0 response format is no longer supported
 
 ### 3. Response Format Standardization
 

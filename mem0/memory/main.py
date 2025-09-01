@@ -36,6 +36,7 @@ from mem0.utils.factory import (
     GraphStoreFactory,
     LlmFactory,
     VectorStoreFactory,
+    RerankerFactory,
 )
 
 
@@ -137,6 +138,14 @@ class Memory(MemoryBase):
         self.db = SQLiteManager(self.config.history_db_path)
         self.collection_name = self.config.vector_store.config.collection_name
         self.api_version = self.config.version
+        
+        # Initialize reranker if configured
+        self.reranker = None
+        if config.reranker:
+            self.reranker = RerankerFactory.create(
+                config.reranker.provider, 
+                config.reranker.config
+            )
 
         self.enable_graph = False
 
@@ -265,14 +274,11 @@ class Memory(MemoryBase):
             graph_result = future2.result()
 
         if self.api_version == "v1.0":
-            warnings.warn(
-                "The v1.0 API format is deprecated and will be removed in mem0ai 2.0.0. "
-                "Please upgrade to v1.1 format which returns a dict with 'results' key. "
-                "Set version='v1.1' in your MemoryConfig.",
-                DeprecationWarning,
-                stacklevel=2,
+            raise ValueError(
+                "The v1.0 API format is no longer supported in mem0ai 1.0.0+. "
+                "Please use v1.1 format which returns a dict with 'results' key. "
+                "Remove version='v1.0' from your MemoryConfig or set it to version='v1.1'."
             )
-            return vector_store_result
 
         if self.enable_graph:
             return {
@@ -562,14 +568,11 @@ class Memory(MemoryBase):
             return {"results": all_memories_result, "relations": graph_entities_result}
 
         if self.api_version == "v1.0":
-            warnings.warn(
-                "The v1.0 API format is deprecated and will be removed in mem0ai 2.0.0. "
-                "Please upgrade to v1.1 format which returns a dict with 'results' key. "
-                "Set version='v1.1' in your MemoryConfig.",
-                DeprecationWarning,
-                stacklevel=2,
+            raise ValueError(
+                "The v1.0 API format is no longer supported in mem0ai 1.0.0+. "
+                "Please use v1.1 format which returns a dict with 'results' key. "
+                "Remove version='v1.0' from your MemoryConfig or set it to version='v1.1'."
             )
-            return all_memories_result
         else:
             return {"results": all_memories_result}
 
@@ -622,6 +625,7 @@ class Memory(MemoryBase):
         limit: int = 100,
         filters: Optional[Dict[str, Any]] = None,
         threshold: Optional[float] = None,
+        rerank: bool = True,
     ):
         """
         Searches for memories based on a query
@@ -631,8 +635,20 @@ class Memory(MemoryBase):
             agent_id (str, optional): ID of the agent to search for. Defaults to None.
             run_id (str, optional): ID of the run to search for. Defaults to None.
             limit (int, optional): Limit the number of results. Defaults to 100.
-            filters (dict, optional): Filters to apply to the search. Defaults to None..
+            filters (dict, optional): Legacy filters to apply to the search. Defaults to None.
             threshold (float, optional): Minimum score for a memory to be included in the results. Defaults to None.
+            metadata_filters (dict, optional): Enhanced metadata filtering with operators:
+                - {"key": "value"} - exact match
+                - {"key": {"$eq": "value"}} - equals
+                - {"key": {"$ne": "value"}} - not equals  
+                - {"key": {"$in": ["val1", "val2"]}} - in list
+                - {"key": {"$nin": ["val1", "val2"]}} - not in list
+                - {"key": {"$gt": 10}} - greater than
+                - {"key": {"$gte": 10}} - greater than or equal
+                - {"key": {"$lt": 10}} - less than
+                - {"key": {"$lte": 10}} - less than or equal
+                - {"$and": [filter1, filter2]} - logical AND
+                - {"$or": [filter1, filter2]} - logical OR
 
         Returns:
             dict: A dictionary containing the search results, typically under a "results" key,
@@ -646,6 +662,14 @@ class Memory(MemoryBase):
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError("At least one of 'user_id', 'agent_id', or 'run_id' must be specified.")
 
+        # Apply enhanced metadata filtering if advanced operators are detected
+        if filters and self._has_advanced_operators(filters):
+            processed_filters = self._process_metadata_filters(filters)
+            effective_filters.update(processed_filters)
+        elif filters:
+            # Simple filters, merge directly
+            effective_filters.update(filters)
+
         keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
             "mem0.search",
@@ -657,6 +681,7 @@ class Memory(MemoryBase):
                 "encoded_ids": encoded_ids,
                 "sync_type": "sync",
                 "threshold": threshold,
+                "advanced_filters": bool(filters and self._has_advanced_operators(filters)),
             },
         )
 
@@ -673,20 +698,96 @@ class Memory(MemoryBase):
             original_memories = future_memories.result()
             graph_entities = future_graph_entities.result() if future_graph_entities else None
 
+        # Apply reranking if enabled and reranker is available
+        if rerank and self.reranker and original_memories:
+            try:
+                reranked_memories = self.reranker.rerank(query, original_memories, limit)
+                original_memories = reranked_memories
+            except Exception as e:
+                logger.warning(f"Reranking failed, using original results: {e}")
+
         if self.enable_graph:
             return {"results": original_memories, "relations": graph_entities}
 
         if self.api_version == "v1.0":
-            warnings.warn(
-                "The v1.0 API format is deprecated and will be removed in mem0ai 2.0.0. "
-                "Please upgrade to v1.1 format which returns a dict with 'results' key. "
-                "Set version='v1.1' in your MemoryConfig.",
-                DeprecationWarning,
-                stacklevel=2,
+            raise ValueError(
+                "The v1.0 API format is no longer supported in mem0ai 1.0.0+. "
+                "Please use v1.1 format which returns a dict with 'results' key. "
+                "Remove version='v1.0' from your MemoryConfig or set it to version='v1.1'."
             )
-            return {"results": original_memories}
         else:
             return {"results": original_memories}
+
+    def _process_metadata_filters(self, metadata_filters: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Process enhanced metadata filters and convert them to vector store compatible format.
+        
+        Args:
+            metadata_filters: Enhanced metadata filters with operators
+            
+        Returns:
+            Dict of processed filters compatible with vector store
+        """
+        processed_filters = {}
+        
+        def process_condition(key: str, condition: Any) -> Dict[str, Any]:
+            if not isinstance(condition, dict):
+                # Simple equality: {"key": "value"}
+                return {key: {"$eq": condition}}
+            
+            result = {}
+            for operator, value in condition.items():
+                if operator in ["$eq", "$ne", "$gt", "$gte", "$lt", "$lte", "$in", "$nin"]:
+                    result[key] = {operator: value}
+                else:
+                    raise ValueError(f"Unsupported metadata filter operator: {operator}")
+            return result
+        
+        for key, value in metadata_filters.items():
+            if key == "$and":
+                # Logical AND: combine multiple conditions
+                if not isinstance(value, list):
+                    raise ValueError("$and operator requires a list of conditions")
+                for condition in value:
+                    for sub_key, sub_value in condition.items():
+                        processed_filters.update(process_condition(sub_key, sub_value))
+            elif key == "$or":
+                # Logical OR: for now, we'll apply the first condition
+                # Note: Full OR support would require vector store level implementation
+                if not isinstance(value, list) or not value:
+                    raise ValueError("$or operator requires a non-empty list of conditions")
+                # Apply first condition as fallback
+                first_condition = value[0]
+                for sub_key, sub_value in first_condition.items():
+                    processed_filters.update(process_condition(sub_key, sub_value))
+            else:
+                processed_filters.update(process_condition(key, value))
+        
+        return processed_filters
+
+    def _has_advanced_operators(self, filters: Dict[str, Any]) -> bool:
+        """
+        Check if filters contain advanced operators that need special processing.
+        
+        Args:
+            filters: Dictionary of filters to check
+            
+        Returns:
+            bool: True if advanced operators are detected
+        """
+        if not isinstance(filters, dict):
+            return False
+            
+        for key, value in filters.items():
+            # Check for logical operators
+            if key in ["$and", "$or"]:
+                return True
+            # Check for advanced comparison operators
+            if isinstance(value, dict):
+                for op in value.keys():
+                    if op in ["$eq", "$ne", "$gt", "$gte", "$lt", "$lte", "$in", "$nin"]:
+                        return True
+        return False
 
     def _search_vector_store(self, query, filters, limit, threshold: Optional[float] = None):
         embeddings = self.embedding_model.embed(query, "search")
@@ -990,6 +1091,14 @@ class AsyncMemory(MemoryBase):
         self.db = SQLiteManager(self.config.history_db_path)
         self.collection_name = self.config.vector_store.config.collection_name
         self.api_version = self.config.version
+        
+        # Initialize reranker if configured
+        self.reranker = None
+        if config.reranker:
+            self.reranker = RerankerFactory.create(
+                config.reranker.provider, 
+                config.reranker.config
+            )
 
         self.enable_graph = False
 
@@ -1103,14 +1212,11 @@ class AsyncMemory(MemoryBase):
         vector_store_result, graph_result = await asyncio.gather(vector_store_task, graph_task)
 
         if self.api_version == "v1.0":
-            warnings.warn(
-                "The v1.0 API format is deprecated and will be removed in mem0ai 2.0.0. "
-                "Please upgrade to v1.1 format which returns a dict with 'results' key. "
-                "Set version='v1.1' in your MemoryConfig.",
-                DeprecationWarning,
-                stacklevel=2,
+            raise ValueError(
+                "The v1.0 API format is no longer supported in mem0ai 1.0.0+. "
+                "Please use v1.1 format which returns a dict with 'results' key. "
+                "Remove version='v1.0' from your MemoryConfig or set it to version='v1.1'."
             )
-            return vector_store_result
 
         if self.enable_graph:
             return {
@@ -1427,7 +1533,11 @@ class AsyncMemory(MemoryBase):
                 DeprecationWarning,
                 stacklevel=2,
             )
-            return results_dict["results"]
+            raise ValueError(
+                "The v1.0 API format is no longer supported in mem0ai 1.0.0+. "
+                "Please use v1.1 format which returns a dict with 'results' key. "
+                "Remove version='v1.0' from your MemoryConfig or set it to version='v1.1'."
+            )
 
         return results_dict
 
@@ -1480,6 +1590,8 @@ class AsyncMemory(MemoryBase):
         limit: int = 100,
         filters: Optional[Dict[str, Any]] = None,
         threshold: Optional[float] = None,
+        metadata_filters: Optional[Dict[str, Any]] = None,
+        rerank: bool = True,
     ):
         """
         Searches for memories based on a query
@@ -1489,8 +1601,20 @@ class AsyncMemory(MemoryBase):
             agent_id (str, optional): ID of the agent to search for. Defaults to None.
             run_id (str, optional): ID of the run to search for. Defaults to None.
             limit (int, optional): Limit the number of results. Defaults to 100.
-            filters (dict, optional): Filters to apply to the search. Defaults to None.
+            filters (dict, optional): Legacy filters to apply to the search. Defaults to None.
             threshold (float, optional): Minimum score for a memory to be included in the results. Defaults to None.
+            metadata_filters (dict, optional): Enhanced metadata filtering with operators:
+                - {"key": "value"} - exact match
+                - {"key": {"$eq": "value"}} - equals
+                - {"key": {"$ne": "value"}} - not equals  
+                - {"key": {"$in": ["val1", "val2"]}} - in list
+                - {"key": {"$nin": ["val1", "val2"]}} - not in list
+                - {"key": {"$gt": 10}} - greater than
+                - {"key": {"$gte": 10}} - greater than or equal
+                - {"key": {"$lt": 10}} - less than
+                - {"key": {"$lte": 10}} - less than or equal
+                - {"$and": [filter1, filter2]} - logical AND
+                - {"$or": [filter1, filter2]} - logical OR
 
         Returns:
             dict: A dictionary containing the search results, typically under a "results" key,
@@ -1505,6 +1629,14 @@ class AsyncMemory(MemoryBase):
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError("at least one of 'user_id', 'agent_id', or 'run_id' must be specified ")
 
+        # Apply enhanced metadata filtering if advanced operators are detected
+        if filters and self._has_advanced_operators(filters):
+            processed_filters = self._process_metadata_filters(filters)
+            effective_filters.update(processed_filters)
+        elif filters:
+            # Simple filters, merge directly
+            effective_filters.update(filters)
+
         keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
             "mem0.search",
@@ -1516,6 +1648,7 @@ class AsyncMemory(MemoryBase):
                 "encoded_ids": encoded_ids,
                 "sync_type": "async",
                 "threshold": threshold,
+                "advanced_filters": bool(filters and self._has_advanced_operators(filters)),
             },
         )
 
@@ -1534,18 +1667,26 @@ class AsyncMemory(MemoryBase):
             original_memories = await vector_store_task
             graph_entities = None
 
+        # Apply reranking if enabled and reranker is available
+        if rerank and self.reranker and original_memories:
+            try:
+                # Run reranking in thread pool to avoid blocking async loop
+                reranked_memories = await asyncio.to_thread(
+                    self.reranker.rerank, query, original_memories, limit
+                )
+                original_memories = reranked_memories
+            except Exception as e:
+                logger.warning(f"Reranking failed, using original results: {e}")
+
         if self.enable_graph:
             return {"results": original_memories, "relations": graph_entities}
 
         if self.api_version == "v1.0":
-            warnings.warn(
-                "The v1.0 API format is deprecated and will be removed in mem0ai 2.0.0. "
-                "Please upgrade to v1.1 format which returns a dict with 'results' key. "
-                "Set version='v1.1' in your MemoryConfig.",
-                DeprecationWarning,
-                stacklevel=2,
+            raise ValueError(
+                "The v1.0 API format is no longer supported in mem0ai 1.0.0+. "
+                "Please use v1.1 format which returns a dict with 'results' key. "
+                "Remove version='v1.0' from your MemoryConfig or set it to version='v1.1'."
             )
-            return {"results": original_memories}
         else:
             return {"results": original_memories}
 

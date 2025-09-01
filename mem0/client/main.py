@@ -133,21 +133,29 @@ class MemoryClient:
         Args:
             messages: A list of message dictionaries.
             **kwargs: Additional parameters such as user_id, agent_id, app_id,
-                      metadata, filters, output_format.
+                      metadata, filters.
 
         Returns:
-            A dictionary containing the API response.
+            A dictionary containing the API response in v1.1 format.
 
         Raises:
             APIError: If the API request fails.
         """
         kwargs = self._prepare_params(kwargs)
-        # Handle output_format parameter for add operations (default to v1.1)
-        if "output_format" not in kwargs:
-            kwargs["output_format"] = "v1.1"
+        
+        # Remove deprecated parameters
+        if "output_format" in kwargs:
+            warnings.warn(
+                "output_format parameter is deprecated and ignored. All responses now use v1.1 format.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            kwargs.pop("output_format")
+        
         kwargs.pop("async_mode", None)  # Remove async_mode as it's now default
         
-        # For add operations, use output_format parameter (keep it in kwargs)
+        # Force v1.1 format for all add operations
+        kwargs["output_format"] = "v1.1"
         payload = self._prepare_payload(messages, kwargs)
         response = self.client.post("/v1/memories/", json=payload)
         response.raise_for_status()
@@ -979,12 +987,20 @@ class AsyncMemoryClient:
     @api_error_handler
     async def add(self, messages: List[Dict[str, str]], **kwargs) -> Dict[str, Any]:
         kwargs = self._prepare_params(kwargs)
-        # Handle output_format parameter for add operations (default to v1.1)
-        if "output_format" not in kwargs:
-            kwargs["output_format"] = "v1.1"
+        
+        # Remove deprecated parameters
+        if "output_format" in kwargs:
+            warnings.warn(
+                "output_format parameter is deprecated and ignored. All responses now use v1.1 format.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            kwargs.pop("output_format")
+        
         kwargs.pop("async_mode", None)  # Remove async_mode as it's now default
         
-        # For add operations, use output_format parameter (keep it in kwargs)
+        # Force v1.1 format for all add operations
+        kwargs["output_format"] = "v1.1"
         payload = self._prepare_payload(messages, kwargs)
         response = await self.async_client.post("/v1/memories/", json=payload)
         response.raise_for_status()
