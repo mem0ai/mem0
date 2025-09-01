@@ -13,7 +13,7 @@ LlamaIndex supports Mem0 as a [memory store](https://llamahub.ai/l/memory/llama-
 To install the required package, run:
 
 ```bash
-pip install llama-index-core llama-index-memory-mem0
+pip install llama-index-core llama-index-memory-mem0 python-dotenv
 ```
 
 ### Setup with Mem0 Platform
@@ -25,18 +25,23 @@ Set your Mem0 Platform API key as an environment variable. You can replace `<you
 </Note>
 
 ```python
-os.environ["MEM0_API_KEY"] = "<your-mem0-api-key>"
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+# os.environ["MEM0_API_KEY"] = "<your-mem0-api-key>"
 ```
 
 Import the necessary modules and create a Mem0Memory instance:
 ```python
 from llama_index.memory.mem0 import Mem0Memory
 
-context = {"user_id": "user_1"}
+context = {"user_id": "alice"}
 memory_from_client = Mem0Memory.from_client(
     context=context,
-    api_key="<your-mem0-api-key>",
     search_msg_limit=4,  # optional, default is 5
+    output_format='v1.1',  # Remove deprecation warnings
 )
 ```
 
@@ -44,8 +49,8 @@ Context is used to identify the user, agent or the conversation in the Mem0. It 
 
 ```python
 context = {
-    "user_id": "user_1",
-    "agent_id": "agent_1",
+    "user_id": "alice", 
+    "agent_id": "llama_agent_1",
     "run_id": "run_1",
 }
 ```
@@ -98,17 +103,20 @@ memory_from_config = Mem0Memory.from_config(
     context=context,
     config=config,
     search_msg_limit=4,  # optional, default is 5
+    output_format='v1.1',  # Remove deprecation warnings
 )
 ```
 
 Initialize the LLM
 
 ```python
-import os
 from llama_index.llms.openai import OpenAI
+from dotenv import load_dotenv
 
-os.environ["OPENAI_API_KEY"] = "<your-openai-api-key>"
-llm = OpenAI(model="gpt-4o")
+load_dotenv()
+
+# os.environ["OPENAI_API_KEY"] = "<your-openai-api-key>"
+llm = OpenAI(model="gpt-4o-mini")
 ```
 
 ### SimpleChatEngine
@@ -122,7 +130,7 @@ agent = SimpleChatEngine.from_defaults(
 )
 
 # Start the chat
-response = agent.chat("Hi, My name is Mayank")
+response = agent.chat("Hi, My name is Alice")
 print(response)
 ```
 Now we will learn how to use Mem0 with FunctionCalling and ReAct agents.
@@ -165,7 +173,7 @@ agent = FunctionCallingAgent.from_tools(
 )
 
 # Start the chat
-response = agent.chat("Hi, My name is Mayank")
+response = agent.chat("Hi, My name is Alice")
 print(response)
 ```
 
@@ -182,7 +190,7 @@ agent = ReActAgent.from_tools(
 )
 
 # Start the chat
-response = agent.chat("Hi, My name is Mayank")
+response = agent.chat("Hi, My name is Alice")
 print(response)
 ```
 

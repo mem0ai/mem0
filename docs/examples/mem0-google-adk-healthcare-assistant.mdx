@@ -24,8 +24,7 @@ Before you begin, make sure you have:
 
 Installed Google ADK and Mem0 SDK:
 ```bash
-pip install google-adk
-pip install mem0ai
+pip install google-adk mem0ai python-dotenv
 ```
 
 ## Code Breakdown
@@ -35,21 +34,25 @@ Let's get started and understand the different components required in building a
 ```python
 # Import dependencies
 import os
+import asyncio
 from google.adk.agents import Agent
-from google.adk.sessions import InMemorySessionService
 from google.adk.runners import Runner
+from google.adk.sessions import InMemorySessionService
 from google.genai import types
 from mem0 import MemoryClient
+from dotenv import load_dotenv
 
-# Set up API keys (replace with your actual keys)
-os.environ["GOOGLE_API_KEY"] = "your-google-api-key"
-os.environ["MEM0_API_KEY"] = "your-mem0-api-key"
+load_dotenv()
+
+# Set up environment variables
+# os.environ["GOOGLE_API_KEY"] = "your-google-api-key"
+# os.environ["MEM0_API_KEY"] = "your-mem0-api-key"
 
 # Define a global user ID for simplicity
 USER_ID = "Alex"
 
 # Initialize Mem0 client
-mem0_client = MemoryClient()
+mem0 = MemoryClient()
 ```
 
 ## Define Memory Tools

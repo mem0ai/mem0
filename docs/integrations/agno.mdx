@@ -18,7 +18,7 @@ Before setting up Mem0 with Agno, ensure you have:
 
 1. Installed the required packages:
 ```bash
-pip install agno mem0ai
+pip install agno mem0ai python-dotenv
 ```
 
 2. Valid API keys:
@@ -81,7 +81,7 @@ agent = Agent(
 
 def chat_user(
     user_input: Optional[str] = None,
-    user_id: str = "user_123",
+    user_id: str = "alex",
     image_path: Optional[str] = None
 ) -> str:
     """
@@ -120,13 +120,13 @@ def chat_user(
         })
 
         # Store messages in memory
-        client.add(messages, user_id=user_id)
+        client.add(messages, user_id=user_id, output_format='v1.1')
         print("✅ Image and text stored in memory.")
 
     if user_input:
         # Search for relevant memories
-        memories = client.search(user_input, user_id=user_id)
-        memory_context = "\n".join(f"- {m['memory']}" for m in memories.get('results', []))
+        memories = client.search(user_input, user_id=user_id, output_format='v1.1')
+        memory_context = "\n".join(f"- {m['memory']}" for m in memories['results'])
 
         # Construct the prompt
         prompt = f"""
@@ -150,7 +150,8 @@ User question:
             response = agent.run(prompt)
 
         # Store the interaction in memory
-        client.add(f"User: {user_input}\nAssistant: {response.content}", user_id=user_id)
+        interaction_message = [{"role": "user", "content": f"User: {user_input}\nAssistant: {response.content}"}]
+        client.add(interaction_message, user_id=user_id, output_format='v1.1')
         return response.content
 
     return "No user input or image provided."
@@ -159,9 +160,9 @@ User question:
 # Example Usage
 if __name__ == "__main__":
     response = chat_user(
-        "This is the picture of what I brought with me in the trip to Bahamas",
+        "I like to travel and my favorite destination is London",
         image_path="travel_items.jpeg",
-        user_id="user_123"
+        user_id="alex"
     )
     print(response)
 ```

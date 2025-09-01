@@ -16,7 +16,7 @@ In this guide, we'll create a Customer Support AI Agent that:
 Install necessary libraries:
 
 ```bash
-pip install langgraph langchain-openai mem0ai
+pip install langgraph langchain-openai mem0ai python-dotenv
 ```
 
 
@@ -31,14 +31,17 @@ from langgraph.graph.message import add_messages
 from langchain_openai import ChatOpenAI
 from mem0 import MemoryClient
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Configuration
-OPENAI_API_KEY = 'sk-xxx'  # Replace with your actual OpenAI API key
-MEM0_API_KEY = 'your-mem0-key'  # Replace with your actual Mem0 API key
+# OPENAI_API_KEY = 'sk-xxx'  # Replace with your actual OpenAI API key
+# MEM0_API_KEY = 'your-mem0-key'  # Replace with your actual Mem0 API key
 
 # Initialize LangChain and Mem0
-llm = ChatOpenAI(model="gpt-4", api_key=OPENAI_API_KEY)
-mem0 = MemoryClient(api_key=MEM0_API_KEY)
+llm = ChatOpenAI(model="gpt-4")
+mem0 = MemoryClient()
 ```
 
 ## Define State and Graph
@@ -62,22 +65,47 @@ def chatbot(state: State):
     messages = state["messages"]
     user_id = state["mem0_user_id"]
 
-    # Retrieve relevant memories
-    memories = mem0.search(messages[-1].content, user_id=user_id)
+    try:
+        # Retrieve relevant memories
+        memories = mem0.search(messages[-1].content, user_id=user_id, output_format='v1.1')
+        
+        # Handle dict response format
+        memory_list = memories['results']
 
-    context = "Relevant information from previous conversations:\n"
-    for memory in memories.get('results', []):
-        context += f"- {memory['memory']}\n"
+        context = "Relevant information from previous conversations:\n"
+        for memory in memory_list:
+            context += f"- {memory['memory']}\n"
 
-    system_message = SystemMessage(content=f"""You are a helpful customer support assistant. Use the provided context to personalize your responses and remember user preferences and past interactions.
+        system_message = SystemMessage(content=f"""You are a helpful customer support assistant. Use the provided context to personalize your responses and remember user preferences and past interactions.
 {context}""")
 
-    full_messages = [system_message] + messages
-    response = llm.invoke(full_messages)
+        full_messages = [system_message] + messages
+        response = llm.invoke(full_messages)
 
-    # Store the interaction in Mem0
-    mem0.add(f"User: {messages[-1].content}\nAssistant: {response.content}", user_id=user_id)
-    return {"messages": [response]}
+        # Store the interaction in Mem0
+        try:
+            interaction = [
+                {
+                    "role": "user",
+                    "content": messages[-1].content
+                },
+                {
+                    "role": "assistant", 
+                    "content": response.content
+                }
+            ]
+            result = mem0.add(interaction, user_id=user_id, output_format='v1.1')
+            print(f"Memory saved: {len(result.get('results', []))} memories added")
+        except Exception as e:
+            print(f"Error saving memory: {e}")
+            
+        return {"messages": [response]}
+        
+    except Exception as e:
+        print(f"Error in chatbot: {e}")
+        # Fallback response without memory context
+        response = llm.invoke(messages)
+        return {"messages": [response]}
 ```
 
 ## Set Up Graph Structure
@@ -115,7 +143,7 @@ Set up the main program loop for user interaction:
 ```python
 if __name__ == "__main__":
     print("Welcome to Customer Support! How can I assist you today?")
-    mem0_user_id = "customer_123"  # You can generate or retrieve this based on your user management system
+    mem0_user_id = "alice"  # You can generate or retrieve this based on your user management system
     while True:
         user_input = input("You: ")
         if user_input.lower() in ['quit', 'exit', 'bye']:
