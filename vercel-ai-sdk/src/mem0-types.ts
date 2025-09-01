@@ -29,6 +29,7 @@ export interface Mem0ConfigSettings {
   host?: string;
   output_format?: string;
   filter_memories?: boolean;
+  async_mode?: boolean;
 }
 
 export interface Mem0ChatConfig extends Mem0ConfigSettings, Mem0ProviderSettings {}
