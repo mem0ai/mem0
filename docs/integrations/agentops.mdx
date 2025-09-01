@@ -17,7 +17,7 @@ Before setting up Mem0 with AgentOps, ensure you have:
 
 1. Installed the required packages:
 ```bash
-pip install mem0ai agentops
+pip install mem0ai agentops python-dotenv
 ```
 
 2. Valid API keys:
@@ -37,7 +37,9 @@ import asyncio
 import logging
 from dotenv import load_dotenv
 import agentops
+import openai
 
+load_dotenv()
 #Set up environment variables for API keys
 os.environ["AGENTOPS_API_KEY"] = os.getenv("AGENTOPS_API_KEY")
 os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")

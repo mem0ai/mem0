@@ -92,7 +92,7 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     
     # Basic setup with minimal configuration
-    user_id = "user123"
+    user_id = "alice"
     
     # WebSocket transport
     transport = FastAPIWebsocketTransport(

@@ -17,7 +17,7 @@ Before setting up Mem0 with Google ADK, ensure you have:
 
 1. Installed the required packages:
 ```bash
-pip install google-adk mem0ai
+pip install google-adk mem0ai python-dotenv
 ```
 
 2. Valid API keys:
@@ -30,15 +30,19 @@ The following example demonstrates how to create a Google ADK agent with Mem0 me
 
 ```python
 import os
+import asyncio
 from google.adk.agents import Agent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
 from mem0 import MemoryClient
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Set up environment variables
-os.environ["GOOGLE_API_KEY"] = "your-google-api-key"
-os.environ["MEM0_API_KEY"] = "your-mem0-api-key"
+# os.environ["GOOGLE_API_KEY"] = "your-google-api-key"
+# os.environ["MEM0_API_KEY"] = "your-mem0-api-key"
 
 # Initialize Mem0 client
 mem0 = MemoryClient()
@@ -46,17 +50,18 @@ mem0 = MemoryClient()
 # Define memory function tools
 def search_memory(query: str, user_id: str) -> dict:
     """Search through past conversations and memories"""
-    memories = mem0.search(query, user_id=user_id)
+    memories = mem0.search(query, user_id=user_id, output_format='v1.1')
     if memories.get('results', []):
-        memory_context = "\n".join([f"- {mem['memory']}" for mem in memories.get('results', [])])
+        memory_list = memories['results']
+        memory_context = "\n".join([f"- {mem['memory']}" for mem in memory_list])
         return {"status": "success", "memories": memory_context}
     return {"status": "no_memories", "message": "No relevant memories found"}
 
 def save_memory(content: str, user_id: str) -> dict:
     """Save important information to memory"""
     try:
-        mem0.add([{"role": "user", "content": content}], user_id=user_id)
-        return {"status": "success", "message": "Information saved to memory"}
+        result = mem0.add([{"role": "user", "content": content}], user_id=user_id, output_format='v1.1')
+        return {"status": "success", "message": "Information saved to memory", "result": result}
     except Exception as e:
         return {"status": "error", "message": f"Failed to save memory: {str(e)}"}
 
@@ -72,7 +77,7 @@ personal_assistant = Agent(
     tools=[search_memory, save_memory]
 )
 
-def chat_with_agent(user_input: str, user_id: str) -> str:
+async def chat_with_agent(user_input: str, user_id: str) -> str:
     """
     Handle user input with automatic memory integration.
 
@@ -85,7 +90,7 @@ def chat_with_agent(user_input: str, user_id: str) -> str:
     """
     # Set up session and runner
     session_service = InMemorySessionService()
-    session = session_service.create_session(
+    session = await session_service.create_session(
         app_name="memory_assistant",
         user_id=user_id,
         session_id=f"session_{user_id}"
@@ -107,10 +112,10 @@ def chat_with_agent(user_input: str, user_id: str) -> str:
 
 # Example usage
 if __name__ == "__main__":
-    response = chat_with_agent(
+    response = asyncio.run(chat_with_agent(
         "I love Italian food and I'm planning a trip to Rome next month",
         user_id="alice"
-    )
+    ))
     print(response)
 ```
 
