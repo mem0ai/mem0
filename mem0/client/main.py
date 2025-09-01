@@ -184,7 +184,7 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def get_all(self, **kwargs) -> List[Dict[str, Any]]:
+    def get_all(self, **kwargs) -> Dict[str, Any]:
         """Retrieve all memories, with optional filtering.
 
         Args:
@@ -192,7 +192,7 @@ class MemoryClient:
                       app_id, top_k, page, page_size, version).
 
         Returns:
-            A list of dictionaries containing memories.
+            A dictionary containing memories in v1.1 format: {"results": [...]}
 
         Raises:
             APIError: If the API request fails.
@@ -223,10 +223,15 @@ class MemoryClient:
                 "sync_type": "sync",
             },
         )
-        return response.json()
+        result = response.json()
+        
+        # Ensure v1.1 format (wrap raw list if needed)
+        if isinstance(result, list):
+            return {"results": result}
+        return result
 
     @api_error_handler
-    def search(self, query: str, **kwargs) -> List[Dict[str, Any]]:
+    def search(self, query: str, **kwargs) -> Dict[str, Any]:
         """Search memories based on a query.
 
         Args:
@@ -235,7 +240,7 @@ class MemoryClient:
                       top_k, filters, version.
 
         Returns:
-            A list of dictionaries containing search results.
+            A dictionary containing search results in v1.1 format: {"results": [...]}
 
         Raises:
             APIError: If the API request fails.
@@ -262,7 +267,12 @@ class MemoryClient:
                 "sync_type": "sync",
             },
         )
-        return response.json()
+        result = response.json()
+        
+        # Ensure v1.1 format (wrap raw list if needed)
+        if isinstance(result, list):
+            return {"results": result}
+        return result
 
     @api_error_handler
     def update(
@@ -1018,7 +1028,7 @@ class AsyncMemoryClient:
         return response.json()
 
     @api_error_handler
-    async def get_all(self, **kwargs) -> List[Dict[str, Any]]:
+    async def get_all(self, **kwargs) -> Dict[str, Any]:
         params = self._prepare_params(kwargs)
         # Handle version parameter for get operations (default to v2)
         version = kwargs.pop("version", "v2")
@@ -1045,10 +1055,15 @@ class AsyncMemoryClient:
                 "sync_type": "async",
             },
         )
-        return response.json()
+        result = response.json()
+        
+        # Ensure v1.1 format (wrap raw list if needed)
+        if isinstance(result, list):
+            return {"results": result}
+        return result
 
     @api_error_handler
-    async def search(self, query: str, **kwargs) -> List[Dict[str, Any]]:
+    async def search(self, query: str, **kwargs) -> Dict[str, Any]:
         payload = {"query": query}
         params = self._prepare_params(kwargs)
         # Handle version parameter for search operations (default to v2)
@@ -1071,7 +1086,12 @@ class AsyncMemoryClient:
                 "sync_type": "async",
             },
         )
-        return response.json()
+        result = response.json()
+        
+        # Ensure v1.1 format (wrap raw list if needed)
+        if isinstance(result, list):
+            return {"results": result}
+        return result
 
     @api_error_handler
     async def update(

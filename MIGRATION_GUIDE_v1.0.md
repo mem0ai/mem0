@@ -19,14 +19,13 @@ client.get_all(version="v1", output_format="v1.1")
 
 **After (1.0.0):**
 ```python
-# v1.1 API is default (v1.0 is deprecated)
+# v1.1 format is default (v1.0 is deprecated)
 memory = Memory()  # Defaults to v1.1 format
 
 # Client API with correct versioning behavior:
-client.add(messages)  # Uses v1 API endpoint
-client.add(messages, output_format="v1.1")  # Uses v1.1 API endpoint
-client.search(query)  # Uses v2 API endpoint  
-client.get_all()  # Uses v2 API endpoint
+client.add(messages)  # Uses v1 API endpoint, returns v1.1 format
+client.search(query)  # Uses v2 API endpoint, returns v1.1 format  
+client.get_all()  # Uses v2 API endpoint, returns v1.1 format
 ```
 
 ### 2. API Versioning Strategy Clarification
@@ -74,7 +73,7 @@ memories = memory.get_all()
 
 # v1.0 format still works but shows deprecation warning
 memory_v1 = Memory(config=MemoryConfig(version="v1.0"))
-result = memory_v1.add(messages)  # Returns raw list (with warning)
+result = memory_v1.add(messages)  # Returns raw list [{...}] (with warning)
 ```
 
 ## Migration Steps
