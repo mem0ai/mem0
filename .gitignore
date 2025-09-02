@@ -186,3 +186,8 @@ eval/
 qdrant_storage/
 .crossnote
 testing.ipynb
+
+# Ignore Serena ouput files except project.yml
+# @see {@link https://github.com/oraios/serena}
+.serena/*
+!.serena/project.yml
