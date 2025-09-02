@@ -13,6 +13,8 @@ import {
   WebhookPayload,
   Message,
   FeedbackPayload,
+  CreateMemoryExportPayload,
+  GetMemoryExportPayload,
 } from "./mem0.types";
 import { captureClientEvent, generateHash } from "./telemetry";
 
@@ -159,16 +161,9 @@ export default class MemoryClient {
     return jsonResponse;
   }
 
-  _preparePayload(
-    messages: string | Array<Message>,
-    options: MemoryOptions,
-  ): object {
+  _preparePayload(messages: Array<Message>, options: MemoryOptions): object {
     const payload: any = {};
-    if (typeof messages === "string") {
-      payload.messages = [{ role: "user", content: messages }];
-    } else if (Array.isArray(messages)) {
-      payload.messages = messages;
-    }
+    payload.messages = messages;
     return { ...payload, ...options };
   }
 
@@ -217,7 +212,7 @@ export default class MemoryClient {
   }
 
   async add(
-    messages: string | Array<Message>,
+    messages: Array<Message>,
     options: MemoryOptions = {},
   ): Promise<Array<Memory>> {
     if (this.telemetryId === "") await this.ping();
@@ -236,7 +231,7 @@ export default class MemoryClient {
     }
 
     if (options.api_version) {
-      options.version = options.api_version.toString();
+      options.version = options.api_version.toString() || "v2";
     }
 
     const payload = this._preparePayload(messages, options);
@@ -704,6 +699,57 @@ export default class MemoryClient {
     this._captureEvent("feedback", [payloadKeys]);
     const response = await this._fetchWithErrorHandling(
       `${this.host}/v1/feedback/`,
+      {
+        method: "POST",
+        headers: this.headers,
+        body: JSON.stringify(data),
+      },
+    );
+    return response;
+  }
+
+  async createMemoryExport(
+    data: CreateMemoryExportPayload,
+  ): Promise<{ message: string; id: string }> {
+    if (this.telemetryId === "") await this.ping();
+    this._captureEvent("create_memory_export", []);
+
+    // Return if missing filters or schema
+    if (!data.filters || !data.schema) {
+      throw new Error("Missing filters or schema");
+    }
+
+    // Add Org and Project ID
+    data.org_id = this.organizationId?.toString() || null;
+    data.project_id = this.projectId?.toString() || null;
+
+    const response = await this._fetchWithErrorHandling(
+      `${this.host}/v1/exports/`,
+      {
+        method: "POST",
+        headers: this.headers,
+        body: JSON.stringify(data),
+      },
+    );
+
+    return response;
+  }
+
+  async getMemoryExport(
+    data: GetMemoryExportPayload,
+  ): Promise<{ message: string; id: string }> {
+    if (this.telemetryId === "") await this.ping();
+    this._captureEvent("get_memory_export", []);
+
+    if (!data.memory_export_id && !data.filters) {
+      throw new Error("Missing memory_export_id or filters");
+    }
+
+    data.org_id = this.organizationId?.toString() || "";
+    data.project_id = this.projectId?.toString() || "";
+
+    const response = await this._fetchWithErrorHandling(
+      `${this.host}/v1/exports/get/`,
       {
         method: "POST",
         headers: this.headers,

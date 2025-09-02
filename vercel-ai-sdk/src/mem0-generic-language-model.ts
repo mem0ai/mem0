@@ -1,23 +1,31 @@
 /* eslint-disable camelcase */
 import {
-  LanguageModelV1,
-  LanguageModelV1CallOptions,
-  LanguageModelV1Message,
-} from "@ai-sdk/provider";
+  LanguageModelV2CallOptions,
+  LanguageModelV2Message,
+  LanguageModelV2Source
+} from '@ai-sdk/provider';
+
+import { LanguageModelV2 } from '@ai-sdk/provider';
+// streaming uses provider-native doStream; no middleware needed
 
 import { Mem0ChatConfig, Mem0ChatModelId, Mem0ChatSettings, Mem0ConfigSettings, Mem0StreamResponse } from "./mem0-types";
 import { Mem0ClassSelector } from "./mem0-provider-selector";
 import { Mem0ProviderSettings } from "./mem0-provider";
-import { addMemories, getMemories, retrieveMemories } from "./mem0-utils";
+import { addMemories, getMemories } from "./mem0-utils";
 
 const generateRandomId = () => {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 }
 
-export class Mem0GenericLanguageModel implements LanguageModelV1 {
-  readonly specificationVersion = "v1";
+export class Mem0GenericLanguageModel implements LanguageModelV2 {
+  readonly specificationVersion = "v2";
   readonly defaultObjectGenerationMode = "json";
+  // We don't support images for now
   readonly supportsImageUrls = false;
+  // Allow All Media Types for now
+  readonly supportedUrls: Record<string, RegExp[]> = {
+    '*': [/.*/]
+  };
 
   constructor(
     public readonly modelId: Mem0ChatModelId,
@@ -30,7 +38,7 @@ export class Mem0GenericLanguageModel implements LanguageModelV1 {
 
   provider: string;
 
-  private async processMemories(messagesPrompts: LanguageModelV1Message[], mem0Config: Mem0ConfigSettings) {
+  private async processMemories(messagesPrompts: LanguageModelV2Message[], mem0Config: Mem0ConfigSettings) {
     try {
     // Add New Memories
     addMemories(messagesPrompts, mem0Config).then((res) => {
@@ -76,7 +84,7 @@ export class Mem0GenericLanguageModel implements LanguageModelV1 {
     const memoriesPrompt = `System Message: ${mySystemPrompt} ${memoriesText} ${graphPrompt} `;
 
     // System Prompt - The memories go as a system prompt
-    const systemPrompt: LanguageModelV1Message = {
+    const systemPrompt: LanguageModelV2Message = {
       role: "system",
       content: memoriesPrompt
     };
@@ -97,7 +105,7 @@ export class Mem0GenericLanguageModel implements LanguageModelV1 {
     }
   }
 
-  async doGenerate(options: LanguageModelV1CallOptions): Promise<Awaited<ReturnType<LanguageModelV1['doGenerate']>>> {
+  async doGenerate(options: LanguageModelV2CallOptions): Promise<Awaited<ReturnType<LanguageModelV2['doGenerate']>>> {
     try {   
       const provider = this.config.provider;
       const mem0_api_key = this.config.mem0ApiKey;
@@ -133,44 +141,32 @@ export class Mem0GenericLanguageModel implements LanguageModelV1 {
         return ans;
       }
       
-      // Create sources array with existing sources
-      const sources = [...(ans.sources || [])];
-      
-      // Add a combined source with all memories
-      if (Array.isArray(memories) && memories?.length > 0) {
-        sources.push({
-          title: "Mem0 Memories",
-          sourceType: "url",
-          id: "mem0-" + generateRandomId(),
-          url: "https://app.mem0.ai",
-          providerMetadata: {
-            mem0: {
-              memories: memories,
-              memoriesText: memories?.map((memory: any) => memory?.memory).join("\n\n")
-            }
-          }
-        });
-        
-        // Add individual memory sources for more detailed information
-        memories?.forEach((memory: any) => {
-          sources.push({
-            title: memory.title || "Memory",
+      try {
+        // Create sources array with existing sources
+        const sources: LanguageModelV2Source[] = [
+          {
+            type: "source",
+            title: "Mem0 Memories",
             sourceType: "url",
-            id: "mem0-memory-" + generateRandomId(),
+            id: "mem0-" + generateRandomId(),
             url: "https://app.mem0.ai",
             providerMetadata: {
               mem0: {
-                memory: memory,
-                memoryText: memory?.memory
-              }
-            }
-          });
-        });
+                memories: memories,
+                memoriesText: memories
+                  ?.map((memory: any) => memory?.memory)
+                  .join("\n\n"),
+              },
+            },
+          },
+        ];
+      } catch (e) {
+        console.error("Error while creating sources");
       }
  
       return {
         ...ans,
-        sources
+        // sources
       };
     } catch (error) {
       // Handle errors properly
@@ -179,7 +175,7 @@ export class Mem0GenericLanguageModel implements LanguageModelV1 {
     }
   }
 
-  async doStream(options: LanguageModelV1CallOptions): Promise<Awaited<ReturnType<LanguageModelV1['doStream']>>> {
+  async doStream(options: LanguageModelV2CallOptions): Promise<Awaited<ReturnType<LanguageModelV2['doStream']>>> {
     try {
       const provider = this.config.provider;
       const mem0_api_key = this.config.mem0ApiKey;
@@ -204,9 +200,10 @@ export class Mem0GenericLanguageModel implements LanguageModelV1 {
       // Process memories and update prompts
       const { memories, messagesPrompts: updatedPrompts } = await this.processMemories(messagesPrompts, mem0Config);
 
-      const model = selector.createProvider();
+      const baseModel = selector.createProvider();
 
-      const streamResponse = await model.doStream({
+      // Use the provider's native streaming directly to avoid buffering
+      const streamResponse = await baseModel.doStream({
         ...options,
         prompt: updatedPrompts,
       });
@@ -216,71 +213,11 @@ export class Mem0GenericLanguageModel implements LanguageModelV1 {
         return streamResponse;
       }
 
-      // Create a new stream that includes memory sources
-      const originalStream = streamResponse.stream;
-      
-      // Create a transform stream that adds memory sources at the beginning
-      const transformStream = new TransformStream({
-        start(controller) {
-          // Add source chunks for each memory at the beginning
-          try {
-            if (Array.isArray(memories) && memories?.length > 0) {
-              // Create a single source that contains all memories
-              controller.enqueue({
-                type: 'source',
-                source: {
-                  title: "Mem0 Memories",
-                  sourceType: "url",
-                  id: "mem0-" + generateRandomId(),
-                  url: "https://app.mem0.ai",
-                  providerMetadata: {
-                    mem0: {
-                      memories: memories,
-                      memoriesText: memories?.map((memory: any) => memory?.memory).join("\n\n")
-                    }
-                  }
-                }
-              });
-              
-              // Also add individual memory sources for more detailed information
-              memories?.forEach((memory: any) => {
-                controller.enqueue({
-                  type: 'source',
-                  source: {
-                    title: memory?.title || "Memory",
-                    sourceType: "url",
-                    id: "mem0-memory-" + generateRandomId(),
-                    url: "https://app.mem0.ai",
-                    providerMetadata: {
-                      mem0: {
-                        memory: memory,
-                        memoryText: memory?.memory
-                      }
-                    }
-                  }
-                });
-              });
-            }
-          } catch (error) {
-            console.error("Error adding memory sources:", error);
-          }
-        },
-        transform(chunk, controller) {
-          // Pass through all chunks from the original stream
-          controller.enqueue(chunk);
-        }
-      });
-
-      // Pipe the original stream through our transform stream
-      const enhancedStream = originalStream.pipeThrough(transformStream);
-
-      // Return a new stream response with our enhanced stream
+      // Return stream untouched for true streaming behavior
       return {
-        stream: enhancedStream,
-        rawCall: streamResponse.rawCall,
-        rawResponse: streamResponse.rawResponse,
+        stream: streamResponse.stream,
         request: streamResponse.request,
-        warnings: streamResponse.warnings
+        response: streamResponse.response,
       };
     } catch (error) {
       console.error("Error in doStream:", error);

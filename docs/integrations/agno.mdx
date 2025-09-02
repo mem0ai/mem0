@@ -1,16 +1,16 @@
 ---
 title: Agno
 ---
-<Snippet file="paper-release.mdx" />
 
-Integrate [**Mem0**](https://github.com/mem0ai/mem0) with [Agno](https://github.com/agno-agi/agno), a Python framework for building autonomous agents. This integration enables Agno agents to access persistent memory across conversations, enhancing context retention and personalization.
+This integration of [**Mem0**](https://github.com/mem0ai/mem0) with [Agno](https://github.com/agno-agi/agno, enables persistent, multimodal memory for Agno-based agents - improving personalization, context awareness, and continuity across conversations.
 
 ## Overview
 
-1. 🧠 Store and retrieve memories from Mem0 within Agno agents
-2. 🖼️ Support for multimodal interactions (text and images)
-3. 🔍 Semantic search for relevant past conversations
-4. 🌐 Personalized responses based on user history
+1. Store and retrieve memories from Mem0 within Agno agents
+2. Support for multimodal interactions (text and images)
+3. Semantic search for relevant past conversations
+4. Personalized responses based on user history
+5. One-line memory integration via `Mem0Tools`
 
 ## Prerequisites
 
@@ -18,14 +18,41 @@ Before setting up Mem0 with Agno, ensure you have:
 
 1. Installed the required packages:
 ```bash
-pip install agno-ai mem0ai
+pip install agno mem0ai python-dotenv
 ```
 
 2. Valid API keys:
    - [Mem0 API Key](https://app.mem0.ai/dashboard/api-keys)
    - OpenAI API Key (for the agent model)
 
-## Integration Example
+## Quick Integration (Using `Mem0Tools`)
+
+The simplest way to integrate Mem0 with Agno Agents is to use Mem0 as a tool using built-in `Mem0Tools`:
+
+```python
+from agno.agent import Agent
+from agno.models.openai import OpenAIChat
+from agno.tools.mem0 import Mem0Tools
+
+agent = Agent(
+    name="Memory Agent",
+    model=OpenAIChat(id="gpt-4o-mini"),
+    tools=[Mem0Tools()],
+    description="An assistant that remembers and personalizes using Mem0 memory."
+)
+```
+
+This enables memory functionality out of the box:
+
+- **Persistent memory writing**: `Mem0Tools` uses `MemoryClient.add(...)` to store messages from user-agent interactions, including optional metadata such as user ID or session.
+- **Contextual memory search**: Compatible queries use `MemoryClient.search(...)` to retrieve relevant past messages, improving contextual understanding.
+- **Multimodal support**: Both text and image inputs are supported, allowing richer memory records.
+
+> `Mem0Tools` uses the `MemoryClient` under the hood and requires no additional setup. You can customize its behavior by modifying your tools list or extending it in code.
+
+## Full Manual Example
+
+> Note: Mem0 can also be used with Agno Agents as a separate memory layer.
 
 The following example demonstrates how to create an Agno agent with Mem0 memory integration, including support for image processing:
 
@@ -38,7 +65,6 @@ from agno.agent import Agent
 from agno.media import Image
 from agno.models.openai import OpenAIChat
 from mem0 import MemoryClient
-
 
 # Initialize the Mem0 client
 client = MemoryClient()
@@ -55,7 +81,7 @@ agent = Agent(
 
 def chat_user(
     user_input: Optional[str] = None,
-    user_id: str = "user_123",
+    user_id: str = "alex",
     image_path: Optional[str] = None
 ) -> str:
     """
@@ -94,13 +120,13 @@ def chat_user(
         })
 
         # Store messages in memory
-        client.add(messages, user_id=user_id)
+        client.add(messages, user_id=user_id, output_format='v1.1')
         print("✅ Image and text stored in memory.")
 
     if user_input:
         # Search for relevant memories
-        memories = client.search(user_input, user_id=user_id)
-        memory_context = "\n".join(f"- {m['memory']}" for m in memories)
+        memories = client.search(user_input, user_id=user_id, output_format='v1.1')
+        memory_context = "\n".join(f"- {m['memory']}" for m in memories['results'])
 
         # Construct the prompt
         prompt = f"""
@@ -124,7 +150,8 @@ User question:
             response = agent.run(prompt)
 
         # Store the interaction in memory
-        client.add(f"User: {user_input}\nAssistant: {response.content}", user_id=user_id)
+        interaction_message = [{"role": "user", "content": f"User: {user_input}\nAssistant: {response.content}"}]
+        client.add(interaction_message, user_id=user_id, output_format='v1.1')
         return response.content
 
     return "No user input or image provided."
@@ -133,9 +160,9 @@ User question:
 # Example Usage
 if __name__ == "__main__":
     response = chat_user(
-        "This is the picture of what I brought with me in the trip to Bahamas",
+        "I like to travel and my favorite destination is London",
         image_path="travel_items.jpeg",
-        user_id="user_123"
+        user_id="alex"
     )
     print(response)
 ```
@@ -162,6 +189,8 @@ Improve your agent's context awareness:
 
 Customize the integration to your needs:
 
+- **Use `Mem0Tools()`** for drop-in memory support
+- **Use `MemoryClient` directly** for advanced control
 - **User Identification**: Organize memories by user ID
 - **Memory Search**: Configure search relevance and result count
 - **Memory Formatting**: Support for various OpenAI message formats

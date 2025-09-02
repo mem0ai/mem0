@@ -10,6 +10,7 @@ try:
     from langchain.chat_models.base import BaseChatModel
 except ImportError:
     from unittest.mock import MagicMock
+
     BaseChatModel = MagicMock
 
 
@@ -24,16 +25,11 @@ def mock_langchain_model():
 def test_langchain_initialization(mock_langchain_model):
     """Test that LangchainLLM initializes correctly with a valid model."""
     # Create a config with the model instance directly
-    config = BaseLlmConfig(
-        model=mock_langchain_model,
-        temperature=0.7,
-        max_tokens=100,
-        api_key="test-api-key"
-    )
-    
+    config = BaseLlmConfig(model=mock_langchain_model, temperature=0.7, max_tokens=100, api_key="test-api-key")
+
     # Initialize the LangchainLLM
     llm = LangchainLLM(config)
-    
+
     # Verify the model was correctly assigned
     assert llm.langchain_model == mock_langchain_model
 
@@ -41,35 +37,30 @@ def test_langchain_initialization(mock_langchain_model):
 def test_generate_response(mock_langchain_model):
     """Test that generate_response correctly processes messages and returns a response."""
     # Create a config with the model instance
-    config = BaseLlmConfig(
-        model=mock_langchain_model,
-        temperature=0.7,
-        max_tokens=100,
-        api_key="test-api-key"
-    )
-    
+    config = BaseLlmConfig(model=mock_langchain_model, temperature=0.7, max_tokens=100, api_key="test-api-key")
+
     # Initialize the LangchainLLM
     llm = LangchainLLM(config)
-    
+
     # Create test messages
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Hello, how are you?"},
         {"role": "assistant", "content": "I'm doing well! How can I help you?"},
-        {"role": "user", "content": "Tell me a joke."}
+        {"role": "user", "content": "Tell me a joke."},
     ]
-    
+
     # Get response
     response = llm.generate_response(messages)
-    
+
     # Verify the correct message format was passed to the model
     expected_langchain_messages = [
         ("system", "You are a helpful assistant."),
         ("human", "Hello, how are you?"),
         ("ai", "I'm doing well! How can I help you?"),
-        ("human", "Tell me a joke.")
+        ("human", "Tell me a joke."),
     ]
-    
+
     mock_langchain_model.invoke.assert_called_once()
     # Extract the first argument of the first call
     actual_messages = mock_langchain_model.invoke.call_args[0][0]
@@ -79,25 +70,15 @@ def test_generate_response(mock_langchain_model):
 
 def test_invalid_model():
     """Test that LangchainLLM raises an error with an invalid model."""
-    config = BaseLlmConfig(
-        model="not-a-valid-model-instance",
-        temperature=0.7,
-        max_tokens=100,
-        api_key="test-api-key"
-    )
-    
+    config = BaseLlmConfig(model="not-a-valid-model-instance", temperature=0.7, max_tokens=100, api_key="test-api-key")
+
     with pytest.raises(ValueError, match="`model` must be an instance of BaseChatModel"):
         LangchainLLM(config)
 
 
 def test_missing_model():
     """Test that LangchainLLM raises an error when model is None."""
-    config = BaseLlmConfig(
-        model=None,
-        temperature=0.7,
-        max_tokens=100,
-        api_key="test-api-key"
-    )
-    
+    config = BaseLlmConfig(model=None, temperature=0.7, max_tokens=100, api_key="test-api-key")
+
     with pytest.raises(ValueError, match="`model` parameter is required"):
         LangchainLLM(config)

@@ -1,0 +1,8 @@
+services:
+  mem0_store:
+    image: qdrant/qdrant:latest
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+    volumes:
+      - mem0_storage:/mem0/storage

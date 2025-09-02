@@ -1,0 +1,256 @@
+---
+title: Contextual Memory Creation
+icon: "square-plus"
+iconType: "solid"
+description: "Add messages with automatic context management - no manual history tracking required"
+---
+
+## What is Contextual Memory Creation?
+
+Contextual memory creation automatically manages message history for you, so you can focus on building great AI experiences instead of tracking interactions manually. Simply send new messages, and Mem0 handles the context automatically.
+
+<CodeGroup>
+```python Python
+# Just send new messages - Mem0 handles the context
+messages = [
+    {"role": "user", "content": "I love Italian food, especially pasta"},
+    {"role": "assistant", "content": "Great! I'll remember your preference for Italian cuisine."}
+]
+
+client.add(messages, user_id="user123", version="v2")
+```
+
+```javascript JavaScript
+// Just send new messages - Mem0 handles the context
+const messages = [
+    {"role": "user", "content": "I love Italian food, especially pasta"},
+    {"role": "assistant", "content": "Great! I'll remember your preference for Italian cuisine."}
+];
+
+await client.add(messages, { user_id: "user123", version: "v2" });
+```
+</CodeGroup>
+
+## Why Use Contextual Memory Creation?
+
+- **Simple**: Send only new messages, no manual history tracking
+- **Efficient**: Smaller payloads and faster processing
+- **Automatic**: Context management handled by Mem0
+- **Reliable**: No risk of missing interaction history
+- **Scalable**: Works seamlessly as your application grows
+
+## How It Works
+
+### Basic Usage
+
+<CodeGroup>
+```python Python
+# First interaction
+messages1 = [
+    {"role": "user", "content": "Hi, I'm Sarah from New York"},
+    {"role": "assistant", "content": "Hello Sarah! Nice to meet you."}
+]
+client.add(messages1, user_id="sarah", version="v2")
+
+# Later interaction - just send new messages
+messages2 = [
+    {"role": "user", "content": "I'm planning a trip to Italy next month"},
+    {"role": "assistant", "content": "How exciting! Italy is beautiful this time of year."}
+]
+client.add(messages2, user_id="sarah", version="v2")
+# Mem0 automatically knows Sarah is from New York and can use this context
+```
+
+```javascript JavaScript
+// First interaction
+const messages1 = [
+    {"role": "user", "content": "Hi, I'm Sarah from New York"},
+    {"role": "assistant", "content": "Hello Sarah! Nice to meet you."}
+];
+await client.add(messages1, { user_id: "sarah", version: "v2" });
+
+// Later interaction - just send new messages
+const messages2 = [
+    {"role": "user", "content": "I'm planning a trip to Italy next month"},
+    {"role": "assistant", "content": "How exciting! Italy is beautiful this time of year."}
+];
+await client.add(messages2, { user_id: "sarah", version: "v2" });
+// Mem0 automatically knows Sarah is from New York and can use this context
+```
+</CodeGroup>
+
+## Organization Strategies
+
+Choose the right approach based on your application's needs:
+
+### User-Level Memories (`user_id` only)
+
+Best for: Personal preferences, profile information, long-term user data
+
+<CodeGroup>
+```python Python
+# Persistent user memories across all interactions
+messages = [
+    {"role": "user", "content": "I'm allergic to nuts and dairy"},
+    {"role": "assistant", "content": "I've noted your allergies for future reference."}
+]
+
+client.add(messages, user_id="user123", version="v2")
+# This allergy info will be available in ALL future interactions
+```
+
+```javascript JavaScript
+// Persistent user memories across all interactions
+const messages = [
+    {"role": "user", "content": "I'm allergic to nuts and dairy"},
+    {"role": "assistant", "content": "I've noted your allergies for future reference."}
+];
+
+await client.add(messages, { user_id: "user123", version: "v2" });
+// This allergy info will be available in ALL future interactions
+```
+</CodeGroup>
+
+### Session-Specific Memories (`user_id` + `run_id`)
+
+Best for: Task-specific context, separate interaction threads, project-based sessions
+
+<CodeGroup>
+```python Python
+# Trip planning session
+messages1 = [
+    {"role": "user", "content": "I want to plan a 5-day trip to Tokyo"},
+    {"role": "assistant", "content": "Perfect! Let's plan your Tokyo adventure."}
+]
+client.add(messages1, user_id="user123", run_id="tokyo-trip-2024", version="v2")
+
+# Later in the same trip planning session
+messages2 = [
+    {"role": "user", "content": "I prefer staying near Shibuya"},
+    {"role": "assistant", "content": "Great choice! Shibuya is very convenient."}
+]
+client.add(messages2, user_id="user123", run_id="tokyo-trip-2024", version="v2")
+
+# Different session for work project (separate context)
+work_messages = [
+    {"role": "user", "content": "Let's discuss the Q4 marketing strategy"},
+    {"role": "assistant", "content": "Sure! What are your main goals for Q4?"}
+]
+client.add(work_messages, user_id="user123", run_id="q4-marketing", version="v2")
+```
+
+```javascript JavaScript
+// Trip planning session
+const messages1 = [
+    {"role": "user", "content": "I want to plan a 5-day trip to Tokyo"},
+    {"role": "assistant", "content": "Perfect! Let's plan your Tokyo adventure."}
+];
+await client.add(messages1, { user_id: "user123", run_id: "tokyo-trip-2024", version: "v2" });
+
+// Later in the same trip planning session
+const messages2 = [
+    {"role": "user", "content": "I prefer staying near Shibuya"},
+    {"role": "assistant", "content": "Great choice! Shibuya is very convenient."}
+];
+await client.add(messages2, { user_id: "user123", run_id: "tokyo-trip-2024", version: "v2" });
+
+// Different session for work project (separate context)
+const workMessages = [
+    {"role": "user", "content": "Let's discuss the Q4 marketing strategy"},
+    {"role": "assistant", "content": "Sure! What are your main goals for Q4?"}
+];
+await client.add(workMessages, { user_id: "user123", run_id: "q4-marketing", version: "v2" });
+```
+</CodeGroup>
+
+## Real-World Use Cases
+
+<Tabs>
+  <Tab title="Customer Support">
+```python Python
+# Support ticket context - keeps interaction focused
+messages = [
+    {"role": "user", "content": "My subscription isn't working"},
+    {"role": "assistant", "content": "I can help with that. What specific issue are you experiencing?"},
+    {"role": "user", "content": "I can't access premium features even though I paid"}
+]
+
+# Each support ticket gets its own run_id
+client.add(messages, 
+    user_id="customer123", 
+    run_id="ticket-2024-001", 
+    version="v2"
+)
+```
+  </Tab>
+  <Tab title="Personal AI Assistant">
+```python Python
+# Personal preferences (persistent across all interactions)
+preference_messages = [
+    {"role": "user", "content": "I prefer morning workouts and vegetarian meals"},
+    {"role": "assistant", "content": "Got it! I'll keep your fitness and dietary preferences in mind."}
+]
+
+client.add(preference_messages, user_id="user456", version="v2")
+
+# Daily planning session (session-specific)
+planning_messages = [
+    {"role": "user", "content": "Help me plan tomorrow's schedule"},
+    {"role": "assistant", "content": "Of course! I'll consider your morning workout preference."}
+]
+
+client.add(planning_messages, 
+    user_id="user456", 
+    run_id="daily-plan-2024-01-15", 
+    version="v2"
+)
+```
+  </Tab>
+  <Tab title="Educational Platform">
+```python Python
+# Student profile (persistent)
+profile_messages = [
+    {"role": "user", "content": "I'm studying computer science and struggle with math"},
+    {"role": "assistant", "content": "I'll tailor explanations to help with math concepts."}
+]
+
+client.add(profile_messages, user_id="student789", version="v2")
+
+# Specific lesson session
+lesson_messages = [
+    {"role": "user", "content": "Can you explain algorithms?"},
+    {"role": "assistant", "content": "Sure! I'll explain algorithms with math-friendly examples."}
+]
+
+client.add(lesson_messages,
+    user_id="student789",
+    run_id="algorithms-lesson-1",
+    version="v2"
+)
+```
+  </Tab>
+</Tabs>
+
+## Best Practices
+
+### ✅ Do
+- **Organize by context scope**: Use `user_id` only for persistent data, add `run_id` for session-specific context
+- **Keep messages focused** on the current interaction
+- **Test with real interaction flows** to ensure context works as expected
+
+### ❌ Don't
+- Send duplicate messages or interaction history
+- Forget to include `version="v2"` parameter
+- Mix contextual and non-contextual approaches in the same application
+
+## Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| **Context not working** | Ensure you're using `version="v2"` and consistent `user_id` |
+| **Wrong context retrieved** | Check if you need separate `run_id` values for different interaction topics |
+| **Missing interaction history** | Verify all messages in the interaction thread use the same `user_id` and `run_id` |
+| **Too much irrelevant context** | Use more specific `run_id` values to separate different interaction types |
+
+
+<Snippet file="get-help.mdx" />
