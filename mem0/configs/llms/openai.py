@@ -28,6 +28,7 @@ class OpenAIConfig(BaseLlmConfig):
         openrouter_base_url: Optional[str] = None,
         site_url: Optional[str] = None,
         app_name: Optional[str] = None,
+        store: bool = False,
         # Response monitoring callback
         response_callback: Optional[Callable[[Any, dict, dict], None]] = None,
     ):
@@ -72,5 +73,7 @@ class OpenAIConfig(BaseLlmConfig):
         self.openrouter_base_url = openrouter_base_url
         self.site_url = site_url
         self.app_name = app_name
+        self.store = store
+
         # Response monitoring
         self.response_callback = response_callback
