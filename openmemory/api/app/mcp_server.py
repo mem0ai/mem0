@@ -15,13 +15,13 @@ Key features:
 - Environment variable parsing for API keys
 """
 
-import contextvars
 import datetime
 import json
 import logging
 import uuid
 
 from app.database import SessionLocal
+from app.mcp_context import client_name_var, user_id_var
 from app.models import Memory, MemoryAccessLog, MemoryState, MemoryStatusHistory
 from app.utils.db import get_user_and_app
 from app.utils.memory import get_memory_client
@@ -47,9 +47,6 @@ def get_memory_client_safe():
         logging.warning(f"Failed to get memory client: {e}")
         return None
 
-# Context variables for user_id and client_name
-user_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("user_id")
-client_name_var: contextvars.ContextVar[str] = contextvars.ContextVar("client_name")
 
 # Create a router for MCP endpoints
 mcp_router = APIRouter(prefix="/mcp")
@@ -57,7 +54,6 @@ mcp_router = APIRouter(prefix="/mcp")
 # Initialize SSE transport
 sse = SseServerTransport("/mcp/messages/")
 
-@mcp.tool(description="Add a new memory. This method is called everytime the user informs anything about themselves, their preferences, or anything that has any relevant information which can be useful in the future conversation. This can also be called when the user asks you to remember something.")
 async def add_memories(text: str) -> str:
     uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
@@ -143,7 +139,12 @@ async def add_memories(text: str) -> str:
         return f"Error adding to memory: {e}"
 
 
-@mcp.tool(description="Search through stored memories. This method is called EVERYTIME the user asks anything.")
+# Thin MCP-registered wrapper that delegates to the context-preserving function above.
+@mcp.tool(description="Add a new memory. This method is called everytime the user informs anything about themselves, their preferences, or anything that has any relevant information which can be useful in the future conversation. This can also be called when the user asks you to remember something.")
+async def tool_add_memories(text: str) -> str:
+    return await add_memories(text)
+
+
 async def search_memory(query: str) -> str:
     uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
@@ -221,7 +222,11 @@ async def search_memory(query: str) -> str:
         return f"Error searching memory: {e}"
 
 
-@mcp.tool(description="List all memories in the user's memory")
+@mcp.tool(description="Search through stored memories. This method is called EVERYTIME the user asks anything.")
+async def tool_search_memory(query: str) -> str:
+    return await search_memory(query)
+
+
 async def list_memories() -> str:
     uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
@@ -290,7 +295,11 @@ async def list_memories() -> str:
         return f"Error getting memories: {e}"
 
 
-@mcp.tool(description="Delete all memories in the user's memory")
+@mcp.tool(description="List all memories in the user's memory")
+async def tool_list_memories() -> str:
+    return await list_memories()
+
+
 async def delete_all_memories() -> str:
     uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
@@ -353,6 +362,11 @@ async def delete_all_memories() -> str:
     except Exception as e:
         logging.exception(f"Error deleting memories: {e}")
         return f"Error deleting memories: {e}"
+
+
+@mcp.tool(description="Delete all memories in the user's memory")
+async def tool_delete_all_memories() -> str:
+    return await delete_all_memories()
 
 
 @mcp_router.get("/{client_name}/sse/{user_id}")
