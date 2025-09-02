@@ -69,7 +69,7 @@ def test_mysql_loader_load_data_successful(mysql_loader, mocker):
     doc_id = hashlib.sha256((query + ", ".join([d["content"] for d in result["data"]])).encode()).hexdigest()
 
     assert result["doc_id"] == doc_id
-    assert mock_cursor.execute.called_with(query)
+    mock_cursor.execute.assert_called_with(query)
 
 
 def test_mysql_loader_load_data_invalid_query(mysql_loader):
