@@ -336,13 +336,13 @@ class MemoryGraph(NeptuneBase):
         destination_extra_set = f", destination:`{destination_type}`" if self.node_label else ""
 
         cypher = f"""
-                MERGE (n {source_label} {{name: $source_name, user_id: $user_id, ~id: $source_id}})
+                MERGE (n {source_label} {{name: $source_name, user_id: $user_id, `~id`: $source_id}})
                 ON CREATE SET n.created = timestamp(),
                               n.mentions = 1
                               {source_extra_set}
                 ON MATCH SET n.mentions = coalesce(n.mentions, 0) + 1
                 WITH n
-                MERGE (m {destination_label} {{name: $dest_name, user_id: $user_id, , ~id: $dest_id}})
+                MERGE (m {destination_label} {{name: $dest_name, user_id: $user_id, `~id`: $dest_id}})
                 ON CREATE SET m.created = timestamp(),
                               m.mentions = 1
                               {destination_extra_set}
@@ -384,32 +384,12 @@ class MemoryGraph(NeptuneBase):
             filters={"user_id": user_id},
         )
 
-        ids = []
+        ids = [n.id for n in source_nodes]
 
         cypher = f"""
             MATCH (source_candidate {self.node_label})
             WHERE source_candidate.user_id = $user_id AND id(source_candidate) IN $ids
             RETURN id(source_candidate)
-            """
-
-        old_cypher = f"""
-            MATCH (source_candidate {self.node_label})
-            WHERE source_candidate.user_id = $user_id 
-
-            WITH source_candidate, $source_embedding as v_embedding
-            CALL neptune.algo.vectors.distanceByEmbedding(
-                v_embedding,
-                source_candidate,
-                {{metric:"CosineSimilarity"}}
-            ) YIELD distance
-            WITH source_candidate, distance AS cosine_similarity
-            WHERE cosine_similarity >= $threshold
-
-            WITH source_candidate, cosine_similarity
-            ORDER BY cosine_similarity DESC
-            LIMIT 1
-
-            RETURN id(source_candidate), cosine_similarity
             """
 
         params = {
@@ -437,33 +417,13 @@ class MemoryGraph(NeptuneBase):
             filters={"user_id": user_id},
         )
 
-        ids = []
+        ids = [n.id for n in destination_nodes]
 
         cypher = f"""
             MATCH (destination_candidate {self.node_label})
             WHERE destination_candidate.user_id = $user_id AND id(destination_candidate) IN $ids
             RETURN id(destination_candidate)
             """
-
-        cypher_old = f"""
-                MATCH (destination_candidate {self.node_label})
-                WHERE destination_candidate.user_id = $user_id
-                
-                WITH destination_candidate, $destination_embedding as v_embedding
-                CALL neptune.algo.vectors.distanceByEmbedding(
-                    v_embedding,
-                    destination_candidate, 
-                    {{metric:"CosineSimilarity"}}
-                ) YIELD distance
-                WITH destination_candidate, distance AS cosine_similarity
-                WHERE cosine_similarity >= $threshold
-
-                WITH destination_candidate, cosine_similarity
-                ORDER BY cosine_similarity DESC
-                LIMIT 1
-    
-                RETURN id(destination_candidate), cosine_similarity
-                """
 
         params = {
             "ids": ids,
@@ -531,7 +491,7 @@ class MemoryGraph(NeptuneBase):
             filters=filters,
         )
 
-        ids = []
+        ids = [n.id for n in search_nodes]
 
         cypher_query = f"""
             MATCH (n {self.node_label})-[r]->(m)
@@ -542,32 +502,6 @@ class MemoryGraph(NeptuneBase):
             RETURN m.name AS source, id(m) AS source_id, type(r) AS relationship, id(r) AS relation_id, n.name AS destination, id(n) AS destination_id
             LIMIT $limit
         """
-
-        old_cypher_query = f"""
-            MATCH (n {self.node_label})
-            WHERE n.user_id = $user_id
-            WITH n, $n_embedding as n_embedding
-            CALL neptune.algo.vectors.distanceByEmbedding(
-                n_embedding,
-                n,
-                {{metric:"CosineSimilarity"}}
-            ) YIELD distance
-            WITH n, distance as similarity
-            WHERE similarity >= $threshold
-            CALL {{
-                WITH n
-                MATCH (n)-[r]->(m) 
-                RETURN n.name AS source, id(n) AS source_id, type(r) AS relationship, id(r) AS relation_id, m.name AS destination, id(m) AS destination_id
-                UNION ALL
-                WITH n
-                MATCH (m)-[r]->(n) 
-                RETURN m.name AS source, id(m) AS source_id, type(r) AS relationship, id(r) AS relation_id, n.name AS destination, id(n) AS destination_id
-            }}
-            WITH distinct source, source_id, relationship, relation_id, destination, destination_id, similarity
-            RETURN source, source_id, relationship, relation_id, destination, destination_id, similarity
-            ORDER BY similarity DESC
-            LIMIT $limit
-            """
         params = {
             "n_ids": ids,
             "user_id": filters["user_id"],
