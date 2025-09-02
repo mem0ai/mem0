@@ -21,7 +21,7 @@ logging.basicConfig(
 
 bedrock_embedder_model = "amazon.titan-embed-text-v2:0"
 bedrock_llm_model = "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
-embedding_model_dims = 1536
+embedding_model_dims = 1024
 
 neptune_host = os.environ.get("GRAPH_HOST")
 
@@ -75,6 +75,8 @@ user_id = "alice"
 
 m.delete_all(user_id=user_id)
 
+#### ADD "I'm planning to watch a movie tonight. Any recommendations?"
+
 messages = [
     {
         "role": "user",
@@ -91,3 +93,87 @@ for n in all_results["results"]:
 
 for e in all_results["relations"]:
     print(f"edge \"{e['source']}\" --{e['relationship']}--> \"{e['target']}\"")
+
+#### ADD "How about a thriller movies? They can be quite engaging."
+
+messages = [
+    {
+        "role": "assistant",
+        "content": "How about a thriller movies? They can be quite engaging.",
+    },
+]
+
+# Store inferred memories (default behavior)
+result = m.add(messages, user_id=user_id, metadata={"category": "movie_recommendations"})
+
+all_results = m.get_all(user_id=user_id)
+for n in all_results["results"]:
+    print(f"node \"{n['memory']}\": [hash: {n['hash']}]")
+
+for e in all_results["relations"]:
+    print(f"edge \"{e['source']}\" --{e['relationship']}--> \"{e['target']}\"")
+
+#### ADD "I'm not a big fan of thriller movies but I love sci-fi movies."
+
+messages = [
+    {
+        "role": "user",
+        "content": "I'm not a big fan of thriller movies but I love sci-fi movies.",
+    },
+]
+
+# Store inferred memories (default behavior)
+result = m.add(messages, user_id=user_id, metadata={"category": "movie_recommendations"})
+
+all_results = m.get_all(user_id=user_id)
+for n in all_results["results"]:
+    print(f"node \"{n['memory']}\": [hash: {n['hash']}]")
+
+for e in all_results["relations"]:
+    print(f"edge \"{e['source']}\" --{e['relationship']}--> \"{e['target']}\"")
+
+#### ADD "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."
+
+messages = [
+    {
+        "role": "assistant",
+        "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future.",
+    },
+]
+
+# Store inferred memories (default behavior)
+result = m.add(messages, user_id=user_id, metadata={"category": "movie_recommendations"})
+
+all_results = m.get_all(user_id=user_id)
+for n in all_results["results"]:
+    print(f"node \"{n['memory']}\": [hash: {n['hash']}]")
+
+for e in all_results["relations"]:
+    print(f"edge \"{e['source']}\" --{e['relationship']}--> \"{e['target']}\"")
+
+# SEARCH
+
+search_results = m.search("what does alice love?", user_id=user_id)
+print("what does alice love?")
+for result in search_results["results"]:
+    print(f"\"{result['memory']}\" [score: {result['score']}]")
+for relation in search_results["relations"]:
+    print(f"{relation}")
+
+print("what should we do tonight?")
+search_results = m.search("what should we do tonight?", user_id=user_id)
+for result in search_results["results"]:
+    print(f"\"{result['memory']}\" [score: {result['score']}]")
+for relation in search_results["relations"]:
+    print(f"{relation}")
+
+# GET ALL
+
+print("all results:")
+all_results = m.get_all(user_id=user_id)
+print(f"all_results={all_results}")
+
+# TEARDOWN
+
+m.delete_all(user_id)
+m.reset()
