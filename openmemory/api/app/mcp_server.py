@@ -13,12 +13,14 @@ Key features:
 - Fallback to database-only mode when vector store is unavailable
 - Proper logging for debugging connection issues
 - Environment variable parsing for API keys
+- Optional per-call context (user_id, client_name) for stdio clients
 """
 
 import datetime
 import json
 import logging
 import uuid
+from typing import Optional
 
 from app.database import SessionLocal
 from app.mcp_context import client_name_var, user_id_var
@@ -54,7 +56,33 @@ mcp_router = APIRouter(prefix="/mcp")
 # Initialize SSE transport
 sse = SseServerTransport("/mcp/messages/")
 
-async def add_memories(text: str) -> str:
+def _maybe_set_context(user_id: Optional[str], client_name: Optional[str]):
+    """Set contextvars for this call if provided; return tokens to reset later."""
+    user_token = client_token = None
+    if user_id:
+        user_token = user_id_var.set(user_id)
+    if client_name:
+        client_token = client_name_var.set(client_name)
+    return user_token, client_token
+
+
+def _maybe_reset_context(user_token, client_token):
+    if user_token is not None:
+        user_id_var.reset(user_token)
+    if client_token is not None:
+        client_name_var.reset(client_token)
+
+
+@mcp.tool(
+    description=(
+        "Add a new memory. This method is called everytime the user informs anything about themselves, "
+        "their preferences, or anything that has any relevant information which can be useful in the "
+        "future conversation. This can also be called when the user asks you to remember something."
+    )
+)
+async def add_memories(text: str, user_id: Optional[str] = None, client_name: Optional[str] = None) -> str:
+    # Allow stdio clients to pass context directly; SSE route also sets context separately
+    user_token, client_token = _maybe_set_context(user_id, client_name)
     uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
 
@@ -137,15 +165,15 @@ async def add_memories(text: str) -> str:
     except Exception as e:
         logging.exception(f"Error adding to memory: {e}")
         return f"Error adding to memory: {e}"
+    finally:
+        _maybe_reset_context(user_token, client_token)
 
 
 # Thin MCP-registered wrapper that delegates to the context-preserving function above.
 @mcp.tool(description="Add a new memory. This method is called everytime the user informs anything about themselves, their preferences, or anything that has any relevant information which can be useful in the future conversation. This can also be called when the user asks you to remember something.")
-async def tool_add_memories(text: str) -> str:
-    return await add_memories(text)
-
-
-async def search_memory(query: str) -> str:
+@mcp.tool(description="Search through stored memories. This method is called EVERYTIME the user asks anything.")
+async def search_memory(query: str, user_id: Optional[str] = None, client_name: Optional[str] = None) -> str:
+    user_token, client_token = _maybe_set_context(user_id, client_name)
     uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
     if not uid:
@@ -220,14 +248,14 @@ async def search_memory(query: str) -> str:
     except Exception as e:
         logging.exception(e)
         return f"Error searching memory: {e}"
+    finally:
+        _maybe_reset_context(user_token, client_token)
 
 
 @mcp.tool(description="Search through stored memories. This method is called EVERYTIME the user asks anything.")
-async def tool_search_memory(query: str) -> str:
-    return await search_memory(query)
-
-
-async def list_memories() -> str:
+@mcp.tool(description="List all memories in the user's memory")
+async def list_memories(user_id: Optional[str] = None, client_name: Optional[str] = None) -> str:
+    user_token, client_token = _maybe_set_context(user_id, client_name)
     uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
     if not uid:
@@ -293,14 +321,14 @@ async def list_memories() -> str:
     except Exception as e:
         logging.exception(f"Error getting memories: {e}")
         return f"Error getting memories: {e}"
+    finally:
+        _maybe_reset_context(user_token, client_token)
 
 
 @mcp.tool(description="List all memories in the user's memory")
-async def tool_list_memories() -> str:
-    return await list_memories()
-
-
-async def delete_all_memories() -> str:
+@mcp.tool(description="Delete all memories in the user's memory")
+async def delete_all_memories(user_id: Optional[str] = None, client_name: Optional[str] = None) -> str:
+    user_token, client_token = _maybe_set_context(user_id, client_name)
     uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
     if not uid:
@@ -362,6 +390,8 @@ async def delete_all_memories() -> str:
     except Exception as e:
         logging.exception(f"Error deleting memories: {e}")
         return f"Error deleting memories: {e}"
+    finally:
+        _maybe_reset_context(user_token, client_token)
 
 
 @mcp.tool(description="Delete all memories in the user's memory")
