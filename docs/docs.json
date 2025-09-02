@@ -58,6 +58,7 @@
                       "platform/features/platform-overview",
                       "platform/features/contextual-add",
                       "platform/features/async-client",
+                      "platform/features/graph-memory",
                       "platform/features/advanced-retrieval",
                       "platform/features/criteria-retrieval",
                       "platform/features/multimodal-support",
