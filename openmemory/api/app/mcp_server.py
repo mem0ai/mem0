@@ -56,6 +56,14 @@ mcp_router = APIRouter(prefix="/mcp")
 # Initialize SSE transport
 sse = SseServerTransport("/mcp/messages/")
 
+# Python 3.10-compatible UTC timezone
+try:
+    UTC = datetime.UTC  # Python 3.11+
+except AttributeError:  # Python 3.10
+    from datetime import timezone as _tz
+
+    UTC = _tz.utc
+
 def _maybe_set_context(user_id: Optional[str], client_name: Optional[str]):
     """Set contextvars for this call if provided; return tokens to reset later."""
     user_token = client_token = None
@@ -145,7 +153,7 @@ async def add_memories(text: str, user_id: Optional[str] = None, client_name: Op
                     elif result['event'] == 'DELETE':
                         if memory:
                             memory.state = MemoryState.deleted
-                            memory.deleted_at = datetime.datetime.now(datetime.UTC)
+                            memory.deleted_at = datetime.datetime.now(UTC)
                             # Create history entry
                             history = MemoryStatusHistory(
                                 memory_id=memory_id,
@@ -358,7 +366,7 @@ async def delete_all_memories(user_id: Optional[str] = None, client_name: Option
                     logging.warning(f"Failed to delete memory {memory_id} from vector store: {delete_error}")
 
             # Update each memory's state and create history entries
-            now = datetime.datetime.now(datetime.UTC)
+            now = datetime.datetime.now(UTC)
             for memory_id in accessible_memory_ids:
                 memory = db.query(Memory).filter(Memory.id == memory_id).first()
                 # Update memory state

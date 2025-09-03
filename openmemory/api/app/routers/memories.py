@@ -1,5 +1,11 @@
 import logging
-from datetime import UTC, datetime
+from datetime import datetime
+
+try:
+    from datetime import UTC  # py311+
+except ImportError:
+    from datetime import timezone as _tz
+    UTC = _tz.utc
 from typing import List, Optional, Set
 from uuid import UUID
 
