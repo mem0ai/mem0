@@ -50,6 +50,7 @@ class NeptuneConfig(BaseModel):
         ),
     )
     base_label: Optional[bool] = Field(None, description="Whether to use base node label __Entity__ for all entities")
+    collection_name: Optional[str] = Field(None, description="vector_store collection name if vectors are not available")
 
     @model_validator(mode="before")
     def check_host_port_or_path(cls, values):
