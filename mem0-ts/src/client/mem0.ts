@@ -251,11 +251,19 @@ export default class MemoryClient {
     return response;
   }
 
-  async update(memoryId: string, message: string): Promise<Array<Memory>> {
+  async update(
+    memoryId: string,
+    { text, metadata }: { text?: string; metadata?: Record<string, any> },
+  ): Promise<Array<Memory>> {
+    if (text === undefined && metadata === undefined) {
+      throw new Error("Either text or metadata must be provided for update.");
+    }
+
     if (this.telemetryId === "") await this.ping();
     this._validateOrgProject();
     const payload = {
-      text: message,
+      text: text,
+      metadata: metadata,
     };
 
     const payloadKeys = Object.keys(payload);
