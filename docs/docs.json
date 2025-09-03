@@ -1,6 +1,5 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "maple",
   "name": "Mem0",
   "description": "Mem0 is a self-improving memory layer for LLM applications, enabling personalized AI experiences that save costs and delight users.",
   "colors": {
@@ -46,7 +45,7 @@
               },
               {
                 "group": "Platform",
-                "icon": "cogs",
+                "icon": "globe",
                 "pages": [
                   "platform/overview",
                   "platform/quickstart",
@@ -381,7 +380,7 @@
   "background": {
     "color": {
       "light": "#fff",
-      "dark": "#0f1117"
+      "dark": "#09090b"
     }
   },
   "navbar": {
