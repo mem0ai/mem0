@@ -8,8 +8,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-logging.getLogger("mem0.graphs.neptune.neptunedb").setLevel(logging.DEBUG)
-logging.getLogger("mem0.graphs.neptune.base").setLevel(logging.DEBUG)
+# logging.getLogger("mem0.graphs.neptune.neptunedb").setLevel(logging.DEBUG)
+# logging.getLogger("mem0.graphs.neptune.base").setLevel(logging.DEBUG)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
@@ -63,6 +63,7 @@ config = {
     "graph_store": {
         "provider": "neptunedb",
         "config": {
+            "collection_name": "mem0ai_neptune_vector_store",
             "endpoint": f"neptune-db://{neptune_host}",
         },
     },
@@ -72,21 +73,24 @@ m = Memory.from_config(config_dict=config)
 
 app_id = "movies"
 user_id = "alice"
+category = "movie_night"
 
 m.delete_all(user_id=user_id)
 
-#### ADD "I'm planning to watch a movie tonight. Any recommendations?"
+#### ADD "My favourite movie is StarWars: The Empire Strikes Back. Can you remind me to watch this tonight?"
+print("My favourite movie is StarWars: The Empire Strikes Back. Can you remind me to watch this tonight?")
 
 messages = [
     {
         "role": "user",
-        "content": "I'm planning to watch a movie tonight. Any recommendations?",
+        "content": "My favourite movie is StarWars: The Empire Strikes Back. Can you remind me to watch this tonight?",
     },
 ]
 
 # Store inferred memories (default behavior)
-result = m.add(messages, user_id=user_id, metadata={"category": "movie_recommendations"})
+result = m.add(messages, user_id=user_id, metadata={"category": category})
 
+print("all results:")
 all_results = m.get_all(user_id=user_id)
 for n in all_results["results"]:
     print(f"node \"{n['memory']}\": [hash: {n['hash']}]")
@@ -94,37 +98,39 @@ for n in all_results["results"]:
 for e in all_results["relations"]:
     print(f"edge \"{e['source']}\" --{e['relationship']}--> \"{e['target']}\"")
 
-#### ADD "How about a thriller movies? They can be quite engaging."
+#### ADD "Sure! I've added a reminder to watch Star Wars: Episode V – The Empire Strikes Back at 6:00pm"
+print("Sure! I've added a reminder to watch Star Wars: Episode V – The Empire Strikes Back at 6:00pm")
+#### ADD "I'd recommend watching the entire trilogy of Star Wars.  Would you like a reminder to watch the remainder of the trilogy?"
+print("I'd recommend watching the entire trilogy of Star Wars.  Would you like a reminder to watch the remainder of the trilogy?")
 
 messages = [
     {
         "role": "assistant",
-        "content": "How about a thriller movies? They can be quite engaging.",
+        "content": "Sure! I've added a reminder to watch Star Wars: Episode V – The Empire Strikes Back at 6:00pm",
+    },
+    {
+        "role": "assistant",
+        "content": "I'd recommend watching the entire trilogy of Star Wars.  Would you like a reminder to watch the remainder of the trilogy?",
     },
 ]
 
 # Store inferred memories (default behavior)
-result = m.add(messages, user_id=user_id, metadata={"category": "movie_recommendations"})
+result = m.add(messages, user_id=user_id, metadata={"category": category})
 
-all_results = m.get_all(user_id=user_id)
-for n in all_results["results"]:
-    print(f"node \"{n['memory']}\": [hash: {n['hash']}]")
-
-for e in all_results["relations"]:
-    print(f"edge \"{e['source']}\" --{e['relationship']}--> \"{e['target']}\"")
-
-#### ADD "I'm not a big fan of thriller movies but I love sci-fi movies."
+# ADD: "What a wonderful suggestion.  I'd love to watch the entire trilogy.  Can you schedule a movie marathon instead?"
+print("What a wonderful suggestion.  I'd love to watch the entire trilogy.  Can you schedule a movie marathon instead?")
 
 messages = [
     {
         "role": "user",
-        "content": "I'm not a big fan of thriller movies but I love sci-fi movies.",
+        "content": "What a wonderful suggestion.  I'd love to watch the entire trilogy.  Can you schedule a movie marathon instead?",
     },
 ]
 
 # Store inferred memories (default behavior)
-result = m.add(messages, user_id=user_id, metadata={"category": "movie_recommendations"})
+result = m.add(messages, user_id=user_id, metadata={"category": category})
 
+print("all results:")
 all_results = m.get_all(user_id=user_id)
 for n in all_results["results"]:
     print(f"node \"{n['memory']}\": [hash: {n['hash']}]")
@@ -132,18 +138,58 @@ for n in all_results["results"]:
 for e in all_results["relations"]:
     print(f"edge \"{e['source']}\" --{e['relationship']}--> \"{e['target']}\"")
 
-#### ADD "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."
+# ADD: "I've updated the reminder to watch Star Wars: Episode VI – A New Hope at 6:00pm"
+print("I've updated the reminder to watch Star Wars: Episode VI – A New Hope at 6:00pm")
+# ADD: "I've added a reminder to watch Star Wars: Episode V – The Empire Strikes Back at 8:00pm"
+print("I've added a reminder to watch Star Wars: Episode V – The Empire Strikes Back at 8:00pm")
+# ADD: "I've added a reminder to watch Star Wars: Episode VI – Return of the Jedi at midnight"
+print("I've added a reminder to watch Star Wars: Episode VI – Return of the Jedi at midnight")
+# ADD: "Shall I order a movie appropriate dinner and snacks?"
+print("Shall I order a movie appropriate dinner and snacks?")
 
 messages = [
     {
         "role": "assistant",
-        "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future.",
+        "content": "I've updated the reminder to watch Star Wars: Episode VI – A New Hope at 6:00pm",
+    },
+    {
+        "role": "assistant",
+        "content": "I've added a reminder to watch Star Wars: Episode V – The Empire Strikes Back at 8:00pm",
+    },
+    {
+        "role": "assistant",
+        "content": "I've added a reminder to watch Star Wars: Episode VI – Return of the Jedi at midnight",
+    },
+    {
+        "role": "assistant",
+        "content": "Shall I order a movie appropriate dinner and snacks?",
+    },
+]
+
+result = m.add(messages, user_id=user_id, metadata={"category": category})
+
+print("all results:")
+all_results = m.get_all(user_id=user_id)
+for n in all_results["results"]:
+    print(f"node \"{n['memory']}\": [hash: {n['hash']}]")
+
+for e in all_results["relations"]:
+    print(f"edge \"{e['source']}\" --{e['relationship']}--> \"{e['target']}\"")
+
+# ADD: "That's a great idea.  My favourite snacks when watching Star Wars are Wookie Cookies and Yoda Soda."
+print("That's a great idea.  My favourite snacks when watching Star Wars are Wookie Cookies and Yoda Soda.")
+
+messages = [
+    {
+        "role": "user",
+        "content": "That's a great idea.  My favourite snacks when watching Star Wars are Wookie Cookies and Yoda Soda.",
     },
 ]
 
 # Store inferred memories (default behavior)
-result = m.add(messages, user_id=user_id, metadata={"category": "movie_recommendations"})
+result = m.add(messages, user_id=user_id, metadata={"category": category})
 
+print("all results:")
 all_results = m.get_all(user_id=user_id)
 for n in all_results["results"]:
     print(f"node \"{n['memory']}\": [hash: {n['hash']}]")
@@ -153,25 +199,21 @@ for e in all_results["relations"]:
 
 # SEARCH
 
-search_results = m.search("what does alice love?", user_id=user_id)
-print("what does alice love?")
+query = "What's Alice's schedule for tonight?"
+search_results = m.search(query, user_id=user_id)
+print(query)
 for result in search_results["results"]:
     print(f"\"{result['memory']}\" [score: {result['score']}]")
 for relation in search_results["relations"]:
     print(f"{relation}")
 
-print("what should we do tonight?")
-search_results = m.search("what should we do tonight?", user_id=user_id)
+query = "What's for dinner tonight?"
+print(query)
+search_results = m.search(query, user_id=user_id)
 for result in search_results["results"]:
     print(f"\"{result['memory']}\" [score: {result['score']}]")
 for relation in search_results["relations"]:
     print(f"{relation}")
-
-# GET ALL
-
-print("all results:")
-all_results = m.get_all(user_id=user_id)
-print(f"all_results={all_results}")
 
 # TEARDOWN
 

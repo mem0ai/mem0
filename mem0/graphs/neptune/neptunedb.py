@@ -42,18 +42,16 @@ class MemoryGraph(NeptuneBase):
 
         # fetch the vector store as a provider
         self.vector_store_provider = self.config.vector_store.provider
-        vector_store_config = self.config.vector_store.config
-        if vector_store_config.collection_name:
-            vector_store_collection_name = vector_store_config.collection_name + "_neptune_vector_store"
+        if self.config.graph_store.config.collection_name:
+            vector_store_collection_name = self.config.graph_store.config.collection_name
         else:
-            vector_store_collection_name = "mem0_neptune_vector_store"
+            vector_store_config = self.config.vector_store.config
+            if vector_store_config.collection_name:
+                vector_store_collection_name = vector_store_config.collection_name + "_neptune_vector_store"
+            else:
+                vector_store_collection_name = "mem0_neptune_vector_store"
         self.config.vector_store.config.collection_name = vector_store_collection_name
         self.vector_store = NeptuneBase._create_vector_store(self.vector_store_provider, self.config)
-
-        # initialize indices in the vector provider
-        embedding_model_dims = self.vector_store.embedding_model_dims
-        for col_name in ["node_name_and_summary", "community_name", "episode_content", "edge_name_and_fact"]:
-            self.vector_store.create_col(col_name, embedding_model_dims)
 
         self.llm = NeptuneBase._create_llm(self.config, self.llm_provider)
         self.user_id = None
@@ -384,7 +382,7 @@ class MemoryGraph(NeptuneBase):
             filters={"user_id": user_id},
         )
 
-        ids = [n.id for n in source_nodes]
+        ids = [n.id for n in filter(lambda s: s.score > threshold, source_nodes)]
 
         cypher = f"""
             MATCH (source_candidate {self.node_label})
@@ -417,7 +415,7 @@ class MemoryGraph(NeptuneBase):
             filters={"user_id": user_id},
         )
 
-        ids = [n.id for n in destination_nodes]
+        ids = [n.id for n in filter(lambda d: d.score > threshold, destination_nodes)]
 
         cypher = f"""
             MATCH (destination_candidate {self.node_label})
@@ -429,7 +427,6 @@ class MemoryGraph(NeptuneBase):
             "ids": ids,
             "destination_embedding": destination_embedding,
             "user_id": user_id,
-            "threshold": threshold,
         }
 
         logger.debug(f"_search_destination_node\n  query={cypher}")
