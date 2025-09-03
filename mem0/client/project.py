@@ -20,10 +20,7 @@ class ProjectConfig(BaseModel):
     project_id: Optional[str] = Field(default=None, description="Project ID")
     user_email: Optional[str] = Field(default=None, description="User email")
 
-    model_config = ConfigDict(
-        validate_assignment=True,
-        extra="forbid",
-    )
+    model_config = ConfigDict(validate_assignment=True, extra="forbid")
 
 
 class BaseProject(ABC):
