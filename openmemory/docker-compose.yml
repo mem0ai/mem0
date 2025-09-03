@@ -3,10 +3,6 @@ services:
     image: qdrant/qdrant:latest
     volumes:
     - qdrant_data:/qdrant/storage
-    healthcheck:
-      test: ["CMD", "wget", "http://localhost:6333/readyz", "-q", "-O", "/dev/null"]
-      interval: 20s
-      retries: 5
     networks:
     - memnet
   postgres:
