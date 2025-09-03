@@ -427,7 +427,7 @@ class MemoryGraph(NeptuneBase):
         params = {"user_id": filters["user_id"], "limit": limit}
         return cypher, params
 
-    def _search_graph_db_impl(self, n_embedding, filters, limit):
+    def _search_graph_db_cypher(self, n_embedding, filters, limit):
         """
         Returns the OpenCypher query and parameters to search for similar nodes in the memory store
 
