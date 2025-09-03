@@ -57,7 +57,7 @@ class Weaviate(VectorStoreBase):
                 headers=additional_headers,
             )
         else:
-            parsed = urlparse(cluster_url)  # e.g., http://mem0_store:8080
+            parsed = urlparse(cluster_url)  # e.g., http://mem0-store:8080
             http_host = parsed.hostname or "localhost"
             http_port = parsed.port or (443 if parsed.scheme == "https" else 8080)
             http_secure = parsed.scheme == "https"
