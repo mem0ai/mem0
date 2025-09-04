@@ -7,6 +7,49 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2025-09-03" description="v0.1.117">
+
+**New Features & Updates:**
+- **OpenMemory:**
+  - Added memory export / import feature
+  - Added vector store integrations: Weaviate, FAISS, PGVector, Chroma, Redis, Elasticsearch, Milvus
+  - Added `export_openmemory.sh` migration script
+- **Vector Stores:**
+  - Added Amazon S3 Vectors support
+  - Added Databricks Mosaic AI vector store support
+  - Added support for OpenAI Store
+- **Graph Memory:** Added support for graph memory using Kuzu
+- **Azure:** Added Azure Identity for Azure OpenAI and Azure AI Search authentication
+- **Elasticsearch:** Added headers configuration support
+
+**Improvements:**
+  - Added custom connection client to enable connecting to local containers for Weaviate
+  - Updated configuration AWS Bedrock
+  - Fixed dependency issues and tests; updated docstrings
+- **Documentation:**
+  - Fixed Graph Docs page missing in sidebar
+  - Updated integration documentation
+  - Added version param in Search V2 API documentation
+  - Updated Databricks documentation and refactored docs
+  - Updated favicon logo
+  - Fixed typos and Typescript docs
+
+**Bug Fixes:**
+- Baidu: Added missing provider for Baidu vector DB
+- MongoDB: Replaced `query_vector` args in search method
+- Fixed new memory mistaken for current
+- AsyncMemory._add_to_vector_store: handled edge case when no facts found
+- Fixed missing commas in Kuzu graph INSERT queries
+- Fixed inconsistent created and updated properties for Graph
+- Fixed missing `app_id` on client for Neptune Analytics
+- Correctly pick AWS region from environment variable
+- Fixed Ollama model existence check
+
+**Refactoring:**
+- **PGVector:** Use internal connection pools and context managers
+
+</Update>
+
 <Update label="2025-08-14" description="v0.1.116">
 
 **New Features & Updates:**
@@ -568,6 +611,11 @@ mode: "wide"
 
 <Tab title="TypeScript">
 
+<Update label="2025-09-04" description="v2.1.38">
+**New Features:**
+- **Client:** Added `metadata` param to `update` method.
+</Update>
+
 <Update label="2025-08-04" description="v2.1.37">
 **New Features:**
 - **OSS:** Added `RedisCloud` search module check
@@ -1038,6 +1086,11 @@ mode: "wide"
 </Tab>
 
 <Tab title="Vercel AI SDK">
+
+<Update label="2025-09-03" description="v2.0.2">
+**Bug Fix:**
+- **Vercel AI SDK:** Fixed streaming response in the AI SDK.
+</Update>
 
 <Update label="2025-08-05" description="v2.0.1">
 **New Features:**

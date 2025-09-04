@@ -62,26 +62,26 @@ const convertToMem0Format = (messages: LanguageModelV2Prompt) => {
 
 const searchInternalMemories = async (query: string, config?: Mem0ConfigSettings, top_k: number = 5) => {
     try {
-        const filters: { AND: Array<{ [key: string]: string | undefined }> } = {
-            AND: [],
+        const filters: { OR: Array<{ [key: string]: string | undefined }> } = {
+            OR: [],
         };
         if (config?.user_id) {
-            filters.AND.push({
+            filters.OR.push({
                 user_id: config.user_id,
             });
         }
         if (config?.app_id) {
-            filters.AND.push({
+            filters.OR.push({
                 app_id: config.app_id,
             });
         }
         if (config?.agent_id) {
-            filters.AND.push({
+            filters.OR.push({
                 agent_id: config.agent_id,
             });
         }
         if (config?.run_id) {
-            filters.AND.push({
+            filters.OR.push({
                 run_id: config.run_id,
             });
         }
