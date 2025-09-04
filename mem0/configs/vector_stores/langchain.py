@@ -1,6 +1,6 @@
 from typing import Any, ClassVar, Dict
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class LangchainConfig(BaseModel):
@@ -27,6 +27,4 @@ class LangchainConfig(BaseModel):
             )
         return values
 
-    model_config = {
-        "arbitrary_types_allowed": True,
-    }
+    model_config = ConfigDict(arbitrary_types_allowed=True)
