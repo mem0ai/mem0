@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
 import httpx
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from mem0.client.utils import api_error_handler
 from mem0.memory.telemetry import capture_client_event
@@ -20,9 +20,7 @@ class ProjectConfig(BaseModel):
     project_id: Optional[str] = Field(default=None, description="Project ID")
     user_email: Optional[str] = Field(default=None, description="User email")
 
-    class Config:
-        validate_assignment = True
-        extra = "forbid"
+    model_config = ConfigDict(validate_assignment=True, extra="forbid")
 
 
 class BaseProject(ABC):
