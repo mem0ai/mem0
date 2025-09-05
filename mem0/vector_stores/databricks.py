@@ -465,7 +465,7 @@ class Databricks(VectorStoreBase):
 
             # Parse results
             result_data = sdk_results.result if hasattr(sdk_results, "result") else sdk_results
-            data_array = result_data.data_array if hasattr(result_data, "data_array") else []
+            data_array = result_data.data_array if getattr(result_data, "data_array", None) else []
 
             memory_results = []
             for row in data_array:
@@ -708,7 +708,7 @@ class Databricks(VectorStoreBase):
                         pass
                 memory_id = row_dict.get("memory_id") or row_dict.get("id")
                 memory_results.append(MemoryResult(id=memory_id, payload=payload))
-            return memory_results
+            return [memory_results]
         except Exception as e:
             logger.error(f"Failed to list memories: {e}")
             return []
