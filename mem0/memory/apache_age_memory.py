@@ -1,5 +1,6 @@
 import logging
 import json
+import time
 from typing import List, Dict, Any, Optional
 
 from mem0.memory.utils import format_entities, sanitize_relationship_for_cypher
@@ -83,7 +84,7 @@ class MemoryGraph:
             with self.connection.cursor() as cursor:
                 # Create the graph if it doesn't exist
                 cursor.execute(f"SELECT create_graph('{self.graph_name}');")
-        except psycopg2.Error as e:
+        except Exception as e:
             if "already exists" not in str(e):
                 logger.error(f"Error creating graph: {e}")
                 raise
@@ -92,25 +93,46 @@ class MemoryGraph:
         """Execute a Cypher query using Apache AGE."""
         try:
             with self.connection.cursor(cursor_factory=RealDictCursor) as cursor:
-                # Convert parameters to AGE format if provided
+                # Handle parameters for AGE
                 if parameters:
-                    # Convert parameters to JSON string for AGE
-                    param_str = json.dumps(parameters)
-                    query = f"SELECT * FROM cypher('{self.graph_name}', $$ {cypher_query} $$, '{param_str}') as (result agtype);"
+                    # AGE requires parameters to be passed as a JSON object
+                    # Replace parameter placeholders with actual values in the query
+                    formatted_query = cypher_query
+                    for key, value in parameters.items():
+                        if isinstance(value, str):
+                            formatted_query = formatted_query.replace(f"${key}", f"'{value}'")
+                        elif isinstance(value, list):
+                            # Handle embedding arrays
+                            formatted_query = formatted_query.replace(f"${key}", str(value))
+                        else:
+                            formatted_query = formatted_query.replace(f"${key}", str(value))
+
+                    query = f"SELECT * FROM cypher('{self.graph_name}', $$ {formatted_query} $$) as (result agtype);"
                 else:
                     query = f"SELECT * FROM cypher('{self.graph_name}', $$ {cypher_query} $$) as (result agtype);"
-                
+
                 cursor.execute(query)
                 results = cursor.fetchall()
-                
+
                 # Convert AGE results to standard format
                 converted_results = []
                 for row in results:
-                    if row['result']:
-                        # Parse AGE result
-                        result_data = age.age_to_dict(row['result'])
-                        converted_results.append(result_data)
-                
+                    if row['result'] is not None:
+                        try:
+                            # Parse AGE result - handle different result types
+                            if hasattr(age, 'age_to_dict'):
+                                result_data = age.age_to_dict(row['result'])
+                            else:
+                                # Fallback parsing if age_to_dict is not available
+                                result_data = json.loads(str(row['result']))
+                            converted_results.append(result_data)
+                        except Exception as parse_error:
+                            logger.warning(f"Failed to parse AGE result: {parse_error}")
+                            # Try to extract basic data
+                            result_str = str(row['result'])
+                            if result_str and result_str != 'None':
+                                converted_results.append({"raw_result": result_str})
+
                 return converted_results
         except Exception as e:
             logger.error(f"Error executing Cypher query: {e}")
@@ -337,30 +359,31 @@ class MemoryGraph:
         """Search similar nodes among and their respective incoming and outgoing relations."""
         result_relations = []
 
-        # Build node properties for filtering
-        where_conditions = ["n.user_id = $user_id"]
+        # Build node properties for filtering - match Neo4j format
+        node_props = ["user_id: $user_id"]
         if filters.get("agent_id"):
-            where_conditions.append("n.agent_id = $agent_id")
+            node_props.append("agent_id: $agent_id")
         if filters.get("run_id"):
-            where_conditions.append("n.run_id = $run_id")
-        where_clause = " AND ".join(where_conditions)
+            node_props.append("run_id: $run_id")
+        node_props_str = ", ".join(node_props)
 
         for node in node_list:
             n_embedding = self.embedding_model.embed(node)
 
-            # Apache AGE doesn't have built-in vector similarity functions like Neo4j
-            # We'll need to implement a workaround by fetching nodes and computing similarity in Python
+            # First, get all nodes with embeddings and compute similarity
             if self.node_label:
-                cypher_query = f"""
-                MATCH (n:{self.node_label})
-                WHERE {where_clause} AND n.embedding IS NOT NULL
-                RETURN n, id(n) as node_id
+                similarity_query = f"""
+                MATCH (n:{self.node_label} {{{node_props_str}}})
+                WHERE n.embedding IS NOT NULL
+                RETURN n.name as name, n.embedding as embedding, id(n) as node_id,
+                       n.user_id as user_id, n.agent_id as agent_id, n.run_id as run_id
                 """
             else:
-                cypher_query = f"""
-                MATCH (n)
-                WHERE {where_clause} AND n.embedding IS NOT NULL
-                RETURN n, id(n) as node_id
+                similarity_query = f"""
+                MATCH (n {{{node_props_str}}})
+                WHERE n.embedding IS NOT NULL
+                RETURN n.name as name, n.embedding as embedding, id(n) as node_id,
+                       n.user_id as user_id, n.agent_id as agent_id, n.run_id as run_id
                 """
 
             params = {
@@ -371,50 +394,75 @@ class MemoryGraph:
             if filters.get("run_id"):
                 params["run_id"] = filters["run_id"]
 
-            nodes = self._execute_cypher(cypher_query, params)
+            nodes = self._execute_cypher(similarity_query, params)
 
-            # Compute similarity in Python and filter
+            # Compute similarity and filter nodes above threshold
             similar_nodes = []
             for node_result in nodes:
-                node_data = node_result["n"]
-                if "embedding" in node_data:
-                    # Compute cosine similarity
-                    similarity = self._compute_cosine_similarity(n_embedding, node_data["embedding"])
-                    if similarity >= self.threshold:
-                        similar_nodes.append({
-                            "node": node_data,
-                            "node_id": node_result["node_id"],
-                            "similarity": similarity
-                        })
+                if "embedding" in node_result and node_result["embedding"]:
+                    try:
+                        # Handle different embedding formats
+                        embedding = node_result["embedding"]
+                        if isinstance(embedding, str):
+                            embedding = json.loads(embedding)
+                        elif isinstance(embedding, list):
+                            embedding = embedding
+                        else:
+                            continue
 
-            # Sort by similarity and get relationships
+                        # Compute cosine similarity (denormalized like Neo4j: 2 * cosine - 1)
+                        cosine_sim = self._compute_cosine_similarity(n_embedding, embedding)
+                        similarity = round(2 * cosine_sim - 1, 4)  # Match Neo4j denormalization
+
+                        if similarity >= self.threshold:
+                            similar_nodes.append({
+                                "name": node_result["name"],
+                                "node_id": node_result["node_id"],
+                                "similarity": similarity,
+                                "user_id": node_result["user_id"],
+                                "agent_id": node_result.get("agent_id"),
+                                "run_id": node_result.get("run_id")
+                            })
+                    except Exception as e:
+                        logger.warning(f"Error processing embedding for node {node_result.get('name', 'unknown')}: {e}")
+                        continue
+
+            # Sort by similarity (descending) and limit
             similar_nodes.sort(key=lambda x: x["similarity"], reverse=True)
 
+            # For each similar node, get its relationships (matching Neo4j pattern)
             for similar_node in similar_nodes[:limit]:
                 node_id = similar_node["node_id"]
 
-                # Get outgoing relationships
+                # Build relationship query with proper filtering (match Neo4j pattern)
+                rel_node_props = ["user_id: $user_id"]
+                if filters.get("agent_id"):
+                    rel_node_props.append("agent_id: $agent_id")
+                if filters.get("run_id"):
+                    rel_node_props.append("run_id: $run_id")
+                rel_node_props_str = ", ".join(rel_node_props)
+
                 if self.node_label:
                     rel_query = f"""
-                    MATCH (n:{self.node_label})-[r]->(m:{self.node_label})
-                    WHERE id(n) = $node_id AND m.user_id = $user_id
+                    MATCH (n:{self.node_label})-[r]->(m:{self.node_label} {{{rel_node_props_str}}})
+                    WHERE id(n) = $node_id
                     RETURN n.name AS source, id(n) AS source_id, type(r) AS relationship,
                            id(r) AS relation_id, m.name AS destination, id(m) AS destination_id
                     UNION
-                    MATCH (n:{self.node_label})<-[r]-(m:{self.node_label})
-                    WHERE id(n) = $node_id AND m.user_id = $user_id
+                    MATCH (n:{self.node_label})<-[r]-(m:{self.node_label} {{{rel_node_props_str}}})
+                    WHERE id(n) = $node_id
                     RETURN m.name AS source, id(m) AS source_id, type(r) AS relationship,
                            id(r) AS relation_id, n.name AS destination, id(n) AS destination_id
                     """
                 else:
                     rel_query = f"""
-                    MATCH (n)-[r]->(m)
-                    WHERE id(n) = $node_id AND m.user_id = $user_id
+                    MATCH (n)-[r]->(m {{{rel_node_props_str}}})
+                    WHERE id(n) = $node_id
                     RETURN n.name AS source, id(n) AS source_id, type(r) AS relationship,
                            id(r) AS relation_id, m.name AS destination, id(m) AS destination_id
                     UNION
-                    MATCH (n)<-[r]-(m)
-                    WHERE id(n) = $node_id AND m.user_id = $user_id
+                    MATCH (n)<-[r]-(m {{{rel_node_props_str}}})
+                    WHERE id(n) = $node_id
                     RETURN m.name AS source, id(m) AS source_id, type(r) AS relationship,
                            id(r) AS relation_id, n.name AS destination, id(n) AS destination_id
                     """
@@ -430,6 +478,7 @@ class MemoryGraph:
 
                 relationships = self._execute_cypher(rel_query, rel_params)
 
+                # Add similarity to each relationship and append to results
                 for rel in relationships:
                     rel["similarity"] = similar_node["similarity"]
                     result_relations.append(rel)
@@ -569,41 +618,36 @@ class MemoryGraph:
             source_node_search_result = self._search_source_node(source_embedding, filters, threshold=0.9)
             destination_node_search_result = self._search_destination_node(dest_embedding, filters, threshold=0.9)
 
-            # Build dynamic properties for nodes
-            source_props = ["name: $source_name", "user_id: $user_id"]
-            dest_props = ["name: $dest_name", "user_id: $user_id"]
-            if agent_id:
-                source_props.append("agent_id: $agent_id")
-                dest_props.append("agent_id: $agent_id")
-            if run_id:
-                source_props.append("run_id: $run_id")
-                dest_props.append("run_id: $run_id")
-            source_props_str = ", ".join(source_props)
-            dest_props_str = ", ".join(dest_props)
-
-            # Determine node labels
-            if self.node_label:
-                source_label = f":{self.node_label}"
-                destination_label = f":{self.node_label}"
-                source_extra_set = f", source:`{source_type}`"
-                destination_extra_set = f", destination:`{destination_type}`"
-            else:
-                source_label = f":`{source_type}`"
-                destination_label = f":`{destination_type}`"
-                source_extra_set = ""
-                destination_extra_set = ""
+            # Build node labels and extra properties (match Neo4j pattern)
+            source_type = entity_type_map.get(source, "__User__")
+            source_label = self.node_label if self.node_label else f":`{source_type}`"
+            source_extra_set = f", source:`{source_type}`" if self.node_label else ""
+            destination_type = entity_type_map.get(destination, "__User__")
+            destination_label = self.node_label if self.node_label else f":`{destination_type}`"
+            destination_extra_set = f", destination:`{destination_type}`" if self.node_label else ""
 
             # Create the Cypher query based on existing nodes
+            # Note: Apache AGE doesn't have timestamp() function, use current time in milliseconds
+            current_time = int(time.time() * 1000)
+
             if not destination_node_search_result and source_node_search_result:
-                # Source exists, create destination
+                # Build destination MERGE properties (match Neo4j pattern)
+                merge_props = ["name: $destination_name", "user_id: $user_id"]
+                if agent_id:
+                    merge_props.append("agent_id: $agent_id")
+                if run_id:
+                    merge_props.append("run_id: $run_id")
+                merge_props_str = ", ".join(merge_props)
+
+                # Source exists, create destination (match Neo4j pattern)
                 cypher = f"""
                 MATCH (source)
                 WHERE id(source) = $source_id
                 SET source.mentions = coalesce(source.mentions, 0) + 1
                 WITH source
-                MERGE (destination{destination_label} {{{dest_props_str}}})
+                MERGE (destination {destination_label} {{{merge_props_str}}})
                 ON CREATE SET
-                    destination.created = timestamp(),
+                    destination.created = $current_time,
                     destination.mentions = 1,
                     destination.embedding = $destination_embedding
                     {destination_extra_set}
@@ -612,7 +656,7 @@ class MemoryGraph:
                 WITH source, destination
                 MERGE (source)-[r:{relationship}]->(destination)
                 ON CREATE SET
-                    r.created = timestamp(),
+                    r.created = $current_time,
                     r.mentions = 1
                 ON MATCH SET
                     r.mentions = coalesce(r.mentions, 0) + 1
@@ -621,8 +665,9 @@ class MemoryGraph:
 
                 params = {
                     "source_id": source_node_search_result[0]["node_id"],
-                    "dest_name": destination,
+                    "destination_name": destination,
                     "destination_embedding": dest_embedding,
+                    "current_time": current_time,
                     "user_id": user_id,
                 }
                 if agent_id:
@@ -631,15 +676,23 @@ class MemoryGraph:
                     params["run_id"] = run_id
 
             elif destination_node_search_result and not source_node_search_result:
-                # Destination exists, create source
+                # Build source MERGE properties (match Neo4j pattern)
+                merge_props = ["name: $source_name", "user_id: $user_id"]
+                if agent_id:
+                    merge_props.append("agent_id: $agent_id")
+                if run_id:
+                    merge_props.append("run_id: $run_id")
+                merge_props_str = ", ".join(merge_props)
+
+                # Destination exists, create source (match Neo4j pattern)
                 cypher = f"""
                 MATCH (destination)
                 WHERE id(destination) = $destination_id
                 SET destination.mentions = coalesce(destination.mentions, 0) + 1
                 WITH destination
-                MERGE (source{source_label} {{{source_props_str}}})
+                MERGE (source {source_label} {{{merge_props_str}}})
                 ON CREATE SET
-                    source.created = timestamp(),
+                    source.created = $current_time,
                     source.mentions = 1,
                     source.embedding = $source_embedding
                     {source_extra_set}
@@ -648,7 +701,7 @@ class MemoryGraph:
                 WITH source, destination
                 MERGE (source)-[r:{relationship}]->(destination)
                 ON CREATE SET
-                    r.created = timestamp(),
+                    r.created = $current_time,
                     r.mentions = 1
                 ON MATCH SET
                     r.mentions = coalesce(r.mentions, 0) + 1
@@ -659,6 +712,7 @@ class MemoryGraph:
                     "destination_id": destination_node_search_result[0]["node_id"],
                     "source_name": source,
                     "source_embedding": source_embedding,
+                    "current_time": current_time,
                     "user_id": user_id,
                 }
                 if agent_id:
@@ -678,8 +732,7 @@ class MemoryGraph:
                 SET destination.mentions = coalesce(destination.mentions, 0) + 1
                 MERGE (source)-[r:{relationship}]->(destination)
                 ON CREATE SET
-                    r.created_at = timestamp(),
-                    r.updated_at = timestamp(),
+                    r.created = $current_time,
                     r.mentions = 1
                 ON MATCH SET r.mentions = coalesce(r.mentions, 0) + 1
                 RETURN source.name AS source, type(r) AS relationship, destination.name AS target
@@ -688,6 +741,7 @@ class MemoryGraph:
                 params = {
                     "source_id": source_node_search_result[0]["node_id"],
                     "destination_id": destination_node_search_result[0]["node_id"],
+                    "current_time": current_time,
                     "user_id": user_id,
                 }
                 if agent_id:
@@ -696,33 +750,46 @@ class MemoryGraph:
                     params["run_id"] = run_id
 
             else:
-                # Neither exists, create both
+                # Build MERGE properties for both nodes (match Neo4j pattern)
+                source_merge_props = ["name: $source_name", "user_id: $user_id"]
+                dest_merge_props = ["name: $destination_name", "user_id: $user_id"]
+                if agent_id:
+                    source_merge_props.append("agent_id: $agent_id")
+                    dest_merge_props.append("agent_id: $agent_id")
+                if run_id:
+                    source_merge_props.append("run_id: $run_id")
+                    dest_merge_props.append("run_id: $run_id")
+                source_merge_props_str = ", ".join(source_merge_props)
+                dest_merge_props_str = ", ".join(dest_merge_props)
+
+                # Neither exists, create both (match Neo4j pattern)
                 cypher = f"""
-                MERGE (source{source_label} {{{source_props_str}}})
-                ON CREATE SET source.created = timestamp(),
+                MERGE (source {source_label} {{{source_merge_props_str}}})
+                ON CREATE SET source.created = $current_time,
                             source.mentions = 1,
                             source.embedding = $source_embedding
                             {source_extra_set}
                 ON MATCH SET source.mentions = coalesce(source.mentions, 0) + 1
                 WITH source
-                MERGE (destination{destination_label} {{{dest_props_str}}})
-                ON CREATE SET destination.created = timestamp(),
+                MERGE (destination {destination_label} {{{dest_merge_props_str}}})
+                ON CREATE SET destination.created = $current_time,
                             destination.mentions = 1,
-                            destination.embedding = $dest_embedding
+                            destination.embedding = $destination_embedding
                             {destination_extra_set}
                 ON MATCH SET destination.mentions = coalesce(destination.mentions, 0) + 1
                 WITH source, destination
                 MERGE (source)-[rel:{relationship}]->(destination)
-                ON CREATE SET rel.created = timestamp(), rel.mentions = 1
+                ON CREATE SET rel.created = $current_time, rel.mentions = 1
                 ON MATCH SET rel.mentions = coalesce(rel.mentions, 0) + 1
                 RETURN source.name AS source, type(rel) AS relationship, destination.name AS target
                 """
 
                 params = {
                     "source_name": source,
-                    "dest_name": destination,
+                    "destination_name": destination,
                     "source_embedding": source_embedding,
-                    "dest_embedding": dest_embedding,
+                    "destination_embedding": dest_embedding,
+                    "current_time": current_time,
                     "user_id": user_id,
                 }
                 if agent_id:
@@ -756,13 +823,15 @@ class MemoryGraph:
             cypher = f"""
                 MATCH (source_candidate:{self.node_label})
                 WHERE {where_clause}
-                RETURN source_candidate, id(source_candidate) as node_id
+                RETURN source_candidate.name as name, source_candidate.embedding as embedding,
+                       id(source_candidate) as node_id, source_candidate.user_id as user_id
                 """
         else:
             cypher = f"""
                 MATCH (source_candidate)
                 WHERE {where_clause}
-                RETURN source_candidate, id(source_candidate) as node_id
+                RETURN source_candidate.name as name, source_candidate.embedding as embedding,
+                       id(source_candidate) as node_id, source_candidate.user_id as user_id
                 """
 
         params = {
@@ -780,12 +849,24 @@ class MemoryGraph:
         best_similarity = 0
 
         for candidate in candidates:
-            node_data = candidate["source_candidate"]
-            if "embedding" in node_data:
-                similarity = self._compute_cosine_similarity(source_embedding, node_data["embedding"])
-                if similarity >= threshold and similarity > best_similarity:
-                    best_similarity = similarity
-                    best_match = candidate
+            if "embedding" in candidate and candidate["embedding"]:
+                try:
+                    # Handle different embedding formats
+                    embedding = candidate["embedding"]
+                    if isinstance(embedding, str):
+                        embedding = json.loads(embedding)
+                    elif isinstance(embedding, list):
+                        embedding = embedding
+                    else:
+                        continue
+
+                    similarity = self._compute_cosine_similarity(source_embedding, embedding)
+                    if similarity >= threshold and similarity > best_similarity:
+                        best_similarity = similarity
+                        best_match = candidate
+                except Exception as e:
+                    logger.warning(f"Error processing embedding for source candidate: {e}")
+                    continue
 
         return [best_match] if best_match else []
 
@@ -802,13 +883,15 @@ class MemoryGraph:
             cypher = f"""
                 MATCH (destination_candidate:{self.node_label})
                 WHERE {where_clause}
-                RETURN destination_candidate, id(destination_candidate) as node_id
+                RETURN destination_candidate.name as name, destination_candidate.embedding as embedding,
+                       id(destination_candidate) as node_id, destination_candidate.user_id as user_id
                 """
         else:
             cypher = f"""
                 MATCH (destination_candidate)
                 WHERE {where_clause}
-                RETURN destination_candidate, id(destination_candidate) as node_id
+                RETURN destination_candidate.name as name, destination_candidate.embedding as embedding,
+                       id(destination_candidate) as node_id, destination_candidate.user_id as user_id
                 """
 
         params = {
@@ -826,12 +909,24 @@ class MemoryGraph:
         best_similarity = 0
 
         for candidate in candidates:
-            node_data = candidate["destination_candidate"]
-            if "embedding" in node_data:
-                similarity = self._compute_cosine_similarity(destination_embedding, node_data["embedding"])
-                if similarity >= threshold and similarity > best_similarity:
-                    best_similarity = similarity
-                    best_match = candidate
+            if "embedding" in candidate and candidate["embedding"]:
+                try:
+                    # Handle different embedding formats
+                    embedding = candidate["embedding"]
+                    if isinstance(embedding, str):
+                        embedding = json.loads(embedding)
+                    elif isinstance(embedding, list):
+                        embedding = embedding
+                    else:
+                        continue
+
+                    similarity = self._compute_cosine_similarity(destination_embedding, embedding)
+                    if similarity >= threshold and similarity > best_similarity:
+                        best_similarity = similarity
+                        best_match = candidate
+                except Exception as e:
+                    logger.warning(f"Error processing embedding for destination candidate: {e}")
+                    continue
 
         return [best_match] if best_match else []
 
