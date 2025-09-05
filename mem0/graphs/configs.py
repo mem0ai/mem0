@@ -3,6 +3,7 @@ from typing import Optional, Union
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from mem0.llms.configs import LlmConfig
+from mem0.dynamodb.config import DynamoDBGraphConfig
 
 
 class Neo4jConfig(BaseModel):
@@ -77,10 +78,10 @@ class KuzuConfig(BaseModel):
 
 class GraphStoreConfig(BaseModel):
     provider: str = Field(
-        description="Provider of the data store (e.g., 'neo4j', 'memgraph', 'neptune', 'kuzu')",
+        description="Provider of the data store (e.g., 'neo4j', 'memgraph', 'neptune', 'kuzu', 'dynamodb')",
         default="neo4j",
     )
-    config: Union[Neo4jConfig, MemgraphConfig, NeptuneConfig, KuzuConfig] = Field(
+    config: Union[Neo4jConfig, MemgraphConfig, NeptuneConfig, KuzuConfig, DynamoDBGraphConfig] = Field(
         description="Configuration for the specific data store", default=None
     )
     llm: Optional[LlmConfig] = Field(description="LLM configuration for querying the graph store", default=None)
@@ -99,5 +100,7 @@ class GraphStoreConfig(BaseModel):
             return NeptuneConfig(**v.model_dump())
         elif provider == "kuzu":
             return KuzuConfig(**v.model_dump())
+        elif provider == "dynamodb":
+            return DynamoDBGraphConfig(**v.model_dump())
         else:
             raise ValueError(f"Unsupported graph store provider: {provider}")
