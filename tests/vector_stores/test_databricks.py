@@ -300,8 +300,9 @@ def test_list_memories(db_instance_delta, mock_workspace_client):
         result=SimpleNamespace(data_array=[row])
     )
     res = db_instance_delta.list(limit=1)
-    assert len(res) == 1
-    assert res[0].id == "id3"
+    assert isinstance(res, list)
+    assert len(res[0]) == 1
+    assert res[0][0].id == "id3"
 
 
 # ---------------------- Reset Tests ---------------------- #
