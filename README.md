@@ -44,6 +44,17 @@
   <a href="https://mem0.ai/research"><strong>📄 Building Production-Ready AI Agents with Scalable Long-Term Memory →</strong></a>
 </p>
 <p align="center">
+  <!-- Keep these links. Translations will automatically update with the README. -->
+  <a href="https://zdoc.app/de/mem0ai/mem0">Deutsch</a> | 
+  <a href="https://zdoc.app/es/mem0ai/mem0">Español</a> | 
+  <a href="https://zdoc.app/fr/mem0ai/mem0">français</a> | 
+  <a href="https://zdoc.app/ja/mem0ai/mem0">日本語</a> | 
+  <a href="https://zdoc.app/ko/mem0ai/mem0">한국어</a> | 
+  <a href="https://zdoc.app/pt/mem0ai/mem0">Português</a> | 
+  <a href="https://zdoc.app/ru/mem0ai/mem0">Русский</a> | 
+  <a href="https://zdoc.app/zh/mem0ai/mem0">中文</a>
+</p>
+<p align="center">
   <strong>⚡ +26% Accuracy vs. OpenAI Memory • 🚀 91% Faster • 💰 90% Fewer Tokens</strong>
 </p>
 
