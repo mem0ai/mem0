@@ -291,7 +291,7 @@ class NeptuneBase(ABC):
                 destination_node_list,
                 relationship,
                 user_id)
-        # else source_node_list and destination_node_list are None
+        # else source_node_list and destination_node_list are empty
         return self._add_new_entities_cypher(
             source,
             source_embedding,

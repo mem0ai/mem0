@@ -30,7 +30,8 @@ class MemoryGraph(NeptuneBase):
 
         self.embedding_model = NeptuneBase._create_embedding_model(self.config)
 
-        self.llm_provider = "openai_structured"
+        # Default to openai if no specific provider is configured
+        self.llm_provider = "openai"
         if self.config.llm.provider:
             self.llm_provider = self.config.llm.provider
         if self.config.graph_store.llm:
