@@ -34,7 +34,8 @@ class MemoryGraph(NeptuneBase):
 
         self.embedding_model = NeptuneBase._create_embedding_model(self.config)
 
-        self.llm_provider = "openai_structured"
+        # Default to openai if no specific provider is configured
+        self.llm_provider = "openai"
         if self.config.graph_store.llm:
             self.llm_provider = self.config.graph_store.llm.provider
         elif self.config.llm.provider:
@@ -56,6 +57,7 @@ class MemoryGraph(NeptuneBase):
         self.llm = NeptuneBase._create_llm(self.config, self.llm_provider)
         self.user_id = None
         self.threshold = 0.7
+        self.vector_store_limit=5
 
     def _delete_entities_cypher(self, source, destination, relationship, user_id):
         """
@@ -113,7 +115,7 @@ class MemoryGraph(NeptuneBase):
             "user_id": user_id,
             "created_at": datetime.now(pytz.timezone("US/Pacific")).isoformat(),
         }
-        inserted_vector = self.vector_store.insert(
+        self.vector_store.insert(
             vectors=[dest_embedding],
             payloads=[destination_payload],
             ids=[destination_id],
@@ -188,7 +190,7 @@ class MemoryGraph(NeptuneBase):
             "user_id": user_id,
             "created_at": datetime.now(pytz.timezone("US/Pacific")).isoformat(),
         }
-        inserted_vector = self.vector_store.insert(
+        self.vector_store.insert(
             vectors=[source_embedding],
             payloads=[source_payload],
             ids=[source_id],
@@ -322,7 +324,7 @@ class MemoryGraph(NeptuneBase):
             "user_id": user_id,
             "created_at": datetime.now(pytz.timezone("US/Pacific")).isoformat(),
         }
-        vectors = self.vector_store.insert(
+        self.vector_store.insert(
             vectors=[source_embedding, dest_embedding],
             payloads=[source_payload, destination_payload],
             ids=[source_id, destination_id],
@@ -378,7 +380,7 @@ class MemoryGraph(NeptuneBase):
         source_nodes = self.vector_store.search(
             query="",
             vectors=source_embedding,
-            limit=5,
+            limit=self.vector_store_limit,
             filters={"user_id": user_id},
         )
 
@@ -411,7 +413,7 @@ class MemoryGraph(NeptuneBase):
         destination_nodes = self.vector_store.search(
             query="",
             vectors=destination_embedding,
-            limit=5,
+            limit=self.vector_store_limit,
             filters={"user_id": user_id},
         )
 
@@ -484,7 +486,7 @@ class MemoryGraph(NeptuneBase):
         search_nodes = self.vector_store.search(
             query="",
             vectors=n_embedding,
-            limit=5,
+            limit=self.vector_store_limit,
             filters=filters,
         )
 
