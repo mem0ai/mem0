@@ -226,8 +226,10 @@ export class MemoryGraph {
         for (const call of searchResults.toolCalls) {
           if (call.name === "extract_entities") {
             const args = JSON.parse(call.arguments);
-            for (const item of args.entities) {
-              entityTypeMap[item.entity] = item.entity_type;
+            if (args.entities && Array.isArray(args.entities)) {
+              for (const item of args.entities) {
+                entityTypeMap[item.entity] = item.entity_type;
+              }
             }
           }
         }
@@ -264,7 +266,8 @@ export class MemoryGraph {
             ).replace(
               "CUSTOM_PROMPT",
               `4. ${this.config.graphStore.customPrompt}`,
-            ) + "\nPlease provide your response in JSON format.",
+            ) +
+            "\nUse the establish_relationships tool to provide your response.",
         },
         { role: "user", content: data },
       ];
@@ -274,7 +277,7 @@ export class MemoryGraph {
           role: "system",
           content:
             EXTRACT_RELATIONS_PROMPT.replace("USER_ID", filters["userId"]) +
-            "\nPlease provide your response in JSON format.",
+            "\nUse the establish_relationships tool to provide your response.",
         },
         {
           role: "user",
