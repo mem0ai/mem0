@@ -116,7 +116,7 @@ class NeptuneAnalyticsVector(VectorStoreBase):
             ON MATCH SET n += row.properties, n.updated_at = toString(timestamp())
         """
         )
-        result = self.graph.query(query_string, para_map_to_insert)
+        result = self.execute_query(query_string, para_map_to_insert)
         self._process_generic_msssage(result, "Vector Store - Insert")
 
 
@@ -131,7 +131,7 @@ class NeptuneAnalyticsVector(VectorStoreBase):
             RETURN success
         """
         )
-        result = self.graph.query(query_string_vector, para_map_to_insert)
+        result = self.execute_query(query_string_vector, para_map_to_insert)
         self._process_success_message(result, "Vector store - Insert")
 
 
@@ -170,7 +170,7 @@ class NeptuneAnalyticsVector(VectorStoreBase):
             YIELD node, score
             RETURN node as n, score
             """
-        query_response = self.graph.query(query_string)
+        query_response = self.execute_query(query_string)
         if len(query_response) > 0:
             return self._parse_query_responses(query_response, with_score=True)
         else :
@@ -192,7 +192,7 @@ class NeptuneAnalyticsVector(VectorStoreBase):
             WHERE id(n) = $node_id 
             DETACH DELETE n
         """
-        result = self.graph.query(query_string, params)
+        result = self.execute_query(query_string, params)
         self._process_generic_msssage(result, "Vector Store - Delete")
         pass
 
@@ -226,7 +226,7 @@ class NeptuneAnalyticsVector(VectorStoreBase):
                 WHERE id(n) = $vector_id 
                 SET n = $properties, n.updated_at = toString(timestamp())       
             """
-            result = self.graph.query(query_string_embedding, para_payload)
+            result = self.execute_query(query_string_embedding, para_payload)
             self._process_generic_msssage(result, "Vector Store - Properties update")
 
         if vector:
@@ -242,7 +242,7 @@ class NeptuneAnalyticsVector(VectorStoreBase):
             YIELD success 
             RETURN success       
             """
-            result = self.graph.query(query_string_embedding, para_embedding)
+            result = self.execute_query(query_string_embedding, para_embedding)
             self._process_success_message(result, "Vector store - Update")
 
         pass
@@ -268,7 +268,7 @@ class NeptuneAnalyticsVector(VectorStoreBase):
         """
 
         # Composite the query
-        result = self.graph.query(query_string, params)
+        result = self.execute_query(query_string, params)
 
         if len(result) != 0:
             return self._parse_query_responses(result)[0]
@@ -289,7 +289,7 @@ class NeptuneAnalyticsVector(VectorStoreBase):
         YIELD schema 
         RETURN [ label IN schema.nodeLabels WHERE label STARTS WITH '{self.collection_name}'] AS result 
         """
-        result = self.graph.query(query_string)
+        result = self.execute_query(query_string)
         if len(result) == 1 and "result" in result[0]:
             return result[0]["result"]
         else:
@@ -303,7 +303,7 @@ class NeptuneAnalyticsVector(VectorStoreBase):
         Removes all nodes with the collection label and their relationships
         from the Neptune Analytics graph.
         """
-        result = self.graph.query(f"MATCH (n :{self.collection_name}) DETACH DELETE n")
+        result = self.execute_query(f"MATCH (n :{self.collection_name}) DETACH DELETE n")
         self._process_generic_msssage(result, "Vector Store - Delete collection")
         pass
 
@@ -342,7 +342,7 @@ class NeptuneAnalyticsVector(VectorStoreBase):
             RETURN n
             LIMIT $limit
         """
-        query_response = self.graph.query(query_string, para)
+        query_response = self.execute_query(query_string, para)
 
         if len(query_response) > 0:
             # Handle if there is no match.
@@ -387,6 +387,27 @@ class NeptuneAnalyticsVector(VectorStoreBase):
                 payload=properties,
             ))
         return result
+
+
+    def execute_query(self, query_string: str, params=None):
+        """
+        Execute an openCypher query on Neptune Analytics.
+        
+        This is a wrapper method around the Neptune Analytics graph query execution
+        that provides debug logging for query monitoring and troubleshooting.
+        
+        Args:
+            query_string (str): The openCypher query string to execute.
+            params (dict): Parameters to bind to the query.
+            
+        Returns:
+            Query result from Neptune Analytics graph execution.
+        """
+        if params is None:
+            params = {}
+        logger.debug(f"Executing openCypher query:[{query_string}], with parameters:[{params}].")
+        return self.graph.query(query_string, params)
+
 
     @staticmethod
     def _get_where_clause(filters: dict):
