@@ -1,6 +1,5 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "maple",
   "name": "Mem0",
   "description": "Mem0 is a self-improving memory layer for LLM applications, enabling personalized AI experiences that save costs and delight users.",
   "colors": {
@@ -22,7 +21,7 @@
                 "group": "Getting Started",
                 "icon": "rocket",
                 "pages": [
-                  "what-is-mem0",
+                  "introduction",
                   "quickstart",
                   "faqs"
                 ]
@@ -46,10 +45,11 @@
               },
               {
                 "group": "Platform",
-                "icon": "cogs",
+                "icon": "globe",
                 "pages": [
                   "platform/overview",
                   "platform/quickstart",
+                  "platform/advanced-memory-operations",
                   {
                     "group": "Features",
                     "icon": "star",
@@ -57,6 +57,7 @@
                       "platform/features/platform-overview",
                       "platform/features/contextual-add",
                       "platform/features/async-client",
+                      "platform/features/graph-memory",
                       "platform/features/advanced-retrieval",
                       "platform/features/criteria-retrieval",
                       "platform/features/multimodal-support",
@@ -85,6 +86,7 @@
                     "group": "Features",
                     "icon": "star",
                     "pages": [
+                      "open-source/features/overview",
                       "open-source/features/async-memory",
                       "open-source/features/openai_compatibility",
                       "open-source/features/custom-fact-extraction-prompt",
@@ -152,11 +154,15 @@
                           "components/vectordbs/dbs/elasticsearch",
                           "components/vectordbs/dbs/opensearch",
                           "components/vectordbs/dbs/supabase",
+                          "components/vectordbs/dbs/upstash-vector",
+                          "components/vectordbs/dbs/vectorize",
                           "components/vectordbs/dbs/vertex_ai",
                           "components/vectordbs/dbs/weaviate",
                           "components/vectordbs/dbs/faiss",
                           "components/vectordbs/dbs/langchain",
-                          "components/vectordbs/dbs/baidu"
+                          "components/vectordbs/dbs/baidu",
+                          "components/vectordbs/dbs/s3_vectors",
+                          "components/vectordbs/dbs/databricks"
                         ]
                       }
                     ]
@@ -374,7 +380,7 @@
   "background": {
     "color": {
       "light": "#fff",
-      "dark": "#0f1117"
+      "dark": "#09090b"
     }
   },
   "navbar": {

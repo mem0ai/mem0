@@ -1,6 +1,6 @@
 import logging
 
-from mem0.memory.utils import format_entities
+from mem0.memory.utils import format_entities, sanitize_relationship_for_cypher
 
 try:
     from langchain_memgraph.graphs.memgraph import Memgraph
@@ -40,13 +40,20 @@ class MemoryGraph:
             {"enable_embeddings": True},
         )
 
-        self.llm_provider = "openai_structured"
-        if self.config.llm.provider:
+        # Default to openai if no specific provider is configured
+        self.llm_provider = "openai"
+        if self.config.llm and self.config.llm.provider:
             self.llm_provider = self.config.llm.provider
-        if self.config.graph_store.llm:
+        if self.config.graph_store and self.config.graph_store.llm and self.config.graph_store.llm.provider:
             self.llm_provider = self.config.graph_store.llm.provider
 
-        self.llm = LlmFactory.create(self.llm_provider, self.config.llm.config)
+        # Get LLM config with proper null checks
+        llm_config = None
+        if self.config.graph_store and self.config.graph_store.llm and hasattr(self.config.graph_store.llm, "config"):
+            llm_config = self.config.graph_store.llm.config
+        elif hasattr(self.config.llm, "config"):
+            llm_config = self.config.llm.config
+        self.llm = LlmFactory.create(self.llm_provider, llm_config)
         self.user_id = None
         self.threshold = 0.7
 
@@ -274,23 +281,25 @@ class MemoryGraph:
             # Build query based on whether agent_id is provided
             if filters.get("agent_id"):
                 cypher_query = """
-                MATCH (n:Entity {user_id: $user_id, agent_id: $agent_id})-[r]->(m:Entity)
+                MATCH (n:Entity {user_id: $user_id, agent_id: $agent_id})
                 WHERE n.embedding IS NOT NULL
-                WITH collect(n) AS nodes1, collect(m) AS nodes2, r
-                CALL node_similarity.cosine_pairwise("embedding", nodes1, nodes2)
+                WITH n, $n_embedding as n_embedding
+                CALL node_similarity.cosine_pairwise("embedding", [n_embedding], [n.embedding])
                 YIELD node1, node2, similarity
-                WITH node1, node2, similarity, r
+                WITH n, similarity
                 WHERE similarity >= $threshold
-                RETURN node1.name AS source, id(node1) AS source_id, type(r) AS relationship, id(r) AS relation_id, node2.name AS destination, id(node2) AS destination_id, similarity
+                MATCH (n)-[r]->(m:Entity)
+                RETURN n.name AS source, id(n) AS source_id, type(r) AS relationship, id(r) AS relation_id, m.name AS destination, id(m) AS destination_id, similarity
                 UNION
-                MATCH (n:Entity {user_id: $user_id, agent_id: $agent_id})<-[r]-(m:Entity)
+                MATCH (n:Entity {user_id: $user_id, agent_id: $agent_id})
                 WHERE n.embedding IS NOT NULL
-                WITH collect(n) AS nodes1, collect(m) AS nodes2, r
-                CALL node_similarity.cosine_pairwise("embedding", nodes1, nodes2)
+                WITH n, $n_embedding as n_embedding
+                CALL node_similarity.cosine_pairwise("embedding", [n_embedding], [n.embedding])
                 YIELD node1, node2, similarity
-                WITH node1, node2, similarity, r
+                WITH n, similarity
                 WHERE similarity >= $threshold
-                RETURN node2.name AS source, id(node2) AS source_id, type(r) AS relationship, id(r) AS relation_id, node1.name AS destination, id(node1) AS destination_id, similarity
+                MATCH (m:Entity)-[r]->(n)
+                RETURN m.name AS source, id(m) AS source_id, type(r) AS relationship, id(r) AS relation_id, n.name AS destination, id(n) AS destination_id, similarity
                 ORDER BY similarity DESC
                 LIMIT $limit;
                 """
@@ -303,23 +312,25 @@ class MemoryGraph:
                 }
             else:
                 cypher_query = """
-                MATCH (n:Entity {user_id: $user_id})-[r]->(m:Entity)
+                MATCH (n:Entity {user_id: $user_id})
                 WHERE n.embedding IS NOT NULL
-                WITH collect(n) AS nodes1, collect(m) AS nodes2, r
-                CALL node_similarity.cosine_pairwise("embedding", nodes1, nodes2)
+                WITH n, $n_embedding as n_embedding
+                CALL node_similarity.cosine_pairwise("embedding", [n_embedding], [n.embedding])
                 YIELD node1, node2, similarity
-                WITH node1, node2, similarity, r
+                WITH n, similarity
                 WHERE similarity >= $threshold
-                RETURN node1.name AS source, id(node1) AS source_id, type(r) AS relationship, id(r) AS relation_id, node2.name AS destination, id(node2) AS destination_id, similarity
+                MATCH (n)-[r]->(m:Entity)
+                RETURN n.name AS source, id(n) AS source_id, type(r) AS relationship, id(r) AS relation_id, m.name AS destination, id(m) AS destination_id, similarity
                 UNION
-                MATCH (n:Entity {user_id: $user_id})<-[r]-(m:Entity)
+                MATCH (n:Entity {user_id: $user_id})
                 WHERE n.embedding IS NOT NULL
-                WITH collect(n) AS nodes1, collect(m) AS nodes2, r
-                CALL node_similarity.cosine_pairwise("embedding", nodes1, nodes2)
+                WITH n, $n_embedding as n_embedding
+                CALL node_similarity.cosine_pairwise("embedding", [n_embedding], [n.embedding])
                 YIELD node1, node2, similarity
-                WITH node1, node2, similarity, r
+                WITH n, similarity
                 WHERE similarity >= $threshold
-                RETURN node2.name AS source, id(node2) AS source_id, type(r) AS relationship, id(r) AS relation_id, node1.name AS destination, id(node1) AS destination_id, similarity
+                MATCH (m:Entity)-[r]->(n)
+                RETURN m.name AS source, id(m) AS source_id, type(r) AS relationship, id(r) AS relation_id, n.name AS destination, id(n) AS destination_id, similarity
                 ORDER BY similarity DESC
                 LIMIT $limit;
                 """
@@ -531,7 +542,8 @@ class MemoryGraph:
     def _remove_spaces_from_entities(self, entity_list):
         for item in entity_list:
             item["source"] = item["source"].lower().replace(" ", "_")
-            item["relationship"] = item["relationship"].lower().replace(" ", "_")
+            # Use the sanitization function for relationships to handle special characters
+            item["relationship"] = sanitize_relationship_for_cypher(item["relationship"].lower().replace(" ", "_"))
             item["destination"] = item["destination"].lower().replace(" ", "_")
         return entity_list
 

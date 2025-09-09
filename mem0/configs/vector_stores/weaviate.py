@@ -1,6 +1,6 @@
 from typing import Any, ClassVar, Dict, Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class WeaviateConfig(BaseModel):
@@ -38,6 +38,4 @@ class WeaviateConfig(BaseModel):
 
         return values
 
-    model_config = {
-        "arbitrary_types_allowed": True,
-    }
+    model_config = ConfigDict(arbitrary_types_allowed=True)

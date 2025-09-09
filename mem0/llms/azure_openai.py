@@ -2,12 +2,15 @@ import json
 import os
 from typing import Dict, List, Optional, Union
 
+from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 from openai import AzureOpenAI
 
 from mem0.configs.llms.azure import AzureOpenAIConfig
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.llms.base import LLMBase
 from mem0.memory.utils import extract_json
+
+SCOPE = "https://cognitiveservices.azure.com/.default"
 
 
 class AzureOpenAILLM(LLMBase):
@@ -43,9 +46,21 @@ class AzureOpenAILLM(LLMBase):
         api_version = self.config.azure_kwargs.api_version or os.getenv("LLM_AZURE_API_VERSION")
         default_headers = self.config.azure_kwargs.default_headers
 
+        # If the API key is not provided or is a placeholder, use DefaultAzureCredential.
+        if api_key is None or api_key == "" or api_key == "your-api-key":
+            self.credential = DefaultAzureCredential()
+            azure_ad_token_provider = get_bearer_token_provider(
+                self.credential,
+                SCOPE,
+            )
+            api_key = None
+        else:
+            azure_ad_token_provider = None
+
         self.client = AzureOpenAI(
             azure_deployment=azure_deployment,
             azure_endpoint=azure_endpoint,
+            azure_ad_token_provider=azure_ad_token_provider,
             api_version=api_version,
             api_key=api_key,
             http_client=self.config.http_client,
@@ -110,27 +125,13 @@ class AzureOpenAILLM(LLMBase):
 
         messages[-1]["content"] = user_prompt
 
-        # Get common parameters
-        params = self._get_common_params(**kwargs)
-        params.update(
-            {
-                "model": self.config.model,
-                "messages": messages,
-            }
-        )
-
-        if self.config.model in {"o3-mini", "o1-preview", "o1"}:
-            # Use common params for these models
-            pass
-        else:
-            # Add additional parameters for other models
-            params.update(
-                {
-                    "temperature": self.config.temperature,
-                    "max_tokens": self.config.max_tokens,
-                    "top_p": self.config.top_p,
-                }
-            )
+        params = self._get_supported_params(messages=messages, **kwargs)
+        
+        # Add model and messages
+        params.update({
+            "model": self.config.model,
+            "messages": messages,
+        })
 
         if tools:
             params["tools"] = tools

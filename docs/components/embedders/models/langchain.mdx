@@ -44,29 +44,33 @@ m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
 
 ```typescript TypeScript
-import { Memory } from "mem0ai";
+import { Memory } from 'mem0ai/oss';
 import { OpenAIEmbeddings } from "@langchain/openai";
 
-const embeddings = new OpenAIEmbeddings();
+// Initialize a LangChain embeddings model directly
+const openaiEmbeddings = new OpenAIEmbeddings({
+    modelName: "text-embedding-3-small",
+    dimensions: 1536,
+    apiKey: process.env.OPENAI_API_KEY,
+});
+
 const config = {
-    "embedder": {
-        "provider": "langchain",
-        "config": {
-            "model": embeddings
-        }
-    }
-}
+  embedder: {
+    provider: 'langchain',
+    config: {
+      model: openaiEmbeddings,
+    },
+  },
+};
 
 const memory = new Memory(config);
-
 const messages = [
-    { role: "user", content: "I'm planning to watch a movie tonight. Any recommendations?" },
-    { role: "assistant", content: "How about a thriller movies? They can be quite engaging." },
-    { role: "user", content: "I'm not a big fan of thriller movies but I love sci-fi movies." },
-    { role: "assistant", content: "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future." }
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
 ]
-
-memory.add(messages, user_id="alice", metadata={"category": "movies"})
+await memory.add(messages, { userId: "alice", metadata: { category: "movies" } });
 ```
 </CodeGroup>
 
@@ -96,9 +100,10 @@ When using LangChain as an embedder provider, you'll need to:
 
 ### Examples with Different Providers
 
+<CodeGroup>
 #### HuggingFace Embeddings
 
-```python
+```python Python
 from langchain_huggingface import HuggingFaceEmbeddings
 
 # Initialize a HuggingFace embeddings model
@@ -117,9 +122,33 @@ config = {
 }
 ```
 
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+import { HuggingFaceEmbeddings } from "@langchain/community/embeddings/hf";
+
+// Initialize a HuggingFace embeddings model
+const hfEmbeddings = new HuggingFaceEmbeddings({
+    modelName: "BAAI/bge-small-en-v1.5",
+    encode: {
+        normalize_embeddings: true,
+    },
+});
+
+const config = {
+  embedder: {
+    provider: 'langchain',
+    config: {
+      model: hfEmbeddings,
+    },
+  },
+};
+```
+</CodeGroup>
+
+<CodeGroup>
 #### Ollama Embeddings
 
-```python
+```python Python
 from langchain_ollama import OllamaEmbeddings
 
 # Initialize an Ollama embeddings model
@@ -136,6 +165,27 @@ config = {
     }
 }
 ```
+
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+import { OllamaEmbeddings } from "@langchain/community/embeddings/ollama";
+
+// Initialize an Ollama embeddings model
+const ollamaEmbeddings = new OllamaEmbeddings({
+    model: "nomic-embed-text",
+    baseUrl: "http://localhost:11434", // Ollama server URL
+});
+
+const config = {
+  embedder: {
+    provider: 'langchain',
+    config: {
+      model: ollamaEmbeddings,
+    },
+  },
+};
+```
+</CodeGroup>
 
 <Note>
   Make sure to install the necessary LangChain packages and any provider-specific dependencies.

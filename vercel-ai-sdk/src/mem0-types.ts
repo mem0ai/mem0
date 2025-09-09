@@ -26,8 +26,10 @@ export interface Mem0ConfigSettings {
   threshold?: number;
   rerank?: boolean;
   enable_graph?: boolean;
+  host?: string;
   output_format?: string;
   filter_memories?: boolean;
+  async_mode?: boolean;
 }
 
 export interface Mem0ChatConfig extends Mem0ConfigSettings, Mem0ProviderSettings {}

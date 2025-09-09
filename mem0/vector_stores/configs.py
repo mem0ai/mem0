@@ -22,6 +22,7 @@ class VectorStoreConfig(BaseModel):
         "azure_ai_search": "AzureAISearchConfig",
         "redis": "RedisDBConfig",
         "valkey": "ValkeyConfig",
+        "databricks": "DatabricksConfig",
         "elasticsearch": "ElasticsearchConfig",
         "vertex_ai_vector_search": "GoogleMatchingEngineConfig",
         "opensearch": "OpenSearchConfig",
@@ -29,6 +30,7 @@ class VectorStoreConfig(BaseModel):
         "weaviate": "WeaviateConfig",
         "faiss": "FAISSConfig",
         "langchain": "LangchainConfig",
+        "s3_vectors": "S3VectorsConfig",
     }
 
     @model_validator(mode="after")

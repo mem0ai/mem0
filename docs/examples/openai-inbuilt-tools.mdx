@@ -2,8 +2,6 @@
 title: OpenAI Inbuilt Tools
 ---
 
-<Snippet file="blank-notif.mdx" />
-
 Integrate Mem0’s memory capabilities with OpenAI’s Inbuilt Tools to create AI agents with persistent memory.
 
 ## Getting Started
@@ -225,7 +223,7 @@ async function addSampleMemories() {
 
 const getMemoryString = (memories) => {
     const MEMORY_STRING_PREFIX = "These are the memories I have stored. Give more weightage to the question by users and try to answer that first. You have to modify your answer based on the memories I have provided. If the memories are irrelevant you can ignore them. Also don't reply to this section of the prompt, or the memories, they are only for your reference. The MEMORIES of the USER are: \n\n";
-    const memoryString = memories.map((mem) => `${mem.memory}`).join("\n") ?? "";
+    const memoryString = (memories?.results || memories).map((mem) => `${mem.memory}`).join("\n") ?? "";
     return memoryString.length > 0 ? `${MEMORY_STRING_PREFIX}${memoryString}` : "";
 };
 

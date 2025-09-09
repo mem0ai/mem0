@@ -2,8 +2,6 @@
 title: Livekit
 ---
 
-<Snippet file="blank-notif.mdx" />
-
 This guide demonstrates how to create a memory-enabled voice assistant using LiveKit, Deepgram, OpenAI, and Mem0, focusing on creating an intelligent, context-aware travel planning agent.
 
 ## Prerequisites
@@ -119,9 +117,9 @@ class MemoryEnabledAgent(Agent):
                 user_id=RAG_USER_ID,
             )
             logger.info(f"mem0_client.search returned: {search_results}")
-            if search_results and isinstance(search_results, list):
+            if search_results and search_results.get('results', []):
                 context_parts = []
-                for result in search_results:
+                for result in search_results.get('results', []):
                     paragraph = result.get("memory") or result.get("text")
                     if paragraph:
                         source = "mem0 Memories"

@@ -5074,6 +5074,12 @@
 						"type": "string",
 						"description": "The query to search for in the memory."
 					},
+					"version": {
+						"title": "Version",
+						"type": "string",
+						"default": "v2",
+						"description": "The version of the memory to use. This should always be v2."
+					},
 					"filters": {
 						"title": "Filters",
 						"type": "object",
