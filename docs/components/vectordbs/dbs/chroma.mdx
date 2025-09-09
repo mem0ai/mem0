@@ -1,6 +1,8 @@
-[Chroma](https://www.trychroma.com/) is an AI-native open-source vector database that simplifies building LLM apps by providing tools for storing, embedding, and searching embeddings with a focus on simplicity and speed.
+[Chroma](https://www.trychroma.com/) is an AI-native open-source vector database that simplifies building LLM apps by providing tools for storing, embedding, and searching embeddings with a focus on simplicity and speed. It supports both local deployment and cloud hosting through ChromaDB Cloud.
 
 ### Usage
+
+#### Local Installation
 
 ```python
 import os
@@ -14,6 +16,9 @@ config = {
         "config": {
             "collection_name": "test",
             "path": "db",
+            # Optional: ChromaDB Cloud configuration
+            # "api_key": "your-chroma-cloud-api-key",
+            # "tenant": "your-chroma-cloud-tenant-id",
         }
     }
 }
@@ -39,3 +44,5 @@ Here are the parameters available for configuring Chroma:
 | `path` | Path for the Chroma database | `db` |
 | `host` | The host where the Chroma server is running | `None` |
 | `port` | The port where the Chroma server is running | `None` |
+| `api_key` | ChromaDB Cloud API key (for cloud usage) | `None` |
+| `tenant` | ChromaDB Cloud tenant ID (for cloud usage) | `None` |

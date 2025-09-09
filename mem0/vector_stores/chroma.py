@@ -28,6 +28,8 @@ class ChromaDB(VectorStoreBase):
         host: Optional[str] = None,
         port: Optional[int] = None,
         path: Optional[str] = None,
+        api_key: Optional[str] = None,
+        tenant: Optional[str] = None,
     ):
         """
         Initialize the Chromadb vector store.
@@ -38,10 +40,21 @@ class ChromaDB(VectorStoreBase):
             host (str, optional): Host address for chromadb server. Defaults to None.
             port (int, optional): Port for chromadb server. Defaults to None.
             path (str, optional): Path for local chromadb database. Defaults to None.
+            api_key (str, optional): ChromaDB Cloud API key. Defaults to None.
+            tenant (str, optional): ChromaDB Cloud tenant ID. Defaults to None.
         """
         if client:
             self.client = client
+        elif api_key and tenant:
+            # Initialize ChromaDB Cloud client
+            logger.info("Initializing ChromaDB Cloud client")
+            self.client = chromadb.CloudClient(
+                api_key=api_key,
+                tenant=tenant,
+                database="mem0"  # Use fixed database name for cloud
+            )
         else:
+            # Initialize local or server client
             self.settings = Settings(anonymized_telemetry=False)
 
             if host and port:
