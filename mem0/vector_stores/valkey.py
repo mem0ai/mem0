@@ -1,10 +1,12 @@
 import json
 import logging
 from datetime import datetime
+from typing import Dict
 
 import numpy as np
 import pytz
 import valkey
+from pydantic import BaseModel
 from valkey.exceptions import ResponseError
 
 from mem0.memory.utils import extract_json
@@ -33,11 +35,10 @@ DEFAULT_FIELDS = [
 excluded_keys = {"user_id", "agent_id", "run_id", "hash", "data", "created_at", "updated_at"}
 
 
-class MemoryResult:
-    def __init__(self, id: str, payload: dict, score: float = None):
-        self.id = id
-        self.payload = payload
-        self.score = score
+class OutputData(BaseModel):
+    id: str
+    score: float
+    payload: Dict
 
 
 class ValkeyDB(VectorStoreBase):
@@ -319,10 +320,15 @@ class ValkeyDB(VectorStoreBase):
 
         Args:
             knn_part (str): The KNN part of the query.
-            filters (dict, optional): Filters to apply to the search.
+            filters (dict, optional): Filters to apply to the search. Each key-value pair
+                becomes a tag filter (@key:{value}). None values are ignored.
+                Values are used as-is (no validation) - wildcards, lists, etc. are
+                passed through literally to Valkey search. Multiple filters are
+                combined with AND logic (space-separated).
 
         Returns:
-            str: The complete search query string.
+            str: The complete search query string in format "filter_expr =>[KNN...]"
+                or "*=>[KNN...]" if no valid filters.
         """
         # No filters, just use the KNN search
         if not filters or not any(value is not None for key, value in filters.items()):
@@ -362,13 +368,13 @@ class ValkeyDB(VectorStoreBase):
 
     def _process_search_results(self, results):
         """
-        Process search results into MemoryResult objects.
+        Process search results into OutputData objects.
 
         Args:
             results: The search results from Valkey.
 
         Returns:
-            list: List of MemoryResult objects.
+            list: List of OutputData objects.
         """
         memory_results = []
         for doc in results.docs:
@@ -400,7 +406,7 @@ class ValkeyDB(VectorStoreBase):
                     logger.warning(f"Failed to parse metadata: {e}")
 
             # Create the result
-            memory_results.append(MemoryResult(id=doc.memory_id, score=score, payload=payload))
+            memory_results.append(OutputData(id=doc.memory_id, score=score, payload=payload))
 
         return memory_results
 
@@ -416,7 +422,7 @@ class ValkeyDB(VectorStoreBase):
             ef_runtime (int, optional): HNSW ef_runtime parameter for this query. Only used with HNSW index. Defaults to None.
 
         Returns:
-            list: List of MemoryResult objects.
+            list: List of OutputData objects.
         """
         # Convert the vector to bytes
         vector_bytes = np.array(vectors, dtype=np.float32).tobytes()
@@ -599,6 +605,21 @@ class ValkeyDB(VectorStoreBase):
 
         return payload, memory_id
 
+    def _convert_bytes(self, data):
+        """Convert bytes data back to string"""
+        if isinstance(data, bytes):
+            try:
+                return data.decode("utf-8")
+            except:
+                return data
+        if isinstance(data, dict):
+            return {self._convert_bytes(key): self._convert_bytes(value) for key, value in data.items()}
+        if isinstance(data, list):
+            return [self._convert_bytes(item) for item in data]
+        if isinstance(data, tuple):
+            return tuple(self._convert_bytes(item) for item in data)
+        return data
+
     def get(self, vector_id):
         """
         Get a vector by ID.
@@ -607,7 +628,7 @@ class ValkeyDB(VectorStoreBase):
             vector_id (str): ID of the vector to get.
 
         Returns:
-            MemoryResult: The retrieved vector.
+            OutputData: The retrieved vector.
         """
         try:
             key = f"{self.prefix}:{vector_id}"
@@ -616,12 +637,15 @@ class ValkeyDB(VectorStoreBase):
             if not result:
                 raise KeyError(f"Vector with ID {vector_id} not found")
 
+            # Convert bytes keys/values to strings
+            result = self._convert_bytes(result)
+
             logger.debug(f"Retrieved result keys: {result.keys()}")
 
             # Process the document fields
             payload, memory_id = self._process_document_fields(result, vector_id)
 
-            return MemoryResult(id=memory_id, payload=payload)
+            return OutputData(id=memory_id, payload=payload, score=0.0)
         except KeyError:
             raise
         except Exception as e:
@@ -718,10 +742,13 @@ class ValkeyDB(VectorStoreBase):
         Build a query for listing vectors.
 
         Args:
-            filters (dict, optional): Filters to apply to the list.
+            filters (dict, optional): Filters to apply to the list. Each key-value pair
+                becomes a tag filter (@key:{value}). None values are ignored.
+                Values are used as-is (no validation) - wildcards, lists, etc. are
+                passed through literally to Valkey search.
 
         Returns:
-            str: The query string.
+            str: The query string. Returns "*" if no valid filters provided.
         """
         # Default query
         q = "*"
@@ -743,21 +770,54 @@ class ValkeyDB(VectorStoreBase):
         List all recent created memories from the vector store.
 
         Args:
-            filters (dict, optional): Filters to apply to the list. Defaults to None.
-            limit (int, optional): Maximum number of results to return. Defaults to None.
+            filters (dict, optional): Filters to apply to the list. Each key-value pair
+                becomes a tag filter (@key:{value}). None values are ignored.
+                Values are used as-is without validation - wildcards, special characters,
+                lists, etc. are passed through literally to Valkey search.
+                Multiple filters are combined with AND logic.
+            limit (int, optional): Maximum number of results to return. Defaults to 1000
+                if not specified.
 
         Returns:
-            list: List of MemoryResult objects.
+            list: Nested list format [[MemoryResult(), ...]] matching Redis implementation.
+                Each MemoryResult contains id and payload with hash, data, timestamps, etc.
         """
         try:
-            # Build the query
-            q = self._build_list_query(filters)
-
-            # Execute the search with parameters
-            if limit is not None:
-                results = self.client.ft(self.collection_name).search(q, limit=limit, sortby="created_at", desc=True)
-            else:
-                results = self.client.ft(self.collection_name).search(q, sortby="created_at", desc=True)
+            # Since Valkey search requires vector format, use a dummy vector search
+            # that returns all documents by using a zero vector and large K
+            dummy_vector = [0.0] * self.embedding_model_dims
+            search_limit = limit if limit is not None else 1000  # Large default
+            
+            # Use the existing search method which handles filters properly
+            search_results = self.search("", dummy_vector, limit=search_limit, filters=filters)
+            
+            # Convert search results to list format (match Redis format)
+            class MemoryResult:
+                def __init__(self, id: str, payload: dict, score: float = None):
+                    self.id = id
+                    self.payload = payload
+                    self.score = score
+            
+            memory_results = []
+            for result in search_results:
+                # Create payload in the expected format
+                payload = {
+                    "hash": result.payload.get("hash", ""),
+                    "data": result.payload.get("data", ""),
+                    "created_at": result.payload.get("created_at"),
+                    "updated_at": result.payload.get("updated_at")
+                }
+                
+                # Add metadata (exclude system fields)
+                for key, value in result.payload.items():
+                    if key not in ["data", "hash", "created_at", "updated_at"]:
+                        payload[key] = value
+                
+                # Create MemoryResult object (matching Redis format)
+                memory_results.append(MemoryResult(id=result.id, payload=payload))
+            
+            # Return nested list format like Redis
+            return [memory_results]
 
             # Process the results
             memory_results = []
@@ -814,7 +874,7 @@ class ValkeyDB(VectorStoreBase):
                 memory_id = getattr(doc, "memory_id", "unknown")
 
                 # Create the result
-                memory_results.append(MemoryResult(id=memory_id, payload=payload))
+                memory_results.append(OutputData(id=memory_id, payload=payload, score=0.0))
 
             return [memory_results]
         except Exception as e:
