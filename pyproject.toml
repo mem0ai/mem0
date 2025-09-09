@@ -42,6 +42,7 @@ vector_stores = [
     "psycopg-pool>=3.2.6,<4.0.0",
     "pymongo>=4.13.2",
     "pymochow>=2.2.9",
+    "valkey>=6.0.0",
     "databricks-sdk>=0.63.0",
     "azure-identity>=1.24.0",
     "redis>=5.0.0,<6.0.0",

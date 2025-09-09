@@ -1,0 +1,49 @@
+# Valkey Vector Store
+
+[Valkey](https://valkey.io/) is an open source (BSD) high-performance key/value datastore that supports a variety of workloads and rich datastructures including vector search.
+
+## Installation
+
+```bash
+pip install mem0ai[vector_stores]
+```
+
+## Usage
+
+```python
+config = {
+    "vector_store": {
+        "provider": "valkey",
+        "config": {
+            "collection_name": "test",
+            "valkey_url": "valkey://localhost:6379",
+            "embedding_model_dims": 1536,
+            "index_type": "flat"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+## Parameters
+
+Let's see the available parameters for the `valkey` config:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `collection_name` | The name of the collection to store the vectors | `mem0` |
+| `valkey_url` | Connection URL for the Valkey server | `valkey://localhost:6379` |
+| `embedding_model_dims` | Dimensions of the embedding model | `1536` |
+| `index_type` | Vector index algorithm (`hnsw` or `flat`) | `hnsw` |
+| `hnsw_m` | Number of bi-directional links for HNSW | `16` |
+| `hnsw_ef_construction` | Size of dynamic candidate list for HNSW | `200` |
+| `hnsw_ef_runtime` | Size of dynamic candidate list for search | `10` |
+| `distance_metric` | Distance metric for vector similarity | `cosine` |
