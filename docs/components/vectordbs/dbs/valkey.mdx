@@ -5,7 +5,7 @@ description: 'Using Valkey as a vector store in Mem0'
 
 # Valkey Vector Store
 
-Valkey is an open source (BSD) high-performance key/value datastore that supports a variety of workloads and rich datastructures including vector search.
+[Valkey](https://valkey.io/) is an open source (BSD) high-performance key/value datastore that supports a variety of workloads and rich datastructures including vector search.
 
 ## Installation
 
@@ -13,10 +13,8 @@ Valkey is an open source (BSD) high-performance key/value datastore that support
 pip install mem0ai[vector_stores]
 ```
 
-## Configuration
+## Usage
 
-<Tabs>
-<Tab title="Python">
 ```python
 config = {
     "vector_store": {
@@ -39,41 +37,11 @@ messages = [
 ]
 m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
-</Tab>
-<Tab title="TypeScript">
-```typescript
-import { Memory } from 'mem0ai/oss';
-
-const config = {
-    vectorStore: {
-        provider: "valkey",
-        config: {
-            collectionName: "test",
-            valkeyUrl: "valkey://localhost:6379",
-            embeddingModelDims: 1536,
-            indexType: "flat"
-        }
-    }
-};
-
-const m = new Memory(config);
-const messages = [
-    { role: "user", content: "I'm planning to watch a movie tonight. Any recommendations?" },
-    { role: "assistant", content: "How about a thriller movies? They can be quite engaging." },
-    { role: "user", content: "I'm not a big fan of thriller movies but I love sci-fi movies." },
-    { role: "assistant", content: "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future." }
-];
-await m.add(messages, { userId: "alice", metadata: { category: "movies" } });
-```
-</Tab>
-</Tabs>
 
 ## Parameters
 
 Let's see the available parameters for the `valkey` config:
 
-<Tabs>
-<Tab title="Python">
 | Parameter | Description | Default Value |
 | --- | --- | --- |
 | `collection_name` | The name of the collection to store the vectors | `mem0` |
@@ -84,17 +52,3 @@ Let's see the available parameters for the `valkey` config:
 | `hnsw_ef_construction` | Size of dynamic candidate list for HNSW | `200` |
 | `hnsw_ef_runtime` | Size of dynamic candidate list for search | `10` |
 | `distance_metric` | Distance metric for vector similarity | `cosine` |
-</Tab>
-<Tab title="TypeScript">
-| Parameter | Description | Default Value |
-| --- | --- | --- |
-| `collectionName` | The name of the collection to store the vectors | `mem0` |
-| `valkeyUrl` | Connection URL for the Valkey server | `valkey://localhost:6379` |
-| `embeddingModelDims` | Dimensions of the embedding model | `1536` |
-| `indexType` | Vector index algorithm (`hnsw` or `flat`) | `hnsw` |
-| `hnswM` | Number of bi-directional links for HNSW | `16` |
-| `hnswEfConstruction` | Size of dynamic candidate list for HNSW | `200` |
-| `hnswEfRuntime` | Size of dynamic candidate list for search | `10` |
-| `distanceMetric` | Distance metric for vector similarity | `cosine` |
-</Tab>
-</Tabs>
