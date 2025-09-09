@@ -285,6 +285,10 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 
 Our advanced search allows you to set custom search filters. You can filter by user_id, agent_id, app_id, run_id, created_at, updated_at, categories, and text. The filters support logical operators (AND, OR) and comparison operators (in, gte, lte, gt, lt, ne, contains, icontains, `*`). The wildcard character (`*`) matches everything for a specific field.
 
+For the **categories** field specifically:
+- Use `contains` for partial matching (e.g., `{"categories": {"contains": "finance"}}`)
+- Use `in` for exact matching (e.g., `{"categories": {"in": ["personal_information"]}}`).
+
 Here you need to define `version` as `v2` in the search method.
 
 #### Example 1: Search using user_id and agent_id filters
@@ -407,58 +411,106 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
 ```
 </CodeGroup>
 
-#### Example 3: Search using metadata and categories
+#### Example 3: Search using categories filters
 
 <CodeGroup>
 ```python Python
-query = "What do you know about me?"
+# Example 3a: Using 'contains' for partial matching
+query = "What are my financial goals?"
 filters = {
     "AND": [
-        {"metadata": {"food": "vegan"}},
+        { "user_id": "alice" },
         {
-         "categories":{
-            "contains": "food_preferences"
-         }
-    }
+            "categories": {
+                "contains": "finance"
+            }
+        }
+    ]
+}
+client.search(query, version="v2", filters=filters)
+
+# Example 3b: Using 'in' for exact matching
+query = "What personal information do you have?"
+filters = {
+    "AND": [
+        { "user_id": "alice" },
+        {
+            "categories": {
+                "in": ["personal_information"]
+            }
+        }
     ]
 }
 client.search(query, version="v2", filters=filters)
 ```
 
 ```javascript JavaScript
-const query = "What do you know about me?";
-const filters = {
+// Example 3a: Using 'contains' for partial matching
+const query1 = "What are my financial goals?";
+const filters1 = {
     "AND": [
-        {"metadata": {"food": "vegan"}},
+        { "user_id": "alice" },
         {
             "categories": {
-                "contains": "food_preferences"
+                "contains": "finance"
             }
         }
     ]
 };
 
-client.search(query, { version: "v2", filters })
+client.search(query1, { version: "v2", filters: filters1 })
+    .then(results => console.log(results))
+    .catch(error => console.error(error));
+
+// Example 3b: Using 'in' for exact matching
+const query2 = "What personal information do you have?";
+const filters2 = {
+    "AND": [
+        { "user_id": "alice" },
+        {
+            "categories": {
+                "in": ["personal_information"]
+            }
+        }
+    ]
+};
+
+client.search(query2, { version: "v2", filters: filters2 })
     .then(results => console.log(results))
     .catch(error => console.error(error));
 ```
 
 ```bash cURL
+# Example 3a: Using 'contains' for partial matching
 curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
      -H "Authorization: Token your-api-key" \
      -H "Content-Type: application/json" \
      -d '{
-         "query": "What do you know about me?",
+         "query": "What are my financial goals?",
          "filters": {
              "AND": [
-                 {
-                     "metadata": {
-                         "food": "vegan"
-                     }
-                 },
+                 { "user_id": "alice" },
                  {
                      "categories": {
-                         "contains": "food_preferences"
+                         "contains": "finance"
+                     }
+                 }
+             ]
+         }
+     }'
+
+# Example 3b: Using 'in' for exact matching
+curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "query": "What personal information do you have?",
+         "filters": {
+             "AND": [
+                 { "user_id": "alice" },
+                 {
+                     "categories": {
+                         "in": ["personal_information"]
                      }
                  }
              ]
@@ -692,6 +744,10 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex&keywords=to play&page
 #### Get all memories using custom filters
 
 Our advanced retrieval allows you to set custom filters when fetching memories. You can filter by user_id, agent_id, app_id, run_id, created_at, updated_at, categories, and keywords. The filters support logical operators (AND, OR) and comparison operators (in, gte, lte, gt, lt, ne, contains, icontains, `*`). The wildcard character (`*`) matches everything for a specific field.
+
+For the **categories** field specifically:
+- Use `contains` for partial matching (e.g., `{"categories": {"contains": "finance"}}`)
+- Use `in` for exact matching (e.g., `{"categories": {"in": ["personal_information"]}}`).
 
 Here you need to define `version` as `v2` in the get_all method.
 
