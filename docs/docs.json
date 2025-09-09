@@ -151,6 +151,7 @@
                           "components/vectordbs/dbs/mongodb",
                           "components/vectordbs/dbs/azure",
                           "components/vectordbs/dbs/redis",
+                          "components/vectordbs/dbs/valkey",
                           "components/vectordbs/dbs/elasticsearch",
                           "components/vectordbs/dbs/opensearch",
                           "components/vectordbs/dbs/supabase",
