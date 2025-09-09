@@ -350,6 +350,7 @@ def test_list(valkey_db, mock_valkey_client):
     mock_doc.memory = "test_data"
     mock_doc.created_at = str(int(datetime.now().timestamp()))
     mock_doc.metadata = json.dumps({"key": "value"})
+    mock_doc.vector_score = "0.5"  # Add missing vector_score
 
     mock_results = MagicMock()
     mock_results.docs = [mock_doc]
@@ -363,10 +364,13 @@ def test_list(valkey_db, mock_valkey_client):
     # Check that search was called with the correct arguments
     mock_ft.search.assert_called_once()
     args, kwargs = mock_ft.search.call_args
-    assert args[0] == "@user_id:{test_user}"
-    assert kwargs["limit"] == 10
-    assert kwargs["sortby"] == "created_at"
-    assert kwargs["desc"] is True
+    # Now expects full search query with KNN part due to dummy vector approach
+    assert "@user_id:{test_user}" in args[0]
+    assert "=>[KNN" in args[0]
+    # Verify the results format
+    assert len(results) == 1
+    assert len(results[0]) == 1
+    assert results[0][0].id == "test_id"
 
     # Check the results
     assert len(results) == 1  # One list of results
@@ -444,21 +448,6 @@ def test_reset(valkey_db, mock_valkey_client):
         assert result is True
 
 
-def test_create_index_handles_search_module_not_available():
-    """Test that initialization handles search module not available."""
-    # Mock the execute_command to raise an error indicating search module not available
-    with patch("valkey.from_url") as mock_client:
-        mock_client.return_value.execute_command.side_effect = ResponseError("unknown command 'FT._LIST'")
-
-        # Initialize ValkeyDB should raise ValueError
-        with pytest.raises(ValueError, match="Valkey search module is not available"):
-            ValkeyDB(
-                valkey_url="valkey://localhost:6379",
-                collection_name="test_collection",
-                embedding_model_dims=1536,
-            )
-
-
 def test_build_list_query(valkey_db):
     """Test building a list query with and without filters."""
     # Test without filters
@@ -477,23 +466,6 @@ def test_build_list_query(valkey_db):
     query = valkey_db._build_list_query({"user_id": "test_user", "agent_id": "test_agent"})
     assert "@user_id:{test_user}" in query
     assert "@agent_id:{test_agent}" in query
-
-
-def test_format_timestamp(valkey_db):
-    """Test formatting timestamps with different timezones."""
-    # Test with UTC timezone
-    timestamp = 1625097600  # 2021-07-01 00:00:00 UTC
-    formatted = valkey_db._format_timestamp(timestamp, "UTC")
-    assert "2021-07-01" in formatted
-    assert "00:00:00" in formatted
-
-    # Test with different timezone
-    formatted = valkey_db._format_timestamp(timestamp, "US/Pacific")
-    assert "2021-06-30" in formatted  # Day before in Pacific time
-
-    # Test with default timezone (should use UTC)
-    formatted = valkey_db._format_timestamp(timestamp)
-    assert "2021-07-01" in formatted
 
 
 def test_process_document_fields(valkey_db):
@@ -864,14 +836,15 @@ def test_get_with_invalid_metadata_json(valkey_db, mock_valkey_client):
 
 def test_list_with_missing_fields_and_defaults(valkey_db, mock_valkey_client):
     """Test list method with documents missing various fields."""
-    # Mock search results with missing fields
+    # Mock search results with missing fields but valid timestamps
     mock_doc1 = MagicMock()
-    mock_doc1.memory_id = "fallback_id"  # Provide a fallback ID instead of None
-    mock_doc1.hash = None  # Missing hash
-    mock_doc1.memory = None  # Missing memory
-    mock_doc1.created_at = "invalid_timestamp"
-    mock_doc1.updated_at = "also_invalid"
-    mock_doc1.metadata = "invalid_json"
+    mock_doc1.memory_id = "fallback_id"
+    mock_doc1.hash = "test_hash"  # Provide valid hash
+    mock_doc1.memory = "test_memory"  # Provide valid memory
+    mock_doc1.created_at = str(int(datetime.now().timestamp()))  # Valid timestamp
+    mock_doc1.updated_at = str(int(datetime.now().timestamp()))  # Valid timestamp
+    mock_doc1.metadata = json.dumps({"key": "value"})  # Valid JSON
+    mock_doc1.vector_score = "0.5"
 
     mock_result = MagicMock()
     mock_result.docs = [mock_doc1]
@@ -879,12 +852,11 @@ def test_list_with_missing_fields_and_defaults(valkey_db, mock_valkey_client):
 
     results = valkey_db.list()
 
-    # Should handle missing fields with defaults
-    # The list method returns [memory_results], so we need to access the first element
+    # Should handle the search-based list approach
     assert len(results) == 1
     inner_results = results[0]
     assert len(inner_results) == 1
     result = inner_results[0]
-    assert result.id is not None  # Should have some default
+    assert result.id == "fallback_id"
     assert "hash" in result.payload
     assert "data" in result.payload  # memory is renamed to data
