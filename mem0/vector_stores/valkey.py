@@ -610,7 +610,7 @@ class ValkeyDB(VectorStoreBase):
         if isinstance(data, bytes):
             try:
                 return data.decode("utf-8")
-            except:
+            except UnicodeDecodeError:
                 return data
         if isinstance(data, dict):
             return {self._convert_bytes(key): self._convert_bytes(value) for key, value in data.items()}
@@ -787,17 +787,17 @@ class ValkeyDB(VectorStoreBase):
             # that returns all documents by using a zero vector and large K
             dummy_vector = [0.0] * self.embedding_model_dims
             search_limit = limit if limit is not None else 1000  # Large default
-            
+
             # Use the existing search method which handles filters properly
             search_results = self.search("", dummy_vector, limit=search_limit, filters=filters)
-            
+
             # Convert search results to list format (match Redis format)
             class MemoryResult:
                 def __init__(self, id: str, payload: dict, score: float = None):
                     self.id = id
                     self.payload = payload
                     self.score = score
-            
+
             memory_results = []
             for result in search_results:
                 # Create payload in the expected format
@@ -805,78 +805,20 @@ class ValkeyDB(VectorStoreBase):
                     "hash": result.payload.get("hash", ""),
                     "data": result.payload.get("data", ""),
                     "created_at": result.payload.get("created_at"),
-                    "updated_at": result.payload.get("updated_at")
+                    "updated_at": result.payload.get("updated_at"),
                 }
-                
+
                 # Add metadata (exclude system fields)
                 for key, value in result.payload.items():
                     if key not in ["data", "hash", "created_at", "updated_at"]:
                         payload[key] = value
-                
+
                 # Create MemoryResult object (matching Redis format)
                 memory_results.append(MemoryResult(id=result.id, payload=payload))
-            
+
             # Return nested list format like Redis
             return [memory_results]
 
-            # Process the results
-            memory_results = []
-            for doc in results.docs:
-                # Process the document fields
-                payload = {}
-
-                # Add required fields with error handling
-                for field in ["hash", "memory", "created_at"]:
-                    if hasattr(doc, field):
-                        if field == "created_at":
-                            try:
-                                payload[field] = self._format_timestamp(int(getattr(doc, field)), self.timezone)
-                            except (ValueError, TypeError):
-                                payload[field] = getattr(doc, field)
-                        else:
-                            payload[field] = getattr(doc, field)
-                    else:
-                        # Use default values for missing fields
-                        if field == "hash":
-                            payload[field] = "unknown"
-                        elif field == "memory":
-                            payload[field] = "unknown"
-                        elif field == "created_at":
-                            payload[field] = self._format_timestamp(
-                                int(datetime.now(tz=pytz.timezone(self.timezone)).timestamp()), self.timezone
-                            )
-
-                # Rename memory to data for consistency
-                if "memory" in payload:
-                    payload["data"] = payload.pop("memory")
-
-                # Add updated_at if available
-                if hasattr(doc, "updated_at"):
-                    try:
-                        payload["updated_at"] = self._format_timestamp(int(doc.updated_at), self.timezone)
-                    except (ValueError, TypeError):
-                        payload["updated_at"] = doc.updated_at
-
-                # Add optional fields
-                for field in ["agent_id", "run_id", "user_id"]:
-                    if hasattr(doc, field):
-                        payload[field] = getattr(doc, field)
-
-                # Add metadata
-                if hasattr(doc, "metadata"):
-                    try:
-                        metadata = json.loads(extract_json(doc.metadata))
-                        payload.update(metadata)
-                    except (json.JSONDecodeError, TypeError):
-                        logger.warning(f"Failed to parse metadata: {getattr(doc, 'metadata', None)}")
-
-                # Use memory_id from doc if available, otherwise use a default
-                memory_id = getattr(doc, "memory_id", "unknown")
-
-                # Create the result
-                memory_results.append(OutputData(id=memory_id, payload=payload, score=0.0))
-
-            return [memory_results]
         except Exception as e:
             logger.exception(f"Error in list method: {e}")
             return [[]]  # Return empty result on error
