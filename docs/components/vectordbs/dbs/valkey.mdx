@@ -15,139 +15,86 @@ pip install mem0ai[vector_stores]
 
 ## Configuration
 
+<Tabs>
+<Tab title="Python">
 ```python
-from mem0 import Memory
-from mem0.configs.vector_stores.valkey import ValkeyConfig
+config = {
+    "vector_store": {
+        "provider": "valkey",
+        "config": {
+            "collection_name": "test",
+            "valkey_url": "valkey://localhost:6379",
+            "embedding_model_dims": 1536,
+            "index_type": "flat"
+        }
+    }
+}
 
-config = ValkeyConfig(
-    valkey_url="valkey://localhost:6379",
-    collection_name="my_collection",
-    embedding_model_dims=1536,
-    index_type="hnsw"  # Optional, defaults to "hnsw"
-)
-
-memory = Memory(vector_store_config=config)
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
+</Tab>
+<Tab title="TypeScript">
+```typescript
+import { Memory } from 'mem0ai/oss';
 
-## Index Types
+const config = {
+    vectorStore: {
+        provider: "valkey",
+        config: {
+            collectionName: "test",
+            valkeyUrl: "valkey://localhost:6379",
+            embeddingModelDims: 1536,
+            indexType: "flat"
+        }
+    }
+};
 
-Valkey supports two vector index algorithms:
-
-### HNSW (Default)
-The Hierarchical Navigable Small Worlds algorithm provides approximate results with fast query times.
-
-```python
-config = ValkeyConfig(
-    # ... other config ...
-    index_type="hnsw",
-    hnsw_m=16,                  # Connections per node (default)
-    hnsw_ef_construction=200,   # Build quality (default)
-    hnsw_ef_runtime=10          # Search quality (default)
-)
+const m = new Memory(config);
+const messages = [
+    { role: "user", content: "I'm planning to watch a movie tonight. Any recommendations?" },
+    { role: "assistant", content: "How about a thriller movies? They can be quite engaging." },
+    { role: "user", content: "I'm not a big fan of thriller movies but I love sci-fi movies." },
+    { role: "assistant", content: "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future." }
+];
+await m.add(messages, { userId: "alice", metadata: { category: "movies" } });
 ```
+</Tab>
+</Tabs>
 
-**Best for:**
-- Production workloads
-- Performance-critical applications
-- Large indexes
-- Cases where approximate results are acceptable
+## Parameters
 
-### FLAT
-The Flat algorithm performs brute force linear search, providing exact results.
+Let's see the available parameters for the `valkey` config:
 
-```python
-config = ValkeyConfig(
-    # ... other config ...
-    index_type="flat"
-)
-```
-
-**Best for:**
-- Development/testing
-- Cases requiring exact results
-- Small enough indexes where linear search is practical
-- Result validation
-
-For detailed information on FLAT index parameters and configuration options, see the [Valkey Search FT.CREATE command documentation](https://github.com/valkey-io/valkey-search/blob/main/COMMANDS.md#ftcreate).
-
-## Index Selection Guide
-
-Choose based on your requirements:
-
-1. **HNSW** (Default) when:
-   - Query performance is critical
-   - Approximate results are acceptable
-   - Index size makes linear search impractical
-
-2. **FLAT** when:
-   - Exact results are required
-   - Linear search time is acceptable
-   - Validating search results
-   - Development/testing environment
-
-## HNSW Parameter Tuning
-
-Three parameters control HNSW performance:
-
-1. `hnsw_m`: Connections per node
-   - Higher: Better recall, more memory
-   - Lower: Less memory, lower recall
-   - Set at creation, cannot change
-
-2. `hnsw_ef_construction`: Build quality
-   - Higher: Better recall, slower build
-   - Lower: Faster build, lower recall
-   - Set at creation, cannot change
-
-3. `hnsw_ef_runtime`: Search quality
-   - Higher: Better recall, slower queries
-   - Lower: Faster queries, lower recall
-   - Can override per query
-
-For detailed information on index parameters, limits, and advanced configuration options, see the [Valkey Search FT.CREATE command documentation](https://github.com/valkey-io/valkey-search/blob/main/COMMANDS.md#ftcreate).
-
-## Example Configurations
-
-```python
-# High Accuracy
-config = ValkeyConfig(
-    valkey_url="valkey://localhost:6379",
-    collection_name="my_collection",
-    embedding_model_dims=1536,
-    index_type="hnsw",
-    hnsw_m=32,
-    hnsw_ef_construction=400,
-    hnsw_ef_runtime=40
-)
-
-# Fast Queries
-config = ValkeyConfig(
-    valkey_url="valkey://localhost:6379",
-    collection_name="my_collection",
-    embedding_model_dims=1536,
-    index_type="hnsw",
-    hnsw_m=8,
-    hnsw_ef_construction=40,
-    hnsw_ef_runtime=4
-)
-
-# Exact Results
-config = ValkeyConfig(
-    valkey_url="valkey://localhost:6379",
-    collection_name="my_collection",
-    embedding_model_dims=1536,
-    index_type="flat"
-)
-```
-
-## Parameter Limits and Advanced Configuration
-
-### HNSW Parameter Ranges
-- `hnsw_m`: Default 16, **maximum 512** (higher values increase memory usage)
-- `hnsw_ef_construction`: Default 200, **maximum 4096** (affects build time vs. quality trade-off)
-- `hnsw_ef_runtime`: Default 10, **maximum 4096** (can be overridden per query)
-
-### Additional Resources
-- **Complete parameter reference**: [Valkey Search FT.CREATE Documentation](https://github.com/valkey-io/valkey-search/blob/main/COMMANDS.md#ftcreate)
-- **Performance tuning guidelines**: See the official [Valkey Search documentation](https://valkey.io/topics/search/) for detailed performance optimization strategies
-- **Index size estimation**: Refer to the Valkey documentation for memory usage calculations based on your dataset size and parameters
+<Tabs>
+<Tab title="Python">
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `collection_name` | The name of the collection to store the vectors | `mem0` |
+| `valkey_url` | Connection URL for the Valkey server | `valkey://localhost:6379` |
+| `embedding_model_dims` | Dimensions of the embedding model | `1536` |
+| `index_type` | Vector index algorithm (`hnsw` or `flat`) | `hnsw` |
+| `hnsw_m` | Number of bi-directional links for HNSW | `16` |
+| `hnsw_ef_construction` | Size of dynamic candidate list for HNSW | `200` |
+| `hnsw_ef_runtime` | Size of dynamic candidate list for search | `10` |
+| `distance_metric` | Distance metric for vector similarity | `cosine` |
+</Tab>
+<Tab title="TypeScript">
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `collectionName` | The name of the collection to store the vectors | `mem0` |
+| `valkeyUrl` | Connection URL for the Valkey server | `valkey://localhost:6379` |
+| `embeddingModelDims` | Dimensions of the embedding model | `1536` |
+| `indexType` | Vector index algorithm (`hnsw` or `flat`) | `hnsw` |
+| `hnswM` | Number of bi-directional links for HNSW | `16` |
+| `hnswEfConstruction` | Size of dynamic candidate list for HNSW | `200` |
+| `hnswEfRuntime` | Size of dynamic candidate list for search | `10` |
+| `distanceMetric` | Distance metric for vector similarity | `cosine` |
+</Tab>
+</Tabs>
