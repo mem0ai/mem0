@@ -85,7 +85,7 @@ class TestNeptuneMemory(unittest.TestCase):
         config1.vector_store.provider = "qdrant"
         config1.vector_store.config = MagicMock()
         
-        memory_graph1 = MemoryGraph(config1)
+        MemoryGraph(config1)
         self.assertEqual(config1.vector_store.config.collection_name, "custom_collection")
         
         # Test 2: vector_store.config.collection_name exists, graph_store.config.collection_name is None
@@ -99,7 +99,7 @@ class TestNeptuneMemory(unittest.TestCase):
         config2.vector_store.config = MagicMock()
         config2.vector_store.config.collection_name = "existing_collection"
         
-        memory_graph2 = MemoryGraph(config2)
+        MemoryGraph(config2)
         self.assertEqual(config2.vector_store.config.collection_name, "existing_collection_neptune_vector_store")
         
         # Test 3: Neither collection_name is set (default case)
@@ -113,7 +113,7 @@ class TestNeptuneMemory(unittest.TestCase):
         config3.vector_store.config = MagicMock()
         config3.vector_store.config.collection_name = None
         
-        memory_graph3 = MemoryGraph(config3)
+        MemoryGraph(config3)
         self.assertEqual(config3.vector_store.config.collection_name, "mem0_neptune_vector_store")
 
     def test_init(self):
