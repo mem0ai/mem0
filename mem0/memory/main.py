@@ -637,18 +637,22 @@ class Memory(MemoryBase):
             limit (int, optional): Limit the number of results. Defaults to 100.
             filters (dict, optional): Legacy filters to apply to the search. Defaults to None.
             threshold (float, optional): Minimum score for a memory to be included in the results. Defaults to None.
-            metadata_filters (dict, optional): Enhanced metadata filtering with operators:
+            filters (dict, optional): Enhanced metadata filtering with operators:
                 - {"key": "value"} - exact match
-                - {"key": {"$eq": "value"}} - equals
-                - {"key": {"$ne": "value"}} - not equals  
-                - {"key": {"$in": ["val1", "val2"]}} - in list
-                - {"key": {"$nin": ["val1", "val2"]}} - not in list
-                - {"key": {"$gt": 10}} - greater than
-                - {"key": {"$gte": 10}} - greater than or equal
-                - {"key": {"$lt": 10}} - less than
-                - {"key": {"$lte": 10}} - less than or equal
-                - {"$and": [filter1, filter2]} - logical AND
-                - {"$or": [filter1, filter2]} - logical OR
+                - {"key": {"eq": "value"}} - equals
+                - {"key": {"ne": "value"}} - not equals  
+                - {"key": {"in": ["val1", "val2"]}} - in list
+                - {"key": {"nin": ["val1", "val2"]}} - not in list
+                - {"key": {"gt": 10}} - greater than
+                - {"key": {"gte": 10}} - greater than or equal
+                - {"key": {"lt": 10}} - less than
+                - {"key": {"lte": 10}} - less than or equal
+                - {"key": {"contains": "text"}} - contains text
+                - {"key": {"icontains": "text"}} - case-insensitive contains
+                - {"key": "*"} - wildcard match (any value)
+                - {"AND": [filter1, filter2]} - logical AND
+                - {"OR": [filter1, filter2]} - logical OR
+                - {"NOT": [filter1]} - logical NOT
 
         Returns:
             dict: A dictionary containing the search results, typically under a "results" key,
@@ -733,33 +737,55 @@ class Memory(MemoryBase):
         def process_condition(key: str, condition: Any) -> Dict[str, Any]:
             if not isinstance(condition, dict):
                 # Simple equality: {"key": "value"}
-                return {key: {"$eq": condition}}
+                if condition == "*":
+                    # Wildcard: match everything for this field (implementation depends on vector store)
+                    return {key: "*"}
+                return {key: condition}
             
             result = {}
             for operator, value in condition.items():
-                if operator in ["$eq", "$ne", "$gt", "$gte", "$lt", "$lte", "$in", "$nin"]:
-                    result[key] = {operator: value}
+                # Map platform operators to universal format that can be translated by each vector store
+                operator_map = {
+                    "eq": "eq", "ne": "ne", "gt": "gt", "gte": "gte", 
+                    "lt": "lt", "lte": "lte", "in": "in", "nin": "nin",
+                    "contains": "contains", "icontains": "icontains"
+                }
+                
+                if operator in operator_map:
+                    result[key] = {operator_map[operator]: value}
                 else:
                     raise ValueError(f"Unsupported metadata filter operator: {operator}")
             return result
         
         for key, value in metadata_filters.items():
-            if key == "$and":
+            if key == "AND":
                 # Logical AND: combine multiple conditions
                 if not isinstance(value, list):
-                    raise ValueError("$and operator requires a list of conditions")
+                    raise ValueError("AND operator requires a list of conditions")
                 for condition in value:
                     for sub_key, sub_value in condition.items():
                         processed_filters.update(process_condition(sub_key, sub_value))
-            elif key == "$or":
-                # Logical OR: for now, we'll apply the first condition
-                # Note: Full OR support would require vector store level implementation
+            elif key == "OR":
+                # Logical OR: Pass through to vector store for implementation-specific handling
                 if not isinstance(value, list) or not value:
-                    raise ValueError("$or operator requires a non-empty list of conditions")
-                # Apply first condition as fallback
-                first_condition = value[0]
-                for sub_key, sub_value in first_condition.items():
-                    processed_filters.update(process_condition(sub_key, sub_value))
+                    raise ValueError("OR operator requires a non-empty list of conditions")
+                # Store OR conditions in a way that vector stores can interpret
+                processed_filters["$or"] = []
+                for condition in value:
+                    or_condition = {}
+                    for sub_key, sub_value in condition.items():
+                        or_condition.update(process_condition(sub_key, sub_value))
+                    processed_filters["$or"].append(or_condition)
+            elif key == "NOT":
+                # Logical NOT: Pass through to vector store for implementation-specific handling
+                if not isinstance(value, list) or not value:
+                    raise ValueError("NOT operator requires a non-empty list of conditions")
+                processed_filters["$not"] = []
+                for condition in value:
+                    not_condition = {}
+                    for sub_key, sub_value in condition.items():
+                        not_condition.update(process_condition(sub_key, sub_value))
+                    processed_filters["$not"].append(not_condition)
             else:
                 processed_filters.update(process_condition(key, value))
         
@@ -779,14 +805,17 @@ class Memory(MemoryBase):
             return False
             
         for key, value in filters.items():
-            # Check for logical operators
-            if key in ["$and", "$or"]:
+            # Check for platform-style logical operators
+            if key in ["AND", "OR", "NOT"]:
                 return True
-            # Check for advanced comparison operators
+            # Check for comparison operators (without $ prefix for universal compatibility)
             if isinstance(value, dict):
                 for op in value.keys():
-                    if op in ["$eq", "$ne", "$gt", "$gte", "$lt", "$lte", "$in", "$nin"]:
+                    if op in ["eq", "ne", "gt", "gte", "lt", "lte", "in", "nin", "contains", "icontains"]:
                         return True
+            # Check for wildcard values
+            if value == "*":
+                return True
         return False
 
     def _search_vector_store(self, query, filters, limit, threshold: Optional[float] = None):
@@ -1603,18 +1632,22 @@ class AsyncMemory(MemoryBase):
             limit (int, optional): Limit the number of results. Defaults to 100.
             filters (dict, optional): Legacy filters to apply to the search. Defaults to None.
             threshold (float, optional): Minimum score for a memory to be included in the results. Defaults to None.
-            metadata_filters (dict, optional): Enhanced metadata filtering with operators:
+            filters (dict, optional): Enhanced metadata filtering with operators:
                 - {"key": "value"} - exact match
-                - {"key": {"$eq": "value"}} - equals
-                - {"key": {"$ne": "value"}} - not equals  
-                - {"key": {"$in": ["val1", "val2"]}} - in list
-                - {"key": {"$nin": ["val1", "val2"]}} - not in list
-                - {"key": {"$gt": 10}} - greater than
-                - {"key": {"$gte": 10}} - greater than or equal
-                - {"key": {"$lt": 10}} - less than
-                - {"key": {"$lte": 10}} - less than or equal
-                - {"$and": [filter1, filter2]} - logical AND
-                - {"$or": [filter1, filter2]} - logical OR
+                - {"key": {"eq": "value"}} - equals
+                - {"key": {"ne": "value"}} - not equals  
+                - {"key": {"in": ["val1", "val2"]}} - in list
+                - {"key": {"nin": ["val1", "val2"]}} - not in list
+                - {"key": {"gt": 10}} - greater than
+                - {"key": {"gte": 10}} - greater than or equal
+                - {"key": {"lt": 10}} - less than
+                - {"key": {"lte": 10}} - less than or equal
+                - {"key": {"contains": "text"}} - contains text
+                - {"key": {"icontains": "text"}} - case-insensitive contains
+                - {"key": "*"} - wildcard match (any value)
+                - {"AND": [filter1, filter2]} - logical AND
+                - {"OR": [filter1, filter2]} - logical OR
+                - {"NOT": [filter1]} - logical NOT
 
         Returns:
             dict: A dictionary containing the search results, typically under a "results" key,
