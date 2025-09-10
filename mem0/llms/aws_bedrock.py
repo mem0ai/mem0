@@ -147,6 +147,7 @@ class AWSBedrockLLM(LLMBase):
 
             if role == "system":
                 # Anthropic supports system messages as a separate parameter
+                # see: https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/system-prompts
                 system_message = content
             elif role == "user":
                 # Use Converse API format
