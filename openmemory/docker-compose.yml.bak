@@ -5,10 +5,6 @@ services:
       - "16333:6333"
     volumes:
       - mem0_storage:/mem0/storage
-    # 可选：为 Qdrant 镜像配置国内源（如阿里云镜像），加速镜像拉取
-    # pull_policy: always
-    # 注：需确保本地 Docker 已配置镜像源（如 /etc/docker/daemon.json），此处不单独配置
-
   openmemory-mcp:
     image: mem0/openmemory-mcp
     build: api/
@@ -25,22 +21,16 @@ services:
       - ./api:/usr/src/openmemory
     command: >
       sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --reload --workers 4"
-
   openmemory-ui:
     build:
       context: ui/
       dockerfile: Dockerfile
-      # 传递 pnpm 国内镜像参数（与 Makefile 中的 PNPM_REGISTRY 对应）
-      args:
-        - PNPM_REGISTRY=${PNPM_REGISTRY:-https://registry.npmmirror.com}  # 默认值：阿里云 npm 镜像
     image: mem0/openmemory-ui:latest
     ports:
       - "3000:3000"
     environment:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
       - NEXT_PUBLIC_USER_ID=${USER}
-      # 容器内运行时，保留 pnpm 镜像配置（如需后续安装依赖）
-      - PNPM_REGISTRY=${PNPM_REGISTRY:-https://registry.npmmirror.com}
 
 volumes:
   mem0_storage:
