@@ -1,5 +1,6 @@
 import logging
 import uuid
+from datetime import datetime
 from typing import Dict, List, Optional
 
 from pydantic import BaseModel
@@ -33,12 +34,12 @@ class NeptuneAnalyticsVector(VectorStoreBase):
     _FIELD_PROP = '~properties'
     _FIELD_SCORE = 'score'
     _FIELD_LABEL = 'label'
+    _TIMEZONE =  "UTC"
 
     def __init__(
         self,
         endpoint: str,
         collection_name: str,
-        embedding_model_dims: int = 1536,
     ):
         """
         Initialize the Neptune Analytics vector store.
@@ -46,7 +47,6 @@ class NeptuneAnalyticsVector(VectorStoreBase):
         Args:
             endpoint (str): Neptune Analytics endpoint in format 'neptune-graph://<graphid>'.
             collection_name (str): Name of the collection to store vectors.
-            embedding_model_dims (int, optional): Dimension of embedding vectors. Defaults to 1536.
             
         Raises:
             ValueError: If endpoint format is invalid.
@@ -59,14 +59,13 @@ class NeptuneAnalyticsVector(VectorStoreBase):
         graph_id = endpoint.replace("neptune-graph://", "")
         self.graph = NeptuneAnalyticsGraph(graph_id)
         self.collection_name = self._COLLECTION_PREFIX + collection_name
-        self.embedding_model_dims = embedding_model_dims
 
     
     def create_col(self, name, vector_size, distance):
         """
         Create a collection (no-op for Neptune Analytics).
         
-        Neptune Analytics supports dynamic collections that are created implicitly
+        Neptune Analytics supports dynamic indices that are created implicitly
         when vectors are inserted, so this method performs no operation.
         
         Args:
@@ -97,6 +96,7 @@ class NeptuneAnalyticsVector(VectorStoreBase):
             if payloads:
                 payload = payloads[index]
                 payload[self._FIELD_LABEL] = self.collection_name
+                #payload["updated_at"] = datetime.now()
             else:
                 payload = {}
             para_list.append(dict(
@@ -109,9 +109,7 @@ class NeptuneAnalyticsVector(VectorStoreBase):
 
         query_string = (f"""
             UNWIND $rows AS row
-            MERGE (n
-            :{self.collection_name}
-             {{`~id`: row.node_id}})
+            MERGE (n :{self.collection_name} {{`~id`: row.node_id}})
             ON CREATE SET n = row.properties, n.updated_at = toString(timestamp())
             ON MATCH SET n += row.properties, n.updated_at = toString(timestamp())
         """
