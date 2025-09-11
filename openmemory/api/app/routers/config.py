@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from app.database import get_db
 from app.models import Config as ConfigModel
@@ -8,13 +8,36 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/api/v1/config", tags=["config"])
-
 class LLMConfig(BaseModel):
     model: str = Field(..., description="LLM model name")
     temperature: float = Field(..., description="Temperature setting for the model")
     max_tokens: int = Field(..., description="Maximum tokens to generate")
     api_key: Optional[str] = Field(None, description="API key or 'env:API_KEY' to use environment variable")
-    ollama_base_url: Optional[str] = Field(None, description="Base URL for Ollama server (e.g., http://host.docker.internal:11434)")
+    top_p: Optional[float] = Field(None, description="Top P setting for the model")
+    top_k: Optional[int] = Field(None, description="Top K setting for the model")
+    http_client_proxies: Optional[str] = Field(None, description="For Azure OpenAI, set the http client proxies")
+    # OpenRouter
+    models: Optional[List[str]] = Field(None, description="For OpenRouter, set the models to use")
+    route: Optional[str] = Field(None, description="Routing strategy for Openrouter")
+    openrouter_base_url: Optional[str] = Field(None, description="Base URL for Openrouter API")
+    site_url: Optional[str] = Field(None, description="Site URL for Openrouter")
+    app_name: Optional[str] = Field(None, description="Application name for Openrouter")
+    # Base URLs
+    ollama_base_url: Optional[str] = Field(None, description="Base URL for Ollama API (e.g., http://host.docker.internal:11434)")
+    openai_base_url: Optional[str] = Field(None, description="Base URL for OpenAI API")
+    azure_kwargs: Optional[str] = Field(None, description="Azure LLM args for initialization")
+    deepseek_base_url: Optional[str] = Field(None, description="Base URL for DeepSeek API")
+    xai_base_url: Optional[str] = Field(None, description="Base URL for XAI API")
+    # Sarvam
+    sarvam_base_url: Optional[str] = Field(None, description="Base URL for Sarvam API")
+    reasoning_effort: Optional[str] = Field(None, description="Reasoning level (low, medium, high) For Sarvam")
+    frequency_penalty: Optional[float] = Field(None, description="Penalize frequent tokens (-2.0 to 2.0) For Sarvam")
+    presence_penalty: Optional[float] = Field(None, description="Penalize existing tokens (-2.0 to 2.0) For Sarvam")
+    seed: Optional[int] = Field(None, description="Seed for deterministic sampling For Sarvam")
+    stop: Optional[List[str]] = Field(None, description="Stop sequences (max 4) For Sarvam")
+
+    lmstudio_base_url: Optional[str] = Field(None, description="Base URL for LM Studio API")
+    response_callback: Optional[str] = Field(None, description="LLM response callback function For Openai (Probably doesn't work for other providers)")
 
 class LLMProvider(BaseModel):
     provider: str = Field(..., description="LLM provider name")
@@ -23,11 +46,48 @@ class LLMProvider(BaseModel):
 class EmbedderConfig(BaseModel):
     model: str = Field(..., description="Embedder model name")
     api_key: Optional[str] = Field(None, description="API key or 'env:API_KEY' to use environment variable")
+    embedding_dims: Optional[int] = Field(None, description="Embedding dimensions for the model")
+    http_client_proxies: Optional[str] = Field(None, description="For any, set the http client proxies")
+    # Base URLs
     ollama_base_url: Optional[str] = Field(None, description="Base URL for Ollama server (e.g., http://host.docker.internal:11434)")
+    openai_base_url: Optional[str] = Field(None, description="Base URL for OpenAI API")
+    lmstudio_base_url: Optional[str] = Field(None, description="Base URL for LM Studio API")
+    # VertexAI
+    vertex_credentials_json: Optional[str] = Field(None, description="Path to the Google Cloud credentials JSON file for VertexAI")
+    memory_add_embedding_type: Optional[str] = Field(None, description="The type of embedding to use for the add memory action")
+    memory_update_embedding_type: Optional[str] = Field(None, description="The type of embedding to use for the update memory action")
+    memory_search_embedding_type: Optional[str] = Field(None, description="The type of embedding to use for the search memory action")
 
 class EmbedderProvider(BaseModel):
     provider: str = Field(..., description="Embedder provider name")
     config: EmbedderConfig
+
+class VectorStoreConfig(BaseModel):
+    collection_name: Optional[str] = Field(None, description="Name of the collection")
+    embedding_model_dims: Optional[int] = Field(None, description="Dimensions of the embedding model")
+    client: Optional[str] = Field(None, description="Custom client for the database")
+    path: Optional[str] = Field(None, description="Path for the database")
+    host: Optional[str] = Field(None, description="Host where the server is running")
+    port: Optional[int] = Field(None, description="Port where the server is running")
+    user: Optional[str] = Field(None, description="Username for database connection")
+    password: Optional[str] = Field(None, description="Password for database connection")
+    dbname: Optional[str] = Field(None, description="Name of the database")
+    url: Optional[str] = Field(None, description="Full URL for the server")
+    api_key: Optional[str] = Field(None, description="API key for the server")
+    on_disk: Optional[bool] = Field(None, description="Enable persistent storage")
+    endpoint_id: Optional[str] = Field(None, description="Endpoint ID (vertex_ai_vector_search)")
+    index_id: Optional[str] = Field(None, description="Index ID (vertex_ai_vector_search)")
+    deployment_index_id: Optional[str] = Field(None, description="Deployment index ID (vertex_ai_vector_search)")
+    project_id: Optional[str] = Field(None, description="Project ID (vertex_ai_vector_search)")
+    project_number: Optional[str] = Field(None, description="Project number (vertex_ai_vector_search)")
+    vector_search_api_endpoint: Optional[str] = Field(None, description="Vector search API endpoint (vertex_ai_vector_search)")
+    connection_string: Optional[str] = Field(None, description="PostgreSQL connection string (for Supabase/PGVector)")
+    index_method: Optional[str] = Field(None, description="Vector index method (for Supabase)")
+    index_measure: Optional[str] = Field(None, description="Distance measure for similarity search (for Supabase)")
+
+class VectorStoreProvider(BaseModel):
+    provider: str = Field(..., description="Vector store provider name")
+    config: VectorStoreConfig
 
 class OpenMemoryConfig(BaseModel):
     custom_instructions: Optional[str] = Field(None, description="Custom instructions for memory management and fact extraction")
@@ -35,6 +95,7 @@ class OpenMemoryConfig(BaseModel):
 class Mem0Config(BaseModel):
     llm: Optional[LLMProvider] = None
     embedder: Optional[EmbedderProvider] = None
+    vector_store: Optional[VectorStoreProvider] = None
 
 class ConfigSchema(BaseModel):
     openmemory: Optional[OpenMemoryConfig] = None
