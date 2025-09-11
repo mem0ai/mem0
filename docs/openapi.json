@@ -5091,8 +5091,13 @@
 							"run_id": {"type": "string"},
 							"created_at": {"type": "string", "format": "date-time"},
 							"updated_at": {"type": "string", "format": "date-time"},
-							"text": {"type": "string"},
-							"categories": {"type": "array", "items": {"type": "string"}},
+							"keywords": {"type": "object", "properties": {
+								"contains": {"type": "string"},
+								"icontains": {"type": "string"}
+							}},
+							"categories": {"type": "object", "properties": {
+								"in": {"type": "array", "items": {"type": "string"}}
+							}},
 							"metadata": {"type": "object"}
 						},
 						"additionalProperties": {
