@@ -10,9 +10,12 @@ USER="${USER:-$(whoami)}"
 NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-http://localhost:8765}"
 
 if [ -z "$OPENAI_API_KEY" ]; then
-  echo "❌ OPENAI_API_KEY not set. Please run with: curl -sL https://raw.githubusercontent.com/mem0ai/mem0/main/openmemory/run.sh | OPENAI_API_KEY=your_api_key bash"
+  echo "❌ OPENAI_API_KEY not set. Please set in the ui settings."
   echo "❌ OPENAI_API_KEY not set. You can also set it as global environment variable: export OPENAI_API_KEY=your_api_key"
-  exit 1
+  echo "❌ This can be done by clicking the settings tab on the top of the OpenMemory UI."
+  echo "1. On Front View tab, under llm settings, set the provider to 'openai', and set the api_key to your OpenAI API Key. "
+  echo "2. Click JSON Editor tab, and add the following to the json: { \"mem0\": { \"llm\": { \"provider\": \"openai\", \"config\": { \"api_key\": \"your_api_key\" } } } }. Then apply and save."
+  echo "Can also be done by setting the OPENAI_API_KEY environment variable."
 fi
 
 # Check if Docker is installed
