@@ -14,7 +14,7 @@ requires-python = ">=3.9,<4.0"
 dependencies = [
     "qdrant-client>=1.9.1",
     "pydantic>=2.7.3",
-    "openai>=1.90.0,<1.100.0",
+    "openai>=1.90.0,<1.110.0",
     "posthog>=3.5.0",
     "pytz>=2024.1",
     "sqlalchemy>=2.0.31",
@@ -54,7 +54,7 @@ llms = [
     "groq>=0.3.0",
     "together>=0.2.10",
     "litellm>=1.74.0",
-    "openai>=1.90.0,<1.100.0",
+    "openai>=1.90.0,<1.110.0",
     "ollama>=0.1.0",
     "vertexai>=0.1.0",
     "google-generativeai>=0.3.0",

@@ -7,6 +7,10 @@ import logging
 import os
 import uuid
 import warnings
+
+# Suppress SWIG deprecation warnings globally
+warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*SwigPy.*")
+warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*swigvarlink.*")
 from copy import deepcopy
 from datetime import datetime
 from typing import Any, Dict, Optional
@@ -386,8 +390,12 @@ class Memory(MemoryBase):
                 response = ""
 
             try:
-                response = remove_code_blocks(response)
-                new_memories_with_actions = json.loads(response)
+                if not response or not response.strip():
+                    logger.warning("Empty response from LLM, no memories to extract")
+                    new_memories_with_actions = {}
+                else:
+                    response = remove_code_blocks(response)
+                    new_memories_with_actions = json.loads(response)
             except Exception as e:
                 logger.error(f"Invalid JSON response: {e}")
                 new_memories_with_actions = {}
@@ -1229,8 +1237,12 @@ class AsyncMemory(MemoryBase):
                 logger.error(f"Error in new memory actions response: {e}")
                 response = ""
             try:
-                response = remove_code_blocks(response)
-                new_memories_with_actions = json.loads(response)
+                if not response or not response.strip():
+                    logger.warning("Empty response from LLM, no memories to extract")
+                    new_memories_with_actions = {}
+                else:
+                    response = remove_code_blocks(response)
+                    new_memories_with_actions = json.loads(response)
             except Exception as e:
                 logger.error(f"Invalid JSON response: {e}")
                 new_memories_with_actions = {}
