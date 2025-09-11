@@ -66,7 +66,7 @@ class TestAddToVectorStoreErrors:
         mock_memory.llm.generate_response.side_effect = ['{"facts": ["test fact"]}', ""]
 
         # Execute
-        with caplog.at_level(logging.ERROR):
+        with caplog.at_level(logging.WARNING):
             result = mock_memory._add_to_vector_store(
                 messages=[{"role": "user", "content": "test"}], metadata={}, filters={}, infer=True
             )
@@ -74,7 +74,7 @@ class TestAddToVectorStoreErrors:
         # Verify
         assert mock_memory.llm.generate_response.call_count == 2
         assert result == []  # Should return empty list when no memories processed
-        assert "Invalid JSON response" in caplog.text
+        assert "Empty response from LLM, no memories to extract" in caplog.text
 
 
 @pytest.mark.asyncio
@@ -117,11 +117,11 @@ class TestAsyncAddToVectorStoreErrors:
         mock_capture_event = mocker.MagicMock()
         mocker.patch("mem0.memory.main.capture_event", mock_capture_event)
 
-        with caplog.at_level(logging.ERROR):
+        with caplog.at_level(logging.WARNING):
             result = await mock_async_memory._add_to_vector_store(
                 messages=[{"role": "user", "content": "test"}], metadata={}, effective_filters={}, infer=True
             )
 
         assert result == []
-        assert "Invalid JSON response" in caplog.text
+        assert "Empty response from LLM, no memories to extract" in caplog.text
         assert mock_capture_event.call_count == 1
