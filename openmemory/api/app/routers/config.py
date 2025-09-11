@@ -24,10 +24,38 @@ class EmbedderConfig(BaseModel):
     model: str = Field(..., description="Embedder model name")
     api_key: Optional[str] = Field(None, description="API key or 'env:API_KEY' to use environment variable")
     ollama_base_url: Optional[str] = Field(None, description="Base URL for Ollama server (e.g., http://host.docker.internal:11434)")
+    embedding_dims: Optional[int] = Field(None, description="Dimensions of the embedding model")
 
 class EmbedderProvider(BaseModel):
     provider: str = Field(..., description="Embedder provider name")
     config: EmbedderConfig
+
+class VectorStoreConfig(BaseModel):
+    collection_name: Optional[str] = Field(None, description="Name of the collection")
+    embedding_model_dims: Optional[int] = Field(None, description="Dimensions of the embedding model")
+    client: Optional[str] = Field(None, description="Custom client for the database")
+    path: Optional[str] = Field(None, description="Path for the database")
+    host: Optional[str] = Field(None, description="Host where the server is running")
+    port: Optional[int] = Field(None, description="Port where the server is running")
+    user: Optional[str] = Field(None, description="Username for database connection")
+    password: Optional[str] = Field(None, description="Password for database connection")
+    dbname: Optional[str] = Field(None, description="Name of the database")
+    url: Optional[str] = Field(None, description="Full URL for the server")
+    api_key: Optional[str] = Field(None, description="API key for the server")
+    on_disk: Optional[bool] = Field(None, description="Enable persistent storage")
+    endpoint_id: Optional[str] = Field(None, description="Endpoint ID (vertex_ai_vector_search)")
+    index_id: Optional[str] = Field(None, description="Index ID (vertex_ai_vector_search)")
+    deployment_index_id: Optional[str] = Field(None, description="Deployment index ID (vertex_ai_vector_search)")
+    project_id: Optional[str] = Field(None, description="Project ID (vertex_ai_vector_search)")
+    project_number: Optional[str] = Field(None, description="Project number (vertex_ai_vector_search)")
+    vector_search_api_endpoint: Optional[str] = Field(None, description="Vector search API endpoint (vertex_ai_vector_search)")
+    connection_string: Optional[str] = Field(None, description="PostgreSQL connection string (for Supabase/PGVector)")
+    index_method: Optional[str] = Field(None, description="Vector index method (for Supabase)")
+    index_measure: Optional[str] = Field(None, description="Distance measure for similarity search (for Supabase)")
+
+class VectorStoreProvider(BaseModel):
+    provider: str = Field(..., description="Vector store provider name")
+    config: VectorStoreConfig
 
 class OpenMemoryConfig(BaseModel):
     custom_instructions: Optional[str] = Field(None, description="Custom instructions for memory management and fact extraction")
@@ -35,6 +63,7 @@ class OpenMemoryConfig(BaseModel):
 class Mem0Config(BaseModel):
     llm: Optional[LLMProvider] = None
     embedder: Optional[EmbedderProvider] = None
+    vector_store: Optional[VectorStoreProvider] = None
 
 class ConfigSchema(BaseModel):
     openmemory: Optional[OpenMemoryConfig] = None
@@ -61,6 +90,15 @@ def get_default_configuration():
                 "config": {
                     "model": "text-embedding-3-small",
                     "api_key": "env:OPENAI_API_KEY"
+                }
+            },
+            "vector_store": {
+                "provider": "qdrant",
+                "config": {
+                    "collection_name": "openmemory",
+                    "host": "mem0_store",
+                    "embedding_model_dims": 1536,
+                    "port": 6333
                 }
             }
         }
@@ -97,6 +135,10 @@ def get_config_from_db(db: Session, key: str = "main"):
         # Ensure embedder config exists with defaults
         if "embedder" not in config_value["mem0"] or config_value["mem0"]["embedder"] is None:
             config_value["mem0"]["embedder"] = default_config["mem0"]["embedder"]
+        
+        # Ensure vector store config exists with defaults
+        if "vector_store" not in config_value["mem0"] or config_value["mem0"]["vector_store"] is None:
+            config_value["mem0"]["vector_store"] = default_config["mem0"]["vector_store"]
     
     # Save the updated config back to database if it was modified
     if config_value != config.value:
@@ -184,7 +226,10 @@ async def update_llm_configuration(llm_config: LLMProvider, db: Session = Depend
     
     # Update the LLM configuration
     current_config["mem0"]["llm"] = llm_config.dict(exclude_none=True)
-    
+    # Update the Embedder configuration
+    current_config["mem0"]["embedder"] = llm_config.dict(exclude_none=True)
+    # Update the Vector Store configuration
+    current_config["mem0"]["vector_store"] = llm_config.dict(exclude_none=True)
     # Save the configuration to database
     save_config_to_db(db, current_config)
     reset_memory_client()
@@ -213,6 +258,31 @@ async def update_embedder_configuration(embedder_config: EmbedderProvider, db: S
     save_config_to_db(db, current_config)
     reset_memory_client()
     return current_config["mem0"]["embedder"]
+
+@router.get("/mem0/vector_store", response_model=VectorStoreProvider)
+async def get_vector_store_configuration(db: Session = Depends(get_db)):
+    """Get only the Vector Store configuration."""
+    config = get_config_from_db(db)
+    vector_store_config = config.get("mem0", {}).get("vector_store", {})
+    return vector_store_config
+
+@router.put("/mem0/vector_store", response_model=VectorStoreProvider)
+async def update_vector_store_configuration(vector_store_config: VectorStoreProvider, db: Session = Depends(get_db)):
+    """Update only the Vector Store configuration."""
+    current_config = get_config_from_db(db)
+    
+    # Ensure mem0 key exists
+    if "mem0" not in current_config:
+        current_config["mem0"] = {}
+    
+    # Update the Vector Store configuration
+    current_config["mem0"]["vector_store"] = vector_store_config.dict(exclude_none=True)
+    
+    # Save the configuration to database
+    save_config_to_db(db, current_config)
+    reset_memory_client()
+    return current_config["mem0"]["vector_store"]
+
 
 @router.get("/openmemory", response_model=OpenMemoryConfig)
 async def get_openmemory_configuration(db: Session = Depends(get_db)):
