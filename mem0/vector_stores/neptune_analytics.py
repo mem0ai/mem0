@@ -1,4 +1,5 @@
 import logging
+import time
 import uuid
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -96,7 +97,7 @@ class NeptuneAnalyticsVector(VectorStoreBase):
             if payloads:
                 payload = payloads[index]
                 payload[self._FIELD_LABEL] = self.collection_name
-                #payload["updated_at"] = datetime.now()
+                payload["updated_at"] = str(int(time.time()))
             else:
                 payload = {}
             para_list.append(dict(
@@ -110,8 +111,8 @@ class NeptuneAnalyticsVector(VectorStoreBase):
         query_string = (f"""
             UNWIND $rows AS row
             MERGE (n :{self.collection_name} {{`~id`: row.node_id}})
-            ON CREATE SET n = row.properties, n.updated_at = toString(timestamp())
-            ON MATCH SET n += row.properties, n.updated_at = toString(timestamp())
+            ON CREATE SET n = row.properties 
+            ON MATCH SET n += row.properties 
         """
         )
         result = self.execute_query(query_string, para_map_to_insert)
@@ -215,6 +216,7 @@ class NeptuneAnalyticsVector(VectorStoreBase):
         if payload:
             # Replace payload
             payload[self._FIELD_LABEL] = self.collection_name
+            payload["updated_at"] = str(int(time.time()))
             para_payload = {
                 "properties": payload,
                 "vector_id": vector_id
@@ -222,7 +224,7 @@ class NeptuneAnalyticsVector(VectorStoreBase):
             query_string_embedding = f"""
             MATCH (n :{self.collection_name}) 
                 WHERE id(n) = $vector_id 
-                SET n = $properties, n.updated_at = toString(timestamp())       
+                SET n = $properties       
             """
             result = self.execute_query(query_string_embedding, para_payload)
             self._process_generic_msssage(result, "Vector Store - Properties update")
