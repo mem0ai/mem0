@@ -8,9 +8,6 @@ import os
 import uuid
 import warnings
 
-# Suppress SWIG deprecation warnings globally
-warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*SwigPy.*")
-warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*swigvarlink.*")
 from copy import deepcopy
 from datetime import datetime
 from typing import Any, Dict, Optional
@@ -42,6 +39,9 @@ from mem0.utils.factory import (
     VectorStoreFactory,
 )
 
+# Suppress SWIG deprecation warnings globally
+warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*SwigPy.*")
+warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*swigvarlink.*")
 
 def _build_filters_and_metadata(
     *,  # Enforce keyword-only arguments
