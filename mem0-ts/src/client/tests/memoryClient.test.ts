@@ -4,9 +4,12 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const apiKey = process.env.MEM0_API_KEY || "";
+
+// Skip tests if no API key is provided
+const describeIfApiKey = apiKey ? describe : describe.skip;
+
 // const client = new MemoryClient({ apiKey, host: 'https://api.mem0.ai', organizationId: "org_gRNd1RrQa4y52iK4tG8o59hXyVbaULikgq4kethC", projectId: "proj_7RfMkWs0PMgXYweGUNKqV9M9mgIRNt5XcupE7mSP" });
 // const client = new MemoryClient({ apiKey, host: 'https://api.mem0.ai', organizationName: "saket-default-org", projectName: "default-project" });
-const client = new MemoryClient({ apiKey, host: "https://api.mem0.ai" });
 
 // Generate a random string
 const randomString = () => {
@@ -16,11 +19,13 @@ const randomString = () => {
   );
 };
 
-describe("MemoryClient API", () => {
+describeIfApiKey("MemoryClient API", () => {
   let userId: string, memoryId: string;
+  let client: MemoryClient;
 
   beforeAll(() => {
     userId = randomString();
+    client = new MemoryClient({ apiKey, host: "https://api.mem0.ai" });
   });
 
   const messages1 = [
