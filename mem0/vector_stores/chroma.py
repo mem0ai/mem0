@@ -1,4 +1,5 @@
 import logging
+import datetime
 from typing import Dict, List, Optional
 
 from pydantic import BaseModel
@@ -137,6 +138,11 @@ class ChromaDB(VectorStoreBase):
             payloads (Optional[List[Dict]], optional): List of payloads corresponding to vectors. Defaults to None.
             ids (Optional[List[str]], optional): List of IDs corresponding to vectors. Defaults to None.
         """
+        for payload in payloads or []:
+            for k, v in payload.copy().items():
+                if k in ['created_at', 'updated_at'] and isinstance(v, str):
+                    payload[k+'_float_utc'] = self.date_to_float(v)
+                            
         logger.info(f"Inserting {len(vectors)} vectors into collection {self.collection_name}")
         self.collection.add(ids=ids, embeddings=vectors, metadatas=payloads)
 
@@ -262,6 +268,11 @@ class ChromaDB(VectorStoreBase):
             return where
         where_filters = []
         for k, v in where.items():
-            if isinstance(v, str):
+            #if isinstance(v, str):
                 where_filters.append({k: v})
         return {"$and": where_filters}
+    
+    def date_to_float(self, date_str: str) -> float:
+        dt = datetime.datetime.fromisoformat(date_str)
+        dt_utc = dt.astimezone(datetime.timezone.utc)
+        return dt_utc.timestamp()

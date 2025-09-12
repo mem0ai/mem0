@@ -7,10 +7,11 @@ import logging
 import os
 import uuid
 import warnings
+import re
 
 from copy import deepcopy
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 import pytz
 from pydantic import ValidationError
@@ -42,6 +43,17 @@ from mem0.utils.factory import (
 # Suppress SWIG deprecation warnings globally
 warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*SwigPy.*")
 warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*swigvarlink.*")
+
+
+def _extract_category(fact, existing_categories) -> tuple:
+    pattern = r'\[(.*?)\]\s*$'
+    match = re.search(pattern, fact)
+    if match:
+        category = match.group(1)
+        if category in existing_categories:
+            clean_fact = re.sub(pattern, '', fact).strip()
+            return clean_fact, category
+    return fact, None
 
 def _build_filters_and_metadata(
     *,  # Enforce keyword-only arguments
@@ -1056,6 +1068,7 @@ class AsyncMemory(MemoryBase):
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
         llm=None,
+        existing_categories: Optional[List[str]] = None,
     ):
         """
         Create a new memory asynchronously.
@@ -1104,7 +1117,7 @@ class AsyncMemory(MemoryBase):
             messages = parse_vision_messages(messages)
 
         vector_store_task = asyncio.create_task(
-            self._add_to_vector_store(messages, processed_metadata, effective_filters, infer)
+            self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, existing_categories)
         )
         graph_task = asyncio.create_task(self._add_to_graph(messages, effective_filters))
 
@@ -1134,6 +1147,7 @@ class AsyncMemory(MemoryBase):
         metadata: dict,
         effective_filters: dict,
         infer: bool,
+        existing_categories: Optional[List[str]] = None,
     ):
         if not infer:
             returned_memories = []
@@ -1192,6 +1206,12 @@ class AsyncMemory(MemoryBase):
 
         if not new_retrieved_facts:
             logger.debug("No new facts retrieved from input. Skipping memory update LLM call.")
+
+        # PROCESS CATEGORIES
+        if existing_categories:
+            new_facts_and_categories = [_extract_category(fact, existing_categories) for fact in new_retrieved_facts]
+            new_retrieved_facts = [item[0] for item in new_facts_and_categories]
+            new_retrieved_categories = [item[1] for item in new_facts_and_categories]
 
         retrieved_old_memory = []
         new_message_embeddings = {}
@@ -1261,11 +1281,18 @@ class AsyncMemory(MemoryBase):
                     event_type = resp.get("event")
 
                     if event_type == "ADD":
+                        copied_metadata = deepcopy(metadata)
+                        
+                        # Get category if exists
+                        original_index = new_retrieved_facts.index(action_text)
+                        if original_index != -1 and existing_categories:
+                            copied_metadata["category"] = new_retrieved_categories[original_index]
+                        
                         task = asyncio.create_task(
                             self._create_memory(
                                 data=action_text,
                                 existing_embeddings=new_message_embeddings,
-                                metadata=deepcopy(metadata),
+                                metadata=copied_metadata
                             )
                         )
                         memory_tasks.append((task, resp, "ADD", None))
