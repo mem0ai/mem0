@@ -91,9 +91,9 @@ class OllamaLLM(LLMBase):
             "messages": messages,
         }
 
-        # Handle JSON response format by modifying the system prompt
+        # Handle JSON response format by using Ollama's native format parameter
         if response_format and response_format.get("type") == "json_object":
-            # Add JSON format instruction to the last message or create a system message
+            params["format"] = "json"
             if messages and messages[-1]["role"] == "user":
                 messages[-1]["content"] += "\n\nPlease respond with valid JSON only."
             else:
