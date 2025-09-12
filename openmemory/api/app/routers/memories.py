@@ -155,12 +155,29 @@ async def list_memories(
     # Apply sorting if specified
     if sort_column:
         sort_field = getattr(Memory, sort_column, None)
-        if sort_field:
-            query = query.order_by(sort_field.desc()) if sort_direction == "desc" else query.order_by(sort_field.asc())
+    else:
+        sort_field = Memory.created_at
+    query = query.order_by(sort_field.desc()) if sort_direction == "desc" else query.order_by(sort_field.asc())
 
 
     # Get paginated results
-    paginated_results = sqlalchemy_paginate(query, params)
+    paginated_results = sqlalchemy_paginate(
+        query,
+        params,
+        transformer=lambda items: [
+            MemoryResponse(
+                id=memory.id,
+                content=memory.content,
+                created_at=memory.created_at,
+                state=memory.state.value,
+                app_id=memory.app_id,
+                app_name=memory.app.name if memory.app else None,
+                categories=[category.name for category in memory.categories],
+                metadata_=memory.metadata_
+            )
+            for memory in items
+        ]
+    )
 
     # Filter results based on permissions
     filtered_items = []
