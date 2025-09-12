@@ -29,6 +29,8 @@ class ChromaDB(VectorStoreBase):
         host: Optional[str] = None,
         port: Optional[int] = None,
         path: Optional[str] = None,
+        api_key: Optional[str] = None,
+        tenant: Optional[str] = None,
     ):
         """
         Initialize the Chromadb vector store.
@@ -39,10 +41,21 @@ class ChromaDB(VectorStoreBase):
             host (str, optional): Host address for chromadb server. Defaults to None.
             port (int, optional): Port for chromadb server. Defaults to None.
             path (str, optional): Path for local chromadb database. Defaults to None.
+            api_key (str, optional): ChromaDB Cloud API key. Defaults to None.
+            tenant (str, optional): ChromaDB Cloud tenant ID. Defaults to None.
         """
         if client:
             self.client = client
+        elif api_key and tenant:
+            # Initialize ChromaDB Cloud client
+            logger.info("Initializing ChromaDB Cloud client")
+            self.client = chromadb.CloudClient(
+                api_key=api_key,
+                tenant=tenant,
+                database="mem0"  # Use fixed database name for cloud
+            )
         else:
+            # Initialize local or server client
             self.settings = Settings(anonymized_telemetry=False)
 
             if host and port:
@@ -71,7 +84,6 @@ class ChromaDB(VectorStoreBase):
         Returns:
             List[OutputData]: Parsed output data.
         """
-
         keys = ["ids", "distances", "metadatas"]
         values = []
 
@@ -111,11 +123,6 @@ class ChromaDB(VectorStoreBase):
             embedding_function=embedding_fn,
         )
         return collection
-    
-    def date_to_float(self, date_str: str) -> float:
-        dt = datetime.datetime.fromisoformat(date_str)
-        dt_utc = dt.astimezone(datetime.timezone.utc)
-        return dt_utc.timestamp()
 
     def insert(
         self,
@@ -135,9 +142,8 @@ class ChromaDB(VectorStoreBase):
             for k, v in payload.copy().items():
                 if k in ['created_at', 'updated_at'] and isinstance(v, str):
                     payload[k+'_float_utc'] = self.date_to_float(v)
-
-
-        #logger.info(f"Inserting {len(vectors)} vectors into collection {self.collection_name} {payloads}")
+                            
+        logger.info(f"Inserting {len(vectors)} vectors into collection {self.collection_name}")
         self.collection.add(ids=ids, embeddings=vectors, metadatas=payloads)
 
     def search(
@@ -265,3 +271,8 @@ class ChromaDB(VectorStoreBase):
             #if isinstance(v, str):
                 where_filters.append({k: v})
         return {"$and": where_filters}
+    
+    def date_to_float(self, date_str: str) -> float:
+        dt = datetime.datetime.fromisoformat(date_str)
+        dt_utc = dt.astimezone(datetime.timezone.utc)
+        return dt_utc.timestamp()
