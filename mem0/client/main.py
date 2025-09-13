@@ -152,7 +152,8 @@ class MemoryClient:
             )
             kwargs.pop("output_format")
         
-        kwargs.pop("async_mode", None)  # Remove async_mode as it's now default
+        # Force async_mode to True for platform users (not configurable)
+        kwargs["async_mode"] = True
         
         # Force v1.1 format for all add operations
         kwargs["output_format"] = "v1.1"
@@ -1007,7 +1008,8 @@ class AsyncMemoryClient:
             )
             kwargs.pop("output_format")
         
-        kwargs.pop("async_mode", None)  # Remove async_mode as it's now default
+        # Force async_mode to True for platform users (not configurable)
+        kwargs["async_mode"] = True
         
         # Force v1.1 format for all add operations
         kwargs["output_format"] = "v1.1"
