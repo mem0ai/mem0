@@ -62,21 +62,19 @@ class MemoryGraph:
         # 2. Create label property index for performance optimizations
         embedding_dims = self.config.embedder.config["embedding_dims"]
         index_info = self._fetch_existing_indexes()
+
         # Create vector index if not exists
-        if not any(idx.get("index_name") == "memzero" for idx in index_info["vector_index_exists"]):
+        if not self._vector_index_exists(index_info, "memzero"):
             self.graph.query(
                 f"CREATE VECTOR INDEX memzero ON :Entity(embedding) WITH CONFIG {{'dimension': {embedding_dims}, 'capacity': 1000, 'metric': 'cos'}};"
             )
+
         # Create label+property index if not exists
-        if not any(
-            idx.get("index type") == "label+property" and idx.get("label") == "Entity"
-            for idx in index_info["index_exists"]
-        ):
+        if not self._label_property_index_exists(index_info, "Entity", "user_id"):
             self.graph.query("CREATE INDEX ON :Entity(user_id);")
+
         # Create label index if not exists
-        if not any(
-            idx.get("index type") == "label" and idx.get("label") == "Entity" for idx in index_info["index_exists"]
-        ):
+        if not self._label_index_exists(index_info, "Entity"):
             self.graph.query("CREATE INDEX ON :Entity;")
 
     def add(self, data, filters):
@@ -613,6 +611,68 @@ class MemoryGraph:
         result = self.graph.query(cypher, params=params)
         return result
 
+
+    def _vector_index_exists(self, index_info, index_name):
+        """
+        Check if a vector index exists, compatible with both Memgraph versions.
+
+        Args:
+            index_info (dict): Index information from _fetch_existing_indexes
+            index_name (str): Name of the index to check
+
+        Returns:
+            bool: True if index exists, False otherwise
+        """
+        vector_indexes = index_info.get("vector_index_exists", [])
+
+        # Check for index by name regardless of version-specific format differences
+        return any(
+            idx.get("index_name") == index_name or
+            idx.get("index name") == index_name or
+            idx.get("name") == index_name
+            for idx in vector_indexes
+        )
+
+    def _label_property_index_exists(self, index_info, label, property_name):
+        """
+        Check if a label+property index exists, compatible with both versions.
+
+        Args:
+            index_info (dict): Index information from _fetch_existing_indexes
+            label (str): Label name
+            property_name (str): Property name
+
+        Returns:
+            bool: True if index exists, False otherwise
+        """
+        indexes = index_info.get("index_exists", [])
+
+        return any(
+            (idx.get("index type") == "label+property" or idx.get("index_type") == "label+property") and
+            (idx.get("label") == label) and
+            (idx.get("property") == property_name or property_name in str(idx.get("properties", "")))
+            for idx in indexes
+        )
+
+    def _label_index_exists(self, index_info, label):
+        """
+        Check if a label index exists, compatible with both versions.
+
+        Args:
+            index_info (dict): Index information from _fetch_existing_indexes
+            label (str): Label name
+
+        Returns:
+            bool: True if index exists, False otherwise
+        """
+        indexes = index_info.get("index_exists", [])
+
+        return any(
+            (idx.get("index type") == "label" or idx.get("index_type") == "label") and
+            (idx.get("label") == label)
+            for idx in indexes
+        )
+
     def _fetch_existing_indexes(self):
         """
         Retrieves information about existing indexes and vector indexes in the Memgraph database.
@@ -620,7 +680,10 @@ class MemoryGraph:
         Returns:
             dict: A dictionary containing lists of existing indexes and vector indexes.
         """
-
-        index_exists = list(self.graph.query("SHOW INDEX INFO;"))
-        vector_index_exists = list(self.graph.query("SHOW VECTOR INDEX INFO;"))
-        return {"index_exists": index_exists, "vector_index_exists": vector_index_exists}
+        try:
+            index_exists = list(self.graph.query("SHOW INDEX INFO;"))
+            vector_index_exists = list(self.graph.query("SHOW VECTOR INDEX INFO;"))
+            return {"index_exists": index_exists, "vector_index_exists": vector_index_exists}
+        except Exception as e:
+            logger.warning(f"Error fetching indexes: {e}. Returning empty index info.")
+            return {"index_exists": [], "vector_index_exists": []}
