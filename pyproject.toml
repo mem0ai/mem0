@@ -28,6 +28,9 @@ graph = [
     "neo4j>=5.23.1",
     "rank-bm25>=0.2.2",
     "kuzu>=0.11.0",
+    "apache-age-python>=1.0.0",
+    "psycopg2-binary>=2.9.0",
+    "numpy>=1.21.0",
 ]
 vector_stores = [
     "vecs>=0.4.0",
