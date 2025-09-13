@@ -192,6 +192,27 @@ class Memory(MemoryBase):
             logger.error(f"Configuration validation error: {e}")
             raise
 
+    def _should_use_agent_memory_extraction(self, messages, metadata):
+        """Determine whether to use agent memory extraction based on the logic:
+        - If agent_id is present and messages contain assistant role -> True
+        - Otherwise -> False
+        
+        Args:
+            messages: List of message dictionaries
+            metadata: Metadata containing user_id, agent_id, etc.
+            
+        Returns:
+            bool: True if should use agent memory extraction, False for user memory extraction
+        """
+        # Check if agent_id is present in metadata
+        has_agent_id = metadata.get("agent_id") is not None
+        
+        # Check if there are assistant role messages
+        has_assistant_messages = any(msg.get("role") == "assistant" for msg in messages)
+        
+        # Use agent memory extraction if agent_id is present and there are assistant messages
+        return has_agent_id and has_assistant_messages
+
     def add(
         self,
         messages,
@@ -331,7 +352,10 @@ class Memory(MemoryBase):
             system_prompt = self.config.custom_fact_extraction_prompt
             user_prompt = f"Input:\n{parsed_messages}"
         else:
-            system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages)
+            # Determine if this should use agent memory extraction based on agent_id presence
+            # and role types in messages
+            is_agent_memory = self._should_use_agent_memory_extraction(messages, metadata)
+            system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages, is_agent_memory)
 
         response = self.llm.generate_response(
             messages=[
@@ -1174,6 +1198,27 @@ class AsyncMemory(MemoryBase):
             logger.error(f"Configuration validation error: {e}")
             raise
 
+    def _should_use_agent_memory_extraction(self, messages, metadata):
+        """Determine whether to use agent memory extraction based on the logic:
+        - If agent_id is present and messages contain assistant role -> True
+        - Otherwise -> False
+        
+        Args:
+            messages: List of message dictionaries
+            metadata: Metadata containing user_id, agent_id, etc.
+            
+        Returns:
+            bool: True if should use agent memory extraction, False for user memory extraction
+        """
+        # Check if agent_id is present in metadata
+        has_agent_id = metadata.get("agent_id") is not None
+        
+        # Check if there are assistant role messages
+        has_assistant_messages = any(msg.get("role") == "assistant" for msg in messages)
+        
+        # Use agent memory extraction if agent_id is present and there are assistant messages
+        return has_agent_id and has_assistant_messages
+
     async def add(
         self,
         messages,
@@ -1303,7 +1348,10 @@ class AsyncMemory(MemoryBase):
             system_prompt = self.config.custom_fact_extraction_prompt
             user_prompt = f"Input:\n{parsed_messages}"
         else:
-            system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages)
+            # Determine if this should use agent memory extraction based on agent_id presence
+            # and role types in messages
+            is_agent_memory = self._should_use_agent_memory_extraction(messages, metadata)
+            system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages, is_agent_memory)
 
         response = await asyncio.to_thread(
             self.llm.generate_response,
