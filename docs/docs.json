@@ -223,6 +223,7 @@
                 "pages": [
                   "examples",
                   "examples/aws_example",
+                  "examples/aws_neptune_analytics_hybrid_store",
                   "examples/mem0-demo",
                   "examples/ai_companion_js",
                   "examples/collaborative-task-agent",
