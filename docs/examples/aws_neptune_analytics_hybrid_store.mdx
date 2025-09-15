@@ -43,9 +43,6 @@ import boto3
 from mem0.memory.main import Memory
 
 region = 'us-west-2'
-service = 'aoss'
-credentials = boto3.Session().get_credentials()
-auth = AWSV4SignerAuth(credentials, region, service)
 
 config = {
     "embedder": {
