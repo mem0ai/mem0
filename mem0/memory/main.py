@@ -26,6 +26,7 @@ from mem0.memory.setup import mem0_dir, setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import capture_event
 from mem0.memory.utils import (
+    extract_json,
     get_fact_retrieval_messages,
     parse_messages,
     parse_vision_messages,
@@ -371,7 +372,16 @@ class Memory(MemoryBase):
 
         try:
             response = remove_code_blocks(response)
-            new_retrieved_facts = json.loads(response)["facts"]
+            if not response.strip():
+                new_retrieved_facts = []
+            else:
+                try:
+                    # First try direct JSON parsing
+                    new_retrieved_facts = json.loads(response)["facts"]
+                except json.JSONDecodeError:
+                    # Try extracting JSON from response using built-in function
+                    extracted_json = extract_json(response)
+                    new_retrieved_facts = json.loads(extracted_json)["facts"]
         except Exception as e:
             logger.error(f"Error in new_retrieved_facts: {e}")
             new_retrieved_facts = []
@@ -1368,7 +1378,16 @@ class AsyncMemory(MemoryBase):
         )
         try:
             response = remove_code_blocks(response)
-            new_retrieved_facts = json.loads(response)["facts"]
+            if not response.strip():
+                new_retrieved_facts = []
+            else:
+                try:
+                    # First try direct JSON parsing
+                    new_retrieved_facts = json.loads(response)["facts"]
+                except json.JSONDecodeError:
+                    # Try extracting JSON from response using built-in function
+                    extracted_json = extract_json(response)
+                    new_retrieved_facts = json.loads(extracted_json)["facts"]
         except Exception as e:
             logger.error(f"Error in new_retrieved_facts: {e}")
             new_retrieved_facts = []

@@ -8,6 +8,7 @@ except ImportError:
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.configs.llms.ollama import OllamaConfig
 from mem0.llms.base import LLMBase
+from mem0.memory.utils import extract_json
 
 
 class OllamaLLM(LLMBase):
@@ -49,20 +50,32 @@ class OllamaLLM(LLMBase):
         Returns:
             str or dict: The processed response.
         """
+        # Get the content from response
+        if isinstance(response, dict):
+            content = response["message"]["content"]
+        else:
+            content = response.message.content
+
         if tools:
             processed_response = {
-                "content": response["message"]["content"] if isinstance(response, dict) else response.message.content,
+                "content": content,
                 "tool_calls": [],
             }
 
             # Ollama doesn't support tool calls in the same way, so we return the content
             return processed_response
         else:
-            # Handle both dict and object responses
-            if isinstance(response, dict):
-                return response["message"]["content"]
-            else:
-                return response.message.content
+            # For JSON responses, try to clean up the content using extract_json
+            if hasattr(self, '_expecting_json') and self._expecting_json:
+                try:
+                    # Try to extract clean JSON from the response
+                    cleaned_content = extract_json(content)
+                    return cleaned_content
+                except:
+                    # If extraction fails, return original content
+                    pass
+
+            return content
 
     def generate_response(
         self,
@@ -92,7 +105,9 @@ class OllamaLLM(LLMBase):
         }
 
         # Handle JSON response format by modifying the system prompt
+        self._expecting_json = False
         if response_format and response_format.get("type") == "json_object":
+            self._expecting_json = True
             # Add JSON format instruction to the last message or create a system message
             if messages and messages[-1]["role"] == "user":
                 messages[-1]["content"] += "\n\nPlease respond with valid JSON only."
