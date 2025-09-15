@@ -84,7 +84,7 @@ interface UseMemoriesApiReturn {
   fetchMemoryById: (memoryId: string) => Promise<void>;
   fetchAccessLogs: (memoryId: string, page?: number, pageSize?: number) => Promise<void>;
   fetchRelatedMemories: (memoryId: string) => Promise<void>;
-  createMemory: (text: string) => Promise<void>;
+  createMemory: (text: string) => Promise<Memory>;
   deleteMemories: (memoryIds: string[]) => Promise<void>;
   updateMemory: (memoryId: string, content: string) => Promise<void>;
   updateMemoryState: (memoryIds: string[], state: string) => Promise<void>;
@@ -140,7 +140,7 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
         id: item.id,
         memory: item.content,
         created_at: new Date(item.created_at).getTime(),
-        state: item.state as "active" | "paused" | "archived" | "deleted",
+        state: item.state as "active" | "paused" | "archived" | "deleted" | "processing",
         metadata: item.metadata_,
         categories: item.categories as Category[],
         client: 'api',
@@ -161,7 +161,7 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
     }
   }, [user_id, dispatch]);
 
-  const createMemory = async (text: string): Promise<void> => {
+  const createMemory = async (text: string): Promise<Memory> => {
     try {
       const memoryData = {
         user_id: user_id,
@@ -169,7 +169,24 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
         infer: false,
         app: "openmemory",
       }
-      await axios.post<ApiMemoryItem>(`${URL}/api/v1/memories/`, memoryData);
+      const response = await axios.post<ApiMemoryItem>(`${URL}/api/v1/memories/`, memoryData);
+      
+      // Convert the response to our Memory format
+      const newMemory: Memory = {
+        id: response.data.id,
+        memory: response.data.content,
+        created_at: new Date(response.data.created_at).getTime(),
+        state: response.data.state as "active" | "paused" | "archived" | "deleted" | "processing",
+        metadata: response.data.metadata_,
+        categories: [],
+        client: 'api',
+        app_name: response.data.app_name || 'openmemory'
+      };
+      
+      // Immediately add the placeholder memory to the UI state
+      dispatch(setMemoriesSuccess([newMemory, ...memories]));
+      
+      return newMemory;
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to create memory';
       setError(errorMessage);
@@ -247,7 +264,7 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
         id: item.id,
         memory: item.content,
         created_at: item.created_at,
-        state: item.state as "active" | "paused" | "archived" | "deleted",
+        state: item.state as "active" | "paused" | "archived" | "deleted" | "processing",
         metadata: item.metadata_,
         categories: item.categories as Category[],
         client: 'api',
@@ -301,7 +318,7 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
       });
       dispatch(setMemoriesSuccess(memories.map((memory: Memory) => {
         if (memoryIds.includes(memory.id)) {
-          return { ...memory, state: state as "active" | "paused" | "archived" | "deleted" };
+          return { ...memory, state: state as "active" | "paused" | "archived" | "deleted" | "processing" };
         }
         return memory;
       })));
@@ -313,7 +330,7 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
 
       // if selected memory, update it
       if (selectedMemory?.id && memoryIds.includes(selectedMemory.id)) {
-        dispatch(setSelectedMemory({ ...selectedMemory, state: state as "active" | "paused" | "archived" | "deleted" }));
+        dispatch(setSelectedMemory({ ...selectedMemory, state: state as "active" | "paused" | "archived" | "deleted" | "processing" }));
       }
 
       setIsLoading(false);
