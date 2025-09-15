@@ -1,6 +1,6 @@
 from typing import Dict, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class GoogleMatchingEngineConfig(BaseModel):
@@ -15,7 +15,7 @@ class GoogleMatchingEngineConfig(BaseModel):
     service_account_json: Optional[Dict] = Field(None, description="Service account credentials as dictionary (alternative to credentials_path)")
     vector_search_api_endpoint: Optional[str] = Field(None, description="Vector search API endpoint")
 
-    model_config = {"extra": "forbid"}
+    model_config = ConfigDict(extra="forbid")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

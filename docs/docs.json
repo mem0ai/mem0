@@ -1,8 +1,8 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "maple",
   "name": "Mem0",
   "description": "Mem0 is a self-improving memory layer for LLM applications, enabling personalized AI experiences that save costs and delight users.",
+  "theme": "maple",
   "colors": {
     "primary": "#6c60f0",
     "light": "#E6FFA2",
@@ -46,7 +46,7 @@
               },
               {
                 "group": "Platform",
-                "icon": "cogs",
+                "icon": "globe",
                 "pages": [
                   "platform/overview",
                   "platform/quickstart",
@@ -58,6 +58,7 @@
                       "platform/features/platform-overview",
                       "platform/features/contextual-add",
                       "platform/features/async-client",
+                      "platform/features/graph-memory",
                       "platform/features/advanced-retrieval",
                       "platform/features/criteria-retrieval",
                       "platform/features/multimodal-support",
@@ -151,6 +152,7 @@
                           "components/vectordbs/dbs/mongodb",
                           "components/vectordbs/dbs/azure",
                           "components/vectordbs/dbs/redis",
+                          "components/vectordbs/dbs/valkey",
                           "components/vectordbs/dbs/elasticsearch",
                           "components/vectordbs/dbs/opensearch",
                           "components/vectordbs/dbs/supabase",
@@ -380,7 +382,7 @@
   "background": {
     "color": {
       "light": "#fff",
-      "dark": "#0f1117"
+      "dark": "#09090b"
     }
   },
   "navbar": {
