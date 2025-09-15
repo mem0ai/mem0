@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
 
-app = FastAPI(title="OpenMemory API")
+app = FastAPI(name="OpenMemory API")
 
 app.add_middleware(
     CORSMiddleware,
