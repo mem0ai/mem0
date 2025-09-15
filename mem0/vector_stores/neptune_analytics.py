@@ -296,8 +296,7 @@ class NeptuneAnalyticsVector(VectorStoreBase):
         Removes all nodes with the collection label and their relationships
         from the Neptune Analytics graph.
         """
-        result = self.execute_query(f"MATCH (n :{self.collection_name}) DETACH DELETE n")
-        self._process_generic_msssage(result, "Vector Store - Delete collection")
+        self.execute_query(f"MATCH (n :{self.collection_name}) DETACH DELETE n")
 
 
     def col_info(self):
@@ -466,23 +465,3 @@ class NeptuneAnalyticsVector(VectorStoreBase):
             if success_message["success"] is not True:
                 logger.error(f"Abnormal response status on action: [{context}] with message: [{success_message['success']}] ")
                 break
-
-
-
-    @staticmethod
-    def _process_generic_msssage(response, context):
-        """
-        Process generic response messages and log errors for unexpected responses.
-        
-        Checks if the response contains any data, which typically indicates an error
-        condition for operations that should return empty responses on success.
-        
-        Args:
-            response: Response from Neptune Analytics operation.
-            context (str): Context description for logging the operation type.
-        """
-        if len(response) > 0:
-            logger.error(f"Abnormal query response on action {context} with response: [{response}]")
-
-
-
