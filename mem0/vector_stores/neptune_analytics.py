@@ -114,8 +114,7 @@ class NeptuneAnalyticsVector(VectorStoreBase):
             ON MATCH SET n += row.properties 
         """
         )
-        result = self.execute_query(query_string, para_map_to_insert)
-        self._process_generic_msssage(result, "Vector Store - Insert")
+        self.execute_query(query_string, para_map_to_insert)
 
 
         query_string_vector = (f"""
@@ -190,9 +189,7 @@ class NeptuneAnalyticsVector(VectorStoreBase):
             WHERE id(n) = $node_id 
             DETACH DELETE n
         """
-        result = self.execute_query(query_string, params)
-        self._process_generic_msssage(result, "Vector Store - Delete")
-        pass
+        self.execute_query(query_string, params)
 
     def update(
             self,
@@ -225,8 +222,7 @@ class NeptuneAnalyticsVector(VectorStoreBase):
                 WHERE id(n) = $vector_id 
                 SET n = $properties       
             """
-            result = self.execute_query(query_string_embedding, para_payload)
-            self._process_generic_msssage(result, "Vector Store - Properties update")
+            self.execute_query(query_string_embedding, para_payload)
 
         if vector:
             para_embedding = {
@@ -241,10 +237,8 @@ class NeptuneAnalyticsVector(VectorStoreBase):
             YIELD success 
             RETURN success       
             """
-            result = self.execute_query(query_string_embedding, para_embedding)
-            self._process_success_message(result, "Vector store - Update")
+            self.execute_query(query_string_embedding, para_embedding)
 
-        pass
 
     
     def get(self, vector_id: str):
@@ -304,7 +298,6 @@ class NeptuneAnalyticsVector(VectorStoreBase):
         """
         result = self.execute_query(f"MATCH (n :{self.collection_name}) DETACH DELETE n")
         self._process_generic_msssage(result, "Vector Store - Delete collection")
-        pass
 
 
     def col_info(self):
@@ -356,7 +349,6 @@ class NeptuneAnalyticsVector(VectorStoreBase):
         Removes all vectors from the collection, effectively resetting it to empty state.
         """
         self.delete_col()
-        pass
 
 
     def _parse_query_responses(self, response: dict, with_score: bool = False):
