@@ -43,6 +43,7 @@ import boto3
 from mem0.memory.main import Memory
 
 region = 'us-west-2'
+neptune_analytics_endpoint = 'neptune-graph://my-graph-identifier'
 
 config = {
     "embedder": {
@@ -63,13 +64,13 @@ config = {
         "provider": "neptune",
         "config": {
             "collection_name": "mem0",
-            "endpoint": f"neptune-graph://my-graph-identifier",
+            "endpoint": neptune_analytics_endpoint,
         },
     },
     "graph_store": {
         "provider": "neptune",
         "config": {
-            "endpoint": f"neptune-graph://my-graph-identifier",
+            "endpoint": neptune_analytics_endpoint,
         },
     },
 }
