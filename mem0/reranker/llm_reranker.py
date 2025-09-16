@@ -1,39 +1,55 @@
 import os
 import re
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 
 from mem0.reranker.base import BaseReranker
 from mem0.utils.factory import LlmFactory
+from mem0.configs.rerankers.base import BaseRerankerConfig
+from mem0.configs.rerankers.llm import LLMRerankerConfig
 
 
 class LLMReranker(BaseReranker):
     """LLM-based reranker implementation."""
-    
-    def __init__(self, config):
+
+    def __init__(self, config: Union[BaseRerankerConfig, LLMRerankerConfig, Dict]):
         """
         Initialize LLM reranker.
-        
+
         Args:
-            config: LLMRerankerConfig object with configuration parameters
+            config: Configuration object with reranker parameters
         """
+        # Convert to LLMRerankerConfig if needed
+        if isinstance(config, dict):
+            config = LLMRerankerConfig(**config)
+        elif isinstance(config, BaseRerankerConfig) and not isinstance(config, LLMRerankerConfig):
+            # Convert BaseRerankerConfig to LLMRerankerConfig with defaults
+            config = LLMRerankerConfig(
+                provider=getattr(config, 'provider', 'openai'),
+                model=getattr(config, 'model', 'gpt-4o-mini'),
+                api_key=getattr(config, 'api_key', None),
+                top_k=getattr(config, 'top_k', None),
+                temperature=0.0,  # Default for reranking
+                max_tokens=100,   # Default for reranking
+            )
+
         self.config = config
-        
+
         # Create LLM configuration for the factory
         llm_config = {
-            "model": config.model,
-            "temperature": config.temperature,
-            "max_tokens": config.max_tokens,
+            "model": self.config.model,
+            "temperature": self.config.temperature,
+            "max_tokens": self.config.max_tokens,
         }
-        
+
         # Add API key if provided
-        if config.api_key:
-            llm_config["api_key"] = config.api_key
-        
+        if self.config.api_key:
+            llm_config["api_key"] = self.config.api_key
+
         # Initialize LLM using the factory
-        self.llm = LlmFactory.create(config.provider, llm_config)
-        
+        self.llm = LlmFactory.create(self.config.provider, llm_config)
+
         # Default scoring prompt
-        self.scoring_prompt = config.scoring_prompt or self._get_default_prompt()
+        self.scoring_prompt = getattr(self.config, 'scoring_prompt', None) or self._get_default_prompt()
         
     def _get_default_prompt(self) -> str:
         """Get the default scoring prompt template."""

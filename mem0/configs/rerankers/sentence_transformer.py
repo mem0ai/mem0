@@ -10,7 +10,6 @@ class SentenceTransformerRerankerConfig(BaseRerankerConfig):
     Inherits from BaseRerankerConfig and adds Sentence Transformer-specific settings.
     """
 
-    provider: str = Field(default="sentence_transformer", description="The reranker provider")
     model: Optional[str] = Field(default="cross-encoder/ms-marco-MiniLM-L-6-v2", description="The cross-encoder model name to use")
     device: Optional[str] = Field(default=None, description="Device to run the model on ('cpu', 'cuda', etc.)")
     batch_size: int = Field(default=32, description="Batch size for processing documents")

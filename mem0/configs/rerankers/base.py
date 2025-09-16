@@ -11,7 +11,7 @@ class BaseRerankerConfig(BaseModel):
     For provider-specific parameters, use the appropriate provider config class.
     """
 
-    provider: str = Field(description="The reranker provider to use")
+    provider: Optional[str] = Field(default=None, description="The reranker provider to use")
     model: Optional[str] = Field(default=None, description="The reranker model to use")
     api_key: Optional[str] = Field(default=None, description="The API key for the reranker service")
     top_k: Optional[int] = Field(default=None, description="Maximum number of documents to return after reranking")

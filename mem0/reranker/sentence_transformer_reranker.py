@@ -1,7 +1,9 @@
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 import numpy as np
 
 from mem0.reranker.base import BaseReranker
+from mem0.configs.rerankers.base import BaseRerankerConfig
+from mem0.configs.rerankers.sentence_transformer import SentenceTransformerRerankerConfig
 
 try:
     from sentence_transformers import SentenceTransformer, util
@@ -12,19 +14,34 @@ except ImportError:
 
 class SentenceTransformerReranker(BaseReranker):
     """Sentence Transformer based reranker implementation."""
-    
-    def __init__(self, config):
+
+    def __init__(self, config: Union[BaseRerankerConfig, SentenceTransformerRerankerConfig, Dict]):
         """
         Initialize Sentence Transformer reranker.
-        
+
         Args:
-            config: SentenceTransformerRerankerConfig object with configuration parameters
+            config: Configuration object with reranker parameters
         """
         if not SENTENCE_TRANSFORMERS_AVAILABLE:
             raise ImportError("sentence-transformers package is required for SentenceTransformerReranker. Install with: pip install sentence-transformers")
-            
+
+        # Convert to SentenceTransformerRerankerConfig if needed
+        if isinstance(config, dict):
+            config = SentenceTransformerRerankerConfig(**config)
+        elif isinstance(config, BaseRerankerConfig) and not isinstance(config, SentenceTransformerRerankerConfig):
+            # Convert BaseRerankerConfig to SentenceTransformerRerankerConfig with defaults
+            config = SentenceTransformerRerankerConfig(
+                provider=getattr(config, 'provider', 'sentence_transformer'),
+                model=getattr(config, 'model', 'cross-encoder/ms-marco-MiniLM-L-6-v2'),
+                api_key=getattr(config, 'api_key', None),
+                top_k=getattr(config, 'top_k', None),
+                device=None,  # Will auto-detect
+                batch_size=32,  # Default
+                show_progress_bar=False,  # Default
+            )
+
         self.config = config
-        self.model = SentenceTransformer(config.model, device=config.device)
+        self.model = SentenceTransformer(self.config.model, device=self.config.device)
         
     def rerank(self, query: str, documents: List[Dict[str, Any]], top_k: int = None) -> List[Dict[str, Any]]:
         """
