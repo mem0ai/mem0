@@ -21,10 +21,18 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Session, relationship
 
+# Python 3.10-compatible UTC timezone
+try:
+    UTC = datetime.UTC  # Python 3.11+
+except AttributeError:  # Python 3.10
+    from datetime import timezone as _tz
+
+    UTC = _tz.utc
+
 
 def get_current_utc_time():
-    """Get current UTC time"""
-    return datetime.datetime.now(datetime.UTC)
+    """Get current UTC time (timezone-aware)."""
+    return datetime.datetime.now(UTC)
 
 
 class MemoryState(enum.Enum):
@@ -114,7 +122,7 @@ class Category(Base):
     id = Column(UUID, primary_key=True, default=lambda: uuid.uuid4())
     name = Column(String, unique=True, nullable=False, index=True)
     description = Column(String)
-    created_at = Column(DateTime, default=datetime.datetime.now(datetime.UTC), index=True)
+    created_at = Column(DateTime, default=get_current_utc_time, index=True)
     updated_at = Column(DateTime,
                         default=get_current_utc_time,
                         onupdate=get_current_utc_time)
