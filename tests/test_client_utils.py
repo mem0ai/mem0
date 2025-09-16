@@ -4,9 +4,8 @@ This module tests the api_error_handler decorator and its integration
 with the new structured exception classes.
 """
 
-import json
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 import httpx
 
 from mem0.client.utils import api_error_handler, APIError

@@ -7,12 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from mem0.client.utils import api_error_handler
 from mem0.memory.telemetry import capture_client_event
-from mem0.exceptions import (
-    AuthenticationError,
-    RateLimitError,
-    ValidationError,
-    NetworkError,
-)
+# Exception classes are referenced in docstrings only
 
 logger = logging.getLogger(__name__)
 

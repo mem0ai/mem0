@@ -4,9 +4,7 @@ This module provides comprehensive tests for all exception classes,
 including their attributes, inheritance, and the HTTP response mapping functionality.
 """
 
-import json
 import pytest
-from unittest.mock import Mock
 
 from mem0.exceptions import (
     MemoryError,

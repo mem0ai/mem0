@@ -1,17 +1,9 @@
 import json
 import logging
-from typing import Any, Dict, Optional
-
 import httpx
 
 from mem0.exceptions import (
-    MemoryError,
-    AuthenticationError,
-    RateLimitError,
-    ValidationError,
-    MemoryNotFoundError,
     NetworkError,
-    MemoryQuotaExceededError,
     create_exception_from_response,
 )
 
