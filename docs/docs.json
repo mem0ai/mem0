@@ -2,6 +2,7 @@
   "$schema": "https://mintlify.com/docs.json",
   "name": "Mem0",
   "description": "Mem0 is a self-improving memory layer for LLM applications, enabling personalized AI experiences that save costs and delight users.",
+  "theme": "maple",
   "colors": {
     "primary": "#6c60f0",
     "light": "#E6FFA2",
@@ -151,6 +152,7 @@
                           "components/vectordbs/dbs/mongodb",
                           "components/vectordbs/dbs/azure",
                           "components/vectordbs/dbs/redis",
+                          "components/vectordbs/dbs/valkey",
                           "components/vectordbs/dbs/elasticsearch",
                           "components/vectordbs/dbs/opensearch",
                           "components/vectordbs/dbs/supabase",

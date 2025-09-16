@@ -1,6 +1,6 @@
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from databricks.sdk.service.vectorsearch import EndpointType, VectorIndexType, PipelineType
 
@@ -58,6 +58,4 @@ class DatabricksConfig(BaseModel):
 
         return self
 
-    model_config = {
-        "arbitrary_types_allowed": True,
-    }
+    model_config = ConfigDict(arbitrary_types_allowed=True)

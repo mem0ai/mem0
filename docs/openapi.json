@@ -1076,9 +1076,14 @@
 								"run_id": {"type": "string"},
 								"created_at": {"type": "string", "format": "date-time"},
 								"updated_at": {"type": "string", "format": "date-time"},
-								"categories": {"type": "array", "items": {"type": "string"}},
+								"categories": {"type": "object", "properties": {
+									"in": {"type": "array", "items": {"type": "string"}}
+								}},
 								"metadata": {"type": "object"},
-								"keywords": {"type": "string"}
+								"keywords": {"type": "object", "properties": {
+									"contains": {"type": "string"},
+									"icontains": {"type": "string"}
+								}}
 							},
 							"additionalProperties": {
 								"type": "object",
@@ -1094,7 +1099,7 @@
 								}
 							}
 						},
-						"description": "Filters to apply to the memories. Available fields are: user_id, agent_id, app_id, run_id, created_at, updated_at, categories, keywords. Supports logical operators (AND, OR) and comparison operators (in, gte, lte, gt, lt, ne, contains, icontains)",
+						"description": "Filters to apply to the memories. Available fields are: user_id, agent_id, app_id, run_id, created_at, updated_at, categories, keywords. Supports logical operators (AND, OR) and comparison operators (in, gte, lte, gt, lt, ne, contains, icontains). For categories field, use 'contains' for partial matching (e.g., {\"categories\": {\"contains\": \"finance\"}}) or 'in' for exact matching (e.g., {\"categories\": {\"in\": [\"personal_information\"]}}).",
 						"style": "deepObject",
 						"explode": true
 					},
@@ -5083,7 +5088,7 @@
 					"filters": {
 						"title": "Filters",
 						"type": "object",
-						"description": "A dictionary of filters to apply to the search. Available fields are: user_id, agent_id, app_id, run_id, created_at, updated_at, categories, keywords. Supports logical operators (AND, OR) and comparison operators (in, gte, lte, gt, lt, ne, contains, icontains).",
+						"description": "A dictionary of filters to apply to the search. Available fields are: user_id, agent_id, app_id, run_id, created_at, updated_at, categories, keywords. Supports logical operators (AND, OR) and comparison operators (in, gte, lte, gt, lt, ne, contains, icontains). For categories field, use 'contains' for partial matching (e.g., {\"categories\": {\"contains\": \"finance\"}}) or 'in' for exact matching (e.g., {\"categories\": {\"in\": [\"personal_information\"]}}).",
 						"properties": {
 							"user_id": {"type": "string"},
 							"agent_id": {"type": "string"},
@@ -5091,8 +5096,13 @@
 							"run_id": {"type": "string"},
 							"created_at": {"type": "string", "format": "date-time"},
 							"updated_at": {"type": "string", "format": "date-time"},
-							"text": {"type": "string"},
-							"categories": {"type": "array", "items": {"type": "string"}},
+							"keywords": {"type": "object", "properties": {
+								"contains": {"type": "string"},
+								"icontains": {"type": "string"}
+							}},
+							"categories": {"type": "object", "properties": {
+								"in": {"type": "array", "items": {"type": "string"}}
+							}},
 							"metadata": {"type": "object"}
 						},
 						"additionalProperties": {
