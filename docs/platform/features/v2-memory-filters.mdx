@@ -2,13 +2,7 @@
 title: Memory Filters v2
 icon: "filter"
 iconType: "solid"
-description: Complete guide to filtering memories by user, agent, run, and content criteria.
----
-
-# Memory Filters v2
-
-This guide covers the filtering system for retrieving and searching memories. You can filter by user sessions, agents, applications, content categories, and time ranges.
-
+description: This guide covers the filtering system for retrieving and searching memories. You can filter by user sessions, agents, applications, content categories, and time ranges.
 ---
 
 ## Quick Start
@@ -242,7 +236,10 @@ Excludes null run_id values
 **Memories created after a specific date**
 
 ```json
-{ "AND": [ { "created_at": { "gt": "2025-01-01T00:00:00Z" } } ] }
+{ "AND": [
+  { "user_id": "u1" },
+  { "created_at": { "gt": "2025-01-01T00:00:00Z" } }
+] }
 ```
 
 **User memories within a date range**
@@ -259,6 +256,7 @@ Excludes null run_id values
 
 ```json
 { "AND": [
+  { "user_id": "u1" },
   { "updated_at": { "gte": "2025-05-01T00:00:00Z" } },
   { "updated_at": { "lte": "2025-05-31T23:59:59Z" } }
 ] }
@@ -311,6 +309,7 @@ Excludes null user_id and run_id values
 
 ```json
 { "AND": [
+  { "user_id": "u1" },
   { "keywords": { "icontains": "invoice" } },
   { "categories": { "in": ["finance"] } },
   { "created_at": { "gte": "2025-03-01T00:00:00Z" } }
@@ -393,13 +392,20 @@ Excludes null user_id values
 **Memories within date range**
 
 ```json
-{ "AND": [ { "created_at": { "gte": "<from>" } }, { "created_at": { "lt": "<to>" } } ] }
+{ "AND": [
+  { "user_id": "u1" },
+  { "created_at": { "gte": "<from>" } },
+  { "created_at": { "lt": "<to>" } }
+] }
 ```
 
 **Exclude specific categories**
 
 ```json
-{ "AND": [ { "NOT": { "categories": { "in": ["spam", "test"] } } } ] }
+{ "AND": [
+  { "user_id": "u1" },
+  { "NOT": { "categories": { "in": ["spam", "test"] } } }
+] }
 ```
 
 **Get user's specific memories by ID**
@@ -445,6 +451,7 @@ Use `gte` and `lt` (or `lte`) together.
 
 ```json
 { "AND": [
+  { "user_id": "u1" },
   { "created_at": { "gte": "2025-01-01T00:00:00Z" } },
   { "created_at": { "lt":  "2025-02-01T00:00:00Z" } }
 ] }
