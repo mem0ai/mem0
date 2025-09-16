@@ -21,6 +21,16 @@ from mem0.configs.prompts import (
     PROCEDURAL_MEMORY_SYSTEM_PROMPT,
     get_update_memory_messages,
 )
+from mem0.exceptions import (
+    ValidationError as Mem0ValidationError,
+    MemoryNotFoundError,
+    VectorStoreError,
+    GraphStoreError,
+    EmbeddingError,
+    LLMError,
+    DatabaseError,
+    DependencyError,
+)
 from mem0.memory.base import MemoryBase
 from mem0.memory.setup import mem0_dir, setup_config
 from mem0.memory.storage import SQLiteManager
@@ -109,7 +119,12 @@ def _build_filters_and_metadata(
         session_ids_provided.append("run_id")
 
     if not session_ids_provided:
-        raise ValueError("At least one of 'user_id', 'agent_id', or 'run_id' must be provided.")
+        raise Mem0ValidationError(
+            message="At least one of 'user_id', 'agent_id', or 'run_id' must be provided.",
+            error_code="VALIDATION_001",
+            details={"provided_ids": {"user_id": user_id, "agent_id": agent_id, "run_id": run_id}},
+            suggestion="Please provide at least one identifier to scope the memory operation."
+        )
 
     # ---------- optional actor filter ----------
     resolved_actor_id = actor_id or effective_query_filters.get("actor_id")
@@ -227,6 +242,14 @@ class Memory(MemoryBase):
                   including a list of memory items affected (added, updated) under a "results" key,
                   and potentially "relations" if graph store is enabled.
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "event": "ADD"}]}`
+
+        Raises:
+            Mem0ValidationError: If input validation fails (invalid memory_type, messages format, etc.).
+            VectorStoreError: If vector store operations fail.
+            GraphStoreError: If graph store operations fail.
+            EmbeddingError: If embedding generation fails.
+            LLMError: If LLM operations fail.
+            DatabaseError: If database operations fail.
         """
 
         processed_metadata, effective_filters = _build_filters_and_metadata(
@@ -237,8 +260,11 @@ class Memory(MemoryBase):
         )
 
         if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
-            raise ValueError(
-                f"Invalid 'memory_type'. Please pass {MemoryType.PROCEDURAL.value} to create procedural memories."
+            raise Mem0ValidationError(
+                message=f"Invalid 'memory_type'. Please pass {MemoryType.PROCEDURAL.value} to create procedural memories.",
+                error_code="VALIDATION_002",
+                details={"provided_type": memory_type, "valid_type": MemoryType.PROCEDURAL.value},
+                suggestion=f"Use '{MemoryType.PROCEDURAL.value}' to create procedural memories."
             )
 
         if isinstance(messages, str):
@@ -248,7 +274,12 @@ class Memory(MemoryBase):
             messages = [messages]
 
         elif not isinstance(messages, list):
-            raise ValueError("messages must be str, dict, or list[dict]")
+            raise Mem0ValidationError(
+                message="messages must be str, dict, or list[dict]",
+                error_code="VALIDATION_003",
+                details={"provided_type": type(messages).__name__, "valid_types": ["str", "dict", "list[dict]"]},
+                suggestion="Convert your input to a string, dictionary, or list of dictionaries."
+            )
 
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
             results = self._create_procedural_memory(messages, metadata=processed_metadata, prompt=prompt)
@@ -1090,7 +1121,12 @@ class AsyncMemory(MemoryBase):
             messages = [messages]
 
         elif not isinstance(messages, list):
-            raise ValueError("messages must be str, dict, or list[dict]")
+            raise Mem0ValidationError(
+                message="messages must be str, dict, or list[dict]",
+                error_code="VALIDATION_003",
+                details={"provided_type": type(messages).__name__, "valid_types": ["str", "dict", "list[dict]"]},
+                suggestion="Convert your input to a string, dictionary, or list of dictionaries."
+            )
 
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
             results = await self._create_procedural_memory(

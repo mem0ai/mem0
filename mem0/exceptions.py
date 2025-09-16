@@ -84,7 +84,9 @@ class MemoryError(Exception):
             f"{self.__class__.__name__}("
             f"message={self.message!r}, "
             f"error_code={self.error_code!r}, "
-            f"details={self.details!r})"
+            f"details={self.details!r}, "
+            f"suggestion={self.suggestion!r}, "
+            f"debug_info={self.debug_info!r})"
         )
 
 
@@ -296,6 +298,127 @@ class CacheError(MemoryError):
         )
     """
     pass
+
+
+# OSS-specific exception classes
+class VectorStoreError(MemoryError):
+    """Raised when vector store operations fail.
+    
+    This exception is raised when vector store operations fail,
+    such as embedding storage, similarity search, or vector operations.
+    
+    Example:
+        raise VectorStoreError(
+            message="Vector store operation failed",
+            error_code="VECTOR_001",
+            details={"operation": "search", "collection": "memories"},
+            suggestion="Please check your vector store configuration and connection"
+        )
+    """
+    def __init__(self, message: str, error_code: str = "VECTOR_001", details: dict = None, 
+                 suggestion: str = "Please check your vector store configuration and connection", 
+                 debug_info: dict = None):
+        super().__init__(message, error_code, details, suggestion, debug_info)
+
+
+class GraphStoreError(MemoryError):
+    """Raised when graph store operations fail.
+    
+    This exception is raised when graph store operations fail,
+    such as relationship creation, entity management, or graph queries.
+    
+    Example:
+        raise GraphStoreError(
+            message="Graph store operation failed",
+            error_code="GRAPH_001",
+            details={"operation": "create_relationship", "entity": "user_123"},
+            suggestion="Please check your graph store configuration and connection"
+        )
+    """
+    def __init__(self, message: str, error_code: str = "GRAPH_001", details: dict = None, 
+                 suggestion: str = "Please check your graph store configuration and connection", 
+                 debug_info: dict = None):
+        super().__init__(message, error_code, details, suggestion, debug_info)
+
+
+class EmbeddingError(MemoryError):
+    """Raised when embedding operations fail.
+    
+    This exception is raised when embedding operations fail,
+    such as text embedding generation or embedding model errors.
+    
+    Example:
+        raise EmbeddingError(
+            message="Embedding generation failed",
+            error_code="EMBED_001",
+            details={"text_length": 1000, "model": "openai"},
+            suggestion="Please check your embedding model configuration"
+        )
+    """
+    def __init__(self, message: str, error_code: str = "EMBED_001", details: dict = None, 
+                 suggestion: str = "Please check your embedding model configuration", 
+                 debug_info: dict = None):
+        super().__init__(message, error_code, details, suggestion, debug_info)
+
+
+class LLMError(MemoryError):
+    """Raised when LLM operations fail.
+    
+    This exception is raised when LLM operations fail,
+    such as text generation, completion, or model inference errors.
+    
+    Example:
+        raise LLMError(
+            message="LLM operation failed",
+            error_code="LLM_001",
+            details={"model": "gpt-4", "prompt_length": 500},
+            suggestion="Please check your LLM configuration and API key"
+        )
+    """
+    def __init__(self, message: str, error_code: str = "LLM_001", details: dict = None, 
+                 suggestion: str = "Please check your LLM configuration and API key", 
+                 debug_info: dict = None):
+        super().__init__(message, error_code, details, suggestion, debug_info)
+
+
+class DatabaseError(MemoryError):
+    """Raised when database operations fail.
+    
+    This exception is raised when database operations fail,
+    such as SQLite operations, connection issues, or data corruption.
+    
+    Example:
+        raise DatabaseError(
+            message="Database operation failed",
+            error_code="DB_001",
+            details={"operation": "insert", "table": "memories"},
+            suggestion="Please check your database configuration and connection"
+        )
+    """
+    def __init__(self, message: str, error_code: str = "DB_001", details: dict = None, 
+                 suggestion: str = "Please check your database configuration and connection", 
+                 debug_info: dict = None):
+        super().__init__(message, error_code, details, suggestion, debug_info)
+
+
+class DependencyError(MemoryError):
+    """Raised when required dependencies are missing.
+    
+    This exception is raised when required dependencies are missing,
+    such as optional packages for specific providers or features.
+    
+    Example:
+        raise DependencyError(
+            message="Required dependency missing",
+            error_code="DEPS_001",
+            details={"package": "kuzu", "feature": "graph_store"},
+            suggestion="Please install the required dependencies: pip install kuzu"
+        )
+    """
+    def __init__(self, message: str, error_code: str = "DEPS_001", details: dict = None, 
+                 suggestion: str = "Please install the required dependencies", 
+                 debug_info: dict = None):
+        super().__init__(message, error_code, details, suggestion, debug_info)
 
 
 # Mapping of HTTP status codes to specific exception classes
