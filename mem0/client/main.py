@@ -483,8 +483,6 @@ class MemoryClient:
             NetworkError: If network connectivity issues occur.
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
-        # Delete all users, agents, and sessions
-        # This will also delete the memories
         self.delete_users()
 
         capture_client_event("client.reset", self, {"sync_type": "sync"})
