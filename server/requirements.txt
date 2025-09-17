@@ -1,6 +1,42 @@
-fastapi==0.115.8
-uvicorn==0.34.0
-pydantic==2.10.4
-mem0ai>=0.1.48
-python-dotenv==1.0.1
-psycopg>=3.2.8
+# Core dependencies
+fastapi>=0.115.8
+uvicorn[standard]>=0.34.0
+pydantic>=2.10.4
+python-dotenv>=1.0.1
+
+# mem0 with all required extras
+mem0ai[graph,vector_stores,llms,extras]>=0.1.117
+
+# Production optimizations
+uvloop>=0.19.0  # High-performance event loop
+httptools>=0.6.0  # Fast HTTP parser
+websockets>=12.0  # WebSocket support
+
+# Database drivers
+psycopg2-binary>=2.9.0  # PostgreSQL driver
+psycopg>=3.2.8  # Modern PostgreSQL driver
+psycopg-pool>=3.2.6  # Connection pooling
+
+# Vector database support
+pgvector>=0.2.0  # pgvector support
+
+# Graph database support (Apache AGE)
+apache-age-python>=1.0.0
+neo4j>=5.23.1  # Neo4j support (optional)
+
+# Monitoring and logging
+prometheus-client>=0.19.0  # Metrics
+structlog>=23.2.0  # Structured logging
+
+# Security
+python-jose[cryptography]>=3.3.0  # JWT handling
+passlib[bcrypt]>=1.7.4  # Password hashing
+
+# Performance monitoring
+psutil>=5.9.0  # System monitoring
+memory-profiler>=0.61.0  # Memory profiling
+
+# Development and testing (optional)
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+httpx>=0.25.0  # For testing async endpoints

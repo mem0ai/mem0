@@ -26,13 +26,16 @@ export const DEFAULT_MEMORY_CONFIG: MemoryConfig = {
       modelProperties: undefined,
     },
   },
-  enableGraph: false,
+  enableGraph: true,
   graphStore: {
-    provider: "neo4j",
+    provider: "apache_age",
     config: {
-      url: process.env.NEO4J_URL || "neo4j://localhost:7687",
-      username: process.env.NEO4J_USERNAME || "neo4j",
-      password: process.env.NEO4J_PASSWORD || "password",
+      host: process.env.AGE_HOST || process.env.DATABASE_HOST || "localhost",
+      port: parseInt(process.env.AGE_PORT || process.env.DATABASE_PORT || "5432"),
+      database: process.env.AGE_DATABASE || process.env.DATABASE_NAME || "whatsapp_assistant",
+      username: process.env.AGE_USERNAME || process.env.DATABASE_USER || "postgres",
+      password: process.env.AGE_PASSWORD || process.env.DATABASE_PASSWORD || "password",
+      graphName: process.env.AGE_GRAPH_NAME || "memory_graph",
     },
     llm: {
       provider: "openai",
