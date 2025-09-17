@@ -98,8 +98,8 @@ class ApacheAgeConfig(BaseModel):
 
 class GraphStoreConfig(BaseModel):
     provider: str = Field(
-        description="Provider of the data store (e.g., 'neo4j', 'memgraph', 'neptune', 'kuzu', 'apache_age')",
-        default="neo4j",
+        description="Provider of the data store (e.g., 'apache_age', 'neo4j', 'memgraph', 'neptune', 'kuzu')",
+        default="apache_age",
     )
     config: Union[Neo4jConfig, MemgraphConfig, NeptuneConfig, KuzuConfig, ApacheAgeConfig] = Field(
         description="Configuration for the specific data store", default=None
