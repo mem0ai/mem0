@@ -512,7 +512,7 @@
                               "v0x/components/vectordbs/dbs/baidu",
                               "v0x/components/vectordbs/dbs/s3_vectors",
                               "v0x/components/vectordbs/dbs/databricks",
-                              "v0x/components/embedders/models/aws_bedrock"
+                              "v0x/components/vectordbs/models/neptune_analytics"
                             ]
                           }
                         ]
