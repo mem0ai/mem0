@@ -1,0 +1,42 @@
+# Neptune Analytics Vector Store
+
+[Neptune Analytics](https://docs.aws.amazon.com/neptune-analytics/latest/userguide/what-is-neptune-analytics.html/) is a memory-optimized graph database engine for analytics. With Neptune Analytics, you can get insights and find trends by processing large amounts of graph data in seconds, including vector search.
+
+
+## Installation
+
+```bash
+pip install mem0ai[vector_stores]
+```
+
+## Usage
+
+```python
+config = {
+    "vector_store": {
+        "provider": "neptune",
+        "config": {
+            "collection_name": "mem0",
+            "endpoint": f"neptune-graph://my-graph-identifier",
+        },
+    },
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+## Parameters
+
+Let's see the available parameters for the `neptune` config:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `collection_name` | The name of the collection to store the vectors | `mem0` |
+| `endpoint` | Connection URL for the Neptune Analytics service | `neptune-graph://my-graph-identifier` |

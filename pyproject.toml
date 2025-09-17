@@ -49,6 +49,7 @@ vector_stores = [
     "redisvl>=0.1.0,<1.0.0",
     "elasticsearch>=8.0.0,<9.0.0",
     "pymilvus>=2.4.0,<2.6.0",
+    "langchain-aws>=0.2.23",
 ]
 llms = [
     "groq>=0.3.0",
