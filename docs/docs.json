@@ -164,7 +164,8 @@
                           "components/vectordbs/dbs/langchain",
                           "components/vectordbs/dbs/baidu",
                           "components/vectordbs/dbs/s3_vectors",
-                          "components/vectordbs/dbs/databricks"
+                          "components/vectordbs/dbs/databricks",
+                          "components/vectordbs/dbs/neptune_analytics"
                         ]
                       }
                     ]
@@ -223,6 +224,7 @@
                 "pages": [
                   "examples",
                   "examples/aws_example",
+                  "examples/aws_neptune_analytics_hybrid_store",
                   "examples/mem0-demo",
                   "examples/ai_companion_js",
                   "examples/collaborative-task-agent",
