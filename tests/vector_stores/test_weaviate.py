@@ -82,7 +82,7 @@ class TestWeaviateDB(unittest.TestCase):
         payloads = [{"key1": "value1"}, {"key2": "value2"}]
         ids = [str(uuid.uuid4()), str(uuid.uuid4())]
 
-        results = self.weaviate_db.insert(vectors=vectors, payloads=payloads, ids=ids)
+        self.weaviate_db.insert(vectors=vectors, payloads=payloads, ids=ids)
 
     def test_get(self):
         valid_uuid = str(uuid.uuid4())
