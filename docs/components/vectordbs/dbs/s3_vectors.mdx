@@ -53,7 +53,7 @@ Here are the available parameters for the `s3_vectors` config:
 | Parameter              | Description                                                                      | Default Value                         |
 | ---------------------- | -------------------------------------------------------------------------------- | ------------------------------------- |
 | `vector_bucket_name`   | The name of the S3 Vector bucket to use. It will be created if it doesn't exist. | Required                              |
-| `index_name`           | The name of the vector index within the bucket.                                  | `mem0`                                |
+| `collection_name`      | The name of the vector index within the bucket.                                  | `mem0`                                |
 | `embedding_model_dims` | Dimensions of the embedding model. Must match your embedder.                     | `1536`                                |
 | `distance_metric`      | Distance metric for similarity search. Options: `cosine`, `euclidean`.           | `cosine`                              |
 | `region_name`          | The AWS region where the bucket and index reside.                                | `None` (uses default from AWS config) |
