@@ -395,7 +395,7 @@ class MariaDB(VectorStoreBase):
                 cursor.execute(f"""
                     SELECT 
                         table_name,
-                        ROUND(((data_length + index_length) / 1024 / 1024), 2) AS 'size_mb'
+                        ROUND(((data_length + index_length) / 1024 / 1024), 2) AS total_size_mb
                     FROM information_schema.tables 
                     WHERE table_schema = DATABASE() AND table_name = %s
                 """, (self.collection_name,))
