@@ -133,7 +133,7 @@ async def list_app_memories(
     get_app_or_404(db, app_id)
     query = db.query(Memory).filter(
         Memory.app_id == app_id,
-        Memory.state.in_([MemoryState.active, MemoryState.paused, MemoryState.archived])
+        Memory.state.in_([MemoryState.active, MemoryState.paused, MemoryState.archived, MemoryState.processing])
     )
     # Add eager loading for categories
     query = query.options(joinedload(Memory.categories))
