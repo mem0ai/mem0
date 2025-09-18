@@ -1,0 +1,145 @@
+---
+title: Configuration
+icon: "gear"
+iconType: "solid"
+---
+
+## How to define configurations?
+
+The `reranker` configuration is defined as an object with two main keys:
+- `provider`: The name of the reranker provider (e.g., "cohere", "sentence_transformer", "huggingface", "llm_reranker")
+- `config`: A nested dictionary containing provider-specific settings
+
+## Basic Configuration
+
+Here's how to configure a reranker with Mem0:
+
+```python
+from mem0 import Memory
+
+config = {
+    "reranker": {
+        "provider": "cohere",
+        "config": {
+            "api_key": "your-api-key",
+            "top_n": 10,
+            "model": "rerank-english-v3.0"
+        }
+    }
+}
+
+memory = Memory.from_config(config)
+```
+
+## Configuration Parameters
+
+| Parameter | Description | Required | Default |
+|-----------|-------------|----------|---------|
+| `provider` | Reranker provider name | Yes | - |
+| `config` | Provider-specific configuration | Yes | - |
+
+### Common Config Parameters
+
+| Parameter | Description | Providers |
+|-----------|-------------|-----------|
+| `api_key` | API key for the service | Cohere, Hugging Face |
+| `model` | Model name to use | All |
+| `top_n` | Number of results to return | All |
+| `device` | Device to run on (cpu/cuda/mps) | Sentence Transformer, Hugging Face |
+
+## Provider-Specific Examples
+
+### Cohere
+```python
+config = {
+    "reranker": {
+        "provider": "cohere",
+        "config": {
+            "api_key": "your-cohere-api-key",
+            "model": "rerank-english-v3.0",
+            "top_n": 5
+        }
+    }
+}
+```
+
+### Sentence Transformer
+```python
+config = {
+    "reranker": {
+        "provider": "sentence_transformer",
+        "config": {
+            "model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+            "device": "cpu",
+            "top_n": 10
+        }
+    }
+}
+```
+
+### Hugging Face
+```python
+config = {
+    "reranker": {
+        "provider": "huggingface",
+        "config": {
+            "api_key": "your-hf-token",
+            "model": "BAAI/bge-reranker-large",
+            "top_n": 8
+        }
+    }
+}
+```
+
+### LLM Reranker
+```python
+config = {
+    "reranker": {
+        "provider": "llm_reranker",
+        "config": {
+            "llm": {
+                "provider": "openai",
+                "config": {
+                    "model": "gpt-4",
+                    "api_key": "your-openai-key"
+                }
+            },
+            "top_n": 5
+        }
+    }
+}
+```
+
+## Advanced Configuration
+
+You can combine rerankers with other components:
+
+```python
+config = {
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "gpt-4",
+            "api_key": "your-openai-key"
+        }
+    },
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "collection_name": "memories",
+            "host": "localhost",
+            "port": 6333
+        }
+    },
+    "reranker": {
+        "provider": "cohere",
+        "config": {
+            "api_key": "your-cohere-key",
+            "model": "rerank-english-v3.0",
+            "top_n": 10
+        }
+    }
+}
+```
+
+For provider-specific configuration details, visit the individual reranker pages.

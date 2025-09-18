@@ -1,0 +1,171 @@
+---
+title: Langchain
+---
+
+Build a personalized Travel Agent AI using LangChain for conversation flow and Mem0 for memory retention. This integration enables context-aware and efficient travel planning experiences.
+
+## Overview
+
+In this guide, we'll create a Travel Agent AI that:
+1. Uses LangChain to manage conversation flow
+2. Leverages Mem0 to store and retrieve relevant information from past interactions
+3. Provides personalized travel recommendations based on user history
+
+## Setup and Configuration
+
+Install necessary libraries:
+
+```bash
+pip install langchain langchain_openai mem0ai python-dotenv
+```
+
+Import required modules and set up configurations:
+
+<Note>Remember to get the Mem0 API key from [Mem0 Platform](https://app.mem0.ai).</Note>
+
+```python
+import os
+from typing import List, Dict
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from mem0 import MemoryClient
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Configuration
+# os.environ["OPENAI_API_KEY"] = "your-openai-api-key"
+# os.environ["MEM0_API_KEY"] = "your-mem0-api-key"
+
+# Initialize LangChain and Mem0
+llm = ChatOpenAI(model="gpt-4o-mini")
+mem0 = MemoryClient()
+```
+
+## Create Prompt Template
+
+Set up the conversation prompt template:
+
+```python
+prompt = ChatPromptTemplate.from_messages([
+    SystemMessage(content="""You are a helpful travel agent AI. Use the provided context to personalize your responses and remember user preferences and past interactions. 
+    Provide travel recommendations, itinerary suggestions, and answer questions about destinations. 
+    If you don't have specific information, you can make general suggestions based on common travel knowledge."""),
+    MessagesPlaceholder(variable_name="context"),
+    HumanMessage(content="{input}")
+])
+```
+
+## Define Helper Functions
+
+Create functions to handle context retrieval, response generation, and addition to Mem0:
+
+```python
+def retrieve_context(query: str, user_id: str) -> List[Dict]:
+    """Retrieve relevant context from Mem0"""
+    try:
+        memories = mem0.search(query, user_id=user_id, output_format='v1.1')
+        memory_list = memories['results']
+        
+        serialized_memories = ' '.join([mem["memory"] for mem in memory_list])
+        context = [
+            {
+                "role": "system", 
+                "content": f"Relevant information: {serialized_memories}"
+            },
+            {
+                "role": "user",
+                "content": query
+            }
+        ]
+        return context
+    except Exception as e:
+        print(f"Error retrieving memories: {e}")
+        # Return empty context if there's an error
+        return [{"role": "user", "content": query}]
+
+def generate_response(input: str, context: List[Dict]) -> str:
+    """Generate a response using the language model"""
+    chain = prompt | llm
+    response = chain.invoke({
+        "context": context,
+        "input": input
+    })
+    return response.content
+
+def save_interaction(user_id: str, user_input: str, assistant_response: str):
+    """Save the interaction to Mem0"""
+    try:
+        interaction = [
+            {
+              "role": "user",
+              "content": user_input
+            },
+            {
+                "role": "assistant",
+                "content": assistant_response
+            }
+        ]
+        result = mem0.add(interaction, user_id=user_id, output_format='v1.1')
+        print(f"Memory saved successfully: {len(result.get('results', []))} memories added")
+    except Exception as e:
+        print(f"Error saving interaction: {e}")
+```
+
+## Create Chat Turn Function
+
+Implement the main function to manage a single turn of conversation:
+
+```python
+def chat_turn(user_input: str, user_id: str) -> str:
+    # Retrieve context
+    context = retrieve_context(user_input, user_id)
+    
+    # Generate response
+    response = generate_response(user_input, context)
+    
+    # Save interaction
+    save_interaction(user_id, user_input, response)
+    
+    return response
+```
+
+## Main Interaction Loop
+
+Set up the main program loop for user interaction:
+
+```python
+if __name__ == "__main__":
+    print("Welcome to your personal Travel Agent Planner! How can I assist you with your travel plans today?")
+    user_id = "alice"
+    
+    while True:
+        user_input = input("You: ")
+        if user_input.lower() in ['quit', 'exit', 'bye']:
+            print("Travel Agent: Thank you for using our travel planning service. Have a great trip!")
+            break
+        
+        response = chat_turn(user_input, user_id)
+        print(f"Travel Agent: {response}")
+```
+
+## Key Features
+
+1. **Memory Integration**: Uses Mem0 to store and retrieve relevant information from past interactions.
+2. **Personalization**: Provides context-aware responses based on user history and preferences.
+3. **Flexible Architecture**: LangChain structure allows for easy expansion of the conversation flow.
+4. **Continuous Learning**: Each interaction is stored, improving future responses.
+
+## Conclusion
+
+By integrating LangChain with Mem0, you can build a personalized Travel Agent AI that can maintain context across interactions and provide tailored travel recommendations and assistance.
+
+## Help
+
+- For more details on LangChain, visit the [LangChain documentation](https://python.langchain.com/).
+- [Mem0 Platform](https://app.mem0.ai/).
+- If you need further assistance, please feel free to reach out to us through the following methods:
+
+<Snippet file="get-help.mdx" />
+

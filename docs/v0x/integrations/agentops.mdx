@@ -1,0 +1,173 @@
+---
+title: AgentOps
+---
+
+Integrate [**Mem0**](https://github.com/mem0ai/mem0) with [AgentOps](https://agentops.ai), a comprehensive monitoring and analytics platform for AI agents. This integration enables automatic tracking and analysis of memory operations, providing insights into agent performance and memory usage patterns.
+
+## Overview
+
+1. Automatic monitoring of Mem0 operations and performance metrics
+2. Real-time tracking of memory add, search, and retrieval operations
+3. Analytics dashboard with memory usage patterns and insights
+4. Error tracking and debugging capabilities for memory operations
+
+## Prerequisites
+
+Before setting up Mem0 with AgentOps, ensure you have:
+
+1. Installed the required packages:
+```bash
+pip install mem0ai agentops python-dotenv
+```
+
+2. Valid API keys:
+   - [AgentOps API Key](https://app.agentops.ai/dashboard/api-keys)
+   - OpenAI API Key (for LLM operations)
+   - [Mem0 API Key](https://app.mem0.ai/dashboard/api-keys) (optional, for cloud operations)
+
+## Basic Integration Example
+
+The following example demonstrates how to integrate Mem0 with AgentOps monitoring for comprehensive memory operation tracking:
+
+```python
+#Import the required libraries for local memory management with Mem0
+from mem0 import Memory, AsyncMemory
+import os
+import asyncio
+import logging
+from dotenv import load_dotenv
+import agentops
+import openai
+
+load_dotenv()
+#Set up environment variables for API keys
+os.environ["AGENTOPS_API_KEY"] = os.getenv("AGENTOPS_API_KEY")
+os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
+
+#Set up the configuration for local memory storage and define sample user data. 
+local_config = {
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "gpt-4o-mini",
+            "temperature": 0.1,
+            "max_tokens": 2000,
+        },
+    }
+}
+user_id = "alice_demo"
+agent_id = "assistant_demo"
+run_id = "session_001"
+
+sample_messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {
+        "role": "assistant",
+        "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future.",
+    },
+]
+
+sample_preferences = [
+    "I prefer dark roast coffee over light roast",
+    "I exercise every morning at 6 AM",
+    "I'm vegetarian and avoid all meat products",
+    "I love reading science fiction novels",
+    "I work in software engineering",
+]
+
+#This function demonstrates sequential memory operations using the synchronous Memory class
+def demonstrate_sync_memory(local_config, sample_messages, sample_preferences, user_id):
+    """
+    Demonstrate synchronous Memory class operations.
+    """
+
+    agentops.start_trace("mem0_memory_example", tags=["mem0_memory_example"])
+    try:
+        
+        memory = Memory.from_config(local_config)
+
+        result = memory.add(
+            sample_messages, user_id=user_id, metadata={"category": "movie_preferences", "session": "demo"}
+        )
+
+        for i, preference in enumerate(sample_preferences):
+            result = memory.add(preference, user_id=user_id, metadata={"type": "preference", "index": i})
+       
+        search_queries = [
+            "What movies does the user like?",
+            "What are the user's food preferences?",
+            "When does the user exercise?",
+        ]
+
+        for query in search_queries:
+            results = memory.search(query, user_id=user_id)
+        
+            if results and "results" in results:
+                for j, result in enumerate(results['results']): 
+                    print(f"Result {j+1}: {result.get('memory', 'N/A')}")
+            else:
+                print("No results found")
+
+        all_memories = memory.get_all(user_id=user_id)
+        if all_memories and "results" in all_memories:
+            print(f"Total memories: {len(all_memories['results'])}")
+
+        delete_all_result = memory.delete_all(user_id=user_id)
+        print(f"Delete all result: {delete_all_result}")
+
+        agentops.end_trace(end_state="success")
+    except Exception as e:
+        agentops.end_trace(end_state="error")
+
+# Execute sync demonstrations
+demonstrate_sync_memory(local_config, sample_messages, sample_preferences, user_id)
+
+```
+
+For detailed information on this integration, refer to the official [Agentops Mem0 integration documentation](https://docs.agentops.ai/v2/integrations/mem0).
+
+
+## Key Features
+
+### 1. Automatic Operation Tracking
+
+AgentOps automatically monitors all Mem0 operations:
+
+- **Memory Operations**: Track add, search, get_all, delete operations and much more
+- **Performance Metrics**: Monitor response times and success rates
+- **Error Tracking**: Capture and analyze operation failures
+
+### 2. Real-time Analytics Dashboard
+
+Access comprehensive analytics through the AgentOps dashboard:
+
+- **Usage Patterns**: Visualize memory usage trends over time
+- **User Behavior**: Analyze how different users interact with memory
+- **Performance Insights**: Identify bottlenecks and optimization opportunities
+
+### 3. Session Management
+
+Organize your monitoring with structured sessions:
+
+- **Session Tracking**: Group related operations into logical sessions
+- **Success/Failure Rates**: Track session outcomes for reliability monitoring
+- **Custom Metadata**: Add context to sessions for better analysis
+
+## Best Practices
+
+1. **Initialize Early**: Always initialize AgentOps before importing Mem0 classes
+2. **Session Management**: Use meaningful session names and end sessions appropriately
+3. **Error Handling**: Wrap operations in try-catch blocks and report failures
+4. **Tagging**: Use tags to organize different types of memory operations
+5. **Environment Separation**: Use different projects or tags for dev/staging/prod
+
+## Help & Resources
+
+- [AgentOps Documentation](https://docs.agentops.ai/)
+- [AgentOps Dashboard](https://app.agentops.ai/)
+- [Mem0 Platform](https://app.mem0.ai/)
+
+<Snippet file="get-help.mdx" /> 
+ 

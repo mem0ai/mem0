@@ -1,0 +1,418 @@
+---
+title: Reranker-Enhanced Search
+description: 'Improve search relevance with reranking models in Mem0 1.0.0 Beta'
+icon: "sort"
+iconType: "solid"
+---
+
+<Info>
+Reranker-enhanced search is available in **Mem0 1.0.0 Beta** and later versions. This feature significantly improves search relevance by using specialized reranking models to reorder search results.
+</Info>
+
+## Overview
+
+Rerankers are specialized models that improve the quality of search results by reordering initially retrieved memories. They work as a second-stage ranking system that analyzes the semantic relationship between your query and retrieved memories to provide more relevant results.
+
+## How Reranking Works
+
+1. **Initial Vector Search**: Retrieves candidate memories using vector similarity
+2. **Reranking**: Specialized model analyzes query-memory relationships
+3. **Reordering**: Results are reordered based on semantic relevance
+4. **Enhanced Results**: Final results with improved relevance scores
+
+## Configuration
+
+### Basic Setup
+
+```python
+from mem0 import Memory
+
+config = {
+    "reranker": {
+        "provider": "cohere",
+        "config": {
+            "model": "rerank-english-v3.0",
+            "api_key": "your-cohere-api-key"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+```
+
+### Supported Providers
+
+#### Cohere Reranker
+
+```python
+config = {
+    "reranker": {
+        "provider": "cohere",
+        "config": {
+            "model": "rerank-english-v3.0",
+            "api_key": "your-cohere-api-key",
+            "top_k": 10,  # Number of results to rerank
+            "return_documents": True
+        }
+    }
+}
+```
+
+#### Sentence Transformer Reranker
+
+```python
+config = {
+    "reranker": {
+        "provider": "sentence_transformer",
+        "config": {
+            "model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+            "device": "cuda",  # Use GPU if available
+            "max_length": 512
+        }
+    }
+}
+```
+
+#### Hugging Face Reranker
+
+```python
+config = {
+    "reranker": {
+        "provider": "huggingface",
+        "config": {
+            "model": "BAAI/bge-reranker-base",
+            "device": "cuda",
+            "batch_size": 32
+        }
+    }
+}
+```
+
+#### LLM-based Reranker
+
+```python
+config = {
+    "reranker": {
+        "provider": "llm_reranker",
+        "config": {
+            "llm": {
+                "provider": "openai",
+                "config": {
+                    "model": "gpt-4",
+                    "api_key": "your-openai-api-key"
+                }
+            },
+            "top_k": 5
+        }
+    }
+}
+```
+
+## Usage Examples
+
+### Basic Reranked Search
+
+```python
+# Reranking is enabled by default when configured
+results = m.search(
+    "What are my food preferences?",
+    user_id="alice"
+)
+
+# Results are automatically reranked for better relevance
+for result in results["results"]:
+    print(f"Memory: {result['memory']}")
+    print(f"Score: {result['score']}")
+```
+
+### Controlling Reranking
+
+```python
+# Enable reranking explicitly
+results_with_rerank = m.search(
+    "What movies do I like?",
+    user_id="alice",
+    rerank=True
+)
+
+# Disable reranking for this search
+results_without_rerank = m.search(
+    "What movies do I like?",
+    user_id="alice",
+    rerank=False
+)
+
+# Compare the difference in results
+print("With reranking:", len(results_with_rerank["results"]))
+print("Without reranking:", len(results_without_rerank["results"]))
+```
+
+### Combining with Filters
+
+```python
+# Reranking works with metadata filtering
+results = m.search(
+    "important work tasks",
+    user_id="alice",
+    filters={
+        "AND": [
+            {"category": "work"},
+            {"priority": {"gte": 7}}
+        ]
+    },
+    rerank=True,
+    limit=20
+)
+```
+
+## Advanced Configuration
+
+### Complete Configuration Example
+
+```python
+config = {
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "host": "localhost",
+            "port": 6333
+        }
+    },
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "gpt-4",
+            "api_key": "your-openai-api-key"
+        }
+    },
+    "embedder": {
+        "provider": "openai",
+        "config": {
+            "model": "text-embedding-3-small",
+            "api_key": "your-openai-api-key"
+        }
+    },
+    "reranker": {
+        "provider": "cohere",
+        "config": {
+            "model": "rerank-english-v3.0",
+            "api_key": "your-cohere-api-key",
+            "top_k": 15,
+            "return_documents": True
+        }
+    }
+}
+
+m = Memory.from_config(config)
+```
+
+### Async Support
+
+```python
+from mem0 import AsyncMemory
+
+# Reranking works with async operations
+async_memory = AsyncMemory.from_config(config)
+
+async def search_with_rerank():
+    results = await async_memory.search(
+        "What are my preferences?",
+        user_id="alice",
+        rerank=True
+    )
+    return results
+
+# Use in async context
+import asyncio
+results = asyncio.run(search_with_rerank())
+```
+
+## Performance Considerations
+
+### When to Use Reranking
+
+✅ **Good Use Cases:**
+- Complex semantic queries
+- Domain-specific searches
+- When precision is more important than speed
+- Large memory collections
+- Ambiguous or nuanced queries
+
+❌ **Avoid When:**
+- Simple keyword matching
+- Real-time applications with strict latency requirements
+- Small memory collections
+- High-frequency searches where cost matters
+
+### Performance Optimization
+
+```python
+# Optimize reranking performance
+config = {
+    "reranker": {
+        "provider": "sentence_transformer",
+        "config": {
+            "model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+            "device": "cuda",        # Use GPU
+            "batch_size": 32,        # Process in batches
+            "top_k": 10,            # Limit candidates
+            "max_length": 256       # Reduce if appropriate
+        }
+    }
+}
+```
+
+### Cost Management
+
+```python
+# For API-based rerankers like Cohere
+config = {
+    "reranker": {
+        "provider": "cohere",
+        "config": {
+            "model": "rerank-english-v3.0",
+            "api_key": "your-cohere-api-key",
+            "top_k": 5,  # Reduce to control API costs
+        }
+    }
+}
+
+# Use reranking selectively
+def smart_search(query, user_id, use_rerank=None):
+    # Automatically decide when to use reranking
+    if use_rerank is None:
+        use_rerank = len(query.split()) > 3  # Complex queries only
+
+    return m.search(query, user_id=user_id, rerank=use_rerank)
+```
+
+## Error Handling
+
+```python
+try:
+    results = m.search(
+        "test query",
+        user_id="alice",
+        rerank=True
+    )
+except Exception as e:
+    print(f"Reranking failed: {e}")
+    # Gracefully fall back to vector search
+    results = m.search(
+        "test query",
+        user_id="alice",
+        rerank=False
+    )
+```
+
+## Reranker Comparison
+
+| Provider | Latency | Quality | Cost | Local Deploy |
+|----------|---------|---------|------|--------------|
+| Cohere | Medium | High | API Cost | ❌ |
+| Sentence Transformer | Low | Good | Free | ✅ |
+| Hugging Face | Low-Medium | Variable | Free | ✅ |
+| LLM Reranker | High | Very High | API Cost | Depends |
+
+## Real-world Examples
+
+### Customer Support
+
+```python
+# Improve support ticket relevance
+config = {
+    "reranker": {
+        "provider": "cohere",
+        "config": {
+            "model": "rerank-english-v3.0",
+            "api_key": "your-cohere-api-key"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+
+# Find relevant support cases
+results = m.search(
+    "customer having login issues with mobile app",
+    agent_id="support_bot",
+    filters={"category": "technical_support"},
+    rerank=True
+)
+```
+
+### Content Recommendation
+
+```python
+# Better content matching
+results = m.search(
+    "science fiction books with space exploration themes",
+    user_id="reader123",
+    filters={"content_type": "book_recommendation"},
+    rerank=True,
+    limit=10
+)
+
+for result in results["results"]:
+    print(f"Recommendation: {result['memory']}")
+    print(f"Relevance: {result['score']:.3f}")
+```
+
+### Personal Assistant
+
+```python
+# Enhanced personal queries
+results = m.search(
+    "What restaurants did I enjoy last month that had good vegetarian options?",
+    user_id="foodie_user",
+    filters={
+        "AND": [
+            {"category": "dining"},
+            {"rating": {"gte": 4}},
+            {"date": {"gte": "2024-01-01"}}
+        ]
+    },
+    rerank=True
+)
+```
+
+## Migration Guide
+
+### From v0.x (No Reranking)
+
+```python
+# v0.x - basic vector search
+results = m.search("query", user_id="alice")
+```
+
+### To v1.0.0 Beta (With Reranking)
+
+```python
+# Add reranker configuration
+config = {
+    "reranker": {
+        "provider": "sentence_transformer",
+        "config": {
+            "model": "cross-encoder/ms-marco-MiniLM-L-6-v2"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+
+# Same search API, better results
+results = m.search("query", user_id="alice")  # Automatically reranked
+```
+
+## Best Practices
+
+1. **Start Simple**: Begin with Sentence Transformers for local deployment
+2. **Monitor Performance**: Track both relevance improvements and latency
+3. **Cost Awareness**: Use API-based rerankers judiciously
+4. **Selective Usage**: Apply reranking where it provides the most value
+5. **Fallback Strategy**: Always handle reranking failures gracefully
+6. **Test Different Models**: Experiment to find the best fit for your domain
+
+<Info>
+Reranker-enhanced search significantly improves result relevance. Start with a local model and upgrade to API-based solutions as your needs grow.
+</Info>

@@ -1,0 +1,74 @@
+---
+title: Google AI
+---
+
+To use the Gemini model, set the `GOOGLE_API_KEY` environment variable. You can obtain the Google/Gemini API key from [Google AI Studio](https://aistudio.google.com/app/apikey).
+
+> **Note:** As of the latest release, Mem0 uses the new `google.genai` SDK instead of the deprecated `google.generativeai`. All message formatting and model interaction now use the updated `types` module from `google.genai`.
+
+> **Note:** Some Gemini models are being deprecated and will retire soon. It is recommended to migrate to the latest stable models like `"gemini-2.0-flash-001"` or `"gemini-2.0-flash-lite-001"` to ensure ongoing support and improvements.
+
+## Usage
+
+<CodeGroup>
+```python Python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your-openai-api-key"  # Used for embedding model
+os.environ["GOOGLE_API_KEY"] = "your-gemini-api-key"
+
+config = {
+    "llm": {
+        "provider": "gemini",
+        "config": {
+            "model": "gemini-2.0-flash-001",
+            "temperature": 0.2,
+            "max_tokens": 2000,
+            "top_p": 1.0
+        }
+    }
+}
+
+m = Memory.from_config(config)
+
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I’m not a big fan of thrillers, but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thrillers and suggest sci-fi movies instead."}
+]
+
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+
+```
+```typescript TypeScript
+import { Memory } from "mem0ai/oss";
+
+const config = {
+    llm: {
+        // You can also use "google" as provider ( for backward compatibility )
+        provider: "gemini",
+        config: {
+            model: "gemini-2.0-flash-001",
+            temperature: 0.1
+        }
+    }
+}
+
+const memory = new Memory(config);
+
+const messages = [
+    { role: "user", content: "I'm planning to watch a movie tonight. Any recommendations?" },
+    { role: "assistant", content: "How about thriller movies? They can be quite engaging." },
+    { role: "user", content: "I’m not a big fan of thrillers, but I love sci-fi movies." },
+    { role: "assistant", content: "Got it! I'll avoid thrillers and suggest sci-fi movies instead." }
+]
+
+await memory.add(messages, { userId: "alice", metadata: { category: "movies" } });
+```
+</CodeGroup>
+
+## Config
+
+All available parameters for the `Gemini` config are present in [Master List of All Params in Config](../config).

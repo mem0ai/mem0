@@ -1,0 +1,389 @@
+---
+title: Enhanced Metadata Filtering
+description: 'Advanced filtering capabilities for precise memory retrieval in Mem0 1.0.0 Beta'
+icon: "filter"
+iconType: "solid"
+---
+
+<Info>
+Enhanced metadata filtering is available in **Mem0 1.0.0 Beta** and later versions. This feature provides powerful filtering capabilities with logical operators and comparison functions.
+</Info>
+
+## Overview
+
+Mem0 1.0.0 Beta introduces enhanced metadata filtering that allows you to perform complex queries on your memory metadata. You can now use logical operators, comparison functions, and advanced filtering patterns to retrieve exactly the memories you need.
+
+## Basic Filtering
+
+### Simple Key-Value Filtering
+
+```python
+from mem0 import Memory
+
+m = Memory()
+
+# Search with simple metadata filters
+results = m.search(
+    "What are my preferences?",
+    user_id="alice",
+    filters={"category": "preferences"}
+)
+```
+
+### Exact Match Filtering
+
+```python
+# Multiple exact match filters
+results = m.search(
+    "movie recommendations",
+    user_id="alice",
+    filters={
+        "category": "entertainment",
+        "type": "recommendation",
+        "priority": "high"
+    }
+)
+```
+
+## Advanced Filtering with Operators
+
+### Comparison Operators
+
+```python
+# Greater than / Less than
+results = m.search(
+    "recent activities",
+    user_id="alice",
+    filters={
+        "score": {"gt": 0.8},        # score > 0.8
+        "priority": {"gte": 5},      # priority >= 5
+        "confidence": {"lt": 0.9},   # confidence < 0.9
+        "rating": {"lte": 3}         # rating <= 3
+    }
+)
+
+# Equality operators
+results = m.search(
+    "specific content",
+    user_id="alice",
+    filters={
+        "status": {"eq": "active"},     # status == "active"
+        "archived": {"ne": True}       # archived != True
+    }
+)
+```
+
+### List-based Operators
+
+```python
+# In / Not in operators
+results = m.search(
+    "multi-category search",
+    user_id="alice",
+    filters={
+        "category": {"in": ["food", "travel", "entertainment"]},
+        "status": {"nin": ["deleted", "archived"]}
+    }
+)
+```
+
+### String Operators
+
+```python
+# Text matching operators
+results = m.search(
+    "content search",
+    user_id="alice",
+    filters={
+        "title": {"contains": "meeting"},          # case-sensitive contains
+        "description": {"icontains": "important"}, # case-insensitive contains
+        "tags": {"contains": "urgent"}
+    }
+)
+```
+
+### Wildcard Matching
+
+```python
+# Match any value for a field
+results = m.search(
+    "all with category",
+    user_id="alice",
+    filters={
+        "category": "*"  # Any memory that has a category field
+    }
+)
+```
+
+## Logical Operators
+
+### AND Operations
+
+```python
+# Logical AND - all conditions must be true
+results = m.search(
+    "complex query",
+    user_id="alice",
+    filters={
+        "AND": [
+            {"category": "work"},
+            {"priority": {"gte": 7}},
+            {"status": {"ne": "completed"}}
+        ]
+    }
+)
+```
+
+### OR Operations
+
+```python
+# Logical OR - any condition can be true
+results = m.search(
+    "flexible query",
+    user_id="alice",
+    filters={
+        "OR": [
+            {"category": "urgent"},
+            {"priority": {"gte": 9}},
+            {"deadline": {"contains": "today"}}
+        ]
+    }
+)
+```
+
+### NOT Operations
+
+```python
+# Logical NOT - exclude matches
+results = m.search(
+    "exclusion query",
+    user_id="alice",
+    filters={
+        "NOT": [
+            {"category": "archived"},
+            {"status": "deleted"}
+        ]
+    }
+)
+```
+
+### Complex Nested Logic
+
+```python
+# Combine multiple logical operators
+results = m.search(
+    "advanced query",
+    user_id="alice",
+    filters={
+        "AND": [
+            {
+                "OR": [
+                    {"category": "work"},
+                    {"category": "personal"}
+                ]
+            },
+            {"priority": {"gte": 5}},
+            {
+                "NOT": [
+                    {"status": "archived"}
+                ]
+            }
+        ]
+    }
+)
+```
+
+## Real-world Examples
+
+### Project Management Filtering
+
+```python
+# Find high-priority active tasks
+results = m.search(
+    "What tasks need attention?",
+    user_id="project_manager",
+    filters={
+        "AND": [
+            {"project": {"in": ["alpha", "beta"]}},
+            {"priority": {"gte": 8}},
+            {"status": {"ne": "completed"}},
+            {
+                "OR": [
+                    {"assignee": "alice"},
+                    {"assignee": "bob"}
+                ]
+            }
+        ]
+    }
+)
+```
+
+### Customer Support Filtering
+
+```python
+# Find recent unresolved tickets
+results = m.search(
+    "pending support issues",
+    agent_id="support_bot",
+    filters={
+        "AND": [
+            {"ticket_status": {"ne": "resolved"}},
+            {"priority": {"in": ["high", "critical"]}},
+            {"created_date": {"gte": "2024-01-01"}},
+            {
+                "NOT": [
+                    {"category": "spam"}
+                ]
+            }
+        ]
+    }
+)
+```
+
+### Content Recommendation Filtering
+
+```python
+# Personalized content filtering
+results = m.search(
+    "recommend content",
+    user_id="reader123",
+    filters={
+        "AND": [
+            {
+                "OR": [
+                    {"genre": {"in": ["sci-fi", "fantasy"]}},
+                    {"author": {"contains": "favorite"}}
+                ]
+            },
+            {"rating": {"gte": 4.0}},
+            {"read_status": {"ne": "completed"}},
+            {"language": "english"}
+        ]
+    }
+)
+```
+
+## Performance Considerations
+
+### Indexing Strategy
+
+```python
+# Ensure your vector store supports indexing on filtered fields
+config = {
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "host": "localhost",
+            "port": 6333,
+            # Enable indexing on frequently filtered fields
+            "indexed_fields": ["category", "priority", "status", "user_id"]
+        }
+    }
+}
+```
+
+### Filter Optimization
+
+```python
+# More efficient: Filter on indexed fields first
+good_filters = {
+    "AND": [
+        {"user_id": "alice"},      # Indexed field first
+        {"category": "work"},      # Then other indexed fields
+        {"content": {"contains": "meeting"}}  # Text search last
+    ]
+}
+
+# Less efficient: Complex operations first
+avoid_filters = {
+    "AND": [
+        {"description": {"icontains": "complex text search"}},  # Expensive first
+        {"user_id": "alice"}                                    # Indexed field last
+    ]
+}
+```
+
+## Vector Store Compatibility
+
+Different vector stores support different filtering capabilities:
+
+### Qdrant
+-  Full support for all operators
+-  Efficient nested logical operations
+-  Indexed field optimization
+
+### Chroma
+-  Basic operators (eq, ne, gt, lt, gte, lte)
+-  Simple logical operations
+-   Limited nested operations
+
+### Pinecone
+-  Good support for comparison operators
+-  In/nin operations
+-   Limited text operations
+
+### Weaviate
+-  Full operator support
+-  Advanced text operations
+-  Efficient filtering
+
+## Error Handling
+
+```python
+try:
+    results = m.search(
+        "test query",
+        user_id="alice",
+        filters={
+            "invalid_operator": {"unknown": "value"}
+        }
+    )
+except ValueError as e:
+    print(f"Filter error: {e}")
+    # Fallback to simple filtering
+    results = m.search(
+        "test query",
+        user_id="alice",
+        filters={"category": "general"}
+    )
+```
+
+## Migration from Simple Filters
+
+### Before (v0.x)
+```python
+# Simple key-value filtering only
+results = m.search(
+    "query",
+    user_id="alice",
+    filters={"category": "work", "status": "active"}
+)
+```
+
+### After (v1.0.0 Beta)
+```python
+# Enhanced filtering with operators
+results = m.search(
+    "query",
+    user_id="alice",
+    filters={
+        "AND": [
+            {"category": "work"},
+            {"status": {"ne": "archived"}},
+            {"priority": {"gte": 5}}
+        ]
+    }
+)
+```
+
+## Best Practices
+
+1. **Use Indexed Fields**: Filter on indexed fields for better performance
+2. **Combine Operators**: Use logical operators to create precise queries
+3. **Test Filter Performance**: Benchmark complex filters with your data
+4. **Graceful Degradation**: Implement fallbacks for unsupported operations
+5. **Validate Filters**: Check filter syntax before executing queries
+
+<Info>
+Enhanced metadata filtering provides powerful capabilities for precise memory retrieval. Start with simple filters and gradually adopt more complex patterns as needed.
+</Info>

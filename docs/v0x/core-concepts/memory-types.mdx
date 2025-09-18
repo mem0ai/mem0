@@ -1,0 +1,49 @@
+---
+title: Memory Types
+description: Understanding different types of memory in AI Applications
+icon: "memory"
+iconType: "solid"
+---
+
+To build useful AI applications, we need to understand how different memory systems work together. This guide explores the fundamental types of memory in AI systems and shows how Mem0 implements these concepts.
+
+## Why Memory Matters
+
+AI systems need memory for three key purposes:
+1. Maintaining context during conversations
+2. Learning from past interactions
+3. Building personalized experiences over time
+
+Without proper memory systems, AI applications would treat each interaction as completely new, losing valuable context and personalization opportunities.
+
+## Short-Term Memory
+
+The most basic form of memory in AI systems holds immediate context - like a person remembering what was just said in a conversation. This includes:
+
+- **Conversation History**: Recent messages and their order
+- **Working Memory**: Temporary variables and state
+- **Attention Context**: Current focus of the conversation
+
+## Long-Term Memory
+
+More sophisticated AI applications implement long-term memory to retain information across conversations. This includes:
+
+- **Factual Memory**: Stored knowledge about users, preferences, and domain-specific information
+- **Episodic Memory**: Past interactions and experiences
+- **Semantic Memory**: Understanding of concepts and their relationships
+
+## Memory Characteristics
+
+Each memory type has distinct characteristics:
+
+| Type | Persistence | Access Speed | Use Case |
+|------|-------------|--------------|-----------|
+| Short-Term | Temporary | Instant | Active conversations |
+| Long-Term | Persistent | Fast | User preferences and history |
+
+## How Mem0 Implements Long-Term Memory
+Mem0's long-term memory system builds on these foundations by:
+
+1. Using vector embeddings to store and retrieve semantic information
+2. Maintaining user-specific context across sessions
+3. Implementing efficient retrieval mechanisms for relevant past interactions

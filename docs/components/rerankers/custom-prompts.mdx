@@ -1,0 +1,217 @@
+---
+title: Custom Prompts
+icon: "pencil"
+iconType: "solid"
+---
+
+When using LLM rerankers, you can customize the prompts used for ranking to better suit your specific use case and domain.
+
+## Default Prompt
+
+The default LLM reranker prompt is designed to be general-purpose:
+
+```
+Given a query and a list of memory entries, rank the memory entries based on their relevance to the query.
+Rate each memory on a scale of 1-10 where 10 is most relevant.
+
+Query: {query}
+
+Memory entries:
+{memories}
+
+Provide your ranking as a JSON array with scores for each memory.
+```
+
+## Custom Prompt Configuration
+
+You can provide a custom prompt template when configuring the LLM reranker:
+
+```python
+from mem0 import Memory
+
+custom_prompt = """
+You are an expert at ranking memories for a personal AI assistant.
+Given a user query and a list of memory entries, rank each memory based on:
+1. Direct relevance to the query
+2. Temporal relevance (recent memories may be more important)
+3. Emotional significance
+4. Actionability
+
+Query: {query}
+User Context: {user_context}
+
+Memory entries:
+{memories}
+
+Rate each memory from 1-10 and provide reasoning.
+Return as JSON: {{"rankings": [{{"index": 0, "score": 8, "reason": "..."}}]}}
+"""
+
+config = {
+    "reranker": {
+        "provider": "llm_reranker",
+        "config": {
+            "llm": {
+                "provider": "openai",
+                "config": {
+                    "model": "gpt-4",
+                    "api_key": "your-openai-key"
+                }
+            },
+            "custom_prompt": custom_prompt,
+            "top_n": 5
+        }
+    }
+}
+
+memory = Memory.from_config(config)
+```
+
+## Prompt Variables
+
+Your custom prompt can use the following variables:
+
+| Variable | Description |
+|----------|-------------|
+| `{query}` | The search query |
+| `{memories}` | The list of memory entries to rank |
+| `{user_id}` | The user ID (if available) |
+| `{user_context}` | Additional user context (if provided) |
+
+## Domain-Specific Examples
+
+### Customer Support
+```python
+customer_support_prompt = """
+You are ranking customer support conversation memories.
+Prioritize memories that:
+- Relate to the current customer issue
+- Show previous resolution patterns
+- Indicate customer preferences or constraints
+
+Query: {query}
+Customer Context: Previous interactions with this customer
+
+Memories:
+{memories}
+
+Rank each memory 1-10 based on support relevance.
+"""
+```
+
+### Educational Content
+```python
+educational_prompt = """
+Rank these learning memories for a student query.
+Consider:
+- Prerequisite knowledge requirements
+- Learning progression and difficulty
+- Relevance to current learning objectives
+
+Student Query: {query}
+Learning Context: {user_context}
+
+Available memories:
+{memories}
+
+Score each memory for educational value (1-10).
+"""
+```
+
+### Personal Assistant
+```python
+personal_assistant_prompt = """
+Rank personal memories for relevance to the user's query.
+Consider:
+- Recent vs. historical importance
+- Personal preferences and habits
+- Contextual relationships between memories
+
+Query: {query}
+Personal context: {user_context}
+
+Memories to rank:
+{memories}
+
+Provide relevance scores (1-10) with brief explanations.
+"""
+```
+
+## Advanced Prompt Techniques
+
+### Multi-Criteria Ranking
+```python
+multi_criteria_prompt = """
+Evaluate memories using multiple criteria:
+
+1. RELEVANCE (40%): How directly related to the query
+2. RECENCY (20%): How recent the memory is
+3. IMPORTANCE (25%): Personal or business significance
+4. ACTIONABILITY (15%): How useful for next steps
+
+Query: {query}
+Context: {user_context}
+
+Memories:
+{memories}
+
+For each memory, provide:
+- Overall score (1-10)
+- Breakdown by criteria
+- Final ranking recommendation
+
+Format: JSON with detailed scoring
+"""
+```
+
+### Contextual Ranking
+```python
+contextual_prompt = """
+Consider the following context when ranking memories:
+- Current user situation: {user_context}
+- Time of day: {current_time}
+- Recent activities: {recent_activities}
+
+Query: {query}
+
+Rank these memories considering both direct relevance and contextual appropriateness:
+{memories}
+
+Provide contextually-aware relevance scores (1-10).
+"""
+```
+
+## Best Practices
+
+1. **Be Specific**: Clearly define what makes a memory relevant for your use case
+2. **Use Examples**: Include examples in your prompt for better model understanding
+3. **Structure Output**: Specify the exact JSON format you want returned
+4. **Test Iteratively**: Refine your prompt based on actual ranking performance
+5. **Consider Token Limits**: Keep prompts concise while being comprehensive
+
+## Prompt Testing
+
+You can test different prompts by comparing ranking results:
+
+```python
+# Test multiple prompt variations
+prompts = [
+    default_prompt,
+    custom_prompt_v1,
+    custom_prompt_v2
+]
+
+for i, prompt in enumerate(prompts):
+    config["reranker"]["config"]["custom_prompt"] = prompt
+    memory = Memory.from_config(config)
+
+    results = memory.search("test query", user_id="test_user")
+    print(f"Prompt {i+1} results: {results}")
+```
+
+## Common Issues
+
+- **Too Long**: Keep prompts under token limits for your chosen LLM
+- **Too Vague**: Be specific about ranking criteria
+- **Inconsistent Format**: Ensure JSON output format is clearly specified
+- **Missing Context**: Include relevant variables for your use case

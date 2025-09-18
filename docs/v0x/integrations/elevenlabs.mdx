@@ -1,0 +1,454 @@
+---
+title: ElevenLabs
+---
+
+Create voice-based conversational AI agents with memory capabilities by integrating ElevenLabs and Mem0. This integration enables persistent, context-aware voice interactions that remember past conversations.
+
+## Overview
+
+In this guide, we'll build a voice agent that:
+1. Uses ElevenLabs Conversational AI for voice interaction
+2. Leverages Mem0 to store and retrieve memories from past conversations
+3. Provides personalized responses based on user history
+
+## Setup and Configuration
+
+Install necessary libraries:
+
+```bash
+pip install elevenlabs mem0ai python-dotenv
+```
+
+Configure your environment variables:
+
+<Note>You'll need both an ElevenLabs API key and a Mem0 API key to use this integration.</Note>
+
+```bash
+# Create a .env file with these variables
+AGENT_ID=your-agent-id
+USER_ID=unique-user-identifier
+ELEVENLABS_API_KEY=your-elevenlabs-api-key
+MEM0_API_KEY=your-mem0-api-key
+```
+
+## Integration Code Breakdown
+
+Let's break down the implementation into manageable parts:
+
+### 1. Imports and Environment Setup
+
+First, we import required libraries and set up the environment:
+
+```python
+import os
+import signal
+import sys
+from mem0 import AsyncMemoryClient
+
+from elevenlabs.client import ElevenLabs
+from elevenlabs.conversational_ai.conversation import Conversation
+from elevenlabs.conversational_ai.default_audio_interface import DefaultAudioInterface
+from elevenlabs.conversational_ai.conversation import ClientTools
+```
+
+These imports provide:
+- Standard Python libraries for system operations and signal handling
+- `AsyncMemoryClient` from Mem0 for memory operations
+- ElevenLabs components for voice interaction
+
+### 2. Environment Variables and Validation
+
+Next, we validate the required environment variables:
+
+```python
+def main():
+    # Required environment variables
+    AGENT_ID = os.environ.get('AGENT_ID')
+    USER_ID = os.environ.get('USER_ID')
+    API_KEY = os.environ.get('ELEVENLABS_API_KEY')
+    MEM0_API_KEY = os.environ.get('MEM0_API_KEY')
+
+    # Validate required environment variables
+    if not AGENT_ID:
+        sys.stderr.write("AGENT_ID environment variable must be set\n")
+        sys.exit(1)
+
+    if not USER_ID:
+        sys.stderr.write("USER_ID environment variable must be set\n")
+        sys.exit(1)
+
+    if not API_KEY:
+        sys.stderr.write("ELEVENLABS_API_KEY not set, assuming the agent is public\n")
+
+    if not MEM0_API_KEY:
+        sys.stderr.write("MEM0_API_KEY environment variable must be set\n")
+        sys.exit(1)
+
+    # Set up Mem0 API key in the environment
+    os.environ['MEM0_API_KEY'] = MEM0_API_KEY
+```
+
+This section:
+- Retrieves required environment variables
+- Performs validation to ensure required variables are present
+- Exits the application with an error message if required variables are missing
+- Sets the Mem0 API key in the environment for the Mem0 client to use
+
+### 3. Client Initialization
+
+Initialize both the ElevenLabs and Mem0 clients:
+
+```python
+    # Initialize ElevenLabs client
+    client = ElevenLabs(api_key=API_KEY)
+
+    # Initialize memory client and tools
+    client_tools = ClientTools()
+    mem0_client = AsyncMemoryClient()
+```
+
+Here we:
+- Create an ElevenLabs client with the API key
+- Initialize a ClientTools object for registering function tools
+- Create an AsyncMemoryClient instance for Mem0 interactions
+
+### 4. Memory Function Definitions
+
+Define the two key memory functions that will be registered as tools:
+
+```python
+    # Define memory-related functions for the agent
+    async def add_memories(parameters):
+        """Add a message to the memory store"""
+        message = parameters.get("message")
+        await mem0_client.add(
+            messages=message, 
+            user_id=USER_ID, 
+            output_format="v1.1", 
+            version="v2"
+        )
+        return "Memory added successfully"
+
+    async def retrieve_memories(parameters):
+        """Retrieve relevant memories based on the input message"""
+        message = parameters.get("message")
+
+        # Set up filters to retrieve memories for this specific user
+        filters = {
+            "AND": [
+                {
+                    "user_id": USER_ID
+                }
+            ]
+        }
+
+        # Search for relevant memories using the message as a query
+        results = await mem0_client.search(
+            query=message,
+            version="v2", 
+            filters=filters
+        )
+
+        # Extract and join the memory texts
+        memories = ' '.join([result["memory"] for result in results.get('results', [])])
+        print("[ Memories ]", memories)
+
+        if memories:
+            return memories
+        return "No memories found"
+```
+
+These functions:
+
+#### `add_memories`:
+- Takes a message parameter containing information to remember
+- Stores the message in Mem0 using the `add` method
+- Associates the memory with the specific USER_ID
+- Returns a success message to the agent
+
+#### `retrieve_memories`:
+- Takes a message parameter as the search query
+- Sets up filters to only retrieve memories for the current user
+- Uses semantic search to find relevant memories
+- Joins all retrieved memories into a single text
+- Prints retrieved memories to the console for debugging
+- Returns the memories or a "No memories found" message if none are found
+
+### 5. Registering Memory Functions as Tools
+
+Register the memory functions with the ElevenLabs ClientTools system:
+
+```python
+    # Register the memory functions as tools for the agent
+    client_tools.register("addMemories", add_memories, is_async=True)
+    client_tools.register("retrieveMemories", retrieve_memories, is_async=True)
+```
+
+This allows the ElevenLabs agent to:
+- Access these functions through function calling
+- Wait for asynchronous results (is_async=True)
+- Call these functions by name ("addMemories" and "retrieveMemories")
+
+### 6. Conversation Setup
+
+Configure the conversation with ElevenLabs:
+
+```python
+    # Initialize the conversation
+    conversation = Conversation(
+        client,
+        AGENT_ID,
+        # Assume auth is required when API_KEY is set
+        requires_auth=bool(API_KEY),
+        audio_interface=DefaultAudioInterface(),
+        client_tools=client_tools,
+        callback_agent_response=lambda response: print(f"Agent: {response}"),
+        callback_agent_response_correction=lambda original, corrected: print(f"Agent: {original} -> {corrected}"),
+        callback_user_transcript=lambda transcript: print(f"User: {transcript}"),
+        # callback_latency_measurement=lambda latency: print(f"Latency: {latency}ms"),
+    )
+```
+
+This sets up the conversation with:
+- The ElevenLabs client and Agent ID
+- Authentication requirements based on API key presence
+- DefaultAudioInterface for handling audio I/O
+- The client_tools with our memory functions
+- Callback functions for:
+  - Displaying agent responses
+  - Showing corrected responses (when the agent self-corrects)
+  - Displaying user transcripts for debugging
+  - (Commented out) Latency measurements
+
+### 7. Conversation Management
+
+Start and manage the conversation:
+
+```python
+    # Start the conversation
+    print(f"Starting conversation with user_id: {USER_ID}")
+    conversation.start_session()
+
+    # Handle Ctrl+C to gracefully end the session
+    signal.signal(signal.SIGINT, lambda sig, frame: conversation.end_session())
+
+    # Wait for the conversation to end and get the conversation ID
+    conversation_id = conversation.wait_for_session_end()
+    print(f"Conversation ID: {conversation_id}")
+
+
+if __name__ == '__main__':
+    main()
+```
+
+This final section:
+- Prints a message indicating the conversation has started
+- Starts the conversation session
+- Sets up a signal handler to gracefully end the session on Ctrl+C
+- Waits for the session to end and gets the conversation ID
+- Prints the conversation ID for reference
+
+## Memory Tools Overview
+
+This integration provides two key memory functions to your conversational AI agent:
+
+### 1. Adding Memories (`addMemories`)
+
+The `addMemories` tool allows your agent to store important information during a conversation, including:
+- User preferences
+- Important facts shared by the user
+- Decisions or commitments made during the conversation
+- Action items to follow up on
+
+When the agent identifies information worth remembering, it calls this function to store it in the Mem0 database with the appropriate user ID.
+
+#### How it works:
+1. The agent identifies information that should be remembered
+2. It formats the information as a message string
+3. It calls the `addMemories` function with this message
+4. The function stores the memory in Mem0 linked to the user's ID
+5. Later conversations can retrieve this memory
+
+#### Example usage in agent prompt:
+```
+When the user shares important information like preferences or personal details, 
+use the addMemories function to store this information for future reference.
+```
+
+### 2. Retrieving Memories (`retrieveMemories`)
+
+The `retrieveMemories` tool allows your agent to search for and retrieve relevant memories from previous conversations. The agent can:
+- Search for context related to the current topic
+- Recall user preferences
+- Remember previous interactions on similar topics
+- Create continuity across multiple sessions
+
+#### How it works:
+1. The agent needs context for the current conversation
+2. It calls `retrieveMemories` with the current conversation topic or question
+3. The function performs a semantic search in Mem0
+4. Relevant memories are returned to the agent
+5. The agent incorporates these memories into its response
+
+#### Example usage in agent prompt:
+```
+At the beginning of each conversation turn, use retrieveMemories to check if we've 
+discussed this topic before or if the user has shared relevant preferences.
+```
+
+## Configuring Your ElevenLabs Agent
+
+To enable your agent to effectively use memory:
+
+1. Add function calling capabilities to your agent in the ElevenLabs platform:
+   - Go to your agent settings in the ElevenLabs platform
+   - Navigate to the "Tools" section
+   - Enable function calling for your agent
+   - Add the memory tools as described below
+
+2. Add the `addMemories` and `retrieveMemories` tools to your agent with these specifications:
+
+For `addMemories`:
+```json
+{
+  "name": "addMemories",
+  "description": "Stores important information from the conversation to remember for future interactions",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "message": {
+        "type": "string",
+        "description": "The important information to remember"
+      }
+    },
+    "required": ["message"]
+  }
+}
+```
+
+For `retrieveMemories`:
+```json
+{
+  "name": "retrieveMemories",
+  "description": "Retrieves relevant information from past conversations",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "message": {
+        "type": "string",
+        "description": "The query to search for in past memories"
+      }
+    },
+    "required": ["message"]
+  }
+}
+```
+
+3. Update your agent's prompt to instruct it to use these memory functions. For example:
+
+```
+You are a helpful voice assistant that remembers past conversations with the user.
+
+You have access to memory tools that allow you to remember important information:
+- Use retrieveMemories at the beginning of the conversation to recall relevant context from prior conversations
+- Use addMemories to store new important information such as:
+  * User preferences
+  * Personal details the user shares
+  * Important decisions made
+  * Tasks or follow-ups promised to the user
+
+Before responding to complex questions, always check for relevant memories first.
+When the user shares important information, make sure to store it for future reference.
+```
+
+## Example Conversation Flow
+
+Here's how a typical conversation with memory might flow:
+
+1. **User speaks**: "Hi, do you remember my favorite color?"
+
+2. **Agent retrieves memories**:
+   ```python
+   # Agent calls retrieve_memories
+   memories = retrieve_memories({"message": "user's favorite color"})
+   # If found: "The user's favorite color is blue"
+   ```
+
+3. **Agent processes with context**:
+   - If memories found: Prepares a personalized response
+   - If no memories: Prepares to ask and store the information
+
+4. **Agent responds**:
+   - With memory: "Yes, your favorite color is blue!"
+   - Without memory: "I don't think you've told me your favorite color before. What is it?"
+
+5. **User responds**: "It's actually green."
+
+6. **Agent stores new information**:
+   ```python
+   # Agent calls add_memories
+   add_memories({"message": "The user's favorite color is green"})
+   ```
+
+7. **Agent confirms**: "Thanks, I'll remember that your favorite color is green."
+
+## Example Use Cases
+
+- **Personal Assistant** - Remember user preferences, past requests, and important dates
+  ```
+  User: "What restaurants did I say I liked last time?"
+  Agent: *retrieves memories* "You mentioned enjoying Bella Italia and The Golden Dragon."
+  ```
+
+- **Customer Support** - Recall previous issues a customer has had
+  ```
+  User: "I'm having that same problem again!"
+  Agent: *retrieves memories* "Is this related to the login issue you reported last week?"
+  ```
+
+- **Educational AI** - Track student progress and tailor teaching accordingly
+  ```
+  User: "Let's continue our math lesson."
+  Agent: *retrieves memories* "Last time we were working on quadratic equations. Would you like to continue with that?"
+  ```
+
+- **Healthcare Assistant** - Remember symptoms, medications, and health concerns
+  ```
+  User: "Have I told you about my allergy medication?"
+  Agent: *retrieves memories* "Yes, you mentioned you're taking Claritin for your pollen allergies."
+  ```
+
+## Troubleshooting
+
+- **Missing API Keys**: 
+  - Error: "API_KEY environment variable must be set"
+  - Solution: Ensure all environment variables are set correctly in your .env file or system environment
+  
+- **Connection Issues**:
+  - Error: "Failed to connect to API"
+  - Solution: Check your network connection and API key permissions. Verify the API keys are valid and have the necessary permissions.
+  
+- **Empty Memory Results**:
+  - Symptom: Agent always responds with "No memories found"
+  - Solution: This is normal for new users. The memory database builds up over time as conversations occur. It's also possible your query isn't semantically similar to stored memories - try different phrasing.
+  
+- **Agent Not Using Memories**:
+  - Symptom: The agent retrieves memories but doesn't incorporate them in responses
+  - Solution: Update the agent's prompt to explicitly instruct it to use the retrieved memories in its responses
+
+## Conclusion
+
+By integrating ElevenLabs Conversational AI with Mem0, you can create voice agents that maintain context across conversations and provide personalized responses based on user history. This powerful combination enables:
+
+- More natural, context-aware conversations
+- Personalized user experiences that improve over time
+- Reduced need for users to repeat information
+- Long-term relationship building between users and AI agents
+
+## Help
+
+- For more details on ElevenLabs, visit the [ElevenLabs Conversational AI Documentation](https://elevenlabs.io/docs/api-reference/conversational-ai)
+- For Mem0 documentation, refer to the [Mem0 Platform](https://app.mem0.ai/)
+- If you need further assistance, please feel free to reach out to us through the following methods:
+
+<Snippet file="get-help.mdx" /> 
