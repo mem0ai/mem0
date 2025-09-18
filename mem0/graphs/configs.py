@@ -46,18 +46,20 @@ class NeptuneConfig(BaseModel):
     endpoint: Optional[str] = (
         Field(
             None,
-            description="Endpoint to connect to a Neptune Analytics Server as neptune-graph://<graphid>",
+            description="Endpoint to connect to a Neptune-DB Cluster as 'neptune-db://<host>' or Neptune Analytics Server as 'neptune-graph://<graphid>'",
         ),
     )
     base_label: Optional[bool] = Field(None, description="Whether to use base node label __Entity__ for all entities")
+    collection_name: Optional[str] = Field(None, description="vector_store collection name to store vectors when using Neptune-DB Clusters")
 
     @model_validator(mode="before")
     def check_host_port_or_path(cls, values):
         endpoint = values.get("endpoint")
         if not endpoint:
-            raise ValueError("Please provide 'endpoint' with the format as 'neptune-graph://<graphid>'.")
+            raise ValueError("Please provide 'endpoint' with the format as 'neptune-db://<endpoint>' or 'neptune-graph://<graphid>'.")
         if endpoint.startswith("neptune-db://"):
-            raise ValueError("neptune-db server is not yet supported")
+            # This is a Neptune DB Graph
+            return values
         elif endpoint.startswith("neptune-graph://"):
             # This is a Neptune Analytics Graph
             graph_identifier = endpoint.replace("neptune-graph://", "")
@@ -95,7 +97,7 @@ class GraphStoreConfig(BaseModel):
             return Neo4jConfig(**v.model_dump())
         elif provider == "memgraph":
             return MemgraphConfig(**v.model_dump())
-        elif provider == "neptune":
+        elif provider == "neptune" or provider == "neptunedb":
             return NeptuneConfig(**v.model_dump())
         elif provider == "kuzu":
             return KuzuConfig(**v.model_dump())
