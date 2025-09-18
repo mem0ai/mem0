@@ -177,6 +177,7 @@ class VectorStoreFactory:
         "s3_vectors": "mem0.vector_stores.s3_vectors.S3Vectors",
         "baidu": "mem0.vector_stores.baidu.BaiduDB",
         "neptune": "mem0.vector_stores.neptune_analytics.NeptuneAnalyticsVector",
+        "mariadb": "mem0.vector_stores.mariadb.MariaDB",
     }
 
     @classmethod
