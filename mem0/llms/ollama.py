@@ -65,16 +65,6 @@ class OllamaLLM(LLMBase):
             # Ollama doesn't support tool calls in the same way, so we return the content
             return processed_response
         else:
-            # For JSON responses, try to clean up the content using extract_json
-            if hasattr(self, '_expecting_json') and self._expecting_json:
-                try:
-                    # Try to extract clean JSON from the response
-                    cleaned_content = extract_json(content)
-                    return cleaned_content
-                except:
-                    # If extraction fails, return original content
-                    pass
-
             return content
 
     def generate_response(
@@ -104,11 +94,10 @@ class OllamaLLM(LLMBase):
             "messages": messages,
         }
 
-        # Handle JSON response format by modifying the system prompt
-        self._expecting_json = False
+        # Handle JSON response format by using Ollama's native format parameter
         if response_format and response_format.get("type") == "json_object":
-            self._expecting_json = True
-            # Add JSON format instruction to the last message or create a system message
+            params["format"] = "json"
+            # Also add JSON format instruction to the last message as a fallback
             if messages and messages[-1]["role"] == "user":
                 messages[-1]["content"] += "\n\nPlease respond with valid JSON only."
             else:

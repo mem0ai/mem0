@@ -18,6 +18,7 @@ class VectorStoreConfig(BaseModel):
         "mongodb": "MongoDBConfig",
         "milvus": "MilvusDBConfig",
         "baidu": "BaiduDBConfig",
+        "neptune": "NeptuneAnalyticsConfig",
         "upstash_vector": "UpstashVectorConfig",
         "azure_ai_search": "AzureAISearchConfig",
         "redis": "RedisDBConfig",
