@@ -32,6 +32,7 @@ class VectorStoreConfig(BaseModel):
         "faiss": "FAISSConfig",
         "langchain": "LangchainConfig",
         "s3_vectors": "S3VectorsConfig",
+        "aurora": "AuroraConfig",
     }
 
     @model_validator(mode="after")

@@ -304,11 +304,12 @@ config = MemoryConfig(
 - **langchain** - LangChain embeddings
 - **aws_bedrock** - AWS Bedrock embeddings
 
-#### Vector Store Providers (19 supported)
+#### Vector Store Providers (20 supported)
 - **qdrant** - Qdrant vector database (default)
 - **chroma** - ChromaDB
 - **pinecone** - Pinecone vector database
 - **pgvector** - PostgreSQL with pgvector
+- **Aurora** - AWS Aurora PostgreSQL with pgvector
 - **mongodb** - MongoDB Atlas Vector Search
 - **milvus** - Milvus vector database
 - **weaviate** - Weaviate
@@ -440,6 +441,7 @@ config = MemoryConfig(
 - **Pinecone** - Managed vector database with serverless options
 - **Weaviate** - Open-source vector search engine
 - **PGVector** - PostgreSQL extension for vector search
+- **Aurora** - AWS Aurora PostgreSQL with pgvector
 - **Milvus** - Open-source vector database for scale
 - **Redis** - Real-time vector storage with Redis Stack
 - **Supabase** - Open-source Firebase alternative
