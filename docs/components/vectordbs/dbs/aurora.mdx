@@ -1,0 +1,71 @@
+[aurora](https://aws.amazon.com/rds/aurora/) Amazon Aurora is a relational database service that combines the speed and availability of high-end commercial databases with the simplicity and cost-effectiveness of open-source databases. Aurora is fully compatible with MySQL and PostgreSQL, allowing existing applications and tools to run without requiring modification. After connecting with postgres run `CREATE EXTENSION IF NOT EXISTS vector;` to create the vector extension.
+
+### Usage
+
+<CodeGroup>
+```python Python
+import os
+from mem0 import MemoryClient,Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+config = {
+    "vector_store": {
+        "provider": "aurora",
+        "config": {
+            "user": "username",
+            "password": "12345678",
+            "host": "localhost",
+            "port": "5432",
+        }
+    }
+}
+
+m = Memory.from_config(config)
+
+
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+</CodeGroup>
+
+### Config
+
+Here's the parameters available for configuring AWS Aurora PostgreSQL pgvector:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `dbname` | The name of the database | `postgres` |
+| `collection_name` | The name of the collection | `mem0` |
+| `embedding_model_dims` | Dimensions of the embedding model | `1536` |
+| `user` | User name to connect to the database | `None` |
+| `password` | Password to connect to the database | `None` |
+| `host` | The host where the Postgres server is running | `None` |
+| `port` | The port where the Postgres server is running | `None` |
+| `index_type` | Index type ('hnsw' or 'ivfflat'). Defaults to "hnsw". | `hnsw` |
+| `distance` |  Distance metric to use. Defaults to None, which uses 'cosine'. Support 6 distances methonds including 'cosine','L1','L2','IP','hamming','jaccard'| `cosine` |
+| `max_parallel_maintenance_workers` | Sets the maximum number of parallel workers that can be started by a single utility command. Defaults to 4. | `4` |
+| `sslmode` | SL mode for PostgreSQL connection (e.g., 'require', 'prefer', 'disable') | `None` |
+
+
+**Note**: The connection parameters have the following priority:
+1. `connection_pool` (highest priority)
+2. `connection_string`
+3. Individual connection parameters (`user`, `password`, `host`, `port`, `sslmode`)
+
+**Note**: HNSW specific settings:
+| Parameter | Description | Default Value |
+| `hnsw_m` | HNSW M parameter (connections per node). Defaults to 16. | `16` |
+| `hnsw_ef_construction` | HNSW ef_construction parameter. Defaults to 200. | `200` |
+| `hnsw_iterative_scan` | automatically scan more of the index when needed for hnsw. Defaults to enabled. | `relaxed_order` |
+
+**Note**: IVFFLAT specific settings:
+| Parameter | Description | Default Value |
+| `ivfflat_list` | The name of the database | `postgres` |
+| `ivfflat_iterative_scan` | automatically scan more of the index when needed for hnsw. Defaults to enabled. | `relaxed_order` |
