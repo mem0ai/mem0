@@ -32,7 +32,7 @@ class VectorStoreConfig(BaseModel):
         "faiss": "FAISSConfig",
         "langchain": "LangchainConfig",
         "s3_vectors": "S3VectorsConfig",
-        "mariadb": "MariaDBConfig",
+        "aliyun_mysql": "MySQLVectorConfig",
     }
 
     @model_validator(mode="after")

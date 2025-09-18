@@ -23,7 +23,7 @@ class OutputData(BaseModel):
     payload: Optional[dict]
 
 
-class MariaDB(VectorStoreBase):
+class MySQLVector(VectorStoreBase):
     def __init__(
         self,
         dbname,
@@ -44,7 +44,7 @@ class MariaDB(VectorStoreBase):
         autocommit=True,
     ):
         """
-        Initialize the MariaDB Vector database.
+        Initialize the Aliyun MySQL Vector database.
 
         Args:
             dbname (str): Database name
@@ -60,7 +60,7 @@ class MariaDB(VectorStoreBase):
             ssl_ca (str, optional): SSL CA certificate file path
             ssl_cert (str, optional): SSL certificate file path
             ssl_key (str, optional): SSL key file path
-            connection_string (str, optional): MariaDB connection string (overrides individual connection parameters)
+            connection_string (str, optional): Aliyun MySQL connection string (overrides individual connection parameters)
             charset (str): Character set for the connection
             autocommit (bool): Enable autocommit mode
         """
@@ -72,7 +72,7 @@ class MariaDB(VectorStoreBase):
         # Connection parameters
         if connection_string:
             # Parse connection string (simplified parsing)
-            # Format: mariadb://user:password@host:port/database
+            # Format: mysql://user:password@host:port/database
             import urllib.parse
             parsed = urllib.parse.urlparse(connection_string)
             self.connection_params = {
@@ -133,7 +133,7 @@ class MariaDB(VectorStoreBase):
 
     def create_col(self) -> None:
         """
-        Create a new collection (table in MariaDB).
+        Create a new collection (table in Aliyun MySQL).
         Will also initialize vector search index.
         """
         with self._get_connection() as conn:
@@ -203,7 +203,7 @@ class MariaDB(VectorStoreBase):
         filters: Optional[dict] = None,
     ) -> List[OutputData]:
         """
-        Search for similar vectors using MariaDB Vector distance functions.
+        Search for similar vectors using Aliyun MySQL Vector distance functions.
 
         Args:
             query (str): Query string (for logging)

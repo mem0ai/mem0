@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional
 from pydantic import BaseModel, Field, model_validator
 
 
-class MariaDBConfig(BaseModel):
+class MySQLVectorConfig(BaseModel):
     dbname: str = Field("mem0", description="Default name for the database")
     collection_name: str = Field("mem0", description="Default name for the collection")
     embedding_model_dims: Optional[int] = Field(1536, description="Dimensions of the embedding model")
@@ -18,7 +18,7 @@ class MariaDBConfig(BaseModel):
     ssl_ca: Optional[str] = Field(None, description="SSL CA certificate file path")
     ssl_cert: Optional[str] = Field(None, description="SSL certificate file path")
     ssl_key: Optional[str] = Field(None, description="SSL key file path")
-    connection_string: Optional[str] = Field(None, description="MariaDB connection string (overrides individual connection parameters)")
+    connection_string: Optional[str] = Field(None, description="Aliyun MySQL connection string (overrides individual connection parameters)")
     charset: Optional[str] = Field("utf8mb4", description="Character set for the connection")
     autocommit: Optional[bool] = Field(True, description="Enable autocommit mode")
 
