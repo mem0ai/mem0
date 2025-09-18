@@ -1,0 +1,137 @@
+---
+title: Configurations
+icon: "gear"
+iconType: "solid"
+---
+
+## How to define configurations?
+
+<Tabs>
+  <Tab title="Python">
+    The `config` is defined as a Python dictionary with two main keys:
+    - `llm`: Specifies the llm provider and its configuration
+      - `provider`: The name of the llm (e.g., "openai", "groq")
+      - `config`: A nested dictionary containing provider-specific settings
+  </Tab>
+  <Tab title="TypeScript">
+    The `config` is defined as a TypeScript object with these keys:
+    - `llm`: Specifies the LLM provider and its configuration (required)
+      - `provider`: The name of the LLM (e.g., "openai", "groq")
+      - `config`: A nested object containing provider-specific settings
+    - `embedder`: Specifies the embedder provider and its configuration (optional)
+    - `vectorStore`: Specifies the vector store provider and its configuration (optional)
+    - `historyDbPath`: Path to the history database file (optional)
+  </Tab>
+</Tabs>
+
+### Config Values Precedence
+
+Config values are applied in the following order of precedence (from highest to lowest):
+
+1. Values explicitly set in the `config` object/dictionary
+2. Environment variables (e.g., `OPENAI_API_KEY`, `OPENAI_BASE_URL`)
+3. Default values defined in the LLM implementation
+
+This means that values specified in the `config` will override corresponding environment variables, which in turn override default values.
+
+## How to Use Config
+
+Here's a general example of how to use the config with Mem0:
+
+<CodeGroup>
+```python Python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx" # for embedder
+
+config = {
+    "llm": {
+        "provider": "your_chosen_provider",
+        "config": {
+            # Provider-specific settings go here
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("Your text here", user_id="user", metadata={"category": "example"})
+
+```
+
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+// Minimal configuration with just the LLM settings
+const config = {
+  llm: {
+    provider: 'your_chosen_provider',
+    config: {
+      // Provider-specific settings go here
+    }
+  }
+};
+
+const memory = new Memory(config);
+await memory.add("Your text here", { userId: "user123", metadata: { category: "example" } });
+```
+
+</CodeGroup>
+
+## Why is Config Needed?
+
+Config is essential for:
+1. Specifying which LLM to use.
+2. Providing necessary connection details (e.g., model, api_key, temperature).
+3. Ensuring proper initialization and connection to your chosen LLM.
+
+## Master List of All Params in Config
+
+Here's a comprehensive list of all parameters that can be used across different LLMs:
+
+<Tabs>
+  <Tab title="Python">
+    | Parameter            | Description                                   | Provider          |
+    |----------------------|-----------------------------------------------|-------------------|
+    | `model`              | Embedding model to use                        | All               |
+    | `temperature`        | Temperature of the model                      | All               |
+    | `api_key`            | API key to use                                | All               |
+    | `max_tokens`         | Tokens to generate                            | All               |
+    | `top_p`              | Probability threshold for nucleus sampling    | All               |
+    | `top_k`              | Number of highest probability tokens to keep  | All               |
+    | `http_client_proxies`| Allow proxy server settings                   | AzureOpenAI       |
+    | `models`             | List of models                                | Openrouter        |
+    | `route`              | Routing strategy                              | Openrouter        |
+    | `openrouter_base_url`| Base URL for Openrouter API                   | Openrouter        |
+    | `site_url`           | Site URL                                      | Openrouter        |
+    | `app_name`           | Application name                              | Openrouter        |
+    | `ollama_base_url`    | Base URL for Ollama API                       | Ollama            |
+    | `openai_base_url`    | Base URL for OpenAI API                       | OpenAI            |
+    | `azure_kwargs`       | Azure LLM args for initialization             | AzureOpenAI       |
+    | `deepseek_base_url`  | Base URL for DeepSeek API                     | DeepSeek          |
+    | `xai_base_url`       | Base URL for XAI API                          | XAI               |
+    | `sarvam_base_url`    | Base URL for Sarvam API                       | Sarvam            |
+    | `reasoning_effort`   | Reasoning level (low, medium, high)           | Sarvam            |
+    | `frequency_penalty`  | Penalize frequent tokens (-2.0 to 2.0)        | Sarvam            |
+    | `presence_penalty`   | Penalize existing tokens (-2.0 to 2.0)        | Sarvam            |
+    | `seed`               | Seed for deterministic sampling               | Sarvam            |
+    | `stop`               | Stop sequences (max 4)                        | Sarvam            |
+    | `lmstudio_base_url`  | Base URL for LM Studio API                    | LM Studio         |
+    | `response_callback`  | LLM response callback function                | OpenAI            |
+  </Tab>
+  <Tab title="TypeScript">
+    | Parameter            | Description                                   | Provider          |
+    |----------------------|-----------------------------------------------|-------------------|
+    | `model`              | Embedding model to use                        | All               |
+    | `temperature`        | Temperature of the model                      | All               |
+    | `apiKey`             | API key to use                                | All               |
+    | `maxTokens`          | Tokens to generate                            | All               |
+    | `topP`               | Probability threshold for nucleus sampling    | All               |
+    | `topK`               | Number of highest probability tokens to keep  | All               |
+    | `openaiBaseUrl`      | Base URL for OpenAI API                       | OpenAI            |
+  </Tab>
+</Tabs>
+
+## Supported LLMs
+
+For detailed information on configuring specific LLMs, please visit the [LLMs](./models) section. There you'll find information for each supported LLM with provider-specific usage examples and configuration details.

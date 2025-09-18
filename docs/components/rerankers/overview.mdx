@@ -1,0 +1,52 @@
+---
+title: Overview
+icon: "info"
+iconType: "solid"
+---
+
+Rerankers enhance the quality of search results by re-ordering the initial retrieval results using more sophisticated scoring mechanisms. They act as a secondary ranking layer that can significantly improve the relevance of retrieved memories.
+
+## How Rerankers Work
+
+1. **Initial Retrieval**: Vector search returns candidate memories based on semantic similarity
+2. **Reranking**: The reranker evaluates and re-scores these candidates using more complex criteria
+3. **Final Results**: Returns the top-k memories with improved relevance ordering
+
+## Benefits
+
+- **Improved Precision**: Better ranking of relevant memories
+- **Context Awareness**: More sophisticated understanding of query-memory relationships
+- **Performance**: Can improve results without changing the underlying vector store
+
+## Supported Rerankers
+
+Mem0 supports several reranker models:
+
+<CardGroup cols={2}>
+  <Card title="Cohere" href="/components/rerankers/models/cohere" />
+  <Card title="Sentence Transformer" href="/components/rerankers/models/sentence_transformer" />
+  <Card title="Hugging Face" href="/components/rerankers/models/huggingface" />
+  <Card title="LLM Reranker" href="/components/rerankers/models/llm_reranker" />
+</CardGroup>
+
+## Usage
+
+Rerankers are configured as part of the memory configuration:
+
+```python
+from mem0 import Memory
+
+config = {
+    "reranker": {
+        "provider": "cohere",
+        "config": {
+            "api_key": "your-api-key",
+            "top_n": 10
+        }
+    }
+}
+
+memory = Memory.from_config(config)
+```
+
+For detailed configuration options, see the [Config](./config) page.
