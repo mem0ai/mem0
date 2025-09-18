@@ -17,7 +17,7 @@ from mem0.graphs.tools import (
     RELATIONS_TOOL,
 )
 from mem0.graphs.utils import EXTRACT_RELATIONS_PROMPT, get_delete_messages
-from mem0.utils.factory import EmbedderFactory, LlmFactory
+from mem0.utils.factory import EmbedderFactory, LlmFactory, VectorStoreFactory
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +45,15 @@ class NeptuneBase(ABC):
         :return: the llm model used for memory store
         """
         return LlmFactory.create(llm_provider, config.llm.config)
+
+    @staticmethod
+    def _create_vector_store(vector_store_provider, config):
+        """
+        :param vector_store_provider: name of vector store
+        :param config: the vector_store configuration
+        :return:
+        """
+        return VectorStoreFactory.create(vector_store_provider, config.vector_store.config)
 
     def add(self, data, filters):
         """
@@ -244,7 +253,6 @@ class NeptuneBase(ABC):
             results.append(result)
         return results
 
-    @abstractmethod
     def _add_entities_cypher(
         self,
         source_node_list,
@@ -261,6 +269,85 @@ class NeptuneBase(ABC):
         """
         Returns the OpenCypher query and parameters for adding entities in the graph DB
         """
+        if not destination_node_list and source_node_list:
+            return self._add_entities_by_source_cypher(
+                source_node_list,
+                destination,
+                dest_embedding,
+                destination_type,
+                relationship,
+                user_id)
+        elif destination_node_list and not source_node_list:
+            return self._add_entities_by_destination_cypher(
+                source,
+                source_embedding,
+                source_type,
+                destination_node_list,
+                relationship,
+                user_id)
+        elif source_node_list and destination_node_list:
+            return self._add_relationship_entities_cypher(
+                source_node_list,
+                destination_node_list,
+                relationship,
+                user_id)
+        # else source_node_list and destination_node_list are empty
+        return self._add_new_entities_cypher(
+            source,
+            source_embedding,
+            source_type,
+            destination,
+            dest_embedding,
+            destination_type,
+            relationship,
+            user_id)
+
+    @abstractmethod
+    def _add_entities_by_source_cypher(
+            self,
+            source_node_list,
+            destination,
+            dest_embedding,
+            destination_type,
+            relationship,
+            user_id,
+    ):
+        pass
+
+    @abstractmethod
+    def _add_entities_by_destination_cypher(
+            self,
+            source,
+            source_embedding,
+            source_type,
+            destination_node_list,
+            relationship,
+            user_id,
+    ):
+        pass
+
+    @abstractmethod
+    def _add_relationship_entities_cypher(
+            self,
+            source_node_list,
+            destination_node_list,
+            relationship,
+            user_id,
+    ):
+        pass
+
+    @abstractmethod
+    def _add_new_entities_cypher(
+            self,
+            source,
+            source_embedding,
+            source_type,
+            destination,
+            dest_embedding,
+            destination_type,
+            relationship,
+            user_id,
+    ):
         pass
 
     def search(self, query, filters, limit=100):
