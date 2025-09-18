@@ -147,6 +147,7 @@
                           "components/vectordbs/dbs/qdrant",
                           "components/vectordbs/dbs/chroma",
                           "components/vectordbs/dbs/pgvector",
+                          "components/vectordbs/dbs/Aurora",
                           "components/vectordbs/dbs/milvus",
                           "components/vectordbs/dbs/pinecone",
                           "components/vectordbs/dbs/mongodb",
