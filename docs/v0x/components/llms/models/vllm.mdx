@@ -1,0 +1,107 @@
+---
+title: vLLM
+---
+
+[vLLM](https://docs.vllm.ai/) is a high-performance inference engine for large language models that provides significant performance improvements for local inference. It's designed to maximize throughput and memory efficiency for serving LLMs.
+
+## Prerequisites
+
+1. **Install vLLM**:
+
+   ```bash
+   pip install vllm
+   ```
+
+2. **Start vLLM server**:
+
+   ```bash
+   # For testing with a small model
+   vllm serve microsoft/DialoGPT-medium --port 8000
+
+   # For production with a larger model (requires GPU)
+   vllm serve Qwen/Qwen2.5-32B-Instruct --port 8000
+   ```
+
+## Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your-api-key"  # used for embedding model
+
+config = {
+    "llm": {
+        "provider": "vllm",
+        "config": {
+            "model": "Qwen/Qwen2.5-32B-Instruct",
+            "vllm_base_url": "http://localhost:8000/v1",
+            "temperature": 0.1,
+            "max_tokens": 2000,
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thrillers, but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thrillers and suggest sci-fi movies instead."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+## Configuration Parameters
+
+| Parameter       | Description                       | Default                       | Environment Variable |
+| --------------- | --------------------------------- | ----------------------------- | -------------------- |
+| `model`         | Model name running on vLLM server | `"Qwen/Qwen2.5-32B-Instruct"` | -                    |
+| `vllm_base_url` | vLLM server URL                   | `"http://localhost:8000/v1"`  | `VLLM_BASE_URL`      |
+| `api_key`       | API key (dummy for local)         | `"vllm-api-key"`              | `VLLM_API_KEY`       |
+| `temperature`   | Sampling temperature              | `0.1`                         | -                    |
+| `max_tokens`    | Maximum tokens to generate        | `2000`                        | -                    |
+
+## Environment Variables
+
+You can set these environment variables instead of specifying them in config:
+
+```bash
+export VLLM_BASE_URL="http://localhost:8000/v1"
+export VLLM_API_KEY="your-vllm-api-key"
+export OPENAI_API_KEY="your-openai-api-key"  # for embeddings
+```
+
+## Benefits
+
+- **High Performance**: 2-24x faster inference than standard implementations
+- **Memory Efficient**: Optimized memory usage with PagedAttention
+- **Local Deployment**: Keep your data private and reduce API costs
+- **Easy Integration**: Drop-in replacement for other LLM providers
+- **Flexible**: Works with any model supported by vLLM
+
+## Troubleshooting
+
+1. **Server not responding**: Make sure vLLM server is running
+
+   ```bash
+   curl http://localhost:8000/health
+   ```
+
+2. **404 errors**: Ensure correct base URL format
+
+   ```python
+   "vllm_base_url": "http://localhost:8000/v1"  # Note the /v1
+   ```
+
+3. **Model not found**: Check model name matches server
+
+4. **Out of memory**: Try smaller models or reduce `max_model_len`
+
+   ```bash
+   vllm serve Qwen/Qwen2.5-32B-Instruct --max-model-len 4096
+   ```
+
+## Config
+
+All available parameters for the `vllm` config are present in [Master List of All Params in Config](../config).

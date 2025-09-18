@@ -1,0 +1,312 @@
+---
+title: Performance Optimization
+icon: "bolt"
+iconType: "solid"
+---
+
+Optimizing reranker performance is crucial for maintaining fast search response times while improving result quality. This guide covers best practices for different reranker types.
+
+## General Optimization Principles
+
+### Candidate Set Size
+The number of candidates sent to the reranker significantly impacts performance:
+
+```python
+# Optimal candidate sizes for different rerankers
+config_map = {
+    "cohere": {"initial_candidates": 100, "top_n": 10},
+    "sentence_transformer": {"initial_candidates": 50, "top_n": 10},
+    "huggingface": {"initial_candidates": 30, "top_n": 5},
+    "llm_reranker": {"initial_candidates": 20, "top_n": 5}
+}
+```
+
+### Batching Strategy
+Process multiple queries efficiently:
+
+```python
+# Configure for batch processing
+config = {
+    "reranker": {
+        "provider": "sentence_transformer",
+        "config": {
+            "model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+            "batch_size": 16,  # Process multiple candidates at once
+            "top_n": 10
+        }
+    }
+}
+```
+
+## Provider-Specific Optimizations
+
+### Cohere Optimization
+
+```python
+# Optimized Cohere configuration
+config = {
+    "reranker": {
+        "provider": "cohere",
+        "config": {
+            "model": "rerank-english-v3.0",
+            "top_n": 10,
+            "max_chunks_per_doc": 10,  # Limit chunk processing
+            "return_documents": False   # Reduce response size
+        }
+    }
+}
+```
+
+**Best Practices:**
+- Use v3.0 models for better speed/accuracy balance
+- Limit candidates to 100 or fewer
+- Cache API responses when possible
+- Monitor API rate limits
+
+### Sentence Transformer Optimization
+
+```python
+# Performance-optimized configuration
+config = {
+    "reranker": {
+        "provider": "sentence_transformer",
+        "config": {
+            "model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+            "device": "cuda",  # Use GPU when available
+            "batch_size": 32,
+            "top_n": 10,
+            "max_length": 512  # Limit input length
+        }
+    }
+}
+```
+
+**Device Optimization:**
+```python
+import torch
+
+# Auto-detect best device
+device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+
+config = {
+    "reranker": {
+        "provider": "sentence_transformer",
+        "config": {
+            "device": device,
+            "model": "cross-encoder/ms-marco-MiniLM-L-6-v2"
+        }
+    }
+}
+```
+
+### Hugging Face Optimization
+
+```python
+# Optimized for Hugging Face models
+config = {
+    "reranker": {
+        "provider": "huggingface",
+        "config": {
+            "model": "BAAI/bge-reranker-base",
+            "use_fp16": True,  # Half precision for speed
+            "max_length": 512,
+            "batch_size": 8,
+            "top_n": 10
+        }
+    }
+}
+```
+
+### LLM Reranker Optimization
+
+```python
+# Optimized LLM reranker configuration
+config = {
+    "reranker": {
+        "provider": "llm_reranker",
+        "config": {
+            "llm": {
+                "provider": "openai",
+                "config": {
+                    "model": "gpt-3.5-turbo",  # Faster than gpt-4
+                    "temperature": 0,  # Deterministic results
+                    "max_tokens": 500  # Limit response length
+                }
+            },
+            "batch_ranking": True,  # Rank multiple at once
+            "top_n": 5,  # Fewer results for faster processing
+            "timeout": 10  # Request timeout
+        }
+    }
+}
+```
+
+## Performance Monitoring
+
+### Latency Tracking
+```python
+import time
+from mem0 import Memory
+
+def measure_reranker_performance(config, queries, user_id):
+    memory = Memory.from_config(config)
+
+    latencies = []
+    for query in queries:
+        start_time = time.time()
+        results = memory.search(query, user_id=user_id)
+        latency = time.time() - start_time
+        latencies.append(latency)
+
+    return {
+        "avg_latency": sum(latencies) / len(latencies),
+        "max_latency": max(latencies),
+        "min_latency": min(latencies)
+    }
+```
+
+### Memory Usage Monitoring
+```python
+import psutil
+import os
+
+def monitor_memory_usage():
+    process = psutil.Process(os.getpid())
+    return {
+        "memory_mb": process.memory_info().rss / 1024 / 1024,
+        "memory_percent": process.memory_percent()
+    }
+```
+
+## Caching Strategies
+
+### Result Caching
+```python
+from functools import lru_cache
+import hashlib
+
+class CachedReranker:
+    def __init__(self, config):
+        self.memory = Memory.from_config(config)
+        self.cache_size = 1000
+
+    @lru_cache(maxsize=1000)
+    def search_cached(self, query_hash, user_id):
+        return self.memory.search(query, user_id=user_id)
+
+    def search(self, query, user_id):
+        query_hash = hashlib.md5(f"{query}_{user_id}".encode()).hexdigest()
+        return self.search_cached(query_hash, user_id)
+```
+
+### Model Caching
+```python
+# Pre-load models to avoid initialization overhead
+config = {
+    "reranker": {
+        "provider": "sentence_transformer",
+        "config": {
+            "model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+            "cache_folder": "/path/to/model/cache",
+            "device": "cuda"
+        }
+    }
+}
+```
+
+## Parallel Processing
+
+### Async Configuration
+```python
+import asyncio
+from mem0 import Memory
+
+async def parallel_search(config, queries, user_id):
+    memory = Memory.from_config(config)
+
+    # Process multiple queries concurrently
+    tasks = [
+        memory.search_async(query, user_id=user_id)
+        for query in queries
+    ]
+
+    results = await asyncio.gather(*tasks)
+    return results
+```
+
+## Hardware Optimization
+
+### GPU Configuration
+```python
+# Optimize for GPU usage
+import torch
+
+if torch.cuda.is_available():
+    torch.cuda.set_per_process_memory_fraction(0.8)  # Reserve GPU memory
+
+config = {
+    "reranker": {
+        "provider": "sentence_transformer",
+        "config": {
+            "device": "cuda",
+            "model": "cross-encoder/ms-marco-electra-base",
+            "batch_size": 64,  # Larger batch for GPU
+            "fp16": True  # Half precision
+        }
+    }
+}
+```
+
+### CPU Optimization
+```python
+import torch
+
+# Optimize CPU threading
+torch.set_num_threads(4)  # Adjust based on your CPU
+
+config = {
+    "reranker": {
+        "provider": "sentence_transformer",
+        "config": {
+            "device": "cpu",
+            "model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+            "num_workers": 4  # Parallel processing
+        }
+    }
+}
+```
+
+## Benchmarking Different Configurations
+
+```python
+def benchmark_rerankers():
+    configs = [
+        {"provider": "cohere", "model": "rerank-english-v3.0"},
+        {"provider": "sentence_transformer", "model": "cross-encoder/ms-marco-MiniLM-L-6-v2"},
+        {"provider": "huggingface", "model": "BAAI/bge-reranker-base"}
+    ]
+
+    test_queries = ["sample query 1", "sample query 2", "sample query 3"]
+
+    results = {}
+    for config in configs:
+        provider = config["provider"]
+        performance = measure_reranker_performance(
+            {"reranker": {"provider": provider, "config": config}},
+            test_queries,
+            "test_user"
+        )
+        results[provider] = performance
+
+    return results
+```
+
+## Production Best Practices
+
+1. **Model Selection**: Choose the right balance of speed vs. accuracy
+2. **Resource Allocation**: Monitor CPU/GPU usage and memory consumption
+3. **Error Handling**: Implement fallbacks for reranker failures
+4. **Load Balancing**: Distribute reranking load across multiple instances
+5. **Monitoring**: Track latency, throughput, and error rates
+6. **Caching**: Cache frequent queries and model predictions
+7. **Batch Processing**: Group similar queries for efficient processing

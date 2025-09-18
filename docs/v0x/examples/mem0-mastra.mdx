@@ -1,0 +1,126 @@
+---
+title: Mem0 with Mastra
+---
+
+In this example you'll learn how to use the Mem0 to add long-term memory capabilities to [Mastra's agent](https://mastra.ai/) via tool-use.
+This memory integration can work alongside Mastra's [agent memory features](https://mastra.ai/docs/agents/01-agent-memory).
+
+You can find the complete example code in the [Mastra repository](https://github.com/mastra-ai/mastra/tree/main/examples/memory-with-mem0).
+
+## Overview
+
+This guide will show you how to integrate Mem0 with Mastra to add long-term memory capabilities to your agents. We'll create tools that allow agents to save and retrieve memories using Mem0's API.
+
+### Installation
+
+1. **Install the Integration Package**
+
+To install the Mem0 integration, run:
+
+```bash
+npm install @mastra/mem0
+```
+
+2. **Add the Integration to Your Project**
+
+Create a new file for your integrations and import the integration:
+
+```typescript integrations/index.ts
+import { Mem0Integration } from "@mastra/mem0";
+
+export const mem0 = new Mem0Integration({
+  config: {
+    apiKey: process.env.MEM0_API_KEY!,
+    userId: "alice",
+  },
+});
+```
+
+3. **Use the Integration in Tools or Workflows**
+
+You can now use the integration when defining tools for your agents or in workflows.
+
+```typescript tools/index.ts
+import { createTool } from "@mastra/core";
+import { z } from "zod";
+import { mem0 } from "../integrations";
+
+export const mem0RememberTool = createTool({
+  id: "Mem0-remember",
+  description:
+    "Remember your agent memories that you've previously saved using the Mem0-memorize tool.",
+  inputSchema: z.object({
+    question: z
+      .string()
+      .describe("Question used to look up the answer in saved memories."),
+  }),
+  outputSchema: z.object({
+    answer: z.string().describe("Remembered answer"),
+  }),
+  execute: async ({ context }) => {
+    console.log(`Searching memory "${context.question}"`);
+    const memory = await mem0.searchMemory(context.question);
+    console.log(`\nFound memory "${memory}"\n`);
+
+    return {
+      answer: memory,
+    };
+  },
+});
+
+export const mem0MemorizeTool = createTool({
+  id: "Mem0-memorize",
+  description:
+    "Save information to mem0 so you can remember it later using the Mem0-remember tool.",
+  inputSchema: z.object({
+    statement: z.string().describe("A statement to save into memory"),
+  }),
+  execute: async ({ context }) => {
+    console.log(`\nCreating memory "${context.statement}"\n`);
+    // to reduce latency memories can be saved async without blocking tool execution
+    void mem0.createMemory(context.statement).then(() => {
+      console.log(`\nMemory "${context.statement}" saved.\n`);
+    });
+    return { success: true };
+  },
+});
+```
+
+4. **Create a new agent**
+
+```typescript agents/index.ts
+import { openai } from '@ai-sdk/openai';
+import { Agent } from '@mastra/core/agent';
+import { mem0MemorizeTool, mem0RememberTool } from '../tools';
+
+export const mem0Agent = new Agent({
+  name: 'Mem0 Agent',
+  instructions: `
+    You are a helpful assistant that has the ability to memorize and remember facts using Mem0.
+  `,
+  model: openai('gpt-4o'),
+  tools: { mem0RememberTool, mem0MemorizeTool },
+});
+```
+
+5. **Run the agent**
+
+```typescript index.ts
+import { Mastra } from '@mastra/core/mastra';
+import { createLogger } from '@mastra/core/logger';
+
+import { mem0Agent } from './agents';
+
+export const mastra = new Mastra({
+  agents: { mem0Agent },
+  logger: createLogger({
+    name: 'Mastra',
+    level: 'error',
+  }),
+});
+```
+
+In the example above:
+- We import the `@mastra/mem0` integration.
+- We define two tools that uses the Mem0 API client to create new memories and recall previously saved memories.
+- The tool accepts `question` as an input and returns the memory as a string.

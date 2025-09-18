@@ -1,0 +1,352 @@
+---
+title: Hugging Face Reranker
+description: 'Access thousands of reranking models from Hugging Face Hub'
+icon: "face-smile"
+iconType: "solid"
+---
+
+## Overview
+
+The Hugging Face reranker provider gives you access to thousands of reranking models available on the Hugging Face Hub. This includes popular models like BAAI's BGE rerankers and other state-of-the-art cross-encoder models.
+
+## Configuration
+
+### Basic Setup
+
+```python
+from mem0 import Memory
+
+config = {
+    "reranker": {
+        "provider": "huggingface",
+        "config": {
+            "model": "BAAI/bge-reranker-base",
+            "device": "cpu"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+```
+
+### Configuration Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `model` | str | Required | Hugging Face model identifier |
+| `device` | str | "cpu" | Device to run model on ("cpu", "cuda", "mps") |
+| `batch_size` | int | 32 | Batch size for processing |
+| `max_length` | int | 512 | Maximum input sequence length |
+| `trust_remote_code` | bool | False | Allow remote code execution |
+
+### Advanced Configuration
+
+```python
+config = {
+    "reranker": {
+        "provider": "huggingface",
+        "config": {
+            "model": "BAAI/bge-reranker-large",
+            "device": "cuda",
+            "batch_size": 16,
+            "max_length": 512,
+            "trust_remote_code": False,
+            "model_kwargs": {
+                "torch_dtype": "float16"
+            }
+        }
+    }
+}
+```
+
+## Popular Models
+
+### BGE Rerankers (Recommended)
+
+```python
+# Base model - good balance of speed and quality
+config = {
+    "reranker": {
+        "provider": "huggingface",
+        "config": {
+            "model": "BAAI/bge-reranker-base",
+            "device": "cuda"
+        }
+    }
+}
+
+# Large model - better quality, slower
+config = {
+    "reranker": {
+        "provider": "huggingface",
+        "config": {
+            "model": "BAAI/bge-reranker-large",
+            "device": "cuda"
+        }
+    }
+}
+
+# v2 models - latest improvements
+config = {
+    "reranker": {
+        "provider": "huggingface",
+        "config": {
+            "model": "BAAI/bge-reranker-v2-m3",
+            "device": "cuda"
+        }
+    }
+}
+```
+
+### Multilingual Models
+
+```python
+# Multilingual BGE reranker
+config = {
+    "reranker": {
+        "provider": "huggingface",
+        "config": {
+            "model": "BAAI/bge-reranker-v2-multilingual",
+            "device": "cuda"
+        }
+    }
+}
+```
+
+### Domain-Specific Models
+
+```python
+# For code search
+config = {
+    "reranker": {
+        "provider": "huggingface",
+        "config": {
+            "model": "microsoft/codebert-base",
+            "device": "cuda"
+        }
+    }
+}
+
+# For biomedical content
+config = {
+    "reranker": {
+        "provider": "huggingface",
+        "config": {
+            "model": "dmis-lab/biobert-base-cased-v1.1",
+            "device": "cuda"
+        }
+    }
+}
+```
+
+## Usage Examples
+
+### Basic Usage
+
+```python
+from mem0 import Memory
+
+m = Memory.from_config(config)
+
+# Add some memories
+m.add("I love hiking in the mountains", user_id="alice")
+m.add("Pizza is my favorite food", user_id="alice")
+m.add("I enjoy reading science fiction books", user_id="alice")
+
+# Search with reranking
+results = m.search(
+    "What outdoor activities do I enjoy?",
+    user_id="alice",
+    rerank=True
+)
+
+for result in results["results"]:
+    print(f"Memory: {result['memory']}")
+    print(f"Score: {result['score']:.3f}")
+```
+
+### Batch Processing
+
+```python
+# Process multiple queries efficiently
+queries = [
+    "What are my hobbies?",
+    "What food do I like?",
+    "What books interest me?"
+]
+
+results = []
+for query in queries:
+    result = m.search(query, user_id="alice", rerank=True)
+    results.append(result)
+```
+
+## Performance Optimization
+
+### GPU Acceleration
+
+```python
+# Use GPU for better performance
+config = {
+    "reranker": {
+        "provider": "huggingface",
+        "config": {
+            "model": "BAAI/bge-reranker-base",
+            "device": "cuda",
+            "batch_size": 64,  # Increase batch size for GPU
+        }
+    }
+}
+```
+
+### Memory Optimization
+
+```python
+# For limited memory environments
+config = {
+    "reranker": {
+        "provider": "huggingface",
+        "config": {
+            "model": "BAAI/bge-reranker-base",
+            "device": "cpu",
+            "batch_size": 8,   # Smaller batch size
+            "max_length": 256, # Shorter sequences
+            "model_kwargs": {
+                "torch_dtype": "float16"  # Half precision
+            }
+        }
+    }
+}
+```
+
+## Model Comparison
+
+| Model | Size | Quality | Speed | Memory | Best For |
+|-------|------|---------|-------|---------|----------|
+| bge-reranker-base | 278M | Good | Fast | Low | General use |
+| bge-reranker-large | 560M | Better | Medium | Medium | High quality needs |
+| bge-reranker-v2-m3 | 568M | Best | Medium | Medium | Latest improvements |
+| bge-reranker-v2-multilingual | 568M | Good | Medium | Medium | Multiple languages |
+
+## Error Handling
+
+```python
+try:
+    results = m.search(
+        "test query",
+        user_id="alice",
+        rerank=True
+    )
+except Exception as e:
+    print(f"Reranking failed: {e}")
+    # Fall back to vector search only
+    results = m.search(
+        "test query",
+        user_id="alice",
+        rerank=False
+    )
+```
+
+## Custom Models
+
+### Using Private Models
+
+```python
+# Use a private model from Hugging Face
+config = {
+    "reranker": {
+        "provider": "huggingface",
+        "config": {
+            "model": "your-org/custom-reranker",
+            "device": "cuda",
+            "use_auth_token": "your-hf-token"
+        }
+    }
+}
+```
+
+### Local Model Path
+
+```python
+# Use a locally downloaded model
+config = {
+    "reranker": {
+        "provider": "huggingface",
+        "config": {
+            "model": "/path/to/local/model",
+            "device": "cuda"
+        }
+    }
+}
+```
+
+## Best Practices
+
+1. **Choose the Right Model**: Balance quality vs speed based on your needs
+2. **Use GPU**: Significantly faster than CPU for larger models
+3. **Optimize Batch Size**: Tune based on your hardware capabilities
+4. **Monitor Memory**: Watch GPU/CPU memory usage with large models
+5. **Cache Models**: Download once and reuse to avoid repeated downloads
+
+## Troubleshooting
+
+### Common Issues
+
+**Out of Memory Error**
+```python
+# Reduce batch size and sequence length
+config = {
+    "reranker": {
+        "provider": "huggingface",
+        "config": {
+            "model": "BAAI/bge-reranker-base",
+            "batch_size": 4,
+            "max_length": 256
+        }
+    }
+}
+```
+
+**Model Download Issues**
+```python
+# Set cache directory
+import os
+os.environ["TRANSFORMERS_CACHE"] = "/path/to/cache"
+
+# Or use offline mode
+config = {
+    "reranker": {
+        "provider": "huggingface",
+        "config": {
+            "model": "BAAI/bge-reranker-base",
+            "local_files_only": True
+        }
+    }
+}
+```
+
+**CUDA Not Available**
+```python
+import torch
+
+config = {
+    "reranker": {
+        "provider": "huggingface",
+        "config": {
+            "model": "BAAI/bge-reranker-base",
+            "device": "cuda" if torch.cuda.is_available() else "cpu"
+        }
+    }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Reranker Overview" icon="sort" href="/components/rerankers/overview">
+    Learn about reranking concepts
+  </Card>
+  <Card title="Configuration Guide" icon="gear" href="/components/rerankers/config">
+    Detailed configuration options
+  </Card>
+</CardGroup>

@@ -1,0 +1,202 @@
+---
+title: Personal AI Travel Assistant
+---
+
+
+Create a personalized AI Travel Assistant using Mem0. This guide provides step-by-step instructions and the complete code to get you started.
+
+## Overview
+
+The Personalized AI Travel Assistant uses Mem0 to store and retrieve information across interactions, enabling a tailored travel planning experience. It integrates with OpenAI's GPT-4 model to provide detailed and context-aware responses to user queries.
+
+## Setup
+
+Install the required dependencies using pip:
+
+```bash
+pip install openai mem0ai
+```
+
+## Full Code Example
+
+Here's the complete code to create and interact with a Personalized AI Travel Assistant using Mem0:
+
+<CodeGroup>
+
+```python After v1.1
+import os
+from openai import OpenAI
+from mem0 import Memory
+
+# Set the OpenAI API key
+os.environ['OPENAI_API_KEY'] = "sk-xxx"
+
+config = {
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "gpt-4o",
+            "temperature": 0.1,
+            "max_tokens": 2000,
+        }
+    },
+    "embedder": {
+        "provider": "openai",
+        "config": {
+            "model": "text-embedding-3-large"
+        }
+    },
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "collection_name": "test",
+            "embedding_model_dims": 3072,
+        }
+    },
+    "version": "v1.1",
+}
+
+class PersonalTravelAssistant:
+    def __init__(self):
+        self.client = OpenAI()
+        self.memory = Memory.from_config(config)
+        self.messages = [{"role": "system", "content": "You are a personal AI Assistant."}]
+
+    def ask_question(self, question, user_id):
+        # Fetch previous related memories
+        previous_memories = self.search_memories(question, user_id=user_id)
+
+        # Build the prompt
+        system_message = "You are a personal AI Assistant."
+
+        if previous_memories:
+            prompt = f"{system_message}\n\nUser input: {question}\nPrevious memories: {', '.join(previous_memories)}"
+        else:
+            prompt = f"{system_message}\n\nUser input: {question}"
+
+        # Generate response using Responses API
+        response = self.client.responses.create(
+            model="gpt-4o",
+            input=prompt
+        )
+
+        # Extract answer from the response
+        answer = response.output[0].content[0].text
+
+        # Store the question in memory
+        self.memory.add(question, user_id=user_id)
+        return answer
+
+    def get_memories(self, user_id):
+        memories = self.memory.get_all(user_id=user_id)
+        return [m['memory'] for m in memories['results']]
+
+    def search_memories(self, query, user_id):
+        memories = self.memory.search(query, user_id=user_id)
+        return [m['memory'] for m in memories['results']]
+
+# Usage example
+user_id = "traveler_123"
+ai_assistant = PersonalTravelAssistant()
+
+def main():
+    while True:
+        question = input("Question: ")
+        if question.lower() in ['q', 'exit']:
+            print("Exiting...")
+            break
+
+        answer = ai_assistant.ask_question(question, user_id=user_id)
+        print(f"Answer: {answer}")
+        memories = ai_assistant.get_memories(user_id=user_id)
+        print("Memories:")
+        for memory in memories:
+            print(f"- {memory}")
+        print("-----")
+
+if __name__ == "__main__":
+    main()
+```
+
+```python Before v1.1
+import os
+from openai import OpenAI
+from mem0 import Memory
+
+# Set the OpenAI API key
+os.environ['OPENAI_API_KEY'] = 'sk-xxx'
+
+class PersonalTravelAssistant:
+    def __init__(self):
+        self.client = OpenAI()
+        self.memory = Memory()
+        self.messages = [{"role": "system", "content": "You are a personal AI Assistant."}]
+
+    def ask_question(self, question, user_id):
+        # Fetch previous related memories
+        previous_memories = self.search_memories(question, user_id=user_id)
+        prompt = question
+        if previous_memories:
+            prompt = f"User input: {question}\n Previous memories: {previous_memories}"
+        self.messages.append({"role": "user", "content": prompt})
+
+        # Generate response using GPT-4o
+        response = self.client.chat.completions.create(
+            model="gpt-4o",
+            messages=self.messages
+        )
+        answer = response.choices[0].message.content
+        self.messages.append({"role": "assistant", "content": answer})
+
+        # Store the question in memory
+        self.memory.add(question, user_id=user_id)
+        return answer
+
+    def get_memories(self, user_id):
+        memories = self.memory.get_all(user_id=user_id)
+        return [m['memory'] for m in memories.get('results', [])]
+
+    def search_memories(self, query, user_id):
+        memories = self.memory.search(query, user_id=user_id)
+        return [m['memory'] for m in memories.get('results', [])]
+
+# Usage example
+user_id = "traveler_123"
+ai_assistant = PersonalTravelAssistant()
+
+def main():
+    while True:
+        question = input("Question: ")
+        if question.lower() in ['q', 'exit']:
+            print("Exiting...")
+            break
+
+        answer = ai_assistant.ask_question(question, user_id=user_id)
+        print(f"Answer: {answer}")
+        memories = ai_assistant.get_memories(user_id=user_id)
+        print("Memories:")
+        for memory in memories:
+            print(f"- {memory}")
+        print("-----")
+
+if __name__ == "__main__":
+    main()
+```
+</CodeGroup>
+
+
+## Key Components
+
+- **Initialization**: The `PersonalTravelAssistant` class is initialized with the OpenAI client and Mem0 memory setup.
+- **Asking Questions**: The `ask_question` method sends a question to the AI, incorporates previous memories, and stores new information.
+- **Memory Management**: The `get_memories` and search_memories methods handle retrieval and searching of stored memories.
+
+## Usage
+
+1. Set your OpenAI API key in the environment variable.
+2. Instantiate the `PersonalTravelAssistant`.
+3. Use the `main()` function to interact with the assistant in a loop.
+
+## Conclusion
+
+This Personalized AI Travel Assistant leverages Mem0's memory capabilities to provide context-aware responses. As you interact with it, the assistant learns and improves, offering increasingly personalized travel advice and information.

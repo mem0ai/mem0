@@ -1,0 +1,218 @@
+---
+title: Memory-Guided Content Writing
+---
+
+This guide demonstrates how to leverage **Mem0** to streamline content writing by applying your unique writing style and preferences using persistent memory.
+
+## Why Use Mem0?
+
+Integrating Mem0 into your writing workflow helps you:
+
+1. **Store persistent writing preferences** ensuring consistent tone, formatting, and structure.
+2. **Automate content refinement** by retrieving preferences when rewriting or reviewing content.
+3. **Scale your writing style** so it applies consistently across multiple documents or sessions.
+
+## Setup
+
+```python
+import os
+from openai import OpenAI
+from mem0 import MemoryClient
+
+os.environ["MEM0_API_KEY"] = "your-mem0-api-key"
+os.environ["OPENAI_API_KEY"] = "your-openai-api-key"
+
+
+# Set up Mem0 and OpenAI client
+client = MemoryClient()
+openai = OpenAI()
+
+USER_ID = "content_writer"
+RUN_ID = "smart_editing_session"
+```
+
+## **Storing Your Writing Preferences in Mem0**
+
+```python
+def store_writing_preferences():
+    """Store your writing preferences in Mem0."""
+    
+    preferences = """My writing preferences:
+1. Use headings and sub-headings for structure.
+2. Keep paragraphs concise (8–10 sentences max).
+3. Incorporate specific numbers and statistics.
+4. Provide concrete examples.
+5. Use bullet points for clarity.
+6. Avoid jargon and buzzwords."""
+
+    messages = [
+        {"role": "user", "content": "Here are my writing style preferences."},
+        {"role": "assistant", "content": preferences}
+    ]
+
+    response = client.add(
+        messages,
+        user_id=USER_ID,
+        run_id=RUN_ID,
+        metadata={"type": "preferences", "category": "writing_style"}
+    )
+
+    return response
+```
+
+## **Editing Content Using Stored Preferences**
+
+```python
+def apply_writing_style(original_content):
+    """Use preferences stored in Mem0 to guide content rewriting."""
+
+    results = client.search(
+        query="What are my writing style preferences?",
+        version="v2",
+        filters={
+            "AND": [
+                {
+                    "user_id": USER_ID
+                },
+                {
+                    "run_id": RUN_ID
+                }
+            ]
+        },
+    )
+
+    if not results:
+        print("No preferences found.")
+        return None
+
+    preferences = "\n".join(r["memory"] for r in results.get('results', []))
+
+    system_prompt = f"""
+You are a writing assistant.
+
+Apply the following writing style preferences to improve the user's content:
+
+Preferences:
+{preferences}
+"""
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": f"""Original Content:
+    {original_content}"""}
+    ]
+
+    response = openai.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=messages
+    )
+    clean_response = response.choices[0].message.content.strip()
+
+    return clean_response
+```
+
+## **Complete Workflow: Content Editing**
+
+```python
+def content_writing_workflow(content):
+    """Automated workflow for editing a document based on writing preferences."""
+    
+    # Store writing preferences (if not already stored)
+    store_writing_preferences()  # Ideally done once, or with a conditional check
+    
+    # Edit the document with Mem0 preferences
+    edited_content = apply_writing_style(content)
+    
+    if not edited_content:
+        return "Failed to edit document."
+    
+    # Display results
+    print("\n=== ORIGINAL DOCUMENT ===\n")
+    print(content)
+    
+    print("\n=== EDITED DOCUMENT ===\n")
+    print(edited_content)
+    
+    return edited_content
+```
+
+## **Example Usage**
+
+```python
+# Define your document
+original_content = """Project Proposal
+    
+The following proposal outlines our strategy for the Q3 marketing campaign. 
+We believe this approach will significantly increase our market share.
+
+Increase brand awareness
+Boost sales by 15%
+Expand our social media following
+
+We plan to launch the campaign in July and continue through September.
+"""
+
+# Run the workflow
+result = content_writing_workflow(original_content)
+```
+
+## **Expected Output**
+
+Your document will be transformed into a structured, well-formatted version based on your preferences.
+
+### **Original Document**
+```
+Project Proposal
+    
+The following proposal outlines our strategy for the Q3 marketing campaign. 
+We believe this approach will significantly increase our market share.
+
+Increase brand awareness
+Boost sales by 15%
+Expand our social media following
+
+We plan to launch the campaign in July and continue through September.
+```
+
+### **Edited Document**
+```
+# **Project Proposal**
+
+## **Q3 Marketing Campaign Strategy**
+
+This proposal outlines our strategy for the Q3 marketing campaign. We aim to significantly increase our market share with this approach.
+
+### **Objectives**
+
+- **Increase Brand Awareness**: Implement targeted advertising and community engagement to enhance visibility.
+- **Boost Sales by 15%**: Increase sales by 15% compared to Q2 figures.
+- **Expand Social Media Following**: Grow our social media audience by 20%.
+
+### **Timeline**
+
+- **Launch Date**: July
+- **Duration**: July – September
+
+### **Key Actions**
+
+- **Targeted Advertising**: Utilize platforms like Google Ads and Facebook to reach specific demographics.
+- **Community Engagement**: Host webinars and live Q&A sessions.
+- **Content Creation**: Produce engaging videos and infographics.
+
+### **Supporting Data**
+
+- **Previous Campaign Success**: Our Q2 campaign increased sales by 12%. We will refine similar strategies for Q3.
+- **Social Media Growth**: Last year, our Instagram followers grew by 25% during a similar campaign.
+
+### **Conclusion**
+
+We believe this strategy will effectively increase our market share. To achieve these goals, we need your support and collaboration. Let’s work together to make this campaign a success. Please review the proposal and provide your feedback by the end of the week.
+```
+
+Mem0 enables a seamless, intelligent content-writing workflow, perfect for content creators, marketers, and technical writers looking to scale their personal tone and structure across work.
+
+## Help & Resources
+
+- [Mem0 Platform](https://app.mem0.ai/)
+
+<Snippet file="get-help.mdx" />

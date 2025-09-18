@@ -1,0 +1,109 @@
+[Elasticsearch](https://www.elastic.co/) is a distributed, RESTful search and analytics engine that can efficiently store and search vector data using dense vectors and k-NN search.
+
+### Installation
+
+Elasticsearch support requires additional dependencies. Install them with:
+
+```bash
+pip install elasticsearch>=8.0.0
+```
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "elasticsearch",
+        "config": {
+            "collection_name": "mem0",
+            "host": "localhost",
+            "port": 9200,
+            "embedding_model_dims": 1536
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I’m not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+### Config
+
+Let's see the available parameters for the `elasticsearch` config:
+
+| Parameter              | Description                                        | Default Value |
+| ---------------------- | -------------------------------------------------- | ------------- |
+| `collection_name`      | The name of the index to store the vectors         | `mem0`        |
+| `embedding_model_dims` | Dimensions of the embedding model                  | `1536`        |
+| `host`                 | The host where the Elasticsearch server is running | `localhost`   |
+| `port`                 | The port where the Elasticsearch server is running | `9200`        |
+| `cloud_id`             | Cloud ID for Elastic Cloud deployment              | `None`        |
+| `api_key`              | API key for authentication                         | `None`        |
+| `user`                 | Username for basic authentication                  | `None`        |
+| `password`             | Password for basic authentication                  | `None`        |
+| `verify_certs`         | Whether to verify SSL certificates                 | `True`        |
+| `auto_create_index`    | Whether to automatically create the index          | `True`        |
+| `custom_search_query`  | Function returning a custom search query           | `None`        |
+| `headers`              | Custom headers to include in requests              | `None`        |
+
+### Features
+
+- Efficient vector search using Elasticsearch's native k-NN search
+- Support for both local and cloud deployments (Elastic Cloud)
+- Multiple authentication methods (Basic Auth, API Key)
+- Automatic index creation with optimized mappings for vector search
+- Memory isolation through payload filtering
+- Custom search query function to customize the search query
+
+### Custom Search Query
+
+The `custom_search_query` parameter allows you to customize the search query when `Memory.search` is called.  
+  
+__Example__  
+```python
+import os
+from typing import List, Optional, Dict
+from mem0 import Memory
+
+def custom_search_query(query: List[float], limit: int, filters: Optional[Dict]) -> Dict:
+    return {
+        "knn": {
+            "field": "vector", 
+            "query_vector": query, 
+            "k": limit, 
+            "num_candidates": limit * 2
+        }
+    }
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "elasticsearch",
+        "config": {
+            "collection_name": "mem0",
+            "host": "localhost",
+            "port": 9200,
+            "embedding_model_dims": 1536,
+            "custom_search_query": custom_search_query
+        }
+    }
+}
+```
+It should be a function that takes the following parameters:
+- `query`: a query vector used in `Memory.search`
+- `limit`: a number of results used in `Memory.search`
+- `filters`: a dictionary of key-value pairs used in `Memory.search`. You can add custom pairs for the custom search query.  
+  
+The function should return a query body for the Elasticsearch search API.

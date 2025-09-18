@@ -1,0 +1,73 @@
+You can use embedding models from Ollama to run Mem0 locally.
+
+### Usage
+
+<CodeGroup>
+```python Python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your_api_key" # For LLM
+
+config = {
+    "embedder": {
+        "provider": "ollama",
+        "config": {
+            "model": "mxbai-embed-large"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="john")
+```
+
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  embedder: {
+    provider: 'ollama',
+    config: {
+      model: 'nomic-embed-text:latest', // or any other Ollama embedding model
+      url: 'http://localhost:11434', // Ollama server URL
+    },
+  },
+};
+
+const memory = new Memory(config);
+const messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+await memory.add(messages, { userId: "john" });
+```
+</CodeGroup>
+
+### Config
+
+Here are the parameters available for configuring Ollama embedder:
+
+<Tabs>
+<Tab title="Python">
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `model` | The name of the Ollama model to use | `nomic-embed-text` |
+| `embedding_dims` | Dimensions of the embedding model | `512` |
+| `ollama_base_url` | Base URL for ollama connection | `None` |
+</Tab>
+<Tab title="TypeScript">
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `model` | The name of the Ollama model to use | `nomic-embed-text:latest` |
+| `url` | Base URL for Ollama server | `http://localhost:11434` |
+</Tab>
+</Tabs>
