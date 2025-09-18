@@ -35,13 +35,56 @@ messages = [
 ]
 m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
+
+```typescript TypeScript
+import { Memory } from "mem0ai/oss";
+import type { MemoryConfig } from "mem0ai/oss";
+
+// Set your OpenAI API key for embeddings
+process.env.OPENAI_API_KEY = "your-api-key";
+
+const config: MemoryConfig = {
+  llm: {
+    provider: "lmstudio",
+    config: {
+      model: "llama-3.2-1b-instruct", // or any model loaded in LMStudio
+      baseUrl: "http://localhost:1234/v1", // default LM Studio API URL
+    },
+  },
+  embedder: {
+    provider: "openai", // Using OpenAI for embeddings
+    config: {
+      apiKey: process.env.OPENAI_API_KEY,
+      model: "text-embedding-3-small",
+    },
+  },
+  vectorStore: {
+    provider: "memory",
+    config: {
+      collectionName: "lmstudio-memories",
+    },
+  },
+};
+
+const memory = new Memory(config);
+
+const messages = [
+  { role: "user", content: "I'm planning to watch a movie tonight. Any recommendations?" },
+  { role: "assistant", content: "How about a thriller movies? They can be quite engaging." },
+  { role: "user", content: "I'm not a big fan of thriller movies but I love sci-fi movies." },
+  { role: "assistant", content: "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future." },
+];
+
+await memory.add(messages, { userId: "alice", metadata: { category: "movies" } });
+```
 </CodeGroup>
 
 ### Running Completely Locally
 
 You can also use LM Studio for both LLM and embedding to run Mem0 entirely locally:
 
-```python
+<CodeGroup>
+```python Python
 from mem0 import Memory
 
 # No external API keys needed!
@@ -64,6 +107,47 @@ messages = [
 m.add(messages, user_id="alice123", metadata={"category": "movies"})
 ```
 
+```typescript TypeScript
+import { Memory } from "mem0ai/oss";
+import type { MemoryConfig } from "mem0ai/oss";
+
+// No external API keys needed!
+const config: MemoryConfig = {
+  llm: {
+    provider: "lmstudio",
+    config: {
+      model: "llama-3.2-1b-instruct", // your loaded LLM model
+      baseUrl: "http://localhost:1234/v1",
+    },
+  },
+  embedder: {
+    provider: "lmstudio", // Note: Make sure you have an embedding model loaded in LMStudio
+    config: {
+      baseUrl: "http://localhost:1234/v1",
+      model: "nomic-ai/nomic-embed-text-v1.5-GGUF", // example embedding model
+    },
+  },
+  vectorStore: {
+    provider: "memory",
+    config: {
+      collectionName: "local-memories",
+    },
+  },
+};
+
+const memory = new Memory(config);
+
+const messages = [
+  { role: "user", content: "I'm planning to watch a movie tonight. Any recommendations?" },
+  { role: "assistant", content: "How about a thriller movies? They can be quite engaging." },
+  { role: "user", content: "I'm not a big fan of thriller movies but I love sci-fi movies." },
+  { role: "assistant", content: "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future." },
+];
+
+await memory.add(messages, { userId: "alice123", metadata: { category: "movies" } });
+```
+</CodeGroup>
+
 <Note>
   When using LM Studio for both LLM and embedding, make sure you have:
   1. An LLM model loaded for generating responses
@@ -75,7 +159,8 @@ m.add(messages, user_id="alice123", metadata={"category": "movies"})
   To use LM Studio, you need to:
   1. Download and install [LM Studio](https://lmstudio.ai/)
   2. Start a local server from the "Server" tab
-  3. Set the appropriate `lmstudio_base_url` in your configuration (default is usually http://localhost:1234/v1)
+  3. Set the appropriate `lmstudio_base_url` (Python) or `baseUrl` (TypeScript) in your configuration (default is usually http://localhost:1234/v1)
+  4. For TypeScript: Install the LM Studio SDK as a peer dependency: `npm install @lmstudio/sdk`
 </Note>
 
 ## Config
