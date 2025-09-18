@@ -41,7 +41,7 @@ import { Memory } from "mem0ai/oss";
 import type { MemoryConfig } from "mem0ai/oss";
 
 // Set your OpenAI API key for embeddings
-process.env.OPENAI_API_KEY = "your-api-key";
+const openaiApiKey = "your-api-key";
 
 const config: MemoryConfig = {
   llm: {
@@ -54,7 +54,7 @@ const config: MemoryConfig = {
   embedder: {
     provider: "openai", // Using OpenAI for embeddings
     config: {
-      apiKey: process.env.OPENAI_API_KEY,
+      apiKey: openaiApiKey,
       model: "text-embedding-3-small",
     },
   },
