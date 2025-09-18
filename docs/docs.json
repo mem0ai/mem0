@@ -188,6 +188,7 @@
                           "components/embedders/models/google_AI",
                           "components/embedders/models/lmstudio",
                           "components/embedders/models/together",
+                          "components/embedders/models/vllm",
                           "components/embedders/models/langchain",
                           "components/embedders/models/aws_bedrock"
                         ]
