@@ -80,8 +80,13 @@ def test_initialization_uses_existing_resources(mock_boto_client):
     mock_boto_client.create_index.assert_not_called()
 
 
-def test_memory_initialization_with_config(mock_llm, mock_embedder):
+def test_memory_initialization_with_config(mock_boto_client, mock_llm, mock_embedder):
+    """Test Memory initialization with S3Vectors from config."""
+
     # check that Attribute error is not raised
+    mock_boto_client.get_vector_bucket.return_value = {}
+    mock_boto_client.get_index.return_value = {}
+
     config = {
         "vector_store": {
             "provider": "s3_vectors",
