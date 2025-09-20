@@ -31,6 +31,7 @@ import { AzureOpenAIEmbedder } from "../embeddings/azure";
 import { LangchainLLM } from "../llms/langchain";
 import { LangchainEmbedder } from "../embeddings/langchain";
 import { LangchainVectorStore } from "../vector_stores/langchain";
+import { LMStudioLLM } from "../llms/lmstudio";
 
 export class EmbedderFactory {
   static create(provider: string, config: EmbeddingConfig): Embedder {
@@ -74,6 +75,8 @@ export class LLMFactory {
         return new MistralLLM(config);
       case "langchain":
         return new LangchainLLM(config);
+      case "lmstudio":
+        return new LMStudioLLM(config);
       default:
         throw new Error(`Unsupported LLM provider: ${provider}`);
     }
