@@ -101,7 +101,7 @@
     "@cloudflare/workers-types": "^4.20250504.0",
     "@google/genai": "^1.2.0",
     "@langchain/core": "^0.3.44",
-    "@lmstudio/sdk": "^1.0.0",
+    "@lmstudio/sdk": "^1.5.0",
     "@mistralai/mistralai": "^1.5.2",
     "@qdrant/js-client-rest": "1.13.0",
     "@supabase/supabase-js": "^2.49.1",

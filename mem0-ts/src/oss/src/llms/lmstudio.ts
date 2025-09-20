@@ -10,10 +10,7 @@ export class LMStudioLLM implements LLM {
   private initialized: boolean = false;
 
   constructor(config: LLMConfig) {
-    this.client = new LMStudioClient({
-      baseUrl:
-        config.config?.baseUrl || config.baseURL || "http://localhost:1234/v1",
-    });
+    this.client = new LMStudioClient();
     this.model = config.model || "llama-3.2-1b-instruct";
     this.initializeModel();
   }
