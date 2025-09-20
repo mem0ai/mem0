@@ -193,7 +193,7 @@ def get_default_memory_config():
             "url": milvus_url,
             "token": os.environ.get('MILVUS_TOKEN', ''),  # Always include, empty string for local setup
             "db_name": os.environ.get('MILVUS_DB_NAME', ''),
-            "embedding_model_dims": 1536,
+            "embedding_model_dims": get_embedding_dimensions("text-embedding-3-small"),  # Will be updated based on actual config
             "metric_type": "COSINE"  # Using COSINE for better semantic similarity
         }
     elif os.environ.get('ELASTICSEARCH_HOST') and os.environ.get('ELASTICSEARCH_PORT'):
@@ -211,7 +211,7 @@ def get_default_memory_config():
             "password": os.environ.get('ELASTICSEARCH_PASSWORD', 'changeme'),
             "verify_certs": False,
             "use_ssl": False,
-            "embedding_model_dims": 1536
+            "embedding_model_dims": get_embedding_dimensions("text-embedding-3-small")  # Will be updated based on actual config
         })
     elif os.environ.get('OPENSEARCH_HOST') and os.environ.get('OPENSEARCH_PORT'):
         vector_store_provider = "opensearch"
@@ -224,7 +224,7 @@ def get_default_memory_config():
         vector_store_config = {
             "collection_name": "openmemory",
             "path": os.environ.get('FAISS_PATH'),
-            "embedding_model_dims": 1536,
+            "embedding_model_dims": get_embedding_dimensions("text-embedding-3-small"),  # Will be updated based on actual config
             "distance_strategy": "cosine"
         }
     else:
@@ -259,6 +259,93 @@ def get_default_memory_config():
         },
         "version": "v1.1"
     }
+
+
+def get_embedding_dimensions(model_name: str, ollama_base_url: str = None) -> int:
+    """
+    Get the embedding dimensions for a given model.
+    For Ollama models, query the API dynamically. For others, use static mapping.
+    
+    Args:
+        model_name: The embedding model name
+        ollama_base_url: Ollama API base URL (if applicable)
+        
+    Returns:
+        int: The number of dimensions for the model
+    """
+    # Try to get dimensions from Ollama API first if base URL is provided
+    if ollama_base_url and (":" in model_name or model_name in ["nomic-embed-text", "all-minilm", "mxbai-embed-large"]):
+        try:
+            import requests
+            import json
+            
+            # Clean the base URL
+            base_url = ollama_base_url.rstrip('/')
+            
+            # Query model info from Ollama
+            response = requests.get(f"{base_url}/api/show", 
+                                  json={"name": model_name}, 
+                                  timeout=5)
+            
+            if response.status_code == 200:
+                model_info = response.json()
+                # Try to extract dimensions from model info
+                if 'details' in model_info:
+                    details = model_info['details']
+                    
+                    # Common places where embedding dimensions might be stored
+                    if 'embedding_length' in details:
+                        return int(details['embedding_length'])
+                    elif 'parameters' in details:
+                        params = details['parameters']
+                        if 'embedding_size' in params:
+                            return int(params['embedding_size'])
+                        elif 'hidden_size' in params:
+                            return int(params['hidden_size'])
+                
+                # If not found in details, try the modelinfo
+                if 'modelinfo' in model_info:
+                    modelinfo = model_info['modelinfo']
+                    # Parse modelinfo for architecture details that might contain dimensions
+                    for key, value in modelinfo.items():
+                        if 'embed' in key.lower() and 'size' in key.lower():
+                            try:
+                                return int(value)
+                            except (ValueError, TypeError):
+                                pass
+                
+                print(f"Successfully queried Ollama API but couldn't find dimensions for {model_name}, using fallback")
+            else:
+                print(f"Failed to query Ollama API for {model_name}: HTTP {response.status_code}")
+                
+        except Exception as e:
+            print(f"Error querying Ollama API for {model_name}: {e}")
+    
+    # Fallback to static mapping
+    dimension_map = {
+        # OpenAI models
+        "text-embedding-3-small": 768,
+        "text-embedding-3-large": 1536,
+        "text-embedding-ada-002": 1536,
+        
+        # Ollama models (common defaults - will be overridden by API query if available)
+        "nomic-embed-text": 768,
+        "nomic-embed-text:latest": 768,
+        "all-minilm:l6-v2": 384,
+        "all-minilm": 384,
+        "mxbai-embed-large": 1024,
+        "mxbai-embed-large:latest": 1024,
+        
+        # Hugging Face models (common ones)
+        "sentence-transformers/all-MiniLM-L6-v2": 384,
+        "sentence-transformers/all-mpnet-base-v2": 768,
+        "sentence-transformers/multi-qa-MiniLM-L6-cos-v1": 384,
+        
+        # Default fallback
+        "default": 768
+    }
+    
+    return dimension_map.get(model_name, dimension_map["default"])
 
 
 def _parse_environment_variables(config_dict):
@@ -361,6 +448,32 @@ def get_memory_client(custom_instructions: str = None):
         # This ensures that even default config values like "env:OPENAI_API_KEY" get parsed
         print("Parsing environment variables in final config...")
         config = _parse_environment_variables(config)
+        
+        # Update vector store dimensions based on embedder configuration
+        if "embedder" in config and "vector_store" in config:
+            embedder_config = config["embedder"]
+            vector_store_config = config["vector_store"]
+            
+            # Get embedder model and Ollama URL if applicable
+            embedder_model = embedder_config.get("config", {}).get("model", "text-embedding-3-small")
+            ollama_url = None
+            
+            # Extract Ollama URL if embedder is using Ollama
+            if embedder_config.get("provider") == "ollama":
+                ollama_url = embedder_config.get("config", {}).get("ollama_base_url")
+            
+            # Get dynamic dimensions
+            embedding_dims = get_embedding_dimensions(embedder_model, ollama_url)
+            print(f"Detected embedding dimensions for model '{embedder_model}': {embedding_dims}")
+            
+            # Update vector store config if it has embedding_model_dims parameter
+            if vector_store_config.get("provider") in ["milvus", "elasticsearch", "faiss"]:
+                if "config" in vector_store_config:
+                    vector_store_config["config"]["embedding_model_dims"] = embedding_dims
+                    print(f"Updated {vector_store_config['provider']} embedding_model_dims to {embedding_dims}")
+            
+            # For Qdrant, we could add explicit dimension if needed (though Qdrant auto-detects)
+            # This would require custom Qdrant collection creation logic
 
         # Check if config has changed by comparing hashes
         current_config_hash = _get_config_hash(config)
