@@ -5,17 +5,13 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 class S3VectorsConfig(BaseModel):
     vector_bucket_name: str = Field(description="Name of the S3 Vector bucket")
-    index_name: str = Field("mem0", description="Name of the vector index")
-    embedding_model_dims: int = Field(
-        1536, description="Dimension of the embedding vector"
-    )
+    collection_name: str = Field("mem0", description="Name of the vector index")
+    embedding_model_dims: int = Field(1536, description="Dimension of the embedding vector")
     distance_metric: str = Field(
         "cosine",
         description="Distance metric for similarity search. Options: 'cosine', 'euclidean'",
     )
-    region_name: Optional[str] = Field(
-        None, description="AWS region for the S3 Vectors client"
-    )
+    region_name: Optional[str] = Field(None, description="AWS region for the S3 Vectors client")
 
     @model_validator(mode="before")
     @classmethod
