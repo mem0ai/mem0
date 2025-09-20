@@ -19,6 +19,9 @@ importers:
       "@langchain/core":
         specifier: ^0.3.44
         version: 0.3.44(openai@4.93.0(encoding@0.1.13)(ws@8.18.1)(zod@3.24.2))
+      "@lmstudio/sdk":
+        specifier: ^1.0.0
+        version: 1.5.0
       "@mistralai/mistralai":
         specifier: ^1.5.2
         version: 1.5.2(zod@3.24.2)
@@ -93,7 +96,7 @@ importers:
         specifier: ^3.5.2
         version: 3.5.2
       rimraf:
-        specifier: ^5.0.5
+        specifier: ^5.0.10
         version: 5.0.10
       ts-jest:
         specifier: ^29.2.6
@@ -825,6 +828,18 @@ packages:
         integrity: sha512-3BsSFf7STvPPZyl2kMANgtVnCUvDdyP4k+koP+nY2Tczd5V+RFkuazIn/JOj/xxy/neZjr4PxFU4BFyF1aKXOA==,
       }
     engines: { node: ">=18" }
+
+  "@lmstudio/lms-isomorphic@0.4.6":
+    resolution:
+      {
+        integrity: sha512-v0LIjXKnDe3Ff3XZO5eQjlVxTjleUHXaom14MV7QU9bvwaoo3l5p71+xJ3mmSaqZq370CQ6pTKCn1Bb7Jf+VwQ==,
+      }
+
+  "@lmstudio/sdk@1.5.0":
+    resolution:
+      {
+        integrity: sha512-fdY12x4hb14PEjYijh7YeCqT1ZDY5Ok6VR4l4+E/dI+F6NW8oB+P83Sxed5vqE4XgTzbgyPuSR2ZbMNxxF+6jA==,
+      }
 
   "@mistralai/mistralai@1.5.2":
     resolution:
@@ -3247,6 +3262,12 @@ packages:
       }
     engines: { node: ">=6" }
     hasBin: true
+
+  jsonschema@1.5.0:
+    resolution:
+      {
+        integrity: sha512-K+A9hhqbn0f3pJX17Q/7H6yQfD/5OXgdrR5UE12gMXCiN9D5Xq2o5mddV2QEcX/bjla99ASsAAQUyMCCRWAEhw==,
+      }
 
   jwa@2.0.0:
     resolution:
@@ -5802,6 +5823,24 @@ snapshots:
     transitivePeerDependencies:
       - openai
 
+  "@lmstudio/lms-isomorphic@0.4.6":
+    dependencies:
+      ws: 8.18.1
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+
+  "@lmstudio/sdk@1.5.0":
+    dependencies:
+      "@lmstudio/lms-isomorphic": 0.4.6
+      chalk: 4.1.2
+      jsonschema: 1.5.0
+      zod: 3.24.2
+      zod-to-json-schema: 3.24.5(zod@3.24.2)
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+
   "@mistralai/mistralai@1.5.2(zod@3.24.2)":
     dependencies:
       zod: 3.24.2
@@ -7463,6 +7502,8 @@ snapshots:
   json-schema-traverse@0.4.1: {}
 
   json5@2.2.3: {}
+
+  jsonschema@1.5.0: {}
 
   jwa@2.0.0:
     dependencies:
