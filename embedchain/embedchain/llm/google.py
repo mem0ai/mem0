@@ -32,7 +32,6 @@ class GoogleLlm(BaseLlm):
     def _get_answer(self, prompt: str) -> Union[str, Generator[Any, Any, None]]:
         model_name = self.config.model or "gemini-2.5-flash"
         logger.info(f"Using Google LLM model: {model_name}")
-        
         generation_config = {
             "candidate_count": 1,
              "max_output_tokens": self.config.max_tokens,
@@ -43,29 +42,25 @@ class GoogleLlm(BaseLlm):
             generation_config["top_p"] = self.config.top_p
         else:
             raise ValueError("`top_p` must be > 0.0 and < 1.0")
-        
         if self.config.system_prompt:
             generation_config["system_prompt"] = self.config.system_prompt
 
-        config = types.GenerateContentConfig(**generation_config)  
-        """ types.GenerateContentConfig(
-                 thinking_config=types.ThinkingConfig(thinking_budget=0) # Disables thinking
-            ),
-            By defualt thinking is enabled. Need to implement a config option to enable/disable it.
-        """
-
-        response = self.client.models.generate_content(
-            model=model_name,
-            contents=prompt,
-            config=config,
-        )
+        config = types.GenerateContentConfig(**generation_config)
 
         if self.config.stream:
             response = self.client.models.generate_content_stream(
+                model=model_name, contents=prompt, config=config, 
+            )
+
+            def stream_generator():
+                for chunk in response:
+                    yield chunk.text
+
+            return stream_generator()
+        else:
+            response = self.client.models.generate_content(
                 model=model_name,
                 contents=prompt,
                 config=config,
             )
-            
-        else:
             return response.text
