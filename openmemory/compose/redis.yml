@@ -1,5 +1,5 @@
 services:
-  mem0_store:
+  mem0-store:
     image: redis/redis-stack-server:latest
     restart: unless-stopped
     ports:
