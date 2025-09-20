@@ -25,14 +25,14 @@ class S3Vectors(VectorStoreBase):
     def __init__(
         self,
         vector_bucket_name: str,
-        index_name: str,
+        collection_name: str,
         embedding_model_dims: int,
         distance_metric: str = "cosine",
         region_name: Optional[str] = None,
     ):
         self.client = boto3.client("s3vectors", region_name=region_name)
         self.vector_bucket_name = vector_bucket_name
-        self.collection_name = index_name
+        self.collection_name = collection_name
         self.embedding_model_dims = embedding_model_dims
         self.distance_metric = distance_metric
 
