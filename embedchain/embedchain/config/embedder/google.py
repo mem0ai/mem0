@@ -15,5 +15,5 @@ class GoogleAIEmbedderConfig(BaseEmbedderConfig):
         title: Optional[str] = None,
     ):
         super().__init__(model, deployment_name, vector_dimension)
-        self.task_type = task_type or "retrieval_document"
+        self.task_type = task_type or "RETRIEVAL_DOCUMENT"
         self.title = title or "Embeddings for Embedchain"
