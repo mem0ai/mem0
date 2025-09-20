@@ -127,7 +127,6 @@ psycopg = { version = "^3.1.12", optional = true }
 psycopg-binary = { version = "^3.1.12", optional = true }
 psycopg-pool = { version = "^3.1.8", optional = true }
 mysql-connector-python = { version = "^8.1.0", optional = true }
-google-generativeai = { version = "^0.3.0", optional = true }
 google-genai = { version = "^1.38.0", optional = true }
 google-api-python-client = { version = "^2.111.0", optional = true }
 google-auth-oauthlib = { version = "^1.2.0", optional = true }
