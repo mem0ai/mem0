@@ -609,6 +609,10 @@ class Memory(MemoryBase):
             if isinstance(memories_result, (tuple, list)) and len(memories_result) > 0
             else memories_result
         )
+        
+        # Ensure actual_memories is always a list
+        if not isinstance(actual_memories, list):
+            actual_memories = [actual_memories]
 
         promoted_payload_keys = [
             "user_id",
@@ -621,19 +625,36 @@ class Memory(MemoryBase):
 
         formatted_memories = []
         for mem in actual_memories:
+            # Handle both ScoredPoint objects and dict-like objects
+            if hasattr(mem, 'id') and hasattr(mem, 'payload'):
+                # Standard ScoredPoint object
+                mem_id = mem.id
+                mem_payload = mem.payload
+            elif isinstance(mem, dict):
+                # Dict-based memory item
+                mem_id = mem.get('id', str(mem))
+                mem_payload = mem.get('payload', mem)
+            else:
+                # Fallback: try to get id from the memory object
+                mem_id = getattr(mem, 'id', str(mem))
+                mem_payload = getattr(mem, 'payload', mem)
+                # Ensure mem_payload is a dict
+                if not isinstance(mem_payload, dict):
+                    mem_payload = {}
+            
             memory_item_dict = MemoryItem(
-                id=mem.id,
-                memory=mem.payload["data"],
-                hash=mem.payload.get("hash"),
-                created_at=mem.payload.get("created_at"),
-                updated_at=mem.payload.get("updated_at"),
+                id=mem_id,
+                memory=mem_payload.get("data", ""),
+                hash=mem_payload.get("hash"),
+                created_at=mem_payload.get("created_at"),
+                updated_at=mem_payload.get("updated_at"),
             ).model_dump(exclude={"score"})
 
             for key in promoted_payload_keys:
-                if key in mem.payload:
-                    memory_item_dict[key] = mem.payload[key]
+                if key in mem_payload:
+                    memory_item_dict[key] = mem_payload[key]
 
-            additional_metadata = {k: v for k, v in mem.payload.items() if k not in core_and_promoted_keys}
+            additional_metadata = {k: v for k, v in mem_payload.items() if k not in core_and_promoted_keys}
             if additional_metadata:
                 memory_item_dict["metadata"] = additional_metadata
 
