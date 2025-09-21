@@ -20,7 +20,7 @@ pip install mem0ai
 ### Initialize Mem0
 
 <Tabs>
-  <Tab title="Basic">
+  <Tab title="Basic (OpenAI)">
 ```python
 import os
 from mem0 import Memory
@@ -28,6 +28,42 @@ from mem0 import Memory
 os.environ["OPENAI_API_KEY"] = "your-api-key"
 
 m = Memory()
+```
+  </Tab>
+  <Tab title="Using Other Models (e.g., Gemini)">
+```python
+import os
+from mem0 import Memory
+
+# Set the API key for your chosen provider
+os.environ["GOOGLE_API_KEY"] = "your-google-api-key"
+
+# To use non-default models, you must provide a configuration.
+# This ensures the LLM, Embedder, and Vector Store all work together.
+config = {
+    "llm": {
+        "provider": "gemini",
+        "config": {
+            "model": "gemini-1.5-flash",
+        }
+    },
+    "embedder": {
+        "provider": "gemini",
+        "config": {
+            "model": "models/text-embedding-004",
+        }
+    },
+    "vector_store": {
+        "provider": "qdrant", # The default vector store
+        "config": {
+            # This must match the dimension of your embedding model.
+            # Gemini's text-embedding-004 has a dimension of 768.
+            "embedding_model_dims": 768
+        }
+    }
+}
+
+m = Memory.from_config(config)
 ```
   </Tab>
   <Tab title="Async">
