@@ -23,8 +23,20 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/pnpm-lock.yaml ./pnpm-lock.yaml
 COPY . .
 
+# Accept build arguments for environment variables
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_API_URL_HTTP
+ARG NEXT_PUBLIC_USER_ID
+ARG BUILD_DATE
+
+# Set environment variables for build
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL_HTTP=$NEXT_PUBLIC_API_URL_HTTP
+ENV NEXT_PUBLIC_USER_ID=$NEXT_PUBLIC_USER_ID
+ENV BUILD_DATE=$BUILD_DATE
+
 RUN cp next.config.dev.mjs next.config.mjs
-RUN cp .env.example .env
+# Don't copy .env.example since we're using build args
 RUN pnpm build
 
 FROM base AS runner

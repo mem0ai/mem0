@@ -36,13 +36,13 @@ from mcp.server.sse import SseServerTransport
 load_dotenv()
 
 # Initialize MCP
-mcp = FastMCP("mem0-mcp-server")
+mcp = FastMCP(name="mem0-mcp-server")
 
 # Don't initialize memory client at import time - do it lazily when needed
-def get_memory_client_safe():
+async def get_memory_client_safe():
     """Get memory client with error handling. Returns None if client cannot be initialized."""
     try:
-        return get_memory_client()
+        return await get_memory_client()
     except Exception as e:
         logging.warning(f"Failed to get memory client: {e}")
         return None
@@ -68,7 +68,7 @@ async def add_memories(text: str) -> str:
         return "Error: client_name not provided"
 
     # Get memory client safely
-    memory_client = get_memory_client_safe()
+    memory_client = await get_memory_client_safe()
     if not memory_client:
         return "Error: Memory system is currently unavailable. Please try again later."
 
@@ -82,13 +82,13 @@ async def add_memories(text: str) -> str:
             if not app.is_active:
                 return f"Error: App {app.name} is currently paused on OpenMemory. Cannot create new memories."
 
-            response = memory_client.add(text,
+                response = await memory_client.add(text,
                                          user_id=uid,
                                          metadata={
                                             "source_app": "openmemory",
                                             "mcp_client": client_name,
                                         })
-
+            
             # Process the response and update database
             if isinstance(response, dict) and 'results' in response:
                 for result in response['results']:
@@ -151,7 +151,7 @@ async def search_memory(query: str) -> str:
         return "Error: client_name not provided"
 
     # Get memory client safely
-    memory_client = get_memory_client_safe()
+    memory_client = await get_memory_client_safe()
     if not memory_client:
         return "Error: Memory system is currently unavailable. Please try again later."
 
@@ -229,7 +229,7 @@ async def list_memories() -> str:
         return "Error: client_name not provided"
 
     # Get memory client safely
-    memory_client = get_memory_client_safe()
+    memory_client = await get_memory_client_safe()
     if not memory_client:
         return "Error: Memory system is currently unavailable. Please try again later."
 
@@ -298,7 +298,7 @@ async def delete_memories(memory_ids: list[str]) -> str:
         return "Error: client_name not provided"
 
     # Get memory client safely
-    memory_client = get_memory_client_safe()
+    memory_client = await get_memory_client_safe()
     if not memory_client:
         return "Error: Memory system is currently unavailable. Please try again later."
 
@@ -322,7 +322,7 @@ async def delete_memories(memory_ids: list[str]) -> str:
             # Delete from vector store
             for memory_id in ids_to_delete:
                 try:
-                    memory_client.delete(str(memory_id))
+                    await memory_client.delete(str(memory_id))
                 except Exception as delete_error:
                     logging.warning(f"Failed to delete memory {memory_id} from vector store: {delete_error}")
 
@@ -372,7 +372,7 @@ async def delete_all_memories() -> str:
         return "Error: client_name not provided"
 
     # Get memory client safely
-    memory_client = get_memory_client_safe()
+    memory_client = await get_memory_client_safe()
     if not memory_client:
         return "Error: Memory system is currently unavailable. Please try again later."
 
@@ -388,7 +388,7 @@ async def delete_all_memories() -> str:
             # delete the accessible memories only
             for memory_id in accessible_memory_ids:
                 try:
-                    memory_client.delete(str(memory_id))
+                    await memory_client.delete(str(memory_id))
                 except Exception as delete_error:
                     logging.warning(f"Failed to delete memory {memory_id} from vector store: {delete_error}")
 

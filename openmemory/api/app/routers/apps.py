@@ -1,8 +1,10 @@
-from typing import Optional
+import logging
+from typing import Optional, List
 from uuid import UUID
+from pydantic import BaseModel
 
 from app.database import get_db
-from app.models import App, Memory, MemoryAccessLog, MemoryState
+from app.models import App, Memory, MemoryAccessLog, MemoryState, User
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import desc, func
 from sqlalchemy.orm import Session, joinedload
@@ -221,3 +223,97 @@ async def update_app_details(
     app.is_active = is_active
     db.commit()
     return {"status": "success", "message": "Updated app details successfully"}
+
+
+class DeleteAppRequest(BaseModel):
+    user_id: str
+    action: str  # "delete_memories" or "move_memories"
+    target_app_id: Optional[str] = None  # Changed to str to handle UUID strings from frontend
+
+
+@router.delete("/{app_id}")
+async def delete_app(
+    app_id: UUID,
+    request: DeleteAppRequest,
+    db: Session = Depends(get_db)
+):
+    """Delete an app and handle its memories"""
+    try:
+        # Validate user
+        user = db.query(User).filter(User.user_id == request.user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Validate app ownership
+        app = db.query(App).filter(
+            App.id == app_id,
+            App.owner_id == user.id
+        ).first()
+        if not app:
+            raise HTTPException(status_code=404, detail="App not found")
+        
+        message = ""
+        if request.action == "delete_memories":
+
+             # Get all memories for this app
+            memories = db.query(Memory).filter(
+                Memory.app_id == app_id,
+                # Memory.user_id == user.id,
+                Memory.state != MemoryState.deleted
+            ).all()
+        
+            memory_count = len(memories)
+            # Delete all memories
+            for memory in memories:
+                router.update_memory_state(db, memory.id, MemoryState.deleted, user.id)
+            
+            # Mark the app as inactive instead of deleting it
+            app.is_active = False
+            
+            # Commit all changes
+            try:
+                db.commit()
+            except Exception as e:
+                db.rollback()
+                raise HTTPException(status_code=500, detail=f"Failed to commit changes: {str(e)}")
+            
+            message = f"Successfully deleted app '{app.name}' and {memory_count} memories"
+
+        elif request.action == "move_memories":
+            if not request.target_app_id:
+                raise HTTPException(status_code=400, detail="target_app_id is required for move_memories action")
+
+             # Get all memories for this app
+            memories = db.query(Memory).filter(
+                Memory.app_id == app_id,
+                # Memory.user_id == user.id,
+            ).all()
+            router.move_memories_to_app(app_id, request, db)            
+            # Move all memories to target app
+            message = f"Successfully moved {memory_count} memories to '{request.target_app_id}'"
+        else:
+            logging.error(f"Invalid action: {request.action}")
+            raise HTTPException(status_code=400, detail="Invalid action. Must be 'delete_memories' or 'move_memories'")
+    
+        # Mark the app as inactive instead of deleting it
+        app.is_active = False
+        
+        # Commit the app deactivation
+        try:
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Failed to deactivate app: {str(e)}")
+        
+        return {
+            "status": "success",
+            "message": message,
+            "moved_memories": memory_count,
+            "target_app_name": request.target_id
+        }
+        
+        
+    except Exception as e:
+        logging.error(f"Unexpected error in delete_app: {str(e)}", exc_info=True)
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")

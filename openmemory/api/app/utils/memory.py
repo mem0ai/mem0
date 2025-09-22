@@ -35,7 +35,7 @@ import socket
 from app.database import SessionLocal
 from app.models import Config as ConfigModel
 
-from mem0 import Memory
+from mem0 import Memory, AsyncMemory
 
 _memory_client = None
 _config_hash = None
@@ -286,7 +286,7 @@ def _parse_environment_variables(config_dict):
     return config_dict
 
 
-def get_memory_client(custom_instructions: str = None):
+async def get_memory_client(custom_instructions: str = None):
     """
     Get or initialize the Mem0 client.
 
@@ -369,7 +369,8 @@ def get_memory_client(custom_instructions: str = None):
         if _memory_client is None or _config_hash != current_config_hash:
             print(f"Initializing memory client with config hash: {current_config_hash}")
             try:
-                _memory_client = Memory.from_config(config_dict=config)
+                print("Initializing ASYNC memory client")
+                _memory_client = await AsyncMemory.from_config(config_dict=config)          
                 _config_hash = current_config_hash
                 print("Memory client initialized successfully")
             except Exception as init_error:
