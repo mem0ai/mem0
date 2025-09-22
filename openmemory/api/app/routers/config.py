@@ -6,24 +6,29 @@ from app.utils.memory import reset_memory_client
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+# Import mem0 config classes for reference, but we'll create Pydantic models that match their structure
 
 router = APIRouter(prefix="/api/v1/config", tags=["config"])
 
+# Pydantic models that match mem0's config structure exactly
 class LLMConfig(BaseModel):
-    model: str = Field(..., description="LLM model name")
-    temperature: float = Field(..., description="Temperature setting for the model")
-    max_tokens: int = Field(..., description="Maximum tokens to generate")
-    api_key: Optional[str] = Field(None, description="API key or 'env:API_KEY' to use environment variable")
-    ollama_base_url: Optional[str] = Field(None, description="Base URL for Ollama server (e.g., http://host.docker.internal:11434)")
+    """Matches mem0.configs.llms.openai.OpenAIConfig structure"""
+    model: Optional[str] = Field(None, description="LLM model name")
+    temperature: float = Field(0.1, description="Temperature for LLM responses")
+    api_key: Optional[str] = Field(None, description="API key for LLM provider")
+    max_tokens: int = Field(2000, description="Maximum tokens for LLM responses")
+    openai_base_url: Optional[str] = Field(None, description="Base URL for OpenAI-compatible API")
 
 class LLMProvider(BaseModel):
     provider: str = Field(..., description="LLM provider name")
     config: LLMConfig
 
 class EmbedderConfig(BaseModel):
-    model: str = Field(..., description="Embedder model name")
-    api_key: Optional[str] = Field(None, description="API key or 'env:API_KEY' to use environment variable")
-    ollama_base_url: Optional[str] = Field(None, description="Base URL for Ollama server (e.g., http://host.docker.internal:11434)")
+    """Matches mem0.configs.embeddings.base.BaseEmbedderConfig structure"""
+    model: Optional[str] = Field(None, description="Embedder model name")
+    api_key: Optional[str] = Field(None, description="API key for embedder provider")
+    openai_base_url: Optional[str] = Field(None, description="Base URL for OpenAI-compatible API")
+    embedding_dims: Optional[int] = Field(1536, description="Dimensions of the embedding model")
 
 class EmbedderProvider(BaseModel):
     provider: str = Field(..., description="Embedder provider name")
@@ -34,6 +39,13 @@ class VectorStoreProvider(BaseModel):
     # Below config can vary widely based on the vector store used. Refer https://docs.mem0.ai/components/vectordbs/config
     config: Dict[str, Any] = Field(..., description="Vector store-specific configuration")
 
+class GraphStoreConfig(BaseModel):
+    """Matches mem0.graphs.configs.GraphStoreConfig structure"""
+    provider: str = Field("neo4j", description="Provider of the data store")
+    config: Optional[Dict[str, Any]] = Field(None, description="Configuration for the specific data store")
+    llm: Optional[LLMProvider] = Field(None, description="LLM configuration for querying the graph store")
+    custom_prompt: Optional[str] = Field(None, description="Custom prompt to fetch entities from the given text")
+
 class OpenMemoryConfig(BaseModel):
     custom_instructions: Optional[str] = Field(None, description="Custom instructions for memory management and fact extraction")
 
@@ -41,13 +53,14 @@ class Mem0Config(BaseModel):
     llm: Optional[LLMProvider] = None
     embedder: Optional[EmbedderProvider] = None
     vector_store: Optional[VectorStoreProvider] = None
+    graph_store: Optional[GraphStoreConfig] = None
 
 class ConfigSchema(BaseModel):
     openmemory: Optional[OpenMemoryConfig] = None
     mem0: Optional[Mem0Config] = None
 
 def get_default_configuration():
-    """Get the default configuration with sensible defaults for LLM and embedder."""
+    """Get the default configuration with sensible defaults for LLM, embedder, vector store, and graph store."""
     return {
         "openmemory": {
             "custom_instructions": None
@@ -59,17 +72,20 @@ def get_default_configuration():
                     "model": "gpt-4o-mini",
                     "temperature": 0.1,
                     "max_tokens": 2000,
-                    "api_key": "env:OPENAI_API_KEY"
+                    "api_key": "env:OPENAI_API_KEY",
+                    "openai_base_url": "env:OPENAI_BASE_URL"
                 }
             },
             "embedder": {
                 "provider": "openai",
                 "config": {
                     "model": "text-embedding-3-small",
-                    "api_key": "env:OPENAI_API_KEY"
+                    "api_key": "env:OPENAI_API_KEY",
+                    "openai_base_url": "env:OPENAI_BASE_URL"
                 }
             },
-            "vector_store": None
+            "vector_store": None,
+            "graph_store": None  # Optional - only configured if Neo4j env vars are set
         }
     }
 
@@ -106,9 +122,12 @@ def get_config_from_db(db: Session, key: str = "main"):
             config_value["mem0"]["embedder"] = default_config["mem0"]["embedder"]
         
         # Ensure vector_store config exists with defaults
-        if "vector_store" not in config_value["mem0"]:
+        if "vector_store" not in config_value["mem0"] or config_value["mem0"]["vector_store"] is None:
             config_value["mem0"]["vector_store"] = default_config["mem0"]["vector_store"]
-
+        
+        # Graph store is optional - only set defaults if user explicitly configures it
+        # If not present, it remains None (disabled)
+    
     # Save the updated config back to database if it was modified
     if config_value != config.value:
         config.value = config_value

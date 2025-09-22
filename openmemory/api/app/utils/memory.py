@@ -31,6 +31,7 @@ import hashlib
 import json
 import os
 import socket
+import logging
 
 from app.database import SessionLocal
 from app.models import Config as ConfigModel
@@ -234,9 +235,8 @@ def get_default_memory_config():
             "port": 6333,
         })
     
-    print(f"Auto-detected vector store: {vector_store_provider} with config: {vector_store_config}")
-    
-    return {
+    # Build the complete configuration structure
+    config = {
         "vector_store": {
             "provider": vector_store_provider,
             "config": vector_store_config
@@ -245,20 +245,48 @@ def get_default_memory_config():
             "provider": "openai",
             "config": {
                 "model": "gpt-4o-mini",
+                "api_key": os.environ.get('OPENAI_API_KEY'),
                 "temperature": 0.1,
                 "max_tokens": 2000,
-                "api_key": "env:OPENAI_API_KEY"
             }
         },
         "embedder": {
             "provider": "openai",
             "config": {
                 "model": "text-embedding-3-small",
-                "api_key": "env:OPENAI_API_KEY"
+                "api_key": os.environ.get('OPENAI_API_KEY'),
             }
-        },
-        "version": "v1.1"
+        }
     }
+    
+    # Only add graph store if Neo4j environment variables are configured
+    if os.environ.get('NEO4J_URL') or os.environ.get('NEO4J_USERNAME') or os.environ.get('NEO4J_PASSWORD'):
+        config["graph_store"] = {
+            "provider": "neo4j",
+            "config": {
+                "url": os.environ.get('NEO4J_URL', 'neo4j://neo4j'),
+                "username": os.environ.get('NEO4J_USERNAME', 'neo4j'),
+                "password": os.environ.get('NEO4J_PASSWORD'),
+                "database": os.environ.get('NEO4J_DB', 'neo4j'),
+            },
+            "llm": None,
+            "custom_prompt": None
+        }
+    else:
+        # Set graph_store to None to indicate it's not configured
+        config["graph_store"] = None
+    
+    # Adjust base URL for Docker if needed
+    base_url = os.environ.get('OPENAI_BASE_URL', 'https://api.openai.com/v1')
+    if base_url.startswith('http://localhost'):
+        base_url = _get_docker_host_url(base_url)
+    
+    # Only add base_url if it's not the default
+    if base_url != 'https://api.openai.com/v1':
+        config["llm"]["config"]["openai_base_url"] = base_url
+        config["embedder"]["config"]["openai_base_url"] = base_url
+    
+    return config
 
 
 def _parse_environment_variables(config_dict):
@@ -342,6 +370,10 @@ async def get_memory_client(custom_instructions: str = None):
 
                     if "vector_store" in mem0_config and mem0_config["vector_store"] is not None:
                         config["vector_store"] = mem0_config["vector_store"]
+                    
+                    # Update Graph Store configuration if available
+                    if "graph_store" in mem0_config and mem0_config["graph_store"] is not None:
+                        config["graph_store"] = mem0_config["graph_store"]
             else:
                 print("No configuration found in database, using defaults")
                     
@@ -390,3 +422,160 @@ async def get_memory_client(custom_instructions: str = None):
 
 def get_default_user_id():
     return "default_user"
+
+
+async def create_memory_async(
+    text: str,
+    user_id: str,
+    app_name: str,
+    metadata: dict = None,
+    memory_client=None
+):
+    """
+    Shared async memory creation function used by both main API and MCP server.
+    
+    Args:
+        text: The memory text content
+        user_id: The user ID
+        app_name: The app name
+        metadata: Optional metadata dict
+        memory_client: Optional pre-initialized memory client
+    
+    Returns:
+        tuple: (placeholder_memory, background_task)
+    """
+    import asyncio
+    import time
+    import uuid
+    from app.models import App, Memory, MemoryState, MemoryStatusHistory, User
+    from app.utils.db import get_user_and_app
+    
+    if metadata is None:
+        metadata = {}
+    
+    # Get memory client if not provided
+    if memory_client is None:
+        memory_client = await get_memory_client()
+        if not memory_client:
+            raise Exception("Memory client is not available")
+    
+    # Create database session
+    db = SessionLocal()
+    try:
+        # Get or create user and app
+        user, app = get_user_and_app(db, user_id=user_id, app_id=app_name)
+        
+        # Check if app is active
+        if not app.is_active:
+            raise Exception(f"App {app.name} is currently paused on OpenMemory. Cannot create new memories.")
+        
+        # Create a placeholder memory record immediately
+        placeholder_memory = Memory(
+            user_id=user.id,
+            app_id=app.id,
+            content=text,
+            metadata_=metadata,
+            state=MemoryState.processing  # Mark as processing
+        )
+        db.add(placeholder_memory)
+        db.commit()
+        db.refresh(placeholder_memory)
+        
+        # Start memory creation in background (non-blocking)
+        async def create_memory_background():
+            """Background task to create memory without blocking the response"""
+            # Create a new database session for the background task
+            db_session = SessionLocal()
+            
+            try:
+                start_time = time.time()
+                qdrant_response = await memory_client.add(
+                    text,
+                    user_id=user_id,
+                    metadata={
+                        "source_app": "openmemory",
+                        "mcp_client": app_name,
+                    }
+                )
+            
+                # Log timing information
+                total_duration = time.time() - start_time
+                logging.info(f"Background memory creation timing - Total: {total_duration:.3f}s")
+                
+                # Log the response for debugging
+                logging.info(f"Background Qdrant response: {qdrant_response}")
+                
+                # Get fresh user and app objects from the new session
+                user_obj = db_session.query(User).filter(User.user_id == user_id).first()
+                app_obj = db_session.query(App).filter(App.name == app_name).first()
+                
+                # Get the placeholder memory from the new session using its ID
+                placeholder_memory_background = db_session.query(Memory).filter(Memory.id == placeholder_memory.id).first()
+                if not placeholder_memory_background:
+                    logging.error(f"Placeholder memory {placeholder_memory.id} not found in background session")
+                    return
+                
+                # Process Qdrant response and update database
+                if 'results' in qdrant_response and qdrant_response['results']:
+                    for result in qdrant_response['results']:
+                        if result['event'] == 'ADD':
+                            # Get the Qdrant-generated ID
+                            memory_id = uuid.UUID(result['id'])
+                            
+                            # Update the placeholder memory with the actual content and ID
+                            placeholder_memory_background.id = memory_id
+                            placeholder_memory_background.content = result['memory']
+                            placeholder_memory_background.state = MemoryState.active
+                            
+                            # Create history entry
+                            history = MemoryStatusHistory(
+                                memory_id=memory_id,
+                                changed_by=user_obj.id,
+                                old_state=MemoryState.processing,
+                                new_state=MemoryState.active
+                            )
+                            db_session.add(history)
+                            
+                            db_session.commit()
+                            db_session.refresh(placeholder_memory_background)
+                            logging.info(f"Background memory updated: {memory_id}")
+                
+                # If no results, mark as deleted (relations are stored in graph store separately)
+                else:
+                    placeholder_memory_background.state = MemoryState.deleted
+                    
+                    # Create history entry
+                    history = MemoryStatusHistory(
+                        memory_id=placeholder_memory_background.id,
+                        changed_by=user_obj.id,
+                        old_state=MemoryState.processing,
+                        new_state=MemoryState.deleted
+                    )
+                    db_session.add(history)
+                    
+                    db_session.commit()
+                    db_session.refresh(placeholder_memory_background)
+                    logging.info(f"Background memory completed (no facts extracted, marked as deleted): {placeholder_memory_background.id}")
+                    
+            except Exception as e:
+                logging.error(f"Background memory creation failed: {e}")
+                # Mark the memory as deleted on error
+                try:
+                    placeholder_memory_background = db_session.query(Memory).filter(Memory.id == placeholder_memory.id).first()
+                    if placeholder_memory_background:
+                        placeholder_memory_background.state = MemoryState.deleted
+                        placeholder_memory_background.content = f"Error: {str(e)}"
+                        db_session.commit()
+                        logging.error(f"Background memory creation failed, marked as deleted: {placeholder_memory_background.id}")
+                except Exception as cleanup_error:
+                    logging.error(f"Failed to cleanup memory on error: {cleanup_error}")
+            finally:
+                db_session.close()
+        
+        # Start the background task
+        background_task = asyncio.create_task(create_memory_background())
+        
+        return placeholder_memory, background_task
+        
+    finally:
+        db.close()

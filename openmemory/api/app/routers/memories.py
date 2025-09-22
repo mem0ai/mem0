@@ -19,7 +19,7 @@ from app.models import (
     User,
 )
 from app.schemas import MemoryResponse
-from app.utils.memory import get_memory_client
+from app.utils.memory import get_memory_client, create_memory_async
 from app.database import SessionLocal
 from app.utils.permissions import check_memory_access_permissions
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -227,21 +227,10 @@ async def create_memory(
     request: CreateMemoryRequest,
     db: Session = Depends(get_db)
 ):
+    # Validate user exists
     user = db.query(User).filter(User.user_id == request.user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    # Get or create app
-    app_obj = db.query(App).filter(App.name == request.app,
-                                   App.owner_id == user.id).first()
-    if not app_obj:
-        app_obj = App(name=request.app, owner_id=user.id)
-        db.add(app_obj)
-        db.commit()
-        db.refresh(app_obj)
-
-    # Check if app is active
-    if not app_obj.is_active:
-        raise HTTPException(status_code=403, detail=f"App {request.app} is currently paused on OpenMemory. Cannot create new memories.")
 
     # Log what we're about to do
     logging.info(f"Creating memory for user_id: {request.user_id} with app: {request.app}")
