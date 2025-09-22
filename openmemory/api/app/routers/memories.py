@@ -1,7 +1,11 @@
 import logging
+import os
 from datetime import UTC, datetime
 from typing import List, Optional, Set
 from uuid import UUID
+
+import asyncio
+import time
 
 from app.database import get_db
 from app.models import (
@@ -16,6 +20,7 @@ from app.models import (
 )
 from app.schemas import MemoryResponse
 from app.utils.memory import get_memory_client
+from app.database import SessionLocal
 from app.utils.permissions import check_memory_access_permissions
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi_pagination import Page, Params
@@ -55,7 +60,6 @@ def update_memory_state(db: Session, memory_id: UUID, new_state: MemoryState, us
     db.add(history)
     db.commit()
     return memory
-
 
 def get_accessible_memory_ids(db: Session, app_id: UUID) -> Set[UUID]:
     """
@@ -244,7 +248,7 @@ async def create_memory(
     
     # Try to get memory client safely
     try:
-        memory_client = get_memory_client()
+        memory_client = await get_memory_client()
         if not memory_client:
             raise Exception("Memory client is not available")
     except Exception as client_error:
@@ -254,76 +258,120 @@ async def create_memory(
             "error": str(client_error)
         }
 
-    # Try to save to Qdrant via memory_client
-    try:
-        qdrant_response = memory_client.add(
-            request.text,
-            user_id=request.user_id,  # Use string user_id to match search
-            metadata={
-                "source_app": "openmemory",
-                "mcp_client": request.app,
-            },
-            infer=request.infer
-        )
+
+    # Create a placeholder memory record immediately
+    placeholder_memory = Memory(
+        user_id=user.id,
+        app_id=app_obj.id,
+        content=request.text,
+        metadata_=request.metadata,
+        state=MemoryState.processing  # Mark as processing
+    )
+    db.add(placeholder_memory)
+    db.commit()
+    db.refresh(placeholder_memory)
+    
+    # Start memory creation in background (non-blocking)
+    async def create_memory_background():
+        """Background task to create memory without blocking the response"""
+        # Create a new database session for the background task
+        db_session = SessionLocal()
         
-        # Log the response for debugging
-        logging.info(f"Qdrant response: {qdrant_response}")
+        try:
+            start_time = time.time()
+            qdrant_response = await memory_client.add(
+                request.text,
+                user_id=request.user_id,
+                metadata={
+                    "source_app": "openmemory",
+                    "mcp_client": request.app,
+                },
+                infer=request.infer
+            )
         
-        # Process Qdrant response
-        if isinstance(qdrant_response, dict) and 'results' in qdrant_response:
-            created_memories = []
+            # Log timing information
+            total_duration = time.time() - start_time
+            logging.info(f"Background memory creation timing - Total: {total_duration:.3f}s")
             
-            for result in qdrant_response['results']:
-                if result['event'] == 'ADD':
-                    # Get the Qdrant-generated ID
-                    memory_id = UUID(result['id'])
-                    
-                    # Check if memory already exists
-                    existing_memory = db.query(Memory).filter(Memory.id == memory_id).first()
-                    
-                    if existing_memory:
-                        # Update existing memory
-                        existing_memory.state = MemoryState.active
-                        existing_memory.content = result['memory']
-                        memory = existing_memory
-                    else:
-                        # Create memory with the EXACT SAME ID from Qdrant
-                        memory = Memory(
-                            id=memory_id,  # Use the same ID that Qdrant generated
-                            user_id=user.id,
-                            app_id=app_obj.id,
-                            content=result['memory'],
-                            metadata_=request.metadata,
-                            state=MemoryState.active
-                        )
-                        db.add(memory)
+            # Log the response for debugging
+            logging.info(f"Background Qdrant response: {qdrant_response}")
+            
+            # Get fresh user and app objects from the new session
+            user_obj = db_session.query(User).filter(User.user_id == request.user_id).first()
+            app_obj = db_session.query(App).filter(App.name == request.app).first()
+            
+            # Get the placeholder memory from the new session using its ID
+            placeholder_memory_bg = db_session.query(Memory).filter(Memory.id == placeholder_memory.id).first()
+            if not placeholder_memory_bg:
+                logging.error(f"Placeholder memory {placeholder_memory.id} not found in background session")
+                return
+            
+            # Process Qdrant response and update database
+            if isinstance(qdrant_response, dict) and 'results' in qdrant_response:
+                if qdrant_response['results']:  # If there are results
+                    for result in qdrant_response['results']:
+                        if result['event'] == 'ADD':
+                            # Get the Qdrant-generated ID
+                            memory_id = UUID(result['id'])
+                            
+                            # Update the placeholder memory with the actual content and ID
+                            placeholder_memory_bg.id = memory_id
+                            placeholder_memory_bg.content = result['memory']
+                            placeholder_memory_bg.state = MemoryState.active
+                            
+                            # Create history entry
+                            history = MemoryStatusHistory(
+                                memory_id=memory_id,
+                                changed_by=user_obj.id,
+                                old_state=MemoryState.processing,
+                                new_state=MemoryState.active
+                            )
+                            db_session.add(history)
+                            
+                            db_session.commit()
+                            db_session.refresh(placeholder_memory_bg)
+                            logging.info(f"Background memory updated: {memory_id}")
+                else:  # No results - no meaningful facts extracted
+                    # Keep the original content but mark as deleted
+                    placeholder_memory_bg.state = MemoryState.deleted
                     
                     # Create history entry
                     history = MemoryStatusHistory(
-                        memory_id=memory_id,
-                        changed_by=user.id,
-                        old_state=MemoryState.deleted if existing_memory else MemoryState.deleted,
-                        new_state=MemoryState.active
+                        memory_id=placeholder_memory_bg.id,
+                        changed_by=user_obj.id,
+                        old_state=MemoryState.processing,
+                        new_state=MemoryState.deleted
                     )
-                    db.add(history)
+                    db_session.add(history)
                     
-                    created_memories.append(memory)
-            
-            # Commit all changes at once
-            if created_memories:
-                db.commit()
-                for memory in created_memories:
-                    db.refresh(memory)
-                
-                # Return the first memory (for API compatibility)
-                # but all memories are now saved to the database
-                return created_memories[0]
-    except Exception as qdrant_error:
-        logging.warning(f"Qdrant operation failed: {qdrant_error}.")
-        # Return a json response with the error
-        return {
-            "error": str(qdrant_error)
-        }
+                    db_session.commit()
+                    db_session.refresh(placeholder_memory_bg)
+                    logging.info(f"Background memory completed (no facts extracted): {placeholder_memory_bg.id}")
+                        
+        except Exception as e:
+            logging.warning(f"Background memory creation failed: {e}")
+            # Update placeholder to show error state
+            try:
+                # Get the placeholder memory from the session for error handling
+                placeholder_memory_bg = db_session.query(Memory).filter(Memory.id == placeholder_memory.id).first()
+                if placeholder_memory_bg:
+                    placeholder_memory_bg.state = MemoryState.deleted
+                    placeholder_memory_bg.content = f"Error: {str(e)}"
+                    db_session.commit()
+                    logging.error(f"Background memory creation failed, marked as deleted: {placeholder_memory_bg.id}")
+                else:
+                    logging.error(f"Could not find placeholder memory {placeholder_memory.id} for error handling")
+            except Exception as fallback_error:
+                logging.error(f"Failed to update placeholder memory: {fallback_error}")
+        finally:
+            db_session.close()
+    
+    # Fire off the background task
+    asyncio.create_task(create_memory_background())
+    
+    logging.info(f"Memory creation started in background, returning immediately with ID: {placeholder_memory.id}")
+    return placeholder_memory
+
 
 
 
@@ -512,6 +560,7 @@ async def get_memory_access_log(
 class UpdateMemoryRequest(BaseModel):
     memory_content: str
     user_id: str
+    target_app_id: Optional[UUID] = None
 
 # Update a memory
 @router.put("/{memory_id}")
@@ -525,9 +574,53 @@ async def update_memory(
         raise HTTPException(status_code=404, detail="User not found")
     memory = get_memory_or_404(db, memory_id)
     memory.content = request.memory_content
+    if request.target_app_id:
+        memory.app_id = request.target_app_id
     db.commit()
     db.refresh(memory)
     return memory
+
+class MoveMemoriesRequest(BaseModel):
+    target_app_id: UUID  # Changed to str to handle UUID strings from frontend
+    user_id: str
+
+@router.post("/{app_id}/memories/move/")
+async def move_memories_to_app(
+    app_id: UUID,
+    request: UpdateMemoryRequest,
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(User.user_id == request.user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")    
+    # Get memories to move
+    memories = db.query(Memory).filter(
+        Memory.id.in_(request.memory_ids),
+        Memory.app_id == app_id,
+        # Memory.user_id == user.id,
+        # Memory.state != MemoryState.deleted
+    ).all()
+    
+    if not memories:
+        raise HTTPException(status_code=404, detail="No memories found to move")
+    
+    # Move memories to target app
+    moved_count = 0
+    for memory in memories:
+        try:
+            await update_memory(memory.id, request, db)
+            moved_count += 1
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Failed to move memory {memory.id}: {str(e)}")
+    
+    return {
+        "status": "success",
+        "message": f"Successfully moved {moved_count} memories to {request.target_app_id}",
+        "moved_count": moved_count
+    }
+
+
 
 class FilterMemoriesRequest(BaseModel):
     user_id: str
@@ -636,6 +729,32 @@ async def filter_memories(
     )
 
 
+@router.post("/actions/recover-stuck")
+async def recover_stuck_memories(
+    db: Session = Depends(get_db)
+):
+    """Manual endpoint to check for and recover stuck processing memories"""
+    stuck_memories = db.query(Memory).filter(Memory.state == MemoryState.processing).all()
+    
+    if not stuck_memories:
+        return {"message": "No stuck processing memories found", "count": 0}
+    
+    return {
+        "message": f"Found {len(stuck_memories)} stuck processing memories",
+        "count": len(stuck_memories),
+        "memories": [
+            {
+                "id": str(memory.id),
+                "content": memory.content[:100] + "..." if len(memory.content) > 100 else memory.content,
+                "created_at": memory.created_at.isoformat(),
+                "user_id": memory.user_id,
+                "app_id": memory.app_id
+            }
+            for memory in stuck_memories
+        ]
+    }
+
+
 @router.get("/{memory_id}/related", response_model=Page[MemoryResponse])
 async def get_related_memories(
     memory_id: UUID,
@@ -692,3 +811,5 @@ async def get_related_memories(
             for memory in items
         ]
     )
+
+    

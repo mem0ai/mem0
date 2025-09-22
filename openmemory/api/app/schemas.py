@@ -39,6 +39,7 @@ class MemoryUpdate(BaseModel):
     content: Optional[str] = None
     metadata_: Optional[dict] = None
     state: Optional[str] = None
+    app_id: Optional[UUID] = None
 
 
 class MemoryResponse(BaseModel):
@@ -56,6 +57,7 @@ class MemoryResponse(BaseModel):
         if isinstance(v, datetime):
             return int(v.timestamp())
         return v
+    
 
 class PaginatedMemoryResponse(BaseModel):
     items: List[MemoryResponse]

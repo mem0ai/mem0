@@ -57,6 +57,8 @@ interface UseAppsApiReturn {
   fetchAppMemories: (appId: string, page?: number, pageSize?: number) => Promise<void>;
   fetchAppAccessedMemories: (appId: string, page?: number, pageSize?: number) => Promise<void>;
   updateAppDetails: (appId: string, details: { is_active: boolean }) => Promise<void>;
+  deleteApp: (appId: string, action: 'delete_memories' | 'move_memories', targetAppId?: string) => Promise<void>;
+  moveMemoriesToApp: (appId: string, memoryIds: string[], targetAppId: string) => Promise<void>;
   isLoading: boolean;
   error: string | null;
 }
@@ -97,7 +99,12 @@ export const useAppsApi = (): UseAppsApiReturn => {
       );
 
       setIsLoading(false);
-      dispatch(setAppsSuccess(response.data.apps));
+      dispatch(setAppsSuccess({
+        apps: response.data.apps,
+        total: response.data.total,
+        page: response.data.page,
+        pageSize: response.data.page_size
+      }));
       return {
         apps: response.data.apps,
         total: response.data.total
@@ -140,6 +147,7 @@ export const useAppsApi = (): UseAppsApiReturn => {
         items: response.data.memories,
         total: response.data.total,
         page: response.data.page,
+        pageSize: response.data.page_size,
       }));
       setIsLoading(false);
     } catch (err: any) {
@@ -161,6 +169,7 @@ export const useAppsApi = (): UseAppsApiReturn => {
         items: response.data.memories,
         total: response.data.total,
         page: response.data.page,
+        pageSize: response.data.page_size,
       }));
       setIsLoading(false);
     } catch (err: any) {
@@ -186,12 +195,58 @@ export const useAppsApi = (): UseAppsApiReturn => {
     }
   };
 
+  const deleteApp = async (appId: string, action: 'delete_memories' | 'move_memories', targetAppId?: string) => {
+    setIsLoading(true);
+    try {
+      const requestData: any = {
+        user_id: user_id,
+        action: action
+      };
+      
+      if (action === 'move_memories' && targetAppId) {
+        requestData.target_app_id = targetAppId;
+      }
+      
+      
+      const response = await axios.delete(`${URL}/api/v1/apps/${appId}`, {
+        data: requestData
+      });
+      
+      setIsLoading(false);
+      return response.data;
+    } catch (error) {
+      console.error("Failed to delete app:", error);
+      setIsLoading(false);
+      throw error;
+    }
+  };
+
+  const moveMemoriesToApp = async (appId: string, memoryIds: string[], targetAppId: string) => {
+    setIsLoading(true);
+    try {
+      const response = await axios.post(`${URL}/api/v1/apps/${appId}/memories/move`, {
+        memory_ids: memoryIds,
+        target_app_id: targetAppId,
+        user_id: user_id
+      });
+      
+      setIsLoading(false);
+      return response.data;
+    } catch (error) {
+      console.error("Failed to move memories:", error);
+      setIsLoading(false);
+      throw error;
+    }
+  };
+
   return {
     fetchApps,
     fetchAppDetails,
     fetchAppMemories,
     fetchAppAccessedMemories,
     updateAppDetails,
+    deleteApp,
+    moveMemoriesToApp,
     isLoading,
     error
   };

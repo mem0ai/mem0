@@ -1,0 +1,103 @@
+services:
+  mem0_store:
+    image: qdrant/qdrant
+    ports:
+      - "6333:6333"
+    volumes:
+      - mem0_storage:/qdrant/storage
+    networks:
+      - mem0-network
+  neo4j:
+        image: neo4j:latest
+        container_name: neo4j-mem0
+        volumes:
+            - neo4j_data:/data
+            - neo4j_logs:/logs
+            - neo4j_config:/config
+            # - ./plugins:/plugins
+        environment:
+          - NEO4J_AUTH=neo4j/taketheredpillNe0
+          - PORT=
+          - NEO4J_server_memory_heap_initial__size=1G
+          - NEO4J_server_memory_heap_max__size=2G
+          - NEO4J_server_memory_pagecache_size=1G
+          - NEO4J_apoc_export_file_enabled=true
+          - NEO4J_apoc_import_file_enabled=true
+          - NEO4J_apoc_import_file_use__neo4j__config=true
+          # - NEO4J_dbms_security_procedures_unrestricted=apoc.*
+          - NEO4J_PLUGINS=["apoc"]
+        ports:
+          - "7474:7474"
+          - "7687:7687"
+        restart: always
+        networks:
+          - mem0-network
+        healthcheck:
+          test: ["CMD", "curl", "-f", "http://localhost:7687"]
+          interval: 30s
+          timeout: 10s
+          retries: 5
+
+  mem0:
+    # image: mem0/openmemory-mcp
+    container_name: mem0
+    build: 
+      context: .
+      dockerfile: openmemory/api/Dockerfile
+    environment:
+      - USER
+      - API_KEY
+      - NEO4J_URL=neo4j://neo4j:7687
+      - NEO4J_USERNAME=neo4j
+      - NEO4J_PASSWORD=taketheredpillNe0
+      - DATABASE_URL=sqlite:///data/openmemory.db
+    env_file:
+      - .env
+    depends_on:
+      - mem0_store
+      - neo4j
+    ports:
+      - "8765:8765"
+    volumes:
+      - mem0_data:/usr/src/openmemory/data
+    command: >
+      sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --reload --workers 4"
+    networks:
+      - chakra-network
+      - mem0-network
+      - n8n-network
+
+
+  mem0-ui:
+    container_name: mem0-ui
+    build:
+      context: openmemory/ui/
+      dockerfile: Dockerfile
+    image: mem0/openmemory-ui:latest
+    ports:
+      - "3333:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+      - NEXT_PUBLIC_USER_ID=${USER}
+    networks:
+      - mem0-network
+
+volumes:
+  mem0_storage:
+  mem0_data:
+  neo4j_data:
+    driver: local
+  neo4j_logs:
+  neo4j_config:
+  neo4j_plugins:
+
+networks:
+  chakra-network:
+    driver: bridge
+    external: true
+  mem0-network:
+    driver: bridge
+    external: true
+  n8n-network:
+    driver: bridge
+    external: true
