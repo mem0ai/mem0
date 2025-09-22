@@ -18,7 +18,7 @@ class MySQLVectorConfig(BaseModel):
     ssl_ca: Optional[str] = Field(None, description="SSL CA certificate file path")
     ssl_cert: Optional[str] = Field(None, description="SSL certificate file path")
     ssl_key: Optional[str] = Field(None, description="SSL key file path")
-    connection_string: Optional[str] = Field(None, description="Aliyun MySQL connection string (overrides individual connection parameters)")
+    connection_string: Optional[str] = Field(None, description="AlibabaCloud MySQL connection string (overrides individual connection parameters)")
     charset: Optional[str] = Field("utf8mb4", description="Character set for the connection")
     autocommit: Optional[bool] = Field(True, description="Enable autocommit mode")
 

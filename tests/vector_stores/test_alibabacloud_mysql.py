@@ -14,7 +14,7 @@ with patch.dict('sys.modules', {
     'mysql': mock_mysql,
     'mysql.connector': mock_mysql_connector
 }):
-    from mem0.vector_stores.aliyun_mysql import MySQLVector, OutputData
+    from mem0.vector_stores.alibabacloud_mysql import MySQLVector, OutputData
 
 
 class TestMySQLVector:
@@ -238,6 +238,6 @@ class TestMySQLVector:
                 # Force reimport of the module to trigger the ImportError
                 import importlib
                 import sys
-                if 'mem0.vector_stores.aliyun_mysql' in sys.modules:
-                    del sys.modules['mem0.vector_stores.aliyun_mysql']
-                importlib.import_module('mem0.vector_stores.aliyun_mysql')
+                if 'mem0.vector_stores.alibabacloud_mysql' in sys.modules:
+                    del sys.modules['mem0.vector_stores.alibabacloud_mysql']
+                importlib.import_module('mem0.vector_stores.alibabacloud_mysql')

@@ -44,7 +44,7 @@ class MySQLVector(VectorStoreBase):
         autocommit=True,
     ):
         """
-        Initialize the Aliyun MySQL Vector database.
+        Initialize the AlibabaCloud MySQL Vector database.
 
         Args:
             dbname (str): Database name
@@ -60,7 +60,7 @@ class MySQLVector(VectorStoreBase):
             ssl_ca (str, optional): SSL CA certificate file path
             ssl_cert (str, optional): SSL certificate file path
             ssl_key (str, optional): SSL key file path
-            connection_string (str, optional): Aliyun MySQL connection string (overrides individual connection parameters)
+            connection_string (str, optional): AlibabaCloud MySQL connection string (overrides individual connection parameters)
             charset (str): Character set for the connection
             autocommit (bool): Enable autocommit mode
         """
@@ -133,7 +133,7 @@ class MySQLVector(VectorStoreBase):
 
     def create_col(self) -> None:
         """
-        Create a new collection (table in Aliyun MySQL).
+        Create a new collection (table in AlibabaCloud MySQL).
         Will also initialize vector search index.
         """
         with self._get_connection() as conn:
@@ -203,7 +203,7 @@ class MySQLVector(VectorStoreBase):
         filters: Optional[dict] = None,
     ) -> List[OutputData]:
         """
-        Search for similar vectors using Aliyun MySQL Vector distance functions.
+        Search for similar vectors using AlibabaCloud MySQL Vector distance functions.
 
         Args:
             query (str): Query string (for logging)

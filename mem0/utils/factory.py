@@ -177,7 +177,7 @@ class VectorStoreFactory:
         "s3_vectors": "mem0.vector_stores.s3_vectors.S3Vectors",
         "baidu": "mem0.vector_stores.baidu.BaiduDB",
         "neptune": "mem0.vector_stores.neptune_analytics.NeptuneAnalyticsVector",
-        "aliyun_mysql": "mem0.vector_stores.aliyun_mysql.MySQLVector",
+        "alibabacloud_mysql": "mem0.vector_stores.alibabacloud_mysql.MySQLVector",
     }
 
     @classmethod
