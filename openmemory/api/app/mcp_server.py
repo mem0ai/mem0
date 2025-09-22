@@ -22,9 +22,9 @@ import logging
 import uuid
 
 from app.database import SessionLocal
-from app.models import Memory, MemoryAccessLog, MemoryState, MemoryStatusHistory
+from app.models import App, Memory, MemoryAccessLog, MemoryState, MemoryStatusHistory, User
 from app.utils.db import get_user_and_app
-from app.utils.memory import get_memory_client
+from app.utils.memory import get_memory_client, create_memory_async
 from app.utils.permissions import check_memory_access_permissions
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
@@ -73,69 +73,19 @@ async def add_memories(text: str) -> str:
         return "Error: Memory system is currently unavailable. Please try again later."
 
     try:
-        db = SessionLocal()
-        try:
-            # Get or create user and app
-            user, app = get_user_and_app(db, user_id=uid, app_id=client_name)
-
-            # Check if app is active
-            if not app.is_active:
-                return f"Error: App {app.name} is currently paused on OpenMemory. Cannot create new memories."
-
-                response = await memory_client.add(text,
-                                         user_id=uid,
-                                         metadata={
-                                            "source_app": "openmemory",
-                                            "mcp_client": client_name,
-                                        })
-            
-            # Process the response and update database
-            if isinstance(response, dict) and 'results' in response:
-                for result in response['results']:
-                    memory_id = uuid.UUID(result['id'])
-                    memory = db.query(Memory).filter(Memory.id == memory_id).first()
-
-                    if result['event'] == 'ADD':
-                        if not memory:
-                            memory = Memory(
-                                id=memory_id,
-                                user_id=user.id,
-                                app_id=app.id,
-                                content=result['memory'],
-                                state=MemoryState.active
-                            )
-                            db.add(memory)
-                        else:
-                            memory.state = MemoryState.active
-                            memory.content = result['memory']
-
-                        # Create history entry
-                        history = MemoryStatusHistory(
-                            memory_id=memory_id,
-                            changed_by=user.id,
-                            old_state=MemoryState.deleted if memory else None,
-                            new_state=MemoryState.active
-                        )
-                        db.add(history)
-
-                    elif result['event'] == 'DELETE':
-                        if memory:
-                            memory.state = MemoryState.deleted
-                            memory.deleted_at = datetime.datetime.now(datetime.UTC)
-                            # Create history entry
-                            history = MemoryStatusHistory(
-                                memory_id=memory_id,
-                                changed_by=user.id,
-                                old_state=MemoryState.active,
-                                new_state=MemoryState.deleted
-                            )
-                            db.add(history)
-
-                db.commit()
-
-            return json.dumps(response)
-        finally:
-            db.close()
+        # Use the shared memory creation function (same as the main API)
+        from app.utils.memory import create_memory_async
+        
+        placeholder_memory, background_task = await create_memory_async(
+            text=text,
+            user_id=uid,
+            app_name=client_name,
+            metadata={},
+            memory_client=memory_client
+        )
+        
+        # Return immediately with the placeholder ID
+        return f"Memory creation started in background with ID: {placeholder_memory.id}"
     except Exception as e:
         logging.exception(f"Error adding to memory: {e}")
         return f"Error adding to memory: {e}"
@@ -240,7 +190,7 @@ async def list_memories() -> str:
             user, app = get_user_and_app(db, user_id=uid, app_id=client_name)
 
             # Get all memories
-            memories = memory_client.get_all(user_id=uid)
+            memories = await memory_client.get_all(user_id=uid)
             filtered_memories = []
 
             # Filter memories based on permissions

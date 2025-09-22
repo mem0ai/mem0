@@ -115,17 +115,13 @@ export function MemoryDetails({ memory_id }: MemoryDetailsProps) {
                                 memory?.app_name as keyof typeof constants
                               ]?.iconImage || ""
                             }
-                            alt="OpenMemory"
+                            alt={memory?.app_name || "App"}
                             width={24}
                             height={24}
                           />
                         </div>
                         <p className="text-sm text-zinc-100 font-semibold">
-                          {
-                            constants[
-                              memory?.app_name as keyof typeof constants
-                            ]?.name
-                          }
+                          {memory?.app_name || "Unknown App"}
                         </p>
                       </div>
                     </div>
