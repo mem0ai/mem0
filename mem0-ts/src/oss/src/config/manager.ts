@@ -26,7 +26,8 @@ export class ConfigManager {
                 ? userConf.apiKey
                 : defaultConf.apiKey,
             model: finalModel,
-            url: userConf?.url,
+            url: userConf?.url || userConf?.baseURL,
+            baseURL: userConf?.baseURL || userConf?.url,
             modelProperties:
               userConf?.modelProperties !== undefined
                 ? userConf.modelProperties
@@ -80,7 +81,8 @@ export class ConfigManager {
           }
 
           return {
-            baseURL: userConf?.baseURL || defaultConf.baseURL,
+            baseURL: userConf?.baseURL || userConf?.url || defaultConf.baseURL,
+            url: userConf?.url || userConf?.baseURL || defaultConf.baseURL,
             apiKey:
               userConf?.apiKey !== undefined
                 ? userConf.apiKey
