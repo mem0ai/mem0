@@ -1,4 +1,5 @@
 import logging
+from weakref import WeakValueDictionary
 
 from mem0.memory.utils import format_entities
 
@@ -27,8 +28,8 @@ logger = logging.getLogger(__name__)
 
 
 class MemoryGraph:
-    _db_objects: dict[str, kuzu.Database] = {}
-    
+    _db_objects: WeakValueDictionary[str, kuzu.Database] = WeakValueDictionary()
+
     def __init__(self, config):
         self.config = config
 
@@ -44,8 +45,9 @@ class MemoryGraph:
         # See https://docs.kuzudb.com/concurrency.
         kuzu_db_file = self.config.graph_store.config.db
         if kuzu_db_file != ":memory:" and kuzu_db_file not in self._db_objects:
-            self._db_objects[kuzu_db_file] = kuzu.Database(kuzu_db_file)
-        self.db = self._db_objects[self.config.graph_store.config.db]
+            self.db = kuzu.Database(kuzu_db_file)
+            self._db_objects[kuzu_db_file] = self.db
+        self.db = self._db_objects[kuzu_db_file]
         self.graph = kuzu.Connection(self.db)
 
         self.node_label = ":Entity"
