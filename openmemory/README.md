@@ -2,6 +2,17 @@
 
 OpenMemory is your personal memory layer for LLMs - private, portable, and open-source. Your memories live locally, giving you complete control over your data. Build AI applications with personalized memories while keeping your data secure.
 
+**Supported MCP Clients:**
+- **Claude Code** - Anthropic's official CLI for Claude
+- **Claude Desktop** - Anthropic's desktop application
+- **Cursor** - The AI-powered code editor
+- **Cline** (formerly Claude Dev) - VS Code extension
+- **Windsurf** - AI-powered IDE
+- **Witsy** - AI assistant for developers
+- **Enconvo** - AI-powered productivity tool
+- **Augment** - AI coding assistant
+- **Roo Cline** - Enhanced Cline variant
+
 ![OpenMemory](https://github.com/user-attachments/assets/3c701757-ad82-4afa-bfbe-e049c2b4320b)
 
 ## Easy Setup
@@ -98,7 +109,60 @@ pnpm dev
 
 ### MCP Client Setup
 
-Use the following one step command to configure OpenMemory Local MCP to a client. The general command format is as follows:
+#### For Claude Code
+
+Claude Code uses a different configuration method. Create a `.mcp.json` file in your project root:
+
+```json
+{
+  "mcpServers": {
+    "openmemory": {
+      "type": "sse",
+      "url": "http://localhost:8765/mcp/claude-code/sse/<user-id>",
+      "headers": {}
+    }
+  }
+}
+```
+
+Replace `<user-id>` with the value specified in your environment variables.
+
+**Quick Setup for Claude Code:**
+
+**Option 1: Automatic Setup (Recommended)**
+```bash
+# Auto-detect project name and create isolated memory context
+cd /path/to/your/project
+./scripts/setup-claude-code.sh --user-id <your-user-id>
+
+# For project "jaipuria-intelligence", this creates app: "claude-code-jaipuria-intelligence"
+# Each project gets its own isolated memory context!
+```
+
+**Option 2: Manual Project-Specific Setup**
+```bash
+# Specify project name explicitly
+./scripts/setup-claude-code.sh --user-id <your-user-id> --project-name jaipuria-intelligence
+
+# Or use default (no project isolation)
+./scripts/setup-claude-code.sh --user-id <your-user-id>
+```
+
+**Option 3: Manual Configuration**
+```bash
+# Copy example and edit manually
+cp .mcp.json.example .mcp.json
+# Edit .mcp.json to update user-id and optionally change "claude-code" to "claude-code-projectname"
+```
+
+**Project Isolation Benefits:**
+- 🔒 **Separate Memory Contexts** - Each project maintains its own memories
+- 📊 **Dashboard Visibility** - See different apps like `claude-code-projectA`, `claude-code-projectB`
+- 🎯 **Contextual Memories** - Memories are specific to each project's codebase and requirements
+
+#### For Other MCP Clients
+
+For other supported clients (Cursor, Cline, Windsurf, etc.), use the following one step command:
 
 ```bash
 npx @openmemory/install local http://localhost:8765/mcp/<client-name>/sse/<user-id> --client <client-name>
