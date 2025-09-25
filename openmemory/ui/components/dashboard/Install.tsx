@@ -8,6 +8,7 @@ import Image from "next/image";
 
 const clientTabs = [
   { key: "claude", label: "Claude", icon: "/images/claude.webp" },
+  { key: "claude-code", label: "Claude Code", icon: "/images/claude-code.png" },
   { key: "cursor", label: "Cursor", icon: "/images/cursor.png" },
   { key: "cline", label: "Cline", icon: "/images/cline.png" },
   { key: "roocline", label: "Roo Cline", icon: "/images/roocline.png" },
@@ -19,6 +20,8 @@ const clientTabs = [
 
 const colorGradientMap: { [key: string]: string } = {
   claude:
+    "data-[state=active]:bg-[linear-gradient(to_top,_rgba(239,108,60,0.3),_rgba(239,108,60,0))] data-[state=active]:border-[#EF6C3C]",
+  "claude-code":
     "data-[state=active]:bg-[linear-gradient(to_top,_rgba(239,108,60,0.3),_rgba(239,108,60,0))] data-[state=active]:border-[#EF6C3C]",
   cline:
     "data-[state=active]:bg-[linear-gradient(to_top,_rgba(112,128,144,0.3),_rgba(112,128,144,0))] data-[state=active]:border-[#708090]",
@@ -50,9 +53,24 @@ export const Install = () => {
   const URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8765";
 
   const handleCopy = async (tab: string, isMcp: boolean = false) => {
-    const text = isMcp
-      ? `${URL}/mcp/openmemory/sse/${user}`
-      : `npx @openmemory/install local ${URL}/mcp/${tab}/sse/${user} --client ${tab}`;
+    let text: string;
+
+    if (isMcp) {
+      text = `${URL}/mcp/openmemory/sse/${user}`;
+    } else if (tab === "claude-code") {
+      // Claude Code uses .mcp.json configuration instead of npx command
+      text = `{
+  "mcpServers": {
+    "openmemory": {
+      "type": "sse",
+      "url": "${URL}/mcp/claude-code/sse/${user}",
+      "headers": {}
+    }
+  }
+}`;
+    } else {
+      text = `npx @openmemory/install local ${URL}/mcp/${tab}/sse/${user} --client ${tab}`;
+    }
 
     try {
       // Try using the Clipboard API first
@@ -96,7 +114,7 @@ export const Install = () => {
       </div>
 
       <Tabs defaultValue="claude" className="w-full">
-        <TabsList className="bg-transparent border-b border-zinc-800 rounded-none w-full justify-start gap-0 p-0 grid grid-cols-9">
+        <TabsList className="bg-transparent border-b border-zinc-800 rounded-none w-full justify-start gap-0 p-0 grid grid-cols-10">
           {allTabs.map(({ key, label, icon }) => (
             <TabsTrigger
               key={key}
@@ -159,32 +177,71 @@ export const Install = () => {
             <Card className="bg-zinc-900 border-zinc-800">
               <CardHeader className="py-4">
                 <CardTitle className="text-white text-xl">
-                  {key.charAt(0).toUpperCase() + key.slice(1)} Installation
-                  Command
+                  {key === "claude-code" ? "Claude Code .mcp.json Configuration" : `${key.charAt(0).toUpperCase() + key.slice(1)} Installation Command`}
                 </CardTitle>
               </CardHeader>
               <hr className="border-zinc-800" />
               <CardContent className="py-4">
-                <div className="relative">
-                  <pre className="bg-zinc-800 px-4 py-3 rounded-md overflow-x-auto text-sm">
-                    <code className="text-gray-300">
-                      {`npx @openmemory/install local ${URL}/mcp/${key}/sse/${user} --client ${key}`}
-                    </code>
-                  </pre>
+                {key === "claude-code" ? (
                   <div>
-                    <button
-                      className="absolute top-0 right-0 py-3 px-4 rounded-md hover:bg-zinc-600 bg-zinc-700"
-                      aria-label="Copy to clipboard"
-                      onClick={() => handleCopy(key)}
-                    >
-                      {copiedTab === key ? (
-                        <Check className="h-5 w-5 text-green-400" />
-                      ) : (
-                        <Copy className="h-5 w-5 text-zinc-400" />
-                      )}
-                    </button>
+                    <p className="text-gray-400 text-sm mb-3">
+                      Create a <code className="bg-zinc-800 px-1 py-0.5 rounded text-xs">.mcp.json</code> file
+                      in your project root with this configuration:
+                    </p>
+                    <p className="text-gray-500 text-xs mb-3">
+                      💡 <strong>Tip:</strong> Use <code className="bg-zinc-800 px-1 py-0.5 rounded text-xs">./scripts/setup-claude-code.sh</code> for auto-detection of project names and isolated memory contexts per project.
+                    </p>
+                    <div className="relative">
+                      <pre className="bg-zinc-800 px-4 py-3 rounded-md overflow-x-auto text-sm">
+                        <code className="text-gray-300">
+{`{
+  "mcpServers": {
+    "openmemory": {
+      "type": "sse",
+      "url": "${URL}/mcp/claude-code/sse/${user}",
+      "headers": {}
+    }
+  }
+}`}
+                        </code>
+                      </pre>
+                      <div>
+                        <button
+                          className="absolute top-0 right-0 py-3 px-4 rounded-md hover:bg-zinc-600 bg-zinc-700"
+                          aria-label="Copy to clipboard"
+                          onClick={() => handleCopy(key)}
+                        >
+                          {copiedTab === key ? (
+                            <Check className="h-5 w-5 text-green-400" />
+                          ) : (
+                            <Copy className="h-5 w-5 text-zinc-400" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="relative">
+                    <pre className="bg-zinc-800 px-4 py-3 rounded-md overflow-x-auto text-sm">
+                      <code className="text-gray-300">
+                        {`npx @openmemory/install local ${URL}/mcp/${key}/sse/${user} --client ${key}`}
+                      </code>
+                    </pre>
+                    <div>
+                      <button
+                        className="absolute top-0 right-0 py-3 px-4 rounded-md hover:bg-zinc-600 bg-zinc-700"
+                        aria-label="Copy to clipboard"
+                        onClick={() => handleCopy(key)}
+                      >
+                        {copiedTab === key ? (
+                          <Check className="h-5 w-5 text-green-400" />
+                        ) : (
+                          <Copy className="h-5 w-5 text-zinc-400" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
