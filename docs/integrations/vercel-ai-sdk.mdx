@@ -203,6 +203,72 @@ console.log(sources);
 
 The same can be done for `streamText` as well.
 
+### 6. File Support with Memory Context
+
+Mem0 AI SDK supports file processing with memory context. Here's an example of analyzing a PDF file:
+
+```typescript
+import { streamText } from "ai";
+import { createMem0 } from "@mem0/vercel-ai-provider";
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
+const mem0 = createMem0({
+  provider: "google",
+  mem0ApiKey: "m0-xxx",
+  config: {
+    apiKey: "google-api-key"
+  },
+  mem0Config: {
+    user_id: "alice",
+  },
+});
+
+async function main() {
+  // Read the PDF file
+  const filePath = join(process.cwd(), 'my_pdf.pdf');
+  const fileBuffer = readFileSync(filePath);
+
+  // Convert the file's arrayBuffer to a Base64 data URL
+  const arrayBuffer = fileBuffer.buffer.slice(fileBuffer.byteOffset, fileBuffer.byteOffset + fileBuffer.byteLength);
+  const uint8Array = new Uint8Array(arrayBuffer);
+
+  // Convert Uint8Array to an array of characters
+  const charArray = Array.from(uint8Array, byte => String.fromCharCode(byte));
+  const binaryString = charArray.join('');
+  const base64Data = Buffer.from(binaryString, 'binary').toString('base64');
+  const fileDataUrl = `data:application/pdf;base64,${base64Data}`;
+
+  const { textStream } = streamText({
+    model: mem0("gemini-2.5-flash"),
+    messages: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: 'Analyze the following PDF and generate a summary.',
+          },
+          {
+            type: 'file',
+            data: fileDataUrl,
+            mediaType: 'application/pdf',
+          },
+        ],
+      },
+    ],
+  });
+
+  for await (const textPart of textStream) {
+    process.stdout.write(textPart);
+  }
+}
+
+main();
+```
+
+> **Note**: File support is available with providers that support multimodal capabilities like Google's Gemini models. The example shows how to process PDF files, but you can also work with images, text files, and other supported formats.
+
 ## Graph Memory
 
 Mem0 AI SDK now supports Graph Memory. You can enable it by setting `enable_graph` to `true` in the `mem0Config` object.
