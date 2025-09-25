@@ -13,15 +13,17 @@ Key features:
 - Fallback to database-only mode when vector store is unavailable
 - Proper logging for debugging connection issues
 - Environment variable parsing for API keys
+- Optional per-call context (user_id, client_name) for stdio clients
 """
 
-import contextvars
 import datetime
 import json
 import logging
 import uuid
+from typing import Optional
 
 from app.database import SessionLocal
+from app.mcp_context import client_name_var, user_id_var
 from app.models import Memory, MemoryAccessLog, MemoryState, MemoryStatusHistory
 from app.utils.db import get_user_and_app
 from app.utils.memory import get_memory_client
@@ -47,9 +49,6 @@ def get_memory_client_safe():
         logging.warning(f"Failed to get memory client: {e}")
         return None
 
-# Context variables for user_id and client_name
-user_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("user_id")
-client_name_var: contextvars.ContextVar[str] = contextvars.ContextVar("client_name")
 
 # Create a router for MCP endpoints
 mcp_router = APIRouter(prefix="/mcp")
@@ -57,8 +56,41 @@ mcp_router = APIRouter(prefix="/mcp")
 # Initialize SSE transport
 sse = SseServerTransport("/mcp/messages/")
 
-@mcp.tool(description="Add a new memory. This method is called everytime the user informs anything about themselves, their preferences, or anything that has any relevant information which can be useful in the future conversation. This can also be called when the user asks you to remember something.")
-async def add_memories(text: str) -> str:
+# Python 3.10-compatible UTC timezone
+try:
+    UTC = datetime.UTC  # Python 3.11+
+except AttributeError:  # Python 3.10
+    from datetime import timezone as _tz
+
+    UTC = _tz.utc
+
+def _maybe_set_context(user_id: Optional[str], client_name: Optional[str]):
+    """Set contextvars for this call if provided; return tokens to reset later."""
+    user_token = client_token = None
+    if user_id:
+        user_token = user_id_var.set(user_id)
+    if client_name:
+        client_token = client_name_var.set(client_name)
+    return user_token, client_token
+
+
+def _maybe_reset_context(user_token, client_token):
+    if user_token is not None:
+        user_id_var.reset(user_token)
+    if client_token is not None:
+        client_name_var.reset(client_token)
+
+
+@mcp.tool(
+    description=(
+        "Add a new memory. This method is called everytime the user informs anything about themselves, "
+        "their preferences, or anything that has any relevant information which can be useful in the "
+        "future conversation. This can also be called when the user asks you to remember something."
+    )
+)
+async def add_memories(text: str, user_id: Optional[str] = None, client_name: Optional[str] = None) -> str:
+    # Allow stdio clients to pass context directly; SSE route also sets context separately
+    user_token, client_token = _maybe_set_context(user_id, client_name)
     uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
 
@@ -121,7 +153,7 @@ async def add_memories(text: str) -> str:
                     elif result['event'] == 'DELETE':
                         if memory:
                             memory.state = MemoryState.deleted
-                            memory.deleted_at = datetime.datetime.now(datetime.UTC)
+                            memory.deleted_at = datetime.datetime.now(UTC)
                             # Create history entry
                             history = MemoryStatusHistory(
                                 memory_id=memory_id,
@@ -133,16 +165,23 @@ async def add_memories(text: str) -> str:
 
                 db.commit()
 
-            return response
+            # Ensure MCP tool returns a JSON string, not a Python dict
+            # to satisfy the declared return type and MCP client expectations.
+            return json.dumps(response, indent=2) if not isinstance(response, str) else response
         finally:
             db.close()
     except Exception as e:
         logging.exception(f"Error adding to memory: {e}")
         return f"Error adding to memory: {e}"
+    finally:
+        _maybe_reset_context(user_token, client_token)
 
 
+# Thin MCP-registered wrapper that delegates to the context-preserving function above.
+@mcp.tool(description="Add a new memory. This method is called everytime the user informs anything about themselves, their preferences, or anything that has any relevant information which can be useful in the future conversation. This can also be called when the user asks you to remember something.")
 @mcp.tool(description="Search through stored memories. This method is called EVERYTIME the user asks anything.")
-async def search_memory(query: str) -> str:
+async def search_memory(query: str, user_id: Optional[str] = None, client_name: Optional[str] = None) -> str:
+    user_token, client_token = _maybe_set_context(user_id, client_name)
     uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
     if not uid:
@@ -217,10 +256,14 @@ async def search_memory(query: str) -> str:
     except Exception as e:
         logging.exception(e)
         return f"Error searching memory: {e}"
+    finally:
+        _maybe_reset_context(user_token, client_token)
 
 
+@mcp.tool(description="Search through stored memories. This method is called EVERYTIME the user asks anything.")
 @mcp.tool(description="List all memories in the user's memory")
-async def list_memories() -> str:
+async def list_memories(user_id: Optional[str] = None, client_name: Optional[str] = None) -> str:
+    user_token, client_token = _maybe_set_context(user_id, client_name)
     uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
     if not uid:
@@ -286,10 +329,14 @@ async def list_memories() -> str:
     except Exception as e:
         logging.exception(f"Error getting memories: {e}")
         return f"Error getting memories: {e}"
+    finally:
+        _maybe_reset_context(user_token, client_token)
 
 
+@mcp.tool(description="List all memories in the user's memory")
 @mcp.tool(description="Delete all memories in the user's memory")
-async def delete_all_memories() -> str:
+async def delete_all_memories(user_id: Optional[str] = None, client_name: Optional[str] = None) -> str:
+    user_token, client_token = _maybe_set_context(user_id, client_name)
     uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
     if not uid:
@@ -319,7 +366,7 @@ async def delete_all_memories() -> str:
                     logging.warning(f"Failed to delete memory {memory_id} from vector store: {delete_error}")
 
             # Update each memory's state and create history entries
-            now = datetime.datetime.now(datetime.UTC)
+            now = datetime.datetime.now(UTC)
             for memory_id in accessible_memory_ids:
                 memory = db.query(Memory).filter(Memory.id == memory_id).first()
                 # Update memory state
@@ -351,6 +398,13 @@ async def delete_all_memories() -> str:
     except Exception as e:
         logging.exception(f"Error deleting memories: {e}")
         return f"Error deleting memories: {e}"
+    finally:
+        _maybe_reset_context(user_token, client_token)
+
+
+@mcp.tool(description="Delete all memories in the user's memory")
+async def tool_delete_all_memories() -> str:
+    return await delete_all_memories()
 
 
 @mcp_router.get("/{client_name}/sse/{user_id}")
@@ -381,15 +435,15 @@ async def handle_sse(request: Request):
 
 
 @mcp_router.post("/messages/")
-async def handle_get_message(request: Request):
-    return await handle_post_message(request)
+async def post_messages_root(request: Request):
+    return await _handle_post_message_impl(request)
 
 
 @mcp_router.post("/{client_name}/sse/{user_id}/messages/")
-async def handle_post_message(request: Request):
-    return await handle_post_message(request)
+async def post_messages_sse(request: Request):
+    return await _handle_post_message_impl(request)
 
-async def handle_post_message(request: Request):
+async def _handle_post_message_impl(request: Request):
     """Handle POST messages for SSE"""
     try:
         body = await request.body()

@@ -73,6 +73,10 @@ test = [
     "pytest>=8.2.2",
     "pytest-mock>=3.14.0",
     "pytest-asyncio>=0.23.7",
+    "fastapi==0.112.2",
+    "fastapi-pagination>=0.12.0",
+    "python-dotenv==1.0.1",
+    "mcp>=1.1.2",
 ]
 dev = [
     "ruff>=0.6.5",
@@ -81,7 +85,11 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-pythonpath = ["."]
+pythonpath = [".", "openmemory/api"]
+testpaths = [
+    "tests",
+    "openmemory/api/tests",
+]
 
 [tool.hatch.build]
 include = [
@@ -153,7 +161,7 @@ lint-fix = [
     "ruff check --fix",
 ]
 test = [
-    "pytest tests/ {args}",
+    "pytest tests/ openmemory/api/tests/ {args}",
 ]
 
 [tool.ruff]

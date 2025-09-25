@@ -1,25 +1,33 @@
-from datetime import UTC, datetime
-import io 
-import json 
-import gzip 
-import zipfile
-from typing import Optional, List, Dict, Any
-from uuid import UUID
+from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, Form
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import and_
+try:
+    from datetime import UTC  # py311+
+except ImportError:
+    from datetime import timezone as _tz
+    UTC = _tz.utc
+import gzip
+import io
+import json
+import zipfile
+from typing import Any, Dict, Optional
+from uuid import UUID, uuid4
 
 from app.database import get_db
 from app.models import (
-    User, App, Memory, MemoryState, Category, memory_categories, 
-    MemoryStatusHistory, AccessControl
+    AccessControl,
+    App,
+    Category,
+    Memory,
+    MemoryState,
+    MemoryStatusHistory,
+    User,
+    memory_categories,
 )
 from app.utils.memory import get_memory_client
-
-from uuid import uuid4
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+from sqlalchemy.orm import Session, joinedload
 
 router = APIRouter(prefix="/api/v1/backup", tags=["backup"])
 
@@ -30,11 +38,11 @@ class ExportRequest(BaseModel):
     to_date: Optional[int] = None
     include_vectors: bool = True
 
-def _iso(dt: Optional[datetime]) -> Optional[str]: 
-    if isinstance(dt, datetime): 
-        try: 
+def _iso(dt: Optional[datetime]) -> Optional[str]:
+    if isinstance(dt, datetime):
+        try:
             return dt.astimezone(UTC).isoformat()
-        except: 
+        except Exception:
             return dt.replace(tzinfo=UTC).isoformat()
     return None
 
@@ -493,7 +501,5 @@ async def import_backup(
 
 
  
-
-
 
 

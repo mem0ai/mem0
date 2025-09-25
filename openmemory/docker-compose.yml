@@ -1,36 +1,129 @@
 services:
-  mem0_store:
-    image: qdrant/qdrant
-    ports:
-      - "6333:6333"
+  qdrant:
+    image: qdrant/qdrant:latest
     volumes:
-      - mem0_storage:/mem0/storage
-  openmemory-mcp:
-    image: mem0/openmemory-mcp
-    build: api/
+    - qdrant_data:/qdrant/storage
+    networks:
+    - memnet
+  postgres:
+    image: postgres:16-alpine
     environment:
-      - USER
-      - API_KEY
+      POSTGRES_USER: openmemory_user
+      POSTGRES_PASSWORD: changeme
+      POSTGRES_DB: openmemory
+    volumes:
+    - pg_data:/var/lib/postgresql/data
+    networks:
+    - memnet
+  neo4j:
+    image: neo4j:5.26.4
+    environment:
+      NEO4J_AUTH: ${NEO4J_USERNAME}/${NEO4J_PASSWORD}
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_server_memory_heap_initial__size: 2G
+      NEO4J_server_memory_heap_max__size: 2G
+    volumes:
+    - neo4j_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "http://localhost:7474", "-q", "-O", "/dev/null"]
+      interval: 30s
+      retries: 5
+    networks:
+    - memnet
+  auth-service:
+    build: ./auth-service
+    environment:
+      # Configure API tokens: OPENMEMORY_TOKEN_<name>=<token>:<user_id>
+      OPENMEMORY_TOKEN_api: ${API_TOKEN:-your-secret-token}:${USER:-drj}
+    networks:
+    - memnet
+    - traefik
+  openmemory-api:
+    build: ./api
+    ports:
+    - "127.0.0.1:8765:8765"
     env_file:
-      - api/.env
-    depends_on:
-      - mem0_store
-    ports:
-      - "8765:8765"
-    volumes:
-      - ./api:/usr/src/openmemory
-    command: >
-      sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --reload --workers 4"
-  openmemory-ui:
-    build:
-      context: ui/
-      dockerfile: Dockerfile
-    image: mem0/openmemory-ui:latest
-    ports:
-      - "3000:3000"
+    - ./api/.env
     environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-      - NEXT_PUBLIC_USER_ID=${USER}
-
+      DATABASE_URL: ${DATABASE_URL}
+      NEO4J_URI: ${NEO4J_URI}
+      NEO4J_USERNAME: ${NEO4J_USERNAME}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD}
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: 6333
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ENABLE_DEEP_READINESS: "true"
+      # Keycloak OIDC validation (required for ChatGPT OAuth)
+      KEYCLOAK_ISSUER_URL: https://oauth.onemainarmy.com/auth/realms/OMA
+      KEYCLOAK_AUDIENCE: gpt-client
+      # Public base URL for OpenAPI `servers` (required by ChatGPT schema loader)
+      OPENMEMORY_PUBLIC_BASE_URL: https://memory.onemainarmy.com
+      # Strict CORS: allow trusted origins and local UI during development
+      CORS_ALLOWED_ORIGINS: https://chat.openai.com,https://chatgpt.com,https://memory.onemainarmy.com,https://fullmem.drjlabs.com,http://localhost:3000,http://127.0.0.1:3000
+    depends_on:
+      qdrant:
+        condition: service_started
+      postgres:
+        condition: service_started
+      neo4j:
+        condition: service_healthy
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik
+      # Protected API router (/api, /mcp) — requires ForwardAuth
+      - traefik.http.routers.openmemory.rule=Host(`memory.onemainarmy.com`) && (PathPrefix(`/api`) || PathPrefix(`/mcp`))
+      - traefik.http.routers.openmemory.entrypoints=websecure
+      - traefik.http.routers.openmemory.tls=true
+      # Apply auth, security and rate-limit middlewares
+      - traefik.http.routers.openmemory.middlewares=openmemory-auth,openmemory-ratelimit,openmemory-headers
+      # Public router for OpenAPI + Docs — NO ForwardAuth
+      - traefik.http.routers.openmemory-openapi.rule=Host(`memory.onemainarmy.com`) && (Path(`/openapi.json`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`))
+      - traefik.http.routers.openmemory-openapi.entrypoints=websecure
+      - traefik.http.routers.openmemory-openapi.tls=true
+      - traefik.http.routers.openmemory-openapi.middlewares=openmemory-ratelimit,openmemory-headers
+      - traefik.http.routers.openmemory-openapi.service=openmemory
+      # ForwardAuth middleware
+      - traefik.http.middlewares.openmemory-auth.forwardauth.address=http://auth-service:8080/auth
+      - traefik.http.middlewares.openmemory-auth.forwardauth.authResponseHeaders=X-User-ID,X-Auth-Method
+      # Rate limiting: 100 rps average with 200 burst
+      - traefik.http.middlewares.openmemory-ratelimit.ratelimit.average=100
+      - traefik.http.middlewares.openmemory-ratelimit.ratelimit.burst=200
+      - traefik.http.middlewares.openmemory-ratelimit.ratelimit.period=1s
+      # Security headers (HSTS, clickjacking, MIME sniffing, XSS filter, referrer policy, permissions policy)
+      - traefik.http.middlewares.openmemory-headers.headers.stsSeconds=31536000
+      - traefik.http.middlewares.openmemory-headers.headers.stsIncludeSubdomains=true
+      - traefik.http.middlewares.openmemory-headers.headers.stsPreload=true
+      - traefik.http.middlewares.openmemory-headers.headers.forceSTSHeader=true
+      - traefik.http.middlewares.openmemory-headers.headers.frameDeny=false
+      - traefik.http.middlewares.openmemory-headers.headers.contentTypeNosniff=true
+      - traefik.http.middlewares.openmemory-headers.headers.browserXssFilter=true
+      - traefik.http.middlewares.openmemory-headers.headers.referrerPolicy=no-referrer
+      - traefik.http.middlewares.openmemory-headers.headers.permissionsPolicy=geolocation=(),microphone=()
+      # CSP compatible with ChatGPT embedding if needed
+      - traefik.http.middlewares.openmemory-headers.headers.contentSecurityPolicy=default-src 'self'; frame-ancestors 'self' https://chat.openai.com https://chatgpt.com; base-uri 'none'
+      - traefik.http.services.openmemory.loadbalancer.server.port=8765
+    networks:
+      - memnet
+      - traefik
+  openmemory-ui:
+    build: ./ui
+    ports:
+    - "127.0.0.1:3000:3000"
+    env_file:
+    - ./ui/.env
+    environment:
+      OPENMEMORY_API_BASE_URL: http://openmemory-api:8765
+    depends_on:
+      openmemory-api:
+        condition: service_started
+    networks:
+    - memnet
 volumes:
-  mem0_storage:
+  qdrant_data:
+  pg_data:
+  neo4j_data:
+networks:
+  memnet:
+    driver: bridge
+  traefik:
+    external: true

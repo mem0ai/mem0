@@ -7,11 +7,13 @@ on:
       - 'mem0/**'
       - 'tests/**'
       - 'embedchain/**'
+      - 'openmemory/**'
   pull_request:
     paths:
       - 'mem0/**'
       - 'tests/**'
       - 'embedchain/**'
+      - 'openmemory/**'
 
 jobs:
   check_changes:
@@ -30,6 +32,8 @@ jobs:
             - 'tests/**'
           embedchain:
             - 'embedchain/**'
+          openmemory:
+            - 'openmemory/**'
 
   build_mem0:
     needs: check_changes
@@ -60,10 +64,16 @@ jobs:
           pip install -e ".[test,graph,vector_stores,llms,extras]"
           pip install ruff
         if: steps.cached-hatch-dependencies.outputs.cache-hit != 'true'
+      - name: Install OpenMemory API requirements
+        run: |
+          pip install -r openmemory/api/requirements.txt
+      - name: Set test env
+        run: |
+          echo "OPENAI_API_KEY=test-key" >> $GITHUB_ENV
       - name: Run Linting
         run: make lint
       - name: Run tests and generate coverage report
-        run: make test
+        run: pytest -q tests
 
   build_embedchain:
     needs: check_changes
@@ -103,3 +113,29 @@ jobs:
           file: coverage.xml
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  build_openmemory:
+    needs: check_changes
+    if: needs.check_changes.outputs.openmemory_changed == 'true'
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies (mem0 + OpenMemory API)
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test]"
+          pip install -r openmemory/api/requirements.txt
+      - name: Set test env
+        run: |
+          echo "OPENAI_API_KEY=test-key" >> $GITHUB_ENV
+      - name: Run OpenMemory API tests
+        run: |
+          pytest -q openmemory/api/tests
