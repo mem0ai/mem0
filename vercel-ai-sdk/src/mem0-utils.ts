@@ -1,19 +1,62 @@
 import { LanguageModelV2Prompt } from '@ai-sdk/provider';
 import { Mem0ConfigSettings } from './mem0-types';
 import { loadApiKey } from '@ai-sdk/provider-utils';
+interface MultimodalContent {
+    type: 'text' | 'image_url' | 'mdx_url' | 'pdf_url';
+    text?: string;
+    image_url?: {
+        url: string;
+    };
+    mdx_url?: {
+        url: string;
+    };
+    pdf_url?: {
+        url: string;
+    };
+}
+
+interface FileContent {
+    type: 'file';
+    data: string; // fileDataUrl
+    mediaType: string; // e.g., 'application/pdf', 'text/markdown', 'image/jpeg'
+}
+
 interface Message {
     role: string;
-    content: string | Array<{type: string, text: string}>;
+    content: string | MultimodalContent | Array<MultimodalContent>;
 }
 
 const flattenPrompt = (prompt: LanguageModelV2Prompt) => {
     try {
         return prompt.map((part) => {
             if (part.role === "user") {
-                return part.content
-                    .filter((obj) => obj.type === 'text')
-                    .map((obj) => obj.text)
-                    .join(" ");
+                if (typeof part.content === 'string') {
+                    return part.content;
+                } else if (Array.isArray(part.content)) {
+                    return part.content
+                        .filter((obj) => obj.type === 'text')
+                        .map((obj) => obj.text)
+                        .join(" ");
+                } else if (part.content && typeof part.content === 'object' && 'type' in part.content) {
+                    const content = part.content as any;
+                    if (content.type === 'text' && content.text) {
+                        return content.text;
+                    } else if (content.type === 'file') {
+                        // For file content, we'll include a descriptive placeholder
+                        if (content.mediaType === 'application/pdf') {
+                            return '[PDF document]';
+                        } else if (content.mediaType === 'text/markdown' || content.mediaType === 'application/mdx') {
+                            return '[Markdown document]';
+                        } else if (content.mediaType && content.mediaType.startsWith('image/')) {
+                            return '[Image]';
+                        } else {
+                            return '[File attachment]';
+                        }
+                    }
+                }
+                // For non-text content (images, pdfs, mdx), we'll include a placeholder
+                // This helps maintain context for memory search while not breaking the text flow
+                return "[multimodal content]";
             }
             return "";
         }).join(" ");
@@ -33,13 +76,76 @@ const convertToMem0Format = (messages: LanguageModelV2Prompt) => {
                         content: message.content,
                     };
                 }
-                else {
+                else if (Array.isArray(message.content)) {
                     return message.content.map((obj: any) => {
                         try {
                             if (obj.type === "text") {
                                 return {
                                     role: message.role,
                                     content: obj.text,
+                                };
+                            } else if (obj.type === "file") {
+                                // Handle LanguageModelV2Prompt file format
+                                if (obj.mediaType === "application/pdf") {
+                                    return {
+                                        role: message.role,
+                                        content: {
+                                            type: "pdf_url",
+                                            pdf_url: {
+                                                url: obj.data
+                                            }
+                                        }
+                                    };
+                                } else if (obj.mediaType === "text/markdown" || obj.mediaType === "application/mdx") {
+                                    return {
+                                        role: message.role,
+                                        content: {
+                                            type: "mdx_url",
+                                            mdx_url: {
+                                                url: obj.data
+                                            }
+                                        }
+                                    };
+                                } else if (obj.mediaType && obj.mediaType.startsWith("image/")) {
+                                    return {
+                                        role: message.role,
+                                        content: {
+                                            type: "image_url",
+                                            image_url: {
+                                                url: obj.data
+                                            }
+                                        }
+                                    };
+                                }
+                            } else if (obj.type === "image_url" || obj.type === "image") {
+                                return {
+                                    role: message.role,
+                                    content: {
+                                        type: "image_url",
+                                        image_url: {
+                                            url: obj.image_url?.url || obj.image?.url || obj.url
+                                        }
+                                    }
+                                };
+                            } else if (obj.type === "mdx_url" || obj.type === "mdx") {
+                                return {
+                                    role: message.role,
+                                    content: {
+                                        type: "mdx_url",
+                                        mdx_url: {
+                                            url: obj.mdx_url?.url || obj.mdx?.url || obj.url
+                                        }
+                                    }
+                                };
+                            } else if (obj.type === "pdf_url" || obj.type === "pdf") {
+                                return {
+                                    role: message.role,
+                                    content: {
+                                        type: "pdf_url",
+                                        pdf_url: {
+                                            url: obj.pdf_url?.url || obj.pdf?.url || obj.url
+                                        }
+                                    }
                                 };
                             }
                             return null;
@@ -48,6 +154,79 @@ const convertToMem0Format = (messages: LanguageModelV2Prompt) => {
                             return null;
                         }
                     }).filter((item: null) => item !== null);
+                } else {
+                    // Handle single multimodal content object
+                    const obj = message.content;
+                    if (obj.type === "text") {
+                        return {
+                            role: message.role,
+                            content: obj.text,
+                        };
+                    } else if (obj.type === "file") {
+                        // Handle LanguageModelV2Prompt file format
+                        if (obj.mediaType === "application/pdf") {
+                            return {
+                                role: message.role,
+                                content: {
+                                    type: "pdf_url",
+                                    pdf_url: {
+                                        url: obj.data
+                                    }
+                                }
+                            };
+                        } else if (obj.mediaType === "text/markdown" || obj.mediaType === "application/mdx") {
+                            return {
+                                role: message.role,
+                                content: {
+                                    type: "mdx_url",
+                                    mdx_url: {
+                                        url: obj.data
+                                    }
+                                }
+                            };
+                        } else if (obj.mediaType && obj.mediaType.startsWith("image/")) {
+                            return {
+                                role: message.role,
+                                content: {
+                                    type: "image_url",
+                                    image_url: {
+                                        url: obj.data
+                                    }
+                                }
+                            };
+                        }
+                    } else if (obj.type === "image_url" || obj.type === "image") {
+                        return {
+                            role: message.role,
+                            content: {
+                                type: "image_url",
+                                image_url: {
+                                    url: obj.image_url?.url || obj.image?.url || obj.url
+                                }
+                            }
+                        };
+                    } else if (obj.type === "mdx_url" || obj.type === "mdx") {
+                        return {
+                            role: message.role,
+                            content: {
+                                type: "mdx_url",
+                                mdx_url: {
+                                    url: obj.mdx_url?.url || obj.mdx?.url || obj.url
+                                }
+                            }
+                        };
+                    } else if (obj.type === "pdf_url" || obj.type === "pdf") {
+                        return {
+                            role: message.role,
+                            content: {
+                                type: "pdf_url",
+                                pdf_url: {
+                                    url: obj.pdf_url?.url || obj.pdf?.url || obj.url
+                                }
+                            }
+                        };
+                    }
+                    return null;
                 }
             } catch (error) {
                 console.error("Error processing message:", error);
