@@ -133,7 +133,9 @@ async def add_memories(text: str) -> str:
 
                 db.commit()
 
-            return response
+            if isinstance(response, (dict, list)):
+                return json.dumps(response, ensure_ascii=False, indent=2)
+            return str(response)
         finally:
             db.close()
     except Exception as e:
@@ -184,7 +186,7 @@ async def search_memory(query: str) -> str:
             for h in hits:
                 # All vector db search functions return OutputData class
                 id, score, payload = h.id, h.score, h.payload
-                if allowed and h.id is None or h.id not in allowed: 
+                if allowed and (h.id is None or h.id not in allowed):
                     continue
                 
                 results.append({
@@ -211,7 +213,7 @@ async def search_memory(query: str) -> str:
                     db.add(access_log)
             db.commit()
 
-            return json.dumps({"results": results}, indent=2)
+            return json.dumps({"results": results}, ensure_ascii=False, indent=2)
         finally:
             db.close()
     except Exception as e:
@@ -280,7 +282,7 @@ async def list_memories() -> str:
                         db.add(access_log)
                         filtered_memories.append(memory)
                 db.commit()
-            return json.dumps(filtered_memories, indent=2)
+            return json.dumps(filtered_memories, ensure_ascii=False, indent=2)
         finally:
             db.close()
     except Exception as e:
@@ -382,14 +384,14 @@ async def handle_sse(request: Request):
 
 @mcp_router.post("/messages/")
 async def handle_get_message(request: Request):
-    return await handle_post_message(request)
+    return await _handle_post_message(request)
 
 
 @mcp_router.post("/{client_name}/sse/{user_id}/messages/")
 async def handle_post_message(request: Request):
-    return await handle_post_message(request)
+    return await _handle_post_message(request)
 
-async def handle_post_message(request: Request):
+async def _handle_post_message(request: Request):
     """Handle POST messages for SSE"""
     try:
         body = await request.body()
