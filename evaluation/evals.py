@@ -45,12 +45,12 @@ def process_item(item_data):
 def main():
     parser = argparse.ArgumentParser(description="Evaluate RAG results")
     parser.add_argument(
-        "--input_file", type=str, default="results/rag_results_500_k1.json", help="Path to the input dataset file"
+        "--input_file", type=str, default="/Users/jinyi/Documents/code/memory/mem0/exp_data/locomo/exp_data_0-10_2000/mem0_results_top_30_filter_False_graph_False.json", help="Path to the input dataset file"
     )
     parser.add_argument(
-        "--output_file", type=str, default="evaluation_metrics.json", help="Path to save the evaluation results"
+        "--output_file", type=str, default="/Users/jinyi/Documents/code/memory/mem0/exp_data/locomo/exp_data_0-10_2000/all_result.json", help="Path to save the evaluation results"
     )
-    parser.add_argument("--max_workers", type=int, default=10, help="Maximum number of worker threads")
+    parser.add_argument("--max_workers", type=int, default=5, help="Maximum number of worker threads")
 
     args = parser.parse_args()
 
@@ -79,3 +79,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# python evals.py --input_file results/case1.json --output_file case1_results.json

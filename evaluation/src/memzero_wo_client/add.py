@@ -66,16 +66,25 @@ config = {
             "openai_base_url": "https://api.siliconflow.cn/v1",
         }
     },
+    # "vector_store": {
+    #     "provider": "qdrant",
+    #     "config": {
+    #         "collection_name": "locomo10",
+    #         "embedding_model_dims": 1024,
+    #     }
+    # },
     "vector_store": {
         "provider": "qdrant",
         "config": {
-            "collection_name": "locomo10",
-            "embedding_model_dims": 1024,
+            "path": "./qdrant_data_locomo10",
+            "on_disk": True,
+            "embedding_model_dims":1024
         }
     },
     "version": "v1.1",
 }
 
+import random   
 
 class MemoryADD:
     def __init__(self, data_path=None, batch_size=2, is_graph=False):
@@ -92,7 +101,7 @@ class MemoryADD:
             self.data = json.load(f)
         return self.data
 
-    def add_memory(self, user_id, message, metadata, retries=20):
+    def add_memory(self, user_id, message, metadata, retries=5):
         for attempt in range(retries):
             try:
                 _ = self.memory.add(
@@ -101,7 +110,8 @@ class MemoryADD:
                 return
             except Exception as e:
                 if attempt < retries - 1:
-                    time.sleep(60)  # Wait before retrying
+                    print(f"Retrying...{attempt+1}/{retries}\t{str(e)}")
+                    time.sleep(random.randint(20, 60))  # Wait before retrying
                     continue
                 else:
                     raise e
@@ -160,7 +170,7 @@ class MemoryADD:
 
         print("Messages added successfully")
 
-    def process_all_conversations(self, max_workers=10):
+    def process_all_conversations(self, max_workers=4):
         if not self.data:
             raise ValueError("No data loaded. Please set data_path and call load_data() first.")
         with ThreadPoolExecutor(max_workers=max_workers) as executor:

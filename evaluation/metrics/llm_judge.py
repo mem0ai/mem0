@@ -7,7 +7,9 @@ from openai import OpenAI
 
 from mem0.memory.utils import extract_json
 
-client = OpenAI()
+client = OpenAI(api_key="sk-vyvftxtwuiznrwrfvayhfitxgpdpsykrdnukzfdtdwtjgqvo", 
+                base_url="https://api.siliconflow.cn/v1")
+
 
 ACCURACY_PROMPT = """
 Your task is to label an answer to a question as ’CORRECT’ or ’WRONG’. You will be given the following data:
@@ -35,23 +37,37 @@ Do NOT include both CORRECT and WRONG in your response, or it will break the eva
 Just return the label CORRECT or WRONG in a json format with the key as "label".
 """
 
-
+import time
+import random
 def evaluate_llm_judge(question, gold_answer, generated_answer):
-    """Evaluate the generated answer against the gold answer using an LLM judge."""
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {
-                "role": "user",
-                "content": ACCURACY_PROMPT.format(
-                    question=question, gold_answer=gold_answer, generated_answer=generated_answer
-                ),
-            }
-        ],
-        response_format={"type": "json_object"},
-        temperature=0.0,
-    )
-    label = json.loads(extract_json(response.choices[0].message.content))["label"]
+    max_retries = 10
+    retries = 0
+    while True:
+        try:
+            response = client.chat.completions.create(
+                model="Qwen/Qwen3-14B",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": ACCURACY_PROMPT.format(
+                            question=question, gold_answer=gold_answer, generated_answer=generated_answer
+                        ),
+                    }
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.0,
+            )
+            label = json.loads(extract_json(response.choices[0].message.content))["label"]
+            print("Done")
+            break
+        except Exception as e:
+            print("Retrying...", str(e))
+            retries += 1
+            if retries >= max_retries:
+                print("Failed after max retries, for question:", question)
+                return 0
+            time.sleep(random.randint(20, 40))
+
     return 1 if label == "CORRECT" else 0
 
 
