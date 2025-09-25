@@ -1,0 +1,887 @@
+{
+    "0": [
+        {
+            "question": "When did Caroline go to the LGBTQ support group?",
+            "answer": "7 May 2023",
+            "category": 2,
+            "evidence": [
+                "D1:3"
+            ],
+            "response": "Caroline did not go to the LGBTQ support group.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 1.6523079872131348,
+            "speaker_2_memory_time": 0.6524980068206787,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 1.020461082458496
+        },
+        {
+            "question": "When did Melanie paint a sunrise?",
+            "answer": 2022,
+            "category": 2,
+            "evidence": [
+                "D1:12"
+            ],
+            "response": "\n\nNo specific date mentioned.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.631904125213623,
+            "speaker_2_memory_time": 0.5587189197540283,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 3.6915650367736816
+        },
+        {
+            "question": "What fields would Caroline be likely to pursue in her educaton?",
+            "answer": "Psychology, counseling certification",
+            "category": 3,
+            "evidence": [
+                "D1:9",
+                "D1:11"
+            ],
+            "response": "\n\nNo information available in memories.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.6398839950561523,
+            "speaker_2_memory_time": 0.6099069118499756,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 3.353015661239624
+        },
+        {
+            "question": "What did Caroline research?",
+            "answer": "Adoption agencies",
+            "category": 1,
+            "evidence": [
+                "D2:8"
+            ],
+            "response": "Caroline's research is not mentioned.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.6296751499176025,
+            "speaker_2_memory_time": 0.7113630771636963,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 0.8762209415435791
+        },
+        {
+            "question": "What is Caroline's identity?",
+            "answer": "Transgender woman",
+            "category": 1,
+            "evidence": [
+                "D1:5"
+            ],
+            "response": "Caroline's identity is not provided in the memories.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.6152420043945312,
+            "speaker_2_memory_time": 0.5984711647033691,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 0.8517680168151855
+        },
+        {
+            "question": "When did Melanie run a charity race?",
+            "answer": "The sunday before 25 May 2023",
+            "category": 2,
+            "evidence": [
+                "D2:1"
+            ],
+            "response": "\n\nMelanie's charity race participation is not mentioned in the provided memories.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.8810751438140869,
+            "speaker_2_memory_time": 0.5852320194244385,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 4.820600748062134
+        },
+        {
+            "question": "When is Melanie planning on going camping?",
+            "answer": "June 2023",
+            "category": 2,
+            "evidence": [
+                "D2:7"
+            ],
+            "response": "\n\nMelanie has not mentioned any camping plans in the provided memories.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.7243010997772217,
+            "speaker_2_memory_time": 0.6497049331665039,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 3.968040943145752
+        },
+        {
+            "question": "What is Caroline's relationship status?",
+            "answer": "Single",
+            "category": 1,
+            "evidence": [
+                "D3:13",
+                "D2:14"
+            ],
+            "response": "Caroline's relationship status is not mentioned.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.5452461242675781,
+            "speaker_2_memory_time": 0.6213269233703613,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 0.8524689674377441
+        },
+        {
+            "question": "When did Caroline give a speech at a school?",
+            "answer": "The week before 9 June 2023",
+            "category": 2,
+            "evidence": [
+                "D3:1"
+            ],
+            "response": "There is no information available about when Caroline gave a speech at a school.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.6324338912963867,
+            "speaker_2_memory_time": 0.7056150436401367,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 0.9033420085906982
+        },
+        {
+            "question": "When did Caroline meet up with her friends, family, and mentors?",
+            "answer": "The week before 9 June 2023",
+            "category": 2,
+            "evidence": [
+                "D3:11"
+            ],
+            "response": "Not specified in memories.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.6501927375793457,
+            "speaker_2_memory_time": 0.6052761077880859,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 0.7997210025787354
+        },
+        {
+            "question": "How long has Caroline had her current group of friends for?",
+            "answer": "4 years",
+            "category": 2,
+            "evidence": [
+                "D3:13"
+            ],
+            "response": "Caroline's current group of friends is not mentioned in the memories.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.5800900459289551,
+            "speaker_2_memory_time": 0.6331989765167236,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 0.8758630752563477
+        },
+        {
+            "question": "Where did Caroline move from 4 years ago?",
+            "answer": "Sweden",
+            "category": 1,
+            "evidence": [
+                "D3:13",
+                "D4:3"
+            ],
+            "response": "The information is not available in the provided memories.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.5972511768341064,
+            "speaker_2_memory_time": 0.647996187210083,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 0.8783290386199951
+        },
+        {
+            "question": "How long ago was Caroline's 18th birthday?",
+            "answer": "10 years ago",
+            "category": 2,
+            "evidence": [
+                "D4:5"
+            ],
+            "response": "Not enough information.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.5510251522064209,
+            "speaker_2_memory_time": 0.7298800945281982,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 0.7125539779663086
+        },
+        {
+            "question": "What career path has Caroline decided to persue?",
+            "answer": "counseling or mental health for Transgender people",
+            "category": 1,
+            "evidence": [
+                "D4:13",
+                "D1:11"
+            ],
+            "response": "\n\nCaroline's career path is not mentioned in the memories.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.7058360576629639,
+            "speaker_2_memory_time": 0.5884323120117188,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 2.1765408515930176
+        },
+        {
+            "question": "Would Caroline still want to pursue counseling as a career if she hadn't received support growing up?",
+            "answer": "Likely no",
+            "category": 3,
+            "evidence": [
+                "D4:15",
+                "D3:5"
+            ],
+            "response": "Not enough information.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.557218074798584,
+            "speaker_2_memory_time": 0.602780818939209,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 0.8978519439697266
+        },
+        {
+            "question": "What activities does Melanie partake in?",
+            "answer": "pottery, camping, painting, swimming",
+            "category": 1,
+            "evidence": [
+                "D5:4",
+                "D9:1",
+                "D1:12",
+                "D1:18"
+            ],
+            "response": "\n\nThe memories for Melanie are empty, so no activities are mentioned.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.6505732536315918,
+            "speaker_2_memory_time": 0.6244857311248779,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 2.821873188018799
+        },
+        {
+            "question": "When did Melanie sign up for a pottery class?",
+            "answer": "2 July 2023",
+            "category": 2,
+            "evidence": [
+                "D5:4"
+            ],
+            "response": "\n\nMelanie's pottery class signup date is not available in the memories.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.5636827945709229,
+            "speaker_2_memory_time": 0.6326799392700195,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 2.918353796005249
+        },
+        {
+            "question": "When is Caroline going to the transgender conference?",
+            "answer": "July 2023",
+            "category": 2,
+            "evidence": [
+                "D5:13"
+            ],
+            "response": "\n\nNo information provided in memories about Caroline attending a transgender conference.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.6810786724090576,
+            "speaker_2_memory_time": 0.6468832492828369,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 4.051715850830078
+        },
+        {
+            "question": "Where has Melanie camped?",
+            "answer": "beach, mountains, forest",
+            "category": 1,
+            "evidence": [
+                "D6:16",
+                "D4:6",
+                "D8:32"
+            ],
+            "response": "Melanie has not camped anywhere.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.6304769515991211,
+            "speaker_2_memory_time": 0.610713005065918,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 0.7370178699493408
+        },
+        {
+            "question": "What do Melanie's kids like?",
+            "answer": "dinosaurs, nature",
+            "category": 1,
+            "evidence": [
+                "D6:6",
+                "D4:8"
+            ],
+            "response": "\n\nNo information provided.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.6110401153564453,
+            "speaker_2_memory_time": 0.6200230121612549,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 2.0225229263305664
+        },
+        {
+            "question": "When did Melanie go to the museum?",
+            "answer": "5 July 2023",
+            "category": 2,
+            "evidence": [
+                "D6:4"
+            ],
+            "response": "\n\nThe provided memories for Melanie do not mention her visiting a museum.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.6055669784545898,
+            "speaker_2_memory_time": 0.5464110374450684,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 2.365039825439453
+        },
+        {
+            "question": "When did Caroline have a picnic?",
+            "answer": "The week before 6 July 2023",
+            "category": 2,
+            "evidence": [
+                "D6:11"
+            ],
+            "response": "\n\nCaroline's memories do not mention a picnic.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.6136200428009033,
+            "speaker_2_memory_time": 0.6468091011047363,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 2.288027048110962
+        },
+        {
+            "question": "Would Caroline likely have Dr. Seuss books on her bookshelf?",
+            "answer": "Yes, since she collects classic children's books",
+            "category": 3,
+            "evidence": [
+                "D6:9"
+            ],
+            "response": "\n\nNo information available in memories.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.6040558815002441,
+            "speaker_2_memory_time": 0.6420972347259521,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 2.601212978363037
+        },
+        {
+            "question": "What books has Melanie read?",
+            "answer": "\"Nothing is Impossible\", \"Charlotte's Web\"",
+            "category": 1,
+            "evidence": [
+                "D7:8",
+                "D6:10"
+            ],
+            "response": "Melanie has not read any books.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.6610682010650635,
+            "speaker_2_memory_time": 0.6181929111480713,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 0.903486967086792
+        },
+        {
+            "question": "What does Melanie do to destress?",
+            "answer": "Running, pottery",
+            "category": 1,
+            "evidence": [
+                "D7:22",
+                "D5:4"
+            ],
+            "response": "\n\nThe memories do not provide information about Melanie's methods to destress.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.6404590606689453,
+            "speaker_2_memory_time": 0.6188700199127197,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 3.511241912841797
+        },
+        {
+            "question": "When did Caroline go to the LGBTQ conference?",
+            "answer": "10 July 2023",
+            "category": 2,
+            "evidence": [
+                "D7:1"
+            ],
+            "response": "\n\nThere is no information available in the memories about Caroline attending an LGBTQ conference.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.6340029239654541,
+            "speaker_2_memory_time": 0.7299470901489258,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 3.0328118801116943
+        },
+        {
+            "question": "When did Melanie read the book \"nothing is impossible\"?",
+            "answer": 2022,
+            "category": 2,
+            "evidence": [
+                "D7:8"
+            ],
+            "response": "\n\nThe information is not available in the provided memories.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.604229211807251,
+            "speaker_2_memory_time": 0.7281830310821533,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 3.6084859371185303
+        },
+        {
+            "question": "Would Caroline pursue writing as a career option?",
+            "answer": "LIkely no; though she likes reading, she wants to be a counselor",
+            "category": 3,
+            "evidence": [
+                "D7:5",
+                "D7:9"
+            ],
+            "response": "\n\nNo information available in memories.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.632908821105957,
+            "speaker_2_memory_time": 0.7990782260894775,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 2.774815082550049
+        },
+        {
+            "question": "When did Caroline go to the adoption meeting?",
+            "answer": "The friday before 15 July 2023",
+            "category": 2,
+            "evidence": [
+                "D8:9"
+            ],
+            "response": "\n\nNo information available in memories.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.8071539402008057,
+            "speaker_2_memory_time": 0.6103830337524414,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 3.783536911010742
+        },
+        {
+            "question": "When did Melanie go to the pottery workshop?",
+            "answer": "The Friday before 15 July 2023",
+            "category": 2,
+            "evidence": [
+                "D8:2"
+            ],
+            "response": "Melanie did not go to a pottery workshop.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.6121389865875244,
+            "speaker_2_memory_time": 0.6463809013366699,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 0.933384895324707
+        },
+        {
+            "question": "Would Melanie be considered a member of the LGBTQ community?",
+            "answer": "Likely no, she does not refer to herself as part of it",
+            "category": 3,
+            "evidence": [],
+            "response": "Not enough information.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.6438870429992676,
+            "speaker_2_memory_time": 0.6377170085906982,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 1.001978874206543
+        },
+        {
+            "question": "When did Melanie go camping in June?",
+            "answer": "The week before 27 June 2023",
+            "category": 2,
+            "evidence": [
+                "D4:8"
+            ],
+            "response": "\n\nNo information available.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.6167569160461426,
+            "speaker_2_memory_time": 0.6177279949188232,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 4.127722978591919
+        },
+        {
+            "question": "What LGBTQ+ events has Caroline participated in?",
+            "answer": "Pride parade, school speech, support group",
+            "category": 1,
+            "evidence": [
+                "D5:1",
+                "D8:17",
+                "D3:1",
+                "D1:3"
+            ],
+            "response": "Caroline has not participated in any LGBTQ+ events.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.654123067855835,
+            "speaker_2_memory_time": 0.6502609252929688,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 0.8313610553741455
+        },
+        {
+            "question": "When did Caroline go to a pride parade during the summer?",
+            "answer": "The week before 3 July 2023",
+            "category": 2,
+            "evidence": [
+                "D5:1"
+            ],
+            "response": "There is no information available about when Caroline went to a pride parade during the summer.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.6738288402557373,
+            "speaker_2_memory_time": 0.6320497989654541,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 0.9716050624847412
+        },
+        {
+            "question": "What events has Caroline participated in to help children?",
+            "answer": "Mentoring program, school speech",
+            "category": 1,
+            "evidence": [
+                "D9:2",
+                "D3:3"
+            ],
+            "response": "\n\nCaroline's participation in events to help children is not mentioned in the provided memories.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.6810939311981201,
+            "speaker_2_memory_time": 0.5901849269866943,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 5.14289927482605
+        },
+        {
+            "question": "When did Melanie go camping in July?",
+            "answer": "two weekends before 17 July 2023",
+            "category": 2,
+            "evidence": [
+                "D9:1"
+            ],
+            "response": "Melanie did not go camping in July.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 1.4223618507385254,
+            "speaker_2_memory_time": 0.5856068134307861,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 0.7747259140014648
+        },
+        {
+            "question": "When did Caroline join a mentorship program?",
+            "answer": "The weekend before 17 July 2023",
+            "category": 2,
+            "evidence": [
+                "D9:2"
+            ],
+            "response": "\n\nThere is no information provided about Caroline joining a mentorship program.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.5357630252838135,
+            "speaker_2_memory_time": 0.6320791244506836,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 4.393532037734985
+        },
+        {
+            "question": "What did Melanie paint recently?",
+            "answer": "sunset",
+            "category": 1,
+            "evidence": [
+                "D8:6; D9:17"
+            ],
+            "response": "\n\nMelanie's recent painting activities are not mentioned in the memories.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.6802411079406738,
+            "speaker_2_memory_time": 0.6464409828186035,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 4.218616008758545
+        },
+        {
+            "question": "What activities has Melanie done with her family?",
+            "answer": "Pottery, painting, camping, museum, swimming, hiking",
+            "category": 1,
+            "evidence": [
+                "D8:4",
+                "D8:6",
+                "D9:1",
+                "D6:4",
+                "D1:18",
+                "D3:14"
+            ],
+            "response": "\n\nThere is no information available.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.5961849689483643,
+            "speaker_2_memory_time": 0.6219630241394043,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 3.0563881397247314
+        },
+        {
+            "question": "In what ways is Caroline participating in the LGBTQ community?",
+            "answer": "Joining activist group, going to pride parades, participating in an art show, mentoring program",
+            "category": 1,
+            "evidence": [
+                "D10:3",
+                "D5:1",
+                "D9:12",
+                "D9:2"
+            ],
+            "response": "Caroline is not mentioned in any memories.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.6184399127960205,
+            "speaker_2_memory_time": 0.6918199062347412,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 0.8386590480804443
+        },
+        {
+            "question": "How many times has Melanie gone to the beach in 2023?",
+            "answer": 2,
+            "category": 1,
+            "evidence": [
+                "D10:8",
+                "D6:16"
+            ],
+            "response": "\n\nMelanie has not gone to the beach in 2023.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.6053709983825684,
+            "speaker_2_memory_time": 0.6305480003356934,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 4.7225189208984375
+        },
+        {
+            "question": "When did Caroline join a new activist group?",
+            "answer": "The Tuesday before 20 July 2023",
+            "category": 2,
+            "evidence": [
+                "D10:3"
+            ],
+            "response": "\n\nThe information is not available in the provided memories.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.6840310096740723,
+            "speaker_2_memory_time": 0.636260986328125,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 4.4450600147247314
+        },
+        {
+            "question": "Would Melanie be more interested in going to a national park or a theme park?",
+            "answer": "National park; she likes the outdoors",
+            "category": 3,
+            "evidence": [
+                "D10:12",
+                "D10:14"
+            ],
+            "response": "Not enough information.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.6215770244598389,
+            "speaker_2_memory_time": 0.5908100605010986,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 0.6826932430267334
+        },
+        {
+            "question": "What kind of art does Caroline make?",
+            "answer": "abstract art",
+            "category": 1,
+            "evidence": [
+                "D11:12",
+                "D11:8",
+                "D9:14"
+            ],
+            "response": "\n\nThere is no information provided about the type of art Caroline makes.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.5671248435974121,
+            "speaker_2_memory_time": 0.6558551788330078,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 2.9565868377685547
+        },
+        {
+            "question": "When is Melanie's daughter's birthday?",
+            "answer": "13 August",
+            "category": 2,
+            "evidence": [
+                "D11:1"
+            ],
+            "response": "The information is not available in the provided memories.",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.6372401714324951,
+            "speaker_2_memory_time": 0.6247239112854004,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 0.8002340793609619
+        }
+    ]
+}

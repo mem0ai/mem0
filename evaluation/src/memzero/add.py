@@ -94,10 +94,14 @@ class MemoryADD:
         self.mem0_client.delete_all(user_id=speaker_a_user_id)
         self.mem0_client.delete_all(user_id=speaker_b_user_id)
 
-        for key in conversation.keys():
-            if key in ["speaker_a", "speaker_b"] or "date" in key or "timestamp" in key:
-                continue
+        # collect relevant keys (exclude speaker and timestamp keys) and show progress
+        keys = [
+            k
+            for k in conversation.keys()
+            if k not in ["speaker_a", "speaker_b"] and "date" not in k and "timestamp" not in k
+        ]
 
+        for key in tqdm(keys, desc=f"Conversation {idx}", unit="group"):
             date_time_key = key + "_date_time"
             timestamp = conversation[date_time_key]
             chats = conversation[key]
@@ -116,12 +120,12 @@ class MemoryADD:
 
             # add memories for the two users on different threads
             thread_a = threading.Thread(
-                target=self.add_memories_for_speaker,
-                args=(speaker_a_user_id, messages, timestamp, "Adding Memories for Speaker A"),
+            target=self.add_memories_for_speaker,
+            args=(speaker_a_user_id, messages, timestamp, "Adding Memories for Speaker A"),
             )
             thread_b = threading.Thread(
-                target=self.add_memories_for_speaker,
-                args=(speaker_b_user_id, messages_reverse, timestamp, "Adding Memories for Speaker B"),
+            target=self.add_memories_for_speaker,
+            args=(speaker_b_user_id, messages_reverse, timestamp, "Adding Memories for Speaker B"),
             )
 
             thread_a.start()

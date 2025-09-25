@@ -1,14 +1,13 @@
 import argparse
 import os
 
-from src.langmem import LangMemManager
-from src.memzero.add import MemoryADD
-from src.memzero.search import MemorySearch
+# from src.langmem import LangMemManager
+
 from src.openai.predict import OpenAIPredict
-from src.rag import RAGManager
-from src.utils import METHODS, TECHNIQUES
-from src.zep.add import ZepAdd
-from src.zep.search import ZepSearch
+# from src.rag import RAGManager
+from src.utils import METHODS, TECHNIQUES, MODES
+# from src.zep.add import ZepAdd
+# from src.zep.search import ZepSearch
 
 
 class Experiment:
@@ -24,6 +23,7 @@ def main():
     parser = argparse.ArgumentParser(description="Run memory experiments")
     parser.add_argument("--technique_type", choices=TECHNIQUES, default="mem0", help="Memory technique to use")
     parser.add_argument("--method", choices=METHODS, default="add", help="Method to use")
+    parser.add_argument("--mode", choices=MODES, default="no_client", help="Mode to use")
     parser.add_argument("--chunk_size", type=int, default=1000, help="Chunk size for processing")
     parser.add_argument("--output_folder", type=str, default="results/", help="Output path for results")
     parser.add_argument("--top_k", type=int, default=30, help="Number of top memories to retrieve")
@@ -34,9 +34,17 @@ def main():
     args = parser.parse_args()
 
     # Add your experiment logic here
-    print(f"Running experiments with technique: {args.technique_type}, chunk size: {args.chunk_size}")
+    print(f"Running experiments with technique: {args.technique_type}, chunk size: {args.chunk_size}\n\t{args.method}, {args.mode}, top_k: {args.top_k}, filter_memories: {args.filter_memories}, is_graph: {args.is_graph}, num_chunks: {args.num_chunks}")
 
     if args.technique_type == "mem0":
+        if args.mode == "client":
+            from src.memzero.add import MemoryADD
+            from src.memzero.search import MemorySearch
+        elif args.mode == "no_client":
+            from src.memzero_wo_client.add import MemoryADD
+            from src.memzero_wo_client.search import MemorySearch
+        else:
+            raise ValueError(f"Invalid mode: {args.mode}")
         if args.method == "add":
             memory_manager = MemoryADD(data_path="dataset/locomo10.json", is_graph=args.is_graph)
             memory_manager.process_all_conversations()
@@ -47,26 +55,26 @@ def main():
             )
             memory_searcher = MemorySearch(output_file_path, args.top_k, args.filter_memories, args.is_graph)
             memory_searcher.process_data_file("dataset/locomo10.json")
-    elif args.technique_type == "rag":
-        output_file_path = os.path.join(args.output_folder, f"rag_results_{args.chunk_size}_k{args.num_chunks}.json")
-        rag_manager = RAGManager(data_path="dataset/locomo10_rag.json", chunk_size=args.chunk_size, k=args.num_chunks)
-        rag_manager.process_all_conversations(output_file_path)
-    elif args.technique_type == "langmem":
-        output_file_path = os.path.join(args.output_folder, "langmem_results.json")
-        langmem_manager = LangMemManager(dataset_path="dataset/locomo10_rag.json")
-        langmem_manager.process_all_conversations(output_file_path)
-    elif args.technique_type == "zep":
-        if args.method == "add":
-            zep_manager = ZepAdd(data_path="dataset/locomo10.json")
-            zep_manager.process_all_conversations("1")
-        elif args.method == "search":
-            output_file_path = os.path.join(args.output_folder, "zep_search_results.json")
-            zep_manager = ZepSearch()
-            zep_manager.process_data_file("dataset/locomo10.json", "1", output_file_path)
-    elif args.technique_type == "openai":
-        output_file_path = os.path.join(args.output_folder, "openai_results.json")
-        openai_manager = OpenAIPredict()
-        openai_manager.process_data_file("dataset/locomo10.json", output_file_path)
+    # elif args.technique_type == "rag":
+    #     output_file_path = os.path.join(args.output_folder, f"rag_results_{args.chunk_size}_k{args.num_chunks}.json")
+    #     rag_manager = RAGManager(data_path="dataset/locomo10_rag.json", chunk_size=args.chunk_size, k=args.num_chunks)
+    #     rag_manager.process_all_conversations(output_file_path)
+    # elif args.technique_type == "langmem":
+    #     output_file_path = os.path.join(args.output_folder, "langmem_results.json")
+    #     langmem_manager = LangMemManager(dataset_path="dataset/locomo10_rag.json")
+    #     langmem_manager.process_all_conversations(output_file_path)
+    # elif args.technique_type == "zep":
+    #     if args.method == "add":
+    #         zep_manager = ZepAdd(data_path="dataset/locomo10.json")
+    #         zep_manager.process_all_conversations("1")
+    #     elif args.method == "search":
+    #         output_file_path = os.path.join(args.output_folder, "zep_search_results.json")
+    #         zep_manager = ZepSearch()
+    #         zep_manager.process_data_file("dataset/locomo10.json", "1", output_file_path)
+    # elif args.technique_type == "openai":
+    #     output_file_path = os.path.join(args.output_folder, "openai_results.json")
+    #     openai_manager = OpenAIPredict()
+    #     openai_manager.process_data_file("dataset/locomo10.json", output_file_path)
     else:
         raise ValueError(f"Invalid technique type: {args.technique_type}")
 

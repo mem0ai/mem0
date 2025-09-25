@@ -104,6 +104,8 @@ Alternatively, you can run experiments directly with custom parameters:
 
 ```bash
 python run_experiments.py --technique_type [mem0|rag|langmem] [additional parameters]
+
+nohup python run_experiments.py --technique_type mem0 --method add > logs/0926_locomo_add.log 2>&1 &
 ```
 
 #### Command-line Parameters:
