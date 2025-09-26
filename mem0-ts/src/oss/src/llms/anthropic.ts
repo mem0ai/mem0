@@ -39,7 +39,11 @@ export class AnthropicLLM implements LLM {
       max_tokens: 4096,
     });
 
-    return response.content[0].text;
+    const firstContent = response.content[0];
+    if (firstContent.type === "text") {
+      return firstContent.text;
+    }
+    throw new Error("Expected text content block but received different type");
   }
 
   async generateChat(messages: Message[]): Promise<LLMResponse> {
