@@ -22,6 +22,7 @@ export const MemoryUpdateSchema = z.object({
         old_memory: z
           .string()
           .optional()
+          .nullable()
           .describe(
             "The previous content of the memory item if the event was UPDATE.",
           ),
