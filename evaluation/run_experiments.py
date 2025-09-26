@@ -43,6 +43,9 @@ def main():
         elif args.mode == "no_client":
             from src.memzero_wo_client.add import MemoryADD
             from src.memzero_wo_client.search import MemorySearch
+        elif args.mode == "no_client_async":
+            from src.memzero_wo_client.add import MemoryADD
+            from src.memzero_wo_client.search_async import MemorySearch
         else:
             raise ValueError(f"Invalid mode: {args.mode}")
         if args.method == "add":
@@ -54,7 +57,7 @@ def main():
                 f"mem0_results_top_{args.top_k}_filter_{args.filter_memories}_graph_{args.is_graph}.json",
             )
             memory_searcher = MemorySearch(output_file_path, args.top_k, args.filter_memories, args.is_graph)
-            memory_searcher.process_data_file("dataset/locomo10.json")
+            memory_searcher.process_data_file("dataset/locomo1.json")
     # elif args.technique_type == "rag":
     #     output_file_path = os.path.join(args.output_folder, f"rag_results_{args.chunk_size}_k{args.num_chunks}.json")
     #     rag_manager = RAGManager(data_path="dataset/locomo10_rag.json", chunk_size=args.chunk_size, k=args.num_chunks)
