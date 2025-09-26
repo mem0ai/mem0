@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "openmemory": {
+      "type": "sse",
+      "url": "http://localhost:8765/mcp/claude-code/sse/your-user-id",
+      "headers": {},
+      "description": "OpenMemory MCP Server - Private, local-first memory layer for Claude Code"
+    }
+  }
+}
+
+// Example with project-specific app name for memory isolation:
+// Change "claude-code" to "claude-code-projectname" in the URL for project-specific memories
+// e.g., "url": "http://localhost:8765/mcp/claude-code-jaipuria-intelligence/sse/your-user-id"

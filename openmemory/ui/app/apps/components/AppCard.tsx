@@ -18,8 +18,24 @@ interface AppCardProps {
 
 export function AppCard({ app }: AppCardProps) {
   const router = useRouter();
-  const appConfig =
-    constants[app.name as keyof typeof constants] || constants.default;
+
+  // Handle project-specific Claude Code apps
+  let appConfig;
+  let displayName;
+
+  if (app.name.startsWith("claude-code-")) {
+    const projectName = app.name.replace("claude-code-", "");
+    appConfig = {
+      name: `Claude Code (${projectName})`,
+      icon: <Image src="/images/claude-code.png" alt="Claude Code" width={28} height={28} />,
+      iconImage: "/images/claude-code.png",
+    };
+    displayName = appConfig.name;
+  } else {
+    appConfig = constants[app.name as keyof typeof constants] || constants.default;
+    displayName = appConfig.name;
+  }
+
   const isActive = app.is_active;
 
   return (
@@ -42,7 +58,7 @@ export function AppCard({ app }: AppCardProps) {
               </div>
             )}
           </div>
-          <h2 className="text-xl font-semibold">{appConfig.name}</h2>
+          <h2 className="text-xl font-semibold">{displayName}</h2>
         </div>
       </CardHeader>
       <CardContent className="pb-4 my-1">

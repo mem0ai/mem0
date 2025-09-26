@@ -133,7 +133,20 @@ async def add_memories(text: str) -> str:
 
                 db.commit()
 
-            return response
+            # Convert response to string for MCP tool compatibility
+            if isinstance(response, dict) and 'results' in response:
+                memories_added = [result.get('memory', '') for result in response['results'] if result.get('event') == 'ADD']
+                memories_deleted = [result.get('memory', '') for result in response['results'] if result.get('event') == 'DELETE']
+
+                result_parts = []
+                if memories_added:
+                    result_parts.append(f"Added {len(memories_added)} memory(ies): " + "; ".join(memories_added))
+                if memories_deleted:
+                    result_parts.append(f"Deleted {len(memories_deleted)} memory(ies): " + "; ".join(memories_deleted))
+
+                return ". ".join(result_parts) if result_parts else "Memory operation completed successfully"
+            else:
+                return str(response)
         finally:
             db.close()
     except Exception as e:
@@ -386,7 +399,7 @@ async def handle_get_message(request: Request):
 
 
 @mcp_router.post("/{client_name}/sse/{user_id}/messages/")
-async def handle_post_message(request: Request):
+async def handle_post_message_route(request: Request):
     return await handle_post_message(request)
 
 async def handle_post_message(request: Request):

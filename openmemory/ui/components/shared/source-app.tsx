@@ -16,6 +16,11 @@ export const constants = {
     icon: <Icon source="/images/claude.webp" />,
     iconImage: "/images/claude.webp",
   },
+  "claude-code": {
+    name: "Claude Code",
+    icon: <Icon source="/images/claude-code.png" />,
+    iconImage: "/images/claude-code.png",
+  },
   openmemory: {
     name: "OpenMemory",
     icon: <Icon source="/images/open-memory.svg" />,
@@ -64,6 +69,19 @@ export const constants = {
 };
 
 const SourceApp = ({ source }: { source: string }) => {
+  // Handle project-specific Claude Code apps (e.g., claude-code-projectname)
+  if (source.startsWith("claude-code-")) {
+    const projectName = source.replace("claude-code-", "");
+    return (
+      <div className="flex items-center gap-2">
+        <Icon source="/images/claude-code.png" />
+        <span className="text-sm font-semibold">
+          Claude Code{projectName ? ` (${projectName})` : ""}
+        </span>
+      </div>
+    );
+  }
+
   if (!constants[source as keyof typeof constants]) {
     return (
       <div>
