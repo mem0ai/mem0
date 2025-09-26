@@ -32,6 +32,7 @@ class MemoryState(enum.Enum):
     paused = "paused"
     archived = "archived"
     deleted = "deleted"
+    processing = "processing"
 
 
 class User(Base):
