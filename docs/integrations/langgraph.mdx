@@ -67,7 +67,7 @@ def chatbot(state: State):
 
     try:
         # Retrieve relevant memories
-        memories = mem0.search(messages[-1].content, user_id=user_id, output_format='v1.1')
+        memories = mem0.search(messages[-1].content, user_id=user_id)
         
         # Handle dict response format
         memory_list = memories['results']
@@ -94,7 +94,7 @@ def chatbot(state: State):
                     "content": response.content
                 }
             ]
-            result = mem0.add(interaction, user_id=user_id, output_format='v1.1')
+            result = mem0.add(interaction, user_id=user_id)
             print(f"Memory saved: {len(result.get('results', []))} memories added")
         except Exception as e:
             print(f"Error saving memory: {e}")
