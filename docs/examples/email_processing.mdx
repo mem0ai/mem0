@@ -112,7 +112,6 @@ class EmailProcessor:
             query=query,
             user_id=user_id,
             categories=["email"],
-            output_format="v1.1",
             version="v2"
         )
         
@@ -136,8 +135,7 @@ class EmailProcessor:
         
         thread = self.client.get_all(
             version="v2",
-            filters=filters,
-            output_format="v1.1"
+            filters=filters
         )
         
         return thread

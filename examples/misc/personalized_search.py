@@ -66,7 +66,7 @@ def setup_user_history(user_id):
 
     logger.info(f"Setting up user history for {user_id}")
     for conversation in conversations:
-        mem0_client.add(conversation, user_id=user_id, output_format="v1.1")
+        mem0_client.add(conversation, user_id=user_id)
 
 
 def get_user_context(user_id, query):
@@ -209,7 +209,7 @@ def store_search_interaction(user_id, original_query, agent_response):
             {"role": "assistant", "content": f"Provided personalized results based on user preferences: {agent_response}"}
         ]
 
-        mem0_client.add(messages=interaction, user_id=user_id, output_format="v1.1")
+        mem0_client.add(messages=interaction, user_id=user_id)
 
         logger.info(f"Stored search interaction for user {user_id}")
 

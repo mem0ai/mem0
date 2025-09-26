@@ -44,7 +44,7 @@ def chat_user(user_input: str = None, user_id: str = "user_123", image_path: str
         }
 
         # Send both as separate message objects
-        client.add([text_msg, image_msg], user_id=user_id, output_format="v1.1")
+        client.add([text_msg, image_msg], user_id=user_id)
         print("✅ Image uploaded and stored in memory.")
 
     if user_input:
