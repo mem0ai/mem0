@@ -80,8 +80,7 @@ def retrieve_patient_info(query: str) -> dict:
         query,
         user_id=USER_ID,
         limit=5,
-        threshold=0.7,  # Higher threshold for more relevant results
-        output_format="v1.1"
+        threshold=0.7  # Higher threshold for more relevant results
     )
 
     # Format and return the results

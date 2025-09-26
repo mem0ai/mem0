@@ -62,7 +62,7 @@ conversation = [
     {"role": "assistant", "content": "Thank you for the information. Let's troubleshoot this issue..."}
 ]
 
-memory_client.add(messages=conversation, user_id=USER_ID, output_format="v1.1")
+memory_client.add(messages=conversation, user_id=USER_ID)
 print("Conversation added to memory.")
 ```
 
@@ -72,7 +72,7 @@ Create a function to get context-aware responses based on user's question and pr
 
 ```python
 def get_context_aware_response(question):
-    relevant_memories = memory_client.search(question, user_id=USER_ID, output_format='v1.1')
+    relevant_memories = memory_client.search(question, user_id=USER_ID)
     context = "\n".join([m["memory"] for m in relevant_memories.get('results', [])])
 
     prompt = f"""Answer the user question considering the previous interactions:
@@ -104,7 +104,7 @@ manager = ConversableAgent(
 )
 
 def escalate_to_manager(question):
-    relevant_memories = memory_client.search(question, user_id=USER_ID, output_format='v1.1')
+    relevant_memories = memory_client.search(question, user_id=USER_ID)
     context = "\n".join([m["memory"] for m in relevant_memories.get('results', [])])
 
     prompt = f"""

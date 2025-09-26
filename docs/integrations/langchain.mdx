@@ -65,7 +65,7 @@ Create functions to handle context retrieval, response generation, and addition 
 def retrieve_context(query: str, user_id: str) -> List[Dict]:
     """Retrieve relevant context from Mem0"""
     try:
-        memories = mem0.search(query, user_id=user_id, output_format='v1.1')
+        memories = mem0.search(query, user_id=user_id)
         memory_list = memories['results']
         
         serialized_memories = ' '.join([mem["memory"] for mem in memory_list])
@@ -107,7 +107,7 @@ def save_interaction(user_id: str, user_input: str, assistant_response: str):
                 "content": assistant_response
             }
         ]
-        result = mem0.add(interaction, user_id=user_id, output_format='v1.1')
+        result = mem0.add(interaction, user_id=user_id)
         print(f"Memory saved successfully: {len(result.get('results', []))} memories added")
     except Exception as e:
         print(f"Error saving interaction: {e}")

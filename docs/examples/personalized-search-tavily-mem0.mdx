@@ -76,7 +76,7 @@ def setup_user_history(user_id):
     ]
 
     for conversation in conversations:
-        mem0_client.add(conversation, user_id=user_id, output_format="v1.1")
+        mem0_client.add(conversation, user_id=user_id)
 ```
 This gives the agent a baseline understanding of the user’s lifestyle and needs.
 
