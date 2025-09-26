@@ -4,6 +4,8 @@
 
 ```nohup python run_experiments.py --technique_type mem0 --method add > logs/0926_locomo_add.log 2>&1 &```
 
+得到 memory
+
 第二步：search
 
 ```nohup python run_experiments.py --technique_type mem0 --method search > logs/0926_locomo_search.log 2>&1 &```

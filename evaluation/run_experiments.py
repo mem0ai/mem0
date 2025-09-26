@@ -23,7 +23,7 @@ def main():
     parser = argparse.ArgumentParser(description="Run memory experiments")
     parser.add_argument("--technique_type", choices=TECHNIQUES, default="mem0", help="Memory technique to use")
     parser.add_argument("--method", choices=METHODS, default="add", help="Method to use")
-    parser.add_argument("--mode", choices=MODES, default="no_client", help="Mode to use")
+    parser.add_argument("--mode", choices=MODES, default="no_client_async", help="Mode to use")
     parser.add_argument("--chunk_size", type=int, default=1000, help="Chunk size for processing")
     parser.add_argument("--output_folder", type=str, default="results/", help="Output path for results")
     parser.add_argument("--top_k", type=int, default=30, help="Number of top memories to retrieve")
