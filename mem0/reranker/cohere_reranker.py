@@ -64,7 +64,7 @@ class CohereReranker(BaseReranker):
                 model=self.model,
                 query=query,
                 documents=doc_texts,
-                top_k=top_k or self.config.top_k or len(documents),
+                top_n=top_k or self.config.top_k or len(documents),
                 return_documents=self.config.return_documents,
                 max_chunks_per_doc=self.config.max_chunks_per_doc,
             )
