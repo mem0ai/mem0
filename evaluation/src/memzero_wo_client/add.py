@@ -2,12 +2,12 @@ import json
 import os
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from dotenv import load_dotenv
 from tqdm import tqdm
 from mem0 import Memory
-
+import math
 load_dotenv()
 
 # Set the OpenAI API key
@@ -76,7 +76,7 @@ config = {
     "vector_store": {
         "provider": "qdrant",
         "config": {
-            "path": "./qdrant_data_locomo10",
+            "path": "./qdrant_data_locomo1_6",
             "on_disk": True,
             "embedding_model_dims":1024
         }
@@ -87,7 +87,7 @@ config = {
 import random   
 
 class MemoryADD:
-    def __init__(self, data_path=None, batch_size=2, is_graph=False):
+    def __init__(self, data_path=None, batch_size=6, is_graph=False):
         self.memory = Memory.from_config(config)
         self.batch_size = batch_size
         self.data_path = data_path
@@ -114,14 +114,18 @@ class MemoryADD:
                     time.sleep(random.randint(20, 60))  # Wait before retrying
                     continue
                 else:
+                    print("Failed to add memory after retries.", str(e))
                     raise e
 
-    def add_memories_for_speaker(self, speaker, messages, timestamp, desc):
+    def add_memories_for_speaker(self, speaker, messages, timestamp, desc, pbar=None):
+        # for i in range(0, len(messages), self.batch_size):
         for i in tqdm(range(0, len(messages), self.batch_size), desc=desc):
             batch_messages = messages[i : i + self.batch_size]
             self.add_memory(speaker, batch_messages, metadata={"timestamp": timestamp})
+            if pbar:
+                pbar.update(1)
 
-    def process_conversation(self, item, idx):
+    def process_conversation(self, item, idx, pbar=None):
         conversation = item["conversation"]
         speaker_a = conversation["speaker_a"]
         speaker_b = conversation["speaker_b"]
@@ -156,11 +160,11 @@ class MemoryADD:
             # add memories for the two users on different threads
             thread_a = threading.Thread(
                 target=self.add_memories_for_speaker,
-                args=(speaker_a_user_id, messages, timestamp, "Adding Memories for Speaker A"),
+                args=(speaker_a_user_id, messages, timestamp, "Adding Memories for Speaker A", pbar),
             )
             thread_b = threading.Thread(
                 target=self.add_memories_for_speaker,
-                args=(speaker_b_user_id, messages_reverse, timestamp, "Adding Memories for Speaker B"),
+                args=(speaker_b_user_id, messages_reverse, timestamp, "Adding Memories for Speaker B", pbar),
             )
 
             thread_a.start()
@@ -168,13 +172,56 @@ class MemoryADD:
             thread_a.join()
             thread_b.join()
 
+            # self.add_memories_for_speaker(speaker_a_user_id, messages, timestamp, "Adding Memories for Speaker A")
+            # self.add_memories_for_speaker(speaker_b_user_id, messages_reverse, timestamp, "Adding Memories for Speaker B")
+
         print("Messages added successfully")
 
-    def process_all_conversations(self, max_workers=4):
+    # def process_all_conversations(self, max_workers=4):
+    #     if not self.data:
+    #         raise ValueError("No data loaded. Please set data_path and call load_data() first.")
+    #     with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    #         futures = [executor.submit(self.process_conversation, item, idx) for idx, item in enumerate(self.data)]
+
+    #         for future in futures:
+    #             future.result()
+
+    def process_all_conversations(self, max_workers=6):
         if not self.data:
             raise ValueError("No data loaded. Please set data_path and call load_data() first.")
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = [executor.submit(self.process_conversation, item, idx) for idx, item in enumerate(self.data)]
+        total_batches = 0
+        for item in self.data:
+            conversation = item["conversation"]
+            for key in conversation.keys():
+                if key in ["speaker_a", "speaker_b"] or "date" in key or "timestamp" in key:
+                    continue
+                
+                num_messages = len(conversation[key])
+                # 每个对话轮次，A和B都要处理一次，所以计算两次
+                batches_for_speaker_a = math.ceil(num_messages / self.batch_size)
+                batches_for_speaker_b = math.ceil(num_messages / self.batch_size)
+                total_batches += batches_for_speaker_a + batches_for_speaker_b
+        
+        print(f"--- 预计总共需要处理 {total_batches} 个批次 ---")
 
-            for future in futures:
-                future.result()
+
+        successful_count = 0
+        failed_count = 0
+        
+        with tqdm(total=total_batches, desc="💡Total Batch Progress") as pbar:
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = {
+                    executor.submit(self.process_conversation, item, idx, pbar): f"Conversation {idx}" 
+                    for idx, item in enumerate(self.data)
+                }
+
+                for future in as_completed(futures):
+                    conversation_id = futures[future]
+                    try:
+                        future.result()
+                        successful_count += 1
+                    except Exception as e:
+                        failed_count += 1
+                        pbar.write(f"\n---[retry{failed_count}] ❌ Error processing {conversation_id}: {e} ---\n")
+
+        print(f"\n✅ All conversations processed. Success: {successful_count}, Failed: {failed_count}")

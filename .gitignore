@@ -26,6 +26,13 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+logs
+evaluation/logs
+nohup.out
+evaluation/nohup.out
+evaluation/qdrant_data/
+exp_data/Membenchdata.zip
+exp_data/Membenchdata
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

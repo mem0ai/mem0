@@ -46,7 +46,7 @@ def main():
         else:
             raise ValueError(f"Invalid mode: {args.mode}")
         if args.method == "add":
-            memory_manager = MemoryADD(data_path="dataset/locomo10.json", is_graph=args.is_graph)
+            memory_manager = MemoryADD(data_path="dataset/locomo1.json", is_graph=args.is_graph)
             memory_manager.process_all_conversations()
         elif args.method == "search":
             output_file_path = os.path.join(
