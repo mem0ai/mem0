@@ -29,7 +29,7 @@ class PGVectorConfig(BaseModel):
         # If connection_string is provided, skip validation of individual connection parameters
         if values.get("connection_string") is not None:
             return values
-        
+
         # Otherwise, validate individual connection parameters
         user, password = values.get("user"), values.get("password")
         host, port = values.get("host"), values.get("port")

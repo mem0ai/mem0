@@ -609,7 +609,7 @@ class Memory(MemoryBase):
             if isinstance(memories_result, (tuple, list)) and len(memories_result) > 0
             else memories_result
         )
-        
+
         # Ensure actual_memories is always a list
         if not isinstance(actual_memories, list):
             actual_memories = [actual_memories]
@@ -641,7 +641,7 @@ class Memory(MemoryBase):
                 # Ensure mem_payload is a dict
                 if not isinstance(mem_payload, dict):
                     mem_payload = {}
-            
+
             memory_item_dict = MemoryItem(
                 id=mem_id,
                 memory=mem_payload.get("data", ""),

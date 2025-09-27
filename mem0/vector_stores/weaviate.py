@@ -48,9 +48,9 @@ class Weaviate(VectorStoreBase):
             auth_config (dict, optional): Authentication configuration for Weaviate. Defaults to None.
             additional_headers (dict, optional): Additional headers for requests. Defaults to None.
         """
-        if "localhost" in cluster_url: 
+        if "localhost" in cluster_url:
             self.client = weaviate.connect_to_local(headers=additional_headers)
-        elif auth_client_secret: 
+        elif auth_client_secret:
             self.client = weaviate.connect_to_wcs(
                 cluster_url=cluster_url,
                 auth_credentials=Auth.api_key(auth_client_secret),

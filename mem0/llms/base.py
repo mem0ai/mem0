@@ -54,14 +54,14 @@ class LLMBase(ABC):
             "o1", "o1-preview", "o3-mini", "o3",
             "gpt-5", "gpt-5o", "gpt-5o-mini", "gpt-5o-micro",
         }
-        
+
         if model.lower() in reasoning_models:
             return True
-        
+
         model_lower = model.lower()
         if any(reasoning_model in model_lower for reasoning_model in ["gpt-5", "o1", "o3"]):
             return True
-            
+
         return False
 
     def _get_supported_params(self, **kwargs) -> Dict:
@@ -76,10 +76,10 @@ class LLMBase(ABC):
             Dict: Filtered parameters dictionary
         """
         model = getattr(self.config, 'model', '')
-        
+
         if self._is_reasoning_model(model):
             supported_params = {}
-            
+
             if "messages" in kwargs:
                 supported_params["messages"] = kwargs["messages"]
             if "response_format" in kwargs:
@@ -88,7 +88,7 @@ class LLMBase(ABC):
                 supported_params["tools"] = kwargs["tools"]
             if "tool_choice" in kwargs:
                 supported_params["tool_choice"] = kwargs["tool_choice"]
-                
+
             return supported_params
         else:
             # For regular models, include all common parameters

@@ -71,7 +71,8 @@ class PGVector(VectorStoreBase):
             maxconn (int): Maximum number of connections allowed in the connection pool
             sslmode (str, optional): SSL mode for PostgreSQL connection (e.g., 'require', 'prefer', 'disable')
             connection_string (str, optional): PostgreSQL connection string (overrides individual connection parameters)
-            connection_pool (Any, optional): psycopg2 connection pool object (overrides connection string and individual parameters)
+            connection_pool (Any, optional): psycopg2 connection pool object
+                (overrides connection string and individual parameters)
         """
         self.collection_name = collection_name
         self.use_diskann = diskann
@@ -97,11 +98,13 @@ class PGVector(VectorStoreBase):
             connection_string = f"postgresql://{user}:{password}@{host}:{port}/{dbname}"
             if sslmode:
                 connection_string = f"{connection_string} sslmode={sslmode}"
-        
+
         if self.connection_pool is None:
             if PSYCOPG_VERSION == 3:
                 # psycopg3 ConnectionPool
-                self.connection_pool = ConnectionPool(conninfo=connection_string, min_size=minconn, max_size=maxconn, open=True)
+                self.connection_pool = ConnectionPool(
+                    conninfo=connection_string, min_size=minconn, max_size=maxconn, open=True
+                )
             else:
                 # psycopg2 ThreadedConnectionPool
                 self.connection_pool = ConnectionPool(minconn=minconn, maxconn=maxconn, dsn=connection_string)

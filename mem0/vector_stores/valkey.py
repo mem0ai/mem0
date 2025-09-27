@@ -109,7 +109,8 @@ class ValkeyDB(VectorStoreBase):
                 "embedding",
                 "VECTOR",
                 "HNSW",
-                "12",  # Attribute count: TYPE, FLOAT32, DIM, dims, DISTANCE_METRIC, metric, M, m, EF_CONSTRUCTION, ef_construction, EF_RUNTIME, ef_runtime
+                "12",  # Attribute count: TYPE, FLOAT32, DIM, dims, DISTANCE_METRIC, metric, M, m,
+                # EF_CONSTRUCTION, ef_construction, EF_RUNTIME, ef_runtime
                 "TYPE",
                 "FLOAT32",
                 "DIM",
@@ -190,7 +191,8 @@ class ValkeyDB(VectorStoreBase):
         except ResponseError as e:
             if "unknown command" in str(e).lower():
                 raise ValueError(
-                    "Valkey search module is not available. Please ensure Valkey is running with the search module enabled. "
+                    "Valkey search module is not available. Please ensure Valkey is running "
+                    "with the search module enabled. "
                     "The search module can be loaded using the --loadmodule option with the valkey-search library. "
                     "For installation and setup instructions, refer to the Valkey Search documentation."
                 )
