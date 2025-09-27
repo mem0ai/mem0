@@ -182,3 +182,16 @@ def sanitize_relationship_for_cypher(relationship) -> str:
         sanitized = sanitized.replace(old, new)
 
     return re.sub(r"_+", "_", sanitized).strip("_")
+
+
+def remove_thinking_tags(text: str) -> str:
+    """
+    Removes <think>...</think> tags from the input text.
+
+    Args:
+        text (str): The input text potentially containing <think>...</think> tags.
+
+    Returns:
+        str: The text with all <think></think>tags and their content removed.
+    """
+    return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
