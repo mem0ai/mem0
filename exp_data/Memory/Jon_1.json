@@ -1,0 +1,6780 @@
+[
+  {
+    "id": "da658f69-8337-44f2-9e9a-7c6ce91f4a79",
+    "memory": "Gina's support will help Jon make it happen.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "6:46 pm on 23 July, 2023"
+    },
+    "categories": [],
+    "created_at": "2025-09-24T11:33:49.613916-07:00",
+    "updated_at": "2025-09-24T11:33:49.677663-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 33,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "353cb61f-718e-461e-9f52-3a4e2b2ad57f",
+    "memory": "Gina's help and encouragement mean a lot to Jon.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "6:46 pm on 23 July, 2023"
+    },
+    "categories": [
+      "family"
+    ],
+    "created_at": "2025-09-24T11:33:49.311462-07:00",
+    "updated_at": "2025-09-24T11:33:49.380887-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 33,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "3e9574dc-d6e7-41df-8f9a-54d9a84c3df0",
+    "memory": "The words belong to Shia Labeouf",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "6:46 pm on 23 July, 2023"
+    },
+    "categories": [
+      "personal_details"
+    ],
+    "created_at": "2025-09-24T11:32:47.668991-07:00",
+    "updated_at": "2025-09-24T11:32:47.733824-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 32,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "275656b0-e44e-44f4-8007-9fed20ae5fd3",
+    "memory": "Feeling stressed",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "6:46 pm on 23 July, 2023"
+    },
+    "categories": [
+      "health"
+    ],
+    "created_at": "2025-09-24T11:32:31.395529-07:00",
+    "updated_at": "2025-09-24T11:32:31.456394-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 31,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "ed6894e3-88b4-4443-99ae-db25f0f1f06d",
+    "memory": "Intends to make an impact",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "5:44 pm on 21 July, 2023"
+    },
+    "categories": [
+      "milestones"
+    ],
+    "created_at": "2025-09-24T11:31:19.051161-07:00",
+    "updated_at": "2025-09-24T11:31:19.115167-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 31,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "67ffc663-4223-45c1-8a35-14a6079e5533",
+    "memory": "Intends to teach others to chase their dreams",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "5:44 pm on 21 July, 2023"
+    },
+    "categories": [
+      "user_preferences"
+    ],
+    "created_at": "2025-09-24T11:31:18.421163-07:00",
+    "updated_at": "2025-09-24T11:31:18.489715-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 31,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "a2fe93a5-e12e-4e40-889b-3c687350e881",
+    "memory": "Intends to rock the dance floor",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "5:44 pm on 21 July, 2023"
+    },
+    "categories": [
+      "music",
+      "entertainment"
+    ],
+    "created_at": "2025-09-24T11:31:17.598509-07:00",
+    "updated_at": "2025-09-24T11:31:17.666087-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 31,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "0ee007f6-6251-4864-bf00-a20f25b768a7",
+    "memory": "User is excited about future collaboration",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "5:44 pm on 21 July, 2023"
+    },
+    "categories": [
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T11:30:57.290577-07:00",
+    "updated_at": "2025-09-24T11:30:57.354716-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 30,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "fda39349-bf47-42c4-b32d-40cdfde10a43",
+    "memory": "User wants to bring dance magic to the world",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "5:44 pm on 21 July, 2023"
+    },
+    "categories": [
+      "hobbies"
+    ],
+    "created_at": "2025-09-24T11:30:56.457283-07:00",
+    "updated_at": "2025-09-24T11:30:56.534913-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 30,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "906218e5-83b7-4a6a-aa06-b52b9b6037e1",
+    "memory": "Collaboration with Gina is awesome",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "5:44 pm on 21 July, 2023"
+    },
+    "categories": [
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T11:30:55.729414-07:00",
+    "updated_at": "2025-09-24T11:30:55.796573-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 30,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "bb956f22-85d5-4b5c-9298-9f5e869d5df4",
+    "memory": "Compliments assistant",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "5:44 pm on 21 July, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:30:33.058165-07:00",
+    "updated_at": "2025-09-24T11:30:33.121484-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 30,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "0297629c-8e09-4566-939b-415afadd43c2",
+    "memory": "Plans to collaborate to improve dance studio appearance",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "5:44 pm on 21 July, 2023"
+    },
+    "categories": [
+      "hobbies",
+      "entertainment"
+    ],
+    "created_at": "2025-09-24T11:30:12.095590-07:00",
+    "updated_at": "2025-09-24T11:30:12.157162-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 30,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "fad18195-cb72-47b5-96e8-e117bd86bfef",
+    "memory": "Wants help with content creation and social media management",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "5:44 pm on 21 July, 2023"
+    },
+    "categories": [
+      "professional_details",
+      "user_preferences"
+    ],
+    "created_at": "2025-09-24T11:30:11.085673-07:00",
+    "updated_at": "2025-09-24T11:30:11.147621-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 30,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "467bd4bc-ff39-4553-99a5-5b77b4cf0d44",
+    "memory": "Working on online platform to showcase dance studio",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "5:44 pm on 21 July, 2023"
+    },
+    "categories": [
+      "professional_details",
+      "hobbies",
+      "entertainment"
+    ],
+    "created_at": "2025-09-24T11:29:43.749798-07:00",
+    "updated_at": "2025-09-24T11:29:43.815411-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 29,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "e0c9df98-c42e-4e7a-9bee-cb367b58b7b8",
+    "memory": "Tweaking pitch to investors",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "5:44 pm on 21 July, 2023"
+    },
+    "categories": [
+      "professional_details",
+      "technology"
+    ],
+    "created_at": "2025-09-24T11:29:42.303865-07:00",
+    "updated_at": "2025-09-24T11:29:42.368475-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 29,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "96ce1b1a-16d3-49b4-a229-96cbee1f93ce",
+    "memory": "Sprucing up business plan",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "5:44 pm on 21 July, 2023"
+    },
+    "categories": [
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T11:29:41.149829-07:00",
+    "updated_at": "2025-09-24T11:29:41.213140-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 29,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "094c0267-7edf-4b62-b839-09a407192260",
+    "memory": "Taking Gina's advice",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "5:44 pm on 21 July, 2023"
+    },
+    "categories": [
+      "family"
+    ],
+    "created_at": "2025-09-24T11:29:40.742160-07:00",
+    "updated_at": "2025-09-24T11:29:40.801218-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 29,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "3b586313-2742-484a-b56d-4d3127af2e9a",
+    "memory": "Boosted to pursue goals",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "5:44 pm on 21 July, 2023"
+    },
+    "categories": [
+      "milestones",
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T11:29:09.758888-07:00",
+    "updated_at": "2025-09-24T11:29:09.821843-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 28,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "6be647ce-5c78-4922-9fbc-6c341c2f9eb3",
+    "memory": "Energy was motivating",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "5:44 pm on 21 July, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:29:08.289289-07:00",
+    "updated_at": "2025-09-24T11:29:08.349213-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 28,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "acf5dad3-4c0c-4ed4-b26f-23d667cab505",
+    "memory": "Received good advice",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "5:44 pm on 21 July, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:29:07.431474-07:00",
+    "updated_at": "2025-09-24T11:29:07.496205-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 28,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "128f29f1-620a-447f-a434-f9b62de22bc9",
+    "memory": "Met some investors",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "5:44 pm on 21 July, 2023"
+    },
+    "categories": [
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T11:29:05.590348-07:00",
+    "updated_at": "2025-09-24T11:29:05.649749-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 28,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "b2a55714-8ce8-4af0-9384-450a11e971ff",
+    "memory": "Event was awesome",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "5:44 pm on 21 July, 2023"
+    },
+    "categories": [
+      "entertainment"
+    ],
+    "created_at": "2025-09-24T11:29:05.077887-07:00",
+    "updated_at": "2025-09-24T11:29:05.149412-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 28,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "4ca3d7fc-05b8-427d-81b7-be7ae353fd2f",
+    "memory": "Got a pic from the last networking event",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "5:44 pm on 21 July, 2023"
+    },
+    "categories": [
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T11:28:42.778662-07:00",
+    "updated_at": "2025-09-24T11:28:42.857753-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 28,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "395e3863-60a3-44ca-9a23-bd6376c0dacd",
+    "memory": "Believes connections are powerful",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "5:44 pm on 21 July, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:28:40.709525-07:00",
+    "updated_at": "2025-09-24T11:28:40.775420-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 28,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "19fe77e2-730d-461f-bbbe-5b91a431d19d",
+    "memory": "Networking has gotten him good stuff",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "5:44 pm on 21 July, 2023"
+    },
+    "categories": [
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T11:28:39.735454-07:00",
+    "updated_at": "2025-09-24T11:28:39.798774-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 28,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "b4fc9d34-b3de-4ad9-9fd9-375b32295925",
+    "memory": "Has been networking recently",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "5:44 pm on 21 July, 2023"
+    },
+    "categories": [
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T11:28:38.761256-07:00",
+    "updated_at": "2025-09-24T11:28:38.824642-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 28,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "fcda03ef-49fa-4354-9057-e0c237698cde",
+    "memory": "I'm determined to make it work",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "5:44 pm on 21 July, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:28:12.257376-07:00",
+    "updated_at": "2025-09-24T11:28:12.322108-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 27,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "b2bfac79-9280-4239-a97d-bcbc95246336",
+    "memory": "Has temp job to cover expenses while seeking investors",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "5:44 pm on 21 July, 2023"
+    },
+    "categories": [
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T11:27:29.752455-07:00",
+    "updated_at": "2025-09-24T11:27:29.815171-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 26,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "d7a43238-c0a8-4b01-8a7f-27cc1cf3118e",
+    "memory": "Jon is glad that Gina is on his side",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "1:25 pm on 9 July, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:26:24.350079-07:00",
+    "updated_at": "2025-09-24T11:26:24.413976-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 26,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "669897d0-d308-4be0-a298-cd713249ff9c",
+    "memory": "Jon feels grateful",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "1:25 pm on 9 July, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:26:23.727648-07:00",
+    "updated_at": "2025-09-24T11:26:23.787771-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 26,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "d546976a-7695-4d41-a07b-65074a49da89",
+    "memory": "I will keep pushing and make my dreams come true",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "1:25 pm on 9 July, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:25:05.994602-07:00",
+    "updated_at": "2025-09-24T11:26:01.049803-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "b322c844-ff8b-4903-949a-d4507445f648",
+    "memory": "Gina's faith in me is a real boost",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "1:25 pm on 9 July, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:25:05.494665-07:00",
+    "updated_at": "2025-09-24T11:25:05.560521-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 24,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "2b8efd76-2b83-42f2-99fa-bbe890d6b9c3",
+    "memory": "Belief in me means the world",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "1:25 pm on 9 July, 2023"
+    },
+    "categories": null,
+    "created_at": "2025-09-24T11:24:50.762066-07:00",
+    "updated_at": "2025-09-24T11:26:01.373069-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "3f74e95c-f15a-4af6-93a5-ec84fa74daf8",
+    "memory": "Reminds him to keep pushing through struggles",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "1:25 pm on 9 July, 2023"
+    },
+    "categories": [
+      "health"
+    ],
+    "created_at": "2025-09-24T11:24:18.072179-07:00",
+    "updated_at": "2025-09-24T11:24:18.133664-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 23,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "08026cb5-1f40-4019-8d2a-2c47b72a31d9",
+    "memory": "Believes dance brings people together and creates sweet moments",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "1:25 pm on 9 July, 2023"
+    },
+    "categories": [
+      "hobbies"
+    ],
+    "created_at": "2025-09-24T11:24:17.070200-07:00",
+    "updated_at": "2025-09-24T11:24:17.130496-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 23,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "d21a7601-4f6a-443b-acab-ec389d62cdae",
+    "memory": "Motivated by Gina's words of encouragement",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "6:46 pm on 23 July, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:24:16.769059-07:00",
+    "updated_at": "2025-09-24T11:33:20.745427-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "077b33a9-f192-4a05-b5c8-a171a6e1412f",
+    "memory": "Jon started learning marketing and analytics tools today.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "1:25 pm on 9 July, 2023"
+    },
+    "categories": null,
+    "created_at": "2025-09-24T11:23:22.154581-07:00",
+    "updated_at": "2025-09-24T11:23:22.219997-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 23,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "a85ba0db-013e-4196-9a90-7b06911e844e",
+    "memory": "User's dance practice has been fun and exhausting",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "1:25 pm on 9 July, 2023"
+    },
+    "categories": null,
+    "created_at": "2025-09-24T11:22:50.856025-07:00",
+    "updated_at": "2025-09-24T11:22:50.917466-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 22,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "172df678-f0a0-4b64-8f82-00f39ee0e680",
+    "memory": "User congratulates Gina on fashion editors reach-out",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "1:25 pm on 9 July, 2023"
+    },
+    "categories": [
+      "fashion",
+      "entertainment"
+    ],
+    "created_at": "2025-09-24T11:22:50.041388-07:00",
+    "updated_at": "2025-09-24T11:22:50.099507-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 22,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "d6ed2623-20c2-48ad-8c24-a2ee2454ddb5",
+    "memory": "Reminds me to never give up",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:15 pm on 21 June, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:21:16.203316-07:00",
+    "updated_at": "2025-09-24T11:21:16.307006-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 20,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "79b423b5-e2e4-4d5d-bc3d-9c439b591f76",
+    "memory": "Writing goals on paper helps me stay motivated and focused",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:15 pm on 21 June, 2023"
+    },
+    "categories": [
+      "hobbies"
+    ],
+    "created_at": "2025-09-24T11:20:18.890809-07:00",
+    "updated_at": "2025-09-24T11:20:53.474705-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "c82a6c75-899d-4c24-944f-61186f6123da",
+    "memory": "Support means a ton to me",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:15 pm on 21 June, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:20:18.161266-07:00",
+    "updated_at": "2025-09-24T11:22:03.248109-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "f955cd04-7a6e-4742-bf70-7357f9272041",
+    "memory": "Investing time in business will pay off eventually",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:15 pm on 21 June, 2023"
+    },
+    "categories": [
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T11:20:05.367394-07:00",
+    "updated_at": "2025-09-24T11:20:05.433783-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 19,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "90bed498-5aa6-4964-a951-b94a8fd2b583",
+    "memory": "Attended networking events yesterday",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:15 pm on 21 June, 2023"
+    },
+    "categories": [
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T11:19:31.363739-07:00",
+    "updated_at": "2025-09-24T11:19:31.430704-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 19,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "7a5f2f1b-7d85-48f6-9e1e-8990e2f49579",
+    "memory": "User says Gina's store looks sick",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:15 pm on 21 June, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:18:50.492768-07:00",
+    "updated_at": "2025-09-24T11:18:50.556953-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 18,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "06b0c644-681b-4693-bcfe-1bdad6f214e0",
+    "memory": "User expresses happiness for Gina",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:15 pm on 21 June, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:18:49.394798-07:00",
+    "updated_at": "2025-09-24T11:18:49.460571-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 18,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "6a083712-962c-4d5d-b11f-8033ff1dae39",
+    "memory": "Congratulates Gina on clothing store",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "5:44 pm on 21 July, 2023"
+    },
+    "categories": [
+      "fashion",
+      "milestones"
+    ],
+    "created_at": "2025-09-24T11:18:48.817186-07:00",
+    "updated_at": "2025-09-24T11:27:29.418847-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "98051ce3-d8b3-4102-82e6-ca3b3cba108a",
+    "memory": "Tomorrow's opening will be so much fun",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:04 am on 19 June, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:18:05.137018-07:00",
+    "updated_at": "2025-09-24T11:18:05.199619-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 17,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "62ad2e8c-d2c4-4a0f-a865-eaed58aee0e4",
+    "memory": "Looking forward to more cool memories",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:04 am on 19 June, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:17:38.261873-07:00",
+    "updated_at": "2025-09-24T11:17:38.383629-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 17,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "5b97f76d-6f9e-42b6-9e82-d648e867b69f",
+    "memory": "Plan to make tomorrow unforgettable",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:04 am on 19 June, 2023"
+    },
+    "categories": [
+      "milestones"
+    ],
+    "created_at": "2025-09-24T11:17:25.322150-07:00",
+    "updated_at": "2025-09-24T11:18:23.873191-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "806faee6-38d3-4cb2-b206-a412e6b565fa",
+    "memory": "Jon is looking forward to enjoying the moment with Gina",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:04 am on 19 June, 2023"
+    },
+    "categories": [
+      "family"
+    ],
+    "created_at": "2025-09-24T11:17:13.574829-07:00",
+    "updated_at": "2025-09-24T11:17:13.636665-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 17,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "bd402fa8-6ab2-49ae-8aa2-1be99e68ae3c",
+    "memory": "Pride and support mean a lot to Jon",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:04 am on 19 June, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:17:13.178146-07:00",
+    "updated_at": "2025-09-24T11:17:13.243759-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 17,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "ac6861b0-8fff-49a7-aeff-8e919f44da41",
+    "memory": "He thanks for always having my back",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:04 am on 19 June, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:16:59.507828-07:00",
+    "updated_at": "2025-09-24T11:16:59.573969-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 16,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "5d948f5d-9361-4f0a-9f33-9196058ec925",
+    "memory": "He wants to savor all the good vibes",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:04 am on 19 June, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:16:58.427749-07:00",
+    "updated_at": "2025-09-24T11:16:58.493355-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 16,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "2ad33aca-eb53-43e9-94e2-9602a9e2ae83",
+    "memory": "He will not forget a second of tomorrow's night",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:04 am on 19 June, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:16:57.714693-07:00",
+    "updated_at": "2025-09-24T11:16:57.775540-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 16,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "f873d0d7-373c-4f7f-b816-4e958199d260",
+    "memory": "Tomorrow's night is awesome",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:04 am on 19 June, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:16:57.261339-07:00",
+    "updated_at": "2025-09-24T11:16:57.324122-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 16,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "2de1b190-7314-4a42-8d1e-8b4c20beca7d",
+    "memory": "Had a wild ride building the studio",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:04 am on 19 June, 2023"
+    },
+    "categories": [
+      "milestones"
+    ],
+    "created_at": "2025-09-24T11:15:52.658213-07:00",
+    "updated_at": "2025-09-24T11:15:52.723330-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 15,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "3084a52a-0d63-4be1-820f-88950c32e8cf",
+    "memory": "Can't wait for tomorrow's opening",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:04 am on 19 June, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:15:06.951695-07:00",
+    "updated_at": "2025-09-24T11:18:04.818125-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "c564a1bf-8b55-4b21-9133-aa1645cc26e9",
+    "memory": "Working hard to make everything just right",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:04 am on 19 June, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:15:06.179612-07:00",
+    "updated_at": "2025-09-24T11:15:06.275236-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 14,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "369ac411-3fb6-4cd4-abb2-a8b0dca28033",
+    "memory": "Official opening night is tomorrow",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:04 am on 19 June, 2023"
+    },
+    "categories": [
+      "entertainment"
+    ],
+    "created_at": "2025-09-24T11:15:05.521313-07:00",
+    "updated_at": "2025-09-24T11:15:05.584943-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 14,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "9f1e84ce-2127-4c78-8f0a-1d3469701519",
+    "memory": "Working on opening a dance studio",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:04 am on 19 June, 2023"
+    },
+    "categories": [
+      "professional_details",
+      "hobbies"
+    ],
+    "created_at": "2025-09-24T11:14:42.446289-07:00",
+    "updated_at": "2025-09-24T11:14:42.510361-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 14,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "b4234b6f-0195-4663-abfe-47af4b701900",
+    "memory": "Took a short trip last week to Rome to clear my mind",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:04 am on 19 June, 2023"
+    },
+    "categories": [
+      "travel"
+    ],
+    "created_at": "2025-09-24T11:14:26.265341-07:00",
+    "updated_at": "2025-09-24T11:14:26.335537-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "0e322044-7e0c-4d84-9858-ae33ef5af775",
+    "memory": "Promises not to let you down",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "1:25 pm on 9 July, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:14:00.727137-07:00",
+    "updated_at": "2025-09-24T11:24:49.867144-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "c52a81ac-ca74-4459-b6b7-03b742a12408",
+    "memory": "Feels supported by all of you",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "1:25 pm on 9 July, 2023"
+    },
+    "categories": [
+      "health"
+    ],
+    "created_at": "2025-09-24T11:13:59.752595-07:00",
+    "updated_at": "2025-09-24T11:24:48.514153-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "a9dc8f85-af01-48a0-b6a8-640a37379508",
+    "memory": "I love performing",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "9:38 pm on 16 June, 2023"
+    },
+    "categories": [
+      "hobbies",
+      "music"
+    ],
+    "created_at": "2025-09-24T11:13:31.545573-07:00",
+    "updated_at": "2025-09-24T11:13:31.616565-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 13,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "ec3c063c-7c86-4f15-a4f1-65ed7926de51",
+    "memory": "User intends to stay determined",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "1:25 pm on 9 July, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:12:48.056057-07:00",
+    "updated_at": "2025-09-24T11:22:49.015668-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "c460ec7b-79f8-49ed-b6c2-ee0405f6da87",
+    "memory": "Appreciates Gina's advice",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "9:38 pm on 16 June, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:12:47.859280-07:00",
+    "updated_at": "2025-09-24T11:12:47.921297-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 12,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "77e2fcb4-55b7-4d90-ac45-3a58796aa6cf",
+    "memory": "Jon thanked Gina for advice",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "9:38 pm on 16 June, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:12:21.855953-07:00",
+    "updated_at": "2025-09-24T11:12:21.915888-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 11,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "a4b09e8d-f223-479f-aa4d-2602f55c2f8b",
+    "memory": "Asking for marketing tips",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "9:38 pm on 16 June, 2023"
+    },
+    "categories": [
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T11:11:41.306449-07:00",
+    "updated_at": "2025-09-24T11:11:41.372961-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 11,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "a6e8f688-ea58-4917-95a4-9c49c6b481d7",
+    "memory": "Crazy ride so far",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "9:38 pm on 16 June, 2023"
+    },
+    "categories": [
+      "travel"
+    ],
+    "created_at": "2025-09-24T11:11:40.608740-07:00",
+    "updated_at": "2025-09-24T11:11:40.669041-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 11,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "5680585a-4a07-41d4-a7a4-f09844697da2",
+    "memory": "Promoting business",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "9:38 pm on 16 June, 2023"
+    },
+    "categories": [
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T11:11:39.662222-07:00",
+    "updated_at": "2025-09-24T11:11:39.730083-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 11,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "89b38b12-fd5d-45a9-a7c5-d15a3c13df03",
+    "memory": "Jon will keep pushing and working to make his dreams happen",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "8:29 pm on 13 June, 2023"
+    },
+    "categories": [
+      "milestones"
+    ],
+    "created_at": "2025-09-24T11:10:18.926329-07:00",
+    "updated_at": "2025-09-24T11:10:18.996903-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 9,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "233b428b-c909-4a1b-ad9c-8bbda9a3107e",
+    "memory": "Staying positive is very important",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "8:29 pm on 13 June, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:09:36.607207-07:00",
+    "updated_at": "2025-09-24T11:09:36.676889-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 9,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "4c43eef2-910e-4231-b1c1-9296ce957d6b",
+    "memory": "Color-codes achievements to track progress and stay motivated",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "8:29 pm on 13 June, 2023"
+    },
+    "categories": [
+      "milestones"
+    ],
+    "created_at": "2025-09-24T11:09:02.437482-07:00",
+    "updated_at": "2025-09-24T11:09:02.514782-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 8,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "f8f341e0-7ded-4169-a3bc-9c9bd360cf2b",
+    "memory": "Whiteboard usage keeps him motivated and focused",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "8:29 pm on 13 June, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:08:44.609492-07:00",
+    "updated_at": "2025-09-24T11:08:44.673667-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 8,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "3e1ee034-e94a-4ba2-b1c4-2af437f448a2",
+    "memory": "Uses whiteboard to stay on track, visualize goals, and tokenize successes",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "8:29 pm on 13 June, 2023"
+    },
+    "categories": [
+      "professional_details",
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:08:44.258106-07:00",
+    "updated_at": "2025-09-24T11:08:44.322356-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 8,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "3124e754-7180-452a-9cb0-5b6825e681a6",
+    "memory": "System helps find areas to improve",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "8:29 pm on 13 June, 2023"
+    },
+    "categories": [
+      "technology"
+    ],
+    "created_at": "2025-09-24T11:08:29.068143-07:00",
+    "updated_at": "2025-09-24T11:08:29.131903-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 8,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "70bb8f69-7e86-4df6-a5bc-c0db1bc502e2",
+    "memory": "System tracks achievements",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "8:29 pm on 13 June, 2023"
+    },
+    "categories": [
+      "milestones"
+    ],
+    "created_at": "2025-09-24T11:08:28.001996-07:00",
+    "updated_at": "2025-09-24T11:08:28.070121-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 8,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "06c24557-c162-486f-abc1-92c81d7fae33",
+    "memory": "System sets goals",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "8:29 pm on 13 June, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:08:27.163429-07:00",
+    "updated_at": "2025-09-24T11:08:27.230398-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 8,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "ac84874c-a739-4251-a958-fd79448f8bba",
+    "memory": "Uses system to stay organized and motivated",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "8:29 pm on 13 June, 2023"
+    },
+    "categories": [
+      "user_preferences"
+    ],
+    "created_at": "2025-09-24T11:08:26.368350-07:00",
+    "updated_at": "2025-09-24T11:08:26.435447-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 8,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "def2b015-e0cc-49fc-8763-3d9acc622d0f",
+    "memory": "Guidance and support can help dancers really shine",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "8:29 pm on 13 June, 2023"
+    },
+    "categories": [
+      "entertainment"
+    ],
+    "created_at": "2025-09-24T11:08:08.916403-07:00",
+    "updated_at": "2025-09-24T11:08:08.980470-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 7,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "917b1d1c-f174-4bef-91d9-cd190d0223c3",
+    "memory": "Mentored by an amazing business dude yesterday, and mentoring was inspiring",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "9:38 pm on 16 June, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:08:07.921635-07:00",
+    "updated_at": "2025-09-24T11:11:09.600350-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "f10496b1-69a3-452c-aff4-095b124faf66",
+    "memory": "Offers one-on-one mentoring and training to help dancers reach full potential",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "8:29 pm on 13 June, 2023"
+    },
+    "categories": [
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T11:07:50.457057-07:00",
+    "updated_at": "2025-09-24T11:07:50.524221-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 7,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "84f96666-932c-4992-8c21-eb5751b538f0",
+    "memory": "Gina is curious about the support Jon plans to offer his dancers.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "8:29 pm on 13 June, 2023"
+    },
+    "categories": [
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T11:07:24.622114-07:00",
+    "updated_at": "2025-09-24T11:07:24.683854-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "8185e6f0-59f9-40ca-89ca-339fbdad30a4",
+    "memory": "Gina will send Jon the presentation he requested.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "8:29 pm on 13 June, 2023"
+    },
+    "categories": [],
+    "created_at": "2025-09-24T11:07:24.091768-07:00",
+    "updated_at": "2025-09-24T11:07:24.154662-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "5c0547f0-d499-4c4f-b52c-97f58198fa89",
+    "memory": "Jon thanks Gina for believing in him",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "8:29 pm on 13 June, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:06:27.501031-07:00",
+    "updated_at": "2025-09-24T11:06:27.563497-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 6,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "b285d1cb-6cdf-422c-8722-10c98ff53569",
+    "memory": "Intends to keep going and never quit",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "7:18 pm on 27 May, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:05:04.977293-07:00",
+    "updated_at": "2025-09-24T11:05:05.042700-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 4,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "82d6e118-17e6-4030-8471-235dda76aa74",
+    "memory": "I appreciate Gina's support",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:15 pm on 21 June, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:05:04.781869-07:00",
+    "updated_at": "2025-09-24T11:20:54.451034-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "9f9172fb-6791-46b9-8173-87dd0ddfb668",
+    "memory": "Learning a ton",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "7:18 pm on 27 May, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:04:48.088724-07:00",
+    "updated_at": "2025-09-24T11:04:48.148873-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 4,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "1d07b3d8-a624-4e1a-aa77-2cbd39451d12",
+    "memory": "Staying hopeful",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "7:18 pm on 27 May, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:04:47.701610-07:00",
+    "updated_at": "2025-09-24T11:04:47.763875-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 4,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "4efe8fad-e628-4ab7-b017-190ad55df4c7",
+    "memory": "Searching for investors has been tough",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "7:18 pm on 27 May, 2023"
+    },
+    "categories": [
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T11:04:46.526651-07:00",
+    "updated_at": "2025-09-24T11:04:46.589422-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 4,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "11a51a39-8a89-40b9-9b25-06a7205f19e4",
+    "memory": "Keeps organized",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "7:18 pm on 27 May, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:04:05.404589-07:00",
+    "updated_at": "2025-09-24T11:04:05.465749-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 3,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "b9d18580-f07c-4856-bafb-4a142c21d32a",
+    "memory": "Gives visual of progress",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "7:18 pm on 27 May, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:04:04.671111-07:00",
+    "updated_at": "2025-09-24T11:04:04.752485-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 3,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "30c6d7c2-6fe2-4647-8cbf-a81d9d43baab",
+    "memory": "Keeps track of ideas and milestones",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "7:18 pm on 27 May, 2023"
+    },
+    "categories": [
+      "milestones"
+    ],
+    "created_at": "2025-09-24T11:04:03.432164-07:00",
+    "updated_at": "2025-09-24T11:04:03.518572-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 3,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "2c8e50f4-869e-48c0-9416-c6293b18150a",
+    "memory": "Intends to adapt and tweak business based on customer feedback",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "7:18 pm on 27 May, 2023"
+    },
+    "categories": [
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T11:03:48.791234-07:00",
+    "updated_at": "2025-09-24T11:03:48.858075-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 3,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "6e5c3e2b-dbe6-433e-bac8-7d79f661fb25",
+    "memory": "User plans to go full-time with their business idea",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "1:25 pm on 9 July, 2023"
+    },
+    "categories": [
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T11:03:47.941766-07:00",
+    "updated_at": "2025-09-24T11:22:47.994411-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "5187c58d-cd24-4f50-907b-b74431176da7",
+    "memory": "Hopes it will give tips for business",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "7:18 pm on 27 May, 2023"
+    },
+    "categories": [
+      "professional_details",
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:03:35.470161-07:00",
+    "updated_at": "2025-09-24T11:03:35.531325-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 3,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "e84ede92-922f-47e6-a53e-03dd706c46b6",
+    "memory": "Reading The Lean Startup",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "7:18 pm on 27 May, 2023"
+    },
+    "categories": [
+      "hobbies"
+    ],
+    "created_at": "2025-09-24T11:03:34.367247-07:00",
+    "updated_at": "2025-09-24T11:03:34.436372-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 3,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "6070418f-f7ea-4046-9a6d-a18f918d6c1e",
+    "memory": "You really stepped up.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "7:18 pm on 27 May, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:03:22.590339-07:00",
+    "updated_at": "2025-09-24T11:03:22.648595-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 3,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "10368094-bf2a-4c4e-81f4-e5b5d3ff51ae",
+    "memory": "Thanks Gina for help",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "3:14 pm on 11 May, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:03:08.456696-07:00",
+    "updated_at": "2025-09-24T11:03:08.529132-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 2,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "d34c40cb-2456-4dfd-b7d1-802c4a7140a7",
+    "memory": "Will send video soon, of a dance routine",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "3:14 pm on 11 May, 2023"
+    },
+    "categories": [
+      "entertainment",
+      "hobbies",
+      "music"
+    ],
+    "created_at": "2025-09-24T11:02:31.762125-07:00",
+    "updated_at": "2025-09-24T11:03:08.240591-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "2d4b0caf-61ae-4288-a070-d34c37360214",
+    "memory": "I believe my efforts will pay off",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:15 pm on 21 June, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T11:02:03.542548-07:00",
+    "updated_at": "2025-09-24T11:20:54.036827-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "e82fdf74-4515-4df7-aaf2-0babf26b902d",
+    "memory": "Taking a risk is scary",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "3:14 pm on 11 May, 2023"
+    },
+    "categories": [
+      "health"
+    ],
+    "created_at": "2025-09-24T11:02:02.855741-07:00",
+    "updated_at": "2025-09-24T11:02:02.915803-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 1,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "7507a2e0-cc50-418a-a062-dc54a1d34176",
+    "memory": "Jon will keep Gina posted on dance studio progress",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "3:14 pm on 11 May, 2023"
+    },
+    "categories": [
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T11:01:38.256386-07:00",
+    "updated_at": "2025-09-24T11:01:38.317190-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 1,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "cc65a8bf-6ec8-4efb-a6e2-acf133a1e729",
+    "memory": "Dreams of creating a place for people to dance and express themselves",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "3:14 pm on 11 May, 2023"
+    },
+    "categories": [
+      "hobbies"
+    ],
+    "created_at": "2025-09-24T11:01:23.787880-07:00",
+    "updated_at": "2025-09-24T11:01:23.854249-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 1,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "69388f92-67af-4523-9cb5-f43b2757aeb6",
+    "memory": "Jon teaches others at his dance studio",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "3:14 pm on 11 May, 2023"
+    },
+    "categories": [
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T11:01:14.936348-07:00",
+    "updated_at": "2025-09-24T11:01:15.000743-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 0,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "0bd1a9df-6fc1-44c9-ae64-78daef6087ed",
+    "memory": "Dancing is second nature to Jon",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "3:14 pm on 11 May, 2023"
+    },
+    "categories": [
+      "hobbies"
+    ],
+    "created_at": "2025-09-24T11:01:14.361227-07:00",
+    "updated_at": "2025-09-24T11:01:14.425261-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 0,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "87fb242a-36f1-48b4-82e7-5cd9043444e6",
+    "memory": "Dancing is a must-have in my life",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "3:14 pm on 11 May, 2023"
+    },
+    "categories": [
+      "hobbies"
+    ],
+    "created_at": "2025-09-24T11:00:49.331459-07:00",
+    "updated_at": "2025-09-24T11:00:49.394322-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 0,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "4d8e5678-40a0-43ef-95ef-2d6177903043",
+    "memory": "Dancing is where I'm most alive",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "3:14 pm on 11 May, 2023"
+    },
+    "categories": [
+      "hobbies"
+    ],
+    "created_at": "2025-09-24T11:00:48.619492-07:00",
+    "updated_at": "2025-09-24T11:00:48.685544-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 0,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "209a5c91-5ecf-400b-8d61-efba9b5e6712",
+    "memory": "Dance helps me de-stress and has been a stress-buster for Jon since childhood",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "3:14 pm on 11 May, 2023"
+    },
+    "categories": [
+      "hobbies",
+      "health"
+    ],
+    "created_at": "2025-09-24T11:00:31.192906-07:00",
+    "updated_at": "2025-09-24T11:00:48.223368-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "f50785a2-bdb0-40d9-8837-e3ba39d18a94",
+    "memory": "Jon feels scared",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "3:14 pm on 11 May, 2023"
+    },
+    "categories": [
+      "health"
+    ],
+    "created_at": "2025-09-24T11:00:30.309466-07:00",
+    "updated_at": "2025-09-24T11:00:30.376686-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 18,
+      "year": 2025,
+      "month": 9,
+      "minute": 0,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "207f419d-cfc2-406c-a5ef-60f78872416f",
+    "memory": "Started dream business: own dance studio",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "3:14 pm on 11 May, 2023"
+    },
+    "categories": [
+      "professional_details",
+      "hobbies"
+    ],
+    "created_at": "2025-09-24T11:00:03.874242-07:00",
+    "updated_at": "2025-09-24T11:00:03.946310-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 59,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "8080e89d-36bb-4fb4-81c0-02b175670c5d",
+    "memory": "Jon loves it and believes it will keep his confidence up",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "11:24 am on 25 April, 2023"
+    },
+    "categories": [
+      "user_preferences"
+    ],
+    "created_at": "2025-09-24T10:58:19.615412-07:00",
+    "updated_at": "2025-09-24T10:58:19.680996-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 58,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "b572a4aa-919c-439a-9618-aa32699f4df7",
+    "memory": "Jon feels motivated and is reminded of why he is pursuing his goals.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "8:29 pm on 13 June, 2023"
+    },
+    "categories": [
+      "milestones"
+    ],
+    "created_at": "2025-09-24T10:58:19.204729-07:00",
+    "updated_at": "2025-09-24T11:09:24.468346-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "ae232505-4c94-4bd0-9900-bdab4cd2f321",
+    "memory": "Jon appreciates Gina's words",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "11:24 am on 25 April, 2023"
+    },
+    "categories": [
+      "family",
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:58:18.946350-07:00",
+    "updated_at": "2025-09-24T10:58:19.046847-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 58,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "9e827170-36d5-4b61-914f-b27059cec581",
+    "memory": "Running a business is hard without faith in yourself",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "11:24 am on 25 April, 2023"
+    },
+    "categories": [
+      "professional_details",
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:57:51.040039-07:00",
+    "updated_at": "2025-09-24T10:57:51.105407-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 57,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "9c46390f-0748-42ce-ad71-6b1c957278f8",
+    "memory": "Feeling low on confidence lately",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "11:24 am on 25 April, 2023"
+    },
+    "categories": [
+      "health"
+    ],
+    "created_at": "2025-09-24T10:57:49.990171-07:00",
+    "updated_at": "2025-09-24T10:57:50.058085-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 57,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "85363479-154c-47fd-9dbd-8c920a882ee0",
+    "memory": "Jon compliments Gina for going for it.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "11:24 am on 25 April, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:57:36.823348-07:00",
+    "updated_at": "2025-09-24T10:57:36.884965-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 57,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "4d284da3-6e9e-4dd2-840d-4ae7765013d5",
+    "memory": "Jon believes setbacks can help reach potential.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "11:24 am on 25 April, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:57:36.269099-07:00",
+    "updated_at": "2025-09-24T10:57:36.328965-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 57,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "d90678ab-33a0-4c34-bbfb-ebef853aaeec",
+    "memory": "Jon wants advice on staying motivated even when times are tough.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "11:24 am on 25 April, 2023"
+    },
+    "categories": [
+      "health"
+    ],
+    "created_at": "2025-09-24T10:57:35.746173-07:00",
+    "updated_at": "2025-09-24T10:57:35.807172-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 57,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "36686aa8-3f5b-4491-8f98-51227a9a42bd",
+    "memory": "Jon is having trouble with his business project.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "11:24 am on 25 April, 2023"
+    },
+    "categories": [
+      "personal_details",
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T10:57:35.246750-07:00",
+    "updated_at": "2025-09-24T10:57:35.307322-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 57,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "63a6674f-3be7-43f2-9d83-0ba35b449aba",
+    "memory": "Remembers Gina's store",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "11:24 am on 25 April, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:57:06.173661-07:00",
+    "updated_at": "2025-09-24T10:57:06.236315-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 56,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "9dbba289-a822-4bdd-af17-29e25ab2a639",
+    "memory": "Jon appreciates Gina's support",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "8:29 pm on 13 June, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:57:05.851595-07:00",
+    "updated_at": "2025-09-24T11:09:49.508530-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "1cfecaca-1531-419b-80a5-26f365b69b2f",
+    "memory": "Started an online clothing store recently",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "11:24 am on 25 April, 2023"
+    },
+    "categories": [
+      "professional_details",
+      "fashion"
+    ],
+    "created_at": "2025-09-24T10:56:41.178093-07:00",
+    "updated_at": "2025-09-24T10:56:41.237696-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 56,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "d2c986ed-f3bb-40a6-91ac-e99df199fe58",
+    "memory": "Expresses confidence that they can do it",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "11:24 am on 25 April, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:56:40.380614-07:00",
+    "updated_at": "2025-09-24T10:58:59.532178-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "1e024b0f-f2da-4f3d-87af-a577a87a5896",
+    "memory": "Got possible leads at the fair",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "11:24 am on 25 April, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:56:39.509483-07:00",
+    "updated_at": "2025-09-24T10:56:39.573502-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 56,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "3a84b806-2df2-42cf-b601-88412c9df055",
+    "memory": "The fair was stressful and great",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "11:24 am on 25 April, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:56:38.796231-07:00",
+    "updated_at": "2025-09-24T10:56:38.855276-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 56,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "b7d2a368-c172-4a76-852e-75a0a6ea254f",
+    "memory": "Went to a fair yesterday to showcase his studio",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "11:24 am on 25 April, 2023"
+    },
+    "categories": [
+      "hobbies"
+    ],
+    "created_at": "2025-09-24T10:56:37.788303-07:00",
+    "updated_at": "2025-09-24T10:56:37.851404-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 56,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "a518b66e-331e-4610-9b8f-242ecbf40784",
+    "memory": "User thanks for support",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:33 am on 9 April, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:55:15.933801-07:00",
+    "updated_at": "2025-09-24T10:55:16.000112-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 55,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "71b7d254-d63f-48b5-806d-03e34351a57c",
+    "memory": "Jon loves dance with his own studio",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "3:14 pm on 11 May, 2023"
+    },
+    "categories": [
+      "hobbies",
+      "music"
+    ],
+    "created_at": "2025-09-24T10:54:51.694480-07:00",
+    "updated_at": "2025-09-24T11:00:30.146249-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "016186bd-0cc1-4dbf-b6fe-f41222da4b75",
+    "memory": "Jon loved taking lessons with friends when younger; memories of those lessons are precious.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:33 am on 9 April, 2023"
+    },
+    "categories": [
+      "hobbies",
+      "family"
+    ],
+    "created_at": "2025-09-24T10:54:51.194629-07:00",
+    "updated_at": "2025-09-24T10:54:51.255185-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "92152b4e-f21a-4b67-b3ee-f8523171202f",
+    "memory": "Dance is a way to express ourselves",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:33 am on 9 April, 2023"
+    },
+    "categories": [
+      "hobbies"
+    ],
+    "created_at": "2025-09-24T10:54:50.823950-07:00",
+    "updated_at": "2025-09-24T10:54:50.883662-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 53,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "c6dc41f3-eb4c-426d-b372-46b15c6bb70a",
+    "memory": "Dance has special meaning to Jon and Gina",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:33 am on 9 April, 2023"
+    },
+    "categories": [
+      "hobbies"
+    ],
+    "created_at": "2025-09-24T10:54:50.093089-07:00",
+    "updated_at": "2025-09-24T10:54:50.154390-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 53,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "35773c94-a5ef-49a8-b015-cd9d6f53157e",
+    "memory": "Jon learned that his own happiness is most important",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:33 am on 9 April, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:53:49.073591-07:00",
+    "updated_at": "2025-09-24T10:53:49.140498-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 53,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "c95355e4-4f07-474d-ba25-39d92cd215f9",
+    "memory": "Jon used to be scared of what people would think",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:33 am on 9 April, 2023"
+    },
+    "categories": [
+      "personal_details",
+      "health"
+    ],
+    "created_at": "2025-09-24T10:53:48.290758-07:00",
+    "updated_at": "2025-09-24T10:53:48.352244-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 53,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "a1f68a05-9c4c-4b90-acd2-d014e4f3d829",
+    "memory": "Gina rocks",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:33 am on 9 April, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:53:47.684948-07:00",
+    "updated_at": "2025-09-24T10:53:47.744522-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 53,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "390edb92-1908-4872-9a9b-780c65f477be",
+    "memory": "Determined to make studio work",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:33 am on 9 April, 2023"
+    },
+    "categories": [
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T10:52:17.228238-07:00",
+    "updated_at": "2025-09-24T10:52:17.290584-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 51,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "983eafbd-af96-4188-b8ad-31918c1a99d7",
+    "memory": "Sunk tons of time into the studio opening",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:04 am on 19 June, 2023"
+    },
+    "categories": [
+      "professional_details",
+      "milestones"
+    ],
+    "created_at": "2025-09-24T10:51:33.181636-07:00",
+    "updated_at": "2025-09-24T11:16:56.241709-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "7327d15c-1a3f-4015-a4c1-6f60368d0f72",
+    "memory": "Your encouragement really motivates me to keep going",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "9:38 pm on 16 June, 2023"
+    },
+    "categories": [
+      "health"
+    ],
+    "created_at": "2025-09-24T10:49:46.404236-07:00",
+    "updated_at": "2025-09-24T11:13:04.330783-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "08e77213-af3b-4fb2-88f6-254a5fb13b6c",
+    "memory": "I won't let anything or anyone stop me",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "1:25 pm on 9 July, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:49:45.764025-07:00",
+    "updated_at": "2025-09-24T11:25:57.841814-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "f03d5a1f-ac98-4a58-ad59-0b003fb993ce",
+    "memory": "Always there for you",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "1:26 pm on 3 April, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:49:24.345475-07:00",
+    "updated_at": "2025-09-24T10:49:24.433305-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 49,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "06c35b72-bd93-4b4c-b0bc-cdad763d8b5b",
+    "memory": "Can't wait for you to be there",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:04 am on 19 June, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:48:58.107036-07:00",
+    "updated_at": "2025-09-24T11:18:04.455308-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "0f525e37-fa02-4965-9932-67c3d4daf0fa",
+    "memory": "Invite to join us",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "1:26 pm on 3 April, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:48:46.828119-07:00",
+    "updated_at": "2025-09-24T10:48:46.896885-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 48,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "fb95b818-c86c-4ef8-b54c-5b3776757033",
+    "memory": "Event will be super creative and fun",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "1:26 pm on 3 April, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:48:46.117657-07:00",
+    "updated_at": "2025-09-24T10:48:46.241854-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 48,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "eeb5878a-eaa9-4f43-b9dc-cbf28efb81e3",
+    "memory": "Dance studio and other schools are bringing best moves for performances and judging",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "1:26 pm on 3 April, 2023"
+    },
+    "categories": [
+      "entertainment"
+    ],
+    "created_at": "2025-09-24T10:48:45.181507-07:00",
+    "updated_at": "2025-09-24T10:48:45.243957-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 48,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "a93d0afc-c097-43de-9929-4189cebbc380",
+    "memory": "Jon wants Gina to attend the event next month.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "1:26 pm on 3 April, 2023"
+    },
+    "categories": [
+      "family",
+      "milestones"
+    ],
+    "created_at": "2025-09-24T10:48:25.907951-07:00",
+    "updated_at": "2025-09-24T10:48:25.972748-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 48,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "2e40db15-6c2b-44fd-b3a7-a320147bc3b4",
+    "memory": "Jon is wrapping up his business plan and seeking investors, driven by passion and belief in success.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "7:18 pm on 27 May, 2023"
+    },
+    "categories": [
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T10:48:25.349228-07:00",
+    "updated_at": "2025-09-24T11:04:29.482345-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "6b3bb601-61f7-4bfc-b7f7-be10086cebea",
+    "memory": "Sharing dance with others",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:33 am on 9 April, 2023"
+    },
+    "categories": [
+      "hobbies"
+    ],
+    "created_at": "2025-09-24T10:47:59.110222-07:00",
+    "updated_at": "2025-09-24T10:53:04.724564-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "62b4c50a-c184-4ee8-bcdc-f18e67ac9afd",
+    "memory": "Dancers excited.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "1:26 pm on 3 April, 2023"
+    },
+    "categories": [
+      "entertainment"
+    ],
+    "created_at": "2025-09-24T10:47:58.446807-07:00",
+    "updated_at": "2025-09-24T10:47:58.506703-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 47,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "10c0574b-92e5-454f-b891-11c66378cb3b",
+    "memory": "Seeing progress.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "1:26 pm on 3 April, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:47:57.733597-07:00",
+    "updated_at": "2025-09-24T10:47:57.793523-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 47,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "0f300f07-ad62-4448-8a59-2f6aa9834c62",
+    "memory": "Hosting a dance competition next month.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "1:26 pm on 3 April, 2023"
+    },
+    "categories": [
+      "entertainment",
+      "hobbies"
+    ],
+    "created_at": "2025-09-24T10:47:57.169408-07:00",
+    "updated_at": "2025-09-24T10:47:57.226634-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 47,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "af67f596-536c-463e-8170-d0bdd38ed66d",
+    "memory": "Offering workshops and classes to local schools and centers.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "1:26 pm on 3 April, 2023"
+    },
+    "categories": [
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T10:47:56.065497-07:00",
+    "updated_at": "2025-09-24T10:47:56.137389-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 47,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "395fc018-9c3f-4c5c-96f6-442cc32408d9",
+    "memory": "Expanding dance studio's social media presence, starting to use social media as advised, posting dance videos, and creating a bit of a stir",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "9:38 pm on 16 June, 2023"
+    },
+    "categories": [
+      "hobbies",
+      "entertainment"
+    ],
+    "created_at": "2025-09-24T10:47:55.227005-07:00",
+    "updated_at": "2025-09-24T11:12:20.994297-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "30effb0d-c430-4acb-969f-da359aa492bc",
+    "memory": "Gina plans to collaborate with fashion bloggers and influencers over the next few months to boost her online store's visibility, will run additional ads to reach more customers, is focused on building her customer base and aims to make her store a top destination for fashion fans, and feels excited as her efforts start to pay off.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "1:26 pm on 3 April, 2023"
+    },
+    "categories": [
+      "fashion",
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T10:47:17.024966-07:00",
+    "updated_at": "2025-09-24T10:47:17.086467-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 46,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "848c9e0d-f2e5-4b6b-97e5-504a441c6e93",
+    "memory": "Shut down bank account was tough",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "1:26 pm on 3 April, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:45:52.703235-07:00",
+    "updated_at": "2025-09-24T10:45:52.764486-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 45,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "d6cb6512-97b4-4005-b0c4-1b5da9fcc3be",
+    "memory": "Jon shut down his bank account to help his business grow",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "1:26 pm on 3 April, 2023"
+    },
+    "categories": [
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T10:45:51.671774-07:00",
+    "updated_at": "2025-09-24T10:46:13.881621-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "de476c0f-5735-48d7-9737-41acc8c2f41d",
+    "memory": "Thanks for being a great friend",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "1:25 pm on 9 July, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:45:32.892207-07:00",
+    "updated_at": "2025-09-24T11:25:58.768377-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "20c5defb-9fff-455d-b939-a83347e438ca",
+    "memory": "Keeps believing in self",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "7:28 pm on 23 March, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:45:32.249106-07:00",
+    "updated_at": "2025-09-24T10:45:32.310408-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 45,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "693f45b1-d9e7-4239-b7ce-0f781222a7f4",
+    "memory": "Jon thanks Gina for being there for him",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "8:29 pm on 13 June, 2023"
+    },
+    "categories": [
+      "family",
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:44:27.972223-07:00",
+    "updated_at": "2025-09-24T11:06:27.386895-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "c2685a9d-b575-43ad-8335-a38623208a70",
+    "memory": "Feeling good and ready to give it my best",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:04 am on 19 June, 2023"
+    },
+    "categories": [
+      "health"
+    ],
+    "created_at": "2025-09-24T10:43:48.451715-07:00",
+    "updated_at": "2025-09-24T11:15:51.937621-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "c2a5e84e-7fb0-47cc-9716-dbf4d63e42c9",
+    "memory": "Support has made a huge difference",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "7:28 pm on 23 March, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:43:48.210395-07:00",
+    "updated_at": "2025-09-24T10:43:48.269685-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 43,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "9445c26a-9a36-4d3a-9632-09835ee6ce9b",
+    "memory": "Gets motivation to keep chasing dreams",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "1:25 pm on 9 July, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:43:47.906147-07:00",
+    "updated_at": "2025-09-24T11:24:49.420678-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "a0f31209-e0c7-40eb-80c5-68337f360b00",
+    "memory": "Has a photo of Jon and Gina after a dance class",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "7:28 pm on 23 March, 2023"
+    },
+    "categories": [
+      "hobbies",
+      "entertainment"
+    ],
+    "created_at": "2025-09-24T10:43:07.337532-07:00",
+    "updated_at": "2025-09-24T10:43:07.399420-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 42,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "8e1f8875-209a-4954-9860-cd2b7e6ccd27",
+    "memory": "Seeing students improve brings joy",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:33 am on 9 April, 2023"
+    },
+    "categories": [
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T10:43:06.097209-07:00",
+    "updated_at": "2025-09-24T10:53:05.675110-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "bd97d6ff-b079-46bd-9c11-2d888bb94c50",
+    "memory": "Motivated by students who are already killing it",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:33 am on 9 April, 2023"
+    },
+    "categories": [
+      "milestones"
+    ],
+    "created_at": "2025-09-24T10:43:05.144593-07:00",
+    "updated_at": "2025-09-24T10:51:31.278861-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "6f907c58-a334-4dab-8f6a-7508e75b11f7",
+    "memory": "Energy is contagious",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "7:28 pm on 23 March, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:42:27.261854-07:00",
+    "updated_at": "2025-09-24T10:42:27.324890-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 42,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "58e7ce4e-ee30-40ac-a085-b62b5d33676c",
+    "memory": "Build relationships with customers",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "7:28 pm on 23 March, 2023"
+    },
+    "categories": null,
+    "created_at": "2025-09-24T10:42:26.354807-07:00",
+    "updated_at": "2025-09-24T10:42:26.412795-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 42,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "1fe359bc-729f-47c3-84e3-bad197341a70",
+    "memory": "Brand should stand out",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "7:28 pm on 23 March, 2023"
+    },
+    "categories": [
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T10:42:25.350444-07:00",
+    "updated_at": "2025-09-24T10:42:25.415639-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 42,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "49d9f27c-8ca0-47ee-bbe1-1248953a4744",
+    "memory": "Brand identity is key",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "7:28 pm on 23 March, 2023"
+    },
+    "categories": null,
+    "created_at": "2025-09-24T10:42:24.154338-07:00",
+    "updated_at": "2025-09-24T10:42:24.214503-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 42,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "df3ca97f-025a-4060-bd04-5ca791048423",
+    "memory": "User says it's been great",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "7:28 pm on 23 March, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:41:46.943068-07:00",
+    "updated_at": "2025-09-24T10:41:47.006345-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 40,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "9123b4d6-0e9e-4eda-9ff9-8fbfddade5b6",
+    "memory": "User says it's been tough",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "7:28 pm on 23 March, 2023"
+    },
+    "categories": [
+      "health",
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:41:46.546270-07:00",
+    "updated_at": "2025-09-24T10:41:46.606107-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 40,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "16b6f3d3-067b-4114-8bb1-e4ab8adaac51",
+    "memory": "Intends to take on new heights",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:35 pm on 16 March, 2023"
+    },
+    "categories": [
+      "milestones"
+    ],
+    "created_at": "2025-09-24T10:40:19.082632-07:00",
+    "updated_at": "2025-09-24T10:40:19.142463-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 39,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "9943deea-b4b4-4844-82f6-dbd20492cb27",
+    "memory": "Gina wants to celebrate achievements",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:35 pm on 16 March, 2023"
+    },
+    "categories": [
+      "milestones"
+    ],
+    "created_at": "2025-09-24T10:39:45.309988-07:00",
+    "updated_at": "2025-09-24T10:39:45.369068-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 38,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "fbc7e477-b939-49ef-b884-244c18f6d03f",
+    "memory": "Gina supports each other",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:35 pm on 16 March, 2023"
+    },
+    "categories": [
+      "family"
+    ],
+    "created_at": "2025-09-24T10:39:44.794898-07:00",
+    "updated_at": "2025-09-24T10:39:44.861172-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 38,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "28fed21b-f787-4c8e-81b0-0f46794f7db2",
+    "memory": "Gina wants to keep chasing dreams and is pumped to chase dreams",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "9:38 pm on 16 June, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:39:44.368335-07:00",
+    "updated_at": "2025-09-24T11:11:09.194775-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "24cb664b-1e12-45a3-910b-4131fb265d5c",
+    "memory": "Jon believes having someone back them up is great",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:35 pm on 16 March, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:39:43.509225-07:00",
+    "updated_at": "2025-09-24T10:39:43.572028-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 38,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "c93293a5-85c2-4a2b-9e2b-1e18b9361acd",
+    "memory": "Gina believes they can do great things together",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:35 pm on 16 March, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:38:34.630293-07:00",
+    "updated_at": "2025-09-24T10:39:42.929856-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "13b07c7a-89b4-4652-a8d6-6e52fcf53dd2",
+    "memory": "Jon and Gina appreciate having someone rooting for them",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:35 pm on 16 March, 2023"
+    },
+    "categories": [
+      "family"
+    ],
+    "created_at": "2025-09-24T10:38:34.368114-07:00",
+    "updated_at": "2025-09-24T10:38:34.425931-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 38,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "35d2780e-09d1-4ef2-bcf5-1e45555d2da6",
+    "memory": "Jon and Gina are on different paths",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:35 pm on 16 March, 2023"
+    },
+    "categories": [
+      "family",
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:38:34.006844-07:00",
+    "updated_at": "2025-09-24T10:38:34.069261-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 38,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "13c312ba-a37e-4e5e-9854-e8d472bbad32",
+    "memory": "Jon and Gina feel like having a partner to dance with",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:35 pm on 16 March, 2023"
+    },
+    "categories": [
+      "hobbies"
+    ],
+    "created_at": "2025-09-24T10:38:33.117737-07:00",
+    "updated_at": "2025-09-24T10:38:33.180390-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 38,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "6af0501d-7677-43ca-9afd-9f94d00cba69",
+    "memory": "Shared challenges motivate Jon and Gina",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:35 pm on 16 March, 2023"
+    },
+    "categories": [
+      "family",
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T10:38:32.895319-07:00",
+    "updated_at": "2025-09-24T10:38:32.953950-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 38,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "16a2c354-79b0-42c3-a890-0ceabb53d076",
+    "memory": "Jon and Gina both face the same challenges",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:35 pm on 16 March, 2023"
+    },
+    "categories": [
+      "family"
+    ],
+    "created_at": "2025-09-24T10:38:32.660547-07:00",
+    "updated_at": "2025-09-24T10:38:32.719840-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 38,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "4bfa7814-c4d6-4cb4-a489-191ef2d832ca",
+    "memory": "Jon loves how Gina never gives up.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "1:26 pm on 3 April, 2023"
+    },
+    "categories": [
+      "user_preferences"
+    ],
+    "created_at": "2025-09-24T10:38:04.479054-07:00",
+    "updated_at": "2025-09-24T10:46:33.169180-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "4ddfe29e-a90a-4a7f-8207-8abbdbd64b31",
+    "memory": "Jon is inspired by Gina's success.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:35 pm on 16 March, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:38:03.999868-07:00",
+    "updated_at": "2025-09-24T10:38:04.062125-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 37,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "fa404bff-0acb-4f4c-931f-fb12f909e18e",
+    "memory": "Believes success will be worth it",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:35 pm on 16 March, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:37:28.023391-07:00",
+    "updated_at": "2025-09-24T10:37:28.089815-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 37,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "4794703f-21c4-4486-b60e-dd7ffc07d21b",
+    "memory": "Facing new challenges",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:35 pm on 16 March, 2023"
+    },
+    "categories": [
+      "milestones"
+    ],
+    "created_at": "2025-09-24T10:37:27.220988-07:00",
+    "updated_at": "2025-09-24T10:37:27.280843-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 37,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "f09a1252-9332-4906-bb5d-a71ab7486240",
+    "memory": "Intends to succeed",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:35 pm on 16 March, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:37:26.685233-07:00",
+    "updated_at": "2025-09-24T10:37:26.742901-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 37,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "e73c031e-3f96-4890-b991-49363d220792",
+    "memory": "Starting business has been tough",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:35 pm on 16 March, 2023"
+    },
+    "categories": [
+      "professional_details",
+      "milestones"
+    ],
+    "created_at": "2025-09-24T10:37:26.354306-07:00",
+    "updated_at": "2025-09-24T10:37:26.445391-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 37,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "145b8095-a792-4f39-b728-6f873031dad1",
+    "memory": "Living my dreams now",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:35 pm on 16 March, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:37:25.834260-07:00",
+    "updated_at": "2025-09-24T10:37:25.894422-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 37,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "19fe85a1-8612-4973-9fb1-2d6d9ba110fa",
+    "memory": "Job loss was tough and gave push to pursue passion",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:33 am on 9 April, 2023"
+    },
+    "categories": [
+      "professional_details",
+      "milestones"
+    ],
+    "created_at": "2025-09-24T10:37:25.156113-07:00",
+    "updated_at": "2025-09-24T10:52:16.348279-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "84961a82-ff48-4219-963f-2fce1f5ded0f",
+    "memory": "Jon wishes best of luck with Gina's store",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:35 pm on 16 March, 2023"
+    },
+    "categories": [
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T10:36:53.418938-07:00",
+    "updated_at": "2025-09-24T10:36:53.477940-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 36,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "64b57c99-2475-4a27-8ccf-a8249d3fcf8c",
+    "memory": "Jon thinks Gina's store combines her interests",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:35 pm on 16 March, 2023"
+    },
+    "categories": [
+      "hobbies"
+    ],
+    "created_at": "2025-09-24T10:36:52.817213-07:00",
+    "updated_at": "2025-09-24T10:36:52.881318-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 36,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "e6106465-bc0e-48dc-93e5-6308eed65fa4",
+    "memory": "Jon congratulated Gina on her new online store, expressing curiosity about her idea and reflecting his own drive to juggle creative passions and entrepreneurship, showcasing their mutual support and shared journey toward growth.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:35 pm on 16 March, 2023"
+    },
+    "categories": [
+      "professional_details",
+      "milestones"
+    ],
+    "created_at": "2025-09-24T10:36:30.950991-07:00",
+    "updated_at": "2025-09-24T10:36:31.015311-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "7d0c2c94-4def-4d8a-928e-33af2b2bed59",
+    "memory": "Gina launched her online clothing store after losing her DoorDash job, driven by a passion for fashion trends and unique pieces, blending her love for dance and fashion into a perfect match for her creative outlet, feeling excited and proud as she embarks on this new entrepreneurial chapter.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:35 pm on 16 March, 2023"
+    },
+    "categories": [
+      "professional_details",
+      "fashion",
+      "hobbies",
+      "milestones",
+      "user_preferences"
+    ],
+    "created_at": "2025-09-24T10:36:30.356475-07:00",
+    "updated_at": "2025-09-24T10:36:30.418697-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "98bd32cb-c66f-429c-b7fc-40e70a5c1bfc",
+    "memory": "Lost job at Door Dash",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:35 pm on 16 March, 2023"
+    },
+    "categories": [
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T10:35:25.521849-07:00",
+    "updated_at": "2025-09-24T10:35:25.596210-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 35,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "ac76d3cb-8940-4d80-9ba7-5e76bfd3da59",
+    "memory": "Jon is balancing his commitments and it's going well.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:35 pm on 16 March, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:34:57.075579-07:00",
+    "updated_at": "2025-09-24T10:34:57.137257-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 34,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "e3471ff2-1c11-4837-8a67-fb725edd2526",
+    "memory": "Jon started hitting the gym last week to stay on track with his venture.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:35 pm on 16 March, 2023"
+    },
+    "categories": [
+      "health",
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T10:34:56.695048-07:00",
+    "updated_at": "2025-09-24T10:34:56.758590-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 34,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "0ddab899-7672-4661-b8d4-f22bc9d8cf51",
+    "memory": "Jon has been hectic lately.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:35 pm on 16 March, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:34:56.001693-07:00",
+    "updated_at": "2025-09-24T10:34:56.077498-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 34,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "9faba570-6275-4378-84c5-4d3e9a097702",
+    "memory": "Jon is opening a dance studio and feels inspired by the passion and commitment of the young dancers he works with. He wants the studio to be a supportive and encouraging space for all dancers, and he is excited about the experience of creating this environment.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "8:29 pm on 13 June, 2023"
+    },
+    "categories": [
+      "professional_details",
+      "hobbies"
+    ],
+    "created_at": "2025-09-24T10:32:58.245529-07:00",
+    "updated_at": "2025-09-24T11:07:22.006521-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "53f5aa33-f600-4027-a684-816ac662309d",
+    "memory": "Jon values Gina's words",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "7:18 pm on 27 May, 2023"
+    },
+    "categories": [
+      "user_preferences"
+    ],
+    "created_at": "2025-09-24T10:32:57.535588-07:00",
+    "updated_at": "2025-09-24T11:05:26.607065-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "a04f7d1d-8ae7-4002-8c6d-eb67c7eda91f",
+    "memory": "Dancing and running his business require hard work, give him energy for each other, his dance moves pump him to tackle business goals, and successes in business boost his drive to keep dreaming on the dance floor.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "9:32 am on 8 February, 2023"
+    },
+    "categories": [
+      "hobbies",
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T10:32:17.252073-07:00",
+    "updated_at": "2025-09-24T10:32:17.315168-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "683956df-27f2-4c47-b150-7629beec77b8",
+    "memory": "Juggling both passions can be tricky, rewarding, is a balancing act, and is fun.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "9:32 am on 8 February, 2023"
+    },
+    "categories": [
+      "hobbies"
+    ],
+    "created_at": "2025-09-24T10:32:16.475754-07:00",
+    "updated_at": "2025-09-24T10:32:16.543575-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "5b8f11f5-6628-446e-bcb8-bf3c6ba44c23",
+    "memory": "Values freedom and self-expression",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "9:32 am on 8 February, 2023"
+    },
+    "categories": [
+      "user_preferences"
+    ],
+    "created_at": "2025-09-24T10:30:52.813072-07:00",
+    "updated_at": "2025-09-24T10:30:52.877283-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 30,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "5c96db05-1007-451b-a11d-d9dc88669e45",
+    "memory": "Will keep pushing each other on this path",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "11:24 am on 25 April, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:30:28.037917-07:00",
+    "updated_at": "2025-09-24T10:59:00.049712-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "6b017bbf-3f7b-4f43-a2a8-c6814d1104d4",
+    "memory": "Acknowledges difficulties in pursuing this and upcoming trials",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:35 pm on 16 March, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:30:06.631774-07:00",
+    "updated_at": "2025-09-24T10:40:18.340505-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "880c8acc-ec5c-475d-a7f4-edc3f95eec65",
+    "memory": "User says they're going to make it happen",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "7:28 pm on 23 March, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:30:06.226495-07:00",
+    "updated_at": "2025-09-24T10:41:46.122819-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "cd341dff-1160-4485-8060-61b49fa28679",
+    "memory": "Turning love of dance into a business",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:33 am on 9 April, 2023"
+    },
+    "categories": [
+      "hobbies",
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T10:30:05.635489-07:00",
+    "updated_at": "2025-09-24T10:51:32.636430-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "38c46da7-fafa-46ad-95eb-c72e75ce9a5d",
+    "memory": "Has grown due to taking risks",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "9:32 am on 8 February, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:30:04.597040-07:00",
+    "updated_at": "2025-09-24T10:30:04.795841-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 29,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "30211641-59b9-41fa-9344-a2f6c5eaf850",
+    "memory": "Believes taking risks is key for success",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "9:32 am on 8 February, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:30:03.904587-07:00",
+    "updated_at": "2025-09-24T10:30:03.967295-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 29,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "959663c3-7330-42d2-a609-aadd1dd34677",
+    "memory": "User is impressed by Gina's willingness to take risks",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "9:32 am on 8 February, 2023"
+    },
+    "categories": [
+      "user_preferences"
+    ],
+    "created_at": "2025-09-24T10:29:05.072460-07:00",
+    "updated_at": "2025-09-24T10:29:05.136555-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 28,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "a6dd5b41-9e59-4d58-bb7f-9186dc134888",
+    "memory": "Many people complimented my dance moves",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "9:32 am on 8 February, 2023"
+    },
+    "categories": [
+      "hobbies",
+      "entertainment"
+    ],
+    "created_at": "2025-09-24T10:27:39.188508-07:00",
+    "updated_at": "2025-09-24T10:27:39.253253-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 27,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "b2fee483-163f-41ee-a90c-b3f762d7be63",
+    "memory": "Performance was awesome",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "9:32 am on 8 February, 2023"
+    },
+    "categories": [
+      "entertainment"
+    ],
+    "created_at": "2025-09-24T10:27:38.634909-07:00",
+    "updated_at": "2025-09-24T10:27:38.694006-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 27,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "bc8bb77d-5707-4acc-ae2f-a6121e4b0d39",
+    "memory": "Performed at a festival",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "9:32 am on 8 February, 2023"
+    },
+    "categories": [
+      "music"
+    ],
+    "created_at": "2025-09-24T10:27:37.955849-07:00",
+    "updated_at": "2025-09-24T10:27:38.020788-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 27,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "6d9c3060-48a5-414d-b7fc-8155999fcf5b",
+    "memory": "User told about a festival",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "9:32 am on 8 February, 2023"
+    },
+    "categories": [
+      "entertainment"
+    ],
+    "created_at": "2025-09-24T10:27:37.348670-07:00",
+    "updated_at": "2025-09-24T10:27:37.419989-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 27,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "1af0457f-dedc-49d7-876d-7b4f833321f0",
+    "memory": "Jon will not let anything get him down",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "7:18 pm on 27 May, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:26:59.579586-07:00",
+    "updated_at": "2025-09-24T11:05:26.969378-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "fc4d2bea-22df-4ed2-b357-d97109ee6284",
+    "memory": "Gina's support means a lot to Jon, and she sees the studio as more than a business, a place where dancers can grow.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "8:29 pm on 13 June, 2023"
+    },
+    "categories": [
+      "family",
+      "hobbies"
+    ],
+    "created_at": "2025-09-24T10:26:59.085975-07:00",
+    "updated_at": "2025-09-24T11:07:23.720128-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "677b4754-4236-4802-895a-231aa5a367ed",
+    "memory": "User intends to do best to make assistant proud",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:43 am on 4 February, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:26:27.693975-07:00",
+    "updated_at": "2025-09-24T10:26:27.761605-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 26,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "72bae1f5-04cd-41c9-b3d9-1cc0566db7cc",
+    "memory": "User feels help means a lot",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:43 am on 4 February, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:26:26.926588-07:00",
+    "updated_at": "2025-09-24T10:26:26.987679-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 26,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "e3c1f717-e189-4b27-ab70-f1d0fffdd2b2",
+    "memory": "Hopes to receive props from dance community",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:43 am on 4 February, 2023"
+    },
+    "categories": [
+      "hobbies",
+      "entertainment"
+    ],
+    "created_at": "2025-09-24T10:26:10.326770-07:00",
+    "updated_at": "2025-09-24T10:26:10.388167-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 25,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "771f7c78-fcf4-412f-b9d3-1f4353dcd701",
+    "memory": "Dancing is a way for Jon to express himself and find his happy place",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:33 am on 9 April, 2023"
+    },
+    "categories": [
+      "hobbies",
+      "user_preferences"
+    ],
+    "created_at": "2025-09-24T10:25:19.608633-07:00",
+    "updated_at": "2025-09-24T10:53:46.927588-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "0aba9e5e-37a5-423a-80ed-aa80e833b20a",
+    "memory": "Rehearsing hard for upcoming show",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:43 am on 4 February, 2023"
+    },
+    "categories": [
+      "entertainment"
+    ],
+    "created_at": "2025-09-24T10:25:18.800733-07:00",
+    "updated_at": "2025-09-24T10:25:18.865412-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 23,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "940acaf9-7812-4ee7-b602-4f749db97019",
+    "memory": "Practicing dance routines keeps mind focused and motivated",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "3:14 pm on 11 May, 2023"
+    },
+    "categories": [
+      "hobbies"
+    ],
+    "created_at": "2025-09-24T10:25:17.840034-07:00",
+    "updated_at": "2025-09-24T11:02:19.170367-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "6b6d2052-3193-4ac7-9eaa-18eefec9c943",
+    "memory": "You rock!",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "1:25 pm on 9 July, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:25:17.275948-07:00",
+    "updated_at": "2025-09-24T11:25:59.740976-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "66bf1dcd-787c-410e-8567-2476f95ba04d",
+    "memory": "Believes that once the right spot is found, the rest will follow",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:43 am on 4 February, 2023"
+    },
+    "categories": null,
+    "created_at": "2025-09-24T10:23:22.038976-07:00",
+    "updated_at": "2025-09-24T10:23:22.122967-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 22,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "11954904-3f5a-4b3d-a88b-0191564768b6",
+    "memory": "Determined to find the right spot",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:43 am on 4 February, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:23:21.292802-07:00",
+    "updated_at": "2025-09-24T10:23:21.357177-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 22,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "20b4dc55-e50a-46d3-8394-6cdd6449254b",
+    "memory": "Can handle anything with Gina's support",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:43 am on 4 February, 2023"
+    },
+    "categories": [
+      "family",
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T10:22:46.649728-07:00",
+    "updated_at": "2025-09-24T10:22:46.712966-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 22,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "7a852c3c-b9c4-446a-b4e1-a1cf40ffe2af",
+    "memory": "Has had tough times",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:33 am on 9 April, 2023"
+    },
+    "categories": [
+      "health",
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:22:46.091517-07:00",
+    "updated_at": "2025-09-24T10:53:04.007068-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "c047a31e-675a-4836-880f-86e9a1fbb5f2",
+    "memory": "Intends to make business succeed",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:43 am on 4 February, 2023"
+    },
+    "categories": [
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T10:22:01.968977-07:00",
+    "updated_at": "2025-09-24T10:22:02.039947-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 21,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "e4530091-eaf3-4781-a75f-d1134a06b200",
+    "memory": "Facing obstacles in business, learned that the business is not a cakewalk",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "11:24 am on 25 April, 2023"
+    },
+    "categories": [
+      "professional_details",
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:22:01.133495-07:00",
+    "updated_at": "2025-09-24T10:56:36.992382-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "ac533856-6c43-4773-b1a8-82506bb184c6",
+    "memory": "Working hard on business, specifically working on online store",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "9:38 pm on 16 June, 2023"
+    },
+    "categories": [
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T10:22:00.460318-07:00",
+    "updated_at": "2025-09-24T11:11:08.265974-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "96b95de2-db71-42d8-bbbb-2c989b4a2d3e",
+    "memory": "User has put hearts into their dreams",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "12:48 am on 1 February, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:20:30.421750-07:00",
+    "updated_at": "2025-09-24T10:20:30.525029-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 20,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "da9c09e6-41f8-4d72-8fa9-6b798ce4eabd",
+    "memory": "Jon is living his dream",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "3:14 pm on 11 May, 2023"
+    },
+    "categories": [
+      "milestones"
+    ],
+    "created_at": "2025-09-24T10:20:29.850209-07:00",
+    "updated_at": "2025-09-24T11:01:14.225656-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "a7318848-7d07-48c8-9b23-a5385c66faf3",
+    "memory": "User is pushing forward",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "12:48 am on 1 February, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:20:29.025078-07:00",
+    "updated_at": "2025-09-24T10:20:29.096863-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 20,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "39c8db7e-2539-4b17-a4c5-74138bac5a61",
+    "memory": "Jon is staying positive and looking ahead despite hard changes",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "1:26 pm on 3 April, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:20:28.158540-07:00",
+    "updated_at": "2025-09-24T10:46:14.423522-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "d36e7fea-cf1a-4a08-9a4a-87bae15c35ea",
+    "memory": "User says words mean a lot",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "12:48 am on 1 February, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:20:27.390525-07:00",
+    "updated_at": "2025-09-24T10:20:27.450763-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 20,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "2ca95130-6188-4a54-b992-b3f04b7ab46d",
+    "memory": "Encourages Gina to keep going",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "12:48 am on 1 February, 2023"
+    },
+    "categories": [],
+    "created_at": "2025-09-24T10:19:57.836911-07:00",
+    "updated_at": "2025-09-24T10:19:57.902510-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 19,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "8b29d2e8-f186-4da3-9183-3aa7c7ab9868",
+    "memory": "Encourages Gina to create something awesome with her store",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "12:48 am on 1 February, 2023"
+    },
+    "categories": [
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T10:19:57.324574-07:00",
+    "updated_at": "2025-09-24T10:19:57.391794-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 19,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "7ff7dbdb-27d9-4e75-9865-159e99eb2e1e",
+    "memory": "Offers support to Gina",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "12:48 am on 1 February, 2023"
+    },
+    "categories": [
+      "family"
+    ],
+    "created_at": "2025-09-24T10:19:56.809755-07:00",
+    "updated_at": "2025-09-24T10:19:56.944928-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 19,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "42125250-abf3-4621-ac46-e496649e0d46",
+    "memory": "Gina believes she can make a special shopping experience for her customers.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "12:48 am on 1 February, 2023"
+    },
+    "categories": [
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T10:19:33.123473-07:00",
+    "updated_at": "2025-09-24T10:19:33.181929-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 19,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "421df076-5d14-4b10-965b-4640e3b9813e",
+    "memory": "Gina thanks Jon for support.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "12:48 am on 1 February, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:19:32.317474-07:00",
+    "updated_at": "2025-09-24T10:19:32.384109-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 19,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "6f0747ee-673f-4ef7-9175-33f7b1d39433",
+    "memory": "Jon thinks Gina can create the space she's imagining.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "12:48 am on 1 February, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:19:30.812086-07:00",
+    "updated_at": "2025-09-24T10:19:30.878150-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 19,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "69da4dc1-0789-4e55-9389-385b9b6172b8",
+    "memory": "Jon believes creating a special experience for customers is key to making them feel welcome and coming back.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "12:48 am on 1 February, 2023"
+    },
+    "categories": [
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T10:19:30.135840-07:00",
+    "updated_at": "2025-09-24T10:19:30.195917-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 19,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "5f0a48e6-35e2-481b-a0a7-a031c3d1ac6c",
+    "memory": "Customers will be comfy",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "12:48 am on 1 February, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:19:02.633269-07:00",
+    "updated_at": "2025-09-24T10:19:02.713184-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 18,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "834181f3-44a6-46e9-bf89-ff92073d88c1",
+    "memory": "Design took ages",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "12:48 am on 1 February, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:18:47.551237-07:00",
+    "updated_at": "2025-09-24T10:18:47.614411-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 18,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "c308309d-2a7a-4a7f-aefc-137026cac1fa",
+    "memory": "Gina found a perfect spot for her store",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "12:48 am on 1 February, 2023"
+    },
+    "categories": [
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T10:18:18.676179-07:00",
+    "updated_at": "2025-09-24T10:18:18.739708-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 18,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "00e1fcc6-ab43-4df5-a0f5-87b8d21b1629",
+    "memory": "Jon's experience has been tough but also the best thing ever",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:33 am on 9 April, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:18:03.103297-07:00",
+    "updated_at": "2025-09-24T10:53:47.371079-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "3a6d86b4-2d89-4743-8115-93a103f3376b",
+    "memory": "Following passion for dance",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "12:48 am on 1 February, 2023"
+    },
+    "categories": [
+      "hobbies"
+    ],
+    "created_at": "2025-09-24T10:18:01.882708-07:00",
+    "updated_at": "2025-09-24T10:18:02.223296-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 17,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "4d635d18-1826-468c-9c91-e576be6e0f80",
+    "memory": "We got this",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:32 pm on 29 January, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:17:20.946098-07:00",
+    "updated_at": "2025-09-24T10:17:21.006098-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 17,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "34397132-9e8b-41a3-9012-168ceb0e0943",
+    "memory": "Success is almost here",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:32 pm on 29 January, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:17:20.128258-07:00",
+    "updated_at": "2025-09-24T10:17:20.186774-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 17,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "3dfdf8bf-f3f1-4537-9ff7-5373bf883b99",
+    "memory": "Jon is motivated by Gina's words to keep going and wants to reach success together",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "7:28 pm on 23 March, 2023"
+    },
+    "categories": [
+      "milestones"
+    ],
+    "created_at": "2025-09-24T10:16:59.415308-07:00",
+    "updated_at": "2025-09-24T10:45:15.217892-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "d444e493-90fe-403f-bb5c-7d02463749d2",
+    "memory": "Gina acknowledges the challenge is tough but she is up for it, never shies away from a challenge, always tries something new, and has a willingness to take risks.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "9:32 am on 8 February, 2023"
+    },
+    "categories": [
+      "hobbies",
+      "user_preferences"
+    ],
+    "created_at": "2025-09-24T10:16:46.800751-07:00",
+    "updated_at": "2025-09-24T10:29:04.149990-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "f84e4724-ac6a-46c7-b6ca-75e289ec9271",
+    "memory": "Jon appreciates Gina's help",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "7:28 pm on 23 March, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:16:46.116308-07:00",
+    "updated_at": "2025-09-24T10:44:27.789614-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "61c9593e-d16d-4b94-91ed-4ab565afabba",
+    "memory": "Believes dance studio will be worth it",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:32 pm on 29 January, 2023"
+    },
+    "categories": [
+      "entertainment"
+    ],
+    "created_at": "2025-09-24T10:16:23.867410-07:00",
+    "updated_at": "2025-09-24T10:16:23.931371-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 15,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "1c97141e-055e-4169-8447-75bbb5b412db",
+    "memory": "Prepping for dance studio more than ever",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "8:29 pm on 13 June, 2023"
+    },
+    "categories": [
+      "hobbies",
+      "music"
+    ],
+    "created_at": "2025-09-24T10:16:23.300126-07:00",
+    "updated_at": "2025-09-24T11:06:42.209092-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "4d82a340-da31-4f71-9f8a-397372f650fa",
+    "memory": "Preparation is nerve-wracking",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:32 pm on 29 January, 2023"
+    },
+    "categories": [
+      "health"
+    ],
+    "created_at": "2025-09-24T10:16:22.398203-07:00",
+    "updated_at": "2025-09-24T10:16:22.457622-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 15,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "d896789e-9b2f-4ec5-9ea9-e518432d6fe3",
+    "memory": "Preparation for a dance competition near me next month is exciting",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:43 am on 4 February, 2023"
+    },
+    "categories": [
+      "hobbies",
+      "entertainment"
+    ],
+    "created_at": "2025-09-24T10:16:21.195845-07:00",
+    "updated_at": "2025-09-24T10:26:08.102117-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "710e6fd3-e57c-4186-b740-fb5aa062864e",
+    "memory": "Searching for a dance studio location has been tricky; the studio is on tenuous grounds",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "5:44 pm on 21 July, 2023"
+    },
+    "categories": [
+      "hobbies"
+    ],
+    "created_at": "2025-09-24T10:16:20.707088-07:00",
+    "updated_at": "2025-09-24T11:27:28.218574-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "9abc9002-e11b-421c-b563-a8efaba54e22",
+    "memory": "Excited about the experience of creating a supportive and encouraging space for all dancers.",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "8:29 pm on 13 June, 2023"
+    },
+    "categories": [
+      "hobbies"
+    ],
+    "created_at": "2025-09-24T10:16:19.885697-07:00",
+    "updated_at": "2025-09-24T11:07:22.619502-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "afe78754-5de9-486b-b50f-b7ad55be0550",
+    "memory": "Marley flooring is easy to clean",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:32 pm on 29 January, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:15:35.685948-07:00",
+    "updated_at": "2025-09-24T10:15:35.750363-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 15,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "06a434ac-c2e1-49df-9435-0c7bb1d86214",
+    "memory": "Marley flooring is tough",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:32 pm on 29 January, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:15:34.800329-07:00",
+    "updated_at": "2025-09-24T10:15:34.958290-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 15,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "7d99bbe2-7ba9-4491-862d-457c7fadb068",
+    "memory": "Marley flooring allows movement",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:32 pm on 29 January, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:15:34.427311-07:00",
+    "updated_at": "2025-09-24T10:15:34.488068-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 15,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "cfd48dbb-bdee-4721-897a-03c4ec14a87a",
+    "memory": "Marley flooring is grippy",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:32 pm on 29 January, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:15:34.012816-07:00",
+    "updated_at": "2025-09-24T10:15:34.074662-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 15,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "44f9ab39-2418-459f-a381-93a6ff131140",
+    "memory": "Prefers Marley flooring for dance studio",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:32 pm on 29 January, 2023"
+    },
+    "categories": [
+      "user_preferences",
+      "hobbies"
+    ],
+    "created_at": "2025-09-24T10:15:33.334692-07:00",
+    "updated_at": "2025-09-24T10:15:33.405174-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 15,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "d26bce05-20e6-4610-b5fd-401349f6052b",
+    "memory": "Needs a good dance floor with enough bounce for me and my students to dance safely",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:32 pm on 29 January, 2023"
+    },
+    "categories": [
+      "hobbies",
+      "entertainment"
+    ],
+    "created_at": "2025-09-24T10:14:27.018989-07:00",
+    "updated_at": "2025-09-24T10:14:27.079408-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 14,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "102ab0c3-1363-48f5-81f4-650e83a73b97",
+    "memory": "Needs to check size and floor quality",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:32 pm on 29 January, 2023"
+    },
+    "categories": [
+      "user_preferences"
+    ],
+    "created_at": "2025-09-24T10:14:26.217173-07:00",
+    "updated_at": "2025-09-24T10:14:26.282272-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 14,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "ba833caa-d944-4c4a-be5f-457666237872",
+    "memory": "Location is easy to get to",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:32 pm on 29 January, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:14:25.207376-07:00",
+    "updated_at": "2025-09-24T10:14:25.450220-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 14,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "911d5d08-28d2-4bb7-a8d0-474c25f196b5",
+    "memory": "Location is downtown",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:32 pm on 29 January, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:14:24.536350-07:00",
+    "updated_at": "2025-09-24T10:14:24.597006-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 14,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "d6fcfd2d-4f9b-435b-b25e-e1ed8bad4719",
+    "memory": "Visited Paris yesterday and enjoyed the visit",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:32 pm on 29 January, 2023"
+    },
+    "categories": [
+      "travel"
+    ],
+    "created_at": "2025-09-24T10:14:00.900708-07:00",
+    "updated_at": "2025-09-24T10:14:00.996280-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "88796b9e-76b6-41f5-bfab-54845ba87331",
+    "memory": "Gina's stuff on display is awesome",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:32 pm on 29 January, 2023"
+    },
+    "categories": [
+      "hobbies"
+    ],
+    "created_at": "2025-09-24T10:13:12.887879-07:00",
+    "updated_at": "2025-09-24T10:13:12.952093-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 13,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "9538fa26-3442-4e06-9c19-38465e606bd9",
+    "memory": "Gina's hard work paid off",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:32 pm on 29 January, 2023"
+    },
+    "categories": [
+      "milestones"
+    ],
+    "created_at": "2025-09-24T10:13:12.061221-07:00",
+    "updated_at": "2025-09-24T10:13:12.125395-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 17,
+      "year": 2025,
+      "month": 9,
+      "minute": 13,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "6f4c0878-0fbb-4a08-9093-d32ea81f7b04",
+    "memory": "User says Gina's store is awesome and looks great",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "11:24 am on 25 April, 2023"
+    },
+    "categories": [
+      "user_preferences"
+    ],
+    "created_at": "2025-09-24T10:13:11.126036-07:00",
+    "updated_at": "2025-09-24T10:57:05.420210-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "dcbe3808-ce8b-4619-a913-56d05a4e3f4b",
+    "memory": "Feeling super stoked about taking a risk",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "3:14 pm on 11 May, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T10:12:54.545807-07:00",
+    "updated_at": "2025-09-24T11:02:01.735991-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "733d480f-5cfd-4f09-8fdb-39d904aca068",
+    "memory": "The performers will impress with grace and skill",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "4:04 pm on 20 January, 2023"
+    },
+    "categories": [
+      "entertainment"
+    ],
+    "created_at": "2025-09-24T09:11:46.724571-07:00",
+    "updated_at": "2025-09-24T09:11:46.788433-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 16,
+      "year": 2025,
+      "month": 9,
+      "minute": 11,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "e254b6a2-6271-46b4-8329-081f37a2ba82",
+    "memory": "The performers have been practicing hard",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "4:04 pm on 20 January, 2023"
+    },
+    "categories": [
+      "music"
+    ],
+    "created_at": "2025-09-24T09:11:46.122369-07:00",
+    "updated_at": "2025-09-24T09:11:46.189389-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 16,
+      "year": 2025,
+      "month": 9,
+      "minute": 11,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "ec72b001-77e8-4e00-bd49-9c1b84523a77",
+    "memory": "The performers are at the festival",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "4:04 pm on 20 January, 2023"
+    },
+    "categories": [
+      "entertainment"
+    ],
+    "created_at": "2025-09-24T09:11:45.747211-07:00",
+    "updated_at": "2025-09-24T09:11:45.808228-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 16,
+      "year": 2025,
+      "month": 9,
+      "minute": 11,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "e5e2710e-13b5-43aa-8748-cc5aede238da",
+    "memory": "Preparing for a dance competition near me next month",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:43 am on 4 February, 2023"
+    },
+    "categories": [
+      "hobbies",
+      "entertainment"
+    ],
+    "created_at": "2025-09-24T09:11:23.294041-07:00",
+    "updated_at": "2025-09-24T10:26:08.814317-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "3be5d6e1-dd05-44e2-8a98-4eda1ab215a7",
+    "memory": "Have some cool projects in the works",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "4:04 pm on 20 January, 2023"
+    },
+    "categories": [
+      "hobbies",
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T09:11:22.978053-07:00",
+    "updated_at": "2025-09-24T09:11:23.039311-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 16,
+      "year": 2025,
+      "month": 9,
+      "minute": 11,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "c331ad9e-3ffb-4db1-ad50-98581dc87c3f",
+    "memory": "Do all kinds of dances, from contemporary to hip-hop",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "4:04 pm on 20 January, 2023"
+    },
+    "categories": [
+      "hobbies",
+      "music"
+    ],
+    "created_at": "2025-09-24T09:11:22.498373-07:00",
+    "updated_at": "2025-09-24T09:11:22.558808-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 16,
+      "year": 2025,
+      "month": 9,
+      "minute": 11,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "9a4269c6-a004-449b-ad4e-69a954f39839",
+    "memory": "Rehearsed with a small group of dancers after work",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "4:04 pm on 20 January, 2023"
+    },
+    "categories": [
+      "professional_details",
+      "hobbies"
+    ],
+    "created_at": "2025-09-24T09:11:22.326512-07:00",
+    "updated_at": "2025-09-24T09:11:22.384196-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 16,
+      "year": 2025,
+      "month": 9,
+      "minute": 11,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "b1cb673b-322c-4975-82de-df16b94f82be",
+    "memory": "Found an ideal spot for dance studio with great natural light that will inspire us",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:32 pm on 29 January, 2023"
+    },
+    "categories": [
+      "hobbies"
+    ],
+    "created_at": "2025-09-24T09:10:53.041799-07:00",
+    "updated_at": "2025-09-24T10:14:00.257028-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "ed09618c-c23d-42b9-9d75-4acd1e73f804",
+    "memory": "Excited about Gina's contemporary piece",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "4:04 pm on 20 January, 2023"
+    },
+    "categories": [
+      "hobbies"
+    ],
+    "created_at": "2025-09-24T09:10:37.287673-07:00",
+    "updated_at": "2025-09-24T09:10:37.357060-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 16,
+      "year": 2025,
+      "month": 9,
+      "minute": 10,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "4162172a-b7e6-49dd-a75c-1209aa46befc",
+    "memory": "Ideal dance studio is by the water",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "4:04 pm on 20 January, 2023"
+    },
+    "categories": [
+      "entertainment"
+    ],
+    "created_at": "2025-09-24T09:10:36.629397-07:00",
+    "updated_at": "2025-09-24T09:10:36.776899-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 16,
+      "year": 2025,
+      "month": 9,
+      "minute": 10,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "78a1999b-4db9-41b8-bd1b-8483e3357d4f",
+    "memory": "Jon wants to spread intensity with other people",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "4:04 pm on 20 January, 2023"
+    },
+    "categories": [
+      "user_preferences"
+    ],
+    "created_at": "2025-09-24T09:10:07.710300-07:00",
+    "updated_at": "2025-09-24T09:10:07.778234-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 16,
+      "year": 2025,
+      "month": 9,
+      "minute": 9,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "4de815d2-1ac5-48b4-b377-4c10a7d750a8",
+    "memory": "Dance crew won first place in a local competition last year",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "4:04 pm on 20 January, 2023"
+    },
+    "categories": [
+      "entertainment"
+    ],
+    "created_at": "2025-09-24T09:10:07.525601-07:00",
+    "updated_at": "2025-09-24T09:10:07.610005-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 16,
+      "year": 2025,
+      "month": 9,
+      "minute": 9,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "8e719bc5-031e-4161-b402-dc6f1b067c40",
+    "memory": "Believes the session will be great",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "4:04 pm on 20 January, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T09:09:30.636745-07:00",
+    "updated_at": "2025-09-24T09:09:30.699233-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 16,
+      "year": 2025,
+      "month": 9,
+      "minute": 9,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "6fd0ae47-9f8e-4c97-a3d3-b564eb4a6b72",
+    "memory": "Sees competition as great chance to show skills",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:43 am on 4 February, 2023"
+    },
+    "categories": [
+      "user_preferences"
+    ],
+    "created_at": "2025-09-24T09:08:56.408215-07:00",
+    "updated_at": "2025-09-24T10:26:09.080102-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "a3120bb6-8b04-4ade-ba13-52dad2983091",
+    "memory": "Wants to show moves next Fri",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "4:04 pm on 20 January, 2023"
+    },
+    "categories": [
+      "entertainment"
+    ],
+    "created_at": "2025-09-24T09:08:56.257451-07:00",
+    "updated_at": "2025-09-24T09:08:56.317018-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 16,
+      "year": 2025,
+      "month": 9,
+      "minute": 8,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "f6adf8bc-6b64-43cb-8fce-ca148a13f933",
+    "memory": "Excited to guide aspiring dancers",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "1:25 pm on 9 July, 2023"
+    },
+    "categories": [
+      "hobbies"
+    ],
+    "created_at": "2025-09-24T09:08:38.421612-07:00",
+    "updated_at": "2025-09-24T11:23:47.344858-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "f4d8405d-fff7-464a-bc15-33043fa3e21c",
+    "memory": "Intends to make time to dance and vent",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "2:32 pm on 29 January, 2023"
+    },
+    "categories": [
+      "hobbies",
+      "user_preferences"
+    ],
+    "created_at": "2025-09-24T09:08:38.250296-07:00",
+    "updated_at": "2025-09-24T10:16:45.115954-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "753c3fc8-d4d4-44a4-8b76-4ab8fdc6bf52",
+    "memory": "Living true self",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "10:33 am on 9 April, 2023"
+    },
+    "categories": [
+      "misc"
+    ],
+    "created_at": "2025-09-24T09:07:36.445486-07:00",
+    "updated_at": "2025-09-24T10:53:02.275638-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "cd333773-a4b3-4de3-827d-60ce59f8d507",
+    "memory": "Has danced since childhood",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "4:04 pm on 20 January, 2023"
+    },
+    "categories": [
+      "hobbies",
+      "entertainment"
+    ],
+    "created_at": "2025-09-24T09:07:36.049530-07:00",
+    "updated_at": "2025-09-24T09:07:36.105376-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "day": 24,
+      "hour": 16,
+      "year": 2025,
+      "month": 9,
+      "minute": 7,
+      "quarter": 3,
+      "is_weekend": false,
+      "day_of_week": "wednesday",
+      "day_of_year": 267,
+      "week_of_year": 39
+    }
+  },
+  {
+    "id": "26c286f3-346c-4320-a820-6d045a401267",
+    "memory": "Passionate about dancing, with contemporary dance as his top pick, describing it as expressive and powerful",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "4:04 pm on 20 January, 2023"
+    },
+    "categories": [
+      "hobbies",
+      "user_preferences"
+    ],
+    "created_at": "2025-09-24T09:06:52.784427-07:00",
+    "updated_at": "2025-09-24T09:08:15.871278-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "a5cfe9d3-b74b-499f-80c9-aac459ec39f1",
+    "memory": "Planning to start a dance studio, loves running own studio, enjoys freedom to create space, helps dancers of all ages and levels express themselves, sees students progress, and Gina is supportive of the venture, sees the studio as more than a business, a place where dancers can grow, and the studio will welcome dancers of all ages and backgrounds",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "6:46 pm on 23 July, 2023"
+    },
+    "categories": [
+      "professional_details",
+      "hobbies"
+    ],
+    "created_at": "2025-09-24T09:06:26.247766-07:00",
+    "updated_at": "2025-09-24T11:33:19.847360-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  },
+  {
+    "id": "a6285d84-7d67-4789-8103-60538b1bb968",
+    "memory": "Left a secure 9-5 banking job",
+    "user_id": "Jon_1",
+    "metadata": {
+      "timestamp": "9:32 am on 8 February, 2023"
+    },
+    "categories": [
+      "professional_details"
+    ],
+    "created_at": "2025-09-24T09:06:25.550325-07:00",
+    "updated_at": "2025-09-24T10:30:02.979771-07:00",
+    "expiration_date": null,
+    "structured_attributes": null
+  }
+]

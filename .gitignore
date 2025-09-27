@@ -30,9 +30,11 @@ logs
 evaluation/logs
 nohup.out
 evaluation/nohup.out
-evaluation/qdrant_data/
+evaluation/qdrant_data/tmp
 exp_data/Membenchdata.zip
 exp_data/Membenchdata
+.conda
+.github
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

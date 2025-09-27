@@ -158,23 +158,23 @@ class MemoryADD:
                     raise ValueError(f"Unknown speaker: {chat['speaker']}")
 
             # add memories for the two users on different threads
-            thread_a = threading.Thread(
-                target=self.add_memories_for_speaker,
-                args=(speaker_a_user_id, messages, timestamp, "Adding Memories for Speaker A", pbar),
-            )
-            thread_b = threading.Thread(
-                target=self.add_memories_for_speaker,
-                args=(speaker_b_user_id, messages_reverse, timestamp, "Adding Memories for Speaker B", pbar),
-            )
+            # thread_a = threading.Thread(
+            #     target=self.add_memories_for_speaker,
+            #     args=(speaker_a_user_id, messages, timestamp, "Adding Memories for Speaker A", pbar),
+            # )
+            # thread_b = threading.Thread(
+            #     target=self.add_memories_for_speaker,
+            #     args=(speaker_b_user_id, messages_reverse, timestamp, "Adding Memories for Speaker B", pbar),
+            # )
 
-            thread_a.start()
-            thread_b.start()
-            thread_a.join()
-            thread_b.join()
-
-            # self.add_memories_for_speaker(speaker_a_user_id, messages, timestamp, "Adding Memories for Speaker A")
-            # self.add_memories_for_speaker(speaker_b_user_id, messages_reverse, timestamp, "Adding Memories for Speaker B")
-
+            # thread_a.start()
+            # thread_b.start()
+            # thread_a.join()
+            # thread_b.join()
+           
+            self.add_memories_for_speaker(speaker_a_user_id, messages, timestamp, "Adding Memories for Speaker A", pbar)
+            self.add_memories_for_speaker(speaker_b_user_id, messages_reverse, timestamp, "Adding Memories for Speaker B", pbar)
+        
         print("Messages added successfully")
 
     # def process_all_conversations(self, max_workers=4):
