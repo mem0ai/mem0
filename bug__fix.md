@@ -53,6 +53,7 @@ Error in new_retrieved_facts: Expecting value: line 1 column 1 (char 0)
 - I directly remove the thinking tags of LLM outputs. Add a function called "remove_thinking_tags" in mem0/
 memory/utils.py. Call this function in mem0/memory/main.py.
 - And I create a python file "/mem0/tests/memory/test_thinking_tag.py
+- This change is backward-compatible and only affects outputs containing <think></think>tags, which were previously causing errors with vLLM.
 ### Pass the test
 - ✅ I ensure my code pass all the test except those skipped because of not setting RUN_TEST_NEPTUNE_ANALYTICS as true and those already marked as not working as expected.
   <img width="1735" height="600" alt="image" src="https://github.com/user-attachments/assets/f9b847c8-d699-42a8-93da-b85580b7e6f7" />
