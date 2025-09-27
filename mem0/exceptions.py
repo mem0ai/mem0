@@ -54,7 +54,7 @@ class MemoryError(Exception):
             debug_info={"request_id": "req_456", "timestamp": "2024-01-01T00:00:00Z"}
         )
     """
-    
+
     def __init__(
         self,
         message: str,
@@ -78,7 +78,7 @@ class MemoryError(Exception):
         self.suggestion = suggestion
         self.debug_info = debug_info or {}
         super().__init__(self.message)
-    
+
     def __repr__(self) -> str:
         return (
             f"{self.__class__.__name__}("
@@ -315,8 +315,8 @@ class VectorStoreError(MemoryError):
             suggestion="Please check your vector store configuration and connection"
         )
     """
-    def __init__(self, message: str, error_code: str = "VECTOR_001", details: dict = None, 
-                 suggestion: str = "Please check your vector store configuration and connection", 
+    def __init__(self, message: str, error_code: str = "VECTOR_001", details: dict = None,
+                 suggestion: str = "Please check your vector store configuration and connection",
                  debug_info: dict = None):
         super().__init__(message, error_code, details, suggestion, debug_info)
 
@@ -335,8 +335,8 @@ class GraphStoreError(MemoryError):
             suggestion="Please check your graph store configuration and connection"
         )
     """
-    def __init__(self, message: str, error_code: str = "GRAPH_001", details: dict = None, 
-                 suggestion: str = "Please check your graph store configuration and connection", 
+    def __init__(self, message: str, error_code: str = "GRAPH_001", details: dict = None,
+                 suggestion: str = "Please check your graph store configuration and connection",
                  debug_info: dict = None):
         super().__init__(message, error_code, details, suggestion, debug_info)
 
@@ -355,8 +355,8 @@ class EmbeddingError(MemoryError):
             suggestion="Please check your embedding model configuration"
         )
     """
-    def __init__(self, message: str, error_code: str = "EMBED_001", details: dict = None, 
-                 suggestion: str = "Please check your embedding model configuration", 
+    def __init__(self, message: str, error_code: str = "EMBED_001", details: dict = None,
+                 suggestion: str = "Please check your embedding model configuration",
                  debug_info: dict = None):
         super().__init__(message, error_code, details, suggestion, debug_info)
 
@@ -375,8 +375,8 @@ class LLMError(MemoryError):
             suggestion="Please check your LLM configuration and API key"
         )
     """
-    def __init__(self, message: str, error_code: str = "LLM_001", details: dict = None, 
-                 suggestion: str = "Please check your LLM configuration and API key", 
+    def __init__(self, message: str, error_code: str = "LLM_001", details: dict = None,
+                 suggestion: str = "Please check your LLM configuration and API key",
                  debug_info: dict = None):
         super().__init__(message, error_code, details, suggestion, debug_info)
 
@@ -395,8 +395,8 @@ class DatabaseError(MemoryError):
             suggestion="Please check your database configuration and connection"
         )
     """
-    def __init__(self, message: str, error_code: str = "DB_001", details: dict = None, 
-                 suggestion: str = "Please check your database configuration and connection", 
+    def __init__(self, message: str, error_code: str = "DB_001", details: dict = None,
+                 suggestion: str = "Please check your database configuration and connection",
                  debug_info: dict = None):
         super().__init__(message, error_code, details, suggestion, debug_info)
 
@@ -415,8 +415,8 @@ class DependencyError(MemoryError):
             suggestion="Please install the required dependencies: pip install kuzu"
         )
     """
-    def __init__(self, message: str, error_code: str = "DEPS_001", details: dict = None, 
-                 suggestion: str = "Please install the required dependencies", 
+    def __init__(self, message: str, error_code: str = "DEPS_001", details: dict = None,
+                 suggestion: str = "Please install the required dependencies",
                  debug_info: dict = None):
         super().__init__(message, error_code, details, suggestion, debug_info)
 
@@ -470,11 +470,11 @@ def create_exception_from_response(
         # Returns a RateLimitError instance
     """
     exception_class = HTTP_STATUS_TO_EXCEPTION.get(status_code, MemoryError)
-    
+
     # Generate error code if not provided
     if not error_code:
         error_code = f"HTTP_{status_code}"
-    
+
     # Create appropriate suggestion based on status code
     suggestions = {
         400: "Please check your request parameters and try again",
@@ -491,9 +491,9 @@ def create_exception_from_response(
         503: "Service unavailable. Please try again later",
         504: "Gateway timeout. Please try again later",
     }
-    
+
     suggestion = suggestions.get(status_code, "Please try again later")
-    
+
     return exception_class(
         message=response_text or f"HTTP {status_code} error",
         error_code=error_code,

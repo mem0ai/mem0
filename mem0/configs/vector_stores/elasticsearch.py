@@ -43,12 +43,12 @@ class ElasticsearchConfig(BaseModel):
             # Check if headers is a dictionary
             if not isinstance(headers, dict):
                 raise ValueError("headers must be a dictionary")
-            
+
             # Check if all keys and values are strings
             for key, value in headers.items():
                 if not isinstance(key, str) or not isinstance(value, str):
                     raise ValueError("All header keys and values must be strings")
-        
+
         return values
 
     @model_validator(mode="before")

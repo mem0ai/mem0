@@ -14,7 +14,7 @@ try:
     # Suppress SWIG deprecation warnings from FAISS
     warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*SwigPy.*")
     warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*swigvarlink.*")
-    
+
     logging.getLogger("faiss").setLevel(logging.WARNING)
     logging.getLogger("faiss.loader").setLevel(logging.WARNING)
 

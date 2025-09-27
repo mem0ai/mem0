@@ -58,7 +58,7 @@ class Qdrant(VectorStoreBase):
             if host and port:
                 params["host"] = host
                 params["port"] = port
-            
+
             if not params:
                 params["path"] = path
                 self.is_local = True
@@ -104,9 +104,9 @@ class Qdrant(VectorStoreBase):
         if self.is_local:
             logger.debug("Skipping payload index creation for local Qdrant (not supported)")
             return
-            
+
         common_fields = ["user_id", "agent_id", "run_id", "actor_id"]
-        
+
         for field in common_fields:
             try:
                 self.client.create_payload_index(
@@ -150,7 +150,7 @@ class Qdrant(VectorStoreBase):
         """
         if not filters:
             return None
-            
+
         conditions = []
         for key, value in filters.items():
             if isinstance(value, dict) and "gte" in value and "lte" in value:

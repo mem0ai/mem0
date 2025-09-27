@@ -16,7 +16,7 @@ from mem0.llms.base import LLMBase
 logger = logging.getLogger(__name__)
 
 PROVIDERS = [
-    "ai21", "amazon", "anthropic", "cohere", "meta", "mistral", "stability", "writer", 
+    "ai21", "amazon", "anthropic", "cohere", "meta", "mistral", "stability", "writer",
     "deepseek", "gpt-oss", "perplexity", "snowflake", "titan", "command", "j2", "llama"
 ]
 
@@ -172,11 +172,11 @@ class AWSBedrockLLM(LLMBase):
     def _format_messages_amazon(self, messages: List[Dict[str, str]]) -> List[Dict[str, Any]]:
         """Format messages for Amazon models (including Nova)."""
         formatted_messages = []
-        
+
         for message in messages:
             role = message["role"]
             content = message["content"]
-            
+
             if role == "system":
                 # Amazon models support system messages
                 formatted_messages.append({"role": "system", "content": content})
@@ -184,28 +184,28 @@ class AWSBedrockLLM(LLMBase):
                 formatted_messages.append({"role": "user", "content": content})
             elif role == "assistant":
                 formatted_messages.append({"role": "assistant", "content": content})
-        
+
         return formatted_messages
 
     def _format_messages_meta(self, messages: List[Dict[str, str]]) -> str:
         """Format messages for Meta models."""
         formatted_messages = []
-        
+
         for message in messages:
             role = message["role"].capitalize()
             content = message["content"]
             formatted_messages.append(f"{role}: {content}")
-        
+
         return "\n".join(formatted_messages)
 
     def _format_messages_mistral(self, messages: List[Dict[str, str]]) -> List[Dict[str, Any]]:
         """Format messages for Mistral models."""
         formatted_messages = []
-        
+
         for message in messages:
             role = message["role"]
             content = message["content"]
-            
+
             if role == "system":
                 # Mistral supports system messages
                 formatted_messages.append({"role": "system", "content": content})
@@ -213,7 +213,7 @@ class AWSBedrockLLM(LLMBase):
                 formatted_messages.append({"role": "user", "content": content})
             elif role == "assistant":
                 formatted_messages.append({"role": "assistant", "content": content})
-        
+
         return formatted_messages
 
     def _format_messages_generic(self, messages: List[Dict[str, str]]) -> str:
@@ -478,7 +478,9 @@ class AWSBedrockLLM(LLMBase):
 
         return converse_tools
 
-    def _generate_with_tools(self, messages: List[Dict[str, str]], tools: List[Dict], stream: bool = False) -> Dict[str, Any]:
+    def _generate_with_tools(
+        self, messages: List[Dict[str, str]], tools: List[Dict], stream: bool = False
+    ) -> Dict[str, Any]:
         """Generate response with tool calling support using correct message format."""
         # Format messages for tool-enabled models
         system_message = None
@@ -561,7 +563,7 @@ class AWSBedrockLLM(LLMBase):
                 "temperature": self.model_config.get("temperature", 0.1),
                 "top_p": self.model_config.get("top_p", 0.9),
             }
-            
+
             # Use converse API for Nova models
             response = self.client.converse(
                 modelId=self.config.model,
@@ -572,7 +574,7 @@ class AWSBedrockLLM(LLMBase):
                     "topP": input_body["top_p"],
                 }
             )
-            
+
             return self._parse_response(response)
         else:
             prompt = self._format_messages(messages)

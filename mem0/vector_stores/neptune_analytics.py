@@ -60,7 +60,7 @@ class NeptuneAnalyticsVector(VectorStoreBase):
         self.graph = NeptuneAnalyticsGraph(graph_id)
         self.collection_name = self._COLLECTION_PREFIX + collection_name
 
-    
+
     def create_col(self, name, vector_size, distance):
         """
         Create a collection (no-op for Neptune Analytics).
@@ -75,7 +75,7 @@ class NeptuneAnalyticsVector(VectorStoreBase):
         """
         pass
 
-    
+
     def insert(self, vectors: List[list],
         payloads: Optional[List[Dict]] = None,
         ids: Optional[List[str]] = None):
@@ -173,7 +173,7 @@ class NeptuneAnalyticsVector(VectorStoreBase):
         else :
             return []
 
-    
+
     def delete(self, vector_id: str):
         """
         Delete a vector by its ID.
@@ -240,7 +240,7 @@ class NeptuneAnalyticsVector(VectorStoreBase):
             self.execute_query(query_string_embedding, para_embedding)
 
 
-    
+
     def get(self, vector_id: str):
         """
         Retrieve a vector by its ID.
@@ -340,7 +340,7 @@ class NeptuneAnalyticsVector(VectorStoreBase):
             return [self._parse_query_responses(query_response)]
         return [[]]
 
-    
+
     def reset(self):
         """
         Reset the collection by deleting all vectors.
