@@ -426,6 +426,7 @@ Mem0 offers extensive configuration options to customize its behavior according 
 | `version`         | API version                          | "v1.1"                     |
 | `custom_fact_extraction_prompt`   | Custom prompt for memory processing  | None                       |
 | `custom_update_memory_prompt` | Custom prompt for update memory | None                |
+| `custom_procedural_memory_prompt` | Custom prompt for procedural memory summarization | None |
 </Accordion>
 
 <Accordion title="Complete Configuration Example">
@@ -463,7 +464,8 @@ config = {
     "history_db_path": "/path/to/history.db",
     "version": "v1.1",
     "custom_fact_extraction_prompt": "Optional custom prompt for fact extraction for memory",
-    "custom_update_memory_prompt": "Optional custom prompt for update memory"
+    "custom_update_memory_prompt": "Optional custom prompt for update memory",
+    "custom_procedural_memory_prompt": "Optional custom prompt for procedural memory summarization"
 }
 ```
 </Accordion>

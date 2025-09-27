@@ -134,6 +134,7 @@ class Memory(MemoryBase):
 
         self.custom_fact_extraction_prompt = self.config.custom_fact_extraction_prompt
         self.custom_update_memory_prompt = self.config.custom_update_memory_prompt
+        self.custom_procedural_memory_prompt = self.config.custom_procedural_memory_prompt
         self.embedding_model = EmbedderFactory.create(
             self.config.embedder.provider,
             self.config.embedder.config,
@@ -878,8 +879,9 @@ class Memory(MemoryBase):
         """
         logger.info("Creating procedural memory")
 
+        system_prompt = prompt or self.custom_procedural_memory_prompt or PROCEDURAL_MEMORY_SYSTEM_PROMPT
         parsed_messages = [
-            {"role": "system", "content": prompt or PROCEDURAL_MEMORY_SYSTEM_PROMPT},
+            {"role": "system", "content": system_prompt},
             *messages,
             {
                 "role": "user",
@@ -1009,6 +1011,9 @@ class AsyncMemory(MemoryBase):
     def __init__(self, config: MemoryConfig = MemoryConfig()):
         self.config = config
 
+        self.custom_fact_extraction_prompt = self.config.custom_fact_extraction_prompt
+        self.custom_update_memory_prompt = self.config.custom_update_memory_prompt
+        self.custom_procedural_memory_prompt = self.config.custom_procedural_memory_prompt
         self.embedding_model = EmbedderFactory.create(
             self.config.embedder.provider,
             self.config.embedder.config,
@@ -1771,8 +1776,9 @@ class AsyncMemory(MemoryBase):
 
         logger.info("Creating procedural memory")
 
+        system_prompt = prompt or self.custom_procedural_memory_prompt or PROCEDURAL_MEMORY_SYSTEM_PROMPT
         parsed_messages = [
-            {"role": "system", "content": prompt or PROCEDURAL_MEMORY_SYSTEM_PROMPT},
+            {"role": "system", "content": system_prompt},
             *messages,
             {"role": "user", "content": "Create procedural memory of the above conversation."},
         ]

@@ -59,6 +59,10 @@ class MemoryConfig(BaseModel):
         description="Custom prompt for the update memory",
         default=None,
     )
+    custom_procedural_memory_prompt: Optional[str] = Field(
+        description="Custom prompt for the procedural memory system prompt",
+        default=None,
+    )
 
 
 class AzureConfig(BaseModel):
