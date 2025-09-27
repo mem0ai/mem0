@@ -24,7 +24,7 @@ def test_load_data(youtube_video_loader):
 
     mock_transcript = [{"text": "sample text", "start": 0.0, "duration": 5.0}]
 
-    with patch("embedchain.loaders.youtube_video.YoutubeLoader.from_youtube_url", return_value=mock_loader), patch(
+    with patch("embedchain.loaders.youtube_video.YoutubeLoaderDL.from_youtube_url", return_value=mock_loader), patch(
         "embedchain.loaders.youtube_video.YouTubeTranscriptApi.get_transcript", return_value=mock_transcript
     ):
         result = youtube_video_loader.load_data(video_url)
@@ -48,6 +48,6 @@ def test_load_data_with_empty_doc(youtube_video_loader):
     mock_loader = Mock()
     mock_loader.load.return_value = []
 
-    with patch("embedchain.loaders.youtube_video.YoutubeLoader.from_youtube_url", return_value=mock_loader):
+    with patch("embedchain.loaders.youtube_video.YoutubeLoaderDL.from_youtube_url", return_value=mock_loader):
         with pytest.raises(ValueError):
             youtube_video_loader.load_data(video_url)

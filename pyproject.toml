@@ -68,6 +68,8 @@ extras = [
     "elasticsearch>=8.0.0,<9.0.0",
     "opensearch-py>=2.0.0",
     "langchain-memgraph>=0.1.0",
+    "yt-dlp==2025.2.19",
+    "langchain-yt-dlp==0.0.8",
 ]
 test = [
     "pytest>=8.2.2",
