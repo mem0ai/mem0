@@ -26,7 +26,10 @@ class OllamaEmbedding(EmbeddingBase):
         super().__init__(config)
 
         self.config.model = self.config.model or "nomic-embed-text"
-        self.config.embedding_dims = self.config.embedding_dims or 512
+        if self.config.model == "mxbai-embed-large":
+            self.config.embedding_dims = self.config.embedding_dims or 1024
+        else:
+            self.config.embedding_dims = self.config.embedding_dims or 512
 
         self.client = Client(host=self.config.ollama_base_url)
         self._ensure_model_exists()
