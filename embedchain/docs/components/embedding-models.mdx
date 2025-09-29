@@ -247,14 +247,14 @@ app = App.from_config(config_path="config.yaml")
 llm:
   provider: vertexai
   config:
-    model: 'chat-bison'
+    model: 'gemini-2.5-flash'
     temperature: 0.5
     top_p: 0.5
 
 embedder:
   provider: vertexai
   config:
-    model: 'textembedding-gecko'
+    model: 'gemini-embedding-001'
 ```
 
 </CodeGroup>

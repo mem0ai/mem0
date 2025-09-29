@@ -35,7 +35,7 @@ describe("GOOGLE MEM0 Tests", () => {
 
     const { text } = await generateText({
       // @ts-ignore
-      model: mem0("gemini-1.5-flash"),
+      model: mem0("gemini-2.5-flash"),
       messages: messages
     });
 
@@ -49,7 +49,7 @@ describe("GOOGLE MEM0 Tests", () => {
 
     const { text } = await generateText({
       // @ts-ignore
-      model: mem0("gemini-1.5-flash"),
+      model: mem0("gemini-2.5-flash"),
       prompt: prompt
     });
 

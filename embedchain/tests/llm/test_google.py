@@ -6,7 +6,7 @@ from embedchain.llm.google import GoogleLlm
 
 @pytest.fixture
 def google_llm_config():
-    return BaseLlmConfig(model="gemini-pro", max_tokens=100, temperature=0.7, top_p=0.5, stream=False)
+    return BaseLlmConfig(model="gemini-2.5-flash", max_tokens=100, temperature=0.7, top_p=0.5, stream=False)
 
 
 def test_google_llm_init_missing_api_key(monkeypatch):

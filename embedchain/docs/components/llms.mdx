@@ -168,7 +168,7 @@ else:
 llm:
   provider: google
   config:
-    model: gemini-pro
+    model: gemini-2.5-flash
     max_tokens: 1000
     temperature: 0.5
     top_p: 1
@@ -646,7 +646,7 @@ app = App.from_config(config_path="config.yaml")
 llm:
   provider: vertexai
   config:
-    model: 'chat-bison'
+    model: 'gemini-2.5-flash'
     temperature: 0.5
     top_p: 0.5
 ```

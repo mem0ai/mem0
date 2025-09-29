@@ -33,7 +33,7 @@ describe("GOOGLE Integration Tests", () => {
     const memories = await retrieveMemories(messages, { user_id: userId });
     
     const { text } = await generateText({
-      model: google("gemini-1.5-flash"),
+      model: google("gemini-2.5-flash"),
       messages: messages,
       system: memories,
     });
@@ -48,7 +48,7 @@ describe("GOOGLE Integration Tests", () => {
     const memories = await retrieveMemories(prompt, { user_id: userId });
 
     const { text } = await generateText({
-      model: google("gemini-1.5-flash"),
+      model: google("gemini-2.5-flash"),
       prompt: prompt,
       system: memories
     });
