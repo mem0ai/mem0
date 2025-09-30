@@ -208,10 +208,16 @@ class Weaviate(VectorStoreBase):
                     del payload[id_field]
 
             payload["id"] = str(obj.uuid).split("'")[0]  # Include the id in the payload
+            if obj.metadata.distance is not None:
+                score = 1 - obj.metadata.distance  # Convert distance to similarity score
+            elif obj.metadata.score is not None:
+                score = obj.metadata.score
+            else:
+                score = 1.0  # Default score if none provided
             results.append(
                 OutputData(
                     id=str(obj.uuid),
-                    score=1 if obj.metadata.score is None else obj.metadata.score,
+                    score=score,
                     payload=payload,
                 )
             )
