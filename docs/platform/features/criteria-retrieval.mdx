@@ -4,15 +4,15 @@ icon: "magnifying-glass-plus"
 iconType: "solid"
 ---
 
-Mem0’s **Criteria Retrieval** feature allows you to retrieve memories based on your defined criteria. It goes beyond generic semantic relevance and rank memories based on what matters to your application - emotional tone, intent, behavioral signals, or other custom traits.
+Mem0's Criteria Retrieval feature allows you to retrieve memories based on your defined criteria. It goes beyond generic semantic relevance and ranks memories based on what matters to your application: emotional tone, intent, behavioral signals, or other custom traits.
 
-Instead of just searching for "how similar a memory is to this query?", you can define what *relevance* really means for your project. For example:
+Instead of just searching for "how similar a memory is to this query," you can define what relevance truly means for your project. For example:
 
 - Prioritize joyful memories when building a wellness assistant
 - Downrank negative memories in a productivity-focused agent
 - Highlight curiosity in a tutoring agent
 
-You define **criteria** - custom attributes like "joy", "negativity", "confidence", or "urgency", and assign weights to control how they influence scoring. When you `search`, Mem0 uses these to re-rank memories that are semantically relevant, favoring those that better match your intent.
+You define criteria: custom attributes like "joy", "negativity", "confidence", or "urgency", and assign weights to control how they influence scoring. When you search, Mem0 uses these to re-rank semantically relevant memories, favoring those that better match your intent.
 
 This gives you nuanced, intent-aware memory search that adapts to your use case.
 
@@ -149,9 +149,9 @@ results_without_criteria = client.search(
 
 ## Search Results Comparison
 
-1. **Memory Ordering**: With criteria, memories with high joy scores (like feeling refreshed and drawing) are ranked higher, while without criteria, the most relevant memory ("User is happy today") comes first.
-2. **Score Distribution**: With criteria, scores are more spread out (0.116 to 0.666) and reflect the criteria weights, while without criteria, scores are more clustered (0.336 to 0.607) and based purely on relevance.
-3. **Trait Sensitivity**: “Rainy day” content is penalized due to negative tone. “Storm curiosity” is recognized and scored accordingly.
+1. **Memory Ordering**: With criteria, memories with high joy scores (like feeling refreshed and drawing) are ranked higher. Without criteria, the most relevant memory ("User is happy today") comes first.
+2. **Score Distribution**: With criteria, scores are more spread out (0.116 to 0.666) and reflect the criteria weights. Without criteria, scores are more clustered (0.336 to 0.607) and based purely on relevance.
+3. **Trait Sensitivity**: "Rainy day" content is penalized due to negative tone, while "Storm curiosity" is recognized and scored accordingly.
 
 
 
@@ -173,10 +173,10 @@ If no criteria are defined for a project, `version="v2"` behaves like normal sea
 
 ## Best Practices
 
-- Choose **3–5 criteria** that reflect your application’s intent
-- Make descriptions **clear and distinct**, those are interpreted by an LLM
-- Use **stronger weights** to amplify impact of important traits
-- Avoid redundant or ambiguous criteria (e.g. “positivity” + “joy”)
+- Choose 3-5 criteria that reflect your application's intent
+- Make descriptions clear and distinct; these are interpreted by an LLM
+- Use stronger weights to amplify the impact of important traits
+- Avoid redundant or ambiguous criteria (e.g., "positivity" and "joy")
 - Always handle empty result sets in your application logic
 
 
