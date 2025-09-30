@@ -41,7 +41,7 @@
 				},
 				"responses": {
 					"201": {
-						"description": "",
+						"description": "Agent created successfully.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -73,7 +73,7 @@
 				},
 				"responses": {
 					"201": {
-						"description": "",
+						"description": "App created successfully.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -112,7 +112,7 @@
 				],
 				"responses": {
 					"200": {
-						"description": "",
+						"description": "Successfully retrieved list of entities.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -122,33 +122,33 @@
 										"properties": {
 											"id": {
 												"type": "string",
-												"description": "Unique identifier for the entity"
+												"description": "Unique identifier for the entity."
 											},
 											"name": {
 												"type": "string",
-												"description": "Name of the entity"
+												"description": "Name of the entity."
 											},
 											"created_at": {
 												"type": "string",
 												"format": "date-time",
-												"description": "Timestamp of when the entity was created"
+												"description": "Timestamp of when the entity was created."
 											},
 											"updated_at": {
 												"type": "string",
 												"format": "date-time",
-												"description": "Timestamp of when the entity was last updated"
+												"description": "Timestamp of when the entity was last updated."
 											},
 											"total_memories": {
 												"type": "integer",
-												"description": "Total number of memories associated with the entity"
+												"description": "Total number of memories associated with the entity."
 											},
 											"owner": {
 												"type": "string",
-												"description": "Owner of the entity"
+												"description": "Owner of the entity."
 											},
 											"organization": {
 												"type": "string",
-												"description": "Organization the entity belongs to"
+												"description": "Organization the entity belongs to."
 											},
 											"metadata": {
 												"type": "object",
@@ -216,7 +216,7 @@
 				"operationId": "entities_filters_list",
 				"responses": {
 					"200": {
-						"description": "",
+						"description": "Successfully retrieved entity filters.",
 						"content": {}
 					}
 				}
@@ -242,7 +242,7 @@
 								"run"
 							]
 						},
-						"description": "The type of the entity (user, agent, app, or run)"
+						"description": "The type of the entity (user, agent, app, or run)."
 					},
 					{
 						"name": "entity_id",
@@ -251,12 +251,12 @@
 						"schema": {
 							"type": "string"
 						},
-						"description": "The unique identifier of the entity"
+						"description": "The unique identifier of the entity."
 					}
 				],
 				"responses": {
 					"200": {
-						"description": "",
+						"description": "Successfully retrieved entity details.",
 						"content": {}
 					}
 				}
@@ -280,7 +280,7 @@
 								"run"
 							]
 						},
-						"description": "The type of the entity (user, agent, app, or run)"
+						"description": "The type of the entity (user, agent, app, or run)."
 					},
 					{
 						"name": "entity_id",
@@ -289,7 +289,7 @@
 						"schema": {
 							"type": "string"
 						},
-						"description": "The unique identifier of the entity"
+						"description": "The unique identifier of the entity."
 					}
 				],
 				"responses": {
@@ -310,7 +310,7 @@
 						}
 					},
 					"400": {
-						"description": "Invalid entity type",
+						"description": "Invalid entity type.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -364,7 +364,7 @@
 				"operationId": "events_list",
 				"responses": {
 					"200": {
-						"description": "",
+						"description": "Successfully retrieved events.",
 						"content": {}
 					}
 				}
@@ -411,11 +411,11 @@
 									},
 									"org_id": {
 										"type": "string",
-										"description": "Filter exports by organization ID"
+										"description": "Filter exports by organization ID."
 									},
 									"project_id": {
 										"type": "string",
-										"description": "Filter exports by project ID"
+										"description": "Filter exports by project ID."
 									}
 								}
 							}
@@ -425,7 +425,7 @@
 				},
 				"responses": {
 					"201": {
-						"description": "Export created successfully",
+						"description": "Export created successfully.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -450,7 +450,7 @@
 						}
 					},
 					"400": {
-						"description": "Bad Request",
+						"description": "Bad Request.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -510,7 +510,7 @@
 								"properties": {
 									"memory_export_id": {
 										"type": "string",
-										"description": "The unique identifier of the memory export"
+										"description": "The unique identifier of the memory export."
 									},
 									"filters": {
 										"type": "object",
@@ -538,11 +538,11 @@
 									},
 									"org_id": {
 										"type": "string",
-										"description": "Filter exports by organization ID"
+										"description": "Filter exports by organization ID."
 									},
 									"project_id": {
 										"type": "string",
-										"description": "Filter exports by project ID"
+										"description": "Filter exports by project ID."
 									}
 								}
 							}
@@ -551,18 +551,18 @@
 				},
 				"responses": {
 					"200": {
-						"description": "Successful export",
+						"description": "Successful export.",
 						"content": {
 							"application/json": {
 								"schema": {
 									"type": "object",
-									"description": "Export data response in a object format"
+									"description": "Export data response in an object format."
 								}
 							}
 						}
 					},
 					"400": {
-						"description": "Bad Request",
+						"description": "Bad Request.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -578,7 +578,7 @@
 						}
 					},
 					"404": {
-						"description": "Not Found",
+						"description": "Not Found.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -627,7 +627,7 @@
 				"tags": [
 					"memories"
 				],
-				"description": "Get all memories",
+				"description": "Get all memories.",
 				"operationId": "memories_list",
 				"parameters": [
 					{
@@ -636,7 +636,7 @@
 						"schema": {
 							"type": "string"
 						},
-						"description": "Filter memories by user ID"
+						"description": "Filter memories by user ID."
 					},
 					{
 						"name": "agent_id",
@@ -644,7 +644,7 @@
 						"schema": {
 							"type": "string"
 						},
-						"description": "Filter memories by agent ID"
+						"description": "Filter memories by agent ID."
 					},
 					{
 						"name": "app_id",
@@ -652,7 +652,7 @@
 						"schema": {
 							"type": "string"
 						},
-						"description": "Filter memories by app ID"
+						"description": "Filter memories by app ID."
 					},
 					{
 						"name": "run_id",
@@ -660,7 +660,7 @@
 						"schema": {
 							"type": "string"
 						},
-						"description": "Filter memories by run ID"
+						"description": "Filter memories by run ID."
 					},
 					{
 						"name": "metadata",
@@ -668,7 +668,7 @@
 						"schema": {
 							"type": "object"
 						},
-						"description": "Filter memories by metadata (JSON string)",
+						"description": "Filter memories by metadata (JSON string).",
 						"style": "deepObject",
 						"explode": true
 					},
@@ -681,7 +681,7 @@
 								"type": "string"
 							}
 						},
-						"description": "Filter memories by categories"
+						"description": "Filter memories by categories."
 					},
 					{
 						"name": "org_id",
@@ -708,7 +708,7 @@
 								"type": "string"
 							}
 						},
-						"description": "Filter memories by fields"
+						"description": "Filter memories by fields."
 					},
 					{
 						"name": "keywords",
@@ -716,7 +716,7 @@
 						"schema": {
 							"type": "string"
 						},
-						"description": "Filter memories by keywords"
+						"description": "Filter memories by keywords."
 					},
 					{
 						"name": "page",
@@ -724,7 +724,7 @@
 						"schema": {
 							"type": "integer"
 						},
-						"description": "Page number for pagination. Default: 1"
+						"description": "Page number for pagination. Default: 1."
 					},
 					{
 						"name": "page_size",
@@ -732,7 +732,7 @@
 						"schema": {
 							"type": "integer"
 						},
-						"description": "Number of items per page. Default: 100"
+						"description": "Number of items per page. Default: 100."
 					},
 					{
 						"name": "start_date",
@@ -740,7 +740,7 @@
 						"schema": {
 							"type": "string"
 						},
-						"description": "Filter memories by start date"
+						"description": "Filter memories by start date."
 					},
 					{
 						"name": "end_date",
@@ -748,12 +748,12 @@
 						"schema": {
 							"type": "string"
 						},
-						"description": "Filter memories by end date"
+						"description": "Filter memories by end date."
 					}
 				],
 				"responses": {
 					"200": {
-						"description": "",
+						"description": "Successfully retrieved memories.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -801,7 +801,7 @@
 											"expiration_date": {
 												"type": "string",
 												"format": "date-time",
-												"description": "The date and time when the memory will expire. Format: YYYY-MM-DD",
+												"description": "The date and time when the memory will expire. Format: YYYY-MM-DD.",
 												"title": "Expiration date",
 												"nullable": true,
 												"default": null
@@ -829,7 +829,7 @@
 						}
 					},
 					"400": {
-						"description": "Bad Request",
+						"description": "Bad Request.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -876,7 +876,7 @@
 				"tags": [
 					"memories"
 				],
-				"description": "Add memories",
+				"description": "Add memories.",
 				"operationId": "memories_create",
 				"requestBody": {
 					"content": {
@@ -890,7 +890,7 @@
 				},
 				"responses": {
 					"200": {
-						"description": "Successful memory creation",
+						"description": "Successful memory creation.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -984,7 +984,7 @@
 				"tags": [
 					"memories"
 				],
-				"description": "Delete memories",
+				"description": "Delete memories.",
 				"operationId": "memories_delete",
 				"parameters": [
 					{
@@ -993,7 +993,7 @@
 						"schema": {
 							"type": "string"
 						},
-						"description": "Filter memories by user ID"
+						"description": "Filter memories by user ID."
 					},
 					{
 						"name": "agent_id",
@@ -1001,7 +1001,7 @@
 						"schema": {
 							"type": "string"
 						},
-						"description": "Filter memories by agent ID"
+						"description": "Filter memories by agent ID."
 					},
 					{
 						"name": "app_id",
@@ -1009,7 +1009,7 @@
 						"schema": {
 							"type": "string"
 						},
-						"description": "Filter memories by app ID"
+						"description": "Filter memories by app ID."
 					},
 					{
 						"name": "run_id",
@@ -1017,7 +1017,7 @@
 						"schema": {
 							"type": "string"
 						},
-						"description": "Filter memories by run ID"
+						"description": "Filter memories by run ID."
 					},
 					{
 						"name": "metadata",
@@ -1025,7 +1025,7 @@
 						"schema": {
 							"type": "object"
 						},
-						"description": "Filter memories by metadata (JSON string)",
+						"description": "Filter memories by metadata (JSON string).",
 						"style": "deepObject",
 						"explode": true
 					},
@@ -1048,7 +1048,7 @@
 				],
 				"responses": {
 					"204": {
-						"description": "Successful deletion of memories",
+						"description": "Successful deletion of memories.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -1098,7 +1098,7 @@
 				"tags": [
 					"memories"
 				],
-				"description": "Get all memories",
+				"description": "Get all memories.",
 				"operationId": "memories_list_v2",
 				"parameters": [
 					{
@@ -1220,7 +1220,7 @@
 						"schema": {
 							"type": "integer"
 						},
-						"description": "Page number for pagination. Default: 1"
+						"description": "Page number for pagination. Default: 1."
 					},
 					{
 						"name": "page_size",
@@ -1228,12 +1228,12 @@
 						"schema": {
 							"type": "integer"
 						},
-						"description": "Number of items per page. Default: 100"
+						"description": "Number of items per page. Default: 100."
 					}
 				],
 				"responses": {
 					"200": {
-						"description": "",
+						"description": "Successfully retrieved memories.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -1267,7 +1267,7 @@
 											"expiration_date": {
 												"type": "string",
 												"format": "date-time",
-												"description": "The date and time when the memory will expire. Format: YYYY-MM-DD",
+												"description": "The date and time when the memory will expire. Format: YYYY-MM-DD.",
 												"title": "Expiration date",
 												"nullable": true,
 												"default": null
@@ -1295,7 +1295,7 @@
 						}
 					},
 					"400": {
-						"description": "Bad Request",
+						"description": "Bad Request.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -1347,7 +1347,7 @@
 				"operationId": "memories_events_list",
 				"responses": {
 					"200": {
-						"description": "",
+						"description": "Successfully retrieved memory events.",
 						"content": {}
 					}
 				}
@@ -1372,7 +1372,7 @@
 				},
 				"responses": {
 					"200": {
-						"description": "",
+						"description": "Successfully retrieved search results.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -1383,7 +1383,7 @@
 											"id": {
 												"type": "string",
 												"format": "uuid",
-												"description": "Unique identifier for the memory"
+												"description": "Unique identifier for the memory."
 											},
 											"memory": {
 												"type": "string",
@@ -1414,7 +1414,7 @@
 											"expiration_date": {
 												"type": "string",
 												"format": "date-time",
-												"description": "The date and time when the memory will expire. Format: YYYY-MM-DD",
+												"description": "The date and time when the memory will expire. Format: YYYY-MM-DD.",
 												"title": "Expiration date",
 												"nullable": true,
 												"default": null
@@ -1422,12 +1422,12 @@
 											"created_at": {
 												"type": "string",
 												"format": "date-time",
-												"description": "The timestamp when the memory was created"
+												"description": "The timestamp when the memory was created."
 											},
 											"updated_at": {
 												"type": "string",
 												"format": "date-time",
-												"description": "The timestamp when the memory was last updated"
+												"description": "The timestamp when the memory was last updated."
 											}
 										},
 										"required": [
@@ -1443,7 +1443,7 @@
 						}
 					},
 					"400": {
-						"description": "Bad Request",
+						"description": "Bad Request.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -1507,7 +1507,7 @@
 				},
 				"responses": {
 					"200": {
-						"description": "",
+						"description": "Successfully retrieved search results.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -1518,7 +1518,7 @@
 											"id": {
 												"type": "string",
 												"format": "uuid",
-												"description": "Unique identifier for the memory"
+												"description": "Unique identifier for the memory."
 											},
 											"memory": {
 												"type": "string",
@@ -1549,7 +1549,7 @@
 											"expiration_date": {
 												"type": "string",
 												"format": "date-time",
-												"description": "The date and time when the memory will expire. Format: YYYY-MM-DD",
+												"description": "The date and time when the memory will expire. Format: YYYY-MM-DD.",
 												"title": "Expiration date",
 												"nullable": true,
 												"default": null
@@ -1557,12 +1557,12 @@
 											"created_at": {
 												"type": "string",
 												"format": "date-time",
-												"description": "The timestamp when the memory was created"
+												"description": "The timestamp when the memory was created."
 											},
 											"updated_at": {
 												"type": "string",
 												"format": "date-time",
-												"description": "The timestamp when the memory was last updated"
+												"description": "The timestamp when the memory was last updated."
 											}
 										},
 										"required": [
@@ -1615,7 +1615,7 @@
 				"operationId": "memories_read",
 				"responses": {
 					"200": {
-						"description": "",
+						"description": "Successfully retrieved memories.",
 						"content": {}
 					}
 				}
@@ -1655,12 +1655,12 @@
 							"type": "string",
 							"format": "uuid"
 						},
-						"description": "The unique identifier of the memory to retrieve"
+						"description": "The unique identifier of the memory to retrieve."
 					}
 				],
 				"responses": {
 					"200": {
-						"description": "Successfully retrieved the memory",
+						"description": "Successfully retrieved the memory.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -1669,7 +1669,7 @@
 										"id": {
 											"type": "string",
 											"format": "uuid",
-											"description": "Unique identifier for the memory"
+											"description": "Unique identifier for the memory."
 										},
 										"memory": {
 											"type": "string",
@@ -1705,12 +1705,12 @@
 										"created_at": {
 											"type": "string",
 											"format": "date-time",
-											"description": "Timestamp of when the memory was created"
+											"description": "Timestamp of when the memory was created."
 										},
 										"updated_at": {
 											"type": "string",
 											"format": "date-time",
-											"description": "Timestamp of when the memory was last updated"
+											"description": "Timestamp of when the memory was last updated."
 										}
 									}
 								}
@@ -1718,7 +1718,7 @@
 						}
 					},
 					"404": {
-						"description": "Memory not found",
+						"description": "Memory not found.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -1776,7 +1776,7 @@
 							"type": "string",
 							"format": "uuid"
 						},
-						"description": "The unique identifier of the memory to retrieve"
+						"description": "The unique identifier of the memory to retrieve."
 					}
 				],
 				"requestBody": {
@@ -1800,7 +1800,7 @@
 				},
 				"responses": {
 					"200": {
-						"description": "Successfully updated memory",
+						"description": "Successfully updated memory.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -1809,7 +1809,7 @@
 										"id": {
 											"type": "string",
 											"format": "uuid",
-											"description": "The unique identifier of the updated memory"
+											"description": "The unique identifier of the updated memory."
 										},
 										"text": {
 											"type": "string",
@@ -1846,12 +1846,12 @@
 										"created_at": {
 											"type": "string",
 											"format": "date-time",
-											"description": "Timestamp of when the memory was created"
+											"description": "Timestamp of when the memory was created."
 										},
 										"updated_at": {
 											"type": "string",
 											"format": "date-time",
-											"description": "Timestamp of when the memory was last updated"
+											"description": "Timestamp of when the memory was last updated."
 										}
 									}
 								}
@@ -1902,12 +1902,12 @@
 							"type": "string",
 							"format": "uuid"
 						},
-						"description": "The unique identifier of the memory to retrieve"
+						"description": "The unique identifier of the memory to retrieve."
 					}
 				],
 				"responses": {
 					"204": {
-						"description": "Successful deletion of memory",
+						"description": "Successful deletion of memory.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -1967,12 +1967,12 @@
 							"type": "string",
 							"format": "uuid"
 						},
-						"description": "The unique identifier of the memory to retrieve"
+						"description": "The unique identifier of the memory to retrieve."
 					}
 				],
 				"responses": {
 					"200": {
-						"description": "Successfully retrieved the memory history",
+						"description": "Successfully retrieved the memory history.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -1983,12 +1983,12 @@
 											"id": {
 												"type": "string",
 												"format": "uuid",
-												"description": "Unique identifier for the history entry"
+												"description": "Unique identifier for the history entry."
 											},
 											"memory_id": {
 												"type": "string",
 												"format": "uuid",
-												"description": "Unique identifier of the associated memory"
+												"description": "Unique identifier of the associated memory."
 											},
 											"input": {
 												"type": "array",
@@ -2045,12 +2045,12 @@
 											"created_at": {
 												"type": "string",
 												"format": "date-time",
-												"description": "The timestamp when this history entry was created"
+												"description": "The timestamp when this history entry was created."
 											},
 											"updated_at": {
 												"type": "string",
 												"format": "date-time",
-												"description": "The timestamp when this history entry was last updated"
+												"description": "The timestamp when this history entry was last updated."
 											}
 										},
 										"required": [
@@ -2116,7 +2116,7 @@
 				},
 				"responses": {
 					"201": {
-						"description": "",
+						"description": "Run created successfully.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -2139,7 +2139,7 @@
 				"operationId": "stats_list",
 				"responses": {
 					"200": {
-						"description": "",
+						"description": "Successfully retrieved statistics.",
 						"content": {}
 					}
 				}
@@ -2164,7 +2164,7 @@
 				},
 				"responses": {
 					"201": {
-						"description": "",
+						"description": "User created successfully.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -2220,7 +2220,7 @@
 				},
 				"responses": {
 					"200": {
-						"description": "Successful operation",
+						"description": "Successful operation.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -2282,7 +2282,7 @@
 				"operationId": "organizations_read",
 				"responses": {
 					"200": {
-						"description": "Successful response",
+						"description": "Successful response.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -2292,15 +2292,15 @@
 										"properties": {
 											"id": {
 												"type": "integer",
-												"description": "Unique identifier for the organization"
+												"description": "Unique identifier for the organization."
 											},
 											"org_id": {
 												"type": "string",
-												"description": "Organization's unique string identifier"
+												"description": "Organization's unique string identifier."
 											},
 											"name": {
 												"type": "string",
-												"description": "Name of the organization"
+												"description": "Name of the organization."
 											},
 											"description": {
 												"type": "string",
@@ -2329,12 +2329,12 @@
 											"created_at": {
 												"type": "string",
 												"format": "date-time",
-												"description": "Timestamp of when the organization was created"
+												"description": "Timestamp of when the organization was created."
 											},
 											"updated_at": {
 												"type": "string",
 												"format": "date-time",
-												"description": "Timestamp of when the organization was last updated"
+												"description": "Timestamp of when the organization was last updated."
 											},
 											"owner": {
 												"type": "integer",
@@ -2345,7 +2345,7 @@
 												"items": {
 													"type": "integer"
 												},
-												"description": "List of member identifiers belonging to the organization"
+												"description": "List of member identifiers belonging to the organization."
 											}
 										}
 									}
@@ -2396,7 +2396,7 @@
 								"properties": {
 									"name": {
 										"type": "string",
-										"description": "Name of the new organization"
+										"description": "Name of the new organization."
 									}
 								},
 								"required": [
@@ -2408,7 +2408,7 @@
 				},
 				"responses": {
 					"201": {
-						"description": "Successfully created a new organization",
+						"description": "Successfully created a new organization.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -2421,7 +2421,7 @@
 										"org_id": {
 											"type": "string",
 											"format": "uuid",
-											"description": "Unique identifier for the organization"
+											"description": "Unique identifier for the organization."
 										}
 									}
 								}
@@ -2429,7 +2429,7 @@
 						}
 					},
 					"400": {
-						"description": "Bad request",
+						"description": "Bad request.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -2437,7 +2437,7 @@
 									"properties": {
 										"errors": {
 											"type": "object",
-											"description": "Errors found in the payload",
+											"description": "Errors found in the payload.",
 											"additionalProperties": {
 												"type": "array",
 												"items": {
@@ -2500,7 +2500,7 @@
 				],
 				"responses": {
 					"200": {
-						"description": "Successful response",
+						"description": "Successful response.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -2508,7 +2508,7 @@
 									"properties": {
 										"id": {
 											"type": "integer",
-											"description": "Unique identifier for the organization"
+											"description": "Unique identifier for the organization."
 										},
 										"org_id": {
 											"type": "string",
@@ -2516,7 +2516,7 @@
 										},
 										"name": {
 											"type": "string",
-											"description": "Name of the organization"
+											"description": "Name of the organization."
 										},
 										"description": {
 											"type": "string",
@@ -2547,12 +2547,12 @@
 										"created_at": {
 											"type": "string",
 											"format": "date-time",
-											"description": "Timestamp of when the organization was created"
+											"description": "Timestamp of when the organization was created."
 										},
 										"updated_at": {
 											"type": "string",
 											"format": "date-time",
-											"description": "Timestamp of when the organization was last updated"
+											"description": "Timestamp of when the organization was last updated."
 										},
 										"owner": {
 											"type": "integer",
@@ -2563,7 +2563,7 @@
 											"items": {
 												"type": "integer"
 											},
-											"description": "List of member identifiers belonging to the organization"
+											"description": "List of member identifiers belonging to the organization."
 										}
 									}
 								}
@@ -2571,7 +2571,7 @@
 						}
 					},
 					"404": {
-						"description": "Organization not found",
+						"description": "Organization not found.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -2626,7 +2626,7 @@
 						"name": "org_id",
 						"in": "path",
 						"required": true,
-						"description": "Unique identifier of the organization to delete",
+						"description": "Unique identifier of the organization to delete.",
 						"schema": {
 							"type": "string"
 						}
@@ -2650,7 +2650,7 @@
 						}
 					},
 					"403": {
-						"description": "Unauthorized",
+						"description": "Unauthorized.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -2666,7 +2666,7 @@
 						}
 					},
 					"404": {
-						"description": "Organization not found",
+						"description": "Organization not found.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -2723,7 +2723,7 @@
 						"name": "org_id",
 						"in": "path",
 						"required": true,
-						"description": "Unique identifier of the organization",
+						"description": "Unique identifier of the organization.",
 						"schema": {
 							"type": "string"
 						}
@@ -2731,7 +2731,7 @@
 				],
 				"responses": {
 					"200": {
-						"description": "Successful response",
+						"description": "Successful response.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -2744,15 +2744,15 @@
 												"properties": {
 													"user_id": {
 														"type": "string",
-														"description": "Unique identifier of the member"
+														"description": "Unique identifier of the member."
 													},
 													"role": {
 														"type": "string",
-														"description": "Role of the member in the organization"
+														"description": "Role of the member in the organization."
 													}
 												}
 											},
-											"description": "List of members belonging to the organization"
+											"description": "List of members belonging to the organization."
 										}
 									}
 								}
@@ -2760,7 +2760,7 @@
 						}
 					},
 					"404": {
-						"description": "Organization not found",
+						"description": "Organization not found.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -2815,7 +2815,7 @@
 						"name": "org_id",
 						"in": "path",
 						"required": true,
-						"description": "Unique identifier of the organization",
+						"description": "Unique identifier of the organization.",
 						"schema": {
 							"type": "string"
 						}
@@ -2834,7 +2834,7 @@
 								"properties": {
 									"email": {
 										"type": "string",
-										"description": "Email of the member whose role is to be updated"
+										"description": "Email of the member whose role is to be updated."
 									},
 									"role": {
 										"type": "string",
@@ -2847,7 +2847,7 @@
 				},
 				"responses": {
 					"200": {
-						"description": "User role updated successfully",
+						"description": "User role updated successfully.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -2863,7 +2863,7 @@
 						}
 					},
 					"400": {
-						"description": "Bad request",
+						"description": "Bad request.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -2871,7 +2871,7 @@
 									"properties": {
 										"errors": {
 											"type": "object",
-											"description": "Errors found in the payload",
+											"description": "Errors found in the payload.",
 											"additionalProperties": {
 												"type": "array",
 												"items": {
@@ -2885,7 +2885,7 @@
 						}
 					},
 					"404": {
-						"description": "Organization not found",
+						"description": "Organization not found.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -2940,7 +2940,7 @@
 						"name": "org_id",
 						"in": "path",
 						"required": true,
-						"description": "Unique identifier of the organization",
+						"description": "Unique identifier of the organization.",
 						"schema": {
 							"type": "string"
 						}
@@ -2959,11 +2959,11 @@
 								"properties": {
 									"email": {
 										"type": "string",
-										"description": "Email of the member to be added"
+										"description": "Email of the member to be added."
 									},
 									"role": {
 										"type": "string",
-										"description": "Role of the member in the organization"
+										"description": "Role of the member in the organization."
 									}
 								}
 							}
@@ -2972,7 +2972,7 @@
 				},
 				"responses": {
 					"201": {
-						"description": "Member added successfully",
+						"description": "Member added successfully.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -2988,7 +2988,7 @@
 						}
 					},
 					"400": {
-						"description": "Bad request",
+						"description": "Bad request.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -2996,7 +2996,7 @@
 									"properties": {
 										"errors": {
 											"type": "object",
-											"description": "Errors found in the payload",
+											"description": "Errors found in the payload.",
 											"additionalProperties": {
 												"type": "array",
 												"items": {
@@ -3010,7 +3010,7 @@
 						}
 					},
 					"404": {
-						"description": "Organization not found",
+						"description": "Organization not found.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -3064,7 +3064,7 @@
 						"name": "org_id",
 						"in": "path",
 						"required": true,
-						"description": "Unique identifier of the organization",
+						"description": "Unique identifier of the organization.",
 						"schema": {
 							"type": "string"
 						}
@@ -3082,7 +3082,7 @@
 								"properties": {
 									"email": {
 										"type": "string",
-										"description": "Email of the member to be removed"
+										"description": "Email of the member to be removed."
 									}
 								}
 							}
@@ -3091,7 +3091,7 @@
 				},
 				"responses": {
 					"200": {
-						"description": "Member removed successfully",
+						"description": "Member removed successfully.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -3107,7 +3107,7 @@
 						}
 					},
 					"404": {
-						"description": "Organization not found",
+						"description": "Organization not found.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -3164,7 +3164,7 @@
 						"name": "org_id",
 						"in": "path",
 						"required": true,
-						"description": "Unique identifier of the organization",
+						"description": "Unique identifier of the organization.",
 						"schema": {
 							"type": "string"
 						}
@@ -3172,7 +3172,7 @@
 				],
 				"responses": {
 					"200": {
-						"description": "Successful response",
+						"description": "Successful response.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -3190,7 +3190,7 @@
 											},
 											"name": {
 												"type": "string",
-												"description": "Name of the project"
+												"description": "Name of the project."
 											},
 											"description": {
 												"type": "string",
@@ -3217,11 +3217,11 @@
 														},
 														"role": {
 															"type": "string",
-															"description": "Role of the member in the project"
+															"description": "Role of the member in the project."
 														}
 													}
 												},
-												"description": "List of members belonging to the project"
+												"description": "List of members belonging to the project."
 											}
 										}
 									}
@@ -3269,7 +3269,7 @@
 						"name": "org_id",
 						"in": "path",
 						"required": true,
-						"description": "Unique identifier of the organization",
+						"description": "Unique identifier of the organization.",
 						"schema": {
 							"type": "string"
 						}
@@ -3296,7 +3296,7 @@
 				},
 				"responses": {
 					"200": {
-						"description": "Project created successfully",
+						"description": "Project created successfully.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -3309,7 +3309,7 @@
 										"project_id": {
 											"type": "string",
 											"format": "uuid",
-											"description": "Unique identifier for the project"
+											"description": "Unique identifier for the project."
 										}
 									}
 								}
@@ -3317,7 +3317,7 @@
 						}
 					},
 					"403": {
-						"description": "Unauthorized",
+						"description": "Unauthorized.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -3333,7 +3333,7 @@
 						}
 					},
 					"400": {
-						"description": "Bad request",
+						"description": "Bad request.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -3390,7 +3390,7 @@
 						"name": "org_id",
 						"in": "path",
 						"required": true,
-						"description": "Unique identifier of the organization",
+						"description": "Unique identifier of the organization.",
 						"schema": {
 							"type": "string"
 						}
@@ -3399,7 +3399,7 @@
 						"name": "project_id",
 						"in": "path",
 						"required": true,
-						"description": "Unique identifier of the project",
+						"description": "Unique identifier of the project.",
 						"schema": {
 							"type": "string"
 						}
@@ -3407,7 +3407,7 @@
 				],
 				"responses": {
 					"200": {
-						"description": "Successful response",
+						"description": "Successful response.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -3450,7 +3450,7 @@
 													},
 													"role": {
 														"type": "string",
-														"description": "Role of the member in the project"
+														"description": "Role of the member in the project."
 													}
 												}
 											},
@@ -3462,7 +3462,7 @@
 						}
 					},
 					"404": {
-						"description": "Organization or project not found",
+						"description": "Organization or project not found.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -3517,7 +3517,7 @@
 						"name": "org_id",
 						"in": "path",
 						"required": true,
-						"description": "Unique identifier of the organization",
+						"description": "Unique identifier of the organization.",
 						"schema": {
 							"type": "string"
 						}
@@ -3526,7 +3526,7 @@
 						"name": "project_id",
 						"in": "path",
 						"required": true,
-						"description": "Unique identifier of the project to be updated",
+						"description": "Unique identifier of the project to be updated.",
 						"schema": {
 							"type": "string"
 						}
@@ -3558,7 +3558,7 @@
 										"items": {
 											"type": "object"
 										},
-										"description": "List of custom categories to be used for memory categorization"
+										"description": "List of custom categories to be used for memory categorization."
 									}
 								}
 							}
@@ -3567,7 +3567,7 @@
 				},
 				"responses": {
 					"200": {
-						"description": "Project updated successfully",
+						"description": "Project updated successfully.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -3583,7 +3583,7 @@
 						}
 					},
 					"404": {
-						"description": "Organization or project not found",
+						"description": "Organization or project not found.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -3638,7 +3638,7 @@
 						"name": "org_id",
 						"in": "path",
 						"required": true,
-						"description": "Unique identifier of the organization",
+						"description": "Unique identifier of the organization.",
 						"schema": {
 							"type": "string"
 						}
@@ -3647,7 +3647,7 @@
 						"name": "project_id",
 						"in": "path",
 						"required": true,
-						"description": "Unique identifier of the project to be deleted",
+						"description": "Unique identifier of the project to be deleted.",
 						"schema": {
 							"type": "string"
 						}
@@ -3671,7 +3671,7 @@
 						}
 					},
 					"404": {
-						"description": "Organization or project not found",
+						"description": "Organization or project not found.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -3744,7 +3744,7 @@
 						"name": "org_id",
 						"in": "path",
 						"required": true,
-						"description": "Unique identifier of the organization",
+						"description": "Unique identifier of the organization.",
 						"schema": {
 							"type": "string"
 						}
@@ -3753,7 +3753,7 @@
 						"name": "project_id",
 						"in": "path",
 						"required": true,
-						"description": "Unique identifier of the project",
+						"description": "Unique identifier of the project.",
 						"schema": {
 							"type": "string"
 						}
@@ -3787,7 +3787,7 @@
 						}
 					},
 					"404": {
-						"description": "Organization or project not found",
+						"description": "Organization or project not found.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -3842,7 +3842,7 @@
 						"name": "org_id",
 						"in": "path",
 						"required": true,
-						"description": "Unique identifier of the organization",
+						"description": "Unique identifier of the organization.",
 						"schema": {
 							"type": "string"
 						}
@@ -3851,7 +3851,7 @@
 						"name": "project_id",
 						"in": "path",
 						"required": true,
-						"description": "Unique identifier of the project",
+						"description": "Unique identifier of the project.",
 						"schema": {
 							"type": "string"
 						}
@@ -3870,11 +3870,11 @@
 								"properties": {
 									"email": {
 										"type": "string",
-										"description": "Email of the member to be added"
+										"description": "Email of the member to be added."
 									},
 									"role": {
 										"type": "string",
-										"description": "Role of the member in the project"
+										"description": "Role of the member in the project."
 									}
 								}
 							}
@@ -3915,7 +3915,7 @@
 						}
 					},
 					"404": {
-						"description": "Organization or project not found",
+						"description": "Organization or project not found.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -3970,7 +3970,7 @@
 						"name": "org_id",
 						"in": "path",
 						"required": true,
-						"description": "Unique identifier of the organization",
+						"description": "Unique identifier of the organization.",
 						"schema": {
 							"type": "string"
 						}
@@ -3979,7 +3979,7 @@
 						"name": "project_id",
 						"in": "path",
 						"required": true,
-						"description": "Unique identifier of the project",
+						"description": "Unique identifier of the project.",
 						"schema": {
 							"type": "string"
 						}
@@ -4011,7 +4011,7 @@
 				},
 				"responses": {
 					"200": {
-						"description": "User role updated successfully",
+						"description": "User role updated successfully.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -4043,7 +4043,7 @@
 						}
 					},
 					"404": {
-						"description": "Organization or project not found",
+						"description": "Organization or project not found.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -4097,7 +4097,7 @@
 						"name": "org_id",
 						"in": "path",
 						"required": true,
-						"description": "Unique identifier of the organization",
+						"description": "Unique identifier of the organization.",
 						"schema": {
 							"type": "string"
 						}
@@ -4106,7 +4106,7 @@
 						"name": "project_id",
 						"in": "path",
 						"required": true,
-						"description": "Unique identifier of the project",
+						"description": "Unique identifier of the project.",
 						"schema": {
 							"type": "string"
 						}
@@ -4155,7 +4155,7 @@
 						}
 					},
 					"404": {
-						"description": "Organization or project not found",
+						"description": "Organization or project not found.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -4261,7 +4261,7 @@
 						}
 					},
 					"400": {
-						"description": "Bad Request",
+						"description": "Bad Request.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -4311,7 +4311,7 @@
 											"format": "uuid"
 										},
 										"maxItems": 1000,
-										"description": "Array of memory IDs to delete"
+										"description": "Array of memory IDs to delete."
 									}
 								},
 								"required": [
@@ -4340,7 +4340,7 @@
 						}
 					},
 					"400": {
-						"description": "Bad Request",
+						"description": "Bad Request.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -4385,7 +4385,7 @@
 						"name": "project_id",
 						"in": "path",
 						"required": true,
-						"description": "Unique identifier of the project",
+						"description": "Unique identifier of the project.",
 						"schema": {
 							"type": "string"
 						}
@@ -4393,7 +4393,7 @@
 				],
 				"responses": {
 					"200": {
-						"description": "List of webhooks for the project",
+						"description": "List of webhooks for the project.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -4403,7 +4403,7 @@
 										"properties": {
 											"webhook_id": {
 												"type": "string",
-												"description": "Unique identifier of the webhook"
+												"description": "Unique identifier of the webhook."
 											},
 											"name": {
 												"type": "string",
@@ -4411,14 +4411,14 @@
 											},
 											"url": {
 												"type": "string",
-												"description": "URL endpoint for the webhook"
+												"description": "URL endpoint for the webhook."
 											},
 											"event_types": {
 												"type": "array",
 												"items": {
 													"type": "string"
 												},
-												"description": "List of event types the webhook subscribes to"
+												"description": "List of event types the webhook subscribes to."
 											},
 											"is_active": {
 												"type": "boolean",
@@ -4500,7 +4500,7 @@
 						"name": "project_id",
 						"in": "path",
 						"required": true,
-						"description": "Unique identifier of the project",
+						"description": "Unique identifier of the project.",
 						"schema": {
 							"type": "string"
 						}
@@ -4522,7 +4522,7 @@
 									},
 									"url": {
 										"type": "string",
-										"description": "URL endpoint for the webhook"
+										"description": "URL endpoint for the webhook."
 									},
 									"event_types": {
 										"type": "array",
@@ -4534,7 +4534,7 @@
 												"memory:delete"
 											]
 										},
-										"description": "List of event types to subscribe to"
+										"description": "List of event types to subscribe to."
 									},
 									"is_active": {
 										"type": "boolean",
@@ -4542,7 +4542,7 @@
 									},
 									"project_id": {
 										"type": "string",
-										"description": "Unique identifier of the project"
+										"description": "Unique identifier of the project."
 									}
 								}
 							}
@@ -4664,7 +4664,7 @@
 						"name": "webhook_id",
 						"in": "path",
 						"required": true,
-						"description": "Unique identifier of the webhook",
+						"description": "Unique identifier of the webhook.",
 						"schema": {
 							"type": "string"
 						}
@@ -4806,7 +4806,7 @@
 						"name": "webhook_id",
 						"in": "path",
 						"required": true,
-						"description": "Unique identifier of the webhook",
+						"description": "Unique identifier of the webhook.",
 						"schema": {
 							"type": "string"
 						}

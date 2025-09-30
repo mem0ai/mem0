@@ -69,7 +69,7 @@ const messages = [
     { role: "assistant", content: "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future." }
 ]
 
-memory.add(messages, user_id="alice", metadata={"category": "movies"})
+await memory.add(messages, { userId: "alice", metadata: { category: "movies" } });
 ```
 </CodeGroup>
 
