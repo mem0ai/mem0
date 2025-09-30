@@ -382,7 +382,7 @@ class Memory(MemoryBase):
                 filters=filters,
             )
             for mem in existing_memories:
-                retrieved_old_memory.append({"id": mem.id, "text": mem.payload["data"]})
+                retrieved_old_memory.append({"id": mem.id, "text": mem.payload.get("data", "")})
 
         unique_data = {}
         for item in retrieved_old_memory:
@@ -518,7 +518,7 @@ class Memory(MemoryBase):
 
         result_item = MemoryItem(
             id=memory.id,
-            memory=memory.payload["data"],
+            memory=memory.payload.get("data", ""),
             hash=memory.payload.get("hash"),
             created_at=memory.payload.get("created_at"),
             updated_at=memory.payload.get("updated_at"),
@@ -623,7 +623,7 @@ class Memory(MemoryBase):
         for mem in actual_memories:
             memory_item_dict = MemoryItem(
                 id=mem.id,
-                memory=mem.payload["data"],
+                memory=mem.payload.get("data", ""),
                 hash=mem.payload.get("hash"),
                 created_at=mem.payload.get("created_at"),
                 updated_at=mem.payload.get("updated_at"),
@@ -735,7 +735,7 @@ class Memory(MemoryBase):
         for mem in memories:
             memory_item_dict = MemoryItem(
                 id=mem.id,
-                memory=mem.payload["data"],
+                memory=mem.payload.get("data", ""),
                 hash=mem.payload.get("hash"),
                 created_at=mem.payload.get("created_at"),
                 updated_at=mem.payload.get("updated_at"),
@@ -962,7 +962,7 @@ class Memory(MemoryBase):
     def _delete_memory(self, memory_id):
         logger.info(f"Deleting memory with {memory_id=}")
         existing_memory = self.vector_store.get(vector_id=memory_id)
-        prev_value = existing_memory.payload["data"]
+        prev_value = existing_memory.payload.get("data", "")
         self.vector_store.delete(vector_id=memory_id)
         self.db.add_history(
             memory_id,
@@ -1234,7 +1234,7 @@ class AsyncMemory(MemoryBase):
                 limit=5,
                 filters=effective_filters,  # 'filters' is query_filters_for_inference
             )
-            return [{"id": mem.id, "text": mem.payload["data"]} for mem in existing_mems]
+            return [{"id": mem.id, "text": mem.payload.get("data", "")} for mem in existing_mems]
 
         search_tasks = [process_fact_for_search(fact) for fact in new_retrieved_facts]
         search_results_list = await asyncio.gather(*search_tasks)
@@ -1382,7 +1382,7 @@ class AsyncMemory(MemoryBase):
 
         result_item = MemoryItem(
             id=memory.id,
-            memory=memory.payload["data"],
+            memory=memory.payload.get("data", ""),
             hash=memory.payload.get("hash"),
             created_at=memory.payload.get("created_at"),
             updated_at=memory.payload.get("updated_at"),
@@ -1492,7 +1492,7 @@ class AsyncMemory(MemoryBase):
         for mem in actual_memories:
             memory_item_dict = MemoryItem(
                 id=mem.id,
-                memory=mem.payload["data"],
+                memory=mem.payload.get("data", ""),
                 hash=mem.payload.get("hash"),
                 created_at=mem.payload.get("created_at"),
                 updated_at=mem.payload.get("updated_at"),
@@ -1609,7 +1609,7 @@ class AsyncMemory(MemoryBase):
         for mem in memories:
             memory_item_dict = MemoryItem(
                 id=mem.id,
-                memory=mem.payload["data"],
+                memory=mem.payload.get("data", ""),
                 hash=mem.payload.get("hash"),
                 created_at=mem.payload.get("created_at"),
                 updated_at=mem.payload.get("updated_at"),
@@ -1860,7 +1860,7 @@ class AsyncMemory(MemoryBase):
     async def _delete_memory(self, memory_id):
         logger.info(f"Deleting memory with {memory_id=}")
         existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
-        prev_value = existing_memory.payload["data"]
+        prev_value = existing_memory.payload.get("data", "")
 
         await asyncio.to_thread(self.vector_store.delete, vector_id=memory_id)
         await asyncio.to_thread(
