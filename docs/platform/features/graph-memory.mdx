@@ -320,10 +320,10 @@ const client = new MemoryClient({
   project_id: "your-project-id"
 });
 
-# Enable graph memory for all operations in this project
+// Enable graph memory for all operations in this project
 await client.updateProject({ enable_graph: true, version: "v1" });
 
-# Now all add operations will use graph memory by default
+// Now all add operations will use graph memory by default
 const messages = [
   { role: "user", content: "My name is Joseph" },
   { role: "assistant", content: "Hello Joseph, it's nice to meet you!" },
