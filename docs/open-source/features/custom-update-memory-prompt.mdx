@@ -5,23 +5,18 @@ iconType: "solid"
 ---
 
 
-Update memory prompt is a prompt used to determine the action to be performed on the memory. 
-By customizing this prompt, you can control how the memory is updated.  
+The update memory prompt is used to determine the action to be performed on the memory. By customizing this prompt, you can control how the memory is updated.
 
+## Introduction
 
-## Introduction  
-Mem0 memory system compares the newly retrieved facts with the existing memory and determines the action to be performed on the memory.  
-The kinds of actions are:
-- Add
-    - Add the newly retrieved facts to the memory.
-- Update
-    - Update the existing memory with the newly retrieved facts.
-- Delete
-    - Delete the existing memory.
-- No Change
-    - Do not make any changes to the memory.
-  
+The Mem0 memory system compares newly retrieved facts with existing memory and determines the action to be performed. The types of actions are:
+- **Add**: Add the newly retrieved facts to the memory.
+- **Update**: Update the existing memory with the newly retrieved facts.
+- **Delete**: Delete the existing memory.
+- **No Change**: Do not make any changes to the memory.
+
 ### Example
+
 Example of a custom update memory prompt:
 
 <CodeGroup>
@@ -178,7 +173,8 @@ Please note to return the IDs in the output from the input IDs only and do not g
 ```
 </CodeGroup>  
 
-## Output format
+## Output Format
+
 The prompt needs to guide the output to follow the structure as shown below:
 <CodeGroup>
 ```json Add
@@ -232,10 +228,10 @@ The prompt needs to guide the output to follow the structure as shown below:
 </CodeGroup>
   
   
-## custom update memory prompt vs custom prompt
+## Custom Update Memory Prompt vs Custom Prompt
 
 | Feature | `custom_update_memory_prompt` | `custom_prompt` |
 |---------|-------------------------------|-----------------|
-| Use case | Determine the action to be performed on the memory | Extract the facts from messages |
+| Use case | Determine the action to be performed on the memory | Extract facts from messages |
 | Reference | Retrieved facts from messages and old memory | Messages |
 | Output | Action to be performed on the memory | Extracted facts |

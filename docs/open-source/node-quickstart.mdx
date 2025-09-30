@@ -69,7 +69,7 @@ const memory = new Memory({
 ```typescript Code
 const messages = [
     {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
-    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
     {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
     {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
 ]
@@ -303,9 +303,9 @@ await memory.reset(); // Reset all memories
 
 ### History Store
 
-Mem0 TypeScript SDK support history stores to run on a serverless environment:
+The Mem0 TypeScript SDK supports history stores to run in serverless environments.
 
-We recommend using `Supabase` as a history store for serverless environments or disable history store to run on a serverless environment.
+We recommend using Supabase as a history store for serverless environments, or disabling the history store to run in serverless environments.
 
 <CodeGroup>
 ```typescript Supabase
@@ -353,7 +353,7 @@ create table memory_history (
 
 ## Configuration Parameters
 
-Mem0 offers extensive configuration options to customize its behavior according to your needs. These configurations span across different components like vector stores, language models, embedders, and graph stores.
+Mem0 offers extensive configuration options to customize its behavior according to your needs. These configurations span different components like vector stores, language models, embedders, and graph stores.
 
 <AccordionGroup>
 <Accordion title="Vector Store Configuration">

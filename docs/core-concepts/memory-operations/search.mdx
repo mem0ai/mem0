@@ -26,7 +26,7 @@ This applies to both:
   <img src="../../images/search_architecture.png" />
 </Frame>
 
-The search flow follows these steps:
+When you call `search`, Mem0 performs the following steps:
 
 1. **Query Processing**
    An LLM refines and optimizes your natural language query.
@@ -105,7 +105,7 @@ const relatedMemories = memory.search("Should I drink coffee or tea?", { userId:
 ## Tips for Better Search
 
 - Use descriptive natural queries (Mem0 can interpret intent)
-- Apply filters for scoped, faster lookup
+- Apply filters for scoped, faster lookups
 - Use `version: "v2"` for enhanced results
 - Consider wildcard filters (e.g., `run_id: "*"`) for broader matches
 - Tune with `top_k`, `threshold`, or `rerank` if needed
@@ -115,8 +115,6 @@ const relatedMemories = memory.search("Should I drink coffee or tea?", { userId:
 
 For the full list of filter logic, comparison operators, and optional search parameters, see the
 [Search Memory API Reference](/api-reference/memory/v2-search-memories).
-
----
 
 ## Need help?
 If you have any questions, please feel free to reach out to us using one of the following methods:

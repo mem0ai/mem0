@@ -11,7 +11,7 @@ This guide covers advanced memory operations including complex filtering, batch 
 
 ### Async Client (Python)
 
-For asynchronous operations in Python, use the AsyncMemoryClient:
+For asynchronous operations in Python, use the `AsyncMemoryClient`:
 
 ```python Python
 import os
@@ -94,17 +94,17 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 
 <Note>
     When passing `user_id`, memories are primarily created based on user messages, but may be influenced by assistant messages for contextual understanding. For example, in a conversation about food preferences, both the user's stated preferences and their responses to the assistant's questions would form user memories. Similarly, when using `agent_id`, assistant messages are prioritized, but user messages might influence the agent's memories based on context.
-    
+
     **Example:**
     ```
     User: My favorite cuisine is Italian
     Assistant: Nice! What about Indian cuisine?
     User: Don't like it much since I cannot eat spicy food
-    
+
     Resulting user memories:
     memory1 - Likes Italian food
-    memory2 - Doesn't like Indian food since cannot eat spicy 
-    
+    memory2 - Doesn't like Indian food since cannot eat spicy
+
     (memory2 comes from user's response about Indian cuisine)
     ```
 </Note>
@@ -283,13 +283,13 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 
 ### Search with Custom Filters
 
-Our advanced search allows you to set custom search filters. You can filter by user_id, agent_id, app_id, run_id, created_at, updated_at, categories, and text. The filters support logical operators (AND, OR) and comparison operators (in, gte, lte, gt, lt, ne, contains, icontains, `*`). The wildcard character (`*`) matches everything for a specific field.
+Our advanced search allows you to set custom search filters. You can filter by `user_id`, `agent_id`, `app_id`, `run_id`, `created_at`, `updated_at`, `categories`, and `text`. The filters support logical operators (AND, OR) and comparison operators (`in`, `gte`, `lte`, `gt`, `lt`, `ne`, `contains`, `icontains`, `*`). The wildcard character (`*`) matches everything for a specific field.
 
 For the **categories** field specifically:
 - Use `contains` for partial matching (e.g., `{"categories": {"contains": "finance"}}`)
 - Use `in` for exact matching (e.g., `{"categories": {"in": ["personal_information"]}}`).
 
-Here you need to define `version` as `v2` in the search method.
+You need to define `version` as `v2` in the search method.
 
 #### Example 1: Search using user_id and agent_id filters
 
@@ -632,9 +632,9 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
 
 ### Get All Memories with Pagination
 
-<Note> The `get_all` method supports two output formats: `v1.0` (default) and `v1.1`. To use the latest format, which provides more detailed information about each memory operation, set the `output_format` parameter to `v1.1`.</Note>
+<Note>The `get_all` method supports two output formats: `v1.0` (default) and `v1.1`. To use the latest format, which provides more detailed information about each memory operation, set the `output_format` parameter to `v1.1`.</Note>
 
-<Note> We're soon deprecating the default output format for get_all() method, which returned a list. Once the changes are live, paginated response will be the only supported format, with 100 memories per page by default. You can customize this using the `page` and `page_size` parameters.</Note>
+<Note>We're soon deprecating the default output format for the `get_all()` method, which returned a list. Once the changes are live, paginated response will be the only supported format, with 100 memories per page by default. You can customize this using the `page` and `page_size` parameters.</Note>
 
 #### Get all memories of a user
 
@@ -749,7 +749,7 @@ For the **categories** field specifically:
 - Use `contains` for partial matching (e.g., `{"categories": {"contains": "finance"}}`)
 - Use `in` for exact matching (e.g., `{"categories": {"in": ["personal_information"]}}`).
 
-Here you need to define `version` as `v2` in the get_all method.
+You need to define `version` as `v2` in the `get_all` method.
 
 <CodeGroup>
 

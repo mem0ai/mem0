@@ -4,19 +4,19 @@ title: 'Personalized Search with Mem0 and Tavily'
 
 <Snippet file="security-compliance.mdx" />
 
-Imagine asking a search assistant for "coffee shops nearby" and instead of generic results, it shows remote-work-friendly cafes with great wifi in your city because it remembers you mentioned working remotely before. Or when you search for "lunchbox ideas for kids" it knows you have a **7-year-old daughter** and recommends **peanut-free options** that align with her allergy.
+Imagine asking a search assistant for "coffee shops nearby" and instead of generic results, it shows remote-work-friendly cafes with great WiFi in your city because it remembers you mentioned working remotely before. Or when you search for "lunchbox ideas for kids" it knows you have a 7-year-old daughter and recommends peanut-free options that align with her allergy.
 
-That's what we are going to build today, a **Personalized Search Assistant** powered by **Mem0** for memory and [Tavily](https://tavily.com) for real-time search.
+That's what we are going to build today, a Personalized Search Assistant powered by Mem0 for memory and [Tavily](https://tavily.com) for real-time search.
 
 
 ## Why Personalized Search
 
-Most assistants treat every query like they’ve never seen you before. That means repeating yourself about your location, diet, or preferences, and getting results that feel generic.
+Most assistants treat every query like they've never seen you before. That means repeating yourself about your location, diet, or preferences, and getting results that feel generic.
 
-- With **Mem0**, your assistant builds a memory of the user’s world.
-- With **Tavily**, it fetches fresh and accurate results in real time.
+- With Mem0, your assistant builds a memory of the user's world.
+- With Tavily, it fetches fresh and accurate results in real time.
 
-Together, they make every interaction **smarter, faster, and more personal**.
+Together, they make every interaction smarter, faster, and more personal.
 
 ## Prerequisites
 
@@ -55,7 +55,7 @@ and extract facts and memories accordingly.
 '''
 )
 ```
-Now, if a user casually mentions "I need to pick up my daughter", or "What's the weather at Los Angeles", Mem0 remembers they have a daughter or user is somewhat interested/connected with Los Angeles in terms of location, those will be referred for future searches.
+Now, if a user casually mentions "I need to pick up my daughter" or "What's the weather at Los Angeles", Mem0 remembers they have a daughter or the user is interested in or connected with Los Angeles in terms of location. These details will be referenced for future searches.
 
 ### 2. Simulating User History
 To test personalization, we preload some sample conversation history for a user:
@@ -173,17 +173,19 @@ if __name__ == "__main__":
 ```
 
 ## How It Works in Practice
-Here’s how personalization plays out:
 
-- Context Gathering: User previously mentioned living in Los Angeles, being vegan, and having a 7-year-old daughter allergic to peanuts.
-- Enhanced Search Query:
-Query -> "good coffee shops nearby for working"
-Enhanced Query -> "good coffee shops in Los Angeles with strong wifi, remote-work-friendly"
-- Personalized Results: The assistant only returns wifi-friendly, work-friendly cafes near Los Angeles.
-- Memory Update: Interaction is saved for better future recommendations.
+Here's how personalization plays out:
+
+- **Context Gathering**: User previously mentioned living in Los Angeles, being vegan, and having a 7-year-old daughter allergic to peanuts.
+- **Enhanced Search Query**:
+  - Query: "good coffee shops nearby for working"
+  - Enhanced Query: "good coffee shops in Los Angeles with strong WiFi, remote-work-friendly"
+- **Personalized Results**: The assistant only returns WiFi-friendly, work-friendly cafes near Los Angeles.
+- **Memory Update**: Interaction is saved for better future recommendations.
 
 ## Conclusion
-With Mem0 + Tavily, you can build a search assistant that doesn’t just fetch results but it understands the person behind the query.
+
+With Mem0 and Tavily, you can build a search assistant that doesn't just fetch results but understands the person behind the query.
 
 Whether for shopping, travel, or daily life, this approach turns a generic search into a truly personalized experience.
 
