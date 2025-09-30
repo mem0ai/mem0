@@ -4,39 +4,48 @@ icon: "terminal"
 iconType: "solid"
 ---
 
-## 🚀 Hosted OpenMemory MCP Now Available!
+## Hosted OpenMemory MCP Now Available
 
 #### Sign Up Now - [app.openmemory.dev](https://app.openmemory.dev)
 
 Everything you love about OpenMemory MCP but with zero setup.
 
-✅ Works with all MCP-compatible tools (Claude Desktop, Cursor...)  
-✅ Same standard memory ops: `add_memories`, `search_memory`, etc  
-✅ One-click provisioning, no Docker required  
-✅ Powered by Mem0  
+- Works with all MCP-compatible tools (Claude Desktop, Cursor, etc.)
+- Same standard memory operations: `add_memories`, `search_memory`, etc.
+- One-click provisioning, no Docker required
+- Powered by Mem0
 
 Add shared, persistent, low-friction memory to your MCP-compatible clients in seconds.
 
-### 🌟 Get Started Now
-**Sign up and get your access key at [app.openmemory.dev](https://app.openmemory.dev)**
+### Get Started Now
+Sign up and get your access key at [app.openmemory.dev](https://app.openmemory.dev).
 
 Example installation: `npx @openmemory/install --client claude --env OPENMEMORY_API_KEY=your-key`
 
 ## Getting Started with Hosted OpenMemory
 
-The fastest way to get started is with our hosted version - no setup required:
+The fastest way to get started is with our hosted version - no setup required.
 
-### 1. Get your API key
+### 1. Get Your API Key
 Visit [app.openmemory.dev](https://app.openmemory.dev) to sign up and get your `OPENMEMORY_API_KEY`.
 
-### 2. Install and connect to your preferred client
+### 2. Install and Connect to Your Preferred Client
 Example commands (replace `your-key` with your actual API key):
 
-For Claude Desktop: `npx @openmemory/install --client claude --env OPENMEMORY_API_KEY=your-key`
+**For Claude Desktop:**
+```bash
+npx @openmemory/install --client claude --env OPENMEMORY_API_KEY=your-key
+```
 
-For Cursor: `npx @openmemory/install --client cursor --env OPENMEMORY_API_KEY=your-key`
+**For Cursor:**
+```bash
+npx @openmemory/install --client cursor --env OPENMEMORY_API_KEY=your-key
+```
 
-For Windsurf: `npx @openmemory/install --client windsurf --env OPENMEMORY_API_KEY=your-key`
+**For Windsurf:**
+```bash
+npx @openmemory/install --client windsurf --env OPENMEMORY_API_KEY=your-key
+```
 
 That's it! Your AI client now has persistent memory across sessions.
 
@@ -68,17 +77,13 @@ You can also set the `OPENAI_API_KEY` as a parameter to the script:
 curl -sL https://raw.githubusercontent.com/mem0ai/mem0/main/openmemory/run.sh | OPENAI_API_KEY=your_api_key bash
 ```
 
-This will start the OpenMemory server and the OpenMemory UI. Deleting the container will lead to the deletion of the memory store.
-We suggest you follow the instructions below to set up OpenMemory on your local machine, with more persistant memory store.
+This will start the OpenMemory server and the OpenMemory UI. Deleting the container will lead to the deletion of the memory store. We suggest you follow the instructions below to set up OpenMemory on your local machine with a more persistent memory store.
 
 ## Setting Up OpenMemory
 
-Getting started with OpenMemory is straight forward and takes just a few minutes to set up on your local machine. Follow these steps:
+Getting started with OpenMemory is straightforward and takes just a few minutes to set up on your local machine. Follow these steps:
 
-### Getting started
-
-
-### 1. First clone the repository and then follow the instructions:
+### 1. Clone the Repository
 ```bash
 # Clone the repository
 git clone https://github.com/mem0ai/mem0.git
@@ -91,50 +96,45 @@ Before running the project, you need to configure environment variables for both
 
 You can do this in one of the following ways:
 
-- **Manually**:  
-  Create a `.env` file in each of the following directories:
+- **Manually:** Create a `.env` file in each of the following directories:
   - `/api/.env`
   - `/ui/.env`
 
-- **Using `.env.example` files**:  
-  Copy and rename the example files:
-
+- **Using `.env.example` files:** Copy and rename the example files:
   ```bash
   cp api/.env.example api/.env
   cp ui/.env.example ui/.env
   ```
 
- - **Using Makefile** (if supported):  
-    Run:
+- **Using Makefile** (if supported): Run:
+  ```bash
+  make env
+  ```
 
-   ```bash
-   make env
-   ```
-- #### Example `/api/.env`
-
-``` bash
+#### Example `/api/.env`
+```bash
 OPENAI_API_KEY=sk-xxx
-USER=<user-id> # The User Id you want to associate the memories with 
+USER=<user-id> # The User ID you want to associate the memories with
 ```
-- #### Example `/ui/.env`
 
+#### Example `/ui/.env`
 ```bash
 NEXT_PUBLIC_API_URL=http://localhost:8765
-NEXT_PUBLIC_USER_ID=<user-id> # Same as the user id for environment variable in api
+NEXT_PUBLIC_USER_ID=<user-id> # Same as the user ID for environment variable in api
 ```
 
 ### 3. Build and Run the Project
 You can run the project using the following two commands:
 ```bash
-make build # builds the mcp server and ui
-make up  # runs openmemory mcp server and ui
-``` 
+make build # Builds the MCP server and UI
+make up    # Runs OpenMemory MCP server and UI
+```
 
 After running these commands, you will have:
-- OpenMemory MCP server running at: http://localhost:8765 (API documentation available at http://localhost:8765/docs)
-- OpenMemory UI running at: http://localhost:3000
+- OpenMemory MCP server running at http://localhost:8765 (API documentation available at http://localhost:8765/docs)
+- OpenMemory UI running at http://localhost:3000
 
-#### UI not working on http://localhost:3000?
+#### UI Not Working on http://localhost:3000?
 
 If the UI does not start properly on http://localhost:3000, try running it manually:
 
@@ -144,17 +144,16 @@ pnpm install
 pnpm dev
 ```
 
-
-You can configure the MCP client using the following command (replace username with your username):
+You can configure the MCP client using the following command (replace `username` with your username):
 
 ```bash
 npx @openmemory/install local "http://localhost:8765/mcp/cursor/sse/username" --client cursor
 ```
 
-The OpenMemory dashboard will be available at http://localhost:3000. From here, you can view and manage your memories, as well as check connection status with your MCP clients.
+The OpenMemory dashboard will be available at http://localhost:3000. From here, you can view and manage your memories and check connection status with your MCP clients.
 
 Once set up, OpenMemory runs locally on your machine, ensuring all your AI memories remain private and secure while being accessible across any compatible MCP client.
 
-### Getting Started Today
+## Getting Started Today
 
-- Github Repository: https://github.com/mem0ai/mem0/tree/main/openmemory
+GitHub Repository: https://github.com/mem0ai/mem0/tree/main/openmemory

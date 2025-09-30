@@ -12,7 +12,8 @@ Advanced Retrieval gives you precise control over how memories are found and ran
 ## Search Enhancement Options
 
 ### Keyword Search
-**Expands results** to include memories with specific terms, names, and technical keywords.
+
+Expands results to include memories with specific terms, names, and technical keywords.
 
 <Tabs>
   <Tab title="When to Use">
@@ -44,8 +45,9 @@ results = client.search(
 </Tab>
 </Tabs>
 
-### Reranking  
-**Reorders results** using deep semantic understanding to put the most relevant memories first.
+### Reranking
+
+Reorders results using deep semantic understanding to put the most relevant memories first.
 
 <Tabs>
   <Tab title="When to Use">
@@ -78,7 +80,8 @@ results = client.search(
 </Tabs>
 
 ### Memory Filtering
-**Filters results** to keep only the most precisely relevant memories.
+
+Filters results to keep only the most precisely relevant memories.
 
 <Tabs>
 <Tab title="When to Use">
@@ -219,7 +222,7 @@ function standardSearch(query, userId) {
     });
 }
 
-// High precision - good for critical applications  
+// High precision - good for critical applications
 function preciseSearch(query, userId) {
     return client.search(query, {
         user_id: userId,
@@ -232,15 +235,17 @@ function preciseSearch(query, userId) {
 
 ## Best Practices
 
-### ✅ Do
-- **Start simple** with just one enhancement and measure impact
-- **Use keyword search** for entity-heavy queries (names, places, technical terms)
-- **Use reranking** when the top result quality matters most
-- **Use filtering** for production systems where precision is critical
-- **Handle empty results** gracefully when filtering is too aggressive
-- **Monitor latency** and adjust based on your application's needs
+### Do
 
-### ❌ Don't
+- Start simple with just one enhancement and measure impact
+- Use keyword search for entity-heavy queries (names, places, technical terms)
+- Use reranking when the top result quality matters most
+- Use filtering for production systems where precision is critical
+- Handle empty results gracefully when filtering is too aggressive
+- Monitor latency and adjust based on your application's needs
+
+### Don't
+
 - Enable all options by default without measuring necessity
 - Use filtering for broad exploratory queries
 - Ignore latency impact in real-time applications
@@ -273,9 +278,5 @@ print(f"Search completed in {latency:.2f}s")  # ~0.41s expected
 2. **Use session-specific search** with `run_id` to reduce search space
 3. **Implement fallback logic** when filtering returns empty results
 4. **Monitor and alert** on search latency patterns
-
----
-
-**Ready to enhance your search?** Start with keyword search for broader coverage, add reranking for better ordering, and use filtering when precision is critical.
 
 <Snippet file="get-help.mdx" />

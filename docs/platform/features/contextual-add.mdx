@@ -7,7 +7,7 @@ description: "Add messages with automatic context management - no manual history
 
 ## What is Contextual Memory Creation?
 
-Contextual memory creation automatically manages message history for you, so you can focus on building great AI experiences instead of tracking interactions manually. Simply send new messages, and Mem0 handles the context automatically.
+Contextual memory creation automatically manages message history, allowing you to focus on building AI experiences without manually tracking interactions. Simply send new messages, and Mem0 handles the context automatically.
 
 <CodeGroup>
 ```python Python
@@ -85,7 +85,7 @@ Choose the right approach based on your application's needs:
 
 ### User-Level Memories (`user_id` only)
 
-Best for: Personal preferences, profile information, long-term user data
+**Best for:** Personal preferences, profile information, long-term user data
 
 <CodeGroup>
 ```python Python
@@ -113,7 +113,7 @@ await client.add(messages, { user_id: "user123", version: "v2" });
 
 ### Session-Specific Memories (`user_id` + `run_id`)
 
-Best for: Task-specific context, separate interaction threads, project-based sessions
+**Best for:** Task-specific context, separate interaction threads, project-based sessions
 
 <CodeGroup>
 ```python Python

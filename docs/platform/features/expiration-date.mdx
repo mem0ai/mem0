@@ -9,15 +9,14 @@ iconType: "solid"
 
 Setting expiration dates for memories offers several advantages:
 
-• **Time-Sensitive Information Management**: Handle information that's only relevant for a specific time period.
-
-• **Event-Based Memory**: Manage information related to upcoming events that becomes irrelevant after the event passes.
+- **Time-Sensitive Information Management**: Handle information that is only relevant for a specific time period.
+- **Event-Based Memory**: Manage information related to upcoming events that becomes irrelevant after the event passes.
 
 These benefits enable more sophisticated memory management for applications where temporal context matters.
 
 ## Setting Memory Expiration Date
 
-You can set an expiration date for memories, after which they will no longer be retrieved in searches. This is useful for creating temporary memories or memories that are only relevant for a specific time period.
+You can set an expiration date for memories, after which they will no longer be retrieved in searches. This is useful for creating temporary memories or memories that are relevant only for a specific time period.
 
 <CodeGroup>
 
@@ -30,7 +29,7 @@ client = MemoryClient(api_key="your-api-key")
 messages = [
     {
         "role": "user", 
-        "content": "I'll be in San Francisco until end of this month."
+        "content": "I'll be in San Francisco until the end of this month."
     }
 ]
 
@@ -48,7 +47,7 @@ const client = new MemoryClient({ apiKey: 'your-api-key' });
 const messages = [
     {
         "role": "user", 
-        "content": "I'll be in San Francisco until end of this month."
+        "content": "I'll be in San Francisco until the end of this month."
     }
 ];
 
@@ -79,7 +78,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
          "messages": [
              {
                 "role": "user", 
-                "content": "I'll be in San Francisco until end of this month."
+                "content": "I'll be in San Francisco until the end of this month."
             }
          ],
          "user_id": "alex",
@@ -93,7 +92,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
         {
             "id": "a1b2c3d4-e5f6-4g7h-8i9j-k0l1m2n3o4p5",
             "data": {
-                "memory": "In San Francisco until end of this month"
+                "memory": "In San Francisco until the end of this month"
             },
             "event": "ADD"
         }
@@ -104,7 +103,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 </CodeGroup>
 
 <Note>
-Once a memory reaches its expiration date, it won't be included in search or get results, though the data remains stored in the system.
+Once a memory reaches its expiration date, it will not be included in search or get results, though the data remains stored in the system.
 </Note>
 
 If you have any questions, please feel free to reach out to us using one of the following methods:

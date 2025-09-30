@@ -13,7 +13,7 @@ Memories can become outdated, irrelevant, or need to be removed for privacy or c
 2. **Batch Delete**: Delete multiple known memory IDs (up to 1000)
 3. **Filtered Delete**: Delete memories matching a filter (e.g., `user_id`, `metadata`, `run_id`)
 
-This page walks through code example for each method.
+This page walks through code examples for each method.
 
 
 ## Use Cases
@@ -109,6 +109,7 @@ client.deleteAll({ user_id: "alice" })
 </CodeGroup>
 
 You can also filter by other parameters such as:
+
 - `agent_id`
 - `run_id`
 - `metadata` (as JSON string)
@@ -132,8 +133,6 @@ For request/response schema and additional filtering options, see:
 - [Delete Memories by Filter Reference](/api-reference/memory/delete-memories)
 
 You’ve now seen how to add, search, update, and delete memories in Mem0.
-
----
 
 ## Need help?
 If you have any questions, please feel free to reach out to us using one of the following methods:

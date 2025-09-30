@@ -4,7 +4,7 @@ description: 'Build a personalized healthcare agent that remembers patient infor
 ---
 
 
-# Healthcare Assistant with Memory
+## Healthcare Assistant with Memory
 
 This example demonstrates how to build a healthcare assistant that remembers patient information across conversations using Google ADK and Mem0.
 
@@ -257,7 +257,7 @@ This healthcare assistant demonstrates several key capabilities:
 
 ## Key Implementation Details
 
-### User ID Management
+## User ID Management
 
 Instead of passing the user ID as a parameter to the memory tools (which would require modifying the ADK's tool calling system), we attach it directly to the function object:
 
@@ -276,7 +276,7 @@ user_id = getattr(save_patient_info, 'user_id', 'default_user')
 
 This approach allows our tools to maintain user context without complicating their parameter signatures.
 
-### Mem0 Integration
+## Mem0 Integration
 
 The integration with Mem0 happens through two primary functions:
 
