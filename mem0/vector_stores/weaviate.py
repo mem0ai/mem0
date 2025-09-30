@@ -1,9 +1,9 @@
 import logging
 import uuid
 from typing import Dict, List, Mapping, Optional
+from urllib.parse import urlparse
 
 from pydantic import BaseModel
-from urllib.parse import urlparse
 
 try:
     import weaviate
@@ -13,7 +13,7 @@ except ImportError:
     )
 
 import weaviate.classes.config as wvcc
-from weaviate.classes.init import Auth, AdditionalConfig, Timeout
+from weaviate.classes.init import AdditionalConfig, Auth, Timeout
 from weaviate.classes.query import Filter, MetadataQuery
 from weaviate.util import get_valid_uuid
 
@@ -48,9 +48,9 @@ class Weaviate(VectorStoreBase):
             auth_config (dict, optional): Authentication configuration for Weaviate. Defaults to None.
             additional_headers (dict, optional): Additional headers for requests. Defaults to None.
         """
-        if "localhost" in cluster_url: 
+        if "localhost" in cluster_url:
             self.client = weaviate.connect_to_local(headers=additional_headers)
-        elif auth_client_secret: 
+        elif auth_client_secret:
             self.client = weaviate.connect_to_wcs(
                 cluster_url=cluster_url,
                 auth_credentials=Auth.api_key(auth_client_secret),
@@ -76,7 +76,7 @@ class Weaviate(VectorStoreBase):
                 grpc_secure,
                 headers=additional_headers,
                 skip_init_checks=True,
-                additional_config=AdditionalConfig(timeout=Timeout(init=2.0))
+                additional_config=AdditionalConfig(timeout=Timeout(init=2.0)),
             )
 
         self.collection_name = collection_name
@@ -211,9 +211,7 @@ class Weaviate(VectorStoreBase):
             results.append(
                 OutputData(
                     id=str(obj.uuid),
-                    score=1
-                    if obj.metadata.distance is None
-                    else 1 - obj.metadata.distance,  # Convert distance to score
+                    score=1 if obj.metadata.score is None else obj.metadata.score,
                     payload=payload,
                 )
             )
