@@ -31,7 +31,6 @@ from mem0.memory.utils import (
     parse_vision_messages,
     process_telemetry_filters,
     remove_code_blocks,
-    remove_thinking_tags,
 )
 from mem0.utils.factory import (
     EmbedderFactory,
@@ -363,8 +362,6 @@ class Memory(MemoryBase):
 
         try:
             response = remove_code_blocks(response)
-            if '</think>' in response:
-                response=remove_thinking_tags(response)
             new_retrieved_facts = json.loads(response)["facts"]
         except Exception as e:
             logger.error(f"Error in new_retrieved_facts: {e}")
@@ -419,8 +416,6 @@ class Memory(MemoryBase):
                     new_memories_with_actions = {}
                 else:
                     response = remove_code_blocks(response)
-                    if '</think>' in response:
-                        response=remove_thinking_tags(response)
                     new_memories_with_actions = json.loads(response)
             except Exception as e:
                 logger.error(f"Invalid JSON response: {e}")
@@ -894,8 +889,7 @@ class Memory(MemoryBase):
 
         try:
             procedural_memory = self.llm.generate_response(messages=parsed_messages)
-            if '</think>' in procedural_memory:
-                procedural_memory=remove_thinking_tags(procedural_memory)
+            procedural_memory = remove_code_blocks(procedural_memory)
         except Exception as e:
             logger.error(f"Error generating procedural memory summary: {e}")
             raise
@@ -1220,8 +1214,6 @@ class AsyncMemory(MemoryBase):
         )
         try:
             response = remove_code_blocks(response)
-            if '</think>' in response:
-                response=remove_thinking_tags(response)
             new_retrieved_facts = json.loads(response)["facts"]
         except Exception as e:
             logger.error(f"Error in new_retrieved_facts: {e}")
@@ -1270,8 +1262,6 @@ class AsyncMemory(MemoryBase):
                     messages=[{"role": "user", "content": function_calling_prompt}],
                     response_format={"type": "json_object"},
                 )
-                if '</think>' in response:
-                    response=remove_thinking_tags(response)
             except Exception as e:
                 logger.error(f"Error in new memory actions response: {e}")
                 response = ""
@@ -1795,8 +1785,8 @@ class AsyncMemory(MemoryBase):
                 procedural_memory = response.content
             else:
                 procedural_memory = await asyncio.to_thread(self.llm.generate_response, messages=parsed_messages)
-                if '</think>' in procedural_memory:
-                    procedural_memory=remove_thinking_tags
+                procedural_memory = remove_code_blocks(procedural_memory)
+        
         except Exception as e:
             logger.error(f"Error generating procedural memory summary: {e}")
             raise

@@ -43,7 +43,9 @@ def remove_code_blocks(content: str) -> str:
     """
     pattern = r"^```[a-zA-Z0-9]*\n([\s\S]*?)\n```$"
     match = re.match(pattern, content.strip())
-    return match.group(1).strip() if match else content.strip()
+    match_res=match.group(1).strip() if match else content.strip()
+    return re.sub(r"<think>.*?</think>", "", match_res, flags=re.DOTALL).strip()
+
 
 
 def extract_json(text):
@@ -183,15 +185,3 @@ def sanitize_relationship_for_cypher(relationship) -> str:
 
     return re.sub(r"_+", "_", sanitized).strip("_")
 
-
-def remove_thinking_tags(text: str) -> str:
-    """
-    Removes <think>...</think> tags from the input text.
-
-    Args:
-        text (str): The input text potentially containing <think>...</think> tags.
-
-    Returns:
-        str: The text with all <think></think>tags and their content removed.
-    """
-    return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
