@@ -51,7 +51,7 @@ class Weaviate(VectorStoreBase):
         if "localhost" in cluster_url:
             self.client = weaviate.connect_to_local(headers=additional_headers)
         elif auth_client_secret:
-            self.client = weaviate.connect_to_wcs(
+            self.client = weaviate.connect_to_weaviate_cloud(
                 cluster_url=cluster_url,
                 auth_credentials=Auth.api_key(auth_client_secret),
                 headers=additional_headers,
