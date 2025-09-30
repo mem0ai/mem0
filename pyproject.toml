@@ -10,6 +10,8 @@ authors = [
     { name = "Mem0", email = "founders@mem0.ai" }
 ]
 readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 requires-python = ">=3.9,<4.0"
 dependencies = [
     "qdrant-client>=1.9.1",
