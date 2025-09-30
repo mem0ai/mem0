@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock, patch
 import pytest
-from mem0.graphs.neptune.main import MemoryGraph
+from mem0.graphs.neptune.neptunedb import MemoryGraph
 from mem0.graphs.neptune.base import NeptuneBase
 
 
@@ -13,24 +13,26 @@ class TestNeptuneMemory(unittest.TestCase):
 
         # Create a mock config
         self.config = MagicMock()
-        self.config.graph_store.config.endpoint = "neptune-graph://test-graph"
+        self.config.graph_store.config.endpoint = "neptune-db://test-graph"
         self.config.graph_store.config.base_label = True
         self.config.llm.provider = "openai_structured"
         self.config.graph_store.llm = None
         self.config.graph_store.custom_prompt = None
+        self.config.vector_store.provider = "qdrant"
+        self.config.vector_store.config = MagicMock()
 
-        # Create mock for NeptuneAnalyticsGraph
+        # Create mock for NeptuneGraph
         self.mock_graph = MagicMock()
-        self.mock_graph.client.get_graph.return_value = {"status": "AVAILABLE"}
 
         # Create mocks for static methods
         self.mock_embedding_model = MagicMock()
         self.mock_llm = MagicMock()
+        self.mock_vector_store = MagicMock()
 
         # Patch the necessary components
-        self.neptune_analytics_graph_patcher = patch("mem0.graphs.neptune.main.NeptuneAnalyticsGraph")
-        self.mock_neptune_analytics_graph = self.neptune_analytics_graph_patcher.start()
-        self.mock_neptune_analytics_graph.return_value = self.mock_graph
+        self.neptune_graph_patcher = patch("mem0.graphs.neptune.neptunedb.NeptuneGraph")
+        self.mock_neptune_graph = self.neptune_graph_patcher.start()
+        self.mock_neptune_graph.return_value = self.mock_graph
 
         # Patch the static methods
         self.create_embedding_model_patcher = patch.object(NeptuneBase, "_create_embedding_model")
@@ -41,6 +43,10 @@ class TestNeptuneMemory(unittest.TestCase):
         self.mock_create_llm = self.create_llm_patcher.start()
         self.mock_create_llm.return_value = self.mock_llm
 
+        self.create_vector_store_patcher = patch.object(NeptuneBase, "_create_vector_store")
+        self.mock_create_vector_store = self.create_vector_store_patcher.start()
+        self.mock_create_vector_store.return_value = self.mock_vector_store
+
         # Create the MemoryGraph instance
         self.memory_graph = MemoryGraph(self.config)
 
@@ -50,18 +56,65 @@ class TestNeptuneMemory(unittest.TestCase):
 
     def tearDown(self):
         """Tear down test fixtures after each test method."""
-        self.neptune_analytics_graph_patcher.stop()
+        self.neptune_graph_patcher.stop()
         self.create_embedding_model_patcher.stop()
         self.create_llm_patcher.stop()
+        self.create_vector_store_patcher.stop()
 
     def test_initialization(self):
         """Test that the MemoryGraph is initialized correctly."""
         self.assertEqual(self.memory_graph.graph, self.mock_graph)
         self.assertEqual(self.memory_graph.embedding_model, self.mock_embedding_model)
         self.assertEqual(self.memory_graph.llm, self.mock_llm)
+        self.assertEqual(self.memory_graph.vector_store, self.mock_vector_store)
         self.assertEqual(self.memory_graph.llm_provider, "openai_structured")
         self.assertEqual(self.memory_graph.node_label, ":`__Entity__`")
         self.assertEqual(self.memory_graph.threshold, 0.7)
+        self.assertEqual(self.memory_graph.vector_store_limit, 5)
+
+    def test_collection_name_variants(self):
+        """Test all collection_name configuration variants."""
+        
+        # Test 1: graph_store.config.collection_name is set
+        config1 = MagicMock()
+        config1.graph_store.config.endpoint = "neptune-db://test-graph"
+        config1.graph_store.config.base_label = True
+        config1.graph_store.config.collection_name = "custom_collection"
+        config1.llm.provider = "openai"
+        config1.graph_store.llm = None
+        config1.vector_store.provider = "qdrant"
+        config1.vector_store.config = MagicMock()
+        
+        MemoryGraph(config1)
+        self.assertEqual(config1.vector_store.config.collection_name, "custom_collection")
+        
+        # Test 2: vector_store.config.collection_name exists, graph_store.config.collection_name is None
+        config2 = MagicMock()
+        config2.graph_store.config.endpoint = "neptune-db://test-graph"
+        config2.graph_store.config.base_label = True
+        config2.graph_store.config.collection_name = None
+        config2.llm.provider = "openai"
+        config2.graph_store.llm = None
+        config2.vector_store.provider = "qdrant"
+        config2.vector_store.config = MagicMock()
+        config2.vector_store.config.collection_name = "existing_collection"
+        
+        MemoryGraph(config2)
+        self.assertEqual(config2.vector_store.config.collection_name, "existing_collection_neptune_vector_store")
+        
+        # Test 3: Neither collection_name is set (default case)
+        config3 = MagicMock()
+        config3.graph_store.config.endpoint = "neptune-db://test-graph"
+        config3.graph_store.config.base_label = True
+        config3.graph_store.config.collection_name = None
+        config3.llm.provider = "openai"
+        config3.graph_store.llm = None
+        config3.vector_store.provider = "qdrant"
+        config3.vector_store.config = MagicMock()
+        config3.vector_store.config.collection_name = None
+        
+        MemoryGraph(config3)
+        self.assertEqual(config3.vector_store.config.collection_name, "mem0_neptune_vector_store")
 
     def test_init(self):
         """Test the class init functions"""
@@ -74,12 +127,12 @@ class TestNeptuneMemory(unittest.TestCase):
         with pytest.raises(ValueError):
             MemoryGraph(config_no_endpoint)
 
-        # Create a mock config with bad endpoint
-        config_ndb_endpoint = MagicMock()
-        config_ndb_endpoint.graph_store.config.endpoint = "neptune-db://test-graph"
+        # Create a mock config with wrong endpoint type
+        config_wrong_endpoint = MagicMock()
+        config_wrong_endpoint.graph_store.config.endpoint = "neptune-graph://test-graph"
 
         with pytest.raises(ValueError):
-            MemoryGraph(config_ndb_endpoint)
+            MemoryGraph(config_wrong_endpoint)
 
     def test_add_method(self):
         """Test the add method with mocked components."""

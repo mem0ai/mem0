@@ -1,0 +1,141 @@
+---
+title: Delete Memory
+description: Remove memories from Mem0 either individually, in bulk, or via filters.
+icon: "trash"
+iconType: "solid"
+---
+
+## Overview
+
+Memories can become outdated, irrelevant, or need to be removed for privacy or compliance reasons. Mem0 offers flexible ways to delete memory:
+
+1. **Delete a Single Memory**: Using a specific memory ID
+2. **Batch Delete**: Delete multiple known memory IDs (up to 1000)
+3. **Filtered Delete**: Delete memories matching a filter (e.g., `user_id`, `metadata`, `run_id`)
+
+This page walks through code example for each method.
+
+
+## Use Cases
+
+- Forget a user’s past preferences by request
+- Remove outdated or incorrect memory entries
+- Clean up memory after session expiration
+- Comply with data deletion requests (e.g., GDPR)
+
+---
+
+## 1. Delete a Single Memory by ID
+
+<CodeGroup>
+```python Python
+from mem0 import MemoryClient
+
+client = MemoryClient(api_key="your-api-key")
+
+memory_id = "your_memory_id"
+client.delete(memory_id=memory_id)
+```
+
+```javascript JavaScript
+import MemoryClient from 'mem0ai';
+
+const client = new MemoryClient({ apiKey: "your-api-key" });
+
+client.delete("your_memory_id")
+  .then(result => console.log(result))
+  .catch(error => console.error(error));
+```
+</CodeGroup>
+
+---
+
+## 2. Batch Delete Multiple Memories
+
+<CodeGroup>
+```python Python
+from mem0 import MemoryClient
+
+client = MemoryClient(api_key="your-api-key")
+
+delete_memories = [
+    {"memory_id": "id1"},
+    {"memory_id": "id2"}
+]
+
+response = client.batch_delete(delete_memories)
+print(response)
+```
+
+```javascript JavaScript
+import MemoryClient from 'mem0ai';
+
+const client = new MemoryClient({ apiKey: "your-api-key" });
+
+const deleteMemories = [
+  { memory_id: "id1" },
+  { memory_id: "id2" }
+];
+
+client.batchDelete(deleteMemories)
+  .then(response => console.log('Batch delete response:', response))
+  .catch(error => console.error(error));
+```
+</CodeGroup>
+
+---
+
+## 3. Delete Memories by Filter (e.g., user_id)
+
+<CodeGroup>
+```python Python
+from mem0 import MemoryClient
+
+client = MemoryClient(api_key="your-api-key")
+
+# Delete all memories for a specific user
+client.delete_all(user_id="alice")
+```
+
+```javascript JavaScript
+import MemoryClient from 'mem0ai';
+
+const client = new MemoryClient({ apiKey: "your-api-key" });
+
+client.deleteAll({ user_id: "alice" })
+  .then(result => console.log(result))
+  .catch(error => console.error(error));
+```
+</CodeGroup>
+
+You can also filter by other parameters such as:
+- `agent_id`
+- `run_id`
+- `metadata` (as JSON string)
+
+---
+
+## Key Differences
+
+| Method                | Use When                                | IDs Needed | Filters |
+|----------------------|-------------------------------------------|------------|----------|
+| `delete(memory_id)`  | You know exactly which memory to remove   | ✔          | ✘        |
+| `batch_delete([...])`| You have a known list of memory IDs       | ✔          | ✘        |
+| `delete_all(...)`    | You want to delete by user/agent/run/etc | ✘          | ✔        |
+
+
+### More Details
+
+For request/response schema and additional filtering options, see:
+- [Delete Memory API Reference](/api-reference/memory/delete-memory)
+- [Batch Delete API Reference](/api-reference/memory/batch-delete)
+- [Delete Memories by Filter Reference](/api-reference/memory/delete-memories)
+
+You’ve now seen how to add, search, update, and delete memories in Mem0.
+
+---
+
+## Need help?
+If you have any questions, please feel free to reach out to us using one of the following methods:
+
+<Snippet file="get-help.mdx"/>

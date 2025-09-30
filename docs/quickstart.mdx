@@ -166,7 +166,7 @@ client.search(query, { version: "v2", filters })
 ```
 
 ```bash cURL
-curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
+curl -X POST "https://api.mem0.ai/v2/memories/search/" \
      -H "Authorization: Token your-api-key" \
      -H "Content-Type: application/json" \
      -d '{
@@ -237,7 +237,7 @@ client.getAll({ version: "v2", filters, page: 1, page_size: 50 })
 ```
 
 ```bash cURL
-curl -X GET "https://api.mem0.ai/v1/memories/?version=v2&page=1&page_size=50" \
+curl -X GET "https://api.mem0.ai/v2/memories/?page=1&page_size=50" \
      -H "Authorization: Token your-api-key" \
      -H "Content-Type: application/json" \
      -d '{

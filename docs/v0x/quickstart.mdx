@@ -1,0 +1,246 @@
+---
+title: Quickstart (v0.x)
+description: 'Get started with Mem0 v0.x quickly'
+icon: "bolt"
+iconType: "solid"
+---
+
+<Warning>
+**This is legacy documentation for Mem0 v0.x.** For the latest features, please refer to [v1.0.0 Beta documentation](/quickstart).
+</Warning>
+
+## Installation
+
+```bash
+pip install mem0ai==0.1.20  # Last stable v0.x version
+```
+
+## Basic Usage
+
+### Initialize Mem0
+
+```python
+from mem0 import Memory
+import os
+
+# Set your OpenAI API key
+os.environ["OPENAI_API_KEY"] = "your-api-key"
+
+# Initialize memory
+m = Memory()
+```
+
+### Add Memories
+
+```python
+# Add a simple memory
+result = m.add("I love pizza and prefer thin crust", user_id="alice")
+print(result)
+```
+
+**Response Format (v0.x):**
+```json
+[
+    {
+        "id": "mem_123",
+        "memory": "User loves pizza and prefers thin crust",
+        "event": "ADD"
+    }
+]
+```
+
+### Search Memories
+
+```python
+# Search for relevant memories
+results = m.search("What food does alice like?", user_id="alice")
+print(results)
+```
+
+**Response Format (v0.x):**
+```json
+[
+    {
+        "id": "mem_123",
+        "memory": "User loves pizza and prefers thin crust",
+        "score": 0.95,
+        "user_id": "alice"
+    }
+]
+```
+
+### Get All Memories
+
+```python
+# Get all memories for a user
+all_memories = m.get_all(user_id="alice")
+print(all_memories)
+```
+
+## Configuration (v0.x)
+
+### Basic Configuration
+
+```python
+config = {
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "host": "localhost",
+            "port": 6333
+        }
+    },
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "gpt-3.5-turbo",
+            "api_key": "your-api-key"
+        }
+    },
+    "version": "v1.0"  # Supported in v0.x
+}
+
+m = Memory.from_config(config)
+```
+
+### Supported Parameters (v0.x)
+
+| Parameter | Type | Description | v0.x Support |
+|-----------|------|-------------|--------------|
+| `output_format` | str | Response format ("v1.0" or "v1.1") | ✅ Yes |
+| `version` | str | API version | ✅ Yes |
+| `async_mode` | bool | Enable async processing | ✅ Optional |
+
+## API Differences
+
+### v0.x Features
+
+#### 1. Output Format Control
+```python
+# v0.x supports output_format parameter
+result = m.add(
+    "I love hiking",
+    user_id="alice",
+    output_format="v1.0"  # Available in v0.x
+)
+```
+
+#### 2. Version Parameter
+```python
+# v0.x supports version configuration
+config = {
+    "version": "v1.0"  # Explicit version setting
+}
+```
+
+#### 3. Optional Async Mode
+```python
+# v0.x: Async is optional
+result = m.add(
+    "memory content",
+    user_id="alice",
+    async_mode=False  # Synchronous by default
+)
+```
+
+### Response Formats
+
+#### v1.0 Format (v0.x default)
+```python
+result = m.add("I love coffee", user_id="alice", output_format="v1.0")
+# Returns: [{"id": "...", "memory": "...", "event": "ADD"}]
+```
+
+#### v1.1 Format (v0.x optional)
+```python
+result = m.add("I love coffee", user_id="alice", output_format="v1.1")
+# Returns: {"results": [{"id": "...", "memory": "...", "event": "ADD"}]}
+```
+
+## Limitations in v0.x
+
+- No reranking support
+- Basic metadata filtering only
+- Limited async optimization
+- No enhanced prompt features
+- No advanced memory operations
+
+## Migration Path
+
+To upgrade to v1.0.0 Beta:
+
+1. **Remove deprecated parameters:**
+   ```python
+   # Old (v0.x)
+   m.add("memory", user_id="alice", output_format="v1.0", version="v1.0")
+
+   # New (v1.0.0 Beta)
+   m.add("memory", user_id="alice")
+   ```
+
+2. **Update response handling:**
+   ```python
+   # Old (v0.x)
+   result = m.add("memory", user_id="alice")
+   if isinstance(result, list):
+       for item in result:
+           print(item["memory"])
+
+   # New (v1.0.0 Beta)
+   result = m.add("memory", user_id="alice")
+   for item in result["results"]:
+       print(item["memory"])
+   ```
+
+3. **Upgrade installation:**
+   ```bash
+   pip install --upgrade mem0ai
+   ```
+
+## Examples
+
+### Personal Assistant
+
+```python
+from mem0 import Memory
+
+m = Memory()
+
+# Learn user preferences
+m.add("I prefer morning meetings and dislike late evening calls", user_id="john")
+m.add("I'm vegetarian and allergic to nuts", user_id="john")
+
+# Query for personalized responses
+schedule_pref = m.search("when does john prefer meetings?", user_id="john")
+food_pref = m.search("what food restrictions does john have?", user_id="john")
+
+print("Schedule:", schedule_pref[0]["memory"])
+print("Food:", food_pref[0]["memory"])
+```
+
+### Customer Support
+
+```python
+# Track customer interactions
+m.add("Customer reported login issues with Safari browser", user_id="customer_123")
+m.add("Resolved login issue by clearing browser cache", user_id="customer_123")
+
+# Later interaction
+history = m.search("previous issues", user_id="customer_123")
+print("Previous context:", history)
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Core Concepts" icon="brain" href="/v0x/core-concepts/memory-types">
+    Understand memory types and operations
+  </Card>
+  <Card title="Open Source Guide" icon="code" href="/v0x/open-source/overview">
+    Self-host Mem0 with full control
+  </Card>
+</CardGroup>
+
+<Info>
+**Ready to upgrade?** Check out the [migration guide](/migration/v0-to-v1) to move to v1.0.0 Beta and access new features like reranking and enhanced filtering.
+</Info>

@@ -1,0 +1,98 @@
+---
+title: Introduction to Mem0 v0.x
+description: 'Legacy documentation for Mem0 version 0.x'
+icon: "book-open"
+iconType: "solid"
+---
+
+<Warning>
+**This is legacy documentation for Mem0 v0.x.** For the latest features and improvements, please refer to [v1.0.0 Beta documentation](/).
+</Warning>
+
+## Welcome to Mem0 v0.x
+
+Mem0 (pronounced "mem-zero") is a self-improving memory layer for Large Language Models, enabling developers to create personalized AI experiences that save costs and delight users.
+
+## What is Mem0?
+
+Mem0 provides an intelligent, adaptive memory system that learns and evolves with each interaction. Unlike traditional RAG approaches that rely on static embeddings, Mem0's memory system understands context, relationships, and user preferences to deliver truly personalized experiences.
+
+### Key Features (v0.x)
+
+- **Adaptive Learning**: Memory that improves with each user interaction
+- **Cross-Platform**: Python and JavaScript SDKs
+- **Flexible Integration**: Works with any LLM and vector database
+- **User Personalization**: Learns individual user preferences and patterns
+- **Developer Friendly**: Simple APIs with powerful customization options
+
+## How Mem0 Works
+
+```python
+from mem0 import Memory
+
+# Initialize memory
+m = Memory()
+
+# Add memories
+m.add("I am working on improving my tennis skills. Suggest some online courses.", user_id="alice")
+
+# Query memories
+results = m.search("What can you tell me about alice?", user_id="alice")
+# Returns: "Alice is working on improving her tennis skills and is interested in online courses"
+```
+
+## Getting Started
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/v0x/quickstart">
+    Get up and running with Mem0 in minutes
+  </Card>
+  <Card title="Core Concepts" icon="brain" href="/v0x/core-concepts/memory-types">
+    Understand how Mem0's memory system works
+  </Card>
+</CardGroup>
+
+## Use Cases
+
+- **Personalized AI Assistants**: Create assistants that remember user preferences and context
+- **Customer Support**: Build systems that recall previous interactions and issues
+- **Educational Platforms**: Develop tutors that adapt to individual learning styles
+- **Content Recommendation**: Generate suggestions based on historical preferences
+- **Healthcare Applications**: Maintain patient interaction history and preferences
+
+## Memory Persistence
+
+In v0.x, memories are automatically stored and persist across sessions:
+
+```python
+# Session 1
+m.add("I prefer vegetarian restaurants", user_id="alice")
+
+# Session 2 (later)
+results = m.search("restaurant recommendations", user_id="alice")
+# Automatically considers vegetarian preference
+```
+
+## Platform vs Open Source
+
+### Mem0 Platform (Managed)
+- Hosted solution with enhanced features
+- Enterprise-grade reliability and security
+- Advanced analytics and monitoring
+- Team collaboration features
+
+### Mem0 Open Source
+- Self-hosted deployment
+- Full customization control
+- Community-driven development
+- Free for personal and commercial use
+
+## Next Steps
+
+1. **Try the Quickstart**: Follow our [quickstart guide](/v0x/quickstart) to build your first memory-enabled application
+2. **Explore Examples**: Check out our practical examples and use cases
+3. **Join the Community**: Connect with other developers building with Mem0
+
+<Info>
+**Need to migrate to v1.0?** Check out our [migration guide](/migration/v0-to-v1) for step-by-step instructions.
+</Info>

@@ -1,0 +1,116 @@
+---
+title: Cohere
+---
+
+Cohere provides state-of-the-art reranking models that can significantly improve the relevance of search results. Cohere's rerankers are optimized for various languages and use cases.
+
+## Usage
+
+To use Cohere's reranker with Mem0:
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["COHERE_API_KEY"] = "your-cohere-api-key"
+
+config = {
+    "reranker": {
+        "provider": "cohere",
+        "config": {
+            "api_key": "your-cohere-api-key",  # Can also use environment variable
+            "model": "rerank-english-v3.0",
+            "top_n": 10
+        }
+    }
+}
+
+memory = Memory.from_config(config)
+
+# Use memory as usual
+memory.add("I love playing basketball", user_id="alice")
+memory.add("I enjoy watching movies", user_id="alice")
+
+# Search will now use Cohere reranking
+results = memory.search("What sports does Alice like?", user_id="alice")
+```
+
+## Configuration
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `api_key` | Cohere API key | Required |
+| `model` | Cohere rerank model | `rerank-english-v3.0` |
+| `top_n` | Number of results to return | `10` |
+
+## Available Models
+
+- `rerank-english-v3.0`: Latest English reranking model
+- `rerank-multilingual-v3.0`: Multilingual reranking model
+- `rerank-english-v2.0`: Previous English model
+- `rerank-multilingual-v2.0`: Previous multilingual model
+
+## Example with Different Models
+
+### English Reranker
+```python
+config = {
+    "reranker": {
+        "provider": "cohere",
+        "config": {
+            "api_key": "your-cohere-api-key",
+            "model": "rerank-english-v3.0",
+            "top_n": 5
+        }
+    }
+}
+```
+
+### Multilingual Reranker
+```python
+config = {
+    "reranker": {
+        "provider": "cohere",
+        "config": {
+            "api_key": "your-cohere-api-key",
+            "model": "rerank-multilingual-v3.0",
+            "top_n": 8
+        }
+    }
+}
+```
+
+## Environment Variables
+
+You can set your Cohere API key as an environment variable:
+
+```bash
+export COHERE_API_KEY="your-cohere-api-key"
+```
+
+Then use the config without specifying the API key:
+
+```python
+config = {
+    "reranker": {
+        "provider": "cohere",
+        "config": {
+            "model": "rerank-english-v3.0",
+            "top_n": 10
+        }
+    }
+}
+```
+
+## Getting Your API Key
+
+1. Sign up at [Cohere](https://cohere.ai/)
+2. Navigate to the API keys section in your dashboard
+3. Generate a new API key
+4. Use this key in your configuration
+
+## Performance Considerations
+
+- Cohere rerankers work best with 10-100 candidate documents
+- Higher `top_n` values provide more comprehensive reranking but may increase latency
+- The v3.0 models generally provide better performance than v2.0 models

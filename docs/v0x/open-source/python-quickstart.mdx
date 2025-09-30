@@ -1,0 +1,546 @@
+---
+title: Python SDK Quickstart
+description: 'Get started with Mem0 quickly!'
+icon: "python"
+iconType: "solid"
+---
+
+> Welcome to the Mem0 quickstart guide. This guide will help you get up and running with Mem0 in no time.
+
+## Installation
+
+To install Mem0, you can use pip. Run the following command in your terminal:
+
+```bash
+pip install mem0ai
+```
+
+## Basic Usage
+
+### Initialize Mem0
+
+<Tabs>
+  <Tab title="Basic">
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your-api-key"
+
+m = Memory()
+```
+  </Tab>
+  <Tab title="Async">
+```python
+import os
+from mem0 import AsyncMemory
+
+os.environ["OPENAI_API_KEY"] = "your-api-key"
+
+m = AsyncMemory()
+```
+  </Tab>
+  <Tab title="Advanced">
+If you want to run Mem0 in production, initialize using the following method:
+
+Run Qdrant first:
+
+```bash
+docker pull qdrant/qdrant
+
+docker run -p 6333:6333 -p 6334:6334 \
+    -v $(pwd)/qdrant_storage:/qdrant/storage:z \
+    qdrant/qdrant
+```
+
+Then, instantiate memory with qdrant server:
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your-api-key"
+
+config = {
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "host": "localhost",
+            "port": 6333,
+        }
+    },
+}
+
+m = Memory.from_config(config)
+```
+  </Tab>
+
+<Tab title="Advanced (Graph Memory)">
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your-api-key"
+
+config = {
+    "graph_store": {
+        "provider": "neo4j",
+        "config": {
+            "url": "neo4j+s://---",
+            "username": "neo4j",
+            "password": "---"
+        }
+    }
+}
+
+m = Memory.from_config(config_dict=config)
+```
+
+</Tab>
+</Tabs>
+
+
+### Store a Memory
+
+<CodeGroup>
+```python Code
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+
+# Store inferred memories (default behavior)
+result = m.add(messages, user_id="alice", metadata={"category": "movie_recommendations"})
+
+# Store memories with agent and run context
+result = m.add(messages, user_id="alice", agent_id="movie-assistant", run_id="session-001", metadata={"category": "movie_recommendations"})
+
+# Store raw messages without inference
+# result = m.add(messages, user_id="alice", metadata={"category": "movie_recommendations"}, infer=False)
+```
+
+```json Output
+{
+    "results": [
+        {
+            "id": "892db2ae-06d9-49e5-8b3e-585ef9b85b8e",
+            "memory": "User is planning to watch a movie tonight.",
+            "metadata": {
+                "category": "movie_recommendations"
+            },
+            "event": "ADD"
+        },
+        {
+            "id": "cbb1fe73-0bf1-4067-8c1f-63aa53e7b1a4",
+            "memory": "User is not a big fan of thriller movies.",
+            "metadata": {
+                "category": "movie_recommendations"
+            },
+            "event": "ADD"
+        },
+        {
+            "id": "475bde34-21e6-42ab-8bef-0ab84474f156",
+            "memory": "User loves sci-fi movies.",
+            "metadata": {
+                "category": "movie_recommendations"
+            },
+            "event": "ADD"
+        }
+    ]
+}
+```
+</CodeGroup>
+
+### Retrieve Memories
+
+<CodeGroup>
+```python Code
+# Get all memories
+all_memories = m.get_all(user_id="alice")
+```
+
+```json Output
+{
+    "results": [
+            {
+        "id": "892db2ae-06d9-49e5-8b3e-585ef9b85b8e",
+        "memory": "User is planning to watch a movie tonight.",
+        "hash": "1a271c007316c94377175ee80e746a19",
+        "created_at": "2025-02-27T16:33:20.557Z",
+        "updated_at": "2025-02-27T16:33:27.051Z",
+        "metadata": {
+            "category": "movie_recommendations"
+        },
+        "user_id": "alice"
+        },
+        {
+        "id": "475bde34-21e6-42ab-8bef-0ab84474f156",
+        "memory": "User loves sci-fi movies.",
+        "hash": "285d07801ae42054732314853e9eadd7",
+        "created_at": "2025-02-27T16:33:20.560Z",
+        "updated_at": None,
+        "metadata": {
+            "category": "movie_recommendations"
+        },
+        "user_id": "alice"
+        },
+        {
+        "id": "cbb1fe73-0bf1-4067-8c1f-63aa53e7b1a4",
+        "memory": "User is not a big fan of thriller movies.",
+        "hash": "285d07801ae42054732314853e9eadd7",
+        "created_at": "2025-02-27T16:33:20.560Z",
+        "updated_at": None,
+        "metadata": {
+            "category": "movie_recommendations"
+        },
+        "user_id": "alice"
+        }
+    ]
+}
+```
+</CodeGroup>
+
+
+<br />
+
+<CodeGroup>
+```python Code
+# Get a single memory by ID
+specific_memory = m.get("892db2ae-06d9-49e5-8b3e-585ef9b85b8e")
+```
+
+```json Output
+{
+  "id": "892db2ae-06d9-49e5-8b3e-585ef9b85b8e",
+  "memory": "User is planning to watch a movie tonight.",
+  "hash": "1a271c007316c94377175ee80e746a19",
+  "created_at": "2025-02-27T16:33:20.557Z",
+  "updated_at": None,
+  "metadata": {
+    "category": "movie_recommendations"
+  },
+  "user_id": "alice"
+}
+```
+</CodeGroup>
+
+### Search Memories
+
+<CodeGroup>
+```python Code
+related_memories = m.search(query="What do you know about me?", user_id="alice")
+```
+
+```json Output
+{
+  "results": [
+    {
+      "id": "892db2ae-06d9-49e5-8b3e-585ef9b85b8e",
+      "memory": "User is planning to watch a movie tonight.",
+      "hash": "1a271c007316c94377175ee80e746a19",
+      "created_at": "2025-02-27T16:33:20.557Z",
+      "updated_at": None,
+      "score": 0.38920719231944799,
+      "metadata": {
+        "category": "movie_recommendations"
+      },
+      "user_id": "alice"
+    },
+    {
+      "id": "475bde34-21e6-42ab-8bef-0ab84474f156",
+      "memory": "User loves sci-fi movies.",
+      "hash": "285d07801ae42054732314853e9eadd7",
+      "created_at": "2025-02-27T16:33:20.560Z",
+      "updated_at": None,
+      "score": 0.36869761478135689,
+      "metadata": {
+        "category": "movie_recommendations"
+      },
+      "user_id": "alice"
+    },
+    {
+      "id": "cbb1fe73-0bf1-4067-8c1f-63aa53e7b1a4",
+      "memory": "User is not a big fan of thriller movies.",
+      "hash": "285d07801ae42054732314853e9eadd7",
+      "created_at": "2025-02-27T16:33:20.560Z",
+      "updated_at": None,
+      "score": 0.33855272141248272,
+      "metadata": {
+        "category": "movie_recommendations"
+      },
+      "user_id": "alice"
+    }
+  ]
+}
+```
+</CodeGroup>
+
+### Update a Memory
+
+<CodeGroup>
+```python Code
+result = m.update(memory_id="892db2ae-06d9-49e5-8b3e-585ef9b85b8e", data="I love India, it is my favorite country.")
+```
+
+```json Output
+{'message': 'Memory updated successfully!'}
+```
+</CodeGroup>
+
+### Memory History
+
+<CodeGroup>
+```python Code
+history = m.history(memory_id="892db2ae-06d9-49e5-8b3e-585ef9b85b8e")
+```
+
+```json Output
+[
+  {
+    "id": 39,
+    "memory_id": "892db2ae-06d9-49e5-8b3e-585ef9b85b8e",
+    "previous_value": "User is planning to watch a movie tonight.",
+    "new_value": "I love India, it is my favorite country.",
+    "action": "UPDATE",
+    "created_at": "2025-02-27T16:33:20.557Z",
+    "updated_at": "2025-02-27T16:33:27.051Z",
+    "is_deleted": 0
+  },
+  {
+    "id": 37,
+    "memory_id": "892db2ae-06d9-49e5-8b3e-585ef9b85b8e",
+    "previous_value": null,
+    "new_value": "User is planning to watch a movie tonight.",
+    "action": "ADD",
+    "created_at": "2025-02-27T16:33:20.557Z",
+    "updated_at": null,
+    "is_deleted": 0
+  }
+]
+```
+</CodeGroup>
+
+### Delete Memory
+
+```python
+# Delete a memory by id
+m.delete(memory_id="892db2ae-06d9-49e5-8b3e-585ef9b85b8e")
+# Delete all memories for a user
+m.delete_all(user_id="alice")
+```
+
+### Reset Memory
+
+```python
+m.reset() # Reset all memories
+```
+
+## Advanced Memory Organization
+
+Mem0 supports three key parameters for organizing memories:
+
+- **`user_id`**: Organize memories by user identity
+- **`agent_id`**: Organize memories by AI agent or assistant
+- **`run_id`**: Organize memories by session, workflow, or execution context
+
+### Using All Three Parameters
+
+```python
+# Store memories with full context
+m.add("User prefers vegetarian food", 
+      user_id="alice", 
+      agent_id="diet-assistant", 
+      run_id="consultation-001")
+
+# Retrieve memories with different scopes
+all_user_memories = m.get_all(user_id="alice")
+agent_memories = m.get_all(user_id="alice", agent_id="diet-assistant")
+session_memories = m.get_all(user_id="alice", run_id="consultation-001")
+specific_memories = m.get_all(user_id="alice", agent_id="diet-assistant", run_id="consultation-001")
+
+# Search with context
+general_search = m.search("What do you know about me?", user_id="alice")
+agent_search = m.search("What do you know about me?", user_id="alice", agent_id="diet-assistant")
+session_search = m.search("What do you know about me?", user_id="alice", run_id="consultation-001")
+```
+
+## Configuration Parameters
+
+Mem0 offers extensive configuration options to customize its behavior according to your needs. These configurations span across different components like vector stores, language models, embedders, and graph stores.
+
+<AccordionGroup>
+<Accordion title="Vector Store Configuration">
+| Parameter    | Description                     | Default     |
+|-------------|---------------------------------|-------------|
+| `provider`   | Vector store provider (e.g., "qdrant") | "qdrant"   |
+| `host`       | Host address                    | "localhost" |
+| `port`       | Port number                     | 6333       |
+</Accordion>
+
+<Accordion title="LLM Configuration">
+| Parameter              | Description                                   | Provider          |
+|-----------------------|-----------------------------------------------|-------------------|
+| `provider`            | LLM provider (e.g., "openai", "anthropic")    | All              |
+| `model`               | Model to use                                  | All              |
+| `temperature`         | Temperature of the model                      | All              |
+| `api_key`             | API key to use                                | All              |
+| `max_tokens`          | Tokens to generate                            | All              |
+| `top_p`               | Probability threshold for nucleus sampling    | All              |
+| `top_k`               | Number of highest probability tokens to keep  | All              |
+| `http_client_proxies` | Allow proxy server settings                   | AzureOpenAI      |
+| `models`              | List of models                                | Openrouter       |
+| `route`               | Routing strategy                              | Openrouter       |
+| `openrouter_base_url` | Base URL for Openrouter API                  | Openrouter       |
+| `site_url`            | Site URL                                      | Openrouter       |
+| `app_name`            | Application name                              | Openrouter       |
+| `ollama_base_url`     | Base URL for Ollama API                      | Ollama           |
+| `openai_base_url`     | Base URL for OpenAI API                      | OpenAI           |
+| `azure_kwargs`        | Azure LLM args for initialization            | AzureOpenAI      |
+| `deepseek_base_url`   | Base URL for DeepSeek API                    | DeepSeek         |
+</Accordion>
+
+<Accordion title="Embedder Configuration">
+| Parameter    | Description                     | Default                      |
+|-------------|---------------------------------|------------------------------|
+| `provider`   | Embedding provider              | "openai"                     |
+| `model`      | Embedding model to use          | "text-embedding-3-small"     |
+| `api_key`    | API key for embedding service   | None                        |
+</Accordion>
+
+<Accordion title="Graph Store Configuration">
+| Parameter    | Description                     | Default     |
+|-------------|---------------------------------|-------------|
+| `provider`   | Graph store provider (e.g., "neo4j") | "neo4j"    |
+| `url`        | Connection URL                  | None        |
+| `username`   | Authentication username         | None        |
+| `password`   | Authentication password         | None        |
+</Accordion>
+
+<Accordion title="General Configuration">
+| Parameter         | Description                          | Default                    |
+|------------------|--------------------------------------|----------------------------|
+| `history_db_path` | Path to the history database         | "{mem0_dir}/history.db"    |
+| `version`         | API version                          | "v1.1"                     |
+| `custom_fact_extraction_prompt`   | Custom prompt for memory processing  | None                       |
+| `custom_update_memory_prompt` | Custom prompt for update memory | None                |
+</Accordion>
+
+<Accordion title="Complete Configuration Example">
+```python
+config = {
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "host": "localhost",
+            "port": 6333
+        }
+    },
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "api_key": "your-api-key",
+            "model": "gpt-4"
+        }
+    },
+    "embedder": {
+        "provider": "openai",
+        "config": {
+            "api_key": "your-api-key",
+            "model": "text-embedding-3-small"
+        }
+    },
+    "graph_store": {
+        "provider": "neo4j",
+        "config": {
+            "url": "neo4j+s://your-instance",
+            "username": "neo4j",
+            "password": "password"
+        }
+    },
+    "history_db_path": "/path/to/history.db",
+    "version": "v1.1",
+    "custom_fact_extraction_prompt": "Optional custom prompt for fact extraction for memory",
+    "custom_update_memory_prompt": "Optional custom prompt for update memory"
+}
+```
+</Accordion>
+</AccordionGroup>
+
+## Run Mem0 Locally
+
+Please refer to the example [Mem0 with Ollama](../examples/mem0-with-ollama) to run Mem0 locally.
+
+
+## Chat Completion
+
+Mem0 can be easily integrated into chat applications to enhance conversational agents with structured memory. Mem0's APIs are designed to be compatible with OpenAI's, with the goal of making it easy to leverage Mem0 in applications you may have already built.
+
+If you have a `Mem0 API key`, you can use it to initialize the client. Alternatively, you can initialize Mem0 without an API key if you're using it locally.
+
+Mem0 supports several language models (LLMs) through integration with various [providers](https://litellm.vercel.app/docs/providers).
+
+## Use Mem0 OSS
+
+```python
+config = {
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "host": "localhost",
+            "port": 6333,
+        }
+    },
+}
+
+client = Mem0(config=config)
+
+chat_completion = client.chat.completions.create(
+    messages=[
+        {
+            "role": "user",
+            "content": "What's the capital of France?",
+        }
+    ],
+    model="gpt-4o",
+)
+```
+
+## Contributing
+
+We welcome contributions to Mem0! Here's how you can contribute:
+
+1. Fork the repository and create your branch from `main`.
+2. Clone the forked repository to your local machine.
+3. Install the project dependencies:
+
+   ```bash
+   poetry install
+   ```
+
+4. Install pre-commit hooks:
+
+   ```bash
+   pip install pre-commit  # If pre-commit is not already installed
+   pre-commit install
+   ```
+
+5. Make your changes and ensure they adhere to the project's coding standards.
+
+6. Run the tests locally:
+
+   ```bash
+   poetry run pytest
+   ```
+
+7. If all tests pass, commit your changes and push to your fork.
+8. Open a pull request with a clear title and description.
+
+Please make sure your code follows our coding conventions and is well-documented. We appreciate your contributions to make Mem0 better!
+
+
+If you have any questions, please feel free to reach out to us using one of the following methods:
+
+<Snippet file="get-help.mdx" />

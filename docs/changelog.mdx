@@ -7,6 +7,42 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2025-09-25" description="v0.1.118">
+
+**New Features & Updates:**
+- **Vector Stores:**
+  - Added Valkey vector store support
+  - Added support for ChromaDB Cloud
+  - Added Mem0 vector store backend integration for Neptune Analytics
+- **Graph Store:**
+  - Added Neptune-DB graph store with vector store
+- **Core:**
+  - Implemented structured exception classes with error codes and suggested actions
+
+**Improvements:**
+- **Dependencies:**
+  - Updated OpenAI dependency and improved Ollama compatibility
+- **Testing:**
+  - Added Weaviate DB test
+  - Added comprehensive test suite for SQLiteManager
+- **Documentation:**
+  - Updated category docs
+  - Updated Search V2 / Get All V2 filters documentation
+  - Refactored AWS example title
+  - Fixed Quickstart cURL example
+
+**Bug Fixes:**
+- **Vector Stores:**
+  - Databricks bug fixes
+  - Fixed S3 Vectors memory initialization issue from configuration
+- **Core:**
+  - Fixed JSON parsing with new memories
+  - Replaced hardcoded LLM provider with provider from configuration
+- **LLMs:**
+  - Fixed Bedrock Anthropic models to use system field
+
+</Update>
+
 <Update label="2025-09-03" description="v0.1.117">
 
 **New Features & Updates:**
@@ -1086,6 +1122,11 @@ mode: "wide"
 </Tab>
 
 <Tab title="Vercel AI SDK">
+
+<Update label="2025-09-25" description="v2.0.3">
+**New Features:**
+- **Vercel AI SDK:** Added file support for multimodal capabilities with memory context
+</Update>
 
 <Update label="2025-09-03" description="v2.0.2">
 **Bug Fix:**

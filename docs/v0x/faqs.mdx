@@ -1,0 +1,267 @@
+---
+title: FAQs (v0.x)
+description: 'Frequently asked questions about Mem0 v0.x'
+icon: "question"
+iconType: "solid"
+---
+
+<Warning>
+**This is legacy documentation for Mem0 v0.x.** For the latest FAQs, please refer to [v1.0.0 Beta FAQs](/faqs).
+</Warning>
+
+## General Questions
+
+### What is Mem0 v0.x?
+
+Mem0 v0.x is the legacy version of Mem0's memory layer for LLMs. While still functional, it lacks the advanced features and optimizations available in v1.0.0 Beta.
+
+### Should I upgrade to v1.0.0 Beta?
+
+Yes! v1.0.0 Beta offers significant improvements:
+- Enhanced filtering with logical operators
+- Reranking support for better search relevance
+- Improved async performance
+- Standardized API responses
+- Better error handling
+
+See our [migration guide](/migration/v0-to-v1) for upgrade instructions.
+
+### Is v0.x still supported?
+
+v0.x receives minimal maintenance but no new features. We recommend upgrading to v1.0.0 Beta for the latest improvements and active support.
+
+## API Questions
+
+### Why do I get different response formats?
+
+In v0.x, response format depends on the `output_format` parameter:
+
+```python
+# v1.0 format (list)
+result = m.add("memory", user_id="alice", output_format="v1.0")
+# Returns: [{"id": "...", "memory": "...", "event": "ADD"}]
+
+# v1.1 format (dict)
+result = m.add("memory", user_id="alice", output_format="v1.1")
+# Returns: {"results": [{"id": "...", "memory": "...", "event": "ADD"}]}
+```
+
+**Solution:** Always use `output_format="v1.1"` for consistency.
+
+### How do I handle both response formats?
+
+```python
+def normalize_response(result):
+    """Normalize v0.x response formats"""
+    if isinstance(result, list):
+        return {"results": result}
+    return result
+
+# Usage
+result = m.add("memory", user_id="alice")
+normalized = normalize_response(result)
+for memory in normalized["results"]:
+    print(memory["memory"])
+```
+
+### Can I use async in v0.x?
+
+Yes, but it's optional and less optimized:
+
+```python
+# Optional async mode
+result = m.add("memory", user_id="alice", async_mode=True)
+
+# Or use AsyncMemory
+from mem0 import AsyncMemory
+async_m = AsyncMemory()
+result = await async_m.add("memory", user_id="alice")
+```
+
+## Configuration Questions
+
+### What vector stores work with v0.x?
+
+v0.x supports most vector stores:
+- Qdrant
+- Chroma
+- Pinecone
+- Weaviate
+- PGVector
+- And others
+
+### How do I configure LLMs in v0.x?
+
+```python
+config = {
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "gpt-3.5-turbo",
+            "api_key": "your-api-key"
+        }
+    },
+    "version": "v1.0"  # Supported in v0.x
+}
+
+m = Memory.from_config(config)
+```
+
+### Can I use custom prompts in v0.x?
+
+Limited support:
+
+```python
+config = {
+    "custom_fact_extraction_prompt": "Your custom prompt here"
+    # custom_update_memory_prompt not available in v0.x
+}
+```
+
+## Migration Questions
+
+### Is migration difficult?
+
+No! Most changes are simple parameter removals:
+
+```python
+# Before (v0.x)
+result = m.add("memory", user_id="alice", output_format="v1.1", version="v1.0")
+
+# After (v1.0.0 Beta)
+result = m.add("memory", user_id="alice")
+```
+
+### Will I lose my data?
+
+No! Your existing memories remain fully compatible with v1.0.0 Beta.
+
+### Do I need to re-index my vectors?
+
+No! Existing vector data works with v1.0.0 Beta without changes.
+
+### Can I rollback if needed?
+
+Yes! You can always rollback:
+
+```bash
+pip install mem0ai==0.1.20  # Last stable v0.x
+```
+
+## Feature Questions
+
+### Does v0.x support reranking?
+
+No, reranking is only available in v1.0.0 Beta:
+
+```python
+# v1.0.0 Beta only
+results = m.search("query", user_id="alice", rerank=True)
+```
+
+### Can I use advanced filtering in v0.x?
+
+No, only basic key-value filtering:
+
+```python
+# v0.x - basic only
+filters = {"category": "food", "user_id": "alice"}
+
+# v1.0.0 Beta - advanced operators
+filters = {
+    "AND": [
+        {"category": "food"},
+        {"score": {"gte": 0.8}}
+    ]
+}
+```
+
+### Does v0.x support metadata filtering?
+
+Yes, but basic:
+
+```python
+# Basic metadata filtering
+results = m.search(
+    "query",
+    user_id="alice",
+    filters={"category": "work"}
+)
+```
+
+## Performance Questions
+
+### Is v0.x slower than v1.0.0 Beta?
+
+Yes, v1.0.0 Beta includes several performance optimizations:
+- Better async handling
+- Optimized vector operations
+- Improved memory management
+
+### How do I optimize v0.x performance?
+
+1. Use async mode when possible
+2. Configure appropriate vector store settings
+3. Use efficient metadata filters
+4. Consider upgrading to v1.0.0 Beta
+
+### Can I batch operations in v0.x?
+
+Limited support. Better batch processing available in v1.0.0 Beta.
+
+## Troubleshooting
+
+### Common v0.x Issues
+
+#### 1. Inconsistent Response Formats
+**Problem:** Getting different response types
+**Solution:** Always use `output_format="v1.1"`
+
+#### 2. Async Mode Not Working
+**Problem:** Async operations failing
+**Solution:** Use `AsyncMemory` class or `async_mode=True`
+
+#### 3. Configuration Errors
+**Problem:** Config not loading properly
+**Solution:** Check version parameter and config structure
+
+### Error Messages
+
+#### "Invalid output format"
+```python
+# Fix: Use supported format
+result = m.add("memory", user_id="alice", output_format="v1.1")
+```
+
+#### "Version not supported"
+```python
+# Fix: Use supported version
+config = {"version": "v1.0"}  # Supported in v0.x
+```
+
+#### "Async mode not available"
+```python
+# Fix: Use AsyncMemory
+from mem0 import AsyncMemory
+async_m = AsyncMemory()
+```
+
+## Getting Help
+
+### Documentation
+- [v0.x Quickstart](/v0x/quickstart)
+- [Migration Guide](/migration/v0-to-v1)
+- [v1.0.0 Beta Docs](/)
+
+### Community
+- [GitHub Discussions](https://github.com/mem0ai/mem0/discussions)
+- [Discord Community](https://discord.gg/mem0)
+
+### Migration Support
+- [Step-by-step Migration](/migration/v0-to-v1)
+- [Breaking Changes](/migration/breaking-changes)
+- [API Changes](/migration/api-changes)
+
+<Info>
+**Ready to upgrade?** Check out our [migration guide](/migration/v0-to-v1) to move to v1.0.0 Beta and access the latest features!
+</Info>

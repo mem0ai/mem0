@@ -1,0 +1,491 @@
+---
+title: Migrating from v0.x to v1.0.0 Beta
+description: 'Complete guide to upgrade your Mem0 implementation to version 1.0.0 Beta'
+icon: "arrow-right"
+iconType: "solid"
+---
+
+<Warning>
+**Breaking Changes Ahead!** Mem0 1.0.0 Beta introduces several breaking changes. Please read this guide carefully before upgrading.
+</Warning>
+
+## Overview
+
+Mem0 1.0.0 Beta is a major release that modernizes the API, improves performance, and adds powerful new features. This guide will help you migrate your existing v0.x implementation to the new version.
+
+## Key Changes Summary
+
+| Feature | v0.x | v1.0.0 Beta | Migration Required |
+|---------|------|-------------|-------------------|
+| API Version | v1.0 supported | v1.0 **removed**, v1.1+ only | ✅ Yes |
+| Async Mode | Optional | Default and required | ✅ Yes |
+| Output Format Parameter | Supported | **Removed** | ✅ Yes |
+| Response Format | Mixed | Standardized `{"results": [...]}` | ✅ Yes |
+| Metadata Filtering | Basic | Enhanced with operators | ⚠️ Optional |
+| Reranking | Not available | Full support | ⚠️ Optional |
+
+## Step-by-Step Migration
+
+### 1. Update Installation
+
+```bash
+# Update to the latest version
+pip install --upgrade mem0ai
+```
+
+### 2. Remove Deprecated Parameters
+
+#### Before (v0.x)
+```python
+from mem0 import Memory
+
+# These parameters are no longer supported
+m = Memory()
+result = m.add(
+    "I love pizza",
+    user_id="alice",
+    output_format="v1.0",  # ❌ REMOVED
+    version="v1.0"         # ❌ REMOVED
+)
+```
+
+#### After (v1.0.0 Beta)
+```python
+from mem0 import Memory
+
+# Clean, simplified API
+m = Memory()
+result = m.add(
+    "I love pizza",
+    user_id="alice"
+    # output_format and version parameters removed
+)
+```
+
+### 3. Update Configuration
+
+#### Before (v0.x)
+```python
+config = {
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "host": "localhost",
+            "port": 6333
+        }
+    },
+    "version": "v1.0"  # ❌ No longer supported
+}
+
+m = Memory.from_config(config)
+```
+
+#### After (v1.0.0 Beta)
+```python
+config = {
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "host": "localhost",
+            "port": 6333
+        }
+    },
+    "version": "v1.1"  # ✅ v1.1 is the minimum supported version
+}
+
+m = Memory.from_config(config)
+```
+
+### 4. Handle Response Format Changes
+
+#### Before (v0.x)
+```python
+# Response could be a list or dict depending on version
+result = m.add("I love coffee", user_id="alice")
+
+if isinstance(result, list):
+    # Handle list format
+    for item in result:
+        print(item["memory"])
+else:
+    # Handle dict format
+    print(result["results"])
+```
+
+#### After (v1.0.0 Beta)
+```python
+# Response is always a standardized dict with "results" key
+result = m.add("I love coffee", user_id="alice")
+
+# Always access via "results" key
+for item in result["results"]:
+    print(item["memory"])
+```
+
+### 5. Update Search Operations
+
+#### Before (v0.x)
+```python
+# Basic search
+results = m.search("What do I like?", user_id="alice")
+
+# With filters
+results = m.search(
+    "What do I like?",
+    user_id="alice",
+    filters={"category": "food"}
+)
+```
+
+#### After (v1.0.0 Beta)
+```python
+# Same basic search API
+results = m.search("What do I like?", user_id="alice")
+
+# Enhanced filtering with operators (optional upgrade)
+results = m.search(
+    "What do I like?",
+    user_id="alice",
+    filters={
+        "AND": [
+            {"category": "food"},
+            {"rating": {"gte": 8}}
+        ]
+    }
+)
+
+# New: Reranking support (optional)
+results = m.search(
+    "What do I like?",
+    user_id="alice",
+    rerank=True  # Requires reranker configuration
+)
+```
+
+### 6. Migrate Async Operations
+
+#### Before (v0.x)
+```python
+from mem0 import AsyncMemory
+
+# Async was optional
+async_memory = AsyncMemory()
+
+async def add_memory():
+    result = await async_memory.add(
+        "I enjoy hiking",
+        user_id="alice",
+        async_mode=True  # ❌ Parameter removed
+    )
+    return result
+```
+
+#### After (v1.0.0 Beta)
+```python
+from mem0 import AsyncMemory
+
+# Async is the default mode
+async_memory = AsyncMemory()
+
+async def add_memory():
+    result = await async_memory.add(
+        "I enjoy hiking",
+        user_id="alice"
+        # async_mode parameter removed - always async
+    )
+    return result
+```
+
+## Configuration Migration
+
+### Basic Configuration
+
+#### Before (v0.x)
+```python
+config = {
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "host": "localhost",
+            "port": 6333
+        }
+    },
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "gpt-3.5-turbo",
+            "api_key": "your-key"
+        }
+    },
+    "version": "v1.0"
+}
+```
+
+#### After (v1.0.0 Beta)
+```python
+config = {
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "host": "localhost",
+            "port": 6333
+        }
+    },
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "gpt-3.5-turbo",
+            "api_key": "your-key"
+        }
+    },
+    "version": "v1.1",  # Minimum supported version
+
+    # New optional features
+    "reranker": {
+        "provider": "cohere",
+        "config": {
+            "model": "rerank-english-v3.0",
+            "api_key": "your-cohere-key"
+        }
+    }
+}
+```
+
+### Enhanced Features (Optional)
+
+```python
+# Take advantage of new features
+config = {
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "host": "localhost",
+            "port": 6333
+        }
+    },
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "gpt-4",
+            "api_key": "your-key"
+        }
+    },
+    "embedder": {
+        "provider": "openai",
+        "config": {
+            "model": "text-embedding-3-small",
+            "api_key": "your-key"
+        }
+    },
+    "reranker": {
+        "provider": "sentence_transformer",
+        "config": {
+            "model": "cross-encoder/ms-marco-MiniLM-L-6-v2"
+        }
+    },
+    "version": "v1.1"
+}
+```
+
+## Error Handling Migration
+
+### Before (v0.x)
+```python
+try:
+    result = m.add("memory", user_id="alice", version="v1.0")
+except Exception as e:
+    print(f"Error: {e}")
+```
+
+### After (v1.0.0 Beta)
+```python
+try:
+    result = m.add("memory", user_id="alice")
+except ValueError as e:
+    if "v1.0 API format is no longer supported" in str(e):
+        print("Please upgrade your code to use v1.1+ format")
+    else:
+        print(f"Error: {e}")
+except Exception as e:
+    print(f"Unexpected error: {e}")
+```
+
+## Testing Your Migration
+
+### 1. Basic Functionality Test
+
+```python
+def test_basic_functionality():
+    m = Memory()
+
+    # Test add
+    result = m.add("I love testing", user_id="test_user")
+    assert "results" in result
+    assert len(result["results"]) > 0
+
+    # Test search
+    search_results = m.search("testing", user_id="test_user")
+    assert "results" in search_results
+
+    # Test get_all
+    all_memories = m.get_all(user_id="test_user")
+    assert "results" in all_memories
+
+    print("✅ Basic functionality test passed")
+
+test_basic_functionality()
+```
+
+### 2. Enhanced Features Test
+
+```python
+def test_enhanced_features():
+    config = {
+        "reranker": {
+            "provider": "sentence_transformer",
+            "config": {
+                "model": "cross-encoder/ms-marco-MiniLM-L-6-v2"
+            }
+        }
+    }
+
+    m = Memory.from_config(config)
+
+    # Test reranking
+    m.add("I love advanced features", user_id="test_user")
+    results = m.search("features", user_id="test_user", rerank=True)
+    assert "results" in results
+
+    # Test enhanced filtering
+    results = m.search(
+        "features",
+        user_id="test_user",
+        filters={"user_id": {"eq": "test_user"}}
+    )
+    assert "results" in results
+
+    print("✅ Enhanced features test passed")
+
+test_enhanced_features()
+```
+
+## Common Migration Issues
+
+### Issue 1: Version Error
+
+**Error:**
+```
+ValueError: The v1.0 API format is no longer supported in mem0ai 1.0.0+
+```
+
+**Solution:**
+```python
+# Remove version parameters or set to v1.1+
+config = {
+    # ... other config
+    "version": "v1.1"  # or remove entirely for default
+}
+```
+
+### Issue 2: Response Format Error
+
+**Error:**
+```
+KeyError: 'results'
+```
+
+**Solution:**
+```python
+# Always access response via "results" key
+result = m.add("memory", user_id="alice")
+memories = result["results"]  # Not result directly
+```
+
+### Issue 3: Parameter Error
+
+**Error:**
+```
+TypeError: add() got an unexpected keyword argument 'output_format'
+```
+
+**Solution:**
+```python
+# Remove deprecated parameters
+result = m.add(
+    "memory",
+    user_id="alice"
+    # Remove: output_format, version, async_mode
+)
+```
+
+## Rollback Plan
+
+If you encounter issues during migration:
+
+### 1. Immediate Rollback
+
+```bash
+# Downgrade to last v0.x version
+pip install mem0ai==0.1.20  # Replace with your last working version
+```
+
+### 2. Gradual Migration
+
+```python
+# Test both versions side by side
+import mem0_v0  # Your old version
+import mem0     # New version
+
+def compare_results(query, user_id):
+    old_results = mem0_v0.search(query, user_id=user_id)
+    new_results = mem0.search(query, user_id=user_id)
+
+    print("Old format:", old_results)
+    print("New format:", new_results["results"])
+```
+
+## Performance Improvements
+
+### Before (v0.x)
+```python
+# Sequential operations
+result1 = m.add("memory 1", user_id="alice")
+result2 = m.add("memory 2", user_id="alice")
+result3 = m.search("query", user_id="alice")
+```
+
+### After (v1.0.0 Beta)
+```python
+# Better async performance
+async def batch_operations():
+    async_memory = AsyncMemory()
+
+    # Concurrent operations
+    results = await asyncio.gather(
+        async_memory.add("memory 1", user_id="alice"),
+        async_memory.add("memory 2", user_id="alice"),
+        async_memory.search("query", user_id="alice")
+    )
+    return results
+```
+
+## Next Steps
+
+1. **Complete the migration** using this guide
+2. **Test thoroughly** with your existing data
+3. **Explore new features** like enhanced filtering and reranking
+4. **Update your documentation** to reflect the new API
+5. **Monitor performance** and optimize as needed
+
+<CardGroup cols={2}>
+  <Card title="Breaking Changes" icon="triangle-exclamation" href="/migration/breaking-changes">
+    Detailed list of all breaking changes
+  </Card>
+  <Card title="API Changes" icon="code" href="/migration/api-changes">
+    Complete API reference changes
+  </Card>
+</CardGroup>
+
+<Info>
+Need help with migration? Check our [GitHub Discussions](https://github.com/mem0ai/mem0/discussions) or reach out to our community for support.
+</Info>
