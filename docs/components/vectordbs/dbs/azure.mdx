@@ -27,7 +27,7 @@ config = {
 m = Memory.from_config(config)
 messages = [
     {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
-    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
     {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
     {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
 ]
@@ -107,13 +107,13 @@ To enable Role-Based Access Control (RBAC) for Azure AI Search, follow these ste
     - Click **Add** > **Add role assignment**.
 6. **Choose Role:**
     - Mem0 requires the **Search Index Data Contributor** and **Search Service Contributor** role.
-7. **Choose Member** 
-    - To assign to a User, Group, Service Principle or Managed Identity:
+7. **Choose Member**
+    - To assign to a User, Group, Service Principal or Managed Identity:
         - For production it is recommended to use a service principal or managed identity.
             - For a service principal: select **User, group, or service principal** and search for the service principal.
             - For a managed identity: select **Managed identity** and choose the managed identity.
         - For development, you can assign the role to a user account.
-            - For development: select ***User, group, or service principal** and pick a Azure Entra ID account (the same used with `az login`).
+            - For development: select **User, group, or service principal** and pick an Azure Entra ID account (the same used with `az login`).
 8. **Complete the Assignment:**
     - Click **Review + Assign**.
 
@@ -133,7 +133,7 @@ config = {
 }
 ```
 
-### Environment Variables to set to use Azure Identity Credential:
+### Environment Variables to Use Azure Identity Credential
 * For an Environment Credential, you will need to setup a Service Principal and set the following environment variables:
   - `AZURE_TENANT_ID`: Your Azure Active Directory tenant ID.
   - `AZURE_CLIENT_ID`: The client ID of your service principal or managed identity.
@@ -142,7 +142,7 @@ config = {
   - `AZURE_CLIENT_ID`: The client ID of the user-assigned managed identity.
 * For a System-Assigned Managed Identity, no additional environment variables are needed.
 
-### Developer logins to use for a Azure Identity Credential:
+### Developer Logins for Azure Identity Credential
 * For an Azure CLI Credential, you need to have the Azure CLI installed and logged in with `az login`.
 * For an Azure PowerShell Credential, you need to have the Azure PowerShell module installed and logged in with `Connect-AzAccount`.
 * For an Azure Developer CLI Credential, you need to have the Azure Developer CLI installed and logged in with `azd auth login`.

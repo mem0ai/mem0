@@ -13,7 +13,7 @@ Webhooks enable real-time notifications for memory events in your Mem0 project. 
 
 ### Create Webhook
 
-Create a webhook for your project; it will receive events only from that project:
+Create a webhook for your project. It will receive events only from that project:
 <CodeGroup>
 
 ```python Python
@@ -188,13 +188,10 @@ When a memory event occurs, Mem0 sends an HTTP POST request to your webhook URL 
 
 ## Best Practices
 
-1. **Implement Retry Logic**: Ensure your webhook endpoint can handle temporary failures by implementing retry logic.
-
+1. **Implement Retry Logic**: Ensure your webhook endpoint can handle temporary failures.
 2. **Verify Webhook Source**: Implement security measures to verify that webhook requests originate from Mem0.
-
 3. **Process Events Asynchronously**: Process webhook events asynchronously to avoid timeouts and ensure reliable handling.
-
-4. **Monitor Webhook Health**: Regularly review your webhook logs to ensure functionality and promptly address any delivery failures.
+4. **Monitor Webhook Health**: Regularly review your webhook logs to ensure functionality and promptly address delivery failures.
 
 If you have any questions, please feel free to reach out to us using one of the following methods:
 

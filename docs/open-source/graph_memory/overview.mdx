@@ -5,13 +5,7 @@ icon: "info"
 iconType: "solid"
 ---
 
-Mem0 now supports **Graph Memory**.
-With Graph Memory, users can now create and utilize complex relationships between pieces of information, allowing for more nuanced and context-aware responses.
-This integration enables users to leverage the strengths of both vector-based and graph-based approaches, resulting in more accurate and comprehensive information retrieval and generation.
-
-<Note>
-NodeSDK now supports Graph Memory. 🎉
-</Note>
+Mem0 now supports **Graph Memory**. With Graph Memory, you can create and utilize complex relationships between pieces of information, allowing for more nuanced and context-aware responses. This integration enables you to leverage the strengths of both vector-based and graph-based approaches, resulting in more accurate and comprehensive information retrieval and generation.
 
 ## Installation
 
@@ -47,17 +41,16 @@ allowfullscreen
 
 ## Initialize Graph Memory
 
-To initialize Graph Memory you'll need to set up your configuration with graph
-store providers. Currently, we support [Neo4j](#initialize-neo4j), [Memgraph](#initialize-memgraph), [Neptune Analytics](#initialize-neptune-analytics), [Neptune DB Cluster](#initialize-neptune-db),and [Kuzu](#initialize-kuzu) as graph store providers.
+To initialize Graph Memory you'll need to set up your configuration with graph store providers. Currently, we support [Neo4j](#initialize-neo4j), [Memgraph](#initialize-memgraph), [Neptune Analytics](#initialize-neptune-analytics), [Neptune DB Cluster](#initialize-neptune-db),and [Kuzu](#initialize-kuzu) as graph store providers.
 
 
 ### Initialize Neo4j
 
 You can setup [Neo4j](https://neo4j.com/) locally or use the hosted [Neo4j AuraDB](https://neo4j.com/product/auradb/).
 
-<Note>If you are using Neo4j locally, then you need to install [APOC plugins](https://neo4j.com/labs/apoc/4.1/installation/).</Note>
+<Note>If you are using Neo4j locally, you need to install [APOC plugins](https://neo4j.com/labs/apoc/4.1/installation/).</Note>
 
-User can also customize the LLM for Graph Memory from the [Supported LLM list](https://docs.mem0.ai/components/llms/overview) with three levels of configuration:
+You can also customize the LLM for Graph Memory from the [Supported LLM list](https://docs.mem0.ai/components/llms/overview) with three levels of configuration:
 
 1. **Main Configuration**: If `llm` is set in the main config, it will be used for all graph operations.
 2. **Graph Store Configuration**: If `llm` is set in the graph_store config, it will override the main config `llm` and be used specifically for graph operations.
@@ -176,13 +169,11 @@ Run Memgraph with Docker:
 docker run -p 7687:7687 memgraph/memgraph-mage:latest --schema-info-enabled=True
 ```
 
-The `--schema-info-enabled` flag is set to `True` for more performant schema
-generation.
+The `--schema-info-enabled` flag is set to `True` for more performant schema generation.
 
-Additional information can be found on [Memgraph
-documentation](https://memgraph.com/docs).
+Additional information can be found in the [Memgraph documentation](https://memgraph.com/docs).
 
-User can also customize the LLM for Graph Memory from the [Supported LLM list](https://docs.mem0.ai/components/llms/overview) with three levels of configuration:
+You can also customize the LLM for Graph Memory from the [Supported LLM list](https://docs.mem0.ai/components/llms/overview) with three levels of configuration:
 
 1. **Main Configuration**: If `llm` is set in the main config, it will be used for all graph operations.
 2. **Graph Store Configuration**: If `llm` is set in the graph_store config, it will override the main config `llm` and be used specifically for graph operations.
@@ -234,6 +225,7 @@ m = Memory.from_config(config_dict=config)
 Note: You can use Neptune Analytics as part of an Amazon tech stack [Setup AWS Bedrock, AOSS, and Neptune](https://docs.mem0.ai/examples/aws_example#aws-bedrock-and-aoss)
 
 Create an instance of Amazon Neptune Analytics in your AWS account following the [AWS documentation](https://docs.aws.amazon.com/neptune-analytics/latest/userguide/get-started.html).
+
 - Public connectivity is not enabled by default, and if accessing from outside a VPC, it needs to be enabled.
 - Once the Amazon Neptune Analytics instance is available, you will need the graph-identifier to connect.
 - The Neptune Analytics instance must be created using the same vector dimensions as the embedding model creates. See: [Vector indexing in Neptune Analytics](https://docs.aws.amazon.com/neptune-analytics/latest/userguide/vector-index.html).
@@ -329,8 +321,7 @@ Troubleshooting:
 
 ### Initialize Kuzu
 
-[Kuzu](https://kuzudb.com) is a fully local in-process graph database system that runs openCypher queries.
-Kuzu comes embedded into the Python package and there is no additional setup required.
+[Kuzu](https://kuzudb.com) is a fully local in-process graph database system that runs openCypher queries. Kuzu comes embedded into the Python package and there is no additional setup required.
 
 Kuzu needs a path to a file where it will store the graph database. For example:
 
@@ -347,8 +338,7 @@ config = {
 ```
 </CodeGroup>
 
-Kuzu can also store its database in memory. Note that in this mode, all stored memories will be lost
-after the program has finished executing.
+Kuzu can also store its database in memory. Note that in this mode, all stored memories will be lost after the program has finished executing.
 
 <CodeGroup>
 ```python Python
@@ -374,6 +364,7 @@ m = Memory.from_config(config_dict=config)
 </CodeGroup>
 
 ## Graph Operations
+
 Mem0's graph memory supports the following operations:
 
 ### Add Memories
@@ -529,7 +520,8 @@ memory.deleteAll({ userId: "alice", agentId: "food-assistant" });
 ```
 </CodeGroup>
 
-# Example Usage
+## Example Usage
+
 Here's an example of how to use Mem0's graph operations:
 
 1. First, we'll add some memories for a user named Alice.
@@ -679,7 +671,7 @@ memory.search("What is my name?", { userId: "alice123" });
 ```
 </CodeGroup>
 
-Below graph visualization shows what nodes and relationships are fetched from the graph for the provided query.
+The graph visualization below shows what nodes and relationships are fetched from the graph for the provided query.
 
 ![Graph Memory Visualization](/images/graph_memory/graph_example8.png)
 
@@ -708,14 +700,13 @@ memory.search("Who is spiderman?", { userId: "alice123" });
 
 ## Using Multiple Agents with Graph Memory
 
+When working with multiple agents and sessions, you can use the `agent_id` and `run_id` parameters to organize memories by user, agent, and run context. This allows you to:
 
-When working with multiple agents and sessions, you can use the "agent_id" and "run_id" parameters to organize memories by user, agent, and run context. This allows you to:
-
-1. Create agent-specific knowledge graphs
-2. Share common knowledge between agents
-3. Isolate sensitive or specialized information to specific agents
-4. Track conversation sessions and runs separately
-5. Maintain context across different execution contexts
+1. Create agent-specific knowledge graphs.
+2. Share common knowledge between agents.
+3. Isolate sensitive or specialized information to specific agents.
+4. Track conversation sessions and runs separately.
+5. Maintain context across different execution contexts.
 
 ### Example: Multi-Agent Setup
 

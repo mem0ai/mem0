@@ -58,7 +58,7 @@ config = {
 m = Memory.from_config(config)
 messages = [
     {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
-    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
     {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
     {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
 ]
@@ -74,8 +74,8 @@ results = m.search("What kind of movies does Alice like?", user_id="alice")
 ### Features
 
 - Fast and Efficient Vector Search
-- Can be deployed on-premises, in containers, or on cloud platforms like AWS OpenSearch Service.
-- Multiple Authentication and Security Methods (Basic Authentication, API Keys, LDAP, SAML, and OpenID Connect)
+- Can be deployed on-premises, in containers, or on cloud platforms like AWS OpenSearch Service
+- Multiple authentication and security methods (Basic Authentication, API Keys, LDAP, SAML, and OpenID Connect)
 - Automatic index creation with optimized mappings for vector search
-- Memory Optimization through Disk-Based Vector Search and Quantization
-- Real-Time Analytics and Observability
+- Memory optimization through disk-based vector search and quantization
+- Real-time analytics and observability

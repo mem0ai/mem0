@@ -32,7 +32,7 @@ Mem0 sits alongside your retriever, planner, and LLM. Unlike retrieval-based sys
   <img src="/images/memory-agent-stack.png" />
 </Frame>
 
-Memory is not about pushing more tokens into a prompt but about intelligently remembering context that matters. This distinction matters:
+Memory isn't about pushing more tokens into a prompt—it's about intelligently remembering context that matters. This distinction is important:
 
 | Capability       | Context Window        | Mem0 Memory                |
 |------------------|------------------------|-----------------------------|
@@ -55,12 +55,12 @@ Mem0 provides continuity. It stores decisions, preferences, and context—not ju
 | Recall Type        | Document lookup               | Evolving user context         |
 | Use Case           | Ground answers in data        | Guide behavior across time    |
 
-Together, they’re stronger: RAG informs the LLM; Mem0 shapes its memory.
+Together, they're stronger: RAG informs the LLM while Mem0 shapes its memory.
 
 
 ## Types of Memory in Mem0
 
-Mem0 supports different kinds of memory to mimic how humans store information:
+Mem0 supports different types of memory to mimic how humans store information:
 
 - **Working Memory**: short-term session awareness
 - **Factual Memory**: long-term structured knowledge (e.g., preferences, settings)
@@ -74,11 +74,11 @@ Mem0 isn’t a wrapper around a vector store. It’s a full memory engine with:
 
 - **LLM-based extraction**: Intelligently decides what to remember
 - **Filtering & decay**: Avoids memory bloat, forgets irrelevant info
-- **Costs Reduction**: Save compute costs with smart prompt injection of only relevant memories
+- **Cost Reduction**: Save compute costs with smart prompt injection of only relevant memories
 - **Dashboards & APIs**: Observability, fine-grained control
 - **Cloud and OSS**: Use our platform version or our open-source SDK version
 
-You plug Mem0 into your agent framework, it doesn’t replace your LLM or workflows. Instead, it adds a smart memory layer on top.
+Plug Mem0 into your agent framework—it doesn't replace your LLM or workflows. Instead, it adds a smart memory layer on top.
 
 
 ## Core Capabilities

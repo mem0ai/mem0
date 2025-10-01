@@ -17,7 +17,7 @@ See the list of supported vector databases below.
 <CardGroup cols={3}>
   <Card title="Qdrant" href="/components/vectordbs/dbs/qdrant"></Card>
   <Card title="Chroma" href="/components/vectordbs/dbs/chroma"></Card>
-  <Card title="Pgvector" href="/components/vectordbs/dbs/pgvector"></Card>
+  <Card title="PGVector" href="/components/vectordbs/dbs/pgvector"></Card>
   <Card title="Upstash Vector" href="/components/vectordbs/dbs/upstash-vector"></Card>
   <Card title="Milvus" href="/components/vectordbs/dbs/milvus"></Card>
   <Card title="Pinecone" href="/components/vectordbs/dbs/pinecone"></Card>
@@ -44,12 +44,11 @@ For a comprehensive list of available parameters for vector database configurati
 
 ## Common issues
 
-### Using model with different dimensions
+### Using Model with Different Dimensions
 
-If you are using customized model, which is having different dimensions other than 1536
-for example 768, you may encounter below error:
+If you are using a customized model with different dimensions other than 1536 (for example, 768), you may encounter the following error:
 
 `ValueError: shapes (0,1536) and (768,) not aligned: 1536 (dim 1) != 768 (dim 0)`
 
-you could add `"embedding_model_dims": 768,` to the config of the vector_store to overcome this issue.
+You can add `"embedding_model_dims": 768,` to the config of the vector_store to resolve this issue.
 
