@@ -4884,7 +4884,7 @@
 						"default": true
 					},
 					"output_format": {
-						"description": "It supports two output formats: `v1.0` (default) and `v1.1`. We recommend using `v1.1` as `v1.0` will be deprecated soon.",
+						"description": "Controls the response format structure. `v1.0` (deprecated) returns a direct array of memory objects: `[{...}, {...}]`. `v1.1` (recommended) returns an object with a 'results' key containing the array: `{\"results\": [...]}`. The `v1.0` format will be removed in future versions.",
 						"title": "Output format",
 						"type": "string",
 						"nullable": true,
