@@ -1,8 +1,12 @@
 import hashlib
 import re
+import json
+import logging
 
 from mem0.configs.prompts import FACT_RETRIEVAL_PROMPT
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def get_fact_retrieval_messages(message):
     return FACT_RETRIEVAL_PROMPT, f"Input:\n{message}"
@@ -32,7 +36,7 @@ def format_entities(entities):
     return "\n".join(formatted_lines)
 
 
-def remove_code_blocks(content: str) -> str:
+def remove_code_blocks_solve_think_label(content: str) -> str:
     """
     Removes enclosing code block markers ```[language] and ``` from a given string.
 
@@ -40,10 +44,37 @@ def remove_code_blocks(content: str) -> str:
     - The function uses a regex pattern to match code blocks that may start with ``` followed by an optional language tag (letters or numbers) and end with ```.
     - If a code block is detected, it returns only the inner content, stripping out the markers.
     - If no code block markers are found, the original content is returned as-is.
+    - If the parsed LLM is a deep-thinking model, automatically remove the reasoning content and retain only the final answer.
     """
-    pattern = r"^```[a-zA-Z0-9]*\n([\s\S]*?)\n```$"
-    match = re.match(pattern, content.strip())
-    return match.group(1).strip() if match else content.strip()
+    if not isinstance(content, str):
+        return content
+
+    cleaned = content.strip()
+    think_open = "<think>"
+    think_close = "</think>"
+
+    if think_open in cleaned:
+        if think_close in cleaned:
+            cleaned = re.sub(
+                rf"{re.escape(think_open)}.*?{re.escape(think_close)}",
+                "",
+                cleaned,
+                flags=re.DOTALL | re.IGNORECASE
+            ).strip()
+        else:
+            logger.error("The LLM response is incomplete. Please increase the maximum generation length and try again.")
+
+    pattern = r"```[a-zA-Z0-9]*\s*\n([\s\S]*?)\n\s*```"
+    match = re.match(pattern, cleaned)
+    extracted = match.group(1).strip() if match else cleaned.strip()
+
+
+    try:
+        parsed = json.loads(extracted)
+        return json.dumps(parsed, ensure_ascii=False)
+    except json.JSONDecodeError:
+
+        return extracted
 
 
 def extract_json(text):

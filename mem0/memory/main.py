@@ -30,7 +30,7 @@ from mem0.memory.utils import (
     parse_messages,
     parse_vision_messages,
     process_telemetry_filters,
-    remove_code_blocks,
+    remove_code_blocks_solve_think_label,
 )
 from mem0.utils.factory import (
     EmbedderFactory,
@@ -361,7 +361,7 @@ class Memory(MemoryBase):
         )
 
         try:
-            response = remove_code_blocks(response)
+            response = remove_code_blocks_solve_think_label(response)
             new_retrieved_facts = json.loads(response)["facts"]
         except Exception as e:
             logger.error(f"Error in new_retrieved_facts: {e}")
@@ -415,7 +415,7 @@ class Memory(MemoryBase):
                     logger.warning("Empty response from LLM, no memories to extract")
                     new_memories_with_actions = {}
                 else:
-                    response = remove_code_blocks(response)
+                    response = remove_code_blocks_solve_think_label(response)
                     new_memories_with_actions = json.loads(response)
             except Exception as e:
                 logger.error(f"Invalid JSON response: {e}")
@@ -1212,7 +1212,7 @@ class AsyncMemory(MemoryBase):
             response_format={"type": "json_object"},
         )
         try:
-            response = remove_code_blocks(response)
+            response = remove_code_blocks_solve_think_label(response)
             new_retrieved_facts = json.loads(response)["facts"]
         except Exception as e:
             logger.error(f"Error in new_retrieved_facts: {e}")
@@ -1269,7 +1269,7 @@ class AsyncMemory(MemoryBase):
                     logger.warning("Empty response from LLM, no memories to extract")
                     new_memories_with_actions = {}
                 else:
-                    response = remove_code_blocks(response)
+                    response = remove_code_blocks_solve_think_label(response)
                     new_memories_with_actions = json.loads(response)
             except Exception as e:
                 logger.error(f"Invalid JSON response: {e}")
