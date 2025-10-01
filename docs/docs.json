@@ -628,13 +628,6 @@
 		}
 	},
 	"navbar": {
-		"links": [
-			{
-				"type": "button",
-				"label": "Research",
-				"href": "https://mem0.ai/research"
-			}
-		],
 		"primary": {
 			"type": "button",
 			"label": "Your Dashboard",
