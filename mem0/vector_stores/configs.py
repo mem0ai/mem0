@@ -21,6 +21,7 @@ class VectorStoreConfig(BaseModel):
         "neptune": "NeptuneAnalyticsConfig",
         "upstash_vector": "UpstashVectorConfig",
         "azure_ai_search": "AzureAISearchConfig",
+        "azure_mysql": "AzureMySQLConfig",
         "redis": "RedisDBConfig",
         "valkey": "ValkeyConfig",
         "databricks": "DatabricksConfig",
