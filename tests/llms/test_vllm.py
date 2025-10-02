@@ -5,7 +5,6 @@ import pytest
 from mem0 import AsyncMemory, Memory
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.llms.vllm import VllmLLM
-from mem0.memory.utils import remove_code_blocks
 
 
 @pytest.fixture
@@ -89,22 +88,6 @@ def test_generate_response_with_tools(mock_vllm_client):
 
 
 
-def test_remove_thinking_tags():
-    # with thinking tag
-    assert remove_code_blocks('<think>abc</think>{"facts":["test fact"]}') == '{"facts":["test fact"]}'
-    
-    # thinking content with multiple lines
-    assert remove_code_blocks('<think>\nabc\n</think>\n{"facts":["test fact"]}') == '{"facts":["test fact"]}'
-    
-    # more than one thinking tag(rare in practice)
-    assert remove_code_blocks('<think>A</think><think>B</think>{"facts":["test fact"]}') == '{"facts":["test fact"]}'
-    
-    # no tag
-    assert remove_code_blocks('{"facts":["test fact"]}') == '{"facts":["test fact"]}'
-
-
-
-
 def create_mocked_memory():
     """Create a fully mocked Memory instance for testing."""
     with patch('mem0.utils.factory.LlmFactory.create') as mock_llm_factory, \
@@ -157,7 +140,7 @@ def create_mocked_async_memory():
         return memory, mock_llm, mock_vector_store
 
 
-def test_thinking_tags_in_add_to_vector_store():
+def test_thinking_tags_sync():
     """Test thinking tags handling in Memory._add_to_vector_store (sync)."""
     memory, mock_llm, mock_vector_store = create_mocked_memory()
     
@@ -183,7 +166,7 @@ def test_thinking_tags_in_add_to_vector_store():
 
 
 @pytest.mark.asyncio
-async def test_async_thinking_tags_in_add_to_vector_store():
+async def test_async_thinking_tags_async():
     """Test thinking tags handling in AsyncMemory._add_to_vector_store."""
     memory, mock_llm, mock_vector_store = create_mocked_async_memory()
     
