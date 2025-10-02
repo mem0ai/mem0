@@ -221,7 +221,7 @@ class AzureMySQL(VectorStoreBase):
         """Generate SQL for cosine distance calculation."""
         # For MySQL, we need to calculate cosine similarity manually
         # This is a simplified version - in production, you'd use stored procedures or UDFs
-        return f"""
+        return """
             1 - (
                 (SELECT SUM(a.val * b.val) /
                 (SQRT(SUM(a.val * a.val)) * SQRT(SUM(b.val * b.val))))
@@ -385,7 +385,7 @@ class AzureMySQL(VectorStoreBase):
             Dict[str, Any]: Collection information
         """
         with self._get_cursor() as cur:
-            cur.execute(f"""
+            cur.execute("""
                 SELECT
                     TABLE_NAME as name,
                     TABLE_ROWS as count,
