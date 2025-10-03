@@ -889,6 +889,7 @@ class Memory(MemoryBase):
 
         try:
             procedural_memory = self.llm.generate_response(messages=parsed_messages)
+            procedural_memory = remove_code_blocks(procedural_memory)
         except Exception as e:
             logger.error(f"Error generating procedural memory summary: {e}")
             raise
@@ -1784,6 +1785,8 @@ class AsyncMemory(MemoryBase):
                 procedural_memory = response.content
             else:
                 procedural_memory = await asyncio.to_thread(self.llm.generate_response, messages=parsed_messages)
+                procedural_memory = remove_code_blocks(procedural_memory)
+        
         except Exception as e:
             logger.error(f"Error generating procedural memory summary: {e}")
             raise
