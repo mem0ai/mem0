@@ -38,13 +38,13 @@ import { Memory } from 'mem0ai/oss';
 
 const config = {
   embedder: {
-    provider: 'google',
-    config: {
-      apiKey: process.env.GOOGLE_API_KEY || '',
-      model: 'text-embedding-004',
-      // The output dimensionality is fixed at 768 for Google AI embeddings
+      provider: "google",
+      config: {
+        apiKey: process.env["GOOGLE_API_KEY"],
+        model: "gemini-embedding-001",
+        embeddingDims: 1536,
+      },
     },
-  },
 };
 
 const memory = new Memory(config);
@@ -64,6 +64,6 @@ Here are the parameters available for configuring Gemini embedder:
 
 | Parameter | Description | Default Value |
 | --- | --- | --- |
-| `model` | The name of the embedding model to use | `models/text-embedding-004` |
-| `embedding_dims` | Dimensions of the embedding model (output_dimensionality will be considered as embedding_dims, so please set embedding_dims accordingly) | `768` |
+| `model` | The name of the embedding model to use | `gemini-embedding-001` |
+| `embedding_dims` | Flexible, supports: 128 - 3072, Recommended: 768, 1536, 3072 | `1536` |
 | `api_key` | The Google API key | `None` |
