@@ -10,6 +10,8 @@ from mem0.configs.llms.lmstudio import LMStudioConfig
 from mem0.configs.llms.ollama import OllamaConfig
 from mem0.configs.llms.openai import OpenAIConfig
 from mem0.configs.llms.vllm import VllmConfig
+from mem0.configs.rerankers.aws_bedrock import AWSBedrockRerankerConfig
+from mem0.configs.rerankers.base import BaseRerankerConfig
 from mem0.embeddings.mock import MockEmbeddings
 
 
@@ -219,3 +221,49 @@ class GraphStoreFactory:
         except (ImportError, AttributeError) as e:
             raise ImportError(f"Could not import MemoryGraph for provider '{provider_name}': {e}")
         return GraphClass(config)
+
+
+class RerankerFactory:
+    """
+    Factory for creating reranker instances for different providers.
+    Usage: RerankerFactory.create(provider_name, config)
+    """
+    
+    provider_to_class = {
+        "aws_bedrock": ("mem0.rerankers.aws_bedrock.AWSBedrockReranker", AWSBedrockRerankerConfig),
+    }
+    
+    @classmethod
+    def create(cls, provider_name: str, config: Optional[Union[BaseRerankerConfig, Dict]] = None):
+        """Create a reranker instance.
+        
+        Args:
+            provider_name: Name of the reranker provider
+            config: Configuration for the reranker
+            
+        Returns:
+            Reranker instance
+            
+        Raises:
+            ValueError: If provider is not supported
+            ImportError: If required dependencies are not available
+        """
+        if provider_name not in cls.provider_to_class:
+            raise ValueError(f"Unsupported reranker provider: {provider_name}")
+        
+        class_path, config_class = cls.provider_to_class[provider_name]
+        
+        try:
+            # Load the reranker class
+            reranker_class = load_class(class_path)
+        except (ImportError, AttributeError) as e:
+            raise ImportError(f"Could not import reranker for provider '{provider_name}': {e}")
+        
+        # Handle configuration
+        if config is None:
+            config = {}
+        elif isinstance(config, BaseRerankerConfig):
+            config = config.to_dict()
+        
+        # Create and return the reranker instance
+        return reranker_class(config)

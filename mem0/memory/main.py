@@ -36,6 +36,7 @@ from mem0.utils.factory import (
     EmbedderFactory,
     GraphStoreFactory,
     LlmFactory,
+    RerankerFactory,
     VectorStoreFactory,
 )
 
@@ -146,6 +147,17 @@ class Memory(MemoryBase):
         self.db = SQLiteManager(self.config.history_db_path)
         self.collection_name = self.config.vector_store.config.collection_name
         self.api_version = self.config.version
+
+        # Initialize reranker if configured
+        self.reranker = None
+        if self.config.reranker and self.config.reranker.provider:
+            try:
+                self.reranker = RerankerFactory.create(
+                    self.config.reranker.provider, 
+                    self.config.reranker.config
+                )
+            except Exception as e:
+                logger.warning(f"Failed to initialize reranker: {e}")
 
         self.enable_graph = False
 
@@ -753,6 +765,40 @@ class Memory(MemoryBase):
             if threshold is None or mem.score >= threshold:
                 original_memories.append(memory_item_dict)
 
+        # Apply reranking if configured
+        if self.reranker and len(original_memories) > 1:
+            try:
+                reranked_results = self.reranker.rerank(query, original_memories)
+                # Convert reranked results back to the expected format
+                original_memories = []
+                for result in reranked_results:
+                    # Find the original memory dict by ID
+                    original_memory = next(
+                        (mem for mem in memories if mem.id == result.id), 
+                        None
+                    )
+                    if original_memory:
+                        memory_item_dict = MemoryItem(
+                            id=result.id,
+                            memory=result.content,
+                            hash=original_memory.payload.get("hash"),
+                            created_at=original_memory.payload.get("created_at"),
+                            updated_at=original_memory.payload.get("updated_at"),
+                            score=result.score,  # Use reranker score
+                        ).model_dump()
+
+                        for key in promoted_payload_keys:
+                            if key in original_memory.payload:
+                                memory_item_dict[key] = original_memory.payload[key]
+
+                        additional_metadata = {k: v for k, v in original_memory.payload.items() if k not in core_and_promoted_keys}
+                        if additional_metadata:
+                            memory_item_dict["metadata"] = additional_metadata
+
+                        original_memories.append(memory_item_dict)
+            except Exception as e:
+                logger.warning(f"Reranking failed, using original results: {e}")
+
         return original_memories
 
     def update(self, memory_id, data):
@@ -1022,6 +1068,17 @@ class AsyncMemory(MemoryBase):
         self.db = SQLiteManager(self.config.history_db_path)
         self.collection_name = self.config.vector_store.config.collection_name
         self.api_version = self.config.version
+
+        # Initialize reranker if configured
+        self.reranker = None
+        if self.config.reranker and self.config.reranker.provider:
+            try:
+                self.reranker = RerankerFactory.create(
+                    self.config.reranker.provider, 
+                    self.config.reranker.config
+                )
+            except Exception as e:
+                logger.warning(f"Failed to initialize reranker: {e}")
 
         self.enable_graph = False
 
@@ -1627,6 +1684,40 @@ class AsyncMemory(MemoryBase):
 
             if threshold is None or mem.score >= threshold:
                 original_memories.append(memory_item_dict)
+
+        # Apply reranking if configured
+        if self.reranker and len(original_memories) > 1:
+            try:
+                reranked_results = await asyncio.to_thread(self.reranker.rerank, query, original_memories)
+                # Convert reranked results back to the expected format
+                original_memories = []
+                for result in reranked_results:
+                    # Find the original memory dict by ID
+                    original_memory = next(
+                        (mem for mem in memories if mem.id == result.id), 
+                        None
+                    )
+                    if original_memory:
+                        memory_item_dict = MemoryItem(
+                            id=result.id,
+                            memory=result.content,
+                            hash=original_memory.payload.get("hash"),
+                            created_at=original_memory.payload.get("created_at"),
+                            updated_at=original_memory.payload.get("updated_at"),
+                            score=result.score,  # Use reranker score
+                        ).model_dump()
+
+                        for key in promoted_payload_keys:
+                            if key in original_memory.payload:
+                                memory_item_dict[key] = original_memory.payload[key]
+
+                        additional_metadata = {k: v for k, v in original_memory.payload.items() if k not in core_and_promoted_keys}
+                        if additional_metadata:
+                            memory_item_dict["metadata"] = additional_metadata
+
+                        original_memories.append(memory_item_dict)
+            except Exception as e:
+                logger.warning(f"Reranking failed, using original results: {e}")
 
         return original_memories
 

@@ -7,7 +7,7 @@ iconType: "solid"
 ## How to define configurations?
 
 The `reranker` configuration is defined as an object with two main keys:
-- `provider`: The name of the reranker provider (e.g., "cohere", "sentence_transformer", "huggingface", "llm_reranker")
+- `provider`: The name of the reranker provider (e.g., "aws_bedrock", "cohere", "sentence_transformer", "huggingface", "llm_reranker")
 - `config`: A nested dictionary containing provider-specific settings
 
 ## Basic Configuration
@@ -72,6 +72,20 @@ config = {
             "model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
             "device": "cpu",
             "top_n": 10
+        }
+    }
+}
+```
+
+### AWS Bedrock
+```python
+config = {
+    "reranker": {
+        "provider": "aws_bedrock",
+        "config": {
+            "model": "cohere.rerank-v3-5:0",
+            "region": "us-west-2",
+            "top_n": 5
         }
     }
 }
