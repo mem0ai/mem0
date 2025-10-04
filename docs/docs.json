@@ -304,6 +304,7 @@
 											"integrations/vercel-ai-sdk",
 											"integrations/livekit",
 											"integrations/pipecat",
+											"integrations/pydanticai",
 											"integrations/elevenlabs",
 											"integrations/aws-bedrock",
 											"integrations/flowise",
