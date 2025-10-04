@@ -39,7 +39,7 @@ First, import the necessary modules and set up your environment variables.
 ```python
 import os
 from typing import List
-from pydantic_ai import Agent, ModelMessage, UserPromptPart
+from pydantic_ai import Agent, ModelMessage, UserPromptPart, RunContext, SystemPromptPart, ModelRequest
 from mem0 import MemoryClient
 from dotenv import load_dotenv
 
@@ -68,10 +68,9 @@ We'll define helper functions to interact with Mem0 for searching and adding mem
 def retrieve_memories(query: str, user_id: str) -> str:
     """Retrieve relevant memories from Mem0 based on the query."""
     memories = mem0.search(query, user_id=user_id)
-    if memories.get('results', []):
-        memory_list = memories['results']
+    if memories:
         # Format memories to be injected into the prompt
-        return "\nRelevant past memories:\n" + "\n".join([f"- {mem['memory']}" for mem in memory_list])
+        return "\nRelevant past memories:\n" + "\n".join([f"- {mem['memory']}" for mem in memories])
     return ""
 
 def save_conversation(user_id: str, user_input: str, assistant_response: str):
@@ -88,11 +87,9 @@ def save_conversation(user_id: str, user_input: str, assistant_response: str):
 PydanticAI's `history_processors` allow us to modify the message history before it's sent to the LLM. We'll use this to inject relevant memories.
 
 ```python
-async def mem0_history_processor(messages: List[ModelMessage]) -> List[ModelMessage]:
+async def mem0_history_processor(ctx: RunContext[str], messages: List[ModelMessage]) -> List[ModelMessage]:
     """A history processor to inject Mem0 memories into the PydanticAI agent's context."""
-    # Assuming user_id is available in a global context or passed through a custom RunContext
-    # For simplicity, let's assume a default user_id for this example.
-    user_id = "default_user"
+    user_id = ctx.deps # user_id is now passed as a dependency
 
     # Get the latest user message to query Mem0
     latest_user_message = ""
@@ -104,12 +101,8 @@ async def mem0_history_processor(messages: List[ModelMessage]) -> List[ModelMess
     if latest_user_message:
         relevant_memories_str = retrieve_memories(latest_user_message, user_id)
         if relevant_memories_str:
-            # Prepend memories as a system message or part of the user prompt
-            # Here, we prepend it as a new UserPromptPart for simplicity, 
-            # but a SystemPromptPart could also be used depending on desired behavior.
-            # Note: PydanticAI's Agent expects a list of ModelMessage objects.
-            # We'll add a new message part with the memories.
-            messages.insert(0, ModelMessage(parts=[UserPromptPart(content=relevant_memories_str)]))
+            # Prepend memories as a SystemPromptPart within a ModelRequest
+            messages.insert(0, ModelRequest(parts=[SystemPromptPart(content=relevant_memories_str)]))
 
     return messages
 
@@ -117,7 +110,8 @@ async def mem0_history_processor(messages: List[ModelMessage]) -> List[ModelMess
 agent_with_memory = Agent(
     'openai:gpt-4o-mini',
     instructions='You are a helpful AI assistant that remembers user preferences.',
-    history_processors=[mem0_history_processor]
+    history_processors=[mem0_history_processor],
+    deps_type=str # Specify the type of dependency for user_id
 )
 ```
 
@@ -129,7 +123,7 @@ Now, let's create a chat function that uses the PydanticAI agent with Mem0 integ
 async def chat_with_mem0_pydanticai(user_input: str, user_id: str = "default_user") -> str:
     """Sends a query to the PydanticAI agent and saves the conversation to Mem0."""
     # The history_processor will inject memories before the agent runs
-    result = await agent_with_memory.run(user_input, message_history=[]) # Pass an empty history, as processor handles it
+    result = await agent_with_memory.run(user_input, message_history=[], deps=user_id) # Pass user_id as dependency
     assistant_response = result.output
 
     # Save the full conversation turn to Mem0
