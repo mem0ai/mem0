@@ -7,7 +7,7 @@ Integrate [**Mem0**](https://github.com/mem0ai/mem0) with [PydanticAI](https://a
 
 ## Overview
 
-In this guide, we'll demonstrate how to build a PydanticAI agent that:
+This guide demonstrates how to build a PydanticAI agent that:
 
 1.  Leverages Mem0 to store and retrieve relevant information from past interactions.
 2.  Maintains context across conversations for personalized responses.
@@ -15,9 +15,9 @@ In this guide, we'll demonstrate how to build a PydanticAI agent that:
 
 By combining Mem0's memory layer with PydanticAI's structured agent capabilities, you can create robust AI applications that learn and adapt over time.
 
-## Prerequisites
+## Setup and Configuration
 
-Before setting up Mem0 with PydanticAI, ensure you have:
+Before you begin, ensure you have:
 
 1.  Installed the required packages:
 
@@ -27,14 +27,11 @@ Before setting up Mem0 with PydanticAI, ensure you have:
 
 2.  Valid API keys:
     -   [Mem0 API Key](https://app.mem0.ai/dashboard/api-keys)
+    -   **PydanticAI Model API Key:** Depending on the LLM you choose (e.g., OpenAI, Grok, Gemini), set the corresponding API key as an environment variable (e.g., `OPENAI_API_KEY`, `GROQ_API_KEY`, `GOOGLE_API_KEY`). PydanticAI is model-agnostic, allowing easy switching between different LLM providers.
 
-## Basic Integration Example
+### Initialize Clients and Agent
 
-The following example demonstrates how to integrate Mem0 with a PydanticAI agent to provide it with long-term memory.
-
-### Setup
-
-First, import the necessary modules and set up your environment variables.
+First, import necessary modules, set up environment variables, and initialize Mem0 and your PydanticAI agent.
 
 ```python
 import os
@@ -45,7 +42,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Configuration
+# Configuration: Set your API keys as environment variables
 # os.environ["MEM0_API_KEY"] = "your-mem0-api-key"
 # os.environ["OPENAI_API_KEY"] = "your-openai-api-key" # Example for PydanticAI agent model
 
@@ -53,28 +50,26 @@ load_dotenv()
 mem0 = MemoryClient()
 
 # Initialize PydanticAI Agent
-# Replace 'openai:gpt-4o-mini' with your desired model
 agent = Agent(
-    'openai:gpt-4o-mini',
+    'openai:gpt-4o-mini', # Replace with your desired model
     instructions='You are a helpful AI assistant that remembers user preferences.'
 )
 ```
 
 ### Define Memory Helper Functions
 
-We'll define helper functions to interact with Mem0 for searching and adding memories.
+These functions handle searching and adding memories to Mem0.
 
 ```python
 def retrieve_memories(query: str, user_id: str) -> str:
-    """Retrieve relevant memories from Mem0 based on the query."""
+    """Retrieve relevant memories from Mem0 based on the query and user_id."""
     memories = mem0.search(query, user_id=user_id)
     if memories:
-        # Format memories to be injected into the prompt
         return "\nRelevant past memories:\n" + "\n".join([f"- {mem['memory']}" for mem in memories])
     return ""
 
 def save_conversation(user_id: str, user_input: str, assistant_response: str):
-    """Save the user input and assistant response to Mem0."""
+    """Save the user input and assistant response to Mem0 for a specific user."""
     conversation = [
         {"role": "user", "content": user_input},
         {"role": "assistant", "content": assistant_response},
@@ -84,12 +79,12 @@ def save_conversation(user_id: str, user_input: str, assistant_response: str):
 
 ### Integrate Mem0 with PydanticAI using `history_processors`
 
-PydanticAI's `history_processors` allow us to modify the message history before it's sent to the LLM. We'll use this to inject relevant memories.
+PydanticAI's `history_processors` modify the message history before it's sent to the LLM, allowing us to inject relevant memories.
 
 ```python
 async def mem0_history_processor(ctx: RunContext[str], messages: List[ModelMessage]) -> List[ModelMessage]:
-    """A history processor to inject Mem0 memories into the PydanticAI agent's context."""
-    user_id = ctx.deps # user_id is now passed as a dependency
+    """Injects Mem0 memories into the PydanticAI agent's context using the user_id from RunContext."""
+    user_id = ctx.deps # user_id is passed as a dependency
 
     # Get the latest user message to query Mem0
     latest_user_message = ""
@@ -106,24 +101,27 @@ async def mem0_history_processor(ctx: RunContext[str], messages: List[ModelMessa
 
     return messages
 
-# Re-initialize the agent with the history processor
+# Re-initialize the agent with the history processor and specify dependency type
 agent_with_memory = Agent(
     'openai:gpt-4o-mini',
     instructions='You are a helpful AI assistant that remembers user preferences.',
     history_processors=[mem0_history_processor],
-    deps_type=str # Specify the type of dependency for user_id
+    deps_type=str # Specifies that user_id (a string) will be passed as a dependency
 )
 ```
 
 ### Chat Function
 
-Now, let's create a chat function that uses the PydanticAI agent with Mem0 integration.
+This function orchestrates the interaction with the PydanticAI agent and Mem0.
 
 ```python
 async def chat_with_mem0_pydanticai(user_input: str, user_id: str = "default_user") -> str:
     """Sends a query to the PydanticAI agent and saves the conversation to Mem0."""
-    # The history_processor will inject memories before the agent runs
-    result = await agent_with_memory.run(user_input, message_history=[], deps=user_id) # Pass user_id as dependency
+    # The `user_id` is passed as a dependency (`deps`) to the agent's run.
+    # This `user_id` is then accessible within the `mem0_history_processor` via `ctx.deps`.
+    # We pass an empty `message_history` here because the `mem0_history_processor` is responsible
+    # for injecting relevant memories into the message history before the agent processes it.
+    result = await agent_with_memory.run(user_input, message_history=[], deps=user_id)
     assistant_response = result.output
 
     # Save the full conversation turn to Mem0
@@ -133,6 +131,8 @@ async def chat_with_mem0_pydanticai(user_input: str, user_id: str = "default_use
 ```
 
 ### Usage Example
+
+Demonstrates a multi-turn conversation with memory recall.
 
 ```python
 import asyncio
@@ -156,16 +156,26 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
+## How It Works
+
+The integration between Mem0 and PydanticAI follows these steps:
+
+1.  **User Input**: A user sends a message to the `chat_with_mem0_pydanticai` function.
+2.  **Memory Retrieval (via `history_processors`)**: Before the PydanticAI agent processes the message, the `mem0_history_processor` intercepts the message history. It uses the latest user message to query Mem0 for relevant past memories.
+3.  **Prompt Enrichment**: The retrieved memories are then injected as a `SystemPromptPart` into the message history, providing the PydanticAI agent with crucial context.
+4.  **PydanticAI Processing**: The PydanticAI agent processes the enriched prompt and generates a response.
+5.  **Memory Storage**: The entire conversation turn (user message and AI response) is then stored back into Mem0 using the `save_conversation` function, ensuring that future interactions can leverage this new information.
+
 ## Key Features
 
-1.  **Persistent Memory**: Utilizes Mem0 to store and retrieve relevant information across interactions.
-2.  **Contextual Conversations**: PydanticAI agents leverage injected memories to maintain context and provide personalized responses.
-3.  **Enhanced Personalization**: Tailors interactions based on user history and preferences, improving user experience.
-4.  **Flexible Integration**: Uses PydanticAI's `history_processors` for seamless memory injection without altering core agent logic.
+1.  **Persistent Memory**: Mem0 stores and retrieves relevant information across interactions.
+2.  **Contextual Conversations**: PydanticAI agents leverage injected memories for personalized responses.
+3.  **Enhanced Personalization**: Tailors interactions based on user history and preferences.
+4.  **Flexible Integration**: Uses PydanticAI's `history_processors` for seamless memory injection.
 
 ## Conclusion
 
-By integrating Mem0 with PydanticAI using `history_processors`, you can build highly intelligent and personalized AI agents that remember past interactions, understand context, and provide more accurate and relevant responses. This approach is particularly beneficial for applications requiring ongoing user engagement and a deep understanding of individual user histories.
+By integrating Mem0 with PydanticAI using `history_processors`, you can build intelligent and personalized AI agents that remember past interactions, understand context, and provide accurate and relevant responses. This approach is ideal for applications requiring ongoing user engagement and a deep understanding of individual user histories.
 
 ## Help
 
