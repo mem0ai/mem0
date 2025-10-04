@@ -337,7 +337,7 @@ const updateMemories = async (messages: Array<Message>, config?: Mem0ConfigSetti
                 Authorization: `Token ${apiKey}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({messages, ...config}),
+            body: JSON.stringify({messages, ...config, version: "v2"}),
         };
 
         const baseUrl = config?.host || 'https://api.mem0.ai';
