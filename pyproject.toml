@@ -30,6 +30,7 @@ graph = [
     "neo4j>=5.23.1",
     "rank-bm25>=0.2.2",
     "kuzu>=0.11.0",
+    "falkordb>=1.2.0",
 ]
 vector_stores = [
     "vecs>=0.4.0",
