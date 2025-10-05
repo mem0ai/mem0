@@ -68,6 +68,51 @@ def test_generate_response(mock_langchain_model):
     assert response == "This is a test response"
 
 
+def test_generate_response_with_tools(mock_langchain_model):
+    config = BaseLlmConfig(model=mock_langchain_model, temperature=0.7, max_tokens=100, api_key="test-api-key")
+    llm = LangchainLLM(config)
+
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Add a new memory: Today is a sunny day."},
+    ]
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "add_memory",
+                "description": "Add a memory",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"data": {"type": "string", "description": "Data to add to memory"}},
+                    "required": ["data"],
+                },
+            },
+        }
+    ]
+
+    mock_response = Mock()
+    mock_response.content = "I've added the memory for you."
+
+    mock_tool_call = Mock()
+    mock_tool_call.__getitem__ = Mock(
+        side_effect={"name": "add_memory", "args": {"data": "Today is a sunny day."}}.__getitem__
+    )
+
+    mock_response.tool_calls = [mock_tool_call]
+    mock_langchain_model.invoke.return_value = mock_response
+    mock_langchain_model.bind_tools.return_value = mock_langchain_model
+
+    response = llm.generate_response(messages, tools=tools)
+
+    mock_langchain_model.invoke.assert_called_once()
+
+    assert response["content"] == "I've added the memory for you."
+    assert len(response["tool_calls"]) == 1
+    assert response["tool_calls"][0]["name"] == "add_memory"
+    assert response["tool_calls"][0]["arguments"] == {"data": "Today is a sunny day."}
+
+
 def test_invalid_model():
     """Test that LangchainLLM raises an error with an invalid model."""
     config = BaseLlmConfig(model="not-a-valid-model-instance", temperature=0.7, max_tokens=100, api_key="test-api-key")
