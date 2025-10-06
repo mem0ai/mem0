@@ -27,7 +27,7 @@ agent = Agent(
 # Store user preferences as memory
 def store_user_preferences(conversation: list, user_id: str = USER_ID):
     """Store user preferences from conversation history"""
-    memory_client.add(conversation, user_id=user_id, output_format="v1.1")
+    memory_client.add(conversation, user_id=user_id)
 
 
 # Memory-aware assistant function

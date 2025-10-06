@@ -4,11 +4,11 @@ icon: "image"
 iconType: "solid"
 ---
 
-Mem0 extends its capabilities beyond text by supporting multimodal data, including images. Users can seamlessly integrate images into their interactions, allowing Mem0 to extract pertinent information from visual content and enrich the memory system.
+Mem0 extends its capabilities beyond text by supporting multimodal data, including images. You can seamlessly integrate images into your interactions, allowing Mem0 to extract pertinent information from visual content and enrich the memory system.
 
 ## How It Works
 
-When a user provides an image, Mem0 processes the image to extract textual information and relevant details, which are then added to the user's memory. This feature enhances the system's ability to understand and remember details based on visual inputs.
+When you provide an image, Mem0 processes it to extract textual information and relevant details, which are then added to your memory. This feature enhances the system's ability to understand and remember details based on visual inputs.
 
 <Note>
 To enable multimodal support, you must set `enable_vision = True` in your configuration. The `vision_details` parameter can be set to "auto" (default), "low", or "high" to control the level of detail in image processing.
@@ -104,7 +104,7 @@ await client.add(messages, { userId: "alice" })
 
 Mem0 allows you to add images to user interactions through two primary methods: by providing an image URL or by using a Base64-encoded image. Below are examples demonstrating each approach.
 
-## 1. Using an Image URL (Recommended)
+### Using an Image URL (Recommended)
 
 You can include an image by passing its direct URL. This method is simple and efficient for online images.
 
@@ -146,7 +146,7 @@ await client.add([imageMessage], { userId: "alice" })
 ```
 </CodeGroup>
 
-## 2. Using Base64 Image Encoding for Local Files
+### Using Base64 Image Encoding for Local Files
 
 For local images or scenarios where embedding the image directly is preferable, you can use a Base64-encoded string.
 
@@ -196,7 +196,7 @@ await client.add([imageMessage], { userId: "alice" })
 ```
 </CodeGroup>
 
-## 3. OpenAI-Compatible Message Format
+### OpenAI-Compatible Message Format
 
 You can also use the OpenAI-compatible format to combine text and images in a single message:
 

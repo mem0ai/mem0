@@ -168,6 +168,7 @@ class VectorStoreFactory:
         "milvus": "mem0.vector_stores.milvus.MilvusDB",
         "upstash_vector": "mem0.vector_stores.upstash_vector.UpstashVector",
         "azure_ai_search": "mem0.vector_stores.azure_ai_search.AzureAISearch",
+        "azure_mysql": "mem0.vector_stores.azure_mysql.AzureMySQL",
         "pinecone": "mem0.vector_stores.pinecone.PineconeDB",
         "mongodb": "mem0.vector_stores.mongodb.MongoDB",
         "redis": "mem0.vector_stores.redis.RedisDB",
@@ -210,7 +211,8 @@ class GraphStoreFactory:
 
     provider_to_class = {
         "memgraph": "mem0.memory.memgraph_memory.MemoryGraph",
-        "neptune": "mem0.graphs.neptune.main.MemoryGraph",
+        "neptune": "mem0.graphs.neptune.neptunegraph.MemoryGraph",
+        "neptunedb": "mem0.graphs.neptune.neptunedb.MemoryGraph",
         "kuzu": "mem0.memory.kuzu_memory.MemoryGraph",
         "default": "mem0.memory.graph_memory.MemoryGraph",
     }

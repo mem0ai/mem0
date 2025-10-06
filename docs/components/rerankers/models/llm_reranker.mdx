@@ -1,0 +1,491 @@
+---
+title: LLM Reranker
+description: 'Use any language model as a reranker with custom prompts'
+icon: "robot"
+iconType: "solid"
+---
+
+## Overview
+
+The LLM reranker allows you to use any supported language model as a reranker. This approach uses prompts to instruct the LLM to score and rank memories based on their relevance to the query. While slower than specialized rerankers, it offers maximum flexibility and can be fine-tuned with custom prompts.
+
+## Configuration
+
+### Basic Setup
+
+```python
+from mem0 import Memory
+
+config = {
+    "reranker": {
+        "provider": "llm_reranker",
+        "config": {
+            "llm": {
+                "provider": "openai",
+                "config": {
+                    "model": "gpt-4",
+                    "api_key": "your-openai-api-key"
+                }
+            }
+        }
+    }
+}
+
+m = Memory.from_config(config)
+```
+
+### Configuration Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `llm` | dict | Required | LLM configuration object |
+| `top_k` | int | 10 | Number of results to rerank |
+| `temperature` | float | 0.0 | LLM temperature for consistency |
+| `custom_prompt` | str | None | Custom reranking prompt |
+| `score_range` | tuple | (0, 10) | Score range for relevance |
+
+### Advanced Configuration
+
+```python
+config = {
+    "reranker": {
+        "provider": "llm_reranker",
+        "config": {
+            "llm": {
+                "provider": "anthropic",
+                "config": {
+                    "model": "claude-3-sonnet-20240229",
+                    "api_key": "your-anthropic-api-key"
+                }
+            },
+            "top_k": 15,
+            "temperature": 0.0,
+            "score_range": (1, 5),
+            "custom_prompt": """
+            Rate the relevance of each memory to the query on a scale of 1-5.
+            Consider semantic similarity, context, and practical utility.
+            Only provide the numeric score.
+            """
+        }
+    }
+}
+```
+
+## Supported LLM Providers
+
+### OpenAI
+
+```python
+config = {
+    "reranker": {
+        "provider": "llm_reranker",
+        "config": {
+            "llm": {
+                "provider": "openai",
+                "config": {
+                    "model": "gpt-4",
+                    "api_key": "your-openai-api-key",
+                    "temperature": 0.0
+                }
+            }
+        }
+    }
+}
+```
+
+### Anthropic
+
+```python
+config = {
+    "reranker": {
+        "provider": "llm_reranker",
+        "config": {
+            "llm": {
+                "provider": "anthropic",
+                "config": {
+                    "model": "claude-3-sonnet-20240229",
+                    "api_key": "your-anthropic-api-key"
+                }
+            }
+        }
+    }
+}
+```
+
+### Ollama (Local)
+
+```python
+config = {
+    "reranker": {
+        "provider": "llm_reranker",
+        "config": {
+            "llm": {
+                "provider": "ollama",
+                "config": {
+                    "model": "llama2",
+                    "ollama_base_url": "http://localhost:11434"
+                }
+            }
+        }
+    }
+}
+```
+
+### Azure OpenAI
+
+```python
+config = {
+    "reranker": {
+        "provider": "llm_reranker",
+        "config": {
+            "llm": {
+                "provider": "azure_openai",
+                "config": {
+                    "model": "gpt-4",
+                    "api_key": "your-azure-api-key",
+                    "azure_endpoint": "https://your-resource.openai.azure.com/",
+                    "azure_deployment": "gpt-4-deployment"
+                }
+            }
+        }
+    }
+}
+```
+
+## Custom Prompts
+
+### Default Prompt Behavior
+
+The default prompt asks the LLM to score relevance on a 0-10 scale:
+
+```
+Given a query and a memory, rate how relevant the memory is to answering the query.
+Score from 0 (completely irrelevant) to 10 (perfectly relevant).
+Only provide the numeric score.
+
+Query: {query}
+Memory: {memory}
+Score:
+```
+
+### Custom Prompt Examples
+
+#### Domain-Specific Scoring
+
+```python
+custom_prompt = """
+You are a medical information specialist. Rate how relevant each memory is for answering the medical query.
+Consider clinical accuracy, specificity, and practical applicability.
+Rate from 1-10 where:
+- 1-3: Irrelevant or potentially harmful
+- 4-6: Somewhat relevant but incomplete
+- 7-8: Relevant and helpful
+- 9-10: Highly relevant and clinically useful
+
+Query: {query}
+Memory: {memory}
+Score:
+"""
+
+config = {
+    "reranker": {
+        "provider": "llm_reranker",
+        "config": {
+            "llm": {
+                "provider": "openai",
+                "config": {
+                    "model": "gpt-4",
+                    "api_key": "your-api-key"
+                }
+            },
+            "custom_prompt": custom_prompt
+        }
+    }
+}
+```
+
+#### Contextual Relevance
+
+```python
+contextual_prompt = """
+Rate how well this memory answers the specific question asked.
+Consider:
+- Direct relevance to the question
+- Completeness of information
+- Recency and accuracy
+- Practical usefulness
+
+Rate 1-5:
+1 = Not relevant
+2 = Slightly relevant
+3 = Moderately relevant
+4 = Very relevant
+5 = Perfectly answers the question
+
+Query: {query}
+Memory: {memory}
+Score:
+"""
+```
+
+#### Conversational Context
+
+```python
+conversation_prompt = """
+You are helping evaluate which memories are most useful for a conversational AI assistant.
+Rate how helpful this memory would be for generating a relevant response.
+
+Consider:
+- Direct relevance to user's intent
+- Emotional appropriateness
+- Factual accuracy
+- Conversation flow
+
+Rate 0-10:
+Query: {query}
+Memory: {memory}
+Score:
+"""
+```
+
+## Usage Examples
+
+### Basic Usage
+
+```python
+from mem0 import Memory
+
+m = Memory.from_config(config)
+
+# Add memories
+m.add("I'm allergic to peanuts", user_id="alice")
+m.add("I love Italian food", user_id="alice")
+m.add("I'm vegetarian", user_id="alice")
+
+# Search with LLM reranking
+results = m.search(
+    "What foods should I avoid?",
+    user_id="alice",
+    rerank=True
+)
+
+for result in results["results"]:
+    print(f"Memory: {result['memory']}")
+    print(f"LLM Score: {result['score']:.2f}")
+```
+
+### Batch Processing with Error Handling
+
+```python
+def safe_llm_rerank_search(query, user_id, max_retries=3):
+    for attempt in range(max_retries):
+        try:
+            return m.search(query, user_id=user_id, rerank=True)
+        except Exception as e:
+            print(f"Attempt {attempt + 1} failed: {e}")
+            if attempt == max_retries - 1:
+                # Fall back to vector search
+                return m.search(query, user_id=user_id, rerank=False)
+
+# Use the safe function
+results = safe_llm_rerank_search("What are my preferences?", "alice")
+```
+
+## Performance Considerations
+
+### Speed vs Quality Trade-offs
+
+| Model Type | Speed | Quality | Cost | Best For |
+|------------|-------|---------|------|----------|
+| GPT-3.5 Turbo | Fast | Good | Low | High-volume applications |
+| GPT-4 | Medium | Excellent | Medium | Quality-critical applications |
+| Claude 3 Sonnet | Medium | Excellent | Medium | Balanced performance |
+| Ollama Local | Variable | Good | Free | Privacy-sensitive applications |
+
+### Optimization Strategies
+
+```python
+# Fast configuration for high-volume use
+fast_config = {
+    "reranker": {
+        "provider": "llm_reranker",
+        "config": {
+            "llm": {
+                "provider": "openai",
+                "config": {
+                    "model": "gpt-3.5-turbo",
+                    "api_key": "your-api-key"
+                }
+            },
+            "top_k": 5,  # Limit candidates
+            "temperature": 0.0
+        }
+    }
+}
+
+# High-quality configuration
+quality_config = {
+    "reranker": {
+        "provider": "llm_reranker",
+        "config": {
+            "llm": {
+                "provider": "openai",
+                "config": {
+                    "model": "gpt-4",
+                    "api_key": "your-api-key"
+                }
+            },
+            "top_k": 15,
+            "temperature": 0.0
+        }
+    }
+}
+```
+
+## Advanced Use Cases
+
+### Multi-Step Reasoning
+
+```python
+reasoning_prompt = """
+Evaluate this memory's relevance using multi-step reasoning:
+
+1. What is the main intent of the query?
+2. What key information does the memory contain?
+3. How directly does the memory address the query?
+4. What additional context might be needed?
+
+Based on this analysis, rate relevance 1-10:
+
+Query: {query}
+Memory: {memory}
+
+Analysis:
+Step 1 (Intent):
+Step 2 (Information):
+Step 3 (Directness):
+Step 4 (Context):
+Final Score:
+"""
+```
+
+### Comparative Ranking
+
+```python
+comparative_prompt = """
+You will see a query and multiple memories. Rank them in order of relevance.
+Consider which memories best answer the question and would be most helpful.
+
+Query: {query}
+
+Memories to rank:
+{memories}
+
+Provide scores 1-10 for each memory, considering their relative usefulness.
+"""
+```
+
+### Emotional Intelligence
+
+```python
+emotional_prompt = """
+Consider both factual relevance and emotional appropriateness.
+Rate how suitable this memory is for responding to the user's query.
+
+Factors to consider:
+- Factual accuracy and relevance
+- Emotional tone and sensitivity
+- User's likely emotional state
+- Appropriateness of response
+
+Query: {query}
+Memory: {memory}
+Emotional Context: {context}
+Score (1-10):
+"""
+```
+
+## Error Handling and Fallbacks
+
+```python
+class RobustLLMReranker:
+    def __init__(self, primary_config, fallback_config=None):
+        self.primary = Memory.from_config(primary_config)
+        self.fallback = Memory.from_config(fallback_config) if fallback_config else None
+
+    def search(self, query, user_id, max_retries=2):
+        # Try primary LLM reranker
+        for attempt in range(max_retries):
+            try:
+                return self.primary.search(query, user_id=user_id, rerank=True)
+            except Exception as e:
+                print(f"Primary reranker attempt {attempt + 1} failed: {e}")
+
+        # Try fallback reranker
+        if self.fallback:
+            try:
+                return self.fallback.search(query, user_id=user_id, rerank=True)
+            except Exception as e:
+                print(f"Fallback reranker failed: {e}")
+
+        # Final fallback: vector search only
+        return self.primary.search(query, user_id=user_id, rerank=False)
+
+# Usage
+primary_config = {
+    "reranker": {
+        "provider": "llm_reranker",
+        "config": {"llm": {"provider": "openai", "config": {"model": "gpt-4"}}}
+    }
+}
+
+fallback_config = {
+    "reranker": {
+        "provider": "llm_reranker",
+        "config": {"llm": {"provider": "openai", "config": {"model": "gpt-3.5-turbo"}}}
+    }
+}
+
+reranker = RobustLLMReranker(primary_config, fallback_config)
+results = reranker.search("What are my preferences?", "alice")
+```
+
+## Best Practices
+
+1. **Use Specific Prompts**: Tailor prompts to your domain and use case
+2. **Set Temperature to 0**: Ensure consistent scoring across runs
+3. **Limit Top-K**: Don't rerank too many candidates to control costs
+4. **Implement Fallbacks**: Always have a backup plan for API failures
+5. **Monitor Costs**: Track API usage, especially with expensive models
+6. **Cache Results**: Consider caching reranking results for repeated queries
+7. **Test Prompts**: Experiment with different prompts to find what works best
+
+## Troubleshooting
+
+### Common Issues
+
+**Inconsistent Scores**
+- Set temperature to 0.0
+- Use more specific prompts
+- Consider using multiple calls and averaging
+
+**API Rate Limits**
+- Implement exponential backoff
+- Use cheaper models for high-volume scenarios
+- Add retry logic with delays
+
+**Poor Ranking Quality**
+- Refine your custom prompt
+- Try different LLM models
+- Add examples to your prompt
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Custom Prompts Guide" icon="pencil" href="/components/rerankers/custom-prompts">
+    Learn to craft effective reranking prompts
+  </Card>
+  <Card title="Performance Optimization" icon="bolt" href="/components/rerankers/optimization">
+    Optimize LLM reranker performance
+  </Card>
+</CardGroup>

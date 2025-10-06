@@ -7,7 +7,6 @@ import logging
 import os
 import uuid
 import warnings
-
 from copy import deepcopy
 from datetime import datetime
 from typing import Any, Dict, Optional
@@ -21,6 +20,7 @@ from mem0.configs.prompts import (
     PROCEDURAL_MEMORY_SYSTEM_PROMPT,
     get_update_memory_messages,
 )
+from mem0.exceptions import ValidationError as Mem0ValidationError
 from mem0.memory.base import MemoryBase
 from mem0.memory.setup import mem0_dir, setup_config
 from mem0.memory.storage import SQLiteManager
@@ -111,7 +111,12 @@ def _build_filters_and_metadata(
         session_ids_provided.append("run_id")
 
     if not session_ids_provided:
-        raise ValueError("At least one of 'user_id', 'agent_id', or 'run_id' must be provided.")
+        raise Mem0ValidationError(
+            message="At least one of 'user_id', 'agent_id', or 'run_id' must be provided.",
+            error_code="VALIDATION_001",
+            details={"provided_ids": {"user_id": user_id, "agent_id": agent_id, "run_id": run_id}},
+            suggestion="Please provide at least one identifier to scope the memory operation."
+        )
 
     # ---------- optional actor filter ----------
     resolved_actor_id = actor_id or effective_query_filters.get("actor_id")
@@ -274,6 +279,14 @@ class Memory(MemoryBase):
                   including a list of memory items affected (added, updated) under a "results" key,
                   and potentially "relations" if graph store is enabled.
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "event": "ADD"}]}`
+
+        Raises:
+            Mem0ValidationError: If input validation fails (invalid memory_type, messages format, etc.).
+            VectorStoreError: If vector store operations fail.
+            GraphStoreError: If graph store operations fail.
+            EmbeddingError: If embedding generation fails.
+            LLMError: If LLM operations fail.
+            DatabaseError: If database operations fail.
         """
 
         processed_metadata, effective_filters = _build_filters_and_metadata(
@@ -284,8 +297,11 @@ class Memory(MemoryBase):
         )
 
         if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
-            raise ValueError(
-                f"Invalid 'memory_type'. Please pass {MemoryType.PROCEDURAL.value} to create procedural memories."
+            raise Mem0ValidationError(
+                message=f"Invalid 'memory_type'. Please pass {MemoryType.PROCEDURAL.value} to create procedural memories.",
+                error_code="VALIDATION_002",
+                details={"provided_type": memory_type, "valid_type": MemoryType.PROCEDURAL.value},
+                suggestion=f"Use '{MemoryType.PROCEDURAL.value}' to create procedural memories."
             )
 
         if isinstance(messages, str):
@@ -295,7 +311,12 @@ class Memory(MemoryBase):
             messages = [messages]
 
         elif not isinstance(messages, list):
-            raise ValueError("messages must be str, dict, or list[dict]")
+            raise Mem0ValidationError(
+                message="messages must be str, dict, or list[dict]",
+                error_code="VALIDATION_003",
+                details={"provided_type": type(messages).__name__, "valid_types": ["str", "dict", "list[dict]"]},
+                suggestion="Convert your input to a string, dictionary, or list of dictionaries."
+            )
 
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
             results = self._create_procedural_memory(messages, metadata=processed_metadata, prompt=prompt)
@@ -420,7 +441,7 @@ class Memory(MemoryBase):
                 filters=search_filters,
             )
             for mem in existing_memories:
-                retrieved_old_memory.append({"id": mem.id, "text": mem.payload["data"]})
+                retrieved_old_memory.append({"id": mem.id, "text": mem.payload.get("data", "")})
 
         unique_data = {}
         for item in retrieved_old_memory:
@@ -575,7 +596,7 @@ class Memory(MemoryBase):
 
         result_item = MemoryItem(
             id=memory.id,
-            memory=memory.payload["data"],
+            memory=memory.payload.get("data", ""),
             hash=memory.payload.get("hash"),
             created_at=memory.payload.get("created_at"),
             updated_at=memory.payload.get("updated_at"),
@@ -677,7 +698,7 @@ class Memory(MemoryBase):
         for mem in actual_memories:
             memory_item_dict = MemoryItem(
                 id=mem.id,
-                memory=mem.payload["data"],
+                memory=mem.payload.get("data", ""),
                 hash=mem.payload.get("hash"),
                 created_at=mem.payload.get("created_at"),
                 updated_at=mem.payload.get("updated_at"),
@@ -916,7 +937,7 @@ class Memory(MemoryBase):
         for mem in memories:
             memory_item_dict = MemoryItem(
                 id=mem.id,
-                memory=mem.payload["data"],
+                memory=mem.payload.get("data", ""),
                 hash=mem.payload.get("hash"),
                 created_at=mem.payload.get("created_at"),
                 updated_at=mem.payload.get("updated_at"),
@@ -993,9 +1014,11 @@ class Memory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"})
+        # delete all vector memories and reset the collections
         memories = self.vector_store.list(filters=filters)[0]
         for memory in memories:
             self._delete_memory(memory.id)
+        self.vector_store.reset()
 
         logger.info(f"Deleted {len(memories)} memories")
 
@@ -1068,6 +1091,7 @@ class Memory(MemoryBase):
 
         try:
             procedural_memory = self.llm.generate_response(messages=parsed_messages)
+            procedural_memory = remove_code_blocks(procedural_memory)
         except Exception as e:
             logger.error(f"Error generating procedural memory summary: {e}")
             raise
@@ -1142,7 +1166,7 @@ class Memory(MemoryBase):
     def _delete_memory(self, memory_id):
         logger.info(f"Deleting memory with {memory_id=}")
         existing_memory = self.vector_store.get(vector_id=memory_id)
-        prev_value = existing_memory.payload["data"]
+        prev_value = existing_memory.payload.get("data", "")
         self.vector_store.delete(vector_id=memory_id)
         self.db.add_history(
             memory_id,
@@ -1322,7 +1346,12 @@ class AsyncMemory(MemoryBase):
             messages = [messages]
 
         elif not isinstance(messages, list):
-            raise ValueError("messages must be str, dict, or list[dict]")
+            raise Mem0ValidationError(
+                message="messages must be str, dict, or list[dict]",
+                error_code="VALIDATION_003",
+                details={"provided_type": type(messages).__name__, "valid_types": ["str", "dict", "list[dict]"]},
+                suggestion="Convert your input to a string, dictionary, or list of dictionaries."
+            )
 
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
             results = await self._create_procedural_memory(
@@ -1450,7 +1479,7 @@ class AsyncMemory(MemoryBase):
                 limit=5,
                 filters=search_filters,
             )
-            return [{"id": mem.id, "text": mem.payload["data"]} for mem in existing_mems]
+            return [{"id": mem.id, "text": mem.payload.get("data", "")} for mem in existing_mems]
 
         search_tasks = [process_fact_for_search(fact) for fact in new_retrieved_facts]
         search_results_list = await asyncio.gather(*search_tasks)
@@ -1622,7 +1651,7 @@ class AsyncMemory(MemoryBase):
 
         result_item = MemoryItem(
             id=memory.id,
-            memory=memory.payload["data"],
+            memory=memory.payload.get("data", ""),
             hash=memory.payload.get("hash"),
             created_at=memory.payload.get("created_at"),
             updated_at=memory.payload.get("updated_at"),
@@ -1736,7 +1765,7 @@ class AsyncMemory(MemoryBase):
         for mem in actual_memories:
             memory_item_dict = MemoryItem(
                 id=mem.id,
-                memory=mem.payload["data"],
+                memory=mem.payload.get("data", ""),
                 hash=mem.payload.get("hash"),
                 created_at=mem.payload.get("created_at"),
                 updated_at=mem.payload.get("updated_at"),
@@ -1888,7 +1917,7 @@ class AsyncMemory(MemoryBase):
         for mem in memories:
             memory_item_dict = MemoryItem(
                 id=mem.id,
-                memory=mem.payload["data"],
+                memory=mem.payload.get("data", ""),
                 hash=mem.payload.get("hash"),
                 created_at=mem.payload.get("created_at"),
                 updated_at=mem.payload.get("updated_at"),
@@ -2063,6 +2092,8 @@ class AsyncMemory(MemoryBase):
                 procedural_memory = response.content
             else:
                 procedural_memory = await asyncio.to_thread(self.llm.generate_response, messages=parsed_messages)
+                procedural_memory = remove_code_blocks(procedural_memory)
+        
         except Exception as e:
             logger.error(f"Error generating procedural memory summary: {e}")
             raise
@@ -2140,7 +2171,7 @@ class AsyncMemory(MemoryBase):
     async def _delete_memory(self, memory_id):
         logger.info(f"Deleting memory with {memory_id=}")
         existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
-        prev_value = existing_memory.payload["data"]
+        prev_value = existing_memory.payload.get("data", "")
 
         await asyncio.to_thread(self.vector_store.delete, vector_id=memory_id)
         await asyncio.to_thread(

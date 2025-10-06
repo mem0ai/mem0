@@ -1,0 +1,70 @@
+[Upstash Vector](https://upstash.com/docs/vector) is a serverless vector database with built-in embedding models.
+
+### Usage with Upstash embeddings
+
+You can enable the built-in embedding models by setting `enable_embeddings` to `True`. This allows you to use Upstash's embedding models for vectorization.
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["UPSTASH_VECTOR_REST_URL"] = "..."
+os.environ["UPSTASH_VECTOR_REST_TOKEN"] = "..."
+
+config = {
+    "vector_store": {
+        "provider": "upstash_vector",
+        "enable_embeddings": True,
+    }
+}
+
+m = Memory.from_config(config)
+m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+```
+
+<Note>
+    Setting `enable_embeddings` to `True` will bypass any external embedding provider you have configured.
+</Note>
+
+### Usage with external embedding providers
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "..."
+os.environ["UPSTASH_VECTOR_REST_URL"] = "..."
+os.environ["UPSTASH_VECTOR_REST_TOKEN"] = "..."
+
+config = {
+    "vector_store": {
+        "provider": "upstash_vector",
+    },
+    "embedder": {
+        "provider": "openai",
+        "config": {
+            "model": "text-embedding-3-large"
+        },
+    }
+}
+
+m = Memory.from_config(config)
+m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+```
+
+### Config
+
+Here are the parameters available for configuring Upstash Vector:
+
+| Parameter           | Description                        | Default Value |
+| ------------------- | ---------------------------------- | ------------- |
+| `url`               | URL for the Upstash Vector index   | `None`        |
+| `token`             | Token for the Upstash Vector index | `None`        |
+| `client`            | An `upstash_vector.Index` instance | `None`        |
+| `collection_name`   | The default namespace used         | `""`          |
+| `enable_embeddings` | Whether to use Upstash embeddings  | `False`       |
+
+<Note>
+  When `url` and `token` are not provided, the `UPSTASH_VECTOR_REST_URL` and
+  `UPSTASH_VECTOR_REST_TOKEN` environment variables are used.
+</Note>

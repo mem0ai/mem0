@@ -1,0 +1,73 @@
+---
+title: Eliza OS Character
+---
+
+You can create a personalised Eliza OS Character using Mem0. This guide will walk you through the necessary steps and provide the complete code to get you started.
+
+## Overview
+
+ElizaOS is a powerful AI agent framework for autonomy & personality. It is a collection of tools that help you create a personalised AI agent.
+
+## Setup
+You can start by cloning the eliza-os repository:
+
+```bash
+git clone https://github.com/elizaOS/eliza.git
+```
+
+Change the directory to the eliza-os repository:
+
+```bash
+cd eliza
+```
+
+Install the dependencies:
+
+```bash
+pnpm install
+```
+
+Build the project:
+
+```bash
+pnpm build
+```
+
+## Setup ENVs
+
+Create a `.env` file in the root of the project and add the following ( You can use the `.env.example` file as a reference):
+
+```bash
+# Mem0 Configuration
+MEM0_API_KEY= # Mem0 API Key ( Get from https://app.mem0.ai/dashboard/api-keys )
+MEM0_USER_ID= # Default: eliza-os-user
+MEM0_PROVIDER= # Default: openai
+MEM0_PROVIDER_API_KEY= # API Key for the provider (openai, anthropic, etc.)
+SMALL_MEM0_MODEL= # Default: gpt-4o-mini
+MEDIUM_MEM0_MODEL= # Default: gpt-4o
+LARGE_MEM0_MODEL= # Default: gpt-4o
+```
+
+## Make the default character use Mem0
+
+By default, there is a character called `eliza` that uses the `ollama` model. You can make this character use Mem0 by changing the config in the `agent/src/defaultCharacter.ts` file.
+
+```ts
+modelProvider: ModelProviderName.MEM0,
+```
+
+This will make the character use Mem0 to generate responses.
+
+## Run the project
+
+```bash
+pnpm start
+```
+
+## Conclusion
+
+You have now created a personalised Eliza OS Character using Mem0. You can now start interacting with the character by running the project and talking to the character.
+
+This is a simple example of how to use Mem0 to create a personalised AI agent. You can use this as a starting point to create your own AI agent.
+
+

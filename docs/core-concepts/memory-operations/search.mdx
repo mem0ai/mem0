@@ -26,7 +26,7 @@ This applies to both:
   <img src="../../images/search_architecture.png" />
 </Frame>
 
-The search flow follows these steps:
+When you call `search`, Mem0 performs the following steps:
 
 1. **Query Processing**
    An LLM refines and optimizes your natural language query.
@@ -157,6 +157,7 @@ client.search("preferences", filters={
 - **Use natural language**: Mem0 understands intent, so describe what you're looking for naturally
 - **Scope with session IDs**: Always provide at least `user_id` to scope search to relevant memories
 - **Combine filters**: Use AND/OR logic to create precise queries (Platform)
+- **Consider wildcard filters**: Use wildcard filters (e.g., `run_id: "*"`) for broader matches
 - **Tune parameters**: Adjust `top_k` for result count, `threshold` for relevance cutoff
 - **Enable reranking**: Use `rerank=True` (default) when you have a reranker configured
 
@@ -165,8 +166,6 @@ client.search("preferences", filters={
 
 For the full list of filter logic, comparison operators, and optional search parameters, see the
 [Search Memory API Reference](/api-reference/memory/v2-search-memories).
-
----
 
 ## Need help?
 If you have any questions, please feel free to reach out to us using one of the following methods:

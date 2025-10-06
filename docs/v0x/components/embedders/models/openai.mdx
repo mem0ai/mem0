@@ -1,0 +1,72 @@
+---
+title: OpenAI
+---
+
+To use OpenAI embedding models, set the `OPENAI_API_KEY` environment variable. You can obtain the OpenAI API key from the [OpenAI Platform](https://platform.openai.com/account/api-keys).
+
+### Usage
+
+<CodeGroup>
+```python Python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your_api_key"
+
+config = {
+    "embedder": {
+        "provider": "openai",
+        "config": {
+            "model": "text-embedding-3-large"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I’m not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="john")
+```
+
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  embedder: {
+    provider: 'openai',
+    config: {
+      apiKey: 'your-openai-api-key',
+      model: 'text-embedding-3-large',
+    },
+  },
+};
+
+const memory = new Memory(config);
+await memory.add("I'm visiting Paris", { userId: "john" });
+```
+</CodeGroup>
+
+### Config
+
+Here are the parameters available for configuring OpenAI embedder:
+
+<Tabs>
+<Tab title="Python">
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `model` | The name of the embedding model to use | `text-embedding-3-small` |
+| `embedding_dims` | Dimensions of the embedding model | `1536` |
+| `api_key` | The OpenAI API key | `None` |
+</Tab>
+<Tab title="TypeScript">
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `model` | The name of the embedding model to use | `text-embedding-3-small` |
+| `embeddingDims` | Dimensions of the embedding model | `1536` |
+| `apiKey` | The OpenAI API key | `None` |
+</Tab>
+</Tabs>
