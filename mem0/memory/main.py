@@ -407,6 +407,9 @@ class Memory(MemoryBase):
 
         retrieved_old_memory = []
         new_message_embeddings = {}
+        # Search for existing memories using only user_id to enable cross-session memory management
+        # This allows updating memories with new agent_id/run_id when provided
+        search_filters = {"user_id": filters.get("user_id")} if filters.get("user_id") else {}
         for new_mem in new_retrieved_facts:
             messages_embeddings = self.embedding_model.embed(new_mem, "add")
             new_message_embeddings[new_mem] = messages_embeddings
@@ -414,7 +417,7 @@ class Memory(MemoryBase):
                 query=new_mem,
                 vectors=messages_embeddings,
                 limit=5,
-                filters=filters,
+                filters=search_filters,
             )
             for mem in existing_memories:
                 retrieved_old_memory.append({"id": mem.id, "text": mem.payload["data"]})
@@ -501,7 +504,26 @@ class Memory(MemoryBase):
                             }
                         )
                     elif event_type == "NONE":
-                        logger.info("NOOP for Memory.")
+                        # Even if content doesn't need updating, update session IDs if provided
+                        memory_id = temp_uuid_mapping.get(resp.get("id"))
+                        if memory_id and (metadata.get("agent_id") or metadata.get("run_id")):
+                            # Update only the session identifiers, keep content the same
+                            existing_memory = self.vector_store.get(vector_id=memory_id)
+                            updated_metadata = deepcopy(existing_memory.payload)
+                            if metadata.get("agent_id"):
+                                updated_metadata["agent_id"] = metadata["agent_id"]
+                            if metadata.get("run_id"):
+                                updated_metadata["run_id"] = metadata["run_id"]
+                            updated_metadata["updated_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+
+                            self.vector_store.update(
+                                vector_id=memory_id,
+                                vector=None,  # Keep same embeddings
+                                payload=updated_metadata,
+                            )
+                            logger.info(f"Updated session IDs for memory {memory_id}")
+                        else:
+                            logger.info("NOOP for Memory.")
                 except Exception as e:
                     logger.error(f"Error processing memory action: {resp}, Error: {e}")
         except Exception as e:
@@ -1080,15 +1102,16 @@ class Memory(MemoryBase):
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
 
-        if "user_id" in existing_memory.payload:
+        # Preserve session identifiers from existing memory only if not provided in new metadata
+        if "user_id" not in new_metadata and "user_id" in existing_memory.payload:
             new_metadata["user_id"] = existing_memory.payload["user_id"]
-        if "agent_id" in existing_memory.payload:
+        if "agent_id" not in new_metadata and "agent_id" in existing_memory.payload:
             new_metadata["agent_id"] = existing_memory.payload["agent_id"]
-        if "run_id" in existing_memory.payload:
+        if "run_id" not in new_metadata and "run_id" in existing_memory.payload:
             new_metadata["run_id"] = existing_memory.payload["run_id"]
-        if "actor_id" in existing_memory.payload:
+        if "actor_id" not in new_metadata and "actor_id" in existing_memory.payload:
             new_metadata["actor_id"] = existing_memory.payload["actor_id"]
-        if "role" in existing_memory.payload:
+        if "role" not in new_metadata and "role" in existing_memory.payload:
             new_metadata["role"] = existing_memory.payload["role"]
 
         if data in existing_embeddings:
@@ -1413,6 +1436,9 @@ class AsyncMemory(MemoryBase):
 
         retrieved_old_memory = []
         new_message_embeddings = {}
+        # Search for existing memories using only user_id to enable cross-session memory management
+        # This allows updating memories with new agent_id/run_id when provided
+        search_filters = {"user_id": effective_filters.get("user_id")} if effective_filters.get("user_id") else {}
 
         async def process_fact_for_search(new_mem_content):
             embeddings = await asyncio.to_thread(self.embedding_model.embed, new_mem_content, "add")
@@ -1422,7 +1448,7 @@ class AsyncMemory(MemoryBase):
                 query=new_mem_content,
                 vectors=embeddings,
                 limit=5,
-                filters=effective_filters,  # 'filters' is query_filters_for_inference
+                filters=search_filters,
             )
             return [{"id": mem.id, "text": mem.payload["data"]} for mem in existing_mems]
 
@@ -1501,7 +1527,31 @@ class AsyncMemory(MemoryBase):
                         task = asyncio.create_task(self._delete_memory(memory_id=temp_uuid_mapping[resp.get("id")]))
                         memory_tasks.append((task, resp, "DELETE", temp_uuid_mapping[resp.get("id")]))
                     elif event_type == "NONE":
-                        logger.info("NOOP for Memory (async).")
+                        # Even if content doesn't need updating, update session IDs if provided
+                        memory_id = temp_uuid_mapping.get(resp.get("id"))
+                        if memory_id and (metadata.get("agent_id") or metadata.get("run_id")):
+                            # Create async task to update only the session identifiers
+                            async def update_session_ids(mem_id, meta):
+                                existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=mem_id)
+                                updated_metadata = deepcopy(existing_memory.payload)
+                                if meta.get("agent_id"):
+                                    updated_metadata["agent_id"] = meta["agent_id"]
+                                if meta.get("run_id"):
+                                    updated_metadata["run_id"] = meta["run_id"]
+                                updated_metadata["updated_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+
+                                await asyncio.to_thread(
+                                    self.vector_store.update,
+                                    vector_id=mem_id,
+                                    vector=None,  # Keep same embeddings
+                                    payload=updated_metadata,
+                                )
+                                logger.info(f"Updated session IDs for memory {mem_id} (async)")
+
+                            task = asyncio.create_task(update_session_ids(memory_id, metadata))
+                            memory_tasks.append((task, resp, "NONE", memory_id))
+                        else:
+                            logger.info("NOOP for Memory (async).")
                 except Exception as e:
                     logger.error(f"Error processing memory action (async): {resp}, Error: {e}")
 
@@ -2047,16 +2097,17 @@ class AsyncMemory(MemoryBase):
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
 
-        if "user_id" in existing_memory.payload:
+        # Preserve session identifiers from existing memory only if not provided in new metadata
+        if "user_id" not in new_metadata and "user_id" in existing_memory.payload:
             new_metadata["user_id"] = existing_memory.payload["user_id"]
-        if "agent_id" in existing_memory.payload:
+        if "agent_id" not in new_metadata and "agent_id" in existing_memory.payload:
             new_metadata["agent_id"] = existing_memory.payload["agent_id"]
-        if "run_id" in existing_memory.payload:
+        if "run_id" not in new_metadata and "run_id" in existing_memory.payload:
             new_metadata["run_id"] = existing_memory.payload["run_id"]
 
-        if "actor_id" in existing_memory.payload:
+        if "actor_id" not in new_metadata and "actor_id" in existing_memory.payload:
             new_metadata["actor_id"] = existing_memory.payload["actor_id"]
-        if "role" in existing_memory.payload:
+        if "role" not in new_metadata and "role" in existing_memory.payload:
             new_metadata["role"] = existing_memory.payload["role"]
 
         if data in existing_embeddings:

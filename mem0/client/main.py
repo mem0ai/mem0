@@ -190,7 +190,7 @@ class MemoryClient:
 
         Args:
             **kwargs: Optional parameters for filtering (user_id, agent_id,
-                      app_id, top_k, page, page_size, version).
+                      app_id, top_k, page, page_size).
 
         Returns:
             A dictionary containing memories in v1.1 format: {"results": [...]}
@@ -199,19 +199,17 @@ class MemoryClient:
             APIError: If the API request fails.
         """
         params = self._prepare_params(kwargs)
-        # Handle version parameter for get operations (default to v2)
-        version = kwargs.pop("version", "v2")
         params.pop("output_format", None)  # Remove output_format for get operations
         params.pop("async_mode", None)
-        
+
         if "page" in params and "page_size" in params:
             query_params = {
                 "page": params.pop("page"),
                 "page_size": params.pop("page_size"),
             }
-            response = self.client.post(f"/{version}/memories/", json=params, params=query_params)
+            response = self.client.post("/v2/memories/", json=params, params=query_params)
         else:
-            response = self.client.post(f"/{version}/memories/", json=params)
+            response = self.client.post("/v2/memories/", json=params)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
@@ -219,13 +217,13 @@ class MemoryClient:
             "client.get_all",
             self,
             {
-                "api_version": version,
+                "api_version": "v2",
                 "keys": list(kwargs.keys()),
                 "sync_type": "sync",
             },
         )
         result = response.json()
-        
+
         # Ensure v1.1 format (wrap raw list if needed)
         if isinstance(result, list):
             return {"results": result}
@@ -238,7 +236,7 @@ class MemoryClient:
         Args:
             query: The search query string.
             **kwargs: Additional parameters such as user_id, agent_id, app_id,
-                      top_k, filters, version.
+                      top_k, filters.
 
         Returns:
             A dictionary containing search results in v1.1 format: {"results": [...]}
@@ -248,14 +246,12 @@ class MemoryClient:
         """
         payload = {"query": query}
         params = self._prepare_params(kwargs)
-        # Handle version parameter for search operations (default to v2)
-        version = kwargs.pop("version", "v2")
         params.pop("output_format", None)  # Remove output_format for search operations
         params.pop("async_mode", None)
-        
+
         payload.update(params)
-        
-        response = self.client.post(f"/{version}/memories/search/", json=payload)
+
+        response = self.client.post("/v2/memories/search/", json=payload)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
@@ -263,13 +259,13 @@ class MemoryClient:
             "client.search",
             self,
             {
-                "api_version": version,
+                "api_version": "v2",
                 "keys": list(kwargs.keys()),
                 "sync_type": "sync",
             },
         )
         result = response.json()
-        
+
         # Ensure v1.1 format (wrap raw list if needed)
         if isinstance(result, list):
             return {"results": result}
@@ -1032,19 +1028,17 @@ class AsyncMemoryClient:
     @api_error_handler
     async def get_all(self, **kwargs) -> Dict[str, Any]:
         params = self._prepare_params(kwargs)
-        # Handle version parameter for get operations (default to v2)
-        version = kwargs.pop("version", "v2")
         params.pop("output_format", None)  # Remove output_format for get operations
         params.pop("async_mode", None)
-        
+
         if "page" in params and "page_size" in params:
             query_params = {
                 "page": params.pop("page"),
                 "page_size": params.pop("page_size"),
             }
-            response = await self.async_client.post(f"/{version}/memories/", json=params, params=query_params)
+            response = await self.async_client.post("/v2/memories/", json=params, params=query_params)
         else:
-            response = await self.async_client.post(f"/{version}/memories/", json=params)
+            response = await self.async_client.post("/v2/memories/", json=params)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
@@ -1052,13 +1046,13 @@ class AsyncMemoryClient:
             "client.get_all",
             self,
             {
-                "api_version": version,
+                "api_version": "v2",
                 "keys": list(kwargs.keys()),
                 "sync_type": "async",
             },
         )
         result = response.json()
-        
+
         # Ensure v1.1 format (wrap raw list if needed)
         if isinstance(result, list):
             return {"results": result}
@@ -1068,14 +1062,12 @@ class AsyncMemoryClient:
     async def search(self, query: str, **kwargs) -> Dict[str, Any]:
         payload = {"query": query}
         params = self._prepare_params(kwargs)
-        # Handle version parameter for search operations (default to v2)
-        version = kwargs.pop("version", "v2")
         params.pop("output_format", None)  # Remove output_format for search operations
         params.pop("async_mode", None)
-        
+
         payload.update(params)
-        
-        response = await self.async_client.post(f"/{version}/memories/search/", json=payload)
+
+        response = await self.async_client.post("/v2/memories/search/", json=payload)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
@@ -1083,13 +1075,13 @@ class AsyncMemoryClient:
             "client.search",
             self,
             {
-                "api_version": version,
+                "api_version": "v2",
                 "keys": list(kwargs.keys()),
                 "sync_type": "async",
             },
         )
         result = response.json()
-        
+
         # Ensure v1.1 format (wrap raw list if needed)
         if isinstance(result, list):
             return {"results": result}

@@ -8,14 +8,34 @@ Mem0 includes built-in support for various reranking providers to improve the re
 
 ## Usage
 
-To use a reranker, you must provide a `rerank` configuration section in your memory config. If no reranker is configured, search results will rely on vector similarity scoring alone.
+To use a reranker:
+
+1. **Configure**: Add a `rerank` configuration section in your memory config
+2. **Search**: Reranking is automatically enabled for all searches (default: `rerank=True`)
+
+If no reranker is configured, search results will rely on vector similarity scoring alone.
 
 For comprehensive configuration parameters for each reranker, please refer to [Config](./config).
+
+### Controlling Reranking Per Search
+
+Once configured, reranking is enabled by default. You can control it per-search:
+
+```python
+# Reranking enabled (default)
+results = memory.search("query", user_id="user1")
+
+# Explicitly enable reranking
+results = memory.search("query", user_id="user1", rerank=True)
+
+# Disable reranking for this specific search
+results = memory.search("query", user_id="user1", rerank=False)
+```
 
 ## How Reranking Works
 
 1. **Initial Search**: Vector similarity search retrieves candidate memories
-2. **Reranking**: Selected reranker re-scores candidates using advanced models
+2. **Reranking** (if enabled): Selected reranker re-scores candidates using advanced models
 3. **Final Results**: Re-ordered results with both vector and rerank scores
 
 <Note>
