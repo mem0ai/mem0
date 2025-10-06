@@ -43,6 +43,57 @@ from mem0.utils.factory import (
 warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*SwigPy.*")
 warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*swigvarlink.*")
 
+# Initialize logger early for utility functions
+logger = logging.getLogger(__name__)
+
+
+def _safe_deepcopy_config(config):
+    """Safely deepcopy vector store config, handling non-serializable auth objects.
+    
+    Returns a JSON-serializable clone without mutating the original.
+    Falls back to Pydantic/dataclass serialization for objects with locks or secrets.
+    """
+    try:
+        return deepcopy(config)
+    except Exception as e:
+        logger.debug(f"Standard deepcopy failed, using JSON serialization fallback: {e}")
+        
+        # Fallback: serialize via Pydantic model_dump or dict conversion
+        config_class = type(config)
+        
+        if hasattr(config, "model_dump"):
+            # Pydantic v2 path - serialize to JSON-compatible dict
+            try:
+                clone_dict = config.model_dump(mode="json")
+            except Exception:
+                # If model_dump fails, fall back to dict
+                clone_dict = {k: v for k, v in config.__dict__.items()}
+        elif hasattr(config, "__dataclass_fields__"):
+            # Dataclass path
+            from dataclasses import asdict
+            clone_dict = asdict(config)
+        else:
+            # Plain object path
+            clone_dict = {k: v for k, v in config.__dict__.items()}
+        
+        # Strip sensitive/non-serializable fields and explicitly set them to None
+        # This includes authentication objects, credentials, connection classes, and secrets
+        sensitive_tokens = ("auth", "credential", "password", "token", "secret", "key", "connection_class")
+        for field_name in list(clone_dict.keys()):
+            if any(token in field_name.lower() for token in sensitive_tokens):
+                clone_dict[field_name] = None  # Explicitly set to None instead of popping
+        
+        # Reconstruct config object
+        try:
+            return config_class(**clone_dict)
+        except Exception as reconstruction_error:
+            logger.warning(
+                f"Failed to reconstruct config after sanitization: {reconstruction_error}. "
+                f"Telemetry may be affected but core functionality preserved."
+            )
+            raise
+
+
 def _build_filters_and_metadata(
     *,  # Enforce keyword-only arguments
     user_id: Optional[str] = None,
@@ -156,7 +207,8 @@ class Memory(MemoryBase):
         else:
             self.graph = None
 
-        telemetry_config = deepcopy(self.config.vector_store.config)
+        # Use safe deepcopy to handle configs with non-serializable objects (fixes #3464)
+        telemetry_config = _safe_deepcopy_config(self.config.vector_store.config)
         telemetry_config.collection_name = "mem0migrations"
         if self.config.vector_store.provider in ["faiss", "qdrant"]:
             provider_path = f"migrations_{self.config.vector_store.provider}"
@@ -1031,14 +1083,15 @@ class AsyncMemory(MemoryBase):
         else:
             self.graph = None
 
-        self.config.vector_store.config.collection_name = "mem0migrations"
+        # Use safe deepcopy to handle configs with non-serializable objects (fixes #3464)
+        # This also prevents corrupting the original user config (async version was doing this)
+        telemetry_config = _safe_deepcopy_config(self.config.vector_store.config)
+        telemetry_config.collection_name = "mem0migrations"
         if self.config.vector_store.provider in ["faiss", "qdrant"]:
             provider_path = f"migrations_{self.config.vector_store.provider}"
-            self.config.vector_store.config.path = os.path.join(mem0_dir, provider_path)
-            os.makedirs(self.config.vector_store.config.path, exist_ok=True)
-        self._telemetry_vector_store = VectorStoreFactory.create(
-            self.config.vector_store.provider, self.config.vector_store.config
-        )
+            telemetry_config.path = os.path.join(mem0_dir, provider_path)
+            os.makedirs(telemetry_config.path, exist_ok=True)
+        self._telemetry_vector_store = VectorStoreFactory.create(self.config.vector_store.provider, telemetry_config)
 
         capture_event("mem0.init", self, {"sync_type": "async"})
 
