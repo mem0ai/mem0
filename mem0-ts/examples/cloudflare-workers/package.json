@@ -1,0 +1,33 @@
+{
+  "name": "mem0ai-cloudflare-workers-example",
+  "version": "1.0.0",
+  "description": "Example of using mem0ai in Cloudflare Workers",
+  "main": "worker.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:staging": "wrangler deploy --env staging",
+    "deploy:production": "wrangler deploy --env production",
+    "tail": "wrangler tail",
+    "test": "echo \"Tests would go here\"",
+    "type-check": "tsc --noEmit"
+  },
+  "keywords": [
+    "mem0ai",
+    "cloudflare-workers",
+    "ai",
+    "memory",
+    "chat",
+    "edge-computing"
+  ],
+  "author": "Mem0 Team",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240909.0",
+    "typescript": "^5.2.2",
+    "wrangler": "^3.70.0"
+  },
+  "dependencies": {
+    "mem0ai": "file:../../"
+  }
+}
