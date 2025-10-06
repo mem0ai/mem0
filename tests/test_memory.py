@@ -267,6 +267,7 @@ def test_search_handles_incomplete_payloads(mock_sqlite, mock_llm_factory, mock_
     config = MemoryConfig()
     memory = MemoryClass(config)
 
+    # Create test data with both complete and incomplete payloads
     incomplete_memory = MockVectorMemory("mem_1", {"hash": "abc123"})
     complete_memory = MockVectorMemory("mem_2", {"data": "content", "hash": "def456"})
 
@@ -280,6 +281,6 @@ def test_search_handles_incomplete_payloads(mock_sqlite, mock_llm_factory, mock_
     
     assert len(result) == 2
     memories_by_id = {mem["id"]: mem for mem in result}
-    
-    assert memories_by_id["mem_1"]["memory"] == ""
-    assert memories_by_id["mem_2"]["memory"] == "content"
+
+    assert memories_by_id["mem_1"]["memory"] == ""  
+    assert memories_by_id["mem_2"]["memory"] == "content" 

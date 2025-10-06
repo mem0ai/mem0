@@ -1,5 +1,5 @@
 ---
-title: "AWS bedrock, OpenSearch and Neptune Analytics"
+title: "AWS Bedrock Example"
 ---
 
 This example demonstrates how to configure and use the `mem0ai` SDK with **AWS Bedrock**, **OpenSearch Service (AOSS)**, and **AWS Neptune Analytics** for persistent memory capabilities in Python.
@@ -36,7 +36,7 @@ This sets up Mem0 with:
 - [AWS Bedrock for LLM](https://docs.mem0.ai/components/llms/models/aws_bedrock)
 - [AWS Bedrock for embeddings](https://docs.mem0.ai/components/embedders/models/aws_bedrock#aws-bedrock)
 - [OpenSearch as the vector store](https://docs.mem0.ai/components/vectordbs/dbs/opensearch)
-- [Neptune Analytics as your graph store](https://docs.mem0.ai/open-source/graph_memory/overview#initialize-neptune-analytics).
+- [Neptune Analytics as your graph store](https://docs.mem0.ai/open-source/graph_memory/overview#initialize-neptune-analytics)
 
 ```python
 import boto3
@@ -93,12 +93,12 @@ m = Memory.from_config(config)
 
 Reference [Notebook example](https://github.com/mem0ai/mem0/blob/main/examples/graph-db-demo/neptune-example.ipynb)
 
-#### Add a memory:
+### Add a memory
 
 ```python
 messages = [
     {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
-    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
     {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
     {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
 ]
@@ -107,23 +107,23 @@ messages = [
 result = m.add(messages, user_id="alice", metadata={"category": "movie_recommendations"})
 ```
 
-#### Search a memory:
+### Search a memory
+
 ```python
 relevant_memories = m.search(query, user_id="alice")
 ```
 
-#### Get all memories:
+### Get all memories
+
 ```python
 all_memories = m.get_all(user_id="alice")
 ```
 
-#### Get a specific memory:
+### Get a specific memory
+
 ```python
 memory = m.get(memory_id)
 ```
-
-
----
 
 ## Conclusion
 
