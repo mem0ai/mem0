@@ -112,7 +112,6 @@ class EmailProcessor:
             query=query,
             user_id=user_id,
             categories=["email"],
-            output_format="v1.1",
             version="v2"
         )
         
@@ -136,8 +135,7 @@ class EmailProcessor:
         
         thread = self.client.get_all(
             version="v2",
-            filters=filters,
-            output_format="v1.1"
+            filters=filters
         )
         
         return thread
@@ -182,5 +180,5 @@ print(f"Found {len(meeting_emails['results'])} relevant emails")
 
 ## Conclusion
 
-By combining Mem0's memory capabilities with email processing, you can create intelligent email management systems that help users organize, prioritize, and act on their inbox effectively. The advanced capabilities like automatic categorization, action item extraction, and priority management can significantly reduce the time spent on email management, allowing users to focus on more important tasks.
+By combining Mem0's memory capabilities with email processing, you can create intelligent email management systems that help users organize, prioritize, and act on their inbox effectively. Advanced capabilities like automatic categorization, action item extraction, and priority management can significantly reduce the time spent on email management, allowing users to focus on more important tasks.
 

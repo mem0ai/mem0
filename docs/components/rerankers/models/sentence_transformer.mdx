@@ -1,0 +1,162 @@
+---
+title: Sentence Transformer
+---
+
+Sentence Transformer rerankers use cross-encoder models that are specifically designed for ranking tasks. These models can run locally and provide good reranking performance without external API calls.
+
+## Usage
+
+To use Sentence Transformer reranker with Mem0:
+
+```python
+from mem0 import Memory
+
+config = {
+    "reranker": {
+        "provider": "sentence_transformer",
+        "config": {
+            "model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+            "device": "cpu",
+            "top_n": 10
+        }
+    }
+}
+
+memory = Memory.from_config(config)
+
+# Use memory as usual
+memory.add("I love playing basketball", user_id="alice")
+memory.add("I enjoy watching movies", user_id="alice")
+
+# Search will now use Sentence Transformer reranking
+results = memory.search("What sports does Alice like?", user_id="alice")
+```
+
+## Configuration
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `model` | Sentence Transformer cross-encoder model | `cross-encoder/ms-marco-MiniLM-L-6-v2` |
+| `device` | Device to run on (`cpu`, `cuda`, `mps`) | `cpu` |
+| `top_n` | Number of results to return | `10` |
+
+## Popular Models
+
+### Lightweight Models
+- `cross-encoder/ms-marco-MiniLM-L-6-v2`: Fast and efficient
+- `cross-encoder/ms-marco-MiniLM-L-4-v2`: Even faster, slightly lower accuracy
+- `cross-encoder/ms-marco-MiniLM-L-2-v2`: Fastest, good for real-time applications
+
+### High-Performance Models
+- `cross-encoder/ms-marco-electra-base`: Better accuracy, larger model
+- `ms-marco-MiniLM-L-12-v2`: Balanced performance and speed
+- `cross-encoder/qnli-electra-base`: Good for question-answering tasks
+
+## Device Configuration
+
+### CPU Usage
+```python
+config = {
+    "reranker": {
+        "provider": "sentence_transformer",
+        "config": {
+            "model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+            "device": "cpu",
+            "top_n": 10
+        }
+    }
+}
+```
+
+### GPU Usage (CUDA)
+```python
+config = {
+    "reranker": {
+        "provider": "sentence_transformer",
+        "config": {
+            "model": "cross-encoder/ms-marco-electra-base",
+            "device": "cuda",
+            "top_n": 15
+        }
+    }
+}
+```
+
+### Apple Silicon (MPS)
+```python
+config = {
+    "reranker": {
+        "provider": "sentence_transformer",
+        "config": {
+            "model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+            "device": "mps",
+            "top_n": 10
+        }
+    }
+}
+```
+
+## Installation
+
+The sentence-transformers library is required:
+
+```bash
+pip install sentence-transformers
+```
+
+For GPU support with CUDA:
+```bash
+pip install sentence-transformers torch
+```
+
+## Performance Optimization
+
+### Model Selection
+- Use MiniLM models for faster inference
+- Use larger models (electra-base) for better accuracy
+- Consider the trade-off between speed and quality
+
+### Device Optimization
+- Use GPU (`cuda` or `mps`) for larger models
+- CPU is sufficient for MiniLM models
+- Batch processing improves GPU utilization
+
+### Memory Considerations
+```python
+# For memory-constrained environments
+config = {
+    "reranker": {
+        "provider": "sentence_transformer",
+        "config": {
+            "model": "cross-encoder/ms-marco-MiniLM-L-2-v2",  # Smallest model
+            "device": "cpu",
+            "top_n": 5  # Fewer results to process
+        }
+    }
+}
+```
+
+## Custom Models
+
+You can use any Sentence Transformer cross-encoder model:
+
+```python
+config = {
+    "reranker": {
+        "provider": "sentence_transformer",
+        "config": {
+            "model": "your-custom-model-name",
+            "device": "cpu",
+            "top_n": 10
+        }
+    }
+}
+```
+
+## Advantages
+
+- **Local Processing**: No external API calls required
+- **Privacy**: Data stays on your infrastructure
+- **Cost Effective**: No per-request charges
+- **Fast**: Especially with GPU acceleration
+- **Customizable**: Can fine-tune on your specific data

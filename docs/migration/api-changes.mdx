@@ -1,0 +1,551 @@
+---
+title: API Reference Changes
+description: 'Complete API changes between v0.x and v1.0.0 Beta'
+icon: "code"
+iconType: "solid"
+---
+
+## Overview
+
+This page documents all API changes between Mem0 v0.x and v1.0.0 Beta, organized by component and method.
+
+## Memory Class Changes
+
+### Constructor
+
+#### v0.x
+```python
+from mem0 import Memory
+
+# Basic initialization
+m = Memory()
+
+# With configuration
+config = {
+    "version": "v1.0",  # Supported in v0.x
+    "vector_store": {...}
+}
+m = Memory.from_config(config)
+```
+
+#### v1.0.0 Beta
+```python
+from mem0 import Memory
+
+# Basic initialization (same)
+m = Memory()
+
+# With configuration
+config = {
+    "version": "v1.1",  # v1.1+ only
+    "vector_store": {...},
+    # New optional features
+    "reranker": {
+        "provider": "cohere",
+        "config": {...}
+    }
+}
+m = Memory.from_config(config)
+```
+
+### add() Method
+
+#### v0.x Signature
+```python
+def add(
+    self,
+    messages,
+    user_id: str = None,
+    agent_id: str = None,
+    run_id: str = None,
+    metadata: dict = None,
+    filters: dict = None,
+    output_format: str = None,  # ❌ REMOVED
+    version: str = None,        # ❌ REMOVED
+    async_mode: bool = None     # ❌ REMOVED
+) -> Union[List[dict], dict]
+```
+
+#### v1.0.0 Beta Signature
+```python
+def add(
+    self,
+    messages,
+    user_id: str = None,
+    agent_id: str = None,
+    run_id: str = None,
+    metadata: dict = None,
+    filters: dict = None,
+    infer: bool = True          # ✅ NEW: Control memory inference
+) -> dict  # Always returns dict with "results" key
+```
+
+#### Changes Summary
+
+| Parameter | v0.x | v1.0.0 Beta | Change |
+|-----------|------|-----------|---------|
+| `messages` | ✅ | ✅ | Unchanged |
+| `user_id` | ✅ | ✅ | Unchanged |
+| `agent_id` | ✅ | ✅ | Unchanged |
+| `run_id` | ✅ | ✅ | Unchanged |
+| `metadata` | ✅ | ✅ | Unchanged |
+| `filters` | ✅ | ✅ | Unchanged |
+| `output_format` | ✅ | ❌ | **REMOVED** |
+| `version` | ✅ | ❌ | **REMOVED** |
+| `async_mode` | ✅ | ❌ | **REMOVED** |
+| `infer` | ❌ | ✅ | **NEW** |
+
+#### Response Format Changes
+
+**v0.x Response (variable format):**
+```python
+# With output_format="v1.0"
+[
+    {
+        "id": "mem_123",
+        "memory": "User loves pizza",
+        "event": "ADD"
+    }
+]
+
+# With output_format="v1.1"
+{
+    "results": [
+        {
+            "id": "mem_123",
+            "memory": "User loves pizza",
+            "event": "ADD"
+        }
+    ]
+}
+```
+
+**v1.0.0 Beta Response (standardized):**
+```python
+# Always returns this format
+{
+    "results": [
+        {
+            "id": "mem_123",
+            "memory": "User loves pizza",
+            "metadata": {...},
+            "event": "ADD"
+        }
+    ]
+}
+```
+
+### search() Method
+
+#### v0.x Signature
+```python
+def search(
+    self,
+    query: str,
+    user_id: str = None,
+    agent_id: str = None,
+    run_id: str = None,
+    limit: int = 100,
+    filters: dict = None,       # Basic key-value only
+    output_format: str = None,  # ❌ REMOVED
+    version: str = None         # ❌ REMOVED
+) -> Union[List[dict], dict]
+```
+
+#### v1.0.0 Beta Signature
+```python
+def search(
+    self,
+    query: str,
+    user_id: str = None,
+    agent_id: str = None,
+    run_id: str = None,
+    limit: int = 100,
+    filters: dict = None,       # ✅ ENHANCED: Advanced operators
+    rerank: bool = True         # ✅ NEW: Reranking support
+) -> dict  # Always returns dict with "results" key
+```
+
+#### Enhanced Filtering
+
+**v0.x Filters (basic):**
+```python
+# Simple key-value filtering only
+filters = {
+    "category": "food",
+    "user_id": "alice"
+}
+```
+
+**v1.0.0 Beta Filters (enhanced):**
+```python
+# Advanced filtering with operators
+filters = {
+    "AND": [
+        {"category": "food"},
+        {"score": {"gte": 0.8}},
+        {
+            "OR": [
+                {"priority": "high"},
+                {"urgent": True}
+            ]
+        }
+    ]
+}
+
+# Comparison operators
+filters = {
+    "score": {"gt": 0.5},      # Greater than
+    "priority": {"gte": 5},     # Greater than or equal
+    "rating": {"lt": 3},        # Less than
+    "confidence": {"lte": 0.9}, # Less than or equal
+    "status": {"eq": "active"}, # Equal
+    "archived": {"ne": True},   # Not equal
+    "tags": {"in": ["work", "personal"]},     # In list
+    "category": {"nin": ["spam", "deleted"]}  # Not in list
+}
+```
+
+### get_all() Method
+
+#### v0.x Signature
+```python
+def get_all(
+    self,
+    user_id: str = None,
+    agent_id: str = None,
+    run_id: str = None,
+    filters: dict = None,
+    output_format: str = None,  # ❌ REMOVED
+    version: str = None         # ❌ REMOVED
+) -> Union[List[dict], dict]
+```
+
+#### v1.0.0 Beta Signature
+```python
+def get_all(
+    self,
+    user_id: str = None,
+    agent_id: str = None,
+    run_id: str = None,
+    filters: dict = None        # ✅ ENHANCED: Advanced operators
+) -> dict  # Always returns dict with "results" key
+```
+
+### update() Method
+
+#### No Breaking Changes
+```python
+# Same signature in both versions
+def update(
+    self,
+    memory_id: str,
+    data: str
+) -> dict
+```
+
+### delete() Method
+
+#### No Breaking Changes
+```python
+# Same signature in both versions
+def delete(
+    self,
+    memory_id: str
+) -> dict
+```
+
+### delete_all() Method
+
+#### No Breaking Changes
+```python
+# Same signature in both versions
+def delete_all(
+    self,
+    user_id: str
+) -> dict
+```
+
+## AsyncMemory Class Changes
+
+### Enhanced Async Support
+
+#### v0.x (Limited)
+```python
+from mem0 import AsyncMemory
+
+# Basic async support
+async_m = AsyncMemory()
+result = await async_m.add("content", user_id="alice", async_mode=True)
+```
+
+#### v1.0.0 Beta (Optimized)
+```python
+from mem0 import AsyncMemory
+
+# Optimized async by default
+async_m = AsyncMemory()
+result = await async_m.add("content", user_id="alice")  # async_mode removed
+
+# All methods are now properly async-optimized
+results = await async_m.search("query", user_id="alice", rerank=True)
+```
+
+## Configuration Changes
+
+### Memory Configuration
+
+#### v0.x Config Options
+```python
+config = {
+    "vector_store": {...},
+    "llm": {...},
+    "embedder": {...},
+    "graph_store": {...},
+    "version": "v1.0",              # ❌ v1.0 no longer supported
+    "history_db_path": "...",
+    "custom_fact_extraction_prompt": "..."
+}
+```
+
+#### v1.0.0 Beta Config Options
+```python
+config = {
+    "vector_store": {...},
+    "llm": {...},
+    "embedder": {...},
+    "graph_store": {...},
+    "reranker": {                   # ✅ NEW: Reranker support
+        "provider": "cohere",
+        "config": {...}
+    },
+    "version": "v1.1",              # ✅ v1.1+ only
+    "history_db_path": "...",
+    "custom_fact_extraction_prompt": "...",
+    "custom_update_memory_prompt": "..."  # ✅ NEW: Custom update prompt
+}
+```
+
+### New Configuration Options
+
+#### Reranker Configuration
+```python
+# Cohere reranker
+"reranker": {
+    "provider": "cohere",
+    "config": {
+        "model": "rerank-english-v3.0",
+        "api_key": "your-api-key",
+        "top_k": 10
+    }
+}
+
+# Sentence Transformer reranker
+"reranker": {
+    "provider": "sentence_transformer",
+    "config": {
+        "model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+        "device": "cuda"
+    }
+}
+
+# Hugging Face reranker
+"reranker": {
+    "provider": "huggingface",
+    "config": {
+        "model": "BAAI/bge-reranker-base",
+        "device": "cuda"
+    }
+}
+
+# LLM-based reranker
+"reranker": {
+    "provider": "llm_reranker",
+    "config": {
+        "llm": {
+            "provider": "openai",
+            "config": {
+                "model": "gpt-4",
+                "api_key": "your-api-key"
+            }
+        }
+    }
+}
+```
+
+## Error Handling Changes
+
+### New Error Types
+
+#### v0.x Errors
+```python
+# Generic exceptions
+try:
+    result = m.add("content", user_id="alice", version="v1.0")
+except Exception as e:
+    print(f"Error: {e}")
+```
+
+#### v1.0.0 Beta Errors
+```python
+# More specific error handling
+try:
+    result = m.add("content", user_id="alice")
+except ValueError as e:
+    if "v1.0 API format is no longer supported" in str(e):
+        # Handle version compatibility error
+        pass
+    elif "Invalid filter operator" in str(e):
+        # Handle filter syntax error
+        pass
+except TypeError as e:
+    # Handle parameter errors
+    pass
+except Exception as e:
+    # Handle unexpected errors
+    pass
+```
+
+### Validation Changes
+
+#### Stricter Parameter Validation
+
+**v0.x (Lenient):**
+```python
+# Unknown parameters might be ignored
+result = m.add("content", user_id="alice", unknown_param="value")
+```
+
+**v1.0.0 Beta (Strict):**
+```python
+# Unknown parameters raise TypeError
+try:
+    result = m.add("content", user_id="alice", unknown_param="value")
+except TypeError as e:
+    print(f"Invalid parameter: {e}")
+```
+
+## Response Schema Changes
+
+### Memory Object Schema
+
+#### v0.x Schema
+```python
+{
+    "id": "mem_123",
+    "memory": "User loves pizza",
+    "user_id": "alice",
+    "metadata": {...},
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z",
+    "score": 0.95  # In search results
+}
+```
+
+#### v1.0.0 Beta Schema (Enhanced)
+```python
+{
+    "id": "mem_123",
+    "memory": "User loves pizza",
+    "user_id": "alice",
+    "agent_id": "assistant",     # ✅ More context
+    "run_id": "session_001",     # ✅ More context
+    "metadata": {...},
+    "categories": ["food"],      # ✅ NEW: Auto-categorization
+    "immutable": false,          # ✅ NEW: Immutability flag
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z",
+    "score": 0.95,              # In search results
+    "rerank_score": 0.98        # ✅ NEW: If reranking used
+}
+```
+
+## Migration Code Examples
+
+### Simple Migration
+
+#### Before (v0.x)
+```python
+from mem0 import Memory
+
+m = Memory()
+
+# Add with deprecated parameters
+result = m.add(
+    "I love pizza",
+    user_id="alice",
+    output_format="v1.1",
+    version="v1.0"
+)
+
+# Handle variable response format
+if isinstance(result, list):
+    memories = result
+else:
+    memories = result.get("results", [])
+
+for memory in memories:
+    print(memory["memory"])
+```
+
+#### After (v1.0.0 Beta)
+```python
+from mem0 import Memory
+
+m = Memory()
+
+# Add without deprecated parameters
+result = m.add(
+    "I love pizza",
+    user_id="alice"
+)
+
+# Always dict format with "results" key
+for memory in result["results"]:
+    print(memory["memory"])
+```
+
+### Advanced Migration
+
+#### Before (v0.x)
+```python
+# Basic filtering
+results = m.search(
+    "food preferences",
+    user_id="alice",
+    filters={"category": "food"},
+    output_format="v1.1"
+)
+```
+
+#### After (v1.0.0 Beta)
+```python
+# Enhanced filtering with reranking
+results = m.search(
+    "food preferences",
+    user_id="alice",
+    filters={
+        "AND": [
+            {"category": "food"},
+            {"score": {"gte": 0.8}}
+        ]
+    },
+    rerank=True
+)
+```
+
+## Summary
+
+| Component | v0.x | v1.0.0 Beta | Status |
+|-----------|------|-----------|---------|
+| `add()` method | Variable response | Standardized response | ⚠️ Breaking |
+| `search()` method | Basic filtering | Enhanced filtering + reranking | ⚠️ Breaking |
+| `get_all()` method | Variable response | Standardized response | ⚠️ Breaking |
+| Response format | Variable | Always `{"results": [...]}` | ⚠️ Breaking |
+| Reranking | ❌ Not available | ✅ Full support | ✅ New feature |
+| Advanced filtering | ❌ Basic only | ✅ Full operators | ✅ Enhancement |
+| Error handling | Generic | Specific error types | ✅ Improvement |
+
+<Info>
+Use this reference to systematically update your codebase. Test each change thoroughly before deploying to production.
+</Info>
