@@ -29,7 +29,7 @@ class VertexAIEmbedding(EmbeddingBase):
                 credentials_path=self.config.vertex_credentials_json,
                 project_id=getattr(self.config, 'google_project_id', None)
             )
-        except Exception as e:
+        except Exception:
             # Fall back to original behavior for backward compatibility
             credentials_path = self.config.vertex_credentials_json
             if credentials_path:

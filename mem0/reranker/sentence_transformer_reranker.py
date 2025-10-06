@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Optional, Union
+from typing import List, Dict, Any, Union
 import numpy as np
 
 from mem0.reranker.base import BaseReranker
@@ -6,7 +6,7 @@ from mem0.configs.rerankers.base import BaseRerankerConfig
 from mem0.configs.rerankers.sentence_transformer import SentenceTransformerRerankerConfig
 
 try:
-    from sentence_transformers import SentenceTransformer, util
+    from sentence_transformers import SentenceTransformer
     SENTENCE_TRANSFORMERS_AVAILABLE = True
 except ImportError:
     SENTENCE_TRANSFORMERS_AVAILABLE = False
@@ -98,8 +98,8 @@ class SentenceTransformerReranker(BaseReranker):
                 reranked_docs.append(reranked_doc)
                 
             return reranked_docs
-            
-        except Exception as e:
+
+        except Exception:
             # Fallback to original order if reranking fails
             for doc in documents:
                 doc['rerank_score'] = 0.0

@@ -121,7 +121,7 @@ class OpenSearchDB(VectorStoreBase):
                 "id": id_,
             }
             try:
-                response = self.client.index(index=self.collection_name, body=body)
+                self.client.index(index=self.collection_name, body=body)
                 # Force refresh to make documents immediately searchable for tests
                 self.client.indices.refresh(index=self.collection_name)
                 

@@ -1,6 +1,5 @@
-import os
 import re
-from typing import List, Dict, Any, Optional, Union
+from typing import List, Dict, Any, Union
 
 from mem0.reranker.base import BaseReranker
 from mem0.utils.factory import LlmFactory
@@ -124,8 +123,8 @@ Provide only a single numerical score between 0.0 and 1.0. Do not include any ex
                 scored_doc = doc.copy()
                 scored_doc['rerank_score'] = score
                 scored_docs.append(scored_doc)
-                
-            except Exception as e:
+
+            except Exception:
                 # Fallback: assign neutral score if scoring fails
                 scored_doc = doc.copy()
                 scored_doc['rerank_score'] = 0.5

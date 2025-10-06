@@ -8,7 +8,6 @@ except ImportError:
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.configs.llms.ollama import OllamaConfig
 from mem0.llms.base import LLMBase
-from mem0.memory.utils import extract_json
 
 
 class OllamaLLM(LLMBase):

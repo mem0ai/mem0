@@ -1,5 +1,5 @@
 import os
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 from mem0.reranker.base import BaseReranker
 
@@ -88,8 +88,8 @@ class ZeroEntropyReranker(BaseReranker):
                 reranked_docs = reranked_docs[:self.config.top_k]
                 
             return reranked_docs
-            
-        except Exception as e:
+
+        except Exception:
             # Fallback to original order if reranking fails
             for doc in documents:
                 doc['rerank_score'] = 0.0
