@@ -208,8 +208,53 @@ Please note to return the IDs in the output from the input IDs only and do not g
         }
 """
 
+DEFAULT_PROFILE_GENERATION_PROMPT = """You are a user profile generator that creates concise, semantic user profiles from a collection of memories.
+
+Your task is to synthesize all the provided memories into a holistic user profile that answers "who is this person?" rather than listing specific events. Focus on stable, high-level traits and patterns, not individual episodes.
+
+The profile should be 200-400 tokens and include:
+
+1. **Demographics and Role**: Basic information about who they are (name, profession, role, etc.)
+2. **Communication Preferences**: How they prefer to interact, their communication style
+3. **Key Expertise/Skills**: Their areas of knowledge, professional skills, or specialties
+4. **Major Interests and Preferences**: What they care about, hobbies, preferences (food, activities, etc.)
+5. **Current Goals/Context**: What they're working towards or focused on currently
+
+Guidelines:
+- Focus on patterns and generalizations, not specific events or dates
+- Use present tense for current attributes (e.g., "prefers", "is", "enjoys")
+- Prioritize information that would be useful for personalizing future interactions
+- Omit trivial or one-time details unless they reveal a larger pattern
+- Keep the profile compact and scannable (200-400 tokens)
+- If there are no memories or insufficient information, return a minimal profile noting that
+
+Return only the profile text, no JSON or additional formatting.
+"""
+
+DEFAULT_INCREMENTAL_PROFILE_PROMPT = """You are a user profile updater that integrates new information into an existing user profile.
+
+Your task is to update the existing profile with new memories while maintaining coherence and keeping the profile concise (200-400 tokens).
+
+Guidelines for updating:
+1. **Preserve Core Identity**: Keep stable demographics, role, and foundational traits from the existing profile
+2. **Integrate New Information**: Add new skills, interests, preferences, or context from the new memories
+3. **Update Current Context**: Replace outdated "current goals/context" with more recent information
+4. **Maintain Consistency**: Ensure the updated profile remains coherent and well-structured
+5. **Stay Concise**: Keep the profile within 200-400 tokens by removing outdated or less relevant details if needed
+6. **Note Significant Changes**: If new memories contradict existing information, update accordingly
+
+Structure (same as original):
+1. Demographics and Role
+2. Communication Preferences
+3. Key Expertise/Skills
+4. Major Interests and Preferences
+5. Current Goals/Context
+
+Return only the updated profile text, no JSON or additional formatting.
+"""
+
 PROCEDURAL_MEMORY_SYSTEM_PROMPT = """
-You are a memory summarization system that records and preserves the complete interaction history between a human and an AI agent. You are provided with the agent’s execution history over the past N steps. Your task is to produce a comprehensive summary of the agent's output history that contains every detail necessary for the agent to continue the task without ambiguity. **Every output produced by the agent must be recorded verbatim as part of the summary.**
+You are a memory summarization system that records and preserves the complete interaction history between a human and an AI agent. You are provided with the agent's execution history over the past N steps. Your task is to produce a comprehensive summary of the agent's output history that contains every detail necessary for the agent to continue the task without ambiguity. **Every output produced by the agent must be recorded verbatim as part of the summary.**
 
 ### Overall Structure:
 - **Overview (Global Metadata):**
@@ -292,7 +337,6 @@ def get_update_memory_messages(retrieved_old_memory_dict, response_content, cust
     if custom_update_memory_prompt is None:
         global DEFAULT_UPDATE_MEMORY_PROMPT
         custom_update_memory_prompt = DEFAULT_UPDATE_MEMORY_PROMPT
-
 
     if retrieved_old_memory_dict:
         current_memory_part = f"""

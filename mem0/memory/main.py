@@ -5,11 +5,12 @@ import hashlib
 import json
 import logging
 import os
+import time
 import uuid
 import warnings
 from copy import deepcopy
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import pytz
 from pydantic import ValidationError
@@ -17,6 +18,8 @@ from pydantic import ValidationError
 from mem0.configs.base import MemoryConfig, MemoryItem
 from mem0.configs.enums import MemoryType
 from mem0.configs.prompts import (
+    DEFAULT_INCREMENTAL_PROFILE_PROMPT,
+    DEFAULT_PROFILE_GENERATION_PROMPT,
     PROCEDURAL_MEMORY_SYSTEM_PROMPT,
     get_update_memory_messages,
 )
@@ -478,6 +481,15 @@ class Memory(MemoryBase):
             self,
             {"version": self.api_version, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"},
         )
+
+        # Auto-update profile if needed (based on triggers)
+        # Extract user_id, agent_id, run_id from filters for profile update
+        self._update_profile_if_needed(
+            user_id=filters.get("user_id"),
+            agent_id=filters.get("agent_id"),
+            run_id=filters.get("run_id"),
+        )
+
         return returned_memories
 
     def _add_to_graph(self, messages, filters):
@@ -977,6 +989,565 @@ class Memory(MemoryBase):
         capture_event("mem0._delete_memory", self, {"memory_id": memory_id, "sync_type": "sync"})
         return memory_id
 
+    def _generate_profile(
+        self,
+        *,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+    ) -> str:
+        """
+        Generate a user profile from all memories.
+
+        Args:
+            user_id: User identifier
+            agent_id: Agent identifier
+            run_id: Run identifier
+
+        Returns:
+            Generated profile text
+        """
+        # Get all memories for this user/agent/run
+        memories_response = self.get_all(user_id=user_id, agent_id=agent_id, run_id=run_id, limit=1000)
+
+        # Handle both v1.0 (list) and v1.1 (dict with 'results') formats
+        if isinstance(memories_response, dict) and "results" in memories_response:
+            memories = memories_response["results"]
+        else:
+            memories = memories_response
+
+        if not memories:
+            return "No memories available yet to generate a profile."
+
+        # Prepare memories text
+        memories_text = "\n".join([f"- {mem['memory']}" for mem in memories])
+
+        # Use custom prompt if provided, otherwise use default
+        system_prompt = self.config.custom_profile_prompt or DEFAULT_PROFILE_GENERATION_PROMPT
+
+        user_prompt = f"""Based on the following memories, generate a user profile:
+
+Memories:
+{memories_text}
+
+Generate a concise profile (200-400 tokens) that captures who this person is, their preferences, skills, and current context."""
+
+        # Generate profile using LLM
+        try:
+            profile_text = self.llm.generate_response(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+            )
+            return profile_text.strip()
+        except Exception as e:
+            logger.error(f"Error generating profile: {e}")
+            return "Error generating profile. Please try again."
+
+    def _generate_profile_incremental(
+        self,
+        existing_profile: Dict[str, Any],
+        *,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+    ) -> str:
+        """
+        Update existing profile incrementally with new memories only.
+
+        Args:
+            existing_profile: The existing profile dict from database
+            user_id: User identifier
+            agent_id: Agent identifier
+            run_id: Run identifier
+
+        Returns:
+            Updated profile text
+        """
+        # Get all memories
+        memories_response = self.get_all(user_id=user_id, agent_id=agent_id, run_id=run_id, limit=1000)
+
+        if isinstance(memories_response, dict) and "results" in memories_response:
+            all_memories = memories_response["results"]
+        else:
+            all_memories = memories_response
+
+        # Get only new memories since last update
+        last_memory_count = existing_profile.get("memory_count_at_last_update", 0)
+        new_memories = all_memories[last_memory_count:] if last_memory_count < len(all_memories) else []
+
+        if not new_memories:
+            # No new memories, return existing profile
+            return existing_profile["profile"]
+
+        # Prepare new memories text
+        new_memories_text = "\n".join([f"- {mem['memory']}" for mem in new_memories])
+
+        # Use incremental update prompt
+        system_prompt = DEFAULT_INCREMENTAL_PROFILE_PROMPT
+
+        user_prompt = f"""EXISTING PROFILE:
+{existing_profile['profile']}
+
+NEW MEMORIES SINCE LAST UPDATE ({len(new_memories)} new memories):
+{new_memories_text}
+
+Update the profile to incorporate the new information while maintaining coherence and staying within 200-400 tokens."""
+
+        # Generate updated profile using LLM
+        try:
+            updated_profile_text = self.llm.generate_response(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+            )
+            return updated_profile_text.strip()
+        except Exception as e:
+            logger.error(f"Error updating profile incrementally: {e}")
+            # Fallback to full regeneration
+            logger.info("Falling back to full profile regeneration")
+            return self._generate_profile(user_id=user_id, agent_id=agent_id, run_id=run_id)
+
+    def _should_update_profile(
+        self,
+        *,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+    ) -> bool:
+        """
+        Check if profile should be updated based on triggers.
+
+        Args:
+            user_id: User identifier
+            agent_id: Agent identifier
+            run_id: Run identifier
+
+        Returns:
+            True if profile should be updated, False otherwise
+        """
+        if not self.config.profile_config.auto_update:
+            return False
+
+        # Get existing profile
+        existing_profile = self.db.get_profile(user_id=user_id, agent_id=agent_id, run_id=run_id)
+
+        if existing_profile is None:
+            # No profile exists, should create one
+            return True
+
+        # Get current memory count
+        memories_response = self.get_all(user_id=user_id, agent_id=agent_id, run_id=run_id, limit=10000)
+        if isinstance(memories_response, dict) and "results" in memories_response:
+            current_memory_count = len(memories_response["results"])
+        else:
+            current_memory_count = len(memories_response)
+
+        # Check memory count trigger
+        memory_count_at_last_update = existing_profile.get("memory_count_at_last_update", 0)
+        if current_memory_count - memory_count_at_last_update >= self.config.profile_config.memory_count:
+            logger.info(
+                f"Profile update triggered by memory count: {current_memory_count} - {memory_count_at_last_update} >= {self.config.profile_config.memory_count}"
+            )
+            return True
+
+        # Check time elapsed trigger
+        current_time = int(time.time())
+        last_update_timestamp = existing_profile.get("last_update_timestamp", 0)
+        time_elapsed = current_time - last_update_timestamp
+
+        if time_elapsed >= self.config.profile_config.time_elapsed:
+            logger.info(
+                f"Profile update triggered by time elapsed: {time_elapsed} >= {self.config.profile_config.time_elapsed}"
+            )
+            return True
+
+        return False
+
+    def _execute_profile_update(
+        self,
+        update_reason: str,
+        *,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+    ) -> None:
+        """
+        Execute profile update (used by both sync and async paths).
+
+        Args:
+            update_reason: Reason for update ('memory_count', 'time_elapsed', 'manual', 'initial')
+            user_id: User identifier
+            agent_id: Agent identifier
+            run_id: Run identifier
+        """
+        try:
+            # Check if profile exists for incremental update
+            existing_profile = self.db.get_profile(user_id=user_id, agent_id=agent_id, run_id=run_id)
+
+            if existing_profile and update_reason != "initial":
+                # Use incremental update
+                logger.info("Generating incremental profile update...")
+                profile_text = self._generate_profile_incremental(
+                    existing_profile, user_id=user_id, agent_id=agent_id, run_id=run_id
+                )
+            else:
+                # Generate full profile (first time or manual regeneration)
+                logger.info("Generating full profile...")
+                profile_text = self._generate_profile(user_id=user_id, agent_id=agent_id, run_id=run_id)
+
+            # Get current memory count
+            memories_response = self.get_all(user_id=user_id, agent_id=agent_id, run_id=run_id, limit=10000)
+            if isinstance(memories_response, dict) and "results" in memories_response:
+                memory_count = len(memories_response["results"])
+            else:
+                memory_count = len(memories_response)
+
+            # Save profile with update reason
+            current_time = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+            self.db.upsert_profile(
+                profile_text=profile_text,
+                memory_count=memory_count,
+                user_id=user_id,
+                agent_id=agent_id,
+                run_id=run_id,
+                created_at=current_time if not existing_profile else existing_profile.get("created_at"),
+                updated_at=current_time,
+                update_reason=update_reason,
+            )
+            logger.info(f"Profile updated successfully (reason: {update_reason})")
+        except Exception as e:
+            logger.error(f"Error updating profile: {e}")
+
+    def _update_profile_if_needed(
+        self,
+        *,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+    ) -> None:
+        """
+        Update profile if triggers are met (called internally after add()).
+
+        Args:
+            user_id: User identifier
+            agent_id: Agent identifier
+            run_id: Run identifier
+        """
+        # Early return if no identifiers provided - can't update profile without knowing which one
+        if not any([user_id, agent_id, run_id]):
+            return
+
+        should_update = self._should_update_profile(user_id=user_id, agent_id=agent_id, run_id=run_id)
+        if not should_update:
+            return
+
+        # Determine update reason
+        existing_profile = self.db.get_profile(user_id=user_id, agent_id=agent_id, run_id=run_id)
+        if not existing_profile:
+            update_reason = "initial"
+        else:
+            # Check which trigger was hit
+            memories_response = self.get_all(user_id=user_id, agent_id=agent_id, run_id=run_id, limit=10000)
+            if isinstance(memories_response, dict) and "results" in memories_response:
+                current_memory_count = len(memories_response["results"])
+            else:
+                current_memory_count = len(memories_response)
+
+            memory_count_at_last_update = existing_profile.get("memory_count_at_last_update", 0)
+            if current_memory_count - memory_count_at_last_update >= self.config.profile_config.memory_count:
+                update_reason = "memory_count"
+            else:
+                update_reason = "time_elapsed"
+
+        # Execute update (async or sync based on config)
+        if self.config.profile_config.async_update:
+            # Run in background thread (non-blocking)
+            logger.info("Queueing profile update in background...")
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                executor.submit(
+                    self._execute_profile_update,
+                    update_reason,
+                    user_id=user_id,
+                    agent_id=agent_id,
+                    run_id=run_id,
+                )
+        else:
+            # Run synchronously (blocking)
+            logger.info("Auto-updating profile synchronously...")
+            self._execute_profile_update(
+                update_reason, user_id=user_id, agent_id=agent_id, run_id=run_id
+            )
+
+    def get_profile(
+        self,
+        *,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Get user profile. Returns cached version if available, generates new one if not.
+
+        Args:
+            user_id (str, optional): User identifier
+            agent_id (str, optional): Agent identifier
+            run_id (str, optional): Run identifier
+
+        Returns:
+            dict: Profile information including 'profile' text and metadata
+
+        Example:
+            >>> profile = m.get_profile(user_id="alice")
+            >>> print(profile["profile"])
+            Alice is a software engineer specializing in AI...
+        """
+        if not any([user_id, agent_id, run_id]):
+            raise ValueError("At least one of 'user_id', 'agent_id', or 'run_id' must be provided")
+
+        capture_event("mem0.get_profile", self, {"sync_type": "sync"})
+
+        # Try to get existing profile
+        existing_profile = self.db.get_profile(user_id=user_id, agent_id=agent_id, run_id=run_id)
+
+        if existing_profile:
+            # Add quality metrics to existing profile
+            profile_with_metrics = self._add_quality_metrics(
+                existing_profile, user_id=user_id, agent_id=agent_id, run_id=run_id
+            )
+            return profile_with_metrics
+
+        # No profile exists, generate one
+        logger.info("No profile found, generating new profile...")
+        profile_text = self._generate_profile(user_id=user_id, agent_id=agent_id, run_id=run_id)
+
+        # Get current memory count
+        memories_response = self.get_all(user_id=user_id, agent_id=agent_id, run_id=run_id, limit=10000)
+        if isinstance(memories_response, dict) and "results" in memories_response:
+            memory_count = len(memories_response["results"])
+        else:
+            memory_count = len(memories_response)
+
+        # Save profile
+        current_time = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+        self.db.upsert_profile(
+            profile_text=profile_text,
+            memory_count=memory_count,
+            user_id=user_id,
+            agent_id=agent_id,
+            run_id=run_id,
+            created_at=current_time,
+            updated_at=current_time,
+            update_reason="initial",
+        )
+
+        profile = self.db.get_profile(user_id=user_id, agent_id=agent_id, run_id=run_id)
+        return self._add_quality_metrics(profile, user_id=user_id, agent_id=agent_id, run_id=run_id)
+
+    def _add_quality_metrics(
+        self,
+        profile: Dict[str, Any],
+        *,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Add quality metrics to profile dict.
+
+        Args:
+            profile: Profile dict from database
+            user_id: User identifier
+            agent_id: Agent identifier
+            run_id: Run identifier
+
+        Returns:
+            Profile dict with quality_metrics added
+        """
+        if not profile:
+            return profile
+
+        # Get current memory count
+        memories_response = self.get_all(user_id=user_id, agent_id=agent_id, run_id=run_id, limit=10000)
+        if isinstance(memories_response, dict) and "results" in memories_response:
+            memory_count = len(memories_response["results"])
+        else:
+            memory_count = len(memories_response)
+
+        # Calculate confidence score
+        confidence_score = 0.0
+
+        # Memory count factor (0-0.4 points)
+        if memory_count >= 20:
+            confidence_score += 0.4
+        elif memory_count >= 10:
+            confidence_score += 0.3
+        elif memory_count >= 5:
+            confidence_score += 0.2
+        else:
+            confidence_score += 0.1
+
+        # Profile length factor (0-0.3 points)
+        profile_text = profile.get("profile", "")
+        token_count = len(profile_text.split())
+        if 200 <= token_count <= 400:
+            confidence_score += 0.3
+        elif 150 <= token_count <= 450:
+            confidence_score += 0.2
+        else:
+            confidence_score += 0.1
+
+        # Completeness factor (0-0.3 points)
+        key_terms = ["prefer", "goal", "interest", "background", "working", "focus", "is", "enjoys"]
+        terms_present = sum(1 for term in key_terms if term in profile_text.lower())
+        confidence_score += (terms_present / len(key_terms)) * 0.3
+
+        # Calculate days since update
+        from dateutil import parser as date_parser
+
+        try:
+            updated_at = profile.get("updated_at")
+            if updated_at:
+                updated_time = date_parser.parse(updated_at)
+                days_since_update = (datetime.now(pytz.timezone("US/Pacific")) - updated_time).days
+            else:
+                days_since_update = 0
+        except Exception:
+            days_since_update = 0
+
+        # Generate warnings
+        warnings = []
+        if memory_count < 5:
+            warnings.append("Low memory count (< 5 memories) - profile may lack detail")
+        if days_since_update > 30:
+            warnings.append("Profile may be stale (30+ days old)")
+        if token_count < 150:
+            warnings.append("Profile is shorter than recommended (< 150 tokens)")
+        elif token_count > 450:
+            warnings.append("Profile is longer than recommended (> 450 tokens)")
+
+        # Add quality metrics to profile
+        profile_with_metrics = profile.copy()
+        profile_with_metrics["quality_metrics"] = {
+            "memory_count": memory_count,
+            "confidence_score": round(confidence_score, 2),
+            "days_since_update": days_since_update,
+            "token_count": token_count,
+            "warnings": [w for w in warnings if w],  # Only non-None warnings
+        }
+
+        return profile_with_metrics
+
+    def get_profile_history(
+        self,
+        *,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        limit: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Get profile history showing evolution over time.
+
+        Args:
+            user_id (str, optional): User identifier
+            agent_id (str, optional): Agent identifier
+            run_id (str, optional): Run identifier
+            limit (int, optional): Maximum number of versions to return
+
+        Returns:
+            list: List of profile versions, ordered by version descending
+
+        Example:
+            >>> history = m.get_profile_history(user_id="alice", limit=5)
+            >>> for version in history:
+            ...     print(f"Version {version['version']}: {version['update_reason']}")
+        """
+        if not any([user_id, agent_id, run_id]):
+            raise ValueError("At least one of 'user_id', 'agent_id', or 'run_id' must be provided")
+
+        capture_event("mem0.get_profile_history", self, {"sync_type": "sync"})
+
+        return self.db.get_profile_history(
+            user_id=user_id, agent_id=agent_id, run_id=run_id, limit=limit
+        )
+
+    def update_profile(
+        self,
+        *,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        force: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        Manually trigger profile update (bypassing auto-update checks).
+
+        Args:
+            user_id (str, optional): User identifier
+            agent_id (str, optional): Agent identifier
+            run_id (str, optional): Run identifier
+            force (bool): If True, force full regeneration instead of incremental update
+
+        Returns:
+            dict: Updated profile information
+
+        Example:
+            >>> m.update_profile(user_id="alice", force=True)
+            >>> # Force regenerate profile after significant changes
+        """
+        if not any([user_id, agent_id, run_id]):
+            raise ValueError("At least one of 'user_id', 'agent_id', or 'run_id' must be provided")
+
+        capture_event("mem0.update_profile", self, {"sync_type": "sync"})
+
+        logger.info("Manually updating profile...")
+
+        # Execute update synchronously
+        update_reason = "manual"
+        if force:
+            # Force full regeneration by temporarily removing existing profile check
+            existing_profile = self.db.get_profile(user_id=user_id, agent_id=agent_id, run_id=run_id)
+            profile_text = self._generate_profile(user_id=user_id, agent_id=agent_id, run_id=run_id)
+        else:
+            # Use incremental if profile exists
+            existing_profile = self.db.get_profile(user_id=user_id, agent_id=agent_id, run_id=run_id)
+            if existing_profile:
+                profile_text = self._generate_profile_incremental(
+                    existing_profile, user_id=user_id, agent_id=agent_id, run_id=run_id
+                )
+            else:
+                profile_text = self._generate_profile(user_id=user_id, agent_id=agent_id, run_id=run_id)
+                update_reason = "initial"
+
+        # Get current memory count
+        memories_response = self.get_all(user_id=user_id, agent_id=agent_id, run_id=run_id, limit=10000)
+        if isinstance(memories_response, dict) and "results" in memories_response:
+            memory_count = len(memories_response["results"])
+        else:
+            memory_count = len(memories_response)
+
+        # Save profile
+        current_time = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+        self.db.upsert_profile(
+            profile_text=profile_text,
+            memory_count=memory_count,
+            user_id=user_id,
+            agent_id=agent_id,
+            run_id=run_id,
+            created_at=current_time if not existing_profile else existing_profile.get("created_at"),
+            updated_at=current_time,
+            update_reason=update_reason,
+        )
+
+        logger.info("Profile manually updated successfully")
+
+        # Return updated profile with metrics
+        profile = self.db.get_profile(user_id=user_id, agent_id=agent_id, run_id=run_id)
+        return self._add_quality_metrics(profile, user_id=user_id, agent_id=agent_id, run_id=run_id)
+
     def reset(self):
         """
         Reset the memory store by:
@@ -1343,6 +1914,15 @@ class AsyncMemory(MemoryBase):
             self,
             {"version": self.api_version, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"},
         )
+
+        # Auto-update profile if needed (based on triggers) - async version
+        # Extract user_id, agent_id, run_id from filters for profile update
+        await self._update_profile_if_needed(
+            user_id=effective_filters.get("user_id"),
+            agent_id=effective_filters.get("agent_id"),
+            run_id=effective_filters.get("run_id"),
+        )
+
         return returned_memories
 
     async def _add_to_graph(self, messages, filters):
@@ -1879,6 +2459,566 @@ class AsyncMemory(MemoryBase):
 
         capture_event("mem0._delete_memory", self, {"memory_id": memory_id, "sync_type": "async"})
         return memory_id
+
+    async def _generate_profile(
+        self,
+        *,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+    ) -> str:
+        """
+        Generate a user profile from all memories asynchronously.
+
+        Args:
+            user_id: User identifier
+            agent_id: Agent identifier
+            run_id: Run identifier
+
+        Returns:
+            Generated profile text
+        """
+        # Get all memories for this user/agent/run
+        memories_response = await self.get_all(user_id=user_id, agent_id=agent_id, run_id=run_id, limit=1000)
+
+        # Handle both v1.0 (list) and v1.1 (dict with 'results') formats
+        if isinstance(memories_response, dict) and "results" in memories_response:
+            memories = memories_response["results"]
+        else:
+            memories = memories_response
+
+        if not memories:
+            return "No memories available yet to generate a profile."
+
+        # Prepare memories text
+        memories_text = "\n".join([f"- {mem['memory']}" for mem in memories])
+
+        # Use custom prompt if provided, otherwise use default
+        system_prompt = self.config.custom_profile_prompt or DEFAULT_PROFILE_GENERATION_PROMPT
+
+        user_prompt = f"""Based on the following memories, generate a user profile:
+
+Memories:
+{memories_text}
+
+Generate a concise profile (200-400 tokens) that captures who this person is, their preferences, skills, and current context."""
+
+        # Generate profile using LLM
+        try:
+            profile_text = await asyncio.to_thread(
+                self.llm.generate_response,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+            )
+            return profile_text.strip()
+        except Exception as e:
+            logger.error(f"Error generating profile (async): {e}")
+            return "Error generating profile. Please try again."
+
+    async def _generate_profile_incremental(
+        self,
+        existing_profile: Dict[str, Any],
+        *,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+    ) -> str:
+        """
+        Update existing profile incrementally with new memories only (async).
+
+        Args:
+            existing_profile: The existing profile dict from database
+            user_id: User identifier
+            agent_id: Agent identifier
+            run_id: Run identifier
+
+        Returns:
+            Updated profile text
+        """
+        # Get all memories
+        memories_response = await self.get_all(user_id=user_id, agent_id=agent_id, run_id=run_id, limit=1000)
+
+        if isinstance(memories_response, dict) and "results" in memories_response:
+            all_memories = memories_response["results"]
+        else:
+            all_memories = memories_response
+
+        # Get only new memories since last update
+        last_memory_count = existing_profile.get("memory_count_at_last_update", 0)
+        new_memories = all_memories[last_memory_count:] if last_memory_count < len(all_memories) else []
+
+        if not new_memories:
+            # No new memories, return existing profile
+            return existing_profile["profile"]
+
+        # Prepare new memories text
+        new_memories_text = "\n".join([f"- {mem['memory']}" for mem in new_memories])
+
+        # Use incremental update prompt
+        system_prompt = DEFAULT_INCREMENTAL_PROFILE_PROMPT
+
+        user_prompt = f"""EXISTING PROFILE:
+{existing_profile['profile']}
+
+NEW MEMORIES SINCE LAST UPDATE ({len(new_memories)} new memories):
+{new_memories_text}
+
+Update the profile to incorporate the new information while maintaining coherence and staying within 200-400 tokens."""
+
+        # Generate updated profile using LLM
+        try:
+            updated_profile_text = await asyncio.to_thread(
+                self.llm.generate_response,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+            )
+            return updated_profile_text.strip()
+        except Exception as e:
+            logger.error(f"Error updating profile incrementally (async): {e}")
+            # Fallback to full regeneration
+            logger.info("Falling back to full profile regeneration (async)")
+            return await self._generate_profile(user_id=user_id, agent_id=agent_id, run_id=run_id)
+
+    async def _should_update_profile(
+        self,
+        *,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+    ) -> bool:
+        """
+        Check if profile should be updated based on triggers (async).
+
+        Args:
+            user_id: User identifier
+            agent_id: Agent identifier
+            run_id: Run identifier
+
+        Returns:
+            True if profile should be updated, False otherwise
+        """
+        if not self.config.profile_config.auto_update:
+            return False
+
+        # Get existing profile
+        existing_profile = await asyncio.to_thread(self.db.get_profile, user_id=user_id, agent_id=agent_id, run_id=run_id)
+
+        if existing_profile is None:
+            # No profile exists, should create one
+            return True
+
+        # Get current memory count
+        memories_response = await self.get_all(user_id=user_id, agent_id=agent_id, run_id=run_id, limit=10000)
+        if isinstance(memories_response, dict) and "results" in memories_response:
+            current_memory_count = len(memories_response["results"])
+        else:
+            current_memory_count = len(memories_response)
+
+        # Check memory count trigger
+        memory_count_at_last_update = existing_profile.get("memory_count_at_last_update", 0)
+        if current_memory_count - memory_count_at_last_update >= self.config.profile_config.memory_count:
+            logger.info(
+                f"Profile update triggered by memory count (async): {current_memory_count} - {memory_count_at_last_update} >= {self.config.profile_config.memory_count}"
+            )
+            return True
+
+        # Check time elapsed trigger
+        current_time = int(time.time())
+        last_update_timestamp = existing_profile.get("last_update_timestamp", 0)
+        time_elapsed = current_time - last_update_timestamp
+
+        if time_elapsed >= self.config.profile_config.time_elapsed:
+            logger.info(
+                f"Profile update triggered by time elapsed (async): {time_elapsed} >= {self.config.profile_config.time_elapsed}"
+            )
+            return True
+
+        return False
+
+    async def _execute_profile_update(
+        self,
+        update_reason: str,
+        *,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+    ) -> None:
+        """
+        Execute profile update (async, used by both sync and async paths).
+
+        Args:
+            update_reason: Reason for update ('memory_count', 'time_elapsed', 'manual', 'initial')
+            user_id: User identifier
+            agent_id: Agent identifier
+            run_id: Run identifier
+        """
+        try:
+            # Check if profile exists for incremental update
+            existing_profile = await asyncio.to_thread(
+                self.db.get_profile, user_id=user_id, agent_id=agent_id, run_id=run_id
+            )
+
+            if existing_profile and update_reason != "initial":
+                # Use incremental update
+                logger.info("Generating incremental profile update (async)...")
+                profile_text = await self._generate_profile_incremental(
+                    existing_profile, user_id=user_id, agent_id=agent_id, run_id=run_id
+                )
+            else:
+                # Generate full profile (first time or manual regeneration)
+                logger.info("Generating full profile (async)...")
+                profile_text = await self._generate_profile(user_id=user_id, agent_id=agent_id, run_id=run_id)
+
+            # Get current memory count
+            memories_response = await self.get_all(user_id=user_id, agent_id=agent_id, run_id=run_id, limit=10000)
+            if isinstance(memories_response, dict) and "results" in memories_response:
+                memory_count = len(memories_response["results"])
+            else:
+                memory_count = len(memories_response)
+
+            # Save profile with update reason
+            current_time = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+            await asyncio.to_thread(
+                self.db.upsert_profile,
+                profile_text=profile_text,
+                memory_count=memory_count,
+                user_id=user_id,
+                agent_id=agent_id,
+                run_id=run_id,
+                created_at=current_time if not existing_profile else existing_profile.get("created_at"),
+                updated_at=current_time,
+                update_reason=update_reason,
+            )
+            logger.info(f"Profile updated successfully (async, reason: {update_reason})")
+        except Exception as e:
+            logger.error(f"Error updating profile (async): {e}")
+
+    async def _update_profile_if_needed(
+        self,
+        *,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+    ) -> None:
+        """
+        Update profile if triggers are met (called internally after add()) (async).
+
+        Args:
+            user_id: User identifier
+            agent_id: Agent identifier
+            run_id: Run identifier
+        """
+        # Early return if no identifiers provided - can't update profile without knowing which one
+        if not any([user_id, agent_id, run_id]):
+            return
+
+        should_update = await self._should_update_profile(user_id=user_id, agent_id=agent_id, run_id=run_id)
+        if not should_update:
+            return
+
+        # Determine update reason
+        existing_profile = await asyncio.to_thread(
+            self.db.get_profile, user_id=user_id, agent_id=agent_id, run_id=run_id
+        )
+        if not existing_profile:
+            update_reason = "initial"
+        else:
+            # Check which trigger was hit
+            memories_response = await self.get_all(user_id=user_id, agent_id=agent_id, run_id=run_id, limit=10000)
+            if isinstance(memories_response, dict) and "results" in memories_response:
+                current_memory_count = len(memories_response["results"])
+            else:
+                current_memory_count = len(memories_response)
+
+            memory_count_at_last_update = existing_profile.get("memory_count_at_last_update", 0)
+            if current_memory_count - memory_count_at_last_update >= self.config.profile_config.memory_count:
+                update_reason = "memory_count"
+            else:
+                update_reason = "time_elapsed"
+
+        # Note: async_update doesn't apply in async context - already async
+        # Just execute the update
+        logger.info("Auto-updating profile (async)...")
+        await self._execute_profile_update(update_reason, user_id=user_id, agent_id=agent_id, run_id=run_id)
+
+    async def get_profile(
+        self,
+        *,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Get user profile asynchronously. Returns cached version if available, generates new one if not.
+
+        Args:
+            user_id (str, optional): User identifier
+            agent_id (str, optional): Agent identifier
+            run_id (str, optional): Run identifier
+
+        Returns:
+            dict: Profile information including 'profile' text and metadata
+
+        Example:
+            >>> profile = await m.get_profile(user_id="alice")
+            >>> print(profile["profile"])
+            Alice is a software engineer specializing in AI...
+        """
+        if not any([user_id, agent_id, run_id]):
+            raise ValueError("At least one of 'user_id', 'agent_id', or 'run_id' must be provided")
+
+        capture_event("mem0.get_profile", self, {"sync_type": "async"})
+
+        # Try to get existing profile
+        existing_profile = await asyncio.to_thread(self.db.get_profile, user_id=user_id, agent_id=agent_id, run_id=run_id)
+
+        if existing_profile:
+            # Add quality metrics to existing profile
+            profile_with_metrics = await self._add_quality_metrics(
+                existing_profile, user_id=user_id, agent_id=agent_id, run_id=run_id
+            )
+            return profile_with_metrics
+
+        # No profile exists, generate one
+        logger.info("No profile found, generating new profile (async)...")
+        profile_text = await self._generate_profile(user_id=user_id, agent_id=agent_id, run_id=run_id)
+
+        # Get current memory count
+        memories_response = await self.get_all(user_id=user_id, agent_id=agent_id, run_id=run_id, limit=10000)
+        if isinstance(memories_response, dict) and "results" in memories_response:
+            memory_count = len(memories_response["results"])
+        else:
+            memory_count = len(memories_response)
+
+        # Save profile
+        current_time = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+        await asyncio.to_thread(
+            self.db.upsert_profile,
+            profile_text=profile_text,
+            memory_count=memory_count,
+            user_id=user_id,
+            agent_id=agent_id,
+            run_id=run_id,
+            created_at=current_time,
+            updated_at=current_time,
+            update_reason="initial",
+        )
+
+        profile = await asyncio.to_thread(self.db.get_profile, user_id=user_id, agent_id=agent_id, run_id=run_id)
+        return await self._add_quality_metrics(profile, user_id=user_id, agent_id=agent_id, run_id=run_id)
+
+    async def _add_quality_metrics(
+        self,
+        profile: Dict[str, Any],
+        *,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Add quality metrics to profile dict (async).
+
+        Args:
+            profile: Profile dict from database
+            user_id: User identifier
+            agent_id: Agent identifier
+            run_id: Run identifier
+
+        Returns:
+            Profile dict with quality_metrics added
+        """
+        if not profile:
+            return profile
+
+        # Get current memory count
+        memories_response = await self.get_all(user_id=user_id, agent_id=agent_id, run_id=run_id, limit=10000)
+        if isinstance(memories_response, dict) and "results" in memories_response:
+            memory_count = len(memories_response["results"])
+        else:
+            memory_count = len(memories_response)
+
+        # Calculate confidence score
+        confidence_score = 0.0
+
+        # Memory count factor (0-0.4 points)
+        if memory_count >= 20:
+            confidence_score += 0.4
+        elif memory_count >= 10:
+            confidence_score += 0.3
+        elif memory_count >= 5:
+            confidence_score += 0.2
+        else:
+            confidence_score += 0.1
+
+        # Profile length factor (0-0.3 points)
+        profile_text = profile.get("profile", "")
+        token_count = len(profile_text.split())
+        if 200 <= token_count <= 400:
+            confidence_score += 0.3
+        elif 150 <= token_count <= 450:
+            confidence_score += 0.2
+        else:
+            confidence_score += 0.1
+
+        # Completeness factor (0-0.3 points)
+        key_terms = ["prefer", "goal", "interest", "background", "working", "focus", "is", "enjoys"]
+        terms_present = sum(1 for term in key_terms if term in profile_text.lower())
+        confidence_score += (terms_present / len(key_terms)) * 0.3
+
+        # Calculate days since update
+        from dateutil import parser as date_parser
+
+        try:
+            updated_at = profile.get("updated_at")
+            if updated_at:
+                updated_time = date_parser.parse(updated_at)
+                days_since_update = (datetime.now(pytz.timezone("US/Pacific")) - updated_time).days
+            else:
+                days_since_update = 0
+        except Exception:
+            days_since_update = 0
+
+        # Generate warnings
+        warnings = []
+        if memory_count < 5:
+            warnings.append("Low memory count (< 5 memories) - profile may lack detail")
+        if days_since_update > 30:
+            warnings.append("Profile may be stale (30+ days old)")
+        if token_count < 150:
+            warnings.append("Profile is shorter than recommended (< 150 tokens)")
+        elif token_count > 450:
+            warnings.append("Profile is longer than recommended (> 450 tokens)")
+
+        # Add quality metrics to profile
+        profile_with_metrics = profile.copy()
+        profile_with_metrics["quality_metrics"] = {
+            "memory_count": memory_count,
+            "confidence_score": round(confidence_score, 2),
+            "days_since_update": days_since_update,
+            "token_count": token_count,
+            "warnings": [w for w in warnings if w],  # Only non-None warnings
+        }
+
+        return profile_with_metrics
+
+    async def get_profile_history(
+        self,
+        *,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        limit: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Get profile history showing evolution over time (async).
+
+        Args:
+            user_id (str, optional): User identifier
+            agent_id (str, optional): Agent identifier
+            run_id (str, optional): Run identifier
+            limit (int, optional): Maximum number of versions to return
+
+        Returns:
+            list: List of profile versions, ordered by version descending
+
+        Example:
+            >>> history = await m.get_profile_history(user_id="alice", limit=5)
+            >>> for version in history:
+            ...     print(f"Version {version['version']}: {version['update_reason']}")
+        """
+        if not any([user_id, agent_id, run_id]):
+            raise ValueError("At least one of 'user_id', 'agent_id', or 'run_id' must be provided")
+
+        capture_event("mem0.get_profile_history", self, {"sync_type": "async"})
+
+        return await asyncio.to_thread(
+            self.db.get_profile_history,
+            user_id=user_id,
+            agent_id=agent_id,
+            run_id=run_id,
+            limit=limit,
+        )
+
+    async def update_profile(
+        self,
+        *,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        force: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        Manually trigger profile update (async, bypassing auto-update checks).
+
+        Args:
+            user_id (str, optional): User identifier
+            agent_id (str, optional): Agent identifier
+            run_id (str, optional): Run identifier
+            force (bool): If True, force full regeneration instead of incremental update
+
+        Returns:
+            dict: Updated profile information
+
+        Example:
+            >>> await m.update_profile(user_id="alice", force=True)
+            >>> # Force regenerate profile after significant changes
+        """
+        if not any([user_id, agent_id, run_id]):
+            raise ValueError("At least one of 'user_id', 'agent_id', or 'run_id' must be provided")
+
+        capture_event("mem0.update_profile", self, {"sync_type": "async"})
+
+        logger.info("Manually updating profile (async)...")
+
+        # Execute update asynchronously
+        update_reason = "manual"
+        existing_profile = await asyncio.to_thread(
+            self.db.get_profile, user_id=user_id, agent_id=agent_id, run_id=run_id
+        )
+
+        if force:
+            # Force full regeneration
+            profile_text = await self._generate_profile(user_id=user_id, agent_id=agent_id, run_id=run_id)
+        else:
+            # Use incremental if profile exists
+            if existing_profile:
+                profile_text = await self._generate_profile_incremental(
+                    existing_profile, user_id=user_id, agent_id=agent_id, run_id=run_id
+                )
+            else:
+                profile_text = await self._generate_profile(user_id=user_id, agent_id=agent_id, run_id=run_id)
+                update_reason = "initial"
+
+        # Get current memory count
+        memories_response = await self.get_all(user_id=user_id, agent_id=agent_id, run_id=run_id, limit=10000)
+        if isinstance(memories_response, dict) and "results" in memories_response:
+            memory_count = len(memories_response["results"])
+        else:
+            memory_count = len(memories_response)
+
+        # Save profile
+        current_time = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+        await asyncio.to_thread(
+            self.db.upsert_profile,
+            profile_text=profile_text,
+            memory_count=memory_count,
+            user_id=user_id,
+            agent_id=agent_id,
+            run_id=run_id,
+            created_at=current_time if not existing_profile else existing_profile.get("created_at"),
+            updated_at=current_time,
+            update_reason=update_reason,
+        )
+
+        logger.info("Profile manually updated successfully (async)")
+
+        # Return updated profile with metrics
+        profile = await asyncio.to_thread(self.db.get_profile, user_id=user_id, agent_id=agent_id, run_id=run_id)
+        return await self._add_quality_metrics(profile, user_id=user_id, agent_id=agent_id, run_id=run_id)
 
     async def reset(self):
         """
