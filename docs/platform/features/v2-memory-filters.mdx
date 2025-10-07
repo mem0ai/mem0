@@ -1,0 +1,517 @@
+---
+title: Memory Filters v2
+icon: "filter"
+iconType: "solid"
+description: This guide covers the filtering system for retrieving and searching memories. You can filter by user sessions, agents, applications, content categories, and time ranges.
+---
+
+## Quick Start
+
+### Memories for a specific user
+
+```json
+{
+  "AND": [
+    { "user_id": "u1" }
+  ]
+}
+```
+
+### User memories across all runs
+
+```json
+{
+  "AND": [
+    { "user_id": "u1" },
+    { "run_id": "*" }
+  ]
+}
+```
+
+<Note>
+Excludes null run_id values
+</Note>
+
+
+---
+
+## Filter Structure
+
+* Root must be **`AND`** or **`OR`** (or **`NOT`**) containing an **array** of conditions.
+* A **condition** is either a simple equality `{ "user_id": "u1" }` or an operator clause `{ "created_at": { "gte": "..." } }`.
+
+```json
+{
+  "AND": [
+    { "user_id": "u1" },
+    { "run_id": "*" },
+    { "created_at": { "lt": "2025-06-01T00:00:00Z" } },
+    { "categories": { "in": ["finance", "health"] } }
+  ]
+}
+```
+
+**Accepted shapes**
+
+```json
+{ "AND": [ /* conditions... */ ] }
+{ "OR":  [ /* conditions... */ ] }
+{ "NOT": [ /* conditions... */ ] }
+```
+
+---
+
+## Available Fields
+
+Use these to scope memories to primary entities:
+
+| Field      | Meaning                 |
+| ---------- | ----------------------- |
+| `user_id`  | Filter by user/consumer |
+| `agent_id` | Filter by AI agent      |
+| `app_id`   | Filter by application   |
+| `run_id`   | Filter by session/run   |
+
+---
+
+## Wildcards
+
+Wildcards (`"*"`) match **any non-null** value of that field. This means if a field is null, it won't be included in the results.
+
+<Note>
+Asterisks (`*`) exclude null values - only non-null fields will be matched
+</Note>
+
+```json
+{ "AND": [ { "user_id": "*" } ] }       // any record with a user_id
+{ "AND": [ { "user_id": "*" }, { "run_id": "*" } ] } // require both non-null
+{ "OR":  [ { "user_id": "*" }, { "run_id": "*" } ] } // either non-null
+```
+
+---
+
+## Operators and Fields
+
+**Available Fields**
+
+* **Entities**: `user_id`, `agent_id`, `app_id`, `run_id`
+* **Time**: `created_at`, `updated_at`, `timestamp`
+* **Content**: `categories`, `metadata`, `keywords`
+* **Special**: `memory_ids` (array of IDs)
+
+**Operators**
+
+* `in`: Matches any of the values specified
+* `gte`: Greater than or equal to
+* `lte`: Less than or equal to
+* `gt`: Greater than
+* `lt`: Less than
+* `ne`: Not equal to
+* `contains`: Case-sensitive containment check
+* `icontains`: Case-insensitive containment check
+* `*`: Wildcard character that matches everything
+
+**Field Structures**
+
+```json
+// Entity fields
+{ "user_id": "u1" }
+{ "agent_id": "a1" }
+{ "app_id": "app1" }
+{ "run_id": "run1" }
+
+// Time fields
+{ "created_at": { "gte": "2025-01-01T00:00:00Z" } }
+{ "updated_at": { "lt": "2025-02-01T00:00:00Z" } }
+
+// Categories (exact matching)
+{ "categories": { "in": ["personal_information", "finance"] } }
+// Categories (partial matching)
+{ "categories": { "contains": "finance" } }
+
+// Metadata (exact key-value match)
+{ "metadata": { "key": "value" } }
+
+// Keywords (text search)
+{ "keywords": { "icontains": "budget" } }
+
+// Memory IDs
+{ "memory_ids": ["m1", "m2", "m3"] }
+```
+
+**Notes**
+
+* `eq` is implied: `{ "user_id": "u1" }` ≡ `{ "user_id": { "eq": "u1" } }`
+* `ne` includes **NULLs**: results where the field is either **not equal** or **missing**
+* For `categories`, use `contains` for partial matching or `in` for exact matching
+
+---
+
+## Examples
+
+### User and Agent Filters
+
+**All memories for a specific user**
+
+```json
+{ "AND": [ { "user_id": "u1" } ] }
+```
+
+**All memories across all users (no agent/app/run)**
+
+```json
+{ "AND": [ { "user_id": "*" } ] }
+```
+
+<Note>
+Excludes null user_id values
+</Note>
+
+**User memories across all runs**
+
+```json
+{ "AND": [ { "user_id": "u1" }, { "run_id": "*" } ] }
+```
+
+<Note>
+Excludes null run_id values
+</Note>
+
+**All memories for a specific agent**
+
+```json
+{ "AND": [ { "agent_id": "a1" } ] }
+```
+
+**Agent memories across all runs**
+
+```json
+{ "AND": [ { "agent_id": "a1" }, { "run_id": "*" } ] }
+```
+
+<Note>
+Excludes null run_id values
+</Note>
+
+### Content and Text Filters
+
+**Search for text in user's memory content (case-insensitive)**
+
+```json
+{ "AND": [
+  { "user_id": "u1" },
+  { "keywords": { "icontains": "pizza" } }
+] }
+```
+
+**Search for text in user's memory content (case-sensitive)**
+
+```json
+{ "AND": [
+  { "user_id": "u1" },
+  { "keywords": { "contains": "BudgetQ1" } }
+] }
+```
+
+**User memories with specific categories**
+
+```json
+{ "AND": [
+  { "user_id": "u1" },
+  { "categories": { "in": ["finance", "health"] } }
+] }
+```
+
+**User memories with specific metadata**
+
+```json
+{ "AND": [
+  { "user_id": "u1" },
+  { "metadata": { "foo": "bar" } }
+] }
+```
+
+### Time-based Filters
+
+**Memories created after a specific date**
+
+```json
+{ "AND": [
+  { "user_id": "u1" },
+  { "created_at": { "gt": "2025-01-01T00:00:00Z" } }
+] }
+```
+
+**User memories within a date range**
+
+```json
+{ "AND": [
+  { "user_id": "u1" },
+  { "created_at": { "gte": "2025-01-01T00:00:00Z" } },
+  { "created_at": { "lt":  "2025-02-01T00:00:00Z" } }
+] }
+```
+
+**Memories updated within a time window**
+
+```json
+{ "AND": [
+  { "user_id": "u1" },
+  { "updated_at": { "gte": "2025-05-01T00:00:00Z" } },
+  { "updated_at": { "lte": "2025-05-31T23:59:59Z" } }
+] }
+```
+
+### Advanced Filters
+
+**Memories from multiple users**
+
+```json
+{ "AND": [ { "user_id": { "in": ["u1", "u2", "u3"] } } ] }
+```
+
+
+**Memories from either user or run**
+
+```json
+{ "OR": [ { "user_id": "u1" }, { "run_id": "run1" } ] }
+```
+
+**Memories that have both user and run (non-null)**
+
+```json
+{ "AND": [ { "user_id": "*" }, { "run_id": "*" } ] }
+```
+
+<Note>
+Excludes null user_id and run_id values
+</Note>
+
+**User memories excluding specific categories**
+
+```json
+{ "AND": [
+  { "user_id": "u1" },
+  { "NOT": { "categories": { "in": ["spam", "test"] } } }
+] }
+```
+
+**User memories by specific IDs**
+
+```json
+{ "AND": [
+  { "user_id": "u1" },
+  { "memory_ids": ["m1", "m2", "m3"] }
+] }
+```
+
+**Complex filter: text + category + time**
+
+```json
+{ "AND": [
+  { "user_id": "u1" },
+  { "keywords": { "icontains": "invoice" } },
+  { "categories": { "in": ["finance"] } },
+  { "created_at": { "gte": "2025-03-01T00:00:00Z" } }
+] }
+```
+
+### Comprehensive Filters
+
+**All memories with non-null entities**
+
+```json
+{ "AND": [ 
+  { "user_id": "*" }, 
+  { "agent_id": "*" }, 
+  { "run_id": "*" }, 
+  { "app_id": "*" } 
+] }
+```
+
+<Note>
+Excludes null values for all entity fields
+</Note>
+
+**All memories (including null entities)**
+
+```json
+{ "OR": [ 
+  { "user_id": "*" }, 
+  { "agent_id": "*" }, 
+  { "run_id": "*" }, 
+  { "app_id": "*" } 
+] }
+```
+
+---
+
+## Common Patterns
+
+**Single user memories**
+
+```json
+{ "AND": [ { "user_id": "u1" } ] }
+```
+
+**User memories across all runs**
+
+```json
+{ "AND": [ { "user_id": "u1" }, { "run_id": "*" } ] }
+```
+
+<Note>
+Excludes null run_id values
+</Note>
+
+**All user memories (no agent/app/run)**
+
+```json
+{ "AND": [ { "user_id": "*" } ] }
+```
+
+<Note>
+Excludes null user_id values
+</Note>
+
+**Agent with specific users**
+
+```json
+{ "AND": [ { "agent_id": "a1" }, { "user_id": { "in": ["u1", "u2"] } } ] }
+```
+
+**Search user's memory content (case-insensitive)**
+
+```json
+{ "AND": [
+  { "user_id": "u1" },
+  { "keywords": { "icontains": "budget" } }
+] }
+```
+
+**Memories within date range**
+
+```json
+{ "AND": [
+  { "user_id": "u1" },
+  { "created_at": { "gte": "<from>" } },
+  { "created_at": { "lt": "<to>" } }
+] }
+```
+
+**Exclude specific categories**
+
+```json
+{ "AND": [
+  { "user_id": "u1" },
+  { "NOT": { "categories": { "in": ["spam", "test"] } } }
+] }
+```
+
+**Get user's specific memories by ID**
+
+```json
+{ "AND": [
+  { "user_id": "u1" },
+  { "memory_ids": ["id1", "id2"] }
+] }
+```
+
+---
+
+## Troubleshooting
+
+### "I filtered by `user_id`, but I don't see items that have an `agent_id`."
+
+This is the **implicit null-scoping** rule. When you write only `{ "user_id": "u1" }`, the system also enforces `agent_id = NULL`, `run_id = NULL`, `app_id = NULL`. If you want any agent, add `{ "agent_id": "*" }`.
+
+```json
+{ "AND": [ { "user_id": "u1" }, { "agent_id": "*" } ] }
+```
+
+### "My `ne` seems to return more than I expect."
+
+`ne` returns rows where the field is **not equal OR NULL**. If you need "not equal and **definitely present**", combine with a wildcard.
+
+```json
+{ "AND": [ { "agent_id": "*" }, { "agent_id": { "ne": "a1" } } ] }
+```
+
+### "Case-insensitive search?"
+
+Use `icontains`.
+
+```json
+{ "AND": [ { "keywords": { "icontains": "receipt" } } ] }
+```
+
+### "Between two dates?"
+
+Use `gte` and `lt` (or `lte`) together.
+
+```json
+{ "AND": [
+  { "user_id": "u1" },
+  { "created_at": { "gte": "2025-01-01T00:00:00Z" } },
+  { "created_at": { "lt":  "2025-02-01T00:00:00Z" } }
+] }
+```
+
+### "Complex logic with NOT"
+
+`NOT` can wrap a single condition or an array. Example: user `u1` but not category `spam` or `test`.
+
+```json
+{ "AND": [
+  { "user_id": "u1" },
+  { "NOT": { "categories": { "in": ["spam", "test"] } } }
+] }
+```
+
+### "Metadata matching isn't working."
+
+Ensure you match the **exact JSON shape** at the top level.
+
+```json
+{ "AND": [ { "metadata": { "foo": "bar" } } ] }
+```
+
+### "I want all users, all agents, all runs."
+
+Be explicit with wildcards for **each** entity dimension.
+
+```json
+{ "AND": [ { "user_id": "*" }, { "agent_id": "*" }, { "run_id": "*" } ] }
+```
+
+---
+
+## FAQ
+
+**Q: Do I have to wrap my filter in `AND` or `OR`?**
+
+Yes. The root must be one of `AND`, `OR`, or `NOT`.
+
+**Q: What does the wildcard `"*"` match?**
+
+Any **non-null** value for that field.
+
+**Q: Why are results "missing" unless I add wildcards?**
+
+Because unspecified entity fields default to **`NULL`** due to restrictive scoping.
+
+**Q: Is `eq` required?**
+
+No—equality is the default. `{ "user_id": "u1" }` is enough.
+
+**Q: Does `ne` include NULLs?**
+
+Yes. Use `{ "field": "*" }` together with `ne` if you need "present and not equal".
+
+**Q: How do I search the memory text?**
+
+Use `keywords` with `contains` or `icontains`.
+
+**Q: Can I filter nested metadata keys?**
+
+Currently target **top-level** keys as shown: `{ "metadata": { "foo": "bar" } }`.
