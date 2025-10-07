@@ -329,7 +329,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "import requests\n\nurl = \"https://api.mem0.ai/v1/entities/{entity_type}/{entity_id}/\"\n\nheaders = {\"Authorization\": \"<api-key>\"}\n\nresponse = requests.request(\"DELETE\", url, headers=headers)\n\nprint(response.text)"
+						"source": "import requests\n\nurl = \"https://api.mem0.ai/v1/entities/{entity_type}/{entity_id}/\"\n\nheaders = {\"Authorization\": \"Token <api-key>\"}\n\nresponse = requests.request(\"DELETE\", url, headers=headers)\n\nprint(response.text)"
 					},
 					{
 						"lang": "JavaScript",
@@ -1100,137 +1100,16 @@
 				],
 				"description": "Get all memories.",
 				"operationId": "memories_list_v2",
-				"parameters": [
-					{
-						"name": "filters",
-						"in": "query",
-						"schema": {
-							"type": "object",
-							"properties": {
-								"user_id": {
-									"type": "string"
-								},
-								"agent_id": {
-									"type": "string"
-								},
-								"app_id": {
-									"type": "string"
-								},
-								"run_id": {
-									"type": "string"
-								},
-								"created_at": {
-									"type": "string",
-									"format": "date-time"
-								},
-								"updated_at": {
-									"type": "string",
-									"format": "date-time"
-								},
-								"categories": {
-									"type": "object",
-									"properties": {
-										"in": {
-											"type": "array",
-											"items": {
-												"type": "string"
-											}
-										}
-									}
-								},
-								"metadata": {
-									"type": "object"
-								},
-								"keywords": {
-									"type": "object",
-									"properties": {
-										"contains": {
-											"type": "string"
-										},
-										"icontains": {
-											"type": "string"
-										}
-									}
-								}
-							},
-							"additionalProperties": {
-								"type": "object",
-								"properties": {
-									"in": {
-										"type": "array"
-									},
-									"gte": {
-										"type": "string"
-									},
-									"lte": {
-										"type": "string"
-									},
-									"gt": {
-										"type": "string"
-									},
-									"lt": {
-										"type": "string"
-									},
-									"ne": {
-										"type": "string"
-									},
-									"contains": {
-										"type": "string"
-									},
-									"icontains": {
-										"type": "string"
-									}
-								}
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/MemoryGetInputV2"
 							}
-						},
-						"description": "Filters to apply to the memories. Available fields are: user_id, agent_id, app_id, run_id, created_at, updated_at, categories, keywords. Supports logical operators (AND, OR) and comparison operators (in, gte, lte, gt, lt, ne, contains, icontains). For categories field, use 'contains' for partial matching (e.g., {\"categories\": {\"contains\": \"finance\"}}) or 'in' for exact matching (e.g., {\"categories\": {\"in\": [\"personal_information\"]}}).",
-						"style": "deepObject",
-						"explode": true
+						}
 					},
-					{
-						"name": "fields",
-						"in": "query",
-						"schema": {
-							"type": "array",
-							"items": {
-								"type": "string"
-							}
-						},
-						"description": "A list of field names to include in the response. If not provided, all fields will be returned."
-					},
-					{
-						"name": "org_id",
-						"in": "query",
-						"schema": {
-							"type": "string"
-						},
-						"description": "Filter memories by organization ID."
-					},
-					{
-						"name": "project_id",
-						"in": "query",
-						"schema": {
-							"type": "string"
-						},
-						"description": "Filter memories by project ID."
-					},
-					{
-						"name": "page",
-						"in": "query",
-						"schema": {
-							"type": "integer"
-						},
-						"description": "Page number for pagination. Default: 1."
-					},
-					{
-						"name": "page_size",
-						"in": "query",
-						"schema": {
-							"type": "integer"
-						},
-						"description": "Number of items per page. Default: 100."
-					}
-				],
+					"required": true
+				},
 				"responses": {
 					"200": {
 						"description": "Successfully retrieved memories.",
@@ -2357,7 +2236,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "import requests\n\nurl = \"https://api.mem0.ai/api/v1/orgs/organizations/\"\n\nheaders = {\"Authorization\": \"<api-key>\"}\n\nresponse = requests.request(\"GET\", url, headers=headers)\n\nprint(response.text)"
+						"source": "import requests\n\nurl = \"https://api.mem0.ai/api/v1/orgs/organizations/\"\n\nheaders = {\"Authorization\": \"Token <api-key>\"}\n\nresponse = requests.request(\"GET\", url, headers=headers)\n\nprint(response.text)"
 					},
 					{
 						"lang": "JavaScript",
@@ -2454,7 +2333,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "import requests\n\nurl = \"https://api.mem0.ai/api/v1/orgs/organizations/\"\n\npayload = {\"name\": \"<string>\"}\nheaders = {\n    \"Authorization\": \"<api-key>\",\n    \"Content-Type\": \"application/json\"\n}\n\nresponse = requests.request(\"POST\", url, json=payload, headers=headers)\n\nprint(response.text)"
+						"source": "import requests\n\nurl = \"https://api.mem0.ai/api/v1/orgs/organizations/\"\n\npayload = {\"name\": \"<string>\"}\nheaders = {\n    \"Authorization\": \"Token <api-key>\",\n    \"Content-Type\": \"application/json\"\n}\n\nresponse = requests.request(\"POST\", url, json=payload, headers=headers)\n\nprint(response.text)"
 					},
 					{
 						"lang": "JavaScript",
@@ -2685,7 +2564,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "import requests\n\nurl = \"https://api.mem0.ai/api/v1/orgs/organizations/{org_id}/\"\n\nheaders = {\"Authorization\": \"<api-key>\"}\n\nresponse = requests.request(\"DELETE\", url, headers=headers)\n\nprint(response.text)"
+						"source": "import requests\n\nurl = \"https://api.mem0.ai/api/v1/orgs/organizations/{org_id}/\"\n\nheaders = {\"Authorization\": \"Token <api-key>\"}\n\nresponse = requests.request(\"DELETE\", url, headers=headers)\n\nprint(response.text)"
 					},
 					{
 						"lang": "JavaScript",
@@ -2779,7 +2658,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "import requests\n\nurl = \"https://api.mem0.ai/api/v1/orgs/organizations/{org_id}/members/\"\n\nheaders = {\"Authorization\": \"<api-key>\"}\n\nresponse = requests.request(\"GET\", url, headers=headers)\n\nprint(response.text)"
+						"source": "import requests\n\nurl = \"https://api.mem0.ai/api/v1/orgs/organizations/{org_id}/members/\"\n\nheaders = {\"Authorization\": \"Token <api-key>\"}\n\nresponse = requests.request(\"GET\", url, headers=headers)\n\nprint(response.text)"
 					},
 					{
 						"lang": "JavaScript",
@@ -2904,7 +2783,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "import requests\n\nurl = \"https://api.mem0.ai/api/v1/orgs/organizations/{org_id}/members/\"\n\npayload = {\n    \"email\": \"<string>\",\n    \"role\": \"<string>\"\n}\nheaders = {\n    \"Authorization\": \"<api-key>\",\n    \"Content-Type\": \"application/json\"\n}\n\nresponse = requests.request(\"PUT\", url, json=payload, headers=headers)\n\nprint(response.text)"
+						"source": "import requests\n\nurl = \"https://api.mem0.ai/api/v1/orgs/organizations/{org_id}/members/\"\n\npayload = {\n    \"email\": \"<string>\",\n    \"role\": \"<string>\"\n}\nheaders = {\n    \"Authorization\": \"Token <api-key>\",\n    \"Content-Type\": \"application/json\"\n}\n\nresponse = requests.request(\"PUT\", url, json=payload, headers=headers)\n\nprint(response.text)"
 					},
 					{
 						"lang": "JavaScript",
@@ -3029,7 +2908,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "import requests\n\nurl = \"https://api.mem0.ai/api/v1/orgs/organizations/{org_id}/members/\"\n\npayload = {\n    \"email\": \"<string>\",\n    \"role\": \"<string>\"\n}\nheaders = {\n    \"Authorization\": \"<api-key>\",\n    \"Content-Type\": \"application/json\"\n}\n\nresponse = requests.request(\"POST\", url, json=payload, headers=headers)\n\nprint(response.text)"
+						"source": "import requests\n\nurl = \"https://api.mem0.ai/api/v1/orgs/organizations/{org_id}/members/\"\n\npayload = {\n    \"email\": \"<string>\",\n    \"role\": \"<string>\"\n}\nheaders = {\n    \"Authorization\": \"Token <api-key>\",\n    \"Content-Type\": \"application/json\"\n}\n\nresponse = requests.request(\"POST\", url, json=payload, headers=headers)\n\nprint(response.text)"
 					},
 					{
 						"lang": "JavaScript",
@@ -3126,7 +3005,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "import requests\n\nurl = \"https://api.mem0.ai/api/v1/orgs/organizations/{org_id}/members/\"\n\npayload = {\"email\": \"<string>\"}\nheaders = {\n    \"Authorization\": \"<api-key>\",\n    \"Content-Type\": \"application/json\"\n}\n\nresponse = requests.request(\"DELETE\", url, json=payload, headers=headers)\n\nprint(response.text)"
+						"source": "import requests\n\nurl = \"https://api.mem0.ai/api/v1/orgs/organizations/{org_id}/members/\"\n\npayload = {\"email\": \"<string>\"}\nheaders = {\n    \"Authorization\": \"Token <api-key>\",\n    \"Content-Type\": \"application/json\"\n}\n\nresponse = requests.request(\"DELETE\", url, json=payload, headers=headers)\n\nprint(response.text)"
 					},
 					{
 						"lang": "JavaScript",
@@ -3233,7 +3112,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "import requests\n\nurl = \"https://api.mem0.ai/api/v1/orgs/organizations/{org_id}/projects/\"\n\nheaders = {\"Authorization\": \"<api-key>\"}\n\nresponse = requests.request(\"GET\", url, headers=headers)\n\nprint(response.text)"
+						"source": "import requests\n\nurl = \"https://api.mem0.ai/api/v1/orgs/organizations/{org_id}/projects/\"\n\nheaders = {\"Authorization\": \"Token <api-key>\"}\n\nresponse = requests.request(\"GET\", url, headers=headers)\n\nprint(response.text)"
 					},
 					{
 						"lang": "JavaScript",
@@ -3352,7 +3231,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "import requests\n\nurl = \"https://api.mem0.ai/api/v1/orgs/organizations/{org_id}/projects/\"\n\npayload = {\"name\": \"<string>\"}\nheaders = {\n    \"Authorization\": \"<api-key>\",\n    \"Content-Type\": \"application/json\"\n}\n\nresponse = requests.request(\"POST\", url, json=payload, headers=headers)\n\nprint(response.text)"
+						"source": "import requests\n\nurl = \"https://api.mem0.ai/api/v1/orgs/organizations/{org_id}/projects/\"\n\npayload = {\"name\": \"<string>\"}\nheaders = {\n    \"Authorization\": \"Token <api-key>\",\n    \"Content-Type\": \"application/json\"\n}\n\nresponse = requests.request(\"POST\", url, json=payload, headers=headers)\n\nprint(response.text)"
 					},
 					{
 						"lang": "JavaScript",
@@ -3706,7 +3585,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "import requests\n\nurl = \"https://api.mem0.ai/api/v1/orgs/organizations/{org_id}/projects/{project_id}/\"\n\nheaders = {\"Authorization\": \"<api-key>\"}\n\nresponse = requests.request(\"DELETE\", url, headers=headers)\n\nprint(response.text)"
+						"source": "import requests\n\nurl = \"https://api.mem0.ai/api/v1/orgs/organizations/{org_id}/projects/{project_id}/\"\n\nheaders = {\"Authorization\": \"Token <api-key>\"}\n\nresponse = requests.request(\"DELETE\", url, headers=headers)\n\nprint(response.text)"
 					},
 					{
 						"lang": "JavaScript",
@@ -3806,7 +3685,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "import requests\n\nurl = \"https://api.mem0.ai/api/v1/orgs/organizations/{org_id}/projects/{project_id}/members/\"\n\nheaders = {\"Authorization\": \"<api-key>\"}\n\nresponse = requests.request(\"GET\", url, headers=headers)\n\nprint(response.text)"
+						"source": "import requests\n\nurl = \"https://api.mem0.ai/api/v1/orgs/organizations/{org_id}/projects/{project_id}/members/\"\n\nheaders = {\"Authorization\": \"Token <api-key>\"}\n\nresponse = requests.request(\"GET\", url, headers=headers)\n\nprint(response.text)"
 					},
 					{
 						"lang": "JavaScript",
@@ -3934,7 +3813,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "import requests\n\nurl = \"https://api.mem0.ai/api/v1/orgs/organizations/{org_id}/projects/{project_id}/members/\"\n\npayload = {\n    \"email\": \"<string>\",\n    \"role\": \"<string>\"\n}\nheaders = {\n    \"Authorization\": \"<api-key>\",\n    \"Content-Type\": \"application/json\"\n}\n\nresponse = requests.request(\"POST\", url, json=payload, headers=headers)\n\nprint(response.text)"
+						"source": "import requests\n\nurl = \"https://api.mem0.ai/api/v1/orgs/organizations/{org_id}/projects/{project_id}/members/\"\n\npayload = {\n    \"email\": \"<string>\",\n    \"role\": \"<string>\"\n}\nheaders = {\n    \"Authorization\": \"Token <api-key>\",\n    \"Content-Type\": \"application/json\"\n}\n\nresponse = requests.request(\"POST\", url, json=payload, headers=headers)\n\nprint(response.text)"
 					},
 					{
 						"lang": "JavaScript",
@@ -4062,7 +3941,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "import requests\n\nurl = \"https://api.mem0.ai/api/v1/orgs/organizations/{org_id}/projects/{project_id}/members/\"\n\npayload = {\n    \"email\": \"<string>\",\n    \"role\": \"<string>\"\n}\nheaders = {\n    \"Authorization\": \"<api-key>\",\n    \"Content-Type\": \"application/json\"\n}\n\nresponse = requests.request(\"PUT\", url, json=payload, headers=headers)\n\nprint(response.text)"
+						"source": "import requests\n\nurl = \"https://api.mem0.ai/api/v1/orgs/organizations/{org_id}/projects/{project_id}/members/\"\n\npayload = {\n    \"email\": \"<string>\",\n    \"role\": \"<string>\"\n}\nheaders = {\n    \"Authorization\": \"Token <api-key>\",\n    \"Content-Type\": \"application/json\"\n}\n\nresponse = requests.request(\"PUT\", url, json=payload, headers=headers)\n\nprint(response.text)"
 					},
 					{
 						"lang": "JavaScript",
@@ -4174,7 +4053,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "import requests\n\nurl = \"https://api.mem0.ai/api/v1/orgs/organizations/{org_id}/projects/{project_id}/members/\"\n\nheaders = {\"Authorization\": \"<api-key>\"}\n\nresponse = requests.request(\"DELETE\", url, headers=headers)\n\nprint(response.text)"
+						"source": "import requests\n\nurl = \"https://api.mem0.ai/api/v1/orgs/organizations/{org_id}/projects/{project_id}/members/\"\n\nheaders = {\"Authorization\": \"Token <api-key>\"}\n\nresponse = requests.request(\"DELETE\", url, headers=headers)\n\nprint(response.text)"
 					},
 					{
 						"lang": "JavaScript",
@@ -5005,7 +4884,7 @@
 						"default": true
 					},
 					"output_format": {
-						"description": "It supports two output formats: `v1.0` (default) and `v1.1`. We recommend using `v1.1` as `v1.0` will be deprecated soon.",
+						"description": "Controls the response format structure. `v1.0` (deprecated) returns a direct array of memory objects: `[{...}, {...}]`. `v1.1` (recommended) returns an object with a 'results' key containing the array: `{\"results\": [...]}`. The `v1.0` format will be removed in future versions.",
 						"title": "Output format",
 						"type": "string",
 						"nullable": true,
@@ -5314,6 +5193,127 @@
 						"type": "number",
 						"default": 0.3,
 						"description": "The minimum similarity threshold for returned results."
+					},
+					"org_id": {
+						"title": "Organization id",
+						"type": "string",
+						"nullable": true,
+						"description": "The unique identifier of the organization associated with the memory."
+					},
+					"project_id": {
+						"title": "Project id",
+						"type": "string",
+						"nullable": true,
+						"description": "The unique identifier of the project associated with the memory."
+					}
+				}
+			},
+			"MemoryGetInputV2": {
+				"type": "object",
+				"required": [
+					"filters"
+				],
+				"properties": {
+					"filters": {
+						"title": "Filters",
+						"type": "object",
+						"description": "A dictionary of filters to apply to retrieve memories. Available fields are: user_id, agent_id, app_id, run_id, created_at, updated_at, categories, keywords. Supports logical operators (AND, OR) and comparison operators (in, gte, lte, gt, lt, ne, contains, icontains, *). For categories field, use 'contains' for partial matching (e.g., {\"categories\": {\"contains\": \"finance\"}}) or 'in' for exact matching (e.g., {\"categories\": {\"in\": [\"personal_information\"]}}).",
+						"properties": {
+							"user_id": {
+								"type": "string"
+							},
+							"agent_id": {
+								"type": "string"
+							},
+							"app_id": {
+								"type": "string"
+							},
+							"run_id": {
+								"type": "string"
+							},
+							"created_at": {
+								"type": "string",
+								"format": "date-time"
+							},
+							"updated_at": {
+								"type": "string",
+								"format": "date-time"
+							},
+							"keywords": {
+								"type": "object",
+								"properties": {
+									"contains": {
+										"type": "string"
+									},
+									"icontains": {
+										"type": "string"
+									}
+								}
+							},
+							"categories": {
+								"type": "object",
+								"properties": {
+									"in": {
+										"type": "array",
+										"items": {
+											"type": "string"
+										}
+									}
+								}
+							},
+							"metadata": {
+								"type": "object"
+							}
+						},
+						"additionalProperties": {
+							"type": "object",
+							"properties": {
+								"in": {
+									"type": "array"
+								},
+								"gte": {
+									"type": "string"
+								},
+								"lte": {
+									"type": "string"
+								},
+								"gt": {
+									"type": "string"
+								},
+								"lt": {
+									"type": "string"
+								},
+								"ne": {
+									"type": "string"
+								},
+								"contains": {
+									"type": "string"
+								},
+								"icontains": {
+									"type": "string"
+								}
+							}
+						}
+					},
+					"fields": {
+						"title": "Fields",
+						"type": "array",
+						"items": {
+							"type": "string"
+						},
+						"description": "A list of field names to include in the response. If not provided, all fields will be returned."
+					},
+					"page": {
+						"title": "Page",
+						"type": "integer",
+						"default": 1,
+						"description": "Page number for pagination. Default: 1"
+					},
+					"page_size": {
+						"title": "Page Size",
+						"type": "integer",
+						"default": 100,
+						"description": "Number of items per page. Default: 100"
 					},
 					"org_id": {
 						"title": "Organization id",
