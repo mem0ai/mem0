@@ -329,7 +329,7 @@ def test_list_memories(db_instance_delta, mock_workspace_client):
     res = db_instance_delta.list(limit=1)
     assert isinstance(res, list)
     assert len(res[0]) == 1
-    assert res[0][0].id == "id3"
+    assert res[0][0].id == "id-get"
 
 
 # ---------------------- Reset Tests ---------------------- #
