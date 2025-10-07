@@ -99,7 +99,6 @@ Provide actionable insights in your area of expertise."""
         user_id=project_id,  # Project-level memory
         agent_id=specialist,  # Agent-specific memory
         metadata={"contributor": specialist, "task_type": "research", "model_used": spec_info["model"]},
-        output_format="v1.1",
     )
 
     return result

@@ -5,9 +5,9 @@ icon: "arrow-right"
 iconType: "solid"
 ---
 
-## How to use Direct Import?
-The Direct Import feature allows users to skip the memory deduction phase and directly input pre-defined memories into the system for storage and retrieval.
-To enable this feature, you need to set the `infer` parameter to `False` in the `add` method.
+## How to Use Direct Import
+
+The Direct Import feature allows users to skip the memory deduction phase and directly input pre-defined memories into the system for storage and retrieval. To enable this feature, set the `infer` parameter to `False` in the `add` method.
 
 
 <CodeGroup>
@@ -17,7 +17,7 @@ To enable this feature, you need to set the `infer` parameter to `False` in the 
 messages = [
     {"role": "user", "content": "Alice loves playing badminton"},
     {"role": "assistant", "content": "That's great! Alice is a fitness freak"},
-    {"role": "user", "content": "Alice mostly cook at home because of gym plan"},
+    {"role": "user", "content": "Alice mostly cooks at home because of her gym plan"},
 ]
 
 
@@ -29,19 +29,18 @@ client.add(messages, user_id="alice", infer=False)
 ```
 </CodeGroup>
 
-You can see that the output of add call is an empty list.
+You can see that the output of the add call is an empty list.
 
-<Note> Only messages with the role "user" will be used for storage. Messages with roles such as "assistant" or "system" will be ignored during the storage process. </Note>
+<Note>Only messages with the role "user" will be used for storage. Messages with roles such as "assistant" or "system" will be ignored during the storage process.</Note>
 
-
-## How to retrieve memories?
+## How to Retrieve Memories
 
 You can retrieve memories using the `search` method.
 
 <CodeGroup>
 
 ```python Python
-client.search("What is Alice's favorite sport?", user_id="alice", output_format="v1.1")
+client.search("What is Alice's favorite sport?", user_id="alice")
 ```
 
 ```json Output
@@ -62,7 +61,7 @@ client.search("What is Alice's favorite sport?", user_id="alice", output_format=
 
 </CodeGroup>
 
-## How to retrieve all memories?
+## How to Retrieve All Memories
 
 You can retrieve all memories using the `get_all` method.
 
@@ -86,7 +85,7 @@ client.get_all(query="What is Alice's favorite sport?", user_id="alice", output_
     },
     {
       "id": "8557f05d-7b3c-47e5-b409-9886f9e314fc",
-      "memory": "Alice mostly cook at home because of gym plan",
+      "memory": "Alice mostly cooks at home because of her gym plan",
       "user_id": "pc123",
       "metadata": null,
       "categories": null,

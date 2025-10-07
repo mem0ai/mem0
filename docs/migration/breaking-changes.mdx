@@ -1,0 +1,404 @@
+---
+title: Breaking Changes in v1.0.0 Beta
+description: 'Complete list of breaking changes when upgrading from v0.x to v1.0.0 Beta'
+icon: "triangle-exclamation"
+iconType: "solid"
+---
+
+<Warning>
+**Important:** This page lists all breaking changes. Please review carefully before upgrading.
+</Warning>
+
+## API Version Changes
+
+### Removed v1.0 API Support
+
+**Breaking Change:** The v1.0 API format is completely removed and no longer supported.
+
+#### Before (v0.x)
+```python
+# This was supported in v0.x
+config = {
+    "version": "v1.0"  # ❌ No longer supported
+}
+
+result = m.add(
+    "memory content",
+    user_id="alice",
+    output_format="v1.0"  # ❌ No longer supported
+)
+```
+
+#### After (v1.0.0 Beta)
+```python
+# v1.1 is the minimum supported version
+config = {
+    "version": "v1.1"  # ✅ Required minimum
+}
+
+result = m.add(
+    "memory content",
+    user_id="alice"
+    # output_format parameter removed
+)
+```
+
+**Error Message:**
+```
+ValueError: The v1.0 API format is no longer supported in mem0ai 1.0.0+.
+Please use v1.1 format which returns a dict with 'results' key.
+```
+
+## Parameter Removals
+
+### 1. output_format Parameter
+
+**Removed from all methods:**
+- `add()`
+- `search()`
+- `get_all()`
+
+#### Before (v0.x)
+```python
+result = m.add("content", user_id="alice", output_format="v1.1")
+search_results = m.search("query", user_id="alice", output_format="v1.1")
+all_memories = m.get_all(user_id="alice", output_format="v1.1")
+```
+
+#### After (v1.0.0 Beta)
+```python
+result = m.add("content", user_id="alice")
+search_results = m.search("query", user_id="alice")
+all_memories = m.get_all(user_id="alice")
+```
+
+### 2. version Parameter in Method Calls
+
+**Breaking Change:** Version parameter removed from method calls.
+
+#### Before (v0.x)
+```python
+result = m.add("content", user_id="alice", version="v1.0")
+```
+
+#### After (v1.0.0 Beta)
+```python
+result = m.add("content", user_id="alice")
+```
+
+### 3. async_mode Parameter
+
+**Breaking Change:** Async mode is now default and the parameter is removed.
+
+#### Before (v0.x)
+```python
+# Optional async mode
+result = m.add("content", user_id="alice", async_mode=True)
+result = m.add("content", user_id="alice", async_mode=False)  # Sync mode
+```
+
+#### After (v1.0.0 Beta)
+```python
+# Always async by design, parameter removed
+result = m.add("content", user_id="alice")
+
+# For async operations, use AsyncMemory
+from mem0 import AsyncMemory
+async_m = AsyncMemory()
+result = await async_m.add("content", user_id="alice")
+```
+
+## Response Format Changes
+
+### Standardized Response Structure
+
+**Breaking Change:** All responses now return a standardized dictionary format.
+
+#### Before (v0.x)
+```python
+# Could return different formats based on output_format parameter
+result = m.add("content", user_id="alice", output_format="v1.0")
+# Returns: [{"id": "...", "memory": "...", "event": "ADD"}]
+
+result = m.add("content", user_id="alice", output_format="v1.1")
+# Returns: {"results": [{"id": "...", "memory": "...", "event": "ADD"}]}
+```
+
+#### After (v1.0.0 Beta)
+```python
+# Always returns standardized format
+result = m.add("content", user_id="alice")
+# Always returns: {"results": [{"id": "...", "memory": "...", "event": "ADD"}]}
+
+# Access results consistently
+for memory in result["results"]:
+    print(memory["memory"])
+```
+
+## Configuration Changes
+
+### Version Configuration
+
+**Breaking Change:** Default API version changed.
+
+#### Before (v0.x)
+```python
+# v1.0 was supported
+config = {
+    "version": "v1.0"  # ❌ No longer supported
+}
+```
+
+#### After (v1.0.0 Beta)
+```python
+# v1.1 is minimum, v1.1 is default
+config = {
+    "version": "v1.1"  # ✅ Minimum supported
+}
+
+# Or omit for default
+config = {
+    # version defaults to v1.1
+}
+```
+
+### Memory Configuration
+
+**Breaking Change:** Some configuration options have changed defaults.
+
+#### Before (v0.x)
+```python
+from mem0 import Memory
+
+# Default configuration in v0.x
+m = Memory()  # Used default settings suitable for v0.x
+```
+
+#### After (v1.0.0 Beta)
+```python
+from mem0 import Memory
+
+# Default configuration optimized for v1.0.0 Beta
+m = Memory()  # Uses v1.1+ optimized defaults
+
+# Explicit configuration recommended
+config = {
+    "version": "v1.1",
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "host": "localhost",
+            "port": 6333
+        }
+    }
+}
+m = Memory.from_config(config)
+```
+
+## Method Signature Changes
+
+### Search Method
+
+**Enhanced but backward compatible:**
+
+#### Before (v0.x)
+```python
+results = m.search(
+    "query",
+    user_id="alice",
+    filters={"key": "value"}  # Simple key-value only
+)
+```
+
+#### After (v1.0.0 Beta)
+```python
+# Basic usage remains the same
+results = m.search("query", user_id="alice")
+
+# Enhanced filtering available (optional)
+results = m.search(
+    "query",
+    user_id="alice",
+    filters={
+        "AND": [
+            {"key": "value"},
+            {"score": {"gte": 0.8}}
+        ]
+    },
+    rerank=True  # New parameter
+)
+```
+
+## Error Handling Changes
+
+### New Error Types
+
+**Breaking Change:** More specific error types and messages.
+
+#### Before (v0.x)
+```python
+try:
+    result = m.add("content", user_id="alice", version="v1.0")
+except Exception as e:
+    print(f"Generic error: {e}")
+```
+
+#### After (v1.0.0 Beta)
+```python
+try:
+    result = m.add("content", user_id="alice")
+except ValueError as e:
+    if "v1.0 API format is no longer supported" in str(e):
+        # Handle version error specifically
+        print("Please upgrade your code to use v1.1+ format")
+    else:
+        print(f"Value error: {e}")
+except Exception as e:
+    print(f"Unexpected error: {e}")
+```
+
+### Validation Changes
+
+**Breaking Change:** Stricter parameter validation.
+
+#### Before (v0.x)
+```python
+# Some invalid parameters might have been ignored
+result = m.add(
+    "content",
+    user_id="alice",
+    invalid_param="ignored"  # Might have been silently ignored
+)
+```
+
+#### After (v1.0.0 Beta)
+```python
+# Strict validation - unknown parameters cause errors
+try:
+    result = m.add(
+        "content",
+        user_id="alice",
+        invalid_param="value"  # ❌ Will raise TypeError
+    )
+except TypeError as e:
+    print(f"Invalid parameter: {e}")
+```
+
+## Import Changes
+
+### No Breaking Changes in Imports
+
+**Good News:** Import statements remain the same.
+
+```python
+# These imports work in both v0.x and v1.0.0 Beta
+from mem0 import Memory, AsyncMemory
+from mem0 import MemoryConfig
+```
+
+## Dependency Changes
+
+### Minimum Python Version
+
+**Potential Breaking Change:** Check Python version requirements.
+
+#### Before (v0.x)
+- Python 3.8+ supported
+
+#### After (v1.0.0 Beta)
+- Python 3.9+ required (check current requirements)
+
+### Package Dependencies
+
+**Breaking Change:** Some dependencies updated with potential breaking changes.
+
+```bash
+# Check for conflicts after upgrade
+pip install --upgrade mem0ai
+pip check  # Verify no dependency conflicts
+```
+
+## Data Migration
+
+### Database Schema
+
+**Good News:** No database schema changes required.
+
+- Existing memories remain compatible
+- No data migration required
+- Vector store data unchanged
+
+### Memory Format
+
+**Good News:** Memory storage format unchanged.
+
+- Existing memories work with v1.0.0 Beta
+- Search continues to work with old memories
+- No re-indexing required
+
+## Testing Changes
+
+### Test Updates Required
+
+**Breaking Change:** Update tests for new response format.
+
+#### Before (v0.x)
+```python
+def test_add_memory():
+    result = m.add("content", user_id="alice")
+    assert isinstance(result, list)  # ❌ No longer true
+    assert len(result) > 0
+```
+
+#### After (v1.0.0 Beta)
+```python
+def test_add_memory():
+    result = m.add("content", user_id="alice")
+    assert isinstance(result, dict)  # ✅ Always dict
+    assert "results" in result       # ✅ Always has results key
+    assert len(result["results"]) > 0
+```
+
+## Rollback Considerations
+
+### Safe Rollback Process
+
+If you need to rollback:
+
+```bash
+# 1. Rollback package
+pip install mem0ai==0.1.20  # Last stable v0.x
+
+# 2. Revert code changes
+git checkout previous_commit
+
+# 3. Test functionality
+python test_mem0_functionality.py
+```
+
+### Data Safety
+
+- **Safe:** Memories stored in v0.x format work with v1.0.0 Beta
+- **Safe:** Rollback doesn't lose data
+- **Safe:** Vector store data remains intact
+
+## Next Steps
+
+1. **Review all breaking changes** in your codebase
+2. **Update method calls** to remove deprecated parameters
+3. **Update response handling** to use standardized format
+4. **Test thoroughly** with your existing data
+5. **Update error handling** for new error types
+
+<CardGroup cols={2}>
+  <Card title="Migration Guide" icon="arrow-right" href="/migration/v0-to-v1">
+    Step-by-step migration instructions
+  </Card>
+  <Card title="API Changes" icon="code" href="/migration/api-changes">
+    Complete API reference changes
+  </Card>
+</CardGroup>
+
+<Warning>
+**Need Help?** If you encounter issues during migration, check our [GitHub Discussions](https://github.com/mem0ai/mem0/discussions) or community support channels.
+</Warning>
