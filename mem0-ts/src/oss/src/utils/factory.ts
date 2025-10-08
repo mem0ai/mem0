@@ -20,6 +20,7 @@ import { VectorizeDB } from "../vector_stores/vectorize";
 import { RedisDB } from "../vector_stores/redis";
 import { OllamaLLM } from "../llms/ollama";
 import { SupabaseDB } from "../vector_stores/supabase";
+import { PGVector } from "../vector_stores/pgvector";
 import { SQLiteManager } from "../storage/SQLiteManager";
 import { MemoryHistoryManager } from "../storage/MemoryHistoryManager";
 import { SupabaseHistoryManager } from "../storage/SupabaseHistoryManager";
@@ -91,6 +92,8 @@ export class VectorStoreFactory {
         return new RedisDB(config as any);
       case "supabase":
         return new SupabaseDB(config as any);
+      case "pgvector":
+        return new PGVector(config as any);
       case "langchain":
         return new LangchainVectorStore(config as any);
       case "vectorize":
