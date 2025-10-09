@@ -128,13 +128,15 @@ class MemoryClient:
             raise ValueError(f"Error: {error_message}")
 
     @api_error_handler
-    def add(self, messages: List[Dict[str, str]], **kwargs) -> Dict[str, Any]:
+    def add(self, messages, **kwargs) -> Dict[str, Any]:
         """Add a new memory.
 
         Args:
-            messages: A list of message dictionaries.
+            messages: A list of message dictionaries, a single message dictionary,
+                     or a string. If a string is provided, it will be converted to
+                     a user message.
             **kwargs: Additional parameters such as user_id, agent_id, app_id,
-                      metadata, filters.
+                      metadata, filters, async_mode.
 
         Returns:
             A dictionary containing the API response in v1.1 format.
@@ -147,8 +149,18 @@ class MemoryClient:
             NetworkError: If network connectivity issues occur.
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
+        # Handle different message input formats (align with OSS behavior)
+        if isinstance(messages, str):
+            messages = [{"role": "user", "content": messages}]
+        elif isinstance(messages, dict):
+            messages = [messages]
+        elif not isinstance(messages, list):
+            raise ValueError(
+                f"messages must be str, dict, or list[dict], got {type(messages).__name__}"
+            )
+
         kwargs = self._prepare_params(kwargs)
-        
+
         # Remove deprecated parameters
         if "output_format" in kwargs:
             warnings.warn(
@@ -157,10 +169,11 @@ class MemoryClient:
                 stacklevel=2,
             )
             kwargs.pop("output_format")
-        
-        # Force async_mode to True for platform users (not configurable)
-        kwargs["async_mode"] = True
-        
+
+        # Set async_mode to True by default, but allow user override
+        if "async_mode" not in kwargs:
+            kwargs["async_mode"] = True
+
         # Force v1.1 format for all add operations
         kwargs["output_format"] = "v1.1"
         payload = self._prepare_payload(messages, kwargs)
@@ -1077,9 +1090,19 @@ class AsyncMemoryClient:
         await self.async_client.aclose()
 
     @api_error_handler
-    async def add(self, messages: List[Dict[str, str]], **kwargs) -> Dict[str, Any]:
+    async def add(self, messages, **kwargs) -> Dict[str, Any]:
+        # Handle different message input formats (align with OSS behavior)
+        if isinstance(messages, str):
+            messages = [{"role": "user", "content": messages}]
+        elif isinstance(messages, dict):
+            messages = [messages]
+        elif not isinstance(messages, list):
+            raise ValueError(
+                f"messages must be str, dict, or list[dict], got {type(messages).__name__}"
+            )
+
         kwargs = self._prepare_params(kwargs)
-        
+
         # Remove deprecated parameters
         if "output_format" in kwargs:
             warnings.warn(
@@ -1088,10 +1111,11 @@ class AsyncMemoryClient:
                 stacklevel=2,
             )
             kwargs.pop("output_format")
-        
-        # Force async_mode to True for platform users (not configurable)
-        kwargs["async_mode"] = True
-        
+
+        # Set async_mode to True by default, but allow user override
+        if "async_mode" not in kwargs:
+            kwargs["async_mode"] = True
+
         # Force v1.1 format for all add operations
         kwargs["output_format"] = "v1.1"
         payload = self._prepare_payload(messages, kwargs)

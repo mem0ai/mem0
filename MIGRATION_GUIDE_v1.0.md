@@ -70,6 +70,49 @@ if "relations" in result:
 
 ---
 
+## Enhanced Message Handling
+
+The platform client (MemoryClient) now supports the same flexible message formats as the OSS version:
+
+```python
+from mem0 import MemoryClient
+
+client = MemoryClient(api_key="your-key")
+
+# All three formats now work:
+
+# 1. Single string (automatically converted to user message)
+client.add("I like pizza", user_id="alice")
+
+# 2. Single message dictionary
+client.add({"role": "user", "content": "I like pizza"}, user_id="alice")
+
+# 3. List of messages (conversation)
+client.add([
+    {"role": "user", "content": "I like pizza"},
+    {"role": "assistant", "content": "I'll remember that!"}
+], user_id="alice")
+```
+
+### Async Mode Configuration
+
+The `async_mode` parameter now defaults to `True` but can be configured:
+
+```python
+# Default behavior (async_mode=True)
+client.add(messages, user_id="alice")
+
+# Explicitly set async mode
+client.add(messages, user_id="alice", async_mode=True)
+
+# Disable async mode if needed
+client.add(messages, user_id="alice", async_mode=False)
+```
+
+**Note:** `async_mode=True` provides better performance for most use cases. Only set it to `False` if you have specific synchronous processing requirements.
+
+---
+
 ## That's It!
 
 For most users, that's all you need to know. The changes are:
@@ -121,6 +164,8 @@ memory = Memory()
 - **Better vector stores:** Fixed OpenSearch and improved reliability across all stores
 - **Cleaner API:** One way to do things, no more confusing options
 - **Enhanced GCP support:** Better Vertex AI configuration options
+- **Flexible message input:** Platform client now accepts strings, dicts, and lists (aligned with OSS)
+- **Configurable async_mode:** Now defaults to `True` but users can override if needed
 
 ---
 

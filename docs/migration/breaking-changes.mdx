@@ -86,26 +86,30 @@ result = m.add("content", user_id="alice", version="v1.0")
 result = m.add("content", user_id="alice")
 ```
 
-### 3. async_mode Parameter
+### 3. async_mode Parameter (Platform Client)
 
-**Breaking Change:** Async mode is now default and the parameter is removed.
+**Change:** For `MemoryClient` (Platform API), `async_mode` now defaults to `True` but can still be configured.
 
 #### Before (v0.x)
 ```python
-# Optional async mode
-result = m.add("content", user_id="alice", async_mode=True)
-result = m.add("content", user_id="alice", async_mode=False)  # Sync mode
+from mem0 import MemoryClient
+
+client = MemoryClient(api_key="your-key")
+result = client.add("content", user_id="alice", async_mode=True)
+result = client.add("content", user_id="alice", async_mode=False)
 ```
 
 #### After (v1.0.0 )
 ```python
-# Always async by design, parameter removed
-result = m.add("content", user_id="alice")
+from mem0 import MemoryClient
 
-# For async operations, use AsyncMemory
-from mem0 import AsyncMemory
-async_m = AsyncMemory()
-result = await async_m.add("content", user_id="alice")
+client = MemoryClient(api_key="your-key")
+
+# async_mode now defaults to True, but you can still override it
+result = client.add("content", user_id="alice")  # Uses async_mode=True by default
+
+# You can still explicitly set it to False if needed
+result = client.add("content", user_id="alice", async_mode=False)
 ```
 
 ## Response Format Changes

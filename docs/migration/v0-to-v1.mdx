@@ -18,7 +18,7 @@ Mem0 1.0.0  is a major release that modernizes the API, improves performance, an
 | Feature | v0.x | v1.0.0  | Migration Required |
 |---------|------|-------------|-------------------|
 | API Version | v1.0 supported | v1.0 **removed**, v1.1+ only | ✅ Yes |
-| Async Mode | Optional | Default and required | ✅ Yes |
+| Async Mode (Platform Client) | Optional/manual | Defaults to `True`, configurable | ⚠️ Partial |
 | Output Format Parameter | Supported | **Removed** | ✅ Yes |
 | Response Format | Mixed | Standardized `{"results": [...]}` | ✅ Yes |
 | Metadata Filtering | Basic | Enhanced with operators | ⚠️ Optional |
@@ -162,38 +162,31 @@ results = m.search(
 )
 ```
 
-### 6. Migrate Async Operations
+### 6. Platform Client async_mode Default Changed
+
+**Change:** For `MemoryClient`, the `async_mode` parameter now defaults to `True` for better performance.
 
 #### Before (v0.x)
 ```python
-from mem0 import AsyncMemory
+from mem0 import MemoryClient
 
-# Async was optional
-async_memory = AsyncMemory()
+client = MemoryClient(api_key="your-key")
 
-async def add_memory():
-    result = await async_memory.add(
-        "I enjoy hiking",
-        user_id="alice",
-        async_mode=True  # ❌ Parameter removed
-    )
-    return result
+# Had to explicitly set async_mode
+result = client.add("I enjoy hiking", user_id="alice", async_mode=True)
 ```
 
 #### After (v1.0.0 )
 ```python
-from mem0 import AsyncMemory
+from mem0 import MemoryClient
 
-# Async is the default mode
-async_memory = AsyncMemory()
+client = MemoryClient(api_key="your-key")
 
-async def add_memory():
-    result = await async_memory.add(
-        "I enjoy hiking",
-        user_id="alice"
-        # async_mode parameter removed - always async
-    )
-    return result
+# async_mode now defaults to True (best performance)
+result = client.add("I enjoy hiking", user_id="alice")
+
+# You can still override if needed for synchronous processing
+result = client.add("I enjoy hiking", user_id="alice", async_mode=False)
 ```
 
 ## Configuration Migration
@@ -414,7 +407,7 @@ TypeError: add() got an unexpected keyword argument 'output_format'
 result = m.add(
     "memory",
     user_id="alice"
-    # Remove: output_format, version, async_mode
+    # Remove: output_format, version
 )
 ```
 

@@ -61,8 +61,7 @@ def add(
     metadata: dict = None,
     filters: dict = None,
     output_format: str = None,  # ❌ REMOVED
-    version: str = None,        # ❌ REMOVED
-    async_mode: bool = None     # ❌ REMOVED
+    version: str = None         # ❌ REMOVED
 ) -> Union[List[dict], dict]
 ```
 
@@ -92,7 +91,6 @@ def add(
 | `filters` | ✅ | ✅ | Unchanged |
 | `output_format` | ✅ | ❌ | **REMOVED** |
 | `version` | ✅ | ❌ | **REMOVED** |
-| `async_mode` | ✅ | ❌ | **REMOVED** |
 | `infer` | ❌ | ✅ | **NEW** |
 
 #### Response Format Changes
@@ -266,29 +264,31 @@ def delete_all(
 ) -> dict
 ```
 
-## AsyncMemory Class Changes
+## Platform Client (MemoryClient) Changes
 
-### Enhanced Async Support
+### async_mode Default Changed
 
-#### v0.x (Limited)
+#### v0.x
 ```python
-from mem0 import AsyncMemory
+from mem0 import MemoryClient
 
-# Basic async support
-async_m = AsyncMemory()
-result = await async_m.add("content", user_id="alice", async_mode=True)
+client = MemoryClient(api_key="your-key")
+
+# async_mode had to be explicitly set or had different default
+result = client.add("content", user_id="alice", async_mode=True)
 ```
 
-#### v1.0.0  (Optimized)
+#### v1.0.0
 ```python
-from mem0 import AsyncMemory
+from mem0 import MemoryClient
 
-# Optimized async by default
-async_m = AsyncMemory()
-result = await async_m.add("content", user_id="alice")  # async_mode removed
+client = MemoryClient(api_key="your-key")
 
-# All methods are now properly async-optimized
-results = await async_m.search("query", user_id="alice", rerank=True)
+# async_mode defaults to True now (better performance)
+result = client.add("content", user_id="alice")  # Uses async_mode=True by default
+
+# Can still override if needed
+result = client.add("content", user_id="alice", async_mode=False)
 ```
 
 ## Configuration Changes
