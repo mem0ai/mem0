@@ -319,11 +319,10 @@ class MemoryGraph:
             results = []
             for match_fragment in [
                 f"(n)-[r]->(m {self.node_label} {{{node_props_str}}}) WITH n as src, r, m as dst, similarity",
-                f"(m {self.node_label} {{{node_props_str}}})-[r]->(n) WITH m as src, r, n as dst, similarity",
+                f"(m {self.node_label} {{{node_props_str}}})-[r]->(n) WITH m as src, r, n as dst, similarity"
             ]:
-                results.extend(
-                    self.kuzu_execute(
-                        f"""
+                results.extend(self.kuzu_execute(
+                    f"""
                     MATCH (n {self.node_label} {{{node_props_str}}})
                     WHERE n.embedding IS NOT NULL
                     WITH n, array_cosine_similarity(n.embedding, CAST($n_embedding,'FLOAT[{self.embedding_dims}]')) AS similarity
@@ -339,9 +338,7 @@ class MemoryGraph:
                         similarity
                     LIMIT $limit
                     """,
-                        parameters=params,
-                    )
-                )
+                    parameters=params))
 
             # Kuzu does not support sort/limit over unions. Do it manually for now.
             result_relations.extend(sorted(results, key=lambda x: x["similarity"], reverse=True)[:limit])
