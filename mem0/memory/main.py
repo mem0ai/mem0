@@ -43,6 +43,45 @@ from mem0.utils.factory import (
 warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*SwigPy.*")
 warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*swigvarlink.*")
 
+# Initialize logger early for util functions
+logger = logging.getLogger(__name__)
+
+
+def _safe_deepcopy_config(config):
+    """Safely deepcopy config, falling back to JSON serialization for non-serializable objects."""
+    try:
+        return deepcopy(config)
+    except Exception as e:
+        logger.debug(f"Deepcopy failed, using JSON serialization: {e}")
+        
+        config_class = type(config)
+        
+        if hasattr(config, "model_dump"):
+            try:
+                clone_dict = config.model_dump(mode="json")
+            except Exception:
+                clone_dict = {k: v for k, v in config.__dict__.items()}
+        elif hasattr(config, "__dataclass_fields__"):
+            from dataclasses import asdict
+            clone_dict = asdict(config)
+        else:
+            clone_dict = {k: v for k, v in config.__dict__.items()}
+        
+        sensitive_tokens = ("auth", "credential", "password", "token", "secret", "key", "connection_class")
+        for field_name in list(clone_dict.keys()):
+            if any(token in field_name.lower() for token in sensitive_tokens):
+                clone_dict[field_name] = None
+        
+        try:
+            return config_class(**clone_dict)
+        except Exception as reconstruction_error:
+            logger.warning(
+                f"Failed to reconstruct config: {reconstruction_error}. "
+                f"Telemetry may be affected."
+            )
+            raise
+
+
 def _build_filters_and_metadata(
     *,  # Enforce keyword-only arguments
     user_id: Optional[str] = None,
@@ -156,7 +195,7 @@ class Memory(MemoryBase):
         else:
             self.graph = None
 
-        telemetry_config = deepcopy(self.config.vector_store.config)
+        telemetry_config = _safe_deepcopy_config(self.config.vector_store.config)
         telemetry_config.collection_name = "mem0migrations"
         if self.config.vector_store.provider in ["faiss", "qdrant"]:
             provider_path = f"migrations_{self.config.vector_store.provider}"
@@ -1032,14 +1071,13 @@ class AsyncMemory(MemoryBase):
         else:
             self.graph = None
 
-        self.config.vector_store.config.collection_name = "mem0migrations"
+        telemetry_config = _safe_deepcopy_config(self.config.vector_store.config)
+        telemetry_config.collection_name = "mem0migrations"
         if self.config.vector_store.provider in ["faiss", "qdrant"]:
             provider_path = f"migrations_{self.config.vector_store.provider}"
-            self.config.vector_store.config.path = os.path.join(mem0_dir, provider_path)
-            os.makedirs(self.config.vector_store.config.path, exist_ok=True)
-        self._telemetry_vector_store = VectorStoreFactory.create(
-            self.config.vector_store.provider, self.config.vector_store.config
-        )
+            telemetry_config.path = os.path.join(mem0_dir, provider_path)
+            os.makedirs(telemetry_config.path, exist_ok=True)
+        self._telemetry_vector_store = VectorStoreFactory.create(self.config.vector_store.provider, telemetry_config)
 
         capture_event("mem0.init", self, {"sync_type": "async"})
 
