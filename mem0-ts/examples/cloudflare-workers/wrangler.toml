@@ -1,0 +1,26 @@
+# Wrangler configuration for mem0ai Cloudflare Workers example
+
+name = "mem0ai-chat-worker"
+main = "worker.ts"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Environment variables (set these in Wrangler or Cloudflare dashboard)
+# wrangler secret put MEM0_API_KEY
+# wrangler secret put OPENAI_API_KEY
+
+[env.production]
+name = "mem0ai-chat-worker-prod"
+
+[env.staging]
+name = "mem0ai-chat-worker-staging"
+
+# Optional: KV storage for caching (if needed in the future)
+# [[kv_namespaces]]
+# binding = "CACHE"
+# id = "your-kv-namespace-id"
+
+# Optional: Durable Objects (if needed for advanced features)
+# [[durable_objects.bindings]]
+# name = "CHAT_SESSIONS"
+# class_name = "ChatSession"
