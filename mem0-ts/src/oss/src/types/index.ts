@@ -16,6 +16,7 @@ export interface EmbeddingConfig {
   apiKey?: string;
   model?: string | any;
   url?: string;
+  embeddingDims?: number;
   modelProperties?: Record<string, any>;
 }
 
