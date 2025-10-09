@@ -132,12 +132,10 @@ def test_search_handles_incomplete_payloads(mock_sqlite, mock_llm_factory, mock_
     mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
     memory.embedding_model = mock_embedder
 
-    # This should not raise KeyError even with incomplete payloads
     result = memory._search_vector_store("test", {"user_id": "test"}, 10)
     
     assert len(result) == 2
     memories_by_id = {mem["id"]: mem for mem in result}
-    
-    # Verify defensive programming works correctly
-    assert memories_by_id["mem_1"]["memory"] == ""  # Missing data gets empty string
-    assert memories_by_id["mem_2"]["memory"] == "content"  # Normal data preserved
+
+    assert memories_by_id["mem_1"]["memory"] == ""  
+    assert memories_by_id["mem_2"]["memory"] == "content" 
