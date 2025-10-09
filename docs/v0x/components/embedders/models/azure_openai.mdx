@@ -23,7 +23,7 @@ config = {
     "embedder": {
         "provider": "azure_openai",
         "config": {
-            "model": "text-embedding-3-large"
+            "model": "text-embedding-3-large",
             "azure_kwargs": {
                   "api_version": "",
                   "azure_deployment": "",
@@ -117,9 +117,20 @@ Refer to [Azure Identity troubleshooting tips](https://github.com/Azure/azure-sd
 ### Config
 
 Here are the parameters available for configuring Azure OpenAI embedder:
-
+<Tabs>
+<Tab title="Python">
 | Parameter | Description | Default Value |
 | --- | --- | --- |
 | `model` | The name of the embedding model to use | `text-embedding-3-small` |
 | `embedding_dims` | Dimensions of the embedding model | `1536` |
 | `azure_kwargs` | The Azure OpenAI configs | `config_keys` |
+</Tab>
+<Tab title="TypeScript">
+| Parameter         | Description                                   | Default Value              |
+| ----------------- | --------------------------------------------- | -------------------------- |
+| `model`           | The name of the embedding model to use        | `text-embedding-3-small`   |
+| `embeddingDims`   | Dimensions of the embedding model             | `1536`                     |
+| `apiKey`          | Azure OpenAI API key                          | `None`                     |
+| `modelProperties` | Object containing endpoint and other settings | `{ endpoint: "",...rest   }`|
+</Tab>
+</Tabs>
