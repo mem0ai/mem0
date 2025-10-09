@@ -137,10 +137,10 @@ class TestKuzu:
 
         results = kuzu_memory.get_all(filters)
         assert set([f"{result['source']}_{result['relationship']}_{result['target']}" for result in results]) == set([
-            "alice_knows_bob", 
-            "bob_knows_charlie", 
-            "charlie_likes_alice", 
-            "charlie_knows_alice", 
+            "alice_knows_bob",
+            "bob_knows_charlie",
+            "charlie_likes_alice",
+            "charlie_knows_alice",
             "dave_admires_alice"
         ])
 
@@ -183,7 +183,6 @@ def get_node_count(kuzu_memory):
         """
     )
     return int(results[0]['count'])
-
 
 def get_edge_count(kuzu_memory):
     results = kuzu_memory.kuzu_execute(
