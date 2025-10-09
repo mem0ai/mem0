@@ -148,6 +148,148 @@ class MemoryGraph:
             params["run_id"] = filters["run_id"]
         self.graph.query(cypher, params=params)
 
+    def delete(self, data, filters):
+        """
+        Decrement mentions for entities in the deleted memory and remove entities/relationships with 0 mentions.
+        
+        This method extracts entities from the deleted memory text and decrements their mention counts
+        in the graph. When an entity or relationship's mentions reach 0, they are removed from the graph.
+        ensures graph data stays consistent with the vector store.
+        
+        Args:
+            data (str): The memory text to extract entities from
+            filters (dict): Contains user_id (required), agent_id (optional), run_id (optional)
+            
+        Returns:
+            dict: Summary of graph cleanup operations with keys:
+                - deleted_entities: List of entity names that were removed
+                - deleted_relationships: List of dicts with source/relationship/destination
+                - decremented_entities: Count of entities that had mentions decremented
+        """
+        try:
+            # Extract entities from the deleted memory using the same logic as add()
+            entity_type_map = self._retrieve_nodes_from_data(data, filters)
+            if not entity_type_map:
+                logger.debug("No entities found in deleted memory, skipping graph cleanup")
+                return {"deleted_entities": [], "deleted_relationships": [], "decremented_entities": 0}
+            
+            entities_with_relations = self._establish_nodes_relations_from_data(data, filters, entity_type_map)
+            
+            results = {
+                "deleted_entities": [],
+                "deleted_relationships": [],
+                "decremented_entities": 0
+            }
+            
+            # Build node properties for filtering
+            node_props = ["user_id: $user_id"]
+            if filters.get("agent_id"):
+                node_props.append("agent_id: $agent_id")
+            if filters.get("run_id"):
+                node_props.append("run_id: $run_id")
+            node_props_str = ", ".join(node_props)
+            
+            # Process each entity relationship
+            for item in entities_with_relations:
+                source = item["source"]
+                destination = item["destination"]
+                relationship = item["relationship"]
+                
+                # Build params
+                params = {
+                    "source": source,
+                    "destination": destination,
+                    "user_id": filters["user_id"]
+                }
+                if filters.get("agent_id"):
+                    params["agent_id"] = filters["agent_id"]
+                if filters.get("run_id"):
+                    params["run_id"] = filters["run_id"]
+                
+                # Decrement mentions for relationship and connected nodes, delete relationship if mentions reaches 0
+                cypher = f"""
+                MATCH (s {self.node_label} {{name: $source, {node_props_str}}})
+                -[r:{relationship}]->
+                (d {self.node_label} {{name: $destination, {node_props_str}}})
+                
+                SET r.mentions = CASE 
+                    WHEN r.mentions > 1 THEN r.mentions - 1 
+                    ELSE 0 
+                END
+                
+                WITH s, r, d, r.mentions AS new_rel_mentions
+                
+                WITH s, r, d, new_rel_mentions,
+                    CASE WHEN new_rel_mentions <= 0 THEN 1 ELSE 0 END AS should_delete_rel
+                
+                FOREACH (x IN CASE WHEN should_delete_rel = 1 THEN [1] ELSE [] END |
+                    DELETE r
+                )
+                
+                SET s.mentions = CASE 
+                    WHEN s.mentions > 1 THEN s.mentions - 1 
+                    ELSE 0 
+                END,
+                d.mentions = CASE 
+                    WHEN d.mentions > 1 THEN d.mentions - 1 
+                    ELSE 0 
+                END
+                
+                RETURN 
+                    s.name AS source,
+                    s.mentions AS source_mentions,
+                    d.name AS destination, 
+                    d.mentions AS dest_mentions,
+                    should_delete_rel AS deleted_rel
+                """
+                
+                try:
+                    result = self.graph.query(cypher, params=params)
+                    
+                    if result and len(result) > 0:
+                        if result[0].get("deleted_rel", 0) > 0:
+                            results["deleted_relationships"].append({
+                                "source": source,
+                                "relationship": relationship,
+                                "destination": destination
+                            })
+                        results["decremented_entities"] += 1
+                except Exception as e:
+                    logger.warning(f"Failed to decrement mentions for {source}-[{relationship}]->{destination}: {e}")
+                    continue
+            
+            # Clean up orphaned nodes (nodes with mentions <= 0 and no relationships)
+            cleanup_params = {"user_id": filters["user_id"]}
+            if filters.get("agent_id"):
+                cleanup_params["agent_id"] = filters["agent_id"]
+            if filters.get("run_id"):
+                cleanup_params["run_id"] = filters["run_id"]
+            
+            cleanup_cypher = f"""
+            MATCH (n {self.node_label} {{{node_props_str}}})
+            WHERE n.mentions <= 0 
+            AND NOT (n)--()
+            WITH n
+            DELETE n
+            RETURN n.name AS deleted_node
+            """
+            
+            try:
+                deleted_nodes = self.graph.query(cleanup_cypher, params=cleanup_params)
+                if deleted_nodes:
+                    results["deleted_entities"] = [node["deleted_node"] for node in deleted_nodes]
+            except Exception as e:
+                logger.warning(f"Failed to clean up orphaned nodes: {e}")
+            
+            logger.info(f"Graph cleanup completed: {len(results['deleted_relationships'])} relationships deleted, "
+                       f"{len(results['deleted_entities'])} entities deleted, "
+                       f"{results['decremented_entities']} entities decremented")
+            return results
+            
+        except Exception as e:
+            logger.error(f"Error during graph cleanup: {e}")
+            return {"deleted_entities": [], "deleted_relationships": [], "decremented_entities": 0}
+
     def get_all(self, filters, limit=100):
         """
         Retrieves all nodes and relationships from the graph database based on optional filtering criteria.

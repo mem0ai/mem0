@@ -1003,6 +1003,24 @@ class Memory(MemoryBase):
         logger.info(f"Deleting memory with {memory_id=}")
         existing_memory = self.vector_store.get(vector_id=memory_id)
         prev_value = existing_memory.payload.get("data", "")
+        
+        # Extract filters from memory payload for graph cleanup
+        filters = {}
+        if existing_memory.payload.get("user_id"):
+            filters["user_id"] = existing_memory.payload["user_id"]
+        if existing_memory.payload.get("agent_id"):
+            filters["agent_id"] = existing_memory.payload["agent_id"]
+        if existing_memory.payload.get("run_id"):
+            filters["run_id"] = existing_memory.payload["run_id"]
+        
+        # Clean up graph before deleting from vector store
+        if self.enable_graph and filters.get("user_id"):
+            try:
+                self.graph.delete(prev_value, filters)
+            except Exception as e:
+                logger.error(f"Error cleaning up graph for memory {memory_id}: {e}")
+                # Continue with deletion even if graph cleanup fails
+        
         self.vector_store.delete(vector_id=memory_id)
         self.db.add_history(
             memory_id,
@@ -1902,6 +1920,23 @@ class AsyncMemory(MemoryBase):
         logger.info(f"Deleting memory with {memory_id=}")
         existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
         prev_value = existing_memory.payload.get("data", "")
+        
+        # Extract filters from memory payload for graph cleanup
+        filters = {}
+        if existing_memory.payload.get("user_id"):
+            filters["user_id"] = existing_memory.payload["user_id"]
+        if existing_memory.payload.get("agent_id"):
+            filters["agent_id"] = existing_memory.payload["agent_id"]
+        if existing_memory.payload.get("run_id"):
+            filters["run_id"] = existing_memory.payload["run_id"]
+        
+        # Clean up graph before deleting from vector store
+        if self.enable_graph and filters.get("user_id"):
+            try:
+                await asyncio.to_thread(self.graph.delete, prev_value, filters)
+            except Exception as e:
+                logger.error(f"Error cleaning up graph for memory {memory_id}: {e}")
+                # Continue with deletion even if graph cleanup fails
 
         await asyncio.to_thread(self.vector_store.delete, vector_id=memory_id)
         await asyncio.to_thread(

@@ -165,6 +165,212 @@ class MemoryGraph:
             params["run_id"] = filters["run_id"]
         self.kuzu_execute(cypher, parameters=params)
 
+    def delete(self, data, filters):
+        """
+        Decrement mentions for entities in the deleted memory and remove entities/relationships with 0 mentions.
+        
+        This method extracts entities from the deleted memory text and decrements their mention counts
+        in the graph. When an entity or relationship's mentions reach 0, they are removed from the graph.
+        This ensures graph data stays consistent with the vector store.
+        
+        Args:
+            data (str): The memory text to extract entities from
+            filters (dict): Contains user_id (required), agent_id (optional), run_id (optional)
+            
+        Returns:
+            dict: Summary of graph cleanup operations with keys:
+                - deleted_entities: List of entity names that were removed
+                - deleted_relationships: List of dicts with source/relationship/destination
+                - decremented_entities: Count of entities that had mentions decremented
+        """
+        try:
+            # Extract entities from the deleted memory using the same logic as add()
+            entity_type_map = self._retrieve_nodes_from_data(data, filters)
+            if not entity_type_map:
+                logger.debug("No entities found in deleted memory, skipping graph cleanup")
+                return {"deleted_entities": [], "deleted_relationships": [], "decremented_entities": 0}
+            
+            entities_with_relations = self._establish_nodes_relations_from_data(data, filters, entity_type_map)
+            
+            results = {
+                "deleted_entities": [],
+                "deleted_relationships": [],
+                "decremented_entities": 0
+            }
+            
+            # Process each entity relationship
+            for item in entities_with_relations:
+                source = item["source"]
+                destination = item["destination"]
+                relationship = item["relationship"]
+                
+                # Build filter properties
+                user_id = filters["user_id"]
+                agent_id = filters.get("agent_id", None)
+                run_id = filters.get("run_id", None)
+                
+                params = {
+                    "source_name": source,
+                    "dest_name": destination,
+                    "relationship_name": relationship,
+                    "user_id": user_id,
+                }
+                
+                source_props = ["name: $source_name", "user_id: $user_id"]
+                dest_props = ["name: $dest_name", "user_id: $user_id"]
+                if agent_id:
+                    source_props.append("agent_id: $agent_id")
+                    dest_props.append("agent_id: $agent_id")
+                    params["agent_id"] = agent_id
+                if run_id:
+                    source_props.append("run_id: $run_id")
+                    dest_props.append("run_id: $run_id")
+                    params["run_id"] = run_id
+                
+                source_props_str = ", ".join(source_props)
+                dest_props_str = ", ".join(dest_props)
+                
+                try:
+                    # Kuzu doesn't support CASE in SET, so we do this in multiple steps
+                    # Step 1: Get current mention counts
+                    check_query = f"""
+                    MATCH (s {self.node_label} {{{source_props_str}}})
+                    -[r {self.rel_label} {{name: $relationship_name}}]->
+                    (d {self.node_label} {{{dest_props_str}}})
+                    RETURN 
+                        s.mentions AS source_mentions,
+                        r.mentions AS rel_mentions,
+                        d.mentions AS dest_mentions
+                    """
+                    check_result = self.kuzu_execute(check_query, parameters=params)
+                    
+                    if not check_result or len(check_result) == 0:
+                        continue
+                    
+                    rel_mentions = check_result[0].get("rel_mentions", 1)
+                    source_mentions = check_result[0].get("source_mentions", 1)
+                    dest_mentions = check_result[0].get("dest_mentions", 1)
+                    
+                    # Step 2: Decrement or delete relationship
+                    if rel_mentions <= 1:
+                        # Delete the relationship
+                        delete_rel_query = f"""
+                        MATCH (s {self.node_label} {{{source_props_str}}})
+                        -[r {self.rel_label} {{name: $relationship_name}}]->
+                        (d {self.node_label} {{{dest_props_str}}})
+                        DELETE r
+                        """
+                        self.kuzu_execute(delete_rel_query, parameters=params)
+                        results["deleted_relationships"].append({
+                            "source": source,
+                            "relationship": relationship,
+                            "destination": destination
+                        })
+                    else:
+                        # Decrement relationship mentions
+                        update_rel_query = f"""
+                        MATCH (s {self.node_label} {{{source_props_str}}})
+                        -[r {self.rel_label} {{name: $relationship_name}}]->
+                        (d {self.node_label} {{{dest_props_str}}})
+                        SET r.mentions = $new_mentions
+                        """
+                        params["new_mentions"] = rel_mentions - 1
+                        self.kuzu_execute(update_rel_query, parameters=params)
+                    
+                    # Step 3: Decrement node mentions
+                    if source_mentions > 1:
+                        update_source_query = f"""
+                        MATCH (s {self.node_label} {{{source_props_str}}})
+                        SET s.mentions = $new_mentions
+                        """
+                        self.kuzu_execute(update_source_query, parameters={
+                            **{k: v for k, v in params.items() if k != "new_mentions"},
+                            "new_mentions": source_mentions - 1
+                        })
+                    else:
+                        # Set to 0 for later cleanup
+                        update_source_query = f"""
+                        MATCH (s {self.node_label} {{{source_props_str}}})
+                        SET s.mentions = 0
+                        """
+                        self.kuzu_execute(update_source_query, parameters={
+                            k: v for k, v in params.items() if k != "new_mentions"
+                        })
+                    
+                    if dest_mentions > 1:
+                        update_dest_query = f"""
+                        MATCH (d {self.node_label} {{{dest_props_str}}})
+                        SET d.mentions = $new_mentions
+                        """
+                        self.kuzu_execute(update_dest_query, parameters={
+                            **{k: v for k, v in params.items() if k != "new_mentions" and "source" not in k},
+                            "new_mentions": dest_mentions - 1
+                        })
+                    else:
+                        # Set to 0 for later cleanup
+                        update_dest_query = f"""
+                        MATCH (d {self.node_label} {{{dest_props_str}}})
+                        SET d.mentions = 0
+                        """
+                        self.kuzu_execute(update_dest_query, parameters={
+                            k: v for k, v in params.items() if k != "new_mentions" and "source" not in k
+                        })
+                    
+                    results["decremented_entities"] += 1
+                    
+                except Exception as e:
+                    logger.warning(f"Failed to decrement mentions for {source}-[{relationship}]->{destination}: {e}")
+                    continue
+            
+            # Clean up orphaned nodes (nodes with mentions <= 0 and no relationships)
+            node_props = ["user_id: $user_id"]
+            if agent_id:
+                node_props.append("agent_id: $agent_id")
+            if run_id:
+                node_props.append("run_id: $run_id")
+            node_props_str = ", ".join(node_props)
+            
+            cleanup_params = {"user_id": filters["user_id"]}
+            if agent_id:
+                cleanup_params["agent_id"] = agent_id
+            if run_id:
+                cleanup_params["run_id"] = run_id
+            
+            try:
+                # Find and delete orphaned nodes
+                cleanup_query = f"""
+                MATCH (n {self.node_label} {{{node_props_str}}})
+                WHERE n.mentions <= 0 
+                AND NOT (n)--()
+                RETURN n.name AS deleted_node
+                """
+                orphaned_nodes = self.kuzu_execute(cleanup_query, parameters=cleanup_params)
+                
+                if orphaned_nodes:
+                    results["deleted_entities"] = [node["deleted_node"] for node in orphaned_nodes]
+                    
+                    # Delete them
+                    for node in orphaned_nodes:
+                        delete_node_query = f"""
+                        MATCH (n {self.node_label} {{name: $node_name, {node_props_str}}})
+                        DELETE n
+                        """
+                        self.kuzu_execute(delete_node_query, parameters={
+                            **cleanup_params,
+                            "node_name": node["deleted_node"]
+                        })
+            except Exception as e:
+                logger.warning(f"Failed to clean up orphaned nodes: {e}")
+            
+            logger.info(f"Graph cleanup completed: {len(results['deleted_relationships'])} relationships deleted, "
+                       f"{len(results['deleted_entities'])} entities deleted, "
+                       f"{results['decremented_entities']} entities decremented")
+            return results
+            
+        except Exception as e:
+            logger.error(f"Error during graph cleanup: {e}")
+            return {"deleted_entities": [], "deleted_relationships": [], "decremented_entities": 0}
+
     def get_all(self, filters, limit=100):
         """
         Retrieves all nodes and relationships from the graph database based on optional filtering criteria.
