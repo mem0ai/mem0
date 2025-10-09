@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
-from databricks.sdk.service.vectorsearch import VectorIndexType
+from databricks.sdk.service.vectorsearch import VectorIndexType, QueryVectorIndexResponse, ResultManifest, ResultData, ColumnInfo
 from mem0.vector_stores.databricks import Databricks
 import pytest
 
@@ -241,21 +241,33 @@ def test_update_vector(db_instance_direct, mock_workspace_client):
 
 
 def test_get_vector(db_instance_delta, mock_workspace_client):
-    mock_workspace_client.vector_search_indexes.query_index.return_value = SimpleNamespace(
-        result=SimpleNamespace(
+    mock_workspace_client.vector_search_indexes.query_index.return_value = QueryVectorIndexResponse(
+        manifest=ResultManifest(columns=[
+            ColumnInfo(name="memory_id"),
+            ColumnInfo(name="hash"),
+            ColumnInfo(name="agent_id"),
+            ColumnInfo(name="run_id"),
+            ColumnInfo(name="user_id"),
+            ColumnInfo(name="memory"),
+            ColumnInfo(name="metadata"),
+            ColumnInfo(name="created_at"),
+            ColumnInfo(name="updated_at"),
+            ColumnInfo(name="score"),
+        ]),
+        result=ResultData(
             data_array=[
-                {
-                    "memory_id": "id-get",
-                    "hash": "h",
-                    "agent_id": "a",
-                    "run_id": "r",
-                    "user_id": "u",
-                    "memory": "some memory",
-                    "metadata": '{"tag":"x"}',
-                    "created_at": "2024-01-01T00:00:00",
-                    "updated_at": "2024-01-01T00:00:00",
-                    "score": 0.99,
-                }
+                [
+                    "id-get",
+                    "h",
+                    "a",
+                    "r",
+                    "u",
+                    "some memory",
+                    '{"tag":"x"}',
+                    "2024-01-01T00:00:00",
+                    "2024-01-01T00:00:00",
+                    "0.99",
+                ]
             ]
         )
     )
@@ -284,25 +296,40 @@ def test_col_info(db_instance_delta):
 
 
 def test_list_memories(db_instance_delta, mock_workspace_client):
-    row = {
-        "memory_id": "id3",
-        "hash": "hash3",
-        "agent_id": "agent3",
-        "run_id": "run3",
-        "user_id": "user3",
-        "memory": "memory three",
-        "metadata": '{"topic":"misc"}',
-        "created_at": "2024-01-03T00:00:00",
-        "updated_at": "2024-01-03T00:00:00",
-        "score": 0.33,
-    }
-    mock_workspace_client.vector_search_indexes.query_index.return_value = SimpleNamespace(
-        result=SimpleNamespace(data_array=[row])
+    mock_workspace_client.vector_search_indexes.query_index.return_value = QueryVectorIndexResponse(
+        manifest=ResultManifest(columns=[
+            ColumnInfo(name="memory_id"),
+            ColumnInfo(name="hash"),
+            ColumnInfo(name="agent_id"),
+            ColumnInfo(name="run_id"),
+            ColumnInfo(name="user_id"),
+            ColumnInfo(name="memory"),
+            ColumnInfo(name="metadata"),
+            ColumnInfo(name="created_at"),
+            ColumnInfo(name="updated_at"),
+            ColumnInfo(name="score"),
+        ]),
+        result=ResultData(
+            data_array=[
+                [
+                    "id-get",
+                    "h",
+                    "a",
+                    "r",
+                    "u",
+                    "some memory",
+                    '{"tag":"x"}',
+                    "2024-01-01T00:00:00",
+                    "2024-01-01T00:00:00",
+                    "0.99",
+                ]
+            ]
+        )
     )
     res = db_instance_delta.list(limit=1)
     assert isinstance(res, list)
     assert len(res[0]) == 1
-    assert res[0][0].id == "id3"
+    assert res[0][0].id == "id-get"
 
 
 # ---------------------- Reset Tests ---------------------- #
