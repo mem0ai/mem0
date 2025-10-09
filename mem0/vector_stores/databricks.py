@@ -589,7 +589,8 @@ class Databricks(VectorStoreBase):
                 raise KeyError(f"Vector with ID {vector_id} not found")
 
             result = data_array[0]
-            row_data = result if isinstance(result, dict) else result.__dict__
+            columns = columns = [col.name for col in results.manifest.columns] if results.manifest and results.manifest.columns else []
+            row_data = dict(zip(columns, result))
 
             # Build payload following the standard schema
             payload = {
@@ -608,7 +609,7 @@ class Databricks(VectorStoreBase):
                     payload[field] = row_data[field]
 
             # Add metadata
-            if "metadata" in row_data:
+            if "metadata" in row_data and row_data.get('metadata'):
                 try:
                     metadata = json.loads(extract_json(row_data["metadata"]))
                     payload.update(metadata)
@@ -707,6 +708,7 @@ class Databricks(VectorStoreBase):
                     except Exception:
                         pass
                 memory_id = row_dict.get("memory_id") or row_dict.get("id")
+                payload['data'] = payload['memory']
                 memory_results.append(MemoryResult(id=memory_id, payload=payload))
             return [memory_results]
         except Exception as e:
