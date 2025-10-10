@@ -1,6 +1,7 @@
 import logging
 import uuid
 from datetime import datetime
+
 import pytz
 
 from .base import NeptuneBase
@@ -453,6 +454,82 @@ class MemoryGraph(NeptuneBase):
         params = {"user_id": filters["user_id"]}
 
         logger.debug(f"delete_all query={cypher}")
+        return cypher, params
+
+    def _delete_cypher(self, source, destination, relationship, filters):
+        """
+        Returns the OpenCypher query and parameters to decrement mentions and delete relationship if needed
+
+        :param source: source node name
+        :param destination: destination node name
+        :param relationship: relationship type
+        :param filters: user_id filter
+        :return: str, dict
+        """
+        cypher = f"""
+        MATCH (s {self.node_label} {{name: $source, user_id: $user_id}})
+        -[r:{relationship}]->
+        (d {self.node_label} {{name: $destination, user_id: $user_id}})
+        
+        SET r.mentions = CASE 
+            WHEN r.mentions > 1 THEN r.mentions - 1 
+            ELSE 0 
+        END
+        
+        WITH s, r, d, r.mentions AS new_rel_mentions
+        
+        WITH s, r, d, new_rel_mentions,
+             CASE WHEN new_rel_mentions <= 0 THEN 1 ELSE 0 END AS should_delete_rel
+        
+        FOREACH (x IN CASE WHEN should_delete_rel = 1 THEN [1] ELSE [] END |
+            DELETE r
+        )
+        
+        SET s.mentions = CASE 
+            WHEN s.mentions > 1 THEN s.mentions - 1 
+            ELSE 0 
+        END,
+        d.mentions = CASE 
+            WHEN d.mentions > 1 THEN d.mentions - 1 
+            ELSE 0 
+        END
+        
+        RETURN 
+            s.name AS source,
+            s.mentions AS source_mentions,
+            d.name AS destination, 
+            d.mentions AS dest_mentions,
+            should_delete_rel AS deleted_rel
+        """
+        
+        params = {
+            "source": source,
+            "destination": destination,
+            "user_id": filters["user_id"]
+        }
+        
+        logger.debug(f"_delete_cypher query={cypher}")
+        return cypher, params
+
+    def _cleanup_orphaned_nodes_cypher(self, filters):
+        """
+        Returns the OpenCypher query and parameters to clean up orphaned nodes
+
+        :param filters: user_id filter
+        :return: str, dict
+        """
+        cypher = f"""
+        MATCH (n {self.node_label} {{user_id: $user_id}})
+        WHERE n.mentions <= 0 
+        AND NOT (n)--()
+        WITH n
+        DELETE n
+        RETURN n.name AS deleted_node
+        """
+        
+        params = {"user_id": filters["user_id"]}
+        
+        logger.debug(f"_cleanup_orphaned_nodes_cypher query={cypher}")
         return cypher, params
 
     def _get_all_cypher(self, filters, limit):

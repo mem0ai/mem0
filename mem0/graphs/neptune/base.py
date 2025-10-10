@@ -206,7 +206,7 @@ class NeptuneBase(ABC):
         return results
 
     @abstractmethod
-    def _delete_entities_cypher(self, source, destination, relationship, user_id):
+    def _delete_entities_cypher(self, source, destination, relationship, user_id) -> tuple[str, dict]:
         """
         Returns the OpenCypher query and parameters for deleting entities in the graph DB
         """
@@ -311,7 +311,7 @@ class NeptuneBase(ABC):
             destination_type,
             relationship,
             user_id,
-    ):
+    ) -> tuple[str, dict]:
         pass
 
     @abstractmethod
@@ -323,7 +323,7 @@ class NeptuneBase(ABC):
             destination_node_list,
             relationship,
             user_id,
-    ):
+    ) -> tuple[str, dict]:
         pass
 
     @abstractmethod
@@ -333,7 +333,7 @@ class NeptuneBase(ABC):
             destination_node_list,
             relationship,
             user_id,
-    ):
+    ) -> tuple[str, dict]:
         pass
 
     @abstractmethod
@@ -347,7 +347,7 @@ class NeptuneBase(ABC):
             destination_type,
             relationship,
             user_id,
-    ):
+    ) -> tuple[str, dict]:
         pass
 
     def search(self, query, filters, limit=100):
@@ -391,7 +391,7 @@ class NeptuneBase(ABC):
         return result
 
     @abstractmethod
-    def _search_source_node_cypher(self, source_embedding, user_id, threshold):
+    def _search_source_node_cypher(self, source_embedding, user_id, threshold) -> tuple[str, dict]:
         """
         Returns the OpenCypher query and parameters to search for source nodes
         """
@@ -403,7 +403,7 @@ class NeptuneBase(ABC):
         return result
 
     @abstractmethod
-    def _search_destination_node_cypher(self, destination_embedding, user_id, threshold):
+    def _search_destination_node_cypher(self, destination_embedding, user_id, threshold) -> tuple[str, dict]:
         """
         Returns the OpenCypher query and parameters to search for destination nodes
         """
@@ -414,9 +414,97 @@ class NeptuneBase(ABC):
         self.graph.query(cypher, params=params)
 
     @abstractmethod
-    def _delete_all_cypher(self, filters):
+    def _delete_all_cypher(self, filters) -> tuple[str, dict]:
         """
         Returns the OpenCypher query and parameters to delete all edges/nodes in the memory store
+        """
+        pass
+
+    def delete(self, data, filters):
+        """
+        Decrement mentions for entities in the deleted memory and remove entities/relationships with 0 mentions.
+        
+        The method extracts entities from the deleted memory text and decrements their mention counts
+        in the graph. When an entity or relationship's mentions reach 0, they are removed from the graph. Ensuring that the graph data stays consistent with the vector store.
+        
+        Args:
+            data (str): The memory text to extract entities from
+            filters (dict): Contains user_id (required), agent_id (optional), run_id (optional)
+            
+        Returns:
+            dict: Summary of graph cleanup operations with keys:
+                - deleted_entities: List of entity names that were removed
+                - deleted_relationships: List of dicts with source/relationship/destination
+                - decremented_entities: Count of entities that had mentions decremented
+        """
+        try:
+            # Extract entities from the deleted memory using the same logic as add()
+            entity_type_map = self._retrieve_nodes_from_data(data, filters)
+            if not entity_type_map:
+                logger.debug("No entities found in deleted memory, skipping graph cleanup")
+                return {"deleted_entities": [], "deleted_relationships": [], "decremented_entities": 0}
+            
+            entities_with_relations = self._establish_nodes_relations_from_data(data, filters, entity_type_map)
+            
+            results = {
+                "deleted_entities": [],
+                "deleted_relationships": [],
+                "decremented_entities": 0
+            }
+            
+            # Process each entity relationship
+            for item in entities_with_relations:
+                source = item["source"]
+                destination = item["destination"]
+                relationship = item["relationship"]
+                
+                try:
+                    # Get cypher for decrementing/deleting relationship
+                    decrement_cypher, decrement_params = self._delete_cypher(source, destination, relationship, filters)
+                    result = self.graph.query(decrement_cypher, params=decrement_params)
+                    
+                    # Track results
+                    if result and len(result) > 0:
+                        if result[0].get("deleted_rel", 0) > 0:
+                            results["deleted_relationships"].append({
+                                "source": source,
+                                "relationship": relationship,
+                                "destination": destination
+                            })
+                        results["decremented_entities"] += 1
+                except Exception as e:
+                    logger.warning(f"Failed to decrement mentions for {source}-[{relationship}]->{destination}: {e}")
+                    continue
+            
+            # Clean up orphaned nodes
+            try:
+                cleanup_cypher, cleanup_params = self._cleanup_orphaned_nodes_cypher(filters)
+                deleted_nodes = self.graph.query(cleanup_cypher, params=cleanup_params)
+                if deleted_nodes:
+                    results["deleted_entities"] = [node.get("deleted_node") for node in deleted_nodes if "deleted_node" in node]
+            except Exception as e:
+                logger.warning(f"Failed to clean up orphaned nodes: {e}")
+            
+            logger.info(f"Graph cleanup completed: {len(results['deleted_relationships'])} relationships deleted, "
+                       f"{len(results['deleted_entities'])} entities deleted, "
+                       f"{results['decremented_entities']} entities decremented")
+            return results
+            
+        except Exception as e:
+            logger.error(f"Error during graph cleanup: {e}")
+            return {"deleted_entities": [], "deleted_relationships": [], "decremented_entities": 0}
+
+    @abstractmethod
+    def _delete_cypher(self, source, destination, relationship, filters) -> tuple[str, dict]:
+        """
+        Returns the OpenCypher query and parameters to decrement mentions and delete relationship if needed
+        """
+        pass
+
+    @abstractmethod
+    def _cleanup_orphaned_nodes_cypher(self, filters) -> tuple[str, dict]:
+        """
+        Returns the OpenCypher query and parameters to clean up orphaned nodes
         """
         pass
 
@@ -452,7 +540,7 @@ class NeptuneBase(ABC):
         return final_results
 
     @abstractmethod
-    def _get_all_cypher(self, filters, limit):
+    def _get_all_cypher(self, filters, limit) -> tuple[str, dict]:
         """
         Returns the OpenCypher query and parameters to get all edges/nodes in the memory store
         """
@@ -473,7 +561,7 @@ class NeptuneBase(ABC):
         return result_relations
 
     @abstractmethod
-    def _search_graph_db_cypher(self, n_embedding, filters, limit):
+    def _search_graph_db_cypher(self, n_embedding, filters, limit) -> tuple[str, dict]:
         """
         Returns the OpenCypher query and parameters to search for similar nodes in the memory store
         """
