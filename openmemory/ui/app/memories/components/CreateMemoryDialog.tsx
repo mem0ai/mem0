@@ -25,12 +25,18 @@ export function CreateMemoryDialog() {
 
   const handleCreateMemory = async (text: string) => {
     try {
-      await createMemory(text);
+      const newMemory = await createMemory(text);
       toast.success("Memory created successfully");
       // close the dialog
       setOpen(false);
-      // refetch memories
-      await fetchMemories();
+      // Clear the textarea
+      if (textRef.current) {
+        textRef.current.value = "";
+      }
+      // Optionally refetch memories after a short delay to get the final processed state
+      setTimeout(async () => {
+        await fetchMemories();
+      }, 2000);
     } catch (error) {
       console.error(error);
       toast.error("Failed to create memory");
