@@ -1,0 +1,98 @@
+---
+title: CometAPI
+---
+
+CometAPI is a unified API gateway that provides access to 500+ AI models from various providers through a single OpenAI-compatible interface. To use CometAPI models, you need to set the `COMETAPI_KEY` environment variable. You can obtain the CometAPI API key from the [CometAPI Console](https://api.cometapi.com/console/token).
+
+Learn more about CometAPI at [cometapi.com](https://www.cometapi.com/?utm_source=mem0&utm_campaign=integration&utm_medium=integration&utm_content=integration).
+
+## Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your-api-key" # used for embedding model
+os.environ["COMETAPI_KEY"] = "your-cometapi-key"
+
+config = {
+    "llm": {
+        "provider": "cometapi",
+        "config": {
+            "model": "gpt-4o-mini",
+            "temperature": 0.2,
+            "max_tokens": 2000,
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+## Available Models
+
+CometAPI provides access to 500+ models from various providers. Here are some recommended chat models:
+
+### GPT Series
+- `gpt-5-chat-latest`
+- `gpt-5-mini`
+- `gpt-5-nano`
+- `gpt-5-pro`
+- `gpt-4.1`
+- `gpt-4o-mini`
+- `o4-mini-2025-04-16`
+- `o3-pro-2025-06-10`
+- `chatgpt-4o-latest`
+
+### Claude Series
+- `claude-sonnet-4-5-20250929`
+- `claude-opus-4-1-20250805`
+- `claude-opus-4-1-20250805-thinking`
+- `claude-sonnet-4-20250514`
+- `claude-sonnet-4-20250514-thinking`
+- `claude-3-7-sonnet-latest`
+- `claude-3-5-haiku-latest`
+
+### Gemini Series
+- `gemini-2.5-pro`
+- `gemini-2.5-flash`
+- `gemini-2.5-flash-lite`
+- `gemini-2.0-flash`
+
+### Grok Series
+- `grok-4-0709`
+- `grok-4-fast-non-reasoning`
+- `grok-4-fast-reasoning`
+
+### DeepSeek Series
+- `deepseek-v3.1`
+- `deepseek-v3`
+- `deepseek-r1-0528`
+- `deepseek-chat`
+- `deepseek-reasoner`
+
+### Qwen Series
+- `qwen3-30b-a3b`
+- `qwen3-coder-plus-2025-07-22`
+
+For a complete list of available models, visit the [CometAPI pricing page](https://api.cometapi.com/pricing) or query the models endpoint.
+
+## Config
+
+All available parameters for the `cometapi` config are present in [Master List of All Params in Config](../config).
+
+## Getting Started
+
+1. Sign up at [CometAPI](https://www.cometapi.com/?utm_source=mem0&utm_campaign=integration&utm_medium=integration&utm_content=integration)
+2. Get your API key from the [Console](https://api.cometapi.com/console/token)
+3. Set the `COMETAPI_KEY` environment variable
+4. Start using CometAPI with mem0!
+
+For support and questions, join the [CometAPI Discord community](https://discord.gg/cometapi).
