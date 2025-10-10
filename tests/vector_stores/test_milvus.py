@@ -9,8 +9,8 @@ These tests verify:
 """
 
 import pytest
-from unittest.mock import Mock, MagicMock, patch
-from mem0.vector_stores.milvus import MilvusDB, OutputData
+from unittest.mock import MagicMock, patch
+from mem0.vector_stores.milvus import MilvusDB
 from mem0.configs.vector_stores.milvus import MetricType
 
 
@@ -237,7 +237,7 @@ class TestMilvusDB:
         """Test that existing collection is not recreated."""
         mock_milvus_client.has_collection.return_value = True
         
-        db = MilvusDB(
+        MilvusDB(
             url="http://localhost:19530",
             token="test_token",
             collection_name="existing_collection",
