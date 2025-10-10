@@ -1,5 +1,5 @@
 services:
-  mem0_store:
+  mem0-store:
     image: ghcr.io/chroma-core/chroma:latest
     restart: unless-stopped
     environment:
