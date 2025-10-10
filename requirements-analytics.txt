@@ -1,0 +1,6 @@
+# Analytics Dependencies
+prometheus-client>=0.17.1
+numpy>=1.21.0  # For statistical calculations
+pandas>=1.3.0  # For data analysis
+scikit-learn>=1.0.0  # For advanced anomaly detection
+pyyaml>=6.0  # For configuration
