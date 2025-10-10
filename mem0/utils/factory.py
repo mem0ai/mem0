@@ -5,12 +5,12 @@ from mem0.configs.embeddings.base import BaseEmbedderConfig
 from mem0.configs.llms.anthropic import AnthropicConfig
 from mem0.configs.llms.azure import AzureOpenAIConfig
 from mem0.configs.llms.base import BaseLlmConfig
+from mem0.configs.llms.cometapi import CometAPIConfig
 from mem0.configs.llms.deepseek import DeepSeekConfig
 from mem0.configs.llms.lmstudio import LMStudioConfig
 from mem0.configs.llms.ollama import OllamaConfig
 from mem0.configs.llms.openai import OpenAIConfig
 from mem0.configs.llms.vllm import VllmConfig
-from mem0.configs.llms.cometapi import CometAPIConfig
 from mem0.embeddings.mock import MockEmbeddings
 
 
@@ -135,6 +135,7 @@ class EmbedderFactory:
         "ollama": "mem0.embeddings.ollama.OllamaEmbedding",
         "huggingface": "mem0.embeddings.huggingface.HuggingFaceEmbedding",
         "azure_openai": "mem0.embeddings.azure_openai.AzureOpenAIEmbedding",
+        "cometapi": "mem0.embeddings.cometapi.CometAPIEmbedding",
         "gemini": "mem0.embeddings.gemini.GoogleGenAIEmbedding",
         "vertexai": "mem0.embeddings.vertexai.VertexAIEmbedding",
         "together": "mem0.embeddings.together.TogetherEmbedding",

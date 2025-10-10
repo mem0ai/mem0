@@ -8,11 +8,12 @@ Learn more about CometAPI at [cometapi.com](https://www.cometapi.com/?utm_source
 
 ## Usage
 
+### LLM Configuration
+
 ```python
 import os
 from mem0 import Memory
 
-os.environ["OPENAI_API_KEY"] = "your-api-key" # used for embedding model
 os.environ["COMETAPI_KEY"] = "your-cometapi-key"
 
 config = {
@@ -34,6 +35,37 @@ messages = [
     {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
 ]
 m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+### LLM + Embeddings Configuration
+
+You can use CometAPI for both LLM and embeddings:
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["COMETAPI_KEY"] = "your-cometapi-key"
+
+config = {
+    "llm": {
+        "provider": "cometapi",
+        "config": {
+            "model": "gpt-4o-mini",
+            "temperature": 0.2,
+            "max_tokens": 2000,
+        }
+    },
+    "embedder": {
+        "provider": "cometapi",
+        "config": {
+            "model": "text-embedding-3-small",
+            "embedding_dims": 1536
+        }
+    }
+}
+
+m = Memory.from_config(config)
 ```
 
 ## Available Models
@@ -81,6 +113,16 @@ CometAPI provides access to 500+ models from various providers. Here are some re
 ### Qwen Series
 - `qwen3-30b-a3b`
 - `qwen3-coder-plus-2025-07-22`
+
+## Embedding Models
+
+CometAPI also supports embedding models that are compatible with OpenAI's embedding API:
+
+- `text-embedding-3-small` (1536 dimensions, default)
+- `text-embedding-3-large` (3072 dimensions)
+- `text-embedding-ada-002` (1536 dimensions)
+
+These models can be used for memory embeddings in mem0, allowing you to use a single API key for both LLM and embedding operations.
 
 For a complete list of available models, visit the [CometAPI pricing page](https://api.cometapi.com/pricing) or query the models endpoint.
 
