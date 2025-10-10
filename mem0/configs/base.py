@@ -26,6 +26,31 @@ class MemoryItem(BaseModel):
     updated_at: Optional[str] = Field(None, description="The timestamp when the memory was updated")
 
 
+class ProfileConfig(BaseModel):
+    """Configuration for user profile generation."""
+
+    max_tokens: int = Field(
+        description="Maximum tokens for the generated profile",
+        default=400,
+    )
+    auto_update: bool = Field(
+        description="Whether to automatically update profiles",
+        default=True,
+    )
+    async_update: bool = Field(
+        description="Whether to update profiles asynchronously in background (non-blocking)",
+        default=True,
+    )
+    memory_count: int = Field(
+        description="Number of new memories before triggering profile update",
+        default=10,
+    )
+    time_elapsed: int = Field(
+        description="Time in seconds elapsed before triggering profile update (default 24 hours)",
+        default=86400,
+    )
+
+
 class MemoryConfig(BaseModel):
     vector_store: VectorStoreConfig = Field(
         description="Configuration for the vector store",
@@ -58,6 +83,14 @@ class MemoryConfig(BaseModel):
     custom_update_memory_prompt: Optional[str] = Field(
         description="Custom prompt for the update memory",
         default=None,
+    )
+    custom_profile_prompt: Optional[str] = Field(
+        description="Custom prompt for profile generation",
+        default=None,
+    )
+    profile_config: ProfileConfig = Field(
+        description="Configuration for user profile generation",
+        default_factory=ProfileConfig,
     )
 
 
