@@ -1,4 +1,5 @@
 import json
+import os
 from typing import Dict, List, Optional
 
 try:
@@ -17,7 +18,8 @@ class LiteLLM(LLMBase):
 
         if not self.config.model:
             self.config.model = "gpt-4o-mini"
-
+        if not self.config.api_key:
+            self.config.api_key = os.environ["OPENAI_API_KEY"]
     def _parse_response(self, response, tools):
         """
         Process the response based on whether tools are used or not.
@@ -76,6 +78,7 @@ class LiteLLM(LLMBase):
             "temperature": self.config.temperature,
             "max_tokens": self.config.max_tokens,
             "top_p": self.config.top_p,
+            "api_key": self.config.api_key,
         }
         if response_format:
             params["response_format"] = response_format
