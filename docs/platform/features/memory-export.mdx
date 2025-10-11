@@ -77,12 +77,13 @@ You can optionally provide additional instructions to guide how memories are pro
 
 ```python Python
 # Basic export request
+filters = {"user_id": "alice"}
 response = client.create_memory_export(
     schema=json_schema,
-    user_id="alice"
+    filters=filters
 )
 
-# Export with custom instructions
+# Export with custom instructions and additional filters
 export_instructions = """
 1. Create a comprehensive profile with detailed information in each category
 2. Only mark fields as "None" when absolutely no relevant information exists
@@ -91,10 +92,10 @@ export_instructions = """
 5. Clearly distinguish between factual statements and inferences
 """
 
-# For create operation, using only user_id filter as requested
 filters = {
     "AND": [
-        {"user_id": "alex"}
+        {"user_id": "alex"},
+        {"created_at": {"gte": "2024-01-01"}}
     ]
 }
 
@@ -109,12 +110,13 @@ print(response)
 
 ```javascript JavaScript
 // Basic Export request
+const filters = {"user_id": "alice"};
 const response = await client.createMemoryExport({
     schema: json_schema,
-    user_id: "alice"
+    filters: filters
 });
 
-// Export with custom instructions
+// Export with custom instructions and additional filters
 const export_instructions = `
 1. Create a comprehensive profile with detailed information in each category
 2. Only mark fields as "None" when absolutely no relevant information exists
@@ -126,7 +128,8 @@ const export_instructions = `
 // For create operation, using only user_id filter as requested
 const filters = {
     "AND": [
-        {"user_id": "alex"}
+        {"user_id": "alex"},
+        {"created_at": {"gte": "2024-01-01"}}
     ]
 }
 
@@ -145,7 +148,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/export/" \
      -H "Content-Type: application/json" \
      -d '{
          "schema": {json_schema},
-         "user_id": "alice",
+         "filters": {"user_id": "alice"},
          "export_instructions": "1. Create a comprehensive profile with detailed information\n2. Only mark fields as \"None\" when absolutely no relevant information exists"
      }'
 ```

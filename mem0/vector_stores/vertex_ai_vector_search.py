@@ -65,9 +65,15 @@ class GoogleMatchingEngine(VectorStoreBase):
             "project": self.project_id,
             "location": self.region,
         }
+        
+        # Support both credentials_path and service_account_json
         if hasattr(config, "credentials_path") and config.credentials_path:
-            logger.debug("Using credentials from: %s", config.credentials_path)
+            logger.debug("Using credentials from file: %s", config.credentials_path)
             credentials = service_account.Credentials.from_service_account_file(config.credentials_path)
+            init_args["credentials"] = credentials
+        elif hasattr(config, "service_account_json") and config.service_account_json:
+            logger.debug("Using credentials from provided JSON dict")
+            credentials = service_account.Credentials.from_service_account_info(config.service_account_json)
             init_args["credentials"] = credentials
 
         try:

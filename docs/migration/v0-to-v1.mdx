@@ -1,24 +1,24 @@
 ---
-title: Migrating from v0.x to v1.0.0 Beta
-description: 'Complete guide to upgrade your Mem0 implementation to version 1.0.0 Beta'
+title: Migrating from v0.x to v1.0.0 
+description: 'Complete guide to upgrade your Mem0 implementation to version 1.0.0 '
 icon: "arrow-right"
 iconType: "solid"
 ---
 
 <Warning>
-**Breaking Changes Ahead!** Mem0 1.0.0 Beta introduces several breaking changes. Please read this guide carefully before upgrading.
+**Breaking Changes Ahead!** Mem0 1.0.0  introduces several breaking changes. Please read this guide carefully before upgrading.
 </Warning>
 
 ## Overview
 
-Mem0 1.0.0 Beta is a major release that modernizes the API, improves performance, and adds powerful new features. This guide will help you migrate your existing v0.x implementation to the new version.
+Mem0 1.0.0  is a major release that modernizes the API, improves performance, and adds powerful new features. This guide will help you migrate your existing v0.x implementation to the new version.
 
 ## Key Changes Summary
 
-| Feature | v0.x | v1.0.0 Beta | Migration Required |
+| Feature | v0.x | v1.0.0  | Migration Required |
 |---------|------|-------------|-------------------|
 | API Version | v1.0 supported | v1.0 **removed**, v1.1+ only | ✅ Yes |
-| Async Mode | Optional | Default and required | ✅ Yes |
+| Async Mode (Platform Client) | Optional/manual | Defaults to `True`, configurable | ⚠️ Partial |
 | Output Format Parameter | Supported | **Removed** | ✅ Yes |
 | Response Format | Mixed | Standardized `{"results": [...]}` | ✅ Yes |
 | Metadata Filtering | Basic | Enhanced with operators | ⚠️ Optional |
@@ -49,7 +49,7 @@ result = m.add(
 )
 ```
 
-#### After (v1.0.0 Beta)
+#### After (v1.0.0 )
 ```python
 from mem0 import Memory
 
@@ -80,7 +80,7 @@ config = {
 m = Memory.from_config(config)
 ```
 
-#### After (v1.0.0 Beta)
+#### After (v1.0.0 )
 ```python
 config = {
     "vector_store": {
@@ -112,7 +112,7 @@ else:
     print(result["results"])
 ```
 
-#### After (v1.0.0 Beta)
+#### After (v1.0.0 )
 ```python
 # Response is always a standardized dict with "results" key
 result = m.add("I love coffee", user_id="alice")
@@ -137,7 +137,7 @@ results = m.search(
 )
 ```
 
-#### After (v1.0.0 Beta)
+#### After (v1.0.0 )
 ```python
 # Same basic search API
 results = m.search("What do I like?", user_id="alice")
@@ -162,38 +162,31 @@ results = m.search(
 )
 ```
 
-### 6. Migrate Async Operations
+### 6. Platform Client async_mode Default Changed
+
+**Change:** For `MemoryClient`, the `async_mode` parameter now defaults to `True` for better performance.
 
 #### Before (v0.x)
 ```python
-from mem0 import AsyncMemory
+from mem0 import MemoryClient
 
-# Async was optional
-async_memory = AsyncMemory()
+client = MemoryClient(api_key="your-key")
 
-async def add_memory():
-    result = await async_memory.add(
-        "I enjoy hiking",
-        user_id="alice",
-        async_mode=True  # ❌ Parameter removed
-    )
-    return result
+# Had to explicitly set async_mode
+result = client.add("I enjoy hiking", user_id="alice", async_mode=True)
 ```
 
-#### After (v1.0.0 Beta)
+#### After (v1.0.0 )
 ```python
-from mem0 import AsyncMemory
+from mem0 import MemoryClient
 
-# Async is the default mode
-async_memory = AsyncMemory()
+client = MemoryClient(api_key="your-key")
 
-async def add_memory():
-    result = await async_memory.add(
-        "I enjoy hiking",
-        user_id="alice"
-        # async_mode parameter removed - always async
-    )
-    return result
+# async_mode now defaults to True (best performance)
+result = client.add("I enjoy hiking", user_id="alice")
+
+# You can still override if needed for synchronous processing
+result = client.add("I enjoy hiking", user_id="alice", async_mode=False)
 ```
 
 ## Configuration Migration
@@ -221,7 +214,7 @@ config = {
 }
 ```
 
-#### After (v1.0.0 Beta)
+#### After (v1.0.0 )
 ```python
 config = {
     "vector_store": {
@@ -297,7 +290,7 @@ except Exception as e:
     print(f"Error: {e}")
 ```
 
-### After (v1.0.0 Beta)
+### After (v1.0.0 )
 ```python
 try:
     result = m.add("memory", user_id="alice")
@@ -414,7 +407,7 @@ TypeError: add() got an unexpected keyword argument 'output_format'
 result = m.add(
     "memory",
     user_id="alice"
-    # Remove: output_format, version, async_mode
+    # Remove: output_format, version
 )
 ```
 
@@ -454,7 +447,7 @@ result2 = m.add("memory 2", user_id="alice")
 result3 = m.search("query", user_id="alice")
 ```
 
-### After (v1.0.0 Beta)
+### After (v1.0.0 )
 ```python
 # Better async performance
 async def batch_operations():
