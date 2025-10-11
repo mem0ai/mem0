@@ -1,6 +1,6 @@
 from typing import Optional, Union
 
-import google.generativeai as genai
+from google import genai
 from chromadb import EmbeddingFunction, Embeddings
 
 from embedchain.config.embedder.google import GoogleAIEmbedderConfig
@@ -12,20 +12,19 @@ class GoogleAIEmbeddingFunction(EmbeddingFunction):
     def __init__(self, config: Optional[GoogleAIEmbedderConfig] = None) -> None:
         super().__init__()
         self.config = config or GoogleAIEmbedderConfig()
+        self.client = genai.Client()
 
     def __call__(self, input: Union[list[str], str]) -> Embeddings:
-        model = self.config.model
-        title = self.config.title
-        task_type = self.config.task_type
-        if isinstance(input, str):
-            input_ = [input]
-        else:
-            input_ = input
-        data = genai.embed_content(model=model, content=input_, task_type=task_type, title=title)
-        embeddings = data["embedding"]
-        if isinstance(input_, str):
-            embeddings = [embeddings]
-        return embeddings
+        response = self.client.models.embed_content(
+            model=self.config.model,
+            contents=input,
+            config=genai.types.EmbedContentConfig(
+                task_type=self.config.task_type,
+                output_dimensionality=self.config.vector_dimension,
+                title=self.config.title,
+            ),
+        )
+        return [embedding.values for embedding in response.embeddings]
 
 
 class GoogleAIEmbedder(BaseEmbedder):
