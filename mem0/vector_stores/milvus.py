@@ -55,14 +55,14 @@ class MilvusDB(VectorStoreBase):
     def create_col(
         self,
         collection_name: str,
-        vector_size: str,
+        vector_size: int,
         metric_type: MetricType = MetricType.COSINE,
     ) -> None:
         """Create a new collection with index_type AUTOINDEX.
 
         Args:
             collection_name (str): Name of the collection (defaults to mem0).
-            vector_size (str): Dimensions of the embedding model (defaults to 1536).
+            vector_size (int): Dimensions of the embedding model (defaults to 1536).
             metric_type (MetricType, optional): etric type for similarity search. Defaults to MetricType.COSINE.
         """
 
@@ -90,9 +90,12 @@ class MilvusDB(VectorStoreBase):
             payloads (List[Dict], optional): List of payloads corresponding to vectors.
             ids (List[str], optional): List of IDs corresponding to vectors.
         """
-        for idx, embedding, metadata in zip(ids, vectors, payloads):
-            data = {"id": idx, "vectors": embedding, "metadata": metadata}
-            self.client.insert(collection_name=self.collection_name, data=data, **kwargs)
+        # Batch insert all records at once for better performance and consistency
+        data = [
+            {"id": idx, "vectors": embedding, "metadata": metadata}
+            for idx, embedding, metadata in zip(ids, vectors, payloads)
+        ]
+        self.client.insert(collection_name=self.collection_name, data=data, **kwargs)
 
     def _create_filter(self, filters: dict):
         """Prepare filters for efficient query.
