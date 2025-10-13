@@ -23,4 +23,5 @@ export * from "./vector_stores/redis";
 export * from "./vector_stores/supabase";
 export * from "./vector_stores/langchain";
 export * from "./vector_stores/vectorize";
+export * from "./vector_stores/upstash";
 export * from "./utils/factory";

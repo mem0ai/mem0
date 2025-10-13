@@ -20,6 +20,7 @@ import { VectorizeDB } from "../vector_stores/vectorize";
 import { RedisDB } from "../vector_stores/redis";
 import { OllamaLLM } from "../llms/ollama";
 import { SupabaseDB } from "../vector_stores/supabase";
+import { UpstashVectorStore } from "../vector_stores/upstash";
 import { SQLiteManager } from "../storage/SQLiteManager";
 import { MemoryHistoryManager } from "../storage/MemoryHistoryManager";
 import { SupabaseHistoryManager } from "../storage/SupabaseHistoryManager";
@@ -95,6 +96,8 @@ export class VectorStoreFactory {
         return new LangchainVectorStore(config as any);
       case "vectorize":
         return new VectorizeDB(config as any);
+      case "upstash":
+        return new UpstashVectorStore(config as any);
       default:
         throw new Error(`Unsupported vector store provider: ${provider}`);
     }
