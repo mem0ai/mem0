@@ -3,9 +3,20 @@ import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 
 interface UpstashConfig extends VectorStoreConfig {
-  url: string;
+  url?: string;
   token: string;
+  email?: string;
   indexName: string;
+  embeddingModel?: // these are the models supported by Upstash as of now
+  | "BGE_SMALL_EN_V1_5"
+    | "BGE_BASE_EN_V1_5"
+    | "BGE_LARGE_EN_V1_5"
+    | "BGE_M3"
+    | "BERT_BASE_UNCASED"
+    | "UAE_LARGE_V1"
+    | "ALL_MINILM_L6_V2"
+    | "MXBAI_EMBED_LARGE_V1"
+    | "BM25";
 }
 
 export class UpstashVectorStore implements VectorStore {
@@ -13,15 +24,22 @@ export class UpstashVectorStore implements VectorStore {
   private indexName: string;
   private dimensions: number;
   private token: string;
+  private embeddingModel?: string;
+  private email?: string;
 
   constructor(config: UpstashConfig) {
-    this.client = new Index({
-      url: config.url,
-      token: config.token,
-    });
+    if (config.url) {
+      this.client = new Index({
+        url: config.url,
+        token: config.token,
+      });
+    }
     this.dimensions = config.dimension || 1536;
     this.token = config.token;
     this.indexName = config.indexName;
+    this.embeddingModel = config.embeddingModel || "BGE_LARGE_EN_V1_5";
+    this.email = config.email;
+    this.initialize().catch(console.error);
   }
 
   async initialize(): Promise<void> {
@@ -29,9 +47,13 @@ export class UpstashVectorStore implements VectorStore {
       // Check if the index already exists
       let indexFound = false;
       const url = "https://api.upstash.com/v2/vector/index";
+      const encodedCredentials = Buffer.from(
+        `${this.email}:${this.token}`
+      ).toString("base64");
+
       const options = {
         method: "GET",
-        headers: { Authorization: `Basic ${this.token}` },
+        headers: { Authorization: `Basic ${encodedCredentials}` },
         body: undefined,
       };
 
@@ -46,6 +68,27 @@ export class UpstashVectorStore implements VectorStore {
       }
       // If the index does not exist, create it
       if (!indexFound) {
+        try {
+          const options = {
+            method: "POST",
+            headers: {
+              Authorization: `Basic ${encodedCredentials}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              name: this.indexName,
+              region: "us-east-1",
+              similarity_function: "COSINE",
+              dimension_count: this.dimensions,
+              type: "free",
+              embedding_model: this.embeddingModel,
+            }),
+          };
+
+          await fetch(url, options);
+        } catch (err: any) {
+          throw new Error(`Error creating index: ${err.message || err}`);
+        }
       }
     } catch (error) {
       console.error("Error initializing Upstash Vector Store:", error);
