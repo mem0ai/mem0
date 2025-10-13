@@ -37,6 +37,9 @@ class MemoryGraph:
         )
         self.embedding_dims = self.embedding_model.config.embedding_dims
 
+        if self.embedding_dims is None or self.embedding_dims <= 0:
+            raise ValueError(f"embedding_dims must be a positive integer. Given: {self.embedding_dims}")
+
         self.db = kuzu.Database(self.config.graph_store.config.db)
         self.graph = kuzu.Connection(self.db)
 
