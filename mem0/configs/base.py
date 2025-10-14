@@ -26,6 +26,12 @@ class MemoryItem(BaseModel):
     updated_at: Optional[str] = Field(None, description="The timestamp when the memory was updated")
 
 
+class StoreConfig(BaseModel):
+    """Base configuration for storage providers."""
+    provider: str = Field(..., description="Storage provider name")
+    config: Any = Field(None, description="Provider-specific configuration")
+
+
 class MemoryConfig(BaseModel):
     vector_store: VectorStoreConfig = Field(
         description="Configuration for the vector store",
@@ -46,6 +52,10 @@ class MemoryConfig(BaseModel):
     graph_store: GraphStoreConfig = Field(
         description="Configuration for the graph",
         default_factory=GraphStoreConfig,
+    )
+    # New configuration options for storage providers
+    conversation_store: Optional[StoreConfig] = Field(
+        None, description="Configuration for conversation storage"
     )
     version: str = Field(
         description="The version of the API",
