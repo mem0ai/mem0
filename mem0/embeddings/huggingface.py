@@ -18,6 +18,7 @@ class HuggingFaceEmbedding(EmbeddingBase):
 
         if config.huggingface_base_url:
             self.client = OpenAI(base_url=config.huggingface_base_url)
+            self.config.model = self.config.model or "tei"
         else:
             self.config.model = self.config.model or "multi-qa-MiniLM-L6-cos-v1"
 
@@ -36,6 +37,8 @@ class HuggingFaceEmbedding(EmbeddingBase):
             list: The embedding vector.
         """
         if self.config.huggingface_base_url:
-            return self.client.embeddings.create(input=text, model="tei").data[0].embedding
+            return self.client.embeddings.create(
+                input=text, model=self.config.model, **self.config.model_kwargs
+            ).data[0].embedding
         else:
             return self.model.encode(text, convert_to_numpy=True).tolist()

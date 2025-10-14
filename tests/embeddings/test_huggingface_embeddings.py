@@ -70,3 +70,34 @@ def test_embed_with_custom_embedding_dims(mock_sentence_transformer):
     assert embedder.config.embedding_dims == 768
 
     assert result == [1.0, 1.1, 1.2]
+
+
+def test_embed_with_huggingface_base_url():
+    config = BaseEmbedderConfig(
+        huggingface_base_url="http://localhost:8080",
+        model="my-custom-model",
+        model_kwargs={"truncate": True},
+    )
+    with patch("mem0.embeddings.huggingface.OpenAI") as mock_openai:
+        mock_client = Mock()
+        mock_openai.return_value = mock_client
+        
+        # Create a mock for the response object and its attributes
+        mock_embedding_response = Mock()
+        mock_embedding_response.embedding = [0.1, 0.2, 0.3]
+        
+        mock_create_response = Mock()
+        mock_create_response.data = [mock_embedding_response]
+        
+        mock_client.embeddings.create.return_value = mock_create_response
+
+        embedder = HuggingFaceEmbedding(config)
+        result = embedder.embed("Hello from custom endpoint")
+
+        mock_openai.assert_called_once_with(base_url="http://localhost:8080")
+        mock_client.embeddings.create.assert_called_once_with(
+            input="Hello from custom endpoint",
+            model="my-custom-model",
+            truncate=True,
+        )
+        assert result == [0.1, 0.2, 0.3]
