@@ -152,6 +152,7 @@
 														"pages": [
 															"components/vectordbs/dbs/qdrant",
 															"components/vectordbs/dbs/chroma",
+															"components/vectordbs/dbs/cassandra",
 															"components/vectordbs/dbs/pgvector",
 															"components/vectordbs/dbs/milvus",
 															"components/vectordbs/dbs/pinecone",
@@ -493,6 +494,7 @@
 														"pages": [
 															"v0x/components/vectordbs/dbs/qdrant",
 															"v0x/components/vectordbs/dbs/chroma",
+															"v0x/components/vectordbs/dbs/cassandra",
 															"v0x/components/vectordbs/dbs/pgvector",
 															"v0x/components/vectordbs/dbs/milvus",
 															"v0x/components/vectordbs/dbs/pinecone",
