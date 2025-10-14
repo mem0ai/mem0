@@ -4,7 +4,7 @@ import { MistralLLM } from "../../src/llms/mistral";
 // Load environment variables
 dotenv.config();
 
-async function testMistral() {
+async function testMistralLLM() {
   // Check for API key
   if (!process.env.MISTRAL_API_KEY) {
     console.error("MISTRAL_API_KEY environment variable is required");
@@ -75,4 +75,4 @@ async function testMistral() {
   }
 }
 
-testMistral().catch(console.error);
+testMistralLLM().catch(console.error);

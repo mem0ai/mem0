@@ -36,7 +36,7 @@ SQL Migration to run in Supabase SQL Editor:
 -- Enable the vector extension
 create extension if not exists vector;
 
--- Create the memories table
+-- Create the memories table (make sure to use the appropriate dimension for your embeddings)
 create table if not exists memories (
   id text primary key,
   embedding vector(1536),
@@ -51,7 +51,7 @@ create table if not exists memory_migrations (
   created_at timestamp with time zone default timezone('utc', now())
 );
 
--- Create the vector similarity search function
+-- Create the vector similarity search function (make sure to use the appropriate dimension for your embeddings)
 create or replace function match_vectors(
   query_embedding vector(1536),
   match_count int,
@@ -86,12 +86,14 @@ export class SupabaseDB implements VectorStore {
   private readonly tableName: string;
   private readonly embeddingColumnName: string;
   private readonly metadataColumnName: string;
+  private readonly dimension: number;
 
   constructor(config: SupabaseConfig) {
     this.client = createClient(config.supabaseUrl, config.supabaseKey);
     this.tableName = config.tableName;
     this.embeddingColumnName = config.embeddingColumnName || "embedding";
     this.metadataColumnName = config.metadataColumnName || "metadata";
+    this.dimension = config.dimension || 1536;
 
     this.initialize().catch((err) => {
       console.error("Failed to initialize Supabase:", err);
@@ -102,7 +104,7 @@ export class SupabaseDB implements VectorStore {
   async initialize(): Promise<void> {
     try {
       // Verify table exists and vector operations work by attempting a test insert
-      const testVector = Array(1536).fill(0);
+      const testVector = Array(this.dimension).fill(0);
 
       // First try to delete any existing test vector
       try {
