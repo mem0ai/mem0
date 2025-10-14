@@ -30,6 +30,7 @@ class LlmFactory:
         "ollama": ("mem0.llms.ollama.OllamaLLM", OllamaConfig),
         "openai": ("mem0.llms.openai.OpenAILLM", OpenAIConfig),
         "groq": ("mem0.llms.groq.GroqLLM", BaseLlmConfig),
+        "siliconflow": ("mem0.llms.siliconflow.SiliconFlowLLM", BaseLlmConfig),
         "together": ("mem0.llms.together.TogetherLLM", BaseLlmConfig),
         "aws_bedrock": ("mem0.llms.aws_bedrock.AWSBedrockLLM", BaseLlmConfig),
         "litellm": ("mem0.llms.litellm.LiteLLM", BaseLlmConfig),
