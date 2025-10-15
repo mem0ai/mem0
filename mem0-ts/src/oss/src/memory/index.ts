@@ -241,9 +241,13 @@ export class Memory {
     }
     const parsedMessages = messages.map((m) => m.content).join("\n");
 
-    const [systemPrompt, userPrompt] = this.customPrompt
-      ? [this.customPrompt, `Input:\n${parsedMessages}`]
-      : getFactRetrievalMessages(parsedMessages);
+    let systemPrompt: string;
+    let userPrompt: string;
+
+    [systemPrompt, userPrompt] = getFactRetrievalMessages(
+      parsedMessages,
+      this.customPrompt
+    );
 
     const response = await this.llm.generateResponse(
       [
