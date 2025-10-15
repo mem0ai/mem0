@@ -116,28 +116,6 @@ class SiliconflowLLM(LLMBase):
                 raise e
     
 
-
-
-
-if __name__ == "__main__":
-    # Example usage
-    from mem0.configs.llms.siliconflow import SiliconflowConfig
-
-    config = SiliconflowConfig(
-        model="tencent/Hunyuan-MT-7B", # Free model for local testing
-        temperature=0.7,
-        max_tokens=100,
-        top_p=1.0,
-        api_key=os.getenv("SILICONFLOW_API_KEY"),
-    )
-    llm = SiliconflowLLM(config)
-    messages = [
-    {"role": "system", "content": "You are a helpful assistant."},
-    {"role": "user", "content": "What is 2 + 3?"}
-    ]
-
-    response = llm.generate_response(messages)
-    print(response)
     
 
 
