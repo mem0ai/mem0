@@ -1084,7 +1084,6 @@ class Memory(MemoryBase):
             actor_id=metadata.get("actor_id"),
             role=metadata.get("role"),
         )
-        capture_event("mem0._create_memory", self, {"memory_id": memory_id, "sync_type": "sync"})
         return memory_id
 
     def _create_procedural_memory(self, messages, metadata=None, prompt=None):
@@ -1178,7 +1177,6 @@ class Memory(MemoryBase):
             actor_id=new_metadata.get("actor_id"),
             role=new_metadata.get("role"),
         )
-        capture_event("mem0._update_memory", self, {"memory_id": memory_id, "sync_type": "sync"})
         return memory_id
 
     def _delete_memory(self, memory_id):
@@ -1195,7 +1193,6 @@ class Memory(MemoryBase):
             role=existing_memory.payload.get("role"),
             is_deleted=1,
         )
-        capture_event("mem0._delete_memory", self, {"memory_id": memory_id, "sync_type": "sync"})
         return memory_id
 
     def reset(self):
@@ -2043,7 +2040,6 @@ class AsyncMemory(MemoryBase):
             role=metadata.get("role"),
         )
 
-        capture_event("mem0._create_memory", self, {"memory_id": memory_id, "sync_type": "async"})
         return memory_id
 
     async def _create_procedural_memory(self, messages, metadata=None, llm=None, prompt=None):
@@ -2154,7 +2150,6 @@ class AsyncMemory(MemoryBase):
             actor_id=new_metadata.get("actor_id"),
             role=new_metadata.get("role"),
         )
-        capture_event("mem0._update_memory", self, {"memory_id": memory_id, "sync_type": "async"})
         return memory_id
 
     async def _delete_memory(self, memory_id):
@@ -2174,7 +2169,6 @@ class AsyncMemory(MemoryBase):
             is_deleted=1,
         )
 
-        capture_event("mem0._delete_memory", self, {"memory_id": memory_id, "sync_type": "async"})
         return memory_id
 
     async def reset(self):

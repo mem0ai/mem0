@@ -79,6 +79,22 @@ class TestKuzu:
         assert kuzu_memory.llm == mock_llm
         assert kuzu_memory.threshold == 0.7
 
+    @pytest.mark.parametrize(
+        "embedding_dims",
+        [None, 0, -1],
+    )
+    @patch("mem0.memory.kuzu_memory.EmbedderFactory")
+    def test_kuzu_memory_initialization_invalid_embedding_dims(
+        self, mock_embedder_factory, embedding_dims, mock_config
+    ):
+        """Test that Kuzu memory raises ValuError when initialized with invalid embedding_dims"""
+        # Setup mocks
+        mock_embedding_model = Mock()
+        mock_embedding_model.config.embedding_dims = embedding_dims
+        mock_embedder_factory.create.return_value = mock_embedding_model
+
+        with pytest.raises(ValueError, match="must be a positive"):
+            MemoryGraph(mock_config)
 
     @patch("mem0.memory.kuzu_memory.EmbedderFactory")
     @patch("mem0.memory.kuzu_memory.LlmFactory")
