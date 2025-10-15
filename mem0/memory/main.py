@@ -375,13 +375,6 @@ class Memory(MemoryBase):
             vector_store_result = future1.result()
             graph_result = future2.result()
 
-        if self.api_version == "v1.0":
-            raise ValueError(
-                "The v1.0 API format is no longer supported in mem0ai 1.0.0+. "
-                "Please use v1.1 format which returns a dict with 'results' key. "
-                "Remove version='v1.0' from your MemoryConfig or set it to version='v1.1'."
-            )
-
         if self.enable_graph:
             return {
                 "results": vector_store_result,
@@ -707,14 +700,7 @@ class Memory(MemoryBase):
         if self.enable_graph:
             return {"results": all_memories_result, "relations": graph_entities_result}
 
-        if self.api_version == "v1.0":
-            raise ValueError(
-                "The v1.0 API format is no longer supported in mem0ai 1.0.0+. "
-                "Please use v1.1 format which returns a dict with 'results' key. "
-                "Remove version='v1.0' from your MemoryConfig or set it to version='v1.1'."
-            )
-        else:
-            return {"results": all_memories_result}
+        return {"results": all_memories_result}
 
     def _get_all_from_vector_store(self, filters, limit):
         memories_result = self.vector_store.list(filters=filters, limit=limit)
@@ -853,14 +839,7 @@ class Memory(MemoryBase):
         if self.enable_graph:
             return {"results": original_memories, "relations": graph_entities}
 
-        if self.api_version == "v1.0":
-            raise ValueError(
-                "The v1.0 API format is no longer supported in mem0ai 1.0.0+. "
-                "Please use v1.1 format which returns a dict with 'results' key. "
-                "Remove version='v1.0' from your MemoryConfig or set it to version='v1.1'."
-            )
-        else:
-            return {"results": original_memories}
+        return {"results": original_memories}
 
     def _process_metadata_filters(self, metadata_filters: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -1409,13 +1388,6 @@ class AsyncMemory(MemoryBase):
 
         vector_store_result, graph_result = await asyncio.gather(vector_store_task, graph_task)
 
-        if self.api_version == "v1.0":
-            raise ValueError(
-                "The v1.0 API format is no longer supported in mem0ai 1.0.0+. "
-                "Please use v1.1 format which returns a dict with 'results' key. "
-                "Remove version='v1.0' from your MemoryConfig or set it to version='v1.1'."
-            )
-
         if self.enable_graph:
             return {
                 "results": vector_store_result,
@@ -1766,20 +1738,6 @@ class AsyncMemory(MemoryBase):
         else:
             results_dict.update({"results": await vector_store_task})
 
-        if self.api_version == "v1.0":
-            warnings.warn(
-                "The v1.0 API format is deprecated and will be removed in mem0ai 2.0.0. "
-                "Please upgrade to v1.1 format which returns a dict with 'results' key. "
-                "Set version='v1.1' in your MemoryConfig.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            raise ValueError(
-                "The v1.0 API format is no longer supported in mem0ai 1.0.0+. "
-                "Please use v1.1 format which returns a dict with 'results' key. "
-                "Remove version='v1.0' from your MemoryConfig or set it to version='v1.1'."
-            )
-
         return results_dict
 
     async def _get_all_from_vector_store(self, filters, limit):
@@ -1926,14 +1884,7 @@ class AsyncMemory(MemoryBase):
         if self.enable_graph:
             return {"results": original_memories, "relations": graph_entities}
 
-        if self.api_version == "v1.0":
-            raise ValueError(
-                "The v1.0 API format is no longer supported in mem0ai 1.0.0+. "
-                "Please use v1.1 format which returns a dict with 'results' key. "
-                "Remove version='v1.0' from your MemoryConfig or set it to version='v1.1'."
-            )
-        else:
-            return {"results": original_memories}
+        return {"results": original_memories}
 
     async def _search_vector_store(self, query, filters, limit, threshold: Optional[float] = None):
         embeddings = await asyncio.to_thread(self.embedding_model.embed, query, "search")

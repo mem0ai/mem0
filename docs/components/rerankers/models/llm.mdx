@@ -1,6 +1,6 @@
 ---
-title: LLM-based
-description: 'Flexible reranking using any Large Language Model'
+title: LLM as Reranker
+description: 'Flexible reranking using LLMs'
 icon: "robot"
 iconType: "solid"
 ---
@@ -116,6 +116,16 @@ for result in results['results']:
     print(f"Vector Score: {result['score']:.3f}")
     print(f"Rerank Score: {result['rerank_score']:.3f}")
     print()
+```
+
+```text Output
+Memory: I'm learning Python programming
+Vector Score: 0.856
+Rerank Score: 0.920
+
+Memory: I find object-oriented programming challenging
+Vector Score: 0.782
+Rerank Score: 0.850
 ```
 
 ## Domain-Specific Scoring

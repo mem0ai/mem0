@@ -238,7 +238,7 @@ class RerankerFactory:
         "cohere": ("mem0.reranker.cohere_reranker.CohereReranker", CohereRerankerConfig),
         "sentence_transformer": ("mem0.reranker.sentence_transformer_reranker.SentenceTransformerReranker", SentenceTransformerRerankerConfig),
         "zero_entropy": ("mem0.reranker.zero_entropy_reranker.ZeroEntropyReranker", ZeroEntropyRerankerConfig),
-        "llm": ("mem0.reranker.llm_reranker.LLMReranker", LLMRerankerConfig),
+        "llm_reranker": ("mem0.reranker.llm_reranker.LLMReranker", LLMRerankerConfig),
         "huggingface": ("mem0.reranker.huggingface_reranker.HuggingFaceReranker", HuggingFaceRerankerConfig),
     }
 
