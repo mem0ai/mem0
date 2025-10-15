@@ -7,6 +7,7 @@ from mem0.configs.llms.azure import AzureOpenAIConfig
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.configs.llms.deepseek import DeepSeekConfig
 from mem0.configs.llms.lmstudio import LMStudioConfig
+from mem0.configs.llms.n1n import N1NConfig
 from mem0.configs.llms.ollama import OllamaConfig
 from mem0.configs.llms.openai import OpenAIConfig
 from mem0.configs.llms.vllm import VllmConfig
@@ -42,6 +43,7 @@ class LlmFactory:
         "xai": ("mem0.llms.xai.XAILLM", BaseLlmConfig),
         "sarvam": ("mem0.llms.sarvam.SarvamLLM", BaseLlmConfig),
         "lmstudio": ("mem0.llms.lmstudio.LMStudioLLM", LMStudioConfig),
+        "n1n": ("mem0.llms.n1n.N1NLLM", N1NConfig),
         "vllm": ("mem0.llms.vllm.VllmLLM", VllmConfig),
         "langchain": ("mem0.llms.langchain.LangchainLLM", BaseLlmConfig),
     }
