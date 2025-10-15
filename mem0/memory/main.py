@@ -460,9 +460,15 @@ class Memory(MemoryBase):
 
         retrieved_old_memory = []
         new_message_embeddings = {}
-        # Search for existing memories using only user_id to enable cross-session memory management
-        # This allows updating memories with new agent_id/run_id when provided
-        search_filters = {"user_id": filters.get("user_id")} if filters.get("user_id") else {}
+        # Search for existing memories using the provided session identifiers
+        # Use all available session identifiers for accurate memory retrieval
+        search_filters = {}
+        if filters.get("user_id"):
+            search_filters["user_id"] = filters["user_id"]
+        if filters.get("agent_id"):
+            search_filters["agent_id"] = filters["agent_id"]
+        if filters.get("run_id"):
+            search_filters["run_id"] = filters["run_id"]
         for new_mem in new_retrieved_facts:
             messages_embeddings = self.embedding_model.embed(new_mem, "add")
             new_message_embeddings[new_mem] = messages_embeddings
@@ -1472,9 +1478,15 @@ class AsyncMemory(MemoryBase):
 
         retrieved_old_memory = []
         new_message_embeddings = {}
-        # Search for existing memories using only user_id to enable cross-session memory management
-        # This allows updating memories with new agent_id/run_id when provided
-        search_filters = {"user_id": effective_filters.get("user_id")} if effective_filters.get("user_id") else {}
+        # Search for existing memories using the provided session identifiers
+        # Use all available session identifiers for accurate memory retrieval
+        search_filters = {}
+        if effective_filters.get("user_id"):
+            search_filters["user_id"] = effective_filters["user_id"]
+        if effective_filters.get("agent_id"):
+            search_filters["agent_id"] = effective_filters["agent_id"]
+        if effective_filters.get("run_id"):
+            search_filters["run_id"] = effective_filters["run_id"]
 
         async def process_fact_for_search(new_mem_content):
             embeddings = await asyncio.to_thread(self.embedding_model.embed, new_mem_content, "add")
