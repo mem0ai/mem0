@@ -62,6 +62,7 @@
                           "platform/features/v2-memory-filters",
 													"platform/features/contextual-add",
 													"platform/features/async-client",
+													"platform/features/async-mode-default-change",
 													"platform/features/graph-memory",
 													"platform/features/advanced-retrieval",
 													"platform/features/criteria-retrieval",
