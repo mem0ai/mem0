@@ -95,7 +95,7 @@ npm install mem0ai
 
 ### Basic Usage
 
-Mem0 requires an LLM to function, with `gpt-4o-mini` from OpenAI as the default. However, it supports a variety of LLMs; for details, refer to our [Supported LLMs documentation](https://docs.mem0.ai/components/llms/overview).
+Mem0 requires an LLM to function, with `gpt-4.1-nano-2025-04-14 from OpenAI as the default. However, it supports a variety of LLMs; for details, refer to our [Supported LLMs documentation](https://docs.mem0.ai/components/llms/overview).
 
 First step is to instantiate the memory:
 
@@ -114,7 +114,7 @@ def chat_with_memories(message: str, user_id: str = "default_user") -> str:
     # Generate Assistant response
     system_prompt = f"You are a helpful AI. Answer the question based on query and memories.\nUser Memories:\n{memories_str}"
     messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}]
-    response = openai_client.chat.completions.create(model="gpt-4o-mini", messages=messages)
+    response = openai_client.chat.completions.create(model="gpt-4.1-nano-2025-04-14", messages=messages)
     assistant_response = response.choices[0].message.content
 
     # Create new memories from the conversation
