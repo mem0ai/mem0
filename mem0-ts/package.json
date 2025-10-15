@@ -98,6 +98,8 @@
   },
   "peerDependencies": {
     "@anthropic-ai/sdk": "^0.40.1",
+    "@azure/identity": "^4.0.0",
+    "@azure/search-documents": "^12.0.0",
     "@cloudflare/workers-types": "^4.20250504.0",
     "@google/genai": "^1.2.0",
     "@langchain/core": "^0.3.44",
