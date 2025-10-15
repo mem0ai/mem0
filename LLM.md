@@ -103,7 +103,7 @@ memory = Memory()
 # With custom configuration
 config = MemoryConfig(
     vector_store={"provider": "qdrant", "config": {"host": "localhost"}},
-    llm={"provider": "openai", "config": {"model": "gpt-4o-mini"}},
+    llm={"provider": "openai", "config": {"model": "gpt-4.1-nano-2025-04-14"}},
     embedder={"provider": "openai", "config": {"model": "text-embedding-3-small"}}
 )
 memory = Memory(config)
@@ -339,7 +339,7 @@ config = MemoryConfig(
     llm={
         "provider": "openai",
         "config": {
-            "model": "gpt-4o-mini",
+            "model": "gpt-4.1-nano-2025-04-14",
             "temperature": 0.1,
             "max_tokens": 1000
         }
@@ -527,7 +527,7 @@ const memory = new Memory({
   },
   llm: {
     provider: 'openai',
-    config: { model: 'gpt-4o-mini' }
+    config: { model: 'gpt-4.1-nano' }
   }
 });
 

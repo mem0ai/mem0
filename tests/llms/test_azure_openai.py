@@ -5,7 +5,7 @@ import pytest
 from mem0.configs.llms.azure import AzureOpenAIConfig
 from mem0.llms.azure_openai import AzureOpenAILLM
 
-MODEL = "gpt-4o"  # or your custom deployment name
+MODEL = "gpt-4.1-nano-2025-04-14"  # or your custom deployment name
 TEMPERATURE = 0.7
 MAX_TOKENS = 100
 TOP_P = 1.0
@@ -191,8 +191,8 @@ def test_init_with_env_vars(monkeypatch):
             http_client=None,
             default_headers=None,
         )
-        # Should default to "gpt-4o" if model is None
-        assert llm.config.model == "gpt-4o"
+        # Should default to "gpt-4.1-nano-2025-04-14" if model is None
+        assert llm.config.model == "gpt-4.1-nano-2025-04-14"
 
 
 def test_init_with_default_azure_credential(monkeypatch):

@@ -172,7 +172,7 @@ export const useChat = ({ user, mem0ApiKey, openaiApiKey }: UseChatProps): UseCh
       }
 
       const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-4.1-nano-2025-04-14",
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-expect-error
         messages: messagesForLLM.map(msg => ({

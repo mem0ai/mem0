@@ -97,7 +97,7 @@ export const mem0Agent = new Agent({
   instructions: `
     You are a helpful assistant that has the ability to memorize and remember facts using Mem0.
   `,
-  model: openai('gpt-4o'),
+  model: openai('gpt-4.1-nano'),
   tools: { mem0RememberTool, mem0MemorizeTool },
 });
 ```
