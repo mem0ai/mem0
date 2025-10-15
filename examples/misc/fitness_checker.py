@@ -1,6 +1,6 @@
 """
 Simple Fitness Memory Tracker that tracks your fitness progress and knows your health priorities.
-Uses Mem0 for memory and GPT-4o for image understanding.
+Uses Mem0 for memory and gpt-4.1-nano for image understanding.
 
 In order to run this file, you need to set up your Mem0 API at Mem0 platform and also need an OpenAI API key.
 export OPENAI_API_KEY="your_openai_api_key"
@@ -18,7 +18,7 @@ USER_ID = "Anish"
 
 agent = Agent(
     name="Fitness Agent",
-    model=OpenAIChat(id="gpt-4o"),
+    model=OpenAIChat(id="gpt-4.1-nano-2025-04-14"),
     description="You are a helpful fitness assistant who remembers past logs and gives personalized suggestions for Anish's training and diet.",
     markdown=True,
 )

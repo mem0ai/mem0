@@ -81,7 +81,7 @@ class MultiAgentLearningSystem:
 
     def __init__(self, student_id: str):
         self.student_id = student_id
-        self.llm = OpenAI(model="gpt-4o", temperature=0.2)
+        self.llm = OpenAI(model="gpt-4.1-nano-2025-04-14", temperature=0.2)
 
         # Memory context for this student
         self.memory_context = {"user_id": student_id, "app": "learning_assistant"}

@@ -38,7 +38,7 @@ class AzureOpenAILLM(LLMBase):
 
         # Model name should match the custom deployment name chosen for it.
         if not self.config.model:
-            self.config.model = "gpt-4o"
+            self.config.model = "gpt-4.1-nano-2025-04-14"
 
         api_key = self.config.azure_kwargs.api_key or os.getenv("LLM_AZURE_OPENAI_API_KEY")
         azure_deployment = self.config.azure_kwargs.azure_deployment or os.getenv("LLM_AZURE_DEPLOYMENT")

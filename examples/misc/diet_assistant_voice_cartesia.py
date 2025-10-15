@@ -37,7 +37,7 @@ food_agent = Agent(
     name="Personal Food Assistant",
     description="Provides personalized food recommendations with memory and generates voice responses using Cartesia TTS tools.",
     instructions=agent_instructions,
-    model=OpenAIChat(id="gpt-4o"),
+    model=OpenAIChat(id="gpt-4.1-nano-2025-04-14"),
     tools=[CartesiaTools(voice_localize_enabled=True)],
     show_tool_calls=True,
 )

@@ -55,7 +55,7 @@ config = {
     "llm": {
         "provider": "openai",
         "config": {
-            "model": "gpt-4o-mini",
+            "model": "gpt-4.1-nano-2025-04-14",
             "temperature": 0.0,
             "api_key": keywordsai_api_key,
             "openai_base_url": base_url,
@@ -101,7 +101,7 @@ messages = [
 
 # Add memory and generate a response
 response = client.chat.completions.create(
-    model="openai/gpt-4o",
+    model="openai/gpt-4.1-nano",
     messages=messages,
     extra_body={
         "mem0_params": {
