@@ -106,7 +106,7 @@ const mem0Agent = new Agent({
     Use the Mem0-memorize tool to save important information that might be useful later.
     Use the Mem0-remember tool to recall previously saved information when answering questions.
   `,
-  model: openai('gpt-4o'),
+  model: openai('gpt-4.1-nano'),
   tools: { mem0RememberTool, mem0MemorizeTool },
 });
 ```

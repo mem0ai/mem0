@@ -21,7 +21,7 @@ client = MemoryClient()
 # Define the agent
 agent = Agent(
     name="Personal Agent",
-    model=OpenAIChat(id="gpt-4o"),
+    model=OpenAIChat(id="gpt-4.1-nano-2025-04-14"),
     description="You are a helpful personal agent that helps me with day to day activities."
     "You can process both text and images.",
     markdown=True,
