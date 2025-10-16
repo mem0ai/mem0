@@ -28,7 +28,7 @@ config = {
 m = Memory.from_config(config)
 ```
 
-#### v1.0.0 Beta
+#### v1.0.0 
 ```python
 from mem0 import Memory
 
@@ -61,12 +61,11 @@ def add(
     metadata: dict = None,
     filters: dict = None,
     output_format: str = None,  # ❌ REMOVED
-    version: str = None,        # ❌ REMOVED
-    async_mode: bool = None     # ❌ REMOVED
+    version: str = None         # ❌ REMOVED
 ) -> Union[List[dict], dict]
 ```
 
-#### v1.0.0 Beta Signature
+#### v1.0.0  Signature
 ```python
 def add(
     self,
@@ -82,7 +81,7 @@ def add(
 
 #### Changes Summary
 
-| Parameter | v0.x | v1.0.0 Beta | Change |
+| Parameter | v0.x | v1.0.0  | Change |
 |-----------|------|-----------|---------|
 | `messages` | ✅ | ✅ | Unchanged |
 | `user_id` | ✅ | ✅ | Unchanged |
@@ -92,7 +91,6 @@ def add(
 | `filters` | ✅ | ✅ | Unchanged |
 | `output_format` | ✅ | ❌ | **REMOVED** |
 | `version` | ✅ | ❌ | **REMOVED** |
-| `async_mode` | ✅ | ❌ | **REMOVED** |
 | `infer` | ❌ | ✅ | **NEW** |
 
 #### Response Format Changes
@@ -120,7 +118,7 @@ def add(
 }
 ```
 
-**v1.0.0 Beta Response (standardized):**
+**v1.0.0  Response (standardized):**
 ```python
 # Always returns this format
 {
@@ -152,7 +150,7 @@ def search(
 ) -> Union[List[dict], dict]
 ```
 
-#### v1.0.0 Beta Signature
+#### v1.0.0  Signature
 ```python
 def search(
     self,
@@ -177,7 +175,7 @@ filters = {
 }
 ```
 
-**v1.0.0 Beta Filters (enhanced):**
+**v1.0.0  Filters (enhanced):**
 ```python
 # Advanced filtering with operators
 filters = {
@@ -221,7 +219,7 @@ def get_all(
 ) -> Union[List[dict], dict]
 ```
 
-#### v1.0.0 Beta Signature
+#### v1.0.0  Signature
 ```python
 def get_all(
     self,
@@ -266,29 +264,31 @@ def delete_all(
 ) -> dict
 ```
 
-## AsyncMemory Class Changes
+## Platform Client (MemoryClient) Changes
 
-### Enhanced Async Support
+### async_mode Default Changed
 
-#### v0.x (Limited)
+#### v0.x
 ```python
-from mem0 import AsyncMemory
+from mem0 import MemoryClient
 
-# Basic async support
-async_m = AsyncMemory()
-result = await async_m.add("content", user_id="alice", async_mode=True)
+client = MemoryClient(api_key="your-key")
+
+# async_mode had to be explicitly set or had different default
+result = client.add("content", user_id="alice", async_mode=True)
 ```
 
-#### v1.0.0 Beta (Optimized)
+#### v1.0.0
 ```python
-from mem0 import AsyncMemory
+from mem0 import MemoryClient
 
-# Optimized async by default
-async_m = AsyncMemory()
-result = await async_m.add("content", user_id="alice")  # async_mode removed
+client = MemoryClient(api_key="your-key")
 
-# All methods are now properly async-optimized
-results = await async_m.search("query", user_id="alice", rerank=True)
+# async_mode defaults to True now (better performance)
+result = client.add("content", user_id="alice")  # Uses async_mode=True by default
+
+# Can still override if needed
+result = client.add("content", user_id="alice", async_mode=False)
 ```
 
 ## Configuration Changes
@@ -308,7 +308,7 @@ config = {
 }
 ```
 
-#### v1.0.0 Beta Config Options
+#### v1.0.0  Config Options
 ```python
 config = {
     "vector_store": {...},
@@ -386,7 +386,7 @@ except Exception as e:
     print(f"Error: {e}")
 ```
 
-#### v1.0.0 Beta Errors
+#### v1.0.0  Errors
 ```python
 # More specific error handling
 try:
@@ -416,7 +416,7 @@ except Exception as e:
 result = m.add("content", user_id="alice", unknown_param="value")
 ```
 
-**v1.0.0 Beta (Strict):**
+**v1.0.0  (Strict):**
 ```python
 # Unknown parameters raise TypeError
 try:
@@ -442,7 +442,7 @@ except TypeError as e:
 }
 ```
 
-#### v1.0.0 Beta Schema (Enhanced)
+#### v1.0.0  Schema (Enhanced)
 ```python
 {
     "id": "mem_123",
@@ -488,7 +488,7 @@ for memory in memories:
     print(memory["memory"])
 ```
 
-#### After (v1.0.0 Beta)
+#### After (v1.0.0 )
 ```python
 from mem0 import Memory
 
@@ -518,7 +518,7 @@ results = m.search(
 )
 ```
 
-#### After (v1.0.0 Beta)
+#### After (v1.0.0 )
 ```python
 # Enhanced filtering with reranking
 results = m.search(
@@ -536,7 +536,7 @@ results = m.search(
 
 ## Summary
 
-| Component | v0.x | v1.0.0 Beta | Status |
+| Component | v0.x | v1.0.0  | Status |
 |-----------|------|-----------|---------|
 | `add()` method | Variable response | Standardized response | ⚠️ Breaking |
 | `search()` method | Basic filtering | Enhanced filtering + reranking | ⚠️ Breaking |

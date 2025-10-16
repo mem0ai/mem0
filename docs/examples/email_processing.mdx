@@ -84,7 +84,7 @@ class EmailProcessor:
             user_id=user_id,
             metadata=metadata,
             categories=["email", "correspondence"],
-            version="v2"
+            
         )
         
         return response
@@ -99,45 +99,57 @@ class EmailProcessor:
         else:
             return email.get_payload(decode=True).decode()
     
-    def search_emails(self, query, user_id):
+    def search_emails(self, query, user_id, sender=None):
         """
         Search through stored emails
-        
+
         Args:
             query (str): Search query
             user_id (str): User identifier
+            sender (str, optional): Filter by sender email address
         """
-        # Search Mem0 for relevant emails
-        results = self.client.search(
-            query=query,
-            user_id=user_id,
-            categories=["email"],
-            version="v2"
-        )
-        
+        # For Platform API, all filters including user_id go in filters object
+        if not sender:
+            # Simple filter - just user_id and category
+            filters = {
+                "AND": [
+                    {"user_id": user_id},
+                    {"categories": {"contains": "email"}}
+                ]
+            }
+            results = self.client.search(query=query, filters=filters)
+        else:
+            # Advanced filter - add sender condition
+            filters = {
+                "AND": [
+                    {"user_id": user_id},
+                    {"categories": {"contains": "email"}},
+                    {"sender": sender}
+                ]
+            }
+            results = self.client.search(query=query, filters=filters)
+
         return results
         
     def get_email_thread(self, subject, user_id):
         """
         Retrieve all emails in a thread based on subject
-        
+
         Args:
             subject (str): Email subject to match
             user_id (str): User identifier
         """
+        # For Platform API, user_id goes in the filters object
         filters = {
             "AND": [
                 {"user_id": user_id},
                 {"categories": {"contains": "email"}},
-                {"metadata": {"subject": {"contains": subject}}}
+                {"subject": {"icontains": subject}}
             ]
         }
-        
-        thread = self.client.get_all(
-            version="v2",
-            filters=filters
-        )
-        
+
+        thread = self.client.get_all(filters=filters)
+
         return thread
 
 # Initialize the processor
@@ -180,5 +192,5 @@ print(f"Found {len(meeting_emails['results'])} relevant emails")
 
 ## Conclusion
 
-By combining Mem0's memory capabilities with email processing, you can create intelligent email management systems that help users organize, prioritize, and act on their inbox effectively. Advanced capabilities like automatic categorization, action item extraction, and priority management can significantly reduce the time spent on email management, allowing users to focus on more important tasks.
+By combining Mem0's memory capabilities with email processing, you can create intelligent email management systems that help users organize, prioritize, and act on their inbox effectively. The advanced capabilities like automatic categorization, action item extraction, and priority management can significantly reduce the time spent on email management, allowing users to focus on more important tasks.
 

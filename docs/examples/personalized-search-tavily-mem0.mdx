@@ -85,8 +85,9 @@ When a user makes a new search query, we retrieve relevant memories to enhance t
 
 ```python
 def get_user_context(user_id, query):
-    filters = {"AND": [{"user_id": user_id}]}
-    user_memories = mem0_client.search(query=query, version="v2", filters=filters)
+    # For Platform API, user_id goes in filters
+    filters = {"user_id": user_id}
+    user_memories = mem0_client.search(query=query, filters=filters)
 
     if user_memories:
         context = "\n".join([f"- {memory['memory']}" for memory in user_memories])
@@ -151,7 +152,7 @@ def store_search_interaction(user_id, original_query, agent_response):
         {"role": "user", "content": f"Searched for: {original_query}"},
         {"role": "assistant", "content": f"Results based on preferences: {agent_response}"}
     ]
-    mem0_client.add(messages=interaction, user_id=user_id, output_format="v1.1")
+    mem0_client.add(messages=interaction, user_id=user_id)
 ```
 
 ### Full Example Run

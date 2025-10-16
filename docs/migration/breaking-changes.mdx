@@ -1,6 +1,6 @@
 ---
-title: Breaking Changes in v1.0.0 Beta
-description: 'Complete list of breaking changes when upgrading from v0.x to v1.0.0 Beta'
+title: Breaking Changes in v1.0.0 
+description: 'Complete list of breaking changes when upgrading from v0.x to v1.0.0 '
 icon: "triangle-exclamation"
 iconType: "solid"
 ---
@@ -29,7 +29,7 @@ result = m.add(
 )
 ```
 
-#### After (v1.0.0 Beta)
+#### After (v1.0.0 )
 ```python
 # v1.1 is the minimum supported version
 config = {
@@ -65,7 +65,7 @@ search_results = m.search("query", user_id="alice", output_format="v1.1")
 all_memories = m.get_all(user_id="alice", output_format="v1.1")
 ```
 
-#### After (v1.0.0 Beta)
+#### After (v1.0.0 )
 ```python
 result = m.add("content", user_id="alice")
 search_results = m.search("query", user_id="alice")
@@ -81,31 +81,35 @@ all_memories = m.get_all(user_id="alice")
 result = m.add("content", user_id="alice", version="v1.0")
 ```
 
-#### After (v1.0.0 Beta)
+#### After (v1.0.0 )
 ```python
 result = m.add("content", user_id="alice")
 ```
 
-### 3. async_mode Parameter
+### 3. async_mode Parameter (Platform Client)
 
-**Breaking Change:** Async mode is now default and the parameter is removed.
+**Change:** For `MemoryClient` (Platform API), `async_mode` now defaults to `True` but can still be configured.
 
 #### Before (v0.x)
 ```python
-# Optional async mode
-result = m.add("content", user_id="alice", async_mode=True)
-result = m.add("content", user_id="alice", async_mode=False)  # Sync mode
+from mem0 import MemoryClient
+
+client = MemoryClient(api_key="your-key")
+result = client.add("content", user_id="alice", async_mode=True)
+result = client.add("content", user_id="alice", async_mode=False)
 ```
 
-#### After (v1.0.0 Beta)
+#### After (v1.0.0 )
 ```python
-# Always async by design, parameter removed
-result = m.add("content", user_id="alice")
+from mem0 import MemoryClient
 
-# For async operations, use AsyncMemory
-from mem0 import AsyncMemory
-async_m = AsyncMemory()
-result = await async_m.add("content", user_id="alice")
+client = MemoryClient(api_key="your-key")
+
+# async_mode now defaults to True, but you can still override it
+result = client.add("content", user_id="alice")  # Uses async_mode=True by default
+
+# You can still explicitly set it to False if needed
+result = client.add("content", user_id="alice", async_mode=False)
 ```
 
 ## Response Format Changes
@@ -124,7 +128,7 @@ result = m.add("content", user_id="alice", output_format="v1.1")
 # Returns: {"results": [{"id": "...", "memory": "...", "event": "ADD"}]}
 ```
 
-#### After (v1.0.0 Beta)
+#### After (v1.0.0 )
 ```python
 # Always returns standardized format
 result = m.add("content", user_id="alice")
@@ -149,7 +153,7 @@ config = {
 }
 ```
 
-#### After (v1.0.0 Beta)
+#### After (v1.0.0 )
 ```python
 # v1.1 is minimum, v1.1 is default
 config = {
@@ -174,11 +178,11 @@ from mem0 import Memory
 m = Memory()  # Used default settings suitable for v0.x
 ```
 
-#### After (v1.0.0 Beta)
+#### After (v1.0.0 )
 ```python
 from mem0 import Memory
 
-# Default configuration optimized for v1.0.0 Beta
+# Default configuration optimized for v1.0.0 
 m = Memory()  # Uses v1.1+ optimized defaults
 
 # Explicit configuration recommended
@@ -210,7 +214,7 @@ results = m.search(
 )
 ```
 
-#### After (v1.0.0 Beta)
+#### After (v1.0.0 )
 ```python
 # Basic usage remains the same
 results = m.search("query", user_id="alice")
@@ -243,7 +247,7 @@ except Exception as e:
     print(f"Generic error: {e}")
 ```
 
-#### After (v1.0.0 Beta)
+#### After (v1.0.0 )
 ```python
 try:
     result = m.add("content", user_id="alice")
@@ -271,7 +275,7 @@ result = m.add(
 )
 ```
 
-#### After (v1.0.0 Beta)
+#### After (v1.0.0 )
 ```python
 # Strict validation - unknown parameters cause errors
 try:
@@ -291,7 +295,7 @@ except TypeError as e:
 **Good News:** Import statements remain the same.
 
 ```python
-# These imports work in both v0.x and v1.0.0 Beta
+# These imports work in both v0.x and v1.0.0 
 from mem0 import Memory, AsyncMemory
 from mem0 import MemoryConfig
 ```
@@ -305,7 +309,7 @@ from mem0 import MemoryConfig
 #### Before (v0.x)
 - Python 3.8+ supported
 
-#### After (v1.0.0 Beta)
+#### After (v1.0.0 )
 - Python 3.9+ required (check current requirements)
 
 ### Package Dependencies
@@ -332,7 +336,7 @@ pip check  # Verify no dependency conflicts
 
 **Good News:** Memory storage format unchanged.
 
-- Existing memories work with v1.0.0 Beta
+- Existing memories work with v1.0.0 
 - Search continues to work with old memories
 - No re-indexing required
 
@@ -350,7 +354,7 @@ def test_add_memory():
     assert len(result) > 0
 ```
 
-#### After (v1.0.0 Beta)
+#### After (v1.0.0 )
 ```python
 def test_add_memory():
     result = m.add("content", user_id="alice")
@@ -378,7 +382,7 @@ python test_mem0_functionality.py
 
 ### Data Safety
 
-- **Safe:** Memories stored in v0.x format work with v1.0.0 Beta
+- **Safe:** Memories stored in v0.x format work with v1.0.0 
 - **Safe:** Rollback doesn't lose data
 - **Safe:** Vector store data remains intact
 

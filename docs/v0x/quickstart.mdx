@@ -6,7 +6,7 @@ iconType: "solid"
 ---
 
 <Warning>
-**This is legacy documentation for Mem0 v0.x.** For the latest features, please refer to [v1.0.0 Beta documentation](/quickstart).
+**This is legacy documentation for Mem0 v0.x.** For the latest features, please refer to [v1.0.0  documentation](/quickstart).
 </Warning>
 
 ## Installation
@@ -167,14 +167,14 @@ result = m.add("I love coffee", user_id="alice", output_format="v1.1")
 
 ## Migration Path
 
-To upgrade to v1.0.0 Beta:
+To upgrade to v1.0.0 :
 
 1. **Remove deprecated parameters:**
    ```python
    # Old (v0.x)
    m.add("memory", user_id="alice", output_format="v1.0", version="v1.0")
 
-   # New (v1.0.0 Beta)
+   # New (v1.0.0 )
    m.add("memory", user_id="alice")
    ```
 
@@ -186,7 +186,7 @@ To upgrade to v1.0.0 Beta:
        for item in result:
            print(item["memory"])
 
-   # New (v1.0.0 Beta)
+   # New (v1.0.0 )
    result = m.add("memory", user_id="alice")
    for item in result["results"]:
        print(item["memory"])
@@ -242,5 +242,5 @@ print("Previous context:", history)
 </CardGroup>
 
 <Info>
-**Ready to upgrade?** Check out the [migration guide](/migration/v0-to-v1) to move to v1.0.0 Beta and access new features like reranking and enhanced filtering.
+**Ready to upgrade?** Check out the [migration guide](/migration/v0-to-v1) to move to v1.0.0  and access new features like reranking and enhanced filtering.
 </Info>

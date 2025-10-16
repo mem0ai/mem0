@@ -49,20 +49,22 @@ class OllamaLLM(LLMBase):
         Returns:
             str or dict: The processed response.
         """
+        # Get the content from response
+        if isinstance(response, dict):
+            content = response["message"]["content"]
+        else:
+            content = response.message.content
+
         if tools:
             processed_response = {
-                "content": response["message"]["content"] if isinstance(response, dict) else response.message.content,
+                "content": content,
                 "tool_calls": [],
             }
 
             # Ollama doesn't support tool calls in the same way, so we return the content
             return processed_response
         else:
-            # Handle both dict and object responses
-            if isinstance(response, dict):
-                return response["message"]["content"]
-            else:
-                return response.message.content
+            return content
 
     def generate_response(
         self,
@@ -94,6 +96,7 @@ class OllamaLLM(LLMBase):
         # Handle JSON response format by using Ollama's native format parameter
         if response_format and response_format.get("type") == "json_object":
             params["format"] = "json"
+            # Also add JSON format instruction to the last message as a fallback
             if messages and messages[-1]["role"] == "user":
                 messages[-1]["content"] += "\n\nPlease respond with valid JSON only."
             else:

@@ -1,17 +1,17 @@
 ---
 title: Enhanced Metadata Filtering
-description: 'Advanced filtering capabilities for precise memory retrieval in Mem0 1.0.0 Beta'
+description: 'Advanced filtering capabilities for precise memory retrieval in Mem0 1.0.0 '
 icon: "filter"
 iconType: "solid"
 ---
 
 <Info>
-Enhanced metadata filtering is available in **Mem0 1.0.0 Beta** and later versions. This feature provides powerful filtering capabilities with logical operators and comparison functions.
+Enhanced metadata filtering is available in **Mem0 1.0.0 ** and later versions. This feature provides powerful filtering capabilities with logical operators and comparison functions.
 </Info>
 
 ## Overview
 
-Mem0 1.0.0 Beta introduces enhanced metadata filtering that allows you to perform complex queries on your memory metadata. You can now use logical operators, comparison functions, and advanced filtering patterns to retrieve exactly the memories you need.
+Mem0 1.0.0  introduces enhanced metadata filtering that allows you to perform complex queries on your memory metadata. You can now use logical operators, comparison functions, and advanced filtering patterns to retrieve exactly the memories you need.
 
 ## Basic Filtering
 
@@ -204,7 +204,7 @@ results = m.search(
     user_id="project_manager",
     filters={
         "AND": [
-            {"project": {"in": ["alpha", "beta"]}},
+            {"project": {"in": ["alpha", ""]}},
             {"priority": {"gte": 8}},
             {"status": {"ne": "completed"}},
             {
@@ -315,12 +315,12 @@ Different vector stores support different filtering capabilities:
 ### Chroma
 -  Basic operators (eq, ne, gt, lt, gte, lte)
 -  Simple logical operations
--   Limited nested operations
+-  Limited nested operations
 
 ### Pinecone
 -  Good support for comparison operators
 -  In/nin operations
--   Limited text operations
+-  Limited text operations
 
 ### Weaviate
 -  Full operator support
@@ -360,7 +360,7 @@ results = m.search(
 )
 ```
 
-### After (v1.0.0 Beta)
+### After (v1.0.0 )
 ```python
 # Enhanced filtering with operators
 results = m.search(

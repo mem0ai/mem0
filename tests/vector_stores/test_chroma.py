@@ -62,7 +62,7 @@ def test_search_vectors_with_filters(chromadb_instance, mock_chromadb_client):
     results = chromadb_instance.search(query="", vectors=vectors, limit=2, filters=filters)
 
     # Verify that _generate_where_clause was called with the filters
-    expected_where = {"$and": [{"user_id": "alice"}, {"agent_id": "agent1"}, {"run_id": "run1"}]}
+    expected_where = {"$and": [{"user_id": {"$eq": "alice"}}, {"agent_id": {"$eq": "agent1"}}, {"run_id": {"$eq": "run1"}}]}
     chromadb_instance.collection.query.assert_called_once_with(
         query_embeddings=vectors, where=expected_where, n_results=2
     )
@@ -87,9 +87,10 @@ def test_search_vectors_with_single_filter(chromadb_instance, mock_chromadb_clie
     filters = {"user_id": "alice"}
     results = chromadb_instance.search(query="", vectors=vectors, limit=2, filters=filters)
 
-    # Verify that single filter is passed as-is (no $and wrapper)
+    # Verify that single filter is passed with $eq operator
+    expected_where = {"user_id": {"$eq": "alice"}}
     chromadb_instance.collection.query.assert_called_once_with(
-        query_embeddings=vectors, where=filters, n_results=2
+        query_embeddings=vectors, where=expected_where, n_results=2
     )
 
     assert len(results) == 1
@@ -182,7 +183,7 @@ def test_list_vectors_with_filters(chromadb_instance):
     results = chromadb_instance.list(filters=filters, limit=2)
 
     # Verify that _generate_where_clause was called with the filters
-    expected_where = {"$and": [{"user_id": "alice"}, {"agent_id": "agent1"}, {"run_id": "run1"}]}
+    expected_where = {"$and": [{"user_id": {"$eq": "alice"}}, {"agent_id": {"$eq": "agent1"}}, {"run_id": {"$eq": "run1"}}]}
     chromadb_instance.collection.get.assert_called_once_with(where=expected_where, limit=2)
 
     assert len(results[0]) == 1
@@ -203,8 +204,9 @@ def test_list_vectors_with_single_filter(chromadb_instance):
     filters = {"user_id": "alice"}
     results = chromadb_instance.list(filters=filters, limit=2)
 
-    # Verify that single filter is passed as-is (no $and wrapper)
-    chromadb_instance.collection.get.assert_called_once_with(where=filters, limit=2)
+    # Verify that single filter is passed with $eq operator
+    expected_where = {"user_id": {"$eq": "alice"}}
+    chromadb_instance.collection.get.assert_called_once_with(where=expected_where, limit=2)
 
     assert len(results[0]) == 1
     assert results[0][0].payload["user_id"] == "alice"
@@ -215,7 +217,8 @@ def test_generate_where_clause_multiple_filters():
     filters = {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}
     result = ChromaDB._generate_where_clause(filters)
     
-    expected = {"$and": [{"user_id": "alice"}, {"agent_id": "agent1"}, {"run_id": "run1"}]}
+    # ChromaDB accepts filters in {"$and": [{"field": {"$eq": "value"}}, ...]} format
+    expected = {"$and": [{"user_id": {"$eq": "alice"}}, {"agent_id": {"$eq": "agent1"}}, {"run_id": {"$eq": "run1"}}]}
     assert result == expected
 
 
@@ -224,8 +227,9 @@ def test_generate_where_clause_single_filter():
     filters = {"user_id": "alice"}
     result = ChromaDB._generate_where_clause(filters)
     
-    # Single filter should be returned as-is
-    assert result == filters
+    # ChromaDB accepts single filters in {"field": {"$eq": "value"}} format
+    expected = {"user_id": {"$eq": "alice"}}
+    assert result == expected
 
 
 def test_generate_where_clause_no_filters():
@@ -242,6 +246,6 @@ def test_generate_where_clause_non_string_values():
     filters = {"user_id": "alice", "count": 5, "active": True}
     result = ChromaDB._generate_where_clause(filters)
     
-    # Only string values should be included in $and array
-    expected = {"$and": [{"user_id": "alice"}]}
+    # ChromaDB accepts non-string values in filters
+    expected = {"$and": [{"user_id": {"$eq": "alice"}}, {"count": {"$eq": 5}}, {"active": {"$eq": True}}]}
     assert result == expected

@@ -6,18 +6,18 @@ iconType: "solid"
 ---
 
 <Warning>
-**This is legacy documentation for Mem0 v0.x.** For the latest FAQs, please refer to [v1.0.0 Beta FAQs](/faqs).
+**This is legacy documentation for Mem0 v0.x.** For the latest FAQs, please refer to [v1.0.0  FAQs](/faqs).
 </Warning>
 
 ## General Questions
 
 ### What is Mem0 v0.x?
 
-Mem0 v0.x is the legacy version of Mem0's memory layer for LLMs. While still functional, it lacks the advanced features and optimizations available in v1.0.0 Beta.
+Mem0 v0.x is the legacy version of Mem0's memory layer for LLMs. While still functional, it lacks the advanced features and optimizations available in v1.0.0 .
 
-### Should I upgrade to v1.0.0 Beta?
+### Should I upgrade to v1.0.0 ?
 
-Yes! v1.0.0 Beta offers significant improvements:
+Yes! v1.0.0  offers significant improvements:
 - Enhanced filtering with logical operators
 - Reranking support for better search relevance
 - Improved async performance
@@ -28,7 +28,7 @@ See our [migration guide](/migration/v0-to-v1) for upgrade instructions.
 
 ### Is v0.x still supported?
 
-v0.x receives minimal maintenance but no new features. We recommend upgrading to v1.0.0 Beta for the latest improvements and active support.
+v0.x receives minimal maintenance but no new features. We recommend upgrading to v1.0.0  for the latest improvements and active support.
 
 ## API Questions
 
@@ -128,17 +128,17 @@ No! Most changes are simple parameter removals:
 # Before (v0.x)
 result = m.add("memory", user_id="alice", output_format="v1.1", version="v1.0")
 
-# After (v1.0.0 Beta)
+# After (v1.0.0 )
 result = m.add("memory", user_id="alice")
 ```
 
 ### Will I lose my data?
 
-No! Your existing memories remain fully compatible with v1.0.0 Beta.
+No! Your existing memories remain fully compatible with v1.0.0 .
 
 ### Do I need to re-index my vectors?
 
-No! Existing vector data works with v1.0.0 Beta without changes.
+No! Existing vector data works with v1.0.0  without changes.
 
 ### Can I rollback if needed?
 
@@ -152,10 +152,10 @@ pip install mem0ai==0.1.20  # Last stable v0.x
 
 ### Does v0.x support reranking?
 
-No, reranking is only available in v1.0.0 Beta:
+No, reranking is only available in v1.0.0 :
 
 ```python
-# v1.0.0 Beta only
+# v1.0.0  only
 results = m.search("query", user_id="alice", rerank=True)
 ```
 
@@ -167,7 +167,7 @@ No, only basic key-value filtering:
 # v0.x - basic only
 filters = {"category": "food", "user_id": "alice"}
 
-# v1.0.0 Beta - advanced operators
+# v1.0.0  - advanced operators
 filters = {
     "AND": [
         {"category": "food"},
@@ -191,9 +191,9 @@ results = m.search(
 
 ## Performance Questions
 
-### Is v0.x slower than v1.0.0 Beta?
+### Is v0.x slower than v1.0.0 ?
 
-Yes, v1.0.0 Beta includes several performance optimizations:
+Yes, v1.0.0  includes several performance optimizations:
 - Better async handling
 - Optimized vector operations
 - Improved memory management
@@ -203,11 +203,11 @@ Yes, v1.0.0 Beta includes several performance optimizations:
 1. Use async mode when possible
 2. Configure appropriate vector store settings
 3. Use efficient metadata filters
-4. Consider upgrading to v1.0.0 Beta
+4. Consider upgrading to v1.0.0 
 
 ### Can I batch operations in v0.x?
 
-Limited support. Better batch processing available in v1.0.0 Beta.
+Limited support. Better batch processing available in v1.0.0 .
 
 ## Troubleshooting
 
@@ -251,7 +251,7 @@ async_m = AsyncMemory()
 ### Documentation
 - [v0.x Quickstart](/v0x/quickstart)
 - [Migration Guide](/migration/v0-to-v1)
-- [v1.0.0 Beta Docs](/)
+- [v1.0.0  Docs](/)
 
 ### Community
 - [GitHub Discussions](https://github.com/mem0ai/mem0/discussions)
@@ -263,5 +263,5 @@ async_m = AsyncMemory()
 - [API Changes](/migration/api-changes)
 
 <Info>
-**Ready to upgrade?** Check out our [migration guide](/migration/v0-to-v1) to move to v1.0.0 Beta and access the latest features!
+**Ready to upgrade?** Check out our [migration guide](/migration/v0-to-v1) to move to v1.0.0  and access the latest features!
 </Info>

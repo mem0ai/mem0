@@ -81,7 +81,7 @@ Once defined, register the criteria to your project:
 client.project.update(retrieval_criteria=retrieval_criteria)
 ```
 
-Criteria apply project-wide. Once set, they affect all searches using `version="v2"`.
+Criteria apply project-wide. Once set, they affect all searches automatically.
 
 
 ## Example Walkthrough
@@ -104,22 +104,18 @@ client.add(messages, user_id="alice")
 ### Run Standard vs. Criteria-Based Search
 
 ```python
-# With criteria
-filters = {
-    "AND": [
-        {"user_id": "alice"}
-    ]
-}
+# Search with criteria enabled
+filters = {"user_id": "alice"}
 results_with_criteria = client.search(
     query="Why I am feeling happy today?",
-    filters=filters,
-    version="v2"
+    filters=filters
 )
 
-# Without criteria
+# To disable criteria for a specific search
 results_without_criteria = client.search(
     query="Why I am feeling happy today?",
-    user_id="alice"
+    filters=filters,
+    use_criteria=False  # Disable criteria-based scoring
 )
 ```
 
@@ -163,10 +159,10 @@ results_without_criteria = client.search(
 | Control Over Relevance  | None                                 | Fully customizable with weighted criteria       |
 | Memory Reordering       | Static based on similarity           | Dynamically re-ranked by intent alignment       |
 | Emotional Sensitivity   | No tone or trait awareness           | Incorporates emotion, tone, or custom behaviors |
-| Version Required        | Defaults                             | `search(version="v2")`                          |
+| Activation              | Default (no criteria defined)        | Enabled when criteria are defined in project    |
 
 <Note>
-If no criteria are defined for a project, `version="v2"` behaves like normal search.
+If no criteria are defined for a project, search behaves normally based on semantic similarity only.
 </Note>
 
 
@@ -184,23 +180,23 @@ If no criteria are defined for a project, `version="v2"` behaves like normal sea
 ## How It Works
 
 1. **Criteria Definition**: Define custom criteria with a name, description, and weight. These describe what matters in a memory (e.g., joy, urgency, empathy).
-2. **Project Configuration**: Register these criteria using `project.update()`. They apply at the project level and influence all searches using `version="v2"`.
-3. **Memory Retrieval**: When you perform a search with `version="v2"`, Mem0 first retrieves relevant memories based on the query and your defined criteria.
-4. **Weighted Scoring**: Each retrieved memory is evaluated and scored against the defined criteria and weights.
+2. **Project Configuration**: Register these criteria using `project.update()`. They apply at the project level and automatically influence all searches.
+3. **Memory Retrieval**: When you perform a search, Mem0 first retrieves relevant memories based on the query.
+4. **Weighted Scoring**: Each retrieved memory is evaluated and scored against your defined criteria and weights.
 
-This lets you prioritize memories that align with your agent’s goals and not just those that look similar to the query.
+This lets you prioritize memories that align with your agent's goals and not just those that look similar to the query.
 
 <Note>
-Criteria retrieval is currently supported only in search v2. Make sure to use `version="v2"` when performing searches with custom criteria.
+Criteria retrieval is automatically enabled when criteria are defined in your project. Use `use_criteria=False` in search to temporarily disable it for a specific query.
 </Note>
 
 
 
 ## Summary
 
-- Define what “relevant” means using criteria
+- Define what "relevant" means using criteria
 - Apply them per project via `project.update()`
-- Use `version="v2"` to activate criteria-aware search
+- Criteria-aware search activates automatically when criteria are configured
 - Build agents that reason not just with relevance, but **contextual importance**
 
 ---

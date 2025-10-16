@@ -1,145 +1,107 @@
 ---
-title: Configuration
+title: Config
+description: 'Configuration options for rerankers in Mem0'
 icon: "gear"
 iconType: "solid"
 ---
 
-## How to define configurations?
+## Common Configuration Parameters
 
-The `reranker` configuration is defined as an object with two main keys:
-- `provider`: The name of the reranker provider (e.g., "cohere", "sentence_transformer", "huggingface", "llm_reranker")
-- `config`: A nested dictionary containing provider-specific settings
+All rerankers share these common configuration parameters:
 
-## Basic Configuration
+| Parameter | Description | Type | Default |
+|-----------|-------------|------|---------|
+| `provider` | Reranker provider name | `str` | Required |
+| `top_k` | Maximum number of results to return after reranking | `int` | `None` |
+| `api_key` | API key for the reranker service | `str` | `None` |
 
-Here's how to configure a reranker with Mem0:
+## Provider-Specific Configuration
 
-```python
-from mem0 import Memory
+### Zero Entropy
 
-config = {
-    "reranker": {
-        "provider": "cohere",
-        "config": {
-            "api_key": "your-api-key",
-            "top_n": 10,
-            "model": "rerank-english-v3.0"
-        }
-    }
-}
-
-memory = Memory.from_config(config)
-```
-
-## Configuration Parameters
-
-| Parameter | Description | Required | Default |
-|-----------|-------------|----------|---------|
-| `provider` | Reranker provider name | Yes | - |
-| `config` | Provider-specific configuration | Yes | - |
-
-### Common Config Parameters
-
-| Parameter | Description | Providers |
-|-----------|-------------|-----------|
-| `api_key` | API key for the service | Cohere, Hugging Face |
-| `model` | Model name to use | All |
-| `top_n` | Number of results to return | All |
-| `device` | Device to run on (cpu/cuda/mps) | Sentence Transformer, Hugging Face |
-
-## Provider-Specific Examples
+| Parameter | Description | Type | Default |
+|-----------|-------------|------|---------|
+| `model` | Model to use: `zerank-1` or `zerank-1-small` | `str` | `"zerank-1"` |
+| `api_key` | Zero Entropy API key | `str` | `None` |
 
 ### Cohere
-```python
-config = {
-    "reranker": {
-        "provider": "cohere",
-        "config": {
-            "api_key": "your-cohere-api-key",
-            "model": "rerank-english-v3.0",
-            "top_n": 5
-        }
-    }
-}
-```
+
+| Parameter | Description | Type | Default |
+|-----------|-------------|------|---------|
+| `model` | Cohere rerank model | `str` | `"rerank-english-v3.0"` |
+| `api_key` | Cohere API key | `str` | `None` |
+| `return_documents` | Whether to return document texts in response | `bool` | `False` |
+| `max_chunks_per_doc` | Maximum chunks per document | `int` | `None` |
 
 ### Sentence Transformer
-```python
-config = {
-    "reranker": {
-        "provider": "sentence_transformer",
-        "config": {
-            "model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
-            "device": "cpu",
-            "top_n": 10
-        }
-    }
-}
-```
+
+| Parameter | Description | Type | Default |
+|-----------|-------------|------|---------|
+| `model` | HuggingFace cross-encoder model name | `str` | `"cross-encoder/ms-marco-MiniLM-L-6-v2"` |
+| `device` | Device to run model on (`cpu`, `cuda`, etc.) | `str` | `None` |
+| `batch_size` | Batch size for processing | `int` | `32` |
+| `show_progress_bar` | Show progress during processing | `bool` | `False` |
 
 ### Hugging Face
-```python
-config = {
-    "reranker": {
-        "provider": "huggingface",
-        "config": {
-            "api_key": "your-hf-token",
-            "model": "BAAI/bge-reranker-large",
-            "top_n": 8
-        }
-    }
-}
-```
+
+| Parameter | Description | Type | Default |
+|-----------|-------------|------|---------|
+| `model` | HuggingFace reranker model name | `str` | `"BAAI/bge-reranker-large"` |
+| `api_key` | HuggingFace API token | `str` | `None` |
+| `device` | Device to run model on (`cpu`, `cuda`, etc.) | `str` | `None` |
+
+### LLM-based
+
+| Parameter | Description | Type | Default |
+|-----------|-------------|------|---------|
+| `model` | LLM model to use for scoring | `str` | `"gpt-4o-mini"` |
+| `provider` | LLM provider (`openai`, `anthropic`, etc.) | `str` | `"openai"` |
+| `api_key` | API key for LLM provider | `str` | `None` |
+| `temperature` | Temperature for LLM generation | `float` | `0.0` |
+| `max_tokens` | Maximum tokens for LLM response | `int` | `100` |
+| `scoring_prompt` | Custom prompt template for scoring | `str` | Default scoring prompt |
 
 ### LLM Reranker
-```python
+
+| Parameter | Description | Type | Default |
+|-----------|-------------|------|---------|
+| `llm.provider` | LLM provider for reranking | `str` | Required |
+| `llm.config` | LLM configuration object | `dict` | Required |
+| `top_n` | Number of results to return | `int` | `None` |
+
+## Environment Variables
+
+You can set API keys using environment variables:
+
+- `ZERO_ENTROPY_API_KEY` - Zero Entropy API key
+- `COHERE_API_KEY` - Cohere API key
+- `HUGGINGFACE_API_KEY` - HuggingFace API token
+- `OPENAI_API_KEY` - OpenAI API key (for LLM-based reranker)
+- `ANTHROPIC_API_KEY` - Anthropic API key (for LLM-based reranker)
+
+## Basic Configuration Example
+
+```python Python
 config = {
-    "reranker": {
-        "provider": "llm_reranker",
+    "vector_store": {
+        "provider": "chroma",
         "config": {
-            "llm": {
-                "provider": "openai",
-                "config": {
-                    "model": "gpt-4",
-                    "api_key": "your-openai-key"
-                }
-            },
-            "top_n": 5
+            "collection_name": "my_memories",
+            "path": "./chroma_db"
         }
-    }
-}
-```
-
-## Advanced Configuration
-
-You can combine rerankers with other components:
-
-```python
-config = {
+    },
     "llm": {
         "provider": "openai",
         "config": {
-            "model": "gpt-4",
-            "api_key": "your-openai-key"
+            "model": "gpt-4o-mini"
         }
     },
-    "vector_store": {
-        "provider": "qdrant",
+    "rerank": {
+        "provider": "zero_entropy",
         "config": {
-            "collection_name": "memories",
-            "host": "localhost",
-            "port": 6333
-        }
-    },
-    "reranker": {
-        "provider": "cohere",
-        "config": {
-            "api_key": "your-cohere-key",
-            "model": "rerank-english-v3.0",
-            "top_n": 10
+            "model": "zerank-1",
+            "top_k": 5
         }
     }
 }
 ```
-
-For provider-specific configuration details, visit the individual reranker pages.

@@ -50,7 +50,9 @@ mem0 = MemoryClient()
 # Define memory function tools
 def search_memory(query: str, user_id: str) -> dict:
     """Search through past conversations and memories"""
-    memories = mem0.search(query, user_id=user_id)
+    # For Platform API, user_id goes in filters
+    filters = {"user_id": user_id}
+    memories = mem0.search(query, filters=filters)
     if memories.get('results', []):
         memory_list = memories['results']
         memory_context = "\n".join([f"- {mem['memory']}" for mem in memory_list])
@@ -255,12 +257,17 @@ if __name__ == "__main__":
 Customize memory behavior and agent setup:
 
 ```python
-# Configure memory search with metadata
+# Configure memory search with filters
+# For Platform API, all filters including user_id go in filters object
 memories = mem0.search(
     query="travel preferences",
-    user_id="alice",
-    limit=5,
-    filters={"category": "travel"}  # Filter by category if supported
+    filters={
+        "AND": [
+            {"user_id": "alice"},
+            {"categories": {"contains": "travel"}}
+        ]
+    },
+    limit=5
 )
 
 # Configure agent with custom model settings

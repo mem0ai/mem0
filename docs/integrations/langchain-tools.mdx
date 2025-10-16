@@ -53,7 +53,6 @@ class Message(BaseModel):
 class AddMemoryInput(BaseModel):
     messages: List[Message] = Field(description="List of messages to add to memory")
     user_id: str = Field(description="ID of the user associated with these messages")
-    output_format: str = Field(description="Version format for the output")
     metadata: Optional[Dict[str, Any]] = Field(description="Additional metadata for the messages", default=None)
 
     class Config:
@@ -64,7 +63,6 @@ class AddMemoryInput(BaseModel):
                     {"role": "assistant", "content": "Hello Alex! I've noted that you're a vegetarian and have a nut allergy."}
                 ],
                 "user_id": "alex",
-                "output_format": "v1.1",
                 "metadata": {"food": "vegan"}
             }]
         }
@@ -73,10 +71,10 @@ class AddMemoryInput(BaseModel):
 #### Implementation
 
 ```python
-def add_memory(messages: List[Message], user_id: str, output_format: str, metadata: Optional[Dict[str, Any]] = None) -> Any:
+def add_memory(messages: List[Message], user_id: str, metadata: Optional[Dict[str, Any]] = None) -> Any:
     """Add messages to memory with associated user ID and metadata."""
     message_dicts = [msg.dict() for msg in messages]
-    return client.add(message_dicts, user_id=user_id, output_format=output_format, metadata=metadata)
+    return client.add(message_dicts, user_id=user_id, metadata=metadata)
 
 add_tool = StructuredTool(
     name="add_memory",
@@ -96,7 +94,6 @@ add_input = {
         {"role": "assistant", "content": "Hello Alex! I've noted that you're a vegetarian and have a nut allergy."}
     ],
     "user_id": "alex",
-    "output_format": "v1.1",
     "metadata": {"food": "vegan"}
 }
 add_result = add_tool.invoke(add_input)
@@ -132,7 +129,6 @@ The SEARCH tool enables querying stored memories using natural language queries 
 class SearchMemoryInput(BaseModel):
     query: str = Field(description="The search query string")
     filters: Dict[str, Any] = Field(description="Filters to apply to the search")
-    version: str = Field(description="Version of the memory to search")
 
     class Config:
         json_schema_extra = {
@@ -143,8 +139,7 @@ class SearchMemoryInput(BaseModel):
                         {"user_id": "alex"},
                         {"created_at": {"gte": "2024-01-01", "lte": "2024-12-31"}}
                     ]
-                },
-                "version": "v2"
+                }
             }]
         }
 ```
@@ -152,9 +147,9 @@ class SearchMemoryInput(BaseModel):
 #### Implementation
 
 ```python
-def search_memory(query: str, filters: Dict[str, Any], version: str) -> Any:
+def search_memory(query: str, filters: Dict[str, Any]) -> Any:
     """Search memory with the given query and filters."""
-    return client.search(query=query, version=version, filters=filters)
+    return client.search(query=query, filters=filters)
 
 search_tool = StructuredTool(
     name="search_memory",
@@ -172,11 +167,10 @@ search_input = {
     "query": "what is my name?",
     "filters": {
         "AND": [
-            {"created_at": {"gte": "2024-07-20", "lte": "2024-12-10"}},
-            {"user_id": "alex"}
+            {"user_id": "alex"},
+            {"created_at": {"gte": "2024-07-20", "lte": "2024-12-10"}}
         ]
-    },
-    "version": "v2"
+    }
 }
 result = search_tool.invoke(search_input)
 ```
@@ -210,7 +204,6 @@ The GET_ALL tool retrieves all memories matching specified criteria, with suppor
 
 ```python
 class GetAllMemoryInput(BaseModel):
-    version: str = Field(description="Version of the memory to retrieve")
     filters: Dict[str, Any] = Field(description="Filters to apply to the retrieval")
     page: Optional[int] = Field(description="Page number for pagination", default=1)
     page_size: Optional[int] = Field(description="Number of items per page", default=50)
@@ -218,7 +211,6 @@ class GetAllMemoryInput(BaseModel):
     class Config:
         json_schema_extra = {
             "examples": [{
-                "version": "v2",
                 "filters": {
                     "AND": [
                         {"user_id": "alex"},
@@ -235,9 +227,9 @@ class GetAllMemoryInput(BaseModel):
 #### Implementation
 
 ```python
-def get_all_memory(version: str, filters: Dict[str, Any], page: int = 1, page_size: int = 50) -> Any:
+def get_all_memory(filters: Dict[str, Any], page: int = 1, page_size: int = 50) -> Any:
     """Retrieve all memories matching the specified criteria."""
-    return client.get_all(version=version, filters=filters, page=page, page_size=page_size)
+    return client.get_all(filters=filters, page=page, page_size=page_size)
 
 get_all_tool = StructuredTool(
     name="get_all_memory",
@@ -252,7 +244,6 @@ get_all_tool = StructuredTool(
 <CodeGroup>
 ```python Code
 get_all_input = {
-    "version": "v2",
     "filters": {
         "AND": [
             {"user_id": "alex"},

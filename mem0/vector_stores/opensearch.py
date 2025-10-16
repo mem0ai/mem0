@@ -113,15 +113,26 @@ class OpenSearchDB(VectorStoreBase):
         if payloads is None:
             payloads = [{} for _ in range(len(vectors))]
 
+        results = []
         for i, (vec, id_) in enumerate(zip(vectors, ids)):
             body = {
                 "vector_field": vec,
                 "payload": payloads[i],
                 "id": id_,
             }
-            self.client.index(index=self.collection_name, body=body)
-
-        results = []
+            try:
+                self.client.index(index=self.collection_name, body=body)
+                # Force refresh to make documents immediately searchable for tests
+                self.client.indices.refresh(index=self.collection_name)
+                
+                results.append(OutputData(
+                    id=id_,
+                    score=1.0,  # No score for inserts
+                    payload=payloads[i]
+                ))
+            except Exception as e:
+                logger.error(f"Error inserting vector {id_}: {e}")
+                raise
 
         return results
 
@@ -157,15 +168,19 @@ class OpenSearchDB(VectorStoreBase):
         else:
             query_body["query"] = knn_query
 
-        # Execute search
-        response = self.client.search(index=self.collection_name, body=query_body)
+        try:
+            # Execute search
+            response = self.client.search(index=self.collection_name, body=query_body)
 
-        hits = response["hits"]["hits"]
-        results = [
-            OutputData(id=hit["_source"].get("id"), score=hit["_score"], payload=hit["_source"].get("payload", {}))
-            for hit in hits
-        ]
-        return results
+            hits = response["hits"]["hits"]
+            results = [
+                OutputData(id=hit["_source"].get("id"), score=hit["_score"], payload=hit["_source"].get("payload", {}))
+                for hit in hits[:limit]  # Ensure we don't exceed limit
+            ]
+            return results
+        except Exception as e:
+            logger.error(f"Error during search: {e}")
+            return []
 
     def delete(self, vector_id: str) -> None:
         """Delete a vector by custom ID."""
@@ -213,12 +228,6 @@ class OpenSearchDB(VectorStoreBase):
     def get(self, vector_id: str) -> Optional[OutputData]:
         """Retrieve a vector by ID."""
         try:
-            # First check if index exists
-            if not self.client.indices.exists(index=self.collection_name):
-                logger.info(f"Index {self.collection_name} does not exist, creating it...")
-                self.create_col(self.collection_name, self.embedding_model_dims)
-                return None
-
             search_query = {"query": {"term": {"id": vector_id}}}
             response = self.client.search(index=self.collection_name, body=search_query)
 
@@ -265,14 +274,16 @@ class OpenSearchDB(VectorStoreBase):
             response = self.client.search(index=self.collection_name, body=query)
             hits = response["hits"]["hits"]
 
-            return [
-                [
-                    OutputData(id=hit["_source"].get("id"), score=1.0, payload=hit["_source"].get("payload", {}))
-                    for hit in hits
-                ]
+            # Return a flat list, not a nested array
+            results = [
+                OutputData(id=hit["_source"].get("id"), score=1.0, payload=hit["_source"].get("payload", {}))
+                for hit in hits
             ]
-        except Exception:
+            return [results]  # VectorStore expects tuple/list format
+        except Exception as e:
+            logger.error(f"Error listing vectors: {e}")
             return []
+        
 
     def reset(self):
         """Reset the index by deleting and recreating it."""

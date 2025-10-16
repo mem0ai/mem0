@@ -4,7 +4,6 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 import dotenv
-import pytest
 
 try:
     from opensearchpy import AWSV4SignerAuth, OpenSearch
@@ -102,10 +101,12 @@ class TestOpenSearchDB(unittest.TestCase):
         self.client_mock.indices.create = MagicMock()
         self.client_mock.indices.delete = MagicMock()
         self.client_mock.indices.get_alias = MagicMock()
+        self.client_mock.indices.refresh = MagicMock()
         self.client_mock.get = MagicMock()
         self.client_mock.update = MagicMock()
         self.client_mock.delete = MagicMock()
         self.client_mock.search = MagicMock()
+        self.client_mock.index = MagicMock(return_value={"_id": "doc1"})
 
         patcher = patch("mem0.vector_stores.opensearch.OpenSearch", return_value=self.client_mock)
         self.mock_os = patcher.start()
@@ -148,7 +149,6 @@ class TestOpenSearchDB(unittest.TestCase):
         self.os_db.create_index()
         self.client_mock.indices.create.assert_not_called()
 
-    @pytest.mark.skip(reason="This test is not working as expected")
     def test_insert(self):
         vectors = [[0.1] * 1536, [0.2] * 1536]
         payloads = [{"key1": "value1"}, {"key2": "value2"}]
@@ -183,7 +183,6 @@ class TestOpenSearchDB(unittest.TestCase):
         self.assertEqual(results[1].id, "id2")
         self.assertEqual(results[1].payload, payloads[1])
 
-    @pytest.mark.skip(reason="This test is not working as expected")
     def test_get(self):
         mock_response = {"hits": {"hits": [{"_id": "doc1", "_source": {"id": "id1", "payload": {"key1": "value1"}}}]}}
         self.client_mock.search.return_value = mock_response
