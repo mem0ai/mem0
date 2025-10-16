@@ -24,6 +24,7 @@ class EmbedderConfig(BaseModel):
             "lmstudio",
             "langchain",
             "aws_bedrock",
+            "fastembed",
         ]:
             return v
         else:
