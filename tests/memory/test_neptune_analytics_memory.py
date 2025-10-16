@@ -15,6 +15,7 @@ class TestNeptuneMemory(unittest.TestCase):
         self.config = MagicMock()
         self.config.graph_store.config.endpoint = "neptune-graph://test-graph"
         self.config.graph_store.config.base_label = True
+        self.config.graph_store.threshold = 0.7  # Set default threshold
         self.config.llm.provider = "openai_structured"
         self.config.graph_store.llm = None
         self.config.graph_store.custom_prompt = None
@@ -194,7 +195,7 @@ class TestNeptuneMemory(unittest.TestCase):
 
         # Mock the _search_source_node_cypher method
         mock_cypher = "MATCH (n) RETURN n"
-        mock_params = {"source_embedding": mock_embedding, "user_id": self.user_id, "threshold": 0.9}
+        mock_params = {"source_embedding": mock_embedding, "user_id": self.user_id, "threshold": self.memory_graph.threshold}
         self.memory_graph._search_source_node_cypher = MagicMock(return_value=(mock_cypher, mock_params))
 
         # Mock the graph.query result
@@ -202,10 +203,10 @@ class TestNeptuneMemory(unittest.TestCase):
         self.mock_graph.query.return_value = mock_query_result
 
         # Call the _search_source_node method
-        result = self.memory_graph._search_source_node(mock_embedding, self.user_id, threshold=0.9)
+        result = self.memory_graph._search_source_node(mock_embedding, self.user_id, threshold=self.memory_graph.threshold)
 
         # Verify the method calls
-        self.memory_graph._search_source_node_cypher.assert_called_once_with(mock_embedding, self.user_id, 0.9)
+        self.memory_graph._search_source_node_cypher.assert_called_once_with(mock_embedding, self.user_id, self.memory_graph.threshold)
         self.mock_graph.query.assert_called_once_with(mock_cypher, params=mock_params)
 
         # Check the result
@@ -218,7 +219,7 @@ class TestNeptuneMemory(unittest.TestCase):
 
         # Mock the _search_destination_node_cypher method
         mock_cypher = "MATCH (n) RETURN n"
-        mock_params = {"destination_embedding": mock_embedding, "user_id": self.user_id, "threshold": 0.9}
+        mock_params = {"destination_embedding": mock_embedding, "user_id": self.user_id, "threshold": self.memory_graph.threshold}
         self.memory_graph._search_destination_node_cypher = MagicMock(return_value=(mock_cypher, mock_params))
 
         # Mock the graph.query result
@@ -226,7 +227,7 @@ class TestNeptuneMemory(unittest.TestCase):
         self.mock_graph.query.return_value = mock_query_result
 
         # Call the _search_destination_node method
-        result = self.memory_graph._search_destination_node(mock_embedding, self.user_id, threshold=0.9)
+        result = self.memory_graph._search_destination_node(mock_embedding, self.user_id, threshold=self.memory_graph.threshold)
 
         # Verify the method calls
         self.memory_graph._search_destination_node_cypher.assert_called_once_with(mock_embedding, self.user_id, 0.9)
@@ -298,8 +299,8 @@ class TestNeptuneMemory(unittest.TestCase):
 
         # Verify the method calls
         self.assertEqual(self.mock_embedding_model.embed.call_count, 2)
-        self.memory_graph._search_source_node.assert_called_once_with(mock_embedding, self.user_id, threshold=0.9)
-        self.memory_graph._search_destination_node.assert_called_once_with(mock_embedding, self.user_id, threshold=0.9)
+        self.memory_graph._search_source_node.assert_called_once_with(mock_embedding, self.user_id, threshold=self.memory_graph.threshold)
+        self.memory_graph._search_destination_node.assert_called_once_with(mock_embedding, self.user_id, threshold=self.memory_graph.threshold)
         self.memory_graph._add_entities_cypher.assert_called_once()
         self.mock_graph.query.assert_called_once_with(mock_cypher, params=mock_params)
 
