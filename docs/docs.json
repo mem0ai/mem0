@@ -1,658 +1,775 @@
 {
-	"$schema": "https://mintlify.com/docs.json",
-	"name": "Mem0",
-	"description": "Mem0 is a self-improving memory layer for LLM applications, enabling personalized AI experiences that save costs and delight users.",
-	"theme": "aspen",
-	"colors": {
-		"primary": "#2553eb",
-		"light": "#6084fa",
-		"dark": "#2553eb"
-	},
-	"favicon": "/logo/favicon.png",
-	"navigation": {
-		"versions": [
-			{
-				"version": "v1.0.0",
-				"anchors": [
-					{
-						"anchor": "Documentation",
-						"icon": "book-open",
-						"tabs": [
-							{
-								"tab": "Documentation",
-								"groups": [
-									{
-										"group": "Getting Started",
-										"icon": "rocket",
-										"pages": [
-											"introduction",
-											"quickstart",
-											"faqs"
-										]
-									},
-									{
-										"group": "Core Concepts",
-										"icon": "brain",
-										"pages": [
-											"core-concepts/memory-types",
-											{
-												"group": "Memory Operations",
-												"icon": "gear",
-												"pages": [
-													"core-concepts/memory-operations/add",
-													"core-concepts/memory-operations/search",
-													"core-concepts/memory-operations/update",
-													"core-concepts/memory-operations/delete"
-												]
-											}
-										]
-									},
-									{
-										"group": "Platform",
-										"icon": "globe",
-										"pages": [
-											"platform/overview",
-											"platform/quickstart",
-											"platform/advanced-memory-operations",
-											{
-												"group": "Features",
-												"icon": "star",
-												"pages": [
-													"platform/features/platform-overview",
+  "$schema": "https://mintlify.com/docs.json",
+  "name": "Mem0",
+  "description": "Mem0 is a self-improving memory layer for LLM applications, enabling personalized AI experiences that save costs and delight users.",
+  "theme": "aspen",
+  "colors": {
+    "primary": "#2553eb",
+    "light": "#6084fa",
+    "dark": "#2553eb"
+  },
+  "favicon": "/logo/favicon.png",
+  "navigation": {
+    "versions": [
+      {
+        "version": "v1.0.0 Beta",
+        "anchors": [
+          {
+            "anchor": "Documentation",
+            "icon": "book-open",
+            "tabs": [
+              {
+                "tab": "Welcome",
+                "groups": [
+                  {
+                    "group": "Start Here",
+                    "icon": "home",
+                    "pages": [
+                      "introduction"
+                    ]
+                  }
+                ]
+              },
+              {
+                "tab": "Mem0 Platform",
+                "groups": [
+                  {
+                    "group": "Getting Started",
+                    "icon": "rocket",
+                    "pages": [
+                      "platform/overview",
+                      "platform/platform-vs-oss",
+                      "platform/quickstart"
+                    ]
+                  },
+                  {
+                    "group": "Core Concepts",
+                    "icon": "brain",
+                    "pages": [
+                      "core-concepts/memory-types",
+                      "core-concepts/memory-operations/add",
+                      "core-concepts/memory-operations/search",
+                      "core-concepts/memory-operations/update",
+                      "core-concepts/memory-operations/delete"
+                    ]
+                  },
+                  {
+                    "group": "Platform Features",
+                    "icon": "star",
+                    "pages": [
+                      "platform/features/platform-overview",
+                      {
+                        "group": "Essential Features",
+                        "icon": "circle-check",
+                        "pages": [
                           "platform/features/v2-memory-filters",
-													"platform/features/contextual-add",
-													"platform/features/async-client",
-													"platform/features/async-mode-default-change",
-													"platform/features/graph-memory",
-													"platform/features/advanced-retrieval",
-													"platform/features/criteria-retrieval",
-													"platform/features/multimodal-support",
-													"platform/features/selective-memory",
-													"platform/features/custom-categories",
-													"platform/features/custom-instructions",
-													"platform/features/direct-import",
-													"platform/features/memory-export",
-													"platform/features/timestamp",
-													"platform/features/expiration-date",
-													"platform/features/webhooks",
-													"platform/features/feedback-mechanism",
-													"platform/features/group-chat"
-												]
-											}
-										]
-									},
-									{
-										"group": "Open Source",
-										"icon": "code-branch",
-										"pages": [
-											"open-source/overview",
-											"open-source/python-quickstart",
-											"open-source/node-quickstart",
-											{
-												"group": "Features",
-												"icon": "star",
-												"pages": [
-													"open-source/features/overview",
-													"open-source/features/async-memory",
-													"open-source/features/openai_compatibility",
-													"open-source/features/custom-fact-extraction-prompt",
-													"open-source/features/custom-update-memory-prompt",
-													"open-source/features/multimodal-support",
-													"open-source/features/rest-api",
-													"open-source/features/metadata-filtering",
-													"open-source/features/reranker-search"
-												]
-											},
-											{
-												"group": "Graph Memory",
-												"icon": "spider-web",
-												"pages": [
-													"open-source/graph_memory/overview",
-													"open-source/graph_memory/features"
-												]
-											},
-											{
-												"group": "LLMs",
-												"icon": "brain",
-												"pages": [
-													"components/llms/overview",
-													"components/llms/config",
-													{
-														"group": "Supported LLMs",
-														"icon": "list",
-														"pages": [
-															"components/llms/models/openai",
-															"components/llms/models/anthropic",
-															"components/llms/models/azure_openai",
-															"components/llms/models/ollama",
-															"components/llms/models/together",
-															"components/llms/models/groq",
-															"components/llms/models/litellm",
-															"components/llms/models/mistral_AI",
-															"components/llms/models/google_AI",
-															"components/llms/models/aws_bedrock",
-															"components/llms/models/deepseek",
-															"components/llms/models/xAI",
-															"components/llms/models/sarvam",
-															"components/llms/models/lmstudio",
-															"components/llms/models/langchain",
-															"components/llms/models/vllm"
-														]
-													}
-												]
-											},
-											{
-												"group": "Vector Databases",
-												"icon": "database",
-												"pages": [
-													"components/vectordbs/overview",
-													"components/vectordbs/config",
-													{
-														"group": "Supported Vector Databases",
-														"icon": "server",
-														"pages": [
-															"components/vectordbs/dbs/qdrant",
-															"components/vectordbs/dbs/chroma",
-															"components/vectordbs/dbs/pgvector",
-															"components/vectordbs/dbs/milvus",
-															"components/vectordbs/dbs/pinecone",
-															"components/vectordbs/dbs/mongodb",
-															"components/vectordbs/dbs/azure",
-															"components/vectordbs/dbs/azure_mysql",
-															"components/vectordbs/dbs/redis",
-															"components/vectordbs/dbs/valkey",
-															"components/vectordbs/dbs/elasticsearch",
-															"components/vectordbs/dbs/opensearch",
-															"components/vectordbs/dbs/supabase",
-															"components/vectordbs/dbs/upstash-vector",
-															"components/vectordbs/dbs/vectorize",
-															"components/vectordbs/dbs/vertex_ai",
-															"components/vectordbs/dbs/weaviate",
-															"components/vectordbs/dbs/faiss",
-															"components/vectordbs/dbs/langchain",
-															"components/vectordbs/dbs/baidu",
-															"components/vectordbs/dbs/s3_vectors",
-															"components/vectordbs/dbs/databricks",
-															"components/vectordbs/dbs/neptune_analytics"
-														]
-													}
-												]
-											},
-											{
-												"group": "Embedding Models",
-												"icon": "layer-group",
-												"pages": [
-													"components/embedders/overview",
-													"components/embedders/config",
-													{
-														"group": "Supported Embedding Models",
-														"icon": "list",
-														"pages": [
-															"components/embedders/models/openai",
-															"components/embedders/models/azure_openai",
-															"components/embedders/models/ollama",
-															"components/embedders/models/huggingface",
-															"components/embedders/models/vertexai",
-															"components/embedders/models/google_AI",
-															"components/embedders/models/lmstudio",
-															"components/embedders/models/together",
-															"components/embedders/models/langchain",
-															"components/embedders/models/aws_bedrock"
-														]
-													}
-												]
-											},
-											{
-												"group": "Rerankers (New in v1.0)",
-												"icon": "sort",
-												"pages": [
-													"components/rerankers/overview",
-													"components/rerankers/config",
-													{
-														"group": "Supported Rerankers",
-														"icon": "list",
-														"pages": [
-															"components/rerankers/models/cohere",
-															"components/rerankers/models/sentence_transformer",
-															"components/rerankers/models/huggingface",
-															"components/rerankers/models/llm_reranker"
-														]
-													}
-												]
-											}
-										]
-									},
-									{
-										"group": "Migration Guide",
-										"icon": "arrow-right",
-										"pages": [
-											"migration/v0-to-v1",
-											"migration/breaking-changes",
-											"migration/api-changes"
-										]
-									},
-									{
-										"group": "OpenMemory",
-										"icon": "square-terminal",
-										"pages": [
-											"openmemory/overview",
-											"openmemory/quickstart",
-											"openmemory/integrations"
-										]
-									},
-									{
-										"group": "Contribution",
-										"icon": "handshake",
-										"pages": [
-											"contributing/development",
-											"contributing/documentation"
-										]
-									}
-								]
-							},
-							{
-								"tab": "Examples",
-								"groups": [
-									{
-										"group": "\ud83d\udca1 Examples",
-										"icon": "lightbulb",
-										"pages": [
-											"examples",
-											"examples/mem0-demo",
-											"examples/ai_companion_js",
-											"examples/mem0-with-ollama",
-											"examples/personal-ai-tutor",
-											"examples/customer-support-agent",
-											"examples/personal-travel-assistant",
-											"examples/chrome-extension",
-											"examples/youtube-assistant",
-											"examples/memory-guided-content-writing",
-											"examples/multimodal-demo",
-											"examples/email_processing",
-											"examples/personalized-deep-research",
-											"examples/collaborative-task-agent",
-											"examples/llama-index-mem0",
-											"examples/llamaindex-multiagent-learning-system",
-											"examples/personalized-search-tavily-mem0",
-											"examples/mem0-agentic-tool",
-											"examples/openai-inbuilt-tools",
-											"examples/mem0-openai-voice-demo",
-											"examples/mem0-google-adk-healthcare-assistant",
-											"examples/mem0-mastra",
-											"examples/eliza_os",
-											"examples/aws_example",
-											"examples/aws_neptune_analytics_hybrid_store"
-										]
-									}
-								]
-							},
-							{
-								"tab": "Integrations",
-								"groups": [
-									{
-										"group": "Integrations",
-										"icon": "plug",
-										"pages": [
-											"integrations",
-											"integrations/langchain",
-											"integrations/langgraph",
-											"integrations/llama-index",
-											"integrations/agno",
-											"integrations/autogen",
-											"integrations/crewai",
-											"integrations/openai-agents-sdk",
-											"integrations/google-ai-adk",
-											"integrations/mastra",
-											"integrations/vercel-ai-sdk",
-											"integrations/livekit",
-											"integrations/pipecat",
-											"integrations/elevenlabs",
-											"integrations/aws-bedrock",
-											"integrations/flowise",
-											"integrations/langchain-tools",
-											"integrations/agentops",
-											"integrations/keywords",
-											"integrations/dify",
-											"integrations/raycast"
-										]
-									}
-								]
-							},
-							{
-								"tab": "API Reference",
-								"icon": "square-terminal",
-								"groups": [
-									{
-										"group": "API Reference",
-										"icon": "terminal",
-										"pages": [
-											"api-reference",
-											{
-												"group": "Memory APIs",
-												"icon": "microchip",
-												"pages": [
-													"api-reference/memory/add-memories",
-													"api-reference/memory/v2-search-memories",
-													"api-reference/memory/v2-get-memories",
-													"api-reference/memory/history-memory",
-													"api-reference/memory/get-memory",
-													"api-reference/memory/update-memory",
-													"api-reference/memory/batch-update",
-													"api-reference/memory/delete-memory",
-													"api-reference/memory/batch-delete",
-													"api-reference/memory/delete-memories",
-													"api-reference/memory/create-memory-export",
-													"api-reference/memory/get-memory-export",
-													"api-reference/memory/feedback"
-												]
-											},
-											{
-												"group": "Entities APIs",
-												"icon": "users",
-												"pages": [
-													"api-reference/entities/get-users",
-													"api-reference/entities/delete-user"
-												]
-											},
-											{
-												"group": "Organizations APIs",
-												"icon": "building",
-												"pages": [
-													"api-reference/organization/create-org",
-													"api-reference/organization/get-orgs",
-													"api-reference/organization/get-org",
-													"api-reference/organization/get-org-members",
-													"api-reference/organization/add-org-member",
-													"api-reference/organization/delete-org"
-												]
-											},
-											{
-												"group": "Project APIs",
-												"icon": "folder",
-												"pages": [
-													"api-reference/project/create-project",
-													"api-reference/project/get-projects",
-													"api-reference/project/get-project",
-													"api-reference/project/get-project-members",
-													"api-reference/project/add-project-member",
-													"api-reference/project/delete-project"
-												]
-											},
-											{
-												"group": "Webhook APIs",
-												"icon": "webhook",
-												"pages": [
-													"api-reference/webhook/create-webhook",
-													"api-reference/webhook/get-webhook",
-													"api-reference/webhook/update-webhook",
-													"api-reference/webhook/delete-webhook"
-												]
-											}
-										]
-									}
-								]
-							},
-							{
-								"tab": "Changelog",
-								"icon": "clock",
-								"groups": [
-									{
-										"group": "Product Updates",
-										"icon": "rocket",
-										"pages": [
-											"changelog"
-										]
-									}
-								]
-							}
-						]
-					}
-				]
-			},
-			{
-				"version": "v0.x Legacy",
-				"anchors": [
-					{
-						"anchor": "Documentation",
-						"icon": "book-open",
-						"tabs": [
-							{
-								"tab": "Documentation",
-								"groups": [
-									{
-										"group": "Getting Started",
-										"icon": "rocket",
-										"pages": [
-											"v0x/introduction",
-											"v0x/quickstart",
-											"v0x/faqs"
-										]
-									},
-									{
-										"group": "Core Concepts",
-										"icon": "brain",
-										"pages": [
-											"v0x/core-concepts/memory-types",
-											{
-												"group": "Memory Operations",
-												"icon": "gear",
-												"pages": [
-													"v0x/core-concepts/memory-operations/add",
-													"v0x/core-concepts/memory-operations/search",
-													"v0x/core-concepts/memory-operations/update",
-													"v0x/core-concepts/memory-operations/delete"
-												]
-											}
-										]
-									},
-									{
-										"group": "Open Source",
-										"icon": "code-branch",
-										"pages": [
-											"v0x/open-source/overview",
-											"v0x/open-source/python-quickstart",
-											"v0x/open-source/node-quickstart",
-											{
-												"group": "LLMs",
-												"icon": "brain",
-												"pages": [
-													"v0x/components/llms/overview",
-													"v0x/components/llms/config",
-													{
-														"group": "Supported LLMs",
-														"icon": "list",
-														"pages": [
-															"v0x/components/llms/models/openai",
-															"v0x/components/llms/models/anthropic",
-															"v0x/components/llms/models/azure_openai",
-															"v0x/components/llms/models/ollama",
-															"v0x/components/llms/models/together",
-															"v0x/components/llms/models/groq",
-															"v0x/components/llms/models/litellm",
-															"v0x/components/llms/models/mistral_AI",
-															"v0x/components/llms/models/google_AI",
-															"v0x/components/llms/models/aws_bedrock",
-															"v0x/components/llms/models/deepseek",
-															"v0x/components/llms/models/xAI",
-															"v0x/components/llms/models/sarvam",
-															"v0x/components/llms/models/lmstudio",
-															"v0x/components/llms/models/langchain",
-															"v0x/components/llms/models/vllm"
-														]
-													}
-												]
-											},
-											{
-												"group": "Vector Databases",
-												"icon": "database",
-												"pages": [
-													"v0x/components/vectordbs/overview",
-													"v0x/components/vectordbs/config",
-													{
-														"group": "Supported Vector Databases",
-														"icon": "server",
-														"pages": [
-															"v0x/components/vectordbs/dbs/qdrant",
-															"v0x/components/vectordbs/dbs/chroma",
-															"v0x/components/vectordbs/dbs/pgvector",
-															"v0x/components/vectordbs/dbs/milvus",
-															"v0x/components/vectordbs/dbs/pinecone",
-															"v0x/components/vectordbs/dbs/mongodb",
-															"v0x/components/vectordbs/dbs/azure",
-															"v0x/components/vectordbs/dbs/azure_mysql",
-															"v0x/components/vectordbs/dbs/redis",
-															"v0x/components/vectordbs/dbs/valkey",
-															"v0x/components/vectordbs/dbs/elasticsearch",
-															"v0x/components/vectordbs/dbs/opensearch",
-															"v0x/components/vectordbs/dbs/supabase",
-															"v0x/components/vectordbs/dbs/upstash-vector",
-															"v0x/components/vectordbs/dbs/vectorize",
-															"v0x/components/vectordbs/dbs/vertex_ai",
-															"v0x/components/vectordbs/dbs/weaviate",
-															"v0x/components/vectordbs/dbs/faiss",
-															"v0x/components/vectordbs/dbs/langchain",
-															"v0x/components/vectordbs/dbs/baidu",
-															"v0x/components/vectordbs/dbs/s3_vectors",
-															"v0x/components/vectordbs/dbs/databricks",
-															"v0x/components/vectordbs/dbs/neptune_analytics"
-														]
-													}
-												]
-											},
-											{
-												"group": "Embedding Models",
-												"icon": "layer-group",
-												"pages": [
-													"v0x/components/embedders/overview",
-													"v0x/components/embedders/config",
-													{
-														"group": "Supported Embedding Models",
-														"icon": "list",
-														"pages": [
-															"v0x/components/embedders/models/openai",
-															"v0x/components/embedders/models/azure_openai",
-															"v0x/components/embedders/models/ollama",
-															"v0x/components/embedders/models/huggingface",
-															"v0x/components/embedders/models/vertexai",
-															"v0x/components/embedders/models/google_AI",
-															"v0x/components/embedders/models/lmstudio",
-															"v0x/components/embedders/models/together",
-															"v0x/components/embedders/models/langchain",
-															"v0x/components/embedders/models/aws_bedrock"
-														]
-													}
-												]
-											}
-										]
-									}
-								]
-							},
-							{
-								"tab": "Examples",
-								"groups": [
-									{
-										"group": "\ud83d\udca1 Examples",
-										"icon": "lightbulb",
-										"pages": [
-											"examples",
-											"v0x/examples/mem0-demo",
-											"v0x/examples/ai_companion_js",
-											"v0x/examples/mem0-with-ollama",
-											"v0x/examples/personal-ai-tutor",
-											"v0x/examples/customer-support-agent",
-											"v0x/examples/personal-travel-assistant",
-											"v0x/examples/chrome-extension",
-											"v0x/examples/youtube-assistant",
-											"v0x/examples/memory-guided-content-writing",
-											"v0x/examples/multimodal-demo",
-											"v0x/examples/email_processing",
-											"v0x/examples/personalized-deep-research",
-											"v0x/examples/collaborative-task-agent",
-											"v0x/examples/llama-index-mem0",
-											"v0x/examples/llamaindex-multiagent-learning-system",
-											"v0x/examples/personalized-search-tavily-mem0",
-											"v0x/examples/mem0-agentic-tool",
-											"v0x/examples/openai-inbuilt-tools",
-											"v0x/examples/mem0-openai-voice-demo",
-											"v0x/examples/mem0-google-adk-healthcare-assistant",
-											"v0x/examples/mem0-mastra",
-											"v0x/examples/eliza_os",
-											"v0x/examples/aws_example",
-											"v0x/examples/aws_neptune_analytics_hybrid_store"
-										]
-									}
-								]
-							},
-							{
-								"tab": "Integrations",
-								"groups": [
-									{
-										"group": "Integrations",
-										"icon": "plug",
-										"pages": [
-											"v0x/integrations/langchain",
-											"v0x/integrations/langgraph",
-											"v0x/integrations/llama-index",
-											"v0x/integrations/agno",
-											"v0x/integrations/autogen",
-											"v0x/integrations/crewai",
-											"v0x/integrations/openai-agents-sdk",
-											"v0x/integrations/google-ai-adk",
-											"v0x/integrations/mastra",
-											"v0x/integrations/vercel-ai-sdk",
-											"v0x/integrations/livekit",
-											"v0x/integrations/pipecat",
-											"v0x/integrations/elevenlabs",
-											"v0x/integrations/aws-bedrock",
-											"v0x/integrations/flowise",
-											"v0x/integrations/langchain-tools",
-											"v0x/integrations/agentops",
-											"v0x/integrations/keywords",
-											"v0x/integrations/dify",
-											"v0x/integrations/raycast"
-										]
-									}
-								]
-							}
-						]
-					}
-				]
-			}
-		]
-	},
-	"logo": {
-		"light": "/logo/light.svg",
-		"dark": "/logo/dark.svg",
-		"href": "https://github.com/mem0ai/mem0"
-	},
-	"background": {
-		"color": {
-			"light": "#fff",
-			"dark": "#09090b"
-		}
-	},
-	"navbar": {
-		"primary": {
-			"type": "button",
-			"label": "Your Dashboard",
-			"href": "https://app.mem0.ai"
-		}
-	},
-	"footer": {
-		"socials": {
-			"discord": "https://mem0.dev/DiD",
-			"x": "https://x.com/mem0ai",
-			"github": "https://github.com/mem0ai",
-			"linkedin": "https://www.linkedin.com/company/mem0/"
-		}
-	},
-	"integrations": {
-		"posthog": {
-			"apiKey": "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX",
-			"apiHost": "https://mango.mem0.ai"
-		},
-		"intercom": {
-			"appId": "jjv2r0tt"
-		}
-	}
+                          "platform/features/async-client",
+                          "platform/features/multimodal-support",
+                          "platform/features/custom-categories"
+                        ]
+                      },
+                      {
+                        "group": "Advanced Features",
+                        "icon": "sparkles",
+                        "pages": [
+                          "platform/features/graph-memory",
+                          "platform/features/advanced-retrieval",
+                          "platform/features/criteria-retrieval",
+                          "platform/features/contextual-add",
+                          "platform/features/selective-memory",
+                          "platform/features/custom-instructions"
+                        ]
+                      },
+                      {
+                        "group": "Data Management",
+                        "icon": "database",
+                        "pages": [
+                          "platform/features/direct-import",
+                          "platform/features/memory-export",
+                          "platform/features/timestamp",
+                          "platform/features/expiration-date"
+                        ]
+                      },
+                      {
+                        "group": "Integration Features",
+                        "icon": "plug",
+                        "pages": [
+                          "platform/features/webhooks",
+                          "platform/features/feedback-mechanism",
+                          "platform/features/group-chat"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "group": "Support & Troubleshooting",
+                    "icon": "life-buoy",
+                    "pages": [
+                      "platform/faqs",
+                      "platform/advanced-memory-operations"
+                    ]
+                  },
+                  {
+                    "group": "Migration Guide",
+                    "icon": "arrow-right",
+                    "pages": [
+                      "migration/v0-to-v1",
+                      "migration/breaking-changes",
+                      "migration/api-changes"
+                    ]
+                  }
+                ]
+              },
+              {
+                "tab": "Open Source",
+                "groups": [
+                  {
+                    "group": "Getting Started",
+                    "icon": "rocket",
+                    "pages": [
+                      "open-source/overview",
+                      "open-source/python-quickstart",
+                      "open-source/node-quickstart"
+                    ]
+                  },
+                  {
+                    "group": "Self-Hosting Features",
+                    "icon": "server",
+                    "pages": [
+                      "open-source/features/async-memory",
+                      "open-source/features/openai_compatibility",
+                      "open-source/features/custom-fact-extraction-prompt",
+                      "open-source/features/custom-update-memory-prompt",
+                      "open-source/features/multimodal-support",
+                      "open-source/features/rest-api",
+                      "open-source/features/metadata-filtering",
+                      "open-source/features/reranker-search"
+                    ]
+                  },
+                  {
+                    "group": "Graph Memory",
+                    "icon": "network-wired",
+                    "pages": [
+                      "open-source/graph_memory/overview",
+                      "open-source/graph_memory/features"
+                    ]
+                  },
+                  {
+                    "group": "Configuration",
+                    "icon": "sliders",
+                    "pages": [
+                      "open-source/configuration",
+                      {
+                        "group": "LLMs",
+                        "icon": "message-bot",
+                        "pages": [
+                          "components/llms/overview",
+                          "components/llms/config",
+                          {
+                            "group": "Supported LLMs",
+                            "icon": "list",
+                            "pages": [
+                              "components/llms/models/openai",
+                              "components/llms/models/anthropic",
+                              "components/llms/models/azure_openai",
+                              "components/llms/models/ollama",
+                              "components/llms/models/together",
+                              "components/llms/models/groq",
+                              "components/llms/models/litellm",
+                              "components/llms/models/mistral_AI",
+                              "components/llms/models/google_AI",
+                              "components/llms/models/aws_bedrock",
+                              "components/llms/models/deepseek",
+                              "components/llms/models/xAI",
+                              "components/llms/models/sarvam",
+                              "components/llms/models/lmstudio",
+                              "components/llms/models/langchain",
+                              "components/llms/models/vllm"
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "group": "Vector Databases",
+                        "icon": "hard-drive",
+                        "pages": [
+                          "components/vectordbs/overview",
+                          "components/vectordbs/config",
+                          {
+                            "group": "Supported Vector Databases",
+                            "icon": "list",
+                            "pages": [
+                              "components/vectordbs/dbs/qdrant",
+                              "components/vectordbs/dbs/chroma",
+                              "components/vectordbs/dbs/pgvector",
+                              "components/vectordbs/dbs/milvus",
+                              "components/vectordbs/dbs/pinecone",
+                              "components/vectordbs/dbs/mongodb",
+                              "components/vectordbs/dbs/azure",
+                              "components/vectordbs/dbs/azure_mysql",
+                              "components/vectordbs/dbs/redis",
+                              "components/vectordbs/dbs/valkey",
+                              "components/vectordbs/dbs/elasticsearch",
+                              "components/vectordbs/dbs/opensearch",
+                              "components/vectordbs/dbs/supabase",
+                              "components/vectordbs/dbs/upstash-vector",
+                              "components/vectordbs/dbs/vectorize",
+                              "components/vectordbs/dbs/vertex_ai",
+                              "components/vectordbs/dbs/weaviate",
+                              "components/vectordbs/dbs/faiss",
+                              "components/vectordbs/dbs/langchain",
+                              "components/vectordbs/dbs/baidu",
+                              "components/vectordbs/dbs/s3_vectors",
+                              "components/vectordbs/dbs/databricks",
+                              "components/vectordbs/dbs/neptune_analytics"
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "group": "Embedding Models",
+                        "icon": "cube",
+                        "pages": [
+                          "components/embedders/overview",
+                          "components/embedders/config",
+                          {
+                            "group": "Supported Embedding Models",
+                            "icon": "list",
+                            "pages": [
+                              "components/embedders/models/openai",
+                              "components/embedders/models/azure_openai",
+                              "components/embedders/models/ollama",
+                              "components/embedders/models/huggingface",
+                              "components/embedders/models/vertexai",
+                              "components/embedders/models/google_AI",
+                              "components/embedders/models/lmstudio",
+                              "components/embedders/models/together",
+                              "components/embedders/models/langchain",
+                              "components/embedders/models/aws_bedrock"
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "group": "Rerankers",
+                        "icon": "ranking-star",
+                        "pages": [
+                          "components/rerankers/overview",
+                          "components/rerankers/config",
+                          {
+                            "group": "Supported Rerankers",
+                            "icon": "list",
+                            "pages": [
+                              "components/rerankers/models/cohere",
+                              "components/rerankers/models/sentence_transformer",
+                              "components/rerankers/models/huggingface",
+                              "components/rerankers/models/llm_reranker"
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "group": "Community & Support",
+                    "icon": "users",
+                    "pages": [
+                      "contributing/development",
+                      "contributing/documentation"
+                    ]
+                  }
+                ]
+              },
+              {
+                "tab": "OpenMemory",
+                "groups": [
+                  {
+                    "group": "Overview & Quickstart",
+                    "icon": "square-terminal",
+                    "pages": [
+                      "openmemory/overview",
+                      "openmemory/quickstart",
+                      "openmemory/integrations"
+                    ]
+                  }
+                ]
+              },
+              {
+                "tab": "Cookbooks",
+                "groups": [
+                  {
+                    "group": "Overview",
+                    "icon": "lightbulb",
+                    "pages": [
+                      "examples"
+                    ]
+                  },
+                  {
+                    "group": "Getting Started Examples",
+                    "icon": "play",
+                    "pages": [
+                      "examples/mem0-demo",
+                      "examples/ai_companion_js",
+                      "examples/mem0-with-ollama",
+                      "examples/personal-ai-tutor"
+                    ]
+                  },
+                  {
+                    "group": "Production Use Cases",
+                    "icon": "briefcase",
+                    "pages": [
+                      "examples/customer-support-agent",
+                      "examples/personal-travel-assistant",
+                      "examples/email_processing",
+                      "examples/memory-guided-content-writing",
+                      "examples/personalized-deep-research"
+                    ]
+                  },
+                  {
+                    "group": "Framework Integrations",
+                    "icon": "puzzle-piece",
+                    "pages": [
+                      "examples/llama-index-mem0",
+                      "examples/llamaindex-multiagent-learning-system",
+                      "examples/personalized-search-tavily-mem0",
+                      "examples/mem0-agentic-tool",
+                      "examples/mem0-mastra",
+                      "examples/eliza_os"
+                    ]
+                  },
+                  {
+                    "group": "Specialized Features",
+                    "icon": "wand-magic-sparkles",
+                    "pages": [
+                      "examples/multimodal-demo",
+                      "examples/mem0-openai-voice-demo",
+                      "examples/mem0-google-adk-healthcare-assistant",
+                      "examples/collaborative-task-agent"
+                    ]
+                  },
+                  {
+                    "group": "Extensions & Tools",
+                    "icon": "wrench",
+                    "pages": [
+                      "examples/chrome-extension",
+                      "examples/youtube-assistant",
+                      "examples/openai-inbuilt-tools"
+                    ]
+                  },
+                  {
+                    "group": "Cloud & Infrastructure",
+                    "icon": "cloud",
+                    "pages": [
+                      "examples/aws_example",
+                      "examples/aws_neptune_analytics_hybrid_store"
+                    ]
+                  }
+                ]
+              },
+              {
+                "tab": "Integrations",
+                "groups": [
+                  {
+                    "group": "Overview",
+                    "icon": "plug",
+                    "pages": [
+                      "integrations"
+                    ]
+                  },
+                  {
+                    "group": "Agent Frameworks",
+                    "icon": "robot",
+                    "pages": [
+                      "integrations/langchain",
+                      "integrations/langgraph",
+                      "integrations/llama-index",
+                      "integrations/crewai",
+                      "integrations/autogen",
+                      "integrations/agno",
+                      "integrations/openai-agents-sdk",
+                      "integrations/google-ai-adk",
+                      "integrations/mastra",
+                      "integrations/vercel-ai-sdk"
+                    ]
+                  },
+                  {
+                    "group": "Voice & Real-time",
+                    "icon": "microphone",
+                    "pages": [
+                      "integrations/livekit",
+                      "integrations/pipecat",
+                      "integrations/elevenlabs"
+                    ]
+                  },
+                  {
+                    "group": "Cloud & Infrastructure",
+                    "icon": "cloud",
+                    "pages": [
+                      "integrations/aws-bedrock",
+                      "integrations/dify"
+                    ]
+                  },
+                  {
+                    "group": "Developer Tools",
+                    "icon": "wrench",
+                    "pages": [
+                      "integrations/flowise",
+                      "integrations/langchain-tools",
+                      "integrations/agentops",
+                      "integrations/keywords",
+                      "integrations/raycast"
+                    ]
+                  }
+                ]
+              },
+              {
+                "tab": "API Reference",
+                "groups": [
+                  {
+                    "group": "Overview",
+                    "icon": "terminal",
+                    "pages": [
+                      "api-reference"
+                    ]
+                  },
+                  {
+                    "group": "Core Memory Operations",
+                    "icon": "microchip",
+                    "pages": [
+                      "api-reference/memory/add-memories",
+                      "api-reference/memory/v2-search-memories",
+                      "api-reference/memory/v2-get-memories",
+                      "api-reference/memory/update-memory",
+                      "api-reference/memory/delete-memory"
+                    ]
+                  },
+                  {
+                    "group": "Advanced Memory APIs",
+                    "icon": "sparkles",
+                    "pages": [
+                      "api-reference/memory/history-memory",
+                      "api-reference/memory/get-memory",
+                      "api-reference/memory/batch-update",
+                      "api-reference/memory/batch-delete",
+                      "api-reference/memory/delete-memories",
+                      "api-reference/memory/create-memory-export",
+                      "api-reference/memory/get-memory-export",
+                      "api-reference/memory/feedback"
+                    ]
+                  },
+                  {
+                    "group": "Entities APIs",
+                    "icon": "users",
+                    "pages": [
+                      "api-reference/entities/get-users",
+                      "api-reference/entities/delete-user"
+                    ]
+                  },
+                  {
+                    "group": "Organizations APIs",
+                    "icon": "building",
+                    "pages": [
+                      "api-reference/organization/create-org",
+                      "api-reference/organization/get-orgs",
+                      "api-reference/organization/get-org",
+                      "api-reference/organization/get-org-members",
+                      "api-reference/organization/add-org-member",
+                      "api-reference/organization/delete-org"
+                    ]
+                  },
+                  {
+                    "group": "Project APIs",
+                    "icon": "folder",
+                    "pages": [
+                      "api-reference/project/create-project",
+                      "api-reference/project/get-projects",
+                      "api-reference/project/get-project",
+                      "api-reference/project/get-project-members",
+                      "api-reference/project/add-project-member",
+                      "api-reference/project/delete-project"
+                    ]
+                  },
+                  {
+                    "group": "Webhook APIs",
+                    "icon": "webhook",
+                    "pages": [
+                      "api-reference/webhook/create-webhook",
+                      "api-reference/webhook/get-webhook",
+                      "api-reference/webhook/update-webhook",
+                      "api-reference/webhook/delete-webhook"
+                    ]
+                  }
+                ],
+                "icon": "square-terminal"
+              },
+              {
+                "tab": "Release Notes",
+                "groups": [
+                  {
+                    "group": "Changelog",
+                    "icon": "rocket",
+                    "pages": [
+                      "changelog"
+                    ]
+                  },
+                  {
+                    "group": "Legacy Docs",
+                    "icon": "archive",
+                    "pages": [
+                      "v0x/introduction"
+                    ]
+                  }
+                ],
+                "icon": "clock"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "version": "v0.x Legacy",
+        "anchors": [
+          {
+            "anchor": "Documentation",
+            "icon": "book-open",
+            "tabs": [
+              {
+                "tab": "Documentation",
+                "groups": [
+                  {
+                    "group": "Getting Started",
+                    "icon": "rocket",
+                    "pages": [
+                      "v0x/introduction",
+                      "v0x/quickstart",
+                      "v0x/faqs"
+                    ]
+                  },
+                  {
+                    "group": "Core Concepts",
+                    "icon": "brain",
+                    "pages": [
+                      "v0x/core-concepts/memory-types",
+                      {
+                        "group": "Memory Operations",
+                        "icon": "gear",
+                        "pages": [
+                          "v0x/core-concepts/memory-operations/add",
+                          "v0x/core-concepts/memory-operations/search",
+                          "v0x/core-concepts/memory-operations/update",
+                          "v0x/core-concepts/memory-operations/delete"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "group": "Open Source",
+                    "icon": "code-branch",
+                    "pages": [
+                      "v0x/open-source/overview",
+                      "v0x/open-source/python-quickstart",
+                      "v0x/open-source/node-quickstart",
+                      {
+                        "group": "LLMs",
+                        "icon": "brain",
+                        "pages": [
+                          "v0x/components/llms/overview",
+                          "v0x/components/llms/config",
+                          {
+                            "group": "Supported LLMs",
+                            "icon": "list",
+                            "pages": [
+                              "v0x/components/llms/models/openai",
+                              "v0x/components/llms/models/anthropic",
+                              "v0x/components/llms/models/azure_openai",
+                              "v0x/components/llms/models/ollama",
+                              "v0x/components/llms/models/together",
+                              "v0x/components/llms/models/groq",
+                              "v0x/components/llms/models/litellm",
+                              "v0x/components/llms/models/mistral_AI",
+                              "v0x/components/llms/models/google_AI",
+                              "v0x/components/llms/models/aws_bedrock",
+                              "v0x/components/llms/models/deepseek",
+                              "v0x/components/llms/models/xAI",
+                              "v0x/components/llms/models/sarvam",
+                              "v0x/components/llms/models/lmstudio",
+                              "v0x/components/llms/models/langchain",
+                              "v0x/components/llms/models/vllm"
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "group": "Vector Databases",
+                        "icon": "database",
+                        "pages": [
+                          "v0x/components/vectordbs/overview",
+                          "v0x/components/vectordbs/config",
+                          {
+                            "group": "Supported Vector Databases",
+                            "icon": "server",
+                            "pages": [
+                              "v0x/components/vectordbs/dbs/qdrant",
+                              "v0x/components/vectordbs/dbs/chroma",
+                              "v0x/components/vectordbs/dbs/pgvector",
+                              "v0x/components/vectordbs/dbs/milvus",
+                              "v0x/components/vectordbs/dbs/pinecone",
+                              "v0x/components/vectordbs/dbs/mongodb",
+                              "v0x/components/vectordbs/dbs/azure",
+                              "v0x/components/vectordbs/dbs/azure_mysql",
+                              "v0x/components/vectordbs/dbs/redis",
+                              "v0x/components/vectordbs/dbs/valkey",
+                              "v0x/components/vectordbs/dbs/elasticsearch",
+                              "v0x/components/vectordbs/dbs/opensearch",
+                              "v0x/components/vectordbs/dbs/supabase",
+                              "v0x/components/vectordbs/dbs/upstash-vector",
+                              "v0x/components/vectordbs/dbs/vectorize",
+                              "v0x/components/vectordbs/dbs/vertex_ai",
+                              "v0x/components/vectordbs/dbs/weaviate",
+                              "v0x/components/vectordbs/dbs/faiss",
+                              "v0x/components/vectordbs/dbs/langchain",
+                              "v0x/components/vectordbs/dbs/baidu",
+                              "v0x/components/vectordbs/dbs/s3_vectors",
+                              "v0x/components/vectordbs/dbs/databricks",
+                              "v0x/components/vectordbs/dbs/neptune_analytics"
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "group": "Embedding Models",
+                        "icon": "layer-group",
+                        "pages": [
+                          "v0x/components/embedders/overview",
+                          "v0x/components/embedders/config",
+                          {
+                            "group": "Supported Embedding Models",
+                            "icon": "list",
+                            "pages": [
+                              "v0x/components/embedders/models/openai",
+                              "v0x/components/embedders/models/azure_openai",
+                              "v0x/components/embedders/models/ollama",
+                              "v0x/components/embedders/models/huggingface",
+                              "v0x/components/embedders/models/vertexai",
+                              "v0x/components/embedders/models/google_AI",
+                              "v0x/components/embedders/models/lmstudio",
+                              "v0x/components/embedders/models/together",
+                              "v0x/components/embedders/models/langchain",
+                              "v0x/components/embedders/models/aws_bedrock"
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "tab": "Examples",
+                "groups": [
+                  {
+                    "group": "\ud83d\udca1 Examples",
+                    "icon": "lightbulb",
+                    "pages": [
+                      "examples",
+                      "v0x/examples/mem0-demo",
+                      "v0x/examples/ai_companion_js",
+                      "v0x/examples/mem0-with-ollama",
+                      "v0x/examples/personal-ai-tutor",
+                      "v0x/examples/customer-support-agent",
+                      "v0x/examples/personal-travel-assistant",
+                      "v0x/examples/chrome-extension",
+                      "v0x/examples/youtube-assistant",
+                      "v0x/examples/memory-guided-content-writing",
+                      "v0x/examples/multimodal-demo",
+                      "v0x/examples/email_processing",
+                      "v0x/examples/personalized-deep-research",
+                      "v0x/examples/collaborative-task-agent",
+                      "v0x/examples/llama-index-mem0",
+                      "v0x/examples/llamaindex-multiagent-learning-system",
+                      "v0x/examples/personalized-search-tavily-mem0",
+                      "v0x/examples/mem0-agentic-tool",
+                      "v0x/examples/openai-inbuilt-tools",
+                      "v0x/examples/mem0-openai-voice-demo",
+                      "v0x/examples/mem0-google-adk-healthcare-assistant",
+                      "v0x/examples/mem0-mastra",
+                      "v0x/examples/eliza_os",
+                      "v0x/examples/aws_example",
+                      "v0x/examples/aws_neptune_analytics_hybrid_store"
+                    ]
+                  }
+                ]
+              },
+              {
+                "tab": "Integrations",
+                "groups": [
+                  {
+                    "group": "Integrations",
+                    "icon": "plug",
+                    "pages": [
+                      "v0x/integrations/langchain",
+                      "v0x/integrations/langgraph",
+                      "v0x/integrations/llama-index",
+                      "v0x/integrations/agno",
+                      "v0x/integrations/autogen",
+                      "v0x/integrations/crewai",
+                      "v0x/integrations/openai-agents-sdk",
+                      "v0x/integrations/google-ai-adk",
+                      "v0x/integrations/mastra",
+                      "v0x/integrations/vercel-ai-sdk",
+                      "v0x/integrations/livekit",
+                      "v0x/integrations/pipecat",
+                      "v0x/integrations/elevenlabs",
+                      "v0x/integrations/aws-bedrock",
+                      "v0x/integrations/flowise",
+                      "v0x/integrations/langchain-tools",
+                      "v0x/integrations/agentops",
+                      "v0x/integrations/keywords",
+                      "v0x/integrations/dify",
+                      "v0x/integrations/raycast"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg",
+    "href": "https://github.com/mem0ai/mem0"
+  },
+  "background": {
+    "color": {
+      "light": "#fff",
+      "dark": "#09090b"
+    }
+  },
+  "navbar": {
+    "primary": {
+      "type": "button",
+      "label": "Your Dashboard",
+      "href": "https://app.mem0.ai"
+    }
+  },
+  "footer": {
+    "socials": {
+      "discord": "https://mem0.dev/DiD",
+      "x": "https://x.com/mem0ai",
+      "github": "https://github.com/mem0ai",
+      "linkedin": "https://www.linkedin.com/company/mem0/"
+    }
+  },
+  "integrations": {
+    "posthog": {
+      "apiKey": "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX",
+      "apiHost": "https://mango.mem0.ai"
+    },
+    "intercom": {
+      "appId": "jjv2r0tt"
+    }
+  }
 }

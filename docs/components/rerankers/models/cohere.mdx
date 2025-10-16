@@ -1,147 +1,116 @@
 ---
 title: Cohere
-description: 'Reranking with Cohere'
-icon: "building"
-iconType: "solid"
 ---
 
-Cohere provides enterprise-grade reranking models with excellent multilingual support and production-ready performance.
+Cohere provides state-of-the-art reranking models that can significantly improve the relevance of search results. Cohere's rerankers are optimized for various languages and use cases.
 
-## Models
+## Usage
 
-Cohere offers several reranking models:
+To use Cohere's reranker with Mem0:
 
-- **`rerank-english-v3.0`**: Latest English reranker with best performance
-- **`rerank-multilingual-v3.0`**: Multilingual support for global applications
-- **`rerank-english-v2.0`**: Previous generation English reranker
+```python
+import os
+from mem0 import Memory
 
-## Installation
+os.environ["COHERE_API_KEY"] = "your-cohere-api-key"
 
-```bash
-pip install cohere
+config = {
+    "reranker": {
+        "provider": "cohere",
+        "config": {
+            "api_key": "your-cohere-api-key",  # Can also use environment variable
+            "model": "rerank-english-v3.0",
+            "top_n": 10
+        }
+    }
+}
+
+memory = Memory.from_config(config)
+
+# Use memory as usual
+memory.add("I love playing basketball", user_id="alice")
+memory.add("I enjoy watching movies", user_id="alice")
+
+# Search will now use Cohere reranking
+results = memory.search("What sports does Alice like?", user_id="alice")
 ```
 
 ## Configuration
 
-```python Python
-from mem0 import Memory
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `api_key` | Cohere API key | Required |
+| `model` | Cohere rerank model | `rerank-english-v3.0` |
+| `top_n` | Number of results to return | `10` |
 
+## Available Models
+
+- `rerank-english-v3.0`: Latest English reranking model
+- `rerank-multilingual-v3.0`: Multilingual reranking model
+- `rerank-english-v2.0`: Previous English model
+- `rerank-multilingual-v2.0`: Previous multilingual model
+
+## Example with Different Models
+
+### English Reranker
+```python
 config = {
-    "vector_store": {
-        "provider": "chroma",
-        "config": {
-            "collection_name": "my_memories",
-            "path": "./chroma_db"
-        }
-    },
-    "llm": {
-        "provider": "openai",
-        "config": {
-            "model": "gpt-4o-mini"
-        }
-    },
     "reranker": {
         "provider": "cohere",
         "config": {
+            "api_key": "your-cohere-api-key",
             "model": "rerank-english-v3.0",
-            "api_key": "your-cohere-api-key",  # or set COHERE_API_KEY
-            "top_k": 5,
-            "return_documents": False,
-            "max_chunks_per_doc": None
+            "top_n": 5
         }
     }
 }
+```
 
-memory = Memory.from_config(config)
+### Multilingual Reranker
+```python
+config = {
+    "reranker": {
+        "provider": "cohere",
+        "config": {
+            "api_key": "your-cohere-api-key",
+            "model": "rerank-multilingual-v3.0",
+            "top_n": 8
+        }
+    }
+}
 ```
 
 ## Environment Variables
 
-Set your API key as an environment variable:
+You can set your Cohere API key as an environment variable:
 
 ```bash
-export COHERE_API_KEY="your-api-key"
+export COHERE_API_KEY="your-cohere-api-key"
 ```
 
-## Usage Example
+Then use the config without specifying the API key:
 
-```python Python
-import os
-from mem0 import Memory
-
-# Set API key
-os.environ["COHERE_API_KEY"] = "your-api-key"
-
-# Initialize memory with Cohere reranker
+```python
 config = {
-    "vector_store": {"provider": "chroma"},
-    "llm": {"provider": "openai", "config": {"model": "gpt-4o-mini"}},
-    "rerank": {
+    "reranker": {
         "provider": "cohere",
         "config": {
             "model": "rerank-english-v3.0",
-            "top_k": 3
-        }
-    }
-}
-
-memory = Memory.from_config(config)
-
-# Add memories
-messages = [
-    {"role": "user", "content": "I work as a data scientist at Microsoft"},
-    {"role": "user", "content": "I specialize in machine learning and NLP"},
-    {"role": "user", "content": "I enjoy playing tennis on weekends"}
-]
-
-memory.add(messages, user_id="bob")
-
-# Search with reranking
-results = memory.search("What is the user's profession?", user_id="bob")
-
-for result in results['results']:
-    print(f"Memory: {result['memory']}")
-    print(f"Vector Score: {result['score']:.3f}")
-    print(f"Rerank Score: {result['rerank_score']:.3f}")
-    print()
-```
-
-## Multilingual Support
-
-For multilingual applications, use the multilingual model:
-
-```python Python
-config = {
-    "rerank": {
-        "provider": "cohere",
-        "config": {
-            "model": "rerank-multilingual-v3.0",
-            "top_k": 5
+            "top_n": 10
         }
     }
 }
 ```
 
-## Configuration Parameters
+## Getting Your API Key
 
-| Parameter | Description | Type | Default |
-|-----------|-------------|------|---------|
-| `model` | Cohere rerank model to use | `str` | `"rerank-english-v3.0"` |
-| `api_key` | Cohere API key | `str` | `None` |
-| `top_k` | Maximum documents to return | `int` | `None` |
-| `return_documents` | Whether to return document texts | `bool` | `False` |
-| `max_chunks_per_doc` | Maximum chunks per document | `int` | `None` |
+1. Sign up at [Cohere](https://cohere.ai/)
+2. Navigate to the API keys section in your dashboard
+3. Generate a new API key
+4. Use this key in your configuration
 
-## Features
+## Performance Considerations
 
-- **High Quality**: Enterprise-grade relevance scoring
-- **Multilingual**: Support for 100+ languages
-- **Scalable**: Production-ready with high throughput
-- **Reliable**: SLA-backed service with 99.9% uptime
-
-## Best Practices
-
-1. **Model Selection**: Use `rerank-english-v3.0` for English, `rerank-multilingual-v3.0` for other languages
-2. **Batch Processing**: Process multiple queries efficiently
-3. **Error Handling**: Implement retry logic for production systems
-4. **Monitoring**: Track reranking performance and costs
+- Cohere rerankers work best with 10-100 candidate documents
+- Higher `top_n` values provide more comprehensive reranking but may increase latency
+- The v3.0 models generally provide better performance than v2.0 models

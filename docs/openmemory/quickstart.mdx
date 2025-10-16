@@ -1,159 +1,133 @@
 ---
 title: Quickstart
+description: 'Get started with OpenMemory in minutes'
 icon: "terminal"
 iconType: "solid"
 ---
 
-## Hosted OpenMemory MCP Now Available
+Get up and running with OpenMemory in under 5 minutes. Choose between hosted or self-hosted setup.
 
-#### Sign Up Now - [app.openmemory.dev](https://app.openmemory.dev)
+## Prerequisites
 
-Everything you love about OpenMemory MCP but with zero setup.
+- MCP-compatible client (Claude Desktop, Cursor, Windsurf, etc.)
+- OpenAI API key ([Get one here](https://platform.openai.com/api-keys))
+- Docker (for self-hosted only)
 
-- Works with all MCP-compatible tools (Claude Desktop, Cursor, etc.)
-- Same standard memory operations: `add_memories`, `search_memory`, etc.
-- One-click provisioning, no Docker required
-- Powered by Mem0
+## Hosted Setup (Recommended)
 
-Add shared, persistent, low-friction memory to your MCP-compatible clients in seconds.
+Get persistent memory for your AI clients with zero setup.
 
-### Get Started Now
-Sign up and get your access key at [app.openmemory.dev](https://app.openmemory.dev).
+<Steps>
+<Step title="Sign up for hosted OpenMemory">
+Visit [app.openmemory.dev](https://app.openmemory.dev) and create an account to get your `OPENMEMORY_API_KEY`
+</Step>
 
-Example installation: `npx @openmemory/install --client claude --env OPENMEMORY_API_KEY=your-key`
+<Step title="Install OpenMemory for your client">
+Replace `your-key` with your actual API key and choose your client:
 
-## Getting Started with Hosted OpenMemory
-
-The fastest way to get started is with our hosted version - no setup required.
-
-### 1. Get Your API Key
-Visit [app.openmemory.dev](https://app.openmemory.dev) to sign up and get your `OPENMEMORY_API_KEY`.
-
-### 2. Install and Connect to Your Preferred Client
-Example commands (replace `your-key` with your actual API key):
-
-**For Claude Desktop:**
-```bash
+<CodeGroup>
+```bash Claude Desktop
 npx @openmemory/install --client claude --env OPENMEMORY_API_KEY=your-key
 ```
 
-**For Cursor:**
-```bash
+```bash Cursor
 npx @openmemory/install --client cursor --env OPENMEMORY_API_KEY=your-key
 ```
 
-**For Windsurf:**
-```bash
+```bash Windsurf
 npx @openmemory/install --client windsurf --env OPENMEMORY_API_KEY=your-key
 ```
+</CodeGroup>
+</Step>
 
-That's it! Your AI client now has persistent memory across sessions.
+<Step title="Start using persistent memory">
+Your AI client now has shared, persistent memory across all sessions. No manual configuration needed!
+</Step>
+</Steps>
+
+## What's Next?
+
+<CardGroup cols={2}>
+<Card title="Local Self-Hosted Setup" icon="server" href="#local-setup-self-hosted">
+Run OpenMemory locally with Docker for complete control and privacy
+</Card>
+
+<Card title="API Reference" icon="code" href="/openmemory/integrations">
+Explore MCP integration details and advanced configuration
+</Card>
+</CardGroup>
+
+---
 
 ## Local Setup (Self-Hosted)
 
-Prefer to run OpenMemory locally? Follow the instructions below for a self-hosted setup.
+### Quick Start with Docker
 
-## OpenMemory Easy Setup
-
-### Prerequisites
-- Docker
-- OpenAI API Key
-
-You can quickly run OpenMemory by running the following command:
-
-```bash
-curl -sL https://raw.githubusercontent.com/mem0ai/mem0/main/openmemory/run.sh | bash
-```
-
-You should set the `OPENAI_API_KEY` as a global environment variable:
+Run OpenMemory locally in seconds:
 
 ```bash
 export OPENAI_API_KEY=your_api_key
+curl -sL https://raw.githubusercontent.com/mem0ai/mem0/main/openmemory/run.sh | bash
 ```
 
-You can also set the `OPENAI_API_KEY` as a parameter to the script:
+This starts:
+- **OpenMemory API** at `http://localhost:8765`
+- **OpenMemory Dashboard** at `http://localhost:3000`
 
+> **Note:** Data is stored in the container. For persistent storage, follow the manual setup below.
+
+### Manual Setup (Production)
+
+<Steps>
+<Step title="Clone the repository">
 ```bash
-curl -sL https://raw.githubusercontent.com/mem0ai/mem0/main/openmemory/run.sh | OPENAI_API_KEY=your_api_key bash
-```
-
-This will start the OpenMemory server and the OpenMemory UI. Deleting the container will lead to the deletion of the memory store. We suggest you follow the instructions below to set up OpenMemory on your local machine with a more persistent memory store.
-
-## Setting Up OpenMemory
-
-Getting started with OpenMemory is straightforward and takes just a few minutes to set up on your local machine. Follow these steps:
-
-### 1. Clone the Repository
-```bash
-# Clone the repository
 git clone https://github.com/mem0ai/mem0.git
 cd mem0/openmemory
 ```
+</Step>
 
-### 2. Set Up Environment Variables
+<Step title="Configure environment variables">
+Create `.env` files in the api and ui directories:
 
-Before running the project, you need to configure environment variables for both the API and the UI.
-
-You can do this in one of the following ways:
-
-- **Manually:** Create a `.env` file in each of the following directories:
-  - `/api/.env`
-  - `/ui/.env`
-
-- **Using `.env.example` files:** Copy and rename the example files:
-  ```bash
-  cp api/.env.example api/.env
-  cp ui/.env.example ui/.env
-  ```
-
-- **Using Makefile** (if supported): Run:
-  ```bash
-  make env
-  ```
-
-#### Example `/api/.env`
+**api/.env:**
 ```bash
 OPENAI_API_KEY=sk-xxx
-USER=<user-id> # The User ID you want to associate the memories with
+USER=your-user-id
 ```
 
-#### Example `/ui/.env`
+**ui/.env:**
 ```bash
 NEXT_PUBLIC_API_URL=http://localhost:8765
-NEXT_PUBLIC_USER_ID=<user-id> # Same as the user ID for environment variable in api
+NEXT_PUBLIC_USER_ID=your-user-id
 ```
+</Step>
 
-### 3. Build and Run the Project
-You can run the project using the following two commands:
+<Step title="Build and start">
 ```bash
-make build # Builds the MCP server and UI
-make up    # Runs OpenMemory MCP server and UI
+make build  # Build MCP server and UI
+make up     # Start OpenMemory services
 ```
 
-After running these commands, you will have:
-- OpenMemory MCP server running at http://localhost:8765 (API documentation available at http://localhost:8765/docs)
-- OpenMemory UI running at http://localhost:3000
+Access:
+- **API:** http://localhost:8765 (docs at /docs)
+- **Dashboard:** http://localhost:3000
+</Step>
+</Steps>
 
-#### UI Not Working on http://localhost:3000?
+### Connect Your MCP Client
 
-If the UI does not start properly on http://localhost:3000, try running it manually:
-
-```bash
-cd ui
-pnpm install
-pnpm dev
-```
-
-You can configure the MCP client using the following command (replace `username` with your username):
+After local setup, connect your client:
 
 ```bash
-npx @openmemory/install local "http://localhost:8765/mcp/cursor/sse/username" --client cursor
+npx @openmemory/install local "http://localhost:8765/mcp/cursor/sse/your-username" --client cursor
 ```
 
-The OpenMemory dashboard will be available at http://localhost:3000. From here, you can view and manage your memories and check connection status with your MCP clients.
+Replace:
+- `your-username` with your actual username
+- `cursor` with your client (claude, windsurf, etc.)
 
-Once set up, OpenMemory runs locally on your machine, ensuring all your AI memories remain private and secure while being accessible across any compatible MCP client.
+## Additional Resources
 
-## Getting Started Today
-
-GitHub Repository: https://github.com/mem0ai/mem0/tree/main/openmemory
+- **[GitHub Repository](https://github.com/mem0ai/mem0/tree/main/openmemory)** - Source code and issues
+- **[MCP Specification](https://spec.modelcontextprotocol.io/)** - Learn about Model Context Protocol
+- **[Mem0 Platform](/platform/quickstart)** - Explore the hosted Mem0 Platform alternative

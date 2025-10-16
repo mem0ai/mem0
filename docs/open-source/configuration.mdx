@@ -1,0 +1,195 @@
+---
+title: "Configuration"
+description: "Complete reference for configuring Mem0 with custom LLMs, vector stores, embedders, and graph stores"
+icon: "sliders"
+iconType: "solid"
+---
+
+Mem0 offers extensive configuration options to customize its behavior according to your needs. These configurations span different components like vector stores, language models, embedders, and graph stores.
+
+## Basic Configuration
+
+The simplest way to use Mem0 is with default OpenAI settings:
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your-api-key"
+m = Memory()
+```
+
+## Configuration Options
+
+<AccordionGroup>
+<Accordion title="Vector Store Configuration">
+| Parameter    | Description                     | Default     |
+|-------------|---------------------------------|-------------|
+| `provider`   | Vector store provider (e.g., "qdrant") | "qdrant"   |
+| `host`       | Host address                    | "localhost" |
+| `port`       | Port number                     | 6333       |
+</Accordion>
+
+<Accordion title="LLM Configuration">
+| Parameter              | Description                                   | Provider          |
+|-----------------------|-----------------------------------------------|-------------------|
+| `provider`            | LLM provider (e.g., "openai", "anthropic")    | All              |
+| `model`               | Model to use                                  | All              |
+| `temperature`         | Temperature of the model                      | All              |
+| `api_key`             | API key to use                                | All              |
+| `max_tokens`          | Tokens to generate                            | All              |
+| `top_p`               | Probability threshold for nucleus sampling    | All              |
+| `top_k`               | Number of highest probability tokens to keep  | All              |
+| `http_client_proxies` | Allow proxy server settings                   | AzureOpenAI      |
+| `models`              | List of models                                | Openrouter       |
+| `route`               | Routing strategy                              | Openrouter       |
+| `openrouter_base_url` | Base URL for Openrouter API                  | Openrouter       |
+| `site_url`            | Site URL                                      | Openrouter       |
+| `app_name`            | Application name                              | Openrouter       |
+| `ollama_base_url`     | Base URL for Ollama API                      | Ollama           |
+| `openai_base_url`     | Base URL for OpenAI API                      | OpenAI           |
+| `azure_kwargs`        | Azure LLM args for initialization            | AzureOpenAI      |
+| `deepseek_base_url`   | Base URL for DeepSeek API                    | DeepSeek         |
+</Accordion>
+
+<Accordion title="Embedder Configuration">
+| Parameter    | Description                     | Default                      |
+|-------------|---------------------------------|------------------------------|
+| `provider`   | Embedding provider              | "openai"                     |
+| `model`      | Embedding model to use          | "text-embedding-3-small"     |
+| `api_key`    | API key for embedding service   | None                        |
+</Accordion>
+
+<Accordion title="Graph Store Configuration">
+| Parameter    | Description                     | Default     |
+|-------------|---------------------------------|-------------|
+| `provider`   | Graph store provider (e.g., "neo4j") | "neo4j"    |
+| `url`        | Connection URL                  | None        |
+| `username`   | Authentication username         | None        |
+| `password`   | Authentication password         | None        |
+</Accordion>
+
+<Accordion title="General Configuration">
+| Parameter         | Description                          | Default                    |
+|------------------|--------------------------------------|----------------------------|
+| `history_db_path` | Path to the history database         | "{mem0_dir}/history.db"    |
+| `version`         | API version                          | "v1.1"                     |
+| `custom_fact_extraction_prompt`   | Custom prompt for memory processing  | None                       |
+| `custom_update_memory_prompt` | Custom prompt for memory updates | None                |
+</Accordion>
+
+<Accordion title="Complete Configuration Example">
+```python
+config = {
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "host": "localhost",
+            "port": 6333
+        }
+    },
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "api_key": "your-api-key",
+            "model": "gpt-4"
+        }
+    },
+    "embedder": {
+        "provider": "openai",
+        "config": {
+            "api_key": "your-api-key",
+            "model": "text-embedding-3-small"
+        }
+    },
+    "graph_store": {
+        "provider": "neo4j",
+        "config": {
+            "url": "neo4j+s://your-instance",
+            "username": "neo4j",
+            "password": "password"
+        }
+    },
+    "history_db_path": "/path/to/history.db",
+    "version": "v1.1",
+    "custom_fact_extraction_prompt": "Optional custom prompt for fact extraction for memory",
+    "custom_update_memory_prompt": "Optional custom prompt for update memory"
+}
+```
+</Accordion>
+</AccordionGroup>
+
+## Configuration Recipes
+
+### Production Setup with Qdrant
+
+Run Qdrant vector store in production:
+
+```bash
+docker pull qdrant/qdrant
+
+docker run -p 6333:6333 -p 6334:6334 \
+    -v $(pwd)/qdrant_storage:/qdrant/storage:z \
+    qdrant/qdrant
+```
+
+Then configure Mem0:
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your-api-key"
+
+config = {
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "host": "localhost",
+            "port": 6333,
+        }
+    },
+}
+
+m = Memory.from_config(config)
+```
+
+### Fully Local Setup with Ollama
+
+Run Mem0 completely locally without external API dependencies. See the [Mem0 with Ollama](../examples/mem0-with-ollama) example for detailed instructions.
+
+### Graph Memory Setup
+
+Configure Neo4j graph store for advanced memory relationships:
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your-api-key"
+
+config = {
+    "graph_store": {
+        "provider": "neo4j",
+        "config": {
+            "url": "neo4j+s://---",
+            "username": "neo4j",
+            "password": "---"
+        }
+    }
+}
+
+m = Memory.from_config(config_dict=config)
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Memory Operations" icon="database" href="../features/core-memory-operations">
+Learn about adding, searching, updating, and deleting memories
+</Card>
+
+<Card title="Graph Memory" icon="diagram-project" href="../graph-memory/overview">
+Explore advanced relationship-based memory with graph stores
+</Card>
+</CardGroup>

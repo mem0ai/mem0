@@ -1,32 +1,140 @@
 ---
-title: Overview
-description: 'Empower your AI applications with long-term memory and personalization'
-icon: "eye"
-iconType: "solid"
+title: "Overview"
+description: "Managed memory layer for AI agents - production-ready in minutes"
+icon: "cloud"
 ---
 
 ## Welcome to Mem0 Platform
 
-The Mem0 Platform is a managed service and the easiest way to add our powerful memory layer to your applications. 
+**Mem0 Platform is a fully managed memory layer for AI agents.** Add persistent, personalized memory to your AI applications in minutes - no infrastructure setup required.
+
+### The Difference Mem0 Makes
+
+**Before Mem0 - Every conversation starts from scratch**
+
+```python
+client = OpenAI()
+
+response = client.chat.completions.create(
+    model="gpt-4",
+    messages=[
+        {"role": "user", "content": "I'm traveling to SF next week"}
+    ]
+)
+```
+
+Without memory, every conversation is isolated. User preferences disappear between sessions, previous context is lost, and personalization becomes impossible. Your AI can't learn or adapt to individual users.
+
+---
+
+**With Mem0 - Context that persists and personalizes**
+
+```python
+from mem0 import MemoryClient
+from openai import OpenAI
+
+# Initialize with memory
+mem0 = MemoryClient(api_key="your-mem0-key")
+openai_client = OpenAI()
+
+# Store conversation context
+messages = [{"role": "user", "content": "I'm traveling to SF next week"}]
+mem0.add(messages, user_id="alex")
+
+# Retrieve relevant memories for personalization
+memories = mem0.search("travel plans", user_id="alex")
+# Returns: Alex is traveling to SF, prefers vegetarian food, allergic to nuts
+```
+
+Now your AI remembers. Context persists across sessions, preferences are automatically recalled, and responses adapt to each user's history. All with sub-50ms latency that won't slow down your application.
+
+---
+
+## Explore Platform Capabilities
+
+<CardGroup cols={2}>
+  <Card
+    title="Platform Quickstart"
+    icon="rocket"
+    href="/platform/quickstart"
+  >
+    Get your first memory stored in 5 minutes. Step-by-step guide with code examples.
+  </Card>
+
+  <Card
+    title="Platform vs Open Source"
+    icon="scale"
+    href="/platform/platform-vs-oss"
+  >
+    Compare managed and self-hosted options. See which fits your needs best.
+  </Card>
+
+  <Card
+    title="Memory Types"
+    icon="brain"
+    href="/core-concepts/memory-types"
+  >
+    Understand user memories, agent memories, and session-specific context.
+  </Card>
+
+  <Card
+    title="Platform Features"
+    icon="sparkles"
+    href="/platform/features/platform-overview"
+  >
+    Explore graph memory, multimodal support, webhooks, and advanced retrieval.
+  </Card>
+
+  <Card
+    title="Framework Integrations"
+    icon="plug"
+    href="/integrations"
+  >
+    Use Mem0 with LangChain, CrewAI, LlamaIndex, and 15+ other frameworks.
+  </Card>
+
+  <Card
+    title="Dashboard"
+    icon="chart-line"
+    href="https://app.mem0.ai"
+  >
+    Monitor memory operations, track usage, and manage your AI agents.
+  </Card>
+</CardGroup>
+
+---
 
 ## Why Choose Mem0 Platform?
 
-Mem0 Platform offers a powerful, user-centric solution for AI memory management with a few key features:
+| Feature | What You Get |
+|---------|--------------|
+| **Fast Setup** | Add 4 lines of code and you're production-ready. No vector DB setup, no LLM configuration, no DevOps. |
+| **Production Scale** | Automatic scaling, high availability, and fully managed infrastructure. Focus on your app, not operations. |
+| **Advanced Features** | Graph memory, webhooks, multimodal support, and custom categories - exclusive to Platform. |
+| **Enterprise Ready** | SOC 2 Type II certified, GDPR compliant, with dedicated support for production workloads. |
 
-1. **Simplified Development**: Integrate comprehensive memory capabilities with just 4 lines of code. Our API-first approach allows you to focus on building great features while we handle the complexities of memory management.
+<Info>
+**Need self-hosting?** Check out [Mem0 Open Source](/open-source/overview) for complete infrastructure control and customization.
+</Info>
 
-2. **Scalable Solution**: Whether you're working on a prototype or a production-ready system, Mem0 is designed to grow with your application. Our platform effortlessly scales to meet your evolving needs.
-
-3. **Enhanced Performance**: Experience lightning-fast response times with sub-50ms latency, ensuring smooth and responsive user interactions in your AI applications.
-
-4. **Insightful Dashboard**: Gain valuable insights and maintain full control over your AI's memory through our intuitive dashboard. Easily manage memories and access key user insights.
-
-
-## Getting Started
-
-Check out our [Platform Guide](/platform/quickstart) to start using Mem0 platform quickly.
+---
 
 ## Next Steps
 
-- Sign up to the [Mem0 Platform](https://mem0.dev/pd)
-- Join our [Discord](https://mem0.dev/Did) with other developers and get support.
+<CardGroup cols={2}>
+  <Card
+    title="Start Building"
+    icon="rocket"
+    href="/platform/quickstart"
+  >
+    Follow the quickstart guide to create your first memory in 5 minutes
+  </Card>
+
+  <Card
+    title="Compare Options"
+    icon="code-compare"
+    href="/platform/platform-vs-oss"
+  >
+    See the full comparison between Platform and Open Source
+  </Card>
+</CardGroup>

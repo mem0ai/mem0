@@ -122,8 +122,10 @@ Define the two key memory functions that will be registered as tools:
         """Add a message to the memory store"""
         message = parameters.get("message")
         await mem0_client.add(
-            messages=message,
-            user_id=USER_ID
+            messages=message, 
+            user_id=USER_ID, 
+            output_format="v1.1", 
+            version="v2"
         )
         return "Memory added successfully"
 
@@ -131,12 +133,19 @@ Define the two key memory functions that will be registered as tools:
         """Retrieve relevant memories based on the input message"""
         message = parameters.get("message")
 
-        # For Platform API, user_id goes in filters
-        filters = {"user_id": USER_ID}
+        # Set up filters to retrieve memories for this specific user
+        filters = {
+            "AND": [
+                {
+                    "user_id": USER_ID
+                }
+            ]
+        }
 
         # Search for relevant memories using the message as a query
         results = await mem0_client.search(
             query=message,
+            version="v2", 
             filters=filters
         )
 
@@ -440,5 +449,3 @@ By integrating ElevenLabs Conversational AI with Mem0, you can create voice agen
 
 - [ElevenLabs Conversational AI Documentation](https://elevenlabs.io/docs/api-reference/conversational-ai)
 - [Mem0 Platform](https://app.mem0.ai/)
-
-<Snippet file="get-help.mdx" /> 

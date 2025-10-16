@@ -55,7 +55,7 @@ config = {
     "llm": {
         "provider": "openai",
         "config": {
-            "model": "gpt-4.1-nano-2025-04-14",
+            "model": "gpt-4o-mini",
             "temperature": 0.0,
             "api_key": keywordsai_api_key,
             "openai_base_url": base_url,
@@ -101,7 +101,7 @@ messages = [
 
 # Add memory and generate a response
 response = client.chat.completions.create(
-    model="openai/gpt-4.1-nano",
+    model="openai/gpt-4o",
     messages=messages,
     extra_body={
         "mem0_params": {
@@ -135,5 +135,3 @@ Integrating Mem0 with Keywords AI provides a powerful combination for building A
 
 - [Keywords AI Documentation](https://docs.keywordsai.co)
 - [Mem0 Platform](https://app.mem0.ai/)
-
-<Snippet file="get-help.mdx" />
