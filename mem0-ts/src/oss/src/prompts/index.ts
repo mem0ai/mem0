@@ -34,6 +34,7 @@ export const MemoryUpdateSchema = z.object({
 
 export function getFactRetrievalMessages(
   parsedMessages: string,
+  customPrompt?: string,
 ): [string, string] {
   const systemPrompt = `You are a Personal Information Organizer, specialized in accurately storing facts, user memories, and preferences. Your primary role is to extract relevant pieces of information from conversations and organize them into distinct, manageable facts. This allows for easy retrieval and personalization in future interactions. Below are the types of information you need to focus on and the detailed instructions on how to handle the input data.
   
@@ -88,6 +89,13 @@ export function getFactRetrievalMessages(
   `;
 
   const userPrompt = `Following is a conversation between the user and the assistant. You have to extract the relevant facts and preferences about the user, if any, from the conversation and return them in the JSON format as shown above.\n\nInput:\n${parsedMessages}`;
+
+  const customPromptWithJsonHandling = customPrompt ? ` ${customPrompt} Your response must be a valid JSON.` : "";
+
+  // If custom prompt is provided, that will be your system prompt now and user prompt will be parsed message [ based on existing functionality ]
+    if (customPrompt) {
+        return [customPromptWithJsonHandling, "Input:\n" + parsedMessages];
+    }
 
   return [systemPrompt, userPrompt];
 }
