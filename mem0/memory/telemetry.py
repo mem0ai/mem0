@@ -28,9 +28,6 @@ class AnonymousTelemetry:
 
         self.user_id = get_or_create_user_id(vector_store)
 
-        if not MEM0_TELEMETRY:
-            self.posthog.disabled = True
-
     def capture_event(self, event_name, properties=None, user_email=None):
         if properties is None:
             properties = {}
@@ -56,6 +53,9 @@ client_telemetry = AnonymousTelemetry()
 
 
 def capture_event(event_name, memory_instance, additional_data=None):
+    if not MEM0_TELEMETRY:
+        return
+
     oss_telemetry = AnonymousTelemetry(
         vector_store=memory_instance._telemetry_vector_store
         if hasattr(memory_instance, "_telemetry_vector_store")
@@ -78,9 +78,13 @@ def capture_event(event_name, memory_instance, additional_data=None):
         event_data.update(additional_data)
 
     oss_telemetry.capture_event(event_name, event_data)
+    oss_telemetry.close()
 
 
 def capture_client_event(event_name, instance, additional_data=None):
+    if not MEM0_TELEMETRY:
+        return
+
     event_data = {
         "function": f"{instance.__class__.__module__}.{instance.__class__.__name__}",
     }
