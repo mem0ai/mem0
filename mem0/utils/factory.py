@@ -145,6 +145,7 @@ class EmbedderFactory:
         "lmstudio": "mem0.embeddings.lmstudio.LMStudioEmbedding",
         "langchain": "mem0.embeddings.langchain.LangchainEmbedding",
         "aws_bedrock": "mem0.embeddings.aws_bedrock.AWSBedrockEmbedding",
+        "fastembed": "mem0.embeddings.fastembed.FastEmbedEmbedding",
     }
 
     @classmethod
