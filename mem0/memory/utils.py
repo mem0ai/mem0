@@ -2,26 +2,31 @@ import hashlib
 import re
 
 from mem0.configs.prompts import (
+    AGENT_MEMORY_EXTRACTION_PROMPT,
     FACT_RETRIEVAL_PROMPT,
     USER_MEMORY_EXTRACTION_PROMPT,
-    AGENT_MEMORY_EXTRACTION_PROMPT,
 )
 
 
 def get_fact_retrieval_messages(message, is_agent_memory=False):
     """Get fact retrieval messages based on the memory type.
-    
+
     Args:
         message: The message content to extract facts from
         is_agent_memory: If True, use agent memory extraction prompt, else use user memory extraction prompt
-        
+
     Returns:
         tuple: (system_prompt, user_prompt)
     """
-    if is_agent_memory:
-        return AGENT_MEMORY_EXTRACTION_PROMPT, f"Input:\n{message}"
-    else:
-        return USER_MEMORY_EXTRACTION_PROMPT, f"Input:\n{message}"
+    from mem0.configs import settings
+
+    base_prompt = AGENT_MEMORY_EXTRACTION_PROMPT if is_agent_memory else USER_MEMORY_EXTRACTION_PROMPT
+
+    # Add thinking mode instruction if enabled
+    if settings.config.get("llm", {}).get("config", {}).get("use_thinking_mode", False):
+        base_prompt = "Think step-by-step:\n" + base_prompt
+
+    return base_prompt, f"Input:\n{message}"
 
 
 def get_fact_retrieval_messages_legacy(message):
@@ -64,9 +69,8 @@ def remove_code_blocks(content: str) -> str:
     """
     pattern = r"^```[a-zA-Z0-9]*\n([\s\S]*?)\n```$"
     match = re.match(pattern, content.strip())
-    match_res=match.group(1).strip() if match else content.strip()
+    match_res = match.group(1).strip() if match else content.strip()
     return re.sub(r"<think>.*?</think>", "", match_res, flags=re.DOTALL).strip()
-
 
 
 def extract_json(text):
@@ -75,11 +79,22 @@ def extract_json(text):
     If no code block is found, returns the text as-is.
     """
     text = text.strip()
+    if not text:
+        return "{}"  # Return empty JSON object for empty input to avoid parse errors
+
+    # Existing regex for code blocks
     match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
     if match:
-        json_str = match.group(1)
+        json_str = match.group(1).strip()
     else:
-        json_str = text  # assume it's raw JSON
+        json_str = text
+
+    # New: Try to find JSON-like substring if full text isn't valid
+    if not json_str.startswith("{"):
+        json_match = re.search(r"\{.*\}", json_str, re.DOTALL)
+        if json_match:
+            json_str = json_match.group(0)
+
     return json_str
 
 
@@ -205,4 +220,3 @@ def sanitize_relationship_for_cypher(relationship) -> str:
         sanitized = sanitized.replace(old, new)
 
     return re.sub(r"_+", "_", sanitized).strip("_")
-
