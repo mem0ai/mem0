@@ -712,7 +712,7 @@ class Memory(MemoryBase):
         memories_result = self.vector_store.list(filters=filters, limit=limit)
         actual_memories = (
             memories_result[0]
-            if isinstance(memories_result, (tuple, list)) and len(memories_result) > 0
+            if isinstance(memories_result, (tuple)) and len(memories_result) > 0
             else memories_result
         )
 
