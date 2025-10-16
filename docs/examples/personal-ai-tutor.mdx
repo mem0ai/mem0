@@ -58,7 +58,7 @@ class PersonalAITutor:
         """
         # Start a streaming response request to the AI
         response = self.client.responses.create(
-            model="gpt-4o",
+            model="gpt-4.1-nano-2025-04-14",
             instructions="You are a personal AI Tutor.",
             input=question,
             stream=True

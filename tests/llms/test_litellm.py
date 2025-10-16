@@ -24,7 +24,7 @@ def test_generate_response_with_unsupported_model(mock_litellm):
 
 
 def test_generate_response_without_tools(mock_litellm):
-    config = BaseLlmConfig(model="gpt-4o", temperature=0.7, max_tokens=100, top_p=1)
+    config = BaseLlmConfig(model="gpt-4.1-nano-2025-04-14", temperature=0.7, max_tokens=100, top_p=1)
     llm = litellm.LiteLLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
@@ -39,13 +39,13 @@ def test_generate_response_without_tools(mock_litellm):
     response = llm.generate_response(messages)
 
     mock_litellm.completion.assert_called_once_with(
-        model="gpt-4o", messages=messages, temperature=0.7, max_tokens=100, top_p=1.0
+        model="gpt-4.1-nano-2025-04-14", messages=messages, temperature=0.7, max_tokens=100, top_p=1.0
     )
     assert response == "I'm doing well, thank you for asking!"
 
 
 def test_generate_response_with_tools(mock_litellm):
-    config = BaseLlmConfig(model="gpt-4o", temperature=0.7, max_tokens=100, top_p=1)
+    config = BaseLlmConfig(model="gpt-4.1-nano-2025-04-14", temperature=0.7, max_tokens=100, top_p=1)
     llm = litellm.LiteLLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
@@ -82,7 +82,7 @@ def test_generate_response_with_tools(mock_litellm):
     response = llm.generate_response(messages, tools=tools)
 
     mock_litellm.completion.assert_called_once_with(
-        model="gpt-4o", messages=messages, temperature=0.7, max_tokens=100, top_p=1, tools=tools, tool_choice="auto"
+        model="gpt-4.1-nano-2025-04-14", messages=messages, temperature=0.7, max_tokens=100, top_p=1, tools=tools, tool_choice="auto"
     )
 
     assert response["content"] == "I've added the memory for you."
