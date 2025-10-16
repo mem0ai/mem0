@@ -1,162 +1,161 @@
 ---
 title: Sentence Transformer
+description: 'Local reranking with HuggingFace cross-encoder models'
+icon: "server"
+iconType: "solid"
 ---
 
-Sentence Transformer rerankers use cross-encoder models that are specifically designed for ranking tasks. These models can run locally and provide good reranking performance without external API calls.
+Sentence Transformer reranker provides local reranking using HuggingFace cross-encoder models, perfect for privacy-focused deployments where you want to keep data on-premises.
 
-## Usage
+## Models
 
-To use Sentence Transformer reranker with Mem0:
+Any HuggingFace cross-encoder model can be used. Popular choices include:
 
-```python
+- **`cross-encoder/ms-marco-MiniLM-L-6-v2`**: Default, good balance of speed and accuracy
+- **`cross-encoder/ms-marco-TinyBERT-L-2-v2`**: Fastest, smaller model size
+- **`cross-encoder/ms-marco-electra-base`**: Higher accuracy, larger model
+- **`cross-encoder/stsb-distilroberta-base`**: Good for semantic similarity tasks
+
+## Installation
+
+```bash
+pip install sentence-transformers
+```
+
+## Configuration
+
+```python Python
 from mem0 import Memory
 
 config = {
-    "reranker": {
+    "vector_store": {
+        "provider": "chroma",
+        "config": {
+            "collection_name": "my_memories",
+            "path": "./chroma_db"
+        }
+    },
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "gpt-4o-mini"
+        }
+    },
+    "rerank": {
         "provider": "sentence_transformer",
         "config": {
             "model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
-            "device": "cpu",
-            "top_n": 10
+            "device": "cpu",  # or "cuda" for GPU
+            "batch_size": 32,
+            "show_progress_bar": False,
+            "top_k": 5
+        }
+    }
+}
+
+memory = Memory.from_config(config)
+```
+
+## GPU Acceleration
+
+For better performance, use GPU acceleration:
+
+```python Python
+config = {
+    "rerank": {
+        "provider": "sentence_transformer",
+        "config": {
+            "model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+            "device": "cuda",  # Use GPU
+            "batch_size": 64   # high batch size for high memory GPUs
+        }
+    }
+}
+```
+
+## Usage Example
+
+```python Python
+from mem0 import Memory
+
+# Initialize memory with local reranker
+config = {
+    "vector_store": {"provider": "chroma"},
+    "llm": {"provider": "openai", "config": {"model": "gpt-4o-mini"}},
+    "rerank": {
+        "provider": "sentence_transformer",
+        "config": {
+            "model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+            "device": "cpu"
         }
     }
 }
 
 memory = Memory.from_config(config)
 
-# Use memory as usual
-memory.add("I love playing basketball", user_id="alice")
-memory.add("I enjoy watching movies", user_id="alice")
+# Add memories
+messages = [
+    {"role": "user", "content": "I love reading science fiction novels"},
+    {"role": "user", "content": "My favorite author is Isaac Asimov"},
+    {"role": "user", "content": "I also enjoy watching sci-fi movies"}
+]
 
-# Search will now use Sentence Transformer reranking
-results = memory.search("What sports does Alice like?", user_id="alice")
-```
+memory.add(messages, user_id="charlie")
 
-## Configuration
+# Search with local reranking
+results = memory.search("What books does the user like?", user_id="charlie")
 
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `model` | Sentence Transformer cross-encoder model | `cross-encoder/ms-marco-MiniLM-L-6-v2` |
-| `device` | Device to run on (`cpu`, `cuda`, `mps`) | `cpu` |
-| `top_n` | Number of results to return | `10` |
-
-## Popular Models
-
-### Lightweight Models
-- `cross-encoder/ms-marco-MiniLM-L-6-v2`: Fast and efficient
-- `cross-encoder/ms-marco-MiniLM-L-4-v2`: Even faster, slightly lower accuracy
-- `cross-encoder/ms-marco-MiniLM-L-2-v2`: Fastest, good for real-time applications
-
-### High-Performance Models
-- `cross-encoder/ms-marco-electra-base`: Better accuracy, larger model
-- `ms-marco-MiniLM-L-12-v2`: Balanced performance and speed
-- `cross-encoder/qnli-electra-base`: Good for question-answering tasks
-
-## Device Configuration
-
-### CPU Usage
-```python
-config = {
-    "reranker": {
-        "provider": "sentence_transformer",
-        "config": {
-            "model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
-            "device": "cpu",
-            "top_n": 10
-        }
-    }
-}
-```
-
-### GPU Usage (CUDA)
-```python
-config = {
-    "reranker": {
-        "provider": "sentence_transformer",
-        "config": {
-            "model": "cross-encoder/ms-marco-electra-base",
-            "device": "cuda",
-            "top_n": 15
-        }
-    }
-}
-```
-
-### Apple Silicon (MPS)
-```python
-config = {
-    "reranker": {
-        "provider": "sentence_transformer",
-        "config": {
-            "model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
-            "device": "mps",
-            "top_n": 10
-        }
-    }
-}
-```
-
-## Installation
-
-The sentence-transformers library is required:
-
-```bash
-pip install sentence-transformers
-```
-
-For GPU support with CUDA:
-```bash
-pip install sentence-transformers torch
-```
-
-## Performance Optimization
-
-### Model Selection
-- Use MiniLM models for faster inference
-- Use larger models (electra-base) for better accuracy
-- Consider the trade-off between speed and quality
-
-### Device Optimization
-- Use GPU (`cuda` or `mps`) for larger models
-- CPU is sufficient for MiniLM models
-- Batch processing improves GPU utilization
-
-### Memory Considerations
-```python
-# For memory-constrained environments
-config = {
-    "reranker": {
-        "provider": "sentence_transformer",
-        "config": {
-            "model": "cross-encoder/ms-marco-MiniLM-L-2-v2",  # Smallest model
-            "device": "cpu",
-            "top_n": 5  # Fewer results to process
-        }
-    }
-}
+for result in results['results']:
+    print(f"Memory: {result['memory']}")
+    print(f"Vector Score: {result['score']:.3f}")
+    print(f"Rerank Score: {result['rerank_score']:.3f}")
+    print()
 ```
 
 ## Custom Models
 
-You can use any Sentence Transformer cross-encoder model:
+You can use any HuggingFace cross-encoder model:
 
-```python
+```python Python
+# Using a different model
 config = {
-    "reranker": {
-        "provider": "sentence_transformer",
+    "rerank": {
+        "provider": "sentence_transformer", 
         "config": {
-            "model": "your-custom-model-name",
-            "device": "cpu",
-            "top_n": 10
+            "model": "cross-encoder/stsb-distilroberta-base",
+            "device": "cpu"
         }
     }
 }
 ```
 
+## Configuration Parameters
+
+| Parameter | Description | Type | Default |
+|-----------|-------------|------|---------|
+| `model` | HuggingFace cross-encoder model name | `str` | `"cross-encoder/ms-marco-MiniLM-L-6-v2"` |
+| `device` | Device to run model on (`cpu`, `cuda`, etc.) | `str` | `None` |
+| `batch_size` | Batch size for processing documents | `int` | `32` |
+| `show_progress_bar` | Show progress bar during processing | `bool` | `False` |
+| `top_k` | Maximum documents to return | `int` | `None` |
+
 ## Advantages
 
-- **Local Processing**: No external API calls required
-- **Privacy**: Data stays on your infrastructure
-- **Cost Effective**: No per-request charges
-- **Fast**: Especially with GPU acceleration
-- **Customizable**: Can fine-tune on your specific data
+- **Privacy**: Complete local processing, no external API calls
+- **Cost**: No per-token charges after initial model download
+- **Customization**: Use any HuggingFace cross-encoder model
+- **Offline**: Works without internet connection after model download
+
+## Performance Considerations
+
+- **First Run**: Model download may take time initially
+- **Memory Usage**: Models require GPU/CPU memory
+- **Batch Size**: Optimize batch size based on available memory
+- **Device**: GPU acceleration significantly improves speed
+
+## Best Practices
+
+1. **Model Selection**: Choose model based on accuracy vs speed requirements
+2. **Device Management**: Use GPU when available for better performance
+3. **Batch Processing**: Process multiple documents together for efficiency
+4. **Memory Monitoring**: Monitor system memory usage with larger models

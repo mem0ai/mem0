@@ -10,6 +10,12 @@ from mem0.configs.llms.lmstudio import LMStudioConfig
 from mem0.configs.llms.ollama import OllamaConfig
 from mem0.configs.llms.openai import OpenAIConfig
 from mem0.configs.llms.vllm import VllmConfig
+from mem0.configs.rerankers.base import BaseRerankerConfig
+from mem0.configs.rerankers.cohere import CohereRerankerConfig
+from mem0.configs.rerankers.sentence_transformer import SentenceTransformerRerankerConfig
+from mem0.configs.rerankers.zero_entropy import ZeroEntropyRerankerConfig
+from mem0.configs.rerankers.llm import LLMRerankerConfig
+from mem0.configs.rerankers.huggingface import HuggingFaceRerankerConfig
 from mem0.embeddings.mock import MockEmbeddings
 
 
@@ -219,3 +225,57 @@ class GraphStoreFactory:
         except (ImportError, AttributeError) as e:
             raise ImportError(f"Could not import MemoryGraph for provider '{provider_name}': {e}")
         return GraphClass(config)
+
+
+class RerankerFactory:
+    """
+    Factory for creating reranker instances with appropriate configurations.
+    Supports provider-specific configs following the same pattern as other factories.
+    """
+
+    # Provider mappings with their config classes
+    provider_to_class = {
+        "cohere": ("mem0.reranker.cohere_reranker.CohereReranker", CohereRerankerConfig),
+        "sentence_transformer": ("mem0.reranker.sentence_transformer_reranker.SentenceTransformerReranker", SentenceTransformerRerankerConfig),
+        "zero_entropy": ("mem0.reranker.zero_entropy_reranker.ZeroEntropyReranker", ZeroEntropyRerankerConfig),
+        "llm_reranker": ("mem0.reranker.llm_reranker.LLMReranker", LLMRerankerConfig),
+        "huggingface": ("mem0.reranker.huggingface_reranker.HuggingFaceReranker", HuggingFaceRerankerConfig),
+    }
+
+    @classmethod
+    def create(cls, provider_name: str, config: Optional[Union[BaseRerankerConfig, Dict]] = None, **kwargs):
+        """
+        Create a reranker instance based on the provider and configuration.
+
+        Args:
+            provider_name: The reranker provider (e.g., 'cohere', 'sentence_transformer')
+            config: Configuration object or dictionary
+            **kwargs: Additional configuration parameters
+
+        Returns:
+            Reranker instance configured for the specified provider
+
+        Raises:
+            ImportError: If the provider class cannot be imported
+            ValueError: If the provider is not supported
+        """
+        if provider_name not in cls.provider_to_class:
+            raise ValueError(f"Unsupported reranker provider: {provider_name}")
+
+        class_path, config_class = cls.provider_to_class[provider_name]
+
+        # Handle configuration
+        if config is None:
+            config = config_class(**kwargs)
+        elif isinstance(config, dict):
+            config = config_class(**config, **kwargs)
+        elif not isinstance(config, BaseRerankerConfig):
+            raise ValueError(f"Config must be a {config_class.__name__} instance or dict")
+
+        # Import and create the reranker class
+        try:
+            reranker_class = load_class(class_path)
+        except (ImportError, AttributeError) as e:
+            raise ImportError(f"Could not import reranker for provider '{provider_name}': {e}")
+
+        return reranker_class(config)
