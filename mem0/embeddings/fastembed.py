@@ -1,4 +1,4 @@
-from typing import Optional, Literal, List
+from typing import Optional, Literal
 
 from mem0.embeddings.base import EmbeddingBase
 from mem0.configs.embeddings.base import BaseEmbedderConfig
