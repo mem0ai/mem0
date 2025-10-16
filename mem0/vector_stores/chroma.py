@@ -254,14 +254,79 @@ class ChromaDB(VectorStoreBase):
         Returns:
             dict[str, any]: Properly formatted where clause for ChromaDB.
         """
-        # If only one filter is supplied, return it as is
-        # (no need to wrap in $and based on chroma docs)
         if where is None:
             return {}
-        if len(where.keys()) <= 1:
-            return where
-        where_filters = []
-        for k, v in where.items():
-            if isinstance(v, str):
-                where_filters.append({k: v})
-        return {"$and": where_filters}
+        
+        def convert_condition(key: str, value: any) -> dict:
+            """Convert universal filter format to ChromaDB format."""
+            if value == "*":
+                # Wildcard - match any value (ChromaDB doesn't have direct wildcard, so we skip this filter)
+                return None
+            elif isinstance(value, dict):
+                # Handle comparison operators
+                chroma_condition = {}
+                for op, val in value.items():
+                    if op == "eq":
+                        chroma_condition[key] = {"$eq": val}
+                    elif op == "ne":
+                        chroma_condition[key] = {"$ne": val}
+                    elif op == "gt":
+                        chroma_condition[key] = {"$gt": val}
+                    elif op == "gte":
+                        chroma_condition[key] = {"$gte": val}
+                    elif op == "lt":
+                        chroma_condition[key] = {"$lt": val}
+                    elif op == "lte":
+                        chroma_condition[key] = {"$lte": val}
+                    elif op == "in":
+                        chroma_condition[key] = {"$in": val}
+                    elif op == "nin":
+                        chroma_condition[key] = {"$nin": val}
+                    elif op in ["contains", "icontains"]:
+                        # ChromaDB doesn't support contains, fallback to equality
+                        chroma_condition[key] = {"$eq": val}
+                    else:
+                        # Unknown operator, treat as equality
+                        chroma_condition[key] = {"$eq": val}
+                return chroma_condition
+            else:
+                # Simple equality
+                return {key: {"$eq": value}}
+        
+        processed_filters = []
+        
+        for key, value in where.items():
+            if key == "$or":
+                # Handle OR conditions
+                or_conditions = []
+                for condition in value:
+                    or_condition = {}
+                    for sub_key, sub_value in condition.items():
+                        converted = convert_condition(sub_key, sub_value)
+                        if converted:
+                            or_condition.update(converted)
+                    if or_condition:
+                        or_conditions.append(or_condition)
+                
+                if len(or_conditions) > 1:
+                    processed_filters.append({"$or": or_conditions})
+                elif len(or_conditions) == 1:
+                    processed_filters.append(or_conditions[0])
+            
+            elif key == "$not":
+                # Handle NOT conditions - ChromaDB doesn't have direct NOT, so we'll skip for now
+                continue
+                
+            else:
+                # Regular condition
+                converted = convert_condition(key, value)
+                if converted:
+                    processed_filters.append(converted)
+        
+        # Return appropriate format based on number of conditions
+        if len(processed_filters) == 0:
+            return {}
+        elif len(processed_filters) == 1:
+            return processed_filters[0]
+        else:
+            return {"$and": processed_filters}

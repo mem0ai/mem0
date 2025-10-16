@@ -1,10 +1,31 @@
 import hashlib
 import re
 
-from mem0.configs.prompts import FACT_RETRIEVAL_PROMPT
+from mem0.configs.prompts import (
+    FACT_RETRIEVAL_PROMPT,
+    USER_MEMORY_EXTRACTION_PROMPT,
+    AGENT_MEMORY_EXTRACTION_PROMPT,
+)
 
 
-def get_fact_retrieval_messages(message):
+def get_fact_retrieval_messages(message, is_agent_memory=False):
+    """Get fact retrieval messages based on the memory type.
+    
+    Args:
+        message: The message content to extract facts from
+        is_agent_memory: If True, use agent memory extraction prompt, else use user memory extraction prompt
+        
+    Returns:
+        tuple: (system_prompt, user_prompt)
+    """
+    if is_agent_memory:
+        return AGENT_MEMORY_EXTRACTION_PROMPT, f"Input:\n{message}"
+    else:
+        return USER_MEMORY_EXTRACTION_PROMPT, f"Input:\n{message}"
+
+
+def get_fact_retrieval_messages_legacy(message):
+    """Legacy function for backward compatibility."""
     return FACT_RETRIEVAL_PROMPT, f"Input:\n{message}"
 
 

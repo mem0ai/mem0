@@ -12,6 +12,7 @@ except ImportError:
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.configs.llms.aws_bedrock import AWSBedrockConfig
 from mem0.llms.base import LLMBase
+from mem0.memory.utils import extract_json
 
 logger = logging.getLogger(__name__)
 
@@ -371,7 +372,7 @@ class AWSBedrockLLM(LLMBase):
                         processed_response["tool_calls"].append(
                             {
                                 "name": item["toolUse"]["name"],
-                                "arguments": item["toolUse"]["input"],
+                                "arguments": json.loads(extract_json(json.dumps(item["toolUse"]["input"]))),
                             }
                         )
 
@@ -575,21 +576,26 @@ class AWSBedrockLLM(LLMBase):
             
             return self._parse_response(response)
         else:
-            prompt = self._format_messages(messages)
+            # For other providers and legacy Amazon models (like Titan)
+            if self.provider == "amazon":
+                # Legacy Amazon models need string formatting, not array formatting
+                prompt = self._format_messages_generic(messages)
+            else:
+                prompt = self._format_messages(messages)
             input_body = self._prepare_input(prompt)
 
-        # Convert to JSON
-        body = json.dumps(input_body)
+            # Convert to JSON
+            body = json.dumps(input_body)
 
-        # Make API call
-        response = self.client.invoke_model(
-            body=body,
-            modelId=self.config.model,
-            accept="application/json",
-            contentType="application/json",
-        )
+            # Make API call
+            response = self.client.invoke_model(
+                body=body,
+                modelId=self.config.model,
+                accept="application/json",
+                contentType="application/json",
+            )
 
-        return self._parse_response(response)
+            return self._parse_response(response)
 
     def list_available_models(self) -> List[Dict[str, Any]]:
         """List all available models in the current region."""

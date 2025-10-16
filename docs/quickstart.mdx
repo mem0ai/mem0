@@ -148,7 +148,7 @@ filters = {
         }
     ]
 }
-client.search(query, version="v2", filters=filters)
+client.search(query, filters=filters)
 ```
 
 ```javascript JavaScript
@@ -160,7 +160,7 @@ const filters = {
         }
     ]
 };
-client.search(query, { version: "v2", filters })
+client.search(query, { filters })
     .then(results => console.log(results))
     .catch(error => console.error(error));
 ```
@@ -219,7 +219,7 @@ filters = {
    ]
 }
 
-all_memories = client.get_all(version="v2", filters=filters, page=1, page_size=50)
+all_memories = client.get_all(filters=filters, page=1, page_size=50)
 ```
 
 ```javascript JavaScript
@@ -231,7 +231,7 @@ const filters = {
    ]
 };
 
-client.getAll({ version: "v2", filters, page: 1, page_size: 50 })
+client.getAll({ filters, page: 1, page_size: 50 })
     .then(memories => console.log(memories))
     .catch(error => console.error(error));
 ```
