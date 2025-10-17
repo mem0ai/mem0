@@ -9,7 +9,7 @@ Get started with Mem0's Python SDK in under 5 minutes. This guide shows you how 
 
 ## Prerequisites
 
-- Python 3.10 or higher
+- Python 3.9 or higher
 - OpenAI API key ([Get one here](https://platform.openai.com/api-keys))
 
 ## Installation
@@ -28,8 +28,7 @@ from mem0 import Memory
 
 os.environ["OPENAI_API_KEY"] = "your-api-key"
 m = Memory()
-
-````
+```
 </Step>
 
 <Step title="Add your first memory">
@@ -41,10 +40,9 @@ messages = [
 
 result = m.add(messages, user_id="alex")
 print(result)
-````
+```
 
 **Output:**
-
 ```json
 {
   "results": [
@@ -56,9 +54,17 @@ print(result)
   ]
 }
 ```
-
 </Step>
 </Steps>
+
+<Note>
+By default `Memory()` wires up:
+- OpenAI `gpt-4.1-nano-2025-04-14` for fact extraction and updates
+- OpenAI `text-embedding-3-small` embeddings (1536 dimensions)
+- Qdrant vector store with on-disk data at `/tmp/qdrant`
+- SQLite history at `~/.mem0/history.db`
+- No reranker (add one in the config when you need it)
+</Note>
 
 ## What's Next?
 
@@ -68,7 +74,7 @@ Learn how to search, update, and manage memories with full CRUD operations
 </Card>
 
 <Card title="Configuration" icon="sliders" href="/open-source/configuration">
-  Customize Mem0 with different LLMs, vector stores, and embedders for production use
+Customize Mem0 with different LLMs, vector stores, and embedders for production use
 </Card>
 
 <Card title="Advanced Features" icon="sparkles" href="/open-source/features/async-memory">
