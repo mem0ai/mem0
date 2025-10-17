@@ -7,9 +7,8 @@ import numpy as np
 from pydantic import BaseModel
 
 try:
-    from cassandra.cluster import Cluster, Session
+    from cassandra.cluster import Cluster
     from cassandra.auth import PlainTextAuthProvider
-    from cassandra.query import PreparedStatement
 except ImportError:
     raise ImportError(
         "Apache Cassandra vector store requires cassandra-driver. "

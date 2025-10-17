@@ -1,6 +1,6 @@
 import json
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 from mem0.vector_stores.cassandra import CassandraDB, OutputData
 
