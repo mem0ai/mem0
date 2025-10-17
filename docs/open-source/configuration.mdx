@@ -1,0 +1,325 @@
+---
+title: "Configuration"
+description: "Configure Mem0 with custom LLMs, vector stores, embedders, and rerankers for production deployments"
+icon: "sliders"
+iconType: "solid"
+---
+
+Mem0 is highly configurable, allowing you to customize every component of your memory system. Choose from **51+ supported providers** across LLMs, vector databases, embedders, and rerankers.
+
+## Quick Start
+
+The simplest setup uses OpenAI defaults:
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your-api-key"
+m = Memory()
+```
+
+For production or custom setups, configure specific components:
+
+```python
+from mem0 import Memory
+
+config = {
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "host": "localhost",
+            "port": 6333
+        }
+    },
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "gpt-4o-mini",
+            "temperature": 0.1
+        }
+    }
+}
+
+m = Memory.from_config(config)
+```
+
+## Configuration Components
+
+Mem0 has four configurable components. Click any to see all supported providers and detailed configuration options.
+
+<CardGroup cols={2}>
+<Card title="LLMs" icon="message-bot" href="/components/llms/overview">
+**17 providers** including OpenAI, Anthropic, Ollama, Groq, and more
+
+Configure the language model for memory extraction and processing
+</Card>
+
+<Card title="Vector Databases" icon="hard-drive" href="/components/vectordbs/overview">
+**25+ databases** including Qdrant, Chroma, Pinecone, Weaviate, and more
+
+Choose where to store and retrieve memory embeddings
+</Card>
+
+<Card title="Embedding Models" icon="cube" href="/components/embedders/overview">
+**9 providers** including OpenAI, HuggingFace, Ollama, and more
+
+Select the model to convert memories into vector embeddings
+</Card>
+
+<Card title="Rerankers" icon="ranking-star" href="/components/rerankers/overview">
+**4 models** including Cohere, Zero Entropy, and LLM-based
+
+Improve search relevance by re-scoring retrieved memories
+</Card>
+</CardGroup>
+
+## Configuration Recipes
+
+### Production Setup with Qdrant
+
+For production deployments, use a dedicated vector store:
+
+<Steps>
+<Step title="Start Qdrant">
+```bash
+docker pull qdrant/qdrant
+
+docker run -p 6333:6333 -p 6334:6334 \
+    -v $(pwd)/qdrant_storage:/qdrant/storage:z \
+    qdrant/qdrant
+```
+</Step>
+
+<Step title="Configure Mem0">
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your-api-key"
+
+config = {
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "host": "localhost",
+            "port": 6333,
+        }
+    }
+}
+
+m = Memory.from_config(config)
+```
+</Step>
+</Steps>
+
+### Fully Local Setup
+
+Run Mem0 completely offline with Ollama (no external APIs):
+
+<Card title="Local Setup with Ollama" icon="server" href="/examples/mem0-with-ollama">
+Step-by-step guide to run Mem0 with local LLM and embeddings
+</Card>
+
+### Multi-Cloud Setup
+
+Mix providers from different clouds:
+
+```python
+config = {
+    "llm": {
+        "provider": "azure_openai",
+        "config": {
+            "api_key": "azure-key",
+            "deployment_name": "gpt-4"
+        }
+    },
+    "vector_store": {
+        "provider": "pinecone",
+        "config": {
+            "api_key": "pinecone-key",
+            "index_name": "mem0"
+        }
+    },
+    "embedder": {
+        "provider": "vertexai",
+        "config": {
+            "model": "textembedding-gecko@003"
+        }
+    }
+}
+```
+
+### Graph Memory Setup
+
+Enable relationship tracking with Neo4j:
+
+```python
+config = {
+    "graph_store": {
+        "provider": "neo4j",
+        "config": {
+            "url": "neo4j+s://your-instance.databases.neo4j.io",
+            "username": "neo4j",
+            "password": "your-password"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+```
+
+<Card title="Graph Memory Guide" icon="diagram-project" href="/open-source/graph_memory/overview">
+Learn how to use graph memory for relationship-based retrieval
+</Card>
+
+## Advanced Configuration
+
+### Custom Prompts
+
+Override default prompts for memory processing:
+
+```python
+config = {
+    "custom_fact_extraction_prompt": """
+    Extract key facts from the conversation.
+    Focus on: preferences, decisions, and context.
+    Output as a single sentence.
+    """,
+    "custom_update_memory_prompt": """
+    Update the existing memory with new information.
+    Preserve important context from the old memory.
+    """
+}
+```
+
+<CardGroup cols={2}>
+<Card title="Custom Fact Extraction" icon="sparkles" href="/open-source/features/custom-fact-extraction-prompt">
+Customize how memories are extracted from conversations
+</Card>
+
+<Card title="Custom Memory Updates" icon="pen" href="/open-source/features/custom-update-memory-prompt">
+Control how existing memories are modified
+</Card>
+</CardGroup>
+
+### Reranking for Better Search
+
+Add reranking to improve search relevance:
+
+```python
+config = {
+    "rerank": {
+        "provider": "cohere",
+        "config": {
+            "model": "rerank-english-v3.0",
+            "top_k": 5
+        }
+    }
+}
+```
+
+<Card title="Reranking Guide" icon="arrow-up-arrow-down" href="/open-source/features/reranking">
+Learn how reranking improves memory search accuracy
+</Card>
+
+### History Database
+
+Configure where operation history is stored:
+
+```python
+config = {
+    "history_db_path": "/custom/path/to/history.db"
+}
+```
+
+## All Configuration Options
+
+<AccordionGroup>
+<Accordion title="LLM Configuration">
+| Parameter              | Description                                   | Provider          |
+|-----------------------|-----------------------------------------------|-------------------|
+| `provider`            | LLM provider (e.g., "openai", "anthropic")    | All              |
+| `model`               | Model to use                                  | All              |
+| `temperature`         | Temperature of the model (0.0-2.0)            | All              |
+| `api_key`             | API key to use                                | Most             |
+| `max_tokens`          | Maximum tokens to generate                    | All              |
+| `top_p`               | Nucleus sampling threshold                    | All              |
+| `top_k`               | Top-k sampling parameter                      | Some             |
+| `ollama_base_url`     | Base URL for Ollama API                      | Ollama           |
+| `openai_base_url`     | Base URL for OpenAI API                      | OpenAI           |
+| `azure_kwargs`        | Azure-specific initialization args           | Azure OpenAI     |
+
+**See all 17 LLM providers:** [LLMs Overview](/components/llms/overview)
+</Accordion>
+
+<Accordion title="Vector Store Configuration">
+Common parameters (provider-specific options vary):
+
+| Parameter    | Description                     | Example         |
+|-------------|---------------------------------|-----------------|
+| `provider`   | Vector store provider           | "qdrant"        |
+| `host`       | Host address                    | "localhost"     |
+| `port`       | Port number                     | 6333           |
+| `collection_name` | Collection/index name      | "memories"     |
+| `api_key`    | API key (for cloud stores)      | "your-key"     |
+
+**See all 25+ vector stores:** [Vector Databases Overview](/components/vectordbs/overview)
+</Accordion>
+
+<Accordion title="Embedder Configuration">
+| Parameter    | Description                     | Default                      |
+|-------------|---------------------------------|------------------------------|
+| `provider`   | Embedding provider              | "openai"                     |
+| `model`      | Embedding model to use          | "text-embedding-3-small"     |
+| `api_key`    | API key for embedding service   | None                        |
+
+**See all 9 embedder providers:** [Embedders Overview](/components/embedders/overview)
+</Accordion>
+
+<Accordion title="Reranker Configuration">
+| Parameter    | Description                     | Example                      |
+|-------------|---------------------------------|------------------------------|
+| `provider`   | Reranker provider               | "cohere"                     |
+| `model`      | Reranker model to use           | "rerank-english-v3.0"       |
+| `top_k`      | Number of results to return     | 5                           |
+| `api_key`    | API key for reranker service    | "your-key"                  |
+
+**See all reranker options:** [Rerankers Overview](/components/rerankers/overview)
+</Accordion>
+
+<Accordion title="Graph Store Configuration">
+| Parameter    | Description                     | Example                      |
+|-------------|---------------------------------|------------------------------|
+| `provider`   | Graph store provider            | "neo4j"                      |
+| `url`        | Connection URL                  | "neo4j+s://..."             |
+| `username`   | Authentication username         | "neo4j"                     |
+| `password`   | Authentication password         | "your-password"             |
+
+**Learn more:** [Graph Memory Overview](/open-source/graph_memory/overview)
+</Accordion>
+
+<Accordion title="General Configuration">
+| Parameter         | Description                          | Default                    |
+|------------------|--------------------------------------|----------------------------|
+| `history_db_path` | Path to the history database         | "{mem0_dir}/history.db"    |
+| `custom_fact_extraction_prompt`   | Custom prompt for memory extraction  | None                       |
+| `custom_update_memory_prompt` | Custom prompt for memory updates | None                |
+</Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={3}>
+<Card title="Python Quickstart" icon="python" href="/open-source/python-quickstart">
+Get started with the Python SDK
+</Card>
+
+<Card title="Self-Hosting Features" icon="server" href="/open-source/features/overview">
+Explore OSS-specific capabilities
+</Card>
+
+<Card title="Examples" icon="book" href="/examples">
+See configuration examples in action
+</Card>
+</CardGroup>
