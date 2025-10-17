@@ -9,6 +9,7 @@ import uuid
 import warnings
 from copy import deepcopy
 from datetime import datetime
+from types import SimpleNamespace
 from typing import Any, Dict, Optional
 
 import pytz
@@ -55,9 +56,9 @@ def _safe_deepcopy_config(config):
         return deepcopy(config)
     except Exception as e:
         logger.debug(f"Deepcopy failed, using JSON serialization: {e}")
-        
+
         config_class = type(config)
-        
+
         if hasattr(config, "model_dump"):
             try:
                 clone_dict = config.model_dump(mode="json")
@@ -65,15 +66,16 @@ def _safe_deepcopy_config(config):
                 clone_dict = {k: v for k, v in config.__dict__.items()}
         elif hasattr(config, "__dataclass_fields__"):
             from dataclasses import asdict
+
             clone_dict = asdict(config)
         else:
             clone_dict = {k: v for k, v in config.__dict__.items()}
-        
+
         sensitive_tokens = ("auth", "credential", "password", "token", "secret", "key", "connection_class")
         for field_name in list(clone_dict.keys()):
             if any(token in field_name.lower() for token in sensitive_tokens):
                 clone_dict[field_name] = None
-        
+
         try:
             return config_class(**clone_dict)
         except Exception as reconstruction_error:
@@ -82,6 +84,33 @@ def _safe_deepcopy_config(config):
                 f"Telemetry may be affected."
             )
             raise
+
+
+def _coerce_vector_store_entry(entry: Any):
+    """
+    Handle vector store responses that wrap actual entries in sequences or dicts.
+    Returns the first object that exposes the expected attributes.
+    """
+    if entry is None:
+        return None
+
+    if isinstance(entry, (tuple, list)):
+        for candidate in entry:
+            coerced_candidate = _coerce_vector_store_entry(candidate)
+            if hasattr(coerced_candidate, "id") and hasattr(coerced_candidate, "payload"):
+                return coerced_candidate
+        return None
+
+    if isinstance(entry, dict):
+        candidate_id = entry.get("id") or entry.get("_id")
+        payload = entry.get("payload")
+        if payload is None:
+            payload = {k: v for k, v in entry.items() if k not in {"id", "_id", "score"}}
+        if candidate_id is not None and payload is not None:
+            return SimpleNamespace(id=str(candidate_id), payload=payload, score=entry.get("score"))
+        return None
+
+    return entry
 
 
 def _build_filters_and_metadata(
@@ -219,7 +248,6 @@ class Memory(MemoryBase):
         telemetry_config_dict['collection_name'] = "mem0migrations"
 
         # Set path for file-based vector stores
-        telemetry_config = _safe_deepcopy_config(self.config.vector_store.config)
         if self.config.vector_store.provider in ["faiss", "qdrant"]:
             provider_path = f"migrations_{self.config.vector_store.provider}"
             telemetry_config_dict['path'] = os.path.join(mem0_dir, provider_path)
@@ -479,6 +507,11 @@ class Memory(MemoryBase):
                 filters=search_filters,
             )
             for mem in existing_memories:
+                mem = _coerce_vector_store_entry(mem)
+                if not mem or not hasattr(mem, "id") or not hasattr(mem, "payload"):
+                    logger.debug("Skipping malformed vector-store item while collecting existing memories.")
+                    continue
+
                 retrieved_old_memory.append({"id": mem.id, "text": mem.payload.get("data", "")})
 
         unique_data = {}
@@ -710,11 +743,16 @@ class Memory(MemoryBase):
 
     def _get_all_from_vector_store(self, filters, limit):
         memories_result = self.vector_store.list(filters=filters, limit=limit)
-        actual_memories = (
-            memories_result[0]
-            if isinstance(memories_result, (tuple)) and len(memories_result) > 0
-            else memories_result
-        )
+        if isinstance(memories_result, tuple) and len(memories_result) > 0:
+            memories_result = memories_result[0]
+
+        if not memories_result:
+            return []
+
+        if isinstance(memories_result, (list, tuple)):
+            iterable_memories = memories_result
+        else:
+            iterable_memories = [memories_result]
 
         promoted_payload_keys = [
             "user_id",
@@ -726,7 +764,12 @@ class Memory(MemoryBase):
         core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", *promoted_payload_keys}
 
         formatted_memories = []
-        for mem in actual_memories:
+        for mem in iterable_memories:
+            mem = _coerce_vector_store_entry(mem)
+            if not mem or not hasattr(mem, "payload") or not hasattr(mem, "id"):
+                logger.warning("Skipping malformed memory item without payload/id data.")
+                continue
+
             memory_item_dict = MemoryItem(
                 id=mem.id,
                 memory=mem.payload.get("data", ""),
@@ -959,6 +1002,11 @@ class Memory(MemoryBase):
 
         original_memories = []
         for mem in memories:
+            mem = _coerce_vector_store_entry(mem)
+            if not mem or not hasattr(mem, "payload") or not hasattr(mem, "id"):
+                logger.warning("Skipping malformed memory item without payload/id data.")
+                continue
+
             memory_item_dict = MemoryItem(
                 id=mem.id,
                 memory=mem.payload.get("data", ""),
@@ -1041,7 +1089,12 @@ class Memory(MemoryBase):
         # delete all vector memories and reset the collections
         memories = self.vector_store.list(filters=filters)[0]
         for memory in memories:
-            self._delete_memory(memory.id)
+            memory_entry = _coerce_vector_store_entry(memory)
+            if not memory_entry or not hasattr(memory_entry, "id"):
+                logger.debug("Skipping malformed memory item during delete_all.")
+                continue
+
+            self._delete_memory(memory_entry.id)
         self.vector_store.reset()
 
         logger.info(f"Deleted {len(memories)} memories")
@@ -1270,7 +1323,9 @@ class AsyncMemory(MemoryBase):
             provider_path = f"migrations_{self.config.vector_store.provider}"
             telemetry_config.path = os.path.join(mem0_dir, provider_path)
             os.makedirs(telemetry_config.path, exist_ok=True)
-        self._telemetry_vector_store = VectorStoreFactory.create(self.config.vector_store.provider, telemetry_config)
+        self._telemetry_vector_store = VectorStoreFactory.create(
+            self.config.vector_store.provider, telemetry_config
+        )
 
         capture_event("mem0.init", self, {"sync_type": "async"})
 
@@ -1498,7 +1553,14 @@ class AsyncMemory(MemoryBase):
                 limit=5,
                 filters=search_filters,
             )
-            return [{"id": mem.id, "text": mem.payload.get("data", "")} for mem in existing_mems]
+            results = []
+            for mem in existing_mems:
+                mem = _coerce_vector_store_entry(mem)
+                if not mem or not hasattr(mem, "id") or not hasattr(mem, "payload"):
+                    logger.debug("Skipping malformed vector-store item during async search backfill.")
+                    continue
+                results.append({"id": mem.id, "text": mem.payload.get("data", "")})
+            return results
 
         search_tasks = [process_fact_for_search(fact) for fact in new_retrieved_facts]
         search_results_list = await asyncio.gather(*search_tasks)
@@ -1751,11 +1813,16 @@ class AsyncMemory(MemoryBase):
 
     async def _get_all_from_vector_store(self, filters, limit):
         memories_result = await asyncio.to_thread(self.vector_store.list, filters=filters, limit=limit)
-        actual_memories = (
-            memories_result[0]
-            if isinstance(memories_result, (tuple, list)) and len(memories_result) > 0
-            else memories_result
-        )
+        if isinstance(memories_result, tuple) and len(memories_result) > 0:
+            memories_result = memories_result[0]
+
+        if not memories_result:
+            return []
+
+        if isinstance(memories_result, (list, tuple)):
+            iterable_memories = memories_result
+        else:
+            iterable_memories = [memories_result]
 
         promoted_payload_keys = [
             "user_id",
@@ -1767,7 +1834,12 @@ class AsyncMemory(MemoryBase):
         core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", *promoted_payload_keys}
 
         formatted_memories = []
-        for mem in actual_memories:
+        for mem in iterable_memories:
+            mem = _coerce_vector_store_entry(mem)
+            if not mem or not hasattr(mem, "payload") or not hasattr(mem, "id"):
+                logger.warning("Skipping malformed memory item without payload/id data.")
+                continue
+
             memory_item_dict = MemoryItem(
                 id=mem.id,
                 memory=mem.payload.get("data", ""),
@@ -1913,6 +1985,11 @@ class AsyncMemory(MemoryBase):
 
         original_memories = []
         for mem in memories:
+            mem = _coerce_vector_store_entry(mem)
+            if not mem or not hasattr(mem, "payload") or not hasattr(mem, "id"):
+                logger.warning("Skipping malformed memory item without payload/id data.")
+                continue
+
             memory_item_dict = MemoryItem(
                 id=mem.id,
                 memory=mem.payload.get("data", ""),
@@ -1997,9 +2074,15 @@ class AsyncMemory(MemoryBase):
 
         delete_tasks = []
         for memory in memories[0]:
-            delete_tasks.append(self._delete_memory(memory.id))
+            memory_entry = _coerce_vector_store_entry(memory)
+            if not memory_entry or not hasattr(memory_entry, "id"):
+                logger.debug("Skipping malformed memory item during async delete_all.")
+                continue
 
-        await asyncio.gather(*delete_tasks)
+            delete_tasks.append(self._delete_memory(memory_entry.id))
+
+        if delete_tasks:
+            await asyncio.gather(*delete_tasks)
 
         logger.info(f"Deleted {len(memories[0])} memories")
 
@@ -2090,7 +2173,6 @@ class AsyncMemory(MemoryBase):
             else:
                 procedural_memory = await asyncio.to_thread(self.llm.generate_response, messages=parsed_messages)
                 procedural_memory = remove_code_blocks(procedural_memory)
-        
         except Exception as e:
             logger.error(f"Error generating procedural memory summary: {e}")
             raise
