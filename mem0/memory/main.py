@@ -38,8 +38,8 @@ from mem0.utils.factory import (
     EmbedderFactory,
     GraphStoreFactory,
     LlmFactory,
-    VectorStoreFactory,
     RerankerFactory,
+    VectorStoreFactory,
 )
 
 # Suppress SWIG deprecation warnings globally
