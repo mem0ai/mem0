@@ -494,7 +494,6 @@
 														"pages": [
 															"v0x/components/vectordbs/dbs/qdrant",
 															"v0x/components/vectordbs/dbs/chroma",
-															"v0x/components/vectordbs/dbs/cassandra",
 															"v0x/components/vectordbs/dbs/pgvector",
 															"v0x/components/vectordbs/dbs/milvus",
 															"v0x/components/vectordbs/dbs/pinecone",
