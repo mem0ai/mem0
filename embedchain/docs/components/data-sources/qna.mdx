@@ -2,12 +2,19 @@
 title: '❓💬 Question and answer pair'
 ---
 
-QnA pair is a local data type. To supply your own QnA pair, use the data_type as `qna_pair` and enter a tuple. Eg:
+## Overview
 
+The `qna_pair` is a **local data source type** that allows you to provide custom question-and-answer content directly into your Embedchain app. This is especially useful when you want to inject targeted knowledge without relying on external files, websites, or APIs.
+
+---
+
+## Format
+
+The `value` must be a **Python tuple containing exactly two strings**:
+
+- The first string is the **question**
+- The second string is the **answer**
+
+Example:
 ```python
-from embedchain import App
-
-app = App()
-
-app.add(("Question", "Answer"), data_type="qna_pair")
-```
+("What is the capital of France?", "The capital of France is Paris.")
