@@ -59,7 +59,7 @@
 												"icon": "star",
 												"pages": [
 													"platform/features/platform-overview",
-                          "platform/features/v2-memory-filters",
+													"platform/features/v2-memory-filters",
 													"platform/features/contextual-add",
 													"platform/features/async-client",
 													"platform/features/async-mode-default-change",
@@ -153,6 +153,7 @@
 														"pages": [
 															"components/vectordbs/dbs/qdrant",
 															"components/vectordbs/dbs/chroma",
+															"components/vectordbs/dbs/cassandra",
 															"components/vectordbs/dbs/pgvector",
 															"components/vectordbs/dbs/milvus",
 															"components/vectordbs/dbs/pinecone",
