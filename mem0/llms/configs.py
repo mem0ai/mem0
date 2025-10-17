@@ -15,6 +15,7 @@ class LlmConfig(BaseModel):
             "ollama",
             "anthropic",
             "groq",
+            "siliconflow",
             "together",
             "aws_bedrock",
             "litellm",
