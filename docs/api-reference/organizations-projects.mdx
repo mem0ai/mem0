@@ -1,0 +1,197 @@
+---
+title: Organizations & Projects
+icon: "building"
+description: "Manage multi-tenant applications with organization and project APIs"
+---
+
+## Overview
+
+Organizations and projects provide multi-tenant support, access control, and team collaboration capabilities for Mem0 Platform. Use these APIs to build applications that support multiple teams, customers, or isolated environments.
+
+<Info>
+Organizations and projects are **optional** features. You can use Mem0 without them for single-user or simple multi-user applications.
+</Info>
+
+## Key Capabilities
+
+- **Multi-org/project Support**: Specify organization and project when initializing the Mem0 client to attribute API usage appropriately
+- **Member Management**: Control access to data through organization and project membership
+- **Access Control**: Only members can access memories and data within their organization/project scope
+- **Team Isolation**: Maintain data separation between different teams and projects for secure collaboration
+
+---
+
+## Using Organizations & Projects
+
+### Initialize with Org/Project Context
+
+Example with the mem0 Python package:
+
+<Tabs>
+  <Tab title="Python">
+
+```python
+from mem0 import MemoryClient
+client = MemoryClient(org_id='YOUR_ORG_ID', project_id='YOUR_PROJECT_ID')
+```
+
+  </Tab>
+
+  <Tab title="Node.js">
+
+```javascript
+import { MemoryClient } from "mem0ai";
+const client = new MemoryClient({
+  organizationId: "YOUR_ORG_ID",
+  projectId: "YOUR_PROJECT_ID"
+});
+```
+
+  </Tab>
+</Tabs>
+
+---
+
+## Project Management
+
+The Mem0 client provides comprehensive project management through the `client.project` interface:
+
+### Get Project Details
+
+Retrieve information about the current project:
+
+```python
+# Get all project details
+project_info = client.project.get()
+
+# Get specific fields only
+project_info = client.project.get(fields=["name", "description", "custom_categories"])
+```
+
+### Create a New Project
+
+Create a new project within your organization:
+
+```python
+# Create a project with name and description
+new_project = client.project.create(
+    name="My New Project",
+    description="A project for managing customer support memories"
+)
+```
+
+### Update Project Settings
+
+Modify project configuration including custom instructions, categories, and graph settings:
+
+```python
+# Update project with custom categories
+client.project.update(
+    custom_categories=[
+        {"customer_preferences": "Customer likes, dislikes, and preferences"},
+        {"support_history": "Previous support interactions and resolutions"}
+    ]
+)
+
+# Update project with custom instructions
+client.project.update(
+    custom_instructions="..."
+)
+
+# Enable graph memory for the project
+client.project.update(enable_graph=True)
+
+# Update multiple settings at once
+client.project.update(
+    custom_instructions="...",
+    custom_categories=[
+        {"personal_info": "User personal information and preferences"},
+        {"work_context": "Professional context and work-related information"}
+    ],
+    enable_graph=True
+)
+```
+
+### Delete Project
+
+<Warning>
+This action will remove all memories, messages, and other related data in the project. **This operation is irreversible.**
+</Warning>
+
+Remove a project and all its associated data:
+
+```python
+# Delete the current project (irreversible)
+result = client.project.delete()
+```
+
+---
+
+## Member Management
+
+Manage project members and their access levels:
+
+```python
+# Get all project members
+members = client.project.get_members()
+
+# Add a new member as a reader
+client.project.add_member(
+    email="colleague@company.com",
+    role="READER"  # or "OWNER"
+)
+
+# Update a member's role
+client.project.update_member(
+    email="colleague@company.com",
+    role="OWNER"
+)
+
+# Remove a member from the project
+client.project.remove_member(email="colleague@company.com")
+```
+
+### Member Roles
+
+| Role | Permissions |
+|------|-------------|
+| **READER** | Can view and search memories, but cannot modify project settings or manage members |
+| **OWNER** | Full access including project modification, member management, and all reader permissions |
+
+---
+
+## Async Support
+
+All project methods are available in async mode:
+
+```python
+from mem0 import AsyncMemoryClient
+
+async def manage_project():
+    client = AsyncMemoryClient(org_id='YOUR_ORG_ID', project_id='YOUR_PROJECT_ID')
+
+    # All methods support async/await
+    project_info = await client.project.get()
+    await client.project.update(enable_graph=True)
+    members = await client.project.get_members()
+
+# To call the async function properly
+import asyncio
+asyncio.run(manage_project())
+```
+
+---
+
+## API Reference
+
+For complete API specifications and additional endpoints, see:
+
+<CardGroup cols={2}>
+  <Card title="Organizations APIs" icon="building" href="/api-reference/organization/create-org">
+    Create, get, and manage organizations
+  </Card>
+
+  <Card title="Project APIs" icon="folder" href="/api-reference/project/create-project">
+    Full project CRUD and member management endpoints
+  </Card>
+</CardGroup>
