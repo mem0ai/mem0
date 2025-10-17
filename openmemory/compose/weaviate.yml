@@ -1,5 +1,5 @@
 services:
-  mem0_store:
+  mem0-store:
     image: semitechnologies/weaviate:latest
     restart: unless-stopped
     environment:
@@ -7,7 +7,7 @@ services:
       - AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED=true
       - PERSISTENCE_DATA_PATH=/var/lib/weaviate
       - CLUSTER_HOSTNAME=node1
-      - WEAVIATE_CLUSTER_URL=http://mem0_store:8080
+      - WEAVIATE_CLUSTER_URL=http://mem0-store:8080
     ports:
       - "8080:8080"
     volumes:
