@@ -147,7 +147,7 @@ async def entrypoint(ctx: JobContext):
 
     session = AgentSession(
         stt=deepgram.STT(),
-        llm=openai.LLM(model="gpt-4.1-nano-2025-04-14"),
+        llm=openai.LLM(model="gpt-4o-mini"),
         tts=openai.TTS(voice="ash",),
         turn_detection=EnglishModel(),
         vad=silero.VAD.load(),
@@ -233,5 +233,3 @@ logger = logging.getLogger("memory_voice_agent")
 
 - [LiveKit Documentation](https://docs.livekit.io/)
 - [Mem0 Platform](https://app.mem0.ai/)
-
-<Snippet file="get-help.mdx" />

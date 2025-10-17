@@ -5,10 +5,18 @@ icon: "bolt"
 iconType: "solid"
 ---
 
-Get up and running with Mem0 Platform quickly. This guide covers the essential steps to start storing and retrieving memories.
+Get started with Mem0 Platform's hosted API in under 5 minutes. This guide shows you how to authenticate and store your first memory.
 
-## 1. Installation
+## Prerequisites
 
+- Mem0 Platform account ([Sign up here](https://app.mem0.ai))
+- API key ([Get one from dashboard](https://app.mem0.ai/settings/api-keys))
+- Python 3.8+, Node.js 14+, or cURL
+
+## Installation
+
+<Steps>
+<Step title="Install SDK">
 <CodeGroup>
 ```bash pip
 pip install mem0ai
@@ -18,16 +26,9 @@ pip install mem0ai
 npm install mem0ai
 ```
 </CodeGroup>
+</Step>
 
-## 2. API Key Setup
-
-1. Sign in to [Mem0 Platform](https://mem0.dev/pd-api)
-2. Copy your API Key from the dashboard
-
-![Get API Key from Mem0 Platform](/images/platform/api-key.png)
-
-## 3. Initialize Client
-
+<Step title="Set your API key">
 <CodeGroup>
 ```python Python
 import os
@@ -41,181 +42,83 @@ client = MemoryClient()
 import MemoryClient from 'mem0ai';
 const client = new MemoryClient({ apiKey: 'your-api-key' });
 ```
+
+```bash cURL
+export MEM0_API_KEY="your-api-key"
+```
 </CodeGroup>
+</Step>
 
-## 4. Basic Operations
-
-### Add Memories
-
-Store user preferences and context:
-
+<Step title="Add your first memory">
 <CodeGroup>
 ```python Python
 messages = [
-    {"role": "user", "content": "Hi, I'm Alex. I'm a vegetarian and allergic to nuts."},
-    {"role": "assistant", "content": "Hello Alex! I'll remember your dietary preferences."}
+    {"role": "user", "content": "I'm a vegetarian and allergic to nuts."},
+    {"role": "assistant", "content": "Got it! I'll remember your dietary preferences."}
 ]
 
-result = client.add(messages, user_id="alex")
+result = client.add(messages, user_id="user123")
 print(result)
 ```
 
 ```javascript JavaScript
 const messages = [
-    {"role": "user", "content": "Hi, I'm Alex. I'm a vegetarian and allergic to nuts."},
-    {"role": "assistant", "content": "Hello Alex! I'll remember your dietary preferences."}
+    {"role": "user", "content": "I'm a vegetarian and allergic to nuts."},
+    {"role": "assistant", "content": "Got it! I'll remember your dietary preferences."}
 ];
 
-client.add(messages, { user_id: "alex" })
+client.add(messages, { user_id: "user123" })
     .then(result => console.log(result))
     .catch(error => console.error(error));
 ```
-</CodeGroup>
 
-### Search Memories
-
-Retrieve relevant memories based on queries:
-
-<CodeGroup>
-```python Python
-query = "What should I cook for dinner?"
-results = client.search(query, user_id="alex")
-print(results)
-```
-
-```javascript JavaScript
-const query = "What should I cook for dinner?";
-client.search(query, { user_id: "alex" })
-    .then(results => console.log(results))
-    .catch(error => console.error(error));
+```bash cURL
+curl -X POST https://api.mem0.ai/v1/memories/add \
+  -H "Authorization: Bearer $MEM0_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      {"role": "user", "content": "Im a vegetarian and allergic to nuts."},
+      {"role": "assistant", "content": "Got it! Ill remember your dietary preferences."}
+    ],
+    "user_id": "user123"
+  }'
 ```
 </CodeGroup>
 
-### Get All Memories
-
-Fetch all memories for a user:
-
-<CodeGroup>
-```python Python
-memories = client.get_all(user_id="alex")
-print(memories)
+**Output:**
+```json
+{
+  "results": [
+    {
+      "id": "mem_abc123",
+      "memory": "User is vegetarian and allergic to nuts.",
+      "event": "ADD"
+    }
+  ]
+}
 ```
+</Step>
+</Steps>
 
-```javascript JavaScript
-client.getAll({ user_id: "alex" })
-    .then(memories => console.log(memories))
-    .catch(error => console.error(error));
-```
-</CodeGroup>
+## What's Next?
 
-## 5. Memory Types
+<CardGroup cols={3}>
+<Card title="Memory Operations" icon="database" href="/core-concepts/memory-operations/add">
+Learn how to search, update, and delete memories with complete CRUD operations
+</Card>
 
-### User Memories
-Long-term memories that persist across sessions:
+<Card title="Platform Features" icon="star" href="/platform/features/platform-overview">
+Explore advanced features like metadata filtering, graph memory, and webhooks
+</Card>
 
-<CodeGroup>
-```python Python
-client.add(messages, user_id="alex", metadata={"category": "preferences"})
-```
+<Card title="API Reference" icon="code" href="/api-reference/memory/add-memories">
+See complete API documentation and integration examples
+</Card>
+</CardGroup>
 
-```javascript JavaScript
-client.add(messages, { user_id: "alex", metadata: { category: "preferences" } });
-```
-</CodeGroup>
+## Additional Resources
 
-### Session Memories
-Short-term memories for specific conversations:
-
-<CodeGroup>
-```python Python
-client.add(messages, user_id="alex", run_id="session-123")
-```
-
-```javascript JavaScript
-client.add(messages, { user_id: "alex", run_id: "session-123" });
-```
-</CodeGroup>
-
-### Agent Memories
-Memories for AI assistants and agents:
-
-<CodeGroup>
-```python Python
-client.add(messages, agent_id="support-bot")
-```
-
-```javascript JavaScript
-client.add(messages, { agent_id: "support-bot" });
-```
-</CodeGroup>
-
-## 6. Advanced Features
-
-### Async Processing
-Process memories in the background for faster responses:
-
-<CodeGroup>
-```python Python
-client.add(messages, user_id="alex", async_mode=True)
-```
-
-```javascript JavaScript
-client.add(messages, { user_id: "alex", async_mode: true });
-```
-</CodeGroup>
-
-### Search with Filters
-Filter results by categories and metadata:
-
-<CodeGroup>
-```python Python
-results = client.search(
-    "food preferences", 
-    user_id="alex",
-    categories=["preferences"],
-    metadata={"category": "food"}
-)
-```
-
-```javascript JavaScript
-client.search("food preferences", {
-    user_id: "alex",
-    categories: ["preferences"], 
-    metadata: { category: "food" }
-});
-```
-</CodeGroup>
-
-## TypeScript Example
-
-<CodeGroup>
-```typescript TypeScript
-import MemoryClient, { Message, MemoryOptions } from 'mem0ai';
-
-const client = new MemoryClient('your-api-key');
-
-const messages: Message[] = [
-    { role: "user", content: "I love Italian food" },
-    { role: "assistant", content: "Noted! I'll remember your preference for Italian cuisine." }
-];
-
-const options: MemoryOptions = {
-    user_id: "alex",
-    metadata: { category: "food_preferences" }
-};
-
-client.add(messages, options)
-    .then(result => console.log(result))
-    .catch(error => console.error(error));
-```
-</CodeGroup>
-
-## Next Steps
-
-Now that you're up and running, explore more advanced features:
-
-- **[Advanced Memory Operations](/core-concepts/memory-operations)** - Learn about filtering, updating, and managing memories
-- **[Platform Features](/platform/features/platform-overview)** - Discover advanced platform capabilities
-- **[API Reference](/api-reference)** - Complete API documentation
-
-<Snippet file="get-help.mdx" />
+- **[Platform vs OSS](/platform/platform-vs-oss)** - Understand the differences between Platform and Open Source
+- **[Troubleshooting](/platform/faqs)** - Common issues and solutions
+- **[Integration Examples](/examples/mem0-demo)** - See Mem0 in action
