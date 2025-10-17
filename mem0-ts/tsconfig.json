@@ -16,7 +16,8 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "composite": false,
-    "types": ["@types/node"],
+  "types": ["node"],
+  "typeRoots": ["./types", "./node_modules/@types"],
     "jsx": "react-jsx",
     "noUnusedLocals": false,
     "noUnusedParameters": false,
@@ -28,6 +29,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "types/**/*"],
   "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }
