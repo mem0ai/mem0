@@ -14,6 +14,6 @@ class GoogleAIEmbedderConfig(BaseEmbedderConfig):
         task_type: Optional[str] = None,
         title: Optional[str] = None,
     ):
-        super().__init__(model, deployment_name, vector_dimension)
-        self.task_type = task_type or "retrieval_document"
-        self.title = title or "Embeddings for Embedchain"
+        super().__init__(model or "gemini-embedding-001", deployment_name, vector_dimension)
+        self.task_type = task_type
+        self.title = title
