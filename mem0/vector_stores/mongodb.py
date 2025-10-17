@@ -301,10 +301,20 @@ class MongoDB(VectorStoreBase):
         """Reset the index by deleting and recreating it."""
         logger.warning(f"Resetting index {self.collection_name}...")
         self.delete_col()
-        self.collection = self.create_col(self.collection_name)
+        self.collection = self.create_col()
 
     def __del__(self) -> None:
         """Close the database connection when the object is deleted."""
-        if hasattr(self, "client"):
-            self.client.close()
-            logger.info("MongoClient connection closed.")
+        client = getattr(self, "client", None)
+        if client is None:
+            return
+
+        close = getattr(client, "close", None)
+        if not callable(close):
+            return
+
+        try:
+            close()
+        except Exception:
+            # The interpreter may be shutting down; swallow errors to avoid noisy teardown logs.
+            pass
