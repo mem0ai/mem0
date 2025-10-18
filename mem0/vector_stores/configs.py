@@ -21,6 +21,7 @@ class VectorStoreConfig(BaseModel):
         "cassandra": "CassandraConfig",
         "lancedb": "LanceDBConfig",
         "typesense": "TypesenseConfig",
+        "tidb": "TiDBConfig",
         "neptune": "NeptuneAnalyticsConfig",
         "upstash_vector": "UpstashVectorConfig",
         "azure_ai_search": "AzureAISearchConfig",

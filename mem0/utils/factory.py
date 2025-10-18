@@ -187,6 +187,7 @@ class VectorStoreFactory:
         "cassandra": "mem0.vector_stores.cassandra.CassandraDB",
         "lancedb": "mem0.vector_stores.lancedb.LanceDB",
         "typesense": "mem0.vector_stores.typesense.TypesenseDB",
+        "tidb": "mem0.vector_stores.tidb.TiDBVector",
         "neptune": "mem0.vector_stores.neptune_analytics.NeptuneAnalyticsVector",
     }
 

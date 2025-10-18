@@ -38,6 +38,7 @@ vector_stores = [
     "cassandra-driver>=3.29.0",
     "lancedb>=0.4.0",
     "typesense>=0.25.0",
+    "pymysql>=1.0.0",
     "weaviate-client>=4.4.0,<4.15.0",
     "pinecone<=7.3.0",
     "pinecone-text>=0.10.0",
