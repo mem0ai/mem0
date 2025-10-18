@@ -30,11 +30,18 @@ class EmbedderProvider(BaseModel):
     config: EmbedderConfig
 
 class OpenMemoryConfig(BaseModel):
-    custom_instructions: Optional[str] = Field(None, description="Custom instructions for memory management and fact extraction")
+    custom_instructions: Optional[str] = Field(None, description="Custom prompt for fact extraction phase. Overrides default prompt used to extract semantic facts from input text.")
+    custom_update_memory_prompt: Optional[str] = Field(None, description="Custom prompt for deduplication/update phase. Overrides default prompt used to determine ADD/UPDATE/DELETE/NONE decisions when comparing with existing memories.")
 
 class Mem0Config(BaseModel):
     llm: Optional[LLMProvider] = None
     embedder: Optional[EmbedderProvider] = None
+    default_infer: Optional[bool] = Field(
+        None,
+        description="Default value for infer parameter when not specified in API/MCP calls. "
+                    "When True: enables LLM fact extraction and deduplication. "
+                    "When False: stores verbatim text without transformation."
+    )
 
 class ConfigSchema(BaseModel):
     openmemory: Optional[OpenMemoryConfig] = None
@@ -44,7 +51,8 @@ def get_default_configuration():
     """Get the default configuration with sensible defaults for LLM and embedder."""
     return {
         "openmemory": {
-            "custom_instructions": None
+            "custom_instructions": None,
+            "custom_update_memory_prompt": None
         },
         "mem0": {
             "llm": {
@@ -62,7 +70,8 @@ def get_default_configuration():
                     "model": "text-embedding-3-small",
                     "api_key": "env:OPENAI_API_KEY"
                 }
-            }
+            },
+            "default_infer": True
         }
     }
 
