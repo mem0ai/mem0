@@ -64,6 +64,7 @@
 													"platform/features/async-client",
 													"platform/features/async-mode-default-change",
 													"platform/features/graph-memory",
+													"platform/features/graph-threshold",
 													"platform/features/advanced-retrieval",
 													"platform/features/criteria-retrieval",
 													"platform/features/multimodal-support",
