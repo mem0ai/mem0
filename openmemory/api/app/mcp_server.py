@@ -288,6 +288,75 @@ async def list_memories() -> str:
         return f"Error getting memories: {e}"
 
 
+@mcp.tool(description="Update a memory's content and custom metadata")
+async def update_memory(memory_id: str, text: str, metadata: dict = {}) -> str:
+    uid = user_id_var.get(None)
+    client_name = client_name_var.get(None)
+    if not uid:
+        return "Error: user_id not provided"
+    if not client_name:
+        return "Error: client_name not provided"
+
+    # Get memory client safely
+    memory_client = get_memory_client_safe()
+    if not memory_client:
+        return "Error: Memory system is currently unavailable. Please try again later."
+
+    try:
+        db = SessionLocal()
+        try:
+            # Get or create user and app
+            user, app = get_user_and_app(db, user_id=uid, app_id=client_name)
+
+            # Check if memory exists and is accessible
+            memory_uuid = uuid.UUID(memory_id)
+            memory = db.query(Memory).filter(Memory.id == memory_uuid, Memory.user_id == user.id).first()
+
+            if not memory:
+                return "Error: Memory not found or not accessible"
+
+            if not check_memory_access_permissions(db, memory, app.id):
+                return "Error: No permission to update this memory"
+
+            # Update in mem0 using public API (handles metadata protection automatically)
+            response = memory_client.update(memory_id=memory_id, data=text, metadata=metadata)
+
+            # Update in database
+            memory.content = text
+
+            # Merge custom metadata (preserve existing, update/add new)
+            if metadata:
+                existing_metadata = memory.metadata_ or {}
+                existing_metadata.update(metadata)
+                memory.metadata_ = existing_metadata
+
+            # Create history entry
+            history = MemoryStatusHistory(
+                memory_id=memory_uuid,
+                changed_by=user.id,
+                old_state=memory.state,
+                new_state=memory.state
+            )
+            db.add(history)
+
+            # Create access log entry
+            access_log = MemoryAccessLog(
+                memory_id=memory_uuid,
+                app_id=app.id,
+                access_type="update",
+                metadata_={"operation": "update_memory"}
+            )
+            db.add(access_log)
+
+            db.commit()
+            return json.dumps(response)
+        finally:
+            db.close()
+    except Exception as e:
+        logging.exception(f"Error updating memory: {e}")
+        return f"Error updating memory: {e}"
+
+
 @mcp.tool(description="Delete all memories in the user's memory")
 async def delete_all_memories() -> str:
     uid = user_id_var.get(None)

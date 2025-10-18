@@ -981,13 +981,16 @@ class Memory(MemoryBase):
 
         return original_memories
 
-    def update(self, memory_id, data):
+    def update(self, memory_id, data, metadata=None):
         """
         Update a memory by ID.
 
         Args:
             memory_id (str): ID of the memory to update.
             data (str): New content to update the memory with.
+            metadata (dict, optional): Custom metadata to update. System fields
+                (data, hash, created_at, updated_at) and session identifiers
+                (user_id, agent_id, run_id) are automatically managed. Defaults to None.
 
         Returns:
             dict: Success message indicating the memory was updated.
@@ -995,12 +998,14 @@ class Memory(MemoryBase):
         Example:
             >>> m.update(memory_id="mem_123", data="Likes to play tennis on weekends")
             {'message': 'Memory updated successfully!'}
+            >>> m.update(memory_id="mem_123", data="Likes tennis", metadata={"category": "sports"})
+            {'message': 'Memory updated successfully!'}
         """
         capture_event("mem0.update", self, {"memory_id": memory_id, "sync_type": "sync"})
 
         existing_embeddings = {data: self.embedding_model.embed(data, "update")}
 
-        self._update_memory(memory_id, data, existing_embeddings)
+        self._update_memory(memory_id, data, existing_embeddings, metadata)
         return {"message": "Memory updated successfully!"}
 
     def delete(self, memory_id):
@@ -1935,13 +1940,16 @@ class AsyncMemory(MemoryBase):
 
         return original_memories
 
-    async def update(self, memory_id, data):
+    async def update(self, memory_id, data, metadata=None):
         """
         Update a memory by ID asynchronously.
 
         Args:
             memory_id (str): ID of the memory to update.
             data (str): New content to update the memory with.
+            metadata (dict, optional): Custom metadata to update. System fields
+                (data, hash, created_at, updated_at) and session identifiers
+                (user_id, agent_id, run_id) are automatically managed. Defaults to None.
 
         Returns:
             dict: Success message indicating the memory was updated.
@@ -1949,13 +1957,15 @@ class AsyncMemory(MemoryBase):
         Example:
             >>> await m.update(memory_id="mem_123", data="Likes to play tennis on weekends")
             {'message': 'Memory updated successfully!'}
+            >>> await m.update(memory_id="mem_123", data="Likes tennis", metadata={"category": "sports"})
+            {'message': 'Memory updated successfully!'}
         """
         capture_event("mem0.update", self, {"memory_id": memory_id, "sync_type": "async"})
 
         embeddings = await asyncio.to_thread(self.embedding_model.embed, data, "update")
         existing_embeddings = {data: embeddings}
 
-        await self._update_memory(memory_id, data, existing_embeddings)
+        await self._update_memory(memory_id, data, existing_embeddings, metadata)
         return {"message": "Memory updated successfully!"}
 
     async def delete(self, memory_id):
