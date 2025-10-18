@@ -8,7 +8,6 @@ from pydantic import BaseModel
 
 try:
     import lancedb
-    from lancedb.table import LanceTable
 except ImportError:
     raise ImportError(
         "LanceDB vector store requires lancedb. "
