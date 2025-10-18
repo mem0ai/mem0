@@ -158,21 +158,31 @@ async def list_memories(
         if sort_field:
             query = query.order_by(sort_field.desc()) if sort_direction == "desc" else query.order_by(sort_field.asc())
 
+    # Add eager loading for app and categories
+    query = query.options(
+        joinedload(Memory.app),
+        joinedload(Memory.categories)
+    ).distinct(Memory.id)
 
-    # Get paginated results
-    paginated_results = sqlalchemy_paginate(query, params)
-
-    # Filter results based on permissions
-    filtered_items = []
-    for item in paginated_results.items:
-        if check_memory_access_permissions(db, item, app_id):
-            filtered_items.append(item)
-
-    # Update paginated results with filtered items
-    paginated_results.items = filtered_items
-    paginated_results.total = len(filtered_items)
-
-    return paginated_results
+    # Get paginated results with transformer
+    return sqlalchemy_paginate(
+        query,
+        params,
+        transformer=lambda items: [
+            MemoryResponse(
+                id=memory.id,
+                content=memory.content,
+                created_at=memory.created_at,
+                state=memory.state.value,
+                app_id=memory.app_id,
+                app_name=memory.app.name if memory.app else None,
+                categories=[category.name for category in memory.categories],
+                metadata_=memory.metadata_
+            )
+            for memory in items
+            if check_memory_access_permissions(db, memory, app_id)
+        ]
+    )
 
 
 # Get all categories
