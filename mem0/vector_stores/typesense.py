@@ -3,12 +3,10 @@ import logging
 import uuid
 from typing import Any, Dict, List, Optional
 
-import numpy as np
 from pydantic import BaseModel
 
 try:
     import typesense
-    from typesense import Client
 except ImportError:
     raise ImportError(
         "Typesense vector store requires typesense. "
@@ -292,8 +290,8 @@ class TypesenseDB(VectorStoreBase):
             payload (Dict, optional): Updated payload
         """
         try:
-            # Get existing document
-            existing = self.client.collections[self.collection_name].documents[vector_id].retrieve()
+            # Get existing document to verify it exists
+            self.client.collections[self.collection_name].documents[vector_id].retrieve()
             
             # Prepare update data
             update_data = {"id": vector_id}
@@ -307,7 +305,7 @@ class TypesenseDB(VectorStoreBase):
             self.client.collections[self.collection_name].documents[vector_id].update(update_data)
             
             logger.info(f"Updated vector with id: {vector_id}")
-        except Exception as e:
+        except Exception:
             logger.warning(f"Vector with id {vector_id} not found for update")
             return
 
