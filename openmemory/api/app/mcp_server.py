@@ -141,8 +141,8 @@ async def add_memories(text: str) -> str:
         return f"Error adding to memory: {e}"
 
 
-@mcp.tool(description="Search through stored memories. This method is called EVERYTIME the user asks anything.")
-async def search_memory(query: str) -> str:
+@mcp.tool(description="Search through stored memories. This method is called EVERYTIME the user asks anything. The 'include_metadata' parameter controls whether to return metadata fields: False (default) = returns only core fields (id, memory, hash, timestamps, score); True = also includes all metadata fields from vector store payload.")
+async def search_memory(query: str, include_metadata: bool = False) -> str:
     uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
     if not uid:
@@ -186,15 +186,35 @@ async def search_memory(query: str) -> str:
                 id, score, payload = h.id, h.score, h.payload
                 if allowed and h.id is None or h.id not in allowed: 
                     continue
-                
-                results.append({
-                    "id": id, 
-                    "memory": payload.get("data"), 
+
+                result = {
+                    "id": id,
+                    "memory": payload.get("data"),
                     "hash": payload.get("hash"),
-                    "created_at": payload.get("created_at"), 
-                    "updated_at": payload.get("updated_at"), 
+                    "created_at": payload.get("created_at"),
+                    "updated_at": payload.get("updated_at"),
                     "score": score,
-                })
+                }
+
+                # Include metadata if requested
+                if include_metadata:
+                    # Extract metadata fields (excluding core fields already included above)
+                    metadata = {}
+                    excluded_fields = {"data", "hash", "created_at", "updated_at", "user_id", "agent_id", "run_id"}
+                    for key, value in payload.items():
+                        if key not in excluded_fields:
+                            metadata[key] = value
+
+                    # Add promoted fields at top level if they exist
+                    for promoted_field in ["user_id", "agent_id", "run_id", "actor_id", "role"]:
+                        if promoted_field in payload:
+                            result[promoted_field] = payload[promoted_field]
+
+                    # Add remaining metadata under 'metadata' key if not empty
+                    if metadata:
+                        result["metadata"] = metadata
+
+                results.append(result)
 
             for r in results: 
                 if r.get("id"): 
