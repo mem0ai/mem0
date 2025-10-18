@@ -154,7 +154,6 @@
 															"components/vectordbs/dbs/qdrant",
 															"components/vectordbs/dbs/chroma",
 															"components/vectordbs/dbs/cassandra",
-															"components/vectordbs/dbs/lancedb",
 															"components/vectordbs/dbs/pgvector",
 															"components/vectordbs/dbs/milvus",
 															"components/vectordbs/dbs/pinecone",
