@@ -1,0 +1,225 @@
+---
+title: LanceDB
+---
+
+[LanceDB](https://lancedb.github.io/lancedb/) is an embedded vector database designed for AI applications. It provides zero-copy data access, built-in vector search capabilities, and seamless integration with Python data science tools. LanceDB is perfect for applications that need fast, local vector storage with minimal setup.
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "lancedb",
+        "config": {
+            "uri": "./lancedb_data",
+            "collection_name": "memories",
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+#### Using Remote LanceDB
+
+For production deployments, you can use LanceDB with remote storage:
+
+```python
+config = {
+    "vector_store": {
+        "provider": "lancedb",
+        "config": {
+            "uri": "s3://my-bucket/lancedb",
+            "collection_name": "memories",
+            "embedding_model_dims": 1536
+        }
+    }
+}
+```
+
+<Note>
+LanceDB supports various storage backends including local filesystem, S3, GCS, and Azure Blob Storage for production deployments.
+</Note>
+
+### Config
+
+Here are the parameters available for configuring LanceDB:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `uri` | Database URI (file path or connection string) | `"./lancedb"` |
+| `collection_name` | Collection/table name | `"memories"` |
+| `embedding_model_dims` | Dimensions of embedding vectors | `1536` |
+| `table_name` | Override table name | `None` (uses collection_name) |
+
+### Setup
+
+#### Option 1: Local Development (Default)
+
+LanceDB works out of the box with local storage:
+
+```python
+# No additional setup required - LanceDB creates the database automatically
+config = {
+    "vector_store": {
+        "provider": "lancedb",
+        "config": {
+            "uri": "./my_lancedb",  # Local directory
+            "collection_name": "memories"
+        }
+    }
+}
+```
+
+#### Option 2: Cloud Storage (Production)
+
+For production deployments, use cloud storage:
+
+**AWS S3:**
+```python
+config = {
+    "vector_store": {
+        "provider": "lancedb",
+        "config": {
+            "uri": "s3://my-bucket/lancedb",
+            "collection_name": "memories"
+        }
+    }
+}
+```
+
+**Google Cloud Storage:**
+```python
+config = {
+    "vector_store": {
+        "provider": "lancedb",
+        "config": {
+            "uri": "gs://my-bucket/lancedb",
+            "collection_name": "memories"
+        }
+    }
+}
+```
+
+**Azure Blob Storage:**
+```python
+config = {
+    "vector_store": {
+        "provider": "lancedb",
+        "config": {
+            "uri": "az://my-container/lancedb",
+            "collection_name": "memories"
+        }
+    }
+}
+```
+
+### Python Client Installation
+
+Install the required Python package:
+
+```bash
+pip install lancedb
+```
+
+### Performance Considerations
+
+- **Zero-Copy Access**: LanceDB provides zero-copy data access for maximum performance
+- **Embedded Database**: No separate server required, reducing latency
+- **Built-in Vector Search**: Optimized vector similarity search
+- **Memory Efficient**: Designed for large-scale vector operations
+- **Cloud Native**: Seamless integration with cloud storage providers
+
+### Advanced Configuration
+
+```python
+config = {
+    "vector_store": {
+        "provider": "lancedb",
+        "config": {
+            "uri": "s3://production-bucket/lancedb",
+            "collection_name": "production_memories",
+            "embedding_model_dims": 1536,
+            "table_name": "custom_table_name"
+        }
+    }
+}
+```
+
+### Local Development Example
+
+```python
+import os
+from mem0 import Memory
+
+# Set up environment
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+# Configure LanceDB
+config = {
+    "vector_store": {
+        "provider": "lancedb",
+        "config": {
+            "uri": "./dev_lancedb",
+            "collection_name": "dev_memories"
+        }
+    }
+}
+
+# Initialize Memory
+m = Memory.from_config(config)
+
+# Add some memories
+messages = [
+    {"role": "user", "content": "I love Italian food, especially pasta"},
+    {"role": "assistant", "content": "I'll remember your preference for Italian food!"}
+]
+m.add(messages, user_id="user123", metadata={"category": "food"})
+
+# Search memories
+results = m.search("What food does the user like?", user_id="user123")
+print(results)
+```
+
+### Production Deployment
+
+For production use with cloud storage:
+
+```python
+# Production configuration with S3
+config = {
+    "vector_store": {
+        "provider": "lancedb",
+        "config": {
+            "uri": "s3://my-production-bucket/lancedb",
+            "collection_name": "production_memories",
+            "embedding_model_dims": 1536
+        }
+    }
+}
+
+# Ensure AWS credentials are configured
+# export AWS_ACCESS_KEY_ID=your_key
+# export AWS_SECRET_ACCESS_KEY=your_secret
+# export AWS_DEFAULT_REGION=us-east-1
+```
+
+<Tip>
+LanceDB is perfect for applications that need fast, local vector storage with minimal setup. It's ideal for development, prototyping, and production deployments that don't require a separate vector database server.
+</Tip>
+
+<Warning>
+For production deployments with cloud storage, ensure proper authentication and access controls are configured for your cloud provider.
+</Warning>
