@@ -288,6 +288,80 @@ async def list_memories() -> str:
         return f"Error getting memories: {e}"
 
 
+@mcp.tool(description="Delete specific memories by their IDs")
+async def delete_memories(memory_ids: list[str]) -> str:
+    uid = user_id_var.get(None)
+    client_name = client_name_var.get(None)
+    if not uid:
+        return "Error: user_id not provided"
+    if not client_name:
+        return "Error: client_name not provided"
+
+    # Get memory client safely
+    memory_client = get_memory_client_safe()
+    if not memory_client:
+        return "Error: Memory system is currently unavailable. Please try again later."
+
+    try:
+        db = SessionLocal()
+        try:
+            # Get or create user and app
+            user, app = get_user_and_app(db, user_id=uid, app_id=client_name)
+
+            # Convert string IDs to UUIDs and filter accessible ones
+            requested_ids = [uuid.UUID(mid) for mid in memory_ids]
+            user_memories = db.query(Memory).filter(Memory.user_id == user.id).all()
+            accessible_memory_ids = [memory.id for memory in user_memories if check_memory_access_permissions(db, memory, app.id)]
+
+            # Only delete memories that are both requested and accessible
+            ids_to_delete = [mid for mid in requested_ids if mid in accessible_memory_ids]
+
+            if not ids_to_delete:
+                return "Error: No accessible memories found with provided IDs"
+
+            # Delete from vector store
+            for memory_id in ids_to_delete:
+                try:
+                    memory_client.delete(str(memory_id))
+                except Exception as delete_error:
+                    logging.warning(f"Failed to delete memory {memory_id} from vector store: {delete_error}")
+
+            # Update each memory's state and create history entries
+            now = datetime.datetime.now(datetime.UTC)
+            for memory_id in ids_to_delete:
+                memory = db.query(Memory).filter(Memory.id == memory_id).first()
+                if memory:
+                    # Update memory state
+                    memory.state = MemoryState.deleted
+                    memory.deleted_at = now
+
+                    # Create history entry
+                    history = MemoryStatusHistory(
+                        memory_id=memory_id,
+                        changed_by=user.id,
+                        old_state=MemoryState.active,
+                        new_state=MemoryState.deleted
+                    )
+                    db.add(history)
+
+                    # Create access log entry
+                    access_log = MemoryAccessLog(
+                        memory_id=memory_id,
+                        app_id=app.id,
+                        access_type="delete",
+                        metadata_={"operation": "delete_by_id"}
+                    )
+                    db.add(access_log)
+
+            db.commit()
+            return f"Successfully deleted {len(ids_to_delete)} memories"
+        finally:
+            db.close()
+    except Exception as e:
+        logging.exception(f"Error deleting memories: {e}")
+        return f"Error deleting memories: {e}"
+
+
 @mcp.tool(description="Delete all memories in the user's memory")
 async def delete_all_memories() -> str:
     uid = user_id_var.get(None)
