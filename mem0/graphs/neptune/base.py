@@ -234,8 +234,8 @@ class NeptuneBase(ABC):
             dest_embedding = self.embedding_model.embed(destination)
 
             # search for the nodes with the closest embeddings
-            source_node_search_result = self._search_source_node(source_embedding, user_id, threshold=0.9)
-            destination_node_search_result = self._search_destination_node(dest_embedding, user_id, threshold=0.9)
+            source_node_search_result = self._search_source_node(source_embedding, user_id, threshold=self.threshold)
+            destination_node_search_result = self._search_destination_node(dest_embedding, user_id, threshold=self.threshold)
 
             cypher, params = self._add_entities_cypher(
                 source_node_search_result,
