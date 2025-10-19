@@ -1,0 +1,162 @@
+[AlibabaCloud MySQL](https://www.alibabacloud.com/product/apsaradb-for-rds-mysql) is a fully managed MySQL database service that supports vector operations through MySQL's native VECTOR data type and vector functions. It provides high-performance vector similarity search capabilities with HNSW indexing.
+
+### Installation
+```bash
+pip install mysql-connector-python
+```
+
+### Usage
+
+<CodeGroup>
+```python Python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "alibabacloud_mysql",
+        "config": {
+            "dbname": "vector_db",
+            "collection_name": "memories",
+            "user": "your_username",
+            "password": "your_password",
+            "host": "your-mysql-host.mysql.rds.aliyuncs.com",
+            "port": 3306,
+            "embedding_model_dims": 1536,
+            "distance_function": "euclidean",
+            "m_value": 16
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movie? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+```python Python (with connection string)
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "alibabacloud_mysql",
+        "config": {
+            "connection_string": "mysql://username:password@host:3306/database",
+            "collection_name": "memories",
+            "distance_function": "cosine"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+```
+
+```python Python (with SSL)
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "alibabacloud_mysql",
+        "config": {
+            "dbname": "vector_db",
+            "collection_name": "memories",
+            "user": "your_username",
+            "password": "your_password",
+            "host": "your-mysql-host.mysql.rds.aliyuncs.com",
+            "port": 3306,
+            "embedding_model_dims": 1536,
+            "ssl_ca": "/path/to/ca-cert.pem",
+            "ssl_cert": "/path/to/client-cert.pem",
+            "ssl_key": "/path/to/client-key.pem"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+```
+</CodeGroup>
+
+### Config
+
+Here are the parameters available for configuring AlibabaCloud MySQL:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `dbname` | The name of the database | `None` |
+| `collection_name` | The name of the collection (table) | `None` |
+| `embedding_model_dims` | Dimensions of the embedding model | `None` |
+| `user` | Database username | `None` |
+| `password` | Database password | `None` |
+| `host` | Database host address | `None` |
+| `port` | Database port | `3306` |
+| `distance_function` | Distance function for vector index ('euclidean' or 'cosine') | `euclidean` |
+| `m_value` | M parameter for HNSW index (3-200). Higher values = more accurate but slower | `16` |
+| `ssl_disabled` | Disable SSL connection | `False` |
+| `ssl_ca` | SSL CA certificate file path | `None` |
+| `ssl_cert` | SSL certificate file path | `None` |
+| `ssl_key` | SSL key file path | `None` |
+| `connection_string` | MySQL connection string (overrides individual connection parameters) | `None` |
+| `charset` | Character set for the connection | `utf8mb4` |
+| `autocommit` | Enable autocommit mode | `True` |
+
+### Features
+
+- **Native Vector Support**: Uses MySQL's native VECTOR data type for optimal performance
+- **HNSW Indexing**: Supports Hierarchical Navigable Small World (HNSW) indexing for fast similarity search
+- **Multiple Distance Functions**: Supports both Euclidean and Cosine distance functions
+- **SSL Support**: Full SSL/TLS encryption support for secure connections
+- **JSON Payload**: Store additional metadata as JSON alongside vectors
+- **Connection Pooling**: Efficient connection management with context managers
+- **Flexible Configuration**: Support for connection strings or individual parameters
+
+### Prerequisites
+
+1. **AlibabaCloud MySQL Instance**: You need an AlibabaCloud RDS MySQL instance with vector support enabled
+2. **Database Setup**: Ensure your MySQL instance supports the VECTOR data type and vector functions
+3. **Network Access**: Configure security groups and whitelist to allow connections from your application
+
+### Connection String Format
+
+The connection string should follow this format:
+```
+mysql://username:password@host:port/database
+```
+
+Example:
+```
+mysql://myuser:mypass@rm-xxxxxxxx.mysql.rds.aliyuncs.com:3306/vector_db
+```
+
+### Distance Functions
+
+- **euclidean**: Uses Euclidean distance for vector similarity
+- **cosine**: Uses Cosine distance for vector similarity
+
+The distance function is set during collection creation and affects the HNSW index configuration.
+
+### Performance Tuning
+
+- **m_value**: Controls the HNSW index quality vs speed tradeoff
+  - Lower values (3-16): Faster indexing, less memory, lower accuracy
+  - Higher values (32-200): Slower indexing, more memory, higher accuracy
+- **embedding_model_dims**: Should match your embedding model's output dimensions exactly
+
+### Error Handling
+
+The connector includes comprehensive error handling and logging:
+- Connection errors are automatically caught and logged
+- Failed transactions are rolled back automatically
+- Detailed error messages help with debugging
