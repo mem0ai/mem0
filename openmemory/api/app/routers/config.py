@@ -31,6 +31,7 @@ class EmbedderProvider(BaseModel):
 
 class VectorStoreProvider(BaseModel):
     provider: str = Field(..., description="Vector store provider name")
+    # Below config can vary widely based on the vector store used. Refer https://docs.mem0.ai/components/vectordbs/config
     config: Dict[str, Any] = Field(..., description="Vector store-specific configuration")
 
 class OpenMemoryConfig(BaseModel):
