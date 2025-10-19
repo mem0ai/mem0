@@ -1,37 +1,160 @@
 ---
-title: Cloudflare Worker example
+title: Cloudflare Workers
 icon: "cloud"
 iconType: "solid"
 ---
 
-This example shows how to use mem0 as an HTTP API client from a Cloudflare Worker (or other edge runtimes).
+Cloudflare Workers is a serverless platform that enables you to run JavaScript at the edge. This integration allows you to use mem0 from a Cloudflare Worker environment via HTTP API calls.
 
 ## Summary
 
 - The Worker forwards requests from an edge environment to a mem0 HTTP API endpoint.
 - It uses a tiny fetch-based client wrapper that avoids Node.js-only APIs (fs, native sqlite, streams).
-- This example does NOT recompile the full SDK to WebAssembly. Instead it demonstrates the recommended pattern: run mem0 on a server and call it from Workers via HTTP.
+- This integration does NOT recompile the full SDK to WebAssembly. Instead it demonstrates the recommended pattern: run mem0 on a server and call it from Workers via HTTP.
 
-## Files
+## Environment Variables
 
-- `worker.ts` - example Cloudflare Worker code using the fetch client.
-- `mem0-worker-client.ts` - a minimal, portable client wrapper that uses fetch and plain objects.
-
-## Limitations and notes
-
-- If you need the full SDK in the Worker (in-process memory, SQLite access), you must build a WebAssembly or pure-JS variant of the parts that rely on native bindings. That requires changes to the SDK build and possibly shipping a separate entrypoint in `package.json` (e.g. `browser`/`worker` fields) that excludes native modules.
-- This repository provides an example of the recommended approach (API client + server) which is the simplest path for production edge usage.
-
-## Quick start (Cloudflare Wrangler)
-
-1. Install Wrangler and log in.
-2. Create a new Worker project and copy `worker.ts` and `mem0-worker-client.ts` into it.
-3. Set secrets/environment variables for the mem0 API URL and API key in Wrangler.
-4. Deploy.
-
-## Example Environment Variables
+Set the following environment variables in your Cloudflare Worker:
 
 - `MEM0_API_BASE=https://mem0.example.com`
 - `MEM0_API_KEY=sk_...`
 
-See the `worker.ts` for usage details.
+## Usage
+
+<CodeGroup>
+```typescript Worker Code
+// Read env from global bindings (Cloudflare Workers / Wrangler style)
+declare const MEM0_API_BASE: string | undefined;
+declare const MEM0_API_KEY: string | undefined;
+
+// Minimal mem0 client for edge runtimes using fetch
+class Mem0WorkerClient {
+  baseUrl: string;
+  apiKey?: string;
+
+  constructor(opts: { baseUrl: string; apiKey?: string }) {
+    this.baseUrl = opts.baseUrl.replace(/\/+$/, "");
+    this.apiKey = opts.apiKey;
+  }
+
+  // Create a memory entry
+  async createMemory(payload: Record<string, unknown>) {
+    return this.request('/v1/memories', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      headers: {'Content-Type': 'application/json'},
+    });
+  }
+
+  // Query memories
+  async queryMemory(query: Record<string, unknown>) {
+    return this.request('/v1/memories/query', {
+      method: 'POST',
+      body: JSON.stringify(query),
+      headers: {'Content-Type': 'application/json'},
+    });
+  }
+
+  private async request(path: string, init: RequestInit = {}) {
+    const headers = new Headers(init.headers as HeadersInit);
+    if (this.apiKey) headers.set('Authorization', `Bearer ${this.apiKey}`);
+
+    const res = await fetch(this.baseUrl + path, {
+      ...init,
+      headers,
+    });
+
+    const contentType = res.headers.get('content-type') || '';
+    if (!res.ok) {
+      const body = contentType.includes('application/json') ? await res.json().catch(() => null) : await res.text().catch(() => null);
+      const err: any = new Error(`mem0 request failed: ${res.status} ${res.statusText}`);
+      err.status = res.status;
+      err.body = body;
+      throw err;
+    }
+
+    if (contentType.includes('application/json')) return res.json();
+    return res.text();
+  }
+}
+
+const client = new Mem0WorkerClient({
+  baseUrl: typeof MEM0_API_BASE === 'string' ? MEM0_API_BASE : 'https://mem0.example.com',
+  apiKey: typeof MEM0_API_KEY === 'string' ? MEM0_API_KEY : undefined,
+});
+
+addEventListener('fetch', (event: any) => {
+  event.respondWith(handle(event.request));
+});
+
+async function handle(request: Request): Promise<Response> {
+  const url = new URL(request.url);
+
+  if (url.pathname === '/create' && request.method === 'POST') {
+    try {
+      const payload = await request.json();
+      const result = await client.createMemory(payload);
+      return new Response(JSON.stringify(result), {status: 201, headers: {'Content-Type': 'application/json'}});
+    } catch (err: any) {
+      return new Response(JSON.stringify({error: String(err), details: err?.body || null}), {status: err?.status || 500, headers: {'Content-Type': 'application/json'}});
+    }
+  }
+
+  if (url.pathname === '/query' && request.method === 'POST') {
+    try {
+      const query = await request.json();
+      const result = await client.queryMemory(query);
+      return new Response(JSON.stringify(result), {status: 200, headers: {'Content-Type': 'application/json'}});
+    } catch (err: any) {
+      return new Response(JSON.stringify({error: String(err), details: err?.body || null}), {status: err?.status || 500, headers: {'Content-Type': 'application/json'}});
+    }
+  }
+
+  return new Response('OK', {status: 200});
+}
+```
+
+```bash Environment Setup
+# Using Wrangler CLI
+wrangler secret put MEM0_API_KEY
+wrangler secret put MEM0_API_BASE
+
+# Or set in wrangler.toml
+[vars]
+MEM0_API_BASE = "https://mem0.example.com"
+MEM0_API_KEY = "sk_..."
+```
+</CodeGroup>
+
+## Quick Start
+
+1. **Install Wrangler CLI and log in:**
+   ```bash
+   npm install -g wrangler
+   wrangler login
+   ```
+
+2. **Create a new Worker project:**
+   ```bash
+   wrangler generate my-mem0-worker
+   cd my-mem0-worker
+   ```
+
+3. **Set environment variables:**
+   ```bash
+   wrangler secret put MEM0_API_KEY
+   wrangler secret put MEM0_API_BASE
+   ```
+
+4. **Copy the worker code above into your `src/index.ts` file**
+
+5. **Deploy your worker:**
+   ```bash
+   wrangler deploy
+   ```
+
+## Limitations and Notes
+
+- If you need the full SDK in the Worker (in-process memory, SQLite access), you must build a WebAssembly or pure-JS variant of the parts that rely on native bindings.
+- This integration provides the recommended approach (API client + server) which is the simplest path for production edge usage.
+- The worker avoids Node.js-only APIs (fs, native sqlite, streams) to ensure compatibility with the Cloudflare Workers runtime.

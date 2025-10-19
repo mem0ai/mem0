@@ -172,7 +172,8 @@
 															"components/vectordbs/dbs/baidu",
 															"components/vectordbs/dbs/s3_vectors",
 															"components/vectordbs/dbs/databricks",
-															"components/vectordbs/dbs/neptune_analytics"
+															"components/vectordbs/dbs/neptune_analytics",
+															"cloudflare-worker"
 														]
 													}
 												]
@@ -513,7 +514,8 @@
 															"v0x/components/vectordbs/dbs/baidu",
 															"v0x/components/vectordbs/dbs/s3_vectors",
 															"v0x/components/vectordbs/dbs/databricks",
-															"v0x/components/vectordbs/dbs/neptune_analytics"
+															"v0x/components/vectordbs/dbs/neptune_analytics",
+															"cloudflare-worker"
 														]
 													}
 												]

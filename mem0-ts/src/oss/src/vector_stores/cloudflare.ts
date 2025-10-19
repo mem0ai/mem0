@@ -1,5 +1,5 @@
-// packages/mem0-ts/src/history/providers/d1.ts
-// Minimal Cloudflare D1 provider for mem0 historyStore
+// packages/mem0-ts/src/history/providers/cloudflare.ts
+// Cloudflare D1 provider for mem0 historyStore
 
 import type { D1Database } from '@cloudflare/workers-types'; // dev-time types only
 // Replace Path/Types below with actual mem0 HistoryStore types
@@ -12,16 +12,16 @@ type MemoryEntry = {
   updated_at?: string;
 };
 
-type D1ProviderConfig = {
+type CloudflareProviderConfig = {
   // any provider-specific config here (tableName etc.)
   tableName?: string;
 };
 
-export class D1HistoryProvider {
+export class CloudflareHistoryProvider {
   db: D1Database;
   table: string;
 
-  constructor(db: D1Database, config?: D1ProviderConfig) {
+  constructor(db: D1Database, config?: CloudflareProviderConfig) {
     this.db = db;
     this.table = config?.tableName ?? 'mem0_history';
   }
