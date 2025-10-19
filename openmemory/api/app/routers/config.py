@@ -43,7 +43,7 @@ class Mem0Config(BaseModel):
 
 class ConfigSchema(BaseModel):
     openmemory: Optional[OpenMemoryConfig] = None
-    mem0: Mem0Config
+    mem0: Optional[Mem0Config] = None
 
 def get_default_configuration():
     """Get the default configuration with sensible defaults for LLM and embedder."""
@@ -154,10 +154,27 @@ async def update_configuration(config: ConfigSchema, db: Session = Depends(get_d
     # Update mem0 settings
     updated_config["mem0"] = config.mem0.dict(exclude_none=True)
     
-    # Save the configuration to database
+
+@router.patch("/", response_model=ConfigSchema)
+async def patch_configuration(config_update: ConfigSchema, db: Session = Depends(get_db)):
+    """Update parts of the configuration."""
+    current_config = get_config_from_db(db)
+
+    def deep_update(source, overrides):
+        for key, value in overrides.items():
+            if isinstance(value, dict) and key in source and isinstance(source[key], dict):
+                source[key] = deep_update(source[key], value)
+            else:
+                source[key] = value
+        return source
+
+    update_data = config_update.dict(exclude_unset=True)
+    updated_config = deep_update(current_config, update_data)
+
     save_config_to_db(db, updated_config)
     reset_memory_client()
     return updated_config
+
 
 @router.post("/reset", response_model=ConfigSchema)
 async def reset_configuration(db: Session = Depends(get_db)):
@@ -270,4 +287,4 @@ async def update_openmemory_configuration(openmemory_config: OpenMemoryConfig, d
     # Save the configuration to database
     save_config_to_db(db, current_config)
     reset_memory_client()
-    return current_config["openmemory"] 
+    return current_config["openmemory"]
