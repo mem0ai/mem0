@@ -392,7 +392,7 @@ class MySQLVector(VectorStoreBase):
                 row_count = cursor.fetchone()[0]
                 
                 # Get table size information
-                cursor.execute(f"""
+                cursor.execute("""
                     SELECT 
                         table_name,
                         ROUND(((data_length + index_length) / 1024 / 1024), 2) AS total_size_mb
