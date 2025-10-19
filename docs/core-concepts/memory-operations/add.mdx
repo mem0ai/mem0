@@ -8,7 +8,7 @@ iconType: "solid"
 
 ## Overview
 
-The `add` operation is how you store memory into Mem0. Whether you're working with a chatbot, a voice assistant, or a multi-agent system, this is the entry point to create long-term memory.
+The `add` operation stores memory into Mem0. Whether you're working with a chatbot, a voice assistant, or a multi-agent system, this is the entry point to create long-term memory.
 
 Memories typically come from a **user-assistant interaction** and Mem0 handles the extraction, transformation, and storage for you.
 
@@ -17,7 +17,7 @@ Mem0 offers two implementation flows:
 - **Mem0 Platform** (Managed, scalable, with dashboard + API)
 - **Mem0 Open Source** (Lightweight, fully local, flexible SDKs)
 
-Each supports the same core memory operations, but with slightly different setup. Below, we walk through examples for both.
+Each supports the same core memory operations, but with slightly different setup.
 
 
 ## Architecture
@@ -37,7 +37,7 @@ When you call `add`, Mem0 performs the following steps under the hood:
 3. **Memory Storage**
    The result is stored in a vector database (for semantic search) and optionally in a graph structure (for relationship mapping).
 
-You don’t need to handle any of this manually, Mem0 takes care of it with a single API call or SDK method.
+You don't need to handle any of this manually - Mem0 takes care of it with a single API call or SDK method.
 
 ---
 
@@ -57,7 +57,7 @@ messages = [
 client.add(
     messages=messages,
     user_id="alice",
-    version="v2"
+    
 )
 ```
 
@@ -94,7 +94,7 @@ m = Memory()
 
 messages = [
     {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
-    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
     {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
     {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
 ]

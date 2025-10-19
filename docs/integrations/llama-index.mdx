@@ -5,7 +5,7 @@ title: LlamaIndex
 LlamaIndex supports Mem0 as a [memory store](https://llamahub.ai/l/memory/llama-index-memory-mem0). In this guide, we'll show you how to use it.
 
 <Note type="info">
-  🎉 Exciting news! [**Mem0Memory**](https://docs.llamaindex.ai/en/stable/examples/memory/Mem0Memory/) now supports **ReAct** and **FunctionCalling** agents.
+  [**Mem0Memory**](https://docs.llamaindex.ai/en/stable/examples/memory/Mem0Memory/) now supports **ReAct** and **FunctionCalling** agents.
 </Note>
 
 ### Installation
@@ -41,7 +41,6 @@ context = {"user_id": "alice"}
 memory_from_client = Mem0Memory.from_client(
     context=context,
     search_msg_limit=4,  # optional, default is 5
-    output_format='v1.1',  # Remove deprecation warnings
 )
 ```
 
@@ -83,7 +82,7 @@ config = {
     "llm": {
         "provider": "openai",
         "config": {
-            "model": "gpt-4o",
+            "model": "gpt-4.1-nano-2025-04-14",
             "temperature": 0.2,
             "max_tokens": 2000,
         },
@@ -103,7 +102,7 @@ memory_from_config = Mem0Memory.from_config(
     context=context,
     config=config,
     search_msg_limit=4,  # optional, default is 5
-    output_format='v1.1',  # Remove deprecation warnings
+    # Remove deprecation warnings
 )
 ```
 
@@ -116,7 +115,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # os.environ["OPENAI_API_KEY"] = "<your-openai-api-key>"
-llm = OpenAI(model="gpt-4o-mini")
+llm = OpenAI(model="gpt-4.1-nano-2025-04-14")
 ```
 
 ### SimpleChatEngine
@@ -207,9 +206,8 @@ By integrating LlamaIndex with Mem0, you can build a personalized agent that can
 
 ## Help
 
-- For more details on LlamaIndex, visit the [LlamaIndex documentation](https://llamahub.ai/l/memory/llama-index-memory-mem0).
-- [Mem0 Platform](https://app.mem0.ai/).
-- If you need further assistance, please feel free to reach out to us through following methods:
+- [LlamaIndex Documentation](https://llamahub.ai/l/memory/llama-index-memory-mem0)
+- [Mem0 Platform](https://app.mem0.ai/)
 
 <Snippet file="get-help.mdx" />
 

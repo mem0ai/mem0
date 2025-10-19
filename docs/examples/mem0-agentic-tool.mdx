@@ -3,8 +3,7 @@ title: Mem0 as an Agentic Tool
 ---
 
 
-Integrate Mem0's memory capabilities with OpenAI's Agents SDK to create AI agents with persistent memory.
-You can create agents that remember past conversations and use that context to provide better responses.
+Integrate Mem0's memory capabilities with OpenAI's Agents SDK to create AI agents with persistent memory. You can create agents that remember past conversations and use that context to provide better responses.
 
 ## Installation
 
@@ -112,7 +111,7 @@ async def search_memory(
         query: The search query.
     """
     user_id = context.context.user_id or "default_user"
-    memories = await client.search(query, user_id=user_id, output_format="v1.1")
+    memories = await client.search(query, user_id=user_id)
     results = '\n'.join([result["memory"] for result in memories["results"]])
     return str(results)
 ```
@@ -126,7 +125,7 @@ async def get_all_memory(
 ) -> str:
     """Retrieve all memories from Mem0"""
     user_id = context.context.user_id or "default_user"
-    memories = await client.get_all(user_id=user_id, output_format="v1.1")
+    memories = await client.get_all(user_id=user_id)
     results = '\n'.join([result["memory"] for result in memories["results"]])
     return str(results)
 ```

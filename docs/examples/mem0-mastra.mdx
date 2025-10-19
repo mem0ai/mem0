@@ -2,8 +2,7 @@
 title: Mem0 with Mastra
 ---
 
-In this example you'll learn how to use the Mem0 to add long-term memory capabilities to [Mastra's agent](https://mastra.ai/) via tool-use.
-This memory integration can work alongside Mastra's [agent memory features](https://mastra.ai/docs/agents/01-agent-memory).
+In this example you'll learn how to use Mem0 to add long-term memory capabilities to [Mastra's agent](https://mastra.ai/) via tool-use. This memory integration can work alongside Mastra's [agent memory features](https://mastra.ai/docs/agents/01-agent-memory).
 
 You can find the complete example code in the [Mastra repository](https://github.com/mastra-ai/mastra/tree/main/examples/memory-with-mem0).
 
@@ -11,9 +10,9 @@ You can find the complete example code in the [Mastra repository](https://github
 
 This guide will show you how to integrate Mem0 with Mastra to add long-term memory capabilities to your agents. We'll create tools that allow agents to save and retrieve memories using Mem0's API.
 
-### Installation
+## Installation
 
-1. **Install the Integration Package**
+**Install the Integration Package**
 
 To install the Mem0 integration, run:
 
@@ -21,7 +20,7 @@ To install the Mem0 integration, run:
 npm install @mastra/mem0
 ```
 
-2. **Add the Integration to Your Project**
+**Add the Integration to Your Project**
 
 Create a new file for your integrations and import the integration:
 
@@ -36,7 +35,7 @@ export const mem0 = new Mem0Integration({
 });
 ```
 
-3. **Use the Integration in Tools or Workflows**
+**Use the Integration in Tools or Workflows**
 
 You can now use the integration when defining tools for your agents or in workflows.
 
@@ -86,7 +85,7 @@ export const mem0MemorizeTool = createTool({
 });
 ```
 
-4. **Create a new agent**
+**Create a New Agent**
 
 ```typescript agents/index.ts
 import { openai } from '@ai-sdk/openai';
@@ -98,12 +97,12 @@ export const mem0Agent = new Agent({
   instructions: `
     You are a helpful assistant that has the ability to memorize and remember facts using Mem0.
   `,
-  model: openai('gpt-4o'),
+  model: openai('gpt-4.1-nano'),
   tools: { mem0RememberTool, mem0MemorizeTool },
 });
 ```
 
-5. **Run the agent**
+**Run the Agent**
 
 ```typescript index.ts
 import { Mastra } from '@mastra/core/mastra';
@@ -121,6 +120,6 @@ export const mastra = new Mastra({
 ```
 
 In the example above:
-- We import the `@mastra/mem0` integration.
-- We define two tools that uses the Mem0 API client to create new memories and recall previously saved memories.
-- The tool accepts `question` as an input and returns the memory as a string.
+- We import the `@mastra/mem0` integration
+- We define two tools that use the Mem0 API client to create new memories and recall previously saved memories
+- The tool accepts `question` as an input and returns the memory as a string

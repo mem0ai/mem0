@@ -26,7 +26,7 @@ config = {
 m = Memory.from_config(config)
 messages = [
     {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
-    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
     {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
     {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
 ]
@@ -38,19 +38,19 @@ import { Memory } from 'mem0ai/oss';
 
 const config = {
   embedder: {
-    provider: 'google',
-    config: {
-      apiKey: process.env.GOOGLE_API_KEY || '',
-      model: 'text-embedding-004',
-      // The output dimensionality is fixed at 768 for Google AI embeddings
+      provider: "google",
+      config: {
+        apiKey: process.env["GOOGLE_API_KEY"],
+        model: "gemini-embedding-001",
+        embeddingDims: 1536,
+      },
     },
-  },
 };
 
 const memory = new Memory(config);
 const messages = [
     {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
-    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
     {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
     {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
 ]
@@ -61,9 +61,19 @@ await memory.add(messages, { userId: "john" });
 ### Config
 
 Here are the parameters available for configuring Gemini embedder:
-
-| Parameter | Description | Default Value |
-| --- | --- | --- |
-| `model` | The name of the embedding model to use | `models/text-embedding-004` |
-| `embedding_dims` | Dimensions of the embedding model (output_dimensionality will be considered as embedding_dims, so please set embedding_dims accordingly) | `768` |
-| `api_key` | The Google API key | `None` |
+<Tabs>
+<Tab title="Python">
+| Parameter        | Description                          | Default Value           |
+| ---------------- | ------------------------------------ | ----------------------- |
+| `model`          | The name of the embedding model to use| `models/text-embedding-004` |
+| `embedding_dims` | Dimensions of the embedding model     | `1536`                  |
+| `api_key`        | The Google API key                   | `None`                  |
+</Tab>
+<Tab title="TypeScript">
+| Parameter         | Description                                   | Default Value              |
+| ----------------- | --------------------------------------------- | -------------------------- |
+| `model`           | The name of the embedding model to use        | `gemini-embedding-001`     |
+| `embeddingDims`   | Dimensions of the embedding model             | `1536`                     |
+| `apiKey`          | Google API key                                | `None`                     |
+</Tab>
+</Tabs>

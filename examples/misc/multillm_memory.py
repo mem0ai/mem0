@@ -34,7 +34,7 @@ memory = MemoryClient()
 # Research team models with specialized roles
 RESEARCH_TEAM = {
     "tech_analyst": {
-        "model": "gpt-4o",
+        "model": "gpt-4.1-nano-2025-04-14",
         "role": "Technical Analyst - Code review, architecture, and technical decisions",
     },
     "writer": {
@@ -42,7 +42,7 @@ RESEARCH_TEAM = {
         "role": "Documentation Writer - Clear explanations and user guides",
     },
     "data_analyst": {
-        "model": "gpt-4o-mini",
+        "model": "gpt-4.1-nano-2025-04-14",
         "role": "Data Analyst - Insights, trends, and data-driven recommendations",
     },
 }
@@ -99,7 +99,6 @@ Provide actionable insights in your area of expertise."""
         user_id=project_id,  # Project-level memory
         agent_id=specialist,  # Agent-specific memory
         metadata={"contributor": specialist, "task_type": "research", "model_used": spec_info["model"]},
-        output_format="v1.1",
     )
 
     return result

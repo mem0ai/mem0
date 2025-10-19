@@ -63,7 +63,7 @@ agent = Agent(
     Use the save_memory tool to store important information about the user.
     Always personalize your responses based on available memory.""",
     tools=[search_memory, save_memory],
-    model="gpt-4o"
+    model="gpt-4.1-nano-2025-04-14"
 )
 
 def chat_with_agent(user_input: str, user_id: str) -> str:
@@ -114,7 +114,7 @@ travel_agent = Agent(
     understand the user's travel preferences and history before making recommendations.
     After providing your response, use store_conversation to save important details.""",
     tools=[search_memory, save_memory],
-    model="gpt-4o"
+    model="gpt-4.1-nano-2025-04-14"
 )
 
 health_agent = Agent(
@@ -123,18 +123,18 @@ health_agent = Agent(
     understand the user's health goals and dietary preferences.
     After providing advice, use store_conversation to save relevant information.""",
     tools=[search_memory, save_memory],
-    model="gpt-4o"
+    model="gpt-4.1-nano-2025-04-14"
 )
 
 # Triage agent with handoffs
 triage_agent = Agent(
     name="Personal Assistant",
     instructions="""You are a helpful personal assistant that routes requests to specialists.
-    For travel-related questions (trips, hotels, flights, destinations), hand off to Travel Planner.
-    For health-related questions (fitness, diet, wellness, exercise), hand off to Health Advisor.
-    For general questions, you can handle them directly using available tools.""",
+    For travel-related questions (trips, hotels, flights, destinations), hand off to the Travel Planner.
+    For health-related questions (fitness, diet, wellness, exercise), hand off to the Health Advisor.
+    For general questions, handle them directly using available tools.""",
     handoffs=[travel_agent, health_agent],
-    model="gpt-4o"
+    model="gpt-4.1-nano-2025-04-14"
 )
 
 def chat_with_handoffs(user_input: str, user_id: str) -> str:
@@ -201,7 +201,7 @@ if __name__ == "__main__":
 - **Seamless Handoffs**: Agents maintain context across handoffs
 
 ### 3. Flexible Memory Operations
-- **Retrieve Capabilities**: Retrieve relevant memories from previous conversation
+- **Retrieve Capabilities**: Retrieve relevant memories from previous conversations
 - **User Segmentation**: Organize memories by user ID
 - **Memory Management**: Built-in tools for saving and retrieving information
 
@@ -229,6 +229,5 @@ mem0.add(
 
 - [OpenAI Agents SDK Documentation](https://openai.github.io/openai-agents-python/)
 - [Mem0 Platform](https://app.mem0.ai/)
-- If you need further assistance, please feel free to reach out to us through the following methods:
 
 <Snippet file="get-help.mdx" />

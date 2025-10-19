@@ -106,7 +106,7 @@ const mem0Agent = new Agent({
     Use the Mem0-memorize tool to save important information that might be useful later.
     Use the Mem0-remember tool to recall previously saved information when answering questions.
   `,
-  model: openai('gpt-4o'),
+  model: openai('gpt-4.1-nano'),
   tools: { mem0RememberTool, mem0MemorizeTool },
 });
 ```
@@ -127,8 +127,7 @@ By integrating Mastra with Mem0, you can build intelligent agents that learn and
 
 ## Help
 
-- For more details on Mastra, visit the [Mastra documentation](https://docs.mastra.ai/).
-- [Mem0 Platform](https://app.mem0.ai/).
-- If you need further assistance, please feel free to reach out to us through the following methods:
+- [Mastra Documentation](https://docs.mastra.ai/)
+- [Mem0 Platform](https://app.mem0.ai/)
 
 <Snippet file="get-help.mdx" /> 

@@ -7,7 +7,7 @@ description: "Enable graph-based memory retrieval for more contextually relevant
 
 ## Overview
 
-Graph Memory enhances memory pipeline by creating relationships between entities in your data. It builds a network of interconnected information for more contextually relevant search results.
+Graph Memory enhances the memory pipeline by creating relationships between entities in your data. It builds a network of interconnected information for more contextually relevant search results.
 
 This feature allows your AI applications to understand connections between entities, providing richer context for responses. It's ideal for applications needing relationship tracking and nuanced information retrieval across related memories.
 
@@ -21,7 +21,7 @@ The Graph Memory feature analyzes how each entity connects and relates to each o
 
 ## Using Graph Memory
 
-To use Graph Memory, you need to enable it in your API calls by setting the `enable_graph=True` parameter. You'll also need to specify `output_format="v1.1"` to receive the enriched response format.
+To use Graph Memory, you need to enable it in your API calls by setting the `enable_graph=True` parameter.
 
 ### Adding Memories with Graph Memory
 
@@ -46,11 +46,9 @@ messages = [
 
 # Enable graph memory when adding
 client.add(
-    messages, 
-    user_id="joseph", 
-    version="v1", 
-    enable_graph=True, 
-    output_format="v1.1"
+    messages,
+    user_id="joseph",
+    enable_graph=True
 )
 ```
 
@@ -73,9 +71,7 @@ const messages = [
 await client.add({
   messages,
   user_id: "joseph",
-  version: "v1",
-  enable_graph: true,
-  output_format: "v1.1"
+  enable_graph: true
 });
 ```
 
@@ -112,9 +108,7 @@ The graph memory would look like this:
 
 
 <Note>
-Response for the graph memory's `add` operation will not be available directly in the response. 
-As adding graph memories is an asynchronous operation due to heavy processing, 
-you can use the `get_all()` endpoint to retrieve the memory with the graph metadata.
+Response for the graph memory's `add` operation will not be available directly in the response. As adding graph memories is an asynchronous operation due to heavy processing, you can use the `get_all()` endpoint to retrieve the memory with the graph metadata.
 </Note>
 
 
@@ -127,10 +121,9 @@ When searching memories, Graph Memory helps retrieve entities that are contextua
 ```python Python
 # Search with graph memory enabled
 results = client.search(
-    "what is my name?", 
-    user_id="joseph", 
-    enable_graph=True, 
-    output_format="v1.1"
+    "what is my name?",
+    user_id="joseph",
+    enable_graph=True
 )
 
 print(results)
@@ -141,8 +134,7 @@ print(results)
 const results = await client.search({
   query: "what is my name?",
   user_id: "joseph",
-  enable_graph: true,
-  output_format: "v1.1"
+  enable_graph: true
 });
 
 console.log(results);
@@ -198,9 +190,8 @@ When retrieving all memories, Graph Memory provides additional relationship cont
 ```python Python
 # Get all memories with graph context
 memories = client.get_all(
-    user_id="joseph", 
-    enable_graph=True, 
-    output_format="v1.1"
+    user_id="joseph",
+    enable_graph=True
 )
 
 print(memories)
@@ -210,8 +201,7 @@ print(memories)
 // Get all memories with graph context
 const memories = await client.getAll({
   user_id: "joseph",
-  enable_graph: true,
-  output_format: "v1.1"
+  enable_graph: true
 });
 
 console.log(memories);
@@ -306,8 +296,7 @@ messages = [
 
 client.add(
     messages,
-    user_id="joseph",
-    output_format="v1.1"
+    user_id="joseph"
 )
 ```
 
@@ -320,10 +309,10 @@ const client = new MemoryClient({
   project_id: "your-project-id"
 });
 
-# Enable graph memory for all operations in this project
-await client.updateProject({ enable_graph: true, version: "v1" });
+// Enable graph memory for all operations in this project
+await client.project.update({ enable_graph: true });
 
-# Now all add operations will use graph memory by default
+// Now all add operations will use graph memory by default
 const messages = [
   { role: "user", content: "My name is Joseph" },
   { role: "assistant", content: "Hello Joseph, it's nice to meet you!" },
@@ -332,8 +321,7 @@ const messages = [
 
 await client.add({
   messages,
-  user_id: "joseph",
-  output_format: "v1.1"
+  user_id: "joseph"
 });
 ```
 
@@ -342,9 +330,9 @@ await client.add({
 
 ## Best Practices
 
-- Enable Graph Memory for applications where understanding context and relationships between memories is important
-- Graph Memory works best with a rich history of related conversations
-- Consider Graph Memory for long-running assistants that need to track evolving information
+- Enable Graph Memory for applications where understanding context and relationships between memories is important.
+- Graph Memory works best with a rich history of related conversations.
+- Consider Graph Memory for long-running assistants that need to track evolving information.
 
 ## Performance Considerations
 

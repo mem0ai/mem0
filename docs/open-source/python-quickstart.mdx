@@ -107,7 +107,7 @@ m = Memory.from_config(config_dict=config)
 ```python Code
 messages = [
     {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
-    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
     {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
     {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
 ]
@@ -342,9 +342,9 @@ m.reset() # Reset all memories
 
 Mem0 supports three key parameters for organizing memories:
 
-- **`user_id`**: Organize memories by user identity
-- **`agent_id`**: Organize memories by AI agent or assistant
-- **`run_id`**: Organize memories by session, workflow, or execution context
+- **`user_id`**: Organize memories by user identity.
+- **`agent_id`**: Organize memories by AI agent or assistant.
+- **`run_id`**: Organize memories by session, workflow, or execution context.
 
 ### Using All Three Parameters
 
@@ -369,7 +369,7 @@ session_search = m.search("What do you know about me?", user_id="alice", run_id=
 
 ## Configuration Parameters
 
-Mem0 offers extensive configuration options to customize its behavior according to your needs. These configurations span across different components like vector stores, language models, embedders, and graph stores.
+Mem0 offers extensive configuration options to customize its behavior according to your needs. These configurations span different components like vector stores, language models, embedders, and graph stores.
 
 <AccordionGroup>
 <Accordion title="Vector Store Configuration">
@@ -425,7 +425,7 @@ Mem0 offers extensive configuration options to customize its behavior according 
 | `history_db_path` | Path to the history database         | "{mem0_dir}/history.db"    |
 | `version`         | API version                          | "v1.1"                     |
 | `custom_fact_extraction_prompt`   | Custom prompt for memory processing  | None                       |
-| `custom_update_memory_prompt` | Custom prompt for update memory | None                |
+| `custom_update_memory_prompt` | Custom prompt for memory updates | None                |
 </Accordion>
 
 <Accordion title="Complete Configuration Example">
@@ -504,13 +504,13 @@ chat_completion = client.chat.completions.create(
             "content": "What's the capital of France?",
         }
     ],
-    model="gpt-4o",
+    model="gpt-4.1-nano-2025-04-14",
 )
 ```
 
 ## Contributing
 
-We welcome contributions to Mem0! Here's how you can contribute:
+We welcome contributions to Mem0. Here's how you can contribute:
 
 1. Fork the repository and create your branch from `main`.
 2. Clone the forked repository to your local machine.
@@ -538,7 +538,7 @@ We welcome contributions to Mem0! Here's how you can contribute:
 7. If all tests pass, commit your changes and push to your fork.
 8. Open a pull request with a clear title and description.
 
-Please make sure your code follows our coding conventions and is well-documented. We appreciate your contributions to make Mem0 better!
+Please ensure your code follows our coding conventions and is well-documented.
 
 
 If you have any questions, please feel free to reach out to us using one of the following methods:

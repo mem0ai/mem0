@@ -1,15 +1,15 @@
 ---
-title: Google Agent Development Kit
+title: Google ADK
 ---
 
-Integrate [**Mem0**](https://github.com/mem0ai/mem0) with [Google Agent Development Kit (ADK)](https://github.com/google/adk-python), an open-source framework for building multi-agent workflows. This integration enables agents to access persistent memory across conversations, enhancing context retention and personalization.
+Integrate [**Mem0**](https://github.com/mem0ai/mem0) with [Google ADK (Agent Development Kit)](https://github.com/google/adk-python), an open-source framework for building multi-agent workflows. This integration enables agents to access persistent memory across conversations, enhancing context retention and personalization.
 
 ## Overview
 
 1. Store and retrieve memories from Mem0 within Google ADK agents
 2. Multi-agent workflows with shared memory across hierarchies
 3. Retrieve relevant memories from past conversations
-4. Personalized responses
+4. Personalized responses based on user history
 
 ## Prerequisites
 
@@ -50,7 +50,9 @@ mem0 = MemoryClient()
 # Define memory function tools
 def search_memory(query: str, user_id: str) -> dict:
     """Search through past conversations and memories"""
-    memories = mem0.search(query, user_id=user_id, output_format='v1.1')
+    # For Platform API, user_id goes in filters
+    filters = {"user_id": user_id}
+    memories = mem0.search(query, filters=filters)
     if memories.get('results', []):
         memory_list = memories['results']
         memory_context = "\n".join([f"- {mem['memory']}" for mem in memory_list])
@@ -60,7 +62,7 @@ def search_memory(query: str, user_id: str) -> dict:
 def save_memory(content: str, user_id: str) -> dict:
     """Save important information to memory"""
     try:
-        result = mem0.add([{"role": "user", "content": content}], user_id=user_id, output_format='v1.1')
+        result = mem0.add([{"role": "user", "content": content}], user_id=user_id)
         return {"status": "success", "message": "Information saved to memory", "result": result}
     except Exception as e:
         return {"status": "error", "message": f"Failed to save memory: {str(e)}"}
@@ -130,9 +132,9 @@ from google.adk.tools.agent_tool import AgentTool
 travel_agent = Agent(
     name="travel_specialist",
     model="gemini-2.0-flash",
-    instruction="""You are a travel planning specialist. Use get_user_context to
+    instruction="""You are a travel planning specialist. Use search_memory to
     understand the user's travel preferences and history before making recommendations.
-    After providing advice, use store_interaction to save travel-related information.""",
+    After providing advice, use save_memory to save travel-related information.""",
     description="Specialist in travel planning and recommendations",
     tools=[search_memory, save_memory]
 )
@@ -141,9 +143,9 @@ travel_agent = Agent(
 health_agent = Agent(
     name="health_advisor",
     model="gemini-2.0-flash",
-    instruction="""You are a health and wellness advisor. Use get_user_context to
+    instruction="""You are a health and wellness advisor. Use search_memory to
     understand the user's health goals and dietary preferences.
-    After providing advice, use store_interaction to save health-related information.""",
+    After providing advice, use save_memory to save health-related information.""",
     description="Specialist in health and wellness advice",
     tools=[search_memory, save_memory]
 )
@@ -155,7 +157,7 @@ coordinator_agent = Agent(
     instruction="""You are a coordinator that delegates requests to specialist agents.
     For travel-related questions (trips, hotels, flights, destinations), delegate to the travel specialist.
     For health-related questions (fitness, diet, wellness, exercise), delegate to the health advisor.
-    Use get_user_context to understand the user before delegation.""",
+    Use search_memory to understand the user before delegation.""",
     description="Coordinates requests between specialist agents",
     tools=[
         AgentTool(agent=travel_agent, skip_summarization=False),
@@ -255,12 +257,17 @@ if __name__ == "__main__":
 Customize memory behavior and agent setup:
 
 ```python
-# Configure memory search with metadata
+# Configure memory search with filters
+# For Platform API, all filters including user_id go in filters object
 memories = mem0.search(
     query="travel preferences",
-    user_id="alice",
-    limit=5,
-    filters={"category": "travel"}  # Filter by category if supported
+    filters={
+        "AND": [
+            {"user_id": "alice"},
+            {"categories": {"contains": "travel"}}
+        ]
+    },
+    limit=5
 )
 
 # Configure agent with custom model settings
@@ -282,6 +289,5 @@ os.environ["GOOGLE_CLOUD_LOCATION"] = "us-central1"
 
 - [Google ADK Documentation](https://google.github.io/adk-docs/)
 - [Mem0 Platform](https://app.mem0.ai/)
-- If you need further assistance, please feel free to reach out to us through the following methods:
 
 <Snippet file="get-help.mdx" />

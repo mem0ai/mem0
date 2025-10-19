@@ -55,28 +55,27 @@ class MemoryGraph:
             llm_config = self.config.llm.config
         self.llm = LlmFactory.create(self.llm_provider, llm_config)
         self.user_id = None
-        self.threshold = 0.7
+        # Use threshold from graph_store config, default to 0.7 for backward compatibility
+        self.threshold = self.config.graph_store.threshold if hasattr(self.config.graph_store, 'threshold') else 0.7
 
         # Setup Memgraph:
         # 1. Create vector index (created Entity label on all nodes)
         # 2. Create label property index for performance optimizations
         embedding_dims = self.config.embedder.config["embedding_dims"]
         index_info = self._fetch_existing_indexes()
+
         # Create vector index if not exists
-        if not any(idx.get("index_name") == "memzero" for idx in index_info["vector_index_exists"]):
+        if not self._vector_index_exists(index_info, "memzero"):
             self.graph.query(
                 f"CREATE VECTOR INDEX memzero ON :Entity(embedding) WITH CONFIG {{'dimension': {embedding_dims}, 'capacity': 1000, 'metric': 'cos'}};"
             )
+
         # Create label+property index if not exists
-        if not any(
-            idx.get("index type") == "label+property" and idx.get("label") == "Entity"
-            for idx in index_info["index_exists"]
-        ):
+        if not self._label_property_index_exists(index_info, "Entity", "user_id"):
             self.graph.query("CREATE INDEX ON :Entity(user_id);")
+
         # Create label index if not exists
-        if not any(
-            idx.get("index type") == "label" and idx.get("label") == "Entity" for idx in index_info["index_exists"]
-        ):
+        if not self._label_index_exists(index_info, "Entity"):
             self.graph.query("CREATE INDEX ON :Entity;")
 
     def add(self, data, filters):
@@ -281,23 +280,17 @@ class MemoryGraph:
             # Build query based on whether agent_id is provided
             if filters.get("agent_id"):
                 cypher_query = """
-                MATCH (n:Entity {user_id: $user_id, agent_id: $agent_id})
-                WHERE n.embedding IS NOT NULL
-                WITH n, $n_embedding as n_embedding
-                CALL node_similarity.cosine_pairwise("embedding", [n_embedding], [n.embedding])
-                YIELD node1, node2, similarity
-                WITH n, similarity
-                WHERE similarity >= $threshold
+                CALL vector_search.search("memzero", $limit, $n_embedding)
+                YIELD distance, node, similarity
+                WITH node AS n, similarity
+                WHERE n:Entity AND n.user_id = $user_id AND n.agent_id = $agent_id AND n.embedding IS NOT NULL AND similarity >= $threshold
                 MATCH (n)-[r]->(m:Entity)
                 RETURN n.name AS source, id(n) AS source_id, type(r) AS relationship, id(r) AS relation_id, m.name AS destination, id(m) AS destination_id, similarity
                 UNION
-                MATCH (n:Entity {user_id: $user_id, agent_id: $agent_id})
-                WHERE n.embedding IS NOT NULL
-                WITH n, $n_embedding as n_embedding
-                CALL node_similarity.cosine_pairwise("embedding", [n_embedding], [n.embedding])
-                YIELD node1, node2, similarity
-                WITH n, similarity
-                WHERE similarity >= $threshold
+                CALL vector_search.search("memzero", $limit, $n_embedding)
+                YIELD distance, node, similarity
+                WITH node AS n, similarity
+                WHERE n:Entity AND n.user_id = $user_id AND n.agent_id = $agent_id AND n.embedding IS NOT NULL AND similarity >= $threshold
                 MATCH (m:Entity)-[r]->(n)
                 RETURN m.name AS source, id(m) AS source_id, type(r) AS relationship, id(r) AS relation_id, n.name AS destination, id(n) AS destination_id, similarity
                 ORDER BY similarity DESC
@@ -312,23 +305,17 @@ class MemoryGraph:
                 }
             else:
                 cypher_query = """
-                MATCH (n:Entity {user_id: $user_id})
-                WHERE n.embedding IS NOT NULL
-                WITH n, $n_embedding as n_embedding
-                CALL node_similarity.cosine_pairwise("embedding", [n_embedding], [n.embedding])
-                YIELD node1, node2, similarity
-                WITH n, similarity
-                WHERE similarity >= $threshold
+                CALL vector_search.search("memzero", $limit, $n_embedding)
+                YIELD distance, node, similarity
+                WITH node AS n, similarity
+                WHERE n:Entity AND n.user_id = $user_id AND n.embedding IS NOT NULL AND similarity >= $threshold
                 MATCH (n)-[r]->(m:Entity)
                 RETURN n.name AS source, id(n) AS source_id, type(r) AS relationship, id(r) AS relation_id, m.name AS destination, id(m) AS destination_id, similarity
                 UNION
-                MATCH (n:Entity {user_id: $user_id})
-                WHERE n.embedding IS NOT NULL
-                WITH n, $n_embedding as n_embedding
-                CALL node_similarity.cosine_pairwise("embedding", [n_embedding], [n.embedding])
-                YIELD node1, node2, similarity
-                WITH n, similarity
-                WHERE similarity >= $threshold
+                CALL vector_search.search("memzero", $limit, $n_embedding)
+                YIELD distance, node, similarity
+                WITH node AS n, similarity
+                WHERE n:Entity AND n.user_id = $user_id AND n.embedding IS NOT NULL AND similarity >= $threshold
                 MATCH (m:Entity)-[r]->(n)
                 RETURN m.name AS source, id(m) AS source_id, type(r) AS relationship, id(r) AS relation_id, n.name AS destination, id(n) AS destination_id, similarity
                 ORDER BY similarity DESC
@@ -436,8 +423,8 @@ class MemoryGraph:
             dest_embedding = self.embedding_model.embed(destination)
 
             # search for the nodes with the closest embeddings
-            source_node_search_result = self._search_source_node(source_embedding, filters, threshold=0.9)
-            destination_node_search_result = self._search_destination_node(dest_embedding, filters, threshold=0.9)
+            source_node_search_result = self._search_source_node(source_embedding, filters, threshold=self.threshold)
+            destination_node_search_result = self._search_destination_node(dest_embedding, filters, threshold=self.threshold)
 
             # Prepare agent_id for node creation
             agent_id_clause = ""
@@ -625,6 +612,68 @@ class MemoryGraph:
         result = self.graph.query(cypher, params=params)
         return result
 
+
+    def _vector_index_exists(self, index_info, index_name):
+        """
+        Check if a vector index exists, compatible with both Memgraph versions.
+
+        Args:
+            index_info (dict): Index information from _fetch_existing_indexes
+            index_name (str): Name of the index to check
+
+        Returns:
+            bool: True if index exists, False otherwise
+        """
+        vector_indexes = index_info.get("vector_index_exists", [])
+
+        # Check for index by name regardless of version-specific format differences
+        return any(
+            idx.get("index_name") == index_name or
+            idx.get("index name") == index_name or
+            idx.get("name") == index_name
+            for idx in vector_indexes
+        )
+
+    def _label_property_index_exists(self, index_info, label, property_name):
+        """
+        Check if a label+property index exists, compatible with both versions.
+
+        Args:
+            index_info (dict): Index information from _fetch_existing_indexes
+            label (str): Label name
+            property_name (str): Property name
+
+        Returns:
+            bool: True if index exists, False otherwise
+        """
+        indexes = index_info.get("index_exists", [])
+
+        return any(
+            (idx.get("index type") == "label+property" or idx.get("index_type") == "label+property") and
+            (idx.get("label") == label) and
+            (idx.get("property") == property_name or property_name in str(idx.get("properties", "")))
+            for idx in indexes
+        )
+
+    def _label_index_exists(self, index_info, label):
+        """
+        Check if a label index exists, compatible with both versions.
+
+        Args:
+            index_info (dict): Index information from _fetch_existing_indexes
+            label (str): Label name
+
+        Returns:
+            bool: True if index exists, False otherwise
+        """
+        indexes = index_info.get("index_exists", [])
+
+        return any(
+            (idx.get("index type") == "label" or idx.get("index_type") == "label") and
+            (idx.get("label") == label)
+            for idx in indexes
+        )
+
     def _fetch_existing_indexes(self):
         """
         Retrieves information about existing indexes and vector indexes in the Memgraph database.
@@ -632,7 +681,10 @@ class MemoryGraph:
         Returns:
             dict: A dictionary containing lists of existing indexes and vector indexes.
         """
-
-        index_exists = list(self.graph.query("SHOW INDEX INFO;"))
-        vector_index_exists = list(self.graph.query("SHOW VECTOR INDEX INFO;"))
-        return {"index_exists": index_exists, "vector_index_exists": vector_index_exists}
+        try:
+            index_exists = list(self.graph.query("SHOW INDEX INFO;"))
+            vector_index_exists = list(self.graph.query("SHOW VECTOR INDEX INFO;"))
+            return {"index_exists": index_exists, "vector_index_exists": vector_index_exists}
+        except Exception as e:
+            logger.warning(f"Error fetching indexes: {e}. Returning empty index info.")
+            return {"index_exists": [], "vector_index_exists": []}

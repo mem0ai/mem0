@@ -9,6 +9,7 @@ import requests
 
 from mem0.client.project import AsyncProject, Project
 from mem0.client.utils import api_error_handler
+# Exception classes are referenced in docstrings only
 from mem0.memory.setup import get_user_id, setup_config
 from mem0.memory.telemetry import capture_client_event
 
@@ -127,33 +128,54 @@ class MemoryClient:
             raise ValueError(f"Error: {error_message}")
 
     @api_error_handler
-    def add(self, messages: List[Dict[str, str]], **kwargs) -> Dict[str, Any]:
+    def add(self, messages, **kwargs) -> Dict[str, Any]:
         """Add a new memory.
 
         Args:
-            messages: A list of message dictionaries.
+            messages: A list of message dictionaries, a single message dictionary,
+                     or a string. If a string is provided, it will be converted to
+                     a user message.
             **kwargs: Additional parameters such as user_id, agent_id, app_id,
-                      metadata, filters.
+                      metadata, filters, async_mode.
 
         Returns:
-            A dictionary containing the API response.
+            A dictionary containing the API response in v1.1 format.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            MemoryQuotaExceededError: If memory quota is exceeded.
+            NetworkError: If network connectivity issues occur.
+            MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
+        # Handle different message input formats (align with OSS behavior)
+        if isinstance(messages, str):
+            messages = [{"role": "user", "content": messages}]
+        elif isinstance(messages, dict):
+            messages = [messages]
+        elif not isinstance(messages, list):
+            raise ValueError(
+                f"messages must be str, dict, or list[dict], got {type(messages).__name__}"
+            )
+
         kwargs = self._prepare_params(kwargs)
-        if kwargs.get("output_format") != "v1.1":
-            kwargs["output_format"] = "v1.1"
+
+        # Remove deprecated parameters
+        if "output_format" in kwargs:
             warnings.warn(
-                (
-                    "output_format='v1.0' is deprecated therefore setting it to "
-                    "'v1.1' by default. Check out the docs for more information: "
-                    "https://docs.mem0.ai/platform/quickstart#4-1-create-memories"
-                ),
+                "output_format parameter is deprecated and ignored. All responses now use v1.1 format.",
                 DeprecationWarning,
                 stacklevel=2,
             )
-        kwargs["version"] = "v2"
+            kwargs.pop("output_format")
+
+        # Set async_mode to True by default, but allow user override
+        if "async_mode" not in kwargs:
+            kwargs["async_mode"] = True
+
+        # Force v1.1 format for all add operations
+        kwargs["output_format"] = "v1.1"
         payload = self._prepare_payload(messages, kwargs)
         response = self.client.post("/v1/memories/", json=payload)
         response.raise_for_status()
@@ -173,7 +195,12 @@ class MemoryClient:
             A dictionary containing the memory data.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            MemoryQuotaExceededError: If memory quota is exceeded.
+            NetworkError: If network connectivity issues occur.
+            MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
         params = self._prepare_params()
         response = self.client.get(f"/v1/memories/{memory_id}/", params=params)
@@ -182,32 +209,36 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def get_all(self, version: str = "v1", **kwargs) -> List[Dict[str, Any]]:
+    def get_all(self, **kwargs) -> Dict[str, Any]:
         """Retrieve all memories, with optional filtering.
 
         Args:
-            version: The API version to use for the search endpoint.
             **kwargs: Optional parameters for filtering (user_id, agent_id,
-                      app_id, top_k).
+                      app_id, top_k, page, page_size).
 
         Returns:
-            A list of dictionaries containing memories.
+            A dictionary containing memories in v1.1 format: {"results": [...]}
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            MemoryQuotaExceededError: If memory quota is exceeded.
+            NetworkError: If network connectivity issues occur.
+            MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
         params = self._prepare_params(kwargs)
-        if version == "v1":
-            response = self.client.get(f"/{version}/memories/", params=params)
-        elif version == "v2":
-            if "page" in params and "page_size" in params:
-                query_params = {
-                    "page": params.pop("page"),
-                    "page_size": params.pop("page_size"),
-                }
-                response = self.client.post(f"/{version}/memories/", json=params, params=query_params)
-            else:
-                response = self.client.post(f"/{version}/memories/", json=params)
+        params.pop("output_format", None)  # Remove output_format for get operations
+        params.pop("async_mode", None)
+
+        if "page" in params and "page_size" in params:
+            query_params = {
+                "page": params.pop("page"),
+                "page_size": params.pop("page_size"),
+            }
+            response = self.client.post("/v2/memories/", json=params, params=query_params)
+        else:
+            response = self.client.post("/v2/memories/", json=params)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
@@ -215,33 +246,46 @@ class MemoryClient:
             "client.get_all",
             self,
             {
-                "api_version": version,
+                "api_version": "v2",
                 "keys": list(kwargs.keys()),
                 "sync_type": "sync",
             },
         )
-        return response.json()
+        result = response.json()
+
+        # Ensure v1.1 format (wrap raw list if needed)
+        if isinstance(result, list):
+            return {"results": result}
+        return result
 
     @api_error_handler
-    def search(self, query: str, version: str = "v1", **kwargs) -> List[Dict[str, Any]]:
+    def search(self, query: str, **kwargs) -> Dict[str, Any]:
         """Search memories based on a query.
 
         Args:
             query: The search query string.
-            version: The API version to use for the search endpoint.
             **kwargs: Additional parameters such as user_id, agent_id, app_id,
                       top_k, filters.
 
         Returns:
-            A list of dictionaries containing search results.
+            A dictionary containing search results in v1.1 format: {"results": [...]}
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            MemoryQuotaExceededError: If memory quota is exceeded.
+            NetworkError: If network connectivity issues occur.
+            MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
         payload = {"query": query}
         params = self._prepare_params(kwargs)
+        params.pop("output_format", None)  # Remove output_format for search operations
+        params.pop("async_mode", None)
+
         payload.update(params)
-        response = self.client.post(f"/{version}/memories/search/", json=payload)
+
+        response = self.client.post("/v2/memories/search/", json=payload)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
@@ -249,12 +293,17 @@ class MemoryClient:
             "client.search",
             self,
             {
-                "api_version": version,
+                "api_version": "v2",
                 "keys": list(kwargs.keys()),
                 "sync_type": "sync",
             },
         )
-        return response.json()
+        result = response.json()
+
+        # Ensure v1.1 format (wrap raw list if needed)
+        if isinstance(result, list):
+            return {"results": result}
+        return result
 
     @api_error_handler
     def update(
@@ -303,7 +352,12 @@ class MemoryClient:
             A dictionary containing the API response.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            MemoryQuotaExceededError: If memory quota is exceeded.
+            NetworkError: If network connectivity issues occur.
+            MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
         params = self._prepare_params()
         response = self.client.delete(f"/v1/memories/{memory_id}/", params=params)
@@ -323,7 +377,12 @@ class MemoryClient:
             A dictionary containing the API response.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            MemoryQuotaExceededError: If memory quota is exceeded.
+            NetworkError: If network connectivity issues occur.
+            MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
         params = self._prepare_params(kwargs)
         response = self.client.delete("/v1/memories/", params=params)
@@ -346,7 +405,12 @@ class MemoryClient:
             A list of dictionaries containing the memory history.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            MemoryQuotaExceededError: If memory quota is exceeded.
+            NetworkError: If network connectivity issues occur.
+            MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
         params = self._prepare_params()
         response = self.client.get(f"/v1/memories/{memory_id}/history/", params=params)
@@ -384,7 +448,10 @@ class MemoryClient:
 
         Raises:
             ValueError: If specified entity not found
-            APIError: If deletion fails
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            MemoryNotFoundError: If the entity doesn't exist.
+            NetworkError: If network connectivity issues occur.
         """
 
         if user_id:
@@ -438,10 +505,13 @@ class MemoryClient:
             Dict[str, str]: Message client reset successful.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            MemoryQuotaExceededError: If memory quota is exceeded.
+            NetworkError: If network connectivity issues occur.
+            MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
-        # Delete all users, agents, and sessions
-        # This will also delete the memories
         self.delete_users()
 
         capture_client_event("client.reset", self, {"sync_type": "sync"})
@@ -459,6 +529,14 @@ class MemoryClient:
 
         Returns:
             Dict[str, Any]: The response from the server.
+
+        Raises:
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            MemoryQuotaExceededError: If memory quota is exceeded.
+            NetworkError: If network connectivity issues occur.
+            MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
         response = self.client.put("/v1/batch/", json={"memories": memories})
         response.raise_for_status()
@@ -479,7 +557,12 @@ class MemoryClient:
             str: Message indicating the success of the batch deletion.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            MemoryQuotaExceededError: If memory quota is exceeded.
+            NetworkError: If network connectivity issues occur.
+            MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
         response = self.client.request("DELETE", "/v1/batch/", json={"memories": memories})
         response.raise_for_status()
@@ -560,7 +643,12 @@ class MemoryClient:
             Dictionary containing the requested fields.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            MemoryQuotaExceededError: If memory quota is exceeded.
+            NetworkError: If network connectivity issues occur.
+            MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
             ValueError: If org_id or project_id are not set.
         """
         logger.warning(
@@ -604,7 +692,12 @@ class MemoryClient:
             Dictionary containing the API response.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            MemoryQuotaExceededError: If memory quota is exceeded.
+            NetworkError: If network connectivity issues occur.
+            MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
             ValueError: If org_id or project_id are not set.
         """
         logger.warning(
@@ -673,7 +766,12 @@ class MemoryClient:
             Dictionary containing webhook details.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            MemoryQuotaExceededError: If memory quota is exceeded.
+            NetworkError: If network connectivity issues occur.
+            MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
             ValueError: If project_id is not set.
         """
 
@@ -695,7 +793,12 @@ class MemoryClient:
             Dictionary containing the created webhook details.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            MemoryQuotaExceededError: If memory quota is exceeded.
+            NetworkError: If network connectivity issues occur.
+            MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
             ValueError: If project_id is not set.
         """
 
@@ -725,7 +828,12 @@ class MemoryClient:
             Dictionary containing the updated webhook details.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            MemoryQuotaExceededError: If memory quota is exceeded.
+            NetworkError: If network connectivity issues occur.
+            MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
 
         payload = {k: v for k, v in {"name": name, "url": url, "event_types": event_types}.items() if v is not None}
@@ -745,7 +853,12 @@ class MemoryClient:
             Dictionary containing success message.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            MemoryQuotaExceededError: If memory quota is exceeded.
+            NetworkError: If network connectivity issues occur.
+            MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
 
         response = self.client.delete(f"api/v1/webhooks/{webhook_id}/")
@@ -977,20 +1090,34 @@ class AsyncMemoryClient:
         await self.async_client.aclose()
 
     @api_error_handler
-    async def add(self, messages: List[Dict[str, str]], **kwargs) -> Dict[str, Any]:
+    async def add(self, messages, **kwargs) -> Dict[str, Any]:
+        # Handle different message input formats (align with OSS behavior)
+        if isinstance(messages, str):
+            messages = [{"role": "user", "content": messages}]
+        elif isinstance(messages, dict):
+            messages = [messages]
+        elif not isinstance(messages, list):
+            raise ValueError(
+                f"messages must be str, dict, or list[dict], got {type(messages).__name__}"
+            )
+
         kwargs = self._prepare_params(kwargs)
-        if kwargs.get("output_format") != "v1.1":
-            kwargs["output_format"] = "v1.1"
+
+        # Remove deprecated parameters
+        if "output_format" in kwargs:
             warnings.warn(
-                (
-                    "output_format='v1.0' is deprecated therefore setting it to "
-                    "'v1.1' by default. Check out the docs for more information: "
-                    "https://docs.mem0.ai/platform/quickstart#4-1-create-memories"
-                ),
+                "output_format parameter is deprecated and ignored. All responses now use v1.1 format.",
                 DeprecationWarning,
                 stacklevel=2,
             )
-        kwargs["version"] = "v2"
+            kwargs.pop("output_format")
+
+        # Set async_mode to True by default, but allow user override
+        if "async_mode" not in kwargs:
+            kwargs["async_mode"] = True
+
+        # Force v1.1 format for all add operations
+        kwargs["output_format"] = "v1.1"
         payload = self._prepare_payload(messages, kwargs)
         response = await self.async_client.post("/v1/memories/", json=payload)
         response.raise_for_status()
@@ -1008,19 +1135,19 @@ class AsyncMemoryClient:
         return response.json()
 
     @api_error_handler
-    async def get_all(self, version: str = "v1", **kwargs) -> List[Dict[str, Any]]:
+    async def get_all(self, **kwargs) -> Dict[str, Any]:
         params = self._prepare_params(kwargs)
-        if version == "v1":
-            response = await self.async_client.get(f"/{version}/memories/", params=params)
-        elif version == "v2":
-            if "page" in params and "page_size" in params:
-                query_params = {
-                    "page": params.pop("page"),
-                    "page_size": params.pop("page_size"),
-                }
-                response = await self.async_client.post(f"/{version}/memories/", json=params, params=query_params)
-            else:
-                response = await self.async_client.post(f"/{version}/memories/", json=params)
+        params.pop("output_format", None)  # Remove output_format for get operations
+        params.pop("async_mode", None)
+
+        if "page" in params and "page_size" in params:
+            query_params = {
+                "page": params.pop("page"),
+                "page_size": params.pop("page_size"),
+            }
+            response = await self.async_client.post("/v2/memories/", json=params, params=query_params)
+        else:
+            response = await self.async_client.post("/v2/memories/", json=params)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
@@ -1028,18 +1155,28 @@ class AsyncMemoryClient:
             "client.get_all",
             self,
             {
-                "api_version": version,
+                "api_version": "v2",
                 "keys": list(kwargs.keys()),
                 "sync_type": "async",
             },
         )
-        return response.json()
+        result = response.json()
+
+        # Ensure v1.1 format (wrap raw list if needed)
+        if isinstance(result, list):
+            return {"results": result}
+        return result
 
     @api_error_handler
-    async def search(self, query: str, version: str = "v1", **kwargs) -> List[Dict[str, Any]]:
+    async def search(self, query: str, **kwargs) -> Dict[str, Any]:
         payload = {"query": query}
-        payload.update(self._prepare_params(kwargs))
-        response = await self.async_client.post(f"/{version}/memories/search/", json=payload)
+        params = self._prepare_params(kwargs)
+        params.pop("output_format", None)  # Remove output_format for search operations
+        params.pop("async_mode", None)
+
+        payload.update(params)
+
+        response = await self.async_client.post("/v2/memories/search/", json=payload)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
@@ -1047,12 +1184,17 @@ class AsyncMemoryClient:
             "client.search",
             self,
             {
-                "api_version": version,
+                "api_version": "v2",
                 "keys": list(kwargs.keys()),
                 "sync_type": "async",
             },
         )
-        return response.json()
+        result = response.json()
+
+        # Ensure v1.1 format (wrap raw list if needed)
+        if isinstance(result, list):
+            return {"results": result}
+        return result
 
     @api_error_handler
     async def update(
@@ -1098,7 +1240,12 @@ class AsyncMemoryClient:
             A dictionary containing the API response.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            MemoryQuotaExceededError: If memory quota is exceeded.
+            NetworkError: If network connectivity issues occur.
+            MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
         params = self._prepare_params()
         response = await self.async_client.delete(f"/v1/memories/{memory_id}/", params=params)
@@ -1117,7 +1264,12 @@ class AsyncMemoryClient:
             A dictionary containing the API response.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            MemoryQuotaExceededError: If memory quota is exceeded.
+            NetworkError: If network connectivity issues occur.
+            MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
         params = self._prepare_params(kwargs)
         response = await self.async_client.delete("/v1/memories/", params=params)
@@ -1136,7 +1288,12 @@ class AsyncMemoryClient:
             A list of dictionaries containing the memory history.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            MemoryQuotaExceededError: If memory quota is exceeded.
+            NetworkError: If network connectivity issues occur.
+            MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
         params = self._prepare_params()
         response = await self.async_client.get(f"/v1/memories/{memory_id}/history/", params=params)
@@ -1174,7 +1331,10 @@ class AsyncMemoryClient:
 
         Raises:
             ValueError: If specified entity not found
-            APIError: If deletion fails
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            MemoryNotFoundError: If the entity doesn't exist.
+            NetworkError: If network connectivity issues occur.
         """
 
         if user_id:
@@ -1228,7 +1388,12 @@ class AsyncMemoryClient:
             Dict[str, str]: Message client reset successful.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            MemoryQuotaExceededError: If memory quota is exceeded.
+            NetworkError: If network connectivity issues occur.
+            MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
         await self.delete_users()
         capture_client_event("client.reset", self, {"sync_type": "async"})
@@ -1246,6 +1411,14 @@ class AsyncMemoryClient:
 
         Returns:
             Dict[str, Any]: The response from the server.
+
+        Raises:
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            MemoryQuotaExceededError: If memory quota is exceeded.
+            NetworkError: If network connectivity issues occur.
+            MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
         response = await self.async_client.put("/v1/batch/", json={"memories": memories})
         response.raise_for_status()
@@ -1266,7 +1439,12 @@ class AsyncMemoryClient:
             str: Message indicating the success of the batch deletion.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            MemoryQuotaExceededError: If memory quota is exceeded.
+            NetworkError: If network connectivity issues occur.
+            MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
         response = await self.async_client.request("DELETE", "/v1/batch/", json={"memories": memories})
         response.raise_for_status()
@@ -1334,7 +1512,12 @@ class AsyncMemoryClient:
             Dictionary containing the requested fields.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            MemoryQuotaExceededError: If memory quota is exceeded.
+            NetworkError: If network connectivity issues occur.
+            MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
             ValueError: If org_id or project_id are not set.
         """
         logger.warning(
@@ -1374,7 +1557,12 @@ class AsyncMemoryClient:
             Dictionary containing the API response.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            MemoryQuotaExceededError: If memory quota is exceeded.
+            NetworkError: If network connectivity issues occur.
+            MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
             ValueError: If org_id or project_id are not set.
         """
         logger.warning(
@@ -1441,7 +1629,12 @@ class AsyncMemoryClient:
             Dictionary containing webhook details.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            MemoryQuotaExceededError: If memory quota is exceeded.
+            NetworkError: If network connectivity issues occur.
+            MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
             ValueError: If project_id is not set.
         """
 
@@ -1463,7 +1656,12 @@ class AsyncMemoryClient:
             Dictionary containing the created webhook details.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            MemoryQuotaExceededError: If memory quota is exceeded.
+            NetworkError: If network connectivity issues occur.
+            MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
             ValueError: If project_id is not set.
         """
 
@@ -1493,7 +1691,12 @@ class AsyncMemoryClient:
             Dictionary containing the updated webhook details.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            MemoryQuotaExceededError: If memory quota is exceeded.
+            NetworkError: If network connectivity issues occur.
+            MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
 
         payload = {k: v for k, v in {"name": name, "url": url, "event_types": event_types}.items() if v is not None}
@@ -1513,7 +1716,12 @@ class AsyncMemoryClient:
             Dictionary containing success message.
 
         Raises:
-            APIError: If the API request fails.
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            MemoryQuotaExceededError: If memory quota is exceeded.
+            NetworkError: If network connectivity issues occur.
+            MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
 
         response = await self.async_client.delete(f"api/v1/webhooks/{webhook_id}/")

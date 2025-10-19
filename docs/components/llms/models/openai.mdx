@@ -19,7 +19,7 @@ config = {
     "llm": {
         "provider": "openai",
         "config": {
-            "model": "gpt-4o",
+            "model": "gpt-4.1-nano-2025-04-14",
             "temperature": 0.2,
             "max_tokens": 2000,
         }
@@ -40,7 +40,7 @@ config = {
 m = Memory.from_config(config)
 messages = [
     {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
-    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
     {"role": "user", "content": "I’m not a big fan of thriller movies but I love sci-fi movies."},
     {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
 ]
@@ -65,7 +65,7 @@ const config = {
 const memory = new Memory(config);
 const messages = [
     {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
-    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
     {"role": "user", "content": "I’m not a big fan of thriller movies but I love sci-fi movies."},
     {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
 ]
@@ -85,7 +85,7 @@ config = {
     "llm": {
         "provider": "openai_structured",
         "config": {
-            "model": "gpt-4o-2024-08-06",
+            "model": "gpt-4.1-nano-2025-04-14",
             "temperature": 0.0,
         }
     }

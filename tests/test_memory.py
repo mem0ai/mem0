@@ -6,6 +6,15 @@ from mem0 import Memory
 from mem0.configs.base import MemoryConfig
 
 
+class MockVectorMemory:
+    """Mock memory object for testing incomplete payloads."""
+    
+    def __init__(self, memory_id: str, payload: dict, score: float = 0.8):
+        self.id = memory_id
+        self.payload = payload
+        self.score = score
+
+
 @pytest.fixture
 def memory_client():
     with patch.object(Memory, "__init__", return_value=None):
@@ -95,3 +104,38 @@ def test_collection_name_preserved_after_reset(mock_sqlite, mock_llm_factory, mo
     if reset_calls:
         reset_config = reset_calls[-1][0][1]  
         assert reset_config.collection_name == test_collection_name, f"Reset used wrong collection name: {reset_config.collection_name}"
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_search_handles_incomplete_payloads(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """Test that search operations handle memory objects with missing 'data' key gracefully."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    # Create test data with both complete and incomplete payloads
+    incomplete_memory = MockVectorMemory("mem_1", {"hash": "abc123"})
+    complete_memory = MockVectorMemory("mem_2", {"data": "content", "hash": "def456"})
+
+    mock_vector_store.search.return_value = [incomplete_memory, complete_memory]
+    
+    mock_embedder = MagicMock()
+    mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
+    memory.embedding_model = mock_embedder
+
+    result = memory._search_vector_store("test", {"user_id": "test"}, 10)
+    
+    assert len(result) == 2
+    memories_by_id = {mem["id"]: mem for mem in result}
+
+    assert memories_by_id["mem_1"]["memory"] == ""  
+    assert memories_by_id["mem_2"]["memory"] == "content" 

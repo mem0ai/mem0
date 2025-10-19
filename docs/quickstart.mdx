@@ -10,10 +10,10 @@ Check out our [Playground](https://mem0.dev/pd-pg) to see Mem0 in action.
 
 <CardGroup cols={2}>
   <Card title="Mem0 Platform (Managed Solution)" icon="chart-simple" href="#mem0-platform-managed-solution">
-    Better, faster, fully managed, and hassle free solution.
+    Better, faster, fully managed, and hassle-free solution.
   </Card>
   <Card title="Mem0 Open Source" icon="code-branch" href="#mem0-open-source">
-    Self hosted, fully customizable, and open source.
+    Self-hosted, fully customizable, and open source.
   </Card>
 </CardGroup>
 
@@ -148,7 +148,7 @@ filters = {
         }
     ]
 }
-client.search(query, version="v2", filters=filters)
+client.search(query, filters=filters)
 ```
 
 ```javascript JavaScript
@@ -160,13 +160,13 @@ const filters = {
         }
     ]
 };
-client.search(query, { version: "v2", filters })
+client.search(query, { filters })
     .then(results => console.log(results))
     .catch(error => console.error(error));
 ```
 
 ```bash cURL
-curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
+curl -X POST "https://api.mem0.ai/v2/memories/search/" \
      -H "Authorization: Token your-api-key" \
      -H "Content-Type: application/json" \
      -d '{
@@ -219,7 +219,7 @@ filters = {
    ]
 }
 
-all_memories = client.get_all(version="v2", filters=filters, page=1, page_size=50)
+all_memories = client.get_all(filters=filters, page=1, page_size=50)
 ```
 
 ```javascript JavaScript
@@ -231,13 +231,13 @@ const filters = {
    ]
 };
 
-client.getAll({ version: "v2", filters, page: 1, page_size: 50 })
+client.getAll({ filters, page: 1, page_size: 50 })
     .then(memories => console.log(memories))
     .catch(error => console.error(error));
 ```
 
 ```bash cURL
-curl -X GET "https://api.mem0.ai/v1/memories/?version=v2&page=1&page_size=50" \
+curl -X GET "https://api.mem0.ai/v2/memories/?page=1&page_size=50" \
      -H "Authorization: Token your-api-key" \
      -H "Content-Type: application/json" \
      -d '{
@@ -283,7 +283,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?version=v2&page=1&page_size=50" \
 
 ## Mem0 Open Source
 
-Our open-source version is available for those who prefer full control and customization. You can self-host Mem0 on your infrastructure and integrate it with your AI agents and assistants. Checkout our [GitHub repository](https://mem0.dev/gd)
+Our open-source version is available for those who prefer full control and customization. You can self-host Mem0 on your infrastructure and integrate it with your AI agents and assistants. Check out our [GitHub repository](https://mem0.dev/gd).
 
 Follow the steps below to get started with Mem0 Open Source:
 

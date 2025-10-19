@@ -7,8 +7,6 @@ iconType: "solid"
 
 <Snippet file="paper-release.mdx" />
 
-## Introduction to the Group Chat
-
 ## Overview
 
 The Group Chat feature enables Mem0 to process conversations involving multiple participants and automatically attribute memories to individual speakers. This allows for precise tracking of each participant's preferences, characteristics, and contributions in collaborative discussions, team meetings, or multi-agent conversations.
@@ -65,7 +63,6 @@ messages = [
 response = client.add(
     messages,
     run_id="group_chat_1",
-    output_format="v1.1",
     infer=True
 )
 print(response)
@@ -105,6 +102,7 @@ Retrieve all memories from a specific group chat session:
 
 ```python Python
 # Get all memories for a specific run_id
+# Use wildcard "*" for user_id to match all participants
 filters = {
     "AND": [
         {"user_id": "*"},
@@ -112,7 +110,7 @@ filters = {
     ]
 }
 
-all_memories = client.get_all(version="v2", filters=filters, page=1)
+all_memories = client.get_all(filters=filters, page=1)
 print(all_memories)
 ```
 
@@ -162,7 +160,7 @@ filters = {
     ]
 }
 
-charlie_memories = client.get_all(version="v2", filters=filters, page=1)
+charlie_memories = client.get_all(filters=filters, page=1)
 print(charlie_memories)
 ```
 
@@ -199,8 +197,7 @@ filters = {
 
 search_response = client.search(
     query="What are the tasks?",
-    filters=filters,
-    version="v2"
+    filters=filters
 )
 print(search_response)
 ```
@@ -231,7 +228,6 @@ Group chat also supports async processing for improved performance:
 response = client.add(
     messages,
     run_id="groupchat_async",
-    output_format="v1.1",
     infer=True,
     async_mode=True
 )
@@ -288,4 +284,4 @@ Each message in a group chat must include:
 
 If you have any questions, please feel free to reach out to us using one of the following methods:
 
-<Snippet file="get-help.mdx" /> 
+<Snippet file="get-help.mdx" />

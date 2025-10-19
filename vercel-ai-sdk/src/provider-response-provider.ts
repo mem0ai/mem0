@@ -59,6 +59,11 @@ class Mem0AITextGenerator implements LanguageModelV2 {
                 })(modelId);
                 break;
             case "google":
+                this.languageModel = createGoogleGenerativeAI({
+                    apiKey: config?.apiKey,
+                    ...provider_config as GoogleGenerativeAIProviderSettings,
+                })(modelId);
+                break;
             case "gemini":
                 this.languageModel = createGoogleGenerativeAI({
                     apiKey: config?.apiKey,

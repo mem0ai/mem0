@@ -9,6 +9,7 @@ You can create a personalized AI Tutor using Mem0. This guide will walk you thro
 The Personalized AI Tutor leverages Mem0 to retain information across interactions, enabling a tailored learning experience. By integrating with OpenAI's GPT-4 model, the tutor can provide detailed and context-aware responses to user queries.
 
 ## Setup
+
 Before you begin, ensure you have the required dependencies installed. You can install the necessary packages using pip:
 
 ```bash
@@ -57,7 +58,7 @@ class PersonalAITutor:
         """
         # Start a streaming response request to the AI
         response = self.client.responses.create(
-            model="gpt-4o",
+            model="gpt-4.1-nano-2025-04-14",
             instructions="You are a personal AI Tutor.",
             input=question,
             stream=True
@@ -100,12 +101,12 @@ for m in memories['results']:
     print(m['memory'])
 ```
 
-### Key Points
+## Key Points
 
-- **Initialization**: The PersonalAITutor class is initialized with the necessary memory configuration and OpenAI client setup.
-- **Asking Questions**: The ask method sends a question to the AI and stores the relevant information in memory.
-- **Retrieving Memories**: The get_memories method fetches all stored memories associated with a user.
+- **Initialization**: The PersonalAITutor class is initialized with the necessary memory configuration and OpenAI client setup
+- **Asking Questions**: The ask method sends a question to the AI and stores the relevant information in memory
+- **Retrieving Memories**: The get_memories method fetches all stored memories associated with a user
 
-### Conclusion
+## Conclusion
 
 As the conversation progresses, Mem0's memory automatically updates based on the interactions, providing a continuously improving personalized learning experience. This setup ensures that the AI Tutor can offer contextually relevant and accurate responses, enhancing the overall educational process.

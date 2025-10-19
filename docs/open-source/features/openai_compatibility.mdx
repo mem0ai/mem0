@@ -6,7 +6,7 @@ iconType: "solid"
 
 Mem0 can be easily integrated into chat applications to enhance conversational agents with structured memory. Mem0's APIs are designed to be compatible with OpenAI's, with the goal of making it easy to leverage Mem0 in applications you may have already built.
 
-If you have a `Mem0 API key`, you can use it to initialize the client. Alternatively, you can initialize Mem0 without an API key if you're using it locally.
+If you have a Mem0 API key, you can use it to initialize the client. Alternatively, you can initialize Mem0 without an API key if you're using it locally.
 
 Mem0 supports several language models (LLMs) through integration with various [providers](https://litellm.vercel.app/docs/providers).
 
@@ -21,13 +21,13 @@ client = Mem0(api_key="m0-xxx")
 messages = [
     {
         "role": "user",
-        "content": "I love indian food but I cannot eat pizza since allergic to cheese."
+        "content": "I love Indian food but I cannot eat pizza since I'm allergic to cheese."
     },
 ]
 user_id = "alice"
 chat_completion = client.chat.completions.create(
     messages=messages,
-    model="gpt-4o-mini",
+    model="gpt-4.1-nano-2025-04-14",
     user_id=user_id
 )
 # Memory saved after this will look like: "Loves Indian food. Allergic to cheese and cannot eat pizza."
@@ -42,7 +42,7 @@ messages = [
 
 chat_completion = client.chat.completions.create(
     messages=messages,
-    model="gpt-4o-mini",
+    model="gpt-4.1-nano-2025-04-14",
     user_id=user_id
 )
 print(chat_completion.choices[0].message.content)
@@ -51,7 +51,7 @@ print(chat_completion.choices[0].message.content)
 
 In this example, you can see how the second response is tailored based on the information provided in the first interaction. Mem0 remembers the user's preference for Indian food and their cheese allergy, using this information to provide more relevant and personalized restaurant suggestions in San Francisco.
 
-### Use Mem0 OSS
+## Use Mem0 OSS
 
 ```python
 config = {
@@ -73,7 +73,7 @@ chat_completion = client.chat.completions.create(
             "content": "What's the capital of France?",
         }
     ],
-    model="gpt-4o",
+    model="gpt-4.1-nano-2025-04-14",
 )
 ```
 

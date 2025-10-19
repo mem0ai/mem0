@@ -31,7 +31,7 @@ USER_ID = "content_writer"
 RUN_ID = "smart_editing_session"
 ```
 
-## **Storing Your Writing Preferences in Mem0**
+## Storing Your Writing Preferences in Mem0
 
 ```python
 def store_writing_preferences():
@@ -60,7 +60,7 @@ def store_writing_preferences():
     return response
 ```
 
-## **Editing Content Using Stored Preferences**
+## Editing Content Using Stored Preferences
 
 ```python
 def apply_writing_style(original_content):
@@ -68,17 +68,12 @@ def apply_writing_style(original_content):
 
     results = client.search(
         query="What are my writing style preferences?",
-        version="v2",
         filters={
             "AND": [
-                {
-                    "user_id": USER_ID
-                },
-                {
-                    "run_id": RUN_ID
-                }
+                {"user_id": USER_ID},
+                {"run_id": RUN_ID}
             ]
-        },
+        }
     )
 
     if not results:
@@ -103,7 +98,7 @@ Preferences:
     ]
 
     response = openai.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-4.1-nano-2025-04-14",
         messages=messages
     )
     clean_response = response.choices[0].message.content.strip()
@@ -111,7 +106,7 @@ Preferences:
     return clean_response
 ```
 
-## **Complete Workflow: Content Editing**
+## Complete Workflow: Content Editing
 
 ```python
 def content_writing_workflow(content):
@@ -136,7 +131,7 @@ def content_writing_workflow(content):
     return edited_content
 ```
 
-## **Example Usage**
+## Example Usage
 
 ```python
 # Define your document
@@ -156,11 +151,11 @@ We plan to launch the campaign in July and continue through September.
 result = content_writing_workflow(original_content)
 ```
 
-## **Expected Output**
+## Expected Output
 
 Your document will be transformed into a structured, well-formatted version based on your preferences.
 
-### **Original Document**
+### Original Document
 ```
 Project Proposal
     
@@ -174,37 +169,38 @@ Expand our social media following
 We plan to launch the campaign in July and continue through September.
 ```
 
-### **Edited Document**
-```
-# **Project Proposal**
+### Edited Document
 
-## **Q3 Marketing Campaign Strategy**
+```
+# Project Proposal
+
+## Q3 Marketing Campaign Strategy
 
 This proposal outlines our strategy for the Q3 marketing campaign. We aim to significantly increase our market share with this approach.
 
-### **Objectives**
+### Objectives
 
 - **Increase Brand Awareness**: Implement targeted advertising and community engagement to enhance visibility.
 - **Boost Sales by 15%**: Increase sales by 15% compared to Q2 figures.
 - **Expand Social Media Following**: Grow our social media audience by 20%.
 
-### **Timeline**
+### Timeline
 
 - **Launch Date**: July
 - **Duration**: July – September
 
-### **Key Actions**
+### Key Actions
 
 - **Targeted Advertising**: Utilize platforms like Google Ads and Facebook to reach specific demographics.
 - **Community Engagement**: Host webinars and live Q&A sessions.
 - **Content Creation**: Produce engaging videos and infographics.
 
-### **Supporting Data**
+### Supporting Data
 
 - **Previous Campaign Success**: Our Q2 campaign increased sales by 12%. We will refine similar strategies for Q3.
 - **Social Media Growth**: Last year, our Instagram followers grew by 25% during a similar campaign.
 
-### **Conclusion**
+### Conclusion
 
 We believe this strategy will effectively increase our market share. To achieve these goals, we need your support and collaboration. Let’s work together to make this campaign a success. Please review the proposal and provide your feedback by the end of the week.
 ```

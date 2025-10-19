@@ -158,21 +158,31 @@ async def list_memories(
         if sort_field:
             query = query.order_by(sort_field.desc()) if sort_direction == "desc" else query.order_by(sort_field.asc())
 
+    # Add eager loading for app and categories
+    query = query.options(
+        joinedload(Memory.app),
+        joinedload(Memory.categories)
+    ).distinct(Memory.id)
 
-    # Get paginated results
-    paginated_results = sqlalchemy_paginate(query, params)
-
-    # Filter results based on permissions
-    filtered_items = []
-    for item in paginated_results.items:
-        if check_memory_access_permissions(db, item, app_id):
-            filtered_items.append(item)
-
-    # Update paginated results with filtered items
-    paginated_results.items = filtered_items
-    paginated_results.total = len(filtered_items)
-
-    return paginated_results
+    # Get paginated results with transformer
+    return sqlalchemy_paginate(
+        query,
+        params,
+        transformer=lambda items: [
+            MemoryResponse(
+                id=memory.id,
+                content=memory.content,
+                created_at=memory.created_at,
+                state=memory.state.value,
+                app_id=memory.app_id,
+                app_name=memory.app.name if memory.app else None,
+                categories=[category.name for category in memory.categories],
+                metadata_=memory.metadata_
+            )
+            for memory in items
+            if check_memory_access_permissions(db, memory, app_id)
+        ]
+    )
 
 
 # Get all categories
@@ -350,8 +360,32 @@ async def delete_memories(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    # Get memory client to delete from vector store
+    try:
+        memory_client = get_memory_client()
+        if not memory_client:
+            raise HTTPException(
+                status_code=503,
+                detail="Memory client is not available"
+            )
+    except HTTPException:
+        raise
+    except Exception as client_error:
+        logging.error(f"Memory client initialization failed: {client_error}")
+        raise HTTPException(
+            status_code=503,
+            detail=f"Memory service unavailable: {str(client_error)}"
+        )
+
+    # Delete from vector store then mark as deleted in database
     for memory_id in request.memory_ids:
+        try:
+            memory_client.delete(str(memory_id))
+        except Exception as delete_error:
+            logging.warning(f"Failed to delete memory {memory_id} from vector store: {delete_error}")
+
         update_memory_state(db, memory_id, MemoryState.deleted, user.id)
+
     return {"message": f"Successfully deleted {len(request.memory_ids)} memories"}
 
 

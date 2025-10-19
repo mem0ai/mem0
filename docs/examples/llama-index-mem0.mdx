@@ -4,10 +4,12 @@ title: LlamaIndex ReAct Agent
 
 Create a ReAct Agent with LlamaIndex which uses Mem0 as the memory store.
 
-### Overview
+## Overview
+
 A ReAct agent combines reasoning and action capabilities, making it versatile for tasks requiring both thought processes (reasoning) and interaction with tools or APIs (acting). Mem0 as memory enhances these capabilities by allowing the agent to store and retrieve contextual information from past interactions.
 
-### Setup
+## Setup
+
 ```bash
 pip install llama-index-core llama-index-memory-mem0
 ```
@@ -18,7 +20,7 @@ import os
 from llama_index.llms.openai import OpenAI
 
 os.environ["OPENAI_API_KEY"] = "<your-openai-api-key>"
-llm = OpenAI(model="gpt-4o")
+llm = OpenAI(model="gpt-4.1-nano-2025-04-14")
 ```
 
 Initialize the Mem0 client. You can find your API key [here](https://app.mem0.ai/dashboard/api-keys). Read about Mem0 [Open Source](https://docs.mem0.ai/open-source/overview).
@@ -67,6 +69,7 @@ order_food_tool = FunctionTool.from_defaults(fn=order_food)
 ```
 
 Initialize the agent with tools and memory.
+
 ```python
 from llama_index.core.agent import FunctionCallingAgent
 
@@ -79,14 +82,16 @@ agent = FunctionCallingAgent.from_tools(
 ```
 
 Start the chat.
-<Note> The agent will use the Mem0 to store the relevant memories from the chat. </Note>
 
-Input
+<Note>The agent will use Mem0 to store the relevant memories from the chat.</Note>
+
+**Input**
 ```python
 response = agent.chat("Hi, My name is David")
 print(response)
 ```
-Output
+
+**Output**
 ```text
 > Running step bf44a75a-a920-4cf3-944e-b6e6b5695043. Step input: Hi, My name is David
 Added user message to memory: Hi, My name is David
@@ -94,24 +99,27 @@ Added user message to memory: Hi, My name is David
 Hello, David! How can I assist you today?
 ```
 
-Input
+**Input**
 ```python
 response = agent.chat("I love to eat pizza on weekends")
 print(response)
 ```
-Output
+
+**Output**
 ```text
 > Running step 845783b0-b85b-487c-baee-8460ebe8b38d. Step input: I love to eat pizza on weekends
 Added user message to memory: I love to eat pizza on weekends
 === LLM Response ===
 Pizza is a great choice for the weekend! If you'd like, I can help you order some. Just let me know what kind of pizza you prefer!
 ```
-Input
+
+**Input**
 ```python
 response = agent.chat("My preferred way of communication is email")
 print(response)
 ```
-Output
+
+**Output**
 ```text
 > Running step 345842f0-f8a0-42ea-a1b7-612265d72a92. Step input: My preferred way of communication is email
 Added user message to memory: My preferred way of communication is email
@@ -119,8 +127,9 @@ Added user message to memory: My preferred way of communication is email
 Got it! If you need any assistance or have any requests, feel free to let me know, and I can communicate with you via email.
 ```
 
-### Using the agent WITHOUT memory
-Input
+## Using the Agent Without Memory
+
+**Input**
 ```python
 agent = FunctionCallingAgent.from_tools(
     [call_tool, email_tool, order_food_tool],
@@ -131,17 +140,20 @@ agent = FunctionCallingAgent.from_tools(
 response = agent.chat("I am feeling hungry, order me something and send me the bill")
 print(response)
 ```
-Output
+
+**Output**
 ```text
 > Running step e89eb75d-75e1-4dea-a8c8-5c3d4b77882d. Step input: I am feeling hungry, order me something and send me the bill
 Added user message to memory: I am feeling hungry, order me something and send me the bill
 === LLM Response ===
 Please let me know your name and the dish you'd like to order, and I'll take care of it for you!
 ```
-<Note> The agent is not able to remember the past preferences that user shared in previous chats. </Note>
 
-### Using the agent WITH memory
-Input
+<Note>The agent is not able to remember the past preferences the user shared in previous chats.</Note>
+
+## Using the Agent With Memory
+
+**Input**
 ```python
 agent = FunctionCallingAgent.from_tools(
     [call_tool, email_tool, order_food_tool],
@@ -170,4 +182,5 @@ Emailing... David
 === LLM Response ===
 I've ordered a pizza for you, and the bill has been sent to your email. Enjoy your meal! If there's anything else you need, feel free to let me know.
 ```
-<Note> The agent is able to remember the past preferences that user shared and use them to perform actions. </Note>
+
+<Note>The agent is able to remember the past preferences the user shared and use them to perform actions.</Note>

@@ -6,35 +6,58 @@ iconType: "solid"
 
 Mem0 provides a powerful set of APIs that allow you to integrate advanced memory management capabilities into your applications. Our APIs are designed to be intuitive, efficient, and scalable, enabling you to create, retrieve, update, and delete memories across various entities such as users, agents, apps, and runs.
 
-## Key Features
+## Quick Start Guide
 
-- **Memory Management**: Add, retrieve, update, and delete memories with ease.
-- **Entity-based Operations**: Perform operations on memories associated with specific users, agents, apps, or runs.
-- **Advanced Search**: Utilize our search API to find relevant memories based on various criteria.
-- **History Tracking**: Access the history of memory interactions for comprehensive analysis.
-- **User Management**: Manage user entities and their associated memories.
+Get started with Mem0 API in three simple steps:
+
+1. **[Add Memories](/api-reference/memory/add-memories)** - Store information and context from user conversations
+2. **[Search Memories](/api-reference/memory/search-memories)** - Retrieve relevant memories based on queries
+3. **[Get Memories](/api-reference/memory/get-memories)** - Fetch all memories for a specific entity
+
+### Common Operations
+
+<CardGroup cols={2}>
+  <Card title="Add Memories" icon="plus" href="/api-reference/memory/add-memories">
+    Store new memories from conversations and interactions
+  </Card>
+  <Card title="Search Memories" icon="magnifying-glass" href="/api-reference/memory/v2-search-memories">
+    Find relevant memories using semantic search
+  </Card>
+  <Card title="Update Memory" icon="pen" href="/api-reference/memory/update-memory">
+    Modify existing memory content
+  </Card>
+  <Card title="Delete Memory" icon="trash" href="/api-reference/memory/delete-memory">
+    Remove specific memories or batch delete
+  </Card>
+</CardGroup>
 
 ## API Structure
 
 Our API is organized into several main categories:
 
-1. **Memory APIs**: Core operations for managing individual memories and collections.
-2. **Entities APIs**: Manage different entity types (users, agents, etc.) and their associated memories.
-3. **Search API**: Advanced search functionality to retrieve relevant memories.
-4. **History API**: Track and retrieve the history of memory interactions.
+1. **[Memory APIs](#memory-apis)**: Core operations for managing individual memories and collections
+2. **[Entities APIs](#entities-apis)**: Manage different entity types (users, agents, etc.) and their associated memories
+3. **[Organizations APIs](#organizations-apis)**: Manage organizations and their members (optional)
+4. **[Project APIs](#project-apis)**: Manage projects within organizations (optional)
 
 ## Authentication
 
-All API requests require authentication using HTTP Basic Auth. Ensure you include your API key in the Authorization header of each request.
+All API requests require authentication using Token-based authentication. Include your API key in the Authorization header:
+
+```bash
+Authorization: Token <your-api-key>
+```
+
+Get your API key from the [Mem0 Dashboard](https://app.mem0.ai/dashboard/api-keys).
 
 ## Organizations and projects (optional)
 
 Organizations and projects provide the following capabilities:
 
-- **Multi-org/project Support**: Specify organization and project when initializing the Mem0 client to attribute API usage appropriately
-- **Member Management**: Control access to data through organization and project membership
-- **Access Control**: Only members can access memories and data within their organization/project scope
-- **Team Isolation**: Maintain data separation between different teams and projects for secure collaboration
+- **Multi-org/project Support**: Specify organization and project when initializing the Mem0 client to attribute API usage appropriately.
+- **Member Management**: Control access to data through organization and project membership.
+- **Access Control**: Only members can access memories and data within their organization/project scope.
+- **Team Isolation**: Maintain data separation between different teams and projects for secure collaboration.
 
 Example with the mem0 Python package:
 
@@ -157,8 +180,8 @@ client.project.remove_member(email="colleague@company.com")
 
 #### Member Roles
 
-- **READER**: Can view and search memories, but cannot modify project settings or manage members
-- **OWNER**: Full access including project modification, member management, and all reader permissions
+- **READER**: Can view and search memories, but cannot modify project settings or manage members.
+- **OWNER**: Full access including project modification, member management, and all reader permissions.
 
 #### Async Support
 

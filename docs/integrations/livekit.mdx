@@ -33,7 +33,7 @@ MEM0_API_KEY=your_mem0_api_key
 OPENAI_API_KEY=your_openai_api_key
 ```
 
-> **Note**: Make sure to have a Livekit and Deepgram account. You can find these variables `LIVEKIT_URL` , `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` from [LiveKit Cloud Console](https://cloud.livekit.io/) and for more information you can refer this website [LiveKit Documentation](https://docs.livekit.io/home/cloud/keys-and-tokens/). For `DEEPGRAM_API_KEY` you can get from [Deepgram Console](https://console.deepgram.com/) refer this website [Deepgram Documentation](https://developers.deepgram.com/docs/create-additional-api-keys) for more details.
+> **Note**: Make sure to have a Livekit and Deepgram account. You can find these variables `LIVEKIT_URL`, `LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET` from the [LiveKit Cloud Console](https://cloud.livekit.io/). For more information, refer to the [LiveKit Documentation](https://docs.livekit.io/home/cloud/keys-and-tokens/). For `DEEPGRAM_API_KEY`, you can get it from the [Deepgram Console](https://console.deepgram.com/). Refer to the [Deepgram Documentation](https://developers.deepgram.com/docs/create-additional-api-keys) for more details.
 
 ## Code Breakdown
 
@@ -147,7 +147,7 @@ async def entrypoint(ctx: JobContext):
 
     session = AgentSession(
         stt=deepgram.STT(),
-        llm=openai.LLM(model="gpt-4o-mini"),
+        llm=openai.LLM(model="gpt-4.1-nano-2025-04-14"),
         tts=openai.TTS(voice="ash",),
         turn_detection=EnglishModel(),
         vad=silero.VAD.load(),
@@ -196,7 +196,7 @@ or to start your agent in console mode to run inside your terminal:
 ```sh
 python mem0-livekit-voice-agent.py console
 ```
-5. After the script starts, you can interact with the voice agent using [Livekit's Agent Platform](https://agents-playground.livekit.io/) and connect to the agent inorder to start conversations.
+5. After the script starts, you can interact with the voice agent using [LiveKit's Agent Platform](https://agents-playground.livekit.io/) and connect to the agent to start conversations.
 
 ## Best Practices for Voice Agents with Memory
 
@@ -229,10 +229,9 @@ logger = logging.getLogger("memory_voice_agent")
 - Ensure your `.env` file is correctly configured and loaded.
 
 
-## Help & Resources
+## Help
 
 - [LiveKit Documentation](https://docs.livekit.io/)
 - [Mem0 Platform](https://app.mem0.ai/)
-- Need assistance? Reach out through:
 
 <Snippet file="get-help.mdx" />

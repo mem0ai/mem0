@@ -11,7 +11,7 @@ Build an intelligent multi-agent learning system that uses Mem0 to maintain pers
 This example showcases a **Multi-Agent Personal Learning System** that combines:
 - **LlamaIndex AgentWorkflow** for multi-agent orchestration
 - **Mem0** for persistent, shared memory across agents
-- **Multi-agents** that collaborate on teaching tasks
+- **Multiple agents** that collaborate on teaching tasks
 
 The system consists of two agents:
 - **TutorAgent**: Primary instructor for explanations and concept teaching
@@ -81,7 +81,7 @@ class MultiAgentLearningSystem:
 
     def __init__(self, student_id: str):
         self.student_id = student_id
-        self.llm = OpenAI(model="gpt-4o", temperature=0.2)
+        self.llm = OpenAI(model="gpt-4.1-nano-2025-04-14", temperature=0.2)
 
         # Memory context for this student
         self.memory_context = {"user_id": student_id, "app": "learning_assistant"}
@@ -350,7 +350,7 @@ Based on our previous session, I remember we covered Vision Language Models and 
 1. **Clear Agent Roles**: Define specific responsibilities for each agent
 2. **Memory Context**: Use descriptive context for memory isolation
 3. **Handoff Strategy**: Design clear handoff criteria between agents
-5. **Memory Hygiene**: Regularly review and clean memory for optimal performance
+4. **Memory Hygiene**: Regularly review and clean memory for optimal performance
 
 ## Help & Resources
 

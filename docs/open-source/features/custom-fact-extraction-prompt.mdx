@@ -7,8 +7,7 @@ iconType: "solid"
 
 ## Introduction to Custom Fact Extraction Prompt
 
-Custom fact extraction prompt allow you to tailor the behavior of your Mem0 instance to specific use cases or domains. 
-By defining it, you can control how information is extracted from the user's message.
+Custom fact extraction prompts allow you to tailor the behavior of your Mem0 instance to specific use cases or domains. By defining them, you can control how information is extracted from the user's messages.
 
 To create an effective custom fact extraction prompt:
 1. Be specific about the information to extract.
@@ -77,7 +76,7 @@ config = {
     "llm": {
         "provider": "openai",
         "config": {
-            "model": "gpt-4o",
+            "model": "gpt-4.1-nano-2025-04-14",
             "temperature": 0.2,
             "max_tokens": 2000,
         }
@@ -146,8 +145,7 @@ await memory.add('Yesterday, I ordered a laptop, the order id is 12345', { userI
 
 ### Example 2
 
-In this example, we are adding a memory of a user liking to go on hikes. This add message is not specific to the use-case mentioned in the custom prompt. 
-Hence, the memory is not added.
+In this example, we are adding a memory of a user liking to go on hikes. This message is not specific to the use case mentioned in the custom prompt. Hence, the memory is not added.
 
 <CodeGroup>
 ```python Python

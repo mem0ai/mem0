@@ -35,7 +35,7 @@ const openAIClient = new OpenAI();
 const mem0Client = new MemoryClient(mem0Config);
 ```
 
-### Adding Memories
+## Adding Memories
 
 Store user preferences, past interactions, or any relevant information:
 <CodeGroup>
@@ -84,7 +84,7 @@ await addUserPreferences();
 ]
 ```
 </CodeGroup>
-### Retrieving Memories
+## Retrieving Memories
 
 Search for relevant memories based on the current user input:
 
@@ -92,7 +92,7 @@ Search for relevant memories based on the current user input:
 const relevantMemories = await mem0Client.search(userInput, mem0Config);
 ```
 
-### Structured Responses with Zod
+## Structured Responses with Zod
 
 Define structured response schemas to get consistent output formats:
 
@@ -119,19 +119,19 @@ const carRecommendationTool = zodResponsesFunction({
 
 // Use the tool in your OpenAI request
 const response = await openAIClient.responses.create({
-    model: "gpt-4o",
+    model: "gpt-4.1-nano-2025-04-14",
     tools: [{ type: "web_search_preview" }, carRecommendationTool],
     input: `${getMemoryString(relevantMemories)}\n${userInput}`,
 });
 ```
 
-### Using Web Search
+## Using Web Search
 
 Combine memory with web search for up-to-date recommendations:
 
 ```javascript
 const response = await openAIClient.responses.create({
-    model: "gpt-4o",
+    model: "gpt-4.1-nano-2025-04-14",
     tools: [{ type: "web_search_preview" }, carRecommendationTool],
     input: `${getMemoryString(relevantMemories)}\n${userInput}`,
 });
@@ -139,7 +139,7 @@ const response = await openAIClient.responses.create({
 
 ## Examples
 
-### Complete Car Recommendation System
+## Complete Car Recommendation System
 
 ```javascript
 import MemoryClient from "mem0ai";
@@ -202,7 +202,7 @@ async function main(memory = false) {
   }
 
   const response = await openAIClient.responses.create({
-    model: "gpt-4o",
+    model: "gpt-4.1-nano-2025-04-14",
     tools: [{ type: "web_search_preview" }, tool],
     input: `${getMemoryString(relevantMemories)}\n${input}`,
   });
@@ -230,7 +230,7 @@ const getMemoryString = (memories) => {
 run().catch(console.error);
 ```
 
-### Responses
+## Responses
 
 <CodeGroup>
     ```json Without Memories
