@@ -9,6 +9,7 @@ from mem0.configs.llms.deepseek import DeepSeekConfig
 from mem0.configs.llms.lmstudio import LMStudioConfig
 from mem0.configs.llms.ollama import OllamaConfig
 from mem0.configs.llms.openai import OpenAIConfig
+from mem0.configs.llms.siliconflow import SiliconFlowConfig
 from mem0.configs.llms.vllm import VllmConfig
 from mem0.configs.rerankers.base import BaseRerankerConfig
 from mem0.configs.rerankers.cohere import CohereRerankerConfig
@@ -36,6 +37,7 @@ class LlmFactory:
         "ollama": ("mem0.llms.ollama.OllamaLLM", OllamaConfig),
         "openai": ("mem0.llms.openai.OpenAILLM", OpenAIConfig),
         "groq": ("mem0.llms.groq.GroqLLM", BaseLlmConfig),
+        "siliconflow": ("mem0.llms.siliconflow.SiliconFlowLLM", SiliconFlowConfig),
         "together": ("mem0.llms.together.TogetherLLM", BaseLlmConfig),
         "aws_bedrock": ("mem0.llms.aws_bedrock.AWSBedrockLLM", BaseLlmConfig),
         "litellm": ("mem0.llms.litellm.LiteLLM", BaseLlmConfig),
