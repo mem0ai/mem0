@@ -26,6 +26,7 @@ class TestKuzu:
 
         # Mock graph store config
         config.graph_store.config.db = ":memory:"
+        config.graph_store.threshold = 0.7  # Set threshold to avoid Mock object issues
 
         # Mock LLM config
         config.llm.provider = "mock_llm"
