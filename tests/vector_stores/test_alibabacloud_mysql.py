@@ -1,5 +1,4 @@
 import pytest
-import struct
 from unittest.mock import Mock, patch
 
 # Create mock modules for mysql and mysql.connector
@@ -127,7 +126,7 @@ class TestMySQLVector:
         query_vector = [1.0, 2.0, 3.0]
         filters = {"category": "test"}
         
-        results = mysql_store.search("test query", query_vector, limit=1, filters=filters)
+        mysql_store.search("test query", query_vector, limit=1, filters=filters)
         
         # Verify filter was applied in SQL
         mock_cursor.execute.assert_called()
