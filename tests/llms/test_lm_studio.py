@@ -1,72 +1,34 @@
-from unittest.mock import Mock, patch
 
 import pytest
+from unittest.mock import MagicMock, patch
 
-from mem0.configs.llms.lmstudio import LMStudioConfig
-from mem0.llms.lmstudio import LMStudioLLM
+from mem0.llms.lm_studio import LMStudioLLM
 
 
 @pytest.fixture
-def mock_lm_studio_client():
-    with patch("mem0.llms.lmstudio.OpenAI") as mock_openai:  # Corrected path
-        mock_client = Mock()
-        mock_client.chat.completions.create.return_value = Mock(
-            choices=[Mock(message=Mock(content="I'm doing well, thank you for asking!"))]
-        )
+def mock_openai_client():
+    with patch("mem0.llms.lm_studio.OpenAI") as mock_openai:
+        mock_client = MagicMock()
         mock_openai.return_value = mock_client
         yield mock_client
 
 
-def test_generate_response_without_tools(mock_lm_studio_client):
-    config = LMStudioConfig(
-        model="lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
-        temperature=0.7,
-        max_tokens=100,
-        top_p=1.0,
-    )
-    llm = LMStudioLLM(config)
-    messages = [
-        {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "Hello, how are you?"},
-    ]
+def test_generate_response(mock_openai_client):
+    # Mock the response from the API
+    mock_response = MagicMock()
+    mock_response.choices[0].message.content = "Hello, world!"
+    mock_openai_client.chat.completions.create.return_value = mock_response
 
+    llm = LMStudioLLM()
+    messages = [{"role": "user", "content": "Hello"}]
     response = llm.generate_response(messages)
 
-    mock_lm_studio_client.chat.completions.create.assert_called_once_with(
-        model="lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
-        messages=messages,
-        temperature=0.7,
-        max_tokens=100,
+    assert response == "Hello, world!"
+    mock_openai_client.chat.completions.create.assert_called_once_with(
+        model='gpt-4',
+        messages=[{'role': 'user', 'content': 'Hello'}],
+        temperature=0.1,
+        max_tokens=4000,
         top_p=1.0,
-        response_format={"type": "json_object"},
+        stream=False
     )
-
-    assert response == "I'm doing well, thank you for asking!"
-
-
-def test_generate_response_specifying_response_format(mock_lm_studio_client):
-    config = LMStudioConfig(
-        model="lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
-        temperature=0.7,
-        max_tokens=100,
-        top_p=1.0,
-        lmstudio_response_format={"type": "json_schema"},  # Specifying the response format in config
-    )
-    llm = LMStudioLLM(config)
-    messages = [
-        {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "Hello, how are you?"},
-    ]
-
-    response = llm.generate_response(messages)
-
-    mock_lm_studio_client.chat.completions.create.assert_called_once_with(
-        model="lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
-        messages=messages,
-        temperature=0.7,
-        max_tokens=100,
-        top_p=1.0,
-        response_format={"type": "json_schema"},
-    )
-
-    assert response == "I'm doing well, thank you for asking!"

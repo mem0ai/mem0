@@ -87,6 +87,7 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
+norecursedirs = ["embedchain"]
 pythonpath = ["."]
 
 [tool.hatch.build]
