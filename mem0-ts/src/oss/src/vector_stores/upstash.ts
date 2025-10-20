@@ -3,8 +3,9 @@ import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 
 interface UpstashConfig extends VectorStoreConfig {
-  url?: string;
-  token: string;
+  restUrl?: string;
+  restToken: string;
+  apiKey?: string;
   email?: string;
   indexName: string;
   embeddingModel?: // these are the models supported by Upstash as of now
@@ -23,19 +24,19 @@ export class UpstashVectorStore implements VectorStore {
   private client: Index | null = null;
   private indexName: string;
   private dimensions: number;
-  private token: string;
+  private apiKey?: string;
   private embeddingModel?: string;
   private email?: string;
 
   constructor(config: UpstashConfig) {
-    if (config.url) {
+    if (config.restUrl && config.restToken) {
       this.client = new Index({
-        url: config.url,
-        token: config.token,
+        url: config.restUrl,
+        token: config.restToken,
       });
     }
     this.dimensions = config.dimension || 1536;
-    this.token = config.token;
+    this.apiKey = config.apiKey;
     this.indexName = config.indexName;
     this.embeddingModel = config.embeddingModel || "BGE_LARGE_EN_V1_5";
     this.email = config.email;
@@ -66,26 +67,94 @@ export class UpstashVectorStore implements VectorStore {
     }
   }
 
+  async deleteCol(): Promise<void> {
+    try {
+      const id = async () => {
+        const url = "https://api.upstash.com/v2/vector/index";
+        const encodedCredentials = Buffer.from(
+          `${this.email}:${this.apiKey}`
+        ).toString("base64");
+
+        const options = {
+          method: "GET",
+          headers: { Authorization: `Basic ${encodedCredentials}` },
+          body: undefined,
+        };
+
+        const response = await fetch(url, options);
+        const data = await response.json();
+        for (const idx of data as any[]) {
+          if (idx.name === this.indexName) {
+            return idx.id;
+          }
+        }
+      };
+
+      const url = `https://api.upstash.com/v2/vector/index/${await id()}`;
+      const encodedCredentials = Buffer.from(
+        `${this.email}:${this.apiKey}`
+      ).toString("base64");
+
+      const options = {
+        method: "DELETE",
+        headers: { Authorization: `Basic ${encodedCredentials}` },
+        body: undefined,
+      };
+
+      const response = await fetch(url, options);
+    } catch (err) {
+      throw new Error("Failed to delete vector: " + (err as Error).message);
+    }
+  }
+
   async update(
     vectorId: string,
     vector: number[],
     payload: Record<string, any>
-  ): Promise<void> {}
+  ): Promise<void> {
+    try {
+      const data = {
+        id: vectorId,
+        vector: vector,
+        metadata: payload || {},
+      };
+
+      await this.client!.update(data);
+    } catch (err) {
+      throw new Error("Failed to update vector: " + (err as Error).message);
+    }
+  }
 
   async get(vectorId: string): Promise<VectorStoreResult | null> {
-    return null;
+    try {
+      const result = await this.client!.fetch([vectorId], {
+        includeMetadata: true,
+      });
+      if (result.length === 0) {
+        return null;
+      }
+      return {
+        id: vectorId,
+        payload: result[0]!.metadata || {},
+      };
+    } catch (err) {
+      throw new Error("Failed to get vector: " + (err as Error).message);
+    }
   }
-  async deleteCol(): Promise<void> {}
+
   async list(
     filters?: SearchFilters,
     limit?: number
   ): Promise<[VectorStoreResult[], number]> {
     return [[], 0];
   }
+
   async setUserId(userId: string): Promise<void> {}
+
   async getUserId(): Promise<string> {
     return "";
   }
+
   async search(
     query: number[],
     limit?: number,
@@ -134,7 +203,7 @@ export class UpstashVectorStore implements VectorStore {
       let indexFound = false;
       const url = "https://api.upstash.com/v2/vector/index";
       const encodedCredentials = Buffer.from(
-        `${this.email}:${this.token}`
+        `${this.email}:${this.apiKey}`
       ).toString("base64");
 
       const options = {
