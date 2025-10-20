@@ -144,9 +144,41 @@ export class UpstashVectorStore implements VectorStore {
 
   async list(
     filters?: SearchFilters,
-    limit?: number
+    limit: number = 20
   ): Promise<[VectorStoreResult[], number]> {
-    return [[], 0];
+    try {
+      let filterString: string | undefined;
+      if (filters) {
+        const filterConditions: string[] = [];
+        for (const [key, value] of Object.entries(filters)) {
+          if (value !== undefined) {
+            filterConditions.push(`${key} = '${value}'`);
+          }
+        }
+        filterString =
+          filterConditions.length > 0
+            ? filterConditions.join(" and ")
+            : undefined;
+      }
+      const result = await this.client!.query({
+        topK: limit,
+        vector: Array(this.dimensions).fill(0), // Dummy vector for listing
+        includeMetadata: true,
+        filter: filterString,
+      });
+
+      const results: VectorStoreResult[] =
+        (result.map((item) => ({
+          id: item.id,
+          score: item.score,
+          payload: item.metadata || {},
+        })) as VectorStoreResult[]) || [];
+
+      return [results, results.length];
+    } catch (err) {
+      console.error("Error listing vectors in Upstash:", err);
+      return [[], 0];
+    }
   }
 
   async setUserId(userId: string): Promise<void> {}
