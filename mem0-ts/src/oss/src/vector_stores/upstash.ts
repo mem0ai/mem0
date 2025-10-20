@@ -58,6 +58,34 @@ export class UpstashVectorStore implements VectorStore {
     }
   }
 
+  async delete(vectorId: string): Promise<void> {
+    try {
+      await this.client!.delete(vectorId);
+    } catch (err) {
+      console.error("Error deleting vector from Upstash:", err);
+    }
+  }
+
+  async update(
+    vectorId: string,
+    vector: number[],
+    payload: Record<string, any>
+  ): Promise<void> {}
+
+  async get(vectorId: string): Promise<VectorStoreResult | null> {
+    return null;
+  }
+  async deleteCol(): Promise<void> {}
+  async list(
+    filters?: SearchFilters,
+    limit?: number
+  ): Promise<[VectorStoreResult[], number]> {
+    return [[], 0];
+  }
+  async setUserId(userId: string): Promise<void> {}
+  async getUserId(): Promise<string> {
+    return "";
+  }
   async search(
     query: number[],
     limit?: number,
