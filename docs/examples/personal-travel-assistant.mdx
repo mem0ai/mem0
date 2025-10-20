@@ -35,7 +35,7 @@ config = {
     "llm": {
         "provider": "openai",
         "config": {
-            "model": "gpt-4o",
+            "model": "gpt-4.1-nano-2025-04-14",
             "temperature": 0.1,
             "max_tokens": 2000,
         }
@@ -76,7 +76,7 @@ class PersonalTravelAssistant:
 
         # Generate response using Responses API
         response = self.client.responses.create(
-            model="gpt-4o",
+            model="gpt-4.1-nano-2025-04-14",
             input=prompt
         )
 
@@ -140,9 +140,9 @@ class PersonalTravelAssistant:
             prompt = f"User input: {question}\n Previous memories: {previous_memories}"
         self.messages.append({"role": "user", "content": prompt})
 
-        # Generate response using GPT-4o
+        # Generate response using gpt-4.1-nano
         response = self.client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4.1-nano-2025-04-14"2025-04-14",
             messages=self.messages
         )
         answer = response.choices[0].message.content

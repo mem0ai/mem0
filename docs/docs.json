@@ -12,7 +12,7 @@
 	"navigation": {
 		"versions": [
 			{
-				"version": "v1.0.0 Beta",
+				"version": "v1.0.0",
 				"anchors": [
 					{
 						"anchor": "Documentation",
@@ -59,10 +59,12 @@
 												"icon": "star",
 												"pages": [
 													"platform/features/platform-overview",
-                          "platform/features/v2-memory-filters",
+													"platform/features/v2-memory-filters",
 													"platform/features/contextual-add",
 													"platform/features/async-client",
+													"platform/features/async-mode-default-change",
 													"platform/features/graph-memory",
+													"platform/features/graph-threshold",
 													"platform/features/advanced-retrieval",
 													"platform/features/criteria-retrieval",
 													"platform/features/multimodal-support",
@@ -152,6 +154,7 @@
 														"pages": [
 															"components/vectordbs/dbs/qdrant",
 															"components/vectordbs/dbs/chroma",
+															"components/vectordbs/dbs/cassandra",
 															"components/vectordbs/dbs/pgvector",
 															"components/vectordbs/dbs/milvus",
 															"components/vectordbs/dbs/pinecone",
@@ -331,8 +334,8 @@
 												"icon": "microchip",
 												"pages": [
 													"api-reference/memory/add-memories",
-													"api-reference/memory/v2-search-memories",
-													"api-reference/memory/v2-get-memories",
+													"api-reference/memory/search-memories",
+													"api-reference/memory/get-memories",
 													"api-reference/memory/history-memory",
 													"api-reference/memory/get-memory",
 													"api-reference/memory/update-memory",

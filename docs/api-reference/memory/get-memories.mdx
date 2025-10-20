@@ -1,5 +1,5 @@
 ---
-title: 'Get Memories (v2)'
+title: 'Get Memories'
 openapi: post /v2/memories/
 ---
 
@@ -25,8 +25,7 @@ memories = m.get_all(
                 "created_at": {"gte": "2024-07-01", "lte": "2024-07-31"}
             }
         ]
-    },
-    version="v2"
+    }
 )
 ```
 
@@ -58,8 +57,7 @@ memories = m.get_all(
                 "run_id": "*"
             }
         ]
-    },
-    version="v2"
+    }
 )
 ```
 </CodeGroup>
