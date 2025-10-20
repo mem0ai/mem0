@@ -29,14 +29,14 @@ class TestTencentVectorDB:
         """Create TencentVectorDB instance with mocked client."""
         return TencentVectorDB(
             url="http://127.0.0.1:80",
-            key="eC4bLRy2va******************************",
+            key="mock_tencent_api_key",
         )
 
     def test_initialization_with_int_dims(self, mock_tencent_vector_db_client):
         """Test that vector dimensions are correctly handled as integers."""
         db = TencentVectorDB(
             url="http://127.0.0.1:80",
-            key="eC4bLRy2va******************************",
+            key="mock_tencent_api_key",
         )
         assert db.embedding_model_dims == 1536
         assert isinstance(db.embedding_model_dims, int)

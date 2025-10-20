@@ -6,7 +6,6 @@ from pydantic import BaseModel
 from mem0.vector_stores.base import VectorStoreBase
 
 try:
-    import tcvectordb
     from tcvectordb import RPCVectorDBClient
     from tcvectordb.model.enum import FieldType, IndexType, MetricType
     from tcvectordb.model.index import FilterIndex, VectorIndex
@@ -22,6 +21,7 @@ class OutputData(BaseModel):
     id: Optional[str]  # memory id
     score: Optional[float]  # distance
     payload: Optional[Dict]  # metadata
+
 
 DEFAULT_NO_NEED_INDEXED_FIELDS = ['data', 'hash', 'created_at', 'updated_at']
 
