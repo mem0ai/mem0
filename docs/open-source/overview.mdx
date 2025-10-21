@@ -13,6 +13,19 @@ Mem0 Open Source gives you a powerful, self-hosted memory layer for AI agents. D
 **New to self-hosting?** Start with our [Python Quickstart](/open-source/python-quickstart) for a step-by-step setup guide using Docker Compose.
 </Info>
 
+<AccordionGroup>
+  <Accordion title="Default components (no config needed)" icon="circle-info">
+    <ul>
+      <li><strong>LLM</strong>: OpenAI `gpt-4.1-nano-2025-04-14` via your `OPENAI_API_KEY`.</li>
+      <li><strong>Embeddings</strong>: OpenAI `text-embedding-3-small` (1536 dimensions).</li>
+      <li><strong>Vector store</strong>: Local Qdrant instance storing data at `/tmp/qdrant`.</li>
+      <li><strong>History storage</strong>: SQLite database at `~/.mem0/history.db`.</li>
+      <li><strong>Reranker</strong>: Disabled unless you configure one.</li>
+    </ul>
+    Override any component with [`Memory.from_config`](/open-source/configuration#configuration-components).
+  </Accordion>
+</AccordionGroup>
+
 ## Get Started
 
 Choose your preferred SDK and get Mem0 running locally in minutes:
