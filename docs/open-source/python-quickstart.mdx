@@ -1,6 +1,6 @@
 ---
 title: Python SDK Quickstart
-description: 'Get started with Mem0 quickly!'
+description: "Get started with Mem0 quickly!"
 icon: "python"
 iconType: "solid"
 ---
@@ -9,7 +9,7 @@ Get started with Mem0's Python SDK in under 5 minutes. This guide shows you how 
 
 ## Prerequisites
 
-- Python 3.8 or higher
+- Python 3.10 or higher
 - OpenAI API key ([Get one here](https://platform.openai.com/api-keys))
 
 ## Installation
@@ -28,7 +28,8 @@ from mem0 import Memory
 
 os.environ["OPENAI_API_KEY"] = "your-api-key"
 m = Memory()
-```
+
+````
 </Step>
 
 <Step title="Add your first memory">
@@ -40,20 +41,22 @@ messages = [
 
 result = m.add(messages, user_id="alex")
 print(result)
-```
+````
 
 **Output:**
+
 ```json
 {
-    "results": [
-        {
-            "id": "mem_123abc",
-            "memory": "Name is Alex. Enjoys basketball and gaming.",
-            "event": "ADD"
-        }
-    ]
+  "results": [
+    {
+      "id": "mem_123abc",
+      "memory": "Name is Alex. Enjoys basketball and gaming.",
+      "event": "ADD"
+    }
+  ]
 }
 ```
+
 </Step>
 </Steps>
 
@@ -65,7 +68,7 @@ Learn how to search, update, and manage memories with full CRUD operations
 </Card>
 
 <Card title="Configuration" icon="sliders" href="/open-source/configuration">
-Customize Mem0 with different LLMs, vector stores, and embedders for production use
+  Customize Mem0 with different LLMs, vector stores, and embedders for production use
 </Card>
 
 <Card title="Advanced Features" icon="sparkles" href="/open-source/features/async-memory">

@@ -35,7 +35,7 @@ config = {
     "llm": {
         "provider": "openai",
         "config": {
-            "model": "gpt-4o-mini",
+            "model": "gpt-4.1-nano-2025-04-14",
             "temperature": 0.1
         }
     }
@@ -53,24 +53,28 @@ Mem0 has four configurable components. Click any to see all supported providers 
 **17 providers** including OpenAI, Anthropic, Ollama, Groq, and more
 
 Configure the language model for memory extraction and processing
+
 </Card>
 
 <Card title="Vector Databases" icon="hard-drive" href="/components/vectordbs/overview">
 **25+ databases** including Qdrant, Chroma, Pinecone, Weaviate, and more
 
 Choose where to store and retrieve memory embeddings
+
 </Card>
 
 <Card title="Embedding Models" icon="cube" href="/components/embedders/overview">
 **9 providers** including OpenAI, HuggingFace, Ollama, and more
 
 Select the model to convert memories into vector embeddings
+
 </Card>
 
 <Card title="Rerankers" icon="ranking-star" href="/components/rerankers/overview">
 **4 models** including Cohere, Zero Entropy, and LLM-based
 
 Improve search relevance by re-scoring retrieved memories
+
 </Card>
 </CardGroup>
 
@@ -86,9 +90,10 @@ For production deployments, use a dedicated vector store:
 docker pull qdrant/qdrant
 
 docker run -p 6333:6333 -p 6334:6334 \
-    -v $(pwd)/qdrant_storage:/qdrant/storage:z \
-    qdrant/qdrant
-```
+ -v $(pwd)/qdrant_storage:/qdrant/storage:z \
+ qdrant/qdrant
+
+````
 </Step>
 
 <Step title="Configure Mem0">
@@ -109,7 +114,8 @@ config = {
 }
 
 m = Memory.from_config(config)
-```
+````
+
 </Step>
 </Steps>
 
@@ -118,7 +124,7 @@ m = Memory.from_config(config)
 Run Mem0 completely offline with Ollama (no external APIs):
 
 <Card title="Local Setup with Ollama" icon="server" href="/examples/mem0-with-ollama">
-Step-by-step guide to run Mem0 with local LLM and embeddings
+  Step-by-step guide to run Mem0 with local LLM and embeddings
 </Card>
 
 ### Multi-Cloud Setup
@@ -131,7 +137,7 @@ config = {
         "provider": "azure_openai",
         "config": {
             "api_key": "azure-key",
-            "deployment_name": "gpt-4"
+            "deployment_name": "gpt-4.1-nano-2025-04-14"
         }
     },
     "vector_store": {
@@ -170,7 +176,7 @@ m = Memory.from_config(config)
 ```
 
 <Card title="Graph Memory Guide" icon="diagram-project" href="/open-source/graph_memory/overview">
-Learn how to use graph memory for relationship-based retrieval
+  Learn how to use graph memory for relationship-based retrieval
 </Card>
 
 ## Advanced Configuration
@@ -220,7 +226,7 @@ config = {
 ```
 
 <Card title="Reranking Guide" icon="arrow-up-arrow-down" href="/open-source/features/reranking">
-Learn how reranking improves memory search accuracy
+  Learn how reranking improves memory search accuracy
 </Card>
 
 ### History Database
@@ -251,20 +257,22 @@ config = {
 | `azure_kwargs`        | Azure-specific initialization args           | Azure OpenAI     |
 
 **See all 17 LLM providers:** [LLMs Overview](/components/llms/overview)
+
 </Accordion>
 
 <Accordion title="Vector Store Configuration">
 Common parameters (provider-specific options vary):
 
-| Parameter    | Description                     | Example         |
-|-------------|---------------------------------|-----------------|
-| `provider`   | Vector store provider           | "qdrant"        |
-| `host`       | Host address                    | "localhost"     |
-| `port`       | Port number                     | 6333           |
-| `collection_name` | Collection/index name      | "memories"     |
-| `api_key`    | API key (for cloud stores)      | "your-key"     |
+| Parameter         | Description                | Example     |
+| ----------------- | -------------------------- | ----------- |
+| `provider`        | Vector store provider      | "qdrant"    |
+| `host`            | Host address               | "localhost" |
+| `port`            | Port number                | 6333        |
+| `collection_name` | Collection/index name      | "memories"  |
+| `api_key`         | API key (for cloud stores) | "your-key"  |
 
 **See all 25+ vector stores:** [Vector Databases Overview](/components/vectordbs/overview)
+
 </Accordion>
 
 <Accordion title="Embedder Configuration">
@@ -275,6 +283,7 @@ Common parameters (provider-specific options vary):
 | `api_key`    | API key for embedding service   | None                        |
 
 **See all 9 embedder providers:** [Embedders Overview](/components/embedders/overview)
+
 </Accordion>
 
 <Accordion title="Reranker Configuration">
@@ -286,6 +295,7 @@ Common parameters (provider-specific options vary):
 | `api_key`    | API key for reranker service    | "your-key"                  |
 
 **See all reranker options:** [Rerankers Overview](/components/rerankers/overview)
+
 </Accordion>
 
 <Accordion title="Graph Store Configuration">
@@ -297,6 +307,7 @@ Common parameters (provider-specific options vary):
 | `password`   | Authentication password         | "your-password"             |
 
 **Learn more:** [Graph Memory Overview](/open-source/graph_memory/overview)
+
 </Accordion>
 
 <Accordion title="General Configuration">
@@ -316,7 +327,7 @@ Get started with the Python SDK
 </Card>
 
 <Card title="Self-Hosting Features" icon="server" href="/open-source/features/overview">
-Explore OSS-specific capabilities
+  Explore OSS-specific capabilities
 </Card>
 
 <Card title="Examples" icon="book" href="/examples">
