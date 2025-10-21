@@ -4,9 +4,9 @@
   "description": "Mem0 is a self-improving memory layer for LLM applications, enabling personalized AI experiences that save costs and delight users.",
   "theme": "aspen",
   "colors": {
-    "primary": "#2553eb",
-    "light": "#6084fa",
-    "dark": "#2553eb"
+    "primary": "#9C58FA",
+    "light": "#9C58FA",
+    "dark": "#9C58FA"
   },
   "favicon": "/logo/favicon.png",
   "navigation": {
@@ -24,9 +24,7 @@
                   {
                     "group": "Start Here",
                     "icon": "home",
-                    "pages": [
-                      "introduction"
-                    ]
+                    "pages": ["introduction"]
                   }
                 ]
               },
@@ -104,10 +102,7 @@
                   {
                     "group": "Support & Troubleshooting",
                     "icon": "life-buoy",
-                    "pages": [
-                      "platform/faqs",
-                      "platform/advanced-memory-operations"
-                    ]
+                    "pages": ["platform/faqs", "platform/advanced-memory-operations"]
                   },
                   {
                     "group": "Migration Guide",
@@ -273,10 +268,7 @@
                   {
                     "group": "Community & Support",
                     "icon": "users",
-                    "pages": [
-                      "contributing/development",
-                      "contributing/documentation"
-                    ]
+                    "pages": ["contributing/development", "contributing/documentation"]
                   }
                 ]
               },
@@ -300,9 +292,7 @@
                   {
                     "group": "Overview",
                     "icon": "lightbulb",
-                    "pages": [
-                      "examples"
-                    ]
+                    "pages": ["examples"]
                   },
                   {
                     "group": "Getting Started Examples",
@@ -359,10 +349,7 @@
                   {
                     "group": "Cloud & Infrastructure",
                     "icon": "cloud",
-                    "pages": [
-                      "examples/aws_example",
-                      "examples/aws_neptune_analytics_hybrid_store"
-                    ]
+                    "pages": ["examples/aws_example", "examples/aws_neptune_analytics_hybrid_store"]
                   }
                 ]
               },
@@ -372,9 +359,7 @@
                   {
                     "group": "Overview",
                     "icon": "plug",
-                    "pages": [
-                      "integrations"
-                    ]
+                    "pages": ["integrations"]
                   },
                   {
                     "group": "Agent Frameworks",
@@ -404,10 +389,7 @@
                   {
                     "group": "Cloud & Infrastructure",
                     "icon": "cloud",
-                    "pages": [
-                      "integrations/aws-bedrock",
-                      "integrations/dify"
-                    ]
+                    "pages": ["integrations/aws-bedrock", "integrations/dify"]
                   },
                   {
                     "group": "Developer Tools",
@@ -428,17 +410,15 @@
                   {
                     "group": "Overview",
                     "icon": "terminal",
-                    "pages": [
-                      "api-reference"
-                    ]
+                    "pages": ["api-reference"]
                   },
                   {
                     "group": "Core Memory Operations",
                     "icon": "microchip",
                     "pages": [
                       "api-reference/memory/add-memories",
-                      "api-reference/memory/v2-search-memories",
-                      "api-reference/memory/v2-get-memories",
+                      "api-reference/memory/search-memories",
+                      "api-reference/memory/get-memories",
                       "api-reference/memory/update-memory",
                       "api-reference/memory/delete-memory"
                     ]
@@ -508,16 +488,12 @@
                   {
                     "group": "Changelog",
                     "icon": "rocket",
-                    "pages": [
-                      "changelog"
-                    ]
+                    "pages": ["changelog"]
                   },
                   {
                     "group": "Legacy Docs",
                     "icon": "archive",
-                    "pages": [
-                      "v0x/introduction"
-                    ]
+                    "pages": ["v0x/introduction"]
                   }
                 ],
                 "icon": "clock"
@@ -539,11 +515,7 @@
                   {
                     "group": "Getting Started",
                     "icon": "rocket",
-                    "pages": [
-                      "v0x/introduction",
-                      "v0x/quickstart",
-                      "v0x/faqs"
-                    ]
+                    "pages": ["v0x/introduction", "v0x/quickstart", "v0x/faqs"]
                   },
                   {
                     "group": "Core Concepts",
