@@ -62,6 +62,7 @@
                         "pages": [
                           "platform/features/v2-memory-filters",
                           "platform/features/async-client",
+                          "platform/features/async-mode-default-change",
                           "platform/features/multimodal-support",
                           "platform/features/custom-categories"
                         ]
@@ -71,10 +72,10 @@
                         "icon": "sparkles",
                         "pages": [
                           "platform/features/graph-memory",
+                          "platform/features/graph-threshold",
                           "platform/features/advanced-retrieval",
                           "platform/features/criteria-retrieval",
                           "platform/features/contextual-add",
-                          "platform/features/selective-memory",
                           "platform/features/custom-instructions"
                         ]
                       },
@@ -131,6 +132,7 @@
                     "group": "Self-Hosting Features",
                     "icon": "server",
                     "pages": [
+                      "open-source/features/overview",
                       "open-source/features/async-memory",
                       "open-source/features/openai_compatibility",
                       "open-source/features/custom-fact-extraction-prompt",
@@ -138,6 +140,7 @@
                       "open-source/features/multimodal-support",
                       "open-source/features/rest-api",
                       "open-source/features/metadata-filtering",
+                      "open-source/features/reranking",
                       "open-source/features/reranker-search"
                     ]
                   },
@@ -214,6 +217,7 @@
                               "components/vectordbs/dbs/faiss",
                               "components/vectordbs/dbs/langchain",
                               "components/vectordbs/dbs/baidu",
+                              "components/vectordbs/dbs/cassandra",
                               "components/vectordbs/dbs/s3_vectors",
                               "components/vectordbs/dbs/databricks",
                               "components/vectordbs/dbs/neptune_analytics"
@@ -258,9 +262,13 @@
                               "components/rerankers/models/cohere",
                               "components/rerankers/models/sentence_transformer",
                               "components/rerankers/models/huggingface",
-                              "components/rerankers/models/llm_reranker"
+                              "components/rerankers/models/llm_reranker",
+                              "components/rerankers/models/llm",
+                              "components/rerankers/models/zero_entropy"
                             ]
-                          }
+                          },
+                          "components/rerankers/optimization",
+                          "components/rerankers/custom-prompts"
                         ]
                       }
                     ]
@@ -410,7 +418,7 @@
                   {
                     "group": "Overview",
                     "icon": "terminal",
-                    "pages": ["api-reference"]
+                    "pages": ["api-reference", "api-reference/organizations-projects"]
                   },
                   {
                     "group": "Core Memory Operations",
@@ -743,5 +751,15 @@
     "intercom": {
       "appId": "jjv2r0tt"
     }
-  }
+  },
+  "redirects": [
+    {
+      "source": "/api-reference/memory/v2-search-memories",
+      "destination": "/api-reference/memory/search-memories"
+    },
+    {
+      "source": "/api-reference/memory/v2-get-memories",
+      "destination": "/api-reference/memory/get-memories"
+    }
+  ]
 }
