@@ -15,7 +15,7 @@ class TestNeptuneMemory(unittest.TestCase):
         self.config = MagicMock()
         self.config.graph_store.config.endpoint = "neptune-graph://test-graph"
         self.config.graph_store.config.base_label = True
-        self.config.graph_store.threshold = 0.7  # Set threshold to avoid Mock object issues
+        self.config.graph_store.threshold = 0.7
         self.config.llm.provider = "openai_structured"
         self.config.graph_store.llm = None
         self.config.graph_store.custom_prompt = None
