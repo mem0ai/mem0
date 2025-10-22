@@ -397,12 +397,13 @@
                   {
                     "group": "Cloud & Infrastructure",
                     "icon": "cloud",
-                    "pages": ["integrations/aws-bedrock", "integrations/dify"]
+                    "pages": ["integrations/aws-bedrock"]
                   },
                   {
                     "group": "Developer Tools",
                     "icon": "wrench",
                     "pages": [
+                      "integrations/dify",
                       "integrations/flowise",
                       "integrations/langchain-tools",
                       "integrations/agentops",
@@ -416,8 +417,8 @@
                 "tab": "API Reference",
                 "groups": [
                   {
-                    "group": "Overview",
-                    "icon": "terminal",
+                    "group": "Getting Started",
+                    "icon": "rocket",
                     "pages": ["api-reference", "api-reference/organizations-projects"]
                   },
                   {

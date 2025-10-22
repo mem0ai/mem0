@@ -7,6 +7,41 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2025-10-16" description="v1.0.0">
+
+**New Features & Updates:**
+- **Vector Stores:**
+  - Added Azure MySQL support
+  - Added Azure AI Search Vector Store support
+- **LLMs:**
+  - Added Tool Call support for LangchainLLM
+  - Enabled custom model and parameters for Hugging Face with huggingface_base_url
+  - Updated default LLM configuration
+- **Rerankers:**
+  - Added reranker support: Cohere, ZeroEntropy, Hugging Face, Sentence Transformers, and LLMs
+- **Core:**
+  - Added metadata filtering for OSS
+  - Added Assistant memory retrieval
+  - Enabled async mode as default
+
+**Improvements:**
+- **Prompts:**
+  - Improved prompt for better memory retrieval
+- **Dependencies:**
+  - Updated dependency compatibility with OpenAI 2.x
+- **Validation:**
+  - Validated embedding_dims for Kuzu integration
+
+**Bug Fixes:**
+- **Vector Stores:**
+  - Fixed Databricks Vector Store integration
+  - Fixed Milvus DB bug and added test coverage
+  - Fixed Weaviate search method
+- **LLMs:**
+  - Fixed bug with thinking LLM in vLLM
+
+</Update>
+
 <Update label="2025-09-25" description="v0.1.118">
 
 **New Features & Updates:**
