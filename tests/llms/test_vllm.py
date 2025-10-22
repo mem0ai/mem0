@@ -87,6 +87,139 @@ def test_generate_response_with_tools(mock_vllm_client):
     assert response["tool_calls"][0]["arguments"] == {"data": "Today is a sunny day."}
 
 
+def test_generate_response_with_thinking_mode_enabled(mock_vllm_client):
+    """Test with thinking mode enabled (enable_thinking=True)
+    Should NOT add stop tokens, allowing the model to generate thinking content."""
+    from mem0.configs.llms.vllm import VllmConfig
+    
+    config = VllmConfig(
+        model="Qwen/Qwen2.5-32B-Instruct", 
+        temperature=0.7, 
+        max_tokens=100, 
+        top_p=1.0,
+        enable_thinking=True  # Enable thinking mode
+    )
+    llm = VllmLLM(config)
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Hello, how are you?"},
+    ]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="I'm doing well, thank you for asking!"))]
+    mock_vllm_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages)
+
+    # When thinking mode is enabled, should NOT add stop tokens
+    mock_vllm_client.chat.completions.create.assert_called_once_with(
+        model="Qwen/Qwen2.5-32B-Instruct", 
+        messages=messages, 
+        temperature=0.7, 
+        max_tokens=100, 
+        top_p=1.0
+    )
+    assert response == "I'm doing well, thank you for asking!"
+
+
+def test_generate_response_with_thinking_mode_disabled(mock_vllm_client):
+    """Test with thinking mode disabled (enable_thinking=False)
+    Should add stop tokens to prevent thinking content."""
+    from mem0.configs.llms.vllm import VllmConfig
+    
+    config = VllmConfig(
+        model="Qwen/Qwen2.5-32B-Instruct", 
+        temperature=0.7, 
+        max_tokens=100, 
+        top_p=1.0,
+        enable_thinking=False  # Disable thinking mode
+    )
+    llm = VllmLLM(config)
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Hello, how are you?"},
+    ]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="I'm doing well, thank you for asking!"))]
+    mock_vllm_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages)
+
+    # When thinking mode is disabled, should add stop tokens
+    mock_vllm_client.chat.completions.create.assert_called_once_with(
+        model="Qwen/Qwen2.5-32B-Instruct", 
+        messages=messages, 
+        temperature=0.7, 
+        max_tokens=100, 
+        top_p=1.0,
+        extra_body={"stop": ["<think>", "</think>"]}
+    )
+    assert response == "I'm doing well, thank you for asking!"
+
+
+def test_generate_response_with_thinking_mode_enabled_and_tools(mock_vllm_client):
+    """Test with thinking mode enabled and tools."""
+    from mem0.configs.llms.vllm import VllmConfig
+    
+    config = VllmConfig(
+        model="Qwen/Qwen2.5-32B-Instruct", 
+        temperature=0.7, 
+        max_tokens=100, 
+        top_p=1.0,
+        enable_thinking=True  # Enable thinking mode
+    )
+    llm = VllmLLM(config)
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Add a new memory: Today is a sunny day."},
+    ]
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "add_memory",
+                "description": "Add a memory",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"data": {"type": "string", "description": "Data to add to memory"}},
+                    "required": ["data"],
+                },
+            },
+        }
+    ]
+
+    mock_response = Mock()
+    mock_message = Mock()
+    mock_message.content = "I've added the memory for you."
+
+    mock_tool_call = Mock()
+    mock_tool_call.function.name = "add_memory"
+    mock_tool_call.function.arguments = '{"data": "Today is a sunny day."}'
+
+    mock_message.tool_calls = [mock_tool_call]
+    mock_response.choices = [Mock(message=mock_message)]
+    mock_vllm_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages, tools=tools)
+
+    # When thinking mode is enabled, should NOT add stop tokens
+    mock_vllm_client.chat.completions.create.assert_called_once_with(
+        model="Qwen/Qwen2.5-32B-Instruct",
+        messages=messages,
+        temperature=0.7,
+        max_tokens=100,
+        top_p=1.0,
+        tools=tools,
+        tool_choice="auto"
+    )
+
+    assert response["content"] == "I've added the memory for you."
+    assert len(response["tool_calls"]) == 1
+    assert response["tool_calls"][0]["name"] == "add_memory"
+    assert response["tool_calls"][0]["arguments"] == {"data": "Today is a sunny day."}
+
+
 
 def create_mocked_memory():
     """Create a fully mocked Memory instance for testing."""
