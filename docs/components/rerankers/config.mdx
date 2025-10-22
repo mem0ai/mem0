@@ -69,6 +69,16 @@ All rerankers share these common configuration parameters:
 | `llm.config` | LLM configuration object | `dict` | Required |
 | `top_n` | Number of results to return | `int` | `None` |
 
+### AWS Bedrock
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `model` | str | `"cohere.rerank-v3-5:0"` | AWS Bedrock model ID |
+| `region` | str | `"us-west-2"` | AWS region |
+| `access_key_id` | str | None | AWS access key ID (optional) |
+| `secret_access_key` | str | None | AWS secret access key (optional) |
+| `top_k` | int | 5 | Number of top results to return |
+
 ## Environment Variables
 
 You can set API keys using environment variables:

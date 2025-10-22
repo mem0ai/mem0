@@ -27,7 +27,7 @@ config = {
         "config": {
             "model": "cohere.rerank-v3-5:0",
             "region": "us-west-2",
-            "top_n": 5
+            "top_k": 5
         }
     }
 }
@@ -43,7 +43,7 @@ m = Memory.from_config(config)
 | `region` | str | `"us-west-2"` | AWS region |
 | `access_key_id` | str | None | AWS access key ID (optional) |
 | `secret_access_key` | str | None | AWS secret access key (optional) |
-| `top_n` | int | 5 | Number of top results to return |
+| `top_k` | int | 5 | Number of top results to return |
 
 ### Authentication
 
@@ -130,7 +130,7 @@ config = {
         "config": {
             "model": "cohere.rerank-v3-5:0",
             "region": "us-west-2",
-            "top_n": 5
+            "top_k": 5
         }
     }
 }

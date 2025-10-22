@@ -95,13 +95,13 @@ class AWSBedrockConfig(BaseLlmConfig):
 
         if self.aws_access_key_id:
             config["aws_access_key_id"] = self.aws_access_key_id or os.getenv("AWS_ACCESS_KEY_ID")
-            
+
         if self.aws_secret_access_key:
             config["aws_secret_access_key"] = self.aws_secret_access_key or os.getenv("AWS_SECRET_ACCESS_KEY")
-            
+
         if self.aws_session_token:
             config["aws_session_token"] = self.aws_session_token or os.getenv("AWS_SESSION_TOKEN")
-            
+
         if self.aws_profile:
             config["profile_name"] = self.aws_profile or os.getenv("AWS_PROFILE")
 
@@ -110,33 +110,46 @@ class AWSBedrockConfig(BaseLlmConfig):
     def validate_model_format(self) -> bool:
         """
         Validate that the model identifier follows Bedrock naming convention.
-        
+
         Returns:
             True if valid, False otherwise
         """
         if not self.model:
             return False
-            
+
         # Check if model follows provider.model-name format
         if "." not in self.model:
             return False
-            
+
         provider, model_name = self.model.split(".", 1)
-        
+
         # Validate provider
         valid_providers = [
-            "ai21", "amazon", "anthropic", "cohere", "meta", "mistral", 
-            "stability", "writer", "deepseek", "gpt-oss", "perplexity", 
-            "snowflake", "titan", "command", "j2", "llama"
+            "ai21",
+            "amazon",
+            "anthropic",
+            "cohere",
+            "meta",
+            "mistral",
+            "stability",
+            "writer",
+            "deepseek",
+            "gpt-oss",
+            "perplexity",
+            "snowflake",
+            "titan",
+            "command",
+            "j2",
+            "llama",
         ]
-        
+
         if provider not in valid_providers:
             return False
-            
+
         # Validate model name is not empty
         if not model_name:
             return False
-            
+
         return True
 
     def get_supported_regions(self) -> List[str]:
@@ -158,35 +171,45 @@ class AWSBedrockConfig(BaseLlmConfig):
             "supports_streaming": False,
             "supports_multimodal": False,
         }
-        
+
         if self.provider == "anthropic":
-            capabilities.update({
-                "supports_tools": True,
-                "supports_vision": True,
-                "supports_streaming": True,
-                "supports_multimodal": True,
-            })
+            capabilities.update(
+                {
+                    "supports_tools": True,
+                    "supports_vision": True,
+                    "supports_streaming": True,
+                    "supports_multimodal": True,
+                }
+            )
         elif self.provider == "amazon":
-            capabilities.update({
-                "supports_tools": True,
-                "supports_vision": True,
-                "supports_streaming": True,
-                "supports_multimodal": True,
-            })
+            capabilities.update(
+                {
+                    "supports_tools": True,
+                    "supports_vision": True,
+                    "supports_streaming": True,
+                    "supports_multimodal": True,
+                }
+            )
         elif self.provider == "cohere":
-            capabilities.update({
-                "supports_tools": True,
-                "supports_streaming": True,
-            })
+            capabilities.update(
+                {
+                    "supports_tools": True,
+                    "supports_streaming": True,
+                }
+            )
         elif self.provider == "meta":
-            capabilities.update({
-                "supports_vision": True,
-                "supports_streaming": True,
-            })
+            capabilities.update(
+                {
+                    "supports_vision": True,
+                    "supports_streaming": True,
+                }
+            )
         elif self.provider == "mistral":
-            capabilities.update({
-                "supports_vision": True,
-                "supports_streaming": True,
-            })
-            
+            capabilities.update(
+                {
+                    "supports_vision": True,
+                    "supports_streaming": True,
+                }
+            )
+
         return capabilities
