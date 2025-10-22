@@ -1,11 +1,5 @@
-"""
-Settings module for mem0 configuration management.
-"""
-
 from typing import Any, Dict
-
 from mem0.configs.base import MemoryConfig
-
 
 class Settings:
     """Settings class to manage configuration."""
