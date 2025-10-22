@@ -8,45 +8,34 @@ icon: "cloud"
 
 **Mem0 Platform is a fully managed memory layer for AI agents.** Add persistent, personalized memory to your AI applications in minutes - no infrastructure setup required.
 
-### The Difference Mem0 Makes
+## What is Mem0?
 
-**Before Mem0 - Every conversation starts from scratch**
+Mem0 is a memory layer that enables your AI applications to remember user preferences, conversation history, and contextual information across sessions. Instead of treating every interaction as isolated, Mem0 allows your AI to build on previous conversations and adapt to individual users over time.
 
-```python
-client = OpenAI()
+## What Problem Does It Solve?
 
-response = client.chat.completions.create(
-    model="gpt-4.1-nano-2025-04-14",
-    messages=[
-        {"role": "user", "content": "I'm traveling to SF next week"}
-    ]
-)
-```
+Without Mem0, every AI conversation starts from scratch:
+- User preferences disappear between sessions
+- Previous context is lost and must be re-explained
+- Personalization becomes impossible
+- AI can't learn or adapt to individual users
 
-Without memory, every conversation is isolated. User preferences disappear between sessions, previous context is lost, and personalization becomes impossible. Your AI can't learn or adapt to individual users.
+With Mem0, your AI remembers:
+- Context persists across sessions with sub-50ms latency
+- Preferences are automatically recalled
+- Responses adapt to each user's history
+- No infrastructure setup or vector DB management required
 
----
+## Where Can I Use Mem0?
 
-**With Mem0 - Context that persists and personalizes**
+Mem0 powers memory for diverse AI applications. Explore real-world implementations:
 
-```python
-from mem0 import MemoryClient
-from openai import OpenAI
+- **[Customer Support Agents](/examples/customer-support-agent)** - Remember customer history and preferences
+- **[AI Tutors](/examples/personal-ai-tutor)** - Track learning progress and adapt lessons
+- **[Travel Assistants](/examples/personal-travel-assistant)** - Recall travel preferences and past trips
+- **[Content Writing](/examples/memory-guided-content-writing)** - Maintain consistent voice and context
 
-# Initialize with memory
-mem0 = MemoryClient(api_key="your-mem0-key")
-openai_client = OpenAI()
-
-# Store conversation context
-messages = [{"role": "user", "content": "I'm traveling to SF next week"}]
-mem0.add(messages, user_id="alex")
-
-# Retrieve relevant memories for personalization
-memories = mem0.search("travel plans", user_id="alex")
-# Returns: Alex is traveling to SF, prefers vegetarian food, allergic to nuts
-```
-
-Now your AI remembers. Context persists across sessions, preferences are automatically recalled, and responses adapt to each user's history. All with sub-50ms latency that won't slow down your application.
+[View all cookbooks →](/examples)
 
 ---
 
@@ -112,10 +101,6 @@ Now your AI remembers. Context persists across sessions, preferences are automat
 | **Production Scale** | Automatic scaling, high availability, and fully managed infrastructure. Focus on your app, not operations. |
 | **Advanced Features** | Graph memory, webhooks, multimodal support, and custom categories - exclusive to Platform. |
 | **Enterprise Ready** | SOC 2 Type II certified, GDPR compliant, with dedicated support for production workloads. |
-
-<Info>
-**Need self-hosting?** Check out [Mem0 Open Source](/open-source/overview) for complete infrastructure control and customization.
-</Info>
 
 ---
 

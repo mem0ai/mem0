@@ -9,7 +9,7 @@ Get started with Mem0's Python SDK in under 5 minutes. This guide shows you how 
 
 ## Prerequisites
 
-- Python 3.9 or higher
+- Python 3.10 or higher
 - OpenAI API key ([Get one here](https://platform.openai.com/api-keys))
 
 ## Installation
@@ -21,25 +21,28 @@ pip install mem0ai
 ```
 </Step>
 
-<Step title="Set your API key">
+<Step title="Initialize Memory">
 ```python
-import os
 from mem0 import Memory
 
-os.environ["OPENAI_API_KEY"] = "your-api-key"
-m = Memory()
+m = Memory(api_key="your-openai-api-key")
 ```
 </Step>
 
-<Step title="Add your first memory">
+<Step title="Add a memory">
 ```python
 messages = [
     {"role": "user", "content": "Hi, I'm Alex. I love basketball and gaming."},
     {"role": "assistant", "content": "Hey Alex! I'll remember your interests."}
 ]
+m.add(messages, user_id="alex")
+```
+</Step>
 
-result = m.add(messages, user_id="alex")
-print(result)
+<Step title="Search memories">
+```python
+results = m.search("What do you know about me?", filters={"user_id": "alex"})
+print(results)
 ```
 
 **Output:**
@@ -49,7 +52,10 @@ print(result)
     {
       "id": "mem_123abc",
       "memory": "Name is Alex. Enjoys basketball and gaming.",
-      "event": "ADD"
+      "user_id": "alex",
+      "categories": ["personal_info"],
+      "created_at": "2025-10-22T04:40:22.864647-07:00",
+      "score": 0.89
     }
   ]
 }
