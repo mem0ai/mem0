@@ -68,17 +68,12 @@ def apply_writing_style(original_content):
 
     results = client.search(
         query="What are my writing style preferences?",
-        version="v2",
         filters={
             "AND": [
-                {
-                    "user_id": USER_ID
-                },
-                {
-                    "run_id": RUN_ID
-                }
+                {"user_id": USER_ID},
+                {"run_id": RUN_ID}
             ]
-        },
+        }
     )
 
     if not results:
@@ -103,7 +98,7 @@ Preferences:
     ]
 
     response = openai.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-4.1-nano-2025-04-14",
         messages=messages
     )
     clean_response = response.choices[0].message.content.strip()

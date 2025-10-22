@@ -4888,7 +4888,7 @@
 						"title": "Output format",
 						"type": "string",
 						"nullable": true,
-						"default": "v1.0"
+						"default": "v1.1"
 					},
 					"custom_categories": {
 						"description": "A list of categories with category name and its description.",
@@ -4913,7 +4913,7 @@
 						"description": "Whether to add the memory completely asynchronously.",
 						"title": "Async mode",
 						"type": "boolean",
-						"default": false
+						"default": true
 					},
 					"timestamp": {
 						"description": "The timestamp of the memory. Format: Unix timestamp",
@@ -5020,7 +5020,7 @@
 						"title": "Output format",
 						"type": "string",
 						"nullable": true,
-						"default": "v1.0",
+						"default": "v1.1",
 						"description": "The search method supports two output formats: `v1.0` (default) and `v1.1`. We recommend using `v1.1` as `v1.0` will be deprecated soon."
 					},
 					"org_id": {

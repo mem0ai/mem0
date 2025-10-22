@@ -58,7 +58,7 @@ filters = {
    ]
 }
 
-results = client.search(query, version="v2", filters=filters)
+results = client.search(query, filters=filters)
 ```
 
 ```javascript JavaScript
@@ -74,7 +74,6 @@ const filters = {
 };
 
 const results = await client.search(query, {
-  version: "v2",
   filters
 });
 ```
@@ -89,32 +88,84 @@ const results = await client.search(query, {
 from mem0 import Memory
 
 m = Memory()
+
+# Simple search
 related_memories = m.search("Should I drink coffee or tea?", user_id="alice")
+
+# Search with filters
+memories = m.search(
+    "food preferences",
+    user_id="alice",
+    filters={"categories": {"contains": "diet"}}
+)
 ```
 
 ```javascript JavaScript
 import { Memory } from 'mem0ai/oss';
 
 const memory = new Memory();
+
+// Simple search
 const relatedMemories = memory.search("Should I drink coffee or tea?", { userId: "alice" });
+
+// Search with filters (if supported)
+const memories = memory.search("food preferences", {
+    userId: "alice",
+    filters: { categories: { contains: "diet" } }
+});
 ```
 </CodeGroup>
 
 ---
 
+## Using Filters
+
+Filters help narrow down search results. Common use cases:
+
+**Filter by Session Context:**
+```python
+# Get memories from a specific agent session
+m.search("query", user_id="alice", agent_id="chatbot", run_id="session-123")
+```
+
+**Filter by Date Range:**
+```python
+# Platform only - date filtering
+client.search("recent memories", filters={
+    "AND": [
+        {"user_id": "alice"},
+        {"created_at": {"gte": "2024-07-01"}}
+    ]
+})
+```
+
+**Filter by Categories:**
+```python
+# Platform only - category filtering
+client.search("preferences", filters={
+    "AND": [
+        {"user_id": "alice"},
+        {"categories": {"contains": "food"}}
+    ]
+})
+```
+
+---
+
 ## Tips for Better Search
 
-- Use descriptive natural queries (Mem0 can interpret intent)
-- Apply filters for scoped, faster lookups
-- Use `version: "v2"` for enhanced results
-- Consider wildcard filters (e.g., `run_id: "*"`) for broader matches
-- Tune with `top_k`, `threshold`, or `rerank` if needed
+- **Use natural language**: Mem0 understands intent, so describe what you're looking for naturally
+- **Scope with session IDs**: Always provide at least `user_id` to scope search to relevant memories
+- **Combine filters**: Use AND/OR logic to create precise queries (Platform)
+- **Consider wildcard filters**: Use wildcard filters (e.g., `run_id: "*"`) for broader matches
+- **Tune parameters**: Adjust `top_k` for result count, `threshold` for relevance cutoff
+- **Enable reranking**: Use `rerank=True` (default) when you have a reranker configured
 
 
 ### More Details
 
 For the full list of filter logic, comparison operators, and optional search parameters, see the
-[Search Memory API Reference](/api-reference/memory/v2-search-memories).
+[Search Memory API Reference](/api-reference/memory/search-memories).
 
 ## Need help?
 If you have any questions, please feel free to reach out to us using one of the following methods:

@@ -36,7 +36,7 @@ from agno.tools.mem0 import Mem0Tools
 
 agent = Agent(
     name="Memory Agent",
-    model=OpenAIChat(id="gpt-4o-mini"),
+    model=OpenAIChat(id="gpt-4.1-nano-2025-04-14"),
     tools=[Mem0Tools()],
     description="An assistant that remembers and personalizes using Mem0 memory."
 )
@@ -120,7 +120,7 @@ def chat_user(
         })
 
         # Store messages in memory
-        client.add(messages, user_id=user_id, output_format='v1.1')
+        client.add(messages, user_id=user_id)
         print("✅ Image and text stored in memory.")
 
     if user_input:
@@ -151,7 +151,7 @@ User question:
 
         # Store the interaction in memory
         interaction_message = [{"role": "user", "content": f"User: {user_input}\nAssistant: {response.content}"}]
-        client.add(interaction_message, user_id=user_id, output_format='v1.1')
+        client.add(interaction_message, user_id=user_id)
         return response.content
 
     return "No user input or image provided."

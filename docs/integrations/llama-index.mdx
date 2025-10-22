@@ -41,7 +41,6 @@ context = {"user_id": "alice"}
 memory_from_client = Mem0Memory.from_client(
     context=context,
     search_msg_limit=4,  # optional, default is 5
-    output_format='v1.1',  # Remove deprecation warnings
 )
 ```
 
@@ -83,7 +82,7 @@ config = {
     "llm": {
         "provider": "openai",
         "config": {
-            "model": "gpt-4o",
+            "model": "gpt-4.1-nano-2025-04-14",
             "temperature": 0.2,
             "max_tokens": 2000,
         },
@@ -103,7 +102,7 @@ memory_from_config = Mem0Memory.from_config(
     context=context,
     config=config,
     search_msg_limit=4,  # optional, default is 5
-    output_format='v1.1',  # Remove deprecation warnings
+    # Remove deprecation warnings
 )
 ```
 
@@ -116,7 +115,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # os.environ["OPENAI_API_KEY"] = "<your-openai-api-key>"
-llm = OpenAI(model="gpt-4o-mini")
+llm = OpenAI(model="gpt-4.1-nano-2025-04-14")
 ```
 
 ### SimpleChatEngine

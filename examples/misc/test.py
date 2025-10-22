@@ -35,7 +35,7 @@ travel_agent = Agent(
     understand the user's travel preferences and history before making recommendations.
     After providing your response, use store_conversation to save important details.""",
     tools=[search_memory, save_memory],
-    model="gpt-4o",
+    model="gpt-4.1-nano-2025-04-14",
 )
 
 health_agent = Agent(
@@ -44,7 +44,7 @@ health_agent = Agent(
     understand the user's health goals and dietary preferences.
     After providing advice, use store_conversation to save relevant information.""",
     tools=[search_memory, save_memory],
-    model="gpt-4o",
+    model="gpt-4.1-nano-2025-04-14",
 )
 
 # Triage agent with handoffs
@@ -55,7 +55,7 @@ triage_agent = Agent(
     For health-related questions (fitness, diet, wellness, exercise), hand off to Health Advisor.
     For general questions, you can handle them directly using available tools.""",
     handoffs=[travel_agent, health_agent],
-    model="gpt-4o",
+    model="gpt-4.1-nano-2025-04-14",
 )
 
 

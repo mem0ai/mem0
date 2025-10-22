@@ -7,11 +7,25 @@ from mem0.memory.kuzu_memory import MemoryGraph
 class TestKuzu:
     """Test that Kuzu memory works correctly"""
 
+    # Create distinct embeddings that won't match with threshold=0.7
+    # Each embedding is mostly zeros with ones in different positions to ensure low similarity
+    alice_emb = np.zeros(384)
+    alice_emb[0:96] = 1.0
+
+    bob_emb = np.zeros(384)
+    bob_emb[96:192] = 1.0
+
+    charlie_emb = np.zeros(384)
+    charlie_emb[192:288] = 1.0
+
+    dave_emb = np.zeros(384)
+    dave_emb[288:384] = 1.0
+
     embeddings = {
-        "alice": np.random.uniform(0.0, 0.9, 384).tolist(),
-        "bob": np.random.uniform(0.0, 0.9, 384).tolist(),
-        "charlie": np.random.uniform(0.0, 0.9, 384).tolist(),
-        "dave": np.random.uniform(0.0, 0.9, 384).tolist(),
+        "alice": alice_emb.tolist(),
+        "bob": bob_emb.tolist(),
+        "charlie": charlie_emb.tolist(),
+        "dave": dave_emb.tolist(),
     }
 
     @pytest.fixture
@@ -26,6 +40,7 @@ class TestKuzu:
 
         # Mock graph store config
         config.graph_store.config.db = ":memory:"
+        config.graph_store.threshold = 0.7
 
         # Mock LLM config
         config.llm.provider = "mock_llm"
@@ -79,6 +94,22 @@ class TestKuzu:
         assert kuzu_memory.llm == mock_llm
         assert kuzu_memory.threshold == 0.7
 
+    @pytest.mark.parametrize(
+        "embedding_dims",
+        [None, 0, -1],
+    )
+    @patch("mem0.memory.kuzu_memory.EmbedderFactory")
+    def test_kuzu_memory_initialization_invalid_embedding_dims(
+        self, mock_embedder_factory, embedding_dims, mock_config
+    ):
+        """Test that Kuzu memory raises ValuError when initialized with invalid embedding_dims"""
+        # Setup mocks
+        mock_embedding_model = Mock()
+        mock_embedding_model.config.embedding_dims = embedding_dims
+        mock_embedder_factory.create.return_value = mock_embedding_model
+
+        with pytest.raises(ValueError, match="must be a positive"):
+            MemoryGraph(mock_config)
 
     @patch("mem0.memory.kuzu_memory.EmbedderFactory")
     @patch("mem0.memory.kuzu_memory.LlmFactory")
