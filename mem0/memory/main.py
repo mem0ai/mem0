@@ -1753,7 +1753,7 @@ class AsyncMemory(MemoryBase):
         memories_result = await asyncio.to_thread(self.vector_store.list, filters=filters, limit=limit)
         actual_memories = (
             memories_result[0]
-            if isinstance(memories_result, (tuple, list)) and len(memories_result) > 0
+            if isinstance(memories_result, (tuple)) and len(memories_result) > 0
             else memories_result
         )
 
@@ -1894,6 +1894,102 @@ class AsyncMemory(MemoryBase):
             return {"results": original_memories, "relations": graph_entities}
 
         return {"results": original_memories}
+
+    def _process_metadata_filters(self, metadata_filters: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Process enhanced metadata filters and convert them to vector store compatible format.
+
+        Args:
+            metadata_filters: Enhanced metadata filters with operators
+
+        Returns:
+            Dict of processed filters compatible with vector store
+        """
+        processed_filters = {}
+
+        def process_condition(key: str, condition: Any) -> Dict[str, Any]:
+            if not isinstance(condition, dict):
+                # Simple equality: {"key": "value"}
+                if condition == "*":
+                    # Wildcard: match everything for this field (implementation depends on vector store)
+                    return {key: "*"}
+                return {key: condition}
+
+            result = {}
+            for operator, value in condition.items():
+                # Map platform operators to universal format that can be translated by each vector store
+                operator_map = {
+                    "eq": "eq", "ne": "ne", "gt": "gt", "gte": "gte",
+                    "lt": "lt", "lte": "lte", "in": "in", "nin": "nin",
+                    "contains": "contains", "icontains": "icontains"
+                }
+
+                if operator in operator_map:
+                    result[key] = {operator_map[operator]: value}
+                else:
+                    raise ValueError(f"Unsupported metadata filter operator: {operator}")
+            return result
+
+        for key, value in metadata_filters.items():
+            if key == "AND":
+                # Logical AND: combine multiple conditions
+                if not isinstance(value, list):
+                    raise ValueError("AND operator requires a list of conditions")
+                for condition in value:
+                    for sub_key, sub_value in condition.items():
+                        processed_filters.update(process_condition(sub_key, sub_value))
+            elif key == "OR":
+                # Logical OR: Pass through to vector store for implementation-specific handling
+                if not isinstance(value, list) or not value:
+                    raise ValueError("OR operator requires a non-empty list of conditions")
+                # Store OR conditions in a way that vector stores can interpret
+                processed_filters["$or"] = []
+                for condition in value:
+                    or_condition = {}
+                    for sub_key, sub_value in condition.items():
+                        or_condition.update(process_condition(sub_key, sub_value))
+                    processed_filters["$or"].append(or_condition)
+            elif key == "NOT":
+                # Logical NOT: Pass through to vector store for implementation-specific handling
+                if not isinstance(value, list) or not value:
+                    raise ValueError("NOT operator requires a non-empty list of conditions")
+                processed_filters["$not"] = []
+                for condition in value:
+                    not_condition = {}
+                    for sub_key, sub_value in condition.items():
+                        not_condition.update(process_condition(sub_key, sub_value))
+                    processed_filters["$not"].append(not_condition)
+            else:
+                processed_filters.update(process_condition(key, value))
+
+        return processed_filters
+
+    def _has_advanced_operators(self, filters: Dict[str, Any]) -> bool:
+        """
+        Check if filters contain advanced operators that need special processing.
+
+        Args:
+            filters: Dictionary of filters to check
+
+        Returns:
+            bool: True if advanced operators are detected
+        """
+        if not isinstance(filters, dict):
+            return False
+
+        for key, value in filters.items():
+            # Check for platform-style logical operators
+            if key in ["AND", "OR", "NOT"]:
+                return True
+            # Check for comparison operators (without $ prefix for universal compatibility)
+            if isinstance(value, dict):
+                for op in value.keys():
+                    if op in ["eq", "ne", "gt", "gte", "lt", "lte", "in", "nin", "contains", "icontains"]:
+                        return True
+            # Check for wildcard values
+            if value == "*":
+                return True
+        return False
 
     async def _search_vector_store(self, query, filters, limit, threshold: Optional[float] = None):
         embeddings = await asyncio.to_thread(self.embedding_model.embed, query, "search")
