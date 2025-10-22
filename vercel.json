@@ -3,10 +3,5 @@
   "buildCommand": "cd examples/mem0-demo && npm install && npm run build",
   "outputDirectory": "examples/mem0-demo/.next",
   "installCommand": "cd examples/mem0-demo && npm install",
-  "framework": "nextjs",
-  "functions": {
-    "examples/mem0-demo/app/api/**/*.ts": {
-      "runtime": "nodejs18.x"
-    }
-  }
+  "framework": "nextjs"
 }
