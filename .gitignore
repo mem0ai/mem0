@@ -186,3 +186,8 @@ eval/
 qdrant_storage/
 .crossnote
 testing.ipynb
+
+# OpenMemory - IDE/Assistant specific rules
+.cursor/rules/openmemory.mdc
+CLAUDE.md
+openmemory.md
