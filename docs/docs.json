@@ -173,7 +173,7 @@
 															"components/vectordbs/dbs/s3_vectors",
 															"components/vectordbs/dbs/databricks",
 															"components/vectordbs/dbs/neptune_analytics",
-															"cloudflare-worker"
+															"components/vectordbs/dbs/cloudflare-worker"
 														]
 													}
 												]
@@ -515,7 +515,7 @@
 															"v0x/components/vectordbs/dbs/s3_vectors",
 															"v0x/components/vectordbs/dbs/databricks",
 															"v0x/components/vectordbs/dbs/neptune_analytics",
-															"cloudflare-worker"
+															"components/vectordbs/dbs/cloudflare-worker"
 														]
 													}
 												]
