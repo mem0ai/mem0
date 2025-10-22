@@ -20,6 +20,7 @@ import datetime
 import json
 import logging
 import uuid
+from typing import Optional
 
 from app.database import SessionLocal
 from app.models import Memory, MemoryAccessLog, MemoryState, MemoryStatusHistory
@@ -141,8 +142,8 @@ async def add_memories(text: str) -> str:
         return f"Error adding to memory: {e}"
 
 
-@mcp.tool(description="Search through stored memories. This method is called EVERYTIME the user asks anything.")
-async def search_memory(query: str) -> str:
+@mcp.tool(description="Search through stored memories. This method is called EVERYTIME the user asks anything. The 'include_metadata' parameter controls whether to return metadata fields: False (default) = returns only core fields (id, memory, hash, timestamps, score); True = also includes all metadata fields from vector store payload.")
+async def search_memory(query: str, include_metadata: bool = False) -> str:
     uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
     if not uid:
@@ -186,15 +187,35 @@ async def search_memory(query: str) -> str:
                 id, score, payload = h.id, h.score, h.payload
                 if allowed and h.id is None or h.id not in allowed: 
                     continue
-                
-                results.append({
-                    "id": id, 
-                    "memory": payload.get("data"), 
+
+                result = {
+                    "id": id,
+                    "memory": payload.get("data"),
                     "hash": payload.get("hash"),
-                    "created_at": payload.get("created_at"), 
-                    "updated_at": payload.get("updated_at"), 
+                    "created_at": payload.get("created_at"),
+                    "updated_at": payload.get("updated_at"),
                     "score": score,
-                })
+                }
+
+                # Include metadata if requested
+                if include_metadata:
+                    # Extract metadata fields (excluding core fields already included above)
+                    metadata = {}
+                    excluded_fields = {"data", "hash", "created_at", "updated_at", "user_id", "agent_id", "run_id"}
+                    for key, value in payload.items():
+                        if key not in excluded_fields:
+                            metadata[key] = value
+
+                    # Add promoted fields at top level if they exist
+                    for promoted_field in ["user_id", "agent_id", "run_id", "actor_id", "role"]:
+                        if promoted_field in payload:
+                            result[promoted_field] = payload[promoted_field]
+
+                    # Add remaining metadata under 'metadata' key if not empty
+                    if metadata:
+                        result["metadata"] = metadata
+
+                results.append(result)
 
             for r in results: 
                 if r.get("id"): 
@@ -286,6 +307,94 @@ async def list_memories() -> str:
     except Exception as e:
         logging.exception(f"Error getting memories: {e}")
         return f"Error getting memories: {e}"
+
+
+@mcp.tool(description="Update a memory's content and custom metadata")
+async def update_memory(memory_id: str, text: str, metadata: Optional[dict] = None) -> str:
+    uid = user_id_var.get(None)
+    client_name = client_name_var.get(None)
+    if not uid:
+        return "Error: user_id not provided"
+    if not client_name:
+        return "Error: client_name not provided"
+
+    # Get memory client safely
+    memory_client = get_memory_client_safe()
+    if not memory_client:
+        return "Error: Memory system is currently unavailable. Please try again later."
+
+    try:
+        db = SessionLocal()
+        try:
+            # Get or create user and app
+            user, app = get_user_and_app(db, user_id=uid, app_id=client_name)
+
+            # Check if memory exists and is accessible
+            memory_uuid = uuid.UUID(memory_id)
+            memory = db.query(Memory).filter(Memory.id == memory_uuid, Memory.user_id == user.id).first()
+
+            if not memory:
+                return "Error: Memory not found or not accessible"
+
+            if not check_memory_access_permissions(db, memory, app.id):
+                return "Error: No permission to update this memory"
+
+            # Prepare metadata update (merge with system fields)
+            metadata_for_vector_store = None
+            if metadata is not None:
+                # System fields that should never be overwritten
+                SYSTEM_FIELDS = ['user_id', 'agent_id', 'run_id', 'actor_id', 'role', 'source_app', 'mcp_client']
+
+                # Start with only system fields from existing metadata
+                existing_metadata = memory.metadata_ or {}
+                new_metadata = {k: v for k, v in existing_metadata.items() if k in SYSTEM_FIELDS}
+
+                # Filter out system fields from user input (silently ignored)
+                custom_metadata = {k: v for k, v in metadata.items() if k not in SYSTEM_FIELDS}
+
+                # Add custom fields from request (empty request = clear custom metadata)
+                new_metadata.update(custom_metadata)
+
+                metadata_for_vector_store = new_metadata
+
+            # Update in mem0 using public API (with merged metadata)
+            # If metadata_for_vector_store is None, mem0 will preserve existing metadata in Qdrant
+            response = memory_client.update(
+                memory_id=memory_id,
+                data=text,
+                metadata=metadata_for_vector_store
+            )
+
+            # Update in database (same merged metadata)
+            memory.content = text
+            if metadata is not None:
+                memory.metadata_ = metadata_for_vector_store
+
+            # Create history entry
+            history = MemoryStatusHistory(
+                memory_id=memory_uuid,
+                changed_by=user.id,
+                old_state=memory.state,
+                new_state=memory.state
+            )
+            db.add(history)
+
+            # Create access log entry
+            access_log = MemoryAccessLog(
+                memory_id=memory_uuid,
+                app_id=app.id,
+                access_type="update",
+                metadata_={"operation": "update_memory"}
+            )
+            db.add(access_log)
+
+            db.commit()
+            return json.dumps(response)
+        finally:
+            db.close()
+    except Exception as e:
+        logging.exception(f"Error updating memory: {e}")
+        return f"Error updating memory: {e}"
 
 
 @mcp.tool(description="Delete specific memories by their IDs")
