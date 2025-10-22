@@ -1,8 +1,6 @@
 ---
 title: Cohere
-description: 'Reranking with Cohere'
-icon: "building"
-iconType: "solid"
+description: "Reranking with Cohere"
 ---
 
 Cohere provides enterprise-grade reranking models with excellent multilingual support and production-ready performance.
@@ -37,7 +35,7 @@ config = {
     "llm": {
         "provider": "openai",
         "config": {
-            "model": "gpt-4o-mini"
+            "model": "gpt-4.1-nano-2025-04-14"
         }
     },
     "reranker": {
@@ -124,13 +122,13 @@ config = {
 
 ## Configuration Parameters
 
-| Parameter | Description | Type | Default |
-|-----------|-------------|------|---------|
-| `model` | Cohere rerank model to use | `str` | `"rerank-english-v3.0"` |
-| `api_key` | Cohere API key | `str` | `None` |
-| `top_k` | Maximum documents to return | `int` | `None` |
-| `return_documents` | Whether to return document texts | `bool` | `False` |
-| `max_chunks_per_doc` | Maximum chunks per document | `int` | `None` |
+| Parameter            | Description                      | Type   | Default                 |
+| -------------------- | -------------------------------- | ------ | ----------------------- |
+| `model`              | Cohere rerank model to use       | `str`  | `"rerank-english-v3.0"` |
+| `api_key`            | Cohere API key                   | `str`  | `None`                  |
+| `top_k`              | Maximum documents to return      | `int`  | `None`                  |
+| `return_documents`   | Whether to return document texts | `bool` | `False`                 |
+| `max_chunks_per_doc` | Maximum chunks per document      | `int`  | `None`                  |
 
 ## Features
 
