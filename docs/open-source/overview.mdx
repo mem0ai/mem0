@@ -1,28 +1,86 @@
 ---
-title: Overview
-icon: "eye"
+title: "Overview"
+icon: "code-branch"
 iconType: "solid"
+description: "Self-host Mem0 with full control over your infrastructure and data"
 ---
 
-Welcome to Mem0 Open Source, a powerful, self-hosted memory management solution for AI agents and assistants. With Mem0 OSS, you get full control over your infrastructure while maintaining complete customization flexibility.
+<Tip>
+**Mem0 v1.0.0 is now available** — Introducing rerankers, async by default, Azure support, and more. [View changelog →](/changelog)
+</Tip>
 
-We offer two SDKs: Python and Node.js.
+## Self-Host Mem0 with Full Control
 
-Check out our [GitHub repository](https://mem0.dev/gd) to explore the source code.
+Mem0 Open Source gives you a powerful, self-hosted memory layer for AI agents. Deploy on your infrastructure, customize every component, and maintain complete data ownership.
+
+## Get Started
+
+Choose your preferred SDK and get Mem0 running locally in minutes:
 
 <CardGroup cols={2}>
-<Card title="Python SDK Guide" icon="python" href="/open-source/python-quickstart">
-  Learn more about Mem0 OSS Python SDK
-</Card>
-<Card title="Node.js SDK Guide" icon="node" href="/open-source/node-quickstart">
-  Learn more about Mem0 OSS Node.js SDK
-</Card>
+  <Card title="Python Quickstart" icon="python" href="/open-source/python-quickstart">
+    Install and configure Mem0 OSS with Python in 10 minutes
+  </Card>
+
+  <Card title="Node.js Quickstart" icon="node" href="/open-source/node-quickstart">
+    Set up Mem0 OSS with Node.js and TypeScript support
+  </Card>
 </CardGroup>
 
-## Key Features
+## Explore OSS Capabilities
 
-- **Full Infrastructure Control**: Host Mem0 on your own servers.
-- **Customizable Implementation**: Modify and extend functionality as needed.
-- **Local Development**: Perfect for development and testing.
-- **No Vendor Lock-in**: Own your data and infrastructure.
-- **Community Driven**: Benefit from and contribute to community improvements.
+Mem0 Open Source offers powerful features for building production-grade AI applications with memory. From graph-based knowledge structures to flexible component configuration, you have full control over how memory works in your system.
+
+<CardGroup cols={3}>
+  <Card title="Graph Memory" icon="network-wired" href="/open-source/graph_memory/overview">
+    Build relationship-aware memory with knowledge graph capabilities
+  </Card>
+
+  <Card title="Component Configuration" icon="sliders" href="/open-source/configuration">
+    Choose your LLM, vector database, embedding model, and rerankers
+  </Card>
+
+  <Card title="REST API" icon="bolt" href="/open-source/features/rest-api">
+    Build high-throughput pipelines with async clients and REST endpoints
+  </Card>
+</CardGroup>
+
+<Note>
+**Platform vs OSS?** See our [comparison guide](/platform/platform-vs-oss) to understand which deployment option fits your use case.
+</Note>
+
+---
+
+## Why Choose Open Source?
+
+| Benefit | What You Get |
+|---------|--------------|
+| **Full Infrastructure Control** | Host on your own servers with complete access to configuration and deployment |
+| **Complete Customization** | Modify implementation, extend functionality, and adapt to your specific needs |
+| **Local Development** | Perfect for development, testing, and air-gapped environments |
+| **No Vendor Lock-in** | Own your data, choose your stack, and maintain full independence |
+| **Community Driven** | Contribute to and benefit from active community improvements and integrations |
+
+<Info>
+**Looking for production scale?** [Mem0 Platform](/platform/overview) offers managed infrastructure with advanced features like webhooks, multimodal support, and enterprise support.
+</Info>
+
+<Note>
+**Need help?** Check out our [GitHub repository](https://mem0.dev/gd) for source code, issues, and community discussions.
+</Note>
+
+---
+
+## Default Components
+
+<Note>
+**No configuration needed to get started.** Mem0 works out of the box with sensible defaults:
+
+- **LLM**: OpenAI `gpt-4.1-nano-2025-04-14` via your `OPENAI_API_KEY`
+- **Embeddings**: OpenAI `text-embedding-3-small` (1536 dimensions)
+- **Vector store**: Local Qdrant instance storing data at `/tmp/qdrant`
+- **History storage**: SQLite database at `~/.mem0/history.db`
+- **Reranker**: Disabled unless you configure one
+
+Override any component with [`Memory.from_config`](/open-source/configuration).
+</Note>

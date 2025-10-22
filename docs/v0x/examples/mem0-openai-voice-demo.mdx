@@ -1,6 +1,6 @@
 ---
-title: 'Mem0 with OpenAI Agents SDK for Voice'
-description: 'Integrate memory capabilities into your voice agents using Mem0 and OpenAI Agents SDK'
+title: "Mem0 with OpenAI Agents SDK for Voice"
+description: "Integrate memory capabilities into your voice agents using Mem0 and OpenAI Agents SDK"
 ---
 
 # Building Voice Agents with Memory using Mem0 and OpenAI Agents SDK
@@ -12,16 +12,19 @@ This guide demonstrates how to combine OpenAI's Agents SDK for voice application
 Before you begin, make sure you have:
 
 1. Installed OpenAI Agents SDK with voice dependencies:
+
 ```bash
 pip install 'openai-agents[voice]'
 ```
 
 2. Installed Mem0 SDK:
+
 ```bash
 pip install mem0ai
 ```
 
 3. Installed other required dependencies:
+
 ```bash
 pip install numpy sounddevice pydantic
 ```
@@ -64,6 +67,7 @@ mem0_client = AsyncMemoryClient()
 ```
 
 This section handles:
+
 - Importing required modules from OpenAI Agents SDK and Mem0
 - Setting up environment variables for API keys
 - Defining a simple user identification system (using a global variable)
@@ -94,7 +98,7 @@ async def save_memories(
     """Store a user memory in memory."""
     # This will be visible in your console
     logger.debug(f"Saving memory: {memory} for user {USER_ID}")
-    
+
     # Store the preference in Mem0
     memory_content = f"User memory - {memory}"
     await mem0_client.add(
@@ -106,6 +110,7 @@ async def save_memories(
 ```
 
 This function:
+
 - Takes a memory string
 - Creates a formatted memory string
 - Stores it in Mem0 using the `add()` method
@@ -132,16 +137,17 @@ async def search_memories(
         threshold=0.7,  # Higher threshold for more relevant results
         output_format="v1.1"
     )
-    
+
     # Format and return the results
     if not results.get('results', []):
         return "I don't have any relevant memories about this topic."
-    
+
     memories = [f"• {result['memory']}" for result in results.get('results', [])]
     return "Here's what I remember that might be relevant:\n" + "\n".join(memories)
 ```
 
 This tool:
+
 - Takes a search query string
 - Passes it to Mem0's semantic search to find related memories
 - Sets a threshold for relevance to ensure quality results
@@ -165,11 +171,12 @@ def create_memory_voice_agent():
         model="gpt-4.1-nano-2025-04-14",
         tools=[save_memories, search_memories],
     )
-    
+
     return agent
 ```
 
 This function:
+
 - Creates an OpenAI Agent with specific instructions
 - Configures it to use gpt-4.1-nano (you can use other models)
 - Registers the memory-related tools with the agent
@@ -181,24 +188,25 @@ This function:
 async def record_from_microphone(duration=5, samplerate=24000):
     """Record audio from the microphone for a specified duration."""
     print(f"Recording for {duration} seconds...")
-    
+
     # Create a buffer to store the recorded audio
     frames = []
-    
+
     # Callback function to store audio data
     def callback(indata, frames_count, time_info, status):
         frames.append(indata.copy())
-    
+
     # Start recording
     with sd.InputStream(samplerate=samplerate, channels=1, callback=callback, dtype=np.int16):
         await asyncio.sleep(duration)
-    
+
     # Combine all frames into a single numpy array
     audio_data = np.concatenate(frames)
     return audio_data
 ```
 
 This function:
+
 - Creates a simple asynchronous microphone recording function
 - Uses the sounddevice library to capture audio input
 - Stores frames in a buffer during recording
@@ -211,16 +219,16 @@ This function:
 async def main():
     # Create the agent
     agent = create_memory_voice_agent()
-    
+
     # Set up the voice pipeline
     pipeline = VoicePipeline(
         workflow=SingleAgentVoiceWorkflow(agent)
     )
-    
+
     # Configure TTS settings
     pipeline.config.tts_settings.voice = "alloy"
     pipeline.config.tts_settings.speed = 1.0
-    
+
     try:
         while True:
             # Get user input
@@ -228,19 +236,19 @@ async def main():
             user_input = input()
             if user_input.lower() == 'q':
                 break
-            
+
             # Record and process audio
             audio_data = await record_from_microphone(duration=5)
             audio_input = AudioInput(buffer=audio_data)
             result = await pipeline.run(audio_input)
-            
+
             # Play response and handle events
             player = sd.OutputStream(samplerate=24000, channels=1, dtype=np.int16)
             player.start()
-            
+
             agent_response = ""
             print("\nAgent response:")
-            
+
             async for event in result.stream():
                 if event.type == "voice_stream_event_audio":
                     player.write(event.data)
@@ -248,23 +256,24 @@ async def main():
                     content = event.data
                     agent_response += content
                     print(content, end="", flush=True)
-            
+
             # Save the agent's response to memory
             if agent_response:
                 try:
                     await mem0_client.add(
-                        f"Agent response: {agent_response}", 
+                        f"Agent response: {agent_response}",
                         user_id=USER_ID,
                         metadata={"type": "agent_response"}
                     )
                 except Exception as e:
                     print(f"Failed to store memory: {e}")
-    
+
     except KeyboardInterrupt:
         print("\nExiting...")
 ```
 
 This main function orchestrates the entire process:
+
 1. Creates the memory-enabled voice agent
 2. Sets up the voice pipeline with TTS settings
 3. Implements an interactive loop for recording and processing voice input
@@ -348,11 +357,11 @@ async def search_memories(
         threshold=0.7,  # Higher threshold for more relevant results
         output_format="v1.1"
     )
-    
+
     # Format and return the results
     if not results.get('results', []):
         return "I don't have any relevant memories about this topic."
-    
+
     memories = [f"• {result['memory']}" for result in results.get('results', [])]
     return "Here's what I remember that might be relevant:\n" + "\n".join(memories)
 
@@ -372,43 +381,43 @@ def create_memory_voice_agent():
         model="gpt-4.1-nano-2025-04-14",
         tools=[save_memories, search_memories],
     )
-    
+
     return agent
 
 async def record_from_microphone(duration=5, samplerate=24000):
     """Record audio from the microphone for a specified duration."""
     print(f"Recording for {duration} seconds...")
-    
+
     # Create a buffer to store the recorded audio
     frames = []
-    
+
     # Callback function to store audio data
     def callback(indata, frames_count, time_info, status):
         frames.append(indata.copy())
-    
+
     # Start recording
     with sd.InputStream(samplerate=samplerate, channels=1, callback=callback, dtype=np.int16):
         await asyncio.sleep(duration)
-    
+
     # Combine all frames into a single numpy array
     audio_data = np.concatenate(frames)
     return audio_data
 
 async def main():
     print("Starting Memory Voice Agent")
-    
+
     # Create the agent and context
     agent = create_memory_voice_agent()
-    
+
     # Set up the voice pipeline
     pipeline = VoicePipeline(
         workflow=SingleAgentVoiceWorkflow(agent)
     )
-    
+
     # Configure TTS settings
     pipeline.config.tts_settings.voice = "alloy"
     pipeline.config.tts_settings.speed = 1.0
-    
+
     try:
         while True:
             # Get user input
@@ -416,23 +425,23 @@ async def main():
             user_input = input()
             if user_input.lower() == 'q':
                 break
-            
+
             # Record and process audio
             audio_data = await record_from_microphone(duration=5)
             audio_input = AudioInput(buffer=audio_data)
-            
+
             print("Processing your request...")
-            
+
             # Process the audio input
             result = await pipeline.run(audio_input)
-            
+
             # Create an audio player
             player = sd.OutputStream(samplerate=24000, channels=1, dtype=np.int16)
             player.start()
-            
+
             # Store the agent's response for adding to memory
             agent_response = ""
-            
+
             print("\nAgent response:")
             # Play the audio stream as it comes in
             async for event in result.stream():
@@ -443,20 +452,20 @@ async def main():
                     content = event.data
                     agent_response += content
                     print(content, end="", flush=True)
-            
+
             print("\n")
-            
+
             # Example of saving the conversation to Mem0 after completion
             if agent_response:
                 try:
                     await mem0_client.add(
-                        f"Agent response: {agent_response}", 
+                        f"Agent response: {agent_response}",
                         user_id=USER_ID,
                         metadata={"type": "agent_response"}
                     )
                 except Exception as e:
                     print(f"Failed to store memory: {e}")
-    
+
     except KeyboardInterrupt:
         print("\nExiting...")
 
@@ -486,7 +495,7 @@ To run this example:
 
 1. Replace the placeholder API keys with your actual keys
 2. Make sure your microphone is properly connected
-3. Run the script with Python 3.8 or newer
+3. Run the script with Python 3.10 or newer
 4. Press Enter to start recording, then speak your request
 5. Press 'q' to quit the application
 
@@ -533,6 +542,6 @@ async def save_memories(
     """Store a user memory in memory."""
     # This will be visible in your console
     logger.debug(f"Saving memory: {memory} for user {USER_ID}")
-    
+
     # Rest of your function...
 ```
