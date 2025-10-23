@@ -41,6 +41,12 @@ class Mem0Config(BaseModel):
     llm: Optional[LLMProvider] = None
     embedder: Optional[EmbedderProvider] = None
     vector_store: Optional[VectorStoreProvider] = None
+    default_infer: Optional[bool] = Field(
+        None,
+        description="Default value for infer parameter when not specified in API/MCP calls. "
+                    "When True: enables LLM fact extraction and deduplication. "
+                    "When False: stores verbatim text without transformation."
+    )
 
 class ConfigSchema(BaseModel):
     openmemory: Optional[OpenMemoryConfig] = None
@@ -69,7 +75,8 @@ def get_default_configuration():
                     "api_key": "env:OPENAI_API_KEY"
                 }
             },
-            "vector_store": None
+            "vector_store": None,
+            "default_infer": True
         }
     }
 

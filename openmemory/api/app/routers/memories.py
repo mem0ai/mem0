@@ -20,7 +20,7 @@ from app.utils.permissions import check_memory_access_permissions
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi_pagination import Page, Params
 from fastapi_pagination.ext.sqlalchemy import paginate as sqlalchemy_paginate
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
@@ -213,7 +213,13 @@ class CreateMemoryRequest(BaseModel):
     user_id: str
     text: str
     metadata: dict = {}
-    infer: bool = True
+    infer: Optional[bool] = Field(
+        None,
+        description="Enable LLM processing for fact extraction and deduplication. "
+                    "When True: content is analyzed and transformed into semantic facts. "
+                    "When False: stores exact verbatim text without transformation. "
+                    "When None: uses default from server configuration (default_infer)."
+    )
     app: str = "openmemory"
 
 
@@ -254,6 +260,9 @@ async def create_memory(
             "error": str(client_error)
         }
 
+    # Apply default from config if not specified
+    infer_value = request.infer if request.infer is not None else memory_client.config.default_infer
+
     # Try to save to Qdrant via memory_client
     try:
         qdrant_response = memory_client.add(
@@ -263,7 +272,7 @@ async def create_memory(
                 "source_app": "openmemory",
                 "mcp_client": request.app,
             },
-            infer=request.infer
+            infer=infer_value
         )
         
         # Log the response for debugging
