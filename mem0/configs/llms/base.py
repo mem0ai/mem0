@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Union, Literal
 
 import httpx
 
@@ -24,6 +24,7 @@ class BaseLlmConfig(ABC):
         enable_vision: bool = False,
         vision_details: Optional[str] = "auto",
         http_client_proxies: Optional[Union[Dict, str]] = None,
+        reasoning_effort: Optional[Literal["low", "medium", "high"]] = None,
     ):
         """
         Initialize a base configuration class instance for the LLM.
@@ -50,6 +51,8 @@ class BaseLlmConfig(ABC):
                 Options: "low", "high", "auto". Defaults to "auto"
             http_client_proxies: Proxy settings for HTTP client.
                 Can be a dict or string. Defaults to None
+            reasoning_effort: Reasoning effort for reasoning models.
+                Options: "low", "medium", "high". Defaults to None
         """
         self.model = model
         self.temperature = temperature
@@ -60,3 +63,4 @@ class BaseLlmConfig(ABC):
         self.enable_vision = enable_vision
         self.vision_details = vision_details
         self.http_client = httpx.Client(proxies=http_client_proxies) if http_client_proxies else None
+        self.reasoning_effort = reasoning_effort
