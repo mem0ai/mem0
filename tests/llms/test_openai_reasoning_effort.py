@@ -39,7 +39,7 @@ def test_reasoning_effort_parameter_with_o1_model(mock_openai_client):
     mock_openai_client.chat.completions.create.return_value = mock_response
     
     # Call generate_response
-    response = llm.generate_response(messages)
+    result = llm.generate_response(messages)
     
     # Verify the API was called with reasoning_effort
     mock_openai_client.chat.completions.create.assert_called_once()
@@ -49,7 +49,7 @@ def test_reasoning_effort_parameter_with_o1_model(mock_openai_client):
     assert call_args["reasoning_effort"] == "high"
     assert call_args["model"] == "o1-preview"
     assert call_args["messages"] == messages
-    assert response == "The answer is 4"
+    assert result == "The answer is 4"
 
 
 def test_reasoning_effort_parameter_with_o3_mini(mock_openai_client):
@@ -71,7 +71,7 @@ def test_reasoning_effort_parameter_with_o3_mini(mock_openai_client):
     mock_openai_client.chat.completions.create.return_value = mock_response
     
     # Call generate_response
-    response = llm.generate_response(messages)
+    llm.generate_response(messages)
     
     # Verify the API was called with reasoning_effort
     call_args = mock_openai_client.chat.completions.create.call_args[1]
@@ -97,7 +97,7 @@ def test_reasoning_effort_parameter_low(mock_openai_client):
     mock_response.choices = [Mock(message=Mock(content="Simple answer"))]
     mock_openai_client.chat.completions.create.return_value = mock_response
     
-    response = llm.generate_response(messages)
+    llm.generate_response(messages)
     
     call_args = mock_openai_client.chat.completions.create.call_args[1]
     assert call_args["reasoning_effort"] == "low"
@@ -119,7 +119,7 @@ def test_reasoning_effort_not_passed_for_regular_models(mock_openai_client):
     mock_response.choices = [Mock(message=Mock(content="Hi there"))]
     mock_openai_client.chat.completions.create.return_value = mock_response
     
-    response = llm.generate_response(messages)
+    llm.generate_response(messages)
     
     # Verify reasoning_effort is NOT in the API call
     call_args = mock_openai_client.chat.completions.create.call_args[1]
@@ -147,7 +147,7 @@ def test_reasoning_effort_none_not_passed(mock_openai_client):
     mock_response.choices = [Mock(message=Mock(content="Response"))]
     mock_openai_client.chat.completions.create.return_value = mock_response
     
-    response = llm.generate_response(messages)
+    llm.generate_response(messages)
     
     # Verify reasoning_effort is NOT in the API call when None
     call_args = mock_openai_client.chat.completions.create.call_args[1]
@@ -162,7 +162,7 @@ def test_reasoning_effort_validation_invalid_value():
             api_key="test-api-key",
             reasoning_effort="invalid"  # Invalid value
         )
-        llm = OpenAILLM(config)
+        OpenAILLM(config)
 
 
 def test_reasoning_effort_validation_valid_values():
@@ -195,7 +195,7 @@ def test_reasoning_effort_with_gpt5_model(mock_openai_client):
     mock_response.choices = [Mock(message=Mock(content="GPT-5 response"))]
     mock_openai_client.chat.completions.create.return_value = mock_response
     
-    response = llm.generate_response(messages)
+    llm.generate_response(messages)
     
     # Verify reasoning_effort is passed for GPT-5
     call_args = mock_openai_client.chat.completions.create.call_args[1]
