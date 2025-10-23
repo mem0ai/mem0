@@ -161,7 +161,11 @@ async def update_configuration(config: ConfigSchema, db: Session = Depends(get_d
     
     # Update mem0 settings
     updated_config["mem0"] = config.mem0.dict(exclude_none=True)
-    
+
+    # Save the configuration to database
+    save_config_to_db(db, updated_config)
+    reset_memory_client()
+    return updated_config
 
 @router.patch("/", response_model=ConfigSchema)
 async def patch_configuration(config_update: ConfigSchema, db: Session = Depends(get_db)):
