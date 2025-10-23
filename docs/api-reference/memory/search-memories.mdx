@@ -1,5 +1,5 @@
 ---
-title: 'Search Memories (v2)'
+title: 'Search Memories'
 openapi: post /v2/memories/search/
 ---
 
@@ -17,7 +17,6 @@ The v2 search API is powerful and flexible, allowing for more precise memory ret
 ```python Code
 related_memories = m.search(
     query="What are Alice's hobbies?",
-    version="v2",
     filters={
         "OR": [
             {
@@ -56,7 +55,6 @@ related_memories = m.search(
 # Using wildcard to match all run_ids for a specific user
 all_memories = m.search(
     query="What are Alice's hobbies?",
-    version="v2",
     filters={
         "AND": [
             {
@@ -76,7 +74,6 @@ all_memories = m.search(
 # Example 1: Using 'contains' for partial matching
 finance_memories = m.search(
     query="What are my financial goals?",
-    version="v2",
     filters={
         "AND": [
             { "user_id": "alice" },
@@ -92,7 +89,6 @@ finance_memories = m.search(
 # Example 2: Using 'in' for exact matching
 personal_memories = m.search(
     query="What personal information do you have?",
-    version="v2",
     filters={
         "AND": [
             { "user_id": "alice" },
@@ -106,11 +102,3 @@ personal_memories = m.search(
 )
 ```
 </CodeGroup>
-
-## Graph Memory
-
-To retrieve memories with graph-based relationships, pass the `enable_graph=True` parameter. This includes relationship data in the response for more contextual results.
-
-<Note>
-Learn more in the [Graph Memory documentation](/platform/features/graph-memory).
-</Note>

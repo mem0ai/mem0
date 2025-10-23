@@ -130,7 +130,7 @@ async def search_memories(
         user_id=USER_ID,
         limit=5,
         threshold=0.7,  # Higher threshold for more relevant results
-        output_format="v1.1"
+        
     )
     
     # Format and return the results
@@ -162,7 +162,7 @@ def create_memory_voice_agent():
             Use the search_memories tool when you need context from past conversations or user asks you to recall something.
             """,
         ),
-        model="gpt-4o",
+        model="gpt-4.1-nano-2025-04-14",
         tools=[save_memories, search_memories],
     )
     
@@ -171,7 +171,7 @@ def create_memory_voice_agent():
 
 This function:
 - Creates an OpenAI Agent with specific instructions
-- Configures it to use gpt-4o (you can use other models)
+- Configures it to use gpt-4.1-nano (you can use other models)
 - Registers the memory-related tools with the agent
 - Uses `prompt_with_handoff_instructions` to include standard voice agent behaviors
 
@@ -346,7 +346,7 @@ async def search_memories(
         user_id=USER_ID,
         limit=5,
         threshold=0.7,  # Higher threshold for more relevant results
-        output_format="v1.1"
+        
     )
     
     # Format and return the results
@@ -369,7 +369,7 @@ def create_memory_voice_agent():
             Use the search_memories tool when you need context from past conversations or user asks you to recall something.
             """,
         ),
-        model="gpt-4o",
+        model="gpt-4.1-nano-2025-04-14",
         tools=[save_memories, search_memories],
     )
     

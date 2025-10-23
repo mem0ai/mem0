@@ -283,36 +283,70 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 
 ### Search with Custom Filters
 
-Our advanced search allows you to set custom search filters. You can filter by `user_id`, `agent_id`, `app_id`, `run_id`, `created_at`, `updated_at`, `categories`, and `text`. The filters support logical operators (AND, OR) and comparison operators (`in`, `gte`, `lte`, `gt`, `lt`, `ne`, `contains`, `icontains`, `*`). The wildcard character (`*`) matches everything for a specific field.
+Our advanced search allows you to set custom search filters for precise memory retrieval. You can filter by `user_id`, `agent_id`, `app_id`, `run_id`, `created_at`, `updated_at`, `categories`, and `text`. The filters support logical operators (AND, OR) and comparison operators (`in`, `gte`, `lte`, `gt`, `lt`, `ne`, `contains`, `icontains`, `*`). The wildcard character (`*`) matches everything for a specific field.
 
-For the **categories** field specifically:
-- Use `contains` for partial matching (e.g., `{"categories": {"contains": "finance"}}`)
-- Use `in` for exact matching (e.g., `{"categories": {"in": ["personal_information"]}}`).
+#### Filterable Fields
 
-You need to define `version` as `v2` in the search method.
+You can filter by the following fields:
+- **Session identifiers**: `user_id`, `agent_id`, `run_id`, `app_id`
+- **Timestamps**: `created_at`, `updated_at`
+- **Content**: `categories`, `metadata` fields
+- **Text**: Memory content (platform-specific)
 
-#### Example 1: Search using user_id and agent_id filters
+#### Filter Operators
+
+**Logical Operators:**
+- `AND`: All conditions must match
+- `OR`: At least one condition must match
+- `NOT`: Exclude matching conditions (platform-specific)
+
+**Comparison Operators:**
+- `in`: Match any value in array (e.g., `{"agent_id": {"in": ["bot1", "bot2"]}}`)
+- `gte`, `lte`: Greater/less than or equal (dates, numbers)
+- `gt`, `lt`: Greater/less than (dates, numbers)
+- `ne`: Not equal to
+- `contains`: Partial text match (e.g., `{"categories": {"contains": "finance"}}`)
+- `icontains`: Case-insensitive partial match
+- `*`: Wildcard - matches any value for the field
+
+#### Using Filters
+
+**Method 1: Direct Parameters (Recommended for simple queries)**
+```python
+# Search for a specific user
+client.search("query", user_id="alice")
+
+# Search with agent context
+client.search("query", user_id="alice", agent_id="travel-bot")
+```
+
+**Method 2: Filters Object (For complex queries)**
+```python
+# Combine multiple conditions
+filters = {
+    "AND": [
+        {"user_id": "alice"},
+        {"agent_id": {"in": ["bot1", "bot2"]}}
+    ]
+}
+client.search("query", filters=filters)
+```
+
+#### Example 1: OR Logic - Multiple User or Agent IDs
+
+Search memories from either a specific user OR from specific agents:
 
 <CodeGroup>
 
 ```python Python
 query = "What do you know about me?"
 filters = {
-   "OR":[
-      {
-         "user_id":"alex"
-      },
-      {
-         "agent_id":{
-            "in":[
-               "travel-assistant",
-               "customer-support"
-            ]
-         }
-      }
+   "OR": [
+      {"user_id": "alex"},
+      {"agent_id": {"in": ["travel-assistant", "customer-support"]}}
    ]
 }
-client.search(query, version="v2", filters=filters)
+client.search(query, filters=filters)
 ```
 
 ```javascript JavaScript
@@ -332,13 +366,13 @@ const filters = {
       }
    ]
 };
-client.search(query, { version: "v2", filters })
+client.search(query, { filters })
     .then(results => console.log(results))
     .catch(error => console.error(error));
 ```
 
 ```bash cURL
-curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
+curl -X POST "https://api.mem0.ai/v2/memories/search/" \
      -H "Authorization: Token your-api-key" \
      -H "Content-Type: application/json" \
      -d '{
@@ -367,43 +401,41 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
 query = "What do you know about me?"
 filters = {
     "AND": [
-        {"created_at": {"gte": "2024-07-20", "lte": "2024-07-10"}},
-        {"user_id": "alex"}
+        {"user_id": "alex"},
+        {"created_at": {"gte": "2024-07-01", "lte": "2024-07-31"}}
     ]
 }
-client.search(query, version="v2", filters=filters)
+client.search(query, filters=filters)
 ```
 
 ```javascript JavaScript
 const query = "What do you know about me?";
 const filters = {
   "AND": [
-    {"created_at": {"gte": "2024-07-20", "lte": "2024-07-10"}},
-    {"user_id": "alex"}
+    {"user_id": "alex"},
+    {"created_at": {"gte": "2024-07-01", "lte": "2024-07-31"}}
   ]
 };
 
-client.search(query, { version: "v2", filters })
+client.search(query, { filters })
   .then(results => console.log(results))
   .catch(error => console.error(error));
 ```
 
 ```bash cURL
-curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
+curl -X POST "https://api.mem0.ai/v2/memories/search/" \
      -H "Authorization: Token your-api-key" \
      -H "Content-Type: application/json" \
      -d '{
          "query": "What do you know about me?",
          "filters": {
              "AND": [
+                 {"user_id": "alex"},
                  {
                      "created_at": {
-                         "gte": "2024-07-20",
-                         "lte": "2024-07-10"
+                         "gte": "2024-07-01",
+                         "lte": "2024-07-31"
                      }
-                 },
-                 {
-                     "user_id": "alex"
                  }
              ]
          }
@@ -427,7 +459,7 @@ filters = {
         }
     ]
 }
-client.search(query, version="v2", filters=filters)
+client.search(query, filters=filters)
 
 # Example 3b: Using 'in' for exact matching
 query = "What personal information do you have?"
@@ -441,7 +473,7 @@ filters = {
         }
     ]
 }
-client.search(query, version="v2", filters=filters)
+client.search(query, filters=filters)
 ```
 
 ```javascript JavaScript
@@ -458,7 +490,7 @@ const filters1 = {
     ]
 };
 
-client.search(query1, { version: "v2", filters: filters1 })
+client.search(query1, { filters: filters1 })
     .then(results => console.log(results))
     .catch(error => console.error(error));
 
@@ -475,14 +507,14 @@ const filters2 = {
     ]
 };
 
-client.search(query2, { version: "v2", filters: filters2 })
+client.search(query2, { filters: filters2 })
     .then(results => console.log(results))
     .catch(error => console.error(error));
 ```
 
 ```bash cURL
 # Example 3a: Using 'contains' for partial matching
-curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
+curl -X POST "https://api.mem0.ai/v2/memories/search/" \
      -H "Authorization: Token your-api-key" \
      -H "Content-Type: application/json" \
      -d '{
@@ -500,7 +532,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
      }'
 
 # Example 3b: Using 'in' for exact matching
-curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
+curl -X POST "https://api.mem0.ai/v2/memories/search/" \
      -H "Authorization: Token your-api-key" \
      -H "Content-Type: application/json" \
      -d '{
@@ -525,36 +557,38 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
 ```python Python
 query = "What do you know about me?"
 filters = {
-    "NOT": [
+    "AND": [
+        {"user_id": "alex"},
         {
-            "categories": {
-                "contains": "food_preferences"
-            }
+            "NOT": [
+                {"categories": {"contains": "food_preferences"}}
+            ]
         }
     ]
 }
-client.search(query, version="v2", filters=filters)
+client.search(query, filters=filters)
 ```
 
 ```javascript JavaScript
 const query = "What do you know about me?";
 const filters = {
-    "NOT": [
+    "AND": [
+        {"user_id": "alex"},
         {
-            "categories": {
-                "contains": "food_preferences"
-            }
+            "NOT": [
+                {"categories": {"contains": "food_preferences"}}
+            ]
         }
     ]
 };
 
-client.search(query, { version: "v2", filters })
+client.search(query, { filters })
     .then(results => console.log(results))
     .catch(error => console.error(error));
 ```
 
 ```bash cURL
-curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
+curl -X POST "https://api.mem0.ai/v2/memories/search/" \
      -H "Authorization: Token your-api-key" \
      -H "Content-Type: application/json" \
      -d '{
@@ -572,22 +606,20 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
 ```
 </CodeGroup>
 
-#### Example 5: Search using wildcard filters
+#### Example 5: Wildcard Filters - Match Any Value
+
+Use `*` wildcard to match memories that have any value for a specific field:
 
 <CodeGroup>
 ```python Python
 query = "What do you know about me?"
 filters = {
     "AND": [
-        {
-            "user_id": "alex"
-        },
-        {
-            "run_id": "*"  # Matches all run_ids
-        }
+        {"user_id": "alex"},
+        {"run_id": "*"}  # Only memories that have a run_id (any value)
     ]
 }
-client.search(query, version="v2", filters=filters)
+client.search(query, filters=filters)
 ```
 
 ```javascript JavaScript
@@ -603,13 +635,13 @@ const filters = {
     ]
 };
 
-client.search(query, { version: "v2", filters })
+client.search(query, { filters })
     .then(results => console.log(results))
     .catch(error => console.error(error));
 ```
 
 ```bash cURL
-curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
+curl -X POST "https://api.mem0.ai/v2/memories/search/" \
      -H "Authorization: Token your-api-key" \
      -H "Content-Type: application/json" \
      -d '{
@@ -627,6 +659,88 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
      }'
 ```
 </CodeGroup>
+
+### Filter Best Practices
+
+**1. Always Scope to User or Agent**
+
+Always include at least a `user_id`, `agent_id`, or `run_id` to scope your search:
+
+```python
+# Good: Scoped to user
+client.search("query", user_id="alice")
+
+# Better: Scoped to user and agent
+client.search("query", user_id="alice", agent_id="travel-bot")
+
+# Best: Scoped to specific session
+client.search("query", user_id="alice", agent_id="travel-bot", run_id="session-123")
+```
+
+**2. Use Direct Parameters for Simple Queries**
+
+For single-condition filters, use direct parameters instead of the filters object:
+
+```python
+# Simple and clean
+client.search("query", user_id="alice", agent_id="bot")
+
+# Unnecessarily complex
+client.search("query", filters={"AND": [{"user_id": "alice"}, {"agent_id": "bot"}]})
+```
+
+**3. Use Filters Object for Complex Logic**
+
+Use the `filters` parameter when you need OR logic, comparison operators, or nested conditions:
+
+```python
+# Multiple agents OR specific run
+filters = {
+    "OR": [
+        {"agent_id": {"in": ["bot1", "bot2"]}},
+        {"run_id": "special-session"}
+    ]
+}
+client.search("query", user_id="alice", filters=filters)
+```
+
+**4. Combine Direct Parameters with Filters**
+
+You can mix direct parameters with filters for cleaner code:
+
+```python
+# User is required, plus complex date/category logic
+filters = {
+    "AND": [
+        {"created_at": {"gte": "2024-07-01"}},
+        {"categories": {"contains": "important"}}
+    ]
+}
+client.search("query", user_id="alice", filters=filters)
+```
+
+**5. Platform vs OSS Differences**
+
+Some features are Platform-only:
+- **Categories**: Auto-generated on Platform, manual on OSS
+- **Date filters**: Platform tracks timestamps automatically
+- **NOT operator**: Only available on Platform
+- **Wildcard (`*`)**: Behavior may vary
+
+```python
+# This works everywhere
+m.search("query", user_id="alice", agent_id="bot")
+
+# This is Platform-only
+client.search("query", filters={
+    "AND": [
+        {"user_id": "alice"},
+        {"categories": {"contains": "travel"}}  # Platform only
+    ]
+})
+```
+
+---
 
 ## Advanced Retrieval Operations
 
@@ -774,10 +888,10 @@ filters = {
 }
 
 # Default (No Pagination)
-client.get_all(version="v2", filters=filters)
+client.get_all(filters=filters)
 
 # Pagination (You can also use the page and page_size parameters)
-client.get_all(version="v2", filters=filters, page=1, page_size=50)
+client.get_all(filters=filters, page=1, page_size=50)
 ```
 
 ```javascript JavaScript
@@ -801,19 +915,19 @@ const filters = {
 };
 
 // Default (No Pagination)
-client.getAll({ version: "v2", filters })
+client.getAll({ filters })
     .then(memories => console.log(memories))
     .catch(error => console.error(error));
 
 // Pagination (You can also use the page and page_size parameters)
-client.getAll({ version: "v2", filters, page: 1, page_size: 50 })
+client.getAll({ filters, page: 1, page_size: 50 })
     .then(memories => console.log(memories))
     .catch(error => console.error(error));
 ```
 
 ```bash cURL
 # Default (No Pagination)
-curl -X GET "https://api.mem0.ai/v1/memories/?version=v2" \
+curl -X GET "https://api.mem0.ai/v2/memories/" \
      -H "Authorization: Token your-api-key" \
      -H "Content-Type: application/json" \
      -d '{
@@ -832,7 +946,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?version=v2" \
      }'
 
 # Pagination (You can also use the page and page_size parameters)
-curl -X GET "https://api.mem0.ai/v1/memories/?version=v2&page=1&page_size=50" \
+curl -X GET "https://api.mem0.ai/v2/memories/&page=1&page_size=50" \
      -H "Authorization: Token your-api-key" \
      -H "Content-Type: application/json" \
      -d '{

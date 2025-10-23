@@ -1,7 +1,6 @@
 ---
 title: OpenAI Compatibility
-icon: "code"
-iconType: "solid"
+description: 'Integrate Mem0 using OpenAI-compatible client APIs'
 ---
 
 Mem0 can be easily integrated into chat applications to enhance conversational agents with structured memory. Mem0's APIs are designed to be compatible with OpenAI's, with the goal of making it easy to leverage Mem0 in applications you may have already built.
@@ -27,7 +26,7 @@ messages = [
 user_id = "alice"
 chat_completion = client.chat.completions.create(
     messages=messages,
-    model="gpt-4o-mini",
+    model="gpt-4.1-nano-2025-04-14",
     user_id=user_id
 )
 # Memory saved after this will look like: "Loves Indian food. Allergic to cheese and cannot eat pizza."
@@ -42,7 +41,7 @@ messages = [
 
 chat_completion = client.chat.completions.create(
     messages=messages,
-    model="gpt-4o-mini",
+    model="gpt-4.1-nano-2025-04-14",
     user_id=user_id
 )
 print(chat_completion.choices[0].message.content)
@@ -73,7 +72,7 @@ chat_completion = client.chat.completions.create(
             "content": "What's the capital of France?",
         }
     ],
-    model="gpt-4o",
+    model="gpt-4.1-nano-2025-04-14",
 )
 ```
 

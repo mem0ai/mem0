@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mem0ai"
-version = "0.1.118"
+version = "1.0.0"
 description = "Long-term memory for AI Agents"
 authors = [
     { name = "Mem0", email = "founders@mem0.ai" }
@@ -35,6 +35,7 @@ graph = [
 vector_stores = [
     "vecs>=0.4.0",
     "chromadb>=0.4.24",
+    "cassandra-driver>=3.29.0",
     "weaviate-client>=4.4.0,<4.15.0",
     "pinecone<=7.3.0",
     "pinecone-text>=0.10.0",
@@ -72,6 +73,7 @@ extras = [
     "sentence-transformers>=5.0.0",
     "elasticsearch>=8.0.0,<9.0.0",
     "opensearch-py>=2.0.0",
+    "fastembed>=0.3.1",
 ]
 test = [
     "pytest>=8.2.2",
