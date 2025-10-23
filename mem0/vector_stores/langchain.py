@@ -117,6 +117,38 @@ class Langchain(VectorStoreBase):
         self.delete(vector_id)
         self.insert(vector, payload, [vector_id])
 
+    def _fetch_vector_values(self, vector_id):
+        """
+        Fetch vector values from Langchain vector store.
+        
+        Note: Langchain's API doesn't typically expose raw vectors.
+        This method attempts to retrieve the embedding if available.
+        
+        Args:
+            vector_id: ID of the vector to fetch
+            
+        Returns:
+            list: The vector values
+            
+        Raises:
+            ValueError: If vector not found or not accessible
+        """
+        try:
+            # Try to get the document with embeddings
+            if hasattr(self.client, '_collection') and hasattr(self.client._collection, 'get'):
+                result = self.client._collection.get(ids=[vector_id], include=["embeddings"])
+                if result and "embeddings" in result and result["embeddings"]:
+                    return result["embeddings"][0]
+            
+            # Fallback: Langchain doesn't expose vectors easily, raise error
+            raise NotImplementedError(
+                "Langchain vector store doesn't support fetching raw vectors. "
+                "Consider using update() with explicit vector parameter instead of update_metadata()."
+            )
+        except Exception as e:
+            logger.error(f"Error fetching vector values from Langchain: {e}")
+            raise
+
     def get(self, vector_id):
         """
         Retrieve a vector by ID.

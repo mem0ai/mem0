@@ -185,6 +185,29 @@ class ChromaDB(VectorStoreBase):
         """
         self.collection.update(ids=vector_id, embeddings=vector, metadatas=payload)
 
+    def _fetch_vector_values(self, vector_id: str) -> List[float]:
+        """
+        Fetch vector values from Chroma.
+        
+        Args:
+            vector_id: ID of the vector to fetch
+            
+        Returns:
+            List[float]: The vector values
+            
+        Raises:
+            ValueError: If vector not found
+        """
+        try:
+            result = self.collection.get(ids=[vector_id], include=["embeddings"])
+            if result["embeddings"] and len(result["embeddings"]) > 0:
+                return result["embeddings"][0]
+            else:
+                raise ValueError(f"Vector {vector_id} not found in Chroma")
+        except Exception as e:
+            logger.error(f"Error fetching vector values from Chroma: {e}")
+            raise
+
     def get(self, vector_id: str) -> OutputData:
         """
         Retrieve a vector by ID.

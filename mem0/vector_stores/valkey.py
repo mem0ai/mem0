@@ -515,6 +515,32 @@ class ValkeyDB(VectorStoreBase):
             logger.exception(f"Error updating vector with ID {vector_id}: {e}")
             raise
 
+    def _fetch_vector_values(self, vector_id):
+        """
+        Fetch vector values from Valkey.
+        
+        Args:
+            vector_id: ID of the vector to fetch
+            
+        Returns:
+            list: The vector values
+            
+        Raises:
+            ValueError: If vector not found
+        """
+        try:
+            key = f"{self.prefix}:{vector_id}"
+            result = self.client.hget(key, "embedding")
+            if result:
+                # Convert bytes back to numpy array then to list
+                import numpy as np
+                return np.frombuffer(result, dtype=np.float32).tolist()
+            else:
+                raise ValueError(f"Vector {vector_id} not found in Valkey")
+        except Exception as e:
+            logger.error(f"Error fetching vector values from Valkey: {e}")
+            raise
+
     def _format_timestamp(self, timestamp, timezone=None):
         """
         Format a timestamp with the specified timezone.

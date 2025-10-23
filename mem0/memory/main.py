@@ -575,9 +575,9 @@ class Memory(MemoryBase):
                                 updated_metadata["run_id"] = metadata["run_id"]
                             updated_metadata["updated_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
 
-                            self.vector_store.update(
+                            # Use update_metadata to avoid passing vector=None
+                            self.vector_store.update_metadata(
                                 vector_id=memory_id,
-                                vector=None,  # Keep same embeddings
                                 payload=updated_metadata,
                             )
                             logger.info(f"Updated session IDs for memory {memory_id}")
@@ -1588,10 +1588,10 @@ class AsyncMemory(MemoryBase):
                                     updated_metadata["run_id"] = meta["run_id"]
                                 updated_metadata["updated_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
 
+                                # Use update_metadata to avoid passing vector=None
                                 await asyncio.to_thread(
-                                    self.vector_store.update,
+                                    self.vector_store.update_metadata,
                                     vector_id=mem_id,
-                                    vector=None,  # Keep same embeddings
                                     payload=updated_metadata,
                                 )
                                 logger.info(f"Updated session IDs for memory {mem_id} (async)")

@@ -248,6 +248,30 @@ class BaiduDB(VectorStoreBase):
         row = Row(id=vector_id, vector=vector, metadata=payload)
         self._table.upsert(rows=[row])
 
+    def _fetch_vector_values(self, vector_id):
+        """
+        Fetch vector values from Baidu VectorDB.
+        
+        Args:
+            vector_id: ID of the vector to fetch
+            
+        Returns:
+            list: The vector values
+            
+        Raises:
+            ValueError: If vector not found
+        """
+        try:
+            projections = ["id", "vector"]
+            result = self._table.query(primary_key={"id": vector_id}, projections=projections)
+            if result and result.row and "vector" in result.row:
+                return result.row["vector"]
+            else:
+                raise ValueError(f"Vector {vector_id} not found in Baidu VectorDB")
+        except Exception as e:
+            logger.error(f"Error fetching vector values from Baidu VectorDB: {e}")
+            raise
+
     def get(self, vector_id):
         """
         Retrieve a vector by ID.

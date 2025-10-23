@@ -183,6 +183,33 @@ class UpstashVector(VectorStoreBase):
             namespace=self.collection_name,
         )
 
+    def _fetch_vector_values(self, vector_id: int) -> list:
+        """
+        Fetch vector values from Upstash Vector.
+        
+        Args:
+            vector_id: ID of the vector to fetch
+            
+        Returns:
+            list: The vector values
+            
+        Raises:
+            ValueError: If vector not found
+        """
+        try:
+            response = self.client.fetch(
+                ids=[str(vector_id)],
+                namespace=self.collection_name,
+                include_vectors=True,
+            )
+            if response and len(response) > 0 and response[0].vector:
+                return response[0].vector
+            else:
+                raise ValueError(f"Vector {vector_id} not found in Upstash Vector")
+        except Exception as e:
+            logger.error(f"Error fetching vector values from Upstash Vector: {e}")
+            raise
+
     def get(self, vector_id: int) -> Optional[OutputData]:
         """
         Retrieve a vector by ID.

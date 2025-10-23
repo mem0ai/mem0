@@ -362,6 +362,27 @@ class GoogleMatchingEngine(VectorStoreBase):
             logger.error("Stack trace: %s", traceback.format_exc())
             raise
 
+    def _fetch_vector_values(self, vector_id: str) -> List[float]:
+        """
+        Fetch vector values from Vertex AI Vector Search.
+        
+        Note: Vertex AI Vector Search doesn't easily expose raw vectors after storage.
+        This is a limitation of the service.
+        
+        Args:
+            vector_id: ID of the vector to fetch
+            
+        Returns:
+            List[float]: The vector values
+            
+        Raises:
+            NotImplementedError: Vertex AI doesn't support fetching raw vectors
+        """
+        raise NotImplementedError(
+            "Vertex AI Vector Search does not support fetching raw vector values after storage. "
+            "Please use update() with an explicit vector parameter instead of update_metadata()."
+        )
+
     def get(self, vector_id: str) -> Optional[OutputData]:
         """
         Retrieve a vector by ID.
