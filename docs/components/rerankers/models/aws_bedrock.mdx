@@ -1,0 +1,238 @@
+---
+title: AWS Bedrock Reranker
+description: 'Use AWS Bedrock with Cohere models for reranking in Mem0'
+icon: "cloud"
+iconType: "solid"
+---
+
+## Overview
+
+The AWS Bedrock reranker allows you to use Cohere's reranking models through AWS Bedrock for improved search relevance. This is particularly useful for users who are already using AWS services and want to leverage Cohere's state-of-the-art reranking capabilities.
+
+## Supported Models
+
+- `cohere.rerank-v3-5:0` - Cohere's latest reranking model (recommended)
+- Other Cohere reranking models available through AWS Bedrock
+
+## Configuration
+
+### Basic Setup
+
+```python
+from mem0 import Memory
+
+config = {
+    "reranker": {
+        "provider": "aws_bedrock",
+        "config": {
+            "model": "cohere.rerank-v3-5:0",
+            "region": "us-west-2",
+            "top_k": 5
+        }
+    }
+}
+
+m = Memory.from_config(config)
+```
+
+### Configuration Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `model` | str | `"cohere.rerank-v3-5:0"` | AWS Bedrock model ID |
+| `region` | str | `"us-west-2"` | AWS region |
+| `access_key_id` | str | None | AWS access key ID (optional) |
+| `secret_access_key` | str | None | AWS secret access key (optional) |
+| `top_k` | int | 5 | Number of top results to return |
+
+### Authentication
+
+The AWS Bedrock reranker supports multiple authentication methods:
+
+#### 1. Default Credential Chain (Recommended)
+```python
+config = {
+    "reranker": {
+        "provider": "aws_bedrock",
+        "config": {
+            "model": "cohere.rerank-v3-5:0",
+            "region": "us-west-2"
+        }
+    }
+}
+```
+
+#### 2. Environment Variables
+```bash
+export AWS_ACCESS_KEY_ID=your_access_key
+export AWS_SECRET_ACCESS_KEY=your_secret_key
+export AWS_DEFAULT_REGION=us-west-2
+```
+
+#### 3. Explicit Credentials
+```python
+config = {
+    "reranker": {
+        "provider": "aws_bedrock",
+        "config": {
+            "model": "cohere.rerank-v3-5:0",
+            "region": "us-west-2",
+            "access_key_id": "your_access_key",
+            "secret_access_key": "your_secret_key"
+        }
+    }
+}
+```
+
+#### 4. IAM Roles (for EC2/Lambda)
+```python
+config = {
+    "reranker": {
+        "provider": "aws_bedrock",
+        "config": {
+            "model": "cohere.rerank-v3-5:0",
+            "region": "us-west-2"
+        }
+    }
+}
+```
+
+## Complete Example
+
+```python
+from mem0 import Memory
+
+# Complete configuration with AWS Bedrock reranker
+config = {
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "collection_name": "my_memories",
+            "path": "./qdrant_db"
+        }
+    },
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "gpt-4o-mini",
+            "api_key": "your-openai-key"
+        }
+    },
+    "embedder": {
+        "provider": "openai",
+        "config": {
+            "model": "text-embedding-3-small",
+            "api_key": "your-openai-key"
+        }
+    },
+    "reranker": {
+        "provider": "aws_bedrock",
+        "config": {
+            "model": "cohere.rerank-v3-5:0",
+            "region": "us-west-2",
+            "top_k": 5
+        }
+    }
+}
+
+# Initialize Memory with reranker
+m = Memory.from_config(config)
+
+# Add some memories
+m.add("I love Python programming and machine learning", user_id="user123")
+m.add("I work as a software engineer at a tech company", user_id="user123")
+m.add("I enjoy hiking and outdoor activities", user_id="user123")
+
+# Search with reranking
+results = m.search("What do I know about programming?", user_id="user123")
+print(results)
+```
+
+## Prerequisites
+
+### 1. AWS Account Setup
+- AWS account with access to Amazon Bedrock
+- Proper IAM permissions for Bedrock model access
+
+### 2. Required Permissions
+Your AWS credentials need the following permissions:
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "bedrock:InvokeModel",
+                "bedrock:ListFoundationModels"
+            ],
+            "Resource": "arn:aws:bedrock:*::foundation-model/cohere.rerank-v3-5:0"
+        }
+    ]
+}
+```
+
+### 3. Model Access
+- Request access to Cohere models in AWS Bedrock console
+- Ensure the model is available in your selected region
+
+## Installation
+
+```bash
+pip install mem0ai boto3
+```
+
+## Performance Considerations
+
+- **Latency**: AWS Bedrock calls add network latency compared to local rerankers
+- **Cost**: Each reranking request incurs AWS Bedrock charges
+- **Rate Limits**: AWS Bedrock has rate limits that may affect high-volume applications
+- **Batch Size**: The reranker processes all candidate documents in a single request for efficiency
+
+## Troubleshooting
+
+### Common Issues
+
+#### 1. Authentication Errors
+```
+AWS Bedrock error: The security token included in the request is invalid
+```
+**Solution**: Verify your AWS credentials and region configuration.
+
+#### 2. Model Access Denied
+```
+AWS Bedrock error: AccessDeniedException
+```
+**Solution**: Request access to Cohere models in the AWS Bedrock console.
+
+#### 3. Invalid Model ID
+```
+AWS Bedrock error: ValidationException
+```
+**Solution**: Verify the model ID is correct and available in your region.
+
+### Debug Mode
+Enable debug logging to see detailed error information:
+```python
+import logging
+logging.basicConfig(level=logging.DEBUG)
+```
+
+## Comparison with Other Rerankers
+
+| Feature | AWS Bedrock | Cohere Direct | Sentence Transformer |
+|---------|-------------|---------------|---------------------|
+| Setup Complexity | Medium | Low | Low |
+| Performance | High | High | Medium |
+| Cost | Pay-per-use | Pay-per-use | Free |
+| AWS Integration | Native | External | None |
+| Model Options | Limited | Full | Limited |
+
+## Best Practices
+
+1. **Use appropriate top_n**: Set `top_n` based on your use case (3-10 typically works well)
+2. **Handle errors gracefully**: Always implement error handling for production use
+3. **Monitor costs**: Track your AWS Bedrock usage and costs
+4. **Cache results**: Consider caching reranked results for repeated queries
+5. **Test different models**: Experiment with different Cohere models to find the best fit
+
