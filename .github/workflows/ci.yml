@@ -64,6 +64,20 @@ jobs:
         run: make lint
       - name: Run tests and generate coverage report
         run: make test
+      # --- TypeScript/Node.js tests for mem0-ts ---
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18.x
+      - name: Install mem0-ts dependencies
+        run: cd mem0-ts && npm install
+      - name: Run mem0-ts TypeScript tests (unit + integration)
+        env:
+          MEM0_API_KEY: ${{ secrets.MEM0_API_KEY }}
+          MEM0_ORG_ID: ${{ secrets.MEM0_ORG_ID }}
+          MEM0_PROJECT_ID: ${{ secrets.MEM0_PROJECT_ID }}
+        run: cd mem0-ts && npm run test:ts
+      # Note: Set MEM0_API_KEY, MEM0_ORG_ID, and MEM0_PROJECT_ID in GitHub repo secrets for integration tests that require them.
 
   build_embedchain:
     needs: check_changes
