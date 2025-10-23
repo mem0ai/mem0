@@ -1,12 +1,11 @@
 import logging
 import os
-from collections.abc import Generator
-from typing import Any, Optional, Union
+from typing import Optional
 
 try:
-    import google.generativeai as genai
+    from google import genai
 except ImportError:
-    raise ImportError("GoogleLlm requires extra dependencies. Install with `pip install google-generativeai`") from None
+    raise ImportError("GoogleLlm requires extra dependencies. Install with `pip install google-genai`") from None
 
 from embedchain.config import BaseLlmConfig
 from embedchain.helpers.json_serializable import register_deserializable
@@ -21,42 +20,31 @@ class GoogleLlm(BaseLlm):
         super().__init__(config)
         if not self.config.api_key and "GOOGLE_API_KEY" not in os.environ:
             raise ValueError("Please set the GOOGLE_API_KEY environment variable or pass it in the config.")
-
-        api_key = self.config.api_key or os.getenv("GOOGLE_API_KEY")
-        genai.configure(api_key=api_key)
+        self.client = genai.Client(api_key=self.config.api_key or os.getenv("GOOGLE_API_KEY"))
 
     def get_llm_model_answer(self, prompt):
-        if self.config.system_prompt:
-            raise ValueError("GoogleLlm does not support `system_prompt`")
-        response = self._get_answer(prompt)
-        return response
-
-    def _get_answer(self, prompt: str) -> Union[str, Generator[Any, Any, None]]:
-        model_name = self.config.model or "gemini-pro"
+        model_name = self.config.model or "gemini-2.5-flash"
         logger.info(f"Using Google LLM model: {model_name}")
-        model = genai.GenerativeModel(model_name=model_name)
 
-        generation_config_params = {
-            "candidate_count": 1,
-            "max_output_tokens": self.config.max_tokens,
-            "temperature": self.config.temperature or 0.5,
-        }
-
-        if 0.0 <= self.config.top_p <= 1.0:
-            generation_config_params["top_p"] = self.config.top_p
-        else:
-            raise ValueError("`top_p` must be > 0.0 and < 1.0")
-
-        generation_config = genai.types.GenerationConfig(**generation_config_params)
-
-        response = model.generate_content(
-            prompt,
-            generation_config=generation_config,
-            stream=self.config.stream,
+        config = genai.types.GenerateContentConfig(
+            temperature=self.config.temperature or None,
+            top_p=self.config.top_p or None,
+            candidate_count=1,
+            max_output_tokens=self.config.max_tokens or None,
+            system_instruction=self.config.system_prompt or None,
         )
+
         if self.config.stream:
-            # TODO: Implement streaming
-            response.resolve()
-            return response.text
-        else:
-            return response.text
+            responses = self.client.models.generate_content_stream(
+                model=model_name,
+                contents=prompt,
+                config=config,
+            )
+            return (response.text for response in responses)
+
+        response = self.client.models.generate_content(
+            model=model_name,
+            contents=prompt,
+            config=config,
+        )
+        return response.text

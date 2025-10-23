@@ -16,7 +16,9 @@ def mock_gemini_client():
 
 
 def test_generate_response_without_tools(mock_gemini_client: Mock):
-    config = BaseLlmConfig(model="gemini-2.0-flash-latest", temperature=0.7, max_tokens=100, top_p=1.0)
+    config = BaseLlmConfig(
+        model="gemini-2.0-flash-latest", temperature=0.7, max_tokens=100, top_p=1.0
+    )
     llm = GeminiLLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
@@ -51,7 +53,9 @@ def test_generate_response_without_tools(mock_gemini_client: Mock):
 
 
 def test_generate_response_with_tools(mock_gemini_client: Mock):
-    config = BaseLlmConfig(model="gemini-1.5-flash-latest", temperature=0.7, max_tokens=100, top_p=1.0)
+    config = BaseLlmConfig(
+        model="gemini-2.5-flash-latest", temperature=0.7, max_tokens=100, top_p=1.0
+    )
     llm = GeminiLLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
@@ -65,7 +69,12 @@ def test_generate_response_with_tools(mock_gemini_client: Mock):
                 "description": "Add a memory",
                 "parameters": {
                     "type": "object",
-                    "properties": {"data": {"type": "string", "description": "Data to add to memory"}},
+                    "properties": {
+                        "data": {
+                            "type": "string",
+                            "description": "Data to add to memory",
+                        }
+                    },
                     "required": ["data"],
                 },
             },
@@ -101,7 +110,7 @@ def test_generate_response_with_tools(mock_gemini_client: Mock):
     call_args = mock_gemini_client.models.generate_content.call_args
 
     # Verify model and contents
-    assert call_args.kwargs["model"] == "gemini-1.5-flash-latest"
+    assert call_args.kwargs["model"] == "gemini-2.5-flash-latest"
     assert len(call_args.kwargs["contents"]) == 1  # Only user message
 
     # Verify config has system instruction and tools
@@ -111,7 +120,10 @@ def test_generate_response_with_tools(mock_gemini_client: Mock):
     assert config_arg.max_output_tokens == 100
     assert config_arg.top_p == 1.0
     assert len(config_arg.tools) == 1
-    assert config_arg.tool_config.function_calling_config.mode == types.FunctionCallingConfigMode.AUTO
+    assert (
+        config_arg.tool_config.function_calling_config.mode
+        == types.FunctionCallingConfigMode.AUTO
+    )
 
     assert response["content"] == "I've added the memory for you."
     assert len(response["tool_calls"]) == 1

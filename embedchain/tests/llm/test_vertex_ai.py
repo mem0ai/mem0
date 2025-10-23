@@ -15,7 +15,7 @@ def setup_database():
 
 @pytest.fixture
 def vertexai_llm():
-    config = BaseLlmConfig(temperature=0.6, model="chat-bison")
+    config = BaseLlmConfig(temperature=0.6, model="gemini-2.5-flash")
     return VertexAILlm(config)
 
 
