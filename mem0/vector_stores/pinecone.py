@@ -275,6 +275,29 @@ class PineconeDB(VectorStoreBase):
 
         self.index.upsert(vectors=[item], namespace=self.namespace)
 
+    def _fetch_vector_values(self, vector_id: Union[str, int]) -> List[float]:
+        """
+        Fetch vector values from Pinecone.
+        
+        Args:
+            vector_id: ID of the vector to fetch
+            
+        Returns:
+            List[float]: The vector values
+            
+        Raises:
+            ValueError: If vector not found
+        """
+        try:
+            response = self.index.fetch(ids=[str(vector_id)], namespace=self.namespace)
+            if str(vector_id) in response.vectors:
+                return response.vectors[str(vector_id)].values
+            else:
+                raise ValueError(f"Vector {vector_id} not found in Pinecone")
+        except Exception as e:
+            logger.error(f"Error fetching vector values from Pinecone: {e}")
+            raise
+
     def get(self, vector_id: Union[str, int]) -> OutputData:
         """
         Retrieve a vector by ID.
@@ -380,3 +403,24 @@ class PineconeDB(VectorStoreBase):
         logger.warning(f"Resetting index {self.collection_name}...")
         self.delete_col()
         self.create_col(self.embedding_model_dims, self.metric)
+
+
+    def _fetch_vector_values(self, vector_id: Union[str, int]) -> List[float]:
+        """
+        Fetch vector values from Pinecone.
+        
+        Args:
+            vector_id: ID of the vector to fetch
+            
+        Returns:
+            List[float]: The vector values
+        """
+        try:
+            response = self.index.fetch(ids=[str(vector_id)], namespace=self.namespace)
+            if str(vector_id) in response.vectors:
+                return response.vectors[str(vector_id)].values
+            else:
+                raise ValueError(f"Vector {vector_id} not found in Pinecone")
+        except Exception as e:
+            logger.error(f"Error fetching vector values from Pinecone: {e}")
+            raise

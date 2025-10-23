@@ -336,6 +336,38 @@ class AzureMySQL(VectorStoreBase):
                     (json.dumps(payload), vector_id),
                 )
 
+    def _fetch_vector_values(self, vector_id: str) -> List[float]:
+        """
+        Fetch vector values from Azure MySQL.
+        
+        Args:
+            vector_id: ID of the vector to fetch
+            
+        Returns:
+            List[float]: The vector values
+            
+        Raises:
+            ValueError: If vector not found
+        """
+        try:
+            with self._get_cursor() as cur:
+                cur.execute(
+                    f"SELECT vector FROM `{self.collection_name}` WHERE id = %s",
+                    (vector_id,),
+                )
+                result = cur.fetchone()
+                if result and result['vector']:
+                    vector_data = result['vector']
+                    # Handle if it's stored as JSON string
+                    if isinstance(vector_data, str):
+                        return json.loads(vector_data)
+                    return list(vector_data)
+                else:
+                    raise ValueError(f"Vector {vector_id} not found in Azure MySQL")
+        except Exception as e:
+            logger.error(f"Error fetching vector values from Azure MySQL: {e}")
+            raise
+
     def get(self, vector_id: str) -> Optional[OutputData]:
         """
         Retrieve a vector by ID.
