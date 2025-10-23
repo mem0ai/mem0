@@ -139,3 +139,4 @@ def test_search_handles_incomplete_payloads(mock_sqlite, mock_llm_factory, mock_
 
     assert memories_by_id["mem_1"]["memory"] == ""  
     assert memories_by_id["mem_2"]["memory"] == "content" 
+
