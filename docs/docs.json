@@ -140,7 +140,6 @@
                       "open-source/features/multimodal-support",
                       "open-source/features/rest-api",
                       "open-source/features/metadata-filtering",
-                      "open-source/features/reranking",
                       "open-source/features/reranker-search"
                     ]
                   },
@@ -255,6 +254,8 @@
                         "pages": [
                           "components/rerankers/overview",
                           "components/rerankers/config",
+                          "components/rerankers/optimization",
+                          "components/rerankers/custom-prompts",
                           {
                             "group": "Supported Rerankers",
                             "icon": "list",
@@ -263,12 +264,9 @@
                               "components/rerankers/models/sentence_transformer",
                               "components/rerankers/models/huggingface",
                               "components/rerankers/models/llm_reranker",
-                              "components/rerankers/models/llm",
                               "components/rerankers/models/zero_entropy"
                             ]
-                          },
-                          "components/rerankers/optimization",
-                          "components/rerankers/custom-prompts"
+                          }
                         ]
                       }
                     ]
