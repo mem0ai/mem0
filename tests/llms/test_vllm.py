@@ -29,8 +29,14 @@ def test_generate_response_without_tools(mock_vllm_client):
 
     response = llm.generate_response(messages)
 
+    # When using BaseLlmConfig, enable_thinking defaults to False, so extra_body should be added
     mock_vllm_client.chat.completions.create.assert_called_once_with(
-        model="Qwen/Qwen2.5-32B-Instruct", messages=messages, temperature=0.7, max_tokens=100, top_p=1.0
+        model="Qwen/Qwen2.5-32B-Instruct", 
+        messages=messages, 
+        temperature=0.7, 
+        max_tokens=100, 
+        top_p=1.0,
+        extra_body={"stop": ["<think>", "</think>"]}
     )
     assert response == "I'm doing well, thank you for asking!"
 
@@ -71,6 +77,7 @@ def test_generate_response_with_tools(mock_vllm_client):
 
     response = llm.generate_response(messages, tools=tools)
 
+    # When using BaseLlmConfig, enable_thinking defaults to False, so extra_body should be added
     mock_vllm_client.chat.completions.create.assert_called_once_with(
         model="Qwen/Qwen2.5-32B-Instruct",
         messages=messages,
@@ -79,6 +86,7 @@ def test_generate_response_with_tools(mock_vllm_client):
         top_p=1.0,
         tools=tools,
         tool_choice="auto",
+        extra_body={"stop": ["<think>", "</think>"]}
     )
 
     assert response["content"] == "I've added the memory for you."
