@@ -133,23 +133,15 @@
                     "icon": "server",
                     "pages": [
                       "open-source/features/overview",
+                      "open-source/features/graph-memory",
+                      "open-source/features/metadata-filtering",
+                      "open-source/features/reranker-search",
                       "open-source/features/async-memory",
-                      "open-source/features/openai_compatibility",
+                      "open-source/features/multimodal-support",
                       "open-source/features/custom-fact-extraction-prompt",
                       "open-source/features/custom-update-memory-prompt",
-                      "open-source/features/multimodal-support",
                       "open-source/features/rest-api",
-                      "open-source/features/metadata-filtering",
-                      "open-source/features/reranking",
-                      "open-source/features/reranker-search"
-                    ]
-                  },
-                  {
-                    "group": "Graph Memory",
-                    "icon": "network-wired",
-                    "pages": [
-                      "open-source/graph_memory/overview",
-                      "open-source/graph_memory/features"
+                      "open-source/features/openai_compatibility"
                     ]
                   },
                   {
@@ -255,6 +247,8 @@
                         "pages": [
                           "components/rerankers/overview",
                           "components/rerankers/config",
+                          "components/rerankers/optimization",
+                          "components/rerankers/custom-prompts",
                           {
                             "group": "Supported Rerankers",
                             "icon": "list",
@@ -263,12 +257,9 @@
                               "components/rerankers/models/sentence_transformer",
                               "components/rerankers/models/huggingface",
                               "components/rerankers/models/llm_reranker",
-                              "components/rerankers/models/llm",
                               "components/rerankers/models/zero_entropy"
                             ]
-                          },
-                          "components/rerankers/optimization",
-                          "components/rerankers/custom-prompts"
+                          }
                         ]
                       }
                     ]
