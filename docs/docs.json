@@ -24,7 +24,9 @@
                   {
                     "group": "Start Here",
                     "icon": "home",
-                    "pages": ["introduction"]
+                    "pages": [
+                      "introduction"
+                    ]
                   }
                 ]
               },
@@ -69,11 +71,12 @@
                       },
                       {
                         "group": "Advanced Features",
-                        "icon": "sparkles",
+                        "icon": "bolt",
                         "pages": [
                           "platform/features/graph-memory",
                           "platform/features/graph-threshold",
                           "platform/features/advanced-retrieval",
+                          "platform/advanced-memory-operations",
                           "platform/features/criteria-retrieval",
                           "platform/features/contextual-add",
                           "platform/features/custom-instructions"
@@ -103,7 +106,9 @@
                   {
                     "group": "Support & Troubleshooting",
                     "icon": "life-buoy",
-                    "pages": ["platform/faqs", "platform/advanced-memory-operations"]
+                    "pages": [
+                      "platform/faqs"
+                    ]
                   },
                   {
                     "group": "Migration Guide",
@@ -274,7 +279,10 @@
                   {
                     "group": "Community & Support",
                     "icon": "users",
-                    "pages": ["contributing/development", "contributing/documentation"]
+                    "pages": [
+                      "contributing/development",
+                      "contributing/documentation"
+                    ]
                   }
                 ]
               },
@@ -298,7 +306,9 @@
                   {
                     "group": "Overview",
                     "icon": "lightbulb",
-                    "pages": ["examples"]
+                    "pages": [
+                      "examples"
+                    ]
                   },
                   {
                     "group": "Getting Started Examples",
@@ -355,7 +365,10 @@
                   {
                     "group": "Cloud & Infrastructure",
                     "icon": "cloud",
-                    "pages": ["examples/aws_example", "examples/aws_neptune_analytics_hybrid_store"]
+                    "pages": [
+                      "examples/aws_example",
+                      "examples/aws_neptune_analytics_hybrid_store"
+                    ]
                   }
                 ]
               },
@@ -365,7 +378,9 @@
                   {
                     "group": "Overview",
                     "icon": "plug",
-                    "pages": ["integrations"]
+                    "pages": [
+                      "integrations"
+                    ]
                   },
                   {
                     "group": "Agent Frameworks",
@@ -395,7 +410,9 @@
                   {
                     "group": "Cloud & Infrastructure",
                     "icon": "cloud",
-                    "pages": ["integrations/aws-bedrock"]
+                    "pages": [
+                      "integrations/aws-bedrock"
+                    ]
                   },
                   {
                     "group": "Developer Tools",
@@ -417,7 +434,10 @@
                   {
                     "group": "Getting Started",
                     "icon": "rocket",
-                    "pages": ["api-reference", "api-reference/organizations-projects"]
+                    "pages": [
+                      "api-reference",
+                      "api-reference/organizations-projects"
+                    ]
                   },
                   {
                     "group": "Core Memory Operations",
@@ -495,12 +515,16 @@
                   {
                     "group": "Changelog",
                     "icon": "rocket",
-                    "pages": ["changelog"]
+                    "pages": [
+                      "changelog"
+                    ]
                   },
                   {
                     "group": "Legacy Docs",
                     "icon": "archive",
-                    "pages": ["v0x/introduction"]
+                    "pages": [
+                      "v0x/introduction"
+                    ]
                   }
                 ],
                 "icon": "clock"
@@ -522,7 +546,11 @@
                   {
                     "group": "Getting Started",
                     "icon": "rocket",
-                    "pages": ["v0x/introduction", "v0x/quickstart", "v0x/faqs"]
+                    "pages": [
+                      "v0x/introduction",
+                      "v0x/quickstart",
+                      "v0x/faqs"
+                    ]
                   },
                   {
                     "group": "Core Concepts",
