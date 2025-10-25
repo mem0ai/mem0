@@ -1,8 +1,6 @@
 ---
 title: Graph Memory
 description: "Layer relationships onto Mem0 search so agents remember who did what, when, and with whom."
-icon: "sparkles"
-iconType: "solid"
 ---
 
 Graph Memory extends Mem0 by persisting nodes and edges alongside embeddings, so recalls stitch together people, places, and events instead of just keywords.
@@ -19,7 +17,7 @@ Graph Memory extends Mem0 by persisting nodes and edges alongside embeddings, so
 Mem0 extracts entities and relationships from every memory write, stores embeddings in your vector database, and mirrors relationships in a graph backend. On retrieval, vector search narrows candidates, then the graph supplies context and re-ranks results.
 
 ```mermaid
-graph TD
+graph LR
     A[Conversation] --> B(Extraction LLM)
     B --> C[Vector Store]
     B --> D[Graph Store]
@@ -30,7 +28,7 @@ graph TD
 ```
 
 <Info icon="lightbulb">
-Graph Memory complements—never replaces—your vector store. Keep both healthy to avoid blind spots.
+Graph Memory complements your vector store. Keep both healthy to avoid blind spots.
 </Info>
 
 ## How It Works
@@ -246,7 +244,7 @@ const location = await memory.search("Where do I live?", { userId: "bob" });
 </AccordionGroup>
 
 <Note>
-Monitor graph growth—especially on free tiers—by periodically cleaning dormant nodes: `MATCH (n) WHERE n.lastSeen < date() - duration('P90D') DETACH DELETE n`.
+Monitor graph growth, especially on free tiers, by periodically cleaning dormant nodes: `MATCH (n) WHERE n.lastSeen < date() - duration('P90D') DETACH DELETE n`.
 </Note>
 
 ## Troubleshooting
@@ -266,7 +264,7 @@ Monitor graph growth—especially on free tiers—by periodically cleaning dorma
 ## Decision Points
 
 - Select the graph store that fits your deployment (managed Aura vs. self-hosted Neo4j vs. AWS Neptune vs. local Kuzu).
-- Decide when to enable graph writes per request—routine conversations may stay vector-only to save latency.
+- Decide when to enable graph writes per request; routine conversations may stay vector-only to save latency.
 - Set a policy for pruning stale relationships so your graph stays fast and affordable.
 
 ## Provider setup
@@ -367,7 +365,7 @@ m = Memory.from_config(config_dict=config)
 Reference: [Accessing Data in Neptune DB](https://docs.aws.amazon.com/neptune/latest/userguide/).
   </Accordion>
   <Accordion title="Kuzu (embedded)">
-    Kuzu runs in-process—just supply a path (or `:memory:`) for the database file:
+    Kuzu runs in-process, so supply a path (or `:memory:`) for the database file:
 
 ```python
 config = {
