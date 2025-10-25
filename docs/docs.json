@@ -71,7 +71,7 @@
                       },
                       {
                         "group": "Advanced Features",
-                        "icon": "wand-2",
+                        "icon": "bolt",
                         "pages": [
                           "platform/features/graph-memory",
                           "platform/features/graph-threshold",
