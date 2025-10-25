@@ -45,7 +45,7 @@ Key differentiators:
 - [OpenAI Compatibility](https://docs.mem0.ai/open-source/features/openai_compatibility): Seamless integration with OpenAI-compatible APIs
 - [Custom Fact Extraction](https://docs.mem0.ai/open-source/features/custom-fact-extraction-prompt): Tailor information extraction for specific use cases
 - [REST API Server](https://docs.mem0.ai/open-source/features/rest-api): FastAPI-based server with core operations and OpenAPI documentation
-- [Graph Memory Overview](https://docs.mem0.ai/open-source/graph_memory/overview): Build and query entity relationships using graph stores like Neo4j
+- [Graph Memory Overview](https://docs.mem0.ai/open-source/features/graph-memory): Build and query entity relationships using graph stores like Neo4j
 
 ## Components
 
