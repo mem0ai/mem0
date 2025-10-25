@@ -1,0 +1,138 @@
+---
+title: Contribution Hub
+description: "Follow the shared playbook for writing and updating Mem0 documentation."
+icon: "clipboard-list"
+---
+
+# Build Mem0 Docs the Right Way
+
+<Info>
+  **Who this is for**
+  - Contributors and LLM assistants updating the docs
+  - Reviewers vetting new pages before publication
+  - Maintainers syncing live docs with the template library
+</Info>
+
+<Steps>
+<Step title="Review the standards">
+Check your team’s latest checklist or guidance so the update keeps the right navigation flow, CTA pattern, and language coverage.
+</Step>
+<Step title="Pick the right template">
+Select the doc type you are writing (quickstart, feature guide, migration, etc.) and copy the skeleton from the template library below.
+</Step>
+<Step title="Draft, verify, and note follow-ups">
+Fill the skeleton completely, include inline verification callouts, and jot down any open questions for maintainers before opening a PR.
+</Step>
+</Steps>
+
+<Info icon="check">
+  When previewing locally, confirm the page ends with exactly two CTA cards, includes both Python and TypeScript examples when they exist, and keeps all Mintlify icons (no emojis).
+</Info>
+
+## Template Library
+
+Choose the document type you need. Each card links directly to the canonical template inside this repo.
+
+<CardGroup cols={3}>
+  <Card
+    title="Quickstart"
+    description="Install → Configure → Add → Search → Delete with Tabs + Steps."
+    icon="rocket"
+    href="/templates/quickstart_template"
+  />
+  <Card
+    title="Operation Guide"
+    description="Single task walkthrough with verification checkpoints."
+    icon="circle-check"
+    href="/templates/operation_guide_template"
+  />
+  <Card
+    title="Feature Guide"
+    description="Explain when and why to use a capability, not just the API."
+    icon="sparkles"
+    href="/templates/feature_guide_template"
+  />
+  <Card
+    title="Concept Guide"
+    description="Define mental models, key terms, and diagrams."
+    icon="brain"
+    href="/templates/concept_guide_template"
+  />
+  <Card
+    title="Integration Guide"
+    description="Configure Mem0 with third-party tools using shared Tabs + Steps."
+    icon="plug"
+    href="/templates/integration_guide_template"
+  />
+  <Card
+    title="Cookbook"
+    description="Narrative end-to-end workflow with reusable snippets."
+    icon="book-open"
+    href="/templates/cookbook_template"
+  />
+  <Card
+    title="API Reference"
+    description="Document endpoints with quick facts and dual-language examples."
+    icon="code"
+    href="/templates/api_reference_template"
+  />
+  <Card
+    title="Parameters Reference"
+    description="Call out accepted fields, defaults, and misuse troubleshooting."
+    icon="list"
+    href="/templates/parameters_reference_template"
+  />
+  <Card
+    title="Migration Guide"
+    description="Plan → Migrate → Validate with rollback steps."
+    icon="arrow-right"
+    href="/templates/migration_guide_template"
+  />
+  <Card
+    title="Release Notes"
+    description="Ship highlights, stats, and mandatory CTA pair."
+    icon="megaphone"
+    href="/templates/release_notes_template"
+  />
+  <Card
+    title="Troubleshooting Playbook"
+    description="Symptom → Diagnose → Fix with escalation tips."
+    icon="life-buoy"
+    href="/templates/troubleshooting_playbook_template"
+  />
+  <Card
+    title="Section Overview"
+    description="Headline, card grid, and CTA pair for section landing pages."
+    icon="grid"
+    href="/templates/section_overview_template"
+  />
+</CardGroup>
+
+## Contribution Checklist
+
+<AccordionGroup>
+  <Accordion title="Prep your draft">
+    Confirm you copied the exact skeleton (`✅ COPY THIS` block) and removed every placeholder. Keep the DO-NOT-COPY guidance out of the published doc.
+  </Accordion>
+  <Accordion title="Mind the standards">
+    Use Mintlify icons, include `<Info icon="check">` after runnable steps, and ensure Tabs show both Python and TypeScript (or justify the absence with `<Note>`).
+  </Accordion>
+  <Accordion title="Surface open questions early">
+    Flag blockers or follow-up work in your PR description so reviewers know what to look for and can update project trackers as needed.
+  </Accordion>
+</AccordionGroup>
+
+<CardGroup cols={2}>
+  <Card
+    title="Browse Templates"
+    description="Jump straight into the quickstart skeleton and switch tabs for other types."
+    icon="clipboard-check"
+    href="/templates/quickstart_template"
+  />
+  <Card
+    title="Return to Platform Overview"
+    description="Jump back into the managed journey once you’re done editing."
+    icon="compass"
+    href="/platform/overview"
+  />
+</CardGroup>
