@@ -3,8 +3,8 @@ title: Reranker-Enhanced Search
 description: 'Improve search relevance with reranking models in Mem0 1.0.0 '
 ---
 
-<Info>
-Reranker-enhanced search is available in **Mem0 1.0.0 ** and later versions. This feature significantly improves search relevance by using specialized reranking models to reorder search results.
+<Info icon="sparkles">
+**Mem0 1.0.0+** supports reranker-enhanced search, letting specialized models reorder vector hits so you deliver the most relevant memories.
 </Info>
 
 ## Overview
@@ -39,6 +39,14 @@ m = Memory.from_config(config)
 ```
 
 ### Supported Providers
+
+Mem0 supports multiple reranking providers. See the complete documentation for each:
+
+- **[Cohere](../../components/rerankers/models/cohere)**: Enterprise-grade with multilingual support
+- **[Sentence Transformer](../../components/rerankers/models/sentence_transformer)**: Local HuggingFace models
+- **[Hugging Face](../../components/rerankers/models/huggingface)**: Custom models from HuggingFace
+- **[LLM Reranker](../../components/rerankers/models/llm_reranker)**: Use any LLM for flexible scoring
+- **[Zero Entropy](../../components/rerankers/models/zero_entropy)**: State-of-the-art neural reranking
 
 #### Cohere Reranker
 
@@ -122,6 +130,10 @@ for result in results["results"]:
     print(f"Memory: {result['memory']}")
     print(f"Score: {result['score']}")
 ```
+
+<Info icon="check">
+Expect each result to include both the base vector score and an updated rerank score so you can compare quality improvements.
+</Info>
 
 ### Controlling Reranking
 
@@ -414,3 +426,18 @@ results = m.search("query", user_id="alice")  # Automatically reranked
 <Info>
 Reranker-enhanced search significantly improves result relevance. Start with a local model and upgrade to API-based solutions as your needs grow.
 </Info>
+
+<CardGroup cols={2}>
+  <Card
+    title="Configure Rerankers"
+    description="Review provider fields, defaults, and environment variables."
+    icon="settings"
+    href="/components/rerankers/config"
+  />
+  <Card
+    title="Build a Custom LLM Reranker"
+    description="Combine reranking with tailored prompts and scoring logic."
+    icon="sparkles"
+    href="/components/rerankers/models/llm_reranker"
+  />
+</CardGroup>
