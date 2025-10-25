@@ -113,6 +113,13 @@
                       "migration/breaking-changes",
                       "migration/api-changes"
                     ]
+                  },
+                  {
+                    "group": "Contribute",
+                    "icon": "clipboard-list",
+                    "pages": [
+                      "platform/contribute"
+                    ]
                   }
                 ]
               },
