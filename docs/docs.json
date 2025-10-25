@@ -424,24 +424,24 @@
                     "icon": "microchip",
                     "pages": [
                       "api-reference/memory/add-memories",
-                      "api-reference/memory/search-memories",
                       "api-reference/memory/get-memories",
+                      "api-reference/memory/search-memories",
                       "api-reference/memory/update-memory",
                       "api-reference/memory/delete-memory"
                     ]
                   },
                   {
-                    "group": "Advanced Memory APIs",
+                    "group": "Memory APIs",
                     "icon": "sparkles",
                     "pages": [
-                      "api-reference/memory/history-memory",
+                      "api-reference/memory/create-memory-export",
+                      "api-reference/memory/feedback",
                       "api-reference/memory/get-memory",
+                      "api-reference/memory/history-memory",
+                      "api-reference/memory/get-memory-export",
                       "api-reference/memory/batch-update",
                       "api-reference/memory/batch-delete",
-                      "api-reference/memory/delete-memories",
-                      "api-reference/memory/create-memory-export",
-                      "api-reference/memory/get-memory-export",
-                      "api-reference/memory/feedback"
+                      "api-reference/memory/delete-memories"
                     ]
                   },
                   {
