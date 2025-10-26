@@ -1,6 +1,6 @@
 llm:
   provider: vertexai
   config:
-    model: 'chat-bison'
+    model: 'gemini-2.5-flash'
     temperature: 0.5
     top_p: 0.5

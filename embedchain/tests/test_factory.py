@@ -39,7 +39,7 @@ class TestFactories:
                 {"model": "sentence-transformers/all-mpnet-base-v2", "vector_dimension": 768},
                 embedchain.embedder.huggingface.HuggingFaceEmbedder,
             ),
-            ("vertexai", {"model": "textembedding-gecko"}, embedchain.embedder.vertexai.VertexAIEmbedder),
+            ("vertexai", {"model": "gemini-embedding-001"}, embedchain.embedder.vertexai.VertexAIEmbedder),
             ("openai", {}, embedchain.embedder.openai.OpenAIEmbedder),
         ],
     )

@@ -74,7 +74,7 @@ def schedule_appointment(date: str, time: str, reason: str) -> dict:
 # Create the Healthcare Assistant Agent
 healthcare_agent = Agent(
     name="healthcare_assistant",
-    model="gemini-1.5-flash",  # Using Gemini for healthcare assistant
+    model="gemini-2.5-flash",  # Using Gemini for healthcare assistant
     description="Healthcare assistant that helps patients with health information and appointment scheduling.",
     instruction="""You are a helpful Healthcare Assistant with memory capabilities.
 
@@ -103,10 +103,14 @@ USER_ID = "Alex"
 SESSION_ID = "session_001"
 
 # Create a session
-session = session_service.create_session(app_name=APP_NAME, user_id=USER_ID, session_id=SESSION_ID)
+session = session_service.create_session(
+    app_name=APP_NAME, user_id=USER_ID, session_id=SESSION_ID
+)
 
 # Create the runner
-runner = Runner(agent=healthcare_agent, app_name=APP_NAME, session_service=session_service)
+runner = Runner(
+    agent=healthcare_agent, app_name=APP_NAME, session_service=session_service
+)
 
 
 # Interact with the Healthcare Assistant
@@ -122,7 +126,9 @@ async def call_agent_async(query, runner, user_id, session_id):
     retrieve_patient_info.user_id = user_id
 
     # Run the agent
-    async for event in runner.run_async(user_id=user_id, session_id=session_id, new_message=content):
+    async for event in runner.run_async(
+        user_id=user_id, session_id=session_id, new_message=content
+    ):
         if event.is_final_response():
             if event.content and event.content.parts:
                 response = event.content.parts[0].text
@@ -160,7 +166,10 @@ async def run_conversation():
 
     # Test memory - should remember patient name, symptoms, and allergy
     await call_agent_async(
-        "What medications should I avoid for my headaches?", runner=runner, user_id=USER_ID, session_id=SESSION_ID
+        "What medications should I avoid for my headaches?",
+        runner=runner,
+        user_id=USER_ID,
+        session_id=SESSION_ID,
     )
 
 
@@ -171,11 +180,15 @@ async def interactive_mode():
     print("Enter 'exit' to quit at any time.")
 
     # Get user information
-    patient_id = input("Enter patient ID (or press Enter for default): ").strip() or USER_ID
+    patient_id = (
+        input("Enter patient ID (or press Enter for default): ").strip() or USER_ID
+    )
     session_id = f"session_{hash(patient_id) % 1000:03d}"
 
     # Create session for this user
-    session_service.create_session(app_name=APP_NAME, user_id=patient_id, session_id=session_id)
+    session_service.create_session(
+        app_name=APP_NAME, user_id=patient_id, session_id=session_id
+    )
 
     print(f"\nStarting conversation with patient ID: {patient_id}")
     print("Type your message and press Enter.")
@@ -186,7 +199,9 @@ async def interactive_mode():
             print("Ending conversation. Thank you!")
             break
 
-        await call_agent_async(user_input, runner=runner, user_id=patient_id, session_id=session_id)
+        await call_agent_async(
+            user_input, runner=runner, user_id=patient_id, session_id=session_id
+        )
 
 
 # Main execution
@@ -195,8 +210,15 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Healthcare Assistant with Memory")
     parser.add_argument("--demo", action="store_true", help="Run the demo conversation")
-    parser.add_argument("--interactive", action="store_true", help="Run in interactive mode")
-    parser.add_argument("--patient-id", type=str, default=USER_ID, help="Patient ID for the conversation")
+    parser.add_argument(
+        "--interactive", action="store_true", help="Run in interactive mode"
+    )
+    parser.add_argument(
+        "--patient-id",
+        type=str,
+        default=USER_ID,
+        help="Patient ID for the conversation",
+    )
     args = parser.parse_args()
 
     if args.demo:

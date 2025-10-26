@@ -528,203 +528,50 @@
         "input_cost_per_token": 0.000003,
         "output_cost_per_token": 0.000015
     },
-    "vertexai/chat-bison": {
-        "max_tokens": 4096,
-        "max_input_tokens": 8192,
-        "max_output_tokens": 4096,
-        "input_cost_per_token": 0.000000125,
-        "output_cost_per_token": 0.000000125
+    "vertexai/gemini-2.5-pro": {
+        "max_tokens": 1048576,
+        "max_input_tokens": 1048576,
+        "max_output_tokens": 65535,
+        "max_images_per_prompt": 3000,
+        "max_videos_per_prompt": 10,
+        "input_cost_per_token": 0.00000125,
+        "output_cost_per_token": 0.00001
     },
-    "vertexai/chat-bison@001": {
-        "max_tokens": 4096,
-        "max_input_tokens": 8192,
-        "max_output_tokens": 4096,
-        "input_cost_per_token": 0.000000125,
-        "output_cost_per_token": 0.000000125
+    "vertexai/gemini-2.5-flash": {
+        "max_tokens": 1048576,
+        "max_input_tokens": 1048576,
+        "max_output_tokens": 65535,
+        "max_images_per_prompt": 3000,
+        "max_videos_per_prompt": 10,
+        "input_cost_per_token": 0.0000003,
+        "output_cost_per_token": 0.0000025
     },
-    "vertexai/chat-bison@002": {
-        "max_tokens": 4096,
-        "max_input_tokens": 8192,
-        "max_output_tokens": 4096,
-        "input_cost_per_token": 0.000000125,
-        "output_cost_per_token": 0.000000125
+    "vertexai/gemini-2.5-flash-lite": {
+        "max_tokens": 1048576,
+        "max_input_tokens": 1048576,
+        "max_output_tokens": 65536,
+        "max_images_per_prompt": 3000,
+        "max_videos_per_prompt": 10,
+        "input_cost_per_token": 0.0000001,
+        "output_cost_per_token": 0.0000004
     },
-    "vertexai/chat-bison-32k": {
-        "max_tokens": 8192,
-        "max_input_tokens": 32000,
+    "vertexai/gemini-2.0-flash": {
+        "max_tokens": 1048576,
+        "max_input_tokens": 1048576,
         "max_output_tokens": 8192,
-        "input_cost_per_token": 0.000000125,
-        "output_cost_per_token": 0.000000125
+        "max_images_per_prompt": 3000,
+        "max_videos_per_prompt": 10,
+        "input_cost_per_token": null,
+        "output_cost_per_token": null
     },
-    "vertexai/code-bison": {
-        "max_tokens": 1024,
-        "max_input_tokens": 6144,
-        "max_output_tokens": 1024,
-        "input_cost_per_token": 0.000000125,
-        "output_cost_per_token": 0.000000125
-    },
-    "vertexai/code-bison@001": {
-        "max_tokens": 1024,
-        "max_input_tokens": 6144,
-        "max_output_tokens": 1024,
-        "input_cost_per_token": 0.000000125,
-        "output_cost_per_token": 0.000000125
-    },
-    "vertexai/code-gecko@001": {
-        "max_tokens": 64,
-        "max_input_tokens": 2048,
-        "max_output_tokens": 64,
-        "input_cost_per_token": 0.000000125,
-        "output_cost_per_token": 0.000000125
-    },
-    "vertexai/code-gecko@002": {
-        "max_tokens": 64,
-        "max_input_tokens": 2048,
-        "max_output_tokens": 64,
-        "input_cost_per_token": 0.000000125,
-        "output_cost_per_token": 0.000000125
-    },
-    "vertexai/code-gecko": {
-        "max_tokens": 64,
-        "max_input_tokens": 2048,
-        "max_output_tokens": 64,
-        "input_cost_per_token": 0.000000125,
-        "output_cost_per_token": 0.000000125
-    },
-    "vertexai/codechat-bison": {
-        "max_tokens": 1024,
-        "max_input_tokens": 6144,
-        "max_output_tokens": 1024,
-        "input_cost_per_token": 0.000000125,
-        "output_cost_per_token": 0.000000125
-    },
-    "vertexai/codechat-bison@001": {
-        "max_tokens": 1024,
-        "max_input_tokens": 6144,
-        "max_output_tokens": 1024,
-        "input_cost_per_token": 0.000000125,
-        "output_cost_per_token": 0.000000125
-    },
-    "vertexai/codechat-bison-32k": {
-        "max_tokens": 8192,
-        "max_input_tokens": 32000,
+    "vertexai/gemini-2.0-flash-lite": {
+        "max_tokens": 1048576,
+        "max_input_tokens": 1048576,
         "max_output_tokens": 8192,
-        "input_cost_per_token": 0.000000125,
-        "output_cost_per_token": 0.000000125
-    },
-    "vertexai/gemini-pro": {
-        "max_tokens": 8192,
-        "max_input_tokens": 32760,
-        "max_output_tokens": 8192,
-        "input_cost_per_token": 0.00000025,
-        "output_cost_per_token": 0.0000005
-    },
-    "vertexai/gemini-1.0-pro": {
-        "max_tokens": 8192,
-        "max_input_tokens": 32760,
-        "max_output_tokens": 8192,
-        "input_cost_per_token": 0.00000025,
-        "output_cost_per_token": 0.0000005
-    },
-    "vertexai/gemini-1.0-pro-001": {
-        "max_tokens": 8192,
-        "max_input_tokens": 32760,
-        "max_output_tokens": 8192,
-        "input_cost_per_token": 0.00000025,
-        "output_cost_per_token": 0.0000005
-    },
-    "vertexai/gemini-1.0-pro-002": {
-        "max_tokens": 8192,
-        "max_input_tokens": 32760,
-        "max_output_tokens": 8192,
-        "input_cost_per_token": 0.00000025,
-        "output_cost_per_token": 0.0000005
-    },
-    "vertexai/gemini-1.5-pro": {
-        "max_tokens": 8192,
-        "max_input_tokens": 1000000,
-        "max_output_tokens": 8192,
-        "input_cost_per_token": 0.000000625,
-        "output_cost_per_token": 0.000001875
-    },
-    "vertexai/gemini-1.5-flash-001": {
-        "max_tokens": 8192,
-        "max_input_tokens": 1000000,
-        "max_output_tokens": 8192,
-        "input_cost_per_token": 0,
-        "output_cost_per_token": 0
-    },
-    "vertexai/gemini-1.5-flash-preview-0514": {
-        "max_tokens": 8192,
-        "max_input_tokens": 1000000,
-        "max_output_tokens": 8192,
-        "input_cost_per_token": 0,
-        "output_cost_per_token": 0
-    },
-    "vertexai/gemini-1.5-pro-001": {
-        "max_tokens": 8192,
-        "max_input_tokens": 1000000,
-        "max_output_tokens": 8192,
-        "input_cost_per_token": 0.000000625,
-        "output_cost_per_token": 0.000001875
-    },
-    "vertexai/gemini-1.5-pro-preview-0514": {
-        "max_tokens": 8192,
-        "max_input_tokens": 1000000,
-        "max_output_tokens": 8192,
-        "input_cost_per_token": 0.000000625,
-        "output_cost_per_token": 0.000001875
-    },
-    "vertexai/gemini-1.5-pro-preview-0215": {
-        "max_tokens": 8192,
-        "max_input_tokens": 1000000,
-        "max_output_tokens": 8192,
-        "input_cost_per_token": 0.000000625,
-        "output_cost_per_token": 0.000001875
-    },
-    "vertexai/gemini-1.5-pro-preview-0409": {
-        "max_tokens": 8192,
-        "max_input_tokens": 1000000,
-        "max_output_tokens": 8192,
-        "input_cost_per_token": 0.000000625,
-        "output_cost_per_token": 0.000001875
-    },
-    "vertexai/gemini-experimental": {
-        "max_tokens": 8192,
-        "max_input_tokens": 1000000,
-        "max_output_tokens": 8192,
-        "input_cost_per_token": 0,
-        "output_cost_per_token": 0
-    },
-    "vertexai/gemini-pro-vision": {
-        "max_tokens": 2048,
-        "max_input_tokens": 16384,
-        "max_output_tokens": 2048,
-        "max_images_per_prompt": 16,
-        "max_videos_per_prompt": 1,
-        "max_video_length": 2,
-        "input_cost_per_token": 0.00000025,
-        "output_cost_per_token": 0.0000005
-    },
-    "vertexai/gemini-1.0-pro-vision": {
-        "max_tokens": 2048,
-        "max_input_tokens": 16384,
-        "max_output_tokens": 2048,
-        "max_images_per_prompt": 16,
-        "max_videos_per_prompt": 1,
-        "max_video_length": 2,
-        "input_cost_per_token": 0.00000025,
-        "output_cost_per_token": 0.0000005
-    },
-    "vertexai/gemini-1.0-pro-vision-001": {
-        "max_tokens": 2048,
-        "max_input_tokens": 16384,
-        "max_output_tokens": 2048,
-        "max_images_per_prompt": 16,
-        "max_videos_per_prompt": 1,
-        "max_video_length": 2,
-        "input_cost_per_token": 0.00000025,
-        "output_cost_per_token": 0.0000005
+        "max_images_per_prompt": 3000,
+        "max_videos_per_prompt": 10,
+        "input_cost_per_token": 0.00000007,
+        "output_cost_per_token": 0.0000003
     },
     "vertexai/claude-3-sonnet@20240229": {
         "max_tokens": 4096,
