@@ -304,70 +304,71 @@
                 "tab": "Cookbooks",
                 "groups": [
                   {
-                    "group": "Overview",
+                    "group": "Getting Started",
                     "icon": "lightbulb",
                     "pages": [
-                      "examples"
+                      "cookbooks/overview"
                     ]
                   },
                   {
-                    "group": "Getting Started Examples",
-                    "icon": "play",
+                    "group": "Essentials",
+                    "icon": "flag",
                     "pages": [
-                      "examples/mem0-demo",
-                      "examples/ai_companion_js",
-                      "examples/mem0-with-ollama",
-                      "examples/personal-ai-tutor"
+                      "cookbooks/essentials/building-ai-companion",
+                      "cookbooks/essentials/building-ai-with-personality",
+                      "cookbooks/essentials/controlling-memory-ingestion",
+                      "cookbooks/essentials/memory-expiration-short-and-long-term",
+                      "cookbooks/essentials/tagging-and-organizing-memories",
+                      "cookbooks/essentials/exporting-memories",
+                      "cookbooks/essentials/choosing-memory-architecture-vector-vs-graph"
                     ]
                   },
                   {
-                    "group": "Production Use Cases",
+                    "group": "Companion Playbooks",
+                    "icon": "users",
+                    "pages": [
+                      "cookbooks/companions/quickstart-demo",
+                      "cookbooks/companions/nodejs-companion",
+                      "cookbooks/companions/ai-tutor",
+                      "cookbooks/companions/travel-assistant",
+                      "cookbooks/companions/youtube-research",
+                      "cookbooks/companions/voice-companion-openai",
+                      "cookbooks/companions/local-companion-ollama"
+                    ]
+                  },
+                  {
+                    "group": "Ops & Automations",
                     "icon": "briefcase",
                     "pages": [
-                      "examples/customer-support-agent",
-                      "examples/personal-travel-assistant",
-                      "examples/email_processing",
-                      "examples/memory-guided-content-writing",
-                      "examples/personalized-deep-research"
+                      "cookbooks/operations/support-inbox",
+                      "cookbooks/operations/email-automation",
+                      "cookbooks/operations/content-writing",
+                      "cookbooks/operations/deep-research",
+                      "cookbooks/operations/team-task-agent"
                     ]
                   },
                   {
-                    "group": "Framework Integrations",
-                    "icon": "puzzle-piece",
+                    "group": "Integrations & Platforms",
+                    "icon": "plug",
                     "pages": [
-                      "examples/llama-index-mem0",
-                      "examples/llamaindex-multiagent-learning-system",
-                      "examples/personalized-search-tavily-mem0",
-                      "examples/mem0-agentic-tool",
-                      "examples/mem0-mastra",
-                      "examples/eliza_os"
+                      "cookbooks/integrations/agents-sdk-tool",
+                      "cookbooks/integrations/openai-tool-calls",
+                      "cookbooks/integrations/mastra-agent",
+                      "cookbooks/integrations/healthcare-google-adk",
+                      "cookbooks/integrations/aws-bedrock",
+                      "cookbooks/integrations/neptune-analytics",
+                      "cookbooks/integrations/tavily-search"
                     ]
                   },
                   {
-                    "group": "Specialized Features",
-                    "icon": "wand-magic-sparkles",
+                    "group": "Frameworks & Multimodal",
+                    "icon": "layers",
                     "pages": [
-                      "examples/multimodal-demo",
-                      "examples/mem0-openai-voice-demo",
-                      "examples/mem0-google-adk-healthcare-assistant",
-                      "examples/collaborative-task-agent"
-                    ]
-                  },
-                  {
-                    "group": "Extensions & Tools",
-                    "icon": "wrench",
-                    "pages": [
-                      "examples/chrome-extension",
-                      "examples/youtube-assistant",
-                      "examples/openai-inbuilt-tools"
-                    ]
-                  },
-                  {
-                    "group": "Cloud & Infrastructure",
-                    "icon": "cloud",
-                    "pages": [
-                      "examples/aws_example",
-                      "examples/aws_neptune_analytics_hybrid_store"
+                      "cookbooks/frameworks/llamaindex-react",
+                      "cookbooks/frameworks/llamaindex-multiagent",
+                      "cookbooks/frameworks/multimodal-retrieval",
+                      "cookbooks/frameworks/eliza-os-character",
+                      "cookbooks/frameworks/chrome-extension"
                     ]
                   }
                 ]
