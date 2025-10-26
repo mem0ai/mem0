@@ -1,7 +1,7 @@
 """Essential tests for message parsing utilities."""
 
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 from mem0.memory.utils import parse_messages, parse_vision_messages
 
 
