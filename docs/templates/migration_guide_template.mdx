@@ -14,6 +14,7 @@ Migrations lower blood pressure. They explain what’s changing, why it matters,
 - Keep the frontmatter complete (`title`, `description`, `icon`, `versionFrom`, `versionTo`, and optional `releaseDate`). Readers should know at a glance what versions they are moving between.
 - Start with context: summary table + “Should you upgrade?” checklist. Highlight deadlines with `<Warning>` and call out optional paths with `<Tip>`.
 - Break the body into **Plan → Migrate → Validate**. Use numbered headings inside **Migrate** and put rollback instructions directly after any risky step.
+- When porting older migration guides, keep existing change tables, screenshots, and warnings—slot them into this format unless the upgrade path has materially changed.
 - Document breaking changes with an `Old behavior` vs `New behavior` table. Use `<Info icon="check">` for mandatory verification steps.
 - Optional flow diagrams are allowed, but only when a left-to-right Mermaid (`graph LR`) clarifies the upgrade path.
 - End with two CTA cards (left = deep dive reference, right = applied example) and keep the comment reminder for reviewers.

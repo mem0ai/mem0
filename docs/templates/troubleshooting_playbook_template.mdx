@@ -14,6 +14,7 @@ Troubleshooting playbooks map symptoms to diagnostics and fixes. Keep them fast 
 - Frontmatter must include `title`, `description`, `icon`. Lead with one sentence about the system or workflow this playbook covers.
 - Add an `<Info>` block (“Use this when…”) and a quick index table (Symptom, Likely cause, Fix link). Surface critical safety warnings in `<Warning>`.
 - Each symptom section needs: diagnostic command/snippet, `<Info icon="check">` expected output, `<Warning>` for the observed failure, numbered fix steps, and optional `<Tip>` for prevention.
+- If you’re migrating an existing playbook, carry forward the known failure modes and scripts—reformat them into this structure unless the troubleshooting path changed.
 - Group unrelated issues with horizontal rules and provide escalation guidance when self-service stops.
 - Conclude with prevention checklist, related docs, and the standard two-card CTA (concept/reference left, applied workflow right).
 

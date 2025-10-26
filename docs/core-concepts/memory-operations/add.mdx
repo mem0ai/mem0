@@ -5,43 +5,52 @@ icon: "plus"
 iconType: "solid"
 ---
 
+# How Mem0 Adds Memory
 
-## Overview
+Adding memory is how Mem0 captures useful details from a conversation so your agents can reuse them later. Think of it as saving the important sentences from a chat transcript into a structured notebook your agent can search.
 
-The `add` operation stores memory into Mem0. Whether you're working with a chatbot, a voice assistant, or a multi-agent system, this is the entry point to create long-term memory.
+<Info>
+  **Why it matters**
+  - Preserves user preferences, goals, and feedback across sessions.
+  - Powers personalization and decision-making in downstream conversations.
+  - Keeps context consistent between managed Platform and OSS deployments.
+</Info>
 
-Memories typically come from a **user-assistant interaction** and Mem0 handles the extraction, transformation, and storage for you.
+## Key terms
 
-Mem0 offers two implementation flows:
+- **Messages** – The ordered list of user/assistant turns you send to `add`.
+- **Infer** – Controls whether Mem0 extracts structured memories (`infer=True`, default) or stores raw messages.
+- **Metadata** – Optional filters (e.g., `{"category": "movie_recommendations"}`) that improve retrieval later.
+- **User / Session identifiers** – `user_id`, `session_id`, or `run_id` that scope the memory for future searches.
 
-- **Mem0 Platform** (Managed, scalable, with dashboard + API)
-- **Mem0 Open Source** (Lightweight, fully local, flexible SDKs)
+## How does it work?
 
-Each supports the same core memory operations, but with slightly different setup.
+Mem0 offers two flows:
 
+- **Mem0 Platform** – Fully managed API with dashboard, scaling, and graph features.
+- **Mem0 Open Source** – Local SDK that you run in your own environment.
 
-## Architecture
+Both flows take the same payload and pass it through the same pipeline.
 
 <Frame caption="Architecture diagram illustrating the process of adding memories.">
   <img src="../../images/add_architecture.png" />
 </Frame>
 
-When you call `add`, Mem0 performs the following steps under the hood:
+<Steps>
+<Step title="Information extraction">
+Mem0 sends the messages through an LLM that pulls out key facts, decisions, or preferences to remember.
+</Step>
+<Step title="Conflict resolution">
+Existing memories are checked for duplicates or contradictions so the latest truth wins.
+</Step>
+<Step title="Storage">
+The resulting memories land in managed vector storage (and optional graph storage) so future searches return them quickly.
+</Step>
+</Steps>
 
-1. **Information Extraction**
-   The input messages are passed through an LLM that extracts key facts, decisions, preferences, or events worth remembering.
+You trigger this pipeline with a single `add` call—no manual orchestration needed.
 
-2. **Conflict Resolution**
-   Mem0 compares the new memory against existing ones to detect duplication or contradiction and handles updates accordingly.
-
-3. **Memory Storage**
-   The result is stored in a vector database (for semantic search) and optionally in a graph structure (for relationship mapping).
-
-You don't need to handle any of this manually - Mem0 takes care of it with a single API call or SDK method.
-
----
-
-## Example: Mem0 Platform
+## Add with Mem0 Platform
 
 <CodeGroup>
 ```python Python
@@ -79,9 +88,11 @@ await client.add({
 ```
 </CodeGroup>
 
----
+<Info icon="check">
+  Expect a `memory_id` (or list of IDs) in the response. Check the Mem0 dashboard to confirm the new entry under the correct user.
+</Info>
 
-## Example: Mem0 Open Source
+## Add with Mem0 Open Source
 
 <CodeGroup>
 ```python Python
@@ -125,7 +136,9 @@ const result = memory.add(messages, {
 ```
 </CodeGroup>
 
----
+<Tip>
+  Use `infer=False` only when you need to store raw transcripts. Most workflows benefit from Mem0 extracting structured memories automatically.
+</Tip>
 
 ## When Should You Add Memory?
 
@@ -145,9 +158,38 @@ Storing this context allows the agent to reason better in future interactions.
 For full list of supported fields, required formats, and advanced options, see the
 [Add Memory API Reference](/api-reference/memory/add-memories).
 
----
+## Managed vs OSS differences
 
-## Need help?
-If you have any questions, please feel free to reach out to us using one of the following methods:
+| Capability | Mem0 Platform | Mem0 OSS |
+| --- | --- | --- |
+| Conflict resolution | Automatic with dashboard visibility | SDK handles merges locally; you control storage |
+| Graph writes | Toggle per request (`enable_graph=True`) | Requires configuring a graph provider |
+| Rate limits | Managed quotas per workspace | Limited by your hardware and provider APIs |
+| Dashboard visibility | Yes — inspect memories visually | Inspect via CLI, logs, or custom UI |
 
-<Snippet file="get-help.mdx"/>
+## Put it into practice
+
+- Review the <Link href="/platform/advanced-memory-operations">Advanced Memory Operations</Link> guide to layer metadata, rerankers, and graph toggles.
+- Explore the <Link href="/api-reference/memory/add-memories">Add Memories API reference</Link> for every request/response field.
+
+## See it live
+
+- <Link href="/examples/customer-support-agent">Customer Support Agent</Link> shows add + search powering a support flow.
+- <Link href="/examples/personal-ai-tutor">Personal AI Tutor</Link> uses add to personalize lesson plans.
+
+{/* DEBUG: verify CTA targets */}
+
+<CardGroup cols={2}>
+  <Card
+    title="Explore Search Concepts"
+    description="See how stored memories feed retrieval in the Search guide."
+    icon="search"
+    href="/core-concepts/memory-operations/search"
+  />
+  <Card
+    title="Build a Support Agent"
+    description="Follow the cookbook to apply add/search/update in production."
+    icon="rocket"
+    href="/examples/customer-support-agent"
+  />
+</CardGroup>

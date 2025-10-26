@@ -5,82 +5,105 @@ iconType: "solid"
 description: "Self-host Mem0 with full control over your infrastructure and data"
 ---
 
+# Mem0 Open Source Overview
+
+Mem0 Open Source delivers the same adaptive memory engine as the platform, but packaged for teams that need to run everything on their own infrastructure. You own the stack, the data, and the customizations.
+
 <Tip>
-**Mem0 v1.0.0 is now available** — Introducing rerankers, async by default, Azure support, and more. [View changelog →](/changelog)
+  Mem0 v1.0.0 brought rerankers, async-by-default clients, and Azure OpenAI support. See the <Link href="/changelog">release notes</Link> for the full rundown before upgrading.
 </Tip>
 
-## Self-Host Mem0 with Full Control
+## What Mem0 OSS provides
 
-Mem0 Open Source gives you a powerful, self-hosted memory layer for AI agents. Deploy on your infrastructure, customize every component, and maintain complete data ownership.
+- **Full control**: Tune every component, from LLMs to vector stores, inside your environment.
+- **Offline ready**: Keep memory on your own network when compliance or privacy demands it.
+- **Extendable codebase**: Fork the repo, add providers, and ship custom automations.
 
-## Get Started
+<Info>
+  Begin with the <Link href="/open-source/python-quickstart">Python quickstart</Link> (or the Node.js variant) to clone the repo, configure dependencies, and validate memory reads/writes locally.
+</Info>
 
-Choose your preferred SDK and get Mem0 running locally in minutes:
+## Choose your path
 
 <CardGroup cols={2}>
   <Card title="Python Quickstart" icon="python" href="/open-source/python-quickstart">
-    Install and configure Mem0 OSS with Python in 10 minutes
+    Bootstrap the CLI, run dockerized dependencies, and verify the add/search loop.
   </Card>
-
   <Card title="Node.js Quickstart" icon="node" href="/open-source/node-quickstart">
-    Set up Mem0 OSS with Node.js and TypeScript support
+    Install the TypeScript SDK, wire environment variables, and run the starter script.
   </Card>
 </CardGroup>
-
-## Explore OSS Capabilities
-
-Mem0 Open Source offers powerful features for building production-grade AI applications with memory. From graph-based knowledge structures to flexible component configuration, you have full control over how memory works in your system.
 
 <CardGroup cols={3}>
-  <Card title="Graph Memory" icon="network-wired" href="/open-source/features/graph-memory">
-    Build relationship-aware memory with knowledge graph capabilities
+  <Card title="Configure Components" icon="sliders" href="/open-source/configuration">
+    Choose your LLM, embedder, vector store, and reranker with YAML or code.
   </Card>
-
-  <Card title="Component Configuration" icon="sliders" href="/open-source/configuration">
-    Choose your LLM, vector database, embedding model, and rerankers
+  <Card title="Graph Memory Capability" icon="network-wired" href="/open-source/features/graph-memory">
+    Add relationship-aware recall across providers like Neo4j, Memgraph, or Kùzu.
   </Card>
-
-  <Card title="REST API" icon="bolt" href="/open-source/features/rest-api">
-    Build high-throughput pipelines with async clients and REST endpoints
+  <Card title="Tune Retrieval & Rerankers" icon="sparkles" href="/open-source/features/reranker-search">
+    Optimize search quality with hybrid retrieval and reranker depth controls.
   </Card>
 </CardGroup>
 
+<CardGroup cols={2}>
+  <Card title="Deploy with Docker Compose" icon="server" href="/examples/mem0-with-ollama">
+    Follow the reference deployment to persist memories and expose REST endpoints.
+  </Card>
+  <Card title="Use the REST API" icon="code" href="/open-source/features/rest-api">
+    Call the REST endpoints for async add/search flows and project automation.
+  </Card>
+</CardGroup>
+
+<Tip>
+  Need a managed alternative? Compare hosting models in the <Link href="/platform/platform-vs-oss">Platform vs OSS guide</Link> or switch tabs to the Platform documentation.
+</Tip>
+
+<AccordionGroup>
+  <Accordion title="What you get with Mem0 OSS" icon="code-branch">
+
+    | Benefit | What you get |
+    | --- | --- |
+    | Full infrastructure control | Host on your own servers with complete access to configuration and deployment. |
+    | Complete customization | Modify the implementation, extend functionality, and tailor it to your stack. |
+    | Local development | Perfect for development, testing, and offline environments. |
+    | No vendor lock-in | Keep ownership of your data, providers, and pipelines. |
+    | Community driven | Contribute improvements and tap into a growing ecosystem. |
+  </Accordion>
+</AccordionGroup>
+
+## Default components
+
 <Note>
-**Platform vs OSS?** See our [comparison guide](/platform/platform-vs-oss) to understand which deployment option fits your use case.
+  Mem0 OSS works out of the box with sensible defaults:
+  - LLM: OpenAI `gpt-4.1-nano-2025-04-14` (via `OPENAI_API_KEY`)
+  - Embeddings: OpenAI `text-embedding-3-small`
+  - Vector store: Local Qdrant instance storing data at `/tmp/qdrant`
+  - History store: SQLite database at `~/.mem0/history.db`
+  - Reranker: Disabled until you configure a provider
+
+  Override any component with <Link href="/open-source/configuration">`Memory.from_config`</Link>.
 </Note>
 
----
+## Keep going
 
-## Why Choose Open Source?
+{/* DEBUG: verify CTA targets */}
 
-| Benefit | What You Get |
-|---------|--------------|
-| **Full Infrastructure Control** | Host on your own servers with complete access to configuration and deployment |
-| **Complete Customization** | Modify implementation, extend functionality, and adapt to your specific needs |
-| **Local Development** | Perfect for development, testing, and air-gapped environments |
-| **No Vendor Lock-in** | Own your data, choose your stack, and maintain full independence |
-| **Community Driven** | Contribute to and benefit from active community improvements and integrations |
+<CardGroup cols={2}>
+  <Card
+    title="Review Platform vs OSS"
+    description="Confirm whether managed infrastructure or self-hosting better suits your workload."
+    icon="arrows-left-right"
+    href="/platform/platform-vs-oss"
+  />
+  <Card
+    title="Run the Python Quickstart"
+    description="Clone the repo, install dependencies, and persist your first local memory."
+    icon="terminal"
+    href="/open-source/python-quickstart"
+  />
+</CardGroup>
 
-<Info>
-**Looking for production scale?** [Mem0 Platform](/platform/overview) offers managed infrastructure with advanced features like webhooks, multimodal support, and enterprise support.
-</Info>
-
-<Note>
-**Need help?** Check out our [GitHub repository](https://mem0.dev/gd) for source code, issues, and community discussions.
-</Note>
-
----
-
-## Default Components
-
-<Note>
-**No configuration needed to get started.** Mem0 works out of the box with sensible defaults:
-
-- **LLM**: OpenAI `gpt-4.1-nano-2025-04-14` via your `OPENAI_API_KEY`
-- **Embeddings**: OpenAI `text-embedding-3-small` (1536 dimensions)
-- **Vector store**: Local Qdrant instance storing data at `/tmp/qdrant`
-- **History storage**: SQLite database at `~/.mem0/history.db`
-- **Reranker**: Disabled unless you configure one
-
-Override any component with [`Memory.from_config`](/open-source/configuration).
-</Note>
+<Tip>
+  Need a managed alternative? Compare hosting models in the <Link href="/platform/platform-vs-oss">Platform vs OSS guide</Link> or switch tabs to the Platform documentation.
+</Tip>

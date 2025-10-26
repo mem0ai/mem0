@@ -14,6 +14,7 @@ API reference pages document a single endpoint contract. Present metadata, reque
 - Frontmatter must include `title`, `description`, `icon`, `method`, `path`. Heading should be `# METHOD /path`.
 - Provide a quick facts table (Method, Path, Auth, Rate limit) followed by an `<Info>` block describing when to use the endpoint. Add `<Warning>` for beta headers or scope requirements.
 - Requests require headers table, body/parameters table, and `<CodeGroup>` with cURL, Python, TypeScript. If a language is unavailable, include a `<Note>` explaining why.
+- When migrating an existing endpoint page, keep the canonical examples and edge-case notes—drop them into these sections rather than inventing new payloads unless the API changed.
 - Response section must show a canonical success payload, status-code table, and troubleshooting tips. Document pagination/idempotency in `<Tip>` or `<Note>` blocks.
 - End with related endpoints, a sample workflow link, and two CTA cards (left = concept/feature, right = applied tutorial). Keep the comment reminder for reviewers.
 

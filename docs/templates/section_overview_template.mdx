@@ -13,7 +13,9 @@ Overview pages orient readers for an entire section. Summarize who it’s for, s
 ## ❌ DO NOT COPY — Guidance & Constraints
 - Frontmatter must include `title`, `description`, `icon`. Keep the hero paragraph under two sentences describing audience + outcome.
 - Provide an `<Info>` block pointing to the primary entry point (usually the quickstart). Use `<Warning>` only for major caveats (beta, deprecation).
-- Card grids should list 4–6 journeys max using `<CardGroup cols={3}>` or `<Cards>`. Copy must stay ≤15 words, and every card needs an icon + link.
+- Stage journeys in 4–6 cards total. Break into multiple `<CardGroup>` rows when a binary choice (e.g., Python vs Node) or stacked journeys reads better. Keep copy ≤15 words with icons + links.
+- When migrating an existing overview, reuse the established journeys, images, and stats—reshape them into this layout rather than cutting content unless it’s outdated.
+- Optional accordions (`<AccordionGroup>`) can tuck detailed tables (feature breakdowns, comparisons) beneath the hero when extra context is helpful.
 - Optional visuals (comparison table, Mermaid diagram) should be left-to-right and only added when they reduce confusion.
 - Finish with exactly two CTA cards: left = adjacent/alternative track, right = next logical step deeper in the section.
 
@@ -37,6 +39,15 @@ icon: "compass"
 </Info>
 
 {/* Optional: delete if not needed */}
+<AccordionGroup>
+  <Accordion title="[Optional value table]" icon="sparkles">
+    | Feature | Why it helps |
+    | --- | --- |
+    | ... | ... |
+  </Accordion>
+</AccordionGroup>
+
+{/* Optional: delete if not needed */}
 ```mermaid
 graph LR
   A[Get set up] */} B[Learn concepts]
@@ -46,26 +57,29 @@ graph LR
 
 ## Choose your path
 
-<CardGroup cols={3}>
-  <Card title="[Journey 1]" icon="rocket" href="/[link-1]">
+{/* Use multiple rows if a 2-up decision helps */}
+<CardGroup cols={2}>
+  <Card title="[Decision 1]" icon="rocket" href="/[link-1]">
     [One-line outcome]
   </Card>
-  <Card title="[Journey 2]" icon="brain" href="/[link-2]">
-    [One-line outcome]
-  </Card>
-  <Card title="[Journey 3]" icon="sparkles" href="/[link-3]">
-    [One-line outcome]
-  </Card>
-  <Card title="[Journey 4]" icon="book" href="/[link-4]">
-    [One-line outcome]
-  </Card>
-  <Card title="[Journey 5]" icon="life-ring" href="/[link-5]">
-    [One-line outcome]
-  </Card>
-  <Card title="[Journey 6]" icon="gear" href="/[link-6]">
+  <Card title="[Decision 2]" icon="brain" href="/[link-2]">
     [One-line outcome]
   </Card>
 </CardGroup>
+
+<CardGroup cols={3}>
+  <Card title="[Journey 1]" icon="sparkles" href="/[link-3]">
+    [One-line outcome]
+  </Card>
+  <Card title="[Journey 2]" icon="gear" href="/[link-4]">
+    [One-line outcome]
+  </Card>
+  <Card title="[Journey 3]" icon="book" href="/[link-5]">
+    [One-line outcome]
+  </Card>
+</CardGroup>
+
+{/* Duplicate another CardGroup (2 or 3 columns) if you need more coverage, but keep the total ≤6 cards. */}
 
 <Tip>
   [Optional cross-link, e.g., “Self-hosting? Jump to the OSS overview.”] Delete if unused.
