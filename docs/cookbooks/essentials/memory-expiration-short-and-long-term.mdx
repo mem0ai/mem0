@@ -31,6 +31,10 @@ from datetime import datetime, timedelta
 client = MemoryClient(api_key="your-api-key")
 ```
 
+<Note>
+Import `datetime` and `timedelta` to calculate expiration dates. Without these imports, you'll need to manually format ISO timestamps—error-prone and harder to read.
+</Note>
+
 ---
 
 ## Default Behavior: Everything Persists
@@ -65,6 +69,10 @@ Both the preference and session context persist. The preference is useful, but t
 
 Without expiration, memories accumulate forever. Session notes from weeks ago mix with current preferences. Storage grows, search results get polluted with irrelevant old context, and retrieval quality degrades.
 
+<Warning>
+Memory bloat degrades search quality. When "User prefers dark mode" competes with "Currently browsing electronics" from 6 months ago, semantic search returns stale session data instead of actual preferences. Old memories pollute retrieval.
+</Warning>
+
 ---
 
 ## Short-Term Memories: Adding Expiration
@@ -91,7 +99,15 @@ client.add(
 
 ```
 
+<Info icon="check">
+**Expected behavior:** After 7 days, the session context automatically disappears—no cron jobs, no manual cleanup. The preference persists forever. Mem0 handles expiration transparently.
+</Info>
+
 Memories with `expiration_date` are automatically removed after expiring. No cleanup job needed - Mem0 handles it.
+
+<Tip>
+Start conservative with short expiration windows (7 days), then extend them based on usage patterns. It's easier to increase retention than to clean up over-retained stale data. Monitor search quality to find the right balance.
+</Tip>
 
 ---
 
@@ -232,22 +248,24 @@ Permanent: User prefers email notifications
 
 ---
 
-## Conclusion
+## What You Built
 
-Memory expiration keeps storage clean and search results relevant. In this cookbook, we demonstrated:
+A self-cleaning memory system with automatic retention policies:
 
-- **Default behavior:** Memories persist forever unless you set expiration
-- **Temporary memories:** Use `expiration_date` for session context and short-term data
-- **Permanent memories:** Skip `expiration_date` for preferences and core facts
-- **Automatic cleanup:** Mem0 removes expired memories - no job needed
+- **Automatic expiration** - Memories self-destruct after defined periods, no cron jobs needed
+- **Tiered retention** - 7-day session context, 30-day chat history, permanent preferences
+- **Metadata tagging** - Classify memories by type (session, preference, chat) for filtered retrieval
+- **Expiration tracking** - Check which memories will expire and when using `get_all()`
 
-Start by identifying what's temporary (session notes, recent chat) versus permanent (preferences, account info). Use expiration dates for temporary data to keep your memory system lean.
+This pattern keeps storage costs low and search quality high as your memory store scales.
 
-**Next steps:**
+---
 
-- Controlling Memory Ingestion (filter what gets stored)
-- Building AI with Personality (scope memories with user_id and agent_id)
-- Deciding Memory Architecture (vector vs graph stores)
+## Summary
+
+Memory expiration keeps storage clean and search results relevant. Use **`expiration_date`** for temporary data (session context, recent chats), skip it for permanent facts (preferences, account info). Mem0 handles cleanup automatically—no background jobs required.
+
+Start by identifying what's temporary versus permanent, then set conservative expiration windows and adjust based on retrieval quality.
 
 <CardGroup cols={2}>
   <Card title="Control Memory Ingestion" icon="filter" href="/cookbooks/essentials/controlling-memory-ingestion">

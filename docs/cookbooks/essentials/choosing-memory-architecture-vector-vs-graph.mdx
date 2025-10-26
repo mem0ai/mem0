@@ -49,6 +49,10 @@ Emma is a software engineer in Seattle
 
 ```
 
+<Info>
+**Expected output:** Vector search returned Emma's role instantly. When queries ask for facts directly stored in one memory, vector semantic search is perfect—fast and accurate.
+</Info>
+
 This works perfectly. Vector search found the memory that semantically matches "What does Emma do?" and returned Emma's role.
 
 ---
@@ -94,6 +98,10 @@ Vector search returned both memories, but it didn't connect them. You'd need to 
 - Emma's teammate is David (from memory 1)
 - David's manager is Rachel (from memory 2)
 - So the answer is Rachel
+
+<Warning>
+Vector search can't traverse relationships. It returns relevant memories, but you must connect the dots manually. For "Who is Emma's teammate's manager?", vector search gives you the pieces—not the answer. This breaks down as queries get more complex (3+ hops).
+</Warning>
 
 ---
 
@@ -148,6 +156,10 @@ Relationships found:
   david, rachel (reports_to)
 
 ```
+
+<Info>
+**Expected behavior:** Graph memory returns the direct answer—"David reports to Rachel"—plus the relationship chain that got there. No manual connecting needed. The graph traversed: Emma → works_with → David → reports_to → Rachel.
+</Info>
 
 Graph memory traversed the relationships automatically: Emma works with David, David reports to Rachel, so Rachel is the answer.
 
@@ -261,11 +273,19 @@ Rachel runs weekly team syncs every Tuesday
 
 Graph memory connected: Emma works with David, David reports to Rachel, Rachel runs team syncs.
 
+<Tip>
+Enable graph memory when your queries need multi-hop traversal: org charts (who reports to whom), project teams (who collaborates), CRMs (which contacts connect to companies). For single-fact lookups, stick with vector search—it's faster and cheaper.
+</Tip>
+
 ---
 
 ## The Tradeoff
 
 Graph memory adds processing time and cost. When you call `client.add()` with `enable_graph=True`, Mem0 makes extra LLM calls to extract entities and relationships.
+
+<Note>
+**Cost consideration:** Graph memory extraction adds ~2-3 extra LLM calls per `add()` operation to identify entities and relationships. Use it selectively—enable graph for organizational structure and long-term relationships, skip it for temporary notes and simple facts.
+</Note>
 
 Use graph memory when the relationship traversal adds real value. For most use cases, vector search is sufficient and faster.
 
@@ -312,21 +332,24 @@ client.add("Emma mentors Jordan", user_id="company_kb")
 
 ---
 
+## What You Built
+
+A hybrid company knowledge base that combines both architectures:
+
+- **Vector search** - Fast semantic lookups for individual facts (Emma's skills, David's experience)
+- **Graph memory** - Multi-hop relationship traversal (Emma's teammate's manager, project hierarchies)
+- **Selective enablement** - Graph only for long-term organizational structure, vector for everything else
+- **Cost optimization** - Skip graph extraction for temporary notes and simple facts
+
+This pattern scales from 10-person startups to enterprise org charts with thousands of employees.
+
+---
+
 ## Summary
 
-Vector stores handle most memory operations efficiently - semantic search works great for finding relevant information. Add graph memory when your queries need to understand how entities connect.
+Vector stores handle most memory operations efficiently—semantic search works great for finding relevant information. Add graph memory when your queries need to understand how entities connect across multiple hops.
 
-For our company knowledge base:
-
-- Individual facts: vector store (fast, efficient)
-- Team relationships: graph memory (understands connections)
-
-The key is knowing which tool fits your query pattern. Direct questions work with vectors. Multi-hop questions need graphs.
-
-**Next steps:**
-
-- User vs Agent IDs cookbook (scope memories by assistant)
-- Memory Expiration cookbook (clean up old data)
+The key is knowing which tool fits your query pattern: direct questions work with vectors, multi-hop relationship queries need graphs.
 
 <CardGroup cols={2}>
   <Card title="Build AI with Personality" icon="sparkles" href="/cookbooks/essentials/building-ai-with-personality">

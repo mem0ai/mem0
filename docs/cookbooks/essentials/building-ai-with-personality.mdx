@@ -73,6 +73,10 @@ strength work to complement your running. Try 3 sets of bodyweight squats
 
 ```
 
+<Info>
+**Expected output:** Sarah gets running advice based on her 5K, not Mike's bench press data. The **`user_id`** filter ensures memories are isolated—each user only sees their own workout history.
+</Info>
+
 This works perfectly! Each user has private workout history, and Sarah never sees Mike's data.
 
 ---
@@ -103,6 +107,10 @@ This approach has some limitations:
 1. **Duplication**: We're storing the same coaching personality 1,000 times for 1,000 users
 2. **Hard to update**: Want to change the coaching style? Update 1,000 memories
 3. **Mixed with user data**: Coach personality and user workouts are stored together, making queries complex
+
+<Warning>
+Storing agent personality with **`user_id`** doesn't scale. For 10,000 users, you'd duplicate the same personality 10,000 times. Updating the coaching style means updating 10,000 separate memories. This wastes storage and makes maintenance impossible.
+</Warning>
 
 What if the coach could have a personality that's shared across all users?
 
@@ -179,6 +187,10 @@ The coach personality is now:
 - ✅ Stored once, shared by all users
 - ✅ Easy to update (change one memory, affects all users)
 - ✅ Cleanly separated from user workout data
+
+<Info>
+**Expected behavior:** The response combines the motivational tone (from **`agent_id`**) with Sarah's specific 5K progress (from **`user_id`**). One agent personality, infinite users—update the agent once, and all users get the new coaching style.
+</Info>
 
 ---
 
@@ -289,6 +301,10 @@ On track at current rate (+3.2% weekly).
 ```
 
 Same coach, completely different experience based on each user's relationship preferences stored in metadata.
+
+<Note>
+**Relationship memories** are stored with **`user_id`** (they're private to each user) but include `agent_id` in metadata to track which agent the relationship is with. This lets you retrieve the user's preferences for how this specific agent should interact with them.
+</Note>
 
 ---
 
@@ -472,6 +488,12 @@ mem0_client.add(
 
 ---
 
+<Tip>
+**When to combine user_id + agent_id:** Use both when your AI has a consistent personality that should work the same for everyone (agent_id), while also tracking individual user data (user_id). Most personal AI assistants, coaches, and tutors fit this pattern.
+</Tip>
+
+---
+
 ## Best Practices
 
 ### 1. Use clear naming conventions
@@ -552,35 +574,24 @@ mem0_client.add(
 
 ---
 
-## Summary
+## What You Built
 
-With Mem0's `user_id` and `agent_id` parameters, you can build AI agents that:
+A fitness coach with three-layer memory architecture:
 
-✅ Maintain consistent personalities across all users (`agent_id`)
-✅ Remember individual user data privately (`user_id`)
-✅ Develop unique relationships with each user (store agent context in metadata)
-✅ Prevent data leakage between users
-✅ Update agent behavior in one place
+- **Agent personality (agent_id)** - Shared coaching style across all users, updated once
+- **User profiles (user_id)** - Private workout history, goals, and progress for each person
+- **Relationship memories (user_id + metadata)** - Personalized interaction preferences per user-agent pair
+- **Data isolation** - Sarah never sees Mike's workouts, guaranteed by user_id filtering
 
-**The fitness coach you built demonstrates:**
-
-- User workout tracking (user_id)
-- Shared coaching personality (agent_id)
-- Personalized relationships (user_id with agent_id in metadata)
-
-Most apps only need `user_id`. Add `agent_id` when your AI needs a consistent personality that evolves independently from user data.
+This pattern scales from 10 to 10,000 users without duplicating agent personality.
 
 ---
 
-## Next Steps
+## Summary
 
-Now that you understand memory scoping, explore:
+With Mem0's **`user_id`** and **`agent_id`** parameters, you can build AI agents that maintain consistent personalities across all users while remembering individual user data privately. Store relationship preferences with **`user_id`** and track agent context in metadata.
 
-- **Memory expiration** - Automatically delete old workout logs while keeping user profiles
-- **Quality control** - Filter what gets stored (e.g., only validated exercises)
-- **Graph memory** - Connect related exercises and muscle groups
-
-We're excited to see what you build with Mem0's flexible memory system!
+Most apps only need **`user_id`**. Add **`agent_id`** when your AI needs a consistent personality that evolves independently from user data—fitness coaches, tutors, therapy bots, and game NPCs all fit this pattern.
 
 <CardGroup cols={2}>
   <Card title="Control What Gets Stored" icon="filter" href="/cookbooks/essentials/controlling-memory-ingestion">

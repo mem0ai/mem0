@@ -19,6 +19,10 @@ client = MemoryClient(api_key="your-api-key")
 
 ```
 
+<Note>
+Your API key needs export permissions to download memory data. Check your project settings on the [dashboard](https://app.mem0.ai) if export operations fail with authentication errors.
+</Note>
+
 Let's add some sample memories to work with:
 
 ```python
@@ -69,6 +73,10 @@ Total memories: 1
 First memory: Dev works at TechCorp as a senior engineer
 
 ```
+
+<Info>
+**Expected output:** `get_all()` retrieved Dev's complete memory record. This method returns everything matching your filters—no semantic search, no ranking, just raw retrieval. Perfect for exports and audits.
+</Info>
 
 You can filter by metadata to get specific types:
 
@@ -172,6 +180,10 @@ Status: processing
 
 ```
 
+<Info>
+**Export initiated:** Status is "processing". Large exports may take a few seconds. Poll with `get_memory_export()` until status changes to "completed" before downloading data.
+</Info>
+
 ### Step 3: Download the export
 
 ```python
@@ -226,6 +238,10 @@ export_with_instructions = client.create_memory_export(
 
 ```
 
+<Tip>
+Always check export status before downloading. Call `get_memory_export()` in a loop with a short delay until `status == "completed"`. Attempting to download while still processing returns incomplete data.
+</Tip>
+
 ---
 
 ## Platform Export
@@ -239,24 +255,29 @@ You can also export memories directly from the Mem0 platform UI:
 
 This is useful for one-off exports or manual data reviews.
 
+<Warning>
+Exported data expires after 7 days. Download and store exports locally if you need long-term archives. After expiration, you'll need to recreate the export job.
+</Warning>
+
+---
+
+## What You Built
+
+A complete memory export system with multiple retrieval methods:
+
+- **Bulk retrieval (get_all)** - Fetch all memories matching filters for comprehensive audits
+- **Semantic search** - Query-based lookups with relevance scoring
+- **Structured exports** - Pydantic-schema exports for migrations and compliance
+- **Export instructions** - Guide conflict resolution and data formatting
+- **Platform UI exports** - One-off manual downloads via dashboard
+
+This covers data portability, GDPR compliance, system migrations, and manual reviews.
+
 ---
 
 ## Summary
 
-You've learned how to retrieve and export memories from Mem0:
-
-- **`get_all()`** - Fetch all memories matching filters
-- **`search()`** - Semantic search for specific queries
-- **`create_memory_export()`** - Generate structured exports with schemas
-- **`get_memory_export()`** - Download completed exports
-
-Use `get_all()` for bulk retrieval, `search()` for specific questions, and exports for migrations or compliance needs.
-
-**Next steps:**
-
-- Memory expiration (automatic cleanup of old data)
-- Quality control (filtering what gets stored)
-- Graph memory (relationship-based retrieval)
+Use **`get_all()`** for bulk retrieval, **`search()`** for specific questions, and **`create_memory_export()`** for structured data exports with custom schemas. Remember exports expire after 7 days—download them locally for long-term archives.
 
 <CardGroup cols={2}>
   <Card title="Expire Short-Term Data" icon="timer" href="/cookbooks/essentials/memory-expiration-short-and-long-term">

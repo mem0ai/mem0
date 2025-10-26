@@ -73,6 +73,10 @@ chat("What should I focus on today?", user_id="max")
 
 ```
 
+<Info>
+Ray remembers Max's goal across sessions. The app restarted, but the memory persisted. This is the core pattern: retrieve memories, pass them as context, store new exchanges.
+</Info>
+
 Ray remembers. Restart the app, and the goal persists. From here on, we'll focus on just the Mem0 API calls.
 
 ---
@@ -98,6 +102,10 @@ mem0_client.project.update(custom_categories=[
 ])
 
 ```
+
+<Note>
+**Categories vs Metadata:** Categories are AI-assigned by Mem0 based on content semantics. You define the palette, Mem0 picks which ones apply. If you need guaranteed tagging, use `metadata` instead.
+</Note>
 
 Now when you add memories, Mem0 automatically assigns the appropriate categories:
 
@@ -162,6 +170,10 @@ print([m["memory"] for m in memories["results"]])
 
 ```
 
+<Warning>
+Without filters, Mem0 stores everything—greetings, filler, and casual chat. This pollutes retrieval: instead of pulling "marathon goal," you get "lol ok." Set custom instructions to keep memory clean.
+</Warning>
+
 Noise. Greetings and filler clutter the memory.
 
 ### Custom Instructions
@@ -195,6 +207,10 @@ print([m["memory"] for m in memories["results"]])
 # Output: ["Max wants to run marathon under 4 hours", "Max prefers trail running over roads"]
 
 ```
+
+<Info>
+**Expected output:** Only 2 memories stored—the marathon goal and trail preference. The greeting "hey how's it going" was filtered out automatically. Custom instructions are working.
+</Info>
 
 Only meaningful facts. Filler gets dropped automatically.
 
@@ -232,6 +248,10 @@ mem0_client.add([
 ], user_id="max", agent_id="ray_coach")
 
 ```
+
+<Info>
+**Expected behavior:** Ray's responses are now data-driven and direct. The agent memory stored the coaching style preference, so future responses adapt automatically without Max having to repeat his preference.
+</Info>
 
 No "Great job!" or "Keep it up!" - just data. Ray adapts to Max's preference.
 
@@ -473,6 +493,12 @@ A companion that:
 - **Scales to production** - batching, metadata, pruning
 
 This pattern works for any companion: fitness coaches, tutors, roleplay characters, therapy bots, creative writing partners.
+
+---
+
+<Tip>
+Start with 2-3 categories max (e.g., goals, constraints, preferences). More categories dilute tagging accuracy. You can always add more later after seeing what Mem0 extracts.
+</Tip>
 
 ---
 

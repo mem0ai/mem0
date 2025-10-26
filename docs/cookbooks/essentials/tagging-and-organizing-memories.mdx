@@ -18,6 +18,10 @@ from mem0 import MemoryClient
 client = MemoryClient(api_key="your-api-key")
 ```
 
+<Note>
+Define custom categories at the **project level** with `client.project.update()` before adding memories. Categories apply to all future memories—Mem0 auto-assigns them based on content semantics.
+</Note>
+
 ---
 
 ## The Problem
@@ -62,6 +66,10 @@ Total memories: 3
 
 ```
 
+<Warning>
+Without categories, agents waste time reading through everything. For a customer with 100 memories, finding one billing issue means scanning all 100. Categories let you filter to exactly what you need—billing issues only, no password resets or feedback mixed in.
+</Warning>
+
 Everything is mixed together. Support agents have to read through all memories to find what they need.
 
 ---
@@ -81,6 +89,10 @@ custom_categories = [
 client.project.update(custom_categories=custom_categories)
 
 ```
+
+<Tip>
+Start with 3-5 clear categories that match how your team thinks. Too many categories dilute auto-tagging accuracy. Add more later if needed—it's easier to expand than to fix over-complicated classification.
+</Tip>
 
 These categories are now available project-wide. Every memory can be tagged with one or more categories.
 
@@ -147,6 +159,10 @@ Billing issues:
 
 ```
 
+<Info icon="check">
+**Expected output:** Only the billing issue returned—no password reset, no upgrade request. Category filtering worked. Joseph can audit billing without reading through unrelated support tickets.
+</Info>
+
 Only billing-related memories are returned. No need to filter through account updates or feedback.
 
 You can also retrieve multiple categories:
@@ -205,23 +221,25 @@ When you update a memory, Mem0 re-analyzes it against your current category defi
 
 ---
 
+## What You Built
+
+A customer support platform with intelligent memory organization:
+
+- **Project-wide categories** - Support tickets, billing, account info, and product feedback auto-classified
+- **Automatic tagging** - Mem0 assigns categories based on content semantics, no manual tagging
+- **Filtered retrieval** - Pull only billing issues or only account updates using `categories: {in: [...]}`
+- **Re-categorization** - Update memory content to trigger re-analysis against new category definitions
+- **Multi-category support** - Memories can belong to multiple categories when appropriate
+
+This pattern scales from 10 customers to 10,000 without degrading retrieval speed.
+
+---
+
 ## Summary
 
-You've learned how to organize memories with custom categories in Mem0:
+Categories make retrieval faster and compliance easier. Define 3-5 clear categories with `client.project.update()`, let Mem0 auto-assign them based on content, then filter with `categories: {in: [...]}` to pull exactly what you need.
 
-- **Define categories** with `client.project.update(custom_categories=[...])`
-- **Automatic tagging** - Mem0 intelligently assigns categories based on content
-- **Retrieve by category** using filters with `categories: {in: [...]}`
-- **Re-categorize memories** by updating content to trigger re-analysis
-- **Multiple categories** - Mem0 can assign multiple categories when appropriate
-
-Categories make retrieval faster, analytics clearer, and compliance easier. Instead of searching through everything, support agents can jump directly to the type of information they need.
-
-**Next steps:**
-
-- Memory expiration (automatically clean up old support tickets)
-- Quality control (filter what gets stored)
-- Exporting memories (bulk export by category)
+Instead of searching through everything, agents jump directly to the information type they need—billing issues, account details, or support tickets.
 
 <CardGroup cols={2}>
   <Card title="Control Memory Ingestion" icon="filter" href="/cookbooks/essentials/controlling-memory-ingestion">

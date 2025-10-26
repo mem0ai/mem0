@@ -37,6 +37,10 @@ from mem0 import MemoryClient
 client = MemoryClient(api_key="your-api-key")
 ```
 
+<Note>
+Replace `your-api-key` with your actual Mem0 API key from the [dashboard](https://app.mem0.ai). Without proper API authentication, memory operations will fail.
+</Note>
+
 ---
 
 ## The Problem
@@ -59,6 +63,10 @@ print(results['results'][0]['memory'])
 ```
 Patient is allergic to penicillin
 ```
+
+<Warning>
+Without custom instructions, AI assistants treat speculation as confirmed facts. "I think I might be allergic" becomes "Patient is allergic"—a dangerous transformation in sensitive domains like healthcare, legal, or financial services.
+</Warning>
 
 The speculation became a confirmed fact. Let's add controls.
 
@@ -100,6 +108,10 @@ print(f"Memories stored: {len(results['results'])}")
 ```
 Memories stored: 0
 ```
+
+<Info>
+**Expected output:** Zero memories stored. The speculative statement "I think I might be allergic" was filtered out before reaching storage. Custom instructions are actively blocking unreliable data.
+</Info>
 
 The speculation was filtered out.
 
@@ -148,6 +160,10 @@ Ignore SPECULATION:
 
 ```
 
+<Tip>
+Start with strict instructions (only store confirmed facts), then relax them based on your use case. It's easier to allow more data than to clean up polluted memory. Test with sample conversations before deploying to production.
+</Tip>
+
 Start with clear categories and iterate based on retrieval quality.
 
 ---
@@ -195,6 +211,10 @@ print("Confirmed fact stored:", len(result2['results']) > 0)
 Vague statement stored: False
 Confirmed fact stored: True
 ```
+
+<Info icon="check">
+**Expected behavior:** Low-confidence extractions are now filtered out automatically. Only verified facts with specific details (names, dates, dosages) persist in memory. The confidence threshold is working.
+</Info>
 
 The vague statement was filtered for low confidence. The confirmed fact with specific details was stored.
 
@@ -460,21 +480,23 @@ This is useful for:
 
 ---
 
-## Conclusion
+## What You Built
 
-Ingestion controls ensure memory quality. In this cookbook, we demonstrated:
+You now have a medical assistant with production-grade memory controls:
 
-- **Custom instructions** filter unwanted content patterns
-- **Confidence thresholds** gate low-quality extractions
-- **Memory updates** maintain data consistency without duplication
+- **Custom instructions** - Filter speculation and enforce confirmed facts only
+- **Confidence thresholds** - Gate extractions below 0.7 confidence score
+- **Memory updates** - Modify stored information without creating duplicates
+- **Per-call instructions** - Apply temporary rules for specific conversations
+- **PII filtering** - Block sensitive data (SSNs, insurance numbers) automatically
 
-These controls prevent retrieval failures and ensure your AI assistant works with reliable information. Start with conservative filters and iterate based on your application's needs.
+These controls prevent retrieval failures and ensure your AI assistant works with reliable, verified information.
 
-**Next steps:**
+---
 
-- Memory Expiration cookbook (automatically remove outdated data)
-- Building AI with Personality (scope memories with user_id and agent_id)
-- Deciding Memory Architecture (vector vs graph stores)
+## Summary
+
+Start with conservative filters (only store confirmed facts) and iterate based on your application's needs. Combine custom instructions with confidence thresholds for the most reliable memory ingestion pipeline.
 
 <CardGroup cols={2}>
   <Card title="Expire Short-Term Data" icon="timer" href="/cookbooks/essentials/memory-expiration-short-and-long-term">
