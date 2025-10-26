@@ -4,126 +4,87 @@ description: "Managed memory layer for AI agents - production-ready in minutes"
 icon: "cloud"
 ---
 
+# Mem0 Platform Overview
+
+Mem0 is the memory engine that keeps conversations contextual so users never repeat themselves and your agents respond with continuity. Mem0 Platform delivers that experience as a fully managed service—scaling, securing, and enriching memories without any infrastructure work on your side.
+
 <Tip>
-**Mem0 v1.0.0 is now available** — Introducing rerankers, async by default, Azure support, and more. [View changelog →](/changelog)
+  Mem0 v1.0.0 shipped rerankers, async-by-default behavior, and Azure OpenAI support. Catch the full list of changes in the <Link href="/changelog">release notes</Link>.
 </Tip>
 
-## Welcome to Mem0 Platform
+## Why it matters
 
-**Mem0 Platform is a fully managed memory layer for AI agents.** Add persistent, personalized memory to your AI applications in minutes - no infrastructure setup required.
+- **Personalized replies**: Memories persist across users and agents, cutting prompt bloat and repeat questions.
+- **Hosted stack**: Mem0 runs the vector store, graph services, and rerankers—no provisioning, tuning, or maintenance.
+- **Enterprise controls**: SOC 2, audit logs, and workspace governance ship by default for production readiness.
 
-## What is Mem0?
+<AccordionGroup>
+  <Accordion title="What you get with Mem0 Platform" icon="sparkles">
 
-Mem0 is a memory layer that enables your AI applications to remember user preferences, conversation history, and contextual information across sessions. Instead of treating every interaction as isolated, Mem0 allows your AI to build on previous conversations and adapt to individual users over time.
+    | Feature | Why it helps |
+    | --- | --- |
+    | Fast setup | Add a few lines of code and you’re production-ready—no vector database or LLM configuration required. |
+    | Production scale | Automatic scaling, high availability, and managed infrastructure so you focus on product work. |
+    | Advanced features | Graph memory, webhooks, multimodal support, and custom categories are ready to enable. |
+    | Enterprise ready | SOC 2 Type II, GDPR compliance, and dedicated support keep security and governance covered. |
+  </Accordion>
+</AccordionGroup>
 
-## What Problem Does It Solve?
+<Info>
+  Start with the <Link href="/platform/quickstart">Platform quickstart</Link> to provision your workspace, then pick the journey below that matches your next milestone.
+</Info>
 
-Without Mem0, every AI conversation starts from scratch:
-- User preferences disappear between sessions
-- Previous context is lost and must be re-explained
-- Personalization becomes impossible
-- AI can't learn or adapt to individual users
-
-With Mem0, your AI remembers:
-- Context persists across sessions with sub-50ms latency
-- Preferences are automatically recalled
-- Responses adapt to each user's history
-- No infrastructure setup or vector DB management required
-
-## Where Can I Use Mem0?
-
-Mem0 powers memory for diverse AI applications. Explore real-world implementations:
-
-- **[Customer Support Agents](/examples/customer-support-agent)** - Remember customer history and preferences
-- **[AI Tutors](/examples/personal-ai-tutor)** - Track learning progress and adapt lessons
-- **[Travel Assistants](/examples/personal-travel-assistant)** - Recall travel preferences and past trips
-- **[Content Writing](/examples/memory-guided-content-writing)** - Maintain consistent voice and context
-
-[View all cookbooks →](/examples)
-
----
-
-## Explore Platform Capabilities
+## Choose your path
 
 <CardGroup cols={2}>
-  <Card
-    title="Platform Quickstart"
-    icon="rocket"
-    href="/platform/quickstart"
-  >
-    Get your first memory stored in 5 minutes. Step-by-step guide with code examples.
+  <Card title="Launch Your Workspace" icon="rocket" href="/platform/quickstart">
+    Create a project, export an API key, and ship your first memory in minutes.
   </Card>
-
-  <Card
-    title="Platform vs Open Source"
-    icon="scale"
-    href="/platform/platform-vs-oss"
-  >
-    Compare managed and self-hosted options. See which fits your needs best.
-  </Card>
-
-  <Card
-    title="Memory Types"
-    icon="brain"
-    href="/core-concepts/memory-types"
-  >
-    Understand user memories, agent memories, and session-specific context.
-  </Card>
-
-  <Card
-    title="Platform Features"
-    icon="sparkles"
-    href="/platform/features/platform-overview"
-  >
-    Explore graph memory, multimodal support, webhooks, and advanced retrieval.
-  </Card>
-
-  <Card
-    title="Framework Integrations"
-    icon="plug"
-    href="/integrations"
-  >
-    Use Mem0 with LangChain, CrewAI, LlamaIndex, and 15+ other frameworks.
-  </Card>
-
-  <Card
-    title="Dashboard"
-    icon="chart-line"
-    href="https://app.mem0.ai"
-  >
-    Monitor memory operations, track usage, and manage your AI agents.
+  <Card title="Understand Memory Types" icon="brain" href="/core-concepts/memory-types">
+    Learn how user, agent, and session memories behave across the platform.
   </Card>
 </CardGroup>
 
----
+<CardGroup cols={3}>
+  <Card title="Master Core Operations" icon="circle-check" href="/core-concepts/memory-operations/add">
+    See how add/search/update/delete work together with verification steps.
+  </Card>
+  <Card title="Explore Platform Features" icon="sparkles" href="/platform/features/platform-overview">
+    Browse graph memory, async clients, and rerankers before turning them on.
+  </Card>
+  <Card title="Configure Advanced Operations" icon="bolt" href="/platform/advanced-memory-operations">
+    Layer metadata filters, rerankers, and per-request toggles onto your flows.
+  </Card>
+</CardGroup>
 
-## Why Choose Mem0 Platform?
+<CardGroup cols={2}>
+  <Card title="Connect Integrations" icon="plug" href="/integrations">
+    Wire Mem0 into LangChain, CrewAI, Vercel AI SDK, and other partner tools.
+  </Card>
+  <Card title="Monitor in the Dashboard" icon="presentation" href="https://app.mem0.ai">
+    Track memory activity, adjust settings, and manage workspaces from one place.
+  </Card>
+</CardGroup>
 
-| Feature | What You Get |
-|---------|--------------|
-| **Fast Setup** | Add 4 lines of code and you're production-ready. No vector DB setup, no LLM configuration, no DevOps. |
-| **Production Scale** | Automatic scaling, high availability, and fully managed infrastructure. Focus on your app, not operations. |
-| **Advanced Features** | Graph memory, webhooks, multimodal support, and custom categories - exclusive to Platform. |
-| **Enterprise Ready** | SOC 2 Type II certified, GDPR compliant, with dedicated support for production workloads. |
+<Tip>
+  Evaluating self-hosting instead? Jump to the <Link href="/platform/platform-vs-oss">Platform vs OSS comparison</Link> to see trade-offs before you commit.
+</Tip>
 
----
+## Keep going
 
-## Next Steps
+{/* DEBUG: verify CTA targets */}
 
 <CardGroup cols={2}>
   <Card
-    title="Start Building"
+    title="Compare with Open Source"
+    description="Review feature parity, migration paths, and when to stay managed."
+    icon="arrows-left-right"
+    href="/platform/platform-vs-oss"
+  />
+  <Card
+    title="Run the Quickstart"
+    description="Provision your workspace, install the SDK, and persist your first memory."
     icon="rocket"
     href="/platform/quickstart"
-  >
-    Follow the quickstart guide to create your first memory in 5 minutes
-  </Card>
-
-  <Card
-    title="Compare Options"
-    icon="code-compare"
-    href="/platform/platform-vs-oss"
-  >
-    See the full comparison between Platform and Open Source
-  </Card>
+  />
 </CardGroup>
