@@ -121,11 +121,11 @@ Key differentiators:
 
 ## Examples and Use Cases
 
-- [Personal AI Tutor](https://docs.mem0.ai/examples/personal-ai-tutor): Build an AI tutor that remembers learning progress and adapts teaching methods
-- [Customer Support Agent](https://docs.mem0.ai/examples/customer-support-agent): Create support agents that remember customer history and preferences
-- [Personalized Travel Assistant](https://docs.mem0.ai/examples/personal-travel-assistant): Develop travel agents that learn from past trips and preferences
-- [Memory-Guided Content Writing](https://docs.mem0.ai/examples/memory-guided-content-writing): Build content generators that remember writing style and topic preferences
-- [Collaborative Task Agent](https://docs.mem0.ai/examples/collaborative-task-agent): Multi-agent systems with shared memory for team coordination
+- [AI Tutor with Mem0](https://docs.mem0.ai/cookbooks/companions/ai-tutor): Build an AI tutor that remembers learning progress and adapts teaching methods
+- [Support Inbox with Mem0](https://docs.mem0.ai/cookbooks/operations/support-inbox): Create support agents that remember customer history and preferences
+- [Travel Assistant with Mem0](https://docs.mem0.ai/cookbooks/companions/travel-assistant): Develop travel agents that learn from past trips and preferences
+- [Content Writing with Mem0](https://docs.mem0.ai/cookbooks/operations/content-writing): Build content generators that remember writing style and topic preferences
+- [Team Task Agent with Mem0](https://docs.mem0.ai/cookbooks/operations/team-task-agent): Multi-agent systems with shared memory for team coordination
 
 ## API Reference
 
