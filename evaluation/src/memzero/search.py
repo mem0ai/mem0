@@ -50,8 +50,9 @@ class MemorySearch:
                         output_format="v1.1",
                     )
                 else:
+                    filters={"OR": [{"user_id": user_id}]}
                     memories = self.mem0_client.search(
-                        query, user_id=user_id, top_k=self.top_k, filter_memories=self.filter_memories
+                        query, filters=filters, top_k=self.top_k, filter_memories=self.filter_memories
                     )
                 break
             except Exception as e:
@@ -69,7 +70,7 @@ class MemorySearch:
                     "timestamp": memory["metadata"]["timestamp"],
                     "score": round(memory["score"], 2),
                 }
-                for memory in memories
+                for memory in memories["results"]
             ]
             graph_memories = None
         else:
@@ -163,6 +164,7 @@ class MemorySearch:
         }
 
         # Save results after each question is processed
+        os.makedirs(os.path.dirname(self.output_path), exist_ok=True)
         with open(self.output_path, "w") as f:
             json.dump(self.results, f, indent=4)
 
