@@ -1,6 +1,6 @@
 # Mem0 REST API Server
 
-Mem0 provides a REST API server (written using FastAPI). Users can perform all operations through REST endpoints. The API also includes OpenAPI documentation, accessible at `/docs` when the server is running.
+Mem0 provides a REST API server (written using FastAPI). Users can perform all operations through REST endpoints. Users can optionally protect REST endpoints using token-based authentication. The API also includes OpenAPI documentation, accessible at `/docs` when the server is running.
 
 ## Features
 

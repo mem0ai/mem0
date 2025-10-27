@@ -12,4 +12,7 @@ EXPOSE 8000
 
 ENV PYTHONUNBUFFERED=1
 
+# Leave empty to disable authentication
+ENV ADMIN_API_KEY=admin
+
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
