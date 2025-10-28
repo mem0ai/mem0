@@ -144,6 +144,7 @@ For detailed integration steps, see the [Quickstart](https://docs.mem0.ai/quicks
 
 - **ChatGPT with Memory**: Personalized chat powered by Mem0 ([Live Demo](https://mem0.dev/demo))
 - **Browser Extension**: Store memories across ChatGPT, Perplexity, and Claude ([Chrome Extension](https://chromewebstore.google.com/detail/onihkkbipkfeijkadecaafbgagkhglop?utm_source=item-share-cb))
+- **Pipecat Integration**: Build voice agents with persistent memory ([Pipecat Docs](https://docs.pipecat.ai/server/services/memory/mem0))
 - **Langgraph Support**: Build a customer bot with Langgraph + Mem0 ([Guide](https://docs.mem0.ai/integrations/langgraph))
 - **CrewAI Integration**: Tailor CrewAI outputs with Mem0 ([Example](https://docs.mem0.ai/integrations/crewai))
 
