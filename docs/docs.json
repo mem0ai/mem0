@@ -507,8 +507,7 @@
                       "api-reference/webhook/delete-webhook"
                     ]
                   }
-                ],
-                "icon": "square-terminal"
+                ]
               },
               {
                 "tab": "Release Notes",
@@ -527,8 +526,7 @@
                       "v0x/introduction"
                     ]
                   }
-                ],
-                "icon": "clock"
+                ]
               }
             ]
           }
