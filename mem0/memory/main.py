@@ -710,11 +710,15 @@ class Memory(MemoryBase):
 
     def _get_all_from_vector_store(self, filters, limit):
         memories_result = self.vector_store.list(filters=filters, limit=limit)
+        # Normalize the memories result, which can be a list, a tuple containing a list,
+        # or a list containing a list.
         actual_memories = (
             memories_result[0]
-            if isinstance(memories_result, (tuple)) and len(memories_result) > 0
+            if isinstance(memories_result, tuple) and len(memories_result) > 0
             else memories_result
         )
+        if actual_memories and isinstance(actual_memories, list) and len(actual_memories) > 0 and isinstance(actual_memories[0], list):
+            actual_memories = actual_memories[0]
 
         promoted_payload_keys = [
             "user_id",
@@ -726,7 +730,7 @@ class Memory(MemoryBase):
         core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", *promoted_payload_keys}
 
         formatted_memories = []
-        for mem in actual_memories:
+        for mem in actual_memories or []:
             memory_item_dict = MemoryItem(
                 id=mem.id,
                 memory=mem.payload.get("data", ""),
@@ -1751,11 +1755,15 @@ class AsyncMemory(MemoryBase):
 
     async def _get_all_from_vector_store(self, filters, limit):
         memories_result = await asyncio.to_thread(self.vector_store.list, filters=filters, limit=limit)
+        # Normalize the memories result, which can be a list, a tuple containing a list,
+        # or a list containing a list.
         actual_memories = (
             memories_result[0]
-            if isinstance(memories_result, (tuple)) and len(memories_result) > 0
+            if isinstance(memories_result, tuple) and len(memories_result) > 0
             else memories_result
         )
+        if actual_memories and isinstance(actual_memories, list) and len(actual_memories) > 0 and isinstance(actual_memories[0], list):
+            actual_memories = actual_memories[0]
 
         promoted_payload_keys = [
             "user_id",
@@ -1767,7 +1775,7 @@ class AsyncMemory(MemoryBase):
         core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", *promoted_payload_keys}
 
         formatted_memories = []
-        for mem in actual_memories:
+        for mem in actual_memories or []:
             memory_item_dict = MemoryItem(
                 id=mem.id,
                 memory=mem.payload.get("data", ""),

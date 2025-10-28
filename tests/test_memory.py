@@ -137,5 +137,59 @@ def test_search_handles_incomplete_payloads(mock_sqlite, mock_llm_factory, mock_
     assert len(result) == 2
     memories_by_id = {mem["id"]: mem for mem in result}
 
-    assert memories_by_id["mem_1"]["memory"] == ""  
-    assert memories_by_id["mem_2"]["memory"] == "content" 
+    assert memories_by_id["mem_1"]["memory"] == ""
+    assert memories_by_id["mem_2"]["memory"] == "content"
+
+
+@pytest.mark.parametrize(
+    "vector_store_return_value, expected_count",
+    [
+        # Standard case: A flat list of mock memory objects
+        ([MockVectorMemory("mem_1", {"data": "content_1"}), MockVectorMemory("mem_2", {"data": "content_2"})], 2),
+        # Case 1: Tuple containing a list of memories (e.g., some vector dbs return this)
+        (([MockVectorMemory("mem_1", {"data": "content_1"}), MockVectorMemory("mem_2", {"data": "content_2"})],), 2),
+        # Case 2: List containing a list of memories
+        ([[MockVectorMemory("mem_1", {"data": "content_1"}), MockVectorMemory("mem_2", {"data": "content_2"})]], 2),
+        # Case 3: Empty list
+        ([], 0),
+        # Case 4: Tuple with an empty list
+        (([],), 0),
+        # Case 5: List with an empty list
+        ([[]], 0),
+        # Case 6: None returned from vector store
+        (None, 0),
+    ],
+)
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_get_all_handles_various_return_types(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory,
+    vector_store_return_value, expected_count
+):
+    """
+    Test that _get_all_from_vector_store correctly normalizes various return
+    types from the vector store's `list` method.
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    # Configure the mock vector store to return the parameterized value
+    mock_vector_store.list.return_value = vector_store_return_value
+
+    # Call the method under test
+    result = memory._get_all_from_vector_store(filters={"user_id": "test"}, limit=10)
+
+    # Assertions
+    assert isinstance(result, list)
+    assert len(result) == expected_count
+    if expected_count > 0:
+        assert result[0]["memory"] == "content_1"
