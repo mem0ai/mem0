@@ -192,6 +192,10 @@ class VectorStoreFactory:
     def create(cls, provider_name, config):
         class_type = cls.provider_to_class.get(provider_name)
         if class_type:
+            # Ensure the config includes embedding_model_dims, using the default from VectorStoreBase if not defined
+            if "embedding_model_dims" not in config:
+                from mem0.vector_stores.base import VectorStoreBase
+                config["embedding_model_dims"] = VectorStoreBase.embedding_model_dims
             if not isinstance(config, dict):
                 config = config.model_dump()
             vector_store_instance = load_class(class_type)

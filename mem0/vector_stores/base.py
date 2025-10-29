@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 
 
 class VectorStoreBase(ABC):
+    embedding_model_dims = 1536  # Default value for embedding model dimensions which aligns with default OpenAI embedder dimensions 
     @abstractmethod
     def create_col(self, name, vector_size, distance):
         """Create a new collection."""
