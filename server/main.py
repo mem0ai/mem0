@@ -76,6 +76,7 @@ class MemoryCreate(BaseModel):
     agent_id: Optional[str] = None
     run_id: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
+    custom_fact_extraction_prompt: Optional[str] = Field(None, description="Custom prompt for fact extraction.")
 
 
 class SearchRequest(BaseModel):
