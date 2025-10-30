@@ -9,13 +9,17 @@ from google.cloud.aiplatform.matching_engine.matching_engine_index_endpoint impo
     Namespace,
 )
 from google.oauth2 import service_account
-from langchain.schema import Document
 from pydantic import BaseModel
 
 from mem0.configs.vector_stores.vertex_ai_vector_search import (
     GoogleMatchingEngineConfig,
 )
 from mem0.vector_stores.base import VectorStoreBase
+
+try:
+    from langchain_core.documents import Document
+except ImportError:
+    from langchain.schema import Document
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
