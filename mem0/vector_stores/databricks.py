@@ -65,7 +65,7 @@ class Databricks(VectorStoreBase):
             catalog (str): Unity Catalog catalog name.
             schema (str): Unity Catalog schema name.
             table_name (str): Source Delta table name.
-            index_name (str, optional): Vector search index name (default: "mem0").
+            collection_name (str, optional): Vector search index name (default: "mem0").
             index_type (str, optional): Index type, either "DELTA_SYNC" or "DIRECT_ACCESS" (default: "DELTA_SYNC").
             embedding_model_endpoint_name (str, optional): Embedding model endpoint for Databricks-computed embeddings.
             embedding_dimension (int, optional): Vector embedding dimensions (default: 1536).
