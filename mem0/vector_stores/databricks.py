@@ -572,14 +572,28 @@ class Databricks(VectorStoreBase):
             filters = {"memory_id": vector_id}
             filters_json = json.dumps(filters)
 
-            results = self.client.vector_search_indexes.query_index(
-                index_name=self.fully_qualified_index_name,
-                columns=self.column_names,
-                query_text=" ",  # Empty query, rely on filters
-                num_results=1,
-                query_type=self.query_type,
-                filters_json=filters_json,
-            )
+            if self.index_type == VectorIndexType.DELTA_SYNC:
+                # Text-based search
+                results = self.client.vector_search_indexes.query_index(
+                    index_name=self.fully_qualified_index_name,
+                    columns=self.column_names,
+                    query_text=" ",
+                    num_results=1,
+                    query_type=self.query_type,
+                    filters_json=filters_json,
+                )
+            elif self.index_type == VectorIndexType.DIRECT_ACCESS:
+                # Vector-based search
+                results = self.client.vector_search_indexes.query_index(
+                    index_name=self.fully_qualified_index_name,
+                    columns=self.column_names,
+                    query_vector=[0.0] * self.embedding_dimension,
+                    num_results=1,
+                    query_type=self.query_type,
+                    filters_json=filters_json,
+                )
+            else:
+                raise ValueError("Must provide query text for DELTA_SYNC or vectors for DIRECT_ACCESS.")
 
             # Process results
             result_data = results.result if hasattr(results, "result") else results
@@ -589,7 +603,9 @@ class Databricks(VectorStoreBase):
                 raise KeyError(f"Vector with ID {vector_id} not found")
 
             result = data_array[0]
-            columns = columns = [col.name for col in results.manifest.columns] if results.manifest and results.manifest.columns else []
+            columns = columns = (
+                [col.name for col in results.manifest.columns] if results.manifest and results.manifest.columns else []
+            )
             row_data = dict(zip(columns, result))
 
             # Build payload following the standard schema
@@ -609,7 +625,7 @@ class Databricks(VectorStoreBase):
                     payload[field] = row_data[field]
 
             # Add metadata
-            if "metadata" in row_data and row_data.get('metadata'):
+            if "metadata" in row_data and row_data.get("metadata"):
                 try:
                     metadata = json.loads(extract_json(row_data["metadata"]))
                     payload.update(metadata)
@@ -686,14 +702,31 @@ class Databricks(VectorStoreBase):
             filters_json = json.dumps(filters) if filters else None
             num_results = limit or 100
             columns = self.column_names
-            sdk_results = self.client.vector_search_indexes.query_index(
-                index_name=self.fully_qualified_index_name,
-                columns=columns,
-                query_text=" ",
-                num_results=num_results,
-                query_type=self.query_type,
-                filters_json=filters_json,
-            )
+
+            # Choose query type
+            if self.index_type == VectorIndexType.DELTA_SYNC:
+                # Text-based search
+                sdk_results = self.client.vector_search_indexes.query_index(
+                    index_name=self.fully_qualified_index_name,
+                    columns=self.column_names,
+                    query_text=" ",
+                    num_results=limit,
+                    query_type=self.query_type,
+                    filters_json=filters_json,
+                )
+            elif self.index_type == VectorIndexType.DIRECT_ACCESS:
+                # Vector-based search
+                sdk_results = self.client.vector_search_indexes.query_index(
+                    index_name=self.fully_qualified_index_name,
+                    columns=self.column_names,
+                    query_vector=[0.0] * self.embedding_dimension,
+                    num_results=limit,
+                    query_type=self.query_type,
+                    filters_json=filters_json,
+                )
+            else:
+                raise ValueError("Must provide query text for DELTA_SYNC or vectors for DIRECT_ACCESS.")
+
             result_data = sdk_results.result if hasattr(sdk_results, "result") else sdk_results
             data_array = result_data.data_array if hasattr(result_data, "data_array") else []
 
@@ -708,7 +741,7 @@ class Databricks(VectorStoreBase):
                     except Exception:
                         pass
                 memory_id = row_dict.get("memory_id") or row_dict.get("id")
-                payload['data'] = payload['memory']
+                payload["data"] = payload["memory"]
                 memory_results.append(MemoryResult(id=memory_id, payload=payload))
             return [memory_results]
         except Exception as e:
