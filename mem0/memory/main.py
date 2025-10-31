@@ -710,11 +710,19 @@ class Memory(MemoryBase):
 
     def _get_all_from_vector_store(self, filters, limit):
         memories_result = self.vector_store.list(filters=filters, limit=limit)
-        actual_memories = (
-            memories_result[0]
-            if isinstance(memories_result, (tuple)) and len(memories_result) > 0
-            else memories_result
-        )
+
+        # Handle different vector store return formats by inspecting first element
+        if isinstance(memories_result, (tuple, list)) and len(memories_result) > 0:
+            first_element = memories_result[0]
+
+            # If first element is a container, unwrap one level
+            if isinstance(first_element, (list, tuple)):
+                actual_memories = first_element
+            else:
+                # First element is a memory object, structure is already flat
+                actual_memories = memories_result
+        else:
+            actual_memories = memories_result
 
         promoted_payload_keys = [
             "user_id",
@@ -1751,11 +1759,19 @@ class AsyncMemory(MemoryBase):
 
     async def _get_all_from_vector_store(self, filters, limit):
         memories_result = await asyncio.to_thread(self.vector_store.list, filters=filters, limit=limit)
-        actual_memories = (
-            memories_result[0]
-            if isinstance(memories_result, (tuple)) and len(memories_result) > 0
-            else memories_result
-        )
+
+        # Handle different vector store return formats by inspecting first element
+        if isinstance(memories_result, (tuple, list)) and len(memories_result) > 0:
+            first_element = memories_result[0]
+
+            # If first element is a container, unwrap one level
+            if isinstance(first_element, (list, tuple)):
+                actual_memories = first_element
+            else:
+                # First element is a memory object, structure is already flat
+                actual_memories = memories_result
+        else:
+            actual_memories = memories_result
 
         promoted_payload_keys = [
             "user_id",
