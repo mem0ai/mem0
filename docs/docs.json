@@ -786,6 +786,10 @@
     {
       "source": "/api-reference/memory/v2-get-memories",
       "destination": "/api-reference/memory/get-memories"
+    },
+    {
+      "source": "/quickstart",
+      "destination": "/platform/quickstart"
     }
   ]
 }
