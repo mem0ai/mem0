@@ -240,6 +240,37 @@ class NeptuneAnalyticsVector(VectorStoreBase):
             self.execute_query(query_string_embedding, para_embedding)
 
 
+    def _fetch_vector_values(self, vector_id: str) -> List[float]:
+        """
+        Fetch vector values from Neptune Analytics.
+        
+        Args:
+            vector_id: ID of the vector to fetch
+            
+        Returns:
+            List[float]: The vector values
+            
+        Raises:
+            ValueError: If vector not found
+        """
+        try:
+            query_string = f"""
+            MATCH (n :{self.collection_name})
+                WHERE id(n) = $vector_id
+            CALL neptune.algo.vectors.get(n)
+            YIELD embedding
+            RETURN embedding
+            """
+            params = {"vector_id": vector_id}
+            result = self.execute_query(query_string, params)
+            
+            if result and len(result) > 0 and "embedding" in result[0]:
+                return result[0]["embedding"]
+            else:
+                raise ValueError(f"Vector {vector_id} not found in Neptune Analytics")
+        except Exception as e:
+            logger.error(f"Error fetching vector values from Neptune Analytics: {e}")
+            raise
     
     def get(self, vector_id: str):
         """
