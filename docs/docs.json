@@ -860,11 +860,19 @@
       "destination": "/cookbooks/integrations/healthcare-google-adk"
     },
     {
+      "source": "/examples/mem0-google-adk-healthcare-assi",
+      "destination": "/cookbooks/integrations/healthcare-google-adk"
+    },
+    {
       "source": "/examples/aws_example",
       "destination": "/cookbooks/integrations/aws-bedrock"
     },
     {
       "source": "/examples/aws_neptune_analytics_hybrid_store",
+      "destination": "/cookbooks/integrations/neptune-analytics"
+    },
+    {
+      "source": "/examples/aws_neptune_analytics_hybrid_st",
       "destination": "/cookbooks/integrations/neptune-analytics"
     },
     {
@@ -878,6 +886,42 @@
     {
       "source": "/examples/llamaindex-multiagent-learning-system",
       "destination": "/cookbooks/frameworks/llamaindex-multiagent"
+    },
+    {
+      "source": "/examples/llamaindex-multiagent-learning-",
+      "destination": "/cookbooks/frameworks/llamaindex-multiagent"
+    },
+    {
+      "source": "/overview",
+      "destination": "/platform/overview"
+    },
+    {
+      "source": "/components/embedders/models/hugging_face",
+      "destination": "/components/embedders/models/huggingface"
+    },
+    {
+      "source": "/components/llms/models/azure_openai_structured",
+      "destination": "/components/llms/models/azure_openai"
+    },
+    {
+      "source": "/components/llms/models/openai_structured",
+      "destination": "/components/llms/models/openai"
+    },
+    {
+      "source": "/components/vectordbs/dbs/azure_ai_search",
+      "destination": "/components/vectordbs/dbs/azure"
+    },
+    {
+      "source": "/components/vectordbs/dbs/upstash_vector",
+      "destination": "/components/vectordbs/dbs/upstash-vector"
+    },
+    {
+      "source": "/components/vectordbs/dbs/vertex_ai_vector_search",
+      "destination": "/components/vectordbs/dbs/vertex_ai"
+    },
+    {
+      "source": "/platform/features/selective-memory",
+      "destination": "/platform/features/custom-instructions"
     },
     {
       "source": "/examples/multimodal-demo",
