@@ -84,13 +84,13 @@ Get up and running in minutes with automatic updates, analytics, and enterprise 
 
 ### Self-Hosted (Open Source)
 
-Install the sdk via pip:
+Install the SDK via pip::
 
 ```bash
 pip install mem0ai
 ```
 
-Install sdk via npm:
+Install SDK via npm:
 ```bash
 npm install mem0ai
 ```
