@@ -15,7 +15,7 @@ from mem0 import Memory
 
 config = {
     "graph_store": {
-        "provider": "neo4j",  # or memgraph, neptune, kuzu
+        "provider": "neo4j",  # or memgraph, neptune, ryu
         "config": {
             "url": "bolt://localhost:7687",
             "username": "neo4j",
@@ -146,7 +146,8 @@ The threshold parameter works with all graph store providers:
 
 - ✅ Neo4j
 - ✅ Memgraph
-- ✅ Kuzu
+- ✅ RyuGraph
+- ✅ Kuzu (deprecated, uses RyuGraph internally)
 - ✅ Neptune (both Analytics and DB)
 
 ## How It Works
