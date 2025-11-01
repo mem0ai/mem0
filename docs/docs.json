@@ -790,6 +790,214 @@
     {
       "source": "/quickstart",
       "destination": "/platform/quickstart"
+    },
+    {
+      "source": "/faqs",
+      "destination": "/platform/faqs"
+    },
+    {
+      "source": "/examples/ai_companion_js",
+      "destination": "/cookbooks/companions/nodejs-companion"
+    },
+    {
+      "source": "/examples/mem0-demo",
+      "destination": "/cookbooks/companions/quickstart-demo"
+    },
+    {
+      "source": "/examples/mem0-with-ollama",
+      "destination": "/cookbooks/companions/local-companion-ollama"
+    },
+    {
+      "source": "/examples/personal-ai-tutor",
+      "destination": "/cookbooks/companions/ai-tutor"
+    },
+    {
+      "source": "/examples/personal-travel-assistant",
+      "destination": "/cookbooks/companions/travel-assistant"
+    },
+    {
+      "source": "/examples/youtube-assistant",
+      "destination": "/cookbooks/companions/youtube-research"
+    },
+    {
+      "source": "/examples/mem0-openai-voice-demo",
+      "destination": "/cookbooks/companions/voice-companion-openai"
+    },
+    {
+      "source": "/examples/customer-support-agent",
+      "destination": "/cookbooks/operations/support-inbox"
+    },
+    {
+      "source": "/examples/email_processing",
+      "destination": "/cookbooks/operations/email-automation"
+    },
+    {
+      "source": "/examples/memory-guided-content-writing",
+      "destination": "/cookbooks/operations/content-writing"
+    },
+    {
+      "source": "/examples/personalized-deep-research",
+      "destination": "/cookbooks/operations/deep-research"
+    },
+    {
+      "source": "/examples/collaborative-task-agent",
+      "destination": "/cookbooks/operations/team-task-agent"
+    },
+    {
+      "source": "/examples/mem0-agentic-tool",
+      "destination": "/cookbooks/integrations/agents-sdk-tool"
+    },
+    {
+      "source": "/examples/openai-inbuilt-tools",
+      "destination": "/cookbooks/integrations/openai-tool-calls"
+    },
+    {
+      "source": "/examples/mem0-mastra",
+      "destination": "/cookbooks/integrations/mastra-agent"
+    },
+    {
+      "source": "/examples/mem0-google-adk-healthcare-assistant",
+      "destination": "/cookbooks/integrations/healthcare-google-adk"
+    },
+    {
+      "source": "/examples/aws_example",
+      "destination": "/cookbooks/integrations/aws-bedrock"
+    },
+    {
+      "source": "/examples/aws_neptune_analytics_hybrid_store",
+      "destination": "/cookbooks/integrations/neptune-analytics"
+    },
+    {
+      "source": "/examples/personalized-search-tavily-mem0",
+      "destination": "/cookbooks/integrations/tavily-search"
+    },
+    {
+      "source": "/examples/llama-index-mem0",
+      "destination": "/cookbooks/frameworks/llamaindex-react"
+    },
+    {
+      "source": "/examples/llamaindex-multiagent-learning-system",
+      "destination": "/cookbooks/frameworks/llamaindex-multiagent"
+    },
+    {
+      "source": "/examples/multimodal-demo",
+      "destination": "/cookbooks/frameworks/multimodal-retrieval"
+    },
+    {
+      "source": "/examples/eliza_os",
+      "destination": "/cookbooks/frameworks/eliza-os-character"
+    },
+    {
+      "source": "/examples/chrome-extension",
+      "destination": "/cookbooks/frameworks/chrome-extension"
+    },
+    {
+      "source": "/examples",
+      "destination": "/cookbooks/overview"
+    },
+    {
+      "source": "/open-source/graph_memory/overview",
+      "destination": "/open-source/features/graph-memory"
+    },
+    {
+      "source": "/open-source/graph_memory/features",
+      "destination": "/open-source/features/graph-memory"
+    },
+    {
+      "source": "/v0x/examples/ai_companion_js",
+      "destination": "/cookbooks/companions/nodejs-companion"
+    },
+    {
+      "source": "/v0x/examples/mem0-demo",
+      "destination": "/cookbooks/companions/quickstart-demo"
+    },
+    {
+      "source": "/v0x/examples/mem0-with-ollama",
+      "destination": "/cookbooks/companions/local-companion-ollama"
+    },
+    {
+      "source": "/v0x/examples/personal-ai-tutor",
+      "destination": "/cookbooks/companions/ai-tutor"
+    },
+    {
+      "source": "/v0x/examples/customer-support-agent",
+      "destination": "/cookbooks/operations/support-inbox"
+    },
+    {
+      "source": "/v0x/examples/personal-travel-assistant",
+      "destination": "/cookbooks/companions/travel-assistant"
+    },
+    {
+      "source": "/v0x/examples/chrome-extension",
+      "destination": "/cookbooks/frameworks/chrome-extension"
+    },
+    {
+      "source": "/v0x/examples/youtube-assistant",
+      "destination": "/cookbooks/companions/youtube-research"
+    },
+    {
+      "source": "/v0x/examples/memory-guided-content-writing",
+      "destination": "/cookbooks/operations/content-writing"
+    },
+    {
+      "source": "/v0x/examples/multimodal-demo",
+      "destination": "/cookbooks/frameworks/multimodal-retrieval"
+    },
+    {
+      "source": "/v0x/examples/email_processing",
+      "destination": "/cookbooks/operations/email-automation"
+    },
+    {
+      "source": "/v0x/examples/personalized-deep-research",
+      "destination": "/cookbooks/operations/deep-research"
+    },
+    {
+      "source": "/v0x/examples/collaborative-task-agent",
+      "destination": "/cookbooks/operations/team-task-agent"
+    },
+    {
+      "source": "/v0x/examples/llama-index-mem0",
+      "destination": "/cookbooks/frameworks/llamaindex-react"
+    },
+    {
+      "source": "/v0x/examples/llamaindex-multiagent-learning-system",
+      "destination": "/cookbooks/frameworks/llamaindex-multiagent"
+    },
+    {
+      "source": "/v0x/examples/personalized-search-tavily-mem0",
+      "destination": "/cookbooks/integrations/tavily-search"
+    },
+    {
+      "source": "/v0x/examples/mem0-agentic-tool",
+      "destination": "/cookbooks/integrations/agents-sdk-tool"
+    },
+    {
+      "source": "/v0x/examples/openai-inbuilt-tools",
+      "destination": "/cookbooks/integrations/openai-tool-calls"
+    },
+    {
+      "source": "/v0x/examples/mem0-openai-voice-demo",
+      "destination": "/cookbooks/companions/voice-companion-openai"
+    },
+    {
+      "source": "/v0x/examples/mem0-google-adk-healthcare-assistant",
+      "destination": "/cookbooks/integrations/healthcare-google-adk"
+    },
+    {
+      "source": "/v0x/examples/mem0-mastra",
+      "destination": "/cookbooks/integrations/mastra-agent"
+    },
+    {
+      "source": "/v0x/examples/eliza_os",
+      "destination": "/cookbooks/frameworks/eliza-os-character"
+    },
+    {
+      "source": "/v0x/examples/aws_example",
+      "destination": "/cookbooks/integrations/aws-bedrock"
+    },
+    {
+      "source": "/v0x/examples/aws_neptune_analytics_hybrid_store",
+      "destination": "/cookbooks/integrations/neptune-analytics"
     }
   ]
 }
