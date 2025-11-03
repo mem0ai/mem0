@@ -231,10 +231,10 @@ class PGVector(VectorStoreBase):
         with self._get_cursor() as cur:
             cur.execute(
                 f"""
-                SELECT id, vector <=> %s::vector AS distance, payload
+                SELECT id, 1.0 - (vector <=> %s::vector) AS distance, payload
                 FROM {self.collection_name}
                 {filter_clause}
-                ORDER BY distance
+                ORDER BY distance DESC
                 LIMIT %s
                 """,
                 (vectors, *filter_params, limit),
