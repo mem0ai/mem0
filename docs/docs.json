@@ -224,7 +224,8 @@
                               "components/vectordbs/dbs/cassandra",
                               "components/vectordbs/dbs/s3_vectors",
                               "components/vectordbs/dbs/databricks",
-                              "components/vectordbs/dbs/neptune_analytics"
+                              "components/vectordbs/dbs/neptune_analytics",
+                              "components/vectordbs/dbs/tencent"
                             ]
                           }
                         ]

@@ -56,6 +56,7 @@ vector_stores = [
     "elasticsearch>=8.0.0,<9.0.0",
     "pymilvus>=2.4.0,<2.6.0",
     "langchain-aws>=0.2.23",
+    "tcvectordb>=1.8.0,<2.0.0",
 ]
 llms = [
     "groq>=0.3.0",
