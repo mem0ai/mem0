@@ -677,7 +677,6 @@
                     "group": "\ud83d\udca1 Examples",
                     "icon": "lightbulb",
                     "pages": [
-                      "examples",
                       "v0x/examples/mem0-demo",
                       "v0x/examples/ai_companion_js",
                       "v0x/examples/mem0-with-ollama",
