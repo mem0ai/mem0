@@ -7,7 +7,7 @@ iconType: "solid"
 
 # How Mem0 Searches Memory
 
-Mem0’s search operation lets agents ask natural-language questions and get back the memories that matter most. It’s the bridge between everything you’ve stored and the next response your agent writes.
+Mem0's search operation lets agents ask natural-language questions and get back the memories that matter most. Like a smart librarian, it finds exactly what you need from everything you've stored.
 
 <Info>
   **Why it matters**
@@ -46,7 +46,39 @@ Formatted memories (with metadata and timestamps) return to your agent or callin
 
 This pipeline runs the same way for the hosted Platform API and the OSS SDK.
 
----
+## How does it work?
+
+Search converts your natural language question into a vector embedding, then finds memories with similar embeddings in your database. The results are ranked by similarity score and can be further refined with filters or reranking.
+
+```python
+# Minimal example that shows the concept in action
+# Platform API
+client.search("What are Alice's hobbies?", filters={"user_id": "alice"})
+
+# OSS
+m.search("What are Alice's hobbies?", user_id="alice")
+```
+
+<Tip>
+  Always provide at least a `user_id` filter to scope searches to the right user's memories. This prevents cross-contamination between users.
+</Tip>
+
+## When should you use it?
+
+- **Context retrieval** - When your agent needs past context to generate better responses
+- **Personalization** - To recall user preferences, history, or past interactions
+- **Fact checking** - To verify information against stored memories before responding
+- **Decision support** - When agents need relevant background information to make decisions
+
+## Platform vs OSS usage
+
+| Capability | Mem0 Platform | Mem0 OSS |
+| --- | --- | --- |
+| **user_id usage** | In `filters={"user_id": "alice"}` for search/get_all | As parameter `user_id="alice"` for all operations |
+| **Filter syntax** | Logical operators (`AND`, `OR`, comparisons) with field-level access | Basic field filters, extend via Python hooks |
+| **Reranking** | Toggle `rerank=True` with managed reranker catalog | Requires configuring local or third-party rerankers |
+| **Thresholds** | Request-level configuration (`threshold`, `top_k`) | Controlled via SDK parameters |
+| **Response metadata** | Includes confidence scores, timestamps, dashboard visibility | Determined by your storage backend |
 
 ## Search with Mem0 Platform
 
@@ -85,8 +117,6 @@ const results = await client.search(query, {
 ```
 </CodeGroup>
 
----
-
 ## Search with Mem0 Open Source
 
 <CodeGroup>
@@ -122,8 +152,6 @@ const memories = memory.search("food preferences", {
 ```
 </CodeGroup>
 
----
-
 <Info icon="check">
   Expect an array of memory documents. Platform responses include vectors, metadata, and timestamps; OSS returns your stored schema.
 </Info>
@@ -133,6 +161,20 @@ const memories = memory.search("food preferences", {
 Filters help narrow down search results. Common use cases:
 
 **Filter by Session Context:**
+
+*Platform API:*
+```python
+# Get memories from a specific agent session
+client.search("query", filters={
+    "AND": [
+        {"user_id": "alice"},
+        {"agent_id": "chatbot"},
+        {"run_id": "session-123"}
+    ]
+})
+```
+
+*OSS:*
 ```python
 # Get memories from a specific agent session
 m.search("query", user_id="alice", agent_id="chatbot", run_id="session-123")
@@ -160,31 +202,21 @@ client.search("preferences", filters={
 })
 ```
 
----
-
 ## Tips for better search
 
 - **Use natural language**: Mem0 understands intent, so describe what you're looking for naturally
-- **Scope with session IDs**: Always provide at least `user_id` to scope search to relevant memories
+- **Scope with user ID**: Always provide `user_id` to scope search to relevant memories
+  - **Platform API**: Use `filters={"user_id": "alice"}`
+  - **OSS**: Use `user_id="alice"` as parameter
 - **Combine filters**: Use AND/OR logic to create precise queries (Platform)
 - **Consider wildcard filters**: Use wildcard filters (e.g., `run_id: "*"`) for broader matches
 - **Tune parameters**: Adjust `top_k` for result count, `threshold` for relevance cutoff
 - **Enable reranking**: Use `rerank=True` (default) when you have a reranker configured
 
-
 ### More Details
 
 For the full list of filter logic, comparison operators, and optional search parameters, see the
 [Search Memory API Reference](/api-reference/memory/search-memories).
-
-## Managed vs OSS differences
-
-| Capability | Mem0 Platform | Mem0 OSS |
-| --- | --- | --- |
-| Filters | Logical operators (`AND`, `OR`, comparisons) with field-level access | Basic field filters, extend via Python hooks |
-| Reranking | Toggle `rerank=True` with managed reranker catalog | Requires configuring local or third-party rerankers |
-| Thresholds | Request-level configuration (`threshold`, `top_k`) | Controlled via SDK parameters |
-| Response metadata | Includes confidence scores, timestamps, dashboard visibility | Determined by your storage backend |
 
 ## Put it into practice
 
@@ -200,15 +232,15 @@ For the full list of filter logic, comparison operators, and optional search par
 
 <CardGroup cols={2}>
   <Card
-    title="Tune Update Concepts"
-    description="Learn how to adjust memories after search results come back."
-    icon="pencil"
-    href="/core-concepts/memory-operations/update"
+    title="Search Memory API"
+    description="Complete API reference with all filter operators and parameters."
+    icon="book"
+    href="/api-reference/memory/search-memories"
   />
   <Card
-    title="Build Hybrid Search"
-    description="Follow the cookbook to combine Mem0 with external search."
+    title="Support Inbox Cookbook"
+    description="Build a complete support system with scoped search and reranking."
     icon="rocket"
-    href="/cookbooks/integrations/tavily-search"
+    href="/cookbooks/operations/support-inbox"
   />
 </CardGroup>
