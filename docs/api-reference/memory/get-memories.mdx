@@ -16,7 +16,7 @@ The v2 get memories API is powerful and flexible, allowing for more precise memo
 
 <CodeGroup>
 ```python Code
-memories = m.get_all(
+memories = client.get_all(
     filters={
         "AND": [
             {
@@ -58,7 +58,7 @@ To retrieve graph memory relationships between entities, pass `output_format="v1
 
 <CodeGroup>
 ```python Code
-memories = m.get_all(
+memories = client.get_all(
     filters={
         "user_id": "alex"
     },
