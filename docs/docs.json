@@ -8,6 +8,13 @@
     "light": "#9C58FA",
     "dark": "#9C58FA"
   },
+  "errors": {
+    "404": {
+      "redirect": false,
+      "title": "Page not found",
+      "description": "[Go to the Welcome Guide](/introduction)\n[Open the Platform overview](/platform/overview)\n[Report this link](https://github.com/mem0ai/mem0/issues)"
+    }
+  },
   "favicon": "/logo/favicon.png",
   "navigation": {
     "versions": [
@@ -677,7 +684,6 @@
                     "group": "\ud83d\udca1 Examples",
                     "icon": "lightbulb",
                     "pages": [
-                      "examples",
                       "v0x/examples/mem0-demo",
                       "v0x/examples/ai_companion_js",
                       "v0x/examples/mem0-with-ollama",
