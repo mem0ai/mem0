@@ -777,6 +777,20 @@
       "appId": "jjv2r0tt"
     }
   },
+  "contextual": {
+    "options": [
+      "copy",
+      "chatgpt",
+      "claude",
+      "perplexity",
+      {
+        "title": "Try in Playground",
+        "description": "Open this example in the interactive Mem0 playground",
+        "icon": "play",
+        "href": "https://app.mem0.ai/playground"
+      }
+    ]
+  },
   "redirects": [
     {
       "source": "/api-reference/memory/v2-search-memories",
