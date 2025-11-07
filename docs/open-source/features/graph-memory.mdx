@@ -15,7 +15,7 @@ Graph Memory extends Mem0 by persisting nodes and edges alongside embeddings, so
 
 ## How Graph Memory Maps Context
 
-Mem0 extracts entities and relationships from every memory write, stores embeddings in your vector database, and mirrors relationships in a graph backend. On retrieval, vector search narrows candidates, then the graph supplies context and re-ranks results.
+Mem0 extracts entities and relationships from every memory write, stores embeddings in your vector database, and mirrors relationships in a graph backend. On retrieval, vector search narrows candidates while the graph returns related context alongside the results.
 
 ```mermaid
 graph LR
@@ -37,8 +37,8 @@ Mem0’s extraction LLM identifies entities, relationships, and timestamps from 
 <Step title="Store vectors and edges together">
 Embeddings land in your configured vector database while nodes and edges flow into a Bolt-compatible graph backend (Neo4j, Memgraph, Neptune, or Kuzu).
 </Step>
-<Step title="Blend graph context at search time">
-`memory.search` first performs vector similarity, then follows connected nodes to boost (or filter) answers before optionally handing results to a reranker.
+<Step title="Expose graph context at search time">
+`memory.search` performs vector similarity (optionally reranked by your configured reranker) and returns the results list. Graph Memory runs in parallel and adds related entities in the `relations` array—it does not reorder the vector hits automatically.
 </Step>
 </Steps>
 
@@ -161,6 +161,10 @@ results.results.forEach((hit) => {
 <Info icon="check">
 Expect to see **Alice met Bob at GraphConf 2025** in the output. In Neo4j Browser run `MATCH (p:Person)-[r]->(q:Person) RETURN p,r,q LIMIT 5;` to confirm the edge exists.
 </Info>
+
+<Note>
+Graph Memory enriches responses by adding related entities in the `relations` key. The ordering of `results` always comes from vector search (plus any reranker you configure); graph edges do not reorder those hits automatically.
+</Note>
 
 ## Operate Graph Memory Day-to-Day
 
