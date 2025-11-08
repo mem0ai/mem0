@@ -115,17 +115,24 @@ class LLMBase(ABC):
     def _get_common_params(self, **kwargs) -> Dict:
         """
         Get common parameters that most providers use.
+        Filters out None values to avoid API errors.
 
         Returns:
             Dict: Common parameters dictionary.
         """
-        params = {
-            "temperature": self.config.temperature,
-            "max_tokens": self.config.max_tokens,
-            "top_p": self.config.top_p,
-        }
+        params = {}
 
-        # Add provider-specific parameters from kwargs
-        params.update(kwargs)
+        # Only include parameters that are not None
+        if self.config.temperature is not None:
+            params["temperature"] = self.config.temperature
+        if self.config.max_tokens is not None:
+            params["max_tokens"] = self.config.max_tokens
+        if self.config.top_p is not None:
+            params["top_p"] = self.config.top_p
+
+        # Add provider-specific parameters from kwargs (also filter None values)
+        for key, value in kwargs.items():
+            if value is not None:
+                params[key] = value
 
         return params
