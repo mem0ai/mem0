@@ -1,0 +1,249 @@
+---
+title: Partition Memories by Entity
+description: Keep memories separate by tagging each write and query with user, agent, app, and session identifiers.
+---
+
+Nora runs a travel service. When she stored all memories in one bucket, a recruiter's nut allergy accidentally appeared in a traveler's dinner reservation. Let's fix this by properly separating memories for different users, agents, and applications.
+
+<Info icon="clock">
+**Time to complete:** ~15 minutes · **Languages:** Python
+</Info>
+
+## Setup
+
+```python
+from mem0 import MemoryClient
+
+client = MemoryClient(api_key="sk-platform-...")
+```
+
+Grab an API key from the <Link href="https://app.mem0.ai/">Mem0 dashboard</Link> to get started.
+
+## Store and Retrieve Scoped Memories
+
+Let's start by storing Cam's travel preferences and retrieving them:
+
+```python
+cam_messages = [
+    {"role": "user", "content": "I'm Cam. Keep in mind I avoid shellfish and prefer boutique hotels."},
+    {"role": "assistant", "content": "Noted! I'll use those preferences in future itineraries."}
+]
+
+result = client.add(
+    cam_messages,
+    user_id="traveler_cam",
+    agent_id="travel_planner",
+    run_id="tokyo-2025-weekend",
+    app_id="concierge_app",
+    version="v2"
+)
+```
+
+The memory is now stored. Let's retrieve those memories with the same identifiers:
+
+```python
+filters = {
+    "AND": [
+        {"user_id": "traveler_cam"},
+        {"run_id": "tokyo-2025-weekend"},
+        {"agent_id": "travel_planner"}
+    ]
+}
+
+memories = client.search("Any dietary restrictions?", filters=filters)
+print(len(memories["results"]), memories["results"][0]["memory"])
+```
+
+**Output:**
+```
+1 avoids shellfish and prefers boutique hotels
+```
+
+## When Memories Leak
+
+When Nora adds a chef agent, Cam's travel preferences leak into food recommendations:
+
+```python
+chef_filters = {"AND": [{"user_id": "traveler_cam"}]}
+
+collision = client.search("What should I cook?", filters=chef_filters)
+print([item["memory"] for item in collision["results"]])
+```
+
+**Output:**
+```
+['avoids shellfish and prefers boutique hotels', 'prefers Kyoto kaiseki dining experiences']
+```
+
+The travel preferences appear because we only filtered by `user_id`. The chef agent shouldn't see hotel preferences.
+
+## Fix the Leak with Proper Filters
+
+Add `agent_id` and `run_id` to keep memories separate:
+
+```python
+safe_filters = {
+    "AND": [
+        {"user_id": "traveler_cam"},
+        {"agent_id": "chef_recommender"},
+        {"run_id": "menu-planning-2025-04"}
+    ]
+}
+
+chef_memories = client.search("Any food alerts?", filters=safe_filters)
+print(chef_memories["results"])
+```
+
+**Output:**
+```
+[{'memory': 'prefers Kyoto kaiseki dining experiences', 'id': 'b2c3d4e5-...'}]
+```
+
+Now the chef agent only sees food preferences. The hotel preferences stay with the travel agent.
+
+## Separate Apps with app_id
+
+Nora white-labels her travel service for a sports brand. Use `app_id` to keep enterprise data separate:
+
+```python
+enterprise_filters = {
+    "AND": [
+        {"app_id": "sports_brand_portal"},
+        {"user_id": "*"},
+        {"agent_id": "*"}
+    ]
+}
+
+page = client.get_all(filters=enterprise_filters, page=1, page_size=10)
+print([row["user_id"] for row in page["results"]])
+```
+
+**Output:**
+```
+['athlete_jane', 'coach_mike', 'team_admin']
+```
+
+<Info>
+Wildcards (`"*"` ) only match non-null values. Make sure you write memories with explicit `app_id` values.
+</Info>
+
+When the sports brand offboards, delete all their data:
+
+```python
+client.delete_all(app_id="sports_brand_portal")
+```
+
+**Output:**
+```
+{'status': 'success'}
+```
+
+## Production Patterns
+
+```python
+# Nightly audits - check all data for an app
+def audit_app(app_id: str):
+    filters = {"AND": [{"app_id": app_id}, {"user_id": "*"}, {"agent_id": "*"}]}
+    return client.get_all(filters=filters, page=1, page_size=50)
+
+# Session cleanup - delete temporary conversations
+def close_ticket(ticket_id: str, user_id: str):
+    client.delete_all(user_id=user_id, run_id=ticket_id)
+
+# Compliance exports - get all data for one tenant
+export = client.get_memory_export(filters={"AND": [{"app_id": "sports_brand_portal"}]})
+```
+
+## Complete Example
+
+Putting it all together - here's how to properly scope memories:
+
+```python
+# Store memories with all identifiers
+client.add(
+    [{"role": "user", "content": "I need a hotel near the conference center."}],
+    user_id="exec_123",
+    agent_id="booking_assistant",
+    app_id="enterprise_portal",
+    run_id="trip-2025-03",
+    version="v2"
+)
+
+# Retrieve with the same scope
+filters = {
+    "AND": [
+        {"user_id": "exec_123"},
+        {"agent_id": "booking_assistant"},
+        {"app_id": "enterprise_portal"},
+        {"run_id": "trip-2025-03"}
+    ]
+}
+
+results = client.search("Hotels near conference", filters=filters)
+print(results["results"][0]["memory"])
+```
+
+**Output:**
+```
+I need a hotel near the conference center.
+```
+
+## When to Use Each Identifier
+
+| Identifier | When to Use | Example Values |
+|------------|-------------|----------------|
+| `user_id` | Individual preferences that persist across all interactions | `cam_traveler`, `sarah_exec`, `team_alpha` |
+| `agent_id` | Different AI roles need separate context | `travel_agent`, `concierge`, `customer_support` |
+| `app_id` | White-label deployments or separate products | `travel_app_ios`, `enterprise_portal`, `partner_integration` |
+| `run_id` | Temporary sessions that should be isolated | `support_ticket_9234`, `chat_session_456`, `booking_flow_789` |
+
+## Best Practices
+
+1. **Use consistent identifier formats**
+   ```python
+   # Good: consistent patterns
+   user_id = "cam_traveler"
+   agent_id = "travel_agent_v1"
+   app_id = "nora_concierge_app"
+   run_id = "tokyo_trip_2025_03"
+
+   # Avoid: mixed patterns
+   # user_id = "123", agent_id = "agent2", app_id = "app"
+   ```
+
+2. **Print filters when debugging**
+   ```python
+   filters = {"AND": [{"user_id": "cam", "agent_id": "chef"}]}
+   print(f"Searching with filters: {filters}")  # Helps catch typos
+   ```
+
+3. **Clean up temporary sessions**
+   ```python
+   # After a support ticket closes
+   client.delete_all(user_id="customer_123", run_id="ticket_456")
+   ```
+
+## Summary
+
+You learned how to:
+- Store memories with proper entity scoping using `user_id`, `agent_id`, `app_id`, and `run_id`
+- Prevent memory leaks between different agents and applications
+- Clean up data for specific tenants or sessions
+- Use wildcards to query across scoped memories
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Deep Dive: Memory Filters v2"
+    description="Layer entity filters with JSON logic to answer complex queries."
+    icon="sliders"
+    href="/platform/features/v2-memory-filters"
+  />
+  <Card
+    title="Control Memory Ingestion"
+    description="Pair scoped storage with rules that block low-quality facts."
+    icon="shield-check"
+    href="/cookbooks/essentials/controlling-memory-ingestion"
+  />
+</CardGroup>
