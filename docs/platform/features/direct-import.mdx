@@ -31,6 +31,10 @@ You can see that the output of the add call is an empty list.
 
 <Note>Only messages with the role "user" will be used for storage. Messages with roles such as "assistant" or "system" will be ignored during the storage process.</Note>
 
+<Warning>
+Direct import skips the inference pipeline, so it also skips duplicate detection. If you later send the same fact with `infer=True`, Mem0 will store a second copy. Pick one mode per memory source unless you truly want both versions.
+</Warning>
+
 ## How to Retrieve Memories
 
 You can retrieve memories using the `search` method.
