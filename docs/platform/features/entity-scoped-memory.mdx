@@ -17,7 +17,7 @@ Mem0's Platform API lets you separate memories for different users, agents, and 
 ```python
 from mem0 import MemoryClient
 
-client = MemoryClient(api_key="sk-platform-...")
+client = MemoryClient(api_key="m0-...")
 ```
 Call `client.project.get()` to verify your connection. It should return your project details including `org_id` and `project_id`. If you get a 401 error, generate a new API key in the Mem0 dashboard.
 
@@ -93,6 +93,7 @@ filters = {
     "AND": [
         {"user_id": "customer_6412"},
         {"agent_id": "travel_planner"},
+        {"app_id": "concierge_portal"},
         {"run_id": "itinerary-2025-apr"}
     ]
 }
@@ -101,7 +102,7 @@ results = client.search("Any dietary flags?", filters=filters)
 ```
 
 <Info icon="check">
-`results["results"][0]["memory"]` should show the shellfish restriction. If the list is empty, verify that all three identifiers match exactly and the session hasn't been archived.
+`results["results"][0]["memory"]` should show the shellfish restriction. If the list is empty, verify that all four identifiers match exactly and the session hasn't been archived.
 </Info>
 
 **3. Audit everything for an app**

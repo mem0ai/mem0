@@ -14,7 +14,7 @@ Nora runs a travel service. When she stored all memories in one bucket, a recrui
 ```python
 from mem0 import MemoryClient
 
-client = MemoryClient(api_key="sk-platform-...")
+client = MemoryClient(api_key="m0-...")
 ```
 
 Grab an API key from the <Link href="https://app.mem0.ai/">Mem0 dashboard</Link> to get started.
@@ -45,8 +45,9 @@ The memory is now stored. Let's retrieve those memories with the same identifier
 filters = {
     "AND": [
         {"user_id": "traveler_cam"},
-        {"run_id": "tokyo-2025-weekend"},
-        {"agent_id": "travel_planner"}
+        {"agent_id": "travel_planner"},
+        {"app_id": "concierge_app"},
+        {"run_id": "tokyo-2025-weekend"}
     ]
 }
 
