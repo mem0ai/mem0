@@ -319,9 +319,24 @@ Metadata: {'verified': True, 'updated_date': '2025-04-02'}
 - No duplicate or contradicting memories
 - Single source of truth for each fact
 
+<Warning>
+That “no duplicates” promise comes from the inference pipeline. Keep `infer=True` when you rely on automatic updates. Raw imports (`infer=False`) skip conflict checks, so mixing the two modes for the same fact will create duplicates.
+</Warning>
+
 **Maintains relationships:**
 
 - If using graph memory, connections to other entities persist
+
+### Pick the right inference mode
+
+| Mode | What it does | Best for | Watch out for |
+| --- | --- | --- | --- |
+| `infer=True` *(default)* | Runs the LLM pipeline so Mem0 extracts structured facts and resolves conflicts automatically. | Daily conversations, preference tracking, anything you want deduped. | Slightly slower because inference runs on every write. |
+| `infer=False` | Stores your payload exactly as-is—no inference, no dedupe. | Bulk imports, compliance snapshots, curated facts you already trust. | Later `infer=True` calls for the same fact will create duplicates you must clean manually. |
+
+<Tip>
+Stay consistent per data source. If you need both behaviors, keep them in separate scopes (e.g., different `app_id` or `run_id`) so you always know which memories are inferred vs direct imports.
+</Tip>
 
 ---
 
