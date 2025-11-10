@@ -34,6 +34,10 @@ Call `client.project.get()` to verify your connection. It should return your pro
 - **Reads** (`client.search`, `client.get_all`, exports, deletes) accept the same identifiers inside the `filters` JSON object.
 - **Implicit null scoping**: Passing only `{"user_id": "alice"}` automatically restricts results to records where `agent_id`, `app_id`, and `run_id` are `null`. Add wildcards (`"*"`), explicit lists, or additional filters when you need broader joins.
 
+<Warning>
+  **Common Pitfall**: If you create a memory with `user_id="alice"` but the other fields default to `null`, then search with `{"AND": [{"user_id": "alice"}, {"agent_id": "bot"}]}` will return nothing because you're looking for a memory where `agent_id="bot"`, not `null`.
+</Warning>
+
 ## Choose the right identifier
 
 | Identifier | Purpose | Example Use Cases |
@@ -55,14 +59,15 @@ messages = [
 ]
 
 client.add(
-messages,
-user_id="teacher_872",
-agent_id="study_planner",
-app_id="district_dashboard",
-run_id="prep-period-2025-09-02",
-version="v2"
+    messages,
+    user_id="teacher_872",
+    agent_id="study_planner",
+    app_id="district_dashboard",
+    run_id="prep-period-2025-09-02",
+    version="v2"
 )
 ```
+
 The response will include one or more memory IDs. Check the dashboard → Memories to confirm the entry appears under the correct user, agent, app, and run.
 
 The HTTP equivalent uses `POST /v1/memories/` with the same identifiers in the JSON body. See the Add Memories API reference for REST details.
@@ -103,6 +108,10 @@ results = client.search("Any dietary flags?", filters=filters)
 
 <Info icon="check">
 `results["results"][0]["memory"]` should show the shellfish restriction. If the list is empty, verify that all four identifiers match exactly and the session hasn't been archived.
+</Info>
+
+<Info icon="adjustments">
+Want to experiment with AND/OR logic, nested operators, or wildcards? The <Link href="/platform/features/v2-memory-filters">Memory Filters v2 guide</Link> walks through every filter pattern with working examples.
 </Info>
 
 **3. Audit everything for an app**

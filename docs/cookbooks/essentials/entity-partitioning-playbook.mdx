@@ -80,27 +80,46 @@ The travel preferences appear because we only filtered by `user_id`. The chef ag
 
 ## Fix the Leak with Proper Filters
 
-Add `agent_id` and `run_id` to keep memories separate:
+First, let's add a memory specifically for the chef agent:
+
+```python
+chef_memory = [
+    {"role": "user", "content": "I'd like to try some authentic Kyoto cuisine."},
+    {"role": "assistant", "content": "I'll remember that you prefer Kyoto kaiseki dining experiences."}
+]
+
+client.add(
+    chef_memory,
+    user_id="traveler_cam",
+    agent_id="chef_recommender",
+    run_id="menu-planning-2025-04",
+    app_id="concierge_app",
+    version="v2"
+)
+```
+
+Now add `agent_id` and `run_id` to keep memories separate:
 
 ```python
 safe_filters = {
     "AND": [
         {"user_id": "traveler_cam"},
         {"agent_id": "chef_recommender"},
+        {"app_id": "concierge_app"},
         {"run_id": "menu-planning-2025-04"}
     ]
 }
 
 chef_memories = client.search("Any food alerts?", filters=safe_filters)
-print(chef_memories["results"])
+print(chef_memories["results"][0]["memory"])
 ```
 
 **Output:**
 ```
-[{'memory': 'prefers Kyoto kaiseki dining experiences', 'id': 'b2c3d4e5-...'}]
+prefers Kyoto kaiseki dining experiences
 ```
 
-Now the chef agent only sees food preferences. The hotel preferences stay with the travel agent.
+Now the chef agent only sees its own food preferences. The hotel preferences stay with the travel agent.
 
 ## Separate Apps with app_id
 
@@ -126,6 +145,10 @@ print([row["user_id"] for row in page["results"]])
 
 <Info>
 Wildcards (`"*"` ) only match non-null values. Make sure you write memories with explicit `app_id` values.
+</Info>
+
+<Info icon="adjustments">
+Need a deeper tour of AND vs OR, nested filters, or wildcard tricks? Check the <Link href="/platform/features/v2-memory-filters">Memory Filters v2 guide</Link> for full examples you can copy into this flow.
 </Info>
 
 When the sports brand offboards, delete all their data:
@@ -180,7 +203,29 @@ filters = {
     ]
 }
 
+# Alternative: Use wildcards if you're not sure about some fields
+# filters = {
+#     "AND": [
+#         {"user_id": "exec_123"},
+#         {"agent_id": "*"},  # Match any agent
+#         {"app_id": "enterprise_portal"},
+#         {"run_id": "*"}      # Match any run
+#     ]
+# }
+
 results = client.search("Hotels near conference", filters=filters)
+
+# Debug: Print the filter you're using
+print(f"Searching with filters: {filters}")
+
+# If no results, try a broader search to see what's stored
+if not results["results"]:
+    print("No results found! Trying broader search...")
+    broader = client.get_all(filters={"user_id": "exec_123"})
+    print(f"Found {len(broader['results'])} memories for this user:")
+    for mem in broader["results"]:
+        print(f"  - {mem}")
+
 print(results["results"][0]["memory"])
 ```
 
@@ -197,6 +242,35 @@ I need a hotel near the conference center.
 | `agent_id` | Different AI roles need separate context | `travel_agent`, `concierge`, `customer_support` |
 | `app_id` | White-label deployments or separate products | `travel_app_ios`, `enterprise_portal`, `partner_integration` |
 | `run_id` | Temporary sessions that should be isolated | `support_ticket_9234`, `chat_session_456`, `booking_flow_789` |
+
+## Troubleshooting Common Issues
+
+### My search returns empty results!
+
+**Problem**: Using `AND` with exact matches but some fields might be `null`.
+
+**Solution**:
+```python
+# If this returns nothing:
+filters = {"AND": [{"user_id": "u1"}, {"agent_id": "a1"}]}
+
+# Try using wildcards:
+filters = {"AND": [{"user_id": "u1"}, {"agent_id": "*"}]}
+
+# Or don't include fields you don't need:
+filters = {"AND": [{"user_id": "u1"}]}
+```
+
+### OR gives results but AND doesn't
+
+This confirms you have a **field mismatch**. The memory exists but some identifier values don't match exactly.
+
+**Always check what's actually stored:**
+```python
+# Get all memories for the user to see the actual field values
+all_mems = client.get_all(filters={"user_id": "your_user_id"})
+print(json.dumps(all_mems, indent=2))
+```
 
 ## Best Practices
 
