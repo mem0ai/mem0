@@ -11,19 +11,15 @@ Get started with Mem0's Python SDK in under 5 minutes. This guide shows you how 
 - Python 3.10 or higher
 - OpenAI API key ([Get one here](https://platform.openai.com/api-keys))
 
-<Callout type="info" title="Why OpenAI API key?">
-Mem0 uses OpenAI's models by default for fact extraction and embeddings. The `Memory()` class automatically configures:
-- OpenAI `gpt-4.1-nano-2025-04-14` for fact extraction and updates
-- OpenAI `text-embedding-3-small` for embeddings
-
-You can use other providers like Ollama, Anthropic, or local models. See [Configuration](/open-source/configuration) to customize your setup.
-</Callout>
-
-Set your OpenAI API key as an environment variable:
+Set your OpenAI API key:
 
 ```bash
 export OPENAI_API_KEY="your-openai-api-key"
 ```
+
+<Note>
+Uses OpenAI by default. Want to use Ollama, Anthropic, or local models? See [Configuration](/open-source/configuration).
+</Note>
 
 ## Installation
 
@@ -39,7 +35,8 @@ pip install mem0ai
 from mem0 import Memory
 
 m = Memory()
-```
+
+````
 </Step>
 
 <Step title="Add a memory">
@@ -49,7 +46,8 @@ messages = [
     {"role": "assistant", "content": "Hey Alex! I'll remember your interests."}
 ]
 m.add(messages, user_id="alex")
-```
+````
+
 </Step>
 
 <Step title="Search memories">
@@ -59,6 +57,7 @@ print(results)
 ```
 
 **Output:**
+
 ```json
 {
   "results": [
@@ -73,8 +72,10 @@ print(results)
   ]
 }
 ```
+
 </Step>
 </Steps>
+
 
 <Note>
 By default `Memory()` wires up:
@@ -93,7 +94,7 @@ Learn how to search, update, and manage memories with full CRUD operations
 </Card>
 
 <Card title="Configuration" icon="sliders" href="/open-source/configuration">
-Customize Mem0 with different LLMs, vector stores, and embedders for production use
+  Customize Mem0 with different LLMs, vector stores, and embedders for production use
 </Card>
 
 <Card title="Advanced Features" icon="sparkles" href="/open-source/features/async-memory">
