@@ -11,6 +11,20 @@ Get started with Mem0's Python SDK in under 5 minutes. This guide shows you how 
 - Python 3.10 or higher
 - OpenAI API key ([Get one here](https://platform.openai.com/api-keys))
 
+<Callout type="info" title="Why OpenAI API key?">
+Mem0 uses OpenAI's models by default for fact extraction and embeddings. The `Memory()` class automatically configures:
+- OpenAI `gpt-4.1-nano-2025-04-14` for fact extraction and updates
+- OpenAI `text-embedding-3-small` for embeddings
+
+You can use other providers like Ollama, Anthropic, or local models. See [Configuration](/open-source/configuration) to customize your setup.
+</Callout>
+
+Set your OpenAI API key as an environment variable:
+
+```bash
+export OPENAI_API_KEY="your-openai-api-key"
+```
+
 ## Installation
 
 <Steps>
@@ -24,7 +38,7 @@ pip install mem0ai
 ```python
 from mem0 import Memory
 
-m = Memory(api_key="your-openai-api-key")
+m = Memory()
 ```
 </Step>
 
