@@ -42,23 +42,35 @@ result = client.add(
 The memory is now stored. Let's retrieve those memories with the same identifiers:
 
 ```python
-filters = {
+user_scope = {
     "AND": [
         {"user_id": "traveler_cam"},
-        {"agent_id": "travel_planner"},
         {"app_id": "concierge_app"},
         {"run_id": "tokyo-2025-weekend"}
     ]
 }
+user_memories = client.search("Any dietary restrictions?", filters=user_scope)
+print(user_memories)
 
-memories = client.search("Any dietary restrictions?", filters=filters)
-print(len(memories["results"]), memories["results"][0]["memory"])
+agent_scope = {
+    "AND": [
+        {"agent_id": "travel_planner"},
+        {"app_id": "concierge_app"}
+    ]
+}
+agent_memories = client.search("Any dietary restrictions?", filters=agent_scope)
+print(agent_memories)
 ```
 
 **Output:**
 ```
-1 avoids shellfish and prefers boutique hotels
+{'results': [{'memory': 'avoids shellfish and prefers boutique hotels', ...}]}
+{'results': [{'memory': 'avoids shellfish and prefers boutique hotels', ...}]}
 ```
+
+<Tip icon="compass">
+Memories can be written with several identifiers, but each search resolves one entity boundary at a time. Run separate queries for user and agent scopes—just like above—rather than combining both in a single filter.
+</Tip>
 
 ## When Memories Leak
 
@@ -68,7 +80,7 @@ When Nora adds a chef agent, Cam's travel preferences leak into food recommendat
 chef_filters = {"AND": [{"user_id": "traveler_cam"}]}
 
 collision = client.search("What should I cook?", filters=chef_filters)
-print([item["memory"] for item in collision["results"]])
+print(collision)
 ```
 
 **Output:**
@@ -98,12 +110,11 @@ client.add(
 )
 ```
 
-Now add `agent_id` and `run_id` to keep memories separate:
+Now search within the chef's scope:
 
 ```python
 safe_filters = {
     "AND": [
-        {"user_id": "traveler_cam"},
         {"agent_id": "chef_recommender"},
         {"app_id": "concierge_app"},
         {"run_id": "menu-planning-2025-04"}
@@ -111,12 +122,12 @@ safe_filters = {
 }
 
 chef_memories = client.search("Any food alerts?", filters=safe_filters)
-print(chef_memories["results"][0]["memory"])
+print(chef_memories)
 ```
 
 **Output:**
 ```
-prefers Kyoto kaiseki dining experiences
+{'results': [{'memory': 'prefers Kyoto kaiseki dining experiences', ...}]}
 ```
 
 Now the chef agent only sees its own food preferences. The hotel preferences stay with the travel agent.
@@ -147,9 +158,9 @@ print([row["user_id"] for row in page["results"]])
 Wildcards (`"*"` ) only match non-null values. Make sure you write memories with explicit `app_id` values.
 </Info>
 
-<Info icon="adjustments">
+<Tip icon="sparkles">
 Need a deeper tour of AND vs OR, nested filters, or wildcard tricks? Check the <Link href="/platform/features/v2-memory-filters">Memory Filters v2 guide</Link> for full examples you can copy into this flow.
-</Info>
+</Tip>
 
 When the sports brand offboards, delete all their data:
 
@@ -159,7 +170,7 @@ client.delete_all(app_id="sports_brand_portal")
 
 **Output:**
 ```
-{'status': 'success'}
+{'message': 'Memories deleted successfully!'}
 ```
 
 ## Production Patterns
@@ -197,7 +208,6 @@ client.add(
 filters = {
     "AND": [
         {"user_id": "exec_123"},
-        {"agent_id": "booking_assistant"},
         {"app_id": "enterprise_portal"},
         {"run_id": "trip-2025-03"}
     ]
@@ -222,9 +232,7 @@ print(f"Searching with filters: {filters}")
 if not results["results"]:
     print("No results found! Trying broader search...")
     broader = client.get_all(filters={"user_id": "exec_123"})
-    print(f"Found {len(broader['results'])} memories for this user:")
-    for mem in broader["results"]:
-        print(f"  - {mem}")
+    print(broader)
 
 print(results["results"][0]["memory"])
 ```

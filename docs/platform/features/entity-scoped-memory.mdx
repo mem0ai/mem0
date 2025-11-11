@@ -5,6 +5,10 @@ description: Scope conversations by user, agent, app, and session so memories la
 
 Mem0's Platform API lets you separate memories for different users, agents, and apps. By tagging each write and query with the right identifiers, you can prevent data from mixing between them, maintain clear audit trails, and control data retention.
 
+<Tip icon="layers">
+Want the long-form tutorial? The <Link href="/cookbooks/essentials/entity-partitioning-playbook">Partition Memories by Entity</Link> cookbook walks through multi-agent storage, debugging, and cleanup step by step.
+</Tip>
+
 <Info>
   **You'll use this when…**
   - You run assistants for multiple customers who each need private memory spaces
@@ -92,29 +96,42 @@ client.add(
 )
 ```
 
-**2. Retrieve by combinations**
+**2. Retrieve by user scope**
 ```python
-filters = {
+user_scope = {
     "AND": [
         {"user_id": "customer_6412"},
-        {"agent_id": "travel_planner"},
         {"app_id": "concierge_portal"},
         {"run_id": "itinerary-2025-apr"}
     ]
 }
 
-results = client.search("Any dietary flags?", filters=filters)
+user_results = client.search("Any dietary flags?", filters=user_scope)
+print(user_results)
 ```
 
-<Info icon="check">
-`results["results"][0]["memory"]` should show the shellfish restriction. If the list is empty, verify that all four identifiers match exactly and the session hasn't been archived.
-</Info>
+**3. Retrieve by agent scope**
+```python
+agent_scope = {
+    "AND": [
+        {"agent_id": "travel_planner"},
+        {"app_id": "concierge_portal"}
+    ]
+}
 
-<Info icon="adjustments">
+agent_results = client.search("Any dietary flags?", filters=agent_scope)
+print(agent_results)
+```
+
+<Tip icon="compass">
+Writes can include multiple identifiers, but searches resolve one entity space at a time. Query user scope *or* agent scope in a given call—combining both returns an empty list today.
+</Tip>
+
+<Tip icon="sparkles">
 Want to experiment with AND/OR logic, nested operators, or wildcards? The <Link href="/platform/features/v2-memory-filters">Memory Filters v2 guide</Link> walks through every filter pattern with working examples.
-</Info>
+</Tip>
 
-**3. Audit everything for an app**
+**4. Audit everything for an app**
 ```python
 app_scope = {
     "AND": [
@@ -131,7 +148,7 @@ page = client.get_all(filters=app_scope, page=1, page_size=20)
 Wildcards (`"*"`) include only non-null values. Use them when you want "any agent" or "any user" without limiting results to null-only records.
 </Info>
 
-**4. Clean up a session**
+**5. Clean up a session**
 ```python
 client.delete_all(
     user_id="customer_6412",
@@ -140,7 +157,7 @@ client.delete_all(
 ```
 
 <Info icon="check">
-A successful delete returns `{"status": "success"}`. Run the previous `get_all` call again to confirm the session memories were removed.
+A successful delete returns `{"message": "Memories deleted successfully!"}`. Run the previous `get_all` call again to confirm the session memories were removed.
 </Info>
 
 ## Verify the feature is working
@@ -164,13 +181,13 @@ For a complete walkthrough, see the Partition Memories by Entity cookbook.
   <Card
     title="Master Memory Filters"
     description="Deep dive into JSON logic, operators, and wildcard behavior."
-    icon="adjustments"
+    icon="sliders"
     href="/platform/features/v2-memory-filters"
   />
   <Card
     title="Partition Memories in Practice"
     description="Follow the essentials cookbook to implement scoped workflows."
-    icon="layers"
+    icon="book-open"
     href="/cookbooks/essentials/entity-partitioning-playbook"
   />
 </CardGroup>
