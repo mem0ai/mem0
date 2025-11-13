@@ -24,8 +24,7 @@ config = {
 
 result = m.add(
     "memory content",
-    user_id="alice",
-    output_format="v1.0"  # ❌ No longer supported
+    user_id="alice"
 )
 ```
 
@@ -39,7 +38,6 @@ config = {
 result = m.add(
     "memory content",
     user_id="alice"
-    # output_format parameter removed
 )
 ```
 
@@ -51,28 +49,7 @@ Please use v1.1 format which returns a dict with 'results' key.
 
 ## Parameter Removals
 
-### 1. output_format Parameter
-
-**Removed from all methods:**
-- `add()`
-- `search()`
-- `get_all()`
-
-#### Before (v0.x)
-```python
-result = m.add("content", user_id="alice", output_format="v1.1")
-search_results = m.search("query", user_id="alice", output_format="v1.1")
-all_memories = m.get_all(user_id="alice", output_format="v1.1")
-```
-
-#### After (v1.0.0 )
-```python
-result = m.add("content", user_id="alice")
-search_results = m.search("query", user_id="alice")
-all_memories = m.get_all(user_id="alice")
-```
-
-### 2. version Parameter in Method Calls
+### 1. version Parameter in Method Calls
 
 **Breaking Change:** Version parameter removed from method calls.
 
@@ -86,7 +63,7 @@ result = m.add("content", user_id="alice", version="v1.0")
 result = m.add("content", user_id="alice")
 ```
 
-### 3. async_mode Parameter (Platform Client)
+### 2. async_mode Parameter (Platform Client)
 
 **Change:** For `MemoryClient` (Platform API), `async_mode` now defaults to `True` but can still be configured.
 
@@ -120,12 +97,10 @@ result = client.add("content", user_id="alice", async_mode=False)
 
 #### Before (v0.x)
 ```python
-# Could return different formats based on output_format parameter
-result = m.add("content", user_id="alice", output_format="v1.0")
-# Returns: [{"id": "...", "memory": "...", "event": "ADD"}]
-
-result = m.add("content", user_id="alice", output_format="v1.1")
-# Returns: {"results": [{"id": "...", "memory": "...", "event": "ADD"}]}
+# Could return different formats based on version configuration
+result = m.add("content", user_id="alice")
+# With v1.0: Returns [{"id": "...", "memory": "...", "event": "ADD"}]
+# With v1.1: Returns {"results": [{"id": "...", "memory": "...", "event": "ADD"}]}
 ```
 
 #### After (v1.0.0 )
