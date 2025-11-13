@@ -75,14 +75,18 @@ await client.search("What is Alice's favorite sport?", { user_id: "alice" });
 
 Retrieve all memories for a user asynchronously.
 
+<Callout type="warning" title="Filters Required">
+`get_all()` now requires filters to be specified.
+</Callout>
+
 <CodeGroup>
 
 ```python Python
-await client.get_all(user_id="alice")
+await client.get_all(filters={"AND": [{"user_id": "alice"}]})
 ```
 
 ```javascript JavaScript
-await client.getAll({ user_id: "alice" });
+await client.getAll({ filters: {"AND": [{"user_id": "alice"}]} });
 ```
 
 </CodeGroup>
