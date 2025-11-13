@@ -302,7 +302,7 @@ messages = [
 
 # Add the messages and check extracted memories
 result = client.add(messages, user_id="test_user")
-memories = client.get_all(user_id="test_user")
+memories = client.get_all(filters={"AND": [{"user_id": "test_user"}]})
 
 # Review if the right information was extracted
 for memory in memories:

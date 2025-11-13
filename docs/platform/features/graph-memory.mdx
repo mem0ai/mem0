@@ -187,12 +187,16 @@ console.log(results);
 
 When retrieving all memories, Graph Memory provides additional relationship context:
 
+<Callout type="warning" title="Filters Required">
+`get_all()` now requires filters to be specified.
+</Callout>
+
 <CodeGroup>
 
 ```python Python
 # Get all memories with graph context
 memories = client.get_all(
-    user_id="joseph",
+    filters={"AND": [{"user_id": "joseph"}]},
     enable_graph=True
 )
 
@@ -202,7 +206,7 @@ print(memories)
 ```javascript JavaScript
 // Get all memories with graph context
 const memories = await client.getAll({
-  user_id: "joseph",
+  filters: {"AND": [{"user_id": "joseph"}]},
   enable_graph: true
 });
 
