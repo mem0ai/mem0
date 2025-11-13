@@ -19,8 +19,6 @@ Mem0 1.0.0  is a major release that modernizes the API, improves performance, an
 |---------|------|-------------|-------------------|
 | API Version | v1.0 supported | v1.0 **removed**, v1.1+ only | ✅ Yes |
 | Async Mode (Platform Client) | Optional/manual | Defaults to `True`, configurable | ⚠️ Partial |
-| Output Format Parameter | Supported | **Removed** | ✅ Yes |
-| Response Format | Mixed | Standardized `{"results": [...]}` | ✅ Yes |
 | Metadata Filtering | Basic | Enhanced with operators | ⚠️ Optional |
 | Reranking | Not available | Full support | ⚠️ Optional |
 
@@ -44,7 +42,6 @@ m = Memory()
 result = m.add(
     "I love pizza",
     user_id="alice",
-    output_format="v1.0",  # ❌ REMOVED
     version="v1.0"         # ❌ REMOVED
 )
 ```
@@ -58,7 +55,7 @@ m = Memory()
 result = m.add(
     "I love pizza",
     user_id="alice"
-    # output_format and version parameters removed
+    # version parameter removed
 )
 ```
 
@@ -407,7 +404,7 @@ TypeError: add() got an unexpected keyword argument 'output_format'
 result = m.add(
     "memory",
     user_id="alice"
-    # Remove: output_format, version
+    # Remove: version
 )
 ```
 
