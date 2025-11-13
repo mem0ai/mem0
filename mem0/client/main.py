@@ -161,15 +161,6 @@ class MemoryClient:
 
         kwargs = self._prepare_params(kwargs)
 
-        # Remove deprecated parameters
-        if "output_format" in kwargs:
-            warnings.warn(
-                "output_format parameter is deprecated and ignored. All responses now use v1.1 format.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            kwargs.pop("output_format")
-
         # Set async_mode to True by default, but allow user override
         if "async_mode" not in kwargs:
             kwargs["async_mode"] = True
@@ -228,7 +219,6 @@ class MemoryClient:
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
         params = self._prepare_params(kwargs)
-        params.pop("output_format", None)  # Remove output_format for get operations
         params.pop("async_mode", None)
 
         if "page" in params and "page_size" in params:
@@ -280,7 +270,6 @@ class MemoryClient:
         """
         payload = {"query": query}
         params = self._prepare_params(kwargs)
-        params.pop("output_format", None)  # Remove output_format for search operations
         params.pop("async_mode", None)
 
         payload.update(params)
@@ -1103,15 +1092,6 @@ class AsyncMemoryClient:
 
         kwargs = self._prepare_params(kwargs)
 
-        # Remove deprecated parameters
-        if "output_format" in kwargs:
-            warnings.warn(
-                "output_format parameter is deprecated and ignored. All responses now use v1.1 format.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            kwargs.pop("output_format")
-
         # Set async_mode to True by default, but allow user override
         if "async_mode" not in kwargs:
             kwargs["async_mode"] = True
@@ -1137,7 +1117,6 @@ class AsyncMemoryClient:
     @api_error_handler
     async def get_all(self, **kwargs) -> Dict[str, Any]:
         params = self._prepare_params(kwargs)
-        params.pop("output_format", None)  # Remove output_format for get operations
         params.pop("async_mode", None)
 
         if "page" in params and "page_size" in params:
@@ -1171,7 +1150,6 @@ class AsyncMemoryClient:
     async def search(self, query: str, **kwargs) -> Dict[str, Any]:
         payload = {"query": query}
         params = self._prepare_params(kwargs)
-        params.pop("output_format", None)  # Remove output_format for search operations
         params.pop("async_mode", None)
 
         payload.update(params)
