@@ -63,6 +63,7 @@
                         "icon": "circle-check",
                         "pages": [
                           "platform/features/v2-memory-filters",
+                          "platform/features/entity-scoped-memory",
                           "platform/features/async-client",
                           "platform/features/async-mode-default-change",
                           "platform/features/multimodal-support",
@@ -315,7 +316,7 @@
                     "icon": "flag",
                     "pages": [
                       "cookbooks/essentials/building-ai-companion",
-                      "cookbooks/essentials/building-ai-with-personality",
+                      "cookbooks/essentials/entity-partitioning-playbook",
                       "cookbooks/essentials/controlling-memory-ingestion",
                       "cookbooks/essentials/memory-expiration-short-and-long-term",
                       "cookbooks/essentials/tagging-and-organizing-memories",
