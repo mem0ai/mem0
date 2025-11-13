@@ -1055,6 +1055,10 @@
     {
       "source": "/v0x/examples/aws_neptune_analytics_hybrid_store",
       "destination": "/cookbooks/integrations/neptune-analytics"
+    },
+    {
+      "source": "/features/memory-export",
+      "destination": "/platform/features/memory-export"
     }
   ]
 }

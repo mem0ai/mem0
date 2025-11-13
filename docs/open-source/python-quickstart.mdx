@@ -11,6 +11,16 @@ Get started with Mem0's Python SDK in under 5 minutes. This guide shows you how 
 - Python 3.10 or higher
 - OpenAI API key ([Get one here](https://platform.openai.com/api-keys))
 
+Set your OpenAI API key:
+
+```bash
+export OPENAI_API_KEY="your-openai-api-key"
+```
+
+<Note>
+Uses OpenAI by default. Want to use Ollama, Anthropic, or local models? See [Configuration](/open-source/configuration).
+</Note>
+
 ## Installation
 
 <Steps>
@@ -24,8 +34,9 @@ pip install mem0ai
 ```python
 from mem0 import Memory
 
-m = Memory(api_key="your-openai-api-key")
-```
+m = Memory()
+
+````
 </Step>
 
 <Step title="Add a memory">
@@ -35,7 +46,8 @@ messages = [
     {"role": "assistant", "content": "Hey Alex! I'll remember your interests."}
 ]
 m.add(messages, user_id="alex")
-```
+````
+
 </Step>
 
 <Step title="Search memories">
@@ -45,6 +57,7 @@ print(results)
 ```
 
 **Output:**
+
 ```json
 {
   "results": [
@@ -59,8 +72,10 @@ print(results)
   ]
 }
 ```
+
 </Step>
 </Steps>
+
 
 <Note>
 By default `Memory()` wires up:
@@ -79,7 +94,7 @@ Learn how to search, update, and manage memories with full CRUD operations
 </Card>
 
 <Card title="Configuration" icon="sliders" href="/open-source/configuration">
-Customize Mem0 with different LLMs, vector stores, and embedders for production use
+  Customize Mem0 with different LLMs, vector stores, and embedders for production use
 </Card>
 
 <Card title="Advanced Features" icon="sparkles" href="/open-source/features/async-memory">
