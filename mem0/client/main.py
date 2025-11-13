@@ -161,15 +161,6 @@ class MemoryClient:
 
         kwargs = self._prepare_params(kwargs)
 
-        # Remove deprecated parameters
-        if "output_format" in kwargs:
-            warnings.warn(
-                "output_format parameter is deprecated and ignored. All responses now use v1.1 format.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            kwargs.pop("output_format")
-
         # Set async_mode to True by default, but allow user override
         if "async_mode" not in kwargs:
             kwargs["async_mode"] = True
@@ -1100,15 +1091,6 @@ class AsyncMemoryClient:
             )
 
         kwargs = self._prepare_params(kwargs)
-
-        # Remove deprecated parameters
-        if "output_format" in kwargs:
-            warnings.warn(
-                "output_format parameter is deprecated and ignored. All responses now use v1.1 format.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            kwargs.pop("output_format")
 
         # Set async_mode to True by default, but allow user override
         if "async_mode" not in kwargs:
