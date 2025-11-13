@@ -3,9 +3,10 @@
 import { useState, useCallback } from 'react';
 import { AnimatedOrb } from './AnimatedOrb';
 import { ChatUI } from './ChatUI';
+import { VoiceAgentToggle } from './VoiceAgentToggle';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useAudioRecorder, useAudioPlayer } from '@/hooks/useAudio';
-import { ChatMessage, AssistantStatus } from '@/lib/types';
+import { ChatMessage, AssistantStatus, VoiceAgent } from '@/lib/types';
 import { Mic, MicOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -18,7 +19,14 @@ export function VoiceAssistant() {
   const { playAudio } = useAudioPlayer();
 
   // WebSocket connection
-  const { isConnected, sendAudioChunk, startRecording: wsStartRecording, stopRecording: wsStopRecording } = useWebSocket({
+  const {
+    isConnected,
+    currentAgent,
+    sendAudioChunk,
+    startRecording: wsStartRecording,
+    stopRecording: wsStopRecording,
+    setVoiceAgent,
+  } = useWebSocket({
     url: process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080',
     onTranscriptionUpdate: (text, isFinal) => {
       if (isFinal) {
@@ -61,6 +69,9 @@ export function VoiceAssistant() {
     onError: (error) => {
       console.error('WebSocket error:', error);
     },
+    onVoiceAgentChanged: (agent) => {
+      console.log('Voice agent changed to:', agent);
+    },
   });
 
   // Audio recording
@@ -81,6 +92,18 @@ export function VoiceAssistant() {
     stopRecording();
     wsStopRecording();
   }, [stopRecording, wsStopRecording]);
+
+  const handleAgentChange = useCallback((agent: VoiceAgent) => {
+    if (status !== 'idle') {
+      console.warn('Cannot switch agent while processing');
+      return;
+    }
+    setVoiceAgent(agent);
+  }, [status, setVoiceAgent]);
+
+  const getAgentName = () => {
+    return currentAgent === 'elevenlabs' ? 'ElevenLabs' : 'QWen 3 Omni';
+  };
 
   const getStatusText = () => {
     switch (status) {
@@ -111,19 +134,28 @@ export function VoiceAssistant() {
   return (
     <div className="h-screen flex flex-col">
       {/* Header */}
-      <div className="bg-gray-800 border-b border-gray-700 px-6 py-3 flex items-center justify-between">
+      <div className="bg-gray-800 border-b border-gray-700 px-6 py-4 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">AI Voice Assistant</h1>
-          <p className={cn('text-sm', getStatusColor())}>{getStatusText()}</p>
+          <p className={cn('text-sm', getStatusColor())}>
+            {getStatusText()} {currentAgent && <span className="text-gray-500">· {getAgentName()}</span>}
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className={cn(
-            'w-3 h-3 rounded-full',
-            isConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-500'
-          )} />
-          <span className="text-sm text-gray-400">
-            {isConnected ? 'Connected' : 'Disconnected'}
-          </span>
+        <div className="flex items-center gap-4">
+          <VoiceAgentToggle
+            currentAgent={currentAgent}
+            onAgentChange={handleAgentChange}
+            disabled={!isConnected || status !== 'idle'}
+          />
+          <div className="flex items-center gap-2">
+            <div className={cn(
+              'w-3 h-3 rounded-full',
+              isConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-500'
+            )} />
+            <span className="text-sm text-gray-400">
+              {isConnected ? 'Connected' : 'Disconnected'}
+            </span>
+          </div>
         </div>
       </div>
 

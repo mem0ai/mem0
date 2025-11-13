@@ -8,6 +8,8 @@ import {
   StatusChangePayload,
   ErrorPayload,
   AssistantStatus,
+  VoiceAgent,
+  VoiceAgentChangedPayload,
 } from '@/lib/types';
 
 interface UseWebSocketOptions {
@@ -17,11 +19,13 @@ interface UseWebSocketOptions {
   onAIResponseAudio?: (audio: string, messageId: string, isLast: boolean) => void;
   onStatusChange?: (status: AssistantStatus, message?: string) => void;
   onError?: (error: ErrorPayload) => void;
+  onVoiceAgentChanged?: (agent: VoiceAgent) => void;
 }
 
 export function useWebSocket(options: UseWebSocketOptions) {
   const [isConnected, setIsConnected] = useState(false);
   const [status, setStatus] = useState<AssistantStatus>('idle');
+  const [currentAgent, setCurrentAgent] = useState<VoiceAgent>('elevenlabs');
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const audioQueueRef = useRef<AudioBuffer[]>([]);
@@ -73,6 +77,13 @@ export function useWebSocket(options: UseWebSocketOptions) {
             const payload = message.payload as ErrorPayload;
             console.error('WebSocket error:', payload);
             options.onError?.(payload);
+            break;
+          }
+
+          case WebSocketMessageType.VOICE_AGENT_CHANGED: {
+            const payload = message.payload as VoiceAgentChangedPayload;
+            setCurrentAgent(payload.agent);
+            options.onVoiceAgentChanged?.(payload.agent);
             break;
           }
 
@@ -138,6 +149,10 @@ export function useWebSocket(options: UseWebSocketOptions) {
     sendMessage(WebSocketMessageType.STOP_RECORDING, {});
   }, [sendMessage]);
 
+  const setVoiceAgent = useCallback((agent: VoiceAgent) => {
+    sendMessage(WebSocketMessageType.SET_VOICE_AGENT, { agent });
+  }, [sendMessage]);
+
   useEffect(() => {
     connect();
     return () => {
@@ -148,9 +163,11 @@ export function useWebSocket(options: UseWebSocketOptions) {
   return {
     isConnected,
     status,
+    currentAgent,
     sendAudioChunk,
     startRecording,
     stopRecording,
+    setVoiceAgent,
   };
 }
 

@@ -1,30 +1,4 @@
-import type { WebSocket } from 'ws';
-
 export type VoiceAgent = 'elevenlabs' | 'qwen-omni';
-
-export interface Session {
-  id: string;
-  userId: string;
-  ws: WebSocket;
-  audioBuffer: Buffer[];
-  transcription: string;
-  conversationHistory: Message[];
-  voiceAgent: VoiceAgent;
-  createdAt: Date;
-  lastActivity: Date;
-}
-
-export interface Message {
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-  audio?: string; // Base64 encoded audio
-}
-
-export interface WebSocketMessage {
-  type: WebSocketMessageType;
-  payload: unknown;
-}
 
 export enum WebSocketMessageType {
   // Client -> Server
@@ -46,8 +20,13 @@ export enum WebSocketMessageType {
   PONG = 'pong',
 }
 
+export interface WebSocketMessage {
+  type: WebSocketMessageType;
+  payload: unknown;
+}
+
 export interface AudioChunkPayload {
-  audio: string; // Base64 encoded audio chunk
+  audio: string; // Base64 encoded
   sampleRate: number;
   channels: number;
 }
@@ -63,7 +42,7 @@ export interface AIResponseTextPayload {
 }
 
 export interface AIResponseAudioPayload {
-  audio: string; // Base64 encoded audio chunk
+  audio: string; // Base64 encoded
   messageId: string;
   isLast: boolean;
 }
@@ -87,16 +66,11 @@ export interface SetVoiceAgentPayload {
   agent: VoiceAgent;
 }
 
-export interface VoicePipelineConfig {
-  sttProvider: 'whisper' | 'deepgram' | 'qwen-asr';
-  ttsProvider: 'elevenlabs' | 'openai' | 'qwen-tts';
-  llmProvider: 'claude' | 'qwen';
-  voiceAgent?: VoiceAgent; // Selected voice agent
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
 }
 
-export interface MCPServerConfig {
-  name: string;
-  command: string;
-  args: string[];
-  env?: Record<string, string>;
-}
+export type AssistantStatus = 'idle' | 'listening' | 'processing' | 'speaking';

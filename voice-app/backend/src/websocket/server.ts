@@ -60,6 +60,7 @@ export class WebSocketServer {
   private handleConnection(ws: WebSocket): void {
     const sessionId = uuidv4();
     const userId = process.env.MEM0_USER_ID || 'mem0-zai-crew';
+    const defaultAgent = (process.env.DEFAULT_VOICE_AGENT as 'elevenlabs' | 'qwen-omni') || 'elevenlabs';
 
     const session: Session = {
       id: sessionId,
@@ -68,12 +69,13 @@ export class WebSocketServer {
       audioBuffer: [],
       transcription: '',
       conversationHistory: [],
+      voiceAgent: defaultAgent,
       createdAt: new Date(),
       lastActivity: new Date(),
     };
 
     this.sessions.set(sessionId, session);
-    logger.info(`New WebSocket connection: ${sessionId}`);
+    logger.info(`New WebSocket connection: ${sessionId} with voice agent: ${defaultAgent}`);
 
     // Send welcome message
     this.sendMessage(ws, WebSocketMessageType.STATUS_CHANGE, {
