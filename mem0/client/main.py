@@ -228,7 +228,6 @@ class MemoryClient:
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
         params = self._prepare_params(kwargs)
-        params.pop("output_format", None)  # Remove output_format for get operations
         params.pop("async_mode", None)
 
         if "page" in params and "page_size" in params:
@@ -280,7 +279,6 @@ class MemoryClient:
         """
         payload = {"query": query}
         params = self._prepare_params(kwargs)
-        params.pop("output_format", None)  # Remove output_format for search operations
         params.pop("async_mode", None)
 
         payload.update(params)
@@ -1137,7 +1135,6 @@ class AsyncMemoryClient:
     @api_error_handler
     async def get_all(self, **kwargs) -> Dict[str, Any]:
         params = self._prepare_params(kwargs)
-        params.pop("output_format", None)  # Remove output_format for get operations
         params.pop("async_mode", None)
 
         if "page" in params and "page_size" in params:
@@ -1171,7 +1168,6 @@ class AsyncMemoryClient:
     async def search(self, query: str, **kwargs) -> Dict[str, Any]:
         payload = {"query": query}
         params = self._prepare_params(kwargs)
-        params.pop("output_format", None)  # Remove output_format for search operations
         params.pop("async_mode", None)
 
         payload.update(params)
