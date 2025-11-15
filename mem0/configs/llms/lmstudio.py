@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Literal
 
 from mem0.configs.llms.base import BaseLlmConfig
 
@@ -21,6 +21,7 @@ class LMStudioConfig(BaseLlmConfig):
         enable_vision: bool = False,
         vision_details: Optional[str] = "auto",
         http_client_proxies: Optional[dict] = None,
+        reasoning_effort: Optional[Literal["low", "medium", "high"]] = None,
         # LM Studio-specific parameters
         lmstudio_base_url: Optional[str] = None,
         lmstudio_response_format: Optional[Dict[str, Any]] = None,
@@ -38,6 +39,7 @@ class LMStudioConfig(BaseLlmConfig):
             enable_vision: Enable vision capabilities, defaults to False
             vision_details: Vision detail level, defaults to "auto"
             http_client_proxies: HTTP client proxy settings, defaults to None
+            reasoning_effort: Reasoning effort level for reasoning models, defaults to None
             lmstudio_base_url: LM Studio base URL, defaults to None
             lmstudio_response_format: LM Studio response format, defaults to None
         """
@@ -52,6 +54,7 @@ class LMStudioConfig(BaseLlmConfig):
             enable_vision=enable_vision,
             vision_details=vision_details,
             http_client_proxies=http_client_proxies,
+            reasoning_effort=reasoning_effort,
         )
 
         # LM Studio-specific parameters
