@@ -13,9 +13,17 @@ config = {
             "workspace_url": "https://your-workspace.databricks.com",
             "access_token": "your-access-token",
             "endpoint_name": "your-vector-search-endpoint",
-            "index_name": "catalog.schema.index_name",
-            "source_table_name": "catalog.schema.source_table",
-            "embedding_dimension": 1536
+            "catalog": "your_unity_catalog_catalog_name",
+            "schema": "your_unity_catalog_schema_name",
+            "table_name": "your_delta_table_name",
+            "collection_name": "your_vector_search_index_name",
+            "index_type": "DELTA_SYNC_OR_DIRECT_ACCESS",
+            "embedding_dimension": 1536,
+            "endpoint_type": "STANDARD_OR_STORAGE_OPTIMIZED",
+            "pipeline_type": "TRIGGERED_OR_CONTINUOUS",
+            "query_type": "ANN_OR_HYBRID",
+            "warehouse_name": "your_SQL_Warehouse_name",
+            "embedding_model_endpoint_name": "your_embedding_model_endpoint",
         }
     }
 }
@@ -38,17 +46,39 @@ Here are the parameters available for configuring Databricks Vector Search:
 | --- | --- | --- |
 | `workspace_url` | The URL of your Databricks workspace | **Required** |
 | `access_token` | Personal Access Token for authentication | `None` |
-| `service_principal_client_id` | Service principal client ID (alternative to access_token) | `None` |
-| `service_principal_client_secret` | Service principal client secret (required with client_id) | `None` |
+| `client_id` | Service principal client ID (alternative to access_token) | `None` |
+| `client_secret` | Service principal client secret (required with client_id) | `None` |
+| `azure_client_id` | Azure AD application client ID (for Azure Databricks) | `None` |
+| `azure_client_secret` | Azure AD application client secret (for Azure Databricks) | `None` |
 | `endpoint_name` | Name of the Vector Search endpoint | **Required** |
-| `index_name` | Name of the vector index (Unity Catalog format: catalog.schema.index) | **Required** |
-| `source_table_name` | Name of the source Delta table (Unity Catalog format: catalog.schema.table) | **Required** |
-| `embedding_dimension` | Dimension of self-managed embeddings | `1536` |
-| `embedding_source_column` | Column name for text when using Databricks-computed embeddings | `None` |
+| `catalog` | Unity Catalog catalog name | **Required** |
+| `schema` | Unity Catalog schema name | **Required** |
+| `table_name` | Name of the source Delta table | **Required** |
+| `collection_name` | Name of the vector index | `mem0` |
+| `index_type` | Index type, either "DELTA_SYNC" or "DIRECT_ACCESS" | `DELTA_SYNC` |
 | `embedding_model_endpoint_name` | Databricks serving endpoint for embeddings | `None` |
-| `embedding_vector_column` | Column name for self-managed embedding vectors | `embedding` |
+| `embedding_dimension` | Dimension of self-managed embeddings | `1536` |
 | `endpoint_type` | Type of endpoint (`STANDARD` or `STORAGE_OPTIMIZED`) | `STANDARD` |
-| `sync_computed_embeddings` | Whether to sync computed embeddings automatically | `True` |
+| `pipeline_type` | Sync pipeline type, either "TRIGGERED" or "CONTINUOUS" | `TRIGGERED` |
+| `warehouse_name` | Databricks SQL warehouse Name (if using SQL warehouse) | `None`
+| `query_type` | Query type, either "ANN" or "HYBRID" | `ANN` |
+
+### Schema
+
+Columns for Storing Memories and Vector Search
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `memory_id` | `string` | Primary Key |
+| `hash` | `string` | Hash of the memory content |
+| `agent_id` | `string` | ID of the agent |
+| `run_id` | `string` | ID of the run |
+| `user_id` | `string` | ID of the user |
+| `memory` | `string` | Memory content |
+| `metadata` | `string` | Additional metadata |
+| `created_at` | `timestamp` | Creation timestamp |
+| `updated_at` | `timestamp` | Last update timestamp |
+| `embedding` | `array<float>` | Embedding vector (Only if index_type="DIRECT_ACCESS") |
 
 ### Authentication
 
@@ -61,11 +91,13 @@ config = {
         "provider": "databricks",
         "config": {
             "workspace_url": "https://your-workspace.databricks.com",
-            "service_principal_client_id": "your-service-principal-id",
-            "service_principal_client_secret": "your-service-principal-secret",
+            "client_id": "your-service-principal-id",
+            "client_secret": "your-service-principal-secret",
             "endpoint_name": "your-endpoint",
-            "index_name": "catalog.schema.index_name",
-            "source_table_name": "catalog.schema.source_table"
+            "catalog": "your_unity_catalog_catalog_name",
+            "schema": "your_unity_catalog_schema_name",
+            "table_name": "your_delta_table_name",
+            "collection_name": "your_index_name",
         }
     }
 }
@@ -80,8 +112,10 @@ config = {
             "workspace_url": "https://your-workspace.databricks.com",
             "access_token": "your-personal-access-token",
             "endpoint_name": "your-endpoint",
-            "index_name": "catalog.schema.index_name",
-            "source_table_name": "catalog.schema.source_table"
+            "catalog": "your_unity_catalog_catalog_name",
+            "schema": "your_unity_catalog_schema_name",
+            "table_name": "your_delta_table_name",
+            "collection_name": "your_index_name",
         }
     }
 }
@@ -98,8 +132,8 @@ config = {
         "provider": "databricks",
         "config": {
             # ... authentication config ...
+            # By default the column name will be "memory"
             "embedding_dimension": 768,  # Match your embedding model
-            "embedding_vector_column": "embedding"
         }
     }
 }
@@ -114,7 +148,7 @@ config = {
         "provider": "databricks",
         "config": {
             # ... authentication config ...
-            "embedding_source_column": "text",
+            # By default the column name will be "embedding"
             "embedding_model_endpoint_name": "e5-small-v2"
         }
     }
