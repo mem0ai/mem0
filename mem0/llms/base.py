@@ -3,7 +3,6 @@ from typing import Dict, List, Optional, Union
 
 from mem0.configs.llms.base import BaseLlmConfig
 
-
 class LLMBase(ABC):
     """
     Base class for all LLM providers.
@@ -11,7 +10,8 @@ class LLMBase(ABC):
     """
 
     def __init__(self, config: Optional[Union[BaseLlmConfig, Dict]] = None):
-        """Initialize a base LLM class
+        """
+        Initialize a base LLM class
 
         :param config: LLM configuration option class or dict, defaults to None
         :type config: Optional[Union[BaseLlmConfig, Dict]], optional
@@ -23,6 +23,10 @@ class LLMBase(ABC):
             self.config = BaseLlmConfig(**config)
         else:
             self.config = config
+
+        # Add reasoning_effort to config if not already present
+        if not hasattr(self.config, "reasoning_effort"):
+            self.config.reasoning_effort = None  # Default value if not set
 
         # Validate configuration
         self._validate_config()
@@ -54,14 +58,11 @@ class LLMBase(ABC):
             "o1", "o1-preview", "o3-mini", "o3",
             "gpt-5", "gpt-5o", "gpt-5o-mini", "gpt-5o-micro",
         }
-        
         if model.lower() in reasoning_models:
             return True
-        
         model_lower = model.lower()
         if any(reasoning_model in model_lower for reasoning_model in ["gpt-5", "o1", "o3"]):
             return True
-            
         return False
 
     def _get_supported_params(self, **kwargs) -> Dict:
@@ -76,10 +77,8 @@ class LLMBase(ABC):
             Dict: Filtered parameters dictionary
         """
         model = getattr(self.config, 'model', '')
-        
         if self._is_reasoning_model(model):
             supported_params = {}
-            
             if "messages" in kwargs:
                 supported_params["messages"] = kwargs["messages"]
             if "response_format" in kwargs:
@@ -88,7 +87,9 @@ class LLMBase(ABC):
                 supported_params["tools"] = kwargs["tools"]
             if "tool_choice" in kwargs:
                 supported_params["tool_choice"] = kwargs["tool_choice"]
-                
+            # NEW: Add reasoning_effort if set in config
+            if hasattr(self.config, "reasoning_effort") and self.config.reasoning_effort is not None:
+                supported_params["reasoning_effort"] = self.config.reasoning_effort
             return supported_params
         else:
             # For regular models, include all common parameters
