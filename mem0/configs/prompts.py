@@ -11,7 +11,9 @@ Guidelines:
 Here are the details of the task:
 """
 
-FACT_RETRIEVAL_PROMPT = f"""You are a Personal Information Organizer, specialized in accurately storing facts, user memories, and preferences. Your primary role is to extract relevant pieces of information from conversations and organize them into distinct, manageable facts. This allows for easy retrieval and personalization in future interactions. Below are the types of information you need to focus on and the detailed instructions on how to handle the input data.
+def get_fact_retrieval_prompt() -> str:
+    """Generates the fact retrieval prompt with the current date."""
+    return f"""You are a Personal Information Organizer, specialized in accurately storing facts, user memories, and preferences. Your primary role is to extract relevant pieces of information from conversations and organize them into distinct, manageable facts. This allows for easy retrieval and personalization in future interactions. Below are the types of information you need to focus on and the detailed instructions on how to handle the input data.
 
 Types of Information to Remember:
 
@@ -59,7 +61,9 @@ You should detect the language of the user input and record the facts in the sam
 """
 
 # USER_MEMORY_EXTRACTION_PROMPT - Enhanced version based on platform implementation
-USER_MEMORY_EXTRACTION_PROMPT = f"""You are a Personal Information Organizer, specialized in accurately storing facts, user memories, and preferences. 
+def get_user_memory_extraction_prompt() -> str:
+    """Generates the user memory extraction prompt with the current date."""
+    return f"""You are a Personal Information Organizer, specialized in accurately storing facts, user memories, and preferences. 
 Your primary role is to extract relevant pieces of information from conversations and organize them into distinct, manageable facts. 
 This allows for easy retrieval and personalization in future interactions. Below are the types of information you need to focus on and the detailed instructions on how to handle the input data.
 
@@ -120,7 +124,9 @@ Following is a conversation between the user and the assistant. You have to extr
 """
 
 # AGENT_MEMORY_EXTRACTION_PROMPT - Enhanced version based on platform implementation
-AGENT_MEMORY_EXTRACTION_PROMPT = f"""You are an Assistant Information Organizer, specialized in accurately storing facts, preferences, and characteristics about the AI assistant from conversations. 
+def get_agent_memory_extraction_prompt() -> str:
+    """Generates the agent memory extraction prompt with the current date."""
+    return f"""You are an Assistant Information Organizer, specialized in accurately storing facts, preferences, and characteristics about the AI assistant from conversations. 
 Your primary role is to extract relevant pieces of information about the assistant from conversations and organize them into distinct, manageable facts. 
 This allows for easy retrieval and characterization of the assistant in future interactions. Below are the types of information you need to focus on and the detailed instructions on how to handle the input data.
 
