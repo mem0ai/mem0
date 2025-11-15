@@ -557,6 +557,36 @@ class Databricks(VectorStoreBase):
             logger.error(f"Update operation failed for vector ID {vector_id}: {e}")
             raise
 
+    def _fetch_vector_values(self, vector_id):
+        """
+        Fetch vector values from Databricks.
+        
+        Args:
+            vector_id: ID of the vector to fetch
+            
+        Returns:
+            list: The vector values
+            
+        Raises:
+            ValueError: If vector not found
+        """
+        try:
+            select_sql = f"SELECT embedding FROM {self.fully_qualified_table_name} WHERE memory_id = '{vector_id}' LIMIT 1"
+            response = self.client.statement_execution.execute_statement(
+                statement=select_sql,
+                warehouse_id=self.warehouse_id,
+                wait_timeout="30s"
+            )
+            
+            if response.status.state.value == "SUCCEEDED" and response.result and response.result.data_array:
+                if len(response.result.data_array) > 0:
+                    return response.result.data_array[0][0]  # embedding is first column
+            
+            raise ValueError(f"Vector {vector_id} not found in Databricks")
+        except Exception as e:
+            logger.error(f"Error fetching vector values from Databricks: {e}")
+            raise
+
     def get(self, vector_id) -> MemoryResult:
         """
         Retrieve a vector by ID.

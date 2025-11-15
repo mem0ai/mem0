@@ -202,6 +202,30 @@ class RedisDB(VectorStoreBase):
         data["metadata"] = json.dumps({k: v for k, v in payload.items() if k not in excluded_keys})
         self.index.load(data=[data], keys=[f"{self.schema['index']['prefix']}:{vector_id}"], id_field="memory_id")
 
+    def _fetch_vector_values(self, vector_id):
+        """
+        Fetch vector values from Redis.
+        
+        Args:
+            vector_id: ID of the vector to fetch
+            
+        Returns:
+            list: The vector values
+            
+        Raises:
+            ValueError: If vector not found
+        """
+        try:
+            result = self.index.fetch(vector_id)
+            if result and "embedding" in result:
+                # Convert bytes back to numpy array then to list
+                return np.frombuffer(result["embedding"], dtype=np.float32).tolist()
+            else:
+                raise ValueError(f"Vector {vector_id} not found in Redis")
+        except Exception as e:
+            logger.error(f"Error fetching vector values from Redis: {e}")
+            raise
+
     def get(self, vector_id):
         result = self.index.fetch(vector_id)
         payload = {
