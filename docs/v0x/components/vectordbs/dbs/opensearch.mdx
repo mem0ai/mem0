@@ -42,11 +42,18 @@ config = {
             "host": "your-domain.us-west-2.aoss.amazonaws.com",
             "port": 443,
             "http_auth": auth,
-            "embedding_model_dims": 1024,
+            "embedding_model_dims": 1536,  # should match embedder's dimensions 
             "connection_class": RequestsHttpConnection,
             "pool_maxsize": 20,
             "use_ssl": True,
             "verify_certs": True
+        }
+    },
+    "embedder": {
+        "provider": "openai",
+        "config": {
+            "model": "text-embedding-3-small",
+            "embedding_dims": 1536
         }
     }
 }
