@@ -359,13 +359,209 @@
 				"tags": [
 					"events"
 				],
-				"summary": "Retrieve all events for the currently logged-in user.",
-				"description": "This endpoint returns a paginated list of events associated with the authenticated user.\nYou can filter the events by event type, start date, and end date.\n\nQuery Parameters:\n- event_type: Filter by event type (ADD or SEARCH)\n- start_date: Filter events after this date (format: YYYY-MM-DD)\n- end_date: Filter events before this date (format: YYYY-MM-DD)\n- page: Page number for pagination\n- page_size: Number of items per page (default: 50, max: 100)",
+				"summary": "Retrieve all events for current organization and project.",
 				"operationId": "events_list",
 				"responses": {
 					"200": {
 						"description": "Successfully retrieved events.",
-						"content": {}
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"count": {
+											"type": "integer",
+											"description": "Total number of events matching the filters."
+										},
+										"next": {
+											"type": "string",
+											"nullable": true,
+											"description": "URL for the next page of results."
+										},
+										"previous": {
+											"type": "string",
+											"nullable": true,
+											"description": "URL for the previous page of results."
+										},
+										"results": {
+											"type": "array",
+											"description": "Array of event objects.",
+											"items": {
+												"type": "object",
+												"properties": {
+													"id": {
+														"type": "string",
+														"format": "uuid",
+														"description": "The unique identifier of the event."
+													},
+													"event_type": {
+														"type": "string",
+														"description": "The type of event (e.g., ADD, SEARCH)."
+													},
+													"status": {
+														"type": "string",
+														"enum": [
+															"PENDING",
+															"RUNNING",
+															"FAILED",
+															"SUCCEEDED"
+														],
+														"description": "The current status of the event."
+													},
+													"payload": {
+														"type": "object",
+														"description": "The original payload associated with the event."
+													},
+													"metadata": {
+														"type": "object",
+														"nullable": true,
+														"description": "Additional metadata associated with the event."
+													},
+													"results": {
+														"type": "array",
+														"description": "Array of results produced by the event."
+													},
+													"created_at": {
+														"type": "string",
+														"format": "date-time",
+														"description": "Timestamp when the event was created."
+													},
+													"updated_at": {
+														"type": "string",
+														"format": "date-time",
+														"description": "Timestamp when the event was last updated."
+													},
+													"started_at": {
+														"type": "string",
+														"format": "date-time",
+														"description": "Timestamp when event processing started."
+													},
+													"completed_at": {
+														"type": "string",
+														"format": "date-time",
+														"description": "Timestamp when event processing completed."
+													},
+													"latency": {
+														"type": "number",
+														"description": "Processing time in milliseconds."
+													}
+												}
+											}
+										}
+									},
+									"required": [
+										"count",
+										"results"
+									]
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/event/{event_id}/": {
+			"get": {
+				"tags": [
+					"events"
+				],
+				"summary": "Retrieve details of a specific event by its ID.",
+				"operationId": "event_read",
+				"parameters": [
+					{
+						"name": "event_id",
+						"in": "path",
+						"required": true,
+						"schema": {
+							"type": "string",
+							"format": "uuid"
+						},
+						"description": "The unique identifier of the event (UUID)."
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Successfully retrieved event details.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"id": {
+											"type": "string",
+											"format": "uuid",
+											"description": "The unique identifier of the event."
+										},
+										"event_type": {
+											"type": "string",
+											"description": "The type of event (e.g., ADD, SEARCH)."
+										},
+										"status": {
+											"type": "string",
+											"enum": [
+												"PENDING",
+												"RUNNING",
+												"FAILED",
+												"SUCCEEDED"
+											],
+											"description": "The current status of the event."
+										},
+										"payload": {
+											"type": "object",
+											"description": "The original payload associated with the event."
+										},
+										"metadata": {
+											"type": "object",
+											"nullable": true,
+											"description": "Additional metadata associated with the event."
+										},
+										"results": {
+											"type": "array",
+											"description": "Array of results produced by the event."
+										},
+										"created_at": {
+											"type": "string",
+											"format": "date-time",
+											"description": "Timestamp when the event was created."
+										},
+										"updated_at": {
+											"type": "string",
+											"format": "date-time",
+											"description": "Timestamp when the event was last updated."
+										},
+										"started_at": {
+											"type": "string",
+											"format": "date-time",
+											"description": "Timestamp when event processing started."
+										},
+										"completed_at": {
+											"type": "string",
+											"format": "date-time",
+											"description": "Timestamp when event processing completed."
+										},
+										"latency": {
+											"type": "number",
+											"description": "Processing time in milliseconds."
+										}
+									}
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "Event not found.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"detail": {
+											"type": "string"
+										}
+									}
+								}
+							}
+						}
 					}
 				}
 			}
