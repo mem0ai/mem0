@@ -30,7 +30,7 @@ graph = [
     "langchain-memgraph>=0.1.0",
     "neo4j>=5.23.1",
     "rank-bm25>=0.2.2",
-    "kuzu>=0.11.0",
+    "ryugraph>=25.9.0",
 ]
 vector_stores = [
     "vecs>=0.4.0",

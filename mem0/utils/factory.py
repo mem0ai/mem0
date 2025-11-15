@@ -215,8 +215,9 @@ class GraphStoreFactory:
         "memgraph": "mem0.memory.memgraph_memory.MemoryGraph",
         "neptune": "mem0.graphs.neptune.neptunegraph.MemoryGraph",
         "neptunedb": "mem0.graphs.neptune.neptunedb.MemoryGraph",
-        "kuzu": "mem0.memory.kuzu_memory.MemoryGraph",
-        "default": "mem0.memory.graph_memory.MemoryGraph",
+        "kuzu": "mem0.memory.kuzu_memory.MemoryGraph",  # Deprecated: uses RyuGraph internally
+        "ryu": "mem0.memory.ryu_memory.MemoryGraph",
+        "default": "mem0.memory.ryu_memory.MemoryGraph",
     }
 
     @classmethod

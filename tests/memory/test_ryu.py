@@ -1,18 +1,11 @@
-"""
-Tests for the 'kuzu' provider (backwards compatibility).
-
-Note: The 'kuzu' provider is deprecated and now uses RyuGraph internally.
-These tests verify that existing code using the 'kuzu' provider continues to work.
-For new code, use the 'ryu' provider (see test_ryu.py).
-"""
 import numpy as np
 import pytest
 from unittest.mock import Mock, patch
-from mem0.memory.kuzu_memory import MemoryGraph
+from mem0.memory.ryu_memory import MemoryGraph
 
 
-class TestKuzu:
-    """Test that Kuzu memory works correctly (uses RyuGraph internally)"""
+class TestRyu:
+    """Test that RyuGraph memory works correctly"""
 
     # Create distinct embeddings that won't match with threshold=0.7
     # Each embedding is mostly zeros with ones in different positions to ensure low similarity
@@ -81,35 +74,35 @@ class TestKuzu:
         }
         return mock_llm
 
-    @patch("mem0.memory.kuzu_memory.EmbedderFactory")
-    @patch("mem0.memory.kuzu_memory.LlmFactory")
-    def test_kuzu_memory_initialization(
+    @patch("mem0.memory.ryu_memory.EmbedderFactory")
+    @patch("mem0.memory.ryu_memory.LlmFactory")
+    def test_ryu_memory_initialization(
         self, mock_llm_factory, mock_embedder_factory, mock_config, mock_embedding_model, mock_llm
     ):
-        """Test that Kuzu memory initializes correctly"""
+        """Test that RyuGraph memory initializes correctly"""
         # Setup mocks
         mock_embedder_factory.create.return_value = mock_embedding_model
         mock_llm_factory.create.return_value = mock_llm
 
         # Create instance
-        kuzu_memory = MemoryGraph(mock_config)
+        ryu_memory = MemoryGraph(mock_config)
 
         # Verify initialization
-        assert kuzu_memory.config == mock_config
-        assert kuzu_memory.embedding_model == mock_embedding_model
-        assert kuzu_memory.embedding_dims == 384
-        assert kuzu_memory.llm == mock_llm
-        assert kuzu_memory.threshold == 0.7
+        assert ryu_memory.config == mock_config
+        assert ryu_memory.embedding_model == mock_embedding_model
+        assert ryu_memory.embedding_dims == 384
+        assert ryu_memory.llm == mock_llm
+        assert ryu_memory.threshold == 0.7
 
     @pytest.mark.parametrize(
         "embedding_dims",
         [None, 0, -1],
     )
-    @patch("mem0.memory.kuzu_memory.EmbedderFactory")
-    def test_kuzu_memory_initialization_invalid_embedding_dims(
+    @patch("mem0.memory.ryu_memory.EmbedderFactory")
+    def test_ryu_memory_initialization_invalid_embedding_dims(
         self, mock_embedder_factory, embedding_dims, mock_config
     ):
-        """Test that Kuzu memory raises ValuError when initialized with invalid embedding_dims"""
+        """Test that RyuGraph memory raises ValueError when initialized with invalid embedding_dims"""
         # Setup mocks
         mock_embedding_model = Mock()
         mock_embedding_model.config.embedding_dims = embedding_dims
@@ -118,14 +111,14 @@ class TestKuzu:
         with pytest.raises(ValueError, match="must be a positive"):
             MemoryGraph(mock_config)
 
-    @patch("mem0.memory.kuzu_memory.EmbedderFactory")
-    @patch("mem0.memory.kuzu_memory.LlmFactory")
-    def test_kuzu(self, mock_llm_factory, mock_embedder_factory, mock_config, mock_embedding_model, mock_llm):
+    @patch("mem0.memory.ryu_memory.EmbedderFactory")
+    @patch("mem0.memory.ryu_memory.LlmFactory")
+    def test_ryu(self, mock_llm_factory, mock_embedder_factory, mock_config, mock_embedding_model, mock_llm):
         """Test adding memory to the graph"""
         mock_embedder_factory.create.return_value = mock_embedding_model
         mock_llm_factory.create.return_value = mock_llm
 
-        kuzu_memory = MemoryGraph(mock_config)
+        ryu_memory = MemoryGraph(mock_config)
 
         filters = {"user_id": "test_user", "agent_id": "test_agent", "run_id": "test_run"}
         data1 = [
@@ -137,27 +130,27 @@ class TestKuzu:
             {"source": "charlie", "destination": "alice", "relationship": "likes"},
         ]
 
-        result = kuzu_memory._add_entities(data1, filters, {})
+        result = ryu_memory._add_entities(data1, filters, {})
         assert result[0] == [{"source": "alice", "relationship": "knows", "target": "bob"}]
         assert result[1] == [{"source": "bob", "relationship": "knows", "target": "charlie"}]
         assert result[2] == [{"source": "charlie", "relationship": "knows", "target": "alice"}]
-        assert get_node_count(kuzu_memory) == 3
-        assert get_edge_count(kuzu_memory) == 3
+        assert get_node_count(ryu_memory) == 3
+        assert get_edge_count(ryu_memory) == 3
 
-        result = kuzu_memory._add_entities(data2, filters, {})
+        result = ryu_memory._add_entities(data2, filters, {})
         assert result[0] == [{"source": "charlie", "relationship": "likes", "target": "alice"}]
-        assert get_node_count(kuzu_memory) == 3
-        assert get_edge_count(kuzu_memory) == 4
+        assert get_node_count(ryu_memory) == 3
+        assert get_edge_count(ryu_memory) == 4
 
         data3 = [
             {"source": "dave", "destination": "alice", "relationship": "admires"}
         ]
-        result = kuzu_memory._add_entities(data3, filters, {})
+        result = ryu_memory._add_entities(data3, filters, {})
         assert result[0] == [{"source": "dave", "relationship": "admires", "target": "alice"}]
-        assert get_node_count(kuzu_memory) == 4  # dave is new
-        assert get_edge_count(kuzu_memory) == 5
+        assert get_node_count(ryu_memory) == 4  # dave is new
+        assert get_edge_count(ryu_memory) == 5
 
-        results = kuzu_memory.get_all(filters)
+        results = ryu_memory.get_all(filters)
         assert set([f"{result['source']}_{result['relationship']}_{result['target']}" for result in results]) == set([
             "alice_knows_bob",
             "bob_knows_charlie",
@@ -166,39 +159,39 @@ class TestKuzu:
             "dave_admires_alice"
         ])
 
-        results = kuzu_memory._search_graph_db(["bob"], filters, threshold=0.8)
+        results = ryu_memory._search_graph_db(["bob"], filters, threshold=0.8)
         assert set([f"{result['source']}_{result['relationship']}_{result['destination']}" for result in results]) == set([
             "alice_knows_bob",
             "bob_knows_charlie",
         ])
 
-        result = kuzu_memory._delete_entities(data2, filters)
+        result = ryu_memory._delete_entities(data2, filters)
         assert result[0] == [{"source": "charlie", "relationship": "likes", "target": "alice"}]
-        assert get_node_count(kuzu_memory) == 4
-        assert get_edge_count(kuzu_memory) == 4
+        assert get_node_count(ryu_memory) == 4
+        assert get_edge_count(ryu_memory) == 4
 
-        result = kuzu_memory._delete_entities(data1, filters)
+        result = ryu_memory._delete_entities(data1, filters)
         assert result[0] == [{"source": "alice", "relationship": "knows", "target": "bob"}]
         assert result[1] == [{"source": "bob", "relationship": "knows", "target": "charlie"}]
         assert result[2] == [{"source": "charlie", "relationship": "knows", "target": "alice"}]
-        assert get_node_count(kuzu_memory) == 4
-        assert get_edge_count(kuzu_memory) == 1
+        assert get_node_count(ryu_memory) == 4
+        assert get_edge_count(ryu_memory) == 1
 
-        result = kuzu_memory.delete_all(filters)
-        assert get_node_count(kuzu_memory) == 0
-        assert get_edge_count(kuzu_memory) == 0
+        result = ryu_memory.delete_all(filters)
+        assert get_node_count(ryu_memory) == 0
+        assert get_edge_count(ryu_memory) == 0
 
-        result = kuzu_memory._add_entities(data2, filters, {})
+        result = ryu_memory._add_entities(data2, filters, {})
         assert result[0] == [{"source": "charlie", "relationship": "likes", "target": "alice"}]
-        assert get_node_count(kuzu_memory) == 2
-        assert get_edge_count(kuzu_memory) == 1
+        assert get_node_count(ryu_memory) == 2
+        assert get_edge_count(ryu_memory) == 1
 
-        result = kuzu_memory.reset()
-        assert get_node_count(kuzu_memory) == 0
-        assert get_edge_count(kuzu_memory) == 0
+        result = ryu_memory.reset()
+        assert get_node_count(ryu_memory) == 0
+        assert get_edge_count(ryu_memory) == 0
 
-def get_node_count(kuzu_memory):
-    results = kuzu_memory.kuzu_execute(
+def get_node_count(ryu_memory):
+    results = ryu_memory.ryu_execute(
         """
         MATCH (n)
         RETURN COUNT(n) as count
@@ -206,8 +199,8 @@ def get_node_count(kuzu_memory):
     )
     return int(results[0]['count'])
 
-def get_edge_count(kuzu_memory):
-    results = kuzu_memory.kuzu_execute(
+def get_edge_count(ryu_memory):
+    results = ryu_memory.ryu_execute(
         """
         MATCH (n)-[e]->(m)
         RETURN COUNT(e) as count

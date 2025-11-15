@@ -411,8 +411,8 @@ class DependencyError(MemoryError):
         raise DependencyError(
             message="Required dependency missing",
             error_code="DEPS_001",
-            details={"package": "kuzu", "feature": "graph_store"},
-            suggestion="Please install the required dependencies: pip install kuzu"
+            details={"package": "ryugraph", "feature": "graph_store"},
+            suggestion="Please install the required dependencies: pip install ryugraph"
         )
     """
     def __init__(self, message: str, error_code: str = "DEPS_001", details: dict = None, 
