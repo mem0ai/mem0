@@ -52,9 +52,10 @@ class BaiduDB(VectorStoreBase):
         account: str,
         api_key: str,
         database_name: str,
-        table_name: str,
+        collection_name: str,
         embedding_model_dims: int,
         metric_type: MetricType,
+        replication: int
     ) -> None:
         """Initialize the BaiduDB database.
 
@@ -63,17 +64,19 @@ class BaiduDB(VectorStoreBase):
             account (str): Account for Baidu VectorDB.
             api_key (str): API Key for Baidu VectorDB.
             database_name (str): Name of the database.
-            table_name (str): Name of the table.
+            collection_name (str): Name of the table.
             embedding_model_dims (int): Dimensions of the embedding model.
             metric_type (MetricType): Metric type for similarity search.
+            replication (int): Replication factor for the table
         """
         self.endpoint = endpoint
         self.account = account
         self.api_key = api_key
         self.database_name = database_name
-        self.table_name = table_name
+        self.table_name = collection_name
         self.embedding_model_dims = embedding_model_dims
         self.metric_type = metric_type
+        self.replication = replication
 
         # Initialize Mochow client
         config = Configuration(credentials=BceCredentials(account, api_key), endpoint=endpoint)
@@ -155,7 +158,8 @@ class BaiduDB(VectorStoreBase):
 
             # Create table
             self._table = self._database.create_table(
-                table_name=name, replication=3, partition=Partition(partition_num=1), schema=schema
+                table_name=name, replication=self.replication, 
+                partition=Partition(partition_num=1), schema=schema
             )
             logger.info(f"Created table: {name}")
 
@@ -362,7 +366,7 @@ class BaiduDB(VectorStoreBase):
         conditions = []
         for key, value in filters.items():
             if isinstance(value, str):
-                conditions.append(f'metadata["{key}"] = "{value}"')
+                conditions.append(f"metadata.{key} = '{value}'")
             else:
-                conditions.append(f'metadata["{key}"] = {value}')
+                conditions.append(f'metadata.{key} = {value}')
         return " AND ".join(conditions)
