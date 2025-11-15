@@ -6,7 +6,7 @@
   }
 
   .prose li p {
-    margin-top: -19px;
+    margin-top: 0;
   }
 
   @keyframes highlightSweep {
