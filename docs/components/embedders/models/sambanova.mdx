@@ -1,0 +1,45 @@
+---
+title: SambaNova
+---
+
+To use SambaNova embedding models, set the `SAMBANOVA_API_KEY` environment variable. You can obtain the SambaNova API key from the [SambaNova Platform](https://cloud.sambanova.ai/apis).
+
+### Usage
+
+<Note> The `embedding_model_dims` parameter for `vector_store` should be set to `4096` for SambaNova embedder. </Note>
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["SAMBANOVA_API_KEY"] = "your_api_key"
+os.environ["OPENAI_API_KEY"] = "your_api_key" # For LLM
+
+config = {
+    "embedder": {
+        "provider": "sambanova",
+        "config": {
+            "model": "gpt-oss-120b"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I’m not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="john")
+```
+
+### Config
+
+Here are the parameters available for configuring SambaNova embedder:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `model` | The name of the embedding model to use | `gpt-oss-120b` |
+| `embedding_dims` | Dimensions of the embedding model | `768` |
+| `api_key` | The SambaNova API key | `None` |
