@@ -108,6 +108,7 @@ create_compose_file() {
     image: mem0/openmemory-mcp:latest
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL}
       - USER=${USER}
 EOF
 
