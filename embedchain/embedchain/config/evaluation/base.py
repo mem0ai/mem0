@@ -24,7 +24,7 @@ Question: $question
 
 GROUNDEDNESS_ANSWER_CLAIMS_PROMPT = """
 Please provide one or more statements from each sentence of the provided answer.
-You must provide the symantically equivalent statements for each sentence of the answer.
+You must provide the semantically equivalent statements for each sentence of the answer.
 You must provide the complete statement, if are not able to provide the complete statement, return empty string ("").
 Please only provide one statement per line WITHOUT numbers or bullets.
 If the question provided is not being answered in the provided answer, return empty string ("").
