@@ -27,6 +27,10 @@ export class ConfigManager {
                 : defaultConf.apiKey,
             model: finalModel,
             url: userConf?.url,
+            baseURL:
+              userConf?.baseURL !== undefined
+                ? userConf.baseURL
+                : defaultConf.baseURL,
             embeddingDims: userConf?.embeddingDims,
             modelProperties:
               userConf?.modelProperties !== undefined

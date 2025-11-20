@@ -142,6 +142,81 @@ export class Memory {
     }
   }
 
+  // Some custom providers don't return plain strings (arrays of segments, full
+  // message objects, etc.). Normalize them so downstream JSON parsing works
+  // consistently.
+  private normalizeLLMResponse(response: unknown): string {
+    if (typeof response === "string") {
+      return response;
+    }
+
+    if (!response || typeof response !== "object") {
+      return "";
+    }
+
+    const responseObj = response as { content?: any; choices?: any };
+
+    if (Array.isArray(responseObj.choices) && responseObj.choices[0]?.message) {
+      return this.normalizeLLMResponse(responseObj.choices[0].message);
+    }
+
+    if (responseObj.content !== undefined) {
+      return this.normalizeLLMContent(responseObj.content);
+    }
+
+    try {
+      return JSON.stringify(responseObj);
+    } catch (error) {
+      console.error("Failed to stringify LLM response:", error);
+      return "";
+    }
+  }
+
+  private normalizeLLMContent(content: any): string {
+    if (typeof content === "string") {
+      return content;
+    }
+
+    if (Array.isArray(content)) {
+      return content
+        .map((part) => {
+          if (typeof part === "string") {
+            return part;
+          }
+          if (part && typeof part === "object") {
+            if (typeof part.text === "string") {
+              return part.text;
+            }
+            if (typeof part.content === "string") {
+              return part.content;
+            }
+          }
+          try {
+            return JSON.stringify(part);
+          } catch {
+            return "";
+          }
+        })
+        .join("");
+    }
+
+    if (content && typeof content === "object") {
+      if (typeof content.text === "string") {
+        return content.text;
+      }
+      if (typeof content.content === "string") {
+        return content.content;
+      }
+      try {
+        return JSON.stringify(content);
+      } catch {
+        return "";
+      }
+    }
+
+    return "";
+  }
+
   static fromConfig(configDict: Record<string, any>): Memory {
     try {
       const config = MemoryConfigSchema.parse(configDict);
@@ -258,7 +333,8 @@ export class Memory {
       { type: "json_object" },
     );
 
-    const cleanResponse = removeCodeBlocks(response as string);
+    const responseText = this.normalizeLLMResponse(response);
+    const cleanResponse = removeCodeBlocks(responseText);
     let facts: string[] = [];
     try {
       facts = JSON.parse(cleanResponse).facts || [];
@@ -311,7 +387,8 @@ export class Memory {
       { type: "json_object" },
     );
 
-    const cleanUpdateResponse = removeCodeBlocks(updateResponse as string);
+    const updateResponseText = this.normalizeLLMResponse(updateResponse);
+    const cleanUpdateResponse = removeCodeBlocks(updateResponseText);
     let memoryActions: any[] = [];
     try {
       memoryActions = JSON.parse(cleanUpdateResponse).memory || [];
