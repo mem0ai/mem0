@@ -48,6 +48,10 @@ The resulting memories land in managed vector storage (and optional graph storag
 </Step>
 </Steps>
 
+<Warning>
+Duplicate protection only runs during that conflict-resolution step when you let Mem0 infer memories (`infer=True`, the default). If you switch to `infer=False`, Mem0 stores your payload exactly as provided, so duplicates will land. Mixing both modes for the same fact will save it twice.
+</Warning>
+
 You trigger this pipeline with a single `add` call—no manual orchestration needed.
 
 ## Add with Mem0 Platform
@@ -139,6 +143,10 @@ const result = memory.add(messages, {
 <Tip>
   Use `infer=False` only when you need to store raw transcripts. Most workflows benefit from Mem0 extracting structured memories automatically.
 </Tip>
+
+<Warning>
+If you do choose `infer=False`, keep it consistent. Raw inserts skip conflict resolution, so a later `infer=True` call with the same content will create a second memory instead of updating the first.
+</Warning>
 
 ## When Should You Add Memory?
 

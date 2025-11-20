@@ -12,7 +12,7 @@
   "navigation": {
     "versions": [
       {
-        "version": "v1.0.0",
+        "version": "v1.0.1",
         "anchors": [
           {
             "anchor": "Documentation",
@@ -63,6 +63,7 @@
                         "icon": "circle-check",
                         "pages": [
                           "platform/features/v2-memory-filters",
+                          "platform/features/entity-scoped-memory",
                           "platform/features/async-client",
                           "platform/features/async-mode-default-change",
                           "platform/features/multimodal-support",
@@ -315,7 +316,7 @@
                     "icon": "flag",
                     "pages": [
                       "cookbooks/essentials/building-ai-companion",
-                      "cookbooks/essentials/building-ai-with-personality",
+                      "cookbooks/essentials/entity-partitioning-playbook",
                       "cookbooks/essentials/controlling-memory-ingestion",
                       "cookbooks/essentials/memory-expiration-short-and-long-term",
                       "cookbooks/essentials/tagging-and-organizing-memories",
@@ -463,6 +464,14 @@
                       "api-reference/memory/batch-update",
                       "api-reference/memory/batch-delete",
                       "api-reference/memory/delete-memories"
+                    ]
+                  },
+                  {
+                    "group": "Events APIs",
+                    "icon": "clock",
+                    "pages": [
+                      "api-reference/events/get-events",
+                      "api-reference/events/get-event"
                     ]
                   },
                   {
@@ -813,6 +822,10 @@
       "destination": "/cookbooks/companions/nodejs-companion"
     },
     {
+      "source": "/cookbooks/essentials/building-ai-with-personality",
+      "destination": "cookbooks/essentials/entity-partitioning-playbook"
+    },
+    {
       "source": "/examples/mem0-demo",
       "destination": "/cookbooks/companions/quickstart-demo"
     },
@@ -1055,6 +1068,10 @@
     {
       "source": "/v0x/examples/aws_neptune_analytics_hybrid_store",
       "destination": "/cookbooks/integrations/neptune-analytics"
+    },
+    {
+      "source": "/features/memory-export",
+      "destination": "/platform/features/memory-export"
     }
   ]
 }

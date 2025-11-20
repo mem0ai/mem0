@@ -164,7 +164,7 @@ Ray can plan workouts that avoid aggravating Max's knee, without pulling in race
 Run the basic loop for a week and check what's stored:
 
 ```python
-memories = mem0_client.get_all(user_id="max")
+memories = mem0_client.get_all(filters={"AND": [{"user_id": "max"}]})
 print([m["memory"] for m in memories["results"]])
 # Output: ["Max wants to run marathon under 4 hours", "hey", "lol ok", "cool thanks", "gtg bye"]
 
@@ -202,7 +202,7 @@ Now chat again:
 chat("hey how's it going", user_id="max")
 chat("I prefer trail running over roads", user_id="max")
 
-memories = mem0_client.get_all(user_id="max")
+memories = mem0_client.get_all(filters={"AND": [{"user_id": "max"}]})
 print([m["memory"] for m in memories["results"]])
 # Output: ["Max wants to run marathon under 4 hours", "Max prefers trail running over roads"]
 
@@ -411,7 +411,7 @@ Max changes his goal from sub-4 to sub-3:45:
 
 ```python
 # Find the old memory
-memories = mem0_client.get_all(user_id="max")
+memories = mem0_client.get_all(filters={"AND": [{"user_id": "max"}]})
 goal_memory = [m for m in memories["results"] if "sub-4" in m["memory"]][0]
 
 # Update it
@@ -516,8 +516,8 @@ Before launching:
 ---
 
 <CardGroup cols={2}>
-  <Card title="Build AI with Personality" icon="sparkles" href="/cookbooks/essentials/building-ai-with-personality">
-    Separate user and agent memories so companions stay consistent across sessions.
+  <Card title="Partition Memories by Entity" icon="layers" href="/cookbooks/essentials/entity-partitioning-playbook">
+    Keep companions from leaking context by combining user, agent, and session scopes.
   </Card>
   <Card title="Tag Support Memories" icon="tag" href="/cookbooks/essentials/tagging-and-organizing-memories">
     Organize customer context to keep assistants responsive at scale.
