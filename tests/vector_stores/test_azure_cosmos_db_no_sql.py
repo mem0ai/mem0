@@ -1,15 +1,9 @@
 """Test AzureCosmosDBNoSql functionality."""
 
-import logging
-from typing import Any, Dict, List, Tuple
-
-from unittest.mock import MagicMock, patch
-
 import pytest
-import copy
-from mem0.vector_stores.azure_cosmos_db_no_sql import (AzureCosmosDBNoSql,Constants, OutputData)
-
-logging.basicConfig(level=logging.DEBUG)
+from typing import Any, Dict, List, Tuple
+from unittest.mock import MagicMock, patch
+from mem0.vector_stores.azure_cosmos_db_no_sql import AzureCosmosDBNoSql, Constants, OutputData
 
 # Constants for cosmos db collection
 DATABASE_NAME = "vectorSearchDB"
@@ -27,9 +21,7 @@ def get_vector_indexing_policy(embedding_type: str) -> dict:
     }
 
 
-def get_vector_embedding_policy(
-    distance_function: str, data_type: str, dimensions: int
-) -> dict:
+def get_vector_embedding_policy(distance_function: str, data_type: str, dimensions: int) -> dict:
     return {
         "vectorEmbeddings": [
             {
@@ -55,6 +47,7 @@ def get_full_text_policy() -> dict:
         "fullTextPaths": [{"path": "/text", "language": "en-US"}],
     }
 
+
 @pytest.fixture
 @patch("mem0.vector_stores.azure_cosmos_db_no_sql.CosmosClient")
 def cosmos_db_client_fixture(mock_cosmos_client):
@@ -69,12 +62,14 @@ def cosmos_db_client_fixture(mock_cosmos_client):
         ),
         indexing_policy=get_vector_indexing_policy("flat"),
         cosmos_database_properties={},
-        cosmos_container_properties={Constants.PARTITION_KEY: PARTITION_KEY_VALUE},
+        cosmos_collection_properties={Constants.PARTITION_KEY: PARTITION_KEY_VALUE},
         vector_search_fields = get_vector_search_fields(
             text_field=Constants.DESCRIPTION, embedding_field=Constants.EMBEDDING
         ),
         database_name=DATABASE_NAME,
         collection_name=COLLECTION_NAME,
+        full_text_policy=get_full_text_policy(),
+        full_text_search_enabled=True,
     )
 
     mock_db.create_database_if_not_exists.call_count = 0
@@ -90,16 +85,12 @@ def test_initialize_create_col(cosmos_db_client_fixture):
         "cosine", "float32", EMBEDDING_DIMENSION
     )
     expected_indexing_policy = get_vector_indexing_policy("flat")
-    expected_vector_search_fields = get_vector_search_fields(
-        text_field=Constants.DESCRIPTION, embedding_field=Constants.EMBEDDING
-    )
 
     cosmos_db_vector.create_col()
 
     assert cosmos_db_vector._collection_name == COLLECTION_NAME
     assert cosmos_db_vector._vector_embedding_policy == expected_vector_embedding_policy
     assert cosmos_db_vector._indexing_policy == expected_indexing_policy
-    assert cosmos_db_vector._vector_search_fields == expected_vector_search_fields
 
     mock_db.create_container_if_not_exists.assert_called_once()
 
@@ -108,86 +99,34 @@ def test_validate_collection_exists(cosmos_db_client_fixture):
     cosmos_db_vector, mock_collection, mock_db = cosmos_db_client_fixture
 
     # check if validation fails when database does not exist
-    expected_error_msg = "Database must be initialized before creating a container."
+    expected_error_msg = "Database must be initialized before creating a collection."
     original_database = cosmos_db_vector._database
     with pytest.raises(ValueError, match=expected_error_msg):
         cosmos_db_vector._database = None
-        cosmos_db_vector._validate_create_container()
+        cosmos_db_vector._validate_create_collection()
     cosmos_db_vector._database = original_database
 
     # check if validation fails when collection_name is None or empty
-    expected_error_msg = "Container name cannot be null or empty."
+    expected_error_msg = "Collection name cannot be null or empty."
     original_collection_name = cosmos_db_vector._collection_name
     with pytest.raises(ValueError, match=expected_error_msg):
         cosmos_db_vector._collection_name = None
-        cosmos_db_vector._validate_create_container()
+        cosmos_db_vector._validate_create_collection()
     with pytest.raises(ValueError, match=expected_error_msg):
         cosmos_db_vector._collection_name = ""
-        cosmos_db_vector._validate_create_container()
+        cosmos_db_vector._validate_create_collection()
     cosmos_db_vector._collection_name = original_collection_name
 
-    # check if validation fails when indexing_policy is None or invalid
-    expected_error_msg = f"{Constants.VECTOR_INDEXES} cannot be null or empty in the indexing_policy."
-    original_indexing_policy = cosmos_db_vector._indexing_policy
+    # check if validation fails when cosmos_collection_properties is None or does not contain partition key
+    expected_error_msg = f"{Constants.PARTITION_KEY} cannot be null or empty for a collection."
+    original_cosmos_container_properties = cosmos_db_vector._cosmos_collection_properties
     with pytest.raises(ValueError, match=expected_error_msg):
-        cosmos_db_vector._indexing_policy = None
-        cosmos_db_vector._validate_create_container()
+        cosmos_db_vector._cosmos_collection_properties = None
+        cosmos_db_vector._validate_create_collection()
     with pytest.raises(ValueError, match=expected_error_msg):
-        cosmos_db_vector._indexing_policy = {}
-        cosmos_db_vector._validate_create_container()
-    with pytest.raises(ValueError, match=expected_error_msg):
-        cosmos_db_vector._indexing_policy = dict(original_indexing_policy)
-        cosmos_db_vector._indexing_policy[Constants.VECTOR_INDEXES] = None
-        cosmos_db_vector._validate_create_container()
-    with pytest.raises(ValueError, match=expected_error_msg):
-        cosmos_db_vector._indexing_policy[Constants.VECTOR_INDEXES] = []
-        cosmos_db_vector._validate_create_container()
-    cosmos_db_vector._indexing_policy = original_indexing_policy
-
-    # check if validation fails when vector_embedding_policy is None or empty
-    expected_error_msg = f"{Constants.VECTOR_EMBEDDINGS} cannot be null or empty in the vector_embedding_policy."
-    original_vector_embedding_policy = cosmos_db_vector._vector_embedding_policy
-    with pytest.raises(ValueError, match=expected_error_msg):
-        cosmos_db_vector._vector_embedding_policy = None
-        cosmos_db_vector._validate_create_container()
-    with pytest.raises(ValueError, match=expected_error_msg):
-        cosmos_db_vector._vector_embedding_policy = {}
-        cosmos_db_vector._validate_create_container()
-    with pytest.raises(ValueError, match=expected_error_msg):
-        cosmos_db_vector._vector_embedding_policy = {Constants.VECTOR_EMBEDDINGS: []}
-        cosmos_db_vector._validate_create_container()
-    cosmos_db_vector._vector_embedding_policy = original_vector_embedding_policy
-
-    # check if validation fails when cosmos_container_properties is None or does not contain partition key
-    expected_error_msg = f"{Constants.PARTITION_KEY} cannot be null or empty for a container."
-    original_cosmos_container_properties = cosmos_db_vector._cosmos_container_properties
-    with pytest.raises(ValueError, match=expected_error_msg):
-        cosmos_db_vector._cosmos_container_properties = None
-        cosmos_db_vector._validate_create_container()
-    with pytest.raises(ValueError, match=expected_error_msg):
-        cosmos_db_vector._cosmos_container_properties = {Constants.PARTITION_KEY: None}
-        cosmos_db_vector._validate_create_container()
-    cosmos_db_vector._cosmos_container_properties = original_cosmos_container_properties
-
-    # check if validation fails when vector_search_fields is None or does not contain required keys
-    expected_error_msg = f"{Constants.TEXT_FIELD} and {Constants.EMBEDDING_FIELD} cannot be null or empty in vector_search_fields."
-    original_vector_search_fields = cosmos_db_vector._vector_search_fields
-    with pytest.raises(ValueError, match=expected_error_msg):
-        cosmos_db_vector._vector_search_fields = None
-        cosmos_db_vector._validate_create_container()
-    with pytest.raises(ValueError, match=expected_error_msg):
-        cosmos_db_vector._vector_search_fields = {}
-        cosmos_db_vector._validate_create_container()
-    with pytest.raises(ValueError, match=expected_error_msg):
-        cosmos_db_vector._vector_search_fields = {Constants.TEXT_FIELD: None, Constants.EMBEDDING_FIELD: Constants.EMBEDDING}
-        cosmos_db_vector._validate_create_container()
-    with pytest.raises(ValueError, match=expected_error_msg):
-        cosmos_db_vector._vector_search_fields = {Constants.TEXT_FIELD: Constants.DESCRIPTION}
-        cosmos_db_vector._validate_create_container()
-    with pytest.raises(ValueError, match=expected_error_msg):
-        cosmos_db_vector._vector_search_fields = {Constants.TEXT_FIELD: Constants.DESCRIPTION, Constants.EMBEDDING_FIELD: None}
-        cosmos_db_vector._validate_create_container()
-    cosmos_db_vector._vector_search_fields = original_vector_search_fields
+        cosmos_db_vector._cosmos_collection_properties = {Constants.PARTITION_KEY: None}
+        cosmos_db_vector._validate_create_collection()
+    cosmos_db_vector._cosmos_collection_properties = original_cosmos_container_properties
 
 
 def test_insert(cosmos_db_client_fixture):
@@ -240,11 +179,32 @@ def test_insert(cosmos_db_client_fixture):
         },
     })
 
+def test_insert_invalid_inputs(cosmos_db_client_fixture):
+    cosmos_db_vector, mock_collection, mock_db = cosmos_db_client_fixture
+
+    embedding = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+    payloads = [
+        {
+            Constants.DESCRIPTION: "Border Collies are intelligent, ",
+        },
+        {
+            Constants.DESCRIPTION: "energetic herders skilled in outdoor activities.",
+        },
+    ]
+    ids = ["vec1"]
+
+    # Test mismatched lengths
+    error_message = "Length of embeddings and payloads must match."
+    with pytest.raises(ValueError, match=error_message):
+        cosmos_db_vector.insert(embeddings=[], payloads=payloads, ids=ids)
+
+    error_message = "Length of ids must match embeddings length."
+    with pytest.raises(ValueError, match=error_message):
+        cosmos_db_vector.insert(embeddings=embedding, payloads=payloads, ids=ids)
+
 
 def test_search_vector(cosmos_db_client_fixture):
     cosmos_db_vector, mock_collection, mock_db = cosmos_db_client_fixture
-
-    # mock_collection.query_items.return_value = MagicMock(matched_count=1)
 
     # Vector search
     for kwargs, query, parameters, query_item, output_data in get_vector_search_queries_and_parameters():
@@ -305,16 +265,36 @@ def test_search_with_errors(cosmos_db_client_fixture):
             embedding=[0.1, 0.2, 0.3],
         )
 
+    # Test missing embedding for Vector Search
+    search_type = Constants.VECTOR
+    error_message = f"Embedding must be provided for search_type '{search_type}'."
+    with pytest.raises(ValueError, match=error_message):
+        cosmos_db_vector.search(search_type=search_type)
+
+    # Test for `with_embedding` without embedding
+    error_message = "'with_embedding' can only be True for vector search types using embedding."
+    with pytest.raises(ValueError, match=error_message):
+        cosmos_db_vector.search(
+            search_type=Constants.FULL_TEXT_SEARCH,
+            with_embedding=True,
+        )
+
+    # Test missing full_text_rank_filter for Full Text Ranking and Full Text Search
+    for search_type in [Constants.FULL_TEXT_RANKING, Constants.FULL_TEXT_SEARCH]:
+        error_message = f"'full_text_rank_filter' required for {search_type}."
+        with pytest.raises(ValueError, match=error_message):
+            cosmos_db_vector.search(search_type=search_type)
+
 
 def test_delete(cosmos_db_client_fixture):
     cosmos_db_vector, mock_collection, mock_db = cosmos_db_client_fixture
 
     vector_id = "vec1"
-    cosmos_db_vector.delete(vector_id=vector_id)
+    cosmos_db_vector.delete(vector_id=vector_id, partition_key_value=vector_id)
 
     mock_collection.delete_item.assert_called_once_with(
         item=vector_id,
-        partition_key=PARTITION_KEY_VALUE
+        partition_key=vector_id
     )
 
 
@@ -330,35 +310,48 @@ def test_update(cosmos_db_client_fixture):
     )
     mock_collection.upsert_item.return_value = MagicMock(matched_count=1)
 
-    cosmos_db_vector.update(vector_id=vector_id, vector=updated_vector, payload=updated_payload)
+    cosmos_db_vector.update(
+        vector_id=vector_id,
+        partition_key_value=vector_id,
+        embedding=updated_vector,
+        payload=updated_payload)
     mock_collection.upsert_item.assert_called_once_with(body=expected_item)
 
 
 def test_get(cosmos_db_client_fixture):
     cosmos_db_vector, mock_collection, mock_db = cosmos_db_client_fixture
 
+    # Insert item to be retrieved
     vector_id = "id1"
-    updated_vector = [0.3] * 1536
-    updated_payload = {"name": "updated_vector"}
-    expected_item = cosmos_db_vector._create_item_to_insert(
-        embedding=updated_vector,
-        payload=updated_payload,
+    embedding = [0.3] * 1536
+    metadata_key = cosmos_db_vector._metadata_key
+    metadata = {"a": "Sample metadata."}
+    payload = {Constants.DESCRIPTION: "description text", metadata_key: metadata}
+    created_item = cosmos_db_vector._create_item_to_insert(
+        embedding=embedding,
+        payload=payload,
         id=vector_id,
     )
-    mock_collection.read_item.return_value = expected_item
-    text_key = cosmos_db_vector._vector_search_fields[Constants.TEXT_FIELD]
-    embedding_key = cosmos_db_vector._vector_search_fields[Constants.EMBEDDING_FIELD]
 
-    result = cosmos_db_vector.get(vector_id=vector_id)
+    mock_collection.read_item.return_value = created_item
 
-    assert result[Constants.ID] == expected_item[Constants.ID]
-    assert result[text_key] == expected_item[text_key]
-    assert result[embedding_key] == expected_item[embedding_key]
-    assert result[cosmos_db_vector._metadata_key] == expected_item[cosmos_db_vector._metadata_key]
+    result = cosmos_db_vector.get(vector_id=vector_id, partition_key_value=vector_id)
 
+    # Construct expected payload
+    text_key = cosmos_db_vector._text_key
+    embedding_key = cosmos_db_vector._embedding_key
+    expected_payload = {
+        text_key: payload[text_key],
+        metadata_key: payload[metadata_key],
+        embedding_key: embedding,
+    }
+
+    assert result.id == vector_id
+    assert result.score == 0.0  # Score is set to 0.0 by default
+    assert result.payload == expected_payload
     mock_collection.read_item.assert_called_once_with(
         item=vector_id,
-        partition_key=cosmos_db_vector._cosmos_container_properties[Constants.PARTITION_KEY],
+        partition_key=vector_id,
     )
 
 
@@ -366,13 +359,13 @@ def test_list_cols(cosmos_db_client_fixture):
     cosmos_db_vector, mock_collection, mock_db = cosmos_db_client_fixture
 
     mock_db.list_containers.return_value = [
-        {"id": "container1"},
-        {"id": "container2"},
+        {"id": "collection1"},
+        {"id": "collection2"},
     ]
 
     collections = cosmos_db_vector.list_cols()
 
-    assert collections == ["container1", "container2"]
+    assert collections == ["collection1", "collection2"]
     mock_db.list_containers.assert_called_once()
 
 
@@ -435,8 +428,8 @@ def test_list(cosmos_db_client_fixture):
     results = cosmos_db_vector.list()
 
     assert len(results) == 2
-    assert results[0]["id"] == "vec1"
-    assert results[1]["id"] == "vec2"
+    assert results[0].id == "vec1"
+    assert results[1].id == "vec2"
     mock_collection.read_all_items.assert_called_once()
 
 
@@ -461,15 +454,15 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
 
     # Case 1: Simple Vector search with k
     expected_query = (
-        "SELECT TOP @limit c.id as id, c[@textKey] as description, c[@metadataKey] as metadata, VectorDistance(c[@embeddingKey], @embeddings) as SimilarityScore "
-        "FROM c ORDER BY VectorDistance(c[@embeddingKey], @embeddings)"
+        "SELECT TOP @limit c.id as id, c[@description] as description, c[@metadata] as metadata, VectorDistance(c[@embeddingKey], @embedding) as SimilarityScore "
+        "FROM c ORDER BY VectorDistance(c[@embeddingKey], @embedding)"
     )
     expected_parameters = [
         {"name": "@limit", "value": k},
-        {"name": "@textKey", "value": Constants.DESCRIPTION},
-        {"name": "@metadataKey", "value": Constants.METADATA},
+        {"name": "@description", "value": Constants.DESCRIPTION},
+        {"name": "@metadata", "value": Constants.METADATA},
         {"name": "@embeddingKey", "value": Constants.EMBEDDING},
-        {"name": "@embeddings", "value": embedding},
+        {"name": "@embedding", "value": embedding},
     ]
     expected_query_items = [
         {
@@ -490,14 +483,14 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
             id='vec1', score=0.123,
             payload={
                 'description': 'Sample description for vector 1.',
-                'metadata': {'a': 1, 'b': 2, 'c': 3, 'id': 'vec1'}
+                'metadata': {'a': 1, 'b': 2, 'c': 3}
             }
         ),
         OutputData(
             id='vec2', score=0.223,
             payload={
                 'description': 'Sample description for vector 2.',
-                'metadata': {'a': 2, 'b': 2, 'c': 3, 'id': 'vec2'}
+                'metadata': {'a': 2, 'b': 2, 'c': 3}
             }
         )
     ]
@@ -518,15 +511,15 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
 
     # Case 2: with embedding
     expected_query = (
-        "SELECT TOP @limit c.id as id, c[@textKey] as description, c[@metadataKey] as metadata, c[@embeddingKey] as embedding, VectorDistance(c[@embeddingKey], @embeddings) as SimilarityScore "
-        "FROM c ORDER BY VectorDistance(c[@embeddingKey], @embeddings)"
+        "SELECT TOP @limit c.id as id, c[@description] as description, c[@metadata] as metadata, c[@embeddingKey] as embedding, VectorDistance(c[@embeddingKey], @embedding) as SimilarityScore "
+        "FROM c ORDER BY VectorDistance(c[@embeddingKey], @embedding)"
     )
     expected_parameters = [
         {"name": "@limit", "value": k},
-        {"name": "@textKey", "value": Constants.DESCRIPTION},
-        {"name": "@metadataKey", "value": Constants.METADATA},
+        {"name": "@description", "value": Constants.DESCRIPTION},
+        {"name": "@metadata", "value": Constants.METADATA},
         {"name": "@embeddingKey", "value": Constants.EMBEDDING},
-        {"name": "@embeddings", "value": embedding},
+        {"name": "@embedding", "value": embedding},
     ]
     expected_query_items = [
         {
@@ -549,14 +542,16 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
             id='vec1', score=0.123,
             payload={
                 'description': 'Sample description for vector 1.',
-                'metadata': {'a': 1, 'b': 2, 'c': 3, 'id': 'vec1', 'embedding': [0.1, 0.2, 0.3]}
+                'embedding': [0.1, 0.2, 0.3],
+                'metadata': {'a': 1, 'b': 2, 'c': 3},
             }
         ),
         OutputData(
             id='vec2', score=0.223,
             payload={
                 'description': 'Sample description for vector 2.',
-                'metadata': {'a': 2, 'b': 2, 'c': 3, 'id': 'vec2', 'embedding': [0.2, 0.2, 0.3]}
+                'embedding': [0.2, 0.2, 0.3],
+                'metadata': {'a': 2, 'b': 2, 'c': 3},
             }
         )
     ]
@@ -582,14 +577,14 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
         "description": "text",
     }
     expected_query = (
-        "SELECT TOP @limit c.id as id, c.description as text, VectorDistance(c[@embeddingKey], @embeddings) as SimilarityScore "
+        "SELECT TOP @limit c.id as id, c.description as text, VectorDistance(c[@embeddingKey], @embedding) as SimilarityScore "
         "FROM c "
-        "ORDER BY VectorDistance(c[@embeddingKey], @embeddings)"
+        "ORDER BY VectorDistance(c[@embeddingKey], @embedding)"
     )
     expected_parameters = [
         {"name": "@limit", "value": k},
         {"name": "@embeddingKey", "value": Constants.EMBEDDING},
-        {"name": "@embeddings", "value": embedding},
+        {"name": "@embedding", "value": embedding},
     ]
     expected_query_items = [
         {
@@ -609,15 +604,15 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
         OutputData(
             id='vec1', score=0.123,
             payload={
+                'id': 'vec1',
                 'text': 'Sample description for vector 1.',
-                'metadata': {'a': 1, 'b': 2, 'c': 3, 'id': 'vec1'}
             }
         ),
         OutputData(
             id='vec2', score=0.223,
             payload={
+                'id': 'vec2',
                 'text': 'Sample description for vector 2.',
-                'metadata': {'a': 2, 'b': 2, 'c': 3, 'id': 'vec2'}
             }
         )
     ]
@@ -638,17 +633,17 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
 
 
     # Case 4: With offset_limit
-    off_set_limit = "OFFSET 5 LIMIT 2"
+    off_set_limit = "OFFSET 5 LIMIT 1"
     expected_query = (
-        "SELECT c.id as id, c[@textKey] as description, c[@metadataKey] as metadata, VectorDistance(c[@embeddingKey], @embeddings) as SimilarityScore "
-        "FROM c ORDER BY VectorDistance(c[@embeddingKey], @embeddings) "
+        "SELECT c.id as id, c[@description] as description, c[@metadata] as metadata, VectorDistance(c[@embeddingKey], @embedding) as SimilarityScore "
+        "FROM c ORDER BY VectorDistance(c[@embeddingKey], @embedding) "
         f"{off_set_limit}"
     )
     expected_parameters = [
-        {"name": "@textKey", "value": Constants.DESCRIPTION},
-        {"name": "@metadataKey", "value": Constants.METADATA},
+        {"name": "@description", "value": Constants.DESCRIPTION},
+        {"name": "@metadata", "value": Constants.METADATA},
         {"name": "@embeddingKey", "value": Constants.EMBEDDING},
-        {"name": "@embeddings", "value": embedding},
+        {"name": "@embedding", "value": embedding},
     ]
     expected_query_items = [
         {
@@ -657,13 +652,6 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
             'description': 'Sample description for vector 1.',
             'embedding': [0.1, 0.2, 0.3],
             'metadata': {'a': 1, 'b': 2, 'c': 3}
-        },
-        {
-            'id': 'vec2',
-            'SimilarityScore': 0.223,
-            'description': 'Sample description for vector 2.',
-            'embedding': [0.2, 0.2, 0.3],
-            'metadata': {'a': 2, 'b': 2, 'c': 3}
         }
     ]
     expected_output_data = [
@@ -671,14 +659,7 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
             id='vec1', score=0.123,
             payload={
                 'description': 'Sample description for vector 1.',
-                'metadata': {'a': 1, 'b': 2, 'c': 3, 'id': 'vec1'}
-            }
-        ),
-        OutputData(
-            id='vec2', score=0.223,
-            payload={
-                'description': 'Sample description for vector 2.',
-                'metadata': {'a': 2, 'b': 2, 'c': 3, 'id': 'vec2'}
+                'metadata': {'a': 1, 'b': 2, 'c': 3}
             }
         )
     ]
@@ -699,17 +680,17 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
     # Case 5: With where filter
     where_filter = "c.metadata.a=1"
     expected_query = (
-        "SELECT TOP @limit c.id as id, c[@textKey] as description, c[@metadataKey] as metadata, VectorDistance(c[@embeddingKey], @embeddings) as SimilarityScore "
+        "SELECT TOP @limit c.id as id, c[@description] as description, c[@metadata] as metadata, VectorDistance(c[@embeddingKey], @embedding) as SimilarityScore "
         "FROM c "
         "WHERE c.metadata.a=1 "
-        "ORDER BY VectorDistance(c[@embeddingKey], @embeddings)"
+        "ORDER BY VectorDistance(c[@embeddingKey], @embedding)"
     )
     expected_parameters = [
         {"name": "@limit", "value": k},
-        {"name": "@textKey", "value": Constants.DESCRIPTION},
-        {"name": "@metadataKey", "value": Constants.METADATA},
+        {"name": "@description", "value": Constants.DESCRIPTION},
+        {"name": "@metadata", "value": Constants.METADATA},
         {"name": "@embeddingKey", "value": Constants.EMBEDDING},
-        {"name": "@embeddings", "value": embedding},
+        {"name": "@embedding", "value": embedding},
     ]
     expected_query_items = [
         {
@@ -725,7 +706,7 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
             id='vec1', score=0.123,
             payload={
                 'description': 'Sample description for vector 1.',
-                'metadata': {'a': 1, 'b': 2, 'c': 3, 'id': 'vec1'}
+                'metadata': {'a': 1, 'b': 2, 'c': 3}
             }
         )
     ]
@@ -735,6 +716,56 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
                 "search_type": Constants.VECTOR,
                 "embedding": embedding,
                 "where": where_filter,
+                "k": k,
+            },
+            expected_query,
+            expected_parameters,
+            expected_query_items,
+            expected_output_data,
+        )
+    )
+
+    # Case 6: Simple Vector search with k
+    expected_query = (
+        "SELECT TOP @limit c.id as id, c[@description] as description, c[@metadata] as metadata, VectorDistance(c[@embeddingKey], @embedding) as SimilarityScore "
+        "FROM c ORDER BY VectorDistance(c[@embeddingKey], @embedding)"
+    )
+    expected_parameters = [
+        {"name": "@limit", "value": k},
+        {"name": "@description", "value": Constants.DESCRIPTION},
+        {"name": "@metadata", "value": Constants.METADATA},
+        {"name": "@embeddingKey", "value": Constants.EMBEDDING},
+        {"name": "@embedding", "value": embedding},
+    ]
+    expected_query_items = [
+        {
+            'id': 'vec1',
+            'SimilarityScore': 0.123,
+            'description': 'Sample description for vector 1.',
+            'metadata': {'a': 1, 'b': 2, 'c': 3}
+        },
+        {
+            'id': 'vec2',
+            'SimilarityScore': 0.623,
+            'description': 'Sample description for vector 2.',
+            'metadata': {'a': 2, 'b': 2, 'c': 3}
+        }
+    ]
+    expected_output_data = [
+        OutputData(
+            id='vec2', score=0.623,
+            payload={
+                'description': 'Sample description for vector 2.',
+                'metadata': {'a': 2, 'b': 2, 'c': 3}
+            }
+        )
+    ]
+
+    queries_and_parameters.append(
+        (
+            {
+                "search_type": Constants.VECTOR_SCORE_THRESHOLD,
+                "embedding": embedding,
                 "k": k,
             },
             expected_query,
@@ -782,14 +813,14 @@ def get_full_text_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], 
             id='vec1', score=0.0,
             payload={
                 'description': 'Sample description for vector 1.',
-                'metadata': {'a': 1, 'b': 2, 'c': 3, 'id': 'vec1'}
+                'metadata': {'a': 1, 'b': 2, 'c': 3}
             }
         ),
         OutputData(
             id='vec2', score=0.0,
             payload={
                 'description': 'Sample description for vector 2.',
-                'metadata': {'a': 2, 'b': 2, 'c': 3, 'id': 'vec2'}
+                'metadata': {'a': 2, 'b': 2, 'c': 3}
             }
         )
     ]
@@ -831,8 +862,8 @@ def get_full_text_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], 
             },
             expected_query,
             expected_parameters,
-            copy.deepcopy(expected_query_items),
-            copy.deepcopy(expected_output_data),
+            expected_query_items,
+            expected_output_data,
         )
     )
 
@@ -865,8 +896,8 @@ def get_full_text_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], 
             },
             expected_query,
             expected_parameters,
-            copy.deepcopy(expected_query_items),
-            copy.deepcopy(expected_output_data),
+            expected_query_items,
+            expected_output_data,
         )
     )
 
@@ -880,19 +911,18 @@ def get_hybrid_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
     full_text_rank_filter = [{"search_field": "description", "search_text": search_text}]
     k = 2
 
-    # Case 1: Simple hybrid search
+    # Case 1: Hybrid search with score threshold
     expected_query = (
-        "SELECT TOP @limit c.id as id, c[@textKey] as description, c[@metadataKey] as metadata, VectorDistance(c[@embeddingKey], @embeddings) as SimilarityScore "
+        "SELECT TOP @limit c.id as id, c[@description] as description, c[@metadata] as metadata, VectorDistance(c[@embeddingKey], @embedding) as SimilarityScore "
         "FROM c "
-        "ORDER BY RANK RRF(FullTextScore(c[@description], @description_term_0, @description_term_1), VectorDistance(c[@embeddingKey], @embeddings))"
+        "ORDER BY RANK RRF(FullTextScore(c[@description], @description_term_0, @description_term_1), VectorDistance(c[@embeddingKey], @embedding))"
     )
     expected_parameters = [
         {"name": "@limit", "value": k},
-        {"name": "@textKey", "value": Constants.DESCRIPTION},
-        {"name": "@metadataKey", "value": Constants.METADATA},
+        {"name": "@description", "value": Constants.DESCRIPTION},
+        {"name": "@metadata", "value": Constants.METADATA},
         {"name": "@embeddingKey", "value": Constants.EMBEDDING},
-        {"name": "@embeddings", "value": embedding},
-        {"name": "@description", "value": "description"},
+        {"name": "@embedding", "value": embedding},
         {"name": "@description_term_0", "value": "intelligent"},
         {"name": "@description_term_1", "value": "herders"},
     ]
@@ -917,7 +947,7 @@ def get_hybrid_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
             id='vec2', score=0.623,
             payload={
                 'description': 'Sample description for vector 2.',
-                'metadata': {'a': 2, 'b': 2, 'c': 3, 'id': 'vec2'}
+                'metadata': {'a': 2, 'b': 2, 'c': 3}
             }
         )
     ]
@@ -940,17 +970,16 @@ def get_hybrid_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
     # Case 2: Hybrid search with weights
     weights = [2, 1]
     expected_query = (
-        "SELECT TOP @limit c.id as id, c[@textKey] as description, c[@metadataKey] as metadata, VectorDistance(c[@embeddingKey], @embeddings) as SimilarityScore "
+        "SELECT TOP @limit c.id as id, c[@description] as description, c[@metadata] as metadata, VectorDistance(c[@embeddingKey], @embedding) as SimilarityScore "
         "FROM c "
-        "ORDER BY RANK RRF(FullTextScore(c[@description], @description_term_0, @description_term_1), VectorDistance(c[@embeddingKey], @embeddings), @weights)"
+        "ORDER BY RANK RRF(FullTextScore(c[@description], @description_term_0, @description_term_1), VectorDistance(c[@embeddingKey], @embedding), @weights)"
     )
     expected_parameters = [
         {"name": "@limit", "value": k},
-        {"name": "@textKey", "value": Constants.DESCRIPTION},
-        {"name": "@metadataKey", "value": Constants.METADATA},
+        {"name": "@description", "value": Constants.DESCRIPTION},
+        {"name": "@metadata", "value": Constants.METADATA},
         {"name": "@embeddingKey", "value": Constants.EMBEDDING},
-        {"name": "@embeddings", "value": embedding},
-        {"name": "@description", "value": "description"},
+        {"name": "@embedding", "value": embedding},
         {"name": "@description_term_0", "value": "intelligent"},
         {"name": "@description_term_1", "value": "herders"},
         {"name": "@weights", "value": weights},
@@ -967,9 +996,10 @@ def get_hybrid_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
             },
             expected_query,
             expected_parameters,
-            copy.deepcopy(expected_query_items),
-            copy.deepcopy(expected_output_data),
+            expected_query_items,
+            expected_output_data,
         )
     )
 
     return queries_and_parameters
+
