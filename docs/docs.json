@@ -754,7 +754,7 @@
   "logo": {
     "light": "/logo/light.svg",
     "dark": "/logo/dark.svg",
-    "href": "https://github.com/mem0ai/mem0"
+    "href": "https://app.mem0.ai/"
   },
   "background": {
     "color": {
