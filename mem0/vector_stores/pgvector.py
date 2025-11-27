@@ -160,6 +160,12 @@ class PGVector(VectorStoreBase):
                 );
                 """
             )
+            cur.execute(
+                f"""
+                CREATE INDEX IF NOT EXISTS {self.collection_name}_payload_user_id_idx
+                ON {self.collection_name} ((payload->>'user_id'));
+                """
+            )
             if self.use_diskann and self.embedding_model_dims < 2000:
                 cur.execute("SELECT * FROM pg_extension WHERE extname = 'vectorscale'")
                 if cur.fetchone():
