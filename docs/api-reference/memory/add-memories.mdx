@@ -44,13 +44,12 @@ Provide at least one message or direct memory string. Most callers supply `messa
 | --- | --- | --- | --- |
 | `user_id` | string | No* | Associates the memory with a user. Provide when you want the memory scoped to a specific identity. |
 | `messages` | array | No* | Conversation turns for Mem0 to infer memories from. Each object should include `role` and `content`. |
-| `memory` | string | No* | Direct memory text when you do not need inference. |
 | `metadata` | object | Optional | Custom key/value metadata (e.g., `{"topic": "preferences"}`). |
 | `infer` | boolean (default `true`) | Optional | Set to `false` to skip inference and store the provided text as-is. |
 | `async_mode` | boolean (default `true`) | Optional | Controls asynchronous processing. Most clients leave this enabled. |
 | `output_format` | string (default `v1.1`) | Optional | Response format. `v1.1` wraps results in a `results` array. |
 
-> \* Provide either `messages` or `memory` to describe what you are storing. For scoped memories, include `user_id`. You can also attach `agent_id`, `app_id`, `run_id`, `project_id`, or `org_id` to refine ownership.
+> \* Provide at least one `messages` entry to describe what you are storing. For scoped memories, include `user_id`. You can also attach `agent_id`, `app_id`, `run_id`, `project_id`, or `org_id` to refine ownership.
 
 ## Response
 
