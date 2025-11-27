@@ -25,13 +25,9 @@ const messages = [
     {"role": "assistant", "content": "Great! I'll remember your preference for Italian cuisine."}
 ];
 
-await client.add(messages, { user_id: "user123" });
+await client.add(messages, { user_id: "user123", version: "v2" });
 ```
 </CodeGroup>
-
-<Info>
-  Mem0 automatically uses the latest API version (currently v2), so you can omit the `version` parameter in all requests.
-</Info>
 
 ## Why Use Contextual Memory Creation?
 
@@ -69,14 +65,14 @@ const messages1 = [
     {"role": "user", "content": "Hi, I'm Sarah from New York"},
     {"role": "assistant", "content": "Hello Sarah! Nice to meet you."}
 ];
-await client.add(messages1, { user_id: "sarah" });
+await client.add(messages1, { user_id: "sarah", version: "v2" });
 
 // Later interaction - just send new messages
 const messages2 = [
     {"role": "user", "content": "I'm planning a trip to Italy next month"},
     {"role": "assistant", "content": "How exciting! Italy is beautiful this time of year."}
 ];
-await client.add(messages2, { user_id: "sarah" });
+await client.add(messages2, { user_id: "sarah", version: "v2" });
 // Mem0 automatically knows Sarah is from New York and can use this context
 ```
 </CodeGroup>
@@ -108,7 +104,7 @@ const messages = [
     {"role": "assistant", "content": "I've noted your allergies for future reference."}
 ];
 
-await client.add(messages, { user_id: "user123" });
+await client.add(messages, { user_id: "user123", version: "v2" });
 // This allergy info will be available in ALL future interactions
 ```
 </CodeGroup>
@@ -147,21 +143,21 @@ const messages1 = [
     {"role": "user", "content": "I want to plan a 5-day trip to Tokyo"},
     {"role": "assistant", "content": "Perfect! Let's plan your Tokyo adventure."}
 ];
-await client.add(messages1, { user_id: "user123", run_id: "tokyo-trip-2024" });
+await client.add(messages1, { user_id: "user123", run_id: "tokyo-trip-2024", version: "v2" });
 
 // Later in the same trip planning session
 const messages2 = [
     {"role": "user", "content": "I prefer staying near Shibuya"},
     {"role": "assistant", "content": "Great choice! Shibuya is very convenient."}
 ];
-await client.add(messages2, { user_id: "user123", run_id: "tokyo-trip-2024" });
+await client.add(messages2, { user_id: "user123", run_id: "tokyo-trip-2024", version: "v2" });
 
 // Different session for work project (separate context)
 const workMessages = [
     {"role": "user", "content": "Let's discuss the Q4 marketing strategy"},
     {"role": "assistant", "content": "Sure! What are your main goals for Q4?"}
 ];
-await client.add(workMessages, { user_id: "user123", run_id: "q4-marketing" });
+await client.add(workMessages, { user_id: "user123", run_id: "q4-marketing", version: "v2" });
 ```
 </CodeGroup>
 
