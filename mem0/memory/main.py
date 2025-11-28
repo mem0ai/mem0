@@ -289,6 +289,7 @@ class Memory(MemoryBase):
         infer: bool = True,
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
+        custom_fact_extraction_prompt: Optional[str] = None,
     ):
         """
         Create a new memory.
@@ -367,7 +368,7 @@ class Memory(MemoryBase):
             messages = parse_vision_messages(messages)
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            future1 = executor.submit(self._add_to_vector_store, messages, processed_metadata, effective_filters, infer)
+            future1 = executor.submit(self._add_to_vector_store, messages, processed_metadata, effective_filters, infer, custom_fact_extraction_prompt)
             future2 = executor.submit(self._add_to_graph, messages, effective_filters)
 
             concurrent.futures.wait([future1, future2])
@@ -383,7 +384,7 @@ class Memory(MemoryBase):
 
         return {"results": vector_store_result}
 
-    def _add_to_vector_store(self, messages, metadata, filters, infer):
+    def _add_to_vector_store(self, messages, metadata, filters, infer, custom_fact_extraction_prompt):
         if not infer:
             returned_memories = []
             for message_dict in messages:
@@ -421,8 +422,10 @@ class Memory(MemoryBase):
             return returned_memories
 
         parsed_messages = parse_messages(messages)
-
-        if self.config.custom_fact_extraction_prompt:
+        if custom_fact_extraction_prompt:
+            system_prompt = custom_fact_extraction_prompt
+            user_prompt = f"Input:\n{parsed_messages}"
+        elif self.config.custom_fact_extraction_prompt:
             system_prompt = self.config.custom_fact_extraction_prompt
             user_prompt = f"Input:\n{parsed_messages}"
         else:
@@ -1340,6 +1343,7 @@ class AsyncMemory(MemoryBase):
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
         llm=None,
+        custom_fact_extraction_prompt: Optional[str] = None,
     ):
         """
         Create a new memory asynchronously.
@@ -1393,7 +1397,7 @@ class AsyncMemory(MemoryBase):
             messages = parse_vision_messages(messages)
 
         vector_store_task = asyncio.create_task(
-            self._add_to_vector_store(messages, processed_metadata, effective_filters, infer)
+            self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, custom_fact_extraction_prompt)
         )
         graph_task = asyncio.create_task(self._add_to_graph(messages, effective_filters))
 
@@ -1413,6 +1417,7 @@ class AsyncMemory(MemoryBase):
         metadata: dict,
         effective_filters: dict,
         infer: bool,
+        custom_fact_extraction_prompt: Optional[str] = None,
     ):
         if not infer:
             returned_memories = []
@@ -1451,7 +1456,10 @@ class AsyncMemory(MemoryBase):
             return returned_memories
 
         parsed_messages = parse_messages(messages)
-        if self.config.custom_fact_extraction_prompt:
+        if custom_fact_extraction_prompt:
+            system_prompt = custom_fact_extraction_prompt
+            user_prompt = f"Input:\n{parsed_messages}"
+        elif self.config.custom_fact_extraction_prompt:
             system_prompt = self.config.custom_fact_extraction_prompt
             user_prompt = f"Input:\n{parsed_messages}"
         else:
