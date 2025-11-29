@@ -79,7 +79,17 @@ def extract_json(text):
     if match:
         json_str = match.group(1)
     else:
-        json_str = text  # assume it's raw JSON
+        # If no code block is found, try to find the first '{' and last '}'
+        # This handles cases where the LLM returns JSON without code blocks but with surrounding text
+        try:
+            start_idx = text.find("{")
+            end_idx = text.rfind("}")
+            if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+                json_str = text[start_idx : end_idx + 1]
+            else:
+                json_str = text
+        except Exception:
+            json_str = text
     return json_str
 
 
