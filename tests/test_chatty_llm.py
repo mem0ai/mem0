@@ -1,7 +1,6 @@
 
 import pytest
 from unittest.mock import MagicMock
-import json
 from mem0 import Memory, AsyncMemory
 
 # Chatty response simulating local LLMs (Ollama/LM Studio)
