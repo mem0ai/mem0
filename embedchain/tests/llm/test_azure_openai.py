@@ -1,6 +1,5 @@
 from unittest.mock import MagicMock, Mock, patch
 
-import httpx
 import pytest
 from langchain.schema import HumanMessage, SystemMessage
 
@@ -93,13 +92,13 @@ def test_with_api_version():
 
 
 def test_get_llm_model_answer_with_http_client_proxies():
-    mock_http_client = Mock(spec=httpx.Client)
-    mock_http_client_instance = Mock(spec=httpx.Client)
+    mock_http_client = Mock()
+    mock_http_client_instance = Mock()
     mock_http_client.return_value = mock_http_client_instance
 
     with patch("langchain_openai.AzureChatOpenAI") as mock_chat, patch(
         "httpx.Client", new=mock_http_client
-    ) as mock_http_client:
+    ) as mock_client_class:
         mock_chat.return_value.invoke.return_value.content = "Mocked response"
 
         config = BaseLlmConfig(
@@ -125,17 +124,17 @@ def test_get_llm_model_answer_with_http_client_proxies():
             http_client=mock_http_client_instance,
             http_async_client=None,
         )
-        mock_http_client.assert_called_once_with(proxies="http://testproxy.mem0.net:8000")
+        mock_client_class.assert_called_once_with(proxies="http://testproxy.mem0.net:8000")
 
 
 def test_get_llm_model_answer_with_http_async_client_proxies():
-    mock_http_async_client = Mock(spec=httpx.AsyncClient)
-    mock_http_async_client_instance = Mock(spec=httpx.AsyncClient)
+    mock_http_async_client = Mock()
+    mock_http_async_client_instance = Mock()
     mock_http_async_client.return_value = mock_http_async_client_instance
 
     with patch("langchain_openai.AzureChatOpenAI") as mock_chat, patch(
         "httpx.AsyncClient", new=mock_http_async_client
-    ) as mock_http_async_client:
+    ) as mock_async_client_class:
         mock_chat.return_value.invoke.return_value.content = "Mocked response"
 
         config = BaseLlmConfig(
@@ -161,4 +160,4 @@ def test_get_llm_model_answer_with_http_async_client_proxies():
             http_client=None,
             http_async_client=mock_http_async_client_instance,
         )
-        mock_http_async_client.assert_called_once_with(proxies={"http://": "http://testproxy.mem0.net:8000"})
+        mock_async_client_class.assert_called_once_with(proxies={"http://": "http://testproxy.mem0.net:8000"})
