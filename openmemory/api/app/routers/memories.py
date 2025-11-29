@@ -587,6 +587,10 @@ async def filter_memories(
         to_datetime = datetime.fromtimestamp(request.to_date, tz=UTC)
         query = query.filter(Memory.created_at <= to_datetime)
 
+    query = query.options(
+        joinedload(Memory.categories)
+    ).distinct(Memory.id)
+
     # Apply sorting
     if request.sort_column and request.sort_direction:
         sort_direction = request.sort_direction.lower()
@@ -604,17 +608,12 @@ async def filter_memories(
 
         sort_field = sort_mapping[request.sort_column]
         if sort_direction == 'desc':
-            query = query.order_by(sort_field.desc())
+            query = query.order_by(Memory.id.asc(), sort_field.desc())
         else:
-            query = query.order_by(sort_field.asc())
+            query = query.order_by(Memory.id.asc(), sort_field.asc())
     else:
         # Default sorting
-        query = query.order_by(Memory.created_at.desc())
-
-    # Add eager loading for categories and make the query distinct
-    query = query.options(
-        joinedload(Memory.categories)
-    ).distinct(Memory.id)
+        query = query.order_by(Memory.id.asc(), Memory.created_at.desc())
 
     # Use fastapi-pagination's paginate function
     return sqlalchemy_paginate(
@@ -668,6 +667,7 @@ async def get_related_memories(
         joinedload(Memory.categories),
         joinedload(Memory.app)
     ).order_by(
+        Memory.id.asc(),
         func.count(Category.id).desc(),
         Memory.created_at.desc()
     ).group_by(Memory.id)
