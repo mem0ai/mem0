@@ -989,26 +989,16 @@ class Memory(MemoryBase):
 
         return original_memories
 
-    def update(self, memory_id, data):
-        """
-        Update a memory by ID.
+    def update(self, memory_id, data=None, metadata=None):
+        memory = self.get(memory_id)
+        existing_embeddings = memory.get("embeddings", None)
+        return self._update_memory(
+            memory_id,
+            data,
+            existing_embeddings,
+            metadata=metadata
+        )
 
-        Args:
-            memory_id (str): ID of the memory to update.
-            data (str): New content to update the memory with.
-
-        Returns:
-            dict: Success message indicating the memory was updated.
-
-        Example:
-            >>> m.update(memory_id="mem_123", data="Likes to play tennis on weekends")
-            {'message': 'Memory updated successfully!'}
-        """
-        capture_event("mem0.update", self, {"memory_id": memory_id, "sync_type": "sync"})
-
-        existing_embeddings = {data: self.embedding_model.embed(data, "update")}
-
-        self._update_memory(memory_id, data, existing_embeddings)
         return {"message": "Memory updated successfully!"}
 
     def delete(self, memory_id):
