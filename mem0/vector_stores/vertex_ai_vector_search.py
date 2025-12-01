@@ -12,7 +12,7 @@ from pydantic import BaseModel
 try:
     from langchain_core.documents import Document
 except ImportError:  # pragma: no cover - fallback for older LangChain versions
-    from langchain.schema import Document  # type: ignore[no-redef]
+    from langchain_core.documents import Document  # type: ignore[no-redef]
 
 from mem0.configs.vector_stores.vertex_ai_vector_search import (
     GoogleMatchingEngineConfig,
