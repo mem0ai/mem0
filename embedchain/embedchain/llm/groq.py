@@ -2,7 +2,7 @@ import os
 from typing import Any, Optional
 
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
-from langchain.schema import HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 
 try:
     from langchain_groq import ChatGroq

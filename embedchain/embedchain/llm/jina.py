@@ -1,7 +1,7 @@
 import os
 from typing import Optional
 
-from langchain.schema import HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_community.chat_models import JinaChat
 
 from embedchain.config import BaseLlmConfig
