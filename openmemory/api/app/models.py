@@ -55,7 +55,7 @@ class App(Base):
     __tablename__ = "apps"
     id = Column(UUID, primary_key=True, default=lambda: uuid.uuid4())
     owner_id = Column(UUID, ForeignKey("users.id"), nullable=False, index=True)
-    name = Column(String, nullable=False, index=True)
+    name = Column(String, nullable=False, unique=True, index=True)
     description = Column(String)
     metadata_ = Column('metadata', JSON, default=dict)
     is_active = Column(Boolean, default=True, index=True)
@@ -67,10 +67,6 @@ class App(Base):
     owner = relationship("User", back_populates="apps")
     memories = relationship("Memory", back_populates="app")
 
-    __table_args__ = (
-        sa.UniqueConstraint('owner_id', 'name', name='idx_app_owner_name'),
-    )
-
 
 class Config(Base):
     __tablename__ = "configs"
@@ -81,6 +77,37 @@ class Config(Base):
     updated_at = Column(DateTime,
                         default=get_current_utc_time,
                         onupdate=get_current_utc_time)
+
+
+class PromptType(enum.Enum):
+    fact_retrieval = "fact_retrieval"
+    user_memory_extraction = "user_memory_extraction"
+    agent_memory_extraction = "agent_memory_extraction"
+    update_memory = "update_memory"
+    memory_answer = "memory_answer"
+    memory_categorization = "memory_categorization"
+    procedural_memory = "procedural_memory"
+
+
+class Prompt(Base):
+    __tablename__ = "prompts"
+    id = Column(UUID, primary_key=True, default=lambda: uuid.uuid4())
+    prompt_type = Column(String, nullable=False, index=True)  # Changed from Enum to String, removed unique constraint
+    display_name = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    content = Column(String, nullable=False)
+    is_active = Column(Boolean, default=True, index=True)
+    version = Column(Integer, default=1)
+    metadata_ = Column('metadata', JSON, default=dict)
+    created_at = Column(DateTime, default=get_current_utc_time, index=True)
+    updated_at = Column(DateTime,
+                        default=get_current_utc_time,
+                        onupdate=get_current_utc_time)
+
+    __table_args__ = (
+        Index('idx_prompt_type_active', 'prompt_type', 'is_active'),
+        Index('idx_prompt_active_version', 'is_active', 'version'),
+    )
 
 
 class Memory(Base):
