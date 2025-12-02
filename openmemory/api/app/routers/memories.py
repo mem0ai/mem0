@@ -234,7 +234,30 @@ async def create_memory(
 
     # Log what we're about to do
     logging.info(f"Creating memory for user_id: {request.user_id} with app: {request.app}")
-    
+
+    # Get or create the app - handle both UUID and name
+    app_obj = None
+    try:
+        # Try to parse as UUID first
+        app_uuid = UUID(request.app)
+        app_obj = db.query(App).filter(App.id == app_uuid).first()
+        if not app_obj:
+            raise HTTPException(status_code=404, detail=f"App with ID {request.app} not found")
+    except (ValueError, AttributeError):
+        # Not a UUID, treat as app name
+        app_obj = db.query(App).filter(App.name == request.app).first()
+        if not app_obj:
+            # Create the app if it doesn't exist
+            app_obj = App(
+                owner_id=user.id,
+                name=request.app,
+                description=f"Auto-created app for {request.app}"
+            )
+            db.add(app_obj)
+            db.commit()
+            db.refresh(app_obj)
+            logging.info(f"Created new app: {request.app} with ID: {app_obj.id}")
+
     # Try to get memory client safely
     try:
         memory_client = await get_memory_client()

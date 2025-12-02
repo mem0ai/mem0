@@ -227,6 +227,7 @@ const appsSlice = createSlice({
     },
     setAccessedMemoriesPage: (state, action: PayloadAction<number>) => {
       state.selectedApp.memories.accessed.page = action.payload;
+    },
     removeApp: (state, action: PayloadAction<string>) => {
       state.apps = state.apps.filter(app => app.id !== action.payload);
     },

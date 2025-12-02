@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { PauseIcon, Loader2, PlayIcon, Trash2 } from "lucide-react";
+import { PauseIcon, Loader2, PlayIcon, Trash2, UserCog } from "lucide-react";
 import { useAppsApi } from "@/hooks/useAppsApi";
 import Image from "next/image";
 import { useDispatch, useSelector } from "react-redux";
@@ -9,6 +9,7 @@ import { BiEdit } from "react-icons/bi";
 import { constants } from "@/components/shared/source-app";
 import { RootState } from "@/store/store";
 import { DeleteAppDialog } from "./DeleteAppDialog";
+import { TransferOwnershipDialog } from "./TransferOwnershipDialog";
 
 const capitalize = (str: string) => {
   return str.charAt(0).toUpperCase() + str.slice(1);
@@ -24,6 +25,7 @@ const AppDetailCard = ({
   const { updateAppDetails } = useAppsApi();
   const [isLoading, setIsLoading] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showTransferDialog, setShowTransferDialog] = useState(false);
   const dispatch = useDispatch();
   const apps = useSelector((state: RootState) => state.apps.apps);
   const currentApp = apps.find((app: any) => app.id === appId);
@@ -60,6 +62,14 @@ const AppDetailCard = ({
         appName={currentApp?.name || 'Unknown App'}
         memoryCount={selectedApp.details.total_memories_created}
       />
+      <TransferOwnershipDialog
+        isOpen={showTransferDialog}
+        onClose={() => setShowTransferDialog(false)}
+        appId={appId}
+        appName={currentApp?.name || 'Unknown App'}
+        currentOwner={selectedApp.details.created_by || 'unknown'}
+        onSuccess={() => window.location.reload()}
+      />
       <div className="bg-zinc-900 border w-[320px] border-zinc-800 rounded-xl mb-6">
         <div className="flex items-center gap-2 mb-4 bg-zinc-800 rounded-t-xl p-3">
           <div className="w-5 h-5 flex items-center justify-center">
@@ -84,6 +94,40 @@ const AppDetailCard = ({
         </div>
 
         <div className="space-y-4 p-3">
+          {selectedApp.details.created_by && (
+            <div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-zinc-400">Created By</p>
+                <button
+                  onClick={() => setShowTransferDialog(true)}
+                  className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                  title="Transfer ownership"
+                >
+                  <UserCog className="h-3 w-3" />
+                  Transfer
+                </button>
+              </div>
+              <p className="font-medium">
+                {selectedApp.details.created_by}
+              </p>
+            </div>
+          )}
+
+          {selectedApp.details.created_at && (
+            <div>
+              <p className="text-xs text-zinc-400">Created At</p>
+              <p className="font-medium">
+                {new Date(selectedApp.details.created_at).toLocaleDateString("en-US", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                  hour: "numeric",
+                  minute: "numeric",
+                })}
+              </p>
+            </div>
+          )}
+
           <div>
             <p className="text-xs text-zinc-400">Access Status</p>
             <p

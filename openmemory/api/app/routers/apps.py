@@ -8,6 +8,7 @@ from app.models import App, Memory, MemoryAccessLog, MemoryState, User
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import desc, func
 from sqlalchemy.orm import Session, joinedload
+from app.routers.memories import update_memory_state
 
 router = APIRouter(prefix="/api/v1/apps", tags=["apps"])
 
@@ -17,6 +18,25 @@ def get_app_or_404(db: Session, app_id: UUID) -> App:
     if not app:
         raise HTTPException(status_code=404, detail="App not found")
     return app
+
+# List all users
+@router.get("/users")
+async def list_users(db: Session = Depends(get_db)):
+    """List all users in the system"""
+    users = db.query(User).all()
+    return {
+        "total": len(users),
+        "users": [
+            {
+                "id": str(user.id),
+                "user_id": user.user_id,
+                "name": user.name,
+                "email": user.email,
+                "created_at": user.created_at
+            }
+            for user in users
+        ]
+    }
 
 # List all apps with filtering
 @router.get("/")
@@ -114,8 +134,14 @@ async def get_app_details(
         func.max(MemoryAccessLog.accessed_at).label("last_accessed")
     ).filter(MemoryAccessLog.app_id == app_id).first()
 
+    # Get owner information
+    owner = db.query(User).filter(User.id == app.owner_id).first()
+
     return {
         "is_active": app.is_active,
+        "created_by": owner.user_id if owner else None,
+        "created_by_name": owner.name if owner else None,
+        "created_at": app.created_at,
         "total_memories_created": db.query(Memory)
             .filter(Memory.app_id == app_id)
             .count(),
@@ -225,6 +251,49 @@ async def update_app_details(
     return {"status": "success", "message": "Updated app details successfully"}
 
 
+class TransferAppOwnershipRequest(BaseModel):
+    new_owner_user_id: str
+
+
+@router.post("/{app_id}/transfer-ownership")
+async def transfer_app_ownership(
+    app_id: UUID,
+    request: TransferAppOwnershipRequest,
+    db: Session = Depends(get_db)
+):
+    """Transfer app ownership to another user"""
+    # Get the app
+    app = get_app_or_404(db, app_id)
+
+    # Get or create the new owner
+    new_owner = db.query(User).filter(User.user_id == request.new_owner_user_id).first()
+    if not new_owner:
+        # Create the user if they don't exist
+        new_owner = User(
+            user_id=request.new_owner_user_id,
+            name=request.new_owner_user_id.replace("_", " ").title()
+        )
+        db.add(new_owner)
+        db.commit()
+        db.refresh(new_owner)
+
+    # Get old owner for response
+    old_owner = db.query(User).filter(User.id == app.owner_id).first()
+    old_owner_user_id = old_owner.user_id if old_owner else "Unknown"
+
+    # Transfer ownership
+    app.owner_id = new_owner.id
+    db.commit()
+
+    return {
+        "status": "success",
+        "message": f"App ownership transferred from {old_owner_user_id} to {request.new_owner_user_id}",
+        "app_id": str(app_id),
+        "old_owner": old_owner_user_id,
+        "new_owner": request.new_owner_user_id
+    }
+
+
 class DeleteAppRequest(BaseModel):
     user_id: str
     action: str  # "delete_memories" or "move_memories"
@@ -243,73 +312,73 @@ async def delete_app(
         user = db.query(User).filter(User.user_id == request.user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
-        
-        # Validate app ownership
-        app = db.query(App).filter(
-            App.id == app_id,
-            App.owner_id == user.id
-        ).first()
+
+        # Get app (no ownership check since there's no UI authentication)
+        app = db.query(App).filter(App.id == app_id).first()
         if not app:
             raise HTTPException(status_code=404, detail="App not found")
         
         message = ""
-        if request.action == "delete_memories":
+        memory_count = 0
 
+        if request.action == "delete_memories":
              # Get all memories for this app
             memories = db.query(Memory).filter(
                 Memory.app_id == app_id,
-                # Memory.user_id == user.id,
                 Memory.state != MemoryState.deleted
             ).all()
-        
+
             memory_count = len(memories)
             # Delete all memories
             for memory in memories:
-                router.update_memory_state(db, memory.id, MemoryState.deleted, user.id)
-            
-            # Mark the app as inactive instead of deleting it
-            app.is_active = False
-            
-            # Commit all changes
-            try:
-                db.commit()
-            except Exception as e:
-                db.rollback()
-                raise HTTPException(status_code=500, detail=f"Failed to commit changes: {str(e)}")
-            
+                update_memory_state(db, memory.id, MemoryState.deleted, user.id)
+
             message = f"Successfully deleted app '{app.name}' and {memory_count} memories"
 
         elif request.action == "move_memories":
             if not request.target_app_id:
                 raise HTTPException(status_code=400, detail="target_app_id is required for move_memories action")
 
-             # Get all memories for this app
+            # Convert target_app_id string to UUID
+            try:
+                target_app_uuid = UUID(request.target_app_id)
+            except (ValueError, AttributeError) as e:
+                raise HTTPException(status_code=400, detail=f"Invalid target_app_id format: {str(e)}")
+
+            # Validate target app exists
+            target_app = db.query(App).filter(App.id == target_app_uuid).first()
+            if not target_app:
+                raise HTTPException(status_code=404, detail="Target app not found")
+
+            # Get all memories for this app
             memories = db.query(Memory).filter(
                 Memory.app_id == app_id,
-                # Memory.user_id == user.id,
             ).all()
-            router.move_memories_to_app(app_id, request, db)            
+
+            memory_count = len(memories)
             # Move all memories to target app
-            message = f"Successfully moved {memory_count} memories to '{request.target_app_id}'"
+            for memory in memories:
+                memory.app_id = target_app_uuid
+
+            db.commit()
+            message = f"Successfully moved {memory_count} memories to '{target_app.name}'"
         else:
             logging.error(f"Invalid action: {request.action}")
             raise HTTPException(status_code=400, detail="Invalid action. Must be 'delete_memories' or 'move_memories'")
-    
-        # Mark the app as inactive instead of deleting it
-        app.is_active = False
-        
-        # Commit the app deactivation
+
+        # Actually delete the app from the database
         try:
+            db.delete(app)
             db.commit()
         except Exception as e:
             db.rollback()
-            raise HTTPException(status_code=500, detail=f"Failed to deactivate app: {str(e)}")
-        
+            raise HTTPException(status_code=500, detail=f"Failed to delete app: {str(e)}")
+
         return {
             "status": "success",
             "message": message,
-            "moved_memories": memory_count,
-            "target_app_name": request.target_id
+            "affected_memories": memory_count,
+            "target_app_id": str(request.target_app_id) if request.target_app_id else None
         }
         
         

@@ -81,11 +81,10 @@ export function MemoryDetails({ memory_id }: MemoryDetailsProps) {
             <div className="px-6 py-2">
               <div className="border-l-2 border-primary pl-4 mb-6">
                 <p
-                  className={`${
-                    memory?.state === "archived" || memory?.state === "paused"
+                  className={`${memory?.state === "archived" || memory?.state === "paused"
                       ? "text-zinc-400"
                       : "text-white"
-                  }`}
+                    }`}
                 >
                   {memory?.text}
                 </p>
@@ -127,6 +126,19 @@ export function MemoryDetails({ memory_id }: MemoryDetailsProps) {
                     </div>
                   </div>
                 </div>
+
+
+                {/* Metadata Section */}
+                {memory?.metadata_ && Object.keys(memory.metadata_).length > 0 && (
+                  <div className="mt-6 pt-4 border-t border-zinc-800">
+                    <p className="text-xs text-zinc-500 uppercase mb-3">Metadata</p>
+                    <div className="bg-zinc-800 rounded-lg p-4">
+                      <pre className="text-sm text-zinc-300 whitespace-pre-wrap font-mono">
+                        {JSON.stringify(memory.metadata_, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                )}
 
                 {/* <div className="flex justify-end gap-2 w-full mt-2">
                 <p className="text-sm font-semibold text-primary my-auto">
