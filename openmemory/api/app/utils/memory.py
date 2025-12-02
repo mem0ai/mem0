@@ -34,7 +34,7 @@ import socket
 import logging
 
 from app.database import SessionLocal
-from app.models import Config as ConfigModel
+from app.models import Config as ConfigModel, Prompt, PromptType
 
 from mem0 import Memory, AsyncMemory
 
@@ -132,6 +132,23 @@ def reset_memory_client():
     global _memory_client, _config_hash
     _memory_client = None
     _config_hash = None
+
+
+def get_prompts_from_db(db: SessionLocal):
+    """Load active prompts from the database."""
+    prompts = {}
+    try:
+        # Load all active prompts
+        db_prompts = db.query(Prompt).filter(Prompt.is_active == True).all()
+
+        for prompt in db_prompts:
+            prompts[prompt.prompt_type.value] = prompt.content
+
+        logging.info(f"Loaded {len(prompts)} active prompts from database")
+    except Exception as e:
+        logging.warning(f"Failed to load prompts from database: {e}")
+
+    return prompts
 
 
 def get_default_memory_config():
@@ -335,10 +352,15 @@ async def get_memory_client(custom_instructions: str = None):
         
         # Variable to track custom instructions
         db_custom_instructions = None
-        
+        db_prompts = {}
+
         # Load configuration from database
         try:
             db = SessionLocal()
+
+            # Load prompts from database
+            db_prompts = get_prompts_from_db(db)
+
             db_config = db.query(ConfigModel).filter(ConfigModel.key == "main").first()
             
             if db_config:
@@ -388,6 +410,19 @@ async def get_memory_client(custom_instructions: str = None):
         instructions_to_use = custom_instructions or db_custom_instructions
         if instructions_to_use:
             config["custom_fact_extraction_prompt"] = instructions_to_use
+
+        # Inject prompts from database if available and no custom_instructions
+        # Prioritize: custom_instructions parameter > db prompts > default prompts
+        if not instructions_to_use and db_prompts:
+            # Use user_memory_extraction prompt if available
+            if "user_memory_extraction" in db_prompts:
+                config["custom_fact_extraction_prompt"] = db_prompts["user_memory_extraction"]
+                logging.info("Using user_memory_extraction prompt from database")
+
+            # Use update_memory prompt if available
+            if "update_memory" in db_prompts:
+                config["custom_update_memory_prompt"] = db_prompts["update_memory"]
+                logging.info("Using update_memory prompt from database")
 
         # ALWAYS parse environment variables in the final config
         # This ensures that even default config values like "env:OPENAI_API_KEY" get parsed

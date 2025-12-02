@@ -161,19 +161,27 @@ async def get_configuration(db: Session = Depends(get_db)):
 async def update_configuration(config: ConfigSchema, db: Session = Depends(get_db)):
     """Update the configuration."""
     current_config = get_config_from_db(db)
-    
+
     # Convert to dict for processing
     updated_config = current_config.copy()
-    
+
     # Update openmemory settings if provided
     if config.openmemory is not None:
         if "openmemory" not in updated_config:
             updated_config["openmemory"] = {}
         updated_config["openmemory"].update(config.openmemory.dict(exclude_none=True))
-    
+
     # Update mem0 settings
     updated_config["mem0"] = config.mem0.dict(exclude_none=True)
-    
+
+    # Save to database
+    save_config_to_db(db, updated_config)
+
+    # Reset memory client to pick up new configuration
+    reset_memory_client()
+
+    return updated_config
+
 
 @router.patch("/", response_model=ConfigSchema)
 async def patch_configuration(config_update: ConfigSchema, db: Session = Depends(get_db)):
