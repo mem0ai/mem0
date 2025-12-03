@@ -241,7 +241,10 @@ class PGVector(VectorStoreBase):
             )
 
             results = cur.fetchall()
-        return [OutputData(id=str(r[0]), score=float(r[1]), payload=r[2]) for r in results]
+        # Convert cosine distance to similarity score (1 - distance)
+        # This ensures consistency with other vector stores (e.g., Weaviate)
+        # where higher scores indicate greater similarity
+        return [OutputData(id=str(r[0]), score=1.0 - float(r[1]), payload=r[2]) for r in results]
 
     def delete(self, vector_id: str) -> None:
         """
