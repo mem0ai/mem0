@@ -20,6 +20,7 @@ import datetime
 import json
 import logging
 import uuid
+from io import BytesIO
 
 from app.database import SessionLocal
 from app.models import App, Memory, MemoryAccessLog, MemoryState, MemoryStatusHistory, User
@@ -31,6 +32,8 @@ from fastapi import FastAPI, Request
 from fastapi.routing import APIRouter
 from mcp.server.fastmcp import FastMCP
 from mcp.server.sse import SseServerTransport
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response, StreamingResponse
 
 # Load environment variables
 load_dotenv()
@@ -75,7 +78,7 @@ async def add_memories(text: str) -> str:
     try:
         # Use the shared memory creation function (same as the main API)
         from app.utils.memory import create_memory_async
-        
+
         placeholder_memory, background_task = await create_memory_async(
             text=text,
             user_id=uid,
@@ -83,7 +86,7 @@ async def add_memories(text: str) -> str:
             metadata={},
             memory_client=memory_client
         )
-        
+
         # Return immediately with the placeholder ID
         return f"Memory creation started in background with ID: {placeholder_memory.id}"
     except Exception as e:
@@ -434,9 +437,90 @@ async def handle_post_message(request: Request):
     finally:
         pass
 
+class MCPLoggingMiddleware(BaseHTTPMiddleware):
+    """Middleware to log all API requests and responses"""
+
+    # Paths to exclude from detailed logging (too verbose)
+    EXCLUDED_PATHS = ["/api/v1/graph/data", "/api/v1/graph/search"]
+
+    async def dispatch(self, request: Request, call_next):
+        # Check if this path should skip detailed logging
+        skip_detailed_log = any(request.url.path.startswith(path) for path in self.EXCLUDED_PATHS)
+
+        if skip_detailed_log:
+            # Minimal logging for excluded paths
+            logging.info(f"[API Request] {request.method} {request.url.path} (verbose logging skipped)")
+            # Still need to consume body for request to work
+            body = await request.body()
+            async def receive():
+                return {"type": "http.request", "body": body}
+            request._receive = receive
+            response = await call_next(request)
+            logging.info(f"[API Response] {request.url.path} Status: {response.status_code}")
+            return response
+
+        # Full logging for other paths
+        logging.info(f"[API Request] {request.method} {request.url.path}")
+        logging.info(f"[API Request] Query: {dict(request.query_params)}")
+        logging.info(f"[API Request] Headers: {dict(request.headers)}")
+
+        # Read and log request body
+        body = await request.body()
+        if body:
+            try:
+                body_json = json.loads(body)
+                logging.info(f"[API Request] Body: {json.dumps(body_json, indent=2)}")
+            except:
+                logging.info(f"[API Request] Body (raw): {body.decode('utf-8', errors='ignore')[:1000]}")
+
+        # Create a new request with the body we just read
+        async def receive():
+            return {"type": "http.request", "body": body}
+
+        request._receive = receive
+
+        # Call the next middleware/endpoint
+        response = await call_next(request)
+
+        # Log response status
+        logging.info(f"[API Response] Status: {response.status_code}")
+
+        # For streaming responses (SSE), we can't easily log the body
+        if isinstance(response, StreamingResponse):
+            logging.info(f"[API Response] Type: StreamingResponse (SSE)")
+            return response
+
+        # For regular responses, log the body
+        response_body = b""
+        async for chunk in response.body_iterator:
+            response_body += chunk
+
+        try:
+            response_json = json.loads(response_body)
+            # Truncate very large responses
+            response_str = json.dumps(response_json, indent=2)
+            if len(response_str) > 5000:
+                logging.info(f"[API Response] Body: {response_str[:5000]}... (truncated, total size: {len(response_str)} chars)")
+            else:
+                logging.info(f"[API Response] Body: {response_str}")
+        except:
+            logging.info(f"[API Response] Body (raw): {response_body.decode('utf-8', errors='ignore')[:1000]}")
+
+        # Return a new response with the body we just read
+        return Response(
+            content=response_body,
+            status_code=response.status_code,
+            headers=dict(response.headers),
+            media_type=response.media_type
+        )
+
+
 def setup_mcp_server(app: FastAPI):
     """Setup MCP server with the FastAPI application"""
     mcp._mcp_server.name = "mem0-mcp-server"
+
+    # Add MCP logging middleware
+    app.add_middleware(MCPLoggingMiddleware)
 
     # Include MCP router in the FastAPI app
     app.include_router(mcp_router)

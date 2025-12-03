@@ -54,6 +54,9 @@ async def list_prompts(
     db: Session = Depends(get_db)
 ):
     """List all prompts with optional filtering."""
+    import logging
+    logging.info(f"[PROMPTS] Listing prompts - prompt_type={prompt_type}, is_active={is_active}")
+
     query = db.query(Prompt)
 
     if prompt_type:
@@ -63,6 +66,7 @@ async def list_prompts(
         query = query.filter(Prompt.is_active == is_active)
 
     prompts = query.order_by(Prompt.created_at.desc()).all()
+    logging.info(f"[PROMPTS] Found {len(prompts)} prompts in database")
 
     # Convert to dict
     result = []
