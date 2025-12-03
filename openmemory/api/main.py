@@ -4,12 +4,18 @@ import logging
 from contextlib import asynccontextmanager
 from uuid import uuid4
 
+# Configure logging at INFO level
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
 from app.config import DEFAULT_APP_ID, USER_ID
 from app.database import Base, SessionLocal, engine
 from app.mcp_server import setup_mcp_server
 from app.models import App, Memory, MemoryState, MemoryStatusHistory, User
 from app.utils.memory import get_memory_client
-from app.routers import apps_router, backup_router, config_router, memories_router, prompts_router, stats_router
+from app.routers import apps_router, backup_router, config_router, graph_router, memories_router, prompts_router, stats_router
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
@@ -244,6 +250,7 @@ app.include_router(stats_router)
 app.include_router(config_router)
 app.include_router(prompts_router)
 app.include_router(backup_router)
+app.include_router(graph_router)
 
 # Add pagination support
 add_pagination(app)
