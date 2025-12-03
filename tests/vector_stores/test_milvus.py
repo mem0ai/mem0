@@ -11,7 +11,7 @@ These tests verify:
 import pytest
 from unittest.mock import MagicMock, patch
 from mem0.vector_stores.milvus import MilvusDB
-from mem0.configs.vector_stores.milvus import MetricType
+from mem0.configs.vector_stores.milvus import MetricType, HybridSearchConfig
 
 
 class TestMilvusDB:
@@ -248,6 +248,261 @@ class TestMilvusDB:
         
         # create_collection should not be called
         mock_milvus_client.create_collection.assert_not_called()
+
+
+class TestMilvusDBHybridSearch:
+    """Test suite for MilvusDB hybrid search functionality."""
+
+    @pytest.fixture
+    def mock_milvus_client(self):
+        """Mock MilvusClient for hybrid search tests."""
+        with patch('mem0.vector_stores.milvus.MilvusClient') as mock_client:
+            mock_instance = MagicMock()
+            mock_instance.has_collection.return_value = False
+            mock_client.return_value = mock_instance
+            yield mock_instance
+
+    @pytest.fixture
+    def hybrid_milvus_db(self, mock_milvus_client):
+        """Create MilvusDB instance with hybrid search enabled."""
+        return MilvusDB(
+            url="http://localhost:19530",
+            token="test_token",
+            collection_name="test_hybrid",
+            embedding_model_dims=1536,
+            metric_type=MetricType.COSINE,
+            db_name="test_db",
+            hybrid_search={"enabled": True, "rrf_k": 60}
+        )
+
+    def test_hybrid_search_config_initialization(self, hybrid_milvus_db):
+        """Test that hybrid search config is properly initialized."""
+        assert hybrid_milvus_db.hybrid_search_config is not None
+        assert hybrid_milvus_db.hybrid_search_config.enabled is True
+        assert hybrid_milvus_db.hybrid_search_config.rrf_k == 60
+
+    def test_hybrid_schema_has_text_field(self, hybrid_milvus_db, mock_milvus_client):
+        """Verify collection schema includes text field for BM25."""
+        call_args = mock_milvus_client.create_collection.call_args
+        schema = call_args[1]['schema']
+        field_names = [f.name for f in schema.fields]
+
+        assert "text" in field_names
+
+    def test_hybrid_schema_has_sparse_vectors_field(self, hybrid_milvus_db, mock_milvus_client):
+        """Verify collection schema includes sparse_vectors field."""
+        call_args = mock_milvus_client.create_collection.call_args
+        schema = call_args[1]['schema']
+        field_names = [f.name for f in schema.fields]
+
+        assert "sparse_vectors" in field_names
+
+    def test_hybrid_schema_has_bm25_function(self, hybrid_milvus_db, mock_milvus_client):
+        """Verify BM25 function is added to schema."""
+        call_args = mock_milvus_client.create_collection.call_args
+        schema = call_args[1]['schema']
+        function_names = [f.name for f in schema.functions]
+
+        assert "text_bm25_fn" in function_names
+
+    def test_hybrid_insert_populates_text_field(self, hybrid_milvus_db, mock_milvus_client):
+        """Verify insert extracts text from metadata['data']."""
+        ids = ["mem1"]
+        vectors = [[0.1] * 1536]
+        payloads = [{"data": "Test memory content", "user_id": "alice"}]
+
+        hybrid_milvus_db.insert(ids, vectors, payloads)
+
+        call_args = mock_milvus_client.insert.call_args
+        data = call_args[1]['data']
+
+        assert data[0]["text"] == "Test memory content"
+
+    def test_hybrid_insert_handles_missing_data_field(self, hybrid_milvus_db, mock_milvus_client):
+        """Verify insert handles missing 'data' field gracefully."""
+        ids = ["mem1"]
+        vectors = [[0.1] * 1536]
+        payloads = [{"user_id": "alice"}]  # No 'data' field
+
+        hybrid_milvus_db.insert(ids, vectors, payloads)
+
+        call_args = mock_milvus_client.insert.call_args
+        data = call_args[1]['data']
+
+        assert data[0]["text"] == ""  # Should default to empty string
+
+    def test_hybrid_search_uses_hybrid_search_method(self, hybrid_milvus_db, mock_milvus_client):
+        """Verify hybrid_search is called instead of regular search."""
+        mock_milvus_client.hybrid_search.return_value = [[
+            {"id": "mem1", "distance": 0.9, "entity": {"metadata": {"data": "test"}}}
+        ]]
+
+        hybrid_milvus_db.search(query="test query", vectors=[0.1] * 1536, limit=5)
+
+        assert mock_milvus_client.hybrid_search.called
+        assert not mock_milvus_client.search.called
+
+    def test_hybrid_search_creates_two_requests(self, hybrid_milvus_db, mock_milvus_client):
+        """Verify both dense and sparse search requests are created."""
+        mock_milvus_client.hybrid_search.return_value = [[]]
+
+        hybrid_milvus_db.search(query="test", vectors=[0.1] * 1536, limit=5)
+
+        call_args = mock_milvus_client.hybrid_search.call_args
+        reqs = call_args[1]['reqs']
+
+        assert len(reqs) == 2  # Dense + Sparse
+
+    def test_hybrid_search_uses_rrf_ranker(self, hybrid_milvus_db, mock_milvus_client):
+        """Verify RRF ranker is used."""
+        from pymilvus import RRFRanker
+
+        mock_milvus_client.hybrid_search.return_value = [[]]
+
+        hybrid_milvus_db.search(query="test", vectors=[0.1] * 1536, limit=5)
+
+        call_args = mock_milvus_client.hybrid_search.call_args
+        ranker = call_args[1]['ranker']
+
+        # Verify it's an RRFRanker instance
+        assert isinstance(ranker, RRFRanker)
+
+    def test_hybrid_search_with_filters(self, hybrid_milvus_db, mock_milvus_client):
+        """Verify filters are applied to hybrid search."""
+        mock_milvus_client.hybrid_search.return_value = [[]]
+
+        hybrid_milvus_db.search(
+            query="test",
+            vectors=[0.1] * 1536,
+            limit=5,
+            filters={"user_id": "alice"}
+        )
+
+        call_args = mock_milvus_client.hybrid_search.call_args
+        reqs = call_args[1]['reqs']
+
+        # Both requests should have the filter
+        for req in reqs:
+            assert req._expr == '(metadata["user_id"] == "alice")'
+
+    def test_hybrid_update_includes_text_field(self, hybrid_milvus_db, mock_milvus_client):
+        """Verify update includes text field for hybrid search."""
+        vector_id = "test_id"
+        vector = [0.1] * 1536
+        payload = {"user_id": "alice", "data": "Updated memory content"}
+
+        hybrid_milvus_db.update(vector_id=vector_id, vector=vector, payload=payload)
+
+        call_args = mock_milvus_client.upsert.call_args
+        data = call_args[1]['data']
+
+        assert data['text'] == "Updated memory content"
+
+
+class TestMilvusDBBackwardCompatibility:
+    """Tests for backward compatibility when hybrid search is disabled."""
+
+    @pytest.fixture
+    def mock_milvus_client(self):
+        """Mock MilvusClient."""
+        with patch('mem0.vector_stores.milvus.MilvusClient') as mock_client:
+            mock_instance = MagicMock()
+            mock_instance.has_collection.return_value = False
+            mock_client.return_value = mock_instance
+            yield mock_instance
+
+    @pytest.fixture
+    def standard_milvus_db(self, mock_milvus_client):
+        """Standard MilvusDB without hybrid search."""
+        return MilvusDB(
+            url="http://localhost:19530",
+            token="test_token",
+            collection_name="test_standard",
+            embedding_model_dims=1536,
+            metric_type=MetricType.COSINE,
+            db_name="test_db"
+            # No hybrid_search parameter
+        )
+
+    def test_default_no_hybrid_search(self, standard_milvus_db):
+        """Verify hybrid search is disabled by default."""
+        assert standard_milvus_db.hybrid_search_config is None
+
+    def test_standard_schema_has_only_base_fields(self, standard_milvus_db, mock_milvus_client):
+        """Verify standard schema has only original 3 fields."""
+        call_args = mock_milvus_client.create_collection.call_args
+        schema = call_args[1]['schema']
+        field_names = [f.name for f in schema.fields]
+
+        assert "id" in field_names
+        assert "vectors" in field_names
+        assert "metadata" in field_names
+        assert "text" not in field_names
+        assert "sparse_vectors" not in field_names
+
+    def test_standard_search_uses_dense_only(self, standard_milvus_db, mock_milvus_client):
+        """Verify regular search is used when hybrid disabled."""
+        mock_milvus_client.search.return_value = [[
+            {"id": "mem1", "distance": 0.9, "entity": {"metadata": {"user_id": "alice"}}}
+        ]]
+
+        standard_milvus_db.search(query="test", vectors=[0.1] * 1536, limit=5)
+
+        assert mock_milvus_client.search.called
+        assert not mock_milvus_client.hybrid_search.called
+
+    def test_standard_insert_no_text_field(self, standard_milvus_db, mock_milvus_client):
+        """Verify insert doesn't include text field when hybrid disabled."""
+        ids = ["mem1"]
+        vectors = [[0.1] * 1536]
+        payloads = [{"data": "test", "user_id": "alice"}]
+
+        standard_milvus_db.insert(ids, vectors, payloads)
+
+        call_args = mock_milvus_client.insert.call_args
+        data = call_args[1]['data']
+
+        assert "text" not in data[0]
+
+    def test_standard_update_no_text_field(self, standard_milvus_db, mock_milvus_client):
+        """Verify update doesn't include text field when hybrid disabled."""
+        vector_id = "test_id"
+        vector = [0.1] * 1536
+        payload = {"user_id": "alice", "data": "Updated memory"}
+
+        standard_milvus_db.update(vector_id=vector_id, vector=vector, payload=payload)
+
+        call_args = mock_milvus_client.upsert.call_args
+        data = call_args[1]['data']
+
+        assert "text" not in data
+
+
+class TestHybridSearchConfig:
+    """Tests for HybridSearchConfig validation."""
+
+    def test_default_values(self):
+        """Test default configuration values."""
+        config = HybridSearchConfig()
+
+        assert config.enabled is False
+        assert config.rrf_k == 60
+        assert config.text_field_max_length == 65535
+        assert config.analyzer_type == "standard"
+
+    def test_custom_values(self):
+        """Test custom configuration values."""
+        config = HybridSearchConfig(
+            enabled=True,
+            rrf_k=100,
+            text_field_max_length=32000,
+            analyzer_type="english"
+        )
+
+        assert config.enabled is True
+        assert config.rrf_k == 100
+        assert config.text_field_max_length == 32000
+        assert config.analyzer_type == "english"
 
 
 if __name__ == "__main__":
