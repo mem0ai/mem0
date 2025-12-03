@@ -44,6 +44,7 @@ export const TransferOwnershipDialog: React.FC<TransferOwnershipDialogProps> = (
   currentOwner,
   onSuccess,
 }) => {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8765";
   const [isLoading, setIsLoading] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string>("");
@@ -59,7 +60,7 @@ export const TransferOwnershipDialog: React.FC<TransferOwnershipDialogProps> = (
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch(`/api/v1/apps/users`);
+      const response = await fetch(`${API_URL}/api/v1/apps/users`);
       if (!response.ok) throw new Error("Failed to fetch users");
       const data = await response.json();
       setUsers(data.users || []);
@@ -84,7 +85,7 @@ export const TransferOwnershipDialog: React.FC<TransferOwnershipDialogProps> = (
 
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/v1/apps/${appId}/transfer-ownership`, {
+      const response = await fetch(`${API_URL}/api/v1/apps/${appId}/transfer-ownership`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
