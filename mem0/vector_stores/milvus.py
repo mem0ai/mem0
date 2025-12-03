@@ -3,7 +3,7 @@ from typing import Dict, Optional
 
 from pydantic import BaseModel
 
-from mem0.configs.vector_stores.milvus import MetricType
+from mem0.configs.vector_stores.milvus import HybridSearchConfig, MetricType
 from mem0.vector_stores.base import VectorStoreBase
 
 try:
@@ -11,8 +11,16 @@ try:
 except ImportError:
     raise ImportError("The 'pymilvus' library is required. Please install it using 'pip install pymilvus'.")
 
-from pymilvus import CollectionSchema, DataType, FieldSchema, MilvusClient
-
+from pymilvus import (
+      CollectionSchema,
+      DataType,
+      FieldSchema,
+      MilvusClient,
+      Function,           # NEW
+      FunctionType,       # NEW
+      AnnSearchRequest,   # NEW
+      RRFRanker,          # NEW
+  )
 logger = logging.getLogger(__name__)
 
 
@@ -31,6 +39,7 @@ class MilvusDB(VectorStoreBase):
         embedding_model_dims: int,
         metric_type: MetricType,
         db_name: str,
+        hybrid_search: Optional[dict] = None
     ) -> None:
         """Initialize the MilvusDB database.
 
@@ -45,6 +54,9 @@ class MilvusDB(VectorStoreBase):
         self.collection_name = collection_name
         self.embedding_model_dims = embedding_model_dims
         self.metric_type = metric_type
+        self.hybrid_search_config = None
+        if hybrid_search:
+            self.hybrid_search_config = HybridSearchConfig(**hybrid_search)
         self.client = MilvusClient(uri=url, token=token, db_name=db_name)
         self.create_col(
             collection_name=self.collection_name,
@@ -74,13 +86,56 @@ class MilvusDB(VectorStoreBase):
                 FieldSchema(name="vectors", dtype=DataType.FLOAT_VECTOR, dim=vector_size),
                 FieldSchema(name="metadata", dtype=DataType.JSON),
             ]
+            functions = []
+            if self.hybrid_search_config and self.hybrid_search_config.enabled:
+                # Text field for BM25 input
+                fields.append(
+                    FieldSchema(
+                        name="text",
+                        dtype=DataType.VARCHAR,
+                        max_length=self.hybrid_search_config.text_field_max_length,
+                        enable_analyzer=True,
+                        analyzer_params={"type": self.hybrid_search_config.analyzer_type}
+                    )
+                )
+                # Sparse vector field for BM25 output
+                fields.append(
+                    FieldSchema(
+                        name="sparse_vectors",
+                        dtype=DataType.SPARSE_FLOAT_VECTOR
+                    )
+                )
+                # BM25 function to auto-generate sparse vectors from text
+                
+                bm25_function = Function(
+                    name="text_bm25_fn",
+                    input_field_names=["text"],
+                    output_field_names=["sparse_vectors"],
+                    function_type=FunctionType.BM25
+                )
+                functions.append(bm25_function)
 
             schema = CollectionSchema(fields, enable_dynamic_field=True)
-
-            index = self.client.prepare_index_params(
-                field_name="vectors", metric_type=metric_type, index_type="AUTOINDEX", index_name="vector_index"
+            
+            for func in functions:
+                schema.add_function(func)
+            
+            index_params = self.client.prepare_index_params()
+            index_params.add_index(
+                field_name="vectors",
+                metric_type=str(metric_type),
+                index_type="AUTOINDEX",
+                index_name="vector_index"
             )
-            self.client.create_collection(collection_name=collection_name, schema=schema, index_params=index)
+            if self.hybrid_search_config and self.hybrid_search_config.enabled:
+                index_params.add_index(
+                    field_name="sparse_vectors",
+                    index_type="SPARSE_INVERTED_INDEX",
+                    metric_type="BM25",
+                    index_name="sparse_index"
+                )
+            self.client.create_collection(collection_name=collection_name, schema=schema, index_params=index_params)
+            
 
     def insert(self, ids, vectors, payloads, **kwargs: Optional[dict[str, any]]):
         """Insert vectors into a collection.
@@ -91,10 +146,14 @@ class MilvusDB(VectorStoreBase):
             ids (List[str], optional): List of IDs corresponding to vectors.
         """
         # Batch insert all records at once for better performance and consistency
-        data = [
-            {"id": idx, "vectors": embedding, "metadata": metadata}
-            for idx, embedding, metadata in zip(ids, vectors, payloads)
-        ]
+        data = []
+        for idx,embedding,metadata in zip(ids,vectors,payloads):
+            record = { "id" : idx, "vectors" : embedding, "metadata" : metadata}
+            
+            if self.hybrid_search_config and self.hybrid_search_config.enabled:
+                record["text"] = metadata.get("data","")
+            data.append(record)
+
         self.client.insert(collection_name=self.collection_name, data=data, **kwargs)
 
     def _create_filter(self, filters: dict):
@@ -128,11 +187,13 @@ class MilvusDB(VectorStoreBase):
         memory = []
 
         for value in data:
-            uid, score, metadata = (
-                value.get("id"),
-                value.get("distance"),
-                value.get("entity", {}).get("metadata"),
-            )
+
+            uid = value.get("id")
+            score = value.get("distance")
+        
+            entity = value.get("entity",{})
+            metadata = entity.get("metadata") if entity else value.get("metadata")
+            
 
             memory_obj = OutputData(id=uid, score=score, payload=metadata)
             memory.append(memory_obj)
@@ -153,16 +214,75 @@ class MilvusDB(VectorStoreBase):
             list: Search results.
         """
         query_filter = self._create_filter(filters) if filters else None
+        
+        if self.hybrid_search_config and self.hybrid_search_config.enabled:
+            return self._hybrid_search(query,vectors,limit,query_filter)
+        else:
+            return self._dense_search(vectors,limit,query_filter)
+
+    
+    def _dense_search(self,vectors:list,limit:int,query_filter:Optional[str]= None) -> list:
+        """
+        Standard dense vector search.
+        
+        Args:
+            vectors (List[List[float]]): Query vectors.
+            limit (int): Number of results to return.
+            query_filter (str, optional): Filters to apply to the search. Defaults to None.
+
+        Returns:
+            list: Search results.
+        """
         hits = self.client.search(
             collection_name=self.collection_name,
             data=[vectors],
             limit=limit,
             filter=query_filter,
-            output_fields=["*"],
+            output_fields=["*"]
         )
-        result = self._parse_output(data=hits[0])
-        return result
+        return self._parse_output(data=hits[0])
+        
+    def _hybrid_search(self,query:str,vectors:list,limit:int,query_filter: Optional[str] = None) -> list:
+        """
+        Hybrid search using both dense and text vectors.
+        
+        Args:
+            query (str): Text query.
+            vectors (List[List[float]]): Dense vector query.
+            limit (int): Number of results to return.
+            query_filter (str, optional): Filters to apply to the search. Defaults to None.
 
+        Returns:
+            list: Search results.
+        """
+        assert self.hybrid_search_config is not None 
+        
+        dense_req = AnnSearchRequest(
+            data= [vectors],
+            anns_field="vectors",
+            param={"metric_type" : str(self.metric_type), "params" : {}},
+            limit = limit,
+            expr=query_filter
+        )
+        sparse_req = AnnSearchRequest(
+            data=[query],
+            anns_field="sparse_vectors",
+            param={"metric_type" : "BM25", "params" : {}},
+            limit = limit,
+            expr=query_filter
+        )
+        
+        reranker = RRFRanker(k=self.hybrid_search_config.rrf_k)
+        hits = self.client.hybrid_search(
+            collection_name=self.collection_name,
+            reqs=[dense_req, sparse_req],
+            ranker=reranker,
+            limit=limit,
+            output_fields=["*"]
+        )
+        
+        return self._parse_output(data=hits[0])
+        
     def delete(self, vector_id):
         """
         Delete a vector by ID.
@@ -182,6 +302,9 @@ class MilvusDB(VectorStoreBase):
             payload (Dict, optional): Updated payload.
         """
         schema = {"id": vector_id, "vectors": vector, "metadata": payload}
+        
+        if self.hybrid_search_config and self.hybrid_search_config.enabled and payload:
+            schema["text"] = payload.get("data","")
         self.client.upsert(collection_name=self.collection_name, data=schema)
 
     def get(self, vector_id):
