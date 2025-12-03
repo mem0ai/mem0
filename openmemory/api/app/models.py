@@ -41,6 +41,7 @@ class User(Base):
     user_id = Column(String, nullable=False, unique=True, index=True)
     name = Column(String, nullable=True, index=True)
     email = Column(String, unique=True, nullable=True, index=True)
+    is_superuser = Column(Boolean, default=False, nullable=False)
     metadata_ = Column('metadata', JSON, default=dict)
     created_at = Column(DateTime, default=get_current_utc_time, index=True)
     updated_at = Column(DateTime,

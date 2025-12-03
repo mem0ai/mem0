@@ -56,6 +56,7 @@ interface UseAppsApiReturn {
   fetchAppDetails: (appId: string) => Promise<void>;
   fetchAppMemories: (appId: string, page?: number, pageSize?: number) => Promise<void>;
   fetchAppAccessedMemories: (appId: string, page?: number, pageSize?: number) => Promise<void>;
+  createApp: (name: string, description?: string) => Promise<any>;
   updateAppDetails: (appId: string, details: { is_active: boolean }) => Promise<void>;
   deleteApp: (appId: string, action: 'delete_memories' | 'move_memories', targetAppId?: string) => Promise<void>;
   moveMemoriesToApp: (appId: string, memoryIds: string[], targetAppId: string) => Promise<void>;
@@ -180,6 +181,23 @@ export const useAppsApi = (): UseAppsApiReturn => {
     }
   }, [dispatch]);
 
+  const createApp = async (name: string, description?: string) => {
+    setIsLoading(true);
+    try {
+      const response = await axios.post(`${URL}/api/v1/apps/`, {
+        name: name,
+        description: description,
+        user_id: user_id
+      });
+      setIsLoading(false);
+      return response.data;
+    } catch (error) {
+      console.error("Failed to create app:", error);
+      setIsLoading(false);
+      throw error;
+    }
+  };
+
   const updateAppDetails = async (appId: string, details: { is_active: boolean }) => {
     setIsLoading(true);
     try {
@@ -244,6 +262,7 @@ export const useAppsApi = (): UseAppsApiReturn => {
     fetchAppDetails,
     fetchAppMemories,
     fetchAppAccessedMemories,
+    createApp,
     updateAppDetails,
     deleteApp,
     moveMemoriesToApp,
