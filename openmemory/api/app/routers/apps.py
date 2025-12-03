@@ -38,6 +38,62 @@ async def list_users(db: Session = Depends(get_db)):
         ]
     }
 
+class CreateAppRequest(BaseModel):
+    name: str
+    user_id: str
+    description: Optional[str] = None
+
+
+# Create a new app
+@router.post("/")
+async def create_app(
+    request: CreateAppRequest,
+    db: Session = Depends(get_db)
+):
+    """Create a new app"""
+    # Get or create the user
+    user = db.query(User).filter(User.user_id == request.user_id).first()
+    if not user:
+        # Create the user if they don't exist
+        user = User(
+            user_id=request.user_id,
+            name=request.user_id.replace("_", " ").title()
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    # Check if app name already exists
+    existing_app = db.query(App).filter(App.name == request.name).first()
+    if existing_app:
+        raise HTTPException(status_code=400, detail=f"App with name '{request.name}' already exists")
+
+    # Create the new app
+    new_app = App(
+        name=request.name,
+        description=request.description,
+        owner_id=user.id,
+        is_active=True
+    )
+
+    db.add(new_app)
+    db.commit()
+    db.refresh(new_app)
+
+    return {
+        "status": "success",
+        "message": f"App '{request.name}' created successfully",
+        "app": {
+            "id": str(new_app.id),
+            "name": new_app.name,
+            "description": new_app.description,
+            "is_active": new_app.is_active,
+            "created_at": new_app.created_at,
+            "owner_id": str(new_app.owner_id)
+        }
+    }
+
+
 # List all apps with filtering
 @router.get("/")
 async def list_apps(
@@ -154,6 +210,7 @@ async def get_app_details(
 @router.get("/{app_id}/memories")
 async def list_app_memories(
     app_id: UUID,
+    user_id: Optional[str] = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db)
@@ -163,8 +220,18 @@ async def list_app_memories(
         Memory.app_id == app_id,
         Memory.state.in_([MemoryState.active, MemoryState.paused, MemoryState.archived, MemoryState.processing])
     )
-    # Add eager loading for categories
-    query = query.options(joinedload(Memory.categories))
+
+    # Filter by user_id if provided
+    if user_id:
+        user = db.query(User).filter(User.user_id == user_id).first()
+        if user:
+            query = query.filter(Memory.user_id == user.id)
+    # Add eager loading for categories, app, and user
+    query = query.options(
+        joinedload(Memory.categories),
+        joinedload(Memory.app),
+        joinedload(Memory.user)
+    )
     total = query.count()
     memories = query.order_by(Memory.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
 
@@ -176,11 +243,14 @@ async def list_app_memories(
             {
                 "id": memory.id,
                 "content": memory.content,
-                "created_at": memory.created_at,
+                "created_at": int(memory.created_at.timestamp()) if memory.created_at else None,
                 "state": memory.state.value,
                 "app_id": memory.app_id,
+                "app_name": memory.app.name if memory.app else None,
                 "categories": [category.name for category in memory.categories],
-                "metadata_": memory.metadata_
+                "metadata_": memory.metadata_,
+                "user_id": memory.user.user_id if memory.user else None,
+                "user_email": memory.user.email if memory.user else None
             }
             for memory in memories
         ]
