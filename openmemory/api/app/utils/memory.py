@@ -142,7 +142,8 @@ def get_prompts_from_db(db: SessionLocal):
         db_prompts = db.query(Prompt).filter(Prompt.is_active == True).all()
 
         for prompt in db_prompts:
-            prompts[prompt.prompt_type.value] = prompt.content
+            # prompt_type is already a string in the database, not an enum
+            prompts[prompt.prompt_type] = prompt.content
 
         logging.info(f"Loaded {len(prompts)} active prompts from database")
     except Exception as e:
@@ -552,16 +553,29 @@ async def create_memory_async(
                 
                 # Process Qdrant response and update database
                 if 'results' in qdrant_response and qdrant_response['results']:
-                    for result in qdrant_response['results']:
+                    for idx, result in enumerate(qdrant_response['results']):
                         if result['event'] == 'ADD':
                             # Get the Qdrant-generated ID
                             memory_id = uuid.UUID(result['id'])
-                            
-                            # Update the placeholder memory with the actual content and ID
-                            placeholder_memory_background.id = memory_id
-                            placeholder_memory_background.content = result['memory']
-                            placeholder_memory_background.state = MemoryState.active
-                            
+
+                            if idx == 0:
+                                # Update the placeholder memory with the first result
+                                placeholder_memory_background.id = memory_id
+                                placeholder_memory_background.content = result['memory']
+                                placeholder_memory_background.state = MemoryState.active
+                                memory_obj = placeholder_memory_background
+                            else:
+                                # Create NEW memory records for additional facts
+                                memory_obj = Memory(
+                                    id=memory_id,
+                                    user_id=user_obj.id,
+                                    app_id=app_obj.id,
+                                    content=result['memory'],
+                                    metadata_=metadata,
+                                    state=MemoryState.active
+                                )
+                                db_session.add(memory_obj)
+
                             # Create history entry
                             history = MemoryStatusHistory(
                                 memory_id=memory_id,
@@ -570,10 +584,10 @@ async def create_memory_async(
                                 new_state=MemoryState.active
                             )
                             db_session.add(history)
-                            
+
                             db_session.commit()
-                            db_session.refresh(placeholder_memory_background)
-                            logging.info(f"Background memory updated: {memory_id}")
+                            db_session.refresh(memory_obj)
+                            logging.info(f"Background memory created/updated: {memory_id}")
                 
                 # If no results, mark as deleted (relations are stored in graph store separately)
                 else:

@@ -81,14 +81,14 @@ def seed_prompts():
         for prompt_data in default_prompts:
             # Check if prompt already exists
             existing_prompt = db.query(Prompt).filter(
-                Prompt.prompt_type == prompt_data["prompt_type"]
+                Prompt.prompt_type == prompt_data["prompt_type"].value
             ).first()
 
             if existing_prompt:
                 print(f"Prompt '{prompt_data['prompt_type'].value}' already exists, skipping...")
             else:
                 prompt = Prompt(
-                    prompt_type=prompt_data["prompt_type"],
+                    prompt_type=prompt_data["prompt_type"].value,
                     display_name=prompt_data["display_name"],
                     description=prompt_data["description"],
                     content=prompt_data["content"],
