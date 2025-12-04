@@ -170,6 +170,7 @@ class VectorStoreFactory:
         "upstash_vector": "mem0.vector_stores.upstash_vector.UpstashVector",
         "azure_ai_search": "mem0.vector_stores.azure_ai_search.AzureAISearch",
         "azure_mysql": "mem0.vector_stores.azure_mysql.AzureMySQL",
+        "azure_cosmos_db": "mem0.vector_stores.azure_cosmos_db_no_sql.AzureCosmosDBNoSQL",
         "pinecone": "mem0.vector_stores.pinecone.PineconeDB",
         "mongodb": "mem0.vector_stores.mongodb.MongoDB",
         "redis": "mem0.vector_stores.redis.RedisDB",

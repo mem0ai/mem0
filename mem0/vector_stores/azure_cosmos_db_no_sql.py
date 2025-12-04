@@ -183,9 +183,8 @@ class AzureCosmosDBNoSql(VectorStoreBase):
             cosmos_client: Client used to connect to azure cosmosdb no sql account.
             vector_embedding_policy: Vector Embedding Policy for the collection.
             indexing_policy: Indexing Policy for the collection.
-            cosmos_collection_properties: Container Properties for the collection.
             cosmos_database_properties: Database Properties for the collection.
-
+            cosmos_collection_properties: Container Properties for the collection.
             vector_search_fields: Vector Search and Text
                                   Search Fields for the collection.
             database_name: Name of the database to be created.
