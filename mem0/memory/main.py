@@ -1218,6 +1218,8 @@ class AsyncMemory(MemoryBase):
                     if not action_text:
                         continue
                     event_type = resp.get("event")
+                    if event_type == "NONE":
+                        continue
                     original_index = new_retrieved_facts.index(action_text)
                     if original_index != -1 and metadatas:
                         copied_metadata = deepcopy(metadatas[original_index])
@@ -1247,8 +1249,7 @@ class AsyncMemory(MemoryBase):
                     elif event_type == "DELETE":
                         task = asyncio.create_task(self._delete_memory(memory_id=temp_uuid_mapping[resp.get("id")]))
                         memory_tasks.append((task, resp, "DELETE", temp_uuid_mapping[resp.get("id")]))
-                    elif event_type == "NONE":
-                        logger.info("NOOP for Memory (async).")
+
                 except Exception as e:
                     logger.error(f"Error processing memory action (async): {resp}, Error: {e}")
 
