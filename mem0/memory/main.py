@@ -1177,6 +1177,7 @@ class AsyncMemory(MemoryBase):
         function_calling_prompt = get_update_memory_messages(
             retrieved_old_memory, new_retrieved_facts, self.config.custom_update_memory_prompt
         )
+        logging.info(f"function_calling_prompt: {function_calling_prompt}")
         try:
             response = await asyncio.to_thread(
                 self.llm.generate_response,
@@ -1197,7 +1198,8 @@ class AsyncMemory(MemoryBase):
             logger.error(f"Invalid JSON response: {e}")
             new_memories_with_actions = {}
 
-
+        logging.info(f"response: {response}")
+        logging.info(f"new_memories_with_actions: {new_memories_with_actions}")
         returned_memories = []
         try:
             memory_tasks = []
