@@ -1161,7 +1161,6 @@ class AsyncMemory(MemoryBase):
                 limit=5,
                 filters=effective_filters,
             )
-            logger.info(f"content {new_mem_content} returned {existing_mems}")
             return [{"id": mem.id, "text": mem.payload["data"]} for mem in existing_mems]
 
         search_tasks = [process_fact_for_search(fact, metadata) for fact, metadata in zip(new_retrieved_facts, metadatas)]
