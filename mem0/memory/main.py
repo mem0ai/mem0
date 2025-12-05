@@ -1146,7 +1146,7 @@ class AsyncMemory(MemoryBase):
         retrieved_old_memory = []
         new_message_embeddings = {}
 
-        async def process_fact_for_search(new_mem_content):
+        async def process_fact_for_search(new_mem_content, metadata=None):
             embeddings = await asyncio.to_thread(self.embedding_model.embed, new_mem_content, "add")
             logger.info(f"Embeddings length: {len(embeddings)}")
             new_message_embeddings[new_mem_content] = embeddings
@@ -1155,11 +1155,13 @@ class AsyncMemory(MemoryBase):
                 self.vector_store.search,
                 query=new_mem_content,
                 vectors=embeddings,
-                limit=5
+                limit=5,
+                filters={"user_id": metadata.get("user_id")} if metadata and "user_id" in metadata else {},
             )
+            logger.info(f"content {new_mem_content} returned {existing_mems}")
             return [{"id": mem.id, "text": mem.payload["data"]} for mem in existing_mems]
 
-        search_tasks = [process_fact_for_search(fact) for fact in new_retrieved_facts]
+        search_tasks = [process_fact_for_search(fact, metadata) for fact, metadata in zip(new_retrieved_facts, metadatas or [])]
         search_results_list = await asyncio.gather(*search_tasks)
         for result_group in search_results_list:
             retrieved_old_memory.extend(result_group)
@@ -1177,7 +1179,7 @@ class AsyncMemory(MemoryBase):
         function_calling_prompt = get_update_memory_messages(
             retrieved_old_memory, new_retrieved_facts, self.config.custom_update_memory_prompt
         )
-        logging.info(f"function_calling_prompt: {function_calling_prompt}")
+
         try:
             response = await asyncio.to_thread(
                 self.llm.generate_response,
@@ -1198,8 +1200,7 @@ class AsyncMemory(MemoryBase):
             logger.error(f"Invalid JSON response: {e}")
             new_memories_with_actions = {}
 
-        logging.info(f"response: {response}")
-        logging.info(f"new_memories_with_actions: {new_memories_with_actions}")
+        logger.info(f"new_memories_with_actions: {new_memories_with_actions}")
         returned_memories = []
         try:
             memory_tasks = []
