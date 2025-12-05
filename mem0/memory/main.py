@@ -1142,7 +1142,7 @@ class AsyncMemory(MemoryBase):
         return {"results": vector_store_result}
 
 
-    async def insert_memory(self, new_retrieved_facts, metadatas=None):
+    async def insert_memory(self, new_retrieved_facts, metadatas=None) -> List[Dict[str, Any]]:
         retrieved_old_memory = []
         new_message_embeddings = {}
 
