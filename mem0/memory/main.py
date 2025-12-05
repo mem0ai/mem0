@@ -1141,6 +1141,131 @@ class AsyncMemory(MemoryBase):
 
         return {"results": vector_store_result}
 
+
+    async def insert_memory(self, new_retrieved_facts, metadatas=None):
+        retrieved_old_memory = []
+        new_message_embeddings = {}
+
+        async def process_fact_for_search(new_mem_content):
+            embeddings = await asyncio.to_thread(self.embedding_model.embed, new_mem_content, "add")
+            logger.info(f"Embeddings length: {len(embeddings)}")
+            new_message_embeddings[new_mem_content] = embeddings
+            logger.info(f"Query used for search: {new_mem_content}")
+            existing_mems = await asyncio.to_thread(
+                self.vector_store.search,
+                query=new_mem_content,
+                vectors=embeddings,
+                limit=5
+            )
+            return [{"id": mem.id, "text": mem.payload["data"]} for mem in existing_mems]
+
+        search_tasks = [process_fact_for_search(fact) for fact in new_retrieved_facts]
+        search_results_list = await asyncio.gather(*search_tasks)
+        for result_group in search_results_list:
+            retrieved_old_memory.extend(result_group)
+
+        unique_data = {}
+        for item in retrieved_old_memory:
+            unique_data[item["id"]] = item
+        retrieved_old_memory = list(unique_data.values())
+        logger.info(f"Total existing memories: {len(retrieved_old_memory)}")
+        temp_uuid_mapping = {}
+        for idx, item in enumerate(retrieved_old_memory):
+            temp_uuid_mapping[str(idx)] = item["id"]
+            retrieved_old_memory[idx]["id"] = str(idx)
+
+        function_calling_prompt = get_update_memory_messages(
+            retrieved_old_memory, new_retrieved_facts, self.config.custom_update_memory_prompt
+        )
+        try:
+            response = await asyncio.to_thread(
+                self.llm.generate_response,
+                messages=[{"role": "user", "content": function_calling_prompt}],
+                response_format={"type": "json_object"},
+            )
+        except Exception as e:
+            logger.error(f"Error in new memory actions response: {e}")
+            response = ""
+        try:
+            if not response or not response.strip():
+                logger.warning("Empty response from LLM, no memories to extract")
+                new_memories_with_actions = {}
+            else:
+                response = remove_code_blocks(response)
+                new_memories_with_actions = json.loads(response)
+        except Exception as e:
+            logger.error(f"Invalid JSON response: {e}")
+            new_memories_with_actions = {}
+
+
+        returned_memories = []
+        try:
+            memory_tasks = []
+            for resp in new_memories_with_actions.get("memory", []):
+                logger.info(resp)
+                try:
+                    action_text = resp.get("text")
+                    if not action_text:
+                        continue
+                    event_type = resp.get("event")
+                    original_index = new_retrieved_facts.index(action_text)
+                    if original_index != -1 and metadatas:
+                        copied_metadata = deepcopy(metadatas[original_index])
+                    else:
+                        copied_metadata = {}
+
+                    if event_type == "ADD":
+                        task = asyncio.create_task(
+                            self._create_memory(
+                                data=action_text,
+                                existing_embeddings=new_message_embeddings,
+                                metadata=copied_metadata
+                            )
+                        )
+                        memory_tasks.append((task, resp, "ADD", None))
+
+                    elif event_type == "UPDATE":
+                        task = asyncio.create_task(
+                            self._update_memory(
+                                memory_id=temp_uuid_mapping[resp["id"]],
+                                data=action_text,
+                                existing_embeddings=new_message_embeddings,
+                                metadata=copied_metadata
+                            )
+                        )
+                        memory_tasks.append((task, resp, "UPDATE", temp_uuid_mapping[resp["id"]]))
+                    elif event_type == "DELETE":
+                        task = asyncio.create_task(self._delete_memory(memory_id=temp_uuid_mapping[resp.get("id")]))
+                        memory_tasks.append((task, resp, "DELETE", temp_uuid_mapping[resp.get("id")]))
+                    elif event_type == "NONE":
+                        logger.info("NOOP for Memory (async).")
+                except Exception as e:
+                    logger.error(f"Error processing memory action (async): {resp}, Error: {e}")
+
+            for task, resp, event_type, mem_id in memory_tasks:
+                try:
+                    result_id = await task
+                    if event_type == "ADD":
+                        returned_memories.append({"id": result_id, "memory": resp.get("text"), "event": event_type})
+                    elif event_type == "UPDATE":
+                        returned_memories.append(
+                            {
+                                "id": mem_id,
+                                "memory": resp.get("text"),
+                                "event": event_type,
+                                "previous_memory": resp.get("old_memory"),
+                            }
+                        )
+                    elif event_type == "DELETE":
+                        returned_memories.append({"id": mem_id, "memory": resp.get("text"), "event": event_type})
+                except Exception as e:
+                    logger.error(f"Error awaiting memory task (async): {e}")
+        except Exception as e:
+            logger.error(f"Error in memory processing loop (async): {e}")
+        return returned_memories            
+    
+
+
     async def _add_to_vector_store(
         self,
         messages: list,
@@ -1218,7 +1343,10 @@ class AsyncMemory(MemoryBase):
 
         async def process_fact_for_search(new_mem_content):
             embeddings = await asyncio.to_thread(self.embedding_model.embed, new_mem_content, "add")
+            logger.info(f"Embeddings length: {len(embeddings)}")
             new_message_embeddings[new_mem_content] = embeddings
+            logger.info(f"Effective filters for search: {effective_filters}")
+            logger.info(f"Query used for search: {new_mem_content}")
             existing_mems = await asyncio.to_thread(
                 self.vector_store.search,
                 query=new_mem_content,
