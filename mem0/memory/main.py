@@ -1146,6 +1146,7 @@ class AsyncMemory(MemoryBase):
         retrieved_old_memory = []
         new_message_embeddings = {}
         metadatas = metadatas or [{}]*len(new_retrieved_facts)
+        logger.info(f"metadatas: {metadatas}")
         async def process_fact_for_search(new_mem_content, metadata={}):
             embeddings = await asyncio.to_thread(self.embedding_model.embed, new_mem_content, "add")
             logger.info(f"Embeddings length: {len(embeddings)}")
@@ -1154,8 +1155,9 @@ class AsyncMemory(MemoryBase):
             effective_filters = {}
             if metadata.get("user_id"):
                 effective_filters["user_id"] = metadata["user_id"]
-            if metadata.get("run_id"):
-                effective_filters["run_id"] = metadata["run_id"]
+            #if metadata.get("run_id"):
+            #    effective_filters["run_id"] = metadata["run_id"]
+            logger.info(f"Effective filters for search: {effective_filters}")
             existing_mems = await asyncio.to_thread(
                 self.vector_store.search,
                 query=new_mem_content,
