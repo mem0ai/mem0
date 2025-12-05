@@ -1348,10 +1348,7 @@ class AsyncMemory(MemoryBase):
 
         async def process_fact_for_search(new_mem_content):
             embeddings = await asyncio.to_thread(self.embedding_model.embed, new_mem_content, "add")
-            logger.info(f"Embeddings length: {len(embeddings)}")
             new_message_embeddings[new_mem_content] = embeddings
-            logger.info(f"Effective filters for search: {effective_filters}")
-            logger.info(f"Query used for search: {new_mem_content}")
             existing_mems = await asyncio.to_thread(
                 self.vector_store.search,
                 query=new_mem_content,
