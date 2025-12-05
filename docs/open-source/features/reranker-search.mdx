@@ -123,14 +123,11 @@ config = {
     "reranker": {
         "provider": "llm_reranker",
         "config": {
-            "llm": {
-                "provider": "openai",
-                "config": {
-                    "model": "gpt-4",
-                    "api_key": "your-openai-api-key"
-                }
-            },
-            "top_k": 5
+            "provider": "openai",
+            "model": "gpt-4",
+            "api_key": "your-openai-api-key",
+            "top_k": 5,
+            "temperature": 0.0
         }
     }
 }

@@ -49,15 +49,12 @@ config = {
     "reranker": {
         "provider": "llm_reranker",
         "config": {
-            "llm": {
-                "provider": "openai",
-                "config": {
-                    "model": "gpt-4.1-nano-2025-04-14",
-                    "api_key": "your-openai-key"
-                }
-            },
-            "custom_prompt": custom_prompt,
-            "top_n": 5
+            "provider": "openai",
+            "model": "gpt-4.1-nano-2025-04-14",
+            "api_key": "your-openai-key",
+            "scoring_prompt": custom_prompt,
+            "top_k": 5,
+            "temperature": 0.0
         }
     }
 }
