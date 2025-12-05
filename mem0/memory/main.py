@@ -1145,23 +1145,28 @@ class AsyncMemory(MemoryBase):
     async def insert_memory(self, new_retrieved_facts, metadatas=None) -> List[Dict[str, Any]]:
         retrieved_old_memory = []
         new_message_embeddings = {}
-
-        async def process_fact_for_search(new_mem_content, metadata=None):
+        metadatas = metadatas or [{}]*len(new_retrieved_facts)
+        async def process_fact_for_search(new_mem_content, metadata={}):
             embeddings = await asyncio.to_thread(self.embedding_model.embed, new_mem_content, "add")
             logger.info(f"Embeddings length: {len(embeddings)}")
             new_message_embeddings[new_mem_content] = embeddings
             logger.info(f"Query used for search: {new_mem_content}")
+            effective_filters = {}
+            if metadata.get("user_id"):
+                effective_filters["user_id"] = metadata["user_id"]
+            if metadata.get("run_id"):
+                effective_filters["run_id"] = metadata["run_id"]
             existing_mems = await asyncio.to_thread(
                 self.vector_store.search,
                 query=new_mem_content,
                 vectors=embeddings,
                 limit=5,
-                filters={"user_id": metadata.get("user_id")} if metadata and "user_id" in metadata else {},
+                filters=effective_filters,
             )
             logger.info(f"content {new_mem_content} returned {existing_mems}")
             return [{"id": mem.id, "text": mem.payload["data"]} for mem in existing_mems]
 
-        search_tasks = [process_fact_for_search(fact, metadata) for fact, metadata in zip(new_retrieved_facts, metadatas or [])]
+        search_tasks = [process_fact_for_search(fact, metadata) for fact, metadata in zip(new_retrieved_facts, metadatas)]
         search_results_list = await asyncio.gather(*search_tasks)
         for result_group in search_results_list:
             retrieved_old_memory.extend(result_group)
