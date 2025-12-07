@@ -9,15 +9,7 @@ from typing import Optional
 
 from bs4 import BeautifulSoup
 
-try:
-    from google.auth.transport.requests import Request
-    from google.oauth2.credentials import Credentials
-    from google_auth_oauthlib.flow import InstalledAppFlow
-    from googleapiclient.discovery import build
-except ImportError:
-    raise ImportError(
-        'Gmail requires extra dependencies. Install with `pip install --upgrade "embedchain[gmail]"`'
-    ) from None
+
 
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils.misc import clean_string
@@ -35,11 +27,27 @@ class GmailReader:
 
     @staticmethod
     def _initialize_service():
+        try:
+            from googleapiclient.discovery import build
+        except ImportError:
+             raise ImportError(
+                'Gmail requires extra dependencies. Install with `pip install --upgrade "embedchain[gmail]"`'
+            ) from None
+
         credentials = GmailReader._get_credentials()
         return build("gmail", "v1", credentials=credentials)
 
     @staticmethod
     def _get_credentials():
+        try:
+            from google.auth.transport.requests import Request
+            from google.oauth2.credentials import Credentials
+            from google_auth_oauthlib.flow import InstalledAppFlow
+        except ImportError:
+            raise ImportError(
+                'Gmail requires extra dependencies. Install with `pip install --upgrade "embedchain[gmail]"`'
+            ) from None
+
         if not os.path.exists("credentials.json"):
             raise FileNotFoundError("Missing 'credentials.json'. Download it from your Google Developer account.")
 

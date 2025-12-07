@@ -14,28 +14,39 @@ def gmail_loader(mock_beautifulsoup):
 
 
 def test_load_data_file_not_found(gmail_loader, mocker):
-    with pytest.raises(FileNotFoundError):
-        with mocker.patch("os.path.isfile", return_value=False):
-            gmail_loader.load_data("your_query")
+    # We must patch GmailReader because its __init__ now checks dependencies
+    # We simulate FileNotFoundError being raised by GmailReader (due to missing creds)
+    with mocker.patch("embedchain.loaders.gmail.GmailReader", side_effect=FileNotFoundError):
+        with pytest.raises(FileNotFoundError):
+             gmail_loader.load_data("your_query")
 
 
-@pytest.mark.skip(reason="TODO: Fix this test. Failing due to some googleapiclient import issue.")
-def test_load_data(gmail_loader, mocker):
+def test_load_data(gmail_loader, mocker, mock_beautifulsoup):
     mock_gmail_reader_instance = mocker.MagicMock()
     text = "your_test_email_text"
     metadata = {
         "id": "your_test_id",
         "snippet": "your_test_snippet",
     }
-    mock_gmail_reader_instance.load_data.return_value = [
+    
+    # Configure the BS4 mock to return the text string
+    # mock_beautifulsoup is the class mock. The instance is its return value.
+    # The instance's get_text() should return the string.
+    mock_beautifulsoup.return_value.get_text.return_value = text
+
+    mock_gmail_reader_instance.load_emails.return_value = [
         {
-            "text": text,
-            "extra_info": metadata,
+            "body": "<html><body>some html</body></html>", 
+            "from": "sender",
+            "to": "receiver",
+            "subject": "subject",
+            "date": "2023-01-01",
         }
     ]
-
-    with mocker.patch("os.path.isfile", return_value=True):
-        response_data = gmail_loader.load_data("your_query")
+    
+    with mocker.patch("embedchain.loaders.gmail.GmailReader", return_value=mock_gmail_reader_instance):
+        with mocker.patch("os.path.isfile", return_value=True):
+            response_data = gmail_loader.load_data("your_query")
 
     assert "doc_id" in response_data
     assert "data" in response_data
