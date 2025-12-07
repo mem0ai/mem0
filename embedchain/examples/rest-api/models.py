@@ -32,6 +32,7 @@ class DeployAppRequest(BaseModel):
 
 class MessageApp(BaseModel):
     message: str = Field("", description="The message that you want to send to the App.")
+    session_id: str = Field("default", description="The session ID for the chat conversation.")
 
 
 class DefaultResponse(BaseModel):
