@@ -1,0 +1,111 @@
+---
+title: Migrate from Open Source to Platform
+description: "Migrate your Mem0 Open Source implementation to Mem0 Platform for managed infrastructure and advanced features."
+icon: "cloud-arrow-up"
+versionFrom: "Open Source"
+versionTo: "Platform"
+---
+
+# Migrate from Open Source to Platform
+
+Move your Mem0 implementation to managed infrastructure with enterprise features.
+
+**What you gain**: No vector database maintenance, reliable advanced filtering, multi-tenancy, webhooks, and SOC2 compliance.
+
+**Effort**: Minimal code changes (API-compatible), zero downtime migration.
+
+## Migration Steps
+
+### 1. Setup
+
+```bash
+# Install latest SDK
+pip install mem0ai --upgrade
+
+# Get API key from https://app.mem0.ai/settings
+export MEM0_API_KEY="m0-..."
+```
+
+### 2. Update Code
+
+Replace local Memory with Platform MemoryClient:
+
+```python
+# Before
+from mem0 import Memory
+m = Memory.from_config(config)
+
+# After
+from mem0 import MemoryClient
+client = MemoryClient()  # Config handled via API key
+```
+
+Verify connection:
+```python
+client.get_all(user_id="test")  # Should return empty list
+```
+
+### 3. Migrate Existing Data (Optional)
+
+If you have local data to migrate:
+
+```python
+from mem0 import Memory, MemoryClient
+
+old_memory = Memory.from_config(your_config)
+new_client = MemoryClient(api_key="your-key")
+
+def migrate_user(user_id):
+    old_memories = old_memory.get_all(user_id=user_id)
+    for memory in old_memories.get("results", []):
+        new_client.add(
+            memory["memory"],
+            user_id=user_id,
+            metadata=memory.get("metadata", {})
+        )
+```
+
+### 4. Setup Organizations (Optional)
+
+For multi-tenant applications:
+
+```python
+client = MemoryClient(
+    organization_id="org_123",
+    project_id="proj_456"
+)
+```
+
+## Validate Migration
+
+```python
+# Test storage and retrieval
+result = client.add("migration test", user_id="validate")
+found = client.search("migration test", user_id="validate")
+
+assert result["results"]
+assert len(found["results"]) > 0
+```
+
+## Quick Reference
+
+| Feature | Open Source | Platform | What to change |
+|---------|-------------|----------|----------------|
+| **Config** | `config` dict | `api_key` only | Remove local config |
+| **Storage** | Local DB | Cloud storage | No more file access |
+| **Multi-tenancy** | Manual | Built-in | Use orgs/projects |
+
+<Callout type="warning" icon="exclamation-triangle" color="#F7B731">
+  **Important**: Start with one user to validate migration before moving all data.
+</Callout>
+
+## Next Steps
+
+- [Platform Dashboard](https://app.mem0.ai) - Monitor usage and manage settings
+- [Webhooks Setup](/platform/features/webhooks) - Configure event notifications
+- [Advanced Filters](/platform/features/v2-memory-filters) - Complete filter syntax
+- [Performance Guide](/platform/features/async-client) - Async operations
+
+<Callout type="error" icon="shield" color="#E74C3C">
+  Store API keys in environment variables. Never commit to version control.
+</Callout>
