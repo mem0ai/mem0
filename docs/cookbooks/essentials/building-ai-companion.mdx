@@ -144,9 +144,14 @@ Retrieve just constraints for workout planning:
 
 ```python
 constraints = mem0_client.search(
-    "injury concerns",
-    user_id="max",
-    filters={"categories": {"in": ["constraints"]}}
+    query="injury concerns",
+    filters={
+        "AND": [
+            {"user_id": "max"},
+            {"categories": {"in": ["constraints"]}}
+        ]
+    },
+    threshold=0.0  # optional: widen recall for short phrases
 )
 print([m["memory"] for m in constraints["results"]])
 # Output: ["Max's right knee flares up on downhills"]
@@ -154,6 +159,10 @@ print([m["memory"] for m in constraints["results"]])
 ```
 
 Ray can plan workouts that avoid aggravating Max's knee, without pulling in race goals or other unrelated memories.
+
+<Tip>
+When you pass a `filters` object, include your entity scope inside the same JSON (as shown above). Top-level `user_id`/`agent_id` arguments are ignored once `filters` is provided to the hosted API, which is why earlier versions of this cookbook returned empty results.
+</Tip>
 
 ---
 
