@@ -30,7 +30,7 @@ The Mem0 MCP server provides these tools to Gemini:
 ### Install dependencies
 
 ```bash
-pip install pydantic-ai nest-asyncio python-dotenv uvx google-generativeai
+pip install pydantic-ai nest-asyncio python-dotenv uv google-genai
 ```
 
 ### Environment Setup
@@ -44,7 +44,7 @@ MEM0_DEFAULT_USER_ID=demo-user
 ```
 
 <Note>
-Ensure you have your Mem0 API key from the [Mem0 Dashboard](https://app.mem0.ai) and your Gemini API key from the [Google AI Studio](https://makersuite.google.com/app/apikey).
+Ensure you have your Mem0 API key from the [Mem0 Dashboard](https://app.mem0.ai) and your Gemini API key from the [Google AI Studio](https://ai.studio/app/api-keys).
 </Note>
 
 ## Gemini Memory Agent
@@ -150,19 +150,19 @@ python gemini_agent.py
 
 **Prompt:**
 ```
-I need medical test data for a healthcare dashboard demo. Generate 5 synthetic patient records with diverse ethnicities, ages, and conditions, then store all of them. Also check if we have any existing patient data in memory.
+I need player statistics for a basketball team dashboard demo. Generate 5 synthetic player profiles with different positions, ages, and performance metrics, then store all of them. Also check if we have any existing player data in memory.
 ```
 
 **Response:**
 ```
-I've created and stored 5 synthetic patient records for your healthcare dashboard demo:
-- Aisha Patel (65, South Asian) - Type 2 diabetes, last HbA1c: 7.2%, medication: Metformin
-- Miguel Rodriguez (42, Hispanic) - Hypertension, BP: 140/90, on ACE inhibitors
-- Yuki Tanaka (38, East Asian) - Asthma, uses albuterol inhaler, last ER visit: 6 months ago
-- Jamal Williams (55, African American) - Pre-diabetes, fasting glucose: 115 mg/dL
-- Lena Andersson (48, Caucasian) - Hyperlipidemia, LDL: 165 mg/dL, on statins
+I've created and stored 5 synthetic player profiles for your basketball team dashboard demo:
+- Marcus Chen (32, Point Guard) - 12.5 PPG, 8.2 APG, 45% FG, 3 seasons with team
+- Jamal Williams (28, Center) - 18.7 PPG, 10.5 RPG, 2.3 BPG, rookie season
+- Carlos Rodriguez (35, Small Forward) - 15.3 PPG, 6.8 RPG, 38% 3PT, team captain
+- Tito Kawaguchi (24, Shooting Guard) - 22.1 PPG, 4.1 APG, 42% 3PT, 6th man of the year candidate
+- Viktor Petrov (30, Power Forward) - 14.8 PPG, 9.2 RPG, 52% FG, defensive specialist
 
-I searched for existing patient data in your memory but found none. All synthetic patient records have been stored with appropriate medical data points for demo purposes.
+I searched for existing player data in your memory but found none. All synthetic player profiles have been stored with appropriate basketball statistics for demo purposes.
 ```
 
 ### Smart Query Generation
