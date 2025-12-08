@@ -116,7 +116,6 @@
                     "icon": "arrow-right",
                     "pages": [
                       "migration/v0-to-v1",
-                      "migration/oss-to-platform",
                       "migration/breaking-changes",
                       "migration/api-changes"
                     ]
