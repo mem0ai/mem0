@@ -12,7 +12,7 @@
   "navigation": {
     "versions": [
       {
-        "version": "v1.0.0",
+        "version": "v1.0.1",
         "anchors": [
           {
             "anchor": "Documentation",
@@ -63,6 +63,7 @@
                         "icon": "circle-check",
                         "pages": [
                           "platform/features/v2-memory-filters",
+                          "platform/features/entity-scoped-memory",
                           "platform/features/async-client",
                           "platform/features/async-mode-default-change",
                           "platform/features/multimodal-support",
@@ -315,7 +316,7 @@
                     "icon": "flag",
                     "pages": [
                       "cookbooks/essentials/building-ai-companion",
-                      "cookbooks/essentials/building-ai-with-personality",
+                      "cookbooks/essentials/entity-partitioning-playbook",
                       "cookbooks/essentials/controlling-memory-ingestion",
                       "cookbooks/essentials/memory-expiration-short-and-long-term",
                       "cookbooks/essentials/tagging-and-organizing-memories",
@@ -463,6 +464,14 @@
                       "api-reference/memory/batch-update",
                       "api-reference/memory/batch-delete",
                       "api-reference/memory/delete-memories"
+                    ]
+                  },
+                  {
+                    "group": "Events APIs",
+                    "icon": "clock",
+                    "pages": [
+                      "api-reference/events/get-events",
+                      "api-reference/events/get-event"
                     ]
                   },
                   {
@@ -677,7 +686,6 @@
                     "group": "\ud83d\udca1 Examples",
                     "icon": "lightbulb",
                     "pages": [
-                      "examples",
                       "v0x/examples/mem0-demo",
                       "v0x/examples/ai_companion_js",
                       "v0x/examples/mem0-with-ollama",
@@ -746,7 +754,7 @@
   "logo": {
     "light": "/logo/light.svg",
     "dark": "/logo/dark.svg",
-    "href": "https://github.com/mem0ai/mem0"
+    "href": "https://app.mem0.ai/"
   },
   "background": {
     "color": {
@@ -778,6 +786,20 @@
       "appId": "jjv2r0tt"
     }
   },
+  "contextual": {
+    "options": [
+      "copy",
+      "chatgpt",
+      "claude",
+      "perplexity",
+      {
+        "title": "Try in Playground",
+        "description": "Open this example in the interactive Mem0 playground",
+        "icon": "play",
+        "href": "https://app.mem0.ai/playground"
+      }
+    ]
+  },
   "redirects": [
     {
       "source": "/api-reference/memory/v2-search-memories",
@@ -798,6 +820,10 @@
     {
       "source": "/examples/ai_companion_js",
       "destination": "/cookbooks/companions/nodejs-companion"
+    },
+    {
+      "source": "/cookbooks/essentials/building-ai-with-personality",
+      "destination": "cookbooks/essentials/entity-partitioning-playbook"
     },
     {
       "source": "/examples/mem0-demo",
@@ -1042,6 +1068,10 @@
     {
       "source": "/v0x/examples/aws_neptune_analytics_hybrid_store",
       "destination": "/cookbooks/integrations/neptune-analytics"
+    },
+    {
+      "source": "/features/memory-export",
+      "destination": "/platform/features/memory-export"
     }
   ]
 }
