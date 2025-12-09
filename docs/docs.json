@@ -369,7 +369,8 @@
                       "cookbooks/frameworks/llamaindex-multiagent",
                       "cookbooks/frameworks/multimodal-retrieval",
                       "cookbooks/frameworks/eliza-os-character",
-                      "cookbooks/frameworks/chrome-extension"
+                      "cookbooks/frameworks/chrome-extension",
+                      "cookbooks/frameworks/gemini-3-with-mem0-mcp"
                     ]
                   }
                 ]
