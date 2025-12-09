@@ -351,9 +351,9 @@ Memories are stored per-entity (user, agent, app, run). Combining `user_id` **an
   <Accordion title="Missing results with agent_id">
     **Problem**: Filtered by `user_id` but don't see agent memories.
 
-    **Solution**: Add a wildcard for `agent_id` so non-null entries return:
+    **Solution**: User and agent memories are stored as separate records. Use OR to query both scopes:
     ```python
-    {"AND": [{"user_id": "user_123"}, {"agent_id": "*"}]}
+    {"OR": [{"user_id": "user_123"}, {"agent_id": "agent_name"}]}
     ```
   </Accordion>
 

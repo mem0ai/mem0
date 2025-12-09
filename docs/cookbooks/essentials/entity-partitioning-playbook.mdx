@@ -63,8 +63,10 @@ print(agent_memories)
 
 **Output:**
 ```
+# User scope returns user's memory
 {'results': [{'memory': 'avoids shellfish and prefers boutique hotels', ...}]}
-{'results': [{'memory': 'avoids shellfish and prefers boutique hotels', ...}]}
+# Agent scope returns agent's own memory
+{'results': [{'memory': 'Cam prefers boutique hotels and avoids shellfish', ...}]}
 ```
 
 <Tip icon="compass">
@@ -137,7 +139,9 @@ Nora white-labels her travel service for a sports brand. Use `app_id` to keep en
 ```python
 enterprise_filters = {
     "AND": [
-        {"app_id": "sports_brand_portal"},
+        {"app_id": "sports_brand_portal"}
+    ],
+    "OR": [
         {"user_id": "*"},
         {"agent_id": "*"}
     ]
@@ -176,7 +180,10 @@ client.delete_all(app_id="sports_brand_portal")
 ```python
 # Nightly audits - check all data for an app
 def audit_app(app_id: str):
-    filters = {"AND": [{"app_id": app_id}, {"user_id": "*"}, {"agent_id": "*"}]}
+    filters = {
+        "AND": [{"app_id": app_id}],
+        "OR": [{"user_id": "*"}, {"agent_id": "*"}]
+    }
     return client.get_all(filters=filters, page=1, page_size=50)
 
 # Session cleanup - delete temporary conversations
