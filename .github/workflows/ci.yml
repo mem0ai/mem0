@@ -82,6 +82,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install Hatch
         run: pip install hatch
+      - name: Install Poetry
+        run: pipx install poetry
       - name: Load cached venv
         id: cached-hatch-dependencies
         uses: actions/cache@v3
