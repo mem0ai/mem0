@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { PauseIcon, Loader2, PlayIcon } from "lucide-react";
+import { PauseIcon, Loader2, PlayIcon, Trash2, UserCog } from "lucide-react";
 import { useAppsApi } from "@/hooks/useAppsApi";
 import Image from "next/image";
 import { useDispatch, useSelector } from "react-redux";
@@ -8,6 +8,8 @@ import { setAppDetails } from "@/store/appsSlice";
 import { BiEdit } from "react-icons/bi";
 import { constants } from "@/components/shared/source-app";
 import { RootState } from "@/store/store";
+import { DeleteAppDialog } from "./DeleteAppDialog";
+import { TransferOwnershipDialog } from "./TransferOwnershipDialog";
 
 const capitalize = (str: string) => {
   return str.charAt(0).toUpperCase() + str.slice(1);
@@ -22,6 +24,8 @@ const AppDetailCard = ({
 }) => {
   const { updateAppDetails } = useAppsApi();
   const [isLoading, setIsLoading] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showTransferDialog, setShowTransferDialog] = useState(false);
   const dispatch = useDispatch();
   const apps = useSelector((state: RootState) => state.apps.apps);
   const currentApp = apps.find((app: any) => app.id === appId);
@@ -51,6 +55,21 @@ const AppDetailCard = ({
 
   return (
     <div>
+      <DeleteAppDialog
+        isOpen={showDeleteDialog}
+        onClose={() => setShowDeleteDialog(false)}
+        appId={appId}
+        appName={currentApp?.name || 'Unknown App'}
+        memoryCount={selectedApp.details.total_memories_created}
+      />
+      <TransferOwnershipDialog
+        isOpen={showTransferDialog}
+        onClose={() => setShowTransferDialog(false)}
+        appId={appId}
+        appName={currentApp?.name || 'Unknown App'}
+        currentOwner={selectedApp.details.created_by || 'unknown'}
+        onSuccess={() => window.location.reload()}
+      />
       <div className="bg-zinc-900 border w-[320px] border-zinc-800 rounded-xl mb-6">
         <div className="flex items-center gap-2 mb-4 bg-zinc-800 rounded-t-xl p-3">
           <div className="w-5 h-5 flex items-center justify-center">
@@ -59,7 +78,7 @@ const AppDetailCard = ({
                 <div className="w-6 h-6 rounded-full bg-zinc-700 flex items-center justify-center overflow-hidden">
                   <Image
                     src={appConfig.iconImage}
-                    alt={appConfig.name}
+                    alt={currentApp?.name || 'App'}
                     width={40}
                     height={40}
                   />
@@ -71,10 +90,44 @@ const AppDetailCard = ({
               </div>
             )}
           </div>
-          <h2 className="text-md font-semibold">{appConfig.name}</h2>
+          <h2 className="text-md font-semibold">{currentApp?.name || 'Unknown App'}</h2>
         </div>
 
         <div className="space-y-4 p-3">
+          {selectedApp.details.created_by && (
+            <div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-zinc-400">Created By</p>
+                <button
+                  onClick={() => setShowTransferDialog(true)}
+                  className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                  title="Transfer ownership"
+                >
+                  <UserCog className="h-3 w-3" />
+                  Transfer
+                </button>
+              </div>
+              <p className="font-medium">
+                {selectedApp.details.created_by}
+              </p>
+            </div>
+          )}
+
+          {selectedApp.details.created_at && (
+            <div>
+              <p className="text-xs text-zinc-400">Created At</p>
+              <p className="font-medium">
+                {new Date(selectedApp.details.created_at).toLocaleDateString("en-US", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                  hour: "numeric",
+                  minute: "numeric",
+                })}
+              </p>
+            </div>
+          )}
+
           <div>
             <p className="text-xs text-zinc-400">Access Status</p>
             <p
@@ -140,11 +193,18 @@ const AppDetailCard = ({
 
           <hr className="border-zinc-800" />
 
-          <div className="flex gap-2 justify-end">
+          <div className="flex gap-2 justify-between">
+            <Button
+              onClick={() => setShowDeleteDialog(true)}
+              className="flex bg-transparent bg-red-900/20 border-red-800 hover:bg-red-900/30 text-red-400 hover:text-red-300 text-sm px-3 py-1"
+              disabled={isLoading}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete App
+            </Button>
             <Button
               onClick={handlePauseAccess}
-              className="flex bg-transparent w-[170px] bg-zinc-800 border-zinc-800 hover:bg-zinc-800 text-white"
-              size="sm"
+              className="flex bg-transparent w-[170px] bg-zinc-800 border-zinc-800 hover:bg-zinc-800 text-white text-sm px-3 py-1"
               disabled={isLoading}
             >
               {isLoading ? (

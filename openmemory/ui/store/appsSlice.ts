@@ -41,6 +41,7 @@ interface MemoriesState {
   items: AppMemory[];
   total: number;
   page: number;
+  pageSize: number;
   loading: boolean;
   error: string | null;
 }
@@ -49,12 +50,16 @@ interface AccessedMemoriesState {
   items: AccessedMemory[];
   total: number;
   page: number;
+  pageSize: number;
   loading: boolean;
   error: string | null;
 }
 
 interface AppsState {
   apps: App[];
+  total: number;
+  page: number;
+  pageSize: number;
   status: 'idle' | 'loading' | 'succeeded' | 'failed';
   error: string | null;
   filters: {
@@ -78,6 +83,7 @@ const initialMemoriesState: MemoriesState = {
   items: [],
   total: 0,
   page: 1,
+  pageSize: 10,
   loading: false,
   error: null,
 };
@@ -86,12 +92,16 @@ const initialAccessedMemoriesState: AccessedMemoriesState = {
   items: [],
   total: 0,
   page: 1,
+  pageSize: 10,
   loading: false,
   error: null,
 };
 
 const initialState: AppsState = {
   apps: [],
+  total: 0,
+  page: 1,
+  pageSize: 10,
   status: 'idle',
   error: null,
   filters: {
@@ -119,9 +129,12 @@ const appsSlice = createSlice({
       state.status = 'loading';
       state.error = null;
     },
-    setAppsSuccess: (state, action: PayloadAction<App[]>) => {
+    setAppsSuccess: (state, action: PayloadAction<{ apps: App[]; total: number; page: number; pageSize: number }>) => {
       state.status = 'succeeded';
-      state.apps = action.payload;
+      state.apps = action.payload.apps;
+      state.total = action.payload.total;
+      state.page = action.payload.page;
+      state.pageSize = action.payload.pageSize;
       state.error = null;
     },
     setAppsError: (state, action: PayloadAction<string>) => {
@@ -132,6 +145,9 @@ const appsSlice = createSlice({
       state.status = 'idle';
       state.error = null;
       state.apps = [];
+      state.total = 0;
+      state.page = 1;
+      state.pageSize = 10;
       state.selectedApp = initialState.selectedApp;
     },
     setSelectedAppLoading: (state) => {
@@ -150,10 +166,11 @@ const appsSlice = createSlice({
       state.selectedApp.memories.created.loading = true;
       state.selectedApp.memories.created.error = null;
     },
-    setCreatedMemoriesSuccess: (state, action: PayloadAction<{ items: AppMemory[]; total: number; page: number }>) => {
+    setCreatedMemoriesSuccess: (state, action: PayloadAction<{ items: AppMemory[]; total: number; page: number; pageSize: number }>) => {
       state.selectedApp.memories.created.items = action.payload.items;
       state.selectedApp.memories.created.total = action.payload.total;
       state.selectedApp.memories.created.page = action.payload.page;
+      state.selectedApp.memories.created.pageSize = action.payload.pageSize;
       state.selectedApp.memories.created.loading = false;
       state.selectedApp.memories.created.error = null;
     },
@@ -165,10 +182,11 @@ const appsSlice = createSlice({
       state.selectedApp.memories.accessed.loading = true;
       state.selectedApp.memories.accessed.error = null;
     },
-    setAccessedMemoriesSuccess: (state, action: PayloadAction<{ items: AccessedMemory[]; total: number; page: number }>) => {
+    setAccessedMemoriesSuccess: (state, action: PayloadAction<{ items: AccessedMemory[]; total: number; page: number; pageSize: number }>) => {
       state.selectedApp.memories.accessed.items = action.payload.items;
       state.selectedApp.memories.accessed.total = action.payload.total;
       state.selectedApp.memories.accessed.page = action.payload.page;
+      state.selectedApp.memories.accessed.pageSize = action.payload.pageSize;
       state.selectedApp.memories.accessed.loading = false;
       state.selectedApp.memories.accessed.error = null;
     },
@@ -197,6 +215,22 @@ const appsSlice = createSlice({
     setSortDirection: (state, action: PayloadAction<'asc' | 'desc'>) => {
       state.filters.sortDirection = action.payload;
     },
+    setPage: (state, action: PayloadAction<number>) => {
+      state.page = action.payload;
+    },
+    setPageSize: (state, action: PayloadAction<number>) => {
+      state.pageSize = action.payload;
+      state.page = 1; // Reset to first page when changing page size
+    },
+    setCreatedMemoriesPage: (state, action: PayloadAction<number>) => {
+      state.selectedApp.memories.created.page = action.payload;
+    },
+    setAccessedMemoriesPage: (state, action: PayloadAction<number>) => {
+      state.selectedApp.memories.accessed.page = action.payload;
+    },
+    removeApp: (state, action: PayloadAction<string>) => {
+      state.apps = state.apps.filter(app => app.id !== action.payload);
+    },
   },
 });
 
@@ -219,6 +253,11 @@ export const {
   setActiveFilter,
   setSortBy,
   setSortDirection,
+  setPage,
+  setPageSize,
+  setCreatedMemoriesPage,
+  setAccessedMemoriesPage,
+  removeApp,
 } = appsSlice.actions;
 
 export default appsSlice.reducer;
