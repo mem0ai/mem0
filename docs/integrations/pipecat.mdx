@@ -190,7 +190,6 @@ memory = Mem0MemoryService(
     params={
         "search_limit": 5,            # Retrieve up to 5 memories
         "search_threshold": 0.2,      # Higher threshold for more relevant matches
-        "api_version": "v2",          # Mem0 API version
     }
 )
 ```
@@ -211,8 +210,11 @@ memory = Mem0MemoryService(
 )
 ```
 
-## Resources
-
-- [Mem0 Pipecat Integration](https://docs.pipecat.ai/server/services/memory/mem0)
-- [Pipecat Documentation](https://docs.pipecat.ai)
-
+<CardGroup cols={2}>
+  <Card title="LiveKit Integration" icon="video" href="/integrations/livekit">
+    Build real-time voice and video agents
+  </Card>
+  <Card title="ElevenLabs Integration" icon="volume" href="/integrations/elevenlabs">
+    Create conversational voice agents
+  </Card>
+</CardGroup>

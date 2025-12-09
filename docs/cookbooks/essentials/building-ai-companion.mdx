@@ -1,0 +1,525 @@
+---
+title: Build a Companion with Mem0
+description: "Spin up a fitness coach that remembers goals, adapts tone, and keeps sessions personal."
+---
+
+
+Essentially, creating a companion out of LLMs is as simple as a loop. But these loops work great for one type of character without personalization and fall short as soon as you restart the chat.
+
+Problem: LLMs are stateless. GPT doesn't remember conversations. You could stuff everything inside the context window, but that becomes slow, expensive, and breaks at scale.
+
+The solution: Mem0. It extracts and stores what matters from conversations, then retrieves it when needed. Your companion remembers user preferences, past events, and history.
+
+In this cookbook we'll build a **fitness companion** that:
+
+- Remembers user goals across sessions
+- Recalls past workouts and progress
+- Adapts its personality based on user preferences
+- Handles both short-term context (today's chat) and long-term memory (months of history)
+
+By the end, you'll have a working fitness companion and know how to handle common production challenges.
+
+---
+
+## The Basic Loop with Memory
+
+Max wants to train for a marathon. He starts chatting with Ray, an AI running coach.
+
+```python
+from openai import OpenAI
+from mem0 import MemoryClient
+
+openai_client = OpenAI(api_key="your-openai-key")
+mem0_client = MemoryClient(api_key="your-mem0-key")
+
+def chat(user_input, user_id):
+    # Retrieve relevant memories
+    memories = mem0_client.search(user_input, user_id=user_id, limit=5)
+    context = "\\n".join(m["memory"] for m in memories["results"])
+
+    # Call LLM with memory context
+    response = openai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": f"You're Ray, a running coach. Memories:\\n{context}"},
+            {"role": "user", "content": user_input}
+        ]
+    ).choices[0].message.content
+
+    # Store the exchange
+    mem0_client.add([
+        {"role": "user", "content": user_input},
+        {"role": "assistant", "content": response}
+    ], user_id=user_id)
+
+    return response
+
+```
+
+**Session 1:**
+
+```python
+chat("I want to run a marathon in under 4 hours", user_id="max")
+# Output: "That's a solid goal. What's your current weekly mileage?"
+# Stored in Mem0: "Max wants to run sub-4 marathon"
+
+```
+
+**Session 2 (next day, app restarted):**
+
+```python
+chat("What should I focus on today?", user_id="max")
+# Output: "Based on your sub-4 marathon goal, let's work on building your aerobic base..."
+
+```
+
+<Info>
+Ray remembers Max's goal across sessions. The app restarted, but the memory persisted. This is the core pattern: retrieve memories, pass them as context, store new exchanges.
+</Info>
+
+Ray remembers. Restart the app, and the goal persists. From here on, we'll focus on just the Mem0 API calls.
+
+---
+
+## Organizing Memory by Type
+
+### Separating Temporary from Permanent
+
+Max mentions his knee hurts. That's different from his marathon goal - one is temporary, the other is long-term.
+
+**Categories vs Metadata:**
+
+- **Categories**: AI-assigned by Mem0 based on content (you can't force them)
+- **Metadata**: Manually set by you for forced tagging
+
+Define custom categories at the project level. Mem0 will automatically tag memories with relevant categories based on content:
+
+```python
+mem0_client.project.update(custom_categories=[
+    {"goals": "Race targets and training objectives"},
+    {"constraints": "Injuries, limitations, recovery needs"},
+    {"preferences": "Training style, surfaces, schedules"}
+])
+
+```
+
+<Note>
+**Categories vs Metadata:** Categories are AI-assigned by Mem0 based on content semantics. You define the palette, Mem0 picks which ones apply. If you need guaranteed tagging, use `metadata` instead.
+</Note>
+
+Now when you add memories, Mem0 automatically assigns the appropriate categories:
+
+```python
+# Add goal - Mem0 automatically tags it as "goals"
+mem0_client.add(
+    [{"role": "user", "content": "Sub-4 marathon is my A-race"}],
+    user_id="max"
+)
+
+# Add constraint - Mem0 automatically tags it as "constraints"
+mem0_client.add(
+    [{"role": "user", "content": "My right knee flares up on downhills"}],
+    user_id="max"
+)
+
+```
+
+Mem0 reads the content and intelligently picks which categories apply. You define the palette, it handles the tagging.
+
+**Important:** You cannot force specific categories. Mem0's platform decides which categories are relevant based on content. If you need to force-tag something, use `metadata` instead:
+
+```python
+# Force tag using metadata (not categories)
+mem0_client.add(
+    [{"role": "user", "content": "Some workout note"}],
+    user_id="max",
+    metadata={"workout_type": "speed", "forced_tag": "custom_label"}
+)
+
+```
+
+### Filtering by Category
+
+Retrieve just constraints for workout planning:
+
+```python
+constraints = mem0_client.search(
+    "injury concerns",
+    user_id="max",
+    filters={"categories": {"in": ["constraints"]}}
+)
+print([m["memory"] for m in constraints["results"]])
+# Output: ["Max's right knee flares up on downhills"]
+
+```
+
+Ray can plan workouts that avoid aggravating Max's knee, without pulling in race goals or other unrelated memories.
+
+---
+
+## Filtering What Gets Stored
+
+### The Problem
+
+Run the basic loop for a week and check what's stored:
+
+```python
+memories = mem0_client.get_all(filters={"AND": [{"user_id": "max"}]})
+print([m["memory"] for m in memories["results"]])
+# Output: ["Max wants to run marathon under 4 hours", "hey", "lol ok", "cool thanks", "gtg bye"]
+
+```
+
+<Warning>
+Without filters, Mem0 stores everything—greetings, filler, and casual chat. This pollutes retrieval: instead of pulling "marathon goal," you get "lol ok." Set custom instructions to keep memory clean.
+</Warning>
+
+Noise. Greetings and filler clutter the memory.
+
+### Custom Instructions
+
+Tell Mem0 what matters:
+
+```python
+mem0_client.project.update(custom_instructions="""
+Extract from running coach conversations:
+- Training goals and race targets
+- Physical constraints or injuries
+- Training preferences (time of day, surfaces, weather)
+- Progress milestones
+
+Exclude:
+- Greetings and filler
+- Casual chatter
+- Hypotheticals unless planning related
+""")
+
+```
+
+Now chat again:
+
+```python
+chat("hey how's it going", user_id="max")
+chat("I prefer trail running over roads", user_id="max")
+
+memories = mem0_client.get_all(filters={"AND": [{"user_id": "max"}]})
+print([m["memory"] for m in memories["results"]])
+# Output: ["Max wants to run marathon under 4 hours", "Max prefers trail running over roads"]
+
+```
+
+<Info>
+**Expected output:** Only 2 memories stored—the marathon goal and trail preference. The greeting "hey how's it going" was filtered out automatically. Custom instructions are working.
+</Info>
+
+Only meaningful facts. Filler gets dropped automatically.
+
+---
+
+---
+
+## Agent Memory for Personality
+
+### Why Agents Need Memory Too
+
+Max prefers direct feedback, not motivational fluff. Ray needs to remember how to communicate - that's agent memory, separate from user memory.
+
+Store agent personality:
+
+```python
+mem0_client.add(
+    [{"role": "system", "content": "Max wants direct, data-driven feedback. Skip motivational language."}],
+    agent_id="ray_coach"
+)
+
+```
+
+Retrieve agent style alongside user memories:
+
+```python
+# Get coach personality
+agent_memories = mem0_client.search("coaching style", agent_id="ray_coach")
+# Output: ["Max wants direct, data-driven feedback. Skip motivational language."]
+
+# Store conversations with agent_id
+mem0_client.add([
+    {"role": "user", "content": "How'd my run look today?"},
+    {"role": "assistant", "content": "Pace was 8:15/mile. Heart rate 152, zone 2."}
+], user_id="max", agent_id="ray_coach")
+
+```
+
+<Info>
+**Expected behavior:** Ray's responses are now data-driven and direct. The agent memory stored the coaching style preference, so future responses adapt automatically without Max having to repeat his preference.
+</Info>
+
+No "Great job!" or "Keep it up!" - just data. Ray adapts to Max's preference.
+
+---
+
+## Managing Short-Term Context
+
+### When to Store in Mem0
+
+Don't send every single message to Mem0. Keep recent context in memory, let Mem0 handle the important long-term facts.
+
+```python
+# Store only meaningful exchanges in Mem0
+mem0_client.add([
+    {"role": "user", "content": "I want to run a marathon"},
+    {"role": "assistant", "content": "Let's build a training plan"}
+], user_id="max")
+
+# Skip storing filler
+# "hey" → don't store
+# "cool thanks" → don't store
+
+# Or rely on custom_instructions to filter automatically
+
+```
+
+Last 10 messages in your app's buffer. Important facts in Mem0. Faster, cheaper, still works.
+
+---
+
+## Time-Bound Memories
+
+### Auto-Expiring Facts
+
+Max tweaks his ankle. It'll heal in two weeks - the memory should expire too.
+
+```python
+from datetime import datetime, timedelta
+
+expiration = (datetime.now() + timedelta(days=14)).strftime("%Y-%m-%d")
+
+mem0_client.add(
+    [{"role": "user", "content": "Rolled my left ankle, needs rest"}],
+    user_id="max",
+    expiration_date=expiration
+)
+
+```
+
+In 14 days, this memory disappears automatically. Ray stops asking about the ankle.
+
+---
+
+## Putting It All Together
+
+Here's the Mem0 setup combining everything:
+
+```python
+from mem0 import MemoryClient
+from datetime import datetime, timedelta
+
+mem0_client = MemoryClient(api_key="your-mem0-key")
+
+# Configure memory filtering and categories
+mem0_client.project.update(
+    custom_instructions="""
+    Extract: goals, constraints, preferences, progress
+    Exclude: greetings, filler, casual chat
+    """,
+    custom_categories=[
+        {"name": "goals", "description": "Training targets"},
+        {"name": "constraints", "description": "Injuries and limitations"},
+        {"name": "preferences", "description": "Training style"}
+    ]
+)
+
+```
+
+**Week 1 - Store goals and preferences:**
+
+```python
+mem0_client.add([
+    {"role": "user", "content": "I want to run a sub-4 marathon"},
+    {"role": "assistant", "content": "Got it. Let's build a training plan."}
+], user_id="max", agent_id="ray", categories=["goals"])
+
+mem0_client.add([
+    {"role": "user", "content": "I prefer trail running over roads"}
+], user_id="max", categories=["preferences"])
+
+```
+
+**Week 3 - Temporary injury with expiration:**
+
+```python
+expiration = (datetime.now() + timedelta(days=14)).strftime("%Y-%m-%d")
+mem0_client.add(
+    [{"role": "user", "content": "Rolled ankle, need light workouts"}],
+    user_id="max",
+    categories=["constraints"],
+    expiration_date=expiration
+)
+
+```
+
+**Retrieve for context:**
+
+```python
+memories = mem0_client.search("training plan", user_id="max", limit=5)
+# Gets: marathon goal, trail preference, ankle injury (if still valid)
+
+```
+
+Ray remembers goals, preferences, and personality. Handles temporary injuries. Works across sessions.
+
+---
+
+## Common Production Patterns
+
+### Episodic Stories with run_id
+
+Training for Boston is different from training for New York. Separate the memory threads:
+
+```python
+mem0_client.add(messages, user_id="max", run_id="boston-2025")
+mem0_client.add(messages, user_id="max", run_id="nyc-2025")
+
+# Retrieve only Boston memories
+boston_memories = mem0_client.search(
+    "training plan",
+    user_id="max",
+    run_id="boston-2025"
+)
+
+```
+
+Each race gets its own episodic boundary. No cross-contamination.
+
+### Importing Historical Data
+
+Max has 6 months of training logs to backfill:
+
+```python
+old_logs = [
+    [{"role": "user", "content": "Completed 20-mile long run"}],
+    [{"role": "user", "content": "Hit 8:00 pace on tempo run"}],
+]
+
+for log in old_logs:
+    mem0_client.add(log, user_id="max")
+
+```
+
+### Handling Contradictions
+
+Max changes his goal from sub-4 to sub-3:45:
+
+```python
+# Find the old memory
+memories = mem0_client.get_all(filters={"AND": [{"user_id": "max"}]})
+goal_memory = [m for m in memories["results"] if "sub-4" in m["memory"]][0]
+
+# Update it
+mem0_client.update(goal_memory["id"], "Max wants to run sub-3:45 marathon")
+
+```
+
+Update instead of creating duplicates.
+
+### Multiple Agents
+
+Max works with Ray for running and Jordan for strength training:
+
+```python
+chat("easy run today", user_id="max", agent_id="ray")
+chat("leg day workout", user_id="max", agent_id="jordan")
+
+```
+
+Each coach maintains separate personality memory while sharing user context.
+
+### Filtering by Date
+
+Prioritize recent training over old data:
+
+```python
+recent = mem0_client.search(
+    "training progress",
+    user_id="max",
+    filters={"created_at": {"gte": "2025-10-01"}}
+)
+
+```
+
+### Metadata Tagging
+
+Tag workouts by type:
+
+```python
+mem0_client.add(
+    [{"role": "user", "content": "10x400m intervals"}],
+    user_id="max",
+    metadata={"workout_type": "speed", "intensity": "high"}
+)
+
+# Later, find all speed workouts
+speed_sessions = mem0_client.search(
+    "speed work",
+    user_id="max",
+    filters={"metadata": {"workout_type": "speed"}}
+)
+
+```
+
+### Pruning Old Memories
+
+Delete irrelevant memories:
+
+```python
+mem0_client.delete(memory_id="mem_xyz")
+
+# Or clear an entire run_id
+mem0_client.delete_all(user_id="max", run_id="old-training-cycle")
+
+```
+
+---
+
+## What You Built
+
+A companion that:
+
+- **Persists across sessions** - Mem0 storage
+- **Filters noise** - custom instructions
+- **Organizes by type** - categories
+- **Adapts personality** - **`agent_id`**
+- **Stays fast** - short-term buffer
+- **Handles temporal facts** - expiration
+- **Scales to production** - batching, metadata, pruning
+
+This pattern works for any companion: fitness coaches, tutors, roleplay characters, therapy bots, creative writing partners.
+
+---
+
+<Tip>
+Start with 2-3 categories max (e.g., goals, constraints, preferences). More categories dilute tagging accuracy. You can always add more later after seeing what Mem0 extracts.
+</Tip>
+
+---
+
+## Production Checklist
+
+Before launching:
+
+- Set custom instructions for your domain
+- Define 2-3 categories (goals, constraints, preferences)
+- Add expiration strategy for time-bound facts
+- Implement error handling for API calls
+- Monitor memory quality in Mem0 dashboard
+- Clear test data from production project
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Partition Memories by Entity" icon="layers" href="/cookbooks/essentials/entity-partitioning-playbook">
+    Keep companions from leaking context by combining user, agent, and session scopes.
+  </Card>
+  <Card title="Tag Support Memories" icon="tag" href="/cookbooks/essentials/tagging-and-organizing-memories">
+    Organize customer context to keep assistants responsive at scale.
+  </Card>
+</CardGroup>

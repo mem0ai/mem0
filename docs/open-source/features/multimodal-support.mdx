@@ -1,95 +1,95 @@
 ---
 title: Multimodal Support
-description: Integrate images into your interactions with Mem0
+description: Capture and recall memories from both text and images.
 icon: "image"
-iconType: "solid"
 ---
 
-Mem0 extends its capabilities beyond text by supporting multimodal data. With this feature, you can seamlessly integrate images into your interactions—allowing Mem0 to extract relevant information and context from visual content.
+Multimodal support lets Mem0 extract facts from images alongside regular text. Add screenshots, receipts, or product photos and Mem0 will store the insights as searchable memories so agents can recall them later.
 
-## How It Works
+<Info>
+  **You’ll use this when…**
+  - Users share screenshots, menus, or documents and you want the details to become memories.
+  - You already collect text conversations but need visual context for better answers.
+  - You want a single workflow that handles both URLs and local image files.
+</Info>
 
-When you submit an image, Mem0:
-1. **Processes the visual content** using advanced vision models
-2. **Extracts textual information** and relevant details from the image
-3. **Stores the extracted information** as searchable memories
-4. **Maintains context** between visual and textual interactions
+<Warning>
+  Images larger than 20 MB are rejected. Compress or resize files before sending them to avoid errors.
+</Warning>
 
-This enables more comprehensive understanding of user interactions that include both text and visual elements.
+---
+
+## Feature anatomy
+
+- **Vision processing:** Mem0 runs the image through a vision model that extracts text and key details.
+- **Memory creation:** Extracted information is stored as standard memories so search, filters, and analytics continue to work.
+- **Context linking:** Visual and textual turns in the same conversation stay linked, giving agents richer context.
+- **Flexible inputs:** Accept publicly accessible URLs or base64-encoded local files in both Python and JavaScript SDKs.
+
+<AccordionGroup>
+  <Accordion title="Supported formats">
+    | Format | Used for | Notes |
+    | --- | --- | --- |
+    | JPEG / JPG | Photos and screenshots | Default option for camera captures. |
+    | PNG | Images with transparency | Keeps sharp text and UI elements crisp. |
+    | WebP | Web-optimized images | Smaller payloads for faster uploads. |
+    | GIF | Static or animated graphics | Works for simple graphics and short loops. |
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Configure it
+
+### Add image messages from URLs
 
 <CodeGroup>
 ```python Python
-import os
 from mem0 import Memory
 
 client = Memory()
 
 messages = [
-    {
-        "role": "user",
-        "content": "Hi, my name is Alice."
-    },
-    {
-        "role": "assistant",
-        "content": "Nice to meet you, Alice! What do you like to eat?"
-    },
+    {"role": "user", "content": "Hi, my name is Alice."},
     {
         "role": "user",
         "content": {
             "type": "image_url",
             "image_url": {
-                "url": "https://www.superhealthykids.com/wp-content/uploads/2021/10/best-veggie-pizza-featured-image-square-2.jpg"
+                "url": "https://example.com/menu.jpg"
             }
         }
-    },
+    }
 ]
 
-# Calling the add method to ingest messages into the memory system
 client.add(messages, user_id="alice")
 ```
 
-```json Output
-{
-  "results": [
-    {
-      "memory": "Name is Alice",
-      "event": "ADD",
-      "id": "7ae113a3-3cb5-46e9-b6f7-486c36391847"
-    },
-    {
-      "memory": "Likes large pizza with toppings including cherry tomatoes, black olives, green spinach, yellow bell peppers, diced ham, and sliced mushrooms",
-      "event": "ADD",
-      "id": "56545065-7dee-4acf-8bf2-a5b2535aabb3"
+```ts TypeScript
+import { Memory } from "mem0ai";
+
+const client = new Memory();
+
+const messages = [
+  { role: "user", content: "Hi, my name is Alice." },
+  {
+    role: "user",
+    content: {
+      type: "image_url",
+      image_url: { url: "https://example.com/menu.jpg" }
     }
-  ]
-}
+  }
+];
+
+await client.add(messages, { user_id: "alice" });
 ```
 </CodeGroup>
 
-## Supported Image Formats
+<Info icon="check">
+  Inspect the response payload—the memories list should include entries extracted from the menu image as well as the text turns.
+</Info>
 
-Mem0 supports common image formats:
-- **JPEG/JPG**: Standard photos and images
-- **PNG**: Images with transparency support
-- **WebP**: Modern web-optimized format
-- **GIF**: Animated and static graphics
-
-## Local Files vs URLs
-
-### Using Image URLs
-Images can be referenced via publicly accessible URLs:
-
-```python
-content = {
-    "type": "image_url",
-    "image_url": {
-        "url": "https://example.com/my-image.jpg"
-    }
-}
-```
-
-### Using Local Files
-For local images, convert them to base64 format:
+### Upload local images as base64
 
 <CodeGroup>
 ```python Python
@@ -98,21 +98,16 @@ from mem0 import Memory
 
 def encode_image(image_path):
     with open(image_path, "rb") as image_file:
-        return base64.b64encode(image_file.read()).decode('utf-8')
+        return base64.b64encode(image_file.read()).decode("utf-8")
 
 client = Memory()
-
-# Encode local image
 base64_image = encode_image("path/to/your/image.jpg")
 
 messages = [
     {
-        "role": "user", 
+        "role": "user",
         "content": [
-            {
-                "type": "text",
-                "text": "What's in this image?"
-            },
+            {"type": "text", "text": "What's in this image?"},
             {
                 "type": "image_url",
                 "image_url": {
@@ -126,45 +121,47 @@ messages = [
 client.add(messages, user_id="alice")
 ```
 
-```javascript JavaScript
-import fs from 'fs';
-import { Memory } from 'mem0ai';
+```ts TypeScript
+import fs from "fs";
+import { Memory } from "mem0ai";
 
-function encodeImage(imagePath) {
-    const imageBuffer = fs.readFileSync(imagePath);
-    return imageBuffer.toString('base64');
+function encodeImage(imagePath: string) {
+  const buffer = fs.readFileSync(imagePath);
+  return buffer.toString("base64");
 }
 
 const client = new Memory();
-
-// Encode local image
 const base64Image = encodeImage("path/to/your/image.jpg");
 
 const messages = [
-    {
-        role: "user",
-        content: [
-            {
-                type: "text", 
-                text: "What's in this image?"
-            },
-            {
-                type: "image_url",
-                image_url: {
-                    url: `data:image/jpeg;base64,${base64Image}`
-                }
-            }
-        ]
-    }
+  {
+    role: "user",
+    content: [
+      { type: "text", text: "What's in this image?" },
+      {
+        type: "image_url",
+        image_url: {
+          url: `data:image/jpeg;base64,${base64Image}`
+        }
+      }
+    ]
+  }
 ];
 
 await client.add(messages, { user_id: "alice" });
 ```
 </CodeGroup>
 
-## Advanced Examples
+<Tip>
+  Keep base64 payloads under 5 MB to speed up uploads and avoid hitting the 20 MB limit.
+</Tip>
 
-### Restaurant Menu Analysis
+---
+
+## See it in action
+
+### Restaurant menu memory
+
 ```python
 from mem0 import Memory
 
@@ -173,10 +170,10 @@ client = Memory()
 messages = [
     {
         "role": "user",
-        "content": "I'm looking at this restaurant menu. Help me remember my preferences."
+        "content": "Help me remember which dishes I liked."
     },
     {
-        "role": "user", 
+        "role": "user",
         "content": {
             "type": "image_url",
             "image_url": {
@@ -186,7 +183,7 @@ messages = [
     },
     {
         "role": "user",
-        "content": "I'm allergic to peanuts and prefer vegetarian options."
+        "content": "I’m allergic to peanuts and prefer vegetarian meals."
     }
 ]
 
@@ -194,18 +191,22 @@ result = client.add(messages, user_id="user123")
 print(result)
 ```
 
-### Document Analysis
+<Info icon="check">
+  The response should capture both the allergy note and menu items extracted from the photo so future searches can combine them.
+</Info>
+
+### Document capture
+
 ```python
-# Analyzing receipts, invoices, or documents
 messages = [
     {
         "role": "user",
-        "content": "Store this receipt information for my expense tracking."
+        "content": "Store this receipt information for expenses."
     },
     {
         "role": "user",
         "content": {
-            "type": "image_url", 
+            "type": "image_url",
             "image_url": {
                 "url": "https://example.com/receipt.jpg"
             }
@@ -216,21 +217,11 @@ messages = [
 client.add(messages, user_id="user123")
 ```
 
-## File Size and Performance Considerations
+<Tip>
+  Combine the receipt upload with structured metadata (tags, categories) if you need to filter expenses later.
+</Tip>
 
-### Image Size Limits
-- **Maximum file size**: 20MB per image
-- **Recommended size**: Under 5MB for optimal performance
-- **Resolution**: Images are automatically resized if needed
-
-### Performance Tips
-1. **Compress large images** before sending to reduce processing time.
-2. **Use appropriate formats**: JPEG for photos, PNG for graphics with text.
-3. **Batch processing**: Send multiple images in separate requests for better reliability.
-
-## Error Handling
-
-Handle common errors when working with images:
+### Error handling
 
 <CodeGroup>
 ```python Python
@@ -247,66 +238,88 @@ try:
             "image_url": {"url": "https://example.com/image.jpg"}
         }
     }]
-    
-    result = client.add(messages, user_id="user123")
+
+    client.add(messages, user_id="user123")
     print("Image processed successfully")
-    
+
 except InvalidImageError:
     print("Invalid image format or corrupted file")
 except FileSizeError:
     print("Image file too large")
-except Exception as e:
-    print(f"Unexpected error: {e}")
+except Exception as exc:
+    print(f"Unexpected error: {exc}")
 ```
 
-```javascript JavaScript
-import { Memory } from 'mem0ai';
+```ts TypeScript
+import { Memory } from "mem0ai";
 
 const client = new Memory();
 
 try {
-    const messages = [{
-        role: "user",
-        content: {
-            type: "image_url",
-            image_url: { url: "https://example.com/image.jpg" }
-        }
-    }];
-    
-    const result = await client.add(messages, { user_id: "user123" });
-    console.log("Image processed successfully");
-    
-} catch (error) {
-    if (error.type === 'invalid_image') {
-        console.log("Invalid image format or corrupted file");
-    } else if (error.type === 'file_size_exceeded') {
-        console.log("Image file too large");
-    } else {
-        console.log(`Unexpected error: ${error.message}`);
+  const messages = [{
+    role: "user",
+    content: {
+      type: "image_url",
+      image_url: { url: "https://example.com/image.jpg" }
     }
+  }];
+
+  await client.add(messages, { user_id: "user123" });
+  console.log("Image processed successfully");
+} catch (error: any) {
+  if (error.type === "invalid_image") {
+    console.log("Invalid image format or corrupted file");
+  } else if (error.type === "file_size_exceeded") {
+    console.log("Image file too large");
+  } else {
+    console.log(`Unexpected error: ${error.message}`);
+  }
 }
 ```
 </CodeGroup>
 
-## Best Practices
+<Warning>
+  Fail fast on invalid formats so you can prompt users to re-upload before losing their context.
+</Warning>
 
-### Image Selection
-- **Use high-quality images** with clear, readable text and details.
-- **Ensure good lighting** in photos for better text extraction.
-- **Avoid heavily stylized fonts** that may be difficult to read.
+---
 
-### Memory Context
-- **Provide context** about what information you want extracted.
-- **Combine with text** to give Mem0 better understanding of the image's purpose.
-- **Be specific** about what aspects of the image are important.
+## Verify the feature is working
 
-### Privacy and Security
-- **Avoid sensitive information** in images (SSN, passwords, private data).
-- **Use secure image hosting** for URLs to prevent unauthorized access.
-- **Consider local processing** for highly sensitive visual content.
+- After calling `add`, inspect the returned memories and confirm they include image-derived text (menu items, receipt totals, etc.).
+- Run a follow-up `search` for a detail from the image; the memory should surface alongside related text.
+- Monitor image upload latency—large files should still complete under your acceptable response time.
+- Log file size and URL sources to troubleshoot repeated failures.
 
-Using these methods, you can seamlessly incorporate various visual content types into your interactions, further enhancing Mem0's multimodal capabilities for more comprehensive memory management.
+---
 
-If you have any questions, please feel free to reach out to us using one of the following methods:
+## Best practices
 
-<Snippet file="get-help.mdx" />
+1. **Ask for intent:** Prompt users to explain why they sent an image so the memory includes the right context.
+2. **Keep images readable:** Encourage clear photos without heavy filters or shadows for better extraction.
+3. **Split bulk uploads:** Send multiple images as separate `add` calls to isolate failures and improve reliability.
+4. **Watch privacy:** Avoid uploading sensitive documents unless your environment is secured for that data.
+5. **Validate file size early:** Check file size before encoding to save bandwidth and time.
+
+---
+
+## Troubleshooting
+
+| Issue | Cause | Fix |
+| --- | --- | --- |
+| Upload rejected | File larger than 20 MB | Compress or resize before sending. |
+| Memory missing image data | Low-quality or blurry image | Retake the photo with better lighting. |
+| Invalid format error | Unsupported file type | Convert to JPEG or PNG first. |
+| Slow processing | High-resolution images | Downscale or compress to under 5 MB. |
+| Base64 errors | Incorrect prefix or encoding | Ensure `data:image/<type>;base64,` is present and the string is valid. |
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Connect Vision Models" icon="circle-dot" href="/components/llms/models/openai">
+    Review supported vision-capable models and configuration details.
+  </Card>
+  <Card title="Build Multimodal Retrieval" icon="image" href="/cookbooks/frameworks/multimodal-retrieval">
+    Follow an end-to-end workflow pairing text and image memories.
+  </Card>
+</CardGroup>

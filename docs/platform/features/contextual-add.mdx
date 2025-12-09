@@ -1,7 +1,5 @@
 ---
 title: Contextual Memory Creation
-icon: "square-plus"
-iconType: "solid"
 description: "Add messages with automatic context management - no manual history tracking required"
 ---
 
@@ -17,7 +15,7 @@ messages = [
     {"role": "assistant", "content": "Great! I'll remember your preference for Italian cuisine."}
 ]
 
-client.add(messages, user_id="user123", version="v2")
+client.add(messages, user_id="user123")
 ```
 
 ```javascript JavaScript
@@ -50,14 +48,14 @@ messages1 = [
     {"role": "user", "content": "Hi, I'm Sarah from New York"},
     {"role": "assistant", "content": "Hello Sarah! Nice to meet you."}
 ]
-client.add(messages1, user_id="sarah", version="v2")
+client.add(messages1, user_id="sarah")
 
 # Later interaction - just send new messages
 messages2 = [
     {"role": "user", "content": "I'm planning a trip to Italy next month"},
     {"role": "assistant", "content": "How exciting! Italy is beautiful this time of year."}
 ]
-client.add(messages2, user_id="sarah", version="v2")
+client.add(messages2, user_id="sarah")
 # Mem0 automatically knows Sarah is from New York and can use this context
 ```
 
@@ -95,7 +93,7 @@ messages = [
     {"role": "assistant", "content": "I've noted your allergies for future reference."}
 ]
 
-client.add(messages, user_id="user123", version="v2")
+client.add(messages, user_id="user123")
 # This allergy info will be available in ALL future interactions
 ```
 
@@ -122,21 +120,21 @@ messages1 = [
     {"role": "user", "content": "I want to plan a 5-day trip to Tokyo"},
     {"role": "assistant", "content": "Perfect! Let's plan your Tokyo adventure."}
 ]
-client.add(messages1, user_id="user123", run_id="tokyo-trip-2024", version="v2")
+client.add(messages1, user_id="user123", run_id="tokyo-trip-2024")
 
 # Later in the same trip planning session
 messages2 = [
     {"role": "user", "content": "I prefer staying near Shibuya"},
     {"role": "assistant", "content": "Great choice! Shibuya is very convenient."}
 ]
-client.add(messages2, user_id="user123", run_id="tokyo-trip-2024", version="v2")
+client.add(messages2, user_id="user123", run_id="tokyo-trip-2024")
 
 # Different session for work project (separate context)
 work_messages = [
     {"role": "user", "content": "Let's discuss the Q4 marketing strategy"},
     {"role": "assistant", "content": "Sure! What are your main goals for Q4?"}
 ]
-client.add(work_messages, user_id="user123", run_id="q4-marketing", version="v2")
+client.add(work_messages, user_id="user123", run_id="q4-marketing")
 ```
 
 ```javascript JavaScript
@@ -178,8 +176,7 @@ messages = [
 # Each support ticket gets its own run_id
 client.add(messages, 
     user_id="customer123", 
-    run_id="ticket-2024-001", 
-    version="v2"
+    run_id="ticket-2024-001"
 )
 ```
   </Tab>
@@ -191,7 +188,7 @@ preference_messages = [
     {"role": "assistant", "content": "Got it! I'll keep your fitness and dietary preferences in mind."}
 ]
 
-client.add(preference_messages, user_id="user456", version="v2")
+client.add(preference_messages, user_id="user456")
 
 # Daily planning session (session-specific)
 planning_messages = [
@@ -201,8 +198,7 @@ planning_messages = [
 
 client.add(planning_messages, 
     user_id="user456", 
-    run_id="daily-plan-2024-01-15", 
-    version="v2"
+    run_id="daily-plan-2024-01-15"
 )
 ```
   </Tab>
@@ -214,7 +210,7 @@ profile_messages = [
     {"role": "assistant", "content": "I'll tailor explanations to help with math concepts."}
 ]
 
-client.add(profile_messages, user_id="student789", version="v2")
+client.add(profile_messages, user_id="student789")
 
 # Specific lesson session
 lesson_messages = [
@@ -224,8 +220,7 @@ lesson_messages = [
 
 client.add(lesson_messages,
     user_id="student789",
-    run_id="algorithms-lesson-1",
-    version="v2"
+    run_id="algorithms-lesson-1"
 )
 ```
   </Tab>
@@ -240,14 +235,14 @@ client.add(lesson_messages,
 
 ### ❌ Don't
 - Send duplicate messages or interaction history
-- Forget to include `version="v2"` parameter
+- Skip identifiers like `user_id` or `run_id` that scope the memory
 - Mix contextual and non-contextual approaches in the same application
 
 ## Troubleshooting
 
 | Issue | Solution |
 |-------|----------|
-| **Context not working** | Ensure you're using `version="v2"` and consistent `user_id` |
+| **Context not working** | Ensure each call uses the same `user_id` / `run_id` combo; version is automatic |
 | **Wrong context retrieved** | Check if you need separate `run_id` values for different interaction topics |
 | **Missing interaction history** | Verify all messages in the interaction thread use the same `user_id` and `run_id` |
 | **Too much irrelevant context** | Use more specific `run_id` values to separate different interaction types |

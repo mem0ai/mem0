@@ -5,27 +5,39 @@ icon: "trash"
 iconType: "solid"
 ---
 
-## Overview
+# Remove Memories Safely
 
-Memories can become outdated, irrelevant, or need to be removed for privacy or compliance reasons. Mem0 offers flexible ways to delete memory:
+Deleting memories is how you honor compliance requests, undo bad data, or clean up expired sessions. Mem0 lets you delete a specific memory, a list of IDs, or everything that matches a filter.
 
-1. **Delete a Single Memory**: Using a specific memory ID
-2. **Batch Delete**: Delete multiple known memory IDs (up to 1000)
-3. **Filtered Delete**: Delete memories matching a filter (e.g., `user_id`, `metadata`, `run_id`)
+<Info>
+  **Why it matters**
+  - Satisfies user erasure (GDPR/CCPA) without touching the rest of your data.
+  - Keeps knowledge bases accurate by removing stale or incorrect facts.
+  - Works for both the managed Platform API and the OSS SDK.
+</Info>
 
-This page walks through code examples for each method.
+## Key terms
 
+- **memory_id** – Unique ID returned by `add`/`search` identifying the record to delete.
+- **batch_delete** – API call that removes up to 1000 memories in one request.
+- **delete_all** – Filter-based deletion by user, agent, run, or metadata.
+- **immutable** – Flagged memories that cannot be updated; delete + re-add instead.
 
-## Use Cases
+## How the delete flow works
 
-- Forget a user’s past preferences by request
-- Remove outdated or incorrect memory entries
-- Clean up memory after session expiration
-- Comply with data deletion requests (e.g., GDPR)
+<Steps>
+<Step title="Choose the scope">
+Decide whether you’re removing a single memory, a list, or everything that matches a filter.
+</Step>
+<Step title="Submit the delete call">
+Call `delete`, `batch_delete`, or `delete_all` with the required IDs or filters.
+</Step>
+<Step title="Verify">
+Confirm the response message, then re-run `search` or check the dashboard/logs to ensure the memory is gone.
+</Step>
+</Steps>
 
----
-
-## 1. Delete a Single Memory by ID
+## Delete a single memory (Platform)
 
 <CodeGroup>
 ```python Python
@@ -48,9 +60,11 @@ client.delete("your_memory_id")
 ```
 </CodeGroup>
 
----
+<Info icon="check">
+  You’ll receive a confirmation payload. The dashboard reflects the removal within seconds.
+</Info>
 
-## 2. Batch Delete Multiple Memories
+## Batch delete multiple memories (Platform)
 
 <CodeGroup>
 ```python Python
@@ -83,9 +97,7 @@ client.batchDelete(deleteMemories)
 ```
 </CodeGroup>
 
----
-
-## 3. Delete Memories by Filter (e.g., user_id)
+## Delete memories by filter (Platform)
 
 <CodeGroup>
 ```python Python
@@ -114,27 +126,65 @@ You can also filter by other parameters such as:
 - `run_id`
 - `metadata` (as JSON string)
 
----
+<Warning>
+  `delete_all` requires at least one filter (user, agent, run, or metadata). Calling it with no filters raises an error to prevent accidental data loss.
+</Warning>
 
-## Key Differences
+## Delete with Mem0 OSS
 
-| Method                | Use When                                | IDs Needed | Filters |
-|----------------------|-------------------------------------------|------------|----------|
-| `delete(memory_id)`  | You know exactly which memory to remove   | ✔          | ✘        |
-| `batch_delete([...])`| You have a known list of memory IDs       | ✔          | ✘        |
-| `delete_all(...)`    | You want to delete by user/agent/run/etc | ✘          | ✔        |
+<CodeGroup>
+```python Python
+from mem0 import Memory
 
+memory = Memory()
 
-### More Details
+memory.delete(memory_id="mem_123")
+memory.delete_all(user_id="alice")
+```
+</CodeGroup>
 
-For request/response schema and additional filtering options, see:
-- [Delete Memory API Reference](/api-reference/memory/delete-memory)
-- [Batch Delete API Reference](/api-reference/memory/batch-delete)
-- [Delete Memories by Filter Reference](/api-reference/memory/delete-memories)
+<Note>
+  The OSS JavaScript SDK does not yet expose deletion helpers—use the REST API or Python SDK when self-hosting.
+</Note>
 
-You’ve now seen how to add, search, update, and delete memories in Mem0.
+## Use cases recap
 
-## Need help?
-If you have any questions, please feel free to reach out to us using one of the following methods:
+- Forget a user’s preferences at their request.
+- Remove outdated or incorrect facts before they spread.
+- Clean up memories after session expiration or retention deadlines.
+- Comply with privacy legislation (GDPR, CCPA) and internal policies.
 
-<Snippet file="get-help.mdx"/>
+## Method comparison
+
+| Method | Use when | IDs required | Filters |
+| --- | --- | --- | --- |
+| `delete(memory_id)` | You know the exact record | ✔️ | ✖️ |
+| `batch_delete([...])` | You have a list of IDs to purge | ✔️ | ✖️ |
+| `delete_all(...)` | You need to forget a user/agent/run | ✖️ | ✔️ |
+
+## Put it into practice
+
+- Review the <Link href="/api-reference/memory/delete-memory">Delete Memory API reference</Link>, plus <Link href="/api-reference/memory/batch-delete">Batch Delete</Link> and <Link href="/api-reference/memory/delete-memories">Filtered Delete</Link>.
+- Pair deletes with <Link href="/platform/features/expiration-date">Expiration Policies</Link> to automate retention.
+
+## See it live
+
+- <Link href="/cookbooks/operations/support-inbox">Support Inbox with Mem0</Link> demonstrates compliance-driven deletes.
+- <Link href="/platform/features/direct-import">Data Management tooling</Link> shows how deletes fit into broader lifecycle flows.
+
+{/* DEBUG: verify CTA targets */}
+
+<CardGroup cols={2}>
+  <Card
+    title="Review Add Concepts"
+    description="Ensure the memories you keep are structured from the start."
+    icon="circle-check"
+    href="/core-concepts/memory-operations/add"
+  />
+  <Card
+    title="Enable Expiration Policies"
+    description="Automate retention with the platform’s expiration feature."
+    icon="clock"
+    href="/platform/features/expiration-date"
+  />
+</CardGroup>

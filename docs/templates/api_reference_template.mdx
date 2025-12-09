@@ -1,0 +1,245 @@
+---
+title: API Reference Template
+description: "Standard layout for documenting Mem0 API endpoints."
+icon: "code"
+---
+
+# Api Reference Template
+
+API reference pages document a single endpoint contract. Present metadata, request/response examples, and recovery guidance without narrative detours.
+
+---
+
+## ❌ DO NOT COPY — Guidance & Constraints
+- Frontmatter must include `title`, `description`, `icon`, `method`, `path`. Heading should be `# METHOD /path`.
+- Provide a quick facts table (Method, Path, Auth, Rate limit) followed by an `<Info>` block describing when to use the endpoint. Add `<Warning>` for beta headers or scope requirements.
+- Requests require headers table, body/parameters table, and `<CodeGroup>` with cURL, Python, TypeScript. If a language is unavailable, include a `<Note>` explaining why.
+- When migrating an existing endpoint page, keep the canonical examples and edge-case notes—drop them into these sections rather than inventing new payloads unless the API changed.
+- Response section must show a canonical success payload, status-code table, and troubleshooting tips. Document pagination/idempotency in `<Tip>` or `<Note>` blocks.
+- End with related endpoints, a sample workflow link, and two CTA cards (left = concept/feature, right = applied tutorial). Keep the comment reminder for reviewers.
+
+---
+
+## ✅ COPY THIS — Content Skeleton
+
+````mdx
+---
+title: [Endpoint name]
+description: [Primary action handled by this endpoint]
+icon: "bolt"
+method: "POST"
+path: "/v1/memories"
+---
+
+# [METHOD] [path]
+
+| Method | Path | Auth | Rate Limit |
+| --- | --- | --- | --- |
+| [METHOD] | `[path]` | Bearer (`mem0-api-key`) | [X req/min] |
+
+<Info>
+  Use this endpoint when [brief scenario]. Prefer [alternative endpoint] for [other scenario].
+</Info>
+
+<Warning>
+  [Optional: scopes, beta headers, or breaking changes.] Remove if not needed.
+</Warning>
+
+## Request
+
+### Headers
+
+| Name | Required | Description |
+| --- | --- | --- |
+| `Authorization` | Yes | `Bearer YOUR_API_KEY` |
+| `Content-Type` | Yes | `application/json` |
+
+### Body
+
+| Field | Type | Required | Description | Example |
+| --- | --- | --- | --- | --- |
+| `user_id` | string | Yes | Identifier for the end user. | `"alex"` |
+| `memory` | string | Yes | Content to store. | `"Prefers email follow-ups."` |
+| `metadata` | object | No | Key/value pairs for filtering. | `{ "channel": "support" }` |
+
+<CodeGroup>
+```bash Shell
+curl https://api.mem0.ai/v1/memories \
+  -H "Authorization: Bearer $MEM0_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "user_id": "alex", "memory": "Prefers email follow-ups." }'
+```
+
+```python Python
+import requests
+
+resp = requests.post(
+    "https://api.mem0.ai/v1/memories",
+    headers={"Authorization": f"Bearer {API_KEY}"},
+    json={"user_id": "alex", "memory": "Prefers email follow-ups."},
+)
+resp.raise_for_status()
+```
+
+```ts TypeScript
+const response = await fetch("https://api.mem0.ai/v1/memories", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${process.env.MEM0_API_KEY}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ user_id: "alex", memory: "Prefers email follow-ups." }),
+});
+```
+</CodeGroup>
+
+<Tip>
+  Batch insertion? Use `/v1/memories/batch` with the same payload structure.
+</Tip>
+
+## Response
+
+```json
+{
+  "memory_id": "mem_123",
+  "created_at": "2025-02-04T12:00:00Z"
+}
+```
+
+| Status | Meaning | Fix |
+| --- | --- | --- |
+| `201` | Memory stored successfully. | — |
+| `400` | Missing required field. | Provide `user_id` and `memory`. |
+| `401` | Invalid or missing API key. | Refresh key in dashboard. |
+
+<Note>
+  Responses include pagination tokens when you request multiple resources. Reuse them to fetch the next page.
+</Note>
+
+## Related endpoints
+
+- [GET /v1/memories/{memory_id}](./get-memory)
+- [DELETE /v1/memories/{memory_id}](./delete-memory)
+
+## Sample workflow
+
+- [Build a Customer Support Agent](/cookbooks/customer-support-agent)
+
+{/* DEBUG: verify CTA targets */}
+
+<CardGroup cols={2}>
+  <Card
+    title="[Related concept or feature]"
+    description="[How this endpoint fits the model]"
+    icon="layers"
+    href="/[concept-link]"
+  />
+  <Card
+    title="[Applied cookbook/integration]"
+    description="[What readers can build next]"
+    icon="rocket"
+    href="/[cookbook-link]"
+  />
+</CardGroup>
+````
+
+---
+
+## ✅ Publish Checklist
+- [ ] Quick facts table matches frontmatter method/path and shows auth/rate limit.
+- [ ] Request section includes headers, body table, and code samples for cURL, Python, TypeScript (or `<Note>` explaining missing SDK).
+- [ ] Response section documents success payload plus error table with fixes.
+- [ ] Related endpoints and sample workflow link to existing docs.
+- [ ] CTA pair uses concept/feature on the left and an applied example on the right.
+
+## Browse Other Templates
+
+<CardGroup cols={3}>
+  <Card
+    title="Quickstart"
+    description="Install → Configure → Add → Search → Delete."
+    icon="rocket"
+    href="/templates/quickstart_template"
+  />
+  <Card
+    title="Operation Guide"
+    description="Single task walkthrough with verification checkpoints."
+    icon="circle-check"
+    href="/templates/operation_guide_template"
+  />
+  <Card
+    title="Feature Guide"
+    description="Explain when and why to use a capability, not just the API."
+    icon="sparkles"
+    href="/templates/feature_guide_template"
+  />
+  <Card
+    title="Concept Guide"
+    description="Define mental models, key terms, and diagrams."
+    icon="brain"
+    href="/templates/concept_guide_template"
+  />
+  <Card
+    title="Integration Guide"
+    description="Configure Mem0 alongside third-party tools."
+    icon="plug"
+    href="/templates/integration_guide_template"
+  />
+  <Card
+    title="Cookbook"
+    description="Narrative, end-to-end walkthroughs."
+    icon="book-open"
+    href="/templates/cookbook_template"
+  />
+  <Card
+    title="API Reference"
+    description="Endpoint specifics with dual-language examples."
+    icon="code"
+    href="/templates/api_reference_template"
+  />
+  <Card
+    title="Parameters Reference"
+    description="Accepted fields, defaults, and misuse fixes."
+    icon="list"
+    href="/templates/parameters_reference_template"
+  />
+  <Card
+    title="Migration Guide"
+    description="Plan → migrate → validate with rollback."
+    icon="arrow-right"
+    href="/templates/migration_guide_template"
+  />
+  <Card
+    title="Release Notes"
+    description="Ship highlights and required CTAs."
+    icon="megaphone"
+    href="/templates/release_notes_template"
+  />
+  <Card
+    title="Troubleshooting Playbook"
+    description="Symptom → diagnose → fix."
+    icon="life-buoy"
+    href="/templates/troubleshooting_playbook_template"
+  />
+  <Card
+    title="Section Overview"
+    description="Landing pages with card grids and CTA pair."
+    icon="grid"
+    href="/templates/section_overview_template"
+  />
+</CardGroup>
+
+<CardGroup cols={2}>
+  <Card
+    title="Contribution Hub"
+    description="Review the authoring workflow and linked templates."
+    icon="clipboard-list"
+    href="/platform/contribute"
+  />
+  <Card
+    title="Docs Home"
+    description="Return to the platform overview once you’re done."
+    icon="compass"
+    href="/platform/overview"
+  />
+</CardGroup>

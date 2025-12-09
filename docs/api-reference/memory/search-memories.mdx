@@ -1,0 +1,104 @@
+---
+title: 'Search Memories'
+openapi: post /v2/memories/search/
+---
+
+The v2 search API is powerful and flexible, allowing for more precise memory retrieval. It supports complex logical operations (AND, OR, NOT) and comparison operators for advanced filtering capabilities. The comparison operators include:
+- `in`: Matches any of the values specified
+- `gte`: Greater than or equal to
+- `lte`: Less than or equal to
+- `gt`: Greater than
+- `lt`: Less than
+- `ne`: Not equal to
+- `icontains`: Case-insensitive containment check
+- `*`: Wildcard character that matches everything
+
+<CodeGroup>
+```python Platform API Example
+related_memories = client.search(
+    query="What are Alice's hobbies?",
+    filters={
+        "OR": [
+            {
+              "user_id": "alice"
+            },
+            {
+              "agent_id": {"in": ["travel-agent", "sports-agent"]}
+            }
+        ]
+    },
+)
+```
+
+```json Output
+{
+  "memories": [
+    {
+      "id": "ea925981-272f-40dd-b576-be64e4871429",
+      "memory": "Likes to play cricket and plays cricket on weekends.",
+      "metadata": {
+        "category": "hobbies"
+      },
+      "score": 0.32116443111457704,
+      "created_at": "2024-07-26T10:29:36.630547-07:00",
+      "updated_at": null,
+      "user_id": "alice",
+      "agent_id": "sports-agent"
+    }
+  ],
+}
+```
+</CodeGroup>
+
+<CodeGroup>
+```python Wildcard Example
+# Using wildcard to match all run_ids for a specific user
+all_memories = client.search(
+    query="What are Alice's hobbies?",
+    filters={
+        "AND": [
+            {
+                "user_id": "alice"
+            },
+            {
+                "run_id": "*"
+            }
+        ]
+    },
+)
+```
+</CodeGroup>
+
+<CodeGroup>
+```python Categories Filter Examples
+# Example 1: Using 'contains' for partial matching
+finance_memories = client.search(
+    query="What are my financial goals?",
+    filters={
+        "AND": [
+            { "user_id": "alice" },
+            {
+                "categories": {
+                    "contains": "finance"
+                }
+            }
+        ]
+    },
+)
+
+# Example 2: Using 'in' for exact matching
+personal_memories = client.search(
+    query="What personal information do you have?",
+    filters={
+        "AND": [
+            { "user_id": "alice" },
+            {
+                "categories": {
+                    "in": ["personal_information"]
+                }
+            }
+        ]
+    },
+)
+```
+</CodeGroup>

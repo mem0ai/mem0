@@ -1,0 +1,259 @@
+---
+title: Migration Guide Template
+description: "Plan → migrate → validate flow with rollback coverage."
+icon: "arrow-right"
+---
+
+# Migration Guide Template
+
+Migrations lower blood pressure. They explain what’s changing, why it matters, and how to get through the upgrade with verifications and rollbacks close at hand.
+
+---
+
+## ❌ DO NOT COPY — Guidance & Constraints
+- Keep the frontmatter complete (`title`, `description`, `icon`, `versionFrom`, `versionTo`, and optional `releaseDate`). Readers should know at a glance what versions they are moving between.
+- Start with context: summary table + “Should you upgrade?” checklist. Highlight deadlines with `<Warning>` and call out optional paths with `<Tip>`.
+- Break the body into **Plan → Migrate → Validate**. Use numbered headings inside **Migrate** and put rollback instructions directly after any risky step.
+- When porting older migration guides, keep existing change tables, screenshots, and warnings—slot them into this format unless the upgrade path has materially changed.
+- Document breaking changes with an `Old behavior` vs `New behavior` table. Use `<Info icon="check">` for mandatory verification steps.
+- Optional flow diagrams are allowed, but only when a left-to-right Mermaid (`graph LR`) clarifies the upgrade path.
+- End with two CTA cards (left = deep dive reference, right = applied example) and keep the comment reminder for reviewers.
+
+---
+
+## ✅ COPY THIS — Content Skeleton
+Paste the block below, swap placeholders, and delete optional sections only after you’ve confirmed they aren’t needed.
+
+```mdx
+---
+title: [Migration title]
+description: [Why this upgrade matters]
+icon: "arrows-rotate"
+versionFrom: "[current version]"
+versionTo: "[target version]"
+releaseDate: "[YYYY-MM-DD]" # Optional
+---
+
+# [Migration headline — state the move]
+
+| Scope | Effort | Downtime |
+| --- | --- | --- |
+| [Platform/OSS/etc.] | [Low/Medium/High] ([~time]) | [Expected downtime impact] |
+
+<Info>
+  **Should you upgrade?**
+  - [Criteria 1]
+  - [Criteria 2]
+  - [Criteria 3]
+</Info>
+
+<Warning>
+  [Breaking deadline or critical change. Remove if not needed.]
+</Warning>
+
+## Timeline
+
+- [Date]: [Milestone]
+- [Date]: [Milestone]
+
+{/* Optional: delete if not needed */}
+```mermaid
+graph LR
+  A[Plan] */} B[Migrate]
+  B */} C[Validate]
+  C */} D[Roll back if needed]
+```
+
+## Plan
+
+- [Actionable preparatory step]
+- [Stakeholder alignment or backup note]
+
+## Migrate
+
+### 1. [Upgrade dependencies]
+
+```bash
+pip install mem0ai==[version]
+npm install mem0ai@[version]
+```
+
+<Tip>
+  [Optional hint or staging strategy.]
+</Tip>
+
+<Info icon="check">
+  Run `[verification command]` and confirm it reports `[expected output]`.
+</Info>
+
+### 2. [Update configuration]
+
+```diff
+- memory_filters = true
++ filters = true
+```
+
+<Warning>
+  **Breaking change:** `[Explain the new behavior and what to update]`.
+</Warning>
+
+**Rollback:** `[Describe how to revert this specific step]`.
+
+### 3. [Run data migrations or API updates]
+
+```python
+[Code snippet showing new behavior]
+```
+
+<Info icon="check">
+  `[Describe logs, metrics, or sample response that proves success]`.
+</Info>
+
+## Validate
+
+- [ ] `[Smoke test or script]` returns expected result.
+- [ ] `[Dashboard or metric]` shows `[desired signal]`.
+- [ ] `[End-to-end scenario]` passes with `[new behavior]`.
+
+## Breaking changes
+
+| Old behavior | New behavior | Action |
+| --- | --- | --- |
+| `[Explain]` | `[Explain]` | `[What to change]` |
+| `[Explain]` | `[Explain]` | `[What to change]` |
+
+## Rollback plan
+
+1. `[Step-by-step rollback instructions]`
+2. `[Restore backups or redeploy previous image]`
+3. `[Validation after rollback]`
+
+## Known issues
+
+- **[Issue name]** — `[Status]`. `[Workaround or link]`.
+- **[Issue name]** — `[Status]`. `[Workaround or link]`.
+
+## After you migrate
+
+- `[Link to feature guide showing new capabilities]`
+- `[Link to cookbook or integration that benefits from the upgrade]`
+
+{/* DEBUG: verify CTA targets */}
+
+<CardGroup cols={2}>
+  <Card
+    title="[Deep dive reference]"
+    description="[Why this reference matters post-migration]"
+    icon="book"
+    href="/[reference-link]"
+  />
+  <Card
+    title="[Applied example or next step]"
+    description="[What readers can build now]"
+    icon="rocket"
+    href="/[example-link]"
+  />
+</CardGroup>
+```
+
+---
+
+## ✅ Publish Checklist
+- [ ] Versions (`versionFrom`, `versionTo`) and timelines are accurate.
+- [ ] Every breaking change is highlighted via table or `<Warning>`.
+- [ ] Rollback instructions are present and placed immediately after risky steps.
+- [ ] Verification steps use `<Info icon="check">` and are actionable.
+- [ ] Optional sections (Mermaid, tips) removed if unused.
+- [ ] Final `<CardGroup>` contains exactly two cards with valid links.
+
+## Browse Other Templates
+
+<CardGroup cols={3}>
+  <Card
+    title="Quickstart"
+    description="Install → Configure → Add → Search → Delete."
+    icon="rocket"
+    href="/templates/quickstart_template"
+  />
+  <Card
+    title="Operation Guide"
+    description="Single task walkthrough with verification checkpoints."
+    icon="circle-check"
+    href="/templates/operation_guide_template"
+  />
+  <Card
+    title="Feature Guide"
+    description="Explain when and why to use a capability, not just the API."
+    icon="sparkles"
+    href="/templates/feature_guide_template"
+  />
+  <Card
+    title="Concept Guide"
+    description="Define mental models, key terms, and diagrams."
+    icon="brain"
+    href="/templates/concept_guide_template"
+  />
+  <Card
+    title="Integration Guide"
+    description="Configure Mem0 alongside third-party tools."
+    icon="plug"
+    href="/templates/integration_guide_template"
+  />
+  <Card
+    title="Cookbook"
+    description="Narrative, end-to-end walkthroughs."
+    icon="book-open"
+    href="/templates/cookbook_template"
+  />
+  <Card
+    title="API Reference"
+    description="Endpoint specifics with dual-language examples."
+    icon="code"
+    href="/templates/api_reference_template"
+  />
+  <Card
+    title="Parameters Reference"
+    description="Accepted fields, defaults, and misuse fixes."
+    icon="list"
+    href="/templates/parameters_reference_template"
+  />
+  <Card
+    title="Migration Guide"
+    description="Plan → migrate → validate with rollback."
+    icon="arrow-right"
+    href="/templates/migration_guide_template"
+  />
+  <Card
+    title="Release Notes"
+    description="Ship highlights and required CTAs."
+    icon="megaphone"
+    href="/templates/release_notes_template"
+  />
+  <Card
+    title="Troubleshooting Playbook"
+    description="Symptom → diagnose → fix."
+    icon="life-buoy"
+    href="/templates/troubleshooting_playbook_template"
+  />
+  <Card
+    title="Section Overview"
+    description="Landing pages with card grids and CTA pair."
+    icon="grid"
+    href="/templates/section_overview_template"
+  />
+</CardGroup>
+
+<CardGroup cols={2}>
+  <Card
+    title="Contribution Hub"
+    description="Review the authoring workflow and linked templates."
+    icon="clipboard-list"
+    href="/platform/contribute"
+  />
+  <Card
+    title="Docs Home"
+    description="Return to the platform overview once you’re done."
+    icon="compass"
+    href="/platform/overview"
+  />
+</CardGroup>

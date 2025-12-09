@@ -1,7 +1,5 @@
 ---
 title: Custom Prompts
-icon: "pencil"
-iconType: "solid"
 ---
 
 When using LLM rerankers, you can customize the prompts used for ranking to better suit your specific use case and domain.
@@ -54,7 +52,7 @@ config = {
             "llm": {
                 "provider": "openai",
                 "config": {
-                    "model": "gpt-4",
+                    "model": "gpt-4.1-nano-2025-04-14",
                     "api_key": "your-openai-key"
                 }
             },
@@ -71,16 +69,17 @@ memory = Memory.from_config(config)
 
 Your custom prompt can use the following variables:
 
-| Variable | Description |
-|----------|-------------|
-| `{query}` | The search query |
-| `{memories}` | The list of memory entries to rank |
-| `{user_id}` | The user ID (if available) |
+| Variable         | Description                           |
+| ---------------- | ------------------------------------- |
+| `{query}`        | The search query                      |
+| `{memories}`     | The list of memory entries to rank    |
+| `{user_id}`      | The user ID (if available)            |
 | `{user_context}` | Additional user context (if provided) |
 
 ## Domain-Specific Examples
 
 ### Customer Support
+
 ```python
 customer_support_prompt = """
 You are ranking customer support conversation memories.
@@ -100,6 +99,7 @@ Rank each memory 1-10 based on support relevance.
 ```
 
 ### Educational Content
+
 ```python
 educational_prompt = """
 Rank these learning memories for a student query.
@@ -119,6 +119,7 @@ Score each memory for educational value (1-10).
 ```
 
 ### Personal Assistant
+
 ```python
 personal_assistant_prompt = """
 Rank personal memories for relevance to the user's query.
@@ -140,6 +141,7 @@ Provide relevance scores (1-10) with brief explanations.
 ## Advanced Prompt Techniques
 
 ### Multi-Criteria Ranking
+
 ```python
 multi_criteria_prompt = """
 Evaluate memories using multiple criteria:
@@ -165,6 +167,7 @@ Format: JSON with detailed scoring
 ```
 
 ### Contextual Ranking
+
 ```python
 contextual_prompt = """
 Consider the following context when ranking memories:

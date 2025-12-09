@@ -1,0 +1,226 @@
+---
+title: LLM as Reranker
+description: 'Flexible reranking using LLMs'
+---
+
+<Warning>
+**This page has been superseded.** Please see [LLM Reranker](/components/rerankers/models/llm_reranker) for the complete and up-to-date documentation on using LLMs for reranking.
+</Warning>
+
+LLM-based reranker provides maximum flexibility by using any Large Language Model to score document relevance. This approach allows for custom prompts and domain-specific scoring logic.
+
+## Supported LLM Providers
+
+Any LLM provider supported by Mem0 can be used for reranking:
+
+- **OpenAI**: GPT-4, GPT-3.5-turbo, etc.
+- **Anthropic**: Claude models
+- **Together**: Open-source models
+- **Groq**: Fast inference
+- **Ollama**: Local models
+- And more...
+
+## Configuration
+
+```python Python
+from mem0 import Memory
+
+config = {
+    "vector_store": {
+        "provider": "chroma",
+        "config": {
+            "collection_name": "my_memories",
+            "path": "./chroma_db"
+        }
+    },
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "gpt-4o-mini"
+        }
+    },
+    "reranker": {
+        "provider": "llm",
+        "config": {
+            "model": "gpt-4o-mini",
+            "provider": "openai",
+            "api_key": "your-openai-api-key",  # or set OPENAI_API_KEY
+            "top_k": 5,
+            "temperature": 0.0
+        }
+    }
+}
+
+memory = Memory.from_config(config)
+```
+
+## Custom Scoring Prompt
+
+You can provide a custom prompt for relevance scoring:
+
+```python Python
+custom_prompt = """You are a relevance scoring assistant. Rate how well this document answers the query.
+
+Query: "{query}"
+Document: "{document}"
+
+Score from 0.0 to 1.0 where:
+- 1.0: Perfect match, directly answers the query
+- 0.8-0.9: Highly relevant, good match  
+- 0.6-0.7: Moderately relevant, partial match
+- 0.4-0.5: Slightly relevant, limited useful information
+- 0.0-0.3: Not relevant or no useful information
+
+Provide only a single numerical score between 0.0 and 1.0."""
+
+config["reranker"]["config"]["scoring_prompt"] = custom_prompt
+```
+
+## Usage Example
+
+```python Python
+import os
+from mem0 import Memory
+
+# Set API key
+os.environ["OPENAI_API_KEY"] = "your-api-key"
+
+# Initialize memory with LLM reranker
+config = {
+    "vector_store": {"provider": "chroma"},
+    "llm": {"provider": "openai", "config": {"model": "gpt-4o-mini"}},
+    "reranker": {
+        "provider": "llm",
+        "config": {
+            "model": "gpt-4o-mini",
+            "provider": "openai",
+            "temperature": 0.0
+        }
+    }
+}
+
+memory = Memory.from_config(config)
+
+# Add memories
+messages = [
+    {"role": "user", "content": "I'm learning Python programming"},
+    {"role": "user", "content": "I find object-oriented programming challenging"}, 
+    {"role": "user", "content": "I love hiking in national parks"}
+]
+
+memory.add(messages, user_id="david")
+
+# Search with LLM reranking
+results = memory.search("What programming topics is the user studying?", user_id="david")
+
+for result in results['results']:
+    print(f"Memory: {result['memory']}")
+    print(f"Vector Score: {result['score']:.3f}")
+    print(f"Rerank Score: {result['rerank_score']:.3f}")
+    print()
+```
+
+```text Output
+Memory: I'm learning Python programming
+Vector Score: 0.856
+Rerank Score: 0.920
+
+Memory: I find object-oriented programming challenging
+Vector Score: 0.782
+Rerank Score: 0.850
+```
+
+## Domain-Specific Scoring
+
+Create specialized scoring for your domain:
+
+```python Python
+medical_prompt = """You are a medical relevance expert. Score how relevant this medical record is to the clinical query.
+
+Clinical Query: "{query}"
+Medical Record: "{document}"
+
+Consider:
+- Clinical relevance and accuracy
+- Patient safety implications
+- Diagnostic value
+- Treatment relevance
+
+Score from 0.0 to 1.0. Provide only the numerical score."""
+
+config = {
+    "reranker": {
+        "provider": "llm",
+        "config": {
+            "model": "gpt-4o-mini",
+            "provider": "openai",
+            "scoring_prompt": medical_prompt,
+            "temperature": 0.0
+        }
+    }
+}
+```
+
+## Multiple LLM Providers
+
+Use different LLM providers for reranking:
+
+```python Python
+# Using Anthropic Claude
+anthropic_config = {
+    "reranker": {
+        "provider": "llm",
+        "config": {
+            "model": "claude-3-haiku-20240307",
+            "provider": "anthropic",
+            "temperature": 0.0
+        }
+    }
+}
+
+# Using local Ollama model
+ollama_config = {
+    "reranker": {
+        "provider": "llm",
+        "config": {
+            "model": "llama2:7b",
+            "provider": "ollama",
+            "temperature": 0.0
+        }
+    }
+}
+```
+
+## Configuration Parameters
+
+| Parameter | Description | Type | Default |
+|-----------|-------------|------|---------|
+| `model` | LLM model to use for scoring | `str` | `"gpt-4o-mini"` |
+| `provider` | LLM provider name | `str` | `"openai"` |
+| `api_key` | API key for the LLM provider | `str` | `None` |
+| `top_k` | Maximum documents to return | `int` | `None` |
+| `temperature` | Temperature for LLM generation | `float` | `0.0` |
+| `max_tokens` | Maximum tokens for LLM response | `int` | `100` |
+| `scoring_prompt` | Custom prompt template | `str` | Default prompt |
+
+## Advantages
+
+- **Maximum Flexibility**: Custom prompts for any use case
+- **Domain Expertise**: Leverage LLM knowledge for specialized domains
+- **Interpretability**: Understand scoring through prompt engineering
+- **Multi-criteria**: Score based on multiple relevance factors
+
+## Considerations
+
+- **Latency**: Higher latency than specialized rerankers
+- **Cost**: LLM API costs per reranking operation
+- **Consistency**: May have slight variations in scoring
+- **Prompt Engineering**: Requires careful prompt design
+
+## Best Practices
+
+1. **Temperature**: Use 0.0 for consistent scoring
+2. **Prompt Design**: Be specific about scoring criteria
+3. **Token Efficiency**: Keep prompts concise to reduce costs
+4. **Caching**: Cache results for repeated queries when possible
+5. **Fallback**: Handle API errors gracefully

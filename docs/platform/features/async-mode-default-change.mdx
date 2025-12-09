@@ -1,0 +1,197 @@
+---
+title: Async Mode Default Change
+description: 'Important update to Memory Addition API behavior'
+---
+
+<Note type="warning">
+  **Important Change**
+
+  The `async_mode` parameter defaults to `true` for all memory additions, changing the default API behavior to asynchronous processing.
+</Note>
+
+## Overview
+
+The Memory Addition API processes all memory additions asynchronously by default. This change improves performance and scalability by queuing memory operations in the background, allowing your application to continue without waiting for memory processing to complete.
+
+## What's Changing
+
+The parameter `async_mode` will default to `true` instead of `false`.
+
+This means memory additions will be **processed asynchronously** by default - queued for background execution instead of waiting for processing to complete.
+
+## Behavior Comparison
+
+### Old Default Behavior (async_mode = false)
+
+When `async_mode` was set to `false`, the API returned fully processed memory objects immediately:
+
+```json
+{
+  "results": [
+    {
+      "id": "de0ee948-af6a-436c-835c-efb6705207de",
+      "event": "ADD",
+      "memory": "User Order #1234 was for a 'Nova 2000'",
+      "structured_attributes": {
+        "day": 13,
+        "hour": 16,
+        "year": 2025,
+        "month": 10,
+        "minute": 59,
+        "quarter": 4,
+        "is_weekend": false,
+        "day_of_week": "monday",
+        "day_of_year": 286,
+        "week_of_year": 42
+      }
+    }
+  ]
+}
+```
+
+### New Default Behavior (async_mode = true)
+
+With `async_mode` defaulting to `true`, memory processing is queued in the background and the API returns immediately:
+
+```json
+{
+  "results": [
+    {
+      "message": "Memory processing has been queued for background execution",
+      "status": "PENDING",
+      "event_id": "d7b5282a-0031-4cc2-98ba-5a02d8531e17"
+    }
+  ]
+}
+```
+
+## Migration Guide
+
+### If You Need Synchronous Processing
+
+If your integration relies on receiving the processed memory object immediately, you can explicitly set `async_mode` to `false` in your requests:
+
+<CodeGroup>
+
+```python Python
+from mem0 import MemoryClient
+
+client = MemoryClient(api_key="your-api-key")
+
+# Explicitly set async_mode=False to preserve synchronous behavior
+messages = [
+    {"role": "user", "content": "I ordered a Nova 2000"}
+]
+
+result = client.add(
+    messages,
+    user_id="user-123",
+    async_mode=False  # This ensures synchronous processing
+)
+```
+
+```javascript JavaScript
+const { MemoryClient } = require('mem0ai');
+
+const client = new MemoryClient({ apiKey: 'your-api-key' });
+
+// Explicitly set async_mode: false to preserve synchronous behavior
+const messages = [
+    { role: "user", content: "I ordered a Nova 2000" }
+];
+
+const result = await client.add(messages, {
+    user_id: "user-123",
+    async_mode: false  // This ensures synchronous processing
+});
+```
+
+```bash cURL
+curl -X POST https://api.mem0.ai/v1/memories/ \
+  -H "Authorization: Token your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      {"role": "user", "content": "I ordered a Nova 2000"}
+    ],
+    "user_id": "user-123",
+    "async_mode": false
+  }'
+```
+
+</CodeGroup>
+
+### If You Want to Adopt Asynchronous Processing
+
+If you want to benefit from the improved performance of asynchronous processing:
+
+1. **Remove** any explicit `async_mode=False` parameters from your code
+2. **Use webhooks** to receive notifications when memory processing completes
+
+<Note>
+Learn more about [Webhooks](/platform/features/webhooks) for real-time notifications about memory events.
+</Note>
+
+## Benefits of Asynchronous Processing
+
+Switching to asynchronous processing provides several advantages:
+
+- **Faster API Response Times**: Your application doesn't wait for memory processing
+- **Better Scalability**: Handle more memory additions concurrently
+- **Improved User Experience**: Reduced latency in your application
+- **Resource Efficiency**: Background processing optimizes server resources
+
+## Important Notes
+
+- The default behavior is now `async_mode=true` for asynchronous processing
+- Explicitly set `async_mode=false` if you need synchronous behavior
+- Use webhooks to receive notifications when memories are processed
+
+## Monitoring Memory Processing
+
+When using asynchronous mode, use webhooks to receive notifications about memory events:
+
+<Card title="Configure Webhooks" icon="webhook" href="/platform/features/webhooks">
+  Learn how to set up webhooks for memory processing events
+</Card>
+
+You can also retrieve all processed memories at any time:
+
+<CodeGroup>
+
+```python Python
+# Retrieve all memories for a user
+# Note: get_all now requires filters
+memories = client.get_all(filters={"AND": [{"user_id": "user-123"}]})
+```
+
+```javascript JavaScript
+// Retrieve all memories for a user
+// Note: getAll now requires filters
+const memories = await client.getAll({ filters: {"AND": [{"user_id": "user-123"}]} });
+```
+
+</CodeGroup>
+
+## Need Help?
+
+If you have questions about this change or need assistance updating your integration:
+
+<Snippet file="get-help.mdx" />
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="Async Client" icon="bolt" href="/platform/features/async-client">
+    Learn about the asynchronous client for Mem0
+  </Card>
+  <Card title="Add Memories API" icon="plus" href="/api-reference/memory/add-memories">
+    View the complete API reference for adding memories
+  </Card>
+  <Card title="Webhooks" icon="webhook" href="/platform/features/webhooks">
+    Configure webhooks for memory processing events
+  </Card>
+  <Card title="Memory Operations" icon="gear" href="/core-concepts/memory-operations/add">
+    Understand memory addition operations
+  </Card>
+</CardGroup>

@@ -1,0 +1,277 @@
+---
+title: Set Memory Expiration
+description: "Define short-term versus long-term retention so the store stays fresh."
+---
+
+
+While building memory systems, we realized their size grows fast. Session notes, temporary context, chat history - everything starts accumulating and bogging down the system. This pollutes search results and increase storage costs. Not every memory needs to persist forever.
+
+In this cookbook, we'll go through how to use short-term vs long-term memories and see where it's best to use them.
+
+---
+
+## Overview
+
+By default, Mem0 memories persist forever. This works for user preferences and core facts, but temporary data should expire automatically.
+
+In this tutorial, we will:
+
+- Understand default (permanent) memory behavior
+- Add expiration dates for temporary memories
+- Decide what should be temporary vs permanent
+
+---
+
+## Setup
+
+```python
+from mem0 import MemoryClient
+from datetime import datetime, timedelta
+
+client = MemoryClient(api_key="your-api-key")
+```
+
+<Note>
+Import `datetime` and `timedelta` to calculate expiration dates. Without these imports, you'll need to manually format ISO timestamps—error-prone and harder to read.
+</Note>
+
+---
+
+## Default Behavior: Everything Persists
+
+By default, all memories persist forever:
+
+```python
+# Store user preference
+client.add("User prefers dark mode", user_id="sarah")
+
+# Store session context
+client.add("Currently browsing electronics category", user_id="sarah")
+
+# 6 months later - both still exist
+results = client.get_all(filters={"user_id": "sarah"})
+print(f"Total memories: {len(results['results'])}")
+
+```
+
+**Output:**
+
+```
+Total memories: 2
+
+```
+
+Both the preference and session context persist. The preference is useful, but the 6-month-old session context is not.
+
+---
+
+## The Problem: Memory Bloat
+
+Without expiration, memories accumulate forever. Session notes from weeks ago mix with current preferences. Storage grows, search results get polluted with irrelevant old context, and retrieval quality degrades.
+
+<Warning>
+Memory bloat degrades search quality. When "User prefers dark mode" competes with "Currently browsing electronics" from 6 months ago, semantic search returns stale session data instead of actual preferences. Old memories pollute retrieval.
+</Warning>
+
+---
+
+## Short-Term Memories: Adding Expiration
+
+Set `expiration_date` to make memories temporary:
+
+```python
+from datetime import datetime, timedelta
+
+# Session context - expires in 7 days
+expires_at = (datetime.now() + timedelta(days=7)).isoformat()
+
+client.add(
+    "Currently browsing electronics category",
+    user_id="sarah",
+    expiration_date=expires_at
+)
+
+# User preference - no expiration, persists forever
+client.add(
+    "User prefers dark mode",
+    user_id="sarah"
+)
+
+```
+
+<Info icon="check">
+**Expected behavior:** After 7 days, the session context automatically disappears—no cron jobs, no manual cleanup. The preference persists forever. Mem0 handles expiration transparently.
+</Info>
+
+Memories with `expiration_date` are automatically removed after expiring. No cleanup job needed - Mem0 handles it.
+
+<Tip>
+Start conservative with short expiration windows (7 days), then extend them based on usage patterns. It's easier to increase retention than to clean up over-retained stale data. Monitor search quality to find the right balance.
+</Tip>
+
+---
+
+## When to Use Each
+
+### Permanent Memories (no expiration_date):
+
+**Use for:**
+
+- User preferences and settings
+- Account information
+- Important facts and milestones
+- Historical data that matters long-term
+
+```python
+client.add("User prefers email notifications", user_id="sarah")
+client.add("User's birthday is March 15th", user_id="sarah")
+client.add("User completed onboarding on Jan 5th", user_id="sarah")
+
+```
+
+### Temporary Memories (with expiration_date):
+
+**Use for:**
+
+- Session context (current page, browsing history)
+- Temporary reminders
+- Recent chat history
+- Cached data
+
+```python
+expires_7d = (datetime.now() + timedelta(days=7)).isoformat()
+
+client.add(
+    "Currently viewing product ABC123",
+    user_id="sarah",
+    expiration_date=expires_7d
+)
+
+client.add(
+    "Asked about return policy",
+    user_id="sarah",
+    expiration_date=expires_7d
+)
+
+```
+
+---
+
+## Setting Different Expiration Periods
+
+Different data needs different lifetimes:
+
+```python
+# Session context - 7 days
+expires_7d = (datetime.now() + timedelta(days=7)).isoformat()
+client.add("Browsing electronics", user_id="sarah", expiration_date=expires_7d)
+
+# Recent chat - 30 days
+expires_30d = (datetime.now() + timedelta(days=30)).isoformat()
+client.add("User asked about warranty", user_id="sarah", expiration_date=expires_30d)
+
+# Important preference - no expiration
+client.add("User prefers dark mode", user_id="sarah")
+
+```
+
+---
+
+## Using Metadata to Track Memory Types
+
+Tag memories to make filtering easier:
+
+```python
+expires_7d = (datetime.now() + timedelta(days=7)).isoformat()
+
+# Tag session context
+client.add(
+    "Browsing electronics",
+    user_id="sarah",
+    expiration_date=expires_7d,
+    metadata={"type": "session"}
+)
+
+# Tag preference
+client.add(
+    "User prefers dark mode",
+    user_id="sarah",
+    metadata={"type": "preference"}
+)
+
+# Query only preferences
+preferences = client.get_all(
+    filters={
+        "AND": [
+            {"user_id": "sarah"},
+            {"metadata": {"type": "preference"}}
+        ]
+    }
+)
+
+```
+
+---
+
+## Checking Expiration Status
+
+See which memories will expire and when:
+
+```python
+results = client.get_all(filters={"user_id": "sarah"})
+
+for memory in results['results']:
+    exp_date = memory.get('expiration_date')
+
+    if exp_date:
+        print(f"Temporary: {memory['memory']}")
+        print(f"  Expires: {exp_date}\\n")
+    else:
+        print(f"Permanent: {memory['memory']}\\n")
+
+```
+
+**Output:**
+
+```
+Temporary: Browsing electronics
+  Expires: 2025-11-01T10:30:00Z
+
+Temporary: Viewed MacBook Pro and Dell XPS
+  Expires: 2025-11-01T10:30:00Z
+
+Permanent: User prefers dark mode
+
+Permanent: User prefers email notifications
+
+```
+
+---
+
+## What You Built
+
+A self-cleaning memory system with automatic retention policies:
+
+- **Automatic expiration** - Memories self-destruct after defined periods, no cron jobs needed
+- **Tiered retention** - 7-day session context, 30-day chat history, permanent preferences
+- **Metadata tagging** - Classify memories by type (session, preference, chat) for filtered retrieval
+- **Expiration tracking** - Check which memories will expire and when using `get_all()`
+
+This pattern keeps storage costs low and search quality high as your memory store scales.
+
+---
+
+## Summary
+
+Memory expiration keeps storage clean and search results relevant. Use **`expiration_date`** for temporary data (session context, recent chats), skip it for permanent facts (preferences, account info). Mem0 handles cleanup automatically—no background jobs required.
+
+Start by identifying what's temporary versus permanent, then set conservative expiration windows and adjust based on retrieval quality.
+
+<CardGroup cols={2}>
+  <Card title="Control Memory Ingestion" icon="filter" href="/cookbooks/essentials/controlling-memory-ingestion">
+    Pair expirations with ingestion rules so only trusted context persists.
+  </Card>
+  <Card title="Export Memories Safely" icon="download" href="/cookbooks/essentials/exporting-memories">
+    Build compliant archives once your retention windows are dialed in.
+  </Card>
+</CardGroup>

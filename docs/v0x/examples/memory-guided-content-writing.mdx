@@ -103,7 +103,7 @@ Preferences:
     ]
 
     response = openai.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-4.1-nano-2025-04-14",
         messages=messages
     )
     clean_response = response.choices[0].message.content.strip()

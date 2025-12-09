@@ -35,7 +35,7 @@ BE IT TIME, LOCATION, USER'S PERSONAL LIFE, CHOICES, USER'S PREFERENCES, we need
 '''
 )
 
-llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.2)
+llm = ChatOpenAI(model="gpt-4.1-nano-2025-04-14", temperature=0.2)
 
 
 def setup_user_history(user_id):

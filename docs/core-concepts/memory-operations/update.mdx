@@ -1,33 +1,44 @@
 ---
 title: Update Memory
 description: Modify an existing memory by updating its content or metadata.
-icon: "pencil"
+icon: "pen-to-square"
 iconType: "solid"
 ---
 
-## Overview
+# Keep Memories Accurate with Update
 
-User preferences, interests, and behaviors often evolve over time. The `update` operation lets you revise a stored memory, whether it's updating facts, rephrasing a message, or enriching metadata.
+Mem0’s update operation lets you fix or enrich an existing memory without deleting it. When a user changes their preference or clarifies a fact, use update to keep the knowledge base fresh.
 
-Mem0 supports both:
-- **Single Memory Update** for one specific memory using its ID
-- **Batch Update** for updating many memories at once (up to 1000)
+<Info>
+  **Why it matters**
+  - Corrects outdated or incorrect memories immediately.
+  - Adds new metadata so filters and rerankers stay sharp.
+  - Works for both one-off edits and large batches (up to 1000 memories).
+</Info>
 
-This guide includes usage for both single update and batch update of memories through **Mem0 Platform**.
+## Key terms
 
+- **memory_id** – Unique identifier returned by `add` or `search` results.
+- **text** / **data** – New content that replaces the stored memory value.
+- **metadata** – Optional key-value pairs you update alongside the text.
+- **batch_update** – Platform API that edits multiple memories in a single request.
+- **immutable** – Flagged memories that must be deleted and re-added instead of updated.
 
-## Use Cases
+## How the update flow works
 
-- Refine a vague or incorrect memory after a correction
-- Add or edit memory with new metadata (e.g., categories, tags)
-- Evolve factual knowledge as the user's profile changes
-- Handle profile evolution: "I love spicy food" → later says "Actually, I can't handle spicy food"
+<Steps>
+<Step title="Locate the memory">
+Use `search` or dashboard inspection to capture the `memory_id` you want to change.
+</Step>
+<Step title="Submit the update">
+Call `update` (or `batch_update`) with new text and optional metadata. Mem0 overwrites the stored value and adjusts indexes.
+</Step>
+<Step title="Verify">
+Check the response or re-run `search` to ensure the revised memory appears with the new content.
+</Step>
+</Steps>
 
-Updating memory ensures your agents remain accurate, adaptive, and personalized.
-
----
-
-## Update Memory
+## Single memory update (Platform)
 
 <CodeGroup>
 ```python Python
@@ -49,18 +60,18 @@ import MemoryClient from 'mem0ai';
 const client = new MemoryClient({ apiKey: "your-api-key" });
 const memory_id = "your_memory_id";
 
-client.update(memory_id, {
+await client.update(memory_id, {
   text: "Updated memory content about the user",
   metadata: { category: "profile-update" }
-})
-  .then(result => console.log(result))
-  .catch(error => console.error(error));
+});
 ```
 </CodeGroup>
 
----
+<Info icon="check">
+  Expect a confirmation message and the updated memory to appear in the dashboard almost instantly.
+</Info>
 
-## Batch Update
+## Batch update (Platform)
 
 Update up to 1000 memories in one call.
 
@@ -95,21 +106,66 @@ client.batchUpdate(updateMemories)
 ```
 </CodeGroup>
 
----
+## Update with Mem0 OSS
+
+<CodeGroup>
+```python Python
+from mem0 import Memory
+
+memory = Memory()
+
+memory.update(
+    memory_id="mem_123",
+    data="Alex now prefers decaf coffee",
+)
+```
+```
+```
+</CodeGroup>
+
+<Note>
+  OSS JavaScript SDK does not expose `update` yet—use the REST API or Python SDK when self-hosting.
+</Note>
 
 ## Tips
 
-- You can update both `text` and `metadata` in the same call
-- Use `batchUpdate` when you're applying similar corrections at scale
-- If memory is marked `immutable`, it must first be deleted and re-added
-- Combine this with feedback mechanisms (e.g., user thumbs-up/down) to self-improve memory
+- Update both `text` **and** `metadata` together to keep filters accurate.
+- Batch updates are ideal after large imports or when syncing CRM corrections.
+- Immutable memories must be deleted and re-added instead of updated.
+- Pair updates with feedback signals (thumbs up/down) to self-heal memories automatically.
 
+## Managed vs OSS differences
 
-### More Details
+| Capability | Mem0 Platform | Mem0 OSS |
+| --- | --- | --- |
+| Update call | `client.update(memory_id, {...})` | `memory.update(memory_id, data=...)` |
+| Batch updates | `client.batch_update` (up to 1000 memories) | Script your own loop or bulk job |
+| Dashboard visibility | Inspect updates in the UI | Inspect via logs or custom tooling |
+| Immutable handling | Returns descriptive error | Raises exception—delete and re-add |
 
-Refer to the full [Update Memory API Reference](/api-reference/memory/update-memory) and [Batch Update Reference](/api-reference/memory/batch-update) for schema and advanced fields.
+## Put it into practice
 
-## Need help?
-If you have any questions, please feel free to reach out to us using one of the following methods:
+- Review the <Link href="/api-reference/memory/update-memory">Update Memory API reference</Link> for request/response details.
+- Combine updates with <Link href="/platform/features/feedback-mechanism">Feedback Mechanism</Link> to automate corrections.
 
-<Snippet file="get-help.mdx"/>
+## See it live
+
+- <Link href="/cookbooks/operations/support-inbox">Support Inbox with Mem0</Link> uses updates to refine customer profiles.
+- <Link href="/cookbooks/companions/ai-tutor">AI Tutor with Mem0</Link> demonstrates user preference corrections mid-course.
+
+{/* DEBUG: verify CTA targets */}
+
+<CardGroup cols={2}>
+  <Card
+    title="Learn Delete Concepts"
+    description="Understand when to remove memories instead of editing them."
+    icon="trash"
+    href="/core-concepts/memory-operations/delete"
+  />
+  <Card
+    title="Automate Corrections"
+    description="See how feedback loops trigger updates in production."
+    icon="rocket"
+    href="/platform/features/feedback-mechanism"
+  />
+</CardGroup>

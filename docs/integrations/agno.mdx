@@ -36,7 +36,7 @@ from agno.tools.mem0 import Mem0Tools
 
 agent = Agent(
     name="Memory Agent",
-    model=OpenAIChat(id="gpt-4o-mini"),
+    model=OpenAIChat(id="gpt-4.1-nano-2025-04-14"),
     tools=[Mem0Tools()],
     description="An assistant that remembers and personalizes using Mem0 memory."
 )
@@ -120,7 +120,7 @@ def chat_user(
         })
 
         # Store messages in memory
-        client.add(messages, user_id=user_id, output_format='v1.1')
+        client.add(messages, user_id=user_id)
         print("✅ Image and text stored in memory.")
 
     if user_input:
@@ -151,7 +151,7 @@ User question:
 
         # Store the interaction in memory
         interaction_message = [{"role": "user", "content": f"User: {user_input}\nAssistant: {response.content}"}]
-        client.add(interaction_message, user_id=user_id, output_format='v1.1')
+        client.add(interaction_message, user_id=user_id)
         return response.content
 
     return "No user input or image provided."
@@ -195,9 +195,12 @@ Customize the integration to your needs:
 - **Memory Search**: Configure search relevance and result count
 - **Memory Formatting**: Support for various OpenAI message formats
 
-## Help
+<CardGroup cols={2}>
+  <Card title="OpenAI Agents SDK" icon="cube" href="/integrations/openai-agents-sdk">
+    Build agents with OpenAI SDK and Mem0
+  </Card>
+  <Card title="Mastra Integration" icon="star" href="/integrations/mastra">
+    Create intelligent agents with Mastra framework
+  </Card>
+</CardGroup>
 
-- [Agno Documentation](https://docs.agno.com/introduction)
-- [Mem0 Platform](https://app.mem0.ai/)
-
-<Snippet file="get-help.mdx" />

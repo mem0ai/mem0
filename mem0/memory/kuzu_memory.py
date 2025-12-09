@@ -62,7 +62,8 @@ class MemoryGraph:
         self.llm = LlmFactory.create(self.llm_provider, llm_config)
 
         self.user_id = None
-        self.threshold = 0.7
+        # Use threshold from graph_store config, default to 0.7 for backward compatibility
+        self.threshold = self.config.graph_store.threshold if hasattr(self.config.graph_store, 'threshold') else 0.7
 
     def kuzu_create_schema(self):
         self.kuzu_execute(
@@ -452,8 +453,8 @@ class MemoryGraph:
             dest_embedding = self.embedding_model.embed(destination)
 
             # search for the nodes with the closest embeddings
-            source_node_search_result = self._search_source_node(source_embedding, filters, threshold=0.9)
-            destination_node_search_result = self._search_destination_node(dest_embedding, filters, threshold=0.9)
+            source_node_search_result = self._search_source_node(source_embedding, filters, threshold=self.threshold)
+            destination_node_search_result = self._search_destination_node(dest_embedding, filters, threshold=self.threshold)
 
             if not destination_node_search_result and source_node_search_result:
                 params = {

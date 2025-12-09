@@ -1,0 +1,291 @@
+---
+title: Integration Guide Template
+description: "Pattern for pairing Mem0 with third-party tools."
+icon: "plug"
+---
+
+# Integration Guide Template
+
+Integration guides prove a joint journey: configure Mem0 and the partner with minimal steps, run one end-to-end sanity command, then hand the reader to deeper workflows.
+
+---
+
+## ❌ DO NOT COPY — Guidance & Constraints
+- Frontmatter must include `title`, `description`, `icon`, and optional `partnerBadge`/`tags`. State the joint value in one sentence right after the H1.
+- List prerequisites for **both** platforms inside an `<Info>` block. Surface limited-access or beta flags in a `<Warning>` before any setup.
+- Default to Tabs + Steps when instructions diverge (Platform vs OSS, Python vs TypeScript). When only one path exists, add a `<Note>` explaining the missing variant.
+- When migrating an existing integration, keep the proven steps/screenshots—map them into this structure rather than rewriting unless either product has changed.
+- Keep any Mermaid diagrams optional and left-to-right (`graph LR`) to avoid vertical overflow; use only if architecture clarity is needed.
+- Every major step must finish with a verification `<Info icon="check">`. End the page with exactly two CTA cards (left = related reference, right = next integration/cookbook).
+
+---
+
+## ✅ COPY THIS — Content Skeleton
+Paste the block below, replace placeholders, and delete optional sections only when unnecessary for this integration.
+
+````mdx
+---
+title: [Integration title]
+description: [One-sentence joint value]
+icon: "puzzle-piece"
+partnerBadge: "[Partner name]" # Optional
+---
+
+# [Integration headline — Mem0 + Partner promise]
+
+Combine Mem0’s memory layer with [Partner] to [describe the joint outcome].
+
+<Info>
+  **Prerequisites**
+  - [Mem0 requirement: API key, SDK version, project access]
+  - [Partner requirement: account, SDK version, tooling]
+  - [Optional extras: Docker, ngrok, etc.]
+</Info>
+
+<Warning>
+  [Use only if access is gated or breaking changes exist. Delete when not needed.]
+</Warning>
+
+{/* Optional architecture diagram */}
+```mermaid
+graph LR
+  A[Mem0] */} B[Connector]
+  B */} C[Partner workflow]
+```
+
+## Configure credentials
+
+<Tabs>
+  <Tab title="Mem0">
+<Steps>
+<Step title="Create or locate your API key">
+```bash
+export MEM0_API_KEY="sk-..."
+```
+</Step>
+<Step title="Store it where the integration expects it">
+```bash
+partner secrets set MEM0_API_KEY=$MEM0_API_KEY
+```
+</Step>
+</Steps>
+  </Tab>
+  <Tab title="[Partner]">
+<Steps>
+<Step title="Generate partner credentials">
+```bash
+partner auth login
+```
+</Step>
+<Step title="Expose them to your runtime">
+```bash
+export PARTNER_API_KEY="..."
+```
+</Step>
+</Steps>
+  </Tab>
+</Tabs>
+
+<Tip>
+  Self-hosting Mem0? Swap `https://api.mem0.ai` with `https://<your-domain>` and keep the rest of this guide identical.
+</Tip>
+
+## Wire Mem0 into [Partner]
+
+<Tabs>
+  <Tab title="Python">
+<Steps>
+<Step title="Install SDKs">
+```bash
+pip install mem0ai [partner-package]
+```
+</Step>
+<Step title="Initialize clients">
+```python
+from mem0 import Memory
+from partner import Client
+
+memory = Memory(api_key=os.environ["MEM0_API_KEY"])
+partner_client = Client(api_key=os.environ["PARTNER_API_KEY"])
+```
+</Step>
+<Step title="Register Mem0 inside the partner workflow">
+```python
+@graph.tool
+def recall_preferences(user_id: str):
+    return memory.search("recent preferences", filters={"user_id": user_id})
+```
+</Step>
+</Steps>
+  </Tab>
+  <Tab title="TypeScript">
+<Steps>
+<Step title="Install SDKs">
+```bash
+npm install mem0ai [partner-package]
+```
+</Step>
+<Step title="Initialize clients">
+```typescript
+import { Memory } from "mem0ai/oss";
+import { Partner } from "[partner-package]";
+
+const memory = new Memory({ apiKey: process.env.MEM0_API_KEY! });
+const partner = new Partner({ apiKey: process.env.PARTNER_API_KEY! });
+```
+</Step>
+<Step title="Register Mem0 inside the partner workflow">
+```typescript
+partner.registerTool("recallPreferences", async (userId: string) => {
+  const result = await memory.search("recent preferences", { userId });
+  return result.results;
+});
+```
+</Step>
+</Steps>
+  </Tab>
+</Tabs>
+
+<Info icon="check">
+  Run `[verification command]` and expect `[describe log/result]`. If you see `[common error]`, jump to Troubleshooting below.
+</Info>
+
+## Run the integration sanity check
+
+```bash
+[command or script that exercises the flow]
+```
+
+<Info icon="check">
+  Output should mention `[success signal]` and `[partner console confirmation]`.
+</Info>
+
+## Verify the integration
+
+- `[Signal 1: dashboard entry, log line, or console message]`
+- `[Signal 2: partner UI reflects the memory data]`
+- `[Optional signal 3]`
+
+## Troubleshooting
+
+- **[Issue]** — `[Fix or link to partner docs]`
+- **[Issue]** — `[Fix or link to Mem0 troubleshooting guide]`
+
+{/* DEBUG: verify CTA targets */}
+
+<CardGroup cols={2}>
+  <Card
+    title="[Related Mem0 feature]"
+    description="[Why this feature enhances the integration]"
+    icon="sparkles"
+    href="/[reference-link]"
+  />
+  <Card
+    title="[Next integration or cookbook]"
+    description="[What they can build next]"
+    icon="rocket"
+    href="/[next-link]"
+  />
+</CardGroup>
+````
+
+---
+
+## ✅ Publish Checklist
+- [ ] Joint value statement and prerequisites cover both Mem0 and partner requirements.
+- [ ] Tabs/Steps include Python and TypeScript (or a `<Note>` explains missing parity).
+- [ ] Every major step ends with an `<Info icon="check">` describing success criteria.
+- [ ] Troubleshooting lists at least two concrete fixes.
+- [ ] Final `<CardGroup>` has exactly two cards with validated links.
+
+## Browse Other Templates
+
+<CardGroup cols={3}>
+  <Card
+    title="Quickstart"
+    description="Install → Configure → Add → Search → Delete."
+    icon="rocket"
+    href="/templates/quickstart_template"
+  />
+  <Card
+    title="Operation Guide"
+    description="Single task walkthrough with verification checkpoints."
+    icon="circle-check"
+    href="/templates/operation_guide_template"
+  />
+  <Card
+    title="Feature Guide"
+    description="Explain when and why to use a capability, not just the API."
+    icon="sparkles"
+    href="/templates/feature_guide_template"
+  />
+  <Card
+    title="Concept Guide"
+    description="Define mental models, key terms, and diagrams."
+    icon="brain"
+    href="/templates/concept_guide_template"
+  />
+  <Card
+    title="Integration Guide"
+    description="Configure Mem0 alongside third-party tools."
+    icon="plug"
+    href="/templates/integration_guide_template"
+  />
+  <Card
+    title="Cookbook"
+    description="Narrative, end-to-end walkthroughs."
+    icon="book-open"
+    href="/templates/cookbook_template"
+  />
+  <Card
+    title="API Reference"
+    description="Endpoint specifics with dual-language examples."
+    icon="code"
+    href="/templates/api_reference_template"
+  />
+  <Card
+    title="Parameters Reference"
+    description="Accepted fields, defaults, and misuse fixes."
+    icon="list"
+    href="/templates/parameters_reference_template"
+  />
+  <Card
+    title="Migration Guide"
+    description="Plan → migrate → validate with rollback."
+    icon="arrow-right"
+    href="/templates/migration_guide_template"
+  />
+  <Card
+    title="Release Notes"
+    description="Ship highlights and required CTAs."
+    icon="megaphone"
+    href="/templates/release_notes_template"
+  />
+  <Card
+    title="Troubleshooting Playbook"
+    description="Symptom → diagnose → fix."
+    icon="life-buoy"
+    href="/templates/troubleshooting_playbook_template"
+  />
+  <Card
+    title="Section Overview"
+    description="Landing pages with card grids and CTA pair."
+    icon="grid"
+    href="/templates/section_overview_template"
+  />
+</CardGroup>
+
+<CardGroup cols={2}>
+  <Card
+    title="Contribution Hub"
+    description="Review the authoring workflow and linked templates."
+    icon="clipboard-list"
+    href="/platform/contribute"
+  />
+  <Card
+    title="Docs Home"
+    description="Return to the platform overview once you’re done."
+    icon="compass"
+    href="/platform/overview"
+  />
+</CardGroup>

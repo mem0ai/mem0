@@ -5,12 +5,14 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import google.api_core.exceptions
 from google.cloud import aiplatform, aiplatform_v1
-from google.cloud.aiplatform.matching_engine.matching_engine_index_endpoint import (
-    Namespace,
-)
+from google.cloud.aiplatform.matching_engine.matching_engine_index_endpoint import Namespace
 from google.oauth2 import service_account
-from langchain.schema import Document
 from pydantic import BaseModel
+
+try:
+    from langchain_core.documents import Document
+except ImportError:  # pragma: no cover - fallback for older LangChain versions
+    from langchain.schema import Document  # type: ignore[no-redef]
 
 from mem0.configs.vector_stores.vertex_ai_vector_search import (
     GoogleMatchingEngineConfig,
@@ -65,9 +67,15 @@ class GoogleMatchingEngine(VectorStoreBase):
             "project": self.project_id,
             "location": self.region,
         }
+        
+        # Support both credentials_path and service_account_json
         if hasattr(config, "credentials_path") and config.credentials_path:
-            logger.debug("Using credentials from: %s", config.credentials_path)
+            logger.debug("Using credentials from file: %s", config.credentials_path)
             credentials = service_account.Credentials.from_service_account_file(config.credentials_path)
+            init_args["credentials"] = credentials
+        elif hasattr(config, "service_account_json") and config.service_account_json:
+            logger.debug("Using credentials from provided JSON dict")
+            credentials = service_account.Credentials.from_service_account_info(config.service_account_json)
             init_args["credentials"] = credentials
 
         try:
