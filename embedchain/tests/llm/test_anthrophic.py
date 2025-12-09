@@ -2,7 +2,7 @@ import os
 from unittest.mock import patch
 
 import pytest
-from langchain.schema import HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 
 from embedchain.config import BaseLlmConfig
 from embedchain.llm.anthropic import AnthropicLlm

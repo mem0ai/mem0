@@ -2,7 +2,7 @@ import queue
 from typing import Any, Union
 
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
-from langchain.schema import LLMResult
+from langchain_core.messages import LLMResult
 
 STOP_ITEM = "[END]"
 """

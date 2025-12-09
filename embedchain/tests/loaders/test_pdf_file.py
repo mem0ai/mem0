@@ -1,5 +1,5 @@
 import pytest
-from langchain.schema import Document
+from langchain_core.documents import Document
 
 
 def test_load_data(loader, mocker):
