@@ -11,6 +11,7 @@ install:
 
 # TODO: use a more efficient way to install these packages
 install_all:
+	poetry lock
 	poetry install --all-extras
 	poetry run pip install ruff==0.6.9 pinecone-text pinecone-client langchain-anthropic "unstructured[local-inference, all-docs]" ollama langchain_together==0.1.3 \
 		langchain_cohere==0.1.5 deepgram-sdk==3.2.7 langchain-huggingface psutil clarifai==10.0.1 flask==2.3.3 twilio==8.5.0 fastapi-poe==0.0.16 discord==2.3.2 \
