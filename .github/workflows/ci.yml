@@ -91,7 +91,7 @@ jobs:
           path: .venv
           key: venv-embedchain-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
       - name: Install dependencies
-        run: cd embedchain && make install_all
+        run: cd embedchain && make install_ci
         if: steps.cached-hatch-dependencies.outputs.cache-hit != 'true'
       - name: Run Formatting
         run: |

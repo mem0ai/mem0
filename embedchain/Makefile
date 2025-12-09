@@ -9,6 +9,12 @@ PROJECT_NAME := embedchain
 install:
 	poetry install
 
+# CI-friendly install without heavy GPU dependencies
+install_ci:
+	poetry lock
+	poetry install --only main,dev,test
+	poetry run pip install ruff==0.6.9
+
 # TODO: use a more efficient way to install these packages
 install_all:
 	poetry lock
