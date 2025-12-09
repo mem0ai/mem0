@@ -390,6 +390,18 @@ class Memory(MemoryBase):
         return {"results": vector_store_result}
 
     def _add_to_vector_store(self, messages, metadata, filters, infer):
+        """
+        Add messages to the vector store.
+
+        Args:
+            messages (List[Dict[str, Any]]): List of message dictionaries to add.
+            metadata (Dict[str, Any]): Metadata associated with the messages.
+            filters (Dict[str, Any]): Filters to apply (e.g. user_id).
+            infer (bool): Whether to use LLM for fact extraction.
+
+        Returns:
+            List[Dict[str, Any]]: List of added memory items.
+        """
         if not infer:
             returned_memories = []
             for message_dict in messages:
@@ -603,6 +615,16 @@ class Memory(MemoryBase):
         return returned_memories
 
     def _add_to_graph(self, messages, filters):
+        """
+        Add messages to the knowledge graph.
+
+        Args:
+            messages (List[Dict[str, Any]]): List of message dictionaries to add.
+            filters (Dict[str, Any]): Filters to apply (e.g. user_id).
+
+        Returns:
+            List[Dict[str, Any]]: List of added graph entities/relations.
+        """
         added_entities = []
         if self.enable_graph:
             if filters.get("user_id") is None:
