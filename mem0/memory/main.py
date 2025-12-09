@@ -332,6 +332,7 @@ class Memory(MemoryBase):
             LLMError: If LLM operations fail.
             DatabaseError: If database operations fail.
         """
+        capture_event("mem0.add", self, {"user_id": user_id, "agent_id": agent_id, "run_id": run_id, "sync_type": "sync"})
 
         processed_metadata, effective_filters = _build_filters_and_metadata(
             user_id=user_id,
@@ -1363,6 +1364,8 @@ class AsyncMemory(MemoryBase):
         Returns:
             dict: A dictionary containing the result of the memory addition operation.
         """
+        capture_event("mem0.add", self, {"user_id": user_id, "agent_id": agent_id, "run_id": run_id, "sync_type": "async"})
+
         processed_metadata, effective_filters = _build_filters_and_metadata(
             user_id=user_id, agent_id=agent_id, run_id=run_id, input_metadata=metadata
         )
