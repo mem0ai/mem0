@@ -35,7 +35,7 @@ path: "/v1/memories"
 
 | Method | Path | Auth | Rate Limit |
 | --- | --- | --- | --- |
-| [METHOD] | `[path]` | Bearer (`mem0-api-key`) | [X req/min] |
+| [METHOD] | `[path]` | Token (`mem0-api-key`) | [X req/min] |
 
 <Info>
   Use this endpoint when [brief scenario]. Prefer [alternative endpoint] for [other scenario].
@@ -51,7 +51,7 @@ path: "/v1/memories"
 
 | Name | Required | Description |
 | --- | --- | --- |
-| `Authorization` | Yes | `Bearer YOUR_API_KEY` |
+| `Authorization` | Yes | `Token YOUR_API_KEY` |
 | `Content-Type` | Yes | `application/json` |
 
 ### Body
@@ -65,7 +65,7 @@ path: "/v1/memories"
 <CodeGroup>
 ```bash Shell
 curl https://api.mem0.ai/v1/memories \
-  -H "Authorization: Bearer $MEM0_API_KEY" \
+  -H "Authorization: Token $MEM0_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{ "user_id": "alex", "memory": "Prefers email follow-ups." }'
 ```
@@ -75,7 +75,7 @@ import requests
 
 resp = requests.post(
     "https://api.mem0.ai/v1/memories",
-    headers={"Authorization": f"Bearer {API_KEY}"},
+    headers={"Authorization": f"Token {API_KEY}"},
     json={"user_id": "alex", "memory": "Prefers email follow-ups."},
 )
 resp.raise_for_status()
@@ -85,7 +85,7 @@ resp.raise_for_status()
 const response = await fetch("https://api.mem0.ai/v1/memories", {
   method: "POST",
   headers: {
-    Authorization: `Bearer ${process.env.MEM0_API_KEY}`,
+    Authorization: `Token ${process.env.MEM0_API_KEY}`,
     "Content-Type": "application/json",
   },
   body: JSON.stringify({ user_id: "alex", memory: "Prefers email follow-ups." }),
