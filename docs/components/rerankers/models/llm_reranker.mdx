@@ -19,7 +19,7 @@ config = {
         "provider": "llm_reranker",
         "config": {
             "provider": "openai",
-            "model": "gpt-4",
+            "model": "gpt-4o-mini",
             "api_key": "your-openai-api-key",
             "temperature": 0.0,
             "top_k": 10
@@ -50,7 +50,7 @@ config = {
         "provider": "llm_reranker",
         "config": {
             "provider": "anthropic",
-            "model": "claude-3-sonnet-20240229",
+            "model": "claude-3-5-sonnet-20241022",
             "api_key": "your-anthropic-api-key",
             "top_k": 15,
             "temperature": 0.0,
@@ -74,7 +74,7 @@ config = {
         "provider": "llm_reranker",
         "config": {
             "provider": "openai",
-            "model": "gpt-4",
+            "model": "gpt-4o-mini",
             "api_key": "your-openai-api-key",
             "temperature": 0.0
         }
@@ -90,7 +90,7 @@ config = {
         "provider": "llm_reranker",
         "config": {
             "provider": "anthropic",
-            "model": "claude-3-sonnet-20240229",
+            "model": "claude-3-5-sonnet-20241022",
             "api_key": "your-anthropic-api-key",
             "temperature": 0.0
         }
@@ -122,10 +122,10 @@ config = {
         "provider": "llm_reranker",
         "config": {
             "provider": "azure_openai",
-            "model": "gpt-4",
+            "model": "gpt-4o-mini",
             "api_key": "your-azure-api-key",
             "azure_endpoint": "https://your-resource.openai.azure.com/",
-            "azure_deployment": "gpt-4-deployment",
+            "azure_deployment": "gpt-4o-mini-deployment",
             "temperature": 0.0
         }
     }
@@ -172,7 +172,7 @@ config = {
         "provider": "llm_reranker",
         "config": {
             "provider": "openai",
-            "model": "gpt-4",
+            "model": "gpt-4o-mini",
             "api_key": "your-api-key",
             "scoring_prompt": custom_prompt,
             "temperature": 0.0
@@ -288,7 +288,7 @@ fast_config = {
         "provider": "llm_reranker",
         "config": {
             "provider": "openai",
-            "model": "gpt-3.5-turbo",
+            "model": "gpt-4o-mini",
             "api_key": "your-api-key",
             "top_k": 5,  # Limit candidates
             "temperature": 0.0
@@ -404,14 +404,14 @@ class RobustLLMReranker:
 primary_config = {
     "reranker": {
         "provider": "llm_reranker",
-        "config": {"provider": "openai", "model": "gpt-4", "temperature": 0.0}
+        "config": {"provider": "openai", "model": "gpt-4o-mini", "temperature": 0.0}
     }
 }
 
 fallback_config = {
     "reranker": {
         "provider": "llm_reranker",
-        "config": {"provider": "openai", "model": "gpt-3.5-turbo", "temperature": 0.0}
+        "config": {"provider": "openai", "model": "gpt-4o-mini", "temperature": 0.0}
     }
 }
 
