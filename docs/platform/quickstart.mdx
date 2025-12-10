@@ -69,7 +69,7 @@ await client.add(messages, { user_id: "user123" });
 
 ```bash cURL
 curl -X POST https://api.mem0.ai/v1/memories/add \
-  -H "Authorization: Bearer $MEM0_API_KEY" \
+  -H "Authorization: Token $MEM0_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "messages": [
@@ -97,7 +97,7 @@ console.log(results);
 
 ```bash cURL
 curl -X POST https://api.mem0.ai/v1/memories/search \
-  -H "Authorization: Bearer $MEM0_API_KEY" \
+  -H "Authorization: Token $MEM0_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "query": "What are my dietary restrictions?",
