@@ -1855,7 +1855,8 @@ class AsyncMemory(MemoryBase):
         metadata = metadata or {}
         metadata["data"] = data
         metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        metadata["created_at"] = metadata.get("created_at") or datetime.now(pytz.timezone("UTC")).isoformat()
+        if not metadata.get("created_at"):
+            metadata["created_at"] = datetime.now(pytz.timezone("UTC")).isoformat()
 
         await asyncio.to_thread(
             self.vector_store.insert,
