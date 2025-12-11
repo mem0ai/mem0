@@ -38,23 +38,23 @@ Filters use a nested JSON structure with logical operators at the root:
 ### Entity fields
 | Field | Operators | Example |
 |-------|-----------|---------|
-| `user_id` | `=`, `!=`, `in`, `*` | `{"user_id": "user_123"}` |
-| `agent_id` | `=`, `!=`, `in`, `*` | `{"agent_id": "*"}` |
-| `app_id` | `=`, `!=`, `in`, `*` | `{"app_id": {"in": ["app1", "app2"]}}` |
-| `run_id` | `=`, `!=`, `in`, `*` | `{"run_id": "*"}` |
+| `user_id` | `eq`, `ne`, `in`, `*` | `{"user_id": "user_123"}` |
+| `agent_id` | `eq`, `ne`, `in`, `*` | `{"agent_id": "*"}` |
+| `app_id` | `eq`, `ne`, `in`, `*` | `{"app_id": {"in": ["app1", "app2"]}}` |
+| `run_id` | `eq`, `ne`, `in`, `*` | `{"run_id": "*"}` |
 
 ### Time fields
 | Field | Operators | Example |
 |-------|-----------|---------|
-| `created_at` | `>`, `>=`, `<`, `<=`, `=`, `!=` | `{"created_at": {"gte": "2024-01-01"}}` |
-| `updated_at` | `>`, `>=`, `<`, `<=`, `=`, `!=` | `{"updated_at": {"lt": "2024-12-31"}}` |
-| `timestamp` | `>`, `>=`, `<`, `<=`, `=`, `!=` | `{"timestamp": {"gt": "2024-01-01"}}` |
+| `created_at` | `gt`, `gte`, `lt`, `lte`, `eq`, `ne` | `{"created_at": {"gte": "2024-01-01"}}` |
+| `updated_at` | `gt`, `gte`, `lt`, `lte`, `eq`, `ne` | `{"updated_at": {"lt": "2024-12-31"}}` |
+| `timestamp` | `gt`, `gte`, `lt`, `lte`, `eq`, `ne` | `{"timestamp": {"gt": "2024-01-01"}}` |
 
 ### Content fields
 | Field | Operators | Example |
 |-------|-----------|---------|
-| `categories` | `=`, `!=`, `in`, `contains` | `{"categories": {"in": ["finance"]}}` |
-| `metadata` | `=`, `!=` | `{"metadata": {"key": "value"}}` |
+| `categories` | `eq`, `ne`, `in`, `contains` | `{"categories": {"in": ["finance"]}}` |
+| `metadata` | `eq`, `ne`, `contains` | `{"metadata": {"key": "value"}}` |
 | `keywords` | `contains`, `icontains` | `{"keywords": {"icontains": "invoice"}}` |
 
 ### Special fields
@@ -64,6 +64,10 @@ Filters use a nested JSON structure with logical operators at the root:
 
 <Callout type="warning" icon="exclamation-triangle" color="#F7B731">
 The `*` wildcard matches any non-null value. Records with null values for that field are excluded.
+</Callout>
+
+<Callout type="info" icon="keyboard" color="#00A8FF">
+Use operator keywords exactly as shown (`eq`, `ne`, `gte`, etc.). SQL-style symbols such as `>=` or `!=` are rejected by the Platform API.
 </Callout>
 
 ## Common filter patterns
@@ -100,6 +104,20 @@ Use these ready-made filters to target typical retrieval scenarios without rebui
     ```
   </Accordion>
 </AccordionGroup>
+
+<Callout type="warning" icon="exclamation-triangle" color="#E74C3C">
+Metadata filters only support bare values/`eq`, `contains`, and `ne`. Operators such as `in`, `gt`, or `lt` trigger a `FilterValidationError`. For multi-value checks, wrap multiple equality clauses in `OR`.
+</Callout>
+
+```python
+# Multi-value metadata workaround
+filters = {
+    "OR": [
+        {"metadata": {"type": "semantic"}},
+        {"metadata": {"type": "episodic"}}
+    ]
+}
+```
 
 ### Content search
 
@@ -240,13 +258,13 @@ Combine various filters for complex queries across different dimensions.
     ```
   </Accordion>
 
-  <Accordion title="All entities populated">
+  <Accordion title="All entities populated (single entity scope)">
     ```python
-    # Require every entity field to be non-null
+    # Require user_id plus non-null run/app IDs
+    # (Memories are stored separately per entity, so scope one dimension at a time.)
     filters = {
         "AND": [
-            {"user_id": "*"},
-            {"agent_id": "*"},
+            {"user_id": "user_123"},
             {"run_id": "*"},
             {"app_id": "*"}
         ]
@@ -275,23 +293,20 @@ Level up foundational patterns with compound filters that coordinate entity scop
     ```
   </Accordion>
 
-  <Accordion title="Cross-entity relationships">
+  <Accordion title="Entity-specific retrieval">
     ```python
-    # From specific agent, all users
+    # Query agent scope on its own
     filters = {
         "AND": [
-            {"agent_id": "finance_bot"},
-            {"user_id": "*"}
+            {"agent_id": "finance_bot"}
         ]
     }
 
-    # Any entity populated
+    # Or broaden within that scope using wildcards
     filters = {
-        "OR": [
-            {"user_id": "*"},
-            {"agent_id": "*"},
-            {"run_id": "*"},
-            {"app_id": "*"}
+        "AND": [
+            {"agent_id": "finance_bot"},
+            {"run_id": "*"}
         ]
     }
     ```
@@ -327,7 +342,7 @@ Use `"*"` to match any non-null value for a field.
 </Callout>
 
 <Callout type="warning" icon="exclamation-triangle" color="#E74C3C">
-When you specify `user_id` only, other entity fields default to null. Use wildcards to include them.
+Memories are stored per-entity (user, agent, app, run). Combining `user_id` **and** `agent_id` in the same `AND` clause returns no results because no record contains both values at once. Query one entity scope at a time or use `OR` logic for parallel lookups.
 </Callout>
 
 ## Troubleshooting
@@ -336,9 +351,9 @@ When you specify `user_id` only, other entity fields default to null. Use wildca
   <Accordion title="Missing results with agent_id">
     **Problem**: Filtered by `user_id` but don't see agent memories.
 
-    **Solution**: Add a wildcard for `agent_id` so non-null entries return:
+    **Solution**: User and agent memories are stored as separate records. Use OR to query both scopes:
     ```python
-    {"AND": [{"user_id": "user_123"}, {"agent_id": "*"}]}
+    {"OR": [{"user_id": "user_123"}, {"agent_id": "agent_name"}]}
     ```
   </Accordion>
 
@@ -400,7 +415,7 @@ When you specify `user_id` only, other entity fields default to null. Use wildca
     Use `keywords` with `contains` (case-sensitive) or `icontains` (case-insensitive).
   </Accordion>
 
-  <Accordion title="Can I nest AND/OR?">
+<Accordion title="Can I nest AND/OR?">
     ```python
     {
         "AND": [
@@ -414,3 +429,9 @@ When you specify `user_id` only, other entity fields default to null. Use wildca
     ```
   </Accordion>
 </AccordionGroup>
+
+## Known limitations
+
+- Entity filters operate on a single scope per record. Use separate queries or `OR` logic to compare users vs agents.
+- Metadata supports only bare/`eq`, `contains`, and `ne` comparisons.
+- Wildcards (`"*"` ) match only records where the field is already non-null.

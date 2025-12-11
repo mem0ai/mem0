@@ -144,9 +144,14 @@ Retrieve just constraints for workout planning:
 
 ```python
 constraints = mem0_client.search(
-    "injury concerns",
-    user_id="max",
-    filters={"categories": {"in": ["constraints"]}}
+    query="injury concerns",
+    filters={
+        "AND": [
+            {"user_id": "max"},
+            {"categories": {"in": ["constraints"]}}
+        ]
+    },
+    threshold=0.0  # optional: widen recall for short phrases
 )
 print([m["memory"] for m in constraints["results"]])
 # Output: ["Max's right knee flares up on downhills"]
