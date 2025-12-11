@@ -3,7 +3,7 @@ import os
 from collections.abc import Generator
 from typing import Any, Optional
 
-from langchain.schema import BaseMessage as LCBaseMessage
+from langchain_core.messages import BaseMessage as LCBaseMessage
 
 from embedchain.config import BaseLlmConfig
 from embedchain.config.llm.base import (
@@ -341,7 +341,7 @@ class BaseLlm(JSONSerializable):
         :return: List of messages
         :rtype: list[BaseMessage]
         """
-        from langchain.schema import HumanMessage, SystemMessage
+        from langchain_core.messages import HumanMessage, SystemMessage
 
         messages = []
         if system_prompt:
