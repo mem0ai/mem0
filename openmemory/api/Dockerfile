@@ -11,4 +11,4 @@ COPY config.json .
 COPY . .
 
 EXPOSE 8765
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8765"]
+CMD ["sh", "-c", "alembic stamp add_prompts_table 2>/dev/null || true && alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8765"]

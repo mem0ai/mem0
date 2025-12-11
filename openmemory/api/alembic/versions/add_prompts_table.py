@@ -20,6 +20,17 @@ depends_on = None
 
 
 def upgrade():
+    from sqlalchemy import inspect
+
+    # Check if table already exists
+    conn = op.get_bind()
+    inspector = inspect(conn)
+    tables = inspector.get_table_names()
+
+    if 'prompts' in tables:
+        # Table already exists, skip creation
+        return
+
     # Create prompts table
     op.create_table(
         'prompts',
@@ -303,6 +314,17 @@ Guidelines:
 
 
 def downgrade():
+    from sqlalchemy import inspect
+
+    # Check if table exists before dropping
+    conn = op.get_bind()
+    inspector = inspect(conn)
+    tables = inspector.get_table_names()
+
+    if 'prompts' not in tables:
+        # Table doesn't exist, nothing to drop
+        return
+
     # Drop indexes
     op.drop_index('idx_prompts_created_at', 'prompts')
     op.drop_index('idx_prompt_type_active', 'prompts')
@@ -312,5 +334,8 @@ def downgrade():
     # Drop table
     op.drop_table('prompts')
 
-    # Drop enum type
-    op.execute('DROP TYPE prompttype')
+    # Drop enum type if it exists
+    try:
+        op.execute('DROP TYPE IF EXISTS prompttype')
+    except Exception:
+        pass
