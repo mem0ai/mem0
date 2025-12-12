@@ -32,7 +32,7 @@ graph = [
     "rank-bm25>=0.2.2",
     "kuzu>=0.11.0",
 ]
-vector_stores = [
+vector-stores = [
     "vecs>=0.4.0",
     "chromadb>=0.4.24",
     "cassandra-driver>=3.29.0",
@@ -110,7 +110,7 @@ python = "3.9"
 features = [
   "test",
   "graph",
-  "vector_stores",
+  "vector-stores",
   "llms",
   "extras",
 ]
@@ -120,7 +120,7 @@ python = "3.10"
 features = [
   "test",
   "graph",
-  "vector_stores",
+  "vector-stores",
   "llms",
   "extras",
 ]
@@ -130,7 +130,7 @@ python = "3.11"
 features = [
   "test",
   "graph",
-  "vector_stores",
+  "vector-stores",
   "llms",
   "extras",
 ]
@@ -140,7 +140,7 @@ python = "3.12"
 features = [
   "test",
   "graph",
-  "vector_stores",
+  "vector-stores",
   "llms",
   "extras",
 ]
