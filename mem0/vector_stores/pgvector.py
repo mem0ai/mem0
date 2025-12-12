@@ -53,6 +53,7 @@ class PGVector(VectorStoreBase):
         sslmode=None,
         connection_string=None,
         connection_pool=None,
+        schema_name: Optional[str] = "public",
     ):
         """
         Initialize the PGVector database.
@@ -78,6 +79,8 @@ class PGVector(VectorStoreBase):
         self.use_hnsw = hnsw
         self.embedding_model_dims = embedding_model_dims
         self.connection_pool = None
+        # ActionSync - Support for custom schema
+        self.schema_name = schema_name
 
         # Connection setup with priority: connection_pool > connection_string > individual parameters
         if connection_pool is not None:
@@ -121,6 +124,8 @@ class PGVector(VectorStoreBase):
             with self.connection_pool.connection() as conn:
                 with conn.cursor() as cur:
                     try:
+                        # ActionSync - Support for custom schema. Add public schema for vector extension access
+                        cur.execute(f'SET search_path TO "{self.schema_name}", public')
                         yield cur
                         if commit:
                             conn.commit()
@@ -133,6 +138,8 @@ class PGVector(VectorStoreBase):
             conn = self.connection_pool.getconn()
             cur = conn.cursor()
             try:
+                # ActionSync - Support for custom schema. Add public schema for vector extension access
+                cur.execute(f'SET search_path TO "{self.schema_name}", public')
                 yield cur
                 if commit:
                     conn.commit()
@@ -150,7 +157,8 @@ class PGVector(VectorStoreBase):
         Will also initialize vector search index if specified.
         """
         with self._get_cursor(commit=True) as cur:
-            cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
+            # ActionSync - Ensure vector extension is created in public schema
+            cur.execute("CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public")
             cur.execute(
                 f"""
                 CREATE TABLE IF NOT EXISTS {self.collection_name} (
@@ -317,7 +325,7 @@ class PGVector(VectorStoreBase):
             List[str]: List of collection names.
         """
         with self._get_cursor() as cur:
-            cur.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
+            cur.execute(f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{self.schema_name}'")
             return [row[0] for row in cur.fetchall()]
 
     def delete_col(self) -> None:
@@ -340,7 +348,7 @@ class PGVector(VectorStoreBase):
                     (SELECT COUNT(*) FROM {self.collection_name}) as row_count,
                     (SELECT pg_size_pretty(pg_total_relation_size('{self.collection_name}'))) as total_size
                 FROM information_schema.tables
-                WHERE table_schema = 'public' AND table_name = %s
+                WHERE table_schema = '{self.schema_name}' AND table_name = %s
             """,
                 (self.collection_name,),
             )
