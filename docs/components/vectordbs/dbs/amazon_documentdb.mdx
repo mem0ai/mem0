@@ -1,0 +1,100 @@
+---
+title: Amazon DocumentDB
+---
+
+Amazon DocumentDB (with MongoDB compatibility) is a fully managed document database service that supports MongoDB workloads. With vector search capabilities, it can be used as a vector store for Mem0.
+
+## Usage
+
+```python
+import os
+from mem0 import Memory
+
+# Set AWS credentials
+os.environ["AWS_REGION"] = "us-east-1"
+os.environ["AWS_ACCESS_KEY_ID"] = "your-access-key"
+os.environ["AWS_SECRET_ACCESS_KEY"] = "your-secret-key"
+
+config = {
+    "embedder": {
+        "provider": "aws_bedrock",
+        "config": {
+            "model": "amazon.titan-embed-text-v2:0"
+        }
+    },
+    "llm": {
+        "provider": "aws_bedrock",
+        "config": {
+            "model": "anthropic.claude-3-sonnet-20240229-v1:0",
+            "temperature": 0.1,
+            "max_tokens": 2000
+        }
+    },
+    "vector_store": {
+        "provider": "amazon_documentdb",
+        "config": {
+            "db_name": "mem0_db",
+            "collection_name": "mem0_collection", 
+            "embedding_model_dims": 1024,
+            "mongo_uri": "mongodb://username:password@docdb-cluster.cluster-xyz.us-west-2.docdb.amazonaws.com:27017/?tls=true&tlsCAFile=global-bundle.pem"
+        }
+    }
+}
+
+memory = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of sports movies but I love romantic movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+memory.add(messages, user_id="alice", metadata={"category": "movies"})
+
+related_memories = memory.search(query="What are Alice's hobbies?", user_id="alice")
+```
+
+## Config
+
+<ParamField path="db_name" type="string" default="mem0_db">
+  Name of the DocumentDB database
+</ParamField>
+
+<ParamField path="collection_name" type="string" default="mem0">
+  Name of the DocumentDB collection
+</ParamField>
+
+<ParamField path="embedding_model_dims" type="integer" default="1024">
+  Dimensions of the embedding vectors (1024 for Titan, 1536 for other models)
+</ParamField>
+
+<ParamField path="mongo_uri" type="string" required>
+  DocumentDB connection URI with TLS enabled. Example: `mongodb://username:password@docdb-cluster.cluster-xyz.us-west-2.docdb.amazonaws.com:27017/?tls=true&tlsCAFile=global-bundle.pem`
+</ParamField>
+
+## Prerequisites
+
+Before using Amazon DocumentDB with Mem0, ensure you have:
+
+1. **DocumentDB Cluster**: A running Amazon DocumentDB cluster with vector search enabled
+2. **TLS Certificate**: Download the Amazon DocumentDB TLS certificate bundle
+3. **Network Access**: Proper VPC configuration and security groups to allow connections
+4. **Dependencies**: Install the required Python package:
+
+```bash
+pip install pymongo
+```
+
+## Setup
+
+1. **Create a DocumentDB Cluster** with vector search capabilities enabled
+2. **Download the TLS certificate** from AWS and place it in your project directory
+3. **Configure your connection string** with the proper TLS settings
+4. **Set up authentication** with appropriate username and password
+
+## Notes
+
+- DocumentDB requires TLS connections for security
+- Vector search is available in DocumentDB 5.0 and later versions
+- The vector index is automatically created when the collection is first used
+- DocumentDB uses HNSW (Hierarchical Navigable Small World) algorithm for vector search
+- Ensure your DocumentDB instance has sufficient compute and storage for your vector workload
