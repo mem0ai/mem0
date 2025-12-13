@@ -36,6 +36,7 @@
                     "icon": "rocket",
                     "pages": [
                       "platform/overview",
+                      "platform/mem0-mcp",
                       "platform/platform-vs-oss",
                       "platform/quickstart"
                     ]
@@ -97,7 +98,8 @@
                         "pages": [
                           "platform/features/webhooks",
                           "platform/features/feedback-mechanism",
-                          "platform/features/group-chat"
+                          "platform/features/group-chat",
+                          "platform/features/mcp-integration"
                         ]
                       }
                     ]
