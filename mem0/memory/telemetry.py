@@ -9,6 +9,8 @@ import mem0
 from mem0.memory.setup import get_or_create_user_id
 
 MEM0_TELEMETRY = os.environ.get("MEM0_TELEMETRY", "True")
+DISABLE_MEM0_TELEMETRY = os.environ.get("DISABLE_MEM0_TELEMETRY", "False")
+
 PROJECT_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX"
 HOST = "https://us.i.posthog.com"
 
@@ -18,38 +20,48 @@ if isinstance(MEM0_TELEMETRY, str):
 if not isinstance(MEM0_TELEMETRY, bool):
     raise ValueError("MEM0_TELEMETRY must be a boolean value.")
 
+if isinstance(DISABLE_MEM0_TELEMETRY, str):
+    DISABLE_MEM0_TELEMETRY = DISABLE_MEM0_TELEMETRY.lower() in ("true", "1", "yes")
+
+if not isinstance(DISABLE_MEM0_TELEMETRY, bool):
+    raise ValueError("DISABLE_MEM0_TELEMETRY must be a boolean value.")
+
 logging.getLogger("posthog").setLevel(logging.CRITICAL + 1)
 logging.getLogger("urllib3").setLevel(logging.CRITICAL + 1)
 
 
 class AnonymousTelemetry:
     def __init__(self, vector_store=None):
-        self.posthog = Posthog(project_api_key=PROJECT_API_KEY, host=HOST)
+        if MEM0_TELEMETRY:
+            self.posthog = Posthog(project_api_key=PROJECT_API_KEY, host=HOST)
 
-        self.user_id = get_or_create_user_id(vector_store)
+            if vector_store:
+                self.user_id = get_or_create_user_id(vector_store)
 
-        if not MEM0_TELEMETRY:
-            self.posthog.disabled = True
+            if DISABLE_MEM0_TELEMETRY:
+                self.posthog.disabled = True
 
     def capture_event(self, event_name, properties=None, user_email=None):
-        if properties is None:
-            properties = {}
-        properties = {
-            "client_source": "python",
-            "client_version": mem0.__version__,
-            "python_version": sys.version,
-            "os": sys.platform,
-            "os_version": platform.version(),
-            "os_release": platform.release(),
-            "processor": platform.processor(),
-            "machine": platform.machine(),
-            **properties,
-        }
-        distinct_id = self.user_id if user_email is None else user_email
-        self.posthog.capture(distinct_id=distinct_id, event=event_name, properties=properties)
+        if MEM0_TELEMETRY:
+            if properties is None:
+                properties = {}
+            properties = {
+                "client_source": "python",
+                "client_version": mem0.__version__,
+                "python_version": sys.version,
+                "os": sys.platform,
+                "os_version": platform.version(),
+                "os_release": platform.release(),
+                "processor": platform.processor(),
+                "machine": platform.machine(),
+                **properties,
+            }
+            distinct_id = self.user_id if user_email is None else user_email
+            self.posthog.capture(distinct_id=distinct_id, event=event_name, properties=properties)
 
     def close(self):
-        self.posthog.shutdown()
+        if MEM0_TELEMETRY:
+            self.posthog.shutdown()
 
 
 client_telemetry = AnonymousTelemetry()
