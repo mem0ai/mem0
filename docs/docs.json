@@ -36,6 +36,7 @@
                     "icon": "rocket",
                     "pages": [
                       "platform/overview",
+                      "platform/mem0-mcp",
                       "platform/platform-vs-oss",
                       "platform/quickstart"
                     ]
