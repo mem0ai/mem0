@@ -98,7 +98,8 @@
                         "pages": [
                           "platform/features/webhooks",
                           "platform/features/feedback-mechanism",
-                          "platform/features/group-chat"
+                          "platform/features/group-chat",
+                          "platform/features/mcp-integration"
                         ]
                       }
                     ]
