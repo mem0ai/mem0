@@ -79,13 +79,15 @@ class PGVector(VectorStoreBase):
         self.use_hnsw = hnsw
         self.embedding_model_dims = embedding_model_dims
         self.connection_pool = None
-        # ActionSync - Support for custom schema
+        # ActionSync - Support for custom schema and handling for external pool
         self.schema_name = schema_name
+        self.external_pool = False
 
         # Connection setup with priority: connection_pool > connection_string > individual parameters
         if connection_pool is not None:
             # Use provided connection pool
             self.connection_pool = connection_pool
+            self.external_pool = True
         elif connection_string:
             if sslmode:
                 # Append sslmode to connection string if provided
@@ -397,6 +399,8 @@ class PGVector(VectorStoreBase):
         Close the database connection pool when the object is deleted.
         """
         try:
+            if self.external_pool:
+                return
             # Close pool appropriately
             if PSYCOPG_VERSION == 3:
                 self.connection_pool.close()
