@@ -9,6 +9,11 @@
     "dark": "#9C58FA"
   },
   "favicon": "/logo/favicon.png",
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg",
+    "href": "https://app.mem0.ai/"
+  },
   "navigation": {
     "versions": [
       {
@@ -385,6 +390,7 @@
                       "integrations/crewai",
                       "integrations/autogen",
                       "integrations/agno",
+                      "integrations/camel-ai",
                       "integrations/openai-agents-sdk",
                       "integrations/google-ai-adk",
                       "integrations/mastra",
@@ -725,11 +731,6 @@
         ]
       }
     ]
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg",
-    "href": "https://app.mem0.ai/"
   },
   "background": {
     "color": {
