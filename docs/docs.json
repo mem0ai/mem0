@@ -9,6 +9,11 @@
     "dark": "#9C58FA"
   },
   "favicon": "/logo/favicon.png",
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg",
+    "href": "https://app.mem0.ai/"
+  },
   "navigation": {
     "versions": [
       {
@@ -36,6 +41,7 @@
                     "icon": "rocket",
                     "pages": [
                       "platform/overview",
+                      "platform/mem0-mcp",
                       "platform/platform-vs-oss",
                       "platform/quickstart"
                     ]
@@ -97,7 +103,8 @@
                         "pages": [
                           "platform/features/webhooks",
                           "platform/features/feedback-mechanism",
-                          "platform/features/group-chat"
+                          "platform/features/group-chat",
+                          "platform/features/mcp-integration"
                         ]
                       }
                     ]
@@ -383,6 +390,7 @@
                       "integrations/crewai",
                       "integrations/autogen",
                       "integrations/agno",
+                      "integrations/camel-ai",
                       "integrations/openai-agents-sdk",
                       "integrations/google-ai-adk",
                       "integrations/mastra",
@@ -723,11 +731,6 @@
         ]
       }
     ]
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg",
-    "href": "https://app.mem0.ai/"
   },
   "background": {
     "color": {
