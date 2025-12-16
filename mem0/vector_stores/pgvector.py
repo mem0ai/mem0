@@ -189,6 +189,15 @@ class PGVector(VectorStoreBase):
                     USING hnsw (vector vector_cosine_ops)
                     """
                 )
+            if self.schema_name:
+                # ActionSync - Create GIN index on payload for faster filtering
+                cur.execute(
+                    f"""
+                        CREATE INDEX IF NOT EXISTS "{self.collection_name}_payload_idx"
+                        ON "{self.schema_name}"."{self.collection_name}"
+                        USING GIN (payload);
+                    """)
+                    
 
     def insert(self, vectors: list[list[float]], payloads=None, ids=None) -> None:
         logger.info(f"Inserting {len(vectors)} vectors into collection {self.collection_name}")
