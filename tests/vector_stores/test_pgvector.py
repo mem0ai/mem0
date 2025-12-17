@@ -445,9 +445,9 @@ class TestPGVector(unittest.TestCase):
         # Verify results
         self.assertEqual(len(results), 2)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[0].score, 0.9)  # 1.0 - 0.1 distance = 0.9 similarity
         self.assertEqual(results[1].id, self.test_ids[1])
-        self.assertEqual(results[1].score, 0.2)
+        self.assertEqual(results[1].score, 0.8)  # 1.0 - 0.2 distance = 0.8 similarity
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
@@ -494,9 +494,9 @@ class TestPGVector(unittest.TestCase):
         # Verify results
         self.assertEqual(len(results), 2)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[0].score, 0.9)  # 1.0 - 0.1 distance = 0.9 similarity
         self.assertEqual(results[1].id, self.test_ids[1])
-        self.assertEqual(results[1].score, 0.2)
+        self.assertEqual(results[1].score, 0.8)  # 1.0 - 0.2 distance = 0.8 similarity
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
@@ -1140,7 +1140,7 @@ class TestPGVector(unittest.TestCase):
         # Verify results
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[0].score, 0.9)  # 1.0 - 0.1 distance = 0.9 similarity
         self.assertEqual(results[0].payload["user_id"], "alice")
         self.assertEqual(results[0].payload["agent_id"], "agent1")
         self.assertEqual(results[0].payload["run_id"], "run1")
@@ -1190,7 +1190,7 @@ class TestPGVector(unittest.TestCase):
         # Verify results
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[0].score, 0.9)  # 1.0 - 0.1 distance = 0.9 similarity
         self.assertEqual(results[0].payload["user_id"], "alice")
         self.assertEqual(results[0].payload["agent_id"], "agent1")
         self.assertEqual(results[0].payload["run_id"], "run1")
@@ -1240,7 +1240,7 @@ class TestPGVector(unittest.TestCase):
         # Verify results
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[0].score, 0.9)  # 1.0 - 0.1 distance = 0.9 similarity
         self.assertEqual(results[0].payload["user_id"], "alice")
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
@@ -1288,7 +1288,7 @@ class TestPGVector(unittest.TestCase):
         # Verify results
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[0].score, 0.9)  # 1.0 - 0.1 distance = 0.9 similarity
         self.assertEqual(results[0].payload["user_id"], "alice")
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
@@ -1336,9 +1336,9 @@ class TestPGVector(unittest.TestCase):
         # Verify results
         self.assertEqual(len(results), 2)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[0].score, 0.9)  # 1.0 - 0.1 distance = 0.9 similarity
         self.assertEqual(results[1].id, self.test_ids[1])
-        self.assertEqual(results[1].score, 0.2)
+        self.assertEqual(results[1].score, 0.8)  # 1.0 - 0.2 distance = 0.8 similarity
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
@@ -1385,9 +1385,9 @@ class TestPGVector(unittest.TestCase):
         # Verify results
         self.assertEqual(len(results), 2)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[0].score, 0.9)  # 1.0 - 0.1 distance = 0.9 similarity
         self.assertEqual(results[1].id, self.test_ids[1])
-        self.assertEqual(results[1].score, 0.2)
+        self.assertEqual(results[1].score, 0.8)  # 1.0 - 0.2 distance = 0.8 similarity
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
@@ -2228,3 +2228,241 @@ class TestPGVector(unittest.TestCase):
     def tearDown(self):
         """Clean up after each test."""
         pass
+
+
+class TestPGVectorScoreSemantics(unittest.TestCase):
+    """Tests to verify score represents similarity (higher = more similar).
+
+    PGVector returns cosine distance where:
+    - 0 = identical vectors (best match)
+    - 1 = orthogonal vectors
+    - 2 = opposite vectors (worst match)
+
+    After conversion max(0, 1 - distance), scores become similarity:
+    - 1.0 = identical vectors (best match)
+    - 0.0 = orthogonal or opposite vectors (clamped)
+    """
+
+    def setUp(self):
+        """Set up common test fixtures."""
+        self.mock_cursor = MagicMock()
+        self.test_id = "00000000-0000-0000-0000-000000000001"
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    @patch.object(PGVector, '_get_cursor')
+    def test_score_conversion_exact_match(self, mock_get_cursor, mock_connection_pool):
+        """Distance 0 (exact match) should become similarity 1.0."""
+        mock_pool = MagicMock()
+        mock_connection_pool.return_value = mock_pool
+        mock_get_cursor.return_value.__enter__.return_value = self.mock_cursor
+        mock_get_cursor.return_value.__exit__.return_value = None
+        self.mock_cursor.fetchall.return_value = []
+
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False,
+        )
+
+        # Mock returns distance=0.0 for exact match
+        self.mock_cursor.fetchall.return_value = [
+            (self.test_id, 0.0, {"key": "exact_match"}),
+        ]
+
+        results = pgvector.search("test", [1.0, 0.0, 0.0], limit=1)
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].score, 1.0)  # 1.0 - 0.0 = 1.0
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    @patch.object(PGVector, '_get_cursor')
+    def test_score_conversion_orthogonal(self, mock_get_cursor, mock_connection_pool):
+        """Distance 1 (orthogonal vectors) should become similarity 0.0."""
+        mock_pool = MagicMock()
+        mock_connection_pool.return_value = mock_pool
+        mock_get_cursor.return_value.__enter__.return_value = self.mock_cursor
+        mock_get_cursor.return_value.__exit__.return_value = None
+        self.mock_cursor.fetchall.return_value = []
+
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False,
+        )
+
+        # Mock returns distance=1.0 for orthogonal vectors
+        self.mock_cursor.fetchall.return_value = [
+            (self.test_id, 1.0, {"key": "orthogonal"}),
+        ]
+
+        results = pgvector.search("test", [1.0, 0.0, 0.0], limit=1)
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].score, 0.0)  # 1.0 - 1.0 = 0.0
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    @patch.object(PGVector, '_get_cursor')
+    def test_score_conversion_partial_match(self, mock_get_cursor, mock_connection_pool):
+        """Distance 0.3 should become similarity 0.7."""
+        mock_pool = MagicMock()
+        mock_connection_pool.return_value = mock_pool
+        mock_get_cursor.return_value.__enter__.return_value = self.mock_cursor
+        mock_get_cursor.return_value.__exit__.return_value = None
+        self.mock_cursor.fetchall.return_value = []
+
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False,
+        )
+
+        # Mock returns distance=0.3 for partial match
+        self.mock_cursor.fetchall.return_value = [
+            (self.test_id, 0.3, {"key": "partial_match"}),
+        ]
+
+        results = pgvector.search("test", [1.0, 0.0, 0.0], limit=1)
+
+        self.assertEqual(len(results), 1)
+        self.assertAlmostEqual(results[0].score, 0.7, places=5)  # 1.0 - 0.3 = 0.7
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    @patch.object(PGVector, '_get_cursor')
+    def test_score_clamping_opposite_vectors(self, mock_get_cursor, mock_connection_pool):
+        """Distance > 1 (opposite vectors) should be clamped to score 0.0."""
+        mock_pool = MagicMock()
+        mock_connection_pool.return_value = mock_pool
+        mock_get_cursor.return_value.__enter__.return_value = self.mock_cursor
+        mock_get_cursor.return_value.__exit__.return_value = None
+        self.mock_cursor.fetchall.return_value = []
+
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False,
+        )
+
+        # Mock returns distance > 1 (opposite vectors, rare in practice)
+        self.mock_cursor.fetchall.return_value = [
+            (self.test_id, 1.5, {"key": "opposite"}),
+            ("00000000-0000-0000-0000-000000000002", 2.0, {"key": "fully_opposite"}),
+        ]
+
+        results = pgvector.search("test", [1.0, 0.0, 0.0], limit=2)
+
+        self.assertEqual(len(results), 2)
+        # Both should be clamped to 0.0, not negative
+        self.assertEqual(results[0].score, 0.0)  # max(0, 1 - 1.5) = 0.0
+        self.assertEqual(results[1].score, 0.0)  # max(0, 1 - 2.0) = 0.0
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    @patch.object(PGVector, '_get_cursor')
+    def test_scores_ordered_correctly(self, mock_get_cursor, mock_connection_pool):
+        """Best matches (lowest distance) should have highest scores."""
+        mock_pool = MagicMock()
+        mock_connection_pool.return_value = mock_pool
+        mock_get_cursor.return_value.__enter__.return_value = self.mock_cursor
+        mock_get_cursor.return_value.__exit__.return_value = None
+        self.mock_cursor.fetchall.return_value = []
+
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False,
+        )
+
+        # Mock returns results ordered by distance (ascending)
+        # as pgvector would return them
+        self.mock_cursor.fetchall.return_value = [
+            ("00000000-0000-0000-0000-000000000001", 0.1, {"rank": 1}),
+            ("00000000-0000-0000-0000-000000000002", 0.3, {"rank": 2}),
+            ("00000000-0000-0000-0000-000000000003", 0.5, {"rank": 3}),
+        ]
+
+        results = pgvector.search("test", [1.0, 0.0, 0.0], limit=3)
+
+        self.assertEqual(len(results), 3)
+        # After conversion: [0.9, 0.7, 0.5] - descending similarity
+        self.assertAlmostEqual(results[0].score, 0.9, places=5)
+        self.assertAlmostEqual(results[1].score, 0.7, places=5)
+        self.assertAlmostEqual(results[2].score, 0.5, places=5)
+        # Verify best match has highest score
+        self.assertGreater(results[0].score, results[1].score)
+        self.assertGreater(results[1].score, results[2].score)
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    @patch.object(PGVector, '_get_cursor')
+    def test_score_range_typical_queries(self, mock_get_cursor, mock_connection_pool):
+        """Typical query results should have scores in [0, 1] range."""
+        mock_pool = MagicMock()
+        mock_connection_pool.return_value = mock_pool
+        mock_get_cursor.return_value.__enter__.return_value = self.mock_cursor
+        mock_get_cursor.return_value.__exit__.return_value = None
+        self.mock_cursor.fetchall.return_value = []
+
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False,
+        )
+
+        # Mock returns typical distance values (0 to 1 range)
+        self.mock_cursor.fetchall.return_value = [
+            ("00000000-0000-0000-0000-000000000001", 0.15, {"type": "good"}),
+            ("00000000-0000-0000-0000-000000000002", 0.45, {"type": "moderate"}),
+            ("00000000-0000-0000-0000-000000000003", 0.85, {"type": "poor"}),
+        ]
+
+        results = pgvector.search("test", [1.0, 0.0, 0.0], limit=3)
+
+        # All scores should be in [0, 1] range for typical queries
+        for result in results:
+            self.assertGreaterEqual(result.score, 0.0)
+            self.assertLessEqual(result.score, 1.0)
+
+        # Best match should have score > 0.8
+        self.assertGreater(results[0].score, 0.8)
+        # Poor match should have score < 0.2
+        self.assertLess(results[2].score, 0.2)
