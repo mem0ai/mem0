@@ -274,12 +274,13 @@ async def create_memory(
             created_memories = []
             
             for result in qdrant_response['results']:
-                if result['event'] == 'ADD':
+                if result['event'] == 'ADD' or result['event'] == 'UPDATE':
                     # Get the Qdrant-generated ID
                     memory_id = UUID(result['id'])
                     
                     # Check if memory already exists
                     existing_memory = db.query(Memory).filter(Memory.id == memory_id).first()
+                    previous_state = existing_memory.state if existing_memory else MemoryState.deleted
                     
                     if existing_memory:
                         # Update existing memory
@@ -302,7 +303,7 @@ async def create_memory(
                     history = MemoryStatusHistory(
                         memory_id=memory_id,
                         changed_by=user.id,
-                        old_state=MemoryState.deleted if existing_memory else MemoryState.deleted,
+                        old_state=previous_state,
                         new_state=MemoryState.active
                     )
                     db.add(history)
