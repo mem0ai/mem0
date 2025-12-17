@@ -329,7 +329,7 @@ config = MemoryConfig(
 - **neo4j** - Neo4j graph database
 - **memgraph** - Memgraph
 - **neptune** - AWS Neptune Analytics
-- **kuzu** - Kuzu Graph database
+- **ryu** - RyuGraph embedded graph database
 
 ### Configuration Examples
 
@@ -619,7 +619,7 @@ print(result["relations"])   # Graph relationships
 - **Neo4j**: Full-featured graph database with Cypher queries
 - **Memgraph**: High-performance in-memory graph database
 - **Neptune**: AWS managed graph database service
-- **kuzu** - OSS Kuzu Graph database
+- **RyuGraph**: Open-source embedded graph database
 
 ### Multimodal Memory
 
