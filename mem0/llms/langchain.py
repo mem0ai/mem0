@@ -34,6 +34,11 @@ class LangchainLLM(LLMBase):
             str or dict: The processed response.
         """
         if not tools:
+            # ActionSync - Langchain response fix, now it returns list of dict with type and text
+            if response.content and isinstance(response.content, list) and len(response.content) > 0:
+                if isinstance(response.content[0], dict) and "text" in response.content[0]:
+                    return response.content[0].get("text", "")
+                
             return response.content
 
         processed_response = {
