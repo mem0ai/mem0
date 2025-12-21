@@ -207,6 +207,29 @@ class MongoDB(VectorStoreBase):
             except PyMongoError as e:
                 logger.error(f"Error updating document: {e}")
 
+    def _fetch_vector_values(self, vector_id: str) -> List[float]:
+        """
+        Fetch vector values from MongoDB.
+        
+        Args:
+            vector_id: ID of the vector to fetch
+            
+        Returns:
+            List[float]: The vector values
+            
+        Raises:
+            ValueError: If vector not found
+        """
+        try:
+            doc = self.collection.find_one({"_id": vector_id}, {"embedding": 1})
+            if doc and "embedding" in doc:
+                return doc["embedding"]
+            else:
+                raise ValueError(f"Vector {vector_id} not found in MongoDB")
+        except PyMongoError as e:
+            logger.error(f"Error fetching vector values from MongoDB: {e}")
+            raise
+
     def get(self, vector_id: str) -> Optional[OutputData]:
         """
         Retrieve a vector by ID.

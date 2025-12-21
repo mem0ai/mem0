@@ -225,6 +225,32 @@ class OpenSearchDB(VectorStoreBase):
             except Exception:
                 pass
 
+    def _fetch_vector_values(self, vector_id: str) -> List[float]:
+        """
+        Fetch vector values from OpenSearch.
+        
+        Args:
+            vector_id: ID of the vector to fetch
+            
+        Returns:
+            List[float]: The vector values
+            
+        Raises:
+            ValueError: If vector not found
+        """
+        try:
+            search_query = {"query": {"term": {"id": vector_id}}}
+            response = self.client.search(index=self.collection_name, body=search_query)
+            hits = response.get("hits", {}).get("hits", [])
+            
+            if hits and "vector_field" in hits[0]["_source"]:
+                return hits[0]["_source"]["vector_field"]
+            else:
+                raise ValueError(f"Vector {vector_id} not found in OpenSearch")
+        except Exception as e:
+            logger.error(f"Error fetching vector values from OpenSearch: {e}")
+            raise
+
     def get(self, vector_id: str) -> Optional[OutputData]:
         """Retrieve a vector by ID."""
         try:
