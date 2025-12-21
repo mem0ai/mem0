@@ -48,7 +48,7 @@
     "input-otp": "1.4.1",
     "lodash": "^4.17.21",
     "lucide-react": "^0.454.0",
-    "next": "15.2.4",
+    "next": "15.2.8",
     "next-themes": "^0.4.4",
     "react": "^19",
     "react-day-picker": "8.10.1",
