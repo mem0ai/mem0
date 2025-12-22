@@ -48,8 +48,6 @@ services:
       - USER
       - API_KEY
       - NEO4J_URL=neo4j://neo4j:7687
-      - NEO4J_USERNAME=neo4j
-      - NEO4J_PASSWORD=taketheredpillNe0
       - DATABASE_URL=sqlite:///data/openmemory.db
     env_file:
       - .env
@@ -60,12 +58,12 @@ services:
       - "8765:8765"
     volumes:
       - mem0_data:/usr/src/openmemory/data
-    command: >
-      sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --reload --workers 4"
+    # command: >
+    #   sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --reload --workers 4"
+    # Using Dockerfile CMD instead (which includes init_db.sh)
     networks:
-      - chakra-network
       - mem0-network
-      - n8n-network
+      - chronicle-network
 
 
   mem0-ui:
@@ -92,12 +90,9 @@ volumes:
   neo4j_plugins:
 
 networks:
-  chakra-network:
-    driver: bridge
-    external: true
   mem0-network:
     driver: bridge
     external: true
-  n8n-network:
+  chronicle-network:
     driver: bridge
     external: true
