@@ -9,6 +9,7 @@ RUN pip install -r requirements.txt
 
 COPY config.json .
 COPY . .
+RUN chmod +x init_db.sh
 
 EXPOSE 8765
-CMD ["sh", "-c", "alembic stamp add_prompts_table 2>/dev/null || true && alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8765"]
+CMD ["sh", "-c", "./init_db.sh && uvicorn main:app --host 0.0.0.0 --port 8765"]

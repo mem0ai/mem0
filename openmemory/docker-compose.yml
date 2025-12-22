@@ -5,6 +5,8 @@ services:
       - "6333:6333"
     volumes:
       - mem0_storage:/mem0/storage
+    networks:
+      - mem0-network
   openmemory-mcp:
     image: mem0/openmemory-mcp
     build: api/
@@ -19,18 +21,72 @@ services:
       - "8765:8765"
     volumes:
       - ./api:/usr/src/openmemory
+    networks:
+      - mem0-network
+      - chronicle-network
     command: >
       sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --reload --workers 4"
   openmemory-ui:
     build:
       context: ui/
       dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+        - NEXT_PUBLIC_USER_ID=${NEXT_PUBLIC_USER_ID}
     image: mem0/openmemory-ui:latest
     ports:
-      - "3000:3000"
+      - "3333:3000"
+    networks:
+      - mem0-network
     environment:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-      - NEXT_PUBLIC_USER_ID=${USER}
+      - NEXT_PUBLIC_USER_ID=${NEXT_PUBLIC_USER_ID}
+
+  neo4j:
+        image: neo4j:latest
+        container_name: neo4j-mem0
+        volumes:
+            - neo4j_data:/data
+            - neo4j_logs:/logs
+            - neo4j_config:/config
+            # - ./plugins:/plugins
+        environment:
+          - NEO4J_AUTH=neo4j/taketheredpillNe0
+          - PORT=
+          - NEO4J_server_memory_heap_initial__size=1G
+          - NEO4J_server_memory_heap_max__size=2G
+          - NEO4J_server_memory_pagecache_size=1G
+          - NEO4J_apoc_export_file_enabled=true
+          - NEO4J_apoc_import_file_enabled=true
+          - NEO4J_apoc_import_file_use__neo4j__config=true
+          # - NEO4J_dbms_security_procedures_unrestricted=apoc.*
+          - NEO4J_PLUGINS=["apoc", "graph-data-science"]
+          - NEO4J_dbms_security_procedures_unrestricted=apoc.*,gds.*
+        ports:
+          - "7474:7474"
+          - "7687:7687"
+        restart: always
+        networks:
+          - mem0-network
+        healthcheck:
+          test: ["CMD", "curl", "-f", "http://localhost:7687"]
+          interval: 30s
+          timeout: 10s
+          retries: 5
+
 
 volumes:
   mem0_storage:
+  mem0_data:
+  neo4j_data:
+    driver: local
+  neo4j_logs:
+  neo4j_config:
+  neo4j_plugins:
+
+networks:
+  mem0-network:
+    driver: bridge
+    # external: true
+  chronicle-network:
+    external: true  # Use the existing chronicle-network from friend-lite
