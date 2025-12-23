@@ -44,9 +44,19 @@ def get_neo4j_driver():
     password = os.environ.get('NEO4J_PASSWORD')
 
     if not password:
-        raise ValueError("NEO4J_PASSWORD environment variable is not set")
+        raise HTTPException(
+            status_code=503,
+            detail="Neo4j graph database is not configured. Set NEO4J_PASSWORD environment variable to enable graph features."
+        )
 
-    return GraphDatabase.driver(url, auth=(username, password))
+    try:
+        return GraphDatabase.driver(url, auth=(username, password))
+    except Exception as e:
+        logger.error(f"Failed to connect to Neo4j: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail=f"Failed to connect to Neo4j graph database: {str(e)}"
+        )
 
 
 def neo4j_record_to_dict(record: Any) -> Dict[str, Any]:

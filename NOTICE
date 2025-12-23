@@ -1,4 +1,4 @@
-myceli0
+u-mem0
 =======
 
 This software is based on mem0 (https://github.com/mem0ai/mem0)
@@ -8,10 +8,10 @@ Original Work:
    Licensed under Apache License 2.0
    https://github.com/mem0ai/mem0
 
-Modifications and Enhancements (myceli0):
-   Copyright 2025 Stu Alexander (Ushadow-io)
+Modifications and Enhancements (u-mem0):
+   Copyright 2025 Stu Alexander (Ushadow)
    Licensed under Apache License 2.0
-   https://github.com/ushadow-io/mem0
+   https://github.com/ushadow-io/u-mem0
 
 =======================================================================
 
@@ -92,14 +92,14 @@ When redistributing this software or derivative works:
 4. Clearly mark modifications made to the original work
 
 For commercial use or custom licensing, contact:
-   Chronicler AI - https://github.com/chronicler-ai
+   Ushadow - https://github.com/ushadow-io
 
 =======================================================================
 
 Trademark Notice:
 
 "mem0" and "Mem0" are trademarks of their respective owners.
-"myceli0" is a distinct project based on mem0 but is not endorsed by
+"u-mem0" is a distinct project based on mem0 but is not endorsed by
 or affiliated with the original mem0 project.
 
 =======================================================================
