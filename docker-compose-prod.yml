@@ -1,6 +1,9 @@
 # Production docker-compose for u-mem0
 # Pull pre-built images from GitHub Container Registry
 # Usage: docker-compose -f docker-compose-prod.yml up -d
+#
+# IMPORTANT: Create a .env file with your configuration before running
+# See .env.example for required variables
 
 services:
   mem0_store:
@@ -22,7 +25,7 @@ services:
       - neo4j_logs:/logs
       - neo4j_config:/config
     environment:
-      - NEO4J_AUTH=neo4j/changeme  # CHANGE THIS IN PRODUCTION
+      - NEO4J_AUTH=${NEO4J_USERNAME:-neo4j}/${NEO4J_PASSWORD}
       - NEO4J_server_memory_heap_initial__size=1G
       - NEO4J_server_memory_heap_max__size=2G
       - NEO4J_server_memory_pagecache_size=1G
@@ -37,23 +40,17 @@ services:
     networks:
       - u-mem0-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:7474"]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "${NEO4J_PASSWORD}", "RETURN 1"]
+      interval: 10s
+      timeout: 5s
       retries: 5
+      start_period: 30s
 
   u-mem0-api:
     image: ghcr.io/ushadow-io/u-mem0-api:latest
     container_name: u-mem0-api
-    environment:
-      - USER=${USER:-default}
-      - NEO4J_URL=neo4j://neo4j:7687
-      - NEO4J_USER=neo4j
-      - NEO4J_PASSWORD=changeme  # Must match NEO4J_AUTH above
-      - DATABASE_URL=sqlite:///data/openmemory.db
-      - QDRANT_URL=http://mem0_store:6333
     env_file:
-      - .env  # Optional: for additional environment variables
+      - .env
     depends_on:
       neo4j:
         condition: service_healthy
@@ -75,13 +72,12 @@ services:
   u-mem0-ui:
     image: ghcr.io/ushadow-io/u-mem0-ui:latest
     container_name: u-mem0-ui
-    ports:
-      - "3333:3000"
-    environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8765}
-      - NEXT_PUBLIC_USER_ID=${USER:-default}
+    env_file:
+      - .env
     depends_on:
       - u-mem0-api
+    ports:
+      - "3333:3000"
     networks:
       - u-mem0-network
     restart: unless-stopped

@@ -1,92 +1,94 @@
 services:
   mem0_store:
-    image: qdrant/qdrant
+    image: qdrant/qdrant:latest
+    container_name: u-mem0-qdrant
     ports:
       - "6333:6333"
     volumes:
-      - mem0_storage:/mem0/storage
+      - mem0_storage:/qdrant/storage
     networks:
-      - mem0-network
-  openmemory-mcp:
-    image: mem0/openmemory-mcp
-    build: api/
+      - infra-network
+    restart: unless-stopped
+
+  neo4j:
+    image: neo4j:latest
+    container_name: u-mem0-neo4j
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+      - neo4j_config:/config
     environment:
-      - USER
-      - API_KEY
+      - NEO4J_AUTH=${NEO4J_USERNAME:-neo4j}/${NEO4J_PASSWORD}
+      - NEO4J_server_memory_heap_initial__size=1G
+      - NEO4J_server_memory_heap_max__size=2G
+      - NEO4J_server_memory_pagecache_size=1G
+      - NEO4J_apoc_export_file_enabled=true
+      - NEO4J_apoc_import_file_enabled=true
+      - NEO4J_apoc_import_file_use__neo4j__config=true
+      - NEO4J_PLUGINS=["apoc"]
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    networks:
+      - infra-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "${NEO4J_PASSWORD}", "RETURN 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  u-mem0-api:
+    image: ghcr.io/ushadow-io/u-mem0-api:latest
+    container_name: u-mem0-api
     env_file:
-      - api/.env
+      - .env
     depends_on:
-      - mem0_store
+      neo4j:
+        condition: service_healthy
+      mem0_store:
+        condition: service_started
     ports:
       - "8765:8765"
     volumes:
-      - ./api:/usr/src/openmemory
+      - mem0_data:/usr/src/openmemory/data
     networks:
-      - mem0-network
-      - chronicle-network
-    command: >
-      sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --reload --workers 4"
-  openmemory-ui:
-    build:
-      context: ui/
-      dockerfile: Dockerfile
-      args:
-        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-        - NEXT_PUBLIC_USER_ID=${NEXT_PUBLIC_USER_ID}
-    image: mem0/openmemory-ui:latest
+      - infra-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8765/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  u-mem0-ui:
+    image: ghcr.io/ushadow-io/u-mem0-ui:latest
+    container_name: u-mem0-ui
+    env_file:
+      - .env
+    depends_on:
+      - u-mem0-api
     ports:
       - "3333:3000"
     networks:
-      - mem0-network
-    environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-      - NEXT_PUBLIC_USER_ID=${NEXT_PUBLIC_USER_ID}
-
-  neo4j:
-        image: neo4j:latest
-        container_name: neo4j-mem0
-        volumes:
-            - neo4j_data:/data
-            - neo4j_logs:/logs
-            - neo4j_config:/config
-            # - ./plugins:/plugins
-        environment:
-          - NEO4J_AUTH=neo4j/taketheredpillNe0
-          - PORT=
-          - NEO4J_server_memory_heap_initial__size=1G
-          - NEO4J_server_memory_heap_max__size=2G
-          - NEO4J_server_memory_pagecache_size=1G
-          - NEO4J_apoc_export_file_enabled=true
-          - NEO4J_apoc_import_file_enabled=true
-          - NEO4J_apoc_import_file_use__neo4j__config=true
-          # - NEO4J_dbms_security_procedures_unrestricted=apoc.*
-          - NEO4J_PLUGINS=["apoc", "graph-data-science"]
-          - NEO4J_dbms_security_procedures_unrestricted=apoc.*,gds.*
-        ports:
-          - "7474:7474"
-          - "7687:7687"
-        restart: always
-        networks:
-          - mem0-network
-        healthcheck:
-          test: ["CMD", "curl", "-f", "http://localhost:7687"]
-          interval: 30s
-          timeout: 10s
-          retries: 5
-
+      - infra-network
+    restart: unless-stopped
 
 volumes:
   mem0_storage:
+    driver: local
   mem0_data:
+    driver: local
   neo4j_data:
     driver: local
   neo4j_logs:
+    driver: local
   neo4j_config:
-  neo4j_plugins:
+    driver: local
 
 networks:
   mem0-network:
     driver: bridge
-    # external: true
-  chronicle-network:
-    external: true  # Use the existing chronicle-network from friend-lite
+  infra-network:
+    driver: bridge
