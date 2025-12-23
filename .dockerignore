@@ -1,0 +1,45 @@
+# Node modules
+**/node_modules
+**/.pnpm-store
+**/.next
+
+# Python
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.venv
+**/venv
+
+# Git
+**/.git
+**/.gitignore
+
+# IDE
+**/.vscode
+**/.idea
+**/*.swp
+
+# OS
+**/.DS_Store
+**/Thumbs.db
+
+# Build artifacts
+**/dist
+**/build
+
+# Logs
+**/*.log
+
+# Database backups (we just created these)
+backups/
+
+# Test files
+**/tests
+**/test_*.py
+
+# Documentation
+**/*.md
+!README.md
+
+# Examples
+embedchain/examples/
