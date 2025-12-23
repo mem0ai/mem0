@@ -1,23 +1,83 @@
-# Ignore all .env files
-**/.env
+# Prevent secrets and sensitive data from being copied into the Docker image
 
+# Environment files
+.env
+.env.*
+!.env.example
+*.env
+.env.local
+.env.development
+.env.production
 
-# Ignore all database files
-**/*.db
-**/*.sqlite
-**/*.sqlite3
+# Secrets and credentials
+*.key
+*.pem
+*.p12
+*.pfx
+*.cer
+*.crt
+secrets/
+credentials/
 
-# Ignore logs
-**/*.log
+# Git
+.git/
+.gitignore
+.gitattributes
 
-# Ignore runtime data
-**/node_modules
-**/__pycache__
-**/.pytest_cache
-**/.coverage
-**/coverage
+# Development files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
 
-# Ignore Docker runtime files
-**/.dockerignore
-**/Dockerfile
-**/docker-compose*.yml 
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# Testing
+coverage/
+.nyc_output/
+*.test.js
+*.spec.js
+__tests__/
+tests/
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+Jenkinsfile
+.circleci/
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Logs
+*.log
+logs/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Vercel/Deployment
+.vercel
+.netlify

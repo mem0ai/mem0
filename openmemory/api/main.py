@@ -79,7 +79,8 @@ def create_default_app():
         if not user:
             return
 
-        # Check if app already exists
+        # Check if app already exists for this user
+        # Since DEFAULT_APP_ID is now the username, each user gets their own app
         existing_app = db.query(App).filter(
             App.name == DEFAULT_APP_ID,
             App.owner_id == user.id

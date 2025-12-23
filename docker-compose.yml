@@ -39,14 +39,13 @@ services:
           retries: 5
 
   mem0:
-    # image: mem0/openmemory-mcp
-    container_name: mem0
+    image: ghcr.io/ushadow-io/u-mem0-api:latest
+    container_name: u-mem0-api
     build: 
       context: .
       dockerfile: openmemory/api/Dockerfile
     environment:
       - USER
-      - API_KEY
       - NEO4J_URL=neo4j://neo4j:7687
       - DATABASE_URL=sqlite:///data/openmemory.db
     env_file:
@@ -66,12 +65,12 @@ services:
       - chronicle-network
 
 
-  mem0-ui:
-    container_name: mem0-ui
+  u-mem0-ui:
+    container_name: u-mem0-ui
     build:
       context: openmemory/ui/
       dockerfile: Dockerfile
-    image: mem0/openmemory-ui:latest
+    image: ghcr.io/ushadow-io/u-mem0-ui:latest
     ports:
       - "3333:3000"
     environment:
