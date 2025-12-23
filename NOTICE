@@ -1,0 +1,115 @@
+myceli0
+=======
+
+This software is based on mem0 (https://github.com/mem0ai/mem0)
+
+Original Work:
+   Copyright 2023 Taranjeet Singh and the Mem0 team
+   Licensed under Apache License 2.0
+   https://github.com/mem0ai/mem0
+
+Modifications and Enhancements (myceli0):
+   Copyright 2025 Stu Alexander (Ushadow-io)
+   Licensed under Apache License 2.0
+   https://github.com/ushadow-io/mem0
+
+=======================================================================
+
+This project includes the following modifications to the original mem0:
+
+1. Async Background Processing System
+   - Non-blocking memory creation with placeholder pattern
+   - Background task orchestration using asyncio
+   - Automatic retry and recovery mechanisms
+   - Memory state tracking (pending, processing, active, deleted, archived)
+
+2. Startup Recovery Mechanism
+   - Detects and recovers memories stuck in processing state
+   - Automatic retry on server restart
+   - Audit trail for all recovery operations
+
+3. Graph Visualization
+   - Neo4j graph querying API
+   - Interactive React-based graph visualization
+   - Memory relationship mapping
+   - Temporal graph analysis
+
+4. Dynamic Prompt Management
+   - Database-backed prompt storage
+   - Version control for prompts
+   - Web UI for prompt editing
+   - Multiple prompt type support
+
+5. Temporal Entity Extraction
+   - Time-aware memory parsing
+   - Event detection and timestamp resolution
+   - Entity classification (people, places, events)
+   - Structured temporal metadata
+
+6. Enhanced Multi-tenancy
+   - Advanced app management features
+   - App ownership transfer
+   - Superuser functionality
+   - Memory migration between apps
+
+7. Production Reliability Features
+   - Manual recovery endpoints
+   - Enhanced error handling
+   - State machine for memory lifecycle
+   - Comprehensive logging and monitoring
+
+8. OpenMemory Enhancements
+   - Improved UI/UX with pagination
+   - Enhanced memory card display
+   - App management dashboard
+   - Configuration management interface
+
+=======================================================================
+
+Third-Party Dependencies:
+
+This software includes or depends on the following open-source projects:
+
+- mem0ai (Apache 2.0) - https://github.com/mem0ai/mem0
+- FastAPI (MIT) - https://fastapi.tiangolo.com/
+- Next.js (MIT) - https://nextjs.org/
+- Neo4j (GPL/Commercial) - https://neo4j.com/
+- Qdrant (Apache 2.0) - https://qdrant.tech/
+- React (MIT) - https://reactjs.org/
+- Redux (MIT) - https://redux.js.org/
+
+For a complete list of dependencies, see package.json and requirements.txt files.
+
+=======================================================================
+
+Attribution Requirements:
+
+When redistributing this software or derivative works:
+
+1. Include a copy of the Apache License 2.0 (see LICENSE file)
+2. Include this NOTICE file
+3. Retain all copyright notices
+4. Clearly mark modifications made to the original work
+
+For commercial use or custom licensing, contact:
+   Chronicler AI - https://github.com/chronicler-ai
+
+=======================================================================
+
+Trademark Notice:
+
+"mem0" and "Mem0" are trademarks of their respective owners.
+"myceli0" is a distinct project based on mem0 but is not endorsed by
+or affiliated with the original mem0 project.
+
+=======================================================================
+
+Apache License 2.0 Summary:
+
+You may use, reproduce, and distribute this software in source or binary
+form, with or without modifications, provided you include:
+- This NOTICE file
+- The LICENSE file
+- Attribution notices from the original work
+
+See LICENSE file for complete terms and conditions.
