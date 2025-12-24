@@ -40,7 +40,9 @@ services:
       start_period: 30s
 
   u-mem0-api:
-    image: ghcr.io/ushadow-io/u-mem0-api:latest
+    build:
+      context: ./api
+      dockerfile: Dockerfile
     container_name: u-mem0-api
     env_file:
       - .env
@@ -53,6 +55,7 @@ services:
       - "8765:8765"
     volumes:
       - mem0_data:/usr/src/openmemory/data
+      # for data persistence
     networks:
       - infra-network
     restart: unless-stopped
@@ -63,7 +66,9 @@ services:
       retries: 3
 
   u-mem0-ui:
-    image: ghcr.io/ushadow-io/u-mem0-ui:latest
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
     container_name: u-mem0-ui
     env_file:
       - .env
@@ -88,7 +93,5 @@ volumes:
     driver: local
 
 networks:
-  mem0-network:
-    driver: bridge
   infra-network:
     driver: bridge
