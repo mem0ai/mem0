@@ -20,7 +20,10 @@ class GroqLLM(LLMBase):
             self.config.model = "llama3-70b-8192"
 
         api_key = self.config.api_key or os.getenv("GROQ_API_KEY")
-        self.client = Groq(api_key=api_key)
+        self.client = Groq(
+            api_key=api_key,
+            default_headers=self.config.extra_headers,
+        )
 
     def _parse_response(self, response, tools):
         """
