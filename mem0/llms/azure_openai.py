@@ -46,7 +46,10 @@ class AzureOpenAILLM(LLMBase):
         api_version = self.config.azure_kwargs.api_version or os.getenv("LLM_AZURE_API_VERSION")
         default_headers = self.config.extra_headers or {}
         if self.config.azure_kwargs.default_headers:
-            default_headers = {**self.config.azure_kwargs.default_headers, **self.config.extra_headers}
+            default_headers = {
+                **self.config.azure_kwargs.default_headers,
+                **(self.config.extra_headers or {}),
+            }
 
         # If the API key is not provided or is a placeholder, use DefaultAzureCredential.
         if api_key is None or api_key == "" or api_key == "your-api-key":
