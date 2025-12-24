@@ -1,6 +1,7 @@
 *.db
 .env*
 !.env.example
+!.env.template
 !.env.dev
 !ui/lib
 .venv/
