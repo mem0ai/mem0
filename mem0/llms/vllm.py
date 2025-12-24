@@ -29,6 +29,7 @@ class VllmLLM(LLMBase):
                 enable_vision=config.enable_vision,
                 vision_details=config.vision_details,
                 http_client_proxies=config.http_client,
+                extra_headers=config.extra_headers,
             )
 
         super().__init__(config)
@@ -38,7 +39,11 @@ class VllmLLM(LLMBase):
 
         self.config.api_key = self.config.api_key or os.getenv("VLLM_API_KEY") or "vllm-api-key"
         base_url = self.config.vllm_base_url or os.getenv("VLLM_BASE_URL")
-        self.client = OpenAI(api_key=self.config.api_key, base_url=base_url)
+        self.client = OpenAI(
+            api_key=self.config.api_key,
+            base_url=base_url,
+            default_headers=self.config.extra_headers,
+        )
 
     def _parse_response(self, response, tools):
         """

@@ -44,7 +44,9 @@ class AzureOpenAILLM(LLMBase):
         azure_deployment = self.config.azure_kwargs.azure_deployment or os.getenv("LLM_AZURE_DEPLOYMENT")
         azure_endpoint = self.config.azure_kwargs.azure_endpoint or os.getenv("LLM_AZURE_ENDPOINT")
         api_version = self.config.azure_kwargs.api_version or os.getenv("LLM_AZURE_API_VERSION")
-        default_headers = self.config.azure_kwargs.default_headers
+        default_headers = self.config.extra_headers or {}
+        if self.config.azure_kwargs.default_headers:
+            default_headers = {**self.config.azure_kwargs.default_headers, **self.config.extra_headers}
 
         # If the API key is not provided or is a placeholder, use DefaultAzureCredential.
         if api_key is None or api_key == "" or api_key == "your-api-key":
@@ -126,12 +128,14 @@ class AzureOpenAILLM(LLMBase):
         messages[-1]["content"] = user_prompt
 
         params = self._get_supported_params(messages=messages, **kwargs)
-        
+
         # Add model and messages
-        params.update({
-            "model": self.config.model,
-            "messages": messages,
-        })
+        params.update(
+            {
+                "model": self.config.model,
+                "messages": messages,
+            }
+        )
 
         if tools:
             params["tools"] = tools
