@@ -553,17 +553,25 @@ async def create_memory_async(
                 
                 # Process Qdrant response and update database
                 if 'results' in qdrant_response and qdrant_response['results']:
-                    for idx, result in enumerate(qdrant_response['results']):
-                        if result['event'] == 'ADD':
+                    add_count = 0
+                    update_count = 0
+                    processed_placeholder = False
+                    
+                    for result in qdrant_response['results']:
+                        event_type = result.get('event', 'NONE')
+                        
+                        if event_type == 'ADD':
+                            add_count += 1
                             # Get the Qdrant-generated ID
                             memory_id = uuid.UUID(result['id'])
 
-                            if idx == 0:
-                                # Update the placeholder memory with the first result
+                            if add_count == 1 and not processed_placeholder:
+                                # Update the placeholder memory with the first ADD result
                                 placeholder_memory_background.id = memory_id
                                 placeholder_memory_background.content = result['memory']
                                 placeholder_memory_background.state = MemoryState.active
                                 memory_obj = placeholder_memory_background
+                                processed_placeholder = True
                             else:
                                 # Create NEW memory records for additional facts
                                 memory_obj = Memory(
@@ -587,7 +595,125 @@ async def create_memory_async(
 
                             db_session.commit()
                             db_session.refresh(memory_obj)
-                            logging.info(f"Background memory created/updated: {memory_id}")
+                            logging.info(f"Background memory created: {memory_id}")
+                        
+                        elif event_type == 'UPDATE':
+                            update_count += 1
+                            # Get the ID of the memory that was updated
+                            memory_id = uuid.UUID(result['id'])
+                            
+                            # Find the existing memory in our database
+                            existing_memory = db_session.query(Memory).filter(
+                                Memory.id == memory_id,
+                                Memory.user_id == user_obj.id
+                            ).first()
+                            
+                            if existing_memory:
+                                # Store old content for logging
+                                old_content = existing_memory.content
+                                old_state = existing_memory.state
+                                
+                                # Update the existing memory
+                                existing_memory.content = result['memory']
+                                existing_memory.state = MemoryState.active
+                                # Preserve existing metadata but update if provided
+                                if metadata:
+                                    existing_metadata = existing_memory.metadata_ or {}
+                                    existing_metadata.update(metadata)
+                                    existing_memory.metadata_ = existing_metadata
+                                
+                                # Create history entry for the update
+                                history = MemoryStatusHistory(
+                                    memory_id=memory_id,
+                                    changed_by=user_obj.id,
+                                    old_state=old_state,
+                                    new_state=MemoryState.active
+                                )
+                                db_session.add(history)
+                                
+                                db_session.commit()
+                                db_session.refresh(existing_memory)
+                                
+                                logging.info(f"Background memory updated: {memory_id}")
+                                logging.info(f"  Old: {old_content[:100]}...")
+                                logging.info(f"  New: {result['memory'][:100]}...")
+                            else:
+                                logging.warning(f"UPDATE event for memory {memory_id} but memory not found in database. Creating new record.")
+                                # Memory doesn't exist in our DB, create it
+                                new_memory = Memory(
+                                    id=memory_id,
+                                    user_id=user_obj.id,
+                                    app_id=app_obj.id,
+                                    content=result['memory'],
+                                    metadata_=metadata,
+                                    state=MemoryState.active
+                                )
+                                db_session.add(new_memory)
+                                db_session.commit()
+                                logging.info(f"Created new memory record for UPDATE event: {memory_id}")
+                        
+                        elif event_type == 'DELETE':
+                            # Mem0 determined this memory contradicts new information
+                            memory_id = uuid.UUID(result['id'])
+
+                            # Find and mark the memory as deleted in our database
+                            memory_to_delete = db_session.query(Memory).filter(
+                                Memory.id == memory_id,
+                                Memory.user_id == user_obj.id
+                            ).first()
+
+                            if memory_to_delete:
+                                old_state = memory_to_delete.state
+                                old_content = memory_to_delete.content
+
+                                # Mark as deleted
+                                memory_to_delete.state = MemoryState.deleted
+
+                                # Create history entry
+                                history = MemoryStatusHistory(
+                                    memory_id=memory_id,
+                                    changed_by=user_obj.id,
+                                    old_state=old_state,
+                                    new_state=MemoryState.deleted
+                                )
+                                db_session.add(history)
+
+                                db_session.commit()
+                                db_session.refresh(memory_to_delete)
+
+                                logging.info(f"Background memory deleted (contradiction): {memory_id}")
+                                logging.info(f"  Deleted: {old_content[:100]}...")
+                            else:
+                                logging.warning(f"DELETE event for memory {memory_id} but memory not found in database")
+
+                        elif event_type == 'NONE':
+                            # Duplicate/no action needed
+                            logging.info(f"Memory event NONE (duplicate): {result.get('id', 'unknown')}")
+
+                        else:
+                            logging.warning(f"Unknown event type: {event_type}")
+                    
+                    # Handle placeholder cleanup
+                    if not processed_placeholder:
+                        # No ADD events used the placeholder, delete it
+                        placeholder_memory_background.state = MemoryState.deleted
+                        
+                        # Create history entry
+                        history = MemoryStatusHistory(
+                            memory_id=placeholder_memory_background.id,
+                            changed_by=user_obj.id,
+                            old_state=MemoryState.processing,
+                            new_state=MemoryState.deleted
+                        )
+                        db_session.add(history)
+                        
+                        db_session.commit()
+                        db_session.refresh(placeholder_memory_background)
+                        
+                        if update_count > 0:
+                            logging.info(f"Placeholder deleted (processed {update_count} UPDATE events, {add_count} ADD events)")
+                        else:
+                            logging.info(f"Placeholder deleted (all facts were duplicates/no action needed)")
                 
                 # If no results, mark as deleted (relations are stored in graph store separately)
                 else:

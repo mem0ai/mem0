@@ -25,6 +25,63 @@ from mem0.configs.prompts import (
 )
 from app.utils.prompts import MEMORY_CATEGORIZATION_PROMPT
 
+# Custom aggressive update memory prompt for better contradiction detection
+CUSTOM_UPDATE_MEMORY_PROMPT = """You are a smart memory manager which controls the memory of a system. You can perform four operations: (1) ADD into the memory, (2) UPDATE the memory, (3) DELETE from the memory, and (4) NONE (no change).
+
+CRITICAL RULES FOR DETECTING CONTRADICTIONS:
+
+1. **Temporal Proximity Rule** (MOST IMPORTANT):
+   - If two memories about the same topic were created within 10 minutes of each other, they are HIGHLY LIKELY to be corrections, clarifications, or mishearings
+   - In these cases, be EXTREMELY AGGRESSIVE: DELETE the older fact and ADD the newer one
+   - Examples:
+     * Created 2 min apart: "going to X this summer" vs "going to X today" → DELETE old, ADD new
+     * Created 5 min apart: "meeting with John" vs "meeting with Joan" → DELETE old, ADD new (likely misheard)
+     * Created 1 min apart: "favorite color is blue" vs "favorite color is red" → DELETE old, ADD new (clarification)
+     * Created 3 min apart: "allergic to peanuts" vs "not allergic to peanuts" → DELETE old, ADD new (correction)
+
+2. **Temporal Contradictions**:
+   - Different time/date for the same event or activity → DELETE old, ADD new
+   - Example: "going to X this summer" vs "going to X today" → DELETE old, ADD new
+   - Example: "meeting at 3pm" vs "meeting at 4pm" → DELETE old, ADD new
+
+3. **Semantic Contradictions**:
+   - Opposite preferences: "likes X" vs "dislikes X" → DELETE old, ADD new
+   - Different attributes: "works at Company A" vs "works at Company B" → DELETE old, ADD new
+   - Negations: "is vegetarian" vs "eats meat" → DELETE old, ADD new
+
+4. **Singular Attribute Recognition** (CRITICAL):
+   - Singular attributes can only have ONE value at a time:
+     * "favorite X" / "favourite X" → Only ONE favorite allowed, DELETE all other favorites
+     * "best X" → Only ONE best, DELETE other "best X" memories
+     * "primary X" → Only ONE primary, DELETE other "primary X" memories
+     * "main X" → Only ONE main, DELETE other "main X" memories
+   - Examples:
+     * "favorite color is blue" then "favorite color is red" → DELETE blue, ADD red
+     * "best friend is Alice" then "best friend is Bob" → DELETE Alice, ADD Bob
+     * "primary residence is NYC" then "primary residence is SF" → DELETE NYC, ADD SF
+   - Note: "likes blue" and "likes red" are PLURAL (can like multiple things) - don't delete
+   - Note: "favorite color is blue" is SINGULAR (only one favorite) - DELETE others
+
+5. **UPDATE vs DELETE+ADD**:
+   - Use UPDATE only when the new fact adds MORE DETAIL without changing core information
+   - Use DELETE+ADD when the core information CHANGES (especially time, location, preferences)
+   - When facts are created close together (< 10 min), prefer DELETE+ADD
+
+6. **Default to Aggressive**:
+   - When in doubt about contradictions, prefer DELETE+ADD over keeping duplicate information
+   - Conversational corrections should ALWAYS trigger DELETE+ADD, not create duplicates
+
+Operations:
+- ADD: New information not present in existing memories
+- UPDATE: Same core information with more detail (rare - prefer DELETE+ADD for changes)
+- DELETE: Contradictory, outdated, or superseded information (especially if created recently)
+- NONE: No change needed
+
+Output Format: JSON array with objects containing {id, text, event, old_memory (optional)}
+
+NOTE: You will receive the creation timestamp of existing memories. Use this to apply the Temporal Proximity Rule.
+"""
+
 
 def seed_prompts():
     """Seed the database with default prompts."""
@@ -54,8 +111,8 @@ def seed_prompts():
             {
                 "prompt_type": PromptType.update_memory,
                 "display_name": "Update Memory",
-                "description": "Manage memory operations (add, update, delete, no change)",
-                "content": DEFAULT_UPDATE_MEMORY_PROMPT,
+                "description": "Manage memory operations (add, update, delete, no change) with aggressive contradiction detection",
+                "content": CUSTOM_UPDATE_MEMORY_PROMPT,
             },
             {
                 "prompt_type": PromptType.memory_answer,

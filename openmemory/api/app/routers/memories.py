@@ -501,7 +501,48 @@ async def create_memory(
     db.add(placeholder_memory)
     db.commit()
     db.refresh(placeholder_memory)
-    
+
+    # Helper functions for memory processing
+    async def enrich_metadata_with_temporal_info(fact_content: str, base_metadata: dict) -> dict:
+        """Extract temporal/entity info and enrich metadata."""
+        temporal_info = await extract_temporal_entity(memory_client, fact_content)
+        enriched_metadata = base_metadata.copy()
+
+        if temporal_info:
+            enriched_metadata.update({
+                "isEvent": temporal_info.get("isEvent", False),
+                "isPerson": temporal_info.get("isPerson", False),
+                "isPlace": temporal_info.get("isPlace", False),
+                "isPromise": temporal_info.get("isPromise", False),
+                "isRelationship": temporal_info.get("isRelationship", False),
+                "entities": temporal_info.get("entities", []),
+                "timeRanges": temporal_info.get("timeRanges", []),
+                "emoji": temporal_info.get("emoji")
+            })
+
+            # Create display name with emoji if available
+            if temporal_info.get("emoji"):
+                fact_preview = fact_content[:50] + ("..." if len(fact_content) > 50 else "")
+                enriched_metadata["display_name"] = f"{temporal_info['emoji']} {fact_preview}"
+
+        return enriched_metadata, temporal_info
+
+    def format_temporal_log_string(temporal_info: Optional[dict]) -> str:
+        """Format temporal info for logging."""
+        if not temporal_info:
+            return ""
+        return f" [emoji={temporal_info.get('emoji')}, isEvent={temporal_info.get('isEvent')}, entities={len(temporal_info.get('entities', []))}]"
+
+    def create_history_entry(db_session, memory_id: UUID, user_id: UUID, old_state: MemoryState, new_state: MemoryState):
+        """Create and persist a memory status history entry."""
+        history = MemoryStatusHistory(
+            memory_id=memory_id,
+            changed_by=user_id,
+            old_state=old_state,
+            new_state=new_state
+        )
+        db_session.add(history)
+
     # Start memory creation in background (non-blocking)
     async def create_memory_background():
         """Background task to create memory without blocking the response"""
@@ -548,42 +589,31 @@ async def create_memory(
             if isinstance(qdrant_response, dict) and 'results' in qdrant_response:
                 if qdrant_response['results']:  # If there are results
                     add_count = 0
-                    for idx, result in enumerate(qdrant_response['results']):
-                        if result['event'] == 'ADD':
+                    update_count = 0
+                    delete_count = 0
+                    processed_placeholder = False
+                    
+                    for result in qdrant_response['results']:
+                        event_type = result.get('event', 'NONE')
+                        
+                        if event_type == 'ADD':
                             add_count += 1
-                            # Get the Qdrant-generated ID
                             memory_id = UUID(result['id'])
-
-                            # Extract temporal/entity information from the memory fact
                             fact_content = result['memory']
-                            temporal_info = await extract_temporal_entity(memory_client, fact_content)
 
-                            # Prepare metadata with temporal information
-                            enriched_metadata = memory_metadata.copy()
-                            if temporal_info:
-                                enriched_metadata.update({
-                                    "isEvent": temporal_info.get("isEvent", False),
-                                    "isPerson": temporal_info.get("isPerson", False),
-                                    "isPlace": temporal_info.get("isPlace", False),
-                                    "isPromise": temporal_info.get("isPromise", False),
-                                    "isRelationship": temporal_info.get("isRelationship", False),
-                                    "entities": temporal_info.get("entities", []),
-                                    "timeRanges": temporal_info.get("timeRanges", []),
-                                    "emoji": temporal_info.get("emoji")
-                                })
+                            # Extract and enrich metadata using helper
+                            enriched_metadata, temporal_info = await enrich_metadata_with_temporal_info(
+                                fact_content, memory_metadata
+                            )
 
-                                # Create a display name with emoji if available
-                                if temporal_info.get("emoji"):
-                                    fact_preview = fact_content[:50] + ("..." if len(fact_content) > 50 else "")
-                                    enriched_metadata["display_name"] = f"{temporal_info['emoji']} {fact_preview}"
-
-                            if add_count == 1:
+                            if add_count == 1 and not processed_placeholder:
                                 # Update placeholder memory with the first ADD result
                                 placeholder_memory_bg.id = memory_id
                                 placeholder_memory_bg.content = fact_content
                                 placeholder_memory_bg.state = MemoryState.active
                                 placeholder_memory_bg.metadata_ = enriched_metadata
                                 memory_obj = placeholder_memory_bg
+                                processed_placeholder = True
                             else:
                                 # Create NEW memory records for additional facts
                                 memory_obj = Memory(
@@ -597,52 +627,126 @@ async def create_memory(
                                 db_session.add(memory_obj)
 
                             # Create history entry
-                            history = MemoryStatusHistory(
-                                memory_id=memory_id,
-                                changed_by=user_obj.id,
-                                old_state=MemoryState.processing,
-                                new_state=MemoryState.active
-                            )
-                            db_session.add(history)
+                            create_history_entry(db_session, memory_id, user_obj.id, MemoryState.processing, MemoryState.active)
 
                             db_session.commit()
                             db_session.refresh(memory_obj)
 
                             # Log creation with temporal info
-                            temporal_str = ""
-                            if temporal_info:
-                                temporal_str = f" [emoji={temporal_info.get('emoji')}, isEvent={temporal_info.get('isEvent')}, entities={len(temporal_info.get('entities', []))}]"
-                            logging.info(f"Background memory created/updated: {memory_id}{temporal_str}")
+                            logging.info(f"Background memory created: {memory_id}{format_temporal_log_string(temporal_info)}")
+                        
+                        elif event_type == 'UPDATE':
+                            update_count += 1
+                            # Get the ID of the memory that was updated
+                            memory_id = UUID(result['id'])
+                            
+                            # Find the existing memory in our database
+                            existing_memory = db_session.query(Memory).filter(
+                                Memory.id == memory_id,
+                                Memory.user_id == user_obj.id
+                            ).first()
+                            
+                            if existing_memory:
+                                # Store old content for logging
+                                old_content = existing_memory.content
+                                old_state = existing_memory.state
+                                fact_content = result['memory']
 
-                    # If no ADD events occurred (all were NONE/UPDATE), mark placeholder as deleted
-                    if add_count == 0:
+                                # Extract and enrich metadata using helper
+                                base_metadata = existing_memory.metadata_.copy() if existing_memory.metadata_ else {}
+                                enriched_metadata, temporal_info = await enrich_metadata_with_temporal_info(
+                                    fact_content, base_metadata
+                                )
+
+                                # Update the existing memory
+                                existing_memory.content = fact_content
+                                existing_memory.metadata_ = enriched_metadata
+                                existing_memory.state = MemoryState.active
+                                existing_memory.updated_at = datetime.now(UTC)
+
+                                # Create history entry
+                                create_history_entry(db_session, memory_id, user_obj.id, old_state, MemoryState.active)
+                                db_session.commit()
+                                db_session.refresh(existing_memory)
+
+                                # Log the update
+                                logging.info(f"Background memory updated: {memory_id}{format_temporal_log_string(temporal_info)}")
+                                logging.info(f"  Old: {old_content[:100]}...")
+                                logging.info(f"  New: {fact_content[:100]}...")
+                            else:
+                                logging.warning(f"UPDATE event for memory {memory_id} but memory not found in database. Creating new record.")
+                                # Memory doesn't exist in our DB, create it
+                                fact_content = result['memory']
+
+                                # Extract and enrich metadata using helper
+                                enriched_metadata, temporal_info = await enrich_metadata_with_temporal_info(
+                                    fact_content, memory_metadata
+                                )
+
+                                new_memory = Memory(
+                                    id=memory_id,
+                                    user_id=user_obj.id,
+                                    app_id=app_obj.id,
+                                    content=fact_content,
+                                    metadata_=enriched_metadata,
+                                    state=MemoryState.active
+                                )
+                                db_session.add(new_memory)
+                                db_session.commit()
+                                logging.info(f"Created new memory record for UPDATE event: {memory_id}{format_temporal_log_string(temporal_info)}")
+                        
+                        elif event_type == 'DELETE':
+                            delete_count += 1
+                            # Mem0 determined this memory contradicts new information
+                            memory_id = UUID(result['id'])
+
+                            # Find and mark the memory as deleted in our database
+                            memory_to_delete = db_session.query(Memory).filter(
+                                Memory.id == memory_id,
+                                Memory.user_id == user_obj.id
+                            ).first()
+
+                            if memory_to_delete:
+                                old_state = memory_to_delete.state
+                                old_content = memory_to_delete.content
+
+                                # Mark as deleted
+                                memory_to_delete.state = MemoryState.deleted
+                                memory_to_delete.deleted_at = datetime.now(UTC)
+
+                                # Create history entry
+                                create_history_entry(db_session, memory_id, user_obj.id, old_state, MemoryState.deleted)
+
+                                db_session.commit()
+                                db_session.refresh(memory_to_delete)
+
+                                logging.info(f"Background memory deleted (contradiction): {memory_id}")
+                                logging.info(f"  Deleted: {old_content[:100]}...")
+                            else:
+                                logging.warning(f"DELETE event for memory {memory_id} but memory not found in database")
+
+                        elif event_type == 'NONE':
+                            # Duplicate/no action needed - this is expected
+                            logging.info(f"Memory event NONE (duplicate): {result.get('id', 'unknown')}")
+
+                        else:
+                            logging.warning(f"Unknown event type: {event_type}")
+                    
+                    # Handle placeholder cleanup
+                    if not processed_placeholder:
+                        # No ADD events used the placeholder, delete it
                         placeholder_memory_bg.state = MemoryState.deleted
-
-                        # Create history entry
-                        history = MemoryStatusHistory(
-                            memory_id=placeholder_memory_bg.id,
-                            changed_by=user_obj.id,
-                            old_state=MemoryState.processing,
-                            new_state=MemoryState.deleted
-                        )
-                        db_session.add(history)
-
+                        create_history_entry(db_session, placeholder_memory_bg.id, user_obj.id, MemoryState.processing, MemoryState.deleted)
                         db_session.commit()
                         db_session.refresh(placeholder_memory_bg)
-                        logging.info(f"Background memory completed (all facts were duplicates/updates): {placeholder_memory_bg.id}")
+                        
+                        if update_count > 0 or delete_count > 0:
+                            logging.info(f"Placeholder deleted (processed {update_count} UPDATE, {delete_count} DELETE, {add_count} ADD events)")
+                        else:
+                            logging.info(f"Placeholder deleted (all facts were duplicates/no action needed)")
                 else:  # No results - no meaningful facts extracted
-                    # Keep the original content but mark as deleted
                     placeholder_memory_bg.state = MemoryState.deleted
-
-                    # Create history entry
-                    history = MemoryStatusHistory(
-                        memory_id=placeholder_memory_bg.id,
-                        changed_by=user_obj.id,
-                        old_state=MemoryState.processing,
-                        new_state=MemoryState.deleted
-                    )
-                    db_session.add(history)
-
+                    create_history_entry(db_session, placeholder_memory_bg.id, user_obj.id, MemoryState.processing, MemoryState.deleted)
                     db_session.commit()
                     db_session.refresh(placeholder_memory_bg)
                     logging.info(f"Background memory completed (no facts extracted): {placeholder_memory_bg.id}")
