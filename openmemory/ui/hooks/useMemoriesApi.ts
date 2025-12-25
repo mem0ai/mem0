@@ -84,7 +84,7 @@ interface UseMemoriesApiReturn {
   fetchMemoryById: (memoryId: string) => Promise<void>;
   fetchAccessLogs: (memoryId: string, page?: number, pageSize?: number) => Promise<void>;
   fetchRelatedMemories: (memoryId: string) => Promise<void>;
-  createMemory: (text: string) => Promise<Memory>;
+  createMemory: (text: string, infer?: boolean) => Promise<Memory>;
   deleteMemories: (memoryIds: string[]) => Promise<void>;
   updateMemory: (memoryId: string, content: string) => Promise<void>;
   updateMemoryState: (memoryIds: string[], state: string) => Promise<void>;
@@ -161,12 +161,12 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
     }
   }, [user_id, dispatch]);
 
-  const createMemory = async (text: string): Promise<Memory> => {
+  const createMemory = async (text: string, infer: boolean = true): Promise<Memory> => {
     try {
       const memoryData = {
         user_id: user_id,
         text: text,
-        infer: false,
+        infer: infer,
         app: "openmemory",
       }
       const response = await axios.post<ApiMemoryItem>(`${URL}/api/v1/memories/`, memoryData);
