@@ -18,6 +18,30 @@ from app.models import (
     MemoryStatusHistory,
     User,
 )
+from app.models.schemas import (
+    TimeRange,
+    TemporalEntity,
+    CreateMemoryRequest,
+    DeleteMemoriesRequest,
+    PauseMemoriesRequest,
+    UpdateMemoryRequest,
+    MoveMemoriesRequest,
+    FilterMemoriesRequest,
+)
+from app.services.temporal_service import (
+    build_temporal_extraction_prompt,
+    extract_temporal_entity,
+    enrich_metadata_with_temporal_info,
+    format_temporal_log_string,
+)
+from app.services.memory_service import (
+    get_memory_or_404,
+    update_memory_state,
+    create_history_entry,
+)
+from app.controllers.permission_controller import (
+    get_accessible_memory_ids,
+)
 from app.schemas import MemoryResponse
 from app.utils.memory import get_memory_client, create_memory_async
 from app.database import SessionLocal
@@ -32,357 +56,63 @@ from sqlalchemy.orm import Session, joinedload
 router = APIRouter(prefix="/api/v1/memories", tags=["memories"])
 
 
-# Temporal Entity Extraction Models and Prompts
-class TimeRange(BaseModel):
-    """Represents a time range with start and end timestamps."""
-    start: datetime = Field(description="ISO 8601 timestamp when the event/activity starts")
-    end: datetime = Field(description="ISO 8601 timestamp when the event/activity ends")
-    name: Optional[str] = Field(default=None, description="Optional name/label for this time range")
-
-
-class TemporalEntity(BaseModel):
-    """Structured temporal and entity information extracted from a memory fact."""
-    isEvent: bool = Field(description="Whether this memory describes a scheduled event or time-bound activity")
-    isPerson: bool = Field(description="Whether this memory is primarily about a person or people")
-    isPlace: bool = Field(description="Whether this memory is primarily about a location or place")
-    isPromise: bool = Field(description="Whether this memory contains a commitment, promise, or agreement")
-    isRelationship: bool = Field(description="Whether this memory describes a relationship between people")
-    entities: List[str] = Field(default_factory=list, description="List of people, places, or things mentioned")
-    timeRanges: List[TimeRange] = Field(default_factory=list, description="List of time ranges if this is a temporal memory")
-    emoji: Optional[str] = Field(default=None, description="Single emoji that best represents this memory")
-
-
-def build_temporal_extraction_prompt(current_date: datetime) -> str:
-    """Build the temporal extraction prompt with the current date context."""
-    return f"""You are an expert at extracting temporal and entity information from memory facts.
-
-Your task is to analyze a memory fact and extract structured information in JSON format:
-1. **Entity Types**: Determine if the memory is about events, people, places, promises, or relationships
-2. **Temporal Information**: Extract and resolve any time references to actual ISO 8601 timestamps
-3. **Named Entities**: List all people, places, and things mentioned
-4. **Representation**: Choose a single emoji that captures the essence of the memory
-
-You must return a valid JSON object with the following structure.
-
-**Current Date Context:**
-- Today's date: {current_date.strftime("%Y-%m-%d")}
-- Current time: {current_date.strftime("%H:%M:%S")}
-- Day of week: {current_date.strftime("%A")}
-
-**Time Resolution Guidelines:**
-
-Relative Time References:
-- "tomorrow" → Add 1 day to current date
-- "next week" → Add 7 days to current date
-- "in X days/weeks/months" → Add X time units to current date
-- "yesterday" → Subtract 1 day from current date
-
-Time of Day:
-- "4pm" or "16:00" → Use current date with that time
-- "tomorrow at 4pm" → Use tomorrow's date at 16:00
-- "morning" → 09:00, "afternoon" → 14:00, "evening" → 18:00, "night" → 21:00
-
-Duration Estimation (when only start time is mentioned):
-- Events like "wedding", "meeting", "party" → Default 2 hours duration
-- "lunch", "dinner", "breakfast" → Default 1 hour duration
-- "class", "workshop" → Default 1.5 hours duration
-- "appointment", "call" → Default 30 minutes duration
-
-**Entity Type Guidelines:**
-- **isEvent**: True for scheduled activities, appointments, meetings, parties, ceremonies, classes, etc.
-- **isPerson**: True when the primary focus is on a person
-- **isPlace**: True when the primary focus is a location
-- **isPromise**: True for commitments, promises, or agreements
-- **isRelationship**: True for statements about relationships
-
-**Example:**
-
-Input: "I'm taking a glassblowing class today at Wimberly Glassworks with instructor Nick"
-Output:
-{{
-    "isEvent": true,
-    "isPerson": true,
-    "isPlace": true,
-    "isPromise": false,
-    "isRelationship": false,
-    "entities": ["Wimberly Glassworks", "Nick", "glassblowing"],
-    "timeRanges": [
-        {{
-            "start": "{current_date.replace(hour=10, minute=0, second=0).isoformat()}",
-            "end": "{current_date.replace(hour=11, minute=30, second=0).isoformat()}",
-            "name": "Glassblowing Class"
-        }}
-    ],
-    "emoji": "🎨"
-}}
-
-**Instructions:**
-- Return structured data following the TemporalEntity schema
-- Convert all temporal references to ISO 8601 format
-- Be conservative: if there's no temporal information, leave timeRanges empty
-- Multiple tags can be true (e.g., isEvent and isPerson both true for "meeting with John")
-- Extract all meaningful entities (people, places, things) mentioned in the fact
-- Choose an emoji that best represents the core meaning of the memory
-"""
-
-
-def get_memory_or_404(db: Session, memory_id: UUID) -> Memory:
-    memory = db.query(Memory).filter(Memory.id == memory_id).first()
-    if not memory:
-        raise HTTPException(status_code=404, detail="Memory not found")
-    return memory
-
-
-def update_memory_state(db: Session, memory_id: UUID, new_state: MemoryState, user_id: UUID):
-    memory = get_memory_or_404(db, memory_id)
-    old_state = memory.state
-
-    # Update memory state
-    memory.state = new_state
-    if new_state == MemoryState.archived:
-        memory.archived_at = datetime.now(UTC)
-    elif new_state == MemoryState.deleted:
-        memory.deleted_at = datetime.now(UTC)
-
-    # Record state change
-    history = MemoryStatusHistory(
-        memory_id=memory_id,
-        changed_by=user_id,
-        old_state=old_state,
-        new_state=new_state
-    )
-    db.add(history)
-    db.commit()
-    return memory
-
-
-async def extract_temporal_entity(memory_client, fact: str) -> Optional[Dict]:
-    """
-    Extract temporal and entity information from a memory fact using LLM.
-
-    Args:
-        memory_client: The mem0 memory client
-        fact: The memory fact text to analyze
-
-    Returns:
-        Dictionary with temporal/entity information, or None if extraction fails
-    """
-    try:
-        # Use the memory client's LLM to extract temporal information
-        from openai import AsyncOpenAI
-
-        # Get LLM config from memory client
-        llm_config = memory_client.config.llm.config
-
-        # Handle different config formats (dict vs object)
-        if isinstance(llm_config, dict):
-            api_key = llm_config.get('api_key')
-            base_url = llm_config.get('openai_base_url')
-            model = llm_config.get('model', 'gpt-4o-mini')
-        else:
-            api_key = llm_config.api_key
-            base_url = llm_config.openai_base_url if hasattr(llm_config, 'openai_base_url') else None
-            model = llm_config.model if hasattr(llm_config, 'model') else 'gpt-4o-mini'
-
-        # Initialize OpenAI client
-        openai_client = AsyncOpenAI(
-            api_key=api_key,
-            base_url=base_url
-        )
-
-        # Build the prompt with current date context
-        temporal_prompt = build_temporal_extraction_prompt(datetime.now())
-
-        # Call LLM with temporal extraction prompt
-        response = await openai_client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": temporal_prompt},
-                {"role": "user", "content": f"Extract temporal and entity information from this memory fact:\n\n{fact}"}
-            ],
-            response_format={"type": "json_object"},
-            temperature=0.1
-        )
-
-        content = response.choices[0].message.content
-        if not content:
-            logging.warning("LLM returned empty content for temporal extraction")
-            return None
-
-        # Parse and validate with Pydantic
-        temporal_data = json.loads(content)
-
-        # Convert timeRanges ISO strings to datetime objects for validation
-        if "timeRanges" in temporal_data:
-            for time_range in temporal_data["timeRanges"]:
-                if isinstance(time_range.get("start"), str):
-                    time_range["start"] = datetime.fromisoformat(time_range["start"].replace("Z", "+00:00"))
-                if isinstance(time_range.get("end"), str):
-                    time_range["end"] = datetime.fromisoformat(time_range["end"].replace("Z", "+00:00"))
-
-        # Validate with Pydantic model
-        temporal_entity = TemporalEntity(**temporal_data)
-
-        # Convert back to serializable dict format
-        result = {
-            "isEvent": temporal_entity.isEvent,
-            "isPerson": temporal_entity.isPerson,
-            "isPlace": temporal_entity.isPlace,
-            "isPromise": temporal_entity.isPromise,
-            "isRelationship": temporal_entity.isRelationship,
-            "entities": temporal_entity.entities,
-            "emoji": temporal_entity.emoji
-        }
-
-        # Convert timeRanges to serializable format
-        if temporal_entity.timeRanges:
-            result["timeRanges"] = []
-            for tr in temporal_entity.timeRanges:
-                time_range_dict = {
-                    "start": tr.start.isoformat() if isinstance(tr.start, datetime) else tr.start,
-                    "end": tr.end.isoformat() if isinstance(tr.end, datetime) else tr.end,
-                }
-                if tr.name:
-                    time_range_dict["name"] = tr.name
-                result["timeRanges"].append(time_range_dict)
-        else:
-            result["timeRanges"] = []
-
-        logging.info(f"✅ Temporal extraction: isEvent={result['isEvent']}, entities={len(result['entities'])}, timeRanges={len(result['timeRanges'])}")
-        return result
-
-    except Exception as e:
-        logging.warning(f"Failed to extract temporal information: {e}")
-        return None
-
-def get_accessible_memory_ids(db: Session, app_id: UUID) -> Set[UUID]:
-    """
-    Get the set of memory IDs that the app has access to based on app-level ACL rules.
-    Returns all memory IDs if no specific restrictions are found.
-    """
-    # Get app-level access controls
-    app_access = db.query(AccessControl).filter(
-        AccessControl.subject_type == "app",
-        AccessControl.subject_id == app_id,
-        AccessControl.object_type == "memory"
-    ).all()
-
-    # If no app-level rules exist, return None to indicate all memories are accessible
-    if not app_access:
-        return None
-
-    # Initialize sets for allowed and denied memory IDs
-    allowed_memory_ids = set()
-    denied_memory_ids = set()
-
-    # Process app-level rules
-    for rule in app_access:
-        if rule.effect == "allow":
-            if rule.object_id:  # Specific memory access
-                allowed_memory_ids.add(rule.object_id)
-            else:  # All memories access
-                return None  # All memories allowed
-        elif rule.effect == "deny":
-            if rule.object_id:  # Specific memory denied
-                denied_memory_ids.add(rule.object_id)
-            else:  # All memories denied
-                return set()  # No memories accessible
-
-    # Remove denied memories from allowed set
-    if allowed_memory_ids:
-        allowed_memory_ids -= denied_memory_ids
-
-    return allowed_memory_ids
-
-
 # List all memories with filtering
 @router.get("/", response_model=Page[MemoryResponse])
 async def list_memories(
     user_id: str,
     app_id: Optional[UUID] = None,
-    from_date: Optional[int] = Query(
-        None,
-        description="Filter memories created after this date (timestamp)",
-        examples=[1718505600]
-    ),
-    to_date: Optional[int] = Query(
-        None,
-        description="Filter memories created before this date (timestamp)",
-        examples=[1718505600]
-    ),
+    from_date: Optional[int] = Query(None, description="Filter memories created after this date (timestamp)", examples=[1718505600]),
+    to_date: Optional[int] = Query(None, description="Filter memories created before this date (timestamp)", examples=[1718505600]),
     categories: Optional[str] = None,
     params: Params = Depends(),
     search_query: Optional[str] = None,
-    sort_column: Optional[str] = Query(None, description="Column to sort by (memory, categories, app_name, created_at)"),
+    sort_column: Optional[str] = Query(None, description="Column to sort by"),
     sort_direction: Optional[str] = Query(None, description="Sort direction (asc or desc)"),
     db: Session = Depends(get_db)
 ):
-    user = db.query(User).filter(User.user_id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    """List memories with filtering and pagination.
 
-    # Build base query
-    query = db.query(Memory).filter(
-        Memory.user_id == user.id,
-        Memory.state != MemoryState.deleted,
-        Memory.state != MemoryState.archived,
-        Memory.content.ilike(f"%{search_query}%") if search_query else True
-    )
+    Flow:
+    1. Get user
+    2. Build base query (user's active memories)
+    3. Apply filters (app, dates, search, categories)
+    4. Apply joins and sorting
+    5. Paginate with permission checking
+    """
+    from app.controllers import query_controller as qc
 
-    # Apply filters
-    if app_id:
-        query = query.filter(Memory.app_id == app_id)
+    # Step 1: Get user or 404
+    user = qc.get_user_or_404(user_id, db)
 
-    if from_date:
-        from_datetime = datetime.fromtimestamp(from_date, tz=UTC)
-        query = query.filter(Memory.created_at >= from_datetime)
+    # Step 2: Build base query for user's active memories
+    query = qc.build_base_memory_query(user, db)
 
-    if to_date:
-        to_datetime = datetime.fromtimestamp(to_date, tz=UTC)
-        query = query.filter(Memory.created_at <= to_datetime)
+    # Step 3: Apply search filter
+    query = qc.apply_search_filter(query, search_query)
 
-    # Add joins for app and categories after filtering
+    # Step 4: Apply filters
+    query = qc.apply_app_filter(query, app_id)
+    query = qc.apply_date_filters(query, from_date, to_date)
+    query = qc.apply_category_filter(query, categories)  # Does join if needed
+
+    # Step 5: Join app table for app_name in response
     query = query.outerjoin(App, Memory.app_id == App.id)
-    query = query.outerjoin(Memory.categories)
 
-    # Apply category filter if provided
-    if categories:
-        category_list = [c.strip() for c in categories.split(",")]
-        query = query.filter(Category.name.in_(category_list))
+    # Step 6: Apply sorting
+    query = qc.apply_sorting(query, sort_column, sort_direction)
 
-    # Apply sorting if specified
-    if sort_column:
-        sort_field = getattr(Memory, sort_column, None)
-        if sort_field:
-            query = query.order_by(sort_field.desc()) if sort_direction == "desc" else query.order_by(sort_field.asc())
-
-    # Add eager loading for app, categories, and user
+    # Step 7: Eager load relationships (SQLAlchemy optimization)
     query = query.options(
         joinedload(Memory.app),
         joinedload(Memory.categories),
         joinedload(Memory.user)
     ).distinct(Memory.id)
 
-    # Get paginated results with transformer
+    # Step 9: Paginate and transform with permission checking
     return sqlalchemy_paginate(
         query,
         params,
-        transformer=lambda items: [
-            MemoryResponse(
-                id=memory.id,
-                content=memory.content,
-                created_at=memory.created_at,
-                state=memory.state.value,
-                app_id=memory.app_id,
-                app_name=memory.app.name if memory.app else None,
-                categories=[category.name for category in memory.categories],
-                metadata_=memory.metadata_,
-                user_id=memory.user.user_id if memory.user else None,
-                user_email=memory.user.email if memory.user else None
-            )
-            for memory in items
-            if check_memory_access_permissions(db, memory, app_id)
-        ]
+        transformer=lambda items: qc.transform_to_response(items, app_id, db)
     )
 
 
@@ -410,370 +140,43 @@ async def get_categories(
     }
 
 
-class CreateMemoryRequest(BaseModel):
-    user_id: str
-    text: str
-    metadata: dict = {}
-    infer: bool = True
-    app: str = "openmemory"
-    timestamp: Optional[int] = None  # Unix timestamp in seconds
-
-
 # Create new memory
 @router.post("/")
 async def create_memory(
     request: CreateMemoryRequest,
     db: Session = Depends(get_db)
 ):
-    # Get or create user
-    user = db.query(User).filter(User.user_id == request.user_id).first()
-    if not user:
-        # Extract email from metadata if provided
-        user_email = None
-        if request.metadata and isinstance(request.metadata, dict):
-            user_email = request.metadata.get("user_email")
+    """Create a new memory.
 
-        user = User(user_id=request.user_id, name=request.user_id, email=user_email)
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        logging.info(f"Auto-created user: {request.user_id} with email: {user_email}")
+    Flow (readable sequence):
+    1. Get/create user and app
+    2. Validate app is active
+    3. Ensure memory client available
+    4. Prepare metadata
+    5. Create placeholder (instant response)
+    6. Start background processing
+    """
+    from app.controllers import memory_controller as controller
 
-    # Log what we're about to do
-    logging.info(f"Creating memory for user_id: {request.user_id} with app: {request.app}")
+    # Step 1: Get or create user and app
+    user, app = await controller.get_or_create_user_and_app(request, db)
 
-    # Get or create the app - handle both UUID and name
-    app_obj = None
-    try:
-        # Try to parse as UUID first
-        app_uuid = UUID(request.app)
-        app_obj = db.query(App).filter(App.id == app_uuid).first()
-        if not app_obj:
-            raise HTTPException(status_code=404, detail=f"App with ID {request.app} not found")
-    except (ValueError, AttributeError):
-        # Not a UUID, treat as app name
-        app_obj = db.query(App).filter(App.name == request.app).first()
-        if not app_obj:
-            # Create the app if it doesn't exist
-            app_obj = App(
-                owner_id=user.id,
-                name=request.app,
-                description=f"Auto-created app for {request.app}"
-            )
-            db.add(app_obj)
-            db.commit()
-            db.refresh(app_obj)
-            logging.info(f"Created new app: {request.app} with ID: {app_obj.id}")
+    # Step 2: Validate app is active
+    controller.validate_app_active(app)
 
-    # Try to get memory client safely
-    try:
-        memory_client = await get_memory_client()
-        if not memory_client:
-            raise Exception("Memory client is not available")
-    except Exception as client_error:
-        logging.warning(f"Memory client unavailable: {client_error}. Creating memory in database only.")
-        # Return a json response with the error
-        return {
-            "error": str(client_error)
-        }
+    # Step 3: Ensure memory client is available
+    memory_client = await controller.ensure_memory_client()
 
+    # Step 4: Prepare metadata
+    metadata = controller.prepare_memory_metadata(request, user)
 
-    # Prepare metadata with timestamp
-    memory_metadata = request.metadata.copy() if request.metadata else {}
-    if request.timestamp:
-        memory_metadata['timestamp'] = request.timestamp
-        memory_metadata['timestamp_iso'] = datetime.fromtimestamp(request.timestamp, tz=UTC).isoformat()
+    # Step 5: Create placeholder for instant response
+    placeholder = controller.create_placeholder(user, app, request, metadata, db)
 
-    # Add user info to metadata
-    memory_metadata['user_id'] = request.user_id
-    if user.email:
-        memory_metadata['user_email'] = user.email
+    # Step 6: Start background processing
+    controller.start_background_processing(placeholder, request, memory_client, metadata)
 
-    # Create a placeholder memory record immediately
-    placeholder_memory = Memory(
-        user_id=user.id,
-        app_id=app_obj.id,
-        content=request.text,
-        metadata_=memory_metadata,
-        state=MemoryState.processing,  # Mark as processing
-        created_at=datetime.fromtimestamp(request.timestamp, tz=UTC) if request.timestamp else None
-    )
-    db.add(placeholder_memory)
-    db.commit()
-    db.refresh(placeholder_memory)
-
-    # Helper functions for memory processing
-    async def enrich_metadata_with_temporal_info(fact_content: str, base_metadata: dict) -> dict:
-        """Extract temporal/entity info and enrich metadata."""
-        temporal_info = await extract_temporal_entity(memory_client, fact_content)
-        enriched_metadata = base_metadata.copy()
-
-        if temporal_info:
-            enriched_metadata.update({
-                "isEvent": temporal_info.get("isEvent", False),
-                "isPerson": temporal_info.get("isPerson", False),
-                "isPlace": temporal_info.get("isPlace", False),
-                "isPromise": temporal_info.get("isPromise", False),
-                "isRelationship": temporal_info.get("isRelationship", False),
-                "entities": temporal_info.get("entities", []),
-                "timeRanges": temporal_info.get("timeRanges", []),
-                "emoji": temporal_info.get("emoji")
-            })
-
-            # Create display name with emoji if available
-            if temporal_info.get("emoji"):
-                fact_preview = fact_content[:50] + ("..." if len(fact_content) > 50 else "")
-                enriched_metadata["display_name"] = f"{temporal_info['emoji']} {fact_preview}"
-
-        return enriched_metadata, temporal_info
-
-    def format_temporal_log_string(temporal_info: Optional[dict]) -> str:
-        """Format temporal info for logging."""
-        if not temporal_info:
-            return ""
-        return f" [emoji={temporal_info.get('emoji')}, isEvent={temporal_info.get('isEvent')}, entities={len(temporal_info.get('entities', []))}]"
-
-    def create_history_entry(db_session, memory_id: UUID, user_id: UUID, old_state: MemoryState, new_state: MemoryState):
-        """Create and persist a memory status history entry."""
-        history = MemoryStatusHistory(
-            memory_id=memory_id,
-            changed_by=user_id,
-            old_state=old_state,
-            new_state=new_state
-        )
-        db_session.add(history)
-
-    # Start memory creation in background (non-blocking)
-    async def create_memory_background():
-        """Background task to create memory without blocking the response"""
-        # Create a new database session for the background task
-        db_session = SessionLocal()
-        
-        try:
-            start_time = time.time()
-
-            # Prepare metadata for mem0
-            mem0_metadata = {
-                "source_app": "openmemory",
-                "mcp_client": request.app,
-            }
-
-            # Note: mem0 doesn't support timestamp parameter in add()
-            # Timestamps are stored in our database metadata instead
-
-            qdrant_response = await memory_client.add(
-                request.text,
-                user_id=request.user_id,
-                metadata=mem0_metadata,
-                infer=request.infer
-            )
-        
-            # Log timing information
-            total_duration = time.time() - start_time
-            logging.info(f"Background memory creation timing - Total: {total_duration:.3f}s")
-            
-            # Log the response for debugging
-            logging.info(f"Background Qdrant response: {qdrant_response}")
-            
-            # Get fresh user and app objects from the new session
-            user_obj = db_session.query(User).filter(User.user_id == request.user_id).first()
-            app_obj = db_session.query(App).filter(App.name == request.app).first()
-            
-            # Get the placeholder memory from the new session using its ID
-            placeholder_memory_bg = db_session.query(Memory).filter(Memory.id == placeholder_memory.id).first()
-            if not placeholder_memory_bg:
-                logging.error(f"Placeholder memory {placeholder_memory.id} not found in background session")
-                return
-            
-            # Process Qdrant response and update database
-            if isinstance(qdrant_response, dict) and 'results' in qdrant_response:
-                if qdrant_response['results']:  # If there are results
-                    add_count = 0
-                    update_count = 0
-                    delete_count = 0
-                    processed_placeholder = False
-                    
-                    for result in qdrant_response['results']:
-                        event_type = result.get('event', 'NONE')
-                        
-                        if event_type == 'ADD':
-                            add_count += 1
-                            memory_id = UUID(result['id'])
-                            fact_content = result['memory']
-
-                            # Extract and enrich metadata using helper
-                            enriched_metadata, temporal_info = await enrich_metadata_with_temporal_info(
-                                fact_content, memory_metadata
-                            )
-
-                            if add_count == 1 and not processed_placeholder:
-                                # Update placeholder memory with the first ADD result
-                                placeholder_memory_bg.id = memory_id
-                                placeholder_memory_bg.content = fact_content
-                                placeholder_memory_bg.state = MemoryState.active
-                                placeholder_memory_bg.metadata_ = enriched_metadata
-                                memory_obj = placeholder_memory_bg
-                                processed_placeholder = True
-                            else:
-                                # Create NEW memory records for additional facts
-                                memory_obj = Memory(
-                                    id=memory_id,
-                                    user_id=user_obj.id,
-                                    app_id=app_obj.id,
-                                    content=fact_content,
-                                    metadata_=enriched_metadata,
-                                    state=MemoryState.active
-                                )
-                                db_session.add(memory_obj)
-
-                            # Create history entry
-                            create_history_entry(db_session, memory_id, user_obj.id, MemoryState.processing, MemoryState.active)
-
-                            db_session.commit()
-                            db_session.refresh(memory_obj)
-
-                            # Log creation with temporal info
-                            logging.info(f"Background memory created: {memory_id}{format_temporal_log_string(temporal_info)}")
-                        
-                        elif event_type == 'UPDATE':
-                            update_count += 1
-                            # Get the ID of the memory that was updated
-                            memory_id = UUID(result['id'])
-                            
-                            # Find the existing memory in our database
-                            existing_memory = db_session.query(Memory).filter(
-                                Memory.id == memory_id,
-                                Memory.user_id == user_obj.id
-                            ).first()
-                            
-                            if existing_memory:
-                                # Store old content for logging
-                                old_content = existing_memory.content
-                                old_state = existing_memory.state
-                                fact_content = result['memory']
-
-                                # Extract and enrich metadata using helper
-                                base_metadata = existing_memory.metadata_.copy() if existing_memory.metadata_ else {}
-                                enriched_metadata, temporal_info = await enrich_metadata_with_temporal_info(
-                                    fact_content, base_metadata
-                                )
-
-                                # Update the existing memory
-                                existing_memory.content = fact_content
-                                existing_memory.metadata_ = enriched_metadata
-                                existing_memory.state = MemoryState.active
-                                existing_memory.updated_at = datetime.now(UTC)
-
-                                # Create history entry
-                                create_history_entry(db_session, memory_id, user_obj.id, old_state, MemoryState.active)
-                                db_session.commit()
-                                db_session.refresh(existing_memory)
-
-                                # Log the update
-                                logging.info(f"Background memory updated: {memory_id}{format_temporal_log_string(temporal_info)}")
-                                logging.info(f"  Old: {old_content[:100]}...")
-                                logging.info(f"  New: {fact_content[:100]}...")
-                            else:
-                                logging.warning(f"UPDATE event for memory {memory_id} but memory not found in database. Creating new record.")
-                                # Memory doesn't exist in our DB, create it
-                                fact_content = result['memory']
-
-                                # Extract and enrich metadata using helper
-                                enriched_metadata, temporal_info = await enrich_metadata_with_temporal_info(
-                                    fact_content, memory_metadata
-                                )
-
-                                new_memory = Memory(
-                                    id=memory_id,
-                                    user_id=user_obj.id,
-                                    app_id=app_obj.id,
-                                    content=fact_content,
-                                    metadata_=enriched_metadata,
-                                    state=MemoryState.active
-                                )
-                                db_session.add(new_memory)
-                                db_session.commit()
-                                logging.info(f"Created new memory record for UPDATE event: {memory_id}{format_temporal_log_string(temporal_info)}")
-                        
-                        elif event_type == 'DELETE':
-                            delete_count += 1
-                            # Mem0 determined this memory contradicts new information
-                            memory_id = UUID(result['id'])
-
-                            # Find and mark the memory as deleted in our database
-                            memory_to_delete = db_session.query(Memory).filter(
-                                Memory.id == memory_id,
-                                Memory.user_id == user_obj.id
-                            ).first()
-
-                            if memory_to_delete:
-                                old_state = memory_to_delete.state
-                                old_content = memory_to_delete.content
-
-                                # Mark as deleted
-                                memory_to_delete.state = MemoryState.deleted
-                                memory_to_delete.deleted_at = datetime.now(UTC)
-
-                                # Create history entry
-                                create_history_entry(db_session, memory_id, user_obj.id, old_state, MemoryState.deleted)
-
-                                db_session.commit()
-                                db_session.refresh(memory_to_delete)
-
-                                logging.info(f"Background memory deleted (contradiction): {memory_id}")
-                                logging.info(f"  Deleted: {old_content[:100]}...")
-                            else:
-                                logging.warning(f"DELETE event for memory {memory_id} but memory not found in database")
-
-                        elif event_type == 'NONE':
-                            # Duplicate/no action needed - this is expected
-                            logging.info(f"Memory event NONE (duplicate): {result.get('id', 'unknown')}")
-
-                        else:
-                            logging.warning(f"Unknown event type: {event_type}")
-                    
-                    # Handle placeholder cleanup
-                    if not processed_placeholder:
-                        # No ADD events used the placeholder, delete it
-                        placeholder_memory_bg.state = MemoryState.deleted
-                        create_history_entry(db_session, placeholder_memory_bg.id, user_obj.id, MemoryState.processing, MemoryState.deleted)
-                        db_session.commit()
-                        db_session.refresh(placeholder_memory_bg)
-                        
-                        if update_count > 0 or delete_count > 0:
-                            logging.info(f"Placeholder deleted (processed {update_count} UPDATE, {delete_count} DELETE, {add_count} ADD events)")
-                        else:
-                            logging.info(f"Placeholder deleted (all facts were duplicates/no action needed)")
-                else:  # No results - no meaningful facts extracted
-                    placeholder_memory_bg.state = MemoryState.deleted
-                    create_history_entry(db_session, placeholder_memory_bg.id, user_obj.id, MemoryState.processing, MemoryState.deleted)
-                    db_session.commit()
-                    db_session.refresh(placeholder_memory_bg)
-                    logging.info(f"Background memory completed (no facts extracted): {placeholder_memory_bg.id}")
-                        
-        except Exception as e:
-            logging.warning(f"Background memory creation failed: {e}")
-            # Update placeholder to show error state
-            try:
-                # Get the placeholder memory from the session for error handling
-                placeholder_memory_bg = db_session.query(Memory).filter(Memory.id == placeholder_memory.id).first()
-                if placeholder_memory_bg:
-                    placeholder_memory_bg.state = MemoryState.deleted
-                    placeholder_memory_bg.content = f"Error: {str(e)}"
-                    db_session.commit()
-                    logging.error(f"Background memory creation failed, marked as deleted: {placeholder_memory_bg.id}")
-                else:
-                    logging.error(f"Could not find placeholder memory {placeholder_memory.id} for error handling")
-            except Exception as fallback_error:
-                logging.error(f"Failed to update placeholder memory: {fallback_error}")
-        finally:
-            db_session.close()
-    
-    # Fire off the background task
-    asyncio.create_task(create_memory_background())
-    
-    logging.info(f"Memory creation started in background, returning immediately with ID: {placeholder_memory.id}")
-    return placeholder_memory
+    return placeholder
 
 
 
@@ -797,10 +200,6 @@ async def get_memory(
         "metadata_": memory.metadata_
     }
 
-
-class DeleteMemoriesRequest(BaseModel):
-    memory_ids: List[UUID]
-    user_id: str
 
 # Delete multiple memories
 @router.delete("/")
@@ -852,15 +251,6 @@ async def archive_memories(
         update_memory_state(db, memory_id, MemoryState.archived, user_id)
     return {"message": f"Successfully archived {len(memory_ids)} memories"}
 
-
-class PauseMemoriesRequest(BaseModel):
-    memory_ids: Optional[List[UUID]] = None
-    category_ids: Optional[List[UUID]] = None
-    app_id: Optional[UUID] = None
-    all_for_app: bool = False
-    global_pause: bool = False
-    state: Optional[MemoryState] = None
-    user_id: str
 
 # Pause access to memories
 @router.post("/actions/pause")
@@ -960,11 +350,6 @@ async def get_memory_access_log(
     }
 
 
-class UpdateMemoryRequest(BaseModel):
-    memory_content: str
-    user_id: str
-    target_app_id: Optional[UUID] = None
-
 # Update a memory
 @router.put("/{memory_id}")
 async def update_memory(
@@ -982,10 +367,6 @@ async def update_memory(
     db.commit()
     db.refresh(memory)
     return memory
-
-class MoveMemoriesRequest(BaseModel):
-    target_app_id: UUID  # Changed to str to handle UUID strings from frontend
-    user_id: str
 
 @router.post("/{app_id}/memories/move/")
 async def move_memories_to_app(
@@ -1024,19 +405,6 @@ async def move_memories_to_app(
     }
 
 
-
-class FilterMemoriesRequest(BaseModel):
-    user_id: str
-    page: int = 1
-    size: int = 10
-    search_query: Optional[str] = None
-    app_ids: Optional[List[UUID]] = None
-    category_ids: Optional[List[UUID]] = None
-    sort_column: Optional[str] = None
-    sort_direction: Optional[str] = None
-    from_date: Optional[int] = None
-    to_date: Optional[int] = None
-    show_archived: Optional[bool] = False
 
 @router.post("/filter", response_model=Page[MemoryResponse])
 async def filter_memories(

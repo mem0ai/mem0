@@ -290,9 +290,7 @@ def get_default_memory_config():
             "llm": None,
             "custom_prompt": None
         }
-    else:
-        # Set graph_store to None to indicate it's not configured
-        config["graph_store"] = None
+    # Don't set graph_store at all if not configured (mem0 doesn't accept None)
     
     # Adjust base URL for Docker if needed
     base_url = os.environ.get('OPENAI_BASE_URL', 'https://api.openai.com/v1')
