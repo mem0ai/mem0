@@ -64,6 +64,10 @@ class MemoryConfig(BaseModel):
         description="Custom prompt for the update memory",
         default=None,
     )
+    default_infer: bool = Field(
+        description="Default value for infer when not specified in API call",
+        default=True
+    )
 
 
 class AzureConfig(BaseModel):
