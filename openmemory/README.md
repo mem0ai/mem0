@@ -75,6 +75,8 @@ NEXT_PUBLIC_API_URL=http://localhost:8765
 NEXT_PUBLIC_USER_ID=<user-id> # Same as the user id for environment variable in api
 ```
 
+**Note:** When using `make up`, the Makefile automatically sets `NEXT_PUBLIC_USER_ID` to your system's `$USER` variable, overriding the value in `ui/.env`. To use a custom user ID, either edit the Makefile or run `docker compose up` directly.
+
 ### 2. Build and Run the Project
 You can run the project using the following two commands:
 ```bash
