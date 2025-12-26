@@ -222,7 +222,8 @@ class AzureAISearch(VectorStoreBase):
         if filters:
             filter_expression = self._build_filter_expression(filters)
 
-        vector_query = VectorizedQuery(vector=vectors, k_nearest_neighbors=limit, fields="vector")
+        # Azure VectorizedQuery uses `k` for nearest neighbors in current SDKs.
+        vector_query = VectorizedQuery(vector=vectors, k=limit, fields="vector")
         if self.hybrid_search:
             search_results = self.search_client.search(
                 search_text=query,
