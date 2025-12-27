@@ -69,7 +69,14 @@ def get_default_configuration():
                     "api_key": "env:OPENAI_API_KEY"
                 }
             },
-            "vector_store": None
+            "vector_store": {
+                "provider": "qdrant",
+                "config": {
+                    "collection_name": "openmemory",
+                    "host": "mem0_store",
+                    "port": 6333
+                }
+            }
         }
     }
 

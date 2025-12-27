@@ -341,7 +341,22 @@ def get_memory_client(custom_instructions: str = None):
                             config["embedder"] = _fix_ollama_urls(config["embedder"])
 
                     if "vector_store" in mem0_config and mem0_config["vector_store"] is not None:
-                        config["vector_store"] = mem0_config["vector_store"]
+                        # Environment variables take precedence over database config
+                        # This allows compose files (via .env or direct env vars) to override database settings
+                        # Check if any vector store environment variables are set
+                        has_env_vector_store = (
+                            os.environ.get('QDRANT_HOST') or os.environ.get('CHROMA_HOST') or 
+                            os.environ.get('WEAVIATE_HOST') or os.environ.get('WEAVIATE_CLUSTER_URL') or
+                            os.environ.get('REDIS_URL') or os.environ.get('PG_HOST') or 
+                            os.environ.get('MILVUS_HOST') or os.environ.get('ELASTICSEARCH_HOST') or 
+                            os.environ.get('OPENSEARCH_HOST') or os.environ.get('FAISS_PATH')
+                        )
+                        if not has_env_vector_store:
+                            # Only use database config if no environment variables are set
+                            config["vector_store"] = mem0_config["vector_store"]
+                        else:
+                            # Environment variables are set, keep the env-based config
+                            print("Environment variables detected for vector store, using them instead of database config")
             else:
                 print("No configuration found in database, using defaults")
                     
