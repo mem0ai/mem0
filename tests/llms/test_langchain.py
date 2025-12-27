@@ -5,13 +5,16 @@ import pytest
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.llms.langchain import LangchainLLM
 
-# Add the import for BaseChatModel
+# Add the import for BaseChatModel - support both v0.2+ and v1.0+
 try:
-    from langchain.chat_models.base import BaseChatModel
+    from langchain_core.language_models.chat_models import BaseChatModel
 except ImportError:
-    from unittest.mock import MagicMock
+    try:
+        from langchain.chat_models.base import BaseChatModel
+    except ImportError:
+        from unittest.mock import MagicMock
 
-    BaseChatModel = MagicMock
+        BaseChatModel = MagicMock
 
 
 @pytest.fixture
