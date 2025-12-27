@@ -142,22 +142,58 @@ class Qdrant(VectorStoreBase):
         """
         Create a Filter object from the provided filters.
 
+        Supports simple key-value filters as well as composite filters with
+        $and and $or operators.
+
         Args:
-            filters (dict): Filters to apply.
+            filters (dict): Filters to apply. Can contain:
+                - Simple key-value pairs: {"user_id": "123"}
+                - Range filters: {"score": {"gte": 0.5, "lte": 1.0}}
+                - AND operator: {"$and": [{"user_id": "123"}, {"agent_id": "456"}]}
+                - OR operator: {"$or": [{"user_id": "123"}, {"user_id": "456"}]}
 
         Returns:
             Filter: The created Filter object.
         """
         if not filters:
             return None
-            
-        conditions = []
+
+        must_conditions = []
+        should_conditions = []
+
         for key, value in filters.items():
-            if isinstance(value, dict) and "gte" in value and "lte" in value:
-                conditions.append(FieldCondition(key=key, range=Range(gte=value["gte"], lte=value["lte"])))
+            if key == "$and":
+                # Handle $and operator: all conditions must match
+                if isinstance(value, list):
+                    for sub_filter in value:
+                        sub_result = self._create_filter(sub_filter)
+                        if sub_result:
+                            must_conditions.append(sub_result)
+            elif key == "$or":
+                # Handle $or operator: at least one condition must match
+                if isinstance(value, list):
+                    for sub_filter in value:
+                        sub_result = self._create_filter(sub_filter)
+                        if sub_result:
+                            should_conditions.append(sub_result)
+            elif isinstance(value, dict) and "gte" in value and "lte" in value:
+                # Handle range filters
+                must_conditions.append(FieldCondition(key=key, range=Range(gte=value["gte"], lte=value["lte"])))
+            elif isinstance(value, dict) and ("$and" in value or "$or" in value):
+                # Handle nested operators on a field
+                sub_result = self._create_filter(value)
+                if sub_result:
+                    must_conditions.append(sub_result)
             else:
-                conditions.append(FieldCondition(key=key, match=MatchValue(value=value)))
-        return Filter(must=conditions) if conditions else None
+                # Handle simple key-value pairs
+                must_conditions.append(FieldCondition(key=key, match=MatchValue(value=value)))
+
+        if must_conditions or should_conditions:
+            return Filter(
+                must=must_conditions if must_conditions else None,
+                should=should_conditions if should_conditions else None
+            )
+        return None
 
     def search(self, query: str, vectors: list, limit: int = 5, filters: dict = None) -> list:
         """
