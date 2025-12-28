@@ -21,6 +21,7 @@ class OpenAIConfig(BaseLlmConfig):
         enable_vision: bool = False,
         vision_details: Optional[str] = "auto",
         http_client_proxies: Optional[dict] = None,
+        reasoning_effort: Optional[str] = None,
         # OpenAI-specific parameters
         openai_base_url: Optional[str] = None,
         models: Optional[List[str]] = None,
@@ -45,12 +46,14 @@ class OpenAIConfig(BaseLlmConfig):
             enable_vision: Enable vision capabilities, defaults to False
             vision_details: Vision detail level, defaults to "auto"
             http_client_proxies: HTTP client proxy settings, defaults to None
+            reasoning_effort: Reasoning level (low, medium, high), defaults to None
             openai_base_url: OpenAI API base URL, defaults to None
             models: List of models for OpenRouter, defaults to None
             route: OpenRouter route strategy, defaults to "fallback"
             openrouter_base_url: OpenRouter base URL, defaults to None
             site_url: Site URL for OpenRouter, defaults to None
             app_name: Application name for OpenRouter, defaults to None
+            store: Store conversation, defaults to False
             response_callback: Optional callback for monitoring LLM responses.
         """
         # Initialize base parameters
@@ -67,6 +70,7 @@ class OpenAIConfig(BaseLlmConfig):
         )
 
         # OpenAI-specific parameters
+        self.reasoning_effort = reasoning_effort
         self.openai_base_url = openai_base_url
         self.models = models
         self.route = route
