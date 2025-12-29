@@ -682,6 +682,21 @@ mode: "wide"
 
 <Tab title="TypeScript">
 
+<Update label="2025-12-29" description="v2.2.0">
+
+**New Features:**
+- **Vector Stores:** Added Azure AI Search vector store support
+
+**Improvements:**
+- **Config:** Fixed embedder config schema to support `embeddingDims` and `url` parameters
+- **Graph Memory:** Replaced hardcoded LLM provider with provider from configuration
+
+**Bug Fixes:**
+- **Embedders:** Fixed hardcoded `embeddingDims` values in embedders (OpenAI, Ollama, Google, Azure)
+- **Build:** Fixed TypeScript build errors
+
+</Update>
+
 <Update label="2025-09-04" description="v2.1.38">
 **New Features:**
 - **Client:** Added `metadata` param to `update` method.
