@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import httpx
 import pytest
-from langchain.schema import HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 
 from embedchain.config import BaseLlmConfig
 from embedchain.llm.azure_openai import AzureOpenAILlm
