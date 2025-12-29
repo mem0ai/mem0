@@ -3,11 +3,27 @@ from typing import Dict, List, Optional
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.llms.base import LLMBase
 
+# Support both LangChain v0.2+ and v1.0+
 try:
-    from langchain.chat_models.base import BaseChatModel
+    # Try LangChain v1.0+ import path first (langchain-core >= 0.3)
+    from langchain_core.language_models.chat_models import BaseChatModel
+except ImportError:
+    try:
+        # Fall back to LangChain v0.2+ import path
+        from langchain.chat_models.base import BaseChatModel
+    except ImportError:
+        raise ImportError(
+            "langchain is not installed. Please install it using "
+            "`pip install langchain langchain-core`"
+        )
+
+try:
     from langchain_core.messages import AIMessage
 except ImportError:
-    raise ImportError("langchain is not installed. Please install it using `pip install langchain`")
+    raise ImportError(
+        "langchain-core is not installed. Please install it using "
+        "`pip install langchain-core`"
+    )
 
 
 class LangchainLLM(LLMBase):
