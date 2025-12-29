@@ -222,7 +222,7 @@
 				}
 			}
 		},
-		"/v1/entities/{entity_type}/{entity_id}/": {
+		"/v2/entities/{entity_type}/{entity_id}/": {
 			"get": {
 				"tags": [
 					"entities"
@@ -329,27 +329,27 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "import requests\n\nurl = \"https://api.mem0.ai/v1/entities/{entity_type}/{entity_id}/\"\n\nheaders = {\"Authorization\": \"Token <api-key>\"}\n\nresponse = requests.request(\"DELETE\", url, headers=headers)\n\nprint(response.text)"
+						"source": "import requests\n\nurl = \"https://api.mem0.ai/v2/entities/{entity_type}/{entity_id}/\"\n\nheaders = {\"Authorization\": \"Token <api-key>\"}\n\nresponse = requests.request(\"DELETE\", url, headers=headers)\n\nprint(response.text)"
 					},
 					{
 						"lang": "JavaScript",
-						"source": "const options = {method: 'DELETE', headers: {Authorization: 'Token <api-key>'}};\n\nfetch('https://api.mem0.ai/v1/entities/{entity_type}/{entity_id}/', options)\n  .then(response => response.json())\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
+						"source": "const options = {method: 'DELETE', headers: {Authorization: 'Token <api-key>'}};\n\nfetch('https://api.mem0.ai/v2/entities/{entity_type}/{entity_id}/', options)\n  .then(response => response.json())\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
 					},
 					{
 						"lang": "cURL",
-						"source": "curl --request DELETE \\\n  --url https://api.mem0.ai/v1/entities/{entity_type}/{entity_id}/ \\\n  --header 'Authorization: Token <api-key>'"
+						"source": "curl --request DELETE \\\n  --url https://api.mem0.ai/v2/entities/{entity_type}/{entity_id}/ \\\n  --header 'Authorization: Token <api-key>'"
 					},
 					{
 						"lang": "Go",
-						"source": "package main\n\nimport (\n\t\"fmt\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\n\turl := \"https://api.mem0.ai/v1/entities/{entity_type}/{entity_id}/\"\n\n\treq, _ := http.NewRequest(\"DELETE\", url, nil)\n\n\treq.Header.Add(\"Authorization\", \"Token <api-key>\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(res)\n\tfmt.Println(string(body))\n\n}"
+						"source": "package main\n\nimport (\n\t\"fmt\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\n\turl := \"https://api.mem0.ai/v2/entities/{entity_type}/{entity_id}/\"\n\n\treq, _ := http.NewRequest(\"DELETE\", url, nil)\n\n\treq.Header.Add(\"Authorization\", \"Token <api-key>\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(res)\n\tfmt.Println(string(body))\n\n}"
 					},
 					{
 						"lang": "PHP",
-						"source": "<?php\n\n$curl = curl_init();\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/v1/entities/{entity_type}/{entity_id}/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"DELETE\",\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: Token <api-key>\"\n  ],\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
+						"source": "<?php\n\n$curl = curl_init();\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/v2/entities/{entity_type}/{entity_id}/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"DELETE\",\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: Token <api-key>\"\n  ],\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
 					},
 					{
 						"lang": "Java",
-						"source": "HttpResponse<String> response = Unirest.delete(\"https://api.mem0.ai/v1/entities/{entity_type}/{entity_id}/\")\n  .header(\"Authorization\", \"Token <api-key>\")\n  .asString();"
+						"source": "HttpResponse<String> response = Unirest.delete(\"https://api.mem0.ai/v2/entities/{entity_type}/{entity_id}/\")\n  .header(\"Authorization\", \"Token <api-key>\")\n  .asString();"
 					}
 				]
 			}
