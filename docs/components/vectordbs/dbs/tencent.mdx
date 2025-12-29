@@ -1,0 +1,47 @@
+[TencentVectorDB](https://cloud.tencent.com/product/vdb) is an open-source vector database that suits AI applications of every size, from running a demo chatbot in a Jupyter notebook to building web-scale search that serves billions of users.
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+config = {
+    "vector_store": {
+        "provider": "tencent",
+        "config": {
+            "url": "http://your-tencent-vdb-instance-url",
+            "key": "your-tencent-vdb-api-key",
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I’m not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+### Config
+
+Here are the parameters available for configuring TencentVectorDB:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `url` | URL for TencentVectorDB instance | Required |
+| `key` | API key for TencentVectorDB instance | Required |
+| `username` | Username for TencentVectorDB instance | `root` |
+| `database_name` | Name of the database | `mem0` |
+| `collection_name` | Name of the collection | `mem0` |
+| `embedding_model_dims` | Dimensions of the embedding model | `1536` |
+| `metric_type` | Metric type for similarity search | `COSINE` |
+| `index_type` | Index type for vectors | `HNSW` |
+| `shard_num` | Number of shards in the collection | `2` |
+| `replica_num` | Number of replicas for the collection | `2` |
+| `field_type` | Field type for the embedding vectors | `vector` |
+| `params` | Parameters for the index | `None` |
+| `no_index_fields` | Fields that will not be indexed | `None` |
