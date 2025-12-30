@@ -186,6 +186,7 @@ class VectorStoreFactory:
         "baidu": "mem0.vector_stores.baidu.BaiduDB",
         "cassandra": "mem0.vector_stores.cassandra.CassandraDB",
         "neptune": "mem0.vector_stores.neptune_analytics.NeptuneAnalyticsVector",
+        "alibabacloud_mysql": "mem0.vector_stores.alibabacloud_mysql.MySQLVector",
     }
 
     @classmethod
