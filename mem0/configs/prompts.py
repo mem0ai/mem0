@@ -40,7 +40,7 @@ Output: {{"facts" : ["Had a meeting with John at 3pm", "Discussed the new projec
 Input: Hi, my name is John. I am a software engineer.
 Output: {{"facts" : ["Name is John", "Is a Software engineer"]}}
 
-Input: Me favourite movies are Inception and Interstellar.
+Input: My favourite movies are Inception and Interstellar.
 Output: {{"facts" : ["Favourite movies are Inception and Interstellar"]}}
 
 Return the facts and preferences in a json format as shown above.
@@ -98,7 +98,7 @@ User: Hi, my name is John. I am a software engineer.
 Assistant: Nice to meet you, John! My name is Alex and I admire software engineering. How can I help?
 Output: {{"facts" : ["Name is John", "Is a Software engineer"]}}
 
-User: Me favourite movies are Inception and Interstellar. What are yours?
+User: My favourite movies are Inception and Interstellar. What are yours?
 Assistant: Great choices! Both are fantastic movies. I enjoy them too. Mine are The Dark Knight and The Shawshank Redemption.
 Output: {{"facts" : ["Favourite movies are Inception and Interstellar"]}}
 
@@ -151,7 +151,7 @@ User: Hi, my name is John. I am a software engineer.
 Assistant: Nice to meet you, John! My name is Alex and I admire software engineering. How can I help?
 Output: {{"facts" : ["Admires software engineering", "Name is Alex"]}}
 
-User: Me favourite movies are Inception and Interstellar. What are yours?
+User: My favourite movies are Inception and Interstellar. What are yours?
 Assistant: Great choices! Both are fantastic movies. Mine are The Dark Knight and The Shawshank Redemption.
 Output: {{"facts" : ["Favourite movies are Dark Knight and Shawshank Redemption"]}}
 
