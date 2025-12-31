@@ -293,27 +293,38 @@ class FAISS(VectorStoreBase):
         return True
 
     def delete(self, vector_id: str):
-        """
-        Delete a vector by ID.
-
-        Args:
-            vector_id (str): ID of the vector to delete.
-        """
         if self.index is None:
             raise ValueError("Collection not initialized. Call create_col first.")
-
         index_to_delete = None
         for idx, vid in self.index_to_id.items():
             if vid == vector_id:
                 index_to_delete = idx
                 break
-
         if index_to_delete is not None:
             self.docstore.pop(vector_id, None)
             self.index_to_id.pop(index_to_delete, None)
-
+            # Rebuild index with remaining vectors
+            if len(self.index_to_id) == 0:
+                if self.distance_strategy.lower() in ("inner_product", "cosine"):
+                    self.index = faiss.IndexFlatIP(self.embedding_model_dims)
+                else:
+                    self.index = faiss.IndexFlatL2(self.embedding_model_dims)
+            else:
+                remaining_vectors = []
+                new_index_to_id = {}
+                new_idx = 0
+                for old_idx, vid in sorted(self.index_to_id.items()):
+                    vec = self.index.reconstruct(old_idx)
+                    remaining_vectors.append(vec)
+                    new_index_to_id[new_idx] = vid
+                    new_idx += 1
+                if self.distance_strategy.lower() in ("inner_product", "cosine"):
+                    self.index = faiss.IndexFlatIP(self.embedding_model_dims)
+                else:
+                    self.index = faiss.IndexFlatL2(self.embedding_model_dims)
+                self.index.add(np.array(remaining_vectors).astype("float32"))
+                self.index_to_id = new_index_to_id
             self._save()
-
             logger.info(f"Deleted vector {vector_id} from collection {self.collection_name}")
         else:
             logger.warning(f"Vector {vector_id} not found in collection {self.collection_name}")
