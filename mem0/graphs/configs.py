@@ -99,6 +99,8 @@ class GraphStoreConfig(BaseModel):
         le=1.0,
     )
 
+    custom_search_prompt: Optional[str] = Field(None, description="Custom prompt for entity extraction during graph search")
+
     @field_validator("config")
     def validate_config(cls, v, values):
         provider = values.data.get("provider")
