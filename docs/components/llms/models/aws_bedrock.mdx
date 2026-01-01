@@ -7,9 +7,22 @@ title: AWS Bedrock
 - You will also need to authenticate the `boto3` client by using a method in the [AWS documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html#configuring-credentials)
 - You will have to export `AWS_REGION`, `AWS_ACCESS_KEY`, and `AWS_SECRET_ACCESS_KEY` to set environment variables.
 
+### Installation
+
+<CodeGroup>
+```bash pip
+pip install boto3
+```
+
+```bash npm
+npm install @aws-sdk/client-bedrock-runtime
+```
+</CodeGroup>
+
 ### Usage
 
-```python
+<CodeGroup>
+```python Python
 import os
 from mem0 import Memory
 
@@ -32,12 +45,63 @@ m = Memory.from_config(config)
 messages = [
     {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
     {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
-    {"role": "user", "content": "I’m not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
     {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
 ]
 m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
 
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  llm: {
+    provider: 'aws_bedrock',
+    config: {
+      model: 'anthropic.claude-3-5-haiku-20241022-v1:0',
+      region: 'us-west-2',
+      temperature: 0.2,
+      maxTokens: 2000,
+    },
+  },
+};
+
+const memory = new Memory(config);
+const messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+await memory.add(messages, { userId: "alice", metadata: { category: "movies" } });
+```
+</CodeGroup>
+
 ### Config
 
+<Tabs>
+<Tab title="Python">
 All available parameters for the `aws_bedrock` config are present in [Master List of All Params in Config](../config).
+</Tab>
+<Tab title="TypeScript">
+| Parameter      | Description                                        | Default Value                                   |
+| -------------- | -------------------------------------------------- | ----------------------------------------------- |
+| `model`        | The Bedrock model identifier                       | `"anthropic.claude-3-sonnet-20240229-v1:0"`    |
+| `region`       | AWS region (e.g., "us-east-1")                     | Environment default                             |
+| `credentials`  | AWS credentials object with `accessKeyId`, `secretAccessKey`, and optional `sessionToken` | Environment/IAM default |
+| `temperature`  | Temperature for generation (0-1)                   | `0.1`                                           |
+| `maxTokens`    | Maximum tokens to generate                         | `2000`                                          |
+| `topP`         | Top-p sampling parameter                           | `0.9`                                           |
+</Tab>
+</Tabs>
+
+### Supported Providers
+
+The TypeScript SDK supports all Bedrock model providers including:
+- **Anthropic** - Claude models (Converse API with tool support)
+- **Amazon** - Titan and Nova models (Converse API with tool support)
+- **Meta** - Llama models (Converse API)
+- **Mistral** - Mistral models (Converse API)
+- **Cohere** - Command models (Converse API with tool support)
+- **AI21** - Jurassic models (InvokeModel API)
+- And more...
