@@ -6,7 +6,8 @@
 
 ### Usage
 
-```python
+<CodeGroup>
+```python Python
 import os
 from mem0 import Memory
 
@@ -40,10 +41,39 @@ messages = [
 m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
 
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  vectorStore: {
+    provider: 'pinecone',
+    config: {
+      apiKey: process.env.PINECONE_API_KEY,
+      indexName: 'testing',
+      namespace: 'my-namespace',
+      cloud: 'aws',
+      region: 'us-east-1',
+    },
+  },
+};
+
+const memory = new Memory(config);
+const messages = [
+    { role: "user", content: "I'm planning to watch a movie tonight. Any recommendations?" },
+    { role: "assistant", content: "How about thriller movies? They can be quite engaging." },
+    { role: "user", content: "I'm not a big fan of thriller movies but I love sci-fi movies." },
+    { role: "assistant", content: "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future." }
+];
+await memory.add(messages, { userId: "alice", metadata: { category: "movies" } });
+```
+</CodeGroup>
+
 ### Config
 
 Here are the parameters available for configuring Pinecone:
 
+<Tabs>
+<Tab title="Python">
 | Parameter | Description | Default Value |
 | --- | --- | --- |
 | `collection_name` | Name of the index/collection | Required |
@@ -57,6 +87,19 @@ Here are the parameters available for configuring Pinecone:
 | `metric` | Distance metric for vector similarity | `"cosine"` |
 | `batch_size` | Batch size for operations | `100` |
 | `namespace` | Namespace for the collection, useful for multi-tenancy. | `None` |
+</Tab>
+<Tab title="TypeScript">
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `apiKey` | API key for Pinecone | Required |
+| `indexName` | Name of the Pinecone index | Required |
+| `namespace` | Namespace for data isolation | `None` |
+| `cloud` | Cloud provider (`aws`, `gcp`, `azure`) | `aws` |
+| `region` | Cloud region | `us-east-1` |
+| `metric` | Distance metric (`cosine`, `euclidean`, `dotproduct`) | `cosine` |
+| `embeddingDims` | Dimensions for auto-created indexes | `1536` |
+</Tab>
+</Tabs>
 
 > **Important**: You must choose either `serverless_config` or `pod_config` for your deployment, but not both.
 
