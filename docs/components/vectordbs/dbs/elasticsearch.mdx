@@ -4,13 +4,20 @@
 
 Elasticsearch support requires additional dependencies. Install them with:
 
-```bash
+<CodeGroup>
+```bash pip
 pip install elasticsearch>=8.0.0
 ```
 
+```bash npm
+npm install @elastic/elasticsearch
+```
+</CodeGroup>
+
 ### Usage
 
-```python
+<CodeGroup>
+```python Python
 import os
 from mem0 import Memory
 
@@ -32,16 +39,46 @@ m = Memory.from_config(config)
 messages = [
     {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
     {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
-    {"role": "user", "content": "I’m not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
     {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
 ]
 m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
 
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  vectorStore: {
+    provider: 'elasticsearch',
+    config: {
+      host: 'http://localhost',
+      port: 9200,
+      user: 'elastic',
+      password: 'your-password',
+      collectionName: 'mem0',
+      embeddingModelDims: 1536,
+    },
+  },
+};
+
+const memory = new Memory(config);
+const messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+await memory.add(messages, { userId: "alice", metadata: { category: "movies" } });
+```
+</CodeGroup>
+
 ### Config
 
 Here are the parameters available for configuring Elasticsearch:
 
+<Tabs>
+<Tab title="Python">
 | Parameter              | Description                                        | Default Value |
 | ---------------------- | -------------------------------------------------- | ------------- |
 | `collection_name`      | The name of the index to store the vectors         | `mem0`        |
@@ -56,6 +93,23 @@ Here are the parameters available for configuring Elasticsearch:
 | `auto_create_index`    | Whether to automatically create the index          | `True`        |
 | `custom_search_query`  | Function returning a custom search query           | `None`        |
 | `headers`              | Custom headers to include in requests              | `None`        |
+</Tab>
+<Tab title="TypeScript">
+| Parameter              | Description                                        | Default Value |
+| ---------------------- | -------------------------------------------------- | ------------- |
+| `collectionName`       | The name of the index to store the vectors         | `"mem0"`      |
+| `embeddingModelDims`   | Dimensions of the embedding model                  | Required      |
+| `host`                 | The host URL where Elasticsearch is running        | `None`        |
+| `port`                 | The port where Elasticsearch is running            | `None`        |
+| `cloudId`              | Cloud ID for Elastic Cloud deployment              | `None`        |
+| `apiKey`               | API key for authentication                         | `None`        |
+| `user`                 | Username for basic authentication                  | `None`        |
+| `password`             | Password for basic authentication                  | `None`        |
+| `verifyCerts`          | Whether to verify SSL certificates                 | `true`        |
+| `autoCreateIndex`      | Whether to automatically create the index          | `true`        |
+| `headers`              | Custom headers to include in requests              | `None`        |
+</Tab>
+</Tabs>
 
 ### Features
 
