@@ -152,11 +152,17 @@ async def list_memories(
         category_list = [c.strip() for c in categories.split(",")]
         query = query.filter(Category.name.in_(category_list))
 
-    # Apply sorting if specified
+    # Apply sorting if specified — MUST include Memory.id first for Postgres + DISTINCT ON
     if sort_column:
         sort_field = getattr(Memory, sort_column, None)
         if sort_field:
-            query = query.order_by(sort_field.desc()) if sort_direction == "desc" else query.order_by(sort_field.asc())
+            if sort_direction == "desc":
+                query = query.order_by(Memory.id, sort_field.desc())
+            else:
+                query = query.order_by(Memory.id, sort_field.asc())
+    else:
+        # Default sorting
+        query = query.order_by(Memory.id, Memory.created_at.desc())
 
     # Add eager loading for app and categories
     query = query.options(
@@ -587,7 +593,7 @@ async def filter_memories(
         to_datetime = datetime.fromtimestamp(request.to_date, tz=UTC)
         query = query.filter(Memory.created_at <= to_datetime)
 
-    # Apply sorting
+    # Apply sorting — MUST include Memory.id first for Postgres + DISTINCT ON
     if request.sort_column and request.sort_direction:
         sort_direction = request.sort_direction.lower()
         if sort_direction not in ['asc', 'desc']:
@@ -604,12 +610,12 @@ async def filter_memories(
 
         sort_field = sort_mapping[request.sort_column]
         if sort_direction == 'desc':
-            query = query.order_by(sort_field.desc())
+            query = query.order_by(Memory.id, sort_field.desc())
         else:
-            query = query.order_by(sort_field.asc())
+            query = query.order_by(Memory.id, sort_field.asc())
     else:
         # Default sorting
-        query = query.order_by(Memory.created_at.desc())
+        query = query.order_by(Memory.id, Memory.created_at.desc())
 
     # Add eager loading for categories and make the query distinct
     query = query.options(
@@ -668,6 +674,7 @@ async def get_related_memories(
         joinedload(Memory.categories),
         joinedload(Memory.app)
     ).order_by(
+        Memory.id,  # Must be first for DISTINCT ON compatibility
         func.count(Category.id).desc(),
         Memory.created_at.desc()
     ).group_by(Memory.id)

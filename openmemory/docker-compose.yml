@@ -7,6 +7,24 @@ services:
     volumes:
       - openmemory:/qdrant/storage
     restart: always
+    pull_policy: if_not_present
+
+  postgres:
+    image: postgres:16
+    container_name: openmemory-postgres
+    environment:
+      POSTGRES_DB: openmemory
+      POSTGRES_USER: openmemory
+      POSTGRES_PASSWORD: openmemory
+    volumes:
+      - openmemory_postgres:/var/lib/postgresql/data
+    restart: always
+    pull_policy: if_not_present
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U openmemory" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   openmemory-mcp:
     build:
@@ -19,11 +37,26 @@ services:
       - "10003:8765"
     env_file:
       - ./api/.env
+    environment:
+      - OPENAI_API_KEY=sk-dummy
+      - OPENAI_BASE_URL=http://192.168.1.100:1234/v1
+      - OPENAI_MODEL=deepseek-coder-6.7b-instruct
+      - EMBEDDING_MODEL=text-embedding-gte-qwen2-1.5b-instruct
+      - VECTOR_DIMS=1024
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - QDRANT_COLLECTION=openmemory
+      - "MEM0_LLM_CONFIG={\"provider\": \"openai\", \"config\": {\"base_url\": \"http://192.168.1.100:1234/v1\", \"api_key\": \"sk-dummy\", \"model\": \"deepseek-coder-6.7b-instruct\", \"temperature\": 0.1, \"max_tokens\": 2000}}"
+      - "MEM0_EMBEDDER_CONFIG={\"provider\": \"openai\", \"config\": {\"base_url\": \"http://192.168.1.100:1234/v1\", \"api_key\": \"sk-dummy\", \"model\": \"text-embedding-gte-qwen2-1.5b-instruct\", \"dimension\": 1024}}"
+      - "MEM0_VECTOR_STORE_CONFIG={\"provider\": \"qdrant\", \"config\": {\"host\": \"qdrant\", \"port\": 6333, \"collection_name\": \"openmemory\"}}"
+      - FORCE_CONFIG_SAVE=true
+      - HISTORY_DB_PATH=/data/history.db
     volumes:
       - openmemory:/data
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: always
+    pull_policy: never
 
   openmemory-ui:
     build:
@@ -37,7 +70,10 @@ services:
     depends_on:
       - openmemory-mcp
     restart: always
+    pull_policy: never
 
 volumes:
   openmemory:
     name: openmemory
+  openmemory_postgres:
+    name: openmemory_postgres
