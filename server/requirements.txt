@@ -4,3 +4,4 @@ pydantic==2.10.4
 mem0ai>=0.1.48
 python-dotenv==1.0.1
 psycopg>=3.2.8
+psycopg[pool]>=3.2.8
