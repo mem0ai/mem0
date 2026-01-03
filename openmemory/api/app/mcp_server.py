@@ -20,6 +20,7 @@ import datetime
 import json
 import logging
 import uuid
+from typing import Optional
 
 from app.database import SessionLocal
 from app.models import Memory, MemoryAccessLog, MemoryState, MemoryStatusHistory
@@ -57,8 +58,8 @@ mcp_router = APIRouter(prefix="/mcp")
 # Initialize SSE transport
 sse = SseServerTransport("/mcp/messages/")
 
-@mcp.tool(description="Add a new memory. This method is called everytime the user informs anything about themselves, their preferences, or anything that has any relevant information which can be useful in the future conversation. This can also be called when the user asks you to remember something.")
-async def add_memories(text: str) -> str:
+@mcp.tool(description="Add a new memory. This method is called everytime the user informs anything about themselves, their preferences, or anything that has any relevant information which can be useful in the future conversation. This can also be called when the user asks you to remember something. The 'infer' parameter controls processing: True (default) = LLM extracts semantic facts and deduplicates; False = stores exact verbatim text without transformation.")
+async def add_memories(text: str, infer: Optional[bool] = None) -> str:
     uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
 
@@ -82,12 +83,17 @@ async def add_memories(text: str) -> str:
             if not app.is_active:
                 return f"Error: App {app.name} is currently paused on OpenMemory. Cannot create new memories."
 
+            # Apply default from config if not specified
+            infer_value = infer if infer is not None else memory_client.config.default_infer
+
             response = memory_client.add(text,
                                          user_id=uid,
                                          metadata={
-                                            "source_app": "openmemory",
-                                            "mcp_client": client_name,
-                                        })
+                                             "source_app": "openmemory",
+                                             "mcp_client": client_name
+                                             },
+                                         infer=infer_value
+                                         )
 
             # Process the response and update database
             if isinstance(response, dict) and 'results' in response:
