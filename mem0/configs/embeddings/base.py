@@ -40,6 +40,8 @@ class BaseEmbedderConfig(ABC):
         aws_access_key_id: Optional[str] = None,
         aws_secret_access_key: Optional[str] = None,
         aws_region: Optional[str] = None,
+        # Custom headers for API requests
+        extra_headers: Optional[Dict[str, str]] = None,
     ):
         """
         Initializes a configuration class instance for the Embeddings.
@@ -72,6 +74,8 @@ class BaseEmbedderConfig(ABC):
         :type memory_search_embedding_type: Optional[str], optional
         :param lmstudio_base_url: LM Studio base URL to be use, defaults to "http://localhost:1234/v1"
         :type lmstudio_base_url: Optional[str], optional
+        :param extra_headers: Custom HTTP headers to include in API requests, defaults to None
+        :type extra_headers: Optional[Dict[str, str]], optional
         """
 
         self.model = model
@@ -107,4 +111,7 @@ class BaseEmbedderConfig(ABC):
         self.aws_access_key_id = aws_access_key_id
         self.aws_secret_access_key = aws_secret_access_key
         self.aws_region = aws_region or os.environ.get("AWS_REGION") or "us-west-2"
+
+        # Custom headers
+        self.extra_headers = extra_headers
 
