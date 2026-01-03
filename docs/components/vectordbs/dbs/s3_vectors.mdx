@@ -8,15 +8,22 @@ title: Amazon S3 Vectors
 
 S3 Vectors support requires additional dependencies. Install them with:
 
-```bash
+<CodeGroup>
+```bash pip
 pip install boto3
 ```
+
+```bash npm
+npm install @aws-sdk/client-s3vectors
+```
+</CodeGroup>
 
 ### Usage
 
 To use Amazon S3 Vectors with Mem0, you need to have an AWS account and the necessary IAM permissions (`s3vectors:*`). Ensure your environment is configured with AWS credentials (e.g., via `~/.aws/credentials` or environment variables).
 
-```python
+<CodeGroup>
+```python Python
 import os
 from mem0 import Memory
 
@@ -46,10 +53,39 @@ messages = [
 m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
 
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  vectorStore: {
+    provider: 's3_vectors',
+    config: {
+      vectorBucketName: 'my-mem0-vector-bucket',
+      collectionName: 'my-memories-index',
+      embeddingModelDims: 1536,
+      distanceMetric: 'cosine',
+      region: 'us-east-1',
+    },
+  },
+};
+
+const memory = new Memory(config);
+const messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movie? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+await memory.add(messages, { userId: "alice", metadata: { category: "movies" } });
+```
+</CodeGroup>
+
 ### Config
 
 Here are the parameters available for configuring Amazon S3 Vectors:
 
+<Tabs>
+<Tab title="Python">
 | Parameter              | Description                                                                      | Default Value                         |
 | ---------------------- | -------------------------------------------------------------------------------- | ------------------------------------- |
 | `vector_bucket_name`   | The name of the S3 Vector bucket to use. It will be created if it doesn't exist. | Required                              |
@@ -57,6 +93,18 @@ Here are the parameters available for configuring Amazon S3 Vectors:
 | `embedding_model_dims` | Dimensions of the embedding model. Must match your embedder.                     | `1536`                                |
 | `distance_metric`      | Distance metric for similarity search. Options: `cosine`, `euclidean`.           | `cosine`                              |
 | `region_name`          | The AWS region where the bucket and index reside.                                | `None` (uses default from AWS config) |
+</Tab>
+<Tab title="TypeScript">
+| Parameter              | Description                                                                      | Default Value                         |
+| ---------------------- | -------------------------------------------------------------------------------- | ------------------------------------- |
+| `vectorBucketName`     | The name of the S3 Vector bucket to use. It will be created if it doesn't exist. | Required                              |
+| `collectionName`       | The name of the vector index within the bucket.                                  | `"mem0"`                              |
+| `embeddingModelDims`   | Dimensions of the embedding model. Must match your embedder.                     | Required                              |
+| `distanceMetric`       | Distance metric for similarity search. Options: `cosine`, `euclidean`.           | `"cosine"`                            |
+| `region`               | The AWS region where the bucket and index reside.                                | Environment default                   |
+| `credentials`          | Optional explicit AWS credentials with `accessKeyId` and `secretAccessKey`.      | Environment/IAM default               |
+</Tab>
+</Tabs>
 
 ### IAM Permissions
 
