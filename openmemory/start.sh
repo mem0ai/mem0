@@ -6,7 +6,7 @@ COMPOSE_FILE="docker-compose.yml"
 echo "Starting or Updating the $STACK_NAME stack..."
 echo "-------------------------------------"
 
-# 1. Pull latest base images (Qdrant)
+# 1. Pull latest base images (Qdrant, Postgres)
 echo "1. Pulling latest base images..."
 docker compose -f $COMPOSE_FILE pull
 
