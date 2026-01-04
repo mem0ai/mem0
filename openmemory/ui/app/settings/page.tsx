@@ -33,7 +33,7 @@ export default function SettingsPage() {
     mem0: configState.mem0
   })
   const [viewMode, setViewMode] = useState<"form" | "json">("form")
-  const { fetchConfig, saveConfig, resetConfig, isLoading, error } = useConfig()
+  const { fetchConfig, saveConfig, resetConfig, resetModels, isLoading, error } = useConfig()
 
   useEffect(() => {
     // Load config from API on component mount
@@ -48,7 +48,7 @@ export default function SettingsPage() {
         })
       }
     }
-    
+
     loadConfig()
   }, [])
 
@@ -63,9 +63,9 @@ export default function SettingsPage() {
 
   const handleSave = async () => {
     try {
-      await saveConfig({ 
+      await saveConfig({
         openmemory: settings.openmemory,
-        mem0: settings.mem0 
+        mem0: settings.mem0
       })
       toast({
         title: "Settings saved",
@@ -92,6 +92,23 @@ export default function SettingsPage() {
       toast({
         title: "Error",
         description: "Failed to reset configuration",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleResetModels = async () => {
+    try {
+      await resetModels()
+      toast({
+        title: "Models reset",
+        description: "Models have been reset to default values.",
+      })
+      await fetchConfig()
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to reset models",
         variant: "destructive",
       })
     }
@@ -129,7 +146,31 @@ export default function SettingsPage() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-            
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" className="border-zinc-800 text-zinc-200 hover:bg-zinc-700 hover:text-zinc-50 animate-fade-slide-down" disabled={isLoading}>
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  Reset Models
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Reset Models?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will reset the LLM and embedder model selections to your environment defaults.
+                    Other settings will remain unchanged.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleResetModels} className="bg-orange-600 hover:bg-orange-700">
+                    Reset Models
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
             <Button onClick={handleSave} className="bg-primary hover:bg-primary/90 animate-fade-slide-down" disabled={isLoading}>
               <SaveIcon className="mr-2 h-4 w-4" />
               {isLoading ? "Saving..." : "Save Configuration"}

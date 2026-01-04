@@ -22,6 +22,8 @@ interface UseConfigApiReturn {
   saveLLMConfig: (llmConfig: LLMProvider) => Promise<void>;
   saveEmbedderConfig: (embedderConfig: EmbedderProvider) => Promise<void>;
   resetConfig: () => Promise<void>;
+  resetModels: () => Promise<void>;
+  config: RootState['config'];
   isLoading: boolean;
   error: string | null;
 }
@@ -31,11 +33,11 @@ export const useConfig = (): UseConfigApiReturn => {
   const [error, setError] = useState<string | null>(null);
   const dispatch = useDispatch<AppDispatch>();
   const URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8765";
-  
+
   const fetchConfig = async () => {
     setIsLoading(true);
     dispatch(setConfigLoading());
-    
+
     try {
       const response = await axios.get(`${URL}/api/v1/config`);
       dispatch(setConfigSuccess(response.data));
@@ -52,7 +54,7 @@ export const useConfig = (): UseConfigApiReturn => {
   const saveConfig = async (config: { openmemory?: OpenMemoryConfig; mem0: Mem0Config }) => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const response = await axios.put(`${URL}/api/v1/config`, config);
       dispatch(setConfigSuccess(response.data));
@@ -70,7 +72,7 @@ export const useConfig = (): UseConfigApiReturn => {
   const resetConfig = async () => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const response = await axios.post(`${URL}/api/v1/config/reset`);
       dispatch(setConfigSuccess(response.data));
@@ -85,10 +87,28 @@ export const useConfig = (): UseConfigApiReturn => {
     }
   };
 
+  const resetModels = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await axios.post(`${URL}/api/v1/config/reset-models`);
+      dispatch(setConfigSuccess(response.data));
+      setIsLoading(false);
+      return response.data;
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.detail || err.message || 'Failed to reset models';
+      dispatch(setConfigError(errorMessage));
+      setError(errorMessage);
+      setIsLoading(false);
+      throw new Error(errorMessage);
+    }
+  };
+
   const saveLLMConfig = async (llmConfig: LLMProvider) => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const response = await axios.put(`${URL}/api/v1/config/mem0/llm`, llmConfig);
       dispatch(updateLLM(response.data));
@@ -105,7 +125,7 @@ export const useConfig = (): UseConfigApiReturn => {
   const saveEmbedderConfig = async (embedderConfig: EmbedderProvider) => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const response = await axios.put(`${URL}/api/v1/config/mem0/embedder`, embedderConfig);
       dispatch(updateEmbedder(response.data));
@@ -125,6 +145,7 @@ export const useConfig = (): UseConfigApiReturn => {
     saveLLMConfig,
     saveEmbedderConfig,
     resetConfig,
+    resetModels,
     isLoading,
     error
   };

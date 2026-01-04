@@ -14,9 +14,9 @@ app = FastAPI(title="OpenMemory API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:10004", "http://127.0.0.1:10004"],  # UI origin
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["*"],  # Allow all methods (GET, POST, PUT, etc.)
     allow_headers=["*"],
 )
 

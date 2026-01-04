@@ -186,3 +186,4 @@ eval/
 qdrant_storage/
 .crossnote
 testing.ipynb
+openmemory/.backup_dir

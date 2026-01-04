@@ -194,6 +194,22 @@ async def reset_configuration(db: Session = Depends(get_db)):
             detail=f"Failed to reset configuration: {str(e)}"
         )
 
+@router.post("/reset-models")
+async def reset_models(db: Session = Depends(get_db)):
+    """Reset only LLM and embedder model fields to environment defaults."""
+    current_config = get_config_from_db(db)
+    
+    if "mem0" in current_config:
+        if "llm" in current_config["mem0"] and "config" in current_config["mem0"]["llm"]:
+            current_config["mem0"]["llm"]["config"]["model"] = None
+        if "embedder" in current_config["mem0"] and "config" in current_config["mem0"]["embedder"]:
+            current_config["mem0"]["embedder"]["config"]["model"] = None
+    
+    save_config_to_db(db, current_config)
+    reset_memory_client()
+    
+    return {"message": "LLM and embedder models reset to environment defaults"}
+
 @router.get("/mem0/llm", response_model=LLMProvider)
 async def get_llm_configuration(db: Session = Depends(get_db)):
     """Get only the LLM configuration."""

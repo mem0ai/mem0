@@ -1,4 +1,4 @@
-.PHONY: help env build up down restart logs shell upgrade migrate downgrade test test-clean ui-install ui-start ui-dev ui-build ui-dev-start clean
+.PHONY: help env build up down restart logs shell upgrade migrate downgrade test test-clean ui-install ui-start ui-dev ui-build ui-dev-start clean backup restore
 
 # Default target
 help:
@@ -21,6 +21,8 @@ help:
 	@echo "  make ui-build   - Build the frontend"
 	@echo "  make ui-dev-start - Start frontend in dev mode"
 	@echo "  make clean      - Full cleanup (containers, volumes, images)"
+	@echo "  make backup     - Backup Qdrant + Postgres volumes"
+	@echo "  make restore    - Restore from paired backup"
 
 env:
 	cp .env.example .env
@@ -80,3 +82,10 @@ clean:
 	docker volume rm openmemory openmemory_postgres || true
 	docker image prune -f
 	rm -f api/openmemory.db
+
+# === Backup & Restore ===
+backup:
+	./backup.sh
+
+restore:
+	./restore.sh
