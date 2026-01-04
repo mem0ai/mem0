@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from pydantic import BaseModel
 from tenacity import retry, stop_after_attempt, wait_exponential
+from os import getenv
 
 load_dotenv()
 openai_client = OpenAI()
@@ -23,9 +24,11 @@ def get_categories_for_memory(memory: str) -> List[str]:
             {"role": "user", "content": memory}
         ]
 
-        # Let OpenAI handle the pydantic parsing directly
+        # Use provided model, fallback to env, then default
+        selected_model = getenv("OPENAI_MODEL", "gpt-4o-mini")
+
         completion = openai_client.beta.chat.completions.parse(
-            model="gpt-4o-mini",
+            model=selected_model,
             messages=messages,
             response_format=MemoryCategories,
             temperature=0

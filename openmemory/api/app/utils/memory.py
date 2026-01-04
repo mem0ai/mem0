@@ -134,14 +134,47 @@ def reset_memory_client():
 
 
 def get_default_memory_config():
-    """Get default memory client configuration with sensible defaults."""
-    # Detect vector store based on environment variables
+    """Get default memory client configuration with full environment and provider support."""
+    config = {"version": "v1.1"}
+
+    # 1. Highest priority: Full JSON config overrides from environment (your preferred method)
+    json_overrides_applied = False
+
+    if os.getenv("MEM0_LLM_CONFIG"):
+        try:
+            config["llm"] = json.loads(os.getenv("MEM0_LLM_CONFIG"))
+            print("Loaded LLM config from MEM0_LLM_CONFIG")
+            json_overrides_applied = True
+        except json.JSONDecodeError as e:
+            print(f"Warning: Invalid MEM0_LLM_CONFIG JSON: {e}")
+
+    if os.getenv("MEM0_EMBEDDER_CONFIG"):
+        try:
+            config["embedder"] = json.loads(os.getenv("MEM0_EMBEDDER_CONFIG"))
+            print("Loaded embedder config from MEM0_EMBEDDER_CONFIG")
+            json_overrides_applied = True
+        except json.JSONDecodeError as e:
+            print(f"Warning: Invalid MEM0_EMBEDDER_CONFIG JSON: {e}")
+
+    if os.getenv("MEM0_VECTOR_STORE_CONFIG"):
+        try:
+            config["vector_store"] = json.loads(os.getenv("MEM0_VECTOR_STORE_CONFIG"))
+            print("Loaded vector store config from MEM0_VECTOR_STORE_CONFIG")
+            json_overrides_applied = True
+        except json.JSONDecodeError as e:
+            print(f"Warning: Invalid MEM0_VECTOR_STORE_CONFIG JSON: {e}")
+
+    # If any JSON override was applied, return early — they are complete
+    if json_overrides_applied and "llm" in config and "embedder" in config and "vector_store" in config:
+        return config
+
+    # 2. Otherwise, fall back to full original auto-detection + individual env vars
+    # Vector store auto-detection (keep the entire original block unchanged)
     vector_store_config = {
-        "collection_name": "openmemory",
-        "host": "mem0_store",
+        "collection_name": os.getenv("QDRANT_COLLECTION", "openmemory"),
     }
-    
-    # Check for different vector store configurations based on environment variables
+    vector_store_provider = "qdrant"  # default
+
     if os.environ.get('CHROMA_HOST') and os.environ.get('CHROMA_PORT'):
         vector_store_provider = "chroma"
         vector_store_config.update({
@@ -156,22 +189,13 @@ def get_default_memory_config():
         })
     elif os.environ.get('WEAVIATE_CLUSTER_URL') or (os.environ.get('WEAVIATE_HOST') and os.environ.get('WEAVIATE_PORT')):
         vector_store_provider = "weaviate"
-        # Prefer an explicit cluster URL if provided; otherwise build from host/port
         cluster_url = os.environ.get('WEAVIATE_CLUSTER_URL')
         if not cluster_url:
-            weaviate_host = os.environ.get('WEAVIATE_HOST')
-            weaviate_port = int(os.environ.get('WEAVIATE_PORT'))
-            cluster_url = f"http://{weaviate_host}:{weaviate_port}"
-        vector_store_config = {
-            "collection_name": "openmemory",
-            "cluster_url": cluster_url
-        }
+            cluster_url = f"http://{os.environ.get('WEAVIATE_HOST')}:{int(os.environ.get('WEAVIATE_PORT'))}"
+        vector_store_config = {"collection_name": "openmemory", "cluster_url": cluster_url}
     elif os.environ.get('REDIS_URL'):
         vector_store_provider = "redis"
-        vector_store_config = {
-            "collection_name": "openmemory",
-            "redis_url": os.environ.get('REDIS_URL')
-        }
+        vector_store_config = {"collection_name": "openmemory", "redis_url": os.environ.get('REDIS_URL')}
     elif os.environ.get('PG_HOST') and os.environ.get('PG_PORT'):
         vector_store_provider = "pgvector"
         vector_store_config.update({
@@ -183,35 +207,26 @@ def get_default_memory_config():
         })
     elif os.environ.get('MILVUS_HOST') and os.environ.get('MILVUS_PORT'):
         vector_store_provider = "milvus"
-        # Construct the full URL as expected by MilvusDBConfig
-        milvus_host = os.environ.get('MILVUS_HOST')
-        milvus_port = int(os.environ.get('MILVUS_PORT'))
-        milvus_url = f"http://{milvus_host}:{milvus_port}"
-        
+        milvus_url = f"http://{os.environ.get('MILVUS_HOST')}:{int(os.environ.get('MILVUS_PORT'))}"
         vector_store_config = {
             "collection_name": "openmemory",
             "url": milvus_url,
-            "token": os.environ.get('MILVUS_TOKEN', ''),  # Always include, empty string for local setup
+            "token": os.environ.get('MILVUS_TOKEN', ''),
             "db_name": os.environ.get('MILVUS_DB_NAME', ''),
-            "embedding_model_dims": 1536,
-            "metric_type": "COSINE"  # Using COSINE for better semantic similarity
+            "embedding_model_dims": int(os.getenv("VECTOR_DIMS", "1536")),
+            "metric_type": "COSINE"
         }
     elif os.environ.get('ELASTICSEARCH_HOST') and os.environ.get('ELASTICSEARCH_PORT'):
         vector_store_provider = "elasticsearch"
-        # Construct the full URL with scheme since Elasticsearch client expects it
-        elasticsearch_host = os.environ.get('ELASTICSEARCH_HOST')
-        elasticsearch_port = int(os.environ.get('ELASTICSEARCH_PORT'))
-        # Use http:// scheme since we're not using SSL
-        full_host = f"http://{elasticsearch_host}"
-        
+        full_host = f"http://{os.environ.get('ELASTICSEARCH_HOST')}"
         vector_store_config.update({
             "host": full_host,
-            "port": elasticsearch_port,
+            "port": int(os.environ.get('ELASTICSEARCH_PORT')),
             "user": os.environ.get('ELASTICSEARCH_USER', 'elastic'),
             "password": os.environ.get('ELASTICSEARCH_PASSWORD', 'changeme'),
             "verify_certs": False,
             "use_ssl": False,
-            "embedding_model_dims": 1536
+            "embedding_model_dims": int(os.getenv("VECTOR_DIMS", "1536"))
         })
     elif os.environ.get('OPENSEARCH_HOST') and os.environ.get('OPENSEARCH_PORT'):
         vector_store_provider = "opensearch"
@@ -224,41 +239,42 @@ def get_default_memory_config():
         vector_store_config = {
             "collection_name": "openmemory",
             "path": os.environ.get('FAISS_PATH'),
-            "embedding_model_dims": 1536,
+            "embedding_model_dims": int(os.getenv("VECTOR_DIMS", "1536")),
             "distance_strategy": "cosine"
         }
     else:
-        # Default fallback to Qdrant
+        # Final fallback: local Qdrant
         vector_store_provider = "qdrant"
-        vector_store_config.update({
-            "port": 6333,
-        })
-    
+        vector_store_config.update({"port": 6333})
+
     print(f"Auto-detected vector store: {vector_store_provider} with config: {vector_store_config}")
-    
-    return {
-        "vector_store": {
-            "provider": vector_store_provider,
-            "config": vector_store_config
-        },
-        "llm": {
-            "provider": "openai",
+    config["vector_store"] = {"provider": vector_store_provider, "config": vector_store_config}
+
+    # 3. LLM and Embedder: use individual env vars if no JSON override
+    if "llm" not in config:
+        config["llm"] = {
+            "provider": os.getenv("LLM_PROVIDER", "openai"),
             "config": {
-                "model": "gpt-4o-mini",
-                "temperature": 0.1,
-                "max_tokens": 2000,
-                "api_key": "env:OPENAI_API_KEY"
+                "model": os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+                "temperature": float(os.getenv("TEMPERATURE", "0.1")),
+                "max_tokens": int(os.getenv("MAX_TOKENS", "2000")),
+                "api_key": os.getenv("OPENAI_API_KEY") or "env:OPENAI_API_KEY",
+                "ollama_base_url": os.getenv("OLLAMA_BASE_URL")
             }
-        },
-        "embedder": {
-            "provider": "openai",
+        }
+
+    if "embedder" not in config:
+        config["embedder"] = {
+            "provider": os.getenv("EMBEDDER_PROVIDER", "openai"),
             "config": {
-                "model": "text-embedding-3-small",
-                "api_key": "env:OPENAI_API_KEY"
+                "model": os.getenv("EMBEDDING_MODEL", "text-embedding-3-small"),
+                "api_key": os.getenv("OPENAI_API_KEY") or "env:OPENAI_API_KEY",
+                "ollama_base_url": os.getenv("OLLAMA_BASE_URL"),
+                "dimension": int(os.getenv("VECTOR_DIMS", "1536"))
             }
-        },
-        "version": "v1.1"
-    }
+        }
+
+    return config
 
 
 def _parse_environment_variables(config_dict):
