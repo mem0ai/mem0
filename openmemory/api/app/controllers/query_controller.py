@@ -14,26 +14,21 @@ from sqlalchemy import func
 from app.models import User, App, Memory, MemoryState, Category
 from app.controllers.permission_controller import get_accessible_memory_ids
 from app.utils.permissions import check_memory_access_permissions
+from app.utils.db import get_or_create_user
 from app.schemas import MemoryResponse
 
 
-def get_user_or_404(user_id: str, db: Session) -> User:
-    """Get user by ID or raise 404.
+def get_user_or_create(user_id: str, db: Session) -> User:
+    """Get user by ID or create if not exists.
 
     Args:
         user_id: User ID string
         db: Database session
 
     Returns:
-        User object
-
-    Raises:
-        HTTPException: If user not found
+        User object (existing or newly created)
     """
-    user = db.query(User).filter(User.user_id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return user
+    return get_or_create_user(db, user_id)
 
 
 def build_base_memory_query(user: User, db: Session) -> Query:

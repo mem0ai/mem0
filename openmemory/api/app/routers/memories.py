@@ -82,8 +82,8 @@ async def list_memories(
     """
     from app.controllers import query_controller as qc
 
-    # Step 1: Get user or 404
-    user = qc.get_user_or_404(user_id, db)
+    # Step 1: Get user (auto-create if not exists)
+    user = qc.get_user_or_create(user_id, db)
 
     # Step 2: Build base query for user's active memories
     query = qc.build_base_memory_query(user, db)

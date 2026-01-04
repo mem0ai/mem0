@@ -51,22 +51,18 @@ async def create_app(
     db: Session = Depends(get_db)
 ):
     """Create a new app"""
-    # Get or create the user
-    user = db.query(User).filter(User.user_id == request.user_id).first()
-    if not user:
-        # Create the user if they don't exist
-        user = User(
-            user_id=request.user_id,
-            name=request.user_id.replace("_", " ").title()
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
+    from app.utils.db import get_or_create_user
 
-    # Check if app name already exists
-    existing_app = db.query(App).filter(App.name == request.name).first()
+    # Get or create the user
+    user = get_or_create_user(db, request.user_id)
+
+    # Check if app name already exists for this user (per-user uniqueness)
+    existing_app = db.query(App).filter(
+        App.owner_id == user.id,
+        App.name == request.name
+    ).first()
     if existing_app:
-        raise HTTPException(status_code=400, detail=f"App with name '{request.name}' already exists")
+        raise HTTPException(status_code=400, detail=f"You already have an app named '{request.name}'")
 
     # Create the new app
     new_app = App(
