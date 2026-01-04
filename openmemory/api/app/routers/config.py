@@ -152,9 +152,16 @@ async def update_configuration(config: ConfigSchema, db: Session = Depends(get_d
             updated_config["openmemory"] = {}
         updated_config["openmemory"].update(config.openmemory.dict(exclude_none=True))
     
-    # Update mem0 settings
-    updated_config["mem0"] = config.mem0.dict(exclude_none=True)
+    # Update mem0 settings (full replacement)
+    updated_config["mem0"] = config.mem0.dict(exclude_none=True, exclude_unset=False)
     
+    # Save to DB and reset client
+    save_config_to_db(db, updated_config)
+    reset_memory_client()
+    
+    # CRITICAL: Return the updated config so FastAPI can serialize it
+    return updated_config
+
 
 @router.patch("/", response_model=ConfigSchema)
 async def patch_configuration(config_update: ConfigSchema, db: Session = Depends(get_db)):
@@ -174,6 +181,7 @@ async def patch_configuration(config_update: ConfigSchema, db: Session = Depends
 
     save_config_to_db(db, updated_config)
     reset_memory_client()
+    
     return updated_config
 
 
