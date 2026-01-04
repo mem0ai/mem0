@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import httpx
 from typing import Dict, List, Optional, Union
 
 from openai import OpenAI
@@ -29,13 +30,19 @@ class OpenAILLM(LLMBase):
                 top_k=config.top_k,
                 enable_vision=config.enable_vision,
                 vision_details=config.vision_details,
-                http_client_proxies=config.http_client,
+                http_client_proxies=config.http_client_proxies,
+                ssl_verify=config.ssl_verify,
             )
 
         super().__init__(config)
 
         if not self.config.model:
-            self.config.model = "gpt-4.1-nano-2025-04-14"
+            self.config.model = "gpt-4o"
+
+        http_client = httpx.Client(
+            proxy=self.config.http_client_proxies,
+            verify=self.config.ssl_verify,
+        ) if self.config.http_client_proxies or self.config.ssl_verify is not None else None
 
         if os.environ.get("OPENROUTER_API_KEY"):  # Use OpenRouter
             self.client = OpenAI(
@@ -43,12 +50,13 @@ class OpenAILLM(LLMBase):
                 base_url=self.config.openrouter_base_url
                 or os.getenv("OPENROUTER_API_BASE")
                 or "https://openrouter.ai/api/v1",
+                http_client=http_client,
             )
         else:
             api_key = self.config.api_key or os.getenv("OPENAI_API_KEY")
             base_url = self.config.openai_base_url or os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1"
 
-            self.client = OpenAI(api_key=api_key, base_url=base_url)
+            self.client = OpenAI(api_key=api_key, base_url=base_url, http_client=http_client)
 
     def _parse_response(self, response, tools):
         """
