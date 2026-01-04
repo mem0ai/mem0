@@ -2,9 +2,10 @@
 
 [MongoDB](https://www.mongodb.com/) is a versatile document database that supports vector search capabilities, allowing for efficient high-dimensional similarity searches over large datasets with robust scalability and performance.
 
-## Usage
+### Usage
 
-```python
+<CodeGroup>
+```python Python
 import os
 from mem0 import Memory
 
@@ -25,21 +26,61 @@ m = Memory.from_config(config)
 messages = [
     {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
     {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
-    {"role": "user", "content": "I’m not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
     {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
 ]
 m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
 
-## Config
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  vectorStore: {
+    provider: 'mongodb',
+    config: {
+      mongoUri: 'mongodb+srv://user:password@cluster.mongodb.net',
+      dbName: 'mem0-db',
+      collectionName: 'mem0-collection',
+      embeddingModelDims: 1536,
+    },
+  },
+};
+
+const memory = new Memory(config);
+const messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+await memory.add(messages, { userId: "alice", metadata: { category: "movies" } });
+```
+</CodeGroup>
+
+### Config
 
 Here are the parameters available for configuring MongoDB:
 
+<Tabs>
+<Tab title="Python">
 | Parameter | Description | Default Value |
 | --- | --- | --- |
-| db_name | Name of the MongoDB database | `"mem0_db"` |
-| collection_name | Name of the MongoDB collection | `"mem0_collection"` |
-| embedding_model_dims | Dimensions of the embedding vectors | `1536` |
-| mongo_uri | The MongoDB URI connection string | `mongodb://username:password@localhost:27017` |
+| `db_name` | Name of the MongoDB database | `"mem0_db"` |
+| `collection_name` | Name of the MongoDB collection | `"mem0_collection"` |
+| `embedding_model_dims` | Dimensions of the embedding vectors | `1536` |
+| `mongo_uri` | The MongoDB URI connection string | `mongodb://username:password@localhost:27017` |
+</Tab>
+<Tab title="TypeScript">
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `mongoUri` | The MongoDB URI connection string | Required |
+| `dbName` | Name of the MongoDB database | Required |
+| `collectionName` | Name of the MongoDB collection | Required |
+| `embeddingModelDims` | Dimensions of the embedding vectors | Required |
+| `indexName` | Name of the vector search index | `"{collectionName}_vector_index"` |
+| `similarityMetric` | Similarity metric for vector search (`cosine`, `euclidean`, `dotProduct`) | `"cosine"` |
+</Tab>
+</Tabs>
 
 > **Note**: If `mongo_uri` is not provided, it will default to `mongodb://username:password@localhost:27017`.
