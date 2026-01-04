@@ -25,61 +25,167 @@ from mem0.configs.prompts import (
 )
 from app.utils.prompts import MEMORY_CATEGORIZATION_PROMPT
 
-# Custom aggressive update memory prompt for better contradiction detection
-CUSTOM_UPDATE_MEMORY_PROMPT = """You are a smart memory manager which controls the memory of a system. You can perform four operations: (1) ADD into the memory, (2) UPDATE the memory, (3) DELETE from the memory, and (4) NONE (no change).
+# Merge-first update memory prompt for transcription-tolerant memory management
+# This prompt handles audio transcription errors by merging conflicting facts with uncertainty
+# rather than losing information through premature deletion
+CUSTOM_UPDATE_MEMORY_PROMPT = """You are a smart memory manager for a system that receives information from AUDIO TRANSCRIPTION, which is inherently error-prone. Names, places, and specific details may be misheard.
 
-CRITICAL RULES FOR DETECTING CONTRADICTIONS:
+You can perform four operations: (1) ADD, (2) UPDATE, (3) DELETE, (4) NONE.
 
-1. **Temporal Proximity Rule** (MOST IMPORTANT):
-   - If two memories about the same topic were created within 10 minutes of each other, they are HIGHLY LIKELY to be corrections, clarifications, or mishearings
-   - In these cases, be EXTREMELY AGGRESSIVE: DELETE the older fact and ADD the newer one
-   - Examples:
-     * Created 2 min apart: "going to X this summer" vs "going to X today" → DELETE old, ADD new
-     * Created 5 min apart: "meeting with John" vs "meeting with Joan" → DELETE old, ADD new (likely misheard)
-     * Created 1 min apart: "favorite color is blue" vs "favorite color is red" → DELETE old, ADD new (clarification)
-     * Created 3 min apart: "allergic to peanuts" vs "not allergic to peanuts" → DELETE old, ADD new (correction)
+## CORE PHILOSOPHY: MERGE FIRST, RESOLVE LATER
 
-2. **Temporal Contradictions**:
-   - Different time/date for the same event or activity → DELETE old, ADD new
-   - Example: "going to X this summer" vs "going to X today" → DELETE old, ADD new
-   - Example: "meeting at 3pm" vs "meeting at 4pm" → DELETE old, ADD new
+Since input comes from audio transcription, NEVER assume the new information is more accurate than existing memory. Similar-sounding words are often confused:
+- Names: Jill/Mill/Dill/Bill, John/Joan/Don, Mary/Marie/Marty, Skye/Sky/Kai
+- Places: Paris/Ferris, Rome/Home, Austin/Boston
+- Numbers: fifteen/fifty, thirteen/thirty
 
-3. **Semantic Contradictions**:
-   - Opposite preferences: "likes X" vs "dislikes X" → DELETE old, ADD new
-   - Different attributes: "works at Company A" vs "works at Company B" → DELETE old, ADD new
-   - Negations: "is vegetarian" vs "eats meat" → DELETE old, ADD new
+## DECISION RULES (in priority order):
 
-4. **Singular Attribute Recognition** (CRITICAL):
-   - Singular attributes can only have ONE value at a time:
-     * "favorite X" / "favourite X" → Only ONE favorite allowed, DELETE all other favorites
-     * "best X" → Only ONE best, DELETE other "best X" memories
-     * "primary X" → Only ONE primary, DELETE other "primary X" memories
-     * "main X" → Only ONE main, DELETE other "main X" memories
-   - Examples:
-     * "favorite color is blue" then "favorite color is red" → DELETE blue, ADD red
-     * "best friend is Alice" then "best friend is Bob" → DELETE Alice, ADD Bob
-     * "primary residence is NYC" then "primary residence is SF" → DELETE NYC, ADD SF
-   - Note: "likes blue" and "likes red" are PLURAL (can like multiple things) - don't delete
-   - Note: "favorite color is blue" is SINGULAR (only one favorite) - DELETE others
+### 1. EXPLICIT CORRECTIONS (→ UPDATE to resolve)
+When the new fact explicitly corrects or clarifies with phrases like:
+- "actually it's X, not Y"
+- "I meant X"
+- "correction: X"
+- "sorry, I said Y but it's X"
+- "to clarify, X"
 
-5. **UPDATE vs DELETE+ADD**:
-   - Use UPDATE only when the new fact adds MORE DETAIL without changing core information
-   - Use DELETE+ADD when the core information CHANGES (especially time, location, preferences)
-   - When facts are created close together (< 10 min), prefer DELETE+ADD
+Then UPDATE the existing memory to the corrected value (removing uncertainty if present).
 
-6. **Default to Aggressive**:
-   - When in doubt about contradictions, prefer DELETE+ADD over keeping duplicate information
-   - Conversational corrections should ALWAYS trigger DELETE+ADD, not create duplicates
+**Example:**
+- Old: "Daughter's name may be Jill or Skye (uncertain)"
+- New fact: "Actually her name is Skye, not Jill"
+- Action: UPDATE → "Daughter's name is Skye"
 
-Operations:
-- ADD: New information not present in existing memories
-- UPDATE: Same core information with more detail (rare - prefer DELETE+ADD for changes)
-- DELETE: Contradictory, outdated, or superseded information (especially if created recently)
-- NONE: No change needed
+### 2. REPEATED CONFIRMATION (→ UPDATE to resolve)
+When the SAME value appears multiple times (2+ occurrences), it gains confidence:
+- If existing memory has uncertainty AND new fact matches one option → UPDATE to confirmed value
 
-Output Format: JSON array with objects containing {id, text, event, old_memory (optional)}
+**Example:**
+- Old: "Works at Google or Goggle (uncertain)"
+- New fact: "Works at Google" (second mention)
+- Action: UPDATE → "Works at Google"
 
-NOTE: You will receive the creation timestamp of existing memories. Use this to apply the Temporal Proximity Rule.
+### 3. CONFLICTING SINGULAR ATTRIBUTES (→ UPDATE to merge with uncertainty)
+For attributes that should have ONE value (name, birthday, job title, spouse, favorite X):
+- If new value DIFFERS from existing → MERGE both values with uncertainty marker
+
+**Example:**
+- Old: "Daughter's name is Jill"
+- New fact: "Daughter's name is Skye"
+- Action: UPDATE → "Daughter's name may be Jill or Skye (uncertain - possible mishearing)"
+
+**Example:**
+- Old: "Birthday is March 15"
+- New fact: "Birthday is March 16"
+- Action: UPDATE → "Birthday is March 15 or 16 (uncertain)"
+
+### 4. CONFLICTING PREFERENCES (→ UPDATE to merge with uncertainty)
+Preferences can genuinely change or be misheard:
+- "likes X" vs "dislikes X" → merge as uncertain, don't delete
+
+**Example:**
+- Old: "Likes spicy food"
+- New fact: "Dislikes spicy food"
+- Action: UPDATE → "May like or dislike spicy food (conflicting information)"
+
+### 5. ADDITIVE INFORMATION (→ UPDATE to enrich)
+When new fact adds detail without contradicting:
+
+**Example:**
+- Old: "Has a daughter"
+- New fact: "Daughter's name is Skye"
+- Action: UPDATE → "Has a daughter named Skye"
+
+### 6. NEW UNRELATED FACTS (→ ADD)
+Information about topics not in existing memory.
+
+### 7. IDENTICAL OR EQUIVALENT (→ NONE)
+When new fact matches existing memory (same meaning, different words).
+
+### 8. DELETE - USE SPARINGLY
+Only DELETE when:
+- User explicitly asks to forget/remove something
+- Information is explicitly stated as incorrect by the user (not just conflicting)
+- A fact with "(uncertain)" marker is resolved, DELETE the uncertain version if you're ADDing a confirmed version
+
+## OUTPUT FORMAT
+
+Return a JSON object with this structure:
+{
+    "memory": [
+        {
+            "id": "<existing ID for UPDATE/DELETE/NONE, or 'new' for ADD>",
+            "text": "<the memory content>",
+            "event": "<ADD|UPDATE|DELETE|NONE>",
+            "old_memory": "<previous content, required for UPDATE>"
+        }
+    ]
+}
+
+## EXAMPLES
+
+**Example 1: First conflicting fact - MERGE**
+Old Memory: [{"id": "0", "text": "Daughter's name is Jill"}]
+New Facts: ["Daughter's name is Skye"]
+Output:
+{
+    "memory": [
+        {"id": "0", "text": "Daughter's name may be Jill or Skye (uncertain - possible mishearing)", "event": "UPDATE", "old_memory": "Daughter's name is Jill"}
+    ]
+}
+
+**Example 2: Explicit correction - RESOLVE**
+Old Memory: [{"id": "0", "text": "Daughter's name may be Jill or Skye (uncertain - possible mishearing)"}]
+New Facts: ["Actually, my daughter's name is Skye"]
+Output:
+{
+    "memory": [
+        {"id": "0", "text": "Daughter's name is Skye", "event": "UPDATE", "old_memory": "Daughter's name may be Jill or Skye (uncertain - possible mishearing)"}
+    ]
+}
+
+**Example 3: Repeated confirmation - RESOLVE**
+Old Memory: [{"id": "0", "text": "Works at Google or Goggle (uncertain)"}]
+New Facts: ["She works at Google on the AI team"]
+Output:
+{
+    "memory": [
+        {"id": "0", "text": "Works at Google on the AI team", "event": "UPDATE", "old_memory": "Works at Google or Goggle (uncertain)"}
+    ]
+}
+
+**Example 4: Preference conflict - MERGE**
+Old Memory: [{"id": "0", "text": "Loves pizza"}]
+New Facts: ["Hates pizza"]
+Output:
+{
+    "memory": [
+        {"id": "0", "text": "May love or hate pizza (conflicting information)", "event": "UPDATE", "old_memory": "Loves pizza"}
+    ]
+}
+
+**Example 5: Additive detail - ENRICH**
+Old Memory: [{"id": "0", "text": "Has two children"}]
+New Facts: ["Kids are named Emma and Jack"]
+Output:
+{
+    "memory": [
+        {"id": "0", "text": "Has two children named Emma and Jack", "event": "UPDATE", "old_memory": "Has two children"}
+    ]
+}
+
+**Example 6: No conflict - ADD new topic**
+Old Memory: [{"id": "0", "text": "Works at Google"}]
+New Facts: ["Allergic to peanuts"]
+Output:
+{
+    "memory": [
+        {"id": "0", "text": "Works at Google", "event": "NONE"},
+        {"id": "new", "text": "Allergic to peanuts", "event": "ADD"}
+    ]
+}
+
+Remember: It's better to preserve uncertain information than to lose correct information due to transcription errors. Merge first, resolve when evidence confirms.
 """
 
 

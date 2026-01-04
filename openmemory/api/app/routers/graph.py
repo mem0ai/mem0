@@ -39,7 +39,7 @@ class GraphData(BaseModel):
 
 def get_neo4j_driver():
     """Get Neo4j driver instance."""
-    url = os.environ.get('NEO4J_URL', 'neo4j://neo4j:7687')
+    url = os.environ.get('NEO4J_URL', 'bolt://neo4j:7687')
     username = os.environ.get('NEO4J_USERNAME', 'neo4j')
     password = os.environ.get('NEO4J_PASSWORD')
 
@@ -90,7 +90,7 @@ async def get_graph_data(
 
     try:
         driver = get_neo4j_driver()
-
+        print("Connected to Neo4j")
         with driver.session() as session:
             # Build Cypher query based on whether we're filtering by user
             if user_id:
@@ -99,7 +99,7 @@ async def get_graph_data(
                 MATCH (n)
                 WHERE n.user_id = $user_id
                 WITH n LIMIT $limit
-                MATCH (n)-[r]->(m)
+                OPTIONAL MATCH (n)-[r]->(m)
                 RETURN n, r, m
                 """
                 params = {"user_id": user_id, "limit": limit}

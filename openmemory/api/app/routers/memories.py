@@ -31,7 +31,8 @@ from app.models.schemas import (
 from app.services.temporal_service import (
     build_temporal_extraction_prompt,
     extract_temporal_entity,
-    enrich_metadata_with_temporal_info,
+    enrich_metadata_with_temporal_data,
+    enrich_metadata_with_mycelia_fields,
     format_temporal_log_string,
 )
 from app.services.memory_service import (
@@ -90,18 +91,20 @@ async def list_memories(
     # Step 3: Apply search filter
     query = qc.apply_search_filter(query, search_query)
 
-    # Step 4: Apply filters
+    # Step 4: Apply other filters
     query = qc.apply_app_filter(query, app_id)
     query = qc.apply_date_filters(query, from_date, to_date)
-    query = qc.apply_category_filter(query, categories)  # Does join if needed
 
-    # Step 5: Join app table for app_name in response
-    query = query.outerjoin(App, Memory.app_id == App.id)
+    # Step 5: Add joins for related data
+    query = qc.apply_joins(query)
 
-    # Step 6: Apply sorting
+    # Step 6: Apply category filter (after join)
+    query = qc.apply_category_filter(query, categories)
+
+    # Step 7: Apply sorting
     query = qc.apply_sorting(query, sort_column, sort_direction)
 
-    # Step 7: Eager load relationships (SQLAlchemy optimization)
+    # Step 8: Eager load relationships (standard SQLAlchemy optimization)
     query = query.options(
         joinedload(Memory.app),
         joinedload(Memory.categories),
@@ -148,13 +151,12 @@ async def create_memory(
 ):
     """Create a new memory.
 
-    Flow (readable sequence):
+    Flow:
     1. Get/create user and app
     2. Validate app is active
-    3. Ensure memory client available
-    4. Prepare metadata
-    5. Create placeholder (instant response)
-    6. Start background processing
+    3. Add timestamp and user info to metadata
+    4. Create placeholder (instant response)
+    5. Process with mem0 (controller handles client lifecycle)
     """
     from app.controllers import memory_controller as controller
 
@@ -164,17 +166,14 @@ async def create_memory(
     # Step 2: Validate app is active
     controller.validate_app_active(app)
 
-    # Step 3: Ensure memory client is available
-    memory_client = await controller.ensure_memory_client()
+    # Step 3: Add timestamp and user info to metadata
+    metadata = controller.add_timestamp_and_user_to_metadata(request, user)
 
-    # Step 4: Prepare metadata
-    metadata = controller.prepare_memory_metadata(request, user)
-
-    # Step 5: Create placeholder for instant response
+    # Step 4: Create placeholder for instant response
     placeholder = controller.create_placeholder(user, app, request, metadata, db)
 
-    # Step 6: Start background processing
-    controller.start_background_processing(placeholder, request, memory_client, metadata)
+    # Step 5: Process with mem0 (controller handles mem0 client internally)
+    await controller.process_memory_with_mem0(placeholder, request, metadata)
 
     return placeholder
 

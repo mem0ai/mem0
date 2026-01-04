@@ -282,7 +282,7 @@ def get_default_memory_config():
         config["graph_store"] = {
             "provider": "neo4j",
             "config": {
-                "url": os.environ.get('NEO4J_URL', 'neo4j://neo4j'),
+                "url": os.environ.get('NEO4J_URL', 'bolt://neo4j:7687'),
                 "username": os.environ.get('NEO4J_USERNAME', 'neo4j'),
                 "password": os.environ.get('NEO4J_PASSWORD'),
                 "database": os.environ.get('NEO4J_DB', 'neo4j'),

@@ -497,14 +497,34 @@ class MCPLoggingMiddleware(BaseHTTPMiddleware):
 
         try:
             response_json = json.loads(response_body)
-            # Truncate very large responses
-            response_str = json.dumps(response_json, indent=2)
-            if len(response_str) > 5000:
-                logging.info(f"[API Response] Body: {response_str[:5000]}... (truncated, total size: {len(response_str)} chars)")
+
+            # For list/filter endpoints, log summary instead of full payload
+            path = str(scope.get('path', ''))
+            method = str(scope.get('method', ''))
+
+            if '/filter' in path or ('/memories' in path and method == 'GET'):
+                # Extract summary for list operations
+                if isinstance(response_json, dict):
+                    items = response_json.get('items', [])
+                    total = response_json.get('total', len(items) if isinstance(items, list) else 0)
+
+                    if items and isinstance(items, list):
+                        # Log just first few memory titles
+                        summaries = [m.get('content', '?')[:40] for m in items[:3]]
+                        logging.info(f"[API Response] Listed {len(items)} items (total: {total}): {summaries}{'...' if len(items) > 3 else ''}")
+                    else:
+                        logging.info(f"[API Response] {response_json}")
+                else:
+                    logging.debug(f"[API Response] {response_json}")
             else:
-                logging.info(f"[API Response] Body: {response_str}")
+                # For CREATE/UPDATE/DELETE, log full response
+                response_str = json.dumps(response_json, indent=2)
+                if len(response_str) > 5000:
+                    logging.info(f"[API Response] Body: {response_str[:5000]}... (truncated, total size: {len(response_str)} chars)")
+                else:
+                    logging.info(f"[API Response] Body: {response_str}")
         except:
-            logging.info(f"[API Response] Body (raw): {response_body.decode('utf-8', errors='ignore')[:1000]}")
+            logging.debug(f"[API Response] Body (raw): {response_body.decode('utf-8', errors='ignore')[:1000]}")
 
         # Return a new response with the body we just read
         return Response(

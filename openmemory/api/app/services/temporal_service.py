@@ -196,12 +196,50 @@ async def extract_temporal_entity(memory_client, fact: str) -> Optional[Dict]:
         return None
 
 
-async def enrich_metadata_with_temporal_info(
+async def enrich_metadata_with_temporal_data(
     memory_client,
     fact_content: str,
     base_metadata: dict
 ) -> tuple[dict, Optional[dict]]:
-    """Extract temporal/entity info and enrich metadata.
+    """Extract ONLY time-related data (not entity type classifications).
+
+    Adds: timeRanges, entities (useful for search)
+    Skips: isEvent, isPerson, emoji (Mycelia-specific)
+
+    Args:
+        memory_client: The mem0 memory client
+        fact_content: The memory fact content to analyze
+        base_metadata: Base metadata dictionary to enrich
+
+    Returns:
+        Tuple of (enriched_metadata, temporal_info)
+    """
+    temporal_info = await extract_temporal_entity(memory_client, fact_content)
+    enriched_metadata = base_metadata.copy()
+
+    if temporal_info:
+        # Only add time-related data
+        if temporal_info.get("timeRanges"):
+            enriched_metadata["timeRanges"] = temporal_info["timeRanges"]
+
+        # Entities are useful for search (not Mycelia-specific)
+        if temporal_info.get("entities"):
+            enriched_metadata["entities"] = temporal_info["entities"]
+
+    return enriched_metadata, temporal_info
+
+
+async def enrich_metadata_with_mycelia_fields(
+    memory_client,
+    fact_content: str,
+    base_metadata: dict
+) -> tuple[dict, Optional[dict]]:
+    """Extract FULL temporal/entity info including Mycelia timeline fields.
+
+    Adds: isEvent, isPerson, isPlace, isPromise, isRelationship, emoji, display_name
+    Plus: timeRanges, entities
+
+    This requires extra LLM call and is only needed for timeline apps.
 
     Args:
         memory_client: The mem0 memory client

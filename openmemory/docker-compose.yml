@@ -1,11 +1,39 @@
 services:
-  mem0_store:
-    image: qdrant/qdrant:latest
-    container_name: u-mem0-qdrant
+  u-mem0-api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: u-mem0-api
+    env_file:
+      - .env
     ports:
-      - "6333:6333"
+      - "8765:8765"
     volumes:
-      - mem0_storage:/qdrant/storage
+      - mem0_data:/usr/src/openmemory/data
+      # for data persistence
+    networks:
+      - infra-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8765/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  u-mem0-ui:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8765}
+        - NEXT_PUBLIC_USER_ID=${NEXT_PUBLIC_USER_ID:-user}
+    container_name: u-mem0-ui
+    env_file:
+      - .env
+    depends_on:
+      - u-mem0-api
+    ports:
+      - "3333:3000"
     networks:
       - infra-network
     restart: unless-stopped
@@ -39,50 +67,7 @@ services:
       retries: 5
       start_period: 30s
 
-  u-mem0-api:
-    build:
-      context: ./api
-      dockerfile: Dockerfile
-    container_name: u-mem0-api
-    env_file:
-      - .env
-    depends_on:
-      neo4j:
-        condition: service_healthy
-      mem0_store:
-        condition: service_started
-    ports:
-      - "8765:8765"
-    volumes:
-      - mem0_data:/usr/src/openmemory/data
-      # for data persistence
-    networks:
-      - infra-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8765/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  u-mem0-ui:
-    build:
-      context: ./ui
-      dockerfile: Dockerfile
-    container_name: u-mem0-ui
-    env_file:
-      - .env
-    depends_on:
-      - u-mem0-api
-    ports:
-      - "3333:3000"
-    networks:
-      - infra-network
-    restart: unless-stopped
-
 volumes:
-  mem0_storage:
-    driver: local
   mem0_data:
     driver: local
   neo4j_data:
@@ -90,8 +75,8 @@ volumes:
   neo4j_logs:
     driver: local
   neo4j_config:
-    driver: local
+    driver: local 
 
 networks:
   infra-network:
-    driver: bridge
+    external: true  # Use existing shared network
