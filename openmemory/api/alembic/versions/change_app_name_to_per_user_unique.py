@@ -8,7 +8,7 @@ This allows different users to have apps with the same name,
 while preventing duplicate app names for the same user.
 
 Revision ID: change_app_name_per_user
-Revises: afd00efbd06b
+Revises: 8e4db04e7709
 Create Date: 2025-01-04
 
 """
@@ -20,7 +20,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = 'change_app_name_per_user'
-down_revision: Union[str, None] = 'afd00efbd06b'
+down_revision: Union[str, None] = '8e4db04e7709'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
