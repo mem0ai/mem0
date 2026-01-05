@@ -1,0 +1,55 @@
+[Hologres](https://www.aliyun.com/product/hologres) is an all-in-one real-time data warehouse engine that is compatible with PostgreSQL. It supports online analytical processing (OLAP), ad hoc analysis of PB-scale data, online services, AI search, and other scenarios.
+
+### Usage
+
+```python Python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "hologres",
+        "config": {
+            "host": "<hologres-host>",
+            "port": 80,
+            "dbname": "mem0",
+            "user": "<hologres-username>",
+            "password": "<hologres-password>",
+            "collection_name": "memories",
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+### Config
+
+Here are the parameters available for configuring hologres:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `dbname` | The name of the database | `postgres` |
+| `collection_name` | The name of the collection | `mem0` |
+| `embedding_model_dims` | Dimensions of the embedding model | `1536` |
+| `user` | User name to connect to the database | `None` |
+| `password` | Password to connect to the database | `None` |
+| `host` | The host where the Hologres instance is running | `None` |
+| `port` | The port where the Hologres instance is running | `None` |
+| `sslmode` | SSL mode for PostgreSQL connection (e.g., 'require', 'prefer', 'disable') | `None` |
+| `connection_string` | PostgreSQL connection string (overrides individual connection parameters) | `None` |
+| `connection_pool` | psycopg2 connection pool object (overrides connection string and individual parameters) | `None` |
+
+**Note**: The connection parameters have the following priority:
+1. `connection_pool` (highest priority)
+2. `connection_string`
+3. Individual connection parameters (`user`, `password`, `host`, `port`, `sslmode`)
