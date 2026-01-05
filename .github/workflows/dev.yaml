@@ -1,0 +1,75 @@
+name: Github Workflow Charon Mem0
+
+on:
+  push:
+    branches:
+      - "main"
+
+env:
+  ARTIFACT_REGISTRY: registry.digitalocean.com/vag
+  IMAGE_NAME: charon-mem0
+
+jobs:
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v2
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v1
+        with:
+          images: ${{ env.ARTIFACT_REGISTRY }}/${{ env.IMAGE_NAME }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DO_ACCESS_TOKEN_V2 }}
+
+      - name: Configure Docker to use the doctl
+        run: doctl registry login
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v3
+        with:
+          context: ./
+          file: ./server/Dockerfile
+          push: true
+          tags: ${{ env.ARTIFACT_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            "GITHUB_TOKEN=${{ secrets.GIT_PRIVATE_PACKAGE_SECRET }}"
+  trvy-scan:
+    needs: build
+    name: Trivy Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Imagine Teams Repo
+        uses: actions/checkout@v2
+
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DO_ACCESS_TOKEN_V2 }}
+
+      - name: Configure Docker to use the doctl
+        run: doctl registry login
+
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.ARTIFACT_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          format: "table"
+          severity: "CRITICAL,HIGH"
+          ignore-unfixed: true
+        continue-on-error: true 
+
+  
