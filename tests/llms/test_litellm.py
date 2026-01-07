@@ -94,7 +94,7 @@ def test_generate_response_with_tools(mock_litellm):
 def test_generate_response_with_model_as_dict(mock_litellm):
     """Test that model can be specified as a dict with name and additional parameters."""
     config = BaseLlmConfig(
-        model={"name": "gemini/gemini-2.5-flash-preview-04-17", "reasoning_effort": "low"},
+        model={"name": "gemini/gemini-3-flash-preview", "reasoning_effort": "low"},
         temperature=0.7,
         max_tokens=100,
         top_p=1.0,
@@ -110,7 +110,7 @@ def test_generate_response_with_model_as_dict(mock_litellm):
     response = llm.generate_response(messages)
 
     mock_litellm.completion.assert_called_once_with(
-        model="gemini/gemini-2.5-flash-preview-04-17",
+        model="gemini/gemini-3-flash-preview",
         messages=messages,
         temperature=0.7,
         max_tokens=100,
@@ -124,7 +124,7 @@ def test_generate_response_with_reasoning_effort_high(mock_litellm):
     """Test reasoning_effort parameter with 'high' value for Gemini models."""
     config = BaseLlmConfig(
         model={
-            "name": "gemini/gemini-2.5-flash-preview-04-17",
+            "name": "gemini/gemini-3-flash-preview",
             "reasoning_effort": "high",
         },
         temperature=0.2,
@@ -142,7 +142,7 @@ def test_generate_response_with_reasoning_effort_high(mock_litellm):
     response = llm.generate_response(messages)
 
     mock_litellm.completion.assert_called_once_with(
-        model="gemini/gemini-2.5-flash-preview-04-17",
+        model="gemini/gemini-3-flash-preview",
         messages=messages,
         temperature=0.2,
         max_tokens=4000,
@@ -156,7 +156,7 @@ def test_generate_response_with_multiple_model_params(mock_litellm):
     """Test multiple model-specific parameters passed via dict."""
     config = BaseLlmConfig(
         model={
-            "name": "gemini/gemini-2.5-flash-preview-04-17",
+            "name": "gemini/gemini-3-flash-preview",
             "reasoning_effort": "medium",
             "frequency_penalty": 0.5,
             "seed": 42,
@@ -176,7 +176,7 @@ def test_generate_response_with_multiple_model_params(mock_litellm):
     response = llm.generate_response(messages)
 
     mock_litellm.completion.assert_called_once_with(
-        model="gemini/gemini-2.5-flash-preview-04-17",
+        model="gemini/gemini-3-flash-preview",
         messages=messages,
         temperature=0.5,
         max_tokens=2000,
@@ -199,14 +199,14 @@ def test_get_model_name_with_string(mock_litellm):
 def test_get_model_name_with_dict(mock_litellm):
     """Test _get_model_name returns correct name when model is a dict."""
     config = BaseLlmConfig(
-        model={"name": "gemini/gemini-2.5-flash-preview-04-17", "reasoning_effort": "low"},
+        model={"name": "gemini/gemini-3-flash-preview", "reasoning_effort": "low"},
         temperature=0.7,
         max_tokens=100,
         top_p=1.0,
     )
     llm = litellm.LiteLLM(config)
 
-    assert llm._get_model_name() == "gemini/gemini-2.5-flash-preview-04-17"
+    assert llm._get_model_name() == "gemini/gemini-3-flash-preview"
 
 
 def test_init_with_dict_model_without_name(mock_litellm):

@@ -87,7 +87,7 @@ class LiteLLM(LLMBase):
             can be passed (e.g., reasoning_effort for Gemini models).
             Example:
                 "model": {
-                    "name": "gemini/gemini-2.5-flash-preview-04-17",
+                    "name": "gemini/gemini-3-flash-preview",
                     "reasoning_effort": "low"
                 }
         """

@@ -45,7 +45,7 @@ config = {
         "provider": "litellm",
         "config": {
             "model": {
-                "name": "gemini/gemini-2.5-flash-preview-04-17",
+                "name": "gemini/gemini-3-flash-preview",
                 "reasoning_effort": "low"  # Options: "disable", "low", "medium", "high"
             },
             "temperature": 0.2,
@@ -68,7 +68,7 @@ When using the dict format for `model`, you can pass these additional parameters
 
 | Parameter | Description | Example Values |
 |-----------|-------------|----------------|
-| `name` | The model identifier (required) | `"gemini/gemini-2.5-flash-preview-04-17"` |
+| `name` | The model identifier (required) | `"gemini/gemini-3-flash-preview"` |
 | `reasoning_effort` | Controls reasoning/thinking level for supported models (e.g., Gemini) | `"disable"`, `"low"`, `"medium"`, `"high"` |
 | `frequency_penalty` | Penalizes frequent tokens | `-2.0` to `2.0` |
 | `presence_penalty` | Penalizes tokens already present | `-2.0` to `2.0` |
