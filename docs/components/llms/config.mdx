@@ -109,11 +109,11 @@ Here's a comprehensive list of all parameters that can be used across different 
     | `deepseek_base_url`  | Base URL for DeepSeek API                     | DeepSeek          |
     | `xai_base_url`       | Base URL for XAI API                          | XAI               |
     | `sarvam_base_url`    | Base URL for Sarvam API                       | Sarvam            |
-    | `reasoning_effort`   | Reasoning level (low, medium, high)           | Sarvam            |
-    | `frequency_penalty`  | Penalize frequent tokens (-2.0 to 2.0)        | Sarvam            |
-    | `presence_penalty`   | Penalize existing tokens (-2.0 to 2.0)        | Sarvam            |
-    | `seed`               | Seed for deterministic sampling               | Sarvam            |
-    | `stop`               | Stop sequences (max 4)                        | Sarvam            |
+    | `reasoning_effort`   | Reasoning level (disable, low, medium, high)  | Sarvam, LiteLLM   |
+    | `frequency_penalty`  | Penalize frequent tokens (-2.0 to 2.0)        | Sarvam, LiteLLM   |
+    | `presence_penalty`   | Penalize existing tokens (-2.0 to 2.0)        | Sarvam, LiteLLM   |
+    | `seed`               | Seed for deterministic sampling               | Sarvam, LiteLLM   |
+    | `stop`               | Stop sequences (max 4)                        | Sarvam, LiteLLM   |
     | `lmstudio_base_url`  | Base URL for LM Studio API                    | LM Studio         |
     | `response_callback`  | LLM response callback function                | OpenAI            |
   </Tab>

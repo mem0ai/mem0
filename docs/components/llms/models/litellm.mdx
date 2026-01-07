@@ -23,11 +23,59 @@ m = Memory.from_config(config)
 messages = [
     {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
     {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
-    {"role": "user", "content": "I’m not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
     {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
 ]
 m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
+
+## Advanced Usage with Model-Specific Parameters
+
+For models that support additional parameters (like `reasoning_effort` for Gemini), you can specify the model as a dictionary:
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your-api-key"  # For embedding model
+os.environ["GOOGLE_API_KEY"] = "your-gemini-api-key"
+
+config = {
+    "llm": {
+        "provider": "litellm",
+        "config": {
+            "model": {
+                "name": "gemini/gemini-2.5-flash-preview-04-17",
+                "reasoning_effort": "low"  # Options: "disable", "low", "medium", "high"
+            },
+            "temperature": 0.2,
+            "max_tokens": 4000,
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I need help planning a complex project."},
+    {"role": "assistant", "content": "I can help with that! What kind of project are you working on?"}
+]
+m.add(messages, user_id="alice", metadata={"category": "project_planning"})
+```
+
+### Supported Model-Specific Parameters
+
+When using the dict format for `model`, you can pass these additional parameters:
+
+| Parameter | Description | Example Values |
+|-----------|-------------|----------------|
+| `name` | The model identifier (required) | `"gemini/gemini-2.5-flash-preview-04-17"` |
+| `reasoning_effort` | Controls reasoning/thinking level for supported models (e.g., Gemini) | `"disable"`, `"low"`, `"medium"`, `"high"` |
+| `frequency_penalty` | Penalizes frequent tokens | `-2.0` to `2.0` |
+| `presence_penalty` | Penalizes tokens already present | `-2.0` to `2.0` |
+| `seed` | For deterministic sampling | Any integer |
+| `stop` | Stop sequences | List of strings |
+
+> **Note:** The `reasoning_effort` parameter is particularly useful for Gemini models where high reasoning can consume most of the token budget. Setting it to `"low"` or `"disable"` helps ensure more tokens are available for the actual response output.
 
 ## Config
 
