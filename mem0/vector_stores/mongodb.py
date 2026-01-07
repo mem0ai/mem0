@@ -48,7 +48,7 @@ class MongoDB(VectorStoreBase):
         """Create new collection with vector search index."""
         try:
             database = self.client[self.db_name]
-            collection_names = database.list_collection_names()
+            collection_names = database.list_collection_names(authorizedCollections=True)
             if self.collection_name not in collection_names:
                 logger.info(f"Collection '{self.collection_name}' does not exist. Creating it now.")
                 collection = database[self.collection_name]
@@ -237,7 +237,7 @@ class MongoDB(VectorStoreBase):
             List[str]: List of collection names.
         """
         try:
-            collections = self.db.list_collection_names()
+            collections = self.db.list_collection_names(authorizedCollections=True)
             logger.info(f"Listing collections in database '{self.db_name}': {collections}")
             return collections
         except PyMongoError as e:
