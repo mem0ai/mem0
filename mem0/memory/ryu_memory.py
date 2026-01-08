@@ -1,14 +1,11 @@
 import logging
-import warnings
 
 from mem0.memory.utils import format_entities
 
 try:
     import ryu
 except ImportError:
-    raise ImportError(
-        "The 'kuzu' provider requires ryugraph. Please install it using: pip install 'mem0ai[graph]' or pip install ryugraph"
-    )
+    raise ImportError("ryu is not installed. Please install it using pip install ryugraph")
 
 try:
     from rank_bm25 import BM25Okapi
@@ -31,15 +28,6 @@ logger = logging.getLogger(__name__)
 
 class MemoryGraph:
     def __init__(self, config):
-        # Emit deprecation warning for kuzu provider
-        warnings.warn(
-            "The 'kuzu' provider is deprecated and will be removed in a future version. "
-            "Please use 'ryu' instead. Kuzu has been archived and replaced by RyuGraph (ryu). "
-            "Your existing code will continue to work as the 'kuzu' provider now uses RyuGraph internally.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
         self.config = config
 
         self.embedding_model = EmbedderFactory.create(
@@ -52,13 +40,12 @@ class MemoryGraph:
         if self.embedding_dims is None or self.embedding_dims <= 0:
             raise ValueError(f"embedding_dims must be a positive integer. Given: {self.embedding_dims}")
 
-        # Using RyuGraph internally for backwards compatibility
         self.db = ryu.Database(self.config.graph_store.config.db)
         self.graph = ryu.Connection(self.db)
 
         self.node_label = ":Entity"
         self.rel_label = ":CONNECTED_TO"
-        self.kuzu_create_schema()
+        self.ryu_create_schema()
 
         # Default to openai if no specific provider is configured
         self.llm_provider = "openai"
@@ -78,8 +65,8 @@ class MemoryGraph:
         # Use threshold from graph_store config, default to 0.7 for backward compatibility
         self.threshold = self.config.graph_store.threshold if hasattr(self.config.graph_store, 'threshold') else 0.7
 
-    def kuzu_create_schema(self):
-        self.kuzu_execute(
+    def ryu_create_schema(self):
+        self.ryu_execute(
             """
             CREATE NODE TABLE IF NOT EXISTS Entity(
                 id SERIAL PRIMARY KEY,
@@ -92,7 +79,7 @@ class MemoryGraph:
                 embedding FLOAT[]);
             """
         )
-        self.kuzu_execute(
+        self.ryu_execute(
             """
             CREATE REL TABLE IF NOT EXISTS CONNECTED_TO(
                 FROM Entity TO Entity,
@@ -104,7 +91,7 @@ class MemoryGraph:
             """
         )
 
-    def kuzu_execute(self, query, parameters=None):
+    def ryu_execute(self, query, parameters=None):
         results = self.graph.execute(query, parameters)
         return list(results.rows_as_dict())
 
@@ -180,7 +167,7 @@ class MemoryGraph:
             params["agent_id"] = filters["agent_id"]
         if filters.get("run_id"):
             params["run_id"] = filters["run_id"]
-        self.kuzu_execute(cypher, parameters=params)
+        self.ryu_execute(cypher, parameters=params)
 
     def get_all(self, filters, limit=100):
         """
@@ -216,7 +203,7 @@ class MemoryGraph:
             m.name AS target
         LIMIT $limit
         """
-        results = self.kuzu_execute(query, parameters=params)
+        results = self.ryu_execute(query, parameters=params)
 
         final_results = []
         for result in results:
@@ -335,7 +322,7 @@ class MemoryGraph:
                 f"(n)-[r]->(m {self.node_label} {{{node_props_str}}}) WITH n as src, r, m as dst, similarity",
                 f"(m {self.node_label} {{{node_props_str}}})-[r]->(n) WITH m as src, r, n as dst, similarity"
             ]:
-                results.extend(self.kuzu_execute(
+                results.extend(self.ryu_execute(
                     f"""
                     MATCH (n {self.node_label} {{{node_props_str}}})
                     WHERE n.embedding IS NOT NULL
@@ -354,7 +341,7 @@ class MemoryGraph:
                     """,
                     parameters=params))
 
-            # Kuzu does not support sort/limit over unions. Do it manually for now.
+            # Ryu does not support sort/limit over unions. Do it manually for now.
             result_relations.extend(sorted(results, key=lambda x: x["similarity"], reverse=True)[:limit])
 
         return result_relations
@@ -439,7 +426,7 @@ class MemoryGraph:
                 m.name AS target
             """
 
-            result = self.kuzu_execute(cypher, parameters=params)
+            result = self.ryu_execute(cypher, parameters=params)
             results.append(result)
 
         return results
@@ -639,7 +626,7 @@ class MemoryGraph:
                     destination.name AS target
                 """
 
-            result = self.kuzu_execute(cypher, parameters=params)
+            result = self.ryu_execute(cypher, parameters=params)
             results.append(result)
 
         return results
@@ -682,7 +669,7 @@ class MemoryGraph:
             RETURN id(source_candidate) as id, source_similarity
             """
 
-        return self.kuzu_execute(cypher, parameters=params)
+        return self.ryu_execute(cypher, parameters=params)
 
     def _search_destination_node(self, destination_embedding, filters, threshold=0.9):
         params = {
@@ -715,7 +702,7 @@ class MemoryGraph:
             RETURN id(destination_candidate) as id, destination_similarity
             """
 
-        return self.kuzu_execute(cypher, parameters=params)
+        return self.ryu_execute(cypher, parameters=params)
 
     # Reset is not defined in base.py
     def reset(self):
@@ -724,4 +711,4 @@ class MemoryGraph:
         cypher_query = """
         MATCH (n) DETACH DELETE n
         """
-        return self.kuzu_execute(cypher_query)
+        return self.ryu_execute(cypher_query)

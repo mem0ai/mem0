@@ -7,6 +7,42 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2025-11-01" description="v1.0.1">
+
+**New Features & Updates:**
+- **Graph Store:**
+  - Added RyuGraph as the new default graph store provider (replaces archived Kuzu)
+  - RyuGraph is a maintained fork of Kuzu with an identical API
+  - Added `"ryu"` as a graph store provider option
+  - **Full backwards compatibility**: Existing `"kuzu"` provider configurations continue to work
+  - The `"kuzu"` provider now uses RyuGraph internally (with deprecation warning)
+  - Created optional migration tool: `tools/migrate_kuzu_to_ryu.py`
+  - Updated dependency from `kuzu>=0.11.0` to `ryugraph>=25.9.0`
+
+**Backwards Compatibility:**
+- **No breaking changes**: Existing code using `provider: "kuzu"` continues to work without modification
+- The `"kuzu"` provider automatically uses RyuGraph under the hood
+- Deprecation warnings guide users to update to `provider: "ryu"` at their convenience
+- Both `KuzuConfig` and `RyuConfig` are supported
+
+**Migration Guide (Optional):**
+- **Your existing code works without changes!** No migration is required.
+- **Recommended update** for clarity:
+  1. Update your config to use `provider: "ryu"` instead of `provider: "kuzu"`
+  2. Optionally, use the migration script if you want to explicitly understand the migration:
+     ```bash
+     python tools/migrate_kuzu_to_ryu.py /path/to/kuzu_db /path/to/ryu_db
+     ```
+- **Note**: Migration script is optional - the `"kuzu"` provider works automatically with RyuGraph
+
+**Why this change?**
+- Kuzu has been archived and is no longer maintained
+- RyuGraph is a community-maintained fork with ongoing support
+- Identical API ensures seamless transition
+- Your existing code benefits from maintained software automatically
+
+</Update>
+
 <Update label="2025-10-16" description="v1.0.0">
 
 **New Features & Updates:**

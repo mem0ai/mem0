@@ -73,16 +73,21 @@ class NeptuneConfig(BaseModel):
             )
 
 
+class RyuConfig(BaseModel):
+    db: Optional[str] = Field(":memory:", description="Path to a RyuGraph database file")
+
+
+# Backwards compatibility alias - KuzuConfig is now the same as RyuConfig
 class KuzuConfig(BaseModel):
-    db: Optional[str] = Field(":memory:", description="Path to a Kuzu database file")
+    db: Optional[str] = Field(":memory:", description="Path to a Kuzu/RyuGraph database file (deprecated: use RyuConfig)")
 
 
 class GraphStoreConfig(BaseModel):
     provider: str = Field(
-        description="Provider of the data store (e.g., 'neo4j', 'memgraph', 'neptune', 'kuzu')",
-        default="neo4j",
+        description="Provider of the data store (e.g., 'neo4j', 'memgraph', 'neptune', 'kuzu', 'ryu')",
+        default="ryu",
     )
-    config: Union[Neo4jConfig, MemgraphConfig, NeptuneConfig, KuzuConfig] = Field(
+    config: Union[Neo4jConfig, MemgraphConfig, NeptuneConfig, KuzuConfig, RyuConfig] = Field(
         description="Configuration for the specific data store", default=None
     )
     llm: Optional[LlmConfig] = Field(description="LLM configuration for querying the graph store", default=None)
@@ -108,7 +113,18 @@ class GraphStoreConfig(BaseModel):
             return MemgraphConfig(**v.model_dump())
         elif provider == "neptune" or provider == "neptunedb":
             return NeptuneConfig(**v.model_dump())
+        elif provider == "ryu":
+            return RyuConfig(**v.model_dump())
         elif provider == "kuzu":
+            # Backwards compatibility: kuzu provider now uses RyuGraph internally
+            import warnings
+            warnings.warn(
+                "The 'kuzu' provider is deprecated and will be removed in a future version. "
+                "Please use 'ryu' instead. Kuzu has been archived and replaced by RyuGraph. "
+                "Your existing code will continue to work as the 'kuzu' provider now uses RyuGraph internally.",
+                DeprecationWarning,
+                stacklevel=2
+            )
             return KuzuConfig(**v.model_dump())
         else:
             raise ValueError(f"Unsupported graph store provider: {provider}")
