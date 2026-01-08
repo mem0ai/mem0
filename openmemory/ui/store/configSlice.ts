@@ -48,7 +48,7 @@ const initialState: ConfigState = {
     llm: {
       provider: 'openai',
       config: {
-        model: 'gpt-4o-mini',
+        model: 'phi-3.5-mini-instruct',
         temperature: 0.1,
         max_tokens: 2000,
         api_key: 'env:OPENAI_API_KEY',
@@ -57,7 +57,7 @@ const initialState: ConfigState = {
     embedder: {
       provider: 'openai',
       config: {
-        model: 'text-embedding-3-small',
+        model: 'text-embedding-gte-qwen2-1.5b-instruct',
         api_key: 'env:OPENAI_API_KEY',
       },
     },

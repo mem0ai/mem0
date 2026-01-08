@@ -9,6 +9,9 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  experimental: {
+    disableNextjsTelemetry: true,
+  }
 }
 
 export default nextConfig

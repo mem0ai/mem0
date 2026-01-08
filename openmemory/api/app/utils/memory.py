@@ -255,7 +255,7 @@ def get_default_memory_config():
         config["llm"] = {
             "provider": os.getenv("LLM_PROVIDER", "openai"),
             "config": {
-                "model": os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+                "model": os.getenv("OPENAI_MODEL", "phi-3.5-mini-instruct"),
                 "temperature": float(os.getenv("TEMPERATURE", "0.1")),
                 "max_tokens": int(os.getenv("MAX_TOKENS", "2000")),
                 "api_key": os.getenv("OPENAI_API_KEY") or "env:OPENAI_API_KEY",
@@ -267,7 +267,7 @@ def get_default_memory_config():
         config["embedder"] = {
             "provider": os.getenv("EMBEDDER_PROVIDER", "openai"),
             "config": {
-                "model": os.getenv("EMBEDDING_MODEL", "text-embedding-3-small"),
+                "model": os.getenv("EMBEDDING_MODEL", "text-embedding-gte-qwen2-1.5b-instruct"),
                 "api_key": os.getenv("OPENAI_API_KEY") or "env:OPENAI_API_KEY",
                 "ollama_base_url": os.getenv("OLLAMA_BASE_URL"),
                 "dimension": int(os.getenv("VECTOR_DIMS", "1536"))

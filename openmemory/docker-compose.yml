@@ -45,9 +45,11 @@ services:
       - QDRANT_PORT=6333
       - QDRANT_COLLECTION=openmemory
       - USER=garciaba79
-      - 'MEM0_LLM_CONFIG={"provider": "openai", "config": {"model": "deepseek-coder-6.7b-instruct", "temperature": 0.1, "max_tokens": 2000}}'
+      - MEM0_ASYNC_MODE=true
+      - 'MEM0_LLM_CONFIG={"provider": "openai", "config": {"model": "phi-3.5-mini-instruct", "temperature": 0.1, "max_tokens": 2000}}'
       - 'MEM0_EMBEDDER_CONFIG={"provider": "openai", "config": {"model": "text-embedding-gte-qwen2-1.5b-instruct", "embedding_dims": 1536}}'
       - 'MEM0_VECTOR_STORE_CONFIG={"provider": "qdrant", "config": {"host": "qdrant", "port": 6333, "collection_name": "openmemory"}}'
+
     volumes:
       - openmemory:/data
     extra_hosts:
@@ -59,6 +61,8 @@ services:
     build:
       context: ./ui
       dockerfile: Dockerfile
+      args:
+        NEXT_TELEMETRY_DISABLED: 1
     container_name: openmemory-ui
     ports:
       - "10004:3000"
@@ -67,7 +71,6 @@ services:
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:10003
       - NEXT_PUBLIC_USER_ID=garciaba79
-      - NEXT_TELEMETRY_DISABLED=1
     depends_on:
       - openmemory-mcp
     restart: always
