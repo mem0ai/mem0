@@ -29,6 +29,8 @@ RUN cp .env.example .env || true  # Keep example if no custom .env
 
 RUN cp next.config.dev.mjs next.config.mjs
 
+ENV NEXT_TELEMETRY_DISABLED=1
+
 RUN pnpm build
 
 FROM base AS runner

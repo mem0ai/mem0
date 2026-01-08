@@ -49,7 +49,6 @@ services:
       - 'MEM0_LLM_CONFIG={"provider": "openai", "config": {"model": "phi-3.5-mini-instruct", "temperature": 0.1, "max_tokens": 2000}}'
       - 'MEM0_EMBEDDER_CONFIG={"provider": "openai", "config": {"model": "text-embedding-gte-qwen2-1.5b-instruct", "embedding_dims": 1536}}'
       - 'MEM0_VECTOR_STORE_CONFIG={"provider": "qdrant", "config": {"host": "qdrant", "port": 6333, "collection_name": "openmemory"}}'
-
     volumes:
       - openmemory:/data
     extra_hosts:
@@ -61,8 +60,6 @@ services:
     build:
       context: ./ui
       dockerfile: Dockerfile
-      args:
-        NEXT_TELEMETRY_DISABLED: 1
     container_name: openmemory-ui
     ports:
       - "10004:3000"
