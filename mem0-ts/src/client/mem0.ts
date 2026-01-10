@@ -213,7 +213,7 @@ export default class MemoryClient {
 
   async add(
     messages: Array<Message>,
-    options: MemoryOptions = {},
+    options: MemoryOptions & Record<string, any> = {},
   ): Promise<Array<Memory>> {
     if (this.telemetryId === "") await this.ping();
     this._validateOrgProject();
@@ -339,7 +339,10 @@ export default class MemoryClient {
     }
   }
 
-  async search(query: string, options?: SearchOptions): Promise<Array<Memory>> {
+  async search(
+    query: string,
+    options?: SearchOptions & Record<string, any>,
+  ): Promise<Array<Memory>> {
     if (this.telemetryId === "") await this.ping();
     this._validateOrgProject();
     const payloadKeys = Object.keys(options || {});
