@@ -83,8 +83,7 @@ const messages = [
   { role: "assistant", content: "Great! I’ll remember that for future suggestions." }
 ];
 
-await client.add({
-  messages,
+await client.add(messages, {
   user_id: "alice",
   version: "v2",
 });
