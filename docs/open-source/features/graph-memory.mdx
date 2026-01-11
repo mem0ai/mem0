@@ -211,6 +211,15 @@ const config = {
 const memory = new Memory(config);
 ```
 </CodeGroup>
+
+    `custom_prompt` tunes relationship extraction on writes. Use `custom_search_prompt` when you want to control entity extraction during graph search.
+
+```python
+config["graph_store"]["custom_search_prompt"] = (
+    "Extract only organization entities mentioned by USER_ID. "
+    "Return only entities and their types."
+)
+```
   </Accordion>
   <Accordion title="Raise the confidence threshold">
     Keep noisy edges out of the graph by demanding higher extraction confidence.

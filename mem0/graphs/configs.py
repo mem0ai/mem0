@@ -89,6 +89,9 @@ class GraphStoreConfig(BaseModel):
     custom_prompt: Optional[str] = Field(
         description="Custom prompt to fetch entities from the given text", default=None
     )
+    custom_search_prompt: Optional[str] = Field(
+        description="Custom prompt to extract entities during graph search", default=None
+    )
     threshold: float = Field(
         description="Threshold for embedding similarity when matching nodes during graph ingestion. "
                     "Range: 0.0 to 1.0. Higher values require closer matches. "

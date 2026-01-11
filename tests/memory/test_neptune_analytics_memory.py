@@ -1,6 +1,27 @@
+import sys
+import types
 import unittest
 from unittest.mock import MagicMock, patch
 import pytest
+
+try:
+    import langchain_aws  # noqa: F401
+except ImportError:
+    stub = types.ModuleType("langchain_aws")
+    stub.NeptuneAnalyticsGraph = object
+    sys.modules["langchain_aws"] = stub
+
+try:
+    from botocore.config import Config  # noqa: F401
+except ImportError:
+    botocore_module = types.ModuleType("botocore")
+    botocore_module.__path__ = []
+    botocore_config = types.ModuleType("botocore.config")
+    botocore_config.Config = object
+    botocore_module.config = botocore_config
+    sys.modules["botocore"] = botocore_module
+    sys.modules["botocore.config"] = botocore_config
+
 from mem0.graphs.neptune.neptunegraph import MemoryGraph
 from mem0.graphs.neptune.base import NeptuneBase
 
