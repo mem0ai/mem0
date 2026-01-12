@@ -6,6 +6,11 @@ from mem0.embeddings.base import EmbeddingBase
 
 # Token limits per batch for each VoyageAI model
 VOYAGE_TOTAL_TOKEN_LIMITS = {
+    # Voyage 4 models (upcoming)
+    "voyage-4-large": 120_000,
+    "voyage-4": 320_000,
+    "voyage-4-lite": 1_000_000,
+    # Voyage 3.x models
     "voyage-context-3": 32_000,
     "voyage-3.5-lite": 1_000_000,
     "voyage-3.5": 320_000,
