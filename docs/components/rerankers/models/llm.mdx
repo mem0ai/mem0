@@ -1,9 +1,11 @@
 ---
 title: LLM as Reranker
 description: 'Flexible reranking using LLMs'
-icon: "robot"
-iconType: "solid"
 ---
+
+<Warning>
+**This page has been superseded.** Please see [LLM Reranker](/components/rerankers/models/llm_reranker) for the complete and up-to-date documentation on using LLMs for reranking.
+</Warning>
 
 LLM-based reranker provides maximum flexibility by using any Large Language Model to score document relevance. This approach allows for custom prompts and domain-specific scoring logic.
 
@@ -37,7 +39,7 @@ config = {
             "model": "gpt-4o-mini"
         }
     },
-    "rerank": {
+    "reranker": {
         "provider": "llm",
         "config": {
             "model": "gpt-4o-mini",
@@ -71,7 +73,7 @@ Score from 0.0 to 1.0 where:
 
 Provide only a single numerical score between 0.0 and 1.0."""
 
-config["rerank"]["config"]["scoring_prompt"] = custom_prompt
+config["reranker"]["config"]["scoring_prompt"] = custom_prompt
 ```
 
 ## Usage Example
@@ -87,7 +89,7 @@ os.environ["OPENAI_API_KEY"] = "your-api-key"
 config = {
     "vector_store": {"provider": "chroma"},
     "llm": {"provider": "openai", "config": {"model": "gpt-4o-mini"}},
-    "rerank": {
+    "reranker": {
         "provider": "llm",
         "config": {
             "model": "gpt-4o-mini",
@@ -147,7 +149,7 @@ Consider:
 Score from 0.0 to 1.0. Provide only the numerical score."""
 
 config = {
-    "rerank": {
+    "reranker": {
         "provider": "llm",
         "config": {
             "model": "gpt-4o-mini",
@@ -166,7 +168,7 @@ Use different LLM providers for reranking:
 ```python Python
 # Using Anthropic Claude
 anthropic_config = {
-    "rerank": {
+    "reranker": {
         "provider": "llm",
         "config": {
             "model": "claude-3-haiku-20240307",
@@ -178,8 +180,8 @@ anthropic_config = {
 
 # Using local Ollama model
 ollama_config = {
-    "rerank": {
-        "provider": "llm", 
+    "reranker": {
+        "provider": "llm",
         "config": {
             "model": "llama2:7b",
             "provider": "ollama",

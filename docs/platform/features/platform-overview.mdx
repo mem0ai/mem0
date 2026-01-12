@@ -1,48 +1,62 @@
 ---
 title: Overview
-icon: "info"
-iconType: "solid"
+description: "See how Mem0 Platform features evolve from baseline filters to graph-powered retrieval."
+icon: "list"
 ---
 
-Learn about the key features and capabilities that make Mem0 a powerful platform for memory management and retrieval.
+Mem0 Platform features help managed deployments scale from basic filtering to graph-powered retrieval and data governance. Use this page to pick the right feature lane for your team.
 
-## Core Features
+<Info>
+  New to the platform? Start with the <Link href="/platform/quickstart">Platform quickstart</Link>,
+  then dive into the journeys below.
+</Info>
 
-<CardGroup>
-  <Card title="Advanced Retrieval" icon="magnifying-glass" href="/platform/features/advanced-retrieval">
-    Superior search results using state-of-the-art algorithms, including keyword search, reranking, and filtering capabilities.
+## Choose your path
+
+<CardGroup cols={3}>
+  <Card title="Apply Essential Filters" icon="rocket" href="/platform/features/v2-memory-filters">
+    Field-level filtering with async defaults.
   </Card>
-  <Card title="Contextual Add" icon="square-plus" href="/platform/features/contextual-add">
-    Only send your latest conversation history - we automatically retrieve the rest and generate properly contextualized memories.
+  <Card title="Go Real-Time with Async" icon="bolt" href="/platform/features/async-client">
+    Non-blocking add/search requests for agents.
   </Card>
-  <Card title="Multimodal Support" icon="photo-film" href="/platform/features/multimodal-support">
-    Process and analyze various types of content including images.
+  <Card title="Unlock Graph Memory" icon="circle-nodes" href="/platform/features/graph-memory">
+    Relationship-aware recall across entities.
   </Card>
-  <Card title="Memory Customization" icon="filter" href="/platform/features/selective-memory">
-    Customize and curate stored memories to focus on relevant information while excluding unnecessary data, enabling improved accuracy, privacy control, and resource efficiency.
+  <Card
+    title="Boost Retrieval Quality"
+    icon="sparkles"
+    href="/platform/features/advanced-retrieval"
+  >
+    Metadata filters, rerankers, and toggles.
   </Card>
-  <Card title="Custom Categories" icon="tags" href="/platform/features/custom-categories">
-    Create and manage custom categories to organize memories based on your specific needs and requirements.
+  <Card title="Manage Data Lifecycle" icon="database" href="/platform/features/direct-import">
+    Imports, exports, timestamps, and expirations.
   </Card>
-  <Card title="Custom Instructions" icon="list-check" href="/platform/features/custom-instructions">
-    Define specific guidelines for your project to ensure consistent handling of information and requirements.
-  </Card>
-  <Card title="Direct Import" icon="message-bot" href="/platform/features/direct-import">
-    Tailor the behavior of your Mem0 instance with custom prompts for specific use cases or domains.
-  </Card>
-  <Card title="Async Client" icon="bolt" href="/platform/features/async-client">
-    Asynchronous client for non-blocking operations and high concurrency applications.
-  </Card>
-  <Card title="Memory Export" icon="file-export" href="/platform/features/memory-export">
-    Export memories in structured formats using customizable Pydantic schemas.
-  </Card>
-  <Card title="Graph Memory" icon="circle-nodes" href="/platform/features/graph-memory">
-    Add memories in the form of nodes and edges in a graph database and search for related memories.
+  <Card title="Connect Any AI Client" icon="puzzle-piece" href="/platform/mem0-mcp">
+    Universal memory integration via MCP.
   </Card>
 </CardGroup>
 
-## Getting Help
+<Tip>
+  Self-hosting instead? Jump to the{" "}
+  <Link href="/open-source/features/overview">OSS feature overview</Link> for equivalent
+  capabilities.
+</Tip>
 
-If you have any questions about these features or need assistance, our team is here to help:
+## Keep going
 
-<Snippet file="get-help.mdx" />
+<CardGroup cols={2}>
+  <Card
+    title="Compare with Open Source"
+    description="See how managed features map to the OSS stack."
+    icon="server"
+    href="/platform/platform-vs-oss"
+  />
+  <Card
+    title="Run the Quickstart"
+    description="Provision the workspace and ship your first advanced search."
+    icon="rocket"
+    href="/platform/quickstart"
+  />
+</CardGroup>

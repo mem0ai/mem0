@@ -14,8 +14,8 @@ The v2 search API is powerful and flexible, allowing for more precise memory ret
 - `*`: Wildcard character that matches everything
 
 <CodeGroup>
-```python Code
-related_memories = m.search(
+```python Platform API Example
+related_memories = client.search(
     query="What are Alice's hobbies?",
     filters={
         "OR": [
@@ -53,7 +53,7 @@ related_memories = m.search(
 <CodeGroup>
 ```python Wildcard Example
 # Using wildcard to match all run_ids for a specific user
-all_memories = m.search(
+all_memories = client.search(
     query="What are Alice's hobbies?",
     filters={
         "AND": [
@@ -72,7 +72,7 @@ all_memories = m.search(
 <CodeGroup>
 ```python Categories Filter Examples
 # Example 1: Using 'contains' for partial matching
-finance_memories = m.search(
+finance_memories = client.search(
     query="What are my financial goals?",
     filters={
         "AND": [
@@ -87,7 +87,7 @@ finance_memories = m.search(
 )
 
 # Example 2: Using 'in' for exact matching
-personal_memories = m.search(
+personal_memories = client.search(
     query="What personal information do you have?",
     filters={
         "AND": [

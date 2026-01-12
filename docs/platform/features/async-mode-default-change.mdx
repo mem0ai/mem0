@@ -1,8 +1,6 @@
 ---
 title: Async Mode Default Change
 description: 'Important update to Memory Addition API behavior'
-icon: "clock-rotate-left"
-iconType: "solid"
 ---
 
 <Note type="warning">
@@ -163,12 +161,14 @@ You can also retrieve all processed memories at any time:
 
 ```python Python
 # Retrieve all memories for a user
-memories = client.get_all(user_id="user-123")
+# Note: get_all now requires filters
+memories = client.get_all(filters={"AND": [{"user_id": "user-123"}]})
 ```
 
 ```javascript JavaScript
 // Retrieve all memories for a user
-const memories = await client.getAll({ user_id: "user-123" });
+// Note: getAll now requires filters
+const memories = await client.getAll({ filters: {"AND": [{"user_id": "user-123"}]} });
 ```
 
 </CodeGroup>

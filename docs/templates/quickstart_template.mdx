@@ -1,0 +1,334 @@
+---
+title: Quickstart Template
+description: "Guidance and skeleton for Mem0 quickstart documentation."
+icon: "rocket"
+---
+
+# Quickstart Template
+
+Quickstarts are the fastest path to first success. Each page should configure the minimum viable setup for its section, execute one complete add/search/delete loop, and hand readers off to deeper docs once the core flow succeeds.
+
+---
+
+## ❌ DO NOT COPY — Guidance & Constraints
+- Keep the intro tight: one-sentence promise + `<Info>` prerequisites. Add `<Warning>` only for blocking requirements (e.g., “requires paid tier”).
+- Default to Python + TypeScript examples inside `<Tabs>` with `<Steps>` per language. If a second language truly doesn’t exist, add a `<Note>` explaining why.
+- Every journey must follow **Install → Configure → Add → Search → Delete** (or closest equivalents). Drop verification `<Info icon="check">` immediately after the critical operation.
+- When migrating an existing quickstart, reuse canonical snippets and screenshots—reshape them into this flow rather than rewriting content unless the product changed.
+- If you include a Mermaid diagram, keep it optional and render left-to-right (`graph LR`) so it doesn’t flood the page.
+- End with exactly two CTA cards: left = related/alternative path, right = next step in the journey. No link farms.
+
+---
+
+## ✅ COPY THIS — Content Skeleton
+Paste the block below into a new quickstart, then replace **every** placeholder. Remove optional sections only after the happy path is working.
+
+````mdx
+---
+title: [Quickstart title — action focused]
+description: [1 sentence outcome]
+icon: "rocket"
+estimatedTime: "[~X minutes]"
+---
+
+# [Hero headline — promise the win]
+
+<Info>
+  **Prerequisites**
+  - [SDK/Runtime requirement]
+  - [API key or account requirement]
+  - [Any optional tooling the reader might want]
+</Info>
+
+<Tip>
+  [Optional: cross-link to OSS or platform alternative if applicable. Delete if unused.]
+</Tip>
+
+{/* Optional: delete if not needed */}
+```mermaid
+graph LR
+  A[Install] */} B[Configure keys]
+  B */} C[Add memory]
+  C */} D[Search]
+  D */} E[Delete]
+```
+
+## Install dependencies
+
+<Tabs>
+  <Tab title="Python">
+<Steps>
+<Step title="Install the SDK">
+```bash
+pip install [package-name]
+```
+</Step>
+</Steps>
+  </Tab>
+  <Tab title="TypeScript">
+<Steps>
+<Step title="Install the SDK">
+```bash
+npm install [package-name]
+```
+</Step>
+</Steps>
+  </Tab>
+</Tabs>
+
+[Explain why the install matters in one sentence.]
+
+## Configure access
+
+<Tabs>
+  <Tab title="Python">
+<Steps>
+<Step title="Set environment variables">
+```bash
+export MEM0_API_KEY="sk-..."
+```
+</Step>
+<Step title="Initialize the client">
+```python
+from mem0 import Memory
+
+memory = Memory(api_key="sk-...")
+```
+</Step>
+</Steps>
+  </Tab>
+  <Tab title="TypeScript">
+<Steps>
+<Step title="Set environment variables">
+```bash
+export MEM0_API_KEY="sk-..."
+```
+</Step>
+<Step title="Initialize the client">
+```typescript
+import { Memory } from "mem0ai";
+
+const memory = new Memory({ apiKey: process.env.MEM0_API_KEY! });
+```
+</Step>
+</Steps>
+  </Tab>
+</Tabs>
+
+<Warning>
+  [Optional: call out the most common setup failure and how to fix it.]
+</Warning>
+
+## Add your first memory
+
+<Tabs>
+  <Tab title="Python">
+<Steps>
+<Step title="Send a conversation">
+```python
+messages = [
+    {"role": "user", "content": "Hi, I'm Alex and I love basketball."},
+    {"role": "assistant", "content": "Noted! I'll remember that."},
+]
+
+memory.add(messages, user_id="alex")
+```
+</Step>
+</Steps>
+  </Tab>
+  <Tab title="TypeScript">
+<Steps>
+<Step title="Send a conversation">
+```typescript
+const messages = [
+  { role: "user", content: "Hi, I'm Alex and I love basketball." },
+  { role: "assistant", content: "Noted! I'll remember that." },
+];
+
+await memory.add(messages, { userId: "alex" });
+```
+</Step>
+</Steps>
+  </Tab>
+</Tabs>
+
+<Info icon="check">
+  Expected output: `[Describe the success log or console output]`. If you see `[common error]`, jump to the troubleshooting section.
+</Info>
+
+## Search the memory
+
+<Tabs>
+  <Tab title="Python">
+<Steps>
+<Step title="Query the memory">
+```python
+result = memory.search("What does Alex like?", filters={"user_id": "alex"})
+print(result)
+```
+</Step>
+</Steps>
+  </Tab>
+  <Tab title="TypeScript">
+<Steps>
+<Step title="Query the memory">
+```typescript
+const result = await memory.search("What does Alex like?", { userId: "alex" });
+console.log(result);
+```
+</Step>
+</Steps>
+  </Tab>
+</Tabs>
+
+<Info icon="check">
+  You should see `[show the key fields]`. Screenshot or paste real output when possible.
+</Info>
+
+## Delete the memory
+
+<Tabs>
+  <Tab title="Python">
+<Steps>
+<Step title="Clean up">
+```python
+memory.delete_all(user_id="alex")
+```
+</Step>
+</Steps>
+  </Tab>
+  <Tab title="TypeScript">
+<Steps>
+<Step title="Clean up">
+```typescript
+await memory.deleteAll({ userId: "alex" });
+```
+</Step>
+</Steps>
+  </Tab>
+</Tabs>
+
+## Quick recovery
+
+- `[Error message]` → `[One-line fix or link to troubleshooting guide]`
+- `[Second error]` → `[How to resolve]`
+
+{/* DEBUG: verify CTA targets */}
+
+<CardGroup cols={2}>
+  <Card
+    title="[Related/alternate path]"
+    description="[Why it’s worth exploring next]"
+    icon="sparkles"
+    href="/[related-link]"
+  />
+  <Card
+    title="[Next step in the journey]"
+    description="[Set expectation for what they’ll learn]"
+    icon="rocket"
+    href="/[next-link]"
+  />
+</CardGroup>
+````
+
+---
+
+## ✅ Publish Checklist
+- [ ] Replace every placeholder and delete unused sections (`<Tip>`, Mermaid diagram, etc.).
+- [ ] Python **and** TypeScript tabs render correctly (or you added a `<Note>` explaining a missing language).
+- [ ] Each major step includes an inline verification `<Info icon="check">`.
+- [ ] Quick recovery section lists at least two common issues.
+- [ ] Final `<CardGroup>` has exactly two cards (related on the left, next step on the right).
+- [ ] Links, commands, and code snippets were tested or clearly marked if hypothetical.
+
+## Browse Other Templates
+
+<CardGroup cols={3}>
+  <Card
+    title="Quickstart"
+    description="Install → Configure → Add → Search → Delete."
+    icon="rocket"
+    href="/templates/quickstart_template"
+  />
+  <Card
+    title="Operation Guide"
+    description="Single task walkthrough with verification checkpoints."
+    icon="circle-check"
+    href="/templates/operation_guide_template"
+  />
+  <Card
+    title="Feature Guide"
+    description="Explain when and why to use a capability, not just the API."
+    icon="sparkles"
+    href="/templates/feature_guide_template"
+  />
+  <Card
+    title="Concept Guide"
+    description="Define mental models, key terms, and diagrams."
+    icon="brain"
+    href="/templates/concept_guide_template"
+  />
+  <Card
+    title="Integration Guide"
+    description="Configure Mem0 alongside third-party tools."
+    icon="plug"
+    href="/templates/integration_guide_template"
+  />
+  <Card
+    title="Cookbook"
+    description="Narrative, end-to-end walkthroughs."
+    icon="book-open"
+    href="/templates/cookbook_template"
+  />
+  <Card
+    title="API Reference"
+    description="Endpoint specifics with dual-language examples."
+    icon="code"
+    href="/templates/api_reference_template"
+  />
+  <Card
+    title="Parameters Reference"
+    description="Accepted fields, defaults, and misuse fixes."
+    icon="list"
+    href="/templates/parameters_reference_template"
+  />
+  <Card
+    title="Migration Guide"
+    description="Plan → migrate → validate with rollback."
+    icon="arrow-right"
+    href="/templates/migration_guide_template"
+  />
+  <Card
+    title="Release Notes"
+    description="Ship highlights and required CTAs."
+    icon="megaphone"
+    href="/templates/release_notes_template"
+  />
+  <Card
+    title="Troubleshooting Playbook"
+    description="Symptom → diagnose → fix."
+    icon="life-buoy"
+    href="/templates/troubleshooting_playbook_template"
+  />
+  <Card
+    title="Section Overview"
+    description="Landing pages with card grids and CTA pair."
+    icon="grid"
+    href="/templates/section_overview_template"
+  />
+</CardGroup>
+
+<CardGroup cols={2}>
+  <Card
+    title="Contribution Hub"
+    description="Review the authoring workflow and linked templates."
+    icon="clipboard-list"
+    href="/platform/contribute"
+  />
+  <Card
+    title="Docs Home"
+    description="Return to the platform overview once you’re done."
+    icon="compass"
+    href="/platform/overview"
+  />
+</CardGroup>

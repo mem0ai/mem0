@@ -1,8 +1,6 @@
 ---
 title: Direct Import
 description: 'Bypass the memory deduction phase and directly store pre-defined memories for efficient retrieval'
-icon: "arrow-right"
-iconType: "solid"
 ---
 
 ## How to Use Direct Import
@@ -32,6 +30,10 @@ client.add(messages, user_id="alice", infer=False)
 You can see that the output of the add call is an empty list.
 
 <Note>Only messages with the role "user" will be used for storage. Messages with roles such as "assistant" or "system" will be ignored during the storage process.</Note>
+
+<Warning>
+Direct import skips the inference pipeline, so it also skips duplicate detection. If you later send the same fact with `infer=True`, Mem0 will store a second copy. Pick one mode per memory source unless you truly want both versions.
+</Warning>
 
 ## How to Retrieve Memories
 
@@ -65,10 +67,14 @@ client.search("What is Alice's favorite sport?", user_id="alice")
 
 You can retrieve all memories using the `get_all` method.
 
+<Callout type="warning" title="Filters Required">
+`get_all()` now requires filters to be specified.
+</Callout>
+
 <CodeGroup>
 
 ```python Python
-client.get_all(query="What is Alice's favorite sport?", user_id="alice")
+client.get_all(filters={"AND": [{"user_id": "alice"}]})
 ```
 
 ```json Output

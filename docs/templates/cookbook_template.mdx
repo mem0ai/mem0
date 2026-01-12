@@ -1,0 +1,284 @@
+---
+title: Cookbook Template
+description: "Narrative recipe structure for end-to-end Mem0 workflows."
+icon: "book-open"
+---
+
+# Cookbook Template
+
+Cookbooks are narrative tutorials. They start with a real problem, show the broken path, then layer production-ready fixes. Use this template verbatim so every contributor (human or LLM) ships the same experience.
+
+---
+
+## ❌ DO NOT COPY — Guidance & Constraints
+- Tell a story: problem → broken demo → iterative fixes → production patterns.
+- Keep tone conversational; use real names ("Max", "Sarah"), not `user_123`.
+- Opening must stay tight: ≤2 short paragraphs (no bullet lists) before the first section.
+- Inline expected outputs immediately after each code block.
+- When modernizing an existing cookbook, keep the narrative beats, screenshots, and sample outputs—reshape them into this arc instead of rewriting unless the workflow changed.
+- Limit callouts to 3–5 per page. Prefer narrative text over stacked boxes.
+- Always provide Python **and** TypeScript tabs when an SDK exists for both.
+- Every page must end with exactly two navigation cards (left = related/side quest, right = next cookbook in the journey).
+
+---
+
+## ✅ COPY THIS — Content Skeleton
+Paste the block below into a new cookbook, then replace all placeholders. Remove any section you don't need **only after** the happy path works.
+
+```mdx
+---
+title: [Cookbook title — action oriented]
+description: [1 sentence outcome]
+---
+
+# [Hero headline]
+
+[Two sentences max: state the user's pain and what this cookbook will fix.]
+
+<Tip>
+[Only include if you truly have launch news. Delete otherwise to keep the intro crisp.]
+</Tip>
+
+<Info icon="clock">
+**Time to complete:** [~X minutes] · **Languages:** Python, TypeScript
+</Info>
+
+## Setup
+
+```python
+default_language = "python"  # replace with real imports
+```
+```typescript
+// Equivalent TypeScript setup goes here
+```
+
+<Note>
+Mention any prerequisites (API keys, environment variables) right here if the reader must do something before running code.
+</Note>
+
+## Make It Work Once
+
+[Set context with characters + goal.]
+
+```python
+# Happy-path example
+```
+```typescript
+// Happy-path example (TypeScript)
+```
+
+<Info icon="check">
+Expected output (Python): `[describe inline]`  ·  Expected output (TypeScript): `[describe inline]`
+</Info>
+
+## The Problem
+
+[Explain what breaks without tuning.]
+
+```python
+# Broken behaviour
+```
+```typescript
+// Broken behaviour
+```
+
+**Output:**
+```
+[Paste noisy output]
+```
+
+[One sentence on why the result is unacceptable.]
+
+## Fix It – [Solution Name]
+
+[Explain the fix and why it helps.]
+
+```python
+# Improved implementation
+```
+```typescript
+// Improved implementation
+```
+
+**Retest:**
+```python
+# Same test as before
+```
+```typescript
+// Same test as before
+```
+
+**Output:**
+```
+[Cleaner result]
+```
+
+[Highlight the improvement + remaining gap if any.]
+
+## Build On It – [Second Layer]
+
+[Add another enhancement, e.g., metadata filters, rerankers, batching.]
+
+```python
+# Additional refinement
+```
+```typescript
+// Additional refinement
+```
+
+<Warning>
+Call out the most common mistake or edge case for this layer.
+</Warning>
+
+## Production Patterns
+
+- **[Pattern 1]** — `[When to use it]`
+  ```python
+  # Example snippet
+  ```
+  ```typescript
+  // Example snippet
+  ```
+- **[Pattern 2]** — `[When to use it]`
+  ```python
+  # Example snippet
+  ```
+  ```typescript
+  // Example snippet
+  ```
+
+## What You Built
+
+- **[Capability 1]** — [How the cookbook delivers it]
+- **[Capability 2]** — [How the cookbook delivers it]
+- **[Capability 3]** — [How the cookbook delivers it]
+
+## Production Checklist
+
+- [Actionable step #1]
+- [Actionable step #2]
+- [Actionable step #3]
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="[Related cookbook / deep dive]"
+    description="[Why this pairs well with the current guide]"
+    icon="arrow-right"
+    href="/[related-link]"
+  />
+  <Card
+    title="[Next cookbook in journey]"
+    description="[Set expectation for the next step]"
+    icon="rocket"
+    href="/[next-link]"
+  />
+</CardGroup>
+```
+
+---
+
+## ✅ Publish Checklist (Keep Handy)
+- [ ] Replace every `[placeholder]` and remove unused sections.
+- [ ] Python & TypeScript code compile (or TypeScript omitted with explicit `<Note>` stating language limitation).
+- [ ] Each code block is followed by output + `<Info icon="check">` or inline equivalent.
+- [ ] Callouts ≤ 5 total; no emoji, only Mintlify icons.
+- [ ] Exactly two cards in the final `<CardGroup cols={2}>`.
+- [ ] Added verification narrative (what success looks like) in every major step.
+- [ ] Linked related docs (cookbooks, guides, reference) in Next Steps.
+
+Stick to the skeleton above. If you need to deviate, document the rationale in the PR so we can update the template for everyone else.
+```
+
+## Browse Other Templates
+
+<CardGroup cols={3}>
+  <Card
+    title="Quickstart"
+    description="Install → Configure → Add → Search → Delete."
+    icon="rocket"
+    href="/templates/quickstart_template"
+  />
+  <Card
+    title="Operation Guide"
+    description="Single task walkthrough with verification checkpoints."
+    icon="circle-check"
+    href="/templates/operation_guide_template"
+  />
+  <Card
+    title="Feature Guide"
+    description="Explain when and why to use a capability, not just the API."
+    icon="sparkles"
+    href="/templates/feature_guide_template"
+  />
+  <Card
+    title="Concept Guide"
+    description="Define mental models, key terms, and diagrams."
+    icon="brain"
+    href="/templates/concept_guide_template"
+  />
+  <Card
+    title="Integration Guide"
+    description="Configure Mem0 alongside third-party tools."
+    icon="plug"
+    href="/templates/integration_guide_template"
+  />
+  <Card
+    title="Cookbook"
+    description="Narrative, end-to-end walkthroughs."
+    icon="book-open"
+    href="/templates/cookbook_template"
+  />
+  <Card
+    title="API Reference"
+    description="Endpoint specifics with dual-language examples."
+    icon="code"
+    href="/templates/api_reference_template"
+  />
+  <Card
+    title="Parameters Reference"
+    description="Accepted fields, defaults, and misuse fixes."
+    icon="list"
+    href="/templates/parameters_reference_template"
+  />
+  <Card
+    title="Migration Guide"
+    description="Plan → migrate → validate with rollback."
+    icon="arrow-right"
+    href="/templates/migration_guide_template"
+  />
+  <Card
+    title="Release Notes"
+    description="Ship highlights and required CTAs."
+    icon="megaphone"
+    href="/templates/release_notes_template"
+  />
+  <Card
+    title="Troubleshooting Playbook"
+    description="Symptom → diagnose → fix."
+    icon="life-buoy"
+    href="/templates/troubleshooting_playbook_template"
+  />
+  <Card
+    title="Section Overview"
+    description="Landing pages with card grids and CTA pair."
+    icon="grid"
+    href="/templates/section_overview_template"
+  />
+</CardGroup>
+
+<CardGroup cols={2}>
+  <Card
+    title="Contribution Hub"
+    description="Review the authoring workflow and linked templates."
+    icon="clipboard-list"
+    href="/platform/contribute"
+  />
+  <Card
+    title="Docs Home"
+    description="Return to the platform overview once you’re done."
+    icon="compass"
+    href="/platform/overview"
+  />
+</CardGroup>

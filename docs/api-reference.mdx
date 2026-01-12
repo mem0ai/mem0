@@ -1,44 +1,83 @@
 ---
-title: Overview
-icon: "info"
+title: "Overview"
+icon: "terminal"
 iconType: "solid"
+description: "REST APIs for memory management, search, and entity operations"
 ---
 
-Mem0 provides a powerful set of APIs that allow you to integrate advanced memory management capabilities into your applications. Our APIs are designed to be intuitive, efficient, and scalable, enabling you to create, retrieve, update, and delete memories across various entities such as users, agents, apps, and runs.
+## Mem0 REST API
+
+Mem0 provides a comprehensive REST API for integrating advanced memory capabilities into your applications. Create, search, update, and manage memories across users, agents, and custom entities with simple HTTP requests.
+
+<Info>
+**Quick start:** Get your API key from the [Mem0 Dashboard](https://app.mem0.ai/dashboard/api-keys) and make your first memory operation in minutes.
+</Info>
+
+---
 
 ## Quick Start Guide
 
 Get started with Mem0 API in three simple steps:
 
 1. **[Add Memories](/api-reference/memory/add-memories)** - Store information and context from user conversations
-2. **[Search Memories](/api-reference/memory/search-memories)** - Retrieve relevant memories based on queries
-3. **[Get Memories](/api-reference/memory/get-memories)** - Fetch all memories for a specific entity
+2. **[Search Memories](/api-reference/memory/v2-search-memories)** - Retrieve relevant memories using semantic search
+3. **[Get Memories](/api-reference/memory/v2-get-memories)** - Fetch all memories for a specific entity
 
-### Common Operations
+---
+
+## Core Operations
 
 <CardGroup cols={2}>
   <Card title="Add Memories" icon="plus" href="/api-reference/memory/add-memories">
     Store new memories from conversations and interactions
   </Card>
+
   <Card title="Search Memories" icon="magnifying-glass" href="/api-reference/memory/v2-search-memories">
-    Find relevant memories using semantic search
+    Find relevant memories using semantic search with filters
   </Card>
+
   <Card title="Update Memory" icon="pen" href="/api-reference/memory/update-memory">
-    Modify existing memory content
+    Modify existing memory content and metadata
   </Card>
+
   <Card title="Delete Memory" icon="trash" href="/api-reference/memory/delete-memory">
-    Remove specific memories or batch delete
+    Remove specific memories or batch delete operations
   </Card>
 </CardGroup>
 
-## API Structure
+---
 
-Our API is organized into several main categories:
+## API Categories
 
-1. **[Memory APIs](#memory-apis)**: Core operations for managing individual memories and collections
-2. **[Entities APIs](#entities-apis)**: Manage different entity types (users, agents, etc.) and their associated memories
-3. **[Organizations APIs](#organizations-apis)**: Manage organizations and their members (optional)
-4. **[Project APIs](#project-apis)**: Manage projects within organizations (optional)
+Explore the full API organized by functionality:
+
+<CardGroup cols={2}>
+  <Card title="Memory APIs" icon="microchip" href="/api-reference/memory/add-memories">
+    Core and advanced operations: CRUD, search, batch updates, history, and exports
+  </Card>
+
+  <Card title="Events APIs" icon="clock" href="/api-reference/events/get-events">
+    Track and monitor the status of asynchronous memory operations
+  </Card>
+
+  <Card title="Entities APIs" icon="users" href="/api-reference/entities/get-users">
+    Manage users, agents, and their associated memory data
+  </Card>
+
+  <Card title="Organizations & Projects" icon="building" href="/api-reference/organizations-projects">
+    Multi-tenant support, access control, and team collaboration
+  </Card>
+
+  <Card title="Webhooks" icon="webhook" href="/api-reference/webhook/create-webhook">
+    Real-time notifications for memory events and updates
+  </Card>
+</CardGroup>
+
+<Note>
+**Building multi-tenant apps?** Learn about [Organizations & Projects](/api-reference/organizations-projects) for team isolation and access control.
+</Note>
+
+---
 
 ## Authentication
 
@@ -50,165 +89,20 @@ Authorization: Token <your-api-key>
 
 Get your API key from the [Mem0 Dashboard](https://app.mem0.ai/dashboard/api-keys).
 
-## Organizations and projects (optional)
+<Warning>
+**Keep your API key secure.** Never expose it in client-side code or public repositories. Use environment variables and server-side requests only.
+</Warning>
 
-Organizations and projects provide the following capabilities:
+---
 
-- **Multi-org/project Support**: Specify organization and project when initializing the Mem0 client to attribute API usage appropriately.
-- **Member Management**: Control access to data through organization and project membership.
-- **Access Control**: Only members can access memories and data within their organization/project scope.
-- **Team Isolation**: Maintain data separation between different teams and projects for secure collaboration.
+## Next Steps
 
-Example with the mem0 Python package:
+<CardGroup cols={2}>
+  <Card title="Add Your First Memory" icon="rocket" href="/api-reference/memory/add-memories">
+    Start storing memories via the REST API
+  </Card>
 
-<Tabs>
-  <Tab title="Python">
-
-```python
-from mem0 import MemoryClient
-client = MemoryClient(org_id='YOUR_ORG_ID', project_id='YOUR_PROJECT_ID')
-```
-
-  </Tab>
-
-  <Tab title="Node.js">
-
-```javascript
-import { MemoryClient } from "mem0ai";
-const client = new MemoryClient({organizationId: "YOUR_ORG_ID", projectId: "YOUR_PROJECT_ID"});
-```
-
-  </Tab>
-</Tabs>
-
-### Project Management Methods
-
-The Mem0 client provides comprehensive project management capabilities through the `client.project` interface:
-
-#### Get Project Details
-
-Retrieve information about the current project:
-
-```python
-# Get all project details
-project_info = client.project.get()
-
-# Get specific fields only
-project_info = client.project.get(fields=["name", "description", "custom_categories"])
-```
-
-#### Create a New Project
-
-Create a new project within your organization:
-
-```python
-# Create a project with name and description
-new_project = client.project.create(
-    name="My New Project",
-    description="A project for managing customer support memories"
-)
-```
-
-#### Update Project Settings
-
-Modify project configuration including custom instructions, categories, and graph settings:
-
-```python
-# Update project with custom categories
-client.project.update(
-    custom_categories=[
-        {"customer_preferences": "Customer likes, dislikes, and preferences"},
-        {"support_history": "Previous support interactions and resolutions"}
-    ]
-)
-
-# Update project with custom instructions
-client.project.update(
-    custom_instructions="..."
-)
-
-# Enable graph memory for the project
-client.project.update(enable_graph=True)
-
-# Update multiple settings at once
-client.project.update(
-    custom_instructions="...",
-    custom_categories=[
-        {"personal_info": "User personal information and preferences"},
-        {"work_context": "Professional context and work-related information"}
-    ],
-    enable_graph=True
-)
-```
-
-#### Delete Project
-
-<Note>
-This action will remove all memories, messages, and other related data in the project. This operation is irreversible.
-</Note>
-
-Remove a project and all its associated data:
-
-```python
-# Delete the current project (irreversible)
-result = client.project.delete()
-```
-
-#### Member Management
-
-Manage project members and their access levels:
-
-```python
-# Get all project members
-members = client.project.get_members()
-
-# Add a new member as a reader
-client.project.add_member(
-    email="colleague@company.com",
-    role="READER"  # or "OWNER"
-)
-
-# Update a member's role
-client.project.update_member(
-    email="colleague@company.com",
-    role="OWNER"
-)
-
-# Remove a member from the project
-client.project.remove_member(email="colleague@company.com")
-```
-
-#### Member Roles
-
-- **READER**: Can view and search memories, but cannot modify project settings or manage members.
-- **OWNER**: Full access including project modification, member management, and all reader permissions.
-
-#### Async Support
-
-All project methods are also available in async mode:
-
-```python
-from mem0 import AsyncMemoryClient
-
-async def manage_project():
-    client = AsyncMemoryClient(org_id='YOUR_ORG_ID', project_id='YOUR_PROJECT_ID')
-
-    # All methods support async/await
-    project_info = await client.project.get()
-    await client.project.update(enable_graph=True)
-    members = await client.project.get_members()
-
-# To call the async function properly
-import asyncio
-asyncio.run(manage_project())
-```
-
-## Getting Started
-
-To begin using the Mem0 API, you'll need to:
-
-1. Sign up for a [Mem0 account](https://app.mem0.ai) and obtain your API key.
-2. Familiarize yourself with the API endpoints and their functionalities.
-3. Make your first API call to add or retrieve a memory.
-
-Explore the detailed documentation for each API endpoint to learn more about request/response formats, parameters, and example usage.
+  <Card title="Search with Filters" icon="filter" href="/api-reference/memory/v2-search-memories">
+    Learn advanced search and filtering techniques
+  </Card>
+</CardGroup>

@@ -1,23 +1,47 @@
 ---
 title: Custom Update Memory Prompt
-icon: "pencil"
-iconType: "solid"
+description: Decide how Mem0 adds, updates, or deletes memories using your own rules.
+icon: "arrows-rotate"
 ---
 
+The custom update memory prompt tells Mem0 how to handle changes when new facts arrive. Craft the prompt so the LLM can compare incoming facts with existing memories and choose the right action.
 
-The update memory prompt is used to determine the action to be performed on the memory. By customizing this prompt, you can control how the memory is updated.
+<Info>
+  **You’ll use this when…**
+  - Stored memories need to stay consistent as users change preferences or correct past statements.
+  - Your product has clear rules for when to add, update, delete, or leave a memory untouched.
+  - You want traceable decisions (ADD, UPDATE, DELETE, NONE) for auditing or compliance.
+</Info>
 
-## Introduction
+<Warning>
+  Prompts that mix instructions or omit examples can lead to wrong actions like deleting valid memories. Keep the language simple and test each action path.
+</Warning>
 
-The Mem0 memory system compares newly retrieved facts with existing memory and determines the action to be performed. The types of actions are:
-- **Add**: Add the newly retrieved facts to the memory.
-- **Update**: Update the existing memory with the newly retrieved facts.
-- **Delete**: Delete the existing memory.
-- **No Change**: Do not make any changes to the memory.
+---
 
-### Example
+## Feature anatomy
 
-Example of a custom update memory prompt:
+- **Action verbs:** The prompt teaches the model to return `ADD`, `UPDATE`, `DELETE`, or `NONE` for every memory entry.
+- **ID retention:** Updates reuse the original memory ID so downstream systems maintain history.
+- **Old vs. new text:** Updates include `old_memory` so you can track what changed.
+- **Decision table:** Your prompt should explain when to use each action and show concrete examples.
+
+<AccordionGroup>
+  <Accordion title="Decision guide">
+    | Action | When to choose it | Output details |
+    | --- | --- | --- |
+    | `ADD` | Fact is new and not stored yet | Generate a new ID and set `event: "ADD"`. |
+    | `UPDATE` | Fact replaces older info about the same topic | Keep the original ID, include `old_memory`. |
+    | `DELETE` | Fact contradicts the stored memory or you explicitly remove it | Keep ID, set `event: "DELETE"`. |
+    | `NONE` | Fact matches existing memory or is irrelevant | Keep ID with `event: "NONE"`. |
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Configure it
+
+### Author the prompt
 
 <CodeGroup>
 ```python Python
@@ -171,67 +195,112 @@ Please note to return the IDs in the output from the input IDs only and do not g
         }
 """
 ```
-</CodeGroup>  
+</CodeGroup>
 
-## Output Format
+### Define the expected output format
 
-The prompt needs to guide the output to follow the structure as shown below:
 <CodeGroup>
 ```json Add
 {
-    "memory": [
-        {
-            "id" : "0",
-            "text" : "This information is new",
-            "event" : "ADD"
-        }
-    ]
+  "memory": [
+    {
+      "id": "0",
+      "text": "This information is new",
+      "event": "ADD"
+    }
+  ]
 }
 ```
 
 ```json Update
 {
-    "memory": [
-        {
-            "id" : "0",
-            "text" : "This information replaces the old information",
-            "event" : "UPDATE",
-            "old_memory" : "Old information"
-        }
-    ]
+  "memory": [
+    {
+      "id": "0",
+      "text": "This information replaces the old information",
+      "event": "UPDATE",
+      "old_memory": "Old information"
+    }
+  ]
 }
 ```
 
 ```json Delete
 {
-    "memory": [
-        {
-            "id" : "0",
-            "text" : "This information will be deleted",
-            "event" : "DELETE"
-        }
-    ]
+  "memory": [
+    {
+      "id": "0",
+      "text": "This information will be deleted",
+      "event": "DELETE"
+    }
+  ]
 }
 ```
 
 ```json No Change
 {
-    "memory": [
-        {
-            "id" : "0",
-            "text" : "No changes for this information",
-            "event" : "NONE"
-        }
-    ]
+  "memory": [
+    {
+      "id": "0",
+      "text": "No changes for this information",
+      "event": "NONE"
+    }
+  ]
 }
 ```
 </CodeGroup>
-  
-  
-## Custom Update Memory Prompt vs Custom Prompt
 
-| Feature | `custom_update_memory_prompt` | `custom_prompt` |
-|---------|-------------------------------|-----------------|
-| Use case | Determine the action to be performed on the memory | Extract facts from messages |
-| Reference | Retrieved facts from messages and old memory | Messages |
-| Output | Action to be performed on the memory | Extracted facts |
+<Info icon="check">
+  Consistent JSON structure makes it easy to parse decisions downstream or log them for auditing.
+</Info>
+
+---
+
+## See it in action
+
+- Run reconciliation jobs that compare retrieved facts to existing memories.  
+- Feed both sources into the custom prompt, then apply the returned actions (add new entries, update text, delete outdated facts).
+- Log each decision so product teams can review why a change happened.
+
+<Note>
+  The prompt works alongside `custom_fact_extraction_prompt`—fact extraction identifies candidate facts, and the update prompt decides how to merge them into long-term storage.
+</Note>
+
+---
+
+## Verify the feature is working
+
+- Test all four actions with targeted examples, including edge cases where facts differ only slightly.
+- Confirm update responses keep the original IDs and include `old_memory`.
+- Ensure delete actions only trigger when contradictions appear or when you explicitly request removal.
+
+---
+
+## Best practices
+
+1. **Keep instructions brief:** Remove redundant wording so the LLM focuses on the decision logic.
+2. **Document your schema:** Share the prompt and examples with your team so everyone knows how memories evolve.
+3. **Track prompt versions:** When rules change, bump a version number and archive the prior prompt.
+4. **Review outputs regularly:** Skim audit logs weekly to spot drift or repeated mistakes.
+5. **Pair with monitoring:** Visualize counts of each action to detect spikes in deletes or updates.
+
+---
+
+## Compare prompts
+
+| Feature | `custom_update_memory_prompt` | `custom_fact_extraction_prompt` |
+| --- | --- | --- |
+| Primary job | Decide memory actions (ADD/UPDATE/DELETE/NONE) | Pull facts from user and assistant messages |
+| Inputs | Retrieved facts + existing memory entries | Raw conversation turns |
+| Output | Structured memory array with events | Array of extracted facts |
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Design Fact Extraction" icon="sparkles" href="/open-source/features/custom-fact-extraction-prompt">
+    Coordinate both prompts so fact extraction feeds clean inputs into the update flow.
+  </Card>
+  <Card title="Build Email Automations" icon="inbox" href="/cookbooks/operations/email-automation">
+    See how update prompts keep customer profiles current in a working automation.
+  </Card>
+</CardGroup>

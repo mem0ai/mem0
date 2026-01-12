@@ -1,9 +1,10 @@
 ---
-title: 'Get Memories'
+title: "Get Memories"
 openapi: post /v2/memories/
 ---
 
 The v2 get memories API is powerful and flexible, allowing for more precise memory listing without the need for a search query. It supports complex logical operations (AND, OR, NOT) and comparison operators for advanced filtering capabilities. The comparison operators include:
+
 - `in`: Matches any of the values specified
 - `gte`: Greater than or equal to
 - `lte`: Less than or equal to
@@ -15,7 +16,7 @@ The v2 get memories API is powerful and flexible, allowing for more precise memo
 
 <CodeGroup>
 ```python Code
-memories = m.get_all(
+memories = client.get_all(
     filters={
         "AND": [
             {
@@ -29,43 +30,70 @@ memories = m.get_all(
 )
 ```
 
-```json Output
-[
+```python Output
 {
-    "id":"f38b689d-6b24-45b7-bced-17fbb4d8bac7",
-    "memory":"Name: Alex. Vegetarian. Allergic to nuts.",
-    "user_id":"alex",
-    "hash":"62bc074f56d1f909f1b4c2b639f56f6a",
-    "metadata":null,
-    "created_at":"2024-07-25T23:57:00.108347-07:00",
-    "updated_at":"2024-07-25T23:57:00.108367-07:00"
+    "results": [
+        {
+            "id": "f4cbdb08-7062-4f3e-8eb2-9f5c80dfe64c",
+            "memory": "Alex is planning a trip to San Francisco from July 1st to July 10th",
+            "created_at": "2024-07-01T12:00:00Z",
+            "updated_at": "2024-07-01T12:00:00Z"
+        },
+        {
+            "id": "a2b8c3d4-5e6f-7g8h-9i0j-1k2l3m4n5o6p",
+            "memory": "Alex prefers vegetarian restaurants",
+            "created_at": "2024-07-05T15:30:00Z",
+            "updated_at": "2024-07-05T15:30:00Z"
+        }
+    ],
+    "total": 2
 }
-]
 ```
-</CodeGroup>
 
-<CodeGroup>
-```python Wildcard Example
-# Using wildcard to get all memories for a specific user across all run_ids
-memories = m.get_all(
-    filters={
-        "AND": [
-            {
-                "user_id": "alex"
-            },
-            {
-                "run_id": "*"
-            }
-        ]
-    }
-)
-```
 </CodeGroup>
 
 ## Graph Memory
 
-To retrieve memories with graph-based relationships, pass the `enable_graph=True` parameter. This includes relationship data in the response for more contextual results.
+To retrieve graph memory relationships between entities, pass `output_format="v1.1"` in your request. This will return memories with entity and relationship information from the knowledge graph.
 
-<Note>
-Learn more in the [Graph Memory documentation](/platform/features/graph-memory).
-</Note>
+<CodeGroup>
+```python Code
+memories = client.get_all(
+    filters={
+        "user_id": "alex"
+    },
+    output_format="v1.1"
+)
+```
+
+```python Output
+{
+    "results": [
+        {
+            "id": "f4cbdb08-7062-4f3e-8eb2-9f5c80dfe64c",
+            "memory": "Alex is planning a trip to San Francisco",
+            "entities": [
+                {
+                    "id": "entity-1",
+                    "name": "Alex",
+                    "type": "person"
+                },
+                {
+                    "id": "entity-2",
+                    "name": "San Francisco",
+                    "type": "location"
+                }
+            ],
+            "relations": [
+                {
+                    "source": "entity-1",
+                    "target": "entity-2",
+                    "relationship": "traveling_to"
+                }
+            ]
+        }
+    ]
+}
+```
+
+</CodeGroup>

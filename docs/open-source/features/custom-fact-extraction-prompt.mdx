@@ -1,20 +1,45 @@
 ---
 title: Custom Fact Extraction Prompt
-description: 'Enhance your product experience by adding custom fact extraction prompt tailored to your needs'
-icon: "pencil"
-iconType: "solid"
+description: Tailor fact extraction so Mem0 stores only the details you care about.
+icon: "wand-magic-sparkles"
 ---
 
-## Introduction to Custom Fact Extraction Prompt
+Custom fact extraction prompts let you decide exactly which facts Mem0 records from a conversation. Define a focused prompt, give a few examples, and Mem0 will add only the memories that match your use case.
 
-Custom fact extraction prompts allow you to tailor the behavior of your Mem0 instance to specific use cases or domains. By defining them, you can control how information is extracted from the user's messages.
+<Info>
+  **You’ll use this when…**
+  - A project needs domain-specific facts (order numbers, customer info) without storing casual chatter.
+  - You already have a clear schema for memories and want the LLM to follow it.
+  - You must prevent irrelevant details from entering long-term storage.
+</Info>
 
-To create an effective custom fact extraction prompt:
-1. Be specific about the information to extract.
-2. Provide few-shot examples to guide the LLM.
-3. Ensure examples follow the format shown below.
+<Warning>
+  Prompts that are too broad cause unrelated facts to slip through. Keep instructions tight and test them with real transcripts.
+</Warning>
 
-Example of a custom fact extraction prompt:
+---
+
+## Feature anatomy
+
+- **Prompt instructions:** Describe which entities or phrases to keep. Specific guidance keeps the extractor focused.
+- **Few-shot examples:** Show positive and negative cases so the model copies the right format.
+- **Structured output:** Responses return JSON with a `facts` array that Mem0 converts into individual memories.
+- **LLM configuration:** `custom_fact_extraction_prompt` (Python) or `customPrompt` (TypeScript) lives alongside your model settings.
+
+<AccordionGroup>
+  <Accordion title="Prompt blueprint">
+    1. State the allowed fact types.  
+    2. Include short examples that mirror production messages.  
+    3. Show both empty (`[]`) and populated outputs.  
+    4. Remind the model to return JSON with a `facts` key only.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Configure it
+
+### Write the custom prompt
 
 <CodeGroup>
 ```python Python
@@ -23,25 +48,25 @@ Please only extract entities containing customer support information, order deta
 Here are some few shot examples:
 
 Input: Hi.
-Output: {{"facts" : []}}
+Output: {"facts" : []}
 
 Input: The weather is nice today.
-Output: {{"facts" : []}}
+Output: {"facts" : []}
 
 Input: My order #12345 hasn't arrived yet.
-Output: {{"facts" : ["Order #12345 not received"]}}
+Output: {"facts" : ["Order #12345 not received"]}
 
 Input: I'm John Doe, and I'd like to return the shoes I bought last week.
-Output: {{"facts" : ["Customer name: John Doe", "Wants to return shoes", "Purchase made last week"]}}
+Output: {"facts" : ["Customer name: John Doe", "Wants to return shoes", "Purchase made last week"]}
 
 Input: I ordered a red shirt, size medium, but received a blue one instead.
-Output: {{"facts" : ["Ordered red shirt, size medium", "Received blue shirt instead"]}}
+Output: {"facts" : ["Ordered red shirt, size medium", "Received blue shirt instead"]}
 
 Return the facts and customer information in a json format as shown above.
 """
 ```
 
-```typescript TypeScript
+```ts TypeScript
 const customPrompt = `
 Please only extract entities containing customer support information, order details, and user information. 
 Here are some few shot examples:
@@ -66,7 +91,11 @@ Return the facts and customer information in a json format as shown above.
 ```
 </CodeGroup>
 
-Here we initialize the custom fact extraction prompt in the config:
+<Tip>
+  Keep example pairs short and mirror the capitalization, punctuation, and tone you see in real user messages.
+</Tip>
+
+### Load the prompt in configuration
 
 <CodeGroup>
 ```python Python
@@ -88,72 +117,71 @@ config = {
 m = Memory.from_config(config_dict=config)
 ```
 
-```typescript TypeScript
-import { Memory } from 'mem0ai/oss';
+```ts TypeScript
+import { Memory } from "mem0ai/oss";
 
 const config = {
-  version: 'v1.1',
+  version: "v1.1",
   llm: {
-    provider: 'openai',
+    provider: "openai",
     config: {
-      apiKey: process.env.OPENAI_API_KEY || '',
-      model: 'gpt-4-turbo-preview',
+      apiKey: process.env.OPENAI_API_KEY ?? "",
+      model: "gpt-4-turbo-preview",
       temperature: 0.2,
       maxTokens: 1500,
     },
   },
-  customPrompt: customPrompt
+  customPrompt: customPrompt,
 };
 
 const memory = new Memory(config);
 ```
 </CodeGroup>
 
-### Example 1
+<Info icon="check">
+  After initialization, run a quick `add` call with a known example and confirm the response splits into separate facts.
+</Info>
 
-In this example, we are adding a memory of a user ordering a laptop. As seen in the output, the custom prompt is used to extract the relevant information from the user's message.
+---
+
+## See it in action
+
+### Example: Order support memory
 
 <CodeGroup>
 ```python Python
 m.add("Yesterday, I ordered a laptop, the order id is 12345", user_id="alice")
 ```
 
-```typescript TypeScript
-await memory.add('Yesterday, I ordered a laptop, the order id is 12345', { userId: "user123" });
+```ts TypeScript
+await memory.add("Yesterday, I ordered a laptop, the order id is 12345", { userId: "user123" });
 ```
 
 ```json Output
 {
   "results": [
-    {
-      "memory": "Ordered a laptop",
-      "event": "ADD"
-    },
-    {
-      "memory": "Order ID: 12345",
-      "event": "ADD"
-    },
-    {
-      "memory": "Order placed yesterday",
-      "event": "ADD"
-    }
+    {"memory": "Ordered a laptop", "event": "ADD"},
+    {"memory": "Order ID: 12345", "event": "ADD"},
+    {"memory": "Order placed yesterday", "event": "ADD"}
   ],
   "relations": []
 }
 ```
 </CodeGroup>
 
-### Example 2
+<Info icon="check">
+  The output contains only the facts described in your prompt, each stored as a separate memory entry.
+</Info>
 
-In this example, we are adding a memory of a user liking to go on hikes. This message is not specific to the use case mentioned in the custom prompt. Hence, the memory is not added.
+### Example: Irrelevant message filtered out
 
 <CodeGroup>
 ```python Python
 m.add("I like going to hikes", user_id="alice")
 ```
 
-```typescript TypeScript
-await memory.add('I like going to hikes', { userId: "user123" });
+```ts TypeScript
+await memory.add("I like going to hikes", { userId: "user123" });
 ```
 
 ```json Output
@@ -164,4 +192,35 @@ await memory.add('I like going to hikes', { userId: "user123" });
 ```
 </CodeGroup>
 
-The custom fact extraction prompt will process both the user and assistant messages to extract relevant information according to the defined format.
+<Tip>
+  Empty `results` show the prompt successfully ignored content outside your target domain.
+</Tip>
+
+---
+
+## Verify the feature is working
+
+- Log every call during rollout and confirm the `facts` array matches your schema.
+- Check that unrelated messages return an empty `results` array.
+- Run regression samples whenever you edit the prompt to ensure previously accepted facts still pass.
+
+---
+
+## Best practices
+
+1. **Be precise:** Call out the exact categories or fields you want to capture.
+2. **Show negative cases:** Include examples that should produce `[]` so the model learns to skip them.
+3. **Keep JSON strict:** Avoid extra keys; only return `facts` to simplify downstream parsing.
+4. **Version prompts:** Track prompt changes with a version number so you can roll back quickly.
+5. **Review outputs regularly:** Spot-check stored memories to catch drift early.
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Review Add Operations" icon="list" href="/core-concepts/memory-operations/add">
+    Refresh how Mem0 stores memories and how prompts influence fact creation.
+  </Card>
+  <Card title="Automate Support Triage" icon="inbox" href="/cookbooks/operations/support-inbox">
+    Apply custom extraction to route customer requests in a full workflow.
+  </Card>
+</CardGroup>

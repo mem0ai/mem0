@@ -1,7 +1,5 @@
 ---
 title: Graph Memory
-icon: "circle-nodes"
-iconType: "solid"
 description: "Enable graph-based memory retrieval for more contextually relevant results"
 ---
 
@@ -16,8 +14,8 @@ This feature allows your AI applications to understand connections between entit
 The Graph Memory feature analyzes how each entity connects and relates to each other. When enabled:
 
 1. Mem0 automatically builds a graph representation of entities
-2. Retrieval considers graph relationships between entities
-3. Results include entities that may be contextually important even if they're not direct semantic matches
+2. Vector search returns the top semantic matches (with any reranker you configure)
+3. Graph relations are returned alongside those results to provide additional context—they do not reorder the vector hits
 
 ## Using Graph Memory
 
@@ -181,16 +179,24 @@ console.log(results);
 
 </CodeGroup>
 
+<Note>
+`results` always reflects the vector search order (optionally reranked). Graph Memory augments that response by adding related entities in the `relations` array; it does not re-rank the vector results automatically.
+</Note>
+
 ### Retrieving All Memories with Graph Memory
 
 When retrieving all memories, Graph Memory provides additional relationship context:
+
+<Callout type="warning" title="Filters Required">
+`get_all()` now requires filters to be specified.
+</Callout>
 
 <CodeGroup>
 
 ```python Python
 # Get all memories with graph context
 memories = client.get_all(
-    user_id="joseph",
+    filters={"AND": [{"user_id": "joseph"}]},
     enable_graph=True
 )
 
@@ -200,7 +206,7 @@ print(memories)
 ```javascript JavaScript
 // Get all memories with graph context
 const memories = await client.getAll({
-  user_id: "joseph",
+  filters: {"AND": [{"user_id": "joseph"}]},
   enable_graph: true
 });
 
@@ -341,4 +347,3 @@ Graph Memory requires additional processing and may increase response times slig
 If you have any questions, please feel free to reach out to us using one of the following methods:
 
 <Snippet file="get-help.mdx" />
-

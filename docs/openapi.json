@@ -222,7 +222,7 @@
 				}
 			}
 		},
-		"/v1/entities/{entity_type}/{entity_id}/": {
+		"/v2/entities/{entity_type}/{entity_id}/": {
 			"get": {
 				"tags": [
 					"entities"
@@ -329,27 +329,27 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "import requests\n\nurl = \"https://api.mem0.ai/v1/entities/{entity_type}/{entity_id}/\"\n\nheaders = {\"Authorization\": \"Token <api-key>\"}\n\nresponse = requests.request(\"DELETE\", url, headers=headers)\n\nprint(response.text)"
+						"source": "import requests\n\nurl = \"https://api.mem0.ai/v2/entities/{entity_type}/{entity_id}/\"\n\nheaders = {\"Authorization\": \"Token <api-key>\"}\n\nresponse = requests.request(\"DELETE\", url, headers=headers)\n\nprint(response.text)"
 					},
 					{
 						"lang": "JavaScript",
-						"source": "const options = {method: 'DELETE', headers: {Authorization: 'Token <api-key>'}};\n\nfetch('https://api.mem0.ai/v1/entities/{entity_type}/{entity_id}/', options)\n  .then(response => response.json())\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
+						"source": "const options = {method: 'DELETE', headers: {Authorization: 'Token <api-key>'}};\n\nfetch('https://api.mem0.ai/v2/entities/{entity_type}/{entity_id}/', options)\n  .then(response => response.json())\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
 					},
 					{
 						"lang": "cURL",
-						"source": "curl --request DELETE \\\n  --url https://api.mem0.ai/v1/entities/{entity_type}/{entity_id}/ \\\n  --header 'Authorization: Token <api-key>'"
+						"source": "curl --request DELETE \\\n  --url https://api.mem0.ai/v2/entities/{entity_type}/{entity_id}/ \\\n  --header 'Authorization: Token <api-key>'"
 					},
 					{
 						"lang": "Go",
-						"source": "package main\n\nimport (\n\t\"fmt\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\n\turl := \"https://api.mem0.ai/v1/entities/{entity_type}/{entity_id}/\"\n\n\treq, _ := http.NewRequest(\"DELETE\", url, nil)\n\n\treq.Header.Add(\"Authorization\", \"Token <api-key>\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(res)\n\tfmt.Println(string(body))\n\n}"
+						"source": "package main\n\nimport (\n\t\"fmt\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\n\turl := \"https://api.mem0.ai/v2/entities/{entity_type}/{entity_id}/\"\n\n\treq, _ := http.NewRequest(\"DELETE\", url, nil)\n\n\treq.Header.Add(\"Authorization\", \"Token <api-key>\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(res)\n\tfmt.Println(string(body))\n\n}"
 					},
 					{
 						"lang": "PHP",
-						"source": "<?php\n\n$curl = curl_init();\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/v1/entities/{entity_type}/{entity_id}/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"DELETE\",\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: Token <api-key>\"\n  ],\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
+						"source": "<?php\n\n$curl = curl_init();\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/v2/entities/{entity_type}/{entity_id}/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"DELETE\",\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: Token <api-key>\"\n  ],\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
 					},
 					{
 						"lang": "Java",
-						"source": "HttpResponse<String> response = Unirest.delete(\"https://api.mem0.ai/v1/entities/{entity_type}/{entity_id}/\")\n  .header(\"Authorization\", \"Token <api-key>\")\n  .asString();"
+						"source": "HttpResponse<String> response = Unirest.delete(\"https://api.mem0.ai/v2/entities/{entity_type}/{entity_id}/\")\n  .header(\"Authorization\", \"Token <api-key>\")\n  .asString();"
 					}
 				]
 			}
@@ -359,13 +359,209 @@
 				"tags": [
 					"events"
 				],
-				"summary": "Retrieve all events for the currently logged-in user.",
-				"description": "This endpoint returns a paginated list of events associated with the authenticated user.\nYou can filter the events by event type, start date, and end date.\n\nQuery Parameters:\n- event_type: Filter by event type (ADD or SEARCH)\n- start_date: Filter events after this date (format: YYYY-MM-DD)\n- end_date: Filter events before this date (format: YYYY-MM-DD)\n- page: Page number for pagination\n- page_size: Number of items per page (default: 50, max: 100)",
+				"summary": "Retrieve all events for current organization and project.",
 				"operationId": "events_list",
 				"responses": {
 					"200": {
 						"description": "Successfully retrieved events.",
-						"content": {}
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"count": {
+											"type": "integer",
+											"description": "Total number of events matching the filters."
+										},
+										"next": {
+											"type": "string",
+											"nullable": true,
+											"description": "URL for the next page of results."
+										},
+										"previous": {
+											"type": "string",
+											"nullable": true,
+											"description": "URL for the previous page of results."
+										},
+										"results": {
+											"type": "array",
+											"description": "Array of event objects.",
+											"items": {
+												"type": "object",
+												"properties": {
+													"id": {
+														"type": "string",
+														"format": "uuid",
+														"description": "The unique identifier of the event."
+													},
+													"event_type": {
+														"type": "string",
+														"description": "The type of event (e.g., ADD, SEARCH)."
+													},
+													"status": {
+														"type": "string",
+														"enum": [
+															"PENDING",
+															"RUNNING",
+															"FAILED",
+															"SUCCEEDED"
+														],
+														"description": "The current status of the event."
+													},
+													"payload": {
+														"type": "object",
+														"description": "The original payload associated with the event."
+													},
+													"metadata": {
+														"type": "object",
+														"nullable": true,
+														"description": "Additional metadata associated with the event."
+													},
+													"results": {
+														"type": "array",
+														"description": "Array of results produced by the event."
+													},
+													"created_at": {
+														"type": "string",
+														"format": "date-time",
+														"description": "Timestamp when the event was created."
+													},
+													"updated_at": {
+														"type": "string",
+														"format": "date-time",
+														"description": "Timestamp when the event was last updated."
+													},
+													"started_at": {
+														"type": "string",
+														"format": "date-time",
+														"description": "Timestamp when event processing started."
+													},
+													"completed_at": {
+														"type": "string",
+														"format": "date-time",
+														"description": "Timestamp when event processing completed."
+													},
+													"latency": {
+														"type": "number",
+														"description": "Processing time in milliseconds."
+													}
+												}
+											}
+										}
+									},
+									"required": [
+										"count",
+										"results"
+									]
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/event/{event_id}/": {
+			"get": {
+				"tags": [
+					"events"
+				],
+				"summary": "Retrieve details of a specific event by its ID.",
+				"operationId": "event_read",
+				"parameters": [
+					{
+						"name": "event_id",
+						"in": "path",
+						"required": true,
+						"schema": {
+							"type": "string",
+							"format": "uuid"
+						},
+						"description": "The unique identifier of the event (UUID)."
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Successfully retrieved event details.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"id": {
+											"type": "string",
+											"format": "uuid",
+											"description": "The unique identifier of the event."
+										},
+										"event_type": {
+											"type": "string",
+											"description": "The type of event (e.g., ADD, SEARCH)."
+										},
+										"status": {
+											"type": "string",
+											"enum": [
+												"PENDING",
+												"RUNNING",
+												"FAILED",
+												"SUCCEEDED"
+											],
+											"description": "The current status of the event."
+										},
+										"payload": {
+											"type": "object",
+											"description": "The original payload associated with the event."
+										},
+										"metadata": {
+											"type": "object",
+											"nullable": true,
+											"description": "Additional metadata associated with the event."
+										},
+										"results": {
+											"type": "array",
+											"description": "Array of results produced by the event."
+										},
+										"created_at": {
+											"type": "string",
+											"format": "date-time",
+											"description": "Timestamp when the event was created."
+										},
+										"updated_at": {
+											"type": "string",
+											"format": "date-time",
+											"description": "Timestamp when the event was last updated."
+										},
+										"started_at": {
+											"type": "string",
+											"format": "date-time",
+											"description": "Timestamp when event processing started."
+										},
+										"completed_at": {
+											"type": "string",
+											"format": "date-time",
+											"description": "Timestamp when event processing completed."
+										},
+										"latency": {
+											"type": "number",
+											"description": "Processing time in milliseconds."
+										}
+									}
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "Event not found.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"detail": {
+											"type": "string"
+										}
+									}
+								}
+							}
+						}
 					}
 				}
 			}

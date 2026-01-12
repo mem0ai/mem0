@@ -7,6 +7,41 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2025-10-16" description="v1.0.0">
+
+**New Features & Updates:**
+- **Vector Stores:**
+  - Added Azure MySQL support
+  - Added Azure AI Search Vector Store support
+- **LLMs:**
+  - Added Tool Call support for LangchainLLM
+  - Enabled custom model and parameters for Hugging Face with huggingface_base_url
+  - Updated default LLM configuration
+- **Rerankers:**
+  - Added reranker support: Cohere, ZeroEntropy, Hugging Face, Sentence Transformers, and LLMs
+- **Core:**
+  - Added metadata filtering for OSS
+  - Added Assistant memory retrieval
+  - Enabled async mode as default
+
+**Improvements:**
+- **Prompts:**
+  - Improved prompt for better memory retrieval
+- **Dependencies:**
+  - Updated dependency compatibility with OpenAI 2.x
+- **Validation:**
+  - Validated embedding_dims for Kuzu integration
+
+**Bug Fixes:**
+- **Vector Stores:**
+  - Fixed Databricks Vector Store integration
+  - Fixed Milvus DB bug and added test coverage
+  - Fixed Weaviate search method
+- **LLMs:**
+  - Fixed bug with thinking LLM in vLLM
+
+</Update>
+
 <Update label="2025-09-25" description="v0.1.118">
 
 **New Features & Updates:**
@@ -647,6 +682,28 @@ mode: "wide"
 
 <Tab title="TypeScript">
 
+<Update label="2025-12-30" description="v2.2.1">
+
+**Improvements:**
+- **Client:** Added support for keyword arguments in `add` and `search` methods, allowing additional properties beyond defined options for experimental features
+
+</Update>
+
+<Update label="2025-12-29" description="v2.2.0">
+
+**New Features:**
+- **Vector Stores:** Added Azure AI Search vector store support
+
+**Improvements:**
+- **Config:** Fixed embedder config schema to support `embeddingDims` and `url` parameters
+- **Graph Memory:** Replaced hardcoded LLM provider with provider from configuration
+
+**Bug Fixes:**
+- **Embedders:** Fixed hardcoded `embeddingDims` values in embedders (OpenAI, Ollama, Google, Azure)
+- **Build:** Fixed TypeScript build errors
+
+</Update>
+
 <Update label="2025-09-04" description="v2.1.38">
 **New Features:**
 - **Client:** Added `metadata` param to `update` method.
@@ -1122,6 +1179,11 @@ mode: "wide"
 </Tab>
 
 <Tab title="Vercel AI SDK">
+
+<Update label="2025-12-26" description="v2.0.5">
+**Bug Fix:**
+- **Vercel AI SDK:** Removed unnecessary dependencies to make the package lighter.
+</Update>
 
 <Update label="2025-09-25" description="v2.0.4">
 **Bug Fix:**

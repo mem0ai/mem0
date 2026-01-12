@@ -1,21 +1,47 @@
 ---
 title: Enhanced Metadata Filtering
-description: 'Advanced filtering capabilities for precise memory retrieval in Mem0 1.0.0 '
+description: Fine-grained metadata queries for precise OSS memory retrieval.
 icon: "filter"
-iconType: "solid"
 ---
 
+Enhanced metadata filtering in Mem0 1.0.0 lets you run complex queries across memory metadata. Combine comparisons, logical operators, and wildcard matches to zero in on the exact memories your agent needs.
+
 <Info>
-Enhanced metadata filtering is available in **Mem0 1.0.0 ** and later versions. This feature provides powerful filtering capabilities with logical operators and comparison functions.
+  **You’ll use this when…**
+  - Retrieval must respect multiple metadata conditions before returning context.
+  - You need to mix numeric, boolean, and string filters in a single query.
+  - Agents rely on deterministic filtering instead of broad semantic search alone.
 </Info>
 
-## Overview
+<Warning>
+  Enhanced filtering requires Mem0 1.0.0 or later and a vector store that supports the operators you enable. Unsupported operators fall back to simple equality filters.
+</Warning>
 
-Mem0 1.0.0  introduces enhanced metadata filtering that allows you to perform complex queries on your memory metadata. You can now use logical operators, comparison functions, and advanced filtering patterns to retrieve exactly the memories you need.
+<Note>
+  The TypeScript SDK accepts the same filter shape shown here—transpose the dictionaries to objects and reuse the keys unchanged.
+</Note>
 
-## Basic Filtering
+---
 
-### Simple Key-Value Filtering
+## Feature anatomy
+
+<AccordionGroup>
+  <Accordion title="Operator quick reference">
+    | Operator | Meaning | When to use it |
+    | --- | --- | --- |
+    | `eq` / `ne` | Equals / not equals | Exact matches on strings, numbers, or booleans. |
+    | `gt` / `gte` | Greater than / greater than or equal | Rank results by score, confidence, or any numeric field. |
+    | `lt` / `lte` | Less than / less than or equal | Cap numeric values (e.g., ratings, timestamps). |
+    | `in` / `nin` | In list / not in list | Pre-approve or block sets of values without chaining multiple filters. |
+    | `contains` / `icontains` | Case-sensitive / case-insensitive substring match | Scan text fields for keywords. |
+    | `*` | Wildcard | Require that a field exists, regardless of value. |
+    | `AND` / `OR` / `NOT` | Combine filters | Build logic trees so multiple conditions work together. |
+  </Accordion>
+</AccordionGroup>
+
+### Metadata selectors
+
+Start with key-value filters when you need direct matches on metadata fields.
 
 ```python
 from mem0 import Memory
@@ -30,24 +56,13 @@ results = m.search(
 )
 ```
 
-### Exact Match Filtering
+<Info icon="check">
+  Expect only memories tagged with `category="preferences"` to return for the given `user_id`.
+</Info>
 
-```python
-# Multiple exact match filters
-results = m.search(
-    "movie recommendations",
-    user_id="alice",
-    filters={
-        "category": "entertainment",
-        "type": "recommendation",
-        "priority": "high"
-    }
-)
-```
+### Comparison operators
 
-## Advanced Filtering with Operators
-
-### Comparison Operators
+Layer greater-than/less-than comparisons to rank results by score, confidence, or any numeric field. Equality helpers (`eq`, `ne`) keep string and boolean checks explicit.
 
 ```python
 # Greater than / Less than
@@ -55,10 +70,10 @@ results = m.search(
     "recent activities",
     user_id="alice",
     filters={
-        "score": {"gt": 0.8},        # score > 0.8
-        "priority": {"gte": 5},      # priority >= 5
-        "confidence": {"lt": 0.9},   # confidence < 0.9
-        "rating": {"lte": 3}         # rating <= 3
+        "score": {"gt": 0.8},
+        "priority": {"gte": 5},
+        "confidence": {"lt": 0.9},
+        "rating": {"lte": 3}
     }
 )
 
@@ -67,13 +82,15 @@ results = m.search(
     "specific content",
     user_id="alice",
     filters={
-        "status": {"eq": "active"},     # status == "active"
-        "archived": {"ne": True}       # archived != True
+        "status": {"eq": "active"},
+        "archived": {"ne": True}
     }
 )
 ```
 
-### List-based Operators
+### List-based operators
+
+Use `in` and `nin` when you want to pre-approve or exclude specific values without writing multiple equality checks.
 
 ```python
 # In / Not in operators
@@ -87,7 +104,13 @@ results = m.search(
 )
 ```
 
-### String Operators
+<Info icon="check">
+  Verify the response includes only memories in the whitelisted categories and omits any with archived or deleted status.
+</Info>
+
+### String operators
+
+`contains` and `icontains` capture substring matches, making it easy to scan descriptions or tags for keywords without retrieving irrelevant memories.
 
 ```python
 # Text matching operators
@@ -95,14 +118,16 @@ results = m.search(
     "content search",
     user_id="alice",
     filters={
-        "title": {"contains": "meeting"},          # case-sensitive contains
-        "description": {"icontains": "important"}, # case-insensitive contains
+        "title": {"contains": "meeting"},
+        "description": {"icontains": "important"},
         "tags": {"contains": "urgent"}
     }
 )
 ```
 
-### Wildcard Matching
+### Wildcard matching
+
+Allow any value for a field while still requiring the field to exist—handy when the mere presence of a field matters.
 
 ```python
 # Match any value for a field
@@ -110,17 +135,17 @@ results = m.search(
     "all with category",
     user_id="alice",
     filters={
-        "category": "*"  # Any memory that has a category field
+        "category": "*"
     }
 )
 ```
 
-## Logical Operators
+### Logical combinations
 
-### AND Operations
+Combine filters with `AND`, `OR`, and `NOT` to express complex decision trees. Nest logical operators to encode multi-branch workflows.
 
 ```python
-# Logical AND - all conditions must be true
+# Logical AND
 results = m.search(
     "complex query",
     user_id="alice",
@@ -132,12 +157,8 @@ results = m.search(
         ]
     }
 )
-```
 
-### OR Operations
-
-```python
-# Logical OR - any condition can be true
+# Logical OR
 results = m.search(
     "flexible query",
     user_id="alice",
@@ -149,12 +170,8 @@ results = m.search(
         ]
     }
 )
-```
 
-### NOT Operations
-
-```python
-# Logical NOT - exclude matches
+# Logical NOT
 results = m.search(
     "exclusion query",
     user_id="alice",
@@ -165,12 +182,8 @@ results = m.search(
         ]
     }
 )
-```
 
-### Complex Nested Logic
-
-```python
-# Combine multiple logical operators
+# Complex nested logic
 results = m.search(
     "advanced query",
     user_id="alice",
@@ -193,9 +206,115 @@ results = m.search(
 )
 ```
 
-## Real-world Examples
+<Info icon="check">
+  Inspect the response metadata—each returned memory should satisfy the combined logic tree exactly. If results look too broad, log the raw filters sent to your vector store.
+</Info>
 
-### Project Management Filtering
+---
+
+## Configure it
+
+Tune your vector store so filter-heavy queries stay fast. Index fields you frequently filter on and keep complex checks for later in the evaluation order.
+
+```python
+# Ensure your vector store supports indexing on filtered fields
+config = {
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "host": "localhost",
+            "port": 6333,
+            "indexed_fields": ["category", "priority", "status", "user_id"]
+        }
+    }
+}
+```
+
+<Info icon="check">
+  After enabling indexing, benchmark the same query—latency should drop once the store can prune documents on indexed fields before vector scoring.
+</Info>
+
+<Tip>
+  Put simple key=value filters on indexed fields before your range or text conditions so the store trims results early.
+</Tip>
+
+```python
+# More efficient: Filter on indexed fields first
+good_filters = {
+    "AND": [
+        {"user_id": "alice"},
+        {"category": "work"},
+        {"content": {"contains": "meeting"}}
+    ]
+}
+
+# Less efficient: Complex operations first
+avoid_filters = {
+    "AND": [
+        {"description": {"icontains": "complex text search"}},
+        {"user_id": "alice"}
+    ]
+}
+```
+
+<Info icon="check">
+  When you reorder filters so indexed fields come first (`good_filters` example), queries typically return faster than the `avoid_filters` pattern where expensive text searches run before simple checks.
+</Info>
+
+Vector store support varies. Confirm operator coverage before shipping:
+
+<AccordionGroup>
+  <Accordion title="Qdrant">
+    Full comparison, list, and logical support. Handles deeply nested boolean logic efficiently.
+  </Accordion>
+  <Accordion title="Chroma">
+    Equality and basic comparisons only. Limited nesting—break large trees into smaller calls.
+  </Accordion>
+  <Accordion title="Pinecone">
+    Comparisons plus `in`/`nin`. Text operators are constrained; rely on tags where possible.
+  </Accordion>
+  <Accordion title="Weaviate">
+    Full operator coverage with advanced text filters. Best option when you need hybrid text + metadata queries.
+  </Accordion>
+</AccordionGroup>
+
+<Warning>
+  If an operator is unsupported, most stores silently ignore that branch. Add validation before execution so you can fall back to simpler queries instead of returning empty results.
+</Warning>
+
+### Migrate from earlier filters
+
+```python
+# Before (v0.x) - simple key-value filtering only
+results = m.search(
+    "query",
+    user_id="alice",
+    filters={"category": "work", "status": "active"}
+)
+
+# After (v1.0.0) - enhanced filtering with operators
+results = m.search(
+    "query",
+    user_id="alice",
+    filters={
+        "AND": [
+            {"category": "work"},
+            {"status": {"ne": "archived"}},
+            {"priority": {"gte": 5}}
+        ]
+    }
+)
+```
+
+<Note>
+  Existing equality filters continue to work; add new operator branches gradually so agents can adopt richer queries without downtime.
+</Note>
+
+---
+
+## See it in action
+
+### Project management filtering
 
 ```python
 # Find high-priority active tasks
@@ -218,7 +337,11 @@ results = m.search(
 )
 ```
 
-### Customer Support Filtering
+<Info icon="check">
+  Tasks returned should belong to the targeted projects, remain incomplete, and be assigned to one of the listed teammates.
+</Info>
+
+### Customer support filtering
 
 ```python
 # Find recent unresolved tickets
@@ -240,7 +363,11 @@ results = m.search(
 )
 ```
 
-### Content Recommendation Filtering
+<Tip>
+  Pair `agent_id` filters with ticket-specific metadata so shared support bots return only the tickets they can act on in the current session.
+</Tip>
+
+### Content recommendation filtering
 
 ```python
 # Personalized content filtering
@@ -263,71 +390,11 @@ results = m.search(
 )
 ```
 
-## Performance Considerations
+<Info icon="check">
+  Confirm personalized feeds show only unread titles that meet the rating and language criteria.
+</Info>
 
-### Indexing Strategy
-
-```python
-# Ensure your vector store supports indexing on filtered fields
-config = {
-    "vector_store": {
-        "provider": "qdrant",
-        "config": {
-            "host": "localhost",
-            "port": 6333,
-            # Enable indexing on frequently filtered fields
-            "indexed_fields": ["category", "priority", "status", "user_id"]
-        }
-    }
-}
-```
-
-### Filter Optimization
-
-```python
-# More efficient: Filter on indexed fields first
-good_filters = {
-    "AND": [
-        {"user_id": "alice"},      # Indexed field first
-        {"category": "work"},      # Then other indexed fields
-        {"content": {"contains": "meeting"}}  # Text search last
-    ]
-}
-
-# Less efficient: Complex operations first
-avoid_filters = {
-    "AND": [
-        {"description": {"icontains": "complex text search"}},  # Expensive first
-        {"user_id": "alice"}                                    # Indexed field last
-    ]
-}
-```
-
-## Vector Store Compatibility
-
-Different vector stores support different filtering capabilities:
-
-### Qdrant
--  Full support for all operators
--  Efficient nested logical operations
--  Indexed field optimization
-
-### Chroma
--  Basic operators (eq, ne, gt, lt, gte, lte)
--  Simple logical operations
--  Limited nested operations
-
-### Pinecone
--  Good support for comparison operators
--  In/nin operations
--  Limited text operations
-
-### Weaviate
--  Full operator support
--  Advanced text operations
--  Efficient filtering
-
-## Error Handling
+### Handle invalid operators
 
 ```python
 try:
@@ -340,7 +407,6 @@ try:
     )
 except ValueError as e:
     print(f"Filter error: {e}")
-    # Fallback to simple filtering
     results = m.search(
         "test query",
         user_id="alice",
@@ -348,42 +414,35 @@ except ValueError as e:
     )
 ```
 
-## Migration from Simple Filters
+<Warning>
+  Validate filters before executing searches so you can catch typos or unsupported operators during development instead of at runtime.
+</Warning>
 
-### Before (v0.x)
-```python
-# Simple key-value filtering only
-results = m.search(
-    "query",
-    user_id="alice",
-    filters={"category": "work", "status": "active"}
-)
-```
+---
 
-### After (v1.0.0 )
-```python
-# Enhanced filtering with operators
-results = m.search(
-    "query",
-    user_id="alice",
-    filters={
-        "AND": [
-            {"category": "work"},
-            {"status": {"ne": "archived"}},
-            {"priority": {"gte": 5}}
-        ]
-    }
-)
-```
+## Verify the feature is working
 
-## Best Practices
+- Log the filters sent to your vector store and confirm the response metadata matches every clause.
+- Benchmark queries before and after indexing to ensure latency improvements materialize.
+- Add analytics or debug logging to track how often fallbacks execute when operators fail validation.
 
-1. **Use Indexed Fields**: Filter on indexed fields for better performance
-2. **Combine Operators**: Use logical operators to create precise queries
-3. **Test Filter Performance**: Benchmark complex filters with your data
-4. **Graceful Degradation**: Implement fallbacks for unsupported operations
-5. **Validate Filters**: Check filter syntax before executing queries
+---
 
-<Info>
-Enhanced metadata filtering provides powerful capabilities for precise memory retrieval. Start with simple filters and gradually adopt more complex patterns as needed.
-</Info>
+## Best practices
+
+1. **Use indexed fields first:** Order filters so equality checks run before complex string operations.
+2. **Combine operators intentionally:** Keep logical trees readable—large nests are harder to debug.
+3. **Test performance regularly:** Benchmark critical queries with production-like payloads.
+4. **Plan graceful degradation:** Provide fallback filters when an operator isn’t available.
+5. **Validate syntax early:** Catch malformed filters during development to protect agents at runtime.
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Explore Vector Store Options" icon="database" href="/components/vectordbs/overview">
+    Compare operator coverage and indexing strategies across supported stores.
+  </Card>
+  <Card title="Tag and Organize Memories" icon="tag" href="/cookbooks/essentials/tagging-and-organizing-memories">
+    Practice building workflows that label and retrieve memories with clear metadata filters.
+  </Card>
+</CardGroup>

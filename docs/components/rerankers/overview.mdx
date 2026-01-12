@@ -1,70 +1,78 @@
 ---
 title: Overview
-icon: "arrow-up-arrow-down"
-iconType: "solid"
+description: 'Pick the right reranker path to boost Mem0 search relevance.'
 ---
 
-Mem0 includes built-in support for various reranking providers to improve the relevance of memory search results. Rerankers post-process initial vector search results by re-scoring and re-ordering them using more sophisticated relevance models.
+Mem0 rerankers rescore vector search hits so your agents surface the most relevant memories. Use this hub to decide when reranking helps, configure a provider, and fine-tune performance.
 
-## Usage
+<Info>
+Reranking trades extra latency for better precision. Start once you have baseline search working and measure before/after relevance.
+</Info>
 
-To use a reranker:
-
-1. **Configure**: Add a `rerank` configuration section in your memory config
-2. **Search**: Reranking is automatically enabled for all searches (default: `rerank=True`)
-
-If no reranker is configured, search results will rely on vector similarity scoring alone.
-
-For comprehensive configuration parameters for each reranker, please refer to [Config](./config).
-
-### Controlling Reranking Per Search
-
-Once configured, reranking is enabled by default. You can control it per-search:
-
-```python
-# Reranking enabled (default)
-results = memory.search("query", user_id="user1")
-
-# Explicitly enable reranking
-results = memory.search("query", user_id="user1", rerank=True)
-
-# Disable reranking for this specific search
-results = memory.search("query", user_id="user1", rerank=False)
-```
-
-## How Reranking Works
-
-1. **Initial Search**: Vector similarity search retrieves candidate memories
-2. **Reranking** (if enabled): Selected reranker re-scores candidates using advanced models
-3. **Final Results**: Re-ordered results with both vector and rerank scores
-
-<Note>
-Reranking operates as a post-processing step and can significantly improve search relevance at the cost of additional latency and API calls.
-</Note>
-
-## Supported Rerankers
-
-See the list of supported rerankers below.
-
-<CardGroup cols={2}>
-  <Card title="Zero Entropy" href="/components/rerankers/models/zero_entropy" />
-  <Card title="Cohere" href="/components/rerankers/models/cohere" />
-  <Card title="Sentence Transformer" href="/components/rerankers/models/sentence_transformer" />
-  <Card title="Hugging Face" href="/components/rerankers/models/huggingface" />
-  <Card title="LLM-based" href="/components/rerankers/models/llm" />
-  <Card title="LLM Reranker" href="/components/rerankers/models/llm_reranker" />
+<CardGroup cols={3}>
+  <Card
+    title="Understand Reranking"
+    description="See how reranker-enhanced search changes your retrieval flow."
+    icon="search"
+    href="/open-source/features/reranker-search"
+  />
+  <Card
+    title="Configure Providers"
+    description="Add reranker blocks to your memory configuration."
+    icon="settings"
+    href="/components/rerankers/config"
+  />
+  <Card
+    title="Optimize Performance"
+    description="Balance relevance, latency, and cost with tuning tactics."
+    icon="speedometer"
+    href="/components/rerankers/optimization"
+  />
+  <Card
+    title="Custom Prompts"
+    description="Shape LLM-based reranking with tailored instructions."
+    icon="code"
+    href="/components/rerankers/custom-prompts"
+  />
+  <Card
+    title="Zero Entropy Guide"
+    description="Adopt the managed neural reranker for production workloads."
+    icon="sparkles"
+    href="/components/rerankers/models/zero_entropy"
+  />
+  <Card
+    title="Sentence Transformers"
+    description="Keep reranking on-device with cross-encoder models."
+    icon="cpu"
+    href="/components/rerankers/models/sentence_transformer"
+  />
 </CardGroup>
 
-## When to Use Reranking
+## Picking the Right Reranker
 
-- **Improved Relevance**: When vector search alone doesn't provide sufficiently relevant results
-- **Domain-Specific Queries**: For specialized terminology or context that benefits from advanced models
-- **Quality vs Speed Trade-off**: When you can accept higher latency for better search quality
-- **Production Systems**: Where search quality directly impacts user experience
+- **API-first** when you need top quality and can absorb request costs (Cohere, Zero Entropy).  
+- **Self-hosted** for privacy-sensitive deployments that must stay on your hardware (Sentence Transformer, Hugging Face).  
+- **LLM-driven** when you need bespoke scoring logic or complex prompts.  
+- **Hybrid** by enabling reranking only on premium journeys to control spend.
 
-Choose the reranker that best fits your use case:
-- **Zero Entropy**: Best balance of speed and quality for general use
-- **Cohere**: Enterprise-grade with excellent multilingual support
-- **Sentence Transformer**: Local deployment for privacy-sensitive applications
-- **Hugging Face**: Wide variety of pre-trained models for specialized use cases
-- **LLM-based**: Maximum customization with custom prompts and logic
+## Implementation Checklist
+
+1. Confirm baseline search KPIs so you can measure uplift.  
+2. Select a provider and add the `reranker` block to your config.  
+3. Test latency impact with production-like query batches.  
+4. Decide whether to enable reranking globally or per-search via the `rerank` flag.
+
+<CardGroup cols={2}>
+  <Card
+    title="Set Up Reranking"
+    description="Walk through the configuration fields and defaults."
+    icon="settings"
+    href="/components/rerankers/config"
+  />
+  <Card
+    title="Example: Reranker Search"
+    description="Follow the feature guide to see reranking in action."
+    icon="rocket"
+    href="/open-source/features/reranker-search"
+  />
+</CardGroup>

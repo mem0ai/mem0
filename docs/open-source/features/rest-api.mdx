@@ -1,114 +1,155 @@
 ---
 title: REST API Server
-icon: "server"
-iconType: "solid"
+description: Reach every Mem0 OSS capability through a FastAPI-powered REST layer.
+icon: "code"
 ---
 
-Mem0 provides a REST API server (written using FastAPI). Users can perform all operations through REST endpoints. The API also includes OpenAPI documentation, accessible at `/docs` when the server is running.
+The Mem0 REST API server exposes every OSS memory operation over HTTP. Run it alongside your stack to add, search, update, and delete memories from any language that speaks REST.
 
-<Frame caption="APIs supported by Mem0 REST API Server">
-    <img src="/images/rest-api-server.png"/>
-</Frame>
+<Info>
+  **You’ll use this when…**
+  - Your services already talk to REST APIs and you want Mem0 to match that style.
+  - Teams on languages without the Mem0 SDK still need access to memories.
+  - You plan to explore or debug endpoints through the built-in OpenAPI page at `/docs`.
+</Info>
 
-## Features
+<Warning>
+  Add your own authentication and HTTPS before exposing the server to anything beyond your internal network. The default image does not include auth.
+</Warning>
 
-- **Create memories**: Create memories based on messages for a user, agent, or run.
-- **Retrieve memories**: Get all memories for a given user, agent, or run.
-- **Search memories**: Search stored memories based on a query.
-- **Update memories**: Update an existing memory.
-- **Delete memories**: Delete a specific memory or all memories for a user, agent, or run.
-- **Reset memories**: Reset all memories for a user, agent, or run.
-- **OpenAPI Documentation**: Accessible via `/docs` endpoint.
+---
 
-## Running Locally
+## Feature
+
+- **CRUD endpoints:** Create, retrieve, search, update, delete, and reset memories by `user_id`, `agent_id`, or `run_id`.
+- **Status health check:** Access base routes to confirm the server is online.
+- **OpenAPI explorer:** Visit `/docs` for interactive testing and schema reference.
+
+---
+
+## Configure it
+
+### Run with Docker Compose (development)
 
 <Tabs>
-    <Tab title="With Docker Compose">
-        The Development Docker Compose comes pre-configured with postgres pgvector, neo4j and a `server/history/history.db` volume for the history database.
+  <Tab title="Steps">
+1. Create `server/.env` with your keys:
 
-        The only required environment variable to run the server is `OPENAI_API_KEY`.
+```bash
+OPENAI_API_KEY=your-openai-api-key
+```
 
-        1. Create a `.env` file in the `server/` directory and set your environment variables. For example:
+2. Start the stack:
 
-        ```txt
-        OPENAI_API_KEY=your-openai-api-key
-        ```
+```bash
+cd server
+docker compose up
+```
 
-        2. Run the Docker container using Docker Compose:
-
-        ```bash
-        cd server
-        docker compose up
-        ```
-
-        3. Access the API at http://localhost:8888.
-
-        4. Making changes to the server code or the library code will automatically reload the server.
-    </Tab>
-
-    <Tab title="With Docker">
-
-        1. Create a `.env` file in the current directory and set your environment variables. For example:
-
-        ```txt
-        OPENAI_API_KEY=your-openai-api-key
-        ```
-
-        2. Either pull the docker image from docker hub or build the docker image locally.
-
-        <Tabs>
-            <Tab title="Pull from Docker Hub">
-
-                ```bash
-                docker pull mem0/mem0-api-server
-                ```
-
-            </Tab>
-
-            <Tab title="Build Locally">
-
-                ```bash
-                docker build -t mem0-api-server .
-                ```
-
-            </Tab>
-        </Tabs>
-
-        3. Run the Docker container:
-
-        ``` bash
-        docker run -p 8000:8000 mem0-api-server --env-file .env
-        ```
-
-        4. Access the API at http://localhost:8000.
-
-    </Tab>
-
-    <Tab title="Without Docker">
-
-        1. Create a `.env` file in the current directory and set your environment variables. For example:
-
-        ```txt
-        OPENAI_API_KEY=your-openai-api-key
-        ```
-
-        2. Install dependencies:
-
-        ```bash
-        pip install -r requirements.txt
-        ```
-
-        3. Start the FastAPI server:
-
-        ```bash
-        uvicorn main:app --reload
-        ```
-
-        4. Access the API at http://localhost:8000.
-
-    </Tab>
+3. Reach the API at `http://localhost:8888`. Edits to the server or library auto-reload.
+  </Tab>
 </Tabs>
 
-## Usage
+### Run with Docker
 
-Once the server is running (locally or via Docker), you can interact with it using any REST client or through your preferred programming language (e.g., Go, Java, etc.). You can test out the APIs using the OpenAPI documentation at [http://localhost:8000/docs](http://localhost:8000/docs) endpoint.
+<Tabs>
+  <Tab title="Pull image">
+```bash
+docker pull mem0/mem0-api-server
+```
+  </Tab>
+  <Tab title="Build locally">
+```bash
+docker build -t mem0-api-server .
+```
+  </Tab>
+</Tabs>
+
+1. Create a `.env` file with `OPENAI_API_KEY`.  
+2. Run the container:
+
+```bash
+docker run -p 8000:8000 --env-file .env mem0-api-server
+```
+
+3. Visit `http://localhost:8000`.
+
+### Run directly (no Docker)
+
+```bash
+pip install -r requirements.txt
+uvicorn main:app --reload
+```
+
+<Tip>
+  Use a process manager such as `systemd`, Supervisor, or PM2 when deploying the FastAPI server for production resilience.
+</Tip>
+
+<Note>
+  The REST server reads the same configuration you use locally, so you can point it at your preferred LLM, vector store, graph backend, and reranker without changing code.
+</Note>
+
+---
+
+## See it in action
+
+### Create and search memories via HTTP
+
+```bash
+curl -X POST http://localhost:8000/memories \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      {"role": "user", "content": "I love fresh vegetable pizza."}
+    ],
+    "user_id": "alice"
+  }'
+```
+
+<Info icon="check">
+  Expect a JSON response containing the new memory IDs and events (`ADD`, etc.).
+</Info>
+
+```bash
+curl "http://localhost:8000/memories/search?user_id=alice&query=vegetable"
+```
+
+### Explore with OpenAPI docs
+
+1. Navigate to `http://localhost:8000/docs`.  
+2. Pick an endpoint (e.g., `POST /memories/search`).  
+3. Fill in parameters and click **Execute** to try requests in-browser.
+
+<Tip>
+  Export the generated `curl` snippets from the OpenAPI UI to bootstrap integration tests.
+</Tip>
+
+---
+
+## Verify the feature is working
+
+- Hit the root route and `/docs` to confirm the server is reachable.
+- Run a full cycle: `POST /memories` → `GET /memories/{id}` → `DELETE /memories/{id}`.
+- Watch server logs for import errors or provider misconfigurations during startup.
+- Confirm environment variables (API keys, vector store credentials) load correctly when containers restart.
+
+---
+
+## Best practices
+
+1. **Add authentication:** Protect endpoints with API gateways, proxies, or custom FastAPI middleware.
+2. **Use HTTPS:** Terminate TLS at your load balancer or reverse proxy.
+3. **Monitor uptime:** Track request rates, latency, and error codes per endpoint.
+4. **Version configs:** Keep environment files and Docker Compose definitions in source control.
+5. **Limit exposure:** Bind to private networks unless you explicitly need public access.
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Configure OSS Components" icon="sliders" href="/open-source/configuration">
+    Fine-tune LLMs, vector stores, and graph backends that power the REST server.
+  </Card>
+  <Card title="Automate Agent Integrations" icon="plug" href="/cookbooks/integrations/agents-sdk-tool">
+    See how services call the REST endpoints as part of an automation pipeline.
+  </Card>
+</CardGroup>

@@ -14,7 +14,9 @@ Key differentiators:
 ## Getting Started
 
 - [Introduction](https://docs.mem0.ai/introduction): Overview of Mem0's memory layer for AI agents, including stateless vs stateful agents and how memory fits in the agent stack
-- [Quickstart Guide](https://docs.mem0.ai/quickstart): Get started with either Mem0 Platform (managed) or Open Source in minutes
+- [Platform Quickstart](https://docs.mem0.ai/platform/quickstart): Get started with Mem0 Platform (managed) in minutes
+- [Open Source Python Quickstart](https://docs.mem0.ai/open-source/python-quickstart): Get started with Mem0 Open Source using Python
+- [Open Source Node.js Quickstart](https://docs.mem0.ai/open-source/node-quickstart): Get started with Mem0 Open Source using Node.js
 - [Platform Overview](https://docs.mem0.ai/platform/overview): Managed solution with 4-line integration, sub-50ms latency, and intuitive dashboard
 - [Open Source Overview](https://docs.mem0.ai/open-source/overview): Self-hosted solution with full infrastructure control and customization
 
@@ -29,23 +31,58 @@ Key differentiators:
 ## Platform (Managed Solution)
 
 - [Platform Quickstart](https://docs.mem0.ai/platform/quickstart): Complete guide to using Mem0 Platform with Python, JavaScript, and cURL examples
+- [Platform vs Open Source](https://docs.mem0.ai/platform/platform-vs-oss): Compare managed platform vs self-hosted options
 - [Advanced Memory Operations](https://docs.mem0.ai/platform/advanced-memory-operations): Sophisticated memory management techniques for complex applications
-- [Graph Memory](https://docs.mem0.ai/platform/features/graph-memory): Build and query relationships between entities for contextually relevant retrieval
-- [Advanced Retrieval](https://docs.mem0.ai/platform/features/advanced-retrieval): Enhanced search with keyword search, reranking, and filtering capabilities
-- [Multimodal Support](https://docs.mem0.ai/platform/features/multimodal-support): Integration of images and documents (JPG, PNG, MDX, TXT, PDF) via URLs or Base64
-- [Memory Customization](https://docs.mem0.ai/platform/features/selective-memory): Selective memory storage through inclusion and exclusion rules
-- [Custom Categories](https://docs.mem0.ai/platform/features/custom-categories): Define domain-specific categories to improve memory organization
+
+### Essential Platform Features
+- [V2 Memory Filters](https://docs.mem0.ai/platform/features/v2-memory-filters): Advanced filtering and querying capabilities
 - [Async Client](https://docs.mem0.ai/platform/features/async-client): Non-blocking operations for high-concurrency applications
+- [Multimodal Support](https://docs.mem0.ai/platform/features/multimodal-support): Integration of images and documents (JPG, PNG, MDX, TXT, PDF) via URLs or Base64
+- [Custom Categories](https://docs.mem0.ai/platform/features/custom-categories): Define domain-specific categories to improve memory organization
+- [Async Mode Default Changes](https://docs.mem0.ai/platform/features/async-mode-default-change): Understanding new async behavior defaults
+
+### Advanced Platform Features
+- [Graph Memory](https://docs.mem0.ai/platform/features/graph-memory): Build and query relationships between entities for contextually relevant retrieval
+- [Graph Threshold](https://docs.mem0.ai/platform/features/graph-threshold): Configure graph relationship sensitivity and strength
+- [Advanced Retrieval](https://docs.mem0.ai/platform/features/advanced-retrieval): Enhanced search with keyword search, reranking, and filtering capabilities
+- [Criteria-Based Retrieval](https://docs.mem0.ai/platform/features/criteria-retrieval): Targeted memory retrieval using custom criteria
+- [Contextual Add](https://docs.mem0.ai/platform/features/contextual-add): Add memories with enhanced context awareness
+- [Custom Instructions](https://docs.mem0.ai/platform/features/custom-instructions): Customize how Mem0 processes and stores information
+
+### Data Management
+- [Direct Import](https://docs.mem0.ai/platform/features/direct-import): Bulk import existing data into Mem0 memory
 - [Memory Export](https://docs.mem0.ai/platform/features/memory-export): Export memories in structured formats using customizable Pydantic schemas
+- [Timestamp Support](https://docs.mem0.ai/platform/features/timestamp): Temporal memory management with time-based queries
+- [Expiration Dates](https://docs.mem0.ai/platform/features/expiration-date): Automatic memory cleanup with configurable expiration
+
+### Integration Features
+- [Webhooks](https://docs.mem0.ai/platform/features/webhooks): Real-time notifications for memory events
+- [Feedback Mechanism](https://docs.mem0.ai/platform/features/feedback-mechanism): Improve memory quality through user feedback
+- [Group Chat Support](https://docs.mem0.ai/platform/features/group-chat): Multi-conversation memory management
+
+### Platform Support
+- [FAQs](https://docs.mem0.ai/platform/faqs): Frequently asked questions about Mem0 Platform
+- [Contribute Guide](https://docs.mem0.ai/platform/contribute): Contributing to Mem0 Platform development
 
 ## Open Source
 
+### Getting Started
 - [Python Quickstart](https://docs.mem0.ai/open-source/python-quickstart): Installation, configuration, and usage examples for Python SDK
 - [Node.js Quickstart](https://docs.mem0.ai/open-source/node-quickstart): Installation, configuration, and usage examples for Node.js SDK
+- [Configuration Guide](https://docs.mem0.ai/open-source/configuration): Complete configuration options for self-hosted deployment
+
+### Open Source Features
 - [OpenAI Compatibility](https://docs.mem0.ai/open-source/features/openai_compatibility): Seamless integration with OpenAI-compatible APIs
-- [Custom Fact Extraction](https://docs.mem0.ai/open-source/features/custom-fact-extraction-prompt): Tailor information extraction for specific use cases
 - [REST API Server](https://docs.mem0.ai/open-source/features/rest-api): FastAPI-based server with core operations and OpenAPI documentation
-- [Graph Memory Overview](https://docs.mem0.ai/open-source/graph_memory/overview): Build and query entity relationships using graph stores like Neo4j
+- [Graph Memory](https://docs.mem0.ai/open-source/features/graph-memory): Build and query entity relationships using graph stores like Neo4j
+- [Metadata Filtering](https://docs.mem0.ai/open-source/features/metadata-filtering): Advanced filtering using custom metadata fields
+- [Reranker Search](https://docs.mem0.ai/open-source/features/reranker-search): Enhanced search results with reranking models
+- [Async Memory](https://docs.mem0.ai/open-source/features/async-memory): Asynchronous memory operations for better performance
+- [Multimodal Support](https://docs.mem0.ai/open-source/features/multimodal-support): Handle text, images, and documents in self-hosted setup
+
+### Customization
+- [Custom Fact Extraction](https://docs.mem0.ai/open-source/features/custom-fact-extraction-prompt): Tailor information extraction for specific use cases
+- [Custom Memory Update Prompt](https://docs.mem0.ai/open-source/features/custom-update-memory-prompt): Customize how memories are updated and merged
 
 ## Components
 
@@ -88,8 +125,8 @@ Key differentiators:
 - [OpenSearch](https://docs.mem0.ai/components/vectordbs/dbs/opensearch): Open-source search and analytics platform
 - [FAISS](https://docs.mem0.ai/components/vectordbs/dbs/faiss): Facebook AI Similarity Search library
 - [MongoDB](https://docs.mem0.ai/components/vectordbs/dbs/mongodb): Document database with vector search capabilities
-- [Azure AI Search](https://docs.mem0.ai/components/vectordbs/dbs/azure_ai_search): Microsoft's enterprise search service
-- [Vertex AI Vector Search](https://docs.mem0.ai/components/vectordbs/dbs/vertex_ai_vector_search): Google Cloud's vector search service
+- [Azure AI Search](https://docs.mem0.ai/components/vectordbs/dbs/azure): Microsoft's enterprise search service
+- [Vertex AI Vector Search](https://docs.mem0.ai/components/vectordbs/dbs/vertex_ai): Google Cloud's vector search service
 - [Databricks](https://docs.mem0.ai/components/vectordbs/dbs/databricks): Delta Lake integration for vector search
 - [Baidu](https://docs.mem0.ai/components/vectordbs/dbs/baidu): Baidu vector database integration
 - [LangChain](https://docs.mem0.ai/components/vectordbs/dbs/langchain): LangChain vector store integration
@@ -119,26 +156,61 @@ Key differentiators:
 - [Flowise](https://docs.mem0.ai/integrations/flowise): No-code LLM workflow builder with memory capabilities
 - [Dify](https://docs.mem0.ai/integrations/dify): LLMOps platform integration for production AI applications
 
-## Examples and Use Cases
+## Cookbooks and Examples
 
-- [Personal AI Tutor](https://docs.mem0.ai/examples/personal-ai-tutor): Build an AI tutor that remembers learning progress and adapts teaching methods
-- [Customer Support Agent](https://docs.mem0.ai/examples/customer-support-agent): Create support agents that remember customer history and preferences
-- [Personalized Travel Assistant](https://docs.mem0.ai/examples/personal-travel-assistant): Develop travel agents that learn from past trips and preferences
-- [Memory-Guided Content Writing](https://docs.mem0.ai/examples/memory-guided-content-writing): Build content generators that remember writing style and topic preferences
-- [Collaborative Task Agent](https://docs.mem0.ai/examples/collaborative-task-agent): Multi-agent systems with shared memory for team coordination
+### Cookbooks Overview
+- [Cookbooks Overview](https://docs.mem0.ai/cookbooks/overview): Complete guide to Mem0 examples and implementation patterns
+
+### Essential Guides
+- [Building AI Companion](https://docs.mem0.ai/cookbooks/essentials/building-ai-companion): Core patterns for building AI agents with memory
+- [Partition Memories by Entity](https://docs.mem0.ai/cookbooks/essentials/entity-partitioning-playbook): Keep multi-tenant assistants isolated by tagging user, agent, app, and session identifiers
+- [Controlling Memory Ingestion](https://docs.mem0.ai/cookbooks/essentials/controlling-memory-ingestion): Fine-tune what gets stored in memory and when
+- [Memory Expiration](https://docs.mem0.ai/cookbooks/essentials/memory-expiration-short-and-long-term): Implement short-term and long-term memory strategies
+- [Tagging and Organizing Memories](https://docs.mem0.ai/cookbooks/essentials/tagging-and-organizing-memories): Advanced memory organization and categorization
+- [Exporting Memories](https://docs.mem0.ai/cookbooks/essentials/exporting-memories): Backup and transfer memory data between systems
+- [Choosing Memory Architecture](https://docs.mem0.ai/cookbooks/essentials/choosing-memory-architecture-vector-vs-graph): Vector vs Graph memory architectures comparison
+
+### AI Companion Examples
+- [AI Tutor](https://docs.mem0.ai/cookbooks/companions/ai-tutor): Educational AI that adapts to learning progress
+- [Travel Assistant](https://docs.mem0.ai/cookbooks/companions/travel-assistant): Travel planning agent that learns preferences
+- [Voice Companion](https://docs.mem0.ai/cookbooks/companions/voice-companion-openai): Voice-enabled AI with conversational memory
+- [Local Companion](https://docs.mem0.ai/cookbooks/companions/local-companion-ollama): Privacy-focused companion using local models
+- [Node.js Companion](https://docs.mem0.ai/cookbooks/companions/nodejs-companion): JavaScript-based AI companion applications
+- [YouTube Research Assistant](https://docs.mem0.ai/cookbooks/companions/youtube-research): AI that researches and learns from video content
+
+### Operations & Automation
+- [Support Inbox](https://docs.mem0.ai/cookbooks/operations/support-inbox): Customer service agents with conversation history
+- [Email Automation](https://docs.mem0.ai/cookbooks/operations/email-automation): Smart email processing with contextual memory
+- [Content Writing](https://docs.mem0.ai/cookbooks/operations/content-writing): AI writers that maintain brand voice and style
+- [Deep Research](https://docs.mem0.ai/cookbooks/operations/deep-research): Research assistants that build on previous findings
+- [Team Task Agent](https://docs.mem0.ai/cookbooks/operations/team-task-agent): Collaborative AI agents with shared project memory
+
+### Integration Examples
+- [OpenAI Tool Calls](https://docs.mem0.ai/cookbooks/integrations/openai-tool-calls): Mem0 integrated with OpenAI function calling
+- [AWS Bedrock](https://docs.mem0.ai/cookbooks/integrations/aws-bedrock): Enterprise memory with AWS managed services
+- [Tavily Search](https://docs.mem0.ai/cookbooks/integrations/tavily-search): Web search with persistent memory of results
+- [Healthcare Google ADK](https://docs.mem0.ai/cookbooks/integrations/healthcare-google-adk): Medical AI applications with memory
+- [Mastra Agent](https://docs.mem0.ai/cookbooks/integrations/mastra-agent): Mastra framework integration with memory
+
+### Framework Examples
+- [LlamaIndex React](https://docs.mem0.ai/cookbooks/frameworks/llamaindex-react): React applications with LlamaIndex and memory
+- [LlamaIndex Multiagent](https://docs.mem0.ai/cookbooks/frameworks/llamaindex-multiagent): Multi-agent systems with shared memory
+- [Eliza OS Character](https://docs.mem0.ai/cookbooks/frameworks/eliza-os-character): Character-based AI with persistent personality
+- [Chrome Extension](https://docs.mem0.ai/cookbooks/frameworks/chrome-extension): Browser extensions that remember user interactions
+- [Multimodal Retrieval](https://docs.mem0.ai/cookbooks/frameworks/multimodal-retrieval): Memory systems handling text, images, and documents
 
 ## API Reference
 
 - [Memory APIs](https://docs.mem0.ai/api-reference/memory/add-memories): Comprehensive API documentation for memory operations
 - [Add Memories](https://docs.mem0.ai/api-reference/memory/add-memories): REST API for storing new memories with detailed request/response formats
-- [Search Memories](https://docs.mem0.ai/api-reference/memory/v2-search-memories): Advanced search API with filtering and ranking capabilities
-- [Get All Memories](https://docs.mem0.ai/api-reference/memory/v2-get-memories): Retrieve all memories with pagination and filtering options
+- [Search Memories](https://docs.mem0.ai/api-reference/memory/search-memories): Advanced search API with filtering and ranking capabilities
+- [Get All Memories](https://docs.mem0.ai/api-reference/memory/get-memories): Retrieve all memories with pagination and filtering options
 - [Update Memory](https://docs.mem0.ai/api-reference/memory/update-memory): Modify existing memories with conflict resolution
 - [Delete Memory](https://docs.mem0.ai/api-reference/memory/delete-memory): Remove memories individually or in batches
 
 ## Optional
 
-- [FAQs](https://docs.mem0.ai/faqs): Frequently asked questions about Mem0's capabilities and implementation details
+- [FAQs](https://docs.mem0.ai/platform/faqs): Frequently asked questions about Mem0's Platform capabilities and implementation details
 - [Changelog](https://docs.mem0.ai/changelog): Detailed product updates and version history for tracking new features and improvements
 - [Contributing Guide](https://docs.mem0.ai/contributing/development): Guidelines for contributing to Mem0's open-source development
 - [OpenMemory](https://docs.mem0.ai/openmemory/overview): Open-source memory infrastructure for research and experimentation
