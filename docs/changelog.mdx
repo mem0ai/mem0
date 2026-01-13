@@ -7,6 +7,32 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-01-13" description="v1.0.2">
+
+**New Features & Updates:**
+- **Vector Stores:**
+  - Added DriverInfo metadata to MongoDB vector store
+
+</Update>
+
+<Update label="2025-11-14" description="v1.0.1">
+
+**New Features & Updates:**
+- **Vector Stores:**
+  - Added Apache Cassandra vector store support
+- **Embeddings:**
+  - Added FastEmbed embedding support for local embeddings
+- **Graph Store:**
+  - Added configurable embedding similarity threshold for graph store node matching
+
+**Bug Fixes:**
+- **Core:**
+  - Fixed condition check for memories_result type in Memory class
+  - Fixed list_memories endpoint Pydantic validation error
+  - Fixed memory deletion not removing from vector store
+
+</Update>
+
 <Update label="2025-10-16" description="v1.0.0">
 
 **New Features & Updates:**
