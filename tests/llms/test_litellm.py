@@ -89,3 +89,152 @@ def test_generate_response_with_tools(mock_litellm):
     assert len(response["tool_calls"]) == 1
     assert response["tool_calls"][0]["name"] == "add_memory"
     assert response["tool_calls"][0]["arguments"] == {"data": "Today is a sunny day."}
+
+
+def test_generate_response_with_model_as_dict(mock_litellm):
+    """Test that model can be specified as a dict with name and additional parameters."""
+    config = BaseLlmConfig(
+        model={"name": "gemini/gemini-3-flash-preview", "reasoning_effort": "low"},
+        temperature=0.7,
+        max_tokens=100,
+        top_p=1.0,
+    )
+    llm = litellm.LiteLLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Hello! How can I help you?"))]
+    mock_litellm.completion.return_value = mock_response
+    mock_litellm.supports_function_calling.return_value = True
+
+    response = llm.generate_response(messages)
+
+    mock_litellm.completion.assert_called_once_with(
+        model="gemini/gemini-3-flash-preview",
+        messages=messages,
+        temperature=0.7,
+        max_tokens=100,
+        top_p=1.0,
+        reasoning_effort="low",
+    )
+    assert response == "Hello! How can I help you?"
+
+
+def test_generate_response_with_reasoning_effort_high(mock_litellm):
+    """Test reasoning_effort parameter with 'high' value for Gemini models."""
+    config = BaseLlmConfig(
+        model={
+            "name": "gemini/gemini-3-flash-preview",
+            "reasoning_effort": "high",
+        },
+        temperature=0.2,
+        max_tokens=4000,
+        top_p=0.9,
+    )
+    llm = litellm.LiteLLM(config)
+    messages = [{"role": "user", "content": "Solve this complex math problem"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Let me think about this..."))]
+    mock_litellm.completion.return_value = mock_response
+    mock_litellm.supports_function_calling.return_value = True
+
+    response = llm.generate_response(messages)
+
+    mock_litellm.completion.assert_called_once_with(
+        model="gemini/gemini-3-flash-preview",
+        messages=messages,
+        temperature=0.2,
+        max_tokens=4000,
+        top_p=0.9,
+        reasoning_effort="high",
+    )
+    assert response == "Let me think about this..."
+
+
+def test_generate_response_with_multiple_model_params(mock_litellm):
+    """Test multiple model-specific parameters passed via dict."""
+    config = BaseLlmConfig(
+        model={
+            "name": "gemini/gemini-3-flash-preview",
+            "reasoning_effort": "medium",
+            "frequency_penalty": 0.5,
+            "seed": 42,
+        },
+        temperature=0.5,
+        max_tokens=2000,
+        top_p=0.95,
+    )
+    llm = litellm.LiteLLM(config)
+    messages = [{"role": "user", "content": "Generate some text"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Generated text here."))]
+    mock_litellm.completion.return_value = mock_response
+    mock_litellm.supports_function_calling.return_value = True
+
+    response = llm.generate_response(messages)
+
+    mock_litellm.completion.assert_called_once_with(
+        model="gemini/gemini-3-flash-preview",
+        messages=messages,
+        temperature=0.5,
+        max_tokens=2000,
+        top_p=0.95,
+        reasoning_effort="medium",
+        frequency_penalty=0.5,
+        seed=42,
+    )
+    assert response == "Generated text here."
+
+
+def test_get_model_name_with_string(mock_litellm):
+    """Test _get_model_name returns correct name when model is a string."""
+    config = BaseLlmConfig(model="gpt-4.1-nano-2025-04-14", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = litellm.LiteLLM(config)
+
+    assert llm._get_model_name() == "gpt-4.1-nano-2025-04-14"
+
+
+def test_get_model_name_with_dict(mock_litellm):
+    """Test _get_model_name returns correct name when model is a dict."""
+    config = BaseLlmConfig(
+        model={"name": "gemini/gemini-3-flash-preview", "reasoning_effort": "low"},
+        temperature=0.7,
+        max_tokens=100,
+        top_p=1.0,
+    )
+    llm = litellm.LiteLLM(config)
+
+    assert llm._get_model_name() == "gemini/gemini-3-flash-preview"
+
+
+def test_init_with_dict_model_without_name(mock_litellm):
+    """Test that default model name is set when dict model doesn't have 'name' key."""
+    config = BaseLlmConfig(
+        model={"reasoning_effort": "low"},
+        temperature=0.7,
+        max_tokens=100,
+        top_p=1.0,
+    )
+    llm = litellm.LiteLLM(config)
+
+    assert llm._get_model_name() == "gpt-4.1-nano-2025-04-14"
+    assert llm.config.model["reasoning_effort"] == "low"
+
+
+def test_generate_response_with_unsupported_model_as_dict(mock_litellm):
+    """Test error handling when model (as dict) doesn't support function calling."""
+    config = BaseLlmConfig(
+        model={"name": "unsupported-model", "reasoning_effort": "low"},
+        temperature=0.7,
+        max_tokens=100,
+        top_p=1.0,
+    )
+    llm = litellm.LiteLLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_litellm.supports_function_calling.return_value = False
+
+    with pytest.raises(ValueError, match="Model 'unsupported-model' in litellm does not support function calling."):
+        llm.generate_response(messages)
