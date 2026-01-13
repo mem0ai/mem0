@@ -8,6 +8,7 @@ on:
       - 'tests/**'
       - 'embedchain/**'
       - '.github/workflows/**'
+      - 'pyproject.toml'
   pull_request:
     paths:
       - 'mem0/**'
@@ -30,6 +31,7 @@ jobs:
             - 'mem0/**'
             - 'tests/**'
             - '.github/workflows/**'
+            - 'pyproject.toml'
           embedchain:
             - 'embedchain/**'
 

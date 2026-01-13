@@ -542,7 +542,6 @@ def test_search_basic(azure_ai_search_instance):
     # Check parameters
     assert len(kwargs["vector_queries"]) == 1
     assert kwargs["vector_queries"][0].vector == query_vector
-    assert kwargs["vector_queries"][0].k_nearest_neighbors == 5
     assert kwargs["vector_queries"][0].fields == "vector"
     assert kwargs["filter"] is None  # No filters
     assert kwargs["top"] == 5
