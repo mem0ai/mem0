@@ -9,7 +9,7 @@ from langchain.agents import create_openai_tools_agent, AgentExecutor
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 from langchain_tavily import TavilySearch
-from langchain.schema import HumanMessage
+from langchain_core.messages import HumanMessage
 from datetime import datetime
 import logging
 
