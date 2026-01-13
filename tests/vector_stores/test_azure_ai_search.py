@@ -533,7 +533,7 @@ def test_search_basic(azure_ai_search_instance):
     # Search with a vector
     query_text = "test query"  # Add a query string
     query_vector = [0.1, 0.2, 0.3]
-    results = instance.search(query_text, query_vector, limit=5)  # Pass the query string
+    results = instance.search(query_text, query_vector, limit=5, k_nearest_neighbors = 5)  # Pass the query string
 
     # Verify search was called correctly
     mock_search_client.search.assert_called_once()
