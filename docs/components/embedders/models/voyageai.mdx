@@ -1,0 +1,113 @@
+---
+title: VoyageAI
+---
+
+To use VoyageAI embedding models, set the `VOYAGE_API_KEY` environment variable. You can obtain the VoyageAI API key from the [VoyageAI Dashboard](https://dash.voyageai.com/).
+
+### Usage
+
+<CodeGroup>
+```python Python
+import os
+from mem0 import Memory
+
+os.environ["VOYAGE_API_KEY"] = "your_api_key"
+
+config = {
+    "embedder": {
+        "provider": "voyageai",
+        "config": {
+            "model": "voyage-3.5"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="john")
+```
+</CodeGroup>
+
+### Models
+
+VoyageAI offers several embedding models:
+
+| Model | Default Dims | Supported Dims | Context | Best For |
+| --- | --- | --- | --- | --- |
+| `voyage-3.5` | 1024 | 256, 512, 1024, 2048 | 32K | Latest general-purpose (recommended) |
+| `voyage-3.5-lite` | 1024 | 256, 512, 1024, 2048 | 32K | Fast and cost-effective |
+| `voyage-3-large` | 1024 | 256, 512, 1024, 2048 | 32K | Highest quality |
+| `voyage-code-3` | 1024 | 256, 512, 1024, 2048 | 32K | Code retrieval |
+| `voyage-finance-2` | 1024 | 1024 only | 32K | Finance domain |
+| `voyage-law-2` | 1024 | 1024 only | 16K | Legal domain |
+
+### Config
+
+Here are the parameters available for configuring VoyageAI embedder:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `model` | The name of the embedding model to use | `voyage-3.5` |
+| `embedding_dims` | Dimensions of the embedding model (model dependent) | `1024` |
+| `api_key` | The VoyageAI API key | `None` |
+| `voyageai_truncation` | Whether to truncate text exceeding context window | `True` |
+| `voyageai_output_dtype` | Output data type: `float`, `int8`, `uint8`, `binary`, `ubinary` | `None` (float) |
+| `voyageai_batch_size` | Maximum number of texts per batch | `1000` |
+
+### Advanced Configuration
+
+VoyageAI supports asymmetric embeddings (different embeddings for queries vs documents) which can improve retrieval quality:
+
+```python Python
+config = {
+    "embedder": {
+        "provider": "voyageai",
+        "config": {
+            "model": "voyage-3-large",
+            "embedding_dims": 512,
+            "memory_add_embedding_type": "document",
+            "memory_search_embedding_type": "query",
+            "voyageai_output_dtype": "int8"
+        }
+    }
+}
+```
+
+### Multimodal Embeddings
+
+VoyageAI also supports multimodal embeddings (text + images) via the `embed_multimodal()` method:
+
+```python Python
+from mem0.utils.factory import EmbedderFactory
+from PIL import Image
+
+embedder = EmbedderFactory.create("voyageai", {
+    "api_key": "your_key",
+    "voyageai_multimodal_model": "voyage-multimodal-3.5"
+}, None)
+
+image = Image.open("product.jpg")
+embedding = embedder.embed_multimodal(["Product description", image])
+```
+
+### Contextualized Chunk Embeddings
+
+For document-aware retrieval, use contextualized embeddings with `voyage-context-3`:
+
+```python Python
+embedder = EmbedderFactory.create("voyageai", {
+    "api_key": "your_key",
+    "voyageai_context_model": "voyage-context-3"
+}, None)
+
+chunks = [
+    ["Introduction", "Background", "Methods"],  # Document 1
+    ["Abstract", "Results", "Conclusion"],       # Document 2
+]
+embeddings = embedder.embed_contextualized(chunks)
+```

@@ -16,6 +16,7 @@ from mem0.configs.rerankers.sentence_transformer import SentenceTransformerReran
 from mem0.configs.rerankers.zero_entropy import ZeroEntropyRerankerConfig
 from mem0.configs.rerankers.llm import LLMRerankerConfig
 from mem0.configs.rerankers.huggingface import HuggingFaceRerankerConfig
+from mem0.configs.rerankers.voyageai import VoyageAIRerankerConfig
 from mem0.embeddings.mock import MockEmbeddings
 
 
@@ -146,6 +147,7 @@ class EmbedderFactory:
         "langchain": "mem0.embeddings.langchain.LangchainEmbedding",
         "aws_bedrock": "mem0.embeddings.aws_bedrock.AWSBedrockEmbedding",
         "fastembed": "mem0.embeddings.fastembed.FastEmbedEmbedding",
+        "voyageai": "mem0.embeddings.voyageai.VoyageAIEmbedding",
     }
 
     @classmethod
@@ -242,6 +244,7 @@ class RerankerFactory:
         "zero_entropy": ("mem0.reranker.zero_entropy_reranker.ZeroEntropyReranker", ZeroEntropyRerankerConfig),
         "llm_reranker": ("mem0.reranker.llm_reranker.LLMReranker", LLMRerankerConfig),
         "huggingface": ("mem0.reranker.huggingface_reranker.HuggingFaceReranker", HuggingFaceRerankerConfig),
+        "voyageai": ("mem0.reranker.voyageai_reranker.VoyageAIReranker", VoyageAIRerankerConfig),
     }
 
     @classmethod
