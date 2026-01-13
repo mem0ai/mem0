@@ -12,6 +12,7 @@ on:
       - 'mem0/**'
       - 'tests/**'
       - 'embedchain/**'
+      - '.github/**'
 
 jobs:
   check_changes:
