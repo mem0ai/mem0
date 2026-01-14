@@ -2,10 +2,21 @@ import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 
 /**
+ * Type-only imports for better IDE support and type safety.
+ * These are peer dependencies - users must install mongodb.
+ */
+import type {
+  MongoClient as MongoClientType,
+  Db,
+  Collection,
+  Document,
+} from "mongodb";
+
+/**
  * Try to import MongoDB client.
  * This is a peer dependency - users must install mongodb.
  */
-let MongoClient: any;
+let MongoClient: typeof MongoClientType | undefined;
 
 try {
   const mongodb = require("mongodb");
@@ -30,6 +41,8 @@ export interface MongoDBConfig extends VectorStoreConfig {
   indexName?: string;
   /** Similarity metric for vector search. Defaults to "cosine" */
   similarityMetric?: "cosine" | "euclidean" | "dotProduct";
+  /** Multiplier for candidate pool size during search. Defaults to 10 (MongoDB recommends 10-20x limit) */
+  numCandidatesMultiplier?: number;
 }
 
 /**
@@ -50,15 +63,16 @@ export interface MongoDBConfig extends VectorStoreConfig {
  * ```
  */
 export class MongoDB implements VectorStore {
-  private client: any;
-  private db: any;
-  private collection: any;
+  private client: MongoClientType | null = null;
+  private db: Db | null = null;
+  private collection: Collection<Document> | null = null;
   private mongoUri: string;
   private dbName: string;
   private collectionName: string;
   private embeddingModelDims: number;
   private indexName: string;
   private similarityMetric: "cosine" | "euclidean" | "dotProduct";
+  private numCandidatesMultiplier: number;
   private userId: string = "";
 
   constructor(config: MongoDBConfig) {
@@ -92,6 +106,7 @@ export class MongoDB implements VectorStore {
     this.indexName =
       config.indexName || `${config.collectionName}_vector_index`;
     this.similarityMetric = config.similarityMetric || "cosine";
+    this.numCandidatesMultiplier = config.numCandidatesMultiplier || 10;
 
     this.client = new MongoClient(this.mongoUri);
   }
@@ -111,6 +126,10 @@ export class MongoDB implements VectorStore {
    * Ensure the collection exists, creating it if necessary.
    */
   private async ensureCollectionExists(): Promise<void> {
+    if (!this.db) {
+      throw new Error("Database not initialized");
+    }
+
     const collections = await this.db
       .listCollections({ name: this.collectionName })
       .toArray();
@@ -118,12 +137,7 @@ export class MongoDB implements VectorStore {
       console.log(
         `Collection '${this.collectionName}' not found. Creating it.`,
       );
-      // Create collection by inserting and deleting a placeholder document
-      await this.collection.insertOne({
-        _id: "__placeholder__",
-        placeholder: true,
-      });
-      await this.collection.deleteOne({ _id: "__placeholder__" });
+      await this.db.createCollection(this.collectionName);
       console.log(`Collection '${this.collectionName}' created.`);
     }
   }
@@ -132,6 +146,10 @@ export class MongoDB implements VectorStore {
    * Ensure the vector search index exists, creating it if necessary.
    */
   private async ensureIndexExists(): Promise<void> {
+    if (!this.collection) {
+      throw new Error("Collection not initialized");
+    }
+
     try {
       const indexes = await this.collection
         .listSearchIndexes(this.indexName)
@@ -141,10 +159,12 @@ export class MongoDB implements VectorStore {
         return;
       }
     } catch (error: any) {
-      // listSearchIndexes may throw if no indexes exist - that's fine
-      if (!error.message?.includes("no search indexes")) {
-        // Log but continue - some MongoDB versions handle this differently
-        console.log(`Note: Could not list search indexes: ${error.message}`);
+      if (error.message?.includes("no search indexes")) {
+        // Expected when no indexes exist yet - continue to create
+      } else {
+        console.warn(
+          `Warning: Could not list search indexes: ${error.message}. Attempting to create index.`,
+        );
       }
     }
 
@@ -186,6 +206,10 @@ export class MongoDB implements VectorStore {
     ids: string[],
     payloads: Record<string, any>[],
   ): Promise<void> {
+    if (!this.collection) {
+      throw new Error("Collection not initialized");
+    }
+
     const documents = vectors.map((vector, i) => ({
       _id: ids[i],
       embedding: vector,
@@ -200,7 +224,7 @@ export class MongoDB implements VectorStore {
    *
    * @param query - Query vector
    * @param limit - Maximum number of results to return
-   * @param filters - Optional metadata filters
+   * @param filters - Optional metadata filters (applied as pre-filters in $vectorSearch)
    * @returns Array of results sorted by similarity score (descending)
    */
   async search(
@@ -208,16 +232,27 @@ export class MongoDB implements VectorStore {
     limit: number = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
+    if (!this.collection) {
+      throw new Error("Collection not initialized");
+    }
+
+    const vectorSearchStage: any = {
+      index: this.indexName,
+      path: "embedding",
+      queryVector: query,
+      numCandidates: limit * this.numCandidatesMultiplier,
+      limit: limit,
+    };
+
+    if (filters && Object.keys(filters).length > 0) {
+      const filterQuery = this.buildFilterQuery(filters);
+      if (Object.keys(filterQuery).length > 0) {
+        vectorSearchStage.filter = filterQuery;
+      }
+    }
+
     const pipeline: any[] = [
-      {
-        $vectorSearch: {
-          index: this.indexName,
-          path: "embedding",
-          queryVector: query,
-          numCandidates: limit * 10, // More candidates for better recall
-          limit: limit,
-        },
-      },
+      { $vectorSearch: vectorSearchStage },
       {
         $set: {
           score: { $meta: "vectorSearchScore" },
@@ -225,20 +260,10 @@ export class MongoDB implements VectorStore {
       },
       {
         $project: {
-          embedding: 0, // Exclude embedding from results
+          embedding: 0,
         },
       },
     ];
-
-    // Add filter stage if filters are provided
-    if (filters && Object.keys(filters).length > 0) {
-      const filterConditions = this.buildFilterConditions(filters);
-      if (filterConditions.length > 0) {
-        pipeline.splice(1, 0, {
-          $match: { $and: filterConditions },
-        });
-      }
-    }
 
     const results = await this.collection.aggregate(pipeline).toArray();
 
@@ -253,6 +278,10 @@ export class MongoDB implements VectorStore {
    * Get a vector by ID.
    */
   async get(vectorId: string): Promise<VectorStoreResult | null> {
+    if (!this.collection) {
+      throw new Error("Collection not initialized");
+    }
+
     const doc = await this.collection.findOne({ _id: vectorId });
 
     if (!doc) {
@@ -273,6 +302,10 @@ export class MongoDB implements VectorStore {
     vector: number[],
     payload: Record<string, any>,
   ): Promise<void> {
+    if (!this.collection) {
+      throw new Error("Collection not initialized");
+    }
+
     const updateFields: Record<string, any> = {};
 
     if (vector) {
@@ -294,6 +327,9 @@ export class MongoDB implements VectorStore {
    * Delete a vector by ID.
    */
   async delete(vectorId: string): Promise<void> {
+    if (!this.collection) {
+      throw new Error("Collection not initialized");
+    }
     await this.collection.deleteOne({ _id: vectorId });
   }
 
@@ -301,6 +337,9 @@ export class MongoDB implements VectorStore {
    * Delete the entire collection.
    */
   async deleteCol(): Promise<void> {
+    if (!this.collection) {
+      throw new Error("Collection not initialized");
+    }
     await this.collection.drop();
   }
 
@@ -309,12 +348,17 @@ export class MongoDB implements VectorStore {
    *
    * @param filters - Optional metadata filters
    * @param limit - Maximum number of results to return
-   * @returns Tuple of [results, count]
+   * @returns Tuple of [results, count of returned results]
+   * @note The count returned is the number of results in the response, not the total matching documents
    */
   async list(
     filters?: SearchFilters,
     limit: number = 100,
   ): Promise<[VectorStoreResult[], number]> {
+    if (!this.collection) {
+      throw new Error("Collection not initialized");
+    }
+
     let query: Record<string, any> = {};
 
     if (filters && Object.keys(filters).length > 0) {
@@ -352,7 +396,23 @@ export class MongoDB implements VectorStore {
   }
 
   /**
-   * Build filter conditions for MongoDB queries.
+   * Build filter query for MongoDB $vectorSearch pre-filtering.
+   * Filters are applied to the payload field.
+   */
+  private buildFilterQuery(filters: SearchFilters): Record<string, any> {
+    const conditions: Record<string, any>[] = [];
+
+    for (const [key, value] of Object.entries(filters)) {
+      if (value !== undefined && value !== null) {
+        conditions.push({ [`payload.${key}`]: { $eq: value } });
+      }
+    }
+
+    return conditions.length > 0 ? { $and: conditions } : {};
+  }
+
+  /**
+   * Build filter conditions for MongoDB queries (used in list method).
    * Filters are applied to the payload field.
    */
   private buildFilterConditions(filters: SearchFilters): Record<string, any>[] {
