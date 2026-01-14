@@ -3,10 +3,19 @@ from typing import Literal, Optional
 from mem0.configs.embeddings.base import BaseEmbedderConfig
 from mem0.embeddings.base import EmbeddingBase
 
+# Support both LangChain v0.2+ and v1.0+
 try:
-    from langchain.embeddings.base import Embeddings
+    # Try LangChain v1.0+ import path first (langchain-core >= 0.3)
+    from langchain_core.embeddings import Embeddings
 except ImportError:
-    raise ImportError("langchain is not installed. Please install it using `pip install langchain`")
+    try:
+        # Fall back to LangChain v0.2+ import path
+        from langchain.embeddings.base import Embeddings
+    except ImportError:
+        raise ImportError(
+            "langchain is not installed. Please install it using "
+            "`pip install langchain langchain-core`"
+        )
 
 
 class LangchainEmbedding(EmbeddingBase):
