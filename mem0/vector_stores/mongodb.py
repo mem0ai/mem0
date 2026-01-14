@@ -1,10 +1,12 @@
 import logging
+from importlib.metadata import version
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
 try:
     from pymongo import MongoClient
+    from pymongo.driver_info import DriverInfo
     from pymongo.errors import PyMongoError
     from pymongo.operations import SearchIndexModel
 except ImportError:
@@ -15,6 +17,7 @@ from mem0.vector_stores.base import VectorStoreBase
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
+_DRIVER_METADATA = DriverInfo(name="Mem0", version=version("mem0ai"))
 
 class OutputData(BaseModel):
     id: Optional[str]
@@ -40,7 +43,7 @@ class MongoDB(VectorStoreBase):
         self.embedding_model_dims = embedding_model_dims
         self.db_name = db_name
 
-        self.client = MongoClient(mongo_uri)
+        self.client = MongoClient(mongo_uri, driver=_DRIVER_METADATA)
         self.db = self.client[db_name]
         self.collection = self.create_col()
 

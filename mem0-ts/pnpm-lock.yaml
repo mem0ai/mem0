@@ -10,6 +10,12 @@ importers:
       "@anthropic-ai/sdk":
         specifier: ^0.40.1
         version: 0.40.1(encoding@0.1.13)
+      "@azure/identity":
+        specifier: ^4.0.0
+        version: 4.13.0
+      "@azure/search-documents":
+        specifier: ^12.0.0
+        version: 12.2.0
       "@cloudflare/workers-types":
         specifier: ^4.20250504.0
         version: 4.20250606.0
@@ -121,6 +127,104 @@ packages:
       {
         integrity: sha512-DJMWm8lTEM9Lk/MSFL+V+ugF7jKOn0M2Ujvb5fN8r2nY14aHbGPZ1k6sgjL+tpJ3VuOGJNG+4R83jEpOuYPv8w==,
       }
+
+  "@azure/abort-controller@2.1.2":
+    resolution:
+      {
+        integrity: sha512-nBrLsEWm4J2u5LpAPjxADTlq3trDgVZZXHNKabeXZtpq3d3AbN/KGO82R87rdDz5/lYB024rtEf10/q0urNgsA==,
+      }
+    engines: { node: ">=18.0.0" }
+
+  "@azure/core-auth@1.10.1":
+    resolution:
+      {
+        integrity: sha512-ykRMW8PjVAn+RS6ww5cmK9U2CyH9p4Q88YJwvUslfuMmN98w/2rdGRLPqJYObapBCdzBVeDgYWdJnFPFb7qzpg==,
+      }
+    engines: { node: ">=20.0.0" }
+
+  "@azure/core-client@1.10.1":
+    resolution:
+      {
+        integrity: sha512-Nh5PhEOeY6PrnxNPsEHRr9eimxLwgLlpmguQaHKBinFYA/RU9+kOYVOQqOrTsCL+KSxrLLl1gD8Dk5BFW/7l/w==,
+      }
+    engines: { node: ">=20.0.0" }
+
+  "@azure/core-http-compat@2.3.1":
+    resolution:
+      {
+        integrity: sha512-az9BkXND3/d5VgdRRQVkiJb2gOmDU8Qcq4GvjtBmDICNiQ9udFmDk4ZpSB5Qq1OmtDJGlQAfBaS4palFsazQ5g==,
+      }
+    engines: { node: ">=20.0.0" }
+
+  "@azure/core-paging@1.6.2":
+    resolution:
+      {
+        integrity: sha512-YKWi9YuCU04B55h25cnOYZHxXYtEvQEbKST5vqRga7hWY9ydd3FZHdeQF8pyh+acWZvppw13M/LMGx0LABUVMA==,
+      }
+    engines: { node: ">=18.0.0" }
+
+  "@azure/core-rest-pipeline@1.22.2":
+    resolution:
+      {
+        integrity: sha512-MzHym+wOi8CLUlKCQu12de0nwcq9k9Kuv43j4Wa++CsCpJwps2eeBQwD2Bu8snkxTtDKDx4GwjuR9E8yC8LNrg==,
+      }
+    engines: { node: ">=20.0.0" }
+
+  "@azure/core-tracing@1.3.1":
+    resolution:
+      {
+        integrity: sha512-9MWKevR7Hz8kNzzPLfX4EAtGM2b8mr50HPDBvio96bURP/9C+HjdH3sBlLSNNrvRAr5/k/svoH457gB5IKpmwQ==,
+      }
+    engines: { node: ">=20.0.0" }
+
+  "@azure/core-util@1.13.1":
+    resolution:
+      {
+        integrity: sha512-XPArKLzsvl0Hf0CaGyKHUyVgF7oDnhKoP85Xv6M4StF/1AhfORhZudHtOyf2s+FcbuQ9dPRAjB8J2KvRRMUK2A==,
+      }
+    engines: { node: ">=20.0.0" }
+
+  "@azure/identity@4.13.0":
+    resolution:
+      {
+        integrity: sha512-uWC0fssc+hs1TGGVkkghiaFkkS7NkTxfnCH+Hdg+yTehTpMcehpok4PgUKKdyCH+9ldu6FhiHRv84Ntqj1vVcw==,
+      }
+    engines: { node: ">=20.0.0" }
+
+  "@azure/logger@1.3.0":
+    resolution:
+      {
+        integrity: sha512-fCqPIfOcLE+CGqGPd66c8bZpwAji98tZ4JI9i/mlTNTlsIWslCfpg48s/ypyLxZTump5sypjrKn2/kY7q8oAbA==,
+      }
+    engines: { node: ">=20.0.0" }
+
+  "@azure/msal-browser@4.27.0":
+    resolution:
+      {
+        integrity: sha512-bZ8Pta6YAbdd0o0PEaL1/geBsPrLEnyY/RDWqvF1PP9RUH8EMLvUMGoZFYS6jSlUan6KZ9IMTLCnwpWWpQRK/w==,
+      }
+    engines: { node: ">=0.8.0" }
+
+  "@azure/msal-common@15.13.3":
+    resolution:
+      {
+        integrity: sha512-shSDU7Ioecya+Aob5xliW9IGq1Ui8y4EVSdWGyI1Gbm4Vg61WpP95LuzcY214/wEjSn6w4PZYD4/iVldErHayQ==,
+      }
+    engines: { node: ">=0.8.0" }
+
+  "@azure/msal-node@3.8.4":
+    resolution:
+      {
+        integrity: sha512-lvuAwsDpPDE/jSuVQOBMpLbXuVuLsPNRwWCyK3/6bPlBk0fGWegqoZ0qjZclMWyQ2JNvIY3vHY7hoFmFmFQcOw==,
+      }
+    engines: { node: ">=16" }
+
+  "@azure/search-documents@12.2.0":
+    resolution:
+      {
+        integrity: sha512-4+Qw+qaGqnkdUCq/vEFzk/bkROogTvdbPb1fmI8poxNfDDN1q2WHxBmhI7CYwesrBj1yXC4i5E0aISBxZqZi0g==,
+      }
+    engines: { node: ">=20.0.0" }
 
   "@babel/code-frame@7.26.2":
     resolution:
@@ -1348,6 +1452,13 @@ packages:
         integrity: sha512-WpxBCKWPLr4xSsHgz511rFJAM+wS28w2zEO1QDNY5zM/S8ok70NNfztH0xwhqKyaK0OHCbN98LDAZuy1ctxDkA==,
       }
 
+  "@typespec/ts-http-runtime@0.3.2":
+    resolution:
+      {
+        integrity: sha512-IlqQ/Gv22xUC1r/WQm4StLkYQmaaTsXAhUVsNE0+xiyf0yRFiH5++q78U3bw6bLKDCTmh0uqKB9eG9+Bt75Dkg==,
+      }
+    engines: { node: ">=20.0.0" }
+
   abbrev@1.1.1:
     resolution:
       {
@@ -1677,6 +1788,13 @@ packages:
       {
         integrity: sha512-FTiCpNxtwiZZHEZbcbTIcZjERVICn9yq/pDFkTl95/AxzD1naBctN7YO68riM/gLSDY7sdrMby8hofADYuuqOA==,
       }
+
+  bundle-name@4.1.0:
+    resolution:
+      {
+        integrity: sha512-tjwM5exMg6BGRI+kNmTntNsvdZS1X8BFYS6tnJ2hdH0kVxM6/eVZ2xy+FqStSWvYmtfFMDLIxurorHwDKfDz5Q==,
+      }
+    engines: { node: ">=18" }
 
   bundle-require@5.1.0:
     resolution:
@@ -2027,6 +2145,27 @@ packages:
       }
     engines: { node: ">=0.10.0" }
 
+  default-browser-id@5.0.1:
+    resolution:
+      {
+        integrity: sha512-x1VCxdX4t+8wVfd1so/9w+vQ4vx7lKd2Qp5tDRutErwmR85OgmfX7RlLRMWafRMY7hbEiXIbudNrjOAPa/hL8Q==,
+      }
+    engines: { node: ">=18" }
+
+  default-browser@5.4.0:
+    resolution:
+      {
+        integrity: sha512-XDuvSq38Hr1MdN47EDvYtx3U0MTqpCEn+F6ft8z2vYDzMrvQhVp0ui9oQdqW3MvK3vqUETglt1tVGgjLuJ5izg==,
+      }
+    engines: { node: ">=18" }
+
+  define-lazy-prop@3.0.0:
+    resolution:
+      {
+        integrity: sha512-N+MeXYoqr3pOgn8xfyRPREN7gHakLYjhsHhWGT3fWAiL4IkAt0iDw14QiiEm2bE30c5XX5q0FtAA3CK5f9/BUg==,
+      }
+    engines: { node: ">=12" }
+
   delayed-stream@1.0.0:
     resolution:
       {
@@ -2267,6 +2406,13 @@ packages:
       {
         integrity: sha512-8guHBZCwKnFhYdHr2ysuRWErTwhoN2X8XELRlrRwpmfeY2jjuUN4taQMsULKUVo1K4DvZl+0pgfyoysHxvmvEw==,
       }
+
+  events@3.3.0:
+    resolution:
+      {
+        integrity: sha512-mQw+2fkQbALzQ7V0MY0IqdnXNOeTtP4r0lN9z7AAawCXgqea7bDii20AYrIBrFd/Hx0M2Ocz6S111CaFkUcb0Q==,
+      }
+    engines: { node: ">=0.8.x" }
 
   eventsource-parser@3.0.2:
     resolution:
@@ -2719,6 +2865,13 @@ packages:
       }
     engines: { node: ">= 6" }
 
+  http-proxy-agent@7.0.2:
+    resolution:
+      {
+        integrity: sha512-T1gkAiYYDWYx3V5Bmyu7HcfcvL7mUrTWiM6yOfa3PIphViJ/gFPbvidQ+veqSOHci/PxBcDabeUNCzpOODJZig==,
+      }
+    engines: { node: ">= 14" }
+
   https-proxy-agent@5.0.1:
     resolution:
       {
@@ -2852,6 +3005,14 @@ packages:
       }
     engines: { node: ">= 0.4" }
 
+  is-docker@3.0.0:
+    resolution:
+      {
+        integrity: sha512-eljcgEDlEns/7AXFosB5K/2nCM4P7FQPkGc/DWLy5rmFEWvZayGrik1d9/QIY5nJ4f9YsVvBkA6kJpHn9rISdQ==,
+      }
+    engines: { node: ^12.20.0 || ^14.13.1 || >=16.0.0 }
+    hasBin: true
+
   is-extglob@2.1.1:
     resolution:
       {
@@ -2880,6 +3041,14 @@ packages:
       }
     engines: { node: ">=0.10.0" }
 
+  is-inside-container@1.0.0:
+    resolution:
+      {
+        integrity: sha512-KIYLCCJghfHZxqjYBE7rEy0OBuTd5xCHS7tHVgvCLkx7StIoaxwNW3hCALgEUjFfeRk+MG/Qxmp/vtETEF3tRA==,
+      }
+    engines: { node: ">=14.16" }
+    hasBin: true
+
   is-lambda@1.0.1:
     resolution:
       {
@@ -2905,6 +3074,13 @@ packages:
         integrity: sha512-hFoiJiTl63nn+kstHGBtewWSKnQLpyb155KHheA1l39uvtO9nWIop1p3udqPcUd/xbF1VLMO4n7OI6p7RbngDg==,
       }
     engines: { node: ">=8" }
+
+  is-wsl@3.1.0:
+    resolution:
+      {
+        integrity: sha512-UcVfVfaK4Sc4m7X3dUSoHoozQGBEFeDC+zVo06t98xe8CzHSZZBekNXH+tu0NalHolcJ/QAGqS46Hef7QXBIMw==,
+      }
+    engines: { node: ">=16" }
 
   isexe@2.0.0:
     resolution:
@@ -3248,16 +3424,35 @@ packages:
     engines: { node: ">=6" }
     hasBin: true
 
+  jsonwebtoken@9.0.3:
+    resolution:
+      {
+        integrity: sha512-MT/xP0CrubFRNLNKvxJ2BYfy53Zkm++5bX9dtuPbqAeQpTVe0MQTFhao8+Cp//EmJp244xt6Drw/GVEGCUj40g==,
+      }
+    engines: { node: ">=12", npm: ">=6" }
+
   jwa@2.0.0:
     resolution:
       {
         integrity: sha512-jrZ2Qx916EA+fq9cEAeCROWPTfCwi1IVHqT2tapuqLEVVDKFDENFw1oL+MwrTvH6msKxsd1YTDVw6uKEcsrLEA==,
       }
 
+  jwa@2.0.1:
+    resolution:
+      {
+        integrity: sha512-hRF04fqJIP8Abbkq5NKGN0Bbr3JxlQ+qhZufXVr0DvujKy93ZCbXZMHDL4EOtodSbCWxOqR8MS1tXA5hwqCXDg==,
+      }
+
   jws@4.0.0:
     resolution:
       {
         integrity: sha512-KDncfTmOZoOMTFG4mBlG0qUIOlc03fmzH+ru6RgYVZhPkyiy/92Owlt/8UEN+a4TXR1FQetfIpJE8ApdvdVxTg==,
+      }
+
+  jws@4.0.1:
+    resolution:
+      {
+        integrity: sha512-EKI/M/yqPncGUUh44xz0PxSidXFr/+r0pA70+gIYhjv+et7yxM+s29Y+VGDkovRofQem0fs7Uvf4+YmAdyRduA==,
       }
 
   kleur@3.0.3:
@@ -3325,10 +3520,52 @@ packages:
       }
     engines: { node: ">=8" }
 
+  lodash.includes@4.3.0:
+    resolution:
+      {
+        integrity: sha512-W3Bx6mdkRTGtlJISOvVD/lbqjTlPPUDTMnlXZFnVwi9NKJ6tiAk6LVdlhZMm17VZisqhKcgzpO5Wz91PCt5b0w==,
+      }
+
+  lodash.isboolean@3.0.3:
+    resolution:
+      {
+        integrity: sha512-Bz5mupy2SVbPHURB98VAcw+aHh4vRV5IPNhILUCsOzRmsTmSQ17jIuqopAentWoehktxGd9e/hbIXq980/1QJg==,
+      }
+
+  lodash.isinteger@4.0.4:
+    resolution:
+      {
+        integrity: sha512-DBwtEWN2caHQ9/imiNeEA5ys1JoRtRfY3d7V9wkqtbycnAmTvRRmbHKDV4a0EYc678/dia0jrte4tjYwVBaZUA==,
+      }
+
+  lodash.isnumber@3.0.3:
+    resolution:
+      {
+        integrity: sha512-QYqzpfwO3/CWf3XP+Z+tkQsfaLL/EnUlXWVkIk5FUPc4sBdTehEqZONuyRt2P67PXAk+NXmTBcc97zw9t1FQrw==,
+      }
+
+  lodash.isplainobject@4.0.6:
+    resolution:
+      {
+        integrity: sha512-oSXzaWypCMHkPC3NvBEaPHf0KsA5mvPrOPgQWDsbg8n7orZ290M0BmC/jgRZ4vcJ6DTAhjrsSYgdsW/F+MFOBA==,
+      }
+
+  lodash.isstring@4.0.1:
+    resolution:
+      {
+        integrity: sha512-0wJxfxH1wgO3GrbuP+dTTk7op+6L41QCXbGINEmD+ny/G/eCqGzxyCsh7159S+mgDDcoarnBw6PC1PS5+wUGgw==,
+      }
+
   lodash.memoize@4.1.2:
     resolution:
       {
         integrity: sha512-t7j+NzmgnQzTAYXcsHYLgimltOV1MXHtlOWf6GjL9Kj8GK5FInw5JotxvbOs+IvV1/Dzo04/fCGfLVs7aXb4Ag==,
+      }
+
+  lodash.once@4.1.1:
+    resolution:
+      {
+        integrity: sha512-Sb487aTOCr9drQVL8pIxOzVhafOjZN9UU54hiN8PU3uAiSV7lx1yYNpbNmex2PK6dSJoNTSJUUswT651yww3Mg==,
       }
 
   lodash.sortby@4.7.0:
@@ -3787,6 +4024,13 @@ packages:
         integrity: sha512-kbpaSSGJTWdAY5KPVeMOKXSrPtr8C8C7wodJbcsd51jRnmD+GZu8Y0VoU6Dm5Z4vWr0Ig/1NKuWRKf7j5aaYSg==,
       }
     engines: { node: ">=6" }
+
+  open@10.2.0:
+    resolution:
+      {
+        integrity: sha512-YgBpdJHPyQ2UE5x+hlSXcnejzAvD0b22U2OuAP+8OnlJT+PjWPxtgmGqKKc+RgTM63U9gN0YzrYc71R2WT/hTA==,
+      }
+    engines: { node: ">=18" }
 
   openai@4.93.0:
     resolution:
@@ -4389,6 +4633,13 @@ packages:
         integrity: sha512-nLTrUKm2UyiL7rlhapu/Zl45FwNgkZGaCpZbIHajDYgwlJCOzLSk+cIPAnsEqV955GjILJnKbdQC1nVPz+gAYQ==,
       }
     engines: { node: ">= 18" }
+
+  run-applescript@7.1.0:
+    resolution:
+      {
+        integrity: sha512-DPe5pVFaAsinSaV6QjQ6gdiedWDcRCbUuiQfQa2wmWV7+xC9bGulGI8+TdRmoFkAPaBXk8CrAbnlY2ISniJ47Q==,
+      }
+    engines: { node: ">=18" }
 
   run-parallel@1.2.0:
     resolution:
@@ -5069,6 +5320,13 @@ packages:
       }
     hasBin: true
 
+  uuid@8.3.2:
+    resolution:
+      {
+        integrity: sha512-+NYs2QeMWy+GWFOEm9xnn6HCDp0l7QBD7ml8zLUmJ+93Q5NF0NocErnwkTkXVFNiX3/fpC6afS8Dhb/gz7R7eg==,
+      }
+    hasBin: true
+
   uuid@9.0.1:
     resolution:
       {
@@ -5208,6 +5466,13 @@ packages:
       utf-8-validate:
         optional: true
 
+  wsl-utils@0.1.0:
+    resolution:
+      {
+        integrity: sha512-h3Fbisa2nKGPxCpm89Hk33lBLsnaGBvctQopaBSOW/uIs6FTe1ATyAnKFJrzVs9vpGdsTe73WF3V4lIsk4Gacw==,
+      }
+    engines: { node: ">=18" }
+
   xtend@4.0.2:
     resolution:
       {
@@ -5293,6 +5558,116 @@ snapshots:
       node-fetch: 2.7.0(encoding@0.1.13)
     transitivePeerDependencies:
       - encoding
+
+  "@azure/abort-controller@2.1.2":
+    dependencies:
+      tslib: 2.8.1
+
+  "@azure/core-auth@1.10.1":
+    dependencies:
+      "@azure/abort-controller": 2.1.2
+      "@azure/core-util": 1.13.1
+      tslib: 2.8.1
+    transitivePeerDependencies:
+      - supports-color
+
+  "@azure/core-client@1.10.1":
+    dependencies:
+      "@azure/abort-controller": 2.1.2
+      "@azure/core-auth": 1.10.1
+      "@azure/core-rest-pipeline": 1.22.2
+      "@azure/core-tracing": 1.3.1
+      "@azure/core-util": 1.13.1
+      "@azure/logger": 1.3.0
+      tslib: 2.8.1
+    transitivePeerDependencies:
+      - supports-color
+
+  "@azure/core-http-compat@2.3.1":
+    dependencies:
+      "@azure/abort-controller": 2.1.2
+      "@azure/core-client": 1.10.1
+      "@azure/core-rest-pipeline": 1.22.2
+    transitivePeerDependencies:
+      - supports-color
+
+  "@azure/core-paging@1.6.2":
+    dependencies:
+      tslib: 2.8.1
+
+  "@azure/core-rest-pipeline@1.22.2":
+    dependencies:
+      "@azure/abort-controller": 2.1.2
+      "@azure/core-auth": 1.10.1
+      "@azure/core-tracing": 1.3.1
+      "@azure/core-util": 1.13.1
+      "@azure/logger": 1.3.0
+      "@typespec/ts-http-runtime": 0.3.2
+      tslib: 2.8.1
+    transitivePeerDependencies:
+      - supports-color
+
+  "@azure/core-tracing@1.3.1":
+    dependencies:
+      tslib: 2.8.1
+
+  "@azure/core-util@1.13.1":
+    dependencies:
+      "@azure/abort-controller": 2.1.2
+      "@typespec/ts-http-runtime": 0.3.2
+      tslib: 2.8.1
+    transitivePeerDependencies:
+      - supports-color
+
+  "@azure/identity@4.13.0":
+    dependencies:
+      "@azure/abort-controller": 2.1.2
+      "@azure/core-auth": 1.10.1
+      "@azure/core-client": 1.10.1
+      "@azure/core-rest-pipeline": 1.22.2
+      "@azure/core-tracing": 1.3.1
+      "@azure/core-util": 1.13.1
+      "@azure/logger": 1.3.0
+      "@azure/msal-browser": 4.27.0
+      "@azure/msal-node": 3.8.4
+      open: 10.2.0
+      tslib: 2.8.1
+    transitivePeerDependencies:
+      - supports-color
+
+  "@azure/logger@1.3.0":
+    dependencies:
+      "@typespec/ts-http-runtime": 0.3.2
+      tslib: 2.8.1
+    transitivePeerDependencies:
+      - supports-color
+
+  "@azure/msal-browser@4.27.0":
+    dependencies:
+      "@azure/msal-common": 15.13.3
+
+  "@azure/msal-common@15.13.3": {}
+
+  "@azure/msal-node@3.8.4":
+    dependencies:
+      "@azure/msal-common": 15.13.3
+      jsonwebtoken: 9.0.3
+      uuid: 8.3.2
+
+  "@azure/search-documents@12.2.0":
+    dependencies:
+      "@azure/core-auth": 1.10.1
+      "@azure/core-client": 1.10.1
+      "@azure/core-http-compat": 2.3.1
+      "@azure/core-paging": 1.6.2
+      "@azure/core-rest-pipeline": 1.22.2
+      "@azure/core-tracing": 1.3.1
+      "@azure/core-util": 1.13.1
+      "@azure/logger": 1.3.0
+      events: 3.3.0
+      tslib: 2.8.1
+    transitivePeerDependencies:
+      - supports-color
 
   "@babel/code-frame@7.26.2":
     dependencies:
@@ -6097,6 +6472,14 @@ snapshots:
     dependencies:
       "@types/yargs-parser": 21.0.3
 
+  "@typespec/ts-http-runtime@0.3.2":
+    dependencies:
+      http-proxy-agent: 7.0.2
+      https-proxy-agent: 7.0.6
+      tslib: 2.8.1
+    transitivePeerDependencies:
+      - supports-color
+
   abbrev@1.1.1:
     optional: true
 
@@ -6324,6 +6707,10 @@ snapshots:
       base64-js: 1.5.1
       ieee754: 1.2.1
 
+  bundle-name@4.1.0:
+    dependencies:
+      run-applescript: 7.1.0
+
   bundle-require@5.1.0(esbuild@0.25.1):
     dependencies:
       esbuild: 0.25.1
@@ -6521,6 +6908,15 @@ snapshots:
 
   deepmerge@4.3.1: {}
 
+  default-browser-id@5.0.1: {}
+
+  default-browser@5.4.0:
+    dependencies:
+      bundle-name: 4.1.0
+      default-browser-id: 5.0.1
+
+  define-lazy-prop@3.0.0: {}
+
   delayed-stream@1.0.0: {}
 
   delegates@1.0.0:
@@ -6646,6 +7042,8 @@ snapshots:
   event-target-shim@5.0.1: {}
 
   eventemitter3@4.0.7: {}
+
+  events@3.3.0: {}
 
   eventsource-parser@3.0.2: {}
 
@@ -6979,6 +7377,13 @@ snapshots:
       - supports-color
     optional: true
 
+  http-proxy-agent@7.0.2:
+    dependencies:
+      agent-base: 7.1.3
+      debug: 4.4.0(supports-color@5.5.0)
+    transitivePeerDependencies:
+      - supports-color
+
   https-proxy-agent@5.0.1:
     dependencies:
       agent-base: 6.0.2
@@ -7050,6 +7455,8 @@ snapshots:
     dependencies:
       hasown: 2.0.2
 
+  is-docker@3.0.0: {}
+
   is-extglob@2.1.1: {}
 
   is-fullwidth-code-point@3.0.0: {}
@@ -7060,6 +7467,10 @@ snapshots:
     dependencies:
       is-extglob: 2.1.1
 
+  is-inside-container@1.0.0:
+    dependencies:
+      is-docker: 3.0.0
+
   is-lambda@1.0.1:
     optional: true
 
@@ -7068,6 +7479,10 @@ snapshots:
   is-promise@4.0.0: {}
 
   is-stream@2.0.1: {}
+
+  is-wsl@3.1.0:
+    dependencies:
+      is-inside-container: 1.0.0
 
   isexe@2.0.0: {}
 
@@ -7464,7 +7879,26 @@ snapshots:
 
   json5@2.2.3: {}
 
+  jsonwebtoken@9.0.3:
+    dependencies:
+      jws: 4.0.1
+      lodash.includes: 4.3.0
+      lodash.isboolean: 3.0.3
+      lodash.isinteger: 4.0.4
+      lodash.isnumber: 3.0.3
+      lodash.isplainobject: 4.0.6
+      lodash.isstring: 4.0.1
+      lodash.once: 4.1.1
+      ms: 2.1.3
+      semver: 7.7.1
+
   jwa@2.0.0:
+    dependencies:
+      buffer-equal-constant-time: 1.0.1
+      ecdsa-sig-formatter: 1.0.11
+      safe-buffer: 5.2.1
+
+  jwa@2.0.1:
     dependencies:
       buffer-equal-constant-time: 1.0.1
       ecdsa-sig-formatter: 1.0.11
@@ -7473,6 +7907,11 @@ snapshots:
   jws@4.0.0:
     dependencies:
       jwa: 2.0.0
+      safe-buffer: 5.2.1
+
+  jws@4.0.1:
+    dependencies:
+      jwa: 2.0.1
       safe-buffer: 5.2.1
 
   kleur@3.0.3: {}
@@ -7505,7 +7944,21 @@ snapshots:
     dependencies:
       p-locate: 4.1.0
 
+  lodash.includes@4.3.0: {}
+
+  lodash.isboolean@3.0.3: {}
+
+  lodash.isinteger@4.0.4: {}
+
+  lodash.isnumber@3.0.3: {}
+
+  lodash.isplainobject@4.0.6: {}
+
+  lodash.isstring@4.0.1: {}
+
   lodash.memoize@4.1.2: {}
+
+  lodash.once@4.1.1: {}
 
   lodash.sortby@4.7.0: {}
 
@@ -7780,6 +8233,13 @@ snapshots:
   onetime@5.1.2:
     dependencies:
       mimic-fn: 2.1.0
+
+  open@10.2.0:
+    dependencies:
+      default-browser: 5.4.0
+      define-lazy-prop: 3.0.0
+      is-inside-container: 1.0.0
+      wsl-utils: 0.1.0
 
   openai@4.93.0(encoding@0.1.13)(ws@8.18.1)(zod@3.24.2):
     dependencies:
@@ -8139,6 +8599,8 @@ snapshots:
       path-to-regexp: 8.2.0
     transitivePeerDependencies:
       - supports-color
+
+  run-applescript@7.1.0: {}
 
   run-parallel@1.2.0:
     dependencies:
@@ -8567,6 +9029,8 @@ snapshots:
 
   uuid@10.0.0: {}
 
+  uuid@8.3.2: {}
+
   uuid@9.0.1: {}
 
   v8-compile-cache-lib@3.0.1: {}
@@ -8638,6 +9102,10 @@ snapshots:
       signal-exit: 3.0.7
 
   ws@8.18.1: {}
+
+  wsl-utils@0.1.0:
+    dependencies:
+      is-wsl: 3.1.0
 
   xtend@4.0.2: {}
 
