@@ -115,6 +115,9 @@ export class MongoDB implements VectorStore {
    * Initialize the vector store by connecting and ensuring collection/index exist.
    */
   async initialize(): Promise<void> {
+    if (!this.client) {
+      throw new Error("MongoDB client not initialized");
+    }
     await this.client.connect();
     this.db = this.client.db(this.dbName);
     this.collection = this.db.collection(this.collectionName);
@@ -174,7 +177,7 @@ export class MongoDB implements VectorStore {
         name: this.indexName,
         definition: {
           mappings: {
-            dynamic: false,
+            dynamic: true,
             fields: {
               embedding: {
                 type: "knnVector",
