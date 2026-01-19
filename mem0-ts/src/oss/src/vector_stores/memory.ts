@@ -1,6 +1,6 @@
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
-import sqlite3 from "sqlite3";
+import type { Database } from "sqlite3";
 import path from "path";
 
 interface MemoryVector {
@@ -10,7 +10,7 @@ interface MemoryVector {
 }
 
 export class MemoryVectorStore implements VectorStore {
-  private db: sqlite3.Database;
+  private db: Database;
   private dimension: number;
   private dbPath: string;
 
@@ -19,6 +19,16 @@ export class MemoryVectorStore implements VectorStore {
     this.dbPath = path.join(process.cwd(), "vector_store.db");
     if (config.dbPath) {
       this.dbPath = config.dbPath;
+    }
+
+    let sqlite3;
+    try {
+      sqlite3 = require("sqlite3");
+    } catch (error: any) {
+      throw new Error(
+        `Failed to load sqlite3: ${error.message}\n` +
+        `Make sure sqlite3 is installed`
+      );
     }
     this.db = new sqlite3.Database(this.dbPath);
     this.init().catch(console.error);

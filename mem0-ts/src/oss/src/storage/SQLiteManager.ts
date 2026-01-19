@@ -1,10 +1,19 @@
-import sqlite3 from "sqlite3";
 import { HistoryManager } from "./base";
+import type { Database } from "sqlite3";
 
 export class SQLiteManager implements HistoryManager {
-  private db: sqlite3.Database;
+  private db: Database;
 
   constructor(dbPath: string) {
+    let sqlite3;
+    try {
+      sqlite3 = require("sqlite3");
+    } catch (error: any) {
+      throw new Error(
+        `Failed to load sqlite3: ${error.message}\n` +
+        `Make sure sqlite3 is installed`,
+      );
+    }
     this.db = new sqlite3.Database(dbPath);
     this.init().catch(console.error);
   }
