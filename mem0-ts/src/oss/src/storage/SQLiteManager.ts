@@ -11,7 +11,7 @@ export class SQLiteManager implements HistoryManager {
     } catch (error: any) {
       throw new Error(
         `Failed to load sqlite3: ${error.message}\n` +
-        `Make sure sqlite3 is installed`,
+          `Make sure sqlite3 is installed`,
       );
     }
     this.db = new sqlite3.Database(dbPath);
