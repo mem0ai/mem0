@@ -56,7 +56,7 @@ def get_default_configuration():
             "llm": {
                 "provider": "openai",
                 "config": {
-                    "model": "phi-3.5-mini-instruct",
+                    "model": "liquidai_lfm2.5-1.2b-instruct",
                     "temperature": 0.1,
                     "max_tokens": 2000,
                     "api_key": "env:OPENAI_API_KEY"
@@ -65,7 +65,7 @@ def get_default_configuration():
             "embedder": {
                 "provider": "openai",
                 "config": {
-                    "model": "text-embedding-gte-qwen2-1.5b-instruct",
+                    "model": "text-embedding-bge-m3",
                     "api_key": "env:OPENAI_API_KEY"
                 }
             },

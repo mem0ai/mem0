@@ -25,7 +25,7 @@ def get_categories_for_memory(memory: str) -> List[str]:
         ]
 
         # Use provided model, fallback to env, then default
-        selected_model = getenv("OPENAI_MODEL", "phi-3.5-mini-instruct")
+        selected_model = getenv("OPENAI_MODEL", "liquidai_lfm2.5-1.2b-instruct")
 
         completion = openai_client.beta.chat.completions.parse(
             model=selected_model,

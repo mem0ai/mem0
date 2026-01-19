@@ -1,0 +1,60 @@
+curl http://localhost:1234/v1/embeddings \
+  -H "Content-Type: application/json" \
+  -d '{
+  "model": "text-embedding-bge-m3",
+  "input": [
+    "I grew up in Boston and went to MIT for computer science. My favorite programming languages are Rust and Python. I have two dogs named Luna and Max who love hiking in the mountains. I recently started brewing my own beer as a weekend hobby. I'\''m saving up for a new mountain bike because my old one was stolen last month. I listen to jazz music while coding, especially Miles Davis. My team at work is migrating our backend from Node.js to Go for better performance. I always use dark mode on all my devices because bright screens give me headaches. I volunteer at the local animal shelter every Saturday."
+  ],
+  "dimensions": 1536,
+  "encoding_format": "base64"
+}'
+curl http://localhost:1234/v1/embeddings \
+  -H "Content-Type: application/json" \
+  -d '{
+  "model": "text-embedding-bge-m3",
+  "input": [
+    "I grew up in Boston and went to MIT for computer science. My favorite programming languages are Rust and Python. I have two dogs named Luna and Max who love hiking in the mountains. I recently started brewing my own beer as a weekend hobby. I'\''m saving up for a new mountain bike because my old one was stolen last month. I listen to jazz music while coding, especially Miles Davis. My team at work is migrating our backend from Node.js to Go for better performance. I always use dark mode on all my devices because bright screens give me headaches. I volunteer at the local animal shelter every Saturday."
+  ],
+  "dimensions": 1536,
+  "encoding_format": "base64"
+}'
+curl http://localhost:1234/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+  "model": "liquidai_lfm2.5-1.2b-instruct",
+  "messages": [
+    {
+      "role": "system",
+      "content": "Your task is to assign each piece of information (or “memory”) to one or more of the following categories. Feel free to use multiple categories per item when appropriate.\n\n- Personal: family, friends, home, hobbies, lifestyle\n- Relationships: social network, significant others, colleagues\n- Preferences: likes, dislikes, habits, favorite media\n- Health: physical fitness, mental health, diet, sleep\n- Travel: trips, commutes, favorite places, itineraries\n- Work: job roles, companies, projects, promotions\n- Education: courses, degrees, certifications, skills development\n- Projects: to‑dos, milestones, deadlines, status updates\n- AI, ML & Technology: infrastructure, algorithms, tools, research\n- Technical Support: bug reports, error logs, fixes\n- Finance: income, expenses, investments, billing\n- Shopping: purchases, wishlists, returns, deliveries\n- Legal: contracts, policies, regulations, privacy\n- Entertainment: movies, music, games, books, events\n- Messages: emails, SMS, alerts, reminders\n- Customer Support: tickets, inquiries, resolutions\n- Product Feedback: ratings, bug reports, feature requests\n- News: articles, headlines, trending topics\n- Organization: meetings, appointments, calendars\n- Goals: ambitions, KPIs, long‑term objectives\n\nGuidelines:\n- Return only the categories under '\''categories'\'' key in the JSON format.\n- If you cannot categorize the memory, return an empty list with key '\''categories'\''.\n- Don'\''t limit yourself to the categories listed above only. Feel free to create new categories based on the memory. Make sure that it is a single phrase."
+    },
+    {
+      "role": "user",
+      "content": "I grew up in Boston and went to MIT for computer science. My favorite programming languages are Rust and Python. I have two dogs named Luna and Max who love hiking in the mountains. I recently started brewing my own beer as a weekend hobby. I'\''m saving up for a new mountain bike because my old one was stolen last month. I listen to jazz music while coding, especially Miles Davis. My team at work is migrating our backend from Node.js to Go for better performance. I always use dark mode on all my devices because bright screens give me headaches. I volunteer at the local animal shelter every Saturday."
+    }
+  ],
+  "temperature": 0,
+  "max_tokens": 2000,
+  "stream": false,
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "MemoryCategories",
+      "strict": true,
+      "schema": {
+        "type": "object",
+        "title": "MemoryCategories",
+        "properties": {
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "title": "Categories"
+          }
+        },
+        "required": ["categories"],
+        "additionalProperties": false
+      }
+    }
+  }
+}'

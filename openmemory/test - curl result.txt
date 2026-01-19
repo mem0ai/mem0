@@ -1,0 +1,137 @@
+2026-01-08 14:05:38 [DEBUG]
+ Received request: POST to /v1/embeddings with body  {
+  "model": "text-embedding-bge-m3",
+  "input": [
+    "I grew up in Boston and went to MIT for computer s... <Truncated in logs> ...unteer at the local animal shelter every Saturday."
+  ],
+  "dimensions": 1536,
+  "encoding_format": "base64"
+}
+2026-01-08 14:05:38  [INFO]
+ Received request to embed multiple:  [
+  "I grew up in Boston and went to MIT for computer science. My favorite programming languages are Rust..."
+]
+2026-01-08 14:05:38 [DEBUG]
+ [WARNING] At least one last token in strings embedded is not SEP. 'tokenizer.ggml.add_eos_token' should be set to 'true' in the GGUF header
+2026-01-08 14:05:38  [INFO]
+ Returning embeddings (not shown in logs)
+2026-01-08 14:05:40 [DEBUG]
+ Received request: POST to /v1/embeddings with body  {
+  "model": "text-embedding-bge-m3",
+  "input": [
+    "I grew up in Boston and went to MIT for computer s... <Truncated in logs> ...unteer at the local animal shelter every Saturday."
+  ],
+  "dimensions": 1536,
+  "encoding_format": "base64"
+}
+2026-01-08 14:05:40  [INFO]
+ Received request to embed multiple:  [
+  "I grew up in Boston and went to MIT for computer science. My favorite programming languages are Rust..."
+]
+2026-01-08 14:05:40 [DEBUG]
+ [WARNING] At least one last token in strings embedded is not SEP. 'tokenizer.ggml.add_eos_token' should be set to 'true' in the GGUF header
+2026-01-08 14:05:40  [INFO]
+ Returning embeddings (not shown in logs)
+2026-01-08 14:05:56 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "liquidai_lfm2.5-1.2b-instruct",
+  "messages": [
+    {
+      "role": "system",
+      "content": "Your task is to assign each piece of information (... <Truncated in logs> ... the memory. Make sure that it is a single phrase."
+    },
+    {
+      "role": "user",
+      "content": "I grew up in Boston and went to MIT for computer s... <Truncated in logs> ...unteer at the local animal shelter every Saturday."
+    }
+  ],
+  "temperature": 0,
+  "max_tokens": 2000,
+  "stream": false,
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "MemoryCategories",
+      "strict": true,
+      "schema": {
+        "type": "object",
+        "title": "MemoryCategories",
+        "properties": {
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "title": "Categories"
+          }
+        },
+        "required": [
+          "categories"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+}
+2026-01-08 14:05:56  [INFO]
+ [tensorblock/liquidai_lfm2.5-1.2b-instruct] Running chat completion on conversation with 2 messages.
+2026-01-08 14:05:56 [DEBUG]
+ Sampling params:	repeat_last_n = 64, repeat_penalty = 1.150, frequency_penalty = 0.000, presence_penalty = 0.000
+	dry_multiplier = 0.000, dry_base = 1.750, dry_allowed_length = 2, dry_penalty_last_n = -1
+	top_k = 35, top_p = 0.880, min_p = 0.050, xtc_probability = 0.000, xtc_threshold = 0.100, typical_p = 1.000, top_n_sigma = -1.000, temp = 0.000
+	mirostat = 0, mirostat_lr = 0.100, mirostat_ent = 5.000
+2026-01-08 14:05:56 [DEBUG]
+ Sampling: 
+logits -> penalties -> dry -> top-n-sigma -> top-k -> typical -> top-p -> min-p -> xtc -> temp-ext -> dist 
+Generate: n_ctx = 16384, n_batch = 2048, n_predict = 2000, n_keep = 529
+2026-01-08 14:05:56 [DEBUG]
+ Total prompt tokens: 529
+Prompt tokens to decode: 529
+BeginProcessingPrompt
+2026-01-08 14:05:56  [INFO]
+ [tensorblock/liquidai_lfm2.5-1.2b-instruct] Prompt processing progress: 0.0%
+2026-01-08 14:05:56 [DEBUG]
+ FinishedProcessingPrompt. Progress: 100
+2026-01-08 14:05:56  [INFO]
+ [tensorblock/liquidai_lfm2.5-1.2b-instruct] Prompt processing progress: 100.0%
+2026-01-08 14:05:57 [DEBUG]
+ Target model llama_perf stats:
+common_perf_print:    sampling time =       7.80 ms
+common_perf_print:    samplers time =       3.76 ms /   585 tokens
+common_perf_print:        load time =    1726.16 ms
+common_perf_print: prompt eval time =     134.11 ms /   529 tokens (    0.25 ms per token,  3944.43 tokens per second)
+common_perf_print:        eval time =     381.68 ms /    55 runs   (    6.94 ms per token,   144.10 tokens per second)
+common_perf_print:       total time =     527.49 ms /   584 tokens
+common_perf_print: unaccounted time =       3.90 ms /   0.7 %      (total - sampling - prompt eval - eval) / (total)
+common_perf_print:    graphs reused =         54
+llama_memory_breakdown_print: | memory breakdown [MiB]  | total   free     self   model   context   compute    unaccounted |
+llama_memory_breakdown_print: |   - CUDA0 (RTX 5070 Ti) | 16302 =    5 + (12134 =  3821 +    8192 +     120) +        4162 |
+llama_memory_breakdown_print: |   - Host                |                   110 =    70 +       0 +      40                |
+2026-01-08 14:05:57  [INFO]
+ [tensorblock/liquidai_lfm2.5-1.2b-instruct] Model generated tool calls:  []
+2026-01-08 14:05:57  [INFO]
+ [tensorblock/liquidai_lfm2.5-1.2b-instruct] Generated prediction:  {
+  "id": "chatcmpl-1yz3kwrtpik94kcmus1r",
+  "object": "chat.completion",
+  "created": 1767902756,
+  "model": "tensorblock/liquidai_lfm2.5-1.2b-instruct",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"categories\": [\n    \"personal\",\n    \"education\",\n    \"preferences\",\n    \"hobbies\",\n    \"health\",\n    \"work\",\n    \"technology\"\n  ]\n}\n",
+        "tool_calls": []
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 529,
+    "completion_tokens": 56,
+    "total_tokens": 585
+  },
+  "stats": {},
+  "system_fingerprint": "tensorblock/liquidai_lfm2.5-1.2b-instruct"
+}
