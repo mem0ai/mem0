@@ -28,6 +28,7 @@ graph = [
     "neo4j>=5.23.1",
     "rank-bm25>=0.2.2",
     "kuzu>=0.11.0",
+    "langchain-core>=1.2.5",
 ]
 vector_stores = [
     "vecs>=0.4.0",
@@ -67,6 +68,7 @@ extras = [
     "elasticsearch>=8.0.0,<9.0.0",
     "opensearch-py>=2.0.0",
     "langchain-memgraph>=0.1.0",
+    "langchain-core>=1.2.5",
 ]
 test = [
     "pytest>=8.2.2",
