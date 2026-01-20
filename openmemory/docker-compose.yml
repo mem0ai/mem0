@@ -46,7 +46,7 @@ services:
       - QDRANT_COLLECTION=openmemory
       - USER=garciaba79
       - MEM0_ASYNC_MODE=true
-      - 'MEM0_LLM_CONFIG={"provider": "openai", "config": {"model": "liquidai_lfm2.5-1.2b-instruct", "temperature": 0.1, "max_tokens": 2000}}'
+      - 'MEM0_LLM_CONFIG={"provider": "openai", "config": {"model": "liquidai_lfm2.5-1.2b-instruct", "temperature": 0.0, "top_p": 0.92, "repeat_penalty": 1.08, "max_tokens": 200}}'
       - 'MEM0_EMBEDDER_CONFIG={"provider": "openai", "config": {"model": "text-embedding-bge-m3", "embedding_dims": 1024}}'
       - 'MEM0_VECTOR_STORE_CONFIG={"provider": "qdrant", "config": {"host": "qdrant", "port": 6333, "collection_name": "openmemory", "embedding_model_dims": 1024}}'
     volumes:
