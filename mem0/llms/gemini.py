@@ -7,6 +7,7 @@ try:
 except ImportError:
     raise ImportError("The 'google-genai' library is required. Please install it using 'pip install google-genai'.")
 
+import mem0
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.llms.base import LLMBase
 
@@ -19,7 +20,9 @@ class GeminiLLM(LLMBase):
             self.config.model = "gemini-2.0-flash"
 
         api_key = self.config.api_key or os.getenv("GOOGLE_API_KEY")
-        self.client = genai.Client(api_key=api_key)
+
+        http_options = {"headers": {"x-goog-api-client": f"mem0/{mem0.__version__}"}}
+        self.client = genai.Client(api_key=api_key, http_options=http_options)
 
     def _parse_response(self, response, tools):
         """
