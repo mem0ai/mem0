@@ -1,6 +1,0 @@
-vectordb:
-  provider: pinecone
-  config:
-    metric: cosine
-    vector_dimension: 1536
-    collection_name: my-pinecone-index

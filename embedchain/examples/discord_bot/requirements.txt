@@ -1,3 +1,0 @@
-discord==2.3.1
-embedchain==0.0.58
-python-dotenv==1.0.0
