@@ -51,6 +51,10 @@ Provide at least one message or direct memory string. Most callers supply `messa
 
 > \* Provide at least one `messages` entry to describe what you are storing. For scoped memories, include `user_id`. You can also attach `agent_id`, `app_id`, `run_id`, `project_id`, or `org_id` to refine ownership.
 
+<Tip>
+  Need more details? See [all request parameters](#body-messages) below for complete field descriptions, types, and constraints.
+</Tip>
+
 ## Response
 
 Successful requests return an array of events queued for processing. Each event includes the generated memory text and an identifier you can persist for auditing.
