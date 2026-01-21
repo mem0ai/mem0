@@ -36,7 +36,9 @@ config = {
             "db_name": "mem0_db",
             "collection_name": "mem0_collection", 
             "embedding_model_dims": 1024,
-            "mongo_uri": "mongodb://username:password@docdb-cluster.cluster-xyz.us-west-2.docdb.amazonaws.com:27017/?tls=true&tlsCAFile=global-bundle.pem"
+            "mongo_uri": "mongodb://username:password@docdb-cluster.cluster-xyz.us-west-2.docdb.amazonaws.com:27017/?tls=true&tlsCAFile=global-bundle.pem",
+            "similarity": "cosine",
+            "num_candidates": 20
         }
     }
 }
@@ -71,6 +73,14 @@ related_memories = memory.search(query="What are Alice's hobbies?", user_id="ali
   DocumentDB connection URI with TLS enabled. Example: `mongodb://username:password@docdb-cluster.cluster-xyz.us-west-2.docdb.amazonaws.com:27017/?tls=true&tlsCAFile=global-bundle.pem`
 </ParamField>
 
+<ParamField path="similarity" type="string" default="cosine">
+  Similarity metric for vector index. Options: `cosine`, `euclidean`, `dotProduct`
+</ParamField>
+
+<ParamField path="num_candidates" type="integer" default="None">
+  Number of candidates to consider during vector search. Must be >= 100 if set (mem0 default limit). Default equals limit.
+</ParamField>
+
 ## Prerequisites
 
 Before using Amazon DocumentDB with Mem0, ensure you have:
@@ -98,3 +108,4 @@ pip install pymongo
 - The vector index is automatically created when the collection is first used
 - DocumentDB uses HNSW (Hierarchical Navigable Small World) algorithm for vector search
 - Ensure your DocumentDB instance has sufficient compute and storage for your vector workload
+- Default similarity metric is `cosine`, which works well for most embedding models

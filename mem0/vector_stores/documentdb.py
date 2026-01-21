@@ -23,9 +23,16 @@ class OutputData(BaseModel):
 
 class DocumentDB(VectorStoreBase):
     VECTOR_TYPE = "vector"
-    SIMILARITY_METRIC = "euclidean"
 
-    def __init__(self, db_name: str, collection_name: str, embedding_model_dims: int, mongo_uri: str):
+    def __init__(
+        self,
+        db_name: str,
+        collection_name: str,
+        embedding_model_dims: int,
+        mongo_uri: str,
+        similarity: str = "cosine",
+        num_candidates: Optional[int] = None,
+    ):
         """
         Initialize the DocumentDB vector store with vector search capabilities.
 
@@ -34,11 +41,15 @@ class DocumentDB(VectorStoreBase):
             collection_name (str): Collection name
             embedding_model_dims (int): Dimension of the embedding vector
             mongo_uri (str): DocumentDB connection URI
+            similarity (str): Similarity metric for vector index. Options: cosine, euclidean, dotProduct
+            num_candidates (int, optional): Number of candidates for vector search. Default is 2x the limit
         """
         self.collection_name = collection_name
         self.embedding_model_dims = embedding_model_dims
         self.db_name = db_name
         self.index_name = f"{collection_name}_vector_index"
+        self.similarity = similarity
+        self.num_candidates = num_candidates
 
         self.client = MongoClient(mongo_uri)
         self.db = self.client[db_name]
@@ -62,7 +73,7 @@ class DocumentDB(VectorStoreBase):
             # Check if vector index already exists using list_indexes()
             existing_indexes = list(collection.list_indexes())
             vector_index_exists = any(idx.get("name") == self.index_name for idx in existing_indexes)
-            
+
             if vector_index_exists:
                 logger.info(f"Vector index '{self.index_name}' already exists in collection '{self.collection_name}'.")
             else:
@@ -73,12 +84,12 @@ class DocumentDB(VectorStoreBase):
                     "vectorOptions": {
                         "type": "hnsw",
                         "dimensions": self.embedding_model_dims,
-                        "similarity": self.SIMILARITY_METRIC,
+                        "similarity": self.similarity,
                         "m": 16,
-                        "efConstruction": 64
-                    }
+                        "efConstruction": 64,
+                    },
                 }
-                
+
                 collection.create_index(index_spec, **index_options)
                 logger.info(
                     f"Vector index '{self.index_name}' created successfully for collection '{self.collection_name}'."
@@ -102,10 +113,13 @@ class DocumentDB(VectorStoreBase):
         logger.info(f"Inserting {len(vectors)} vectors into collection '{self.collection_name}'.")
 
         data = []
-        for i, (vector, payload, _id) in enumerate(zip(vectors, payloads or [{}] * len(vectors), ids or [None] * len(vectors))):
+        for i, (vector, payload, _id) in enumerate(
+            zip(vectors, payloads or [{}] * len(vectors), ids or [None] * len(vectors))
+        ):
             # Generate a unique ID if none provided
             if _id is None:
                 import uuid
+
                 _id = str(uuid.uuid4())
             document = {"_id": _id, "vectorEmbedding": vector, "payload": payload}
             data.append(document)
@@ -132,7 +146,7 @@ class DocumentDB(VectorStoreBase):
         # Check if vector index exists
         existing_indexes = list(self.collection.list_indexes())
         vector_index_exists = any(idx.get("name") == self.index_name for idx in existing_indexes)
-        
+
         if not vector_index_exists:
             logger.error(f"Vector index '{self.index_name}' does not exist.")
             return []
@@ -140,7 +154,10 @@ class DocumentDB(VectorStoreBase):
         results = []
         try:
             collection = self.client[self.db_name][self.collection_name]
-            
+
+            # Use configured num_candidates or default to limit (matching MongoDB behavior)
+            num_candidates = self.num_candidates if self.num_candidates else limit
+
             # Simple DocumentDB vector search pipeline
             pipeline = [
                 {
@@ -150,7 +167,7 @@ class DocumentDB(VectorStoreBase):
                         "limit": limit,
                         "path": "vectorEmbedding",
                         "queryVector": vectors,
-                        "numCandidates": limit * 2,
+                        "numCandidates": num_candidates,
                     }
                 },
                 {"$project": {"vectorEmbedding": 0}},
@@ -161,13 +178,13 @@ class DocumentDB(VectorStoreBase):
                 match_conditions = {}
                 for key, value in filters.items():
                     match_conditions["payload." + key] = value
-                
+
                 if match_conditions:
                     pipeline.append({"$match": match_conditions})
-            
+
             results = list(collection.aggregate(pipeline))
             logger.info(f"Vector search completed. Found {len(results)} documents.")
-                    
+
         except Exception as e:
             logger.error(f"Error during vector search for query {query}: {e}")
             return []

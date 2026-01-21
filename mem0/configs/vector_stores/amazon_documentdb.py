@@ -11,7 +11,15 @@ class AmazonDocumentDBConfig(BaseModel):
     embedding_model_dims: Optional[int] = Field(1024, description="Dimensions of the embedding vectors (1024 for Titan, 1536 for other models)")
     mongo_uri: str = Field(
         "mongodb://username:password@docdb-cluster.cluster-xyz.us-west-2.docdb.amazonaws.com:27017/?tls=true&tlsCAFile=global-bundle.pem",
-        description="DocumentDB URI with TLS enabled. Example: mongodb://username:password@docdb-cluster.cluster-xyz.us-west-2.docdb.amazonaws.com:27017/?tls=true&tlsCAFile=global-bundle.pem"
+        description="DocumentDB URI with TLS enabled"
+    )
+    similarity: str = Field(
+        "cosine",
+        description="Similarity metric for vector index. Options: cosine, euclidean, dotProduct"
+    )
+    num_candidates: Optional[int] = Field(
+        None,
+        description="Number of candidates for vector search. Must be >= 100 if set (mem0 default limit). Default equals limit."
     )
 
     @model_validator(mode="before")
