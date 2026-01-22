@@ -19,7 +19,7 @@ except ImportError as e:
 
 class Constants:
     # User Agent for Cosmos DB No SQL client
-    USER_AGENT = "LangChain-CDBNoSql-VectorStore-Python"
+    USER_AGENT = "Mem0-CDBNoSql-VectorStore-Python"
 
     # All Search Types
     VECTOR = "vector"
@@ -166,7 +166,7 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         indexing_policy: Dict[str, Any],
         cosmos_database_properties: Dict[str, Any],
         cosmos_collection_properties: Dict[str, Any],
-        vector_search_fields: Optional[Dict[str, Any]] = None,
+        vector_search_fields: Dict[str, Any],
         database_name: str = Constants.VECTOR_SEARCH_DB,
         collection_name: str = Constants.VECTOR_SEARCH_CONTAINER,
         search_type: str = Constants.VECTOR,
@@ -211,10 +211,8 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         self._full_text_search_enabled = full_text_search_enabled
 
         # If vector_search_fields provided, extract text and embedding fields
-        if vector_search_fields:
-            self._text_key = vector_search_fields.get(Constants.TEXT_FIELD)
-            self._embedding_key = vector_search_fields.get(Constants.EMBEDDING_FIELD)
-            self._vector_search_enabled = True
+        self._text_key = vector_search_fields.get(Constants.TEXT_FIELD)
+        self._embedding_key = vector_search_fields.get(Constants.EMBEDDING_FIELD)
 
         # Create (or ensure) the database exists
         self._database: DatabaseProxy = self._cosmos_client.create_database_if_not_exists(
@@ -380,15 +378,6 @@ class AzureCosmosDBNoSql(VectorStoreBase):
             raise ValueError(
                 f"Invalid search_type '{search_type}'. "
                 f"Valid options are: {valid_options}."
-            )
-
-        if (
-                self._vector_search_enabled is False
-                and self._is_vector_search_type(search_type)
-        ):
-            raise ValueError(
-                f"Vector search is not enabled for this collection, "
-                f"cannot perform search_type '{search_type}'."
             )
 
         if (
@@ -613,12 +602,14 @@ class AzureCosmosDBNoSql(VectorStoreBase):
     def _execute_query(
         self,
         query: str,
-        search_type: str,
-        parameters: List[Dict[str, Any]],
-        with_embedding: bool,
+        search_type: Optional[str] = None,
+        parameters: Optional[List[Dict[str, Any]]] =  None,
+        with_embedding: bool = True,
         projection_mapping: Optional[Dict[str, Any]] = None,
         threshold: Optional[float] = 0.0,
     ) -> List[OutputData]:
+        parameters = parameters if parameters else []
+
         # Execute the query
         items = self._collection.query_items(
             query=query,
@@ -772,34 +763,31 @@ class AzureCosmosDBNoSql(VectorStoreBase):
     def list(
         self,
         filters: Optional[Dict[str, Any]] = None,
-        limit: Optional[int] = 100,
+        limit: Optional[int] = None,
     ) -> List[OutputData]:  # signature updated to match base (filters, limit)
         """List items in the collection.
 
         Args:
-            filters: Optional filters to apply (not implemented).
+            filters: Optional filters to apply.
             limit: Maximum number of items to retrieve.
         """
-        max_items = limit or 100
-        items = list(self._collection.read_all_items(max_item_count=max_items))
-        result: List[OutputData] = []
-        for item in items:
-            metadata = item.get(self._metadata_key, {})
-            result.append(
-                OutputData(
-                    id=str(item.get(Constants.ID)),
-                    score=None,
-                    payload={
-                        self._text_key: item.get(self._text_key, ""),
-                        self._metadata_key: {**metadata, self._embedding_key: item.get(self._embedding_key)},
-                    },
-                )
-            )
-        return result
+        # Build query with filters and limit
+        limit_clause = f" TOP {limit}" if limit else ""
+        where_clause = ""
+        if filters:
+            conditions = [f"{self._table_alias}.{key}={value}" for key, value in filters.items()]
+            where_clause = f" WHERE {' AND '.join(conditions)}"
+        query = (f"SELECT"
+                 f"{limit_clause}"
+                 f" * FROM {self._table_alias}"
+                 f"{where_clause}")
+        return self._execute_query(query=query)
+
 
     def reset(self) -> None:
         """
         Reset the collection by deleting and recreating it.
         """
+        collection_name = self._collection_name
         self.delete_col()
-        self.create_col()
+        self.create_col(collection_name)

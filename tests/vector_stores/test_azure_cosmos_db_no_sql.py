@@ -401,36 +401,31 @@ def test_col_info(cosmos_db_client_fixture):
 def test_list(cosmos_db_client_fixture):
     cosmos_db_vector, mock_collection, mock_db = cosmos_db_client_fixture
 
-    meta_data_key = cosmos_db_vector._metadata_key
-    mock_collection.read_all_items.return_value = [
-        {
-            "id": "vec1",
-            Constants.DESCRIPTION: "Border Collies are intelligent, ",
-            Constants.EMBEDDING: [0.1, 0.2, 0.3],
-            meta_data_key: {
-                "a": 1,
-                "origin": "Border Collies were developed in the border "
-                "region between Scotland and England.",
-            },
-        },
-        {
-            "id": "vec2",
-            Constants.DESCRIPTION: "energetic herders skilled in outdoor activities.",
-            Constants.EMBEDDING: [0.4, 0.5, 0.6],
-            meta_data_key: {
-                "a": 2,
-                "origin": "Golden Retrievers originated in Scotland in "
-                "the mid-19th century.",
-            },
-        },
-    ]
+    mock_collection.query_items.return_value = get_list_return_values()
 
+    # Test without filters and limit
     results = cosmos_db_vector.list()
-
     assert len(results) == 2
     assert results[0].id == "vec1"
     assert results[1].id == "vec2"
-    mock_collection.read_all_items.assert_called_once()
+    mock_collection.query_items.assert_called_once()
+    expected_query = "SELECT * FROM c"
+    mock_collection.query_items.assert_called_with(
+        query=expected_query,
+        parameters=[],
+        enable_cross_partition_query=True,
+    )
+
+    # Test with filters and limit
+    filters = {"metadata.a": 1, "id": "'vec3'"}
+    limit = 2
+    expected_query = "SELECT TOP 2 * FROM c WHERE c.metadata.a=1 AND c.id='vec3'"
+    cosmos_db_vector.list(filters=filters, limit=limit)
+    mock_collection.query_items.assert_called_with(
+        query=expected_query,
+        parameters=[],
+        enable_cross_partition_query=True,
+    )
 
 
 def test_reset(cosmos_db_client_fixture):
@@ -1002,4 +997,26 @@ def get_hybrid_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
     )
 
     return queries_and_parameters
+
+def get_list_return_values():
+    return [
+        {
+            'id': 'vec1',
+            Constants.DESCRIPTION: 'Border Collies are intelligent, ',
+            Constants.EMBEDDING: [0.1, 0.2, 0.3],
+            'metadata': {
+                'a': 1,
+                'origin': 'Border Collies were developed in the border region between Scotland and England.',
+            },
+        },
+        {
+            'id': 'vec2',
+            Constants.DESCRIPTION: 'energetic herders skilled in outdoor activities.',
+            Constants.EMBEDDING: [0.4, 0.5, 0.6],
+            'metadata': {
+                'a': 2,
+                'origin': 'Golden Retrievers originated in Scotland in the mid-19th century.',
+            },
+        },
+    ]
 
