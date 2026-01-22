@@ -1,3 +1,5 @@
+name: openmemory
+
 services:
   qdrant:
     image: qdrant/qdrant:latest
