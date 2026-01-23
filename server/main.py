@@ -86,7 +86,7 @@ class SearchRequest(BaseModel):
     filters: Optional[Dict[str, Any]] = None
 
 class UpdateRequest(BaseModel):
-    content: str = Field(..., description="Update message.")
+    text: str = Field(..., description="Update message.")
 
 
 @app.post("/configure", summary="Configure Mem0")
@@ -164,7 +164,7 @@ def update_memory(memory_id: str, updated_memory: UpdateRequest):
         dict: Success message indicating the memory was updated
     """
     try:
-        return MEMORY_INSTANCE.update(memory_id=memory_id, data=updated_memory.content)
+        return MEMORY_INSTANCE.update(memory_id=memory_id, data=updated_memory.text)
     except Exception as e:
         logging.exception("Error in update_memory:")
         raise HTTPException(status_code=500, detail=str(e))
