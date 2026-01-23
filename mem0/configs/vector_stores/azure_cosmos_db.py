@@ -16,7 +16,7 @@ class AzureCosmosDBConfig(BaseModel):
     indexing_policy: Dict[str, Any] = Field(None, description="Indexing Policy for the collection")
     cosmos_database_properties: Dict[str, Any] = Field(None, description="Database Properties for the collection")
     cosmos_collection_properties: Dict[str, Any] = Field(None, description="Container Properties for the collection")
-    vector_search_fields: Optional[Dict[str, Any]] = Field(None, description="Vector Search and Text Search Fields for the collection")
+    vector_search_fields: Dict[str, Any] = Field(None, description="Vector Search and Text Search Fields for the collection")
     database_name: str = Field("vectorSearchDB", description="Name of the database to be created")
     collection_name: str = Field("vectorSearchContainer", description="Name of the collection to be created")
     search_type: str = Field("vector", description="CosmosDB Search Type to be performed")
