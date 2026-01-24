@@ -1,0 +1,31 @@
+name: Label issues
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  scan-and-label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Scan issue title and body for security keywords
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const triageLabel = 'maintainer-triage-p0';
+            const keywordRegex = /(vulnerability|exploit|RCE|privilege escalation|CVE)/gi;
+            const issueText = `${context.payload.issue.title || ''}\n${context.payload.issue.body || ''}`;
+            const matches = issueText.match(keywordRegex);
+            if (!matches) {
+              console.log("No security keywords detected.");
+              return;
+            }
+
+            console.log(`Detected keywords: ${[...new Set(matches)].join(', ')}`);
+            console.log(`Adding label '${triageLabel}'.`);
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number,
+              labels: [triageLabel]
+            });
