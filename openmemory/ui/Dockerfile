@@ -12,15 +12,16 @@ WORKDIR /app
 
 FROM base AS deps
 
-COPY package.json pnpm-lock.yaml ./
 
-RUN pnpm install --frozen-lockfile
+COPY package.json ./
+
+RUN pnpm install
 
 FROM base AS builder
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/pnpm-lock.yaml ./pnpm-lock.yaml
+# COPY --from=deps /app/pnpm-lock.yaml ./pnpm-lock.yaml
 COPY . .
 
 RUN cp next.config.dev.mjs next.config.mjs
