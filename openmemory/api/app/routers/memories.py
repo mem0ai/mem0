@@ -23,6 +23,7 @@ from fastapi_pagination.ext.sqlalchemy import paginate as sqlalchemy_paginate
 from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
+from app.utils.db import get_or_create_user
 
 router = APIRouter(prefix="/api/v1/memories", tags=["memories"])
 
@@ -223,9 +224,7 @@ async def create_memory(
     request: CreateMemoryRequest,
     db: Session = Depends(get_db)
 ):
-    user = db.query(User).filter(User.user_id == request.user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    user = get_or_create_user(db, request.user_id)
     # Get or create app
     app_obj = db.query(App).filter(App.name == request.app,
                                    App.owner_id == user.id).first()
