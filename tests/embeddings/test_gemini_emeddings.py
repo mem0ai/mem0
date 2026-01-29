@@ -19,6 +19,12 @@ def config():
     return BaseEmbedderConfig(api_key="dummy_api_key", model="test_model", embedding_dims=786)
 
 
+@pytest.fixture
+def default_config():
+    """Fixture for testing default configuration (no model or embedding_dims specified)."""
+    return BaseEmbedderConfig(api_key="dummy_api_key")
+
+
 def test_embed_query(mock_genai, config):
     mock_embedding_response = type(
         "Response", (), {"embeddings": [type("Embedding", (), {"values": [0.1, 0.2, 0.3, 0.4]})]}
@@ -58,3 +64,18 @@ def test_config_initialization(config):
     assert embedder.config.api_key == "dummy_api_key"
     assert embedder.config.model == "test_model"
     assert embedder.config.embedding_dims == 786
+
+
+def test_default_model_is_gemini_embedding_001(mock_genai, default_config):
+    """Test that the default model is gemini-embedding-001 (replacing deprecated text-embedding-004).
+    """
+    mock_embedding_response = type(
+        "Response", (), {"embeddings": [type("Embedding", (), {"values": [0.1, 0.2, 0.3]})]}
+    )()
+    mock_genai.return_value = mock_embedding_response
+    
+    embedder = GoogleGenAIEmbedding(default_config)
+    
+    assert embedder.config.model == "models/gemini-embedding-001"
+    
+    assert embedder.config.embedding_dims == 768
