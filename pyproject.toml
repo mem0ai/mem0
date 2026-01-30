@@ -21,6 +21,9 @@ dependencies = [
     "pytz>=2024.1",
     "sqlalchemy>=2.0.31",
     "protobuf>=5.29.0,<6.0.0",
+    "python-dotenv>=1.2.1",
+    "google-genai>=1.47.0",
+    "pytest>=8.4.2",
 ]
 
 [project.optional-dependencies]
