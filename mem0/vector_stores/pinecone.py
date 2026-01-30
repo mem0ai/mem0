@@ -189,15 +189,29 @@ class PineconeDB(VectorStoreBase):
     def _create_filter(self, filters: Optional[Dict]) -> Dict:
         """
         Create a filter dictionary from the provided filters.
+        
+        Supports operators: gt, gte, lt, lte, eq, ne, in, nin
+        Range queries like {"key": {"gt": 1, "lt": 10}} are supported.
         """
         if not filters:
             return {}
 
         pinecone_filter = {}
+        # Operators that are supported by pinecone , https://docs.pinecone.io/guides/data/filter-with-metadata
+        supported_ops = {"gt", "gte", "lt", "lte", "eq", "ne", "in", "nin"}
 
         for key, value in filters.items():
-            if isinstance(value, dict) and "gte" in value and "lte" in value:
-                pinecone_filter[key] = {"$gte": value["gte"], "$lte": value["lte"]}
+            if isinstance(value, dict):
+                # Build filter with all provided operators
+                mapped = {}
+                for op, val in value.items():
+                    if op in supported_ops:
+                        mapped[f"${op}"] = val
+                if mapped:
+                    pinecone_filter[key] = mapped
+                else:
+                    # Unknown operators, treat as equality
+                    pinecone_filter[key] = {"$eq": value}
             else:
                 pinecone_filter[key] = {"$eq": value}
 
