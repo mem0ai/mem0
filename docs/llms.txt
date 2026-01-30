@@ -131,6 +131,7 @@ Key differentiators:
 - [Baidu](https://docs.mem0.ai/components/vectordbs/dbs/baidu): Baidu vector database integration
 - [LangChain](https://docs.mem0.ai/components/vectordbs/dbs/langchain): LangChain vector store integration
 - [S3 Vectors](https://docs.mem0.ai/components/vectordbs/dbs/s3_vectors): Amazon S3 Vectors integration
+- [TOS Vectors](https://docs.mem0.ai/components/vectordbs/dbs/tos_vectors): ByteDance TOS Vectors integration
 
 ### Supported Embeddings
 
