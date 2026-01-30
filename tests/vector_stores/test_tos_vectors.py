@@ -51,11 +51,14 @@ def test_initialization_creates_resources(mock_tos_client, mock_env_vars, mocker
     import tos
 
     # Mock TosServerError
+    mock_resp = mocker.MagicMock()
+    mock_resp.status_code = 404
     not_found_error = tos.exceptions.TosServerError(
-        message="Not Found",
+        resp=mock_resp,
+        msg="Not Found",
         code="NotFoundException",
-        request_id="test-request-id",
-        status_code=404
+        host_id="test-host-id",
+        resource="test-resource"
     )
     mock_tos_client.get_vector_bucket.side_effect = not_found_error
     mock_tos_client.get_index.side_effect = not_found_error
@@ -218,16 +221,19 @@ def test_delete(mock_tos_client, mock_env_vars):
     assert call_args.kwargs["keys"] == ["id1"]
 
 
-def test_reset(mock_tos_client, mock_env_vars):
+def test_reset(mock_tos_client, mock_env_vars, mocker):
     """Test resetting the vector index."""
     import tos
 
     # Mock NotFoundException for initial get_index calls
+    mock_resp = mocker.MagicMock()
+    mock_resp.status_code = 404
     not_found_error = tos.exceptions.TosServerError(
-        message="Not Found",
+        resp=mock_resp,
+        msg="Not Found",
         code="NotFoundException",
-        request_id="test-request-id",
-        status_code=404
+        host_id="test-host-id",
+        resource="test-resource"
     )
     mock_tos_client.get_index.side_effect = not_found_error
     mock_tos_client.get_vector_bucket.return_value = MagicMock()

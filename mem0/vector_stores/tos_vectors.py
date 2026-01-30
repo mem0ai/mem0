@@ -59,7 +59,7 @@ class TOSVectors(VectorStoreBase):
             self.client.get_vector_bucket(self.vector_bucket_name, self.account_id)
             logger.info(f"Vector bucket '{self.vector_bucket_name}' already exists.")
         except tos.exceptions.TosServerError as e:
-            if e.code == "NotFoundException":
+            if e.code in ["NotFoundException", "VectorBucketNotFound"]:
                 logger.info(f"Vector bucket '{self.vector_bucket_name}' not found. Creating it.")
                 self.client.create_vector_bucket(self.vector_bucket_name)
                 logger.info(f"Vector bucket '{self.vector_bucket_name}' created.")
@@ -80,7 +80,7 @@ class TOSVectors(VectorStoreBase):
             self.client.get_index(self.vector_bucket_name, self.account_id, name)
             logger.info(f"Index '{name}' already exists in bucket '{self.vector_bucket_name}'.")
         except tos.exceptions.TosServerError as e:
-            if e.code == "NotFoundException":
+            if e.code in ["NotFoundException", "VectorIndexNotFound"]:
                 logger.info(f"Index '{name}' not found in bucket '{self.vector_bucket_name}'. Creating it.")
                 distance_metric = self._get_distance_metric_type(distance)
                 self.client.create_index(

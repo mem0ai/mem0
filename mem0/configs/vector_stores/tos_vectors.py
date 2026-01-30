@@ -1,18 +1,15 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class TOSVectorsConfig(BaseModel):
-    vector_bucket_name: str = Field(description="Name of the TOS Vector bucket")
-    collection_name: str = Field("mem0", description="Name of the vector index")
-    embedding_model_dims: int = Field(1536, description="Dimension of the embedding vector")
-    distance_metric: str = Field(
-        "cosine",
-        description="Distance metric for similarity search. Options: 'cosine', 'euclidean'",
-    )
-    endpoint: str = Field(description="TOS Vectors service endpoint URL")
-    region: str = Field("cn-beijing", description="TOS Vectors region")
+    vector_bucket_name: str = Field("mem0", description="Name of the TOS Vectors bucket")
+    collection_name: str = Field("mem0", description="Name of the collection/index")
+    embedding_model_dims: int = Field(1536, description="Dimensions of the embedding model")
+    endpoint: str = Field("https://tosvectors-cn-beijing.volces.com", description="Endpoint URL for TOS Vectors")
+    region: str = Field("cn-beijing", description="Region for TOS Vectors")
+    distance_metric: str = Field("cosine", description="Distance metric for similarity search (cosine or euclidean)")
 
     @model_validator(mode="before")
     @classmethod
