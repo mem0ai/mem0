@@ -153,8 +153,24 @@ class Qdrant(VectorStoreBase):
             
         conditions = []
         for key, value in filters.items():
-            if isinstance(value, dict) and "gte" in value and "lte" in value:
-                conditions.append(FieldCondition(key=key, range=Range(gte=value["gte"], lte=value["lte"])))
+            if isinstance(value, dict):
+                # Check if it's a range filter with comparison operators, built with references from "https://qdrant.tech/documentation/concepts/filtering/"
+                range_ops = {"gt", "gte", "lt", "lte"}
+                if any(op in value for op in range_ops):
+                    # Build Range object with all provided operators
+                    range_kwargs = {}
+                    if "gt" in value:
+                        range_kwargs["gt"] = value["gt"]
+                    if "gte" in value:
+                        range_kwargs["gte"] = value["gte"]
+                    if "lt" in value:
+                        range_kwargs["lt"] = value["lt"]
+                    if "lte" in value:
+                        range_kwargs["lte"] = value["lte"]
+                    conditions.append(FieldCondition(key=key, range=Range(**range_kwargs)))
+                else:
+                    # Other dict-based filters (eq, ne, in, etc.) - pass as match for now
+                    conditions.append(FieldCondition(key=key, match=MatchValue(value=value)))
             else:
                 conditions.append(FieldCondition(key=key, match=MatchValue(value=value)))
         return Filter(must=conditions) if conditions else None

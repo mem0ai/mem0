@@ -787,6 +787,8 @@ class Memory(MemoryBase):
                 - {"key": {"gte": 10}} - greater than or equal
                 - {"key": {"lt": 10}} - less than
                 - {"key": {"lte": 10}} - less than or equal
+                - {"key": {"gt": 1, "lt": 10}} - range query (1 < key < 10)
+                - {"key": {"gte": 5, "lte": 15}} - inclusive range (5 <= key <= 15)
                 - {"key": {"contains": "text"}} - contains text
                 - {"key": {"icontains": "text"}} - case-insensitive contains
                 - {"key": "*"} - wildcard match (any value)
@@ -885,7 +887,10 @@ class Memory(MemoryBase):
                 }
                 
                 if operator in operator_map:
-                    result[key] = {operator_map[operator]: value}
+                    # Accumulate operators to support chained comparisons (e.g., {"gt": 1, "lt": 10})
+                    if key not in result:
+                        result[key] = {}
+                    result[key][operator_map[operator]] = value
                 else:
                     raise ValueError(f"Unsupported metadata filter operator: {operator}")
             return result
@@ -1940,7 +1945,10 @@ class AsyncMemory(MemoryBase):
                 }
 
                 if operator in operator_map:
-                    result[key] = {operator_map[operator]: value}
+                    # Accumulate operators to support chained comparisons (e.g., {"gt": 1, "lt": 10})
+                    if key not in result:
+                        result[key] = {}
+                    result[key][operator_map[operator]] = value
                 else:
                     raise ValueError(f"Unsupported metadata filter operator: {operator}")
             return result
