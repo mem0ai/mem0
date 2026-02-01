@@ -11,6 +11,9 @@ services:
     environment:
       - USER
       - API_KEY
+      # Categorization settings (GPT-5 supported)
+      - CATEGORIZATION_MODEL=${CATEGORIZATION_MODEL:-gpt-4o-mini}
+      - CATEGORIZATION_PROMPT=${CATEGORIZATION_PROMPT:-general}
     env_file:
       - api/.env
     depends_on:
