@@ -21,6 +21,7 @@ class AzureOpenAIConfig(BaseLlmConfig):
         top_k: int = 1,
         enable_vision: bool = False,
         vision_details: Optional[str] = "auto",
+        reasoning_effort: Optional[str] = "medium",
         http_client_proxies: Optional[dict] = None,
         # Azure OpenAI-specific parameters
         azure_kwargs: Optional[Dict[str, Any]] = None,
@@ -37,6 +38,7 @@ class AzureOpenAIConfig(BaseLlmConfig):
             top_k: Top-k sampling parameter, defaults to 1
             enable_vision: Enable vision capabilities, defaults to False
             vision_details: Vision detail level, defaults to "auto"
+            reasoning_effort: Effort level for reasoning models, defaults to "medium"
             http_client_proxies: HTTP client proxy settings, defaults to None
             azure_kwargs: Azure-specific configuration, defaults to None
         """
@@ -50,6 +52,7 @@ class AzureOpenAIConfig(BaseLlmConfig):
             top_k=top_k,
             enable_vision=enable_vision,
             vision_details=vision_details,
+            reasoning_effort=reasoning_effort,
             http_client_proxies=http_client_proxies,
         )
 
