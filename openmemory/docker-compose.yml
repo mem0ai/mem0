@@ -19,15 +19,16 @@ services:
       - "8765:8765"
     volumes:
       - ./api:/usr/src/openmemory
+      - ..:/usr/src/mem0-repo:ro
     command: >
-      sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --reload --workers 4"
+      sh -c "pip install -e /usr/src/mem0-repo --quiet && uvicorn main:app --host 0.0.0.0 --port 8765 --reload --workers 4"
   openmemory-ui:
     build:
       context: ui/
       dockerfile: Dockerfile
     image: mem0/openmemory-ui:latest
     ports:
-      - "3000:3000"
+      - "3002:3000"
     environment:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
       - NEXT_PUBLIC_USER_ID=${USER}
