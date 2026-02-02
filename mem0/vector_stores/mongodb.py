@@ -195,10 +195,14 @@ class MongoDB(VectorStoreBase):
             payload (Dict, optional): Updated payload.
         """
         update_fields = {}
+        
         if vector is not None:
             update_fields["embedding"] = vector
+            
         if payload is not None:
-            update_fields["payload"] = payload
+            # Use dot notation to merge fields instead of replacing the whole dict
+            for key, value in payload.items():
+                update_fields[f"payload.{key}"] = value
 
         if update_fields:
             try:
