@@ -1,0 +1,168 @@
+{
+  "id": "openclaw-mem0",
+  "kind": "memory",
+  "uiHints": {
+    "mode": {
+      "label": "Mode",
+      "help": "\"platform\" for Mem0 cloud, \"open-source\" for self-hosted"
+    },
+    "apiKey": {
+      "label": "Mem0 API Key",
+      "sensitive": true,
+      "placeholder": "m0-...",
+      "help": "API key from app.mem0.ai (or use ${MEM0_API_KEY}). Only needed for platform mode."
+    },
+    "userId": {
+      "label": "Default User ID",
+      "placeholder": "default",
+      "help": "User ID for scoping memories"
+    },
+    "orgId": {
+      "label": "Organization ID",
+      "placeholder": "org-...",
+      "advanced": true
+    },
+    "projectId": {
+      "label": "Project ID",
+      "placeholder": "proj-...",
+      "advanced": true
+    },
+    "autoCapture": {
+      "label": "Auto-Capture",
+      "help": "Automatically store conversation context after each agent turn"
+    },
+    "autoRecall": {
+      "label": "Auto-Recall",
+      "help": "Automatically inject relevant memories before each agent turn"
+    },
+    "customInstructions": {
+      "label": "Custom Instructions",
+      "placeholder": "Only store user preferences and important facts...",
+      "help": "Natural language rules for what Mem0 should store or exclude (platform mode)"
+    },
+    "customCategories": {
+      "label": "Custom Categories",
+      "advanced": true,
+      "help": "Map of category names to descriptions for memory tagging (platform mode only). Sensible defaults are built in."
+    },
+    "customPrompt": {
+      "label": "Custom Prompt (Open-Source)",
+      "advanced": true,
+      "help": "Custom prompt for open-source mode memory extraction."
+    },
+    "enableGraph": {
+      "label": "Enable Graph Memory",
+      "help": "Enable Mem0 graph memory for entity relationships (platform mode only)"
+    },
+    "searchThreshold": {
+      "label": "Search Threshold",
+      "placeholder": "0.5",
+      "help": "Minimum similarity score for search results (0-1). Default: 0.5"
+    },
+    "topK": {
+      "label": "Top K Results",
+      "placeholder": "5",
+      "help": "Maximum number of memories to retrieve"
+    },
+    "oss": {
+      "label": "Open-Source Configuration",
+      "advanced": true,
+      "help": "Optional. Configure custom embedder, vector store, LLM, or history DB for open-source mode. Has sensible defaults — only override what you need."
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "mode": {
+        "type": "string",
+        "enum": [
+          "platform",
+          "open-source",
+          "oss"
+        ]
+      },
+      "apiKey": {
+        "type": "string"
+      },
+      "userId": {
+        "type": "string"
+      },
+      "orgId": {
+        "type": "string"
+      },
+      "projectId": {
+        "type": "string"
+      },
+      "autoCapture": {
+        "type": "boolean"
+      },
+      "autoRecall": {
+        "type": "boolean"
+      },
+      "customInstructions": {
+        "type": "string"
+      },
+      "customCategories": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "string"
+        }
+      },
+      "customPrompt": {
+        "type": "string"
+      },
+      "enableGraph": {
+        "type": "boolean"
+      },
+      "searchThreshold": {
+        "type": "number"
+      },
+      "topK": {
+        "type": "number"
+      },
+      "oss": {
+        "type": "object",
+        "properties": {
+          "embedder": {
+            "type": "object",
+            "properties": {
+              "provider": {
+                "type": "string"
+              },
+              "config": {
+                "type": "object"
+              }
+            }
+          },
+          "vectorStore": {
+            "type": "object",
+            "properties": {
+              "provider": {
+                "type": "string"
+              },
+              "config": {
+                "type": "object"
+              }
+            }
+          },
+          "llm": {
+            "type": "object",
+            "properties": {
+              "provider": {
+                "type": "string"
+              },
+              "config": {
+                "type": "object"
+              }
+            }
+          },
+          "historyDbPath": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "required": []
+  }
+}
