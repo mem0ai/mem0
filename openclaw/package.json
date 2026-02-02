@@ -1,0 +1,23 @@
+{
+  "name": "@mem0/openclaw-mem0",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Mem0 memory backend for OpenClaw — platform or self-hosted open-source",
+  "license": "Apache-2.0",
+  "keywords": [
+    "openclaw",
+    "plugin",
+    "memory",
+    "mem0",
+    "long-term-memory"
+  ],
+  "dependencies": {
+    "@sinclair/typebox": "0.34.47",
+    "mem0ai": "^2.2.1"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

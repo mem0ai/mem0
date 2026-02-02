@@ -29,7 +29,9 @@
                   {
                     "group": "Start Here",
                     "icon": "home",
-                    "pages": ["introduction"]
+                    "pages": [
+                      "introduction"
+                    ]
                   }
                 ]
               },
@@ -112,7 +114,9 @@
                   {
                     "group": "Support & Troubleshooting",
                     "icon": "life-buoy",
-                    "pages": ["platform/faqs"]
+                    "pages": [
+                      "platform/faqs"
+                    ]
                   },
                   {
                     "group": "Migration Guide",
@@ -127,7 +131,9 @@
                   {
                     "group": "Contribute",
                     "icon": "clipboard-list",
-                    "pages": ["platform/contribute"]
+                    "pages": [
+                      "platform/contribute"
+                    ]
                   }
                 ]
               },
@@ -282,7 +288,10 @@
                   {
                     "group": "Community & Support",
                     "icon": "users",
-                    "pages": ["contributing/development", "contributing/documentation"]
+                    "pages": [
+                      "contributing/development",
+                      "contributing/documentation"
+                    ]
                   }
                 ]
               },
@@ -306,7 +315,9 @@
                   {
                     "group": "Getting Started",
                     "icon": "lightbulb",
-                    "pages": ["cookbooks/overview"]
+                    "pages": [
+                      "cookbooks/overview"
+                    ]
                   },
                   {
                     "group": "Essentials",
@@ -378,7 +389,9 @@
                   {
                     "group": "Overview",
                     "icon": "plug",
-                    "pages": ["integrations"]
+                    "pages": [
+                      "integrations"
+                    ]
                   },
                   {
                     "group": "Agent Frameworks",
@@ -409,7 +422,9 @@
                   {
                     "group": "Cloud & Infrastructure",
                     "icon": "cloud",
-                    "pages": ["integrations/aws-bedrock"]
+                    "pages": [
+                      "integrations/aws-bedrock"
+                    ]
                   },
                   {
                     "group": "Developer Tools",
@@ -431,7 +446,10 @@
                   {
                     "group": "Getting Started",
                     "icon": "rocket",
-                    "pages": ["api-reference", "api-reference/organizations-projects"]
+                    "pages": [
+                      "api-reference",
+                      "api-reference/organizations-projects"
+                    ]
                   },
                   {
                     "group": "Core Memory Operations",
@@ -461,7 +479,10 @@
                   {
                     "group": "Events APIs",
                     "icon": "clock",
-                    "pages": ["api-reference/events/get-events", "api-reference/events/get-event"]
+                    "pages": [
+                      "api-reference/events/get-events",
+                      "api-reference/events/get-event"
+                    ]
                   },
                   {
                     "group": "Entities APIs",
@@ -513,12 +534,16 @@
                   {
                     "group": "Changelog",
                     "icon": "rocket",
-                    "pages": ["changelog"]
+                    "pages": [
+                      "changelog"
+                    ]
                   },
                   {
                     "group": "Legacy Docs",
                     "icon": "archive",
-                    "pages": ["v0x/introduction"]
+                    "pages": [
+                      "v0x/introduction"
+                    ]
                   }
                 ]
               }
@@ -539,7 +564,11 @@
                   {
                     "group": "Getting Started",
                     "icon": "rocket",
-                    "pages": ["v0x/introduction", "v0x/quickstart", "v0x/faqs"]
+                    "pages": [
+                      "v0x/introduction",
+                      "v0x/quickstart",
+                      "v0x/faqs"
+                    ]
                   },
                   {
                     "group": "Core Concepts",
