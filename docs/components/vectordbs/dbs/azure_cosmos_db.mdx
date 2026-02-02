@@ -17,39 +17,49 @@ pip install azure-cosmos
 ```python
 import os
 from mem0 import Memory
+from azure.cosmos import CosmosClient
+
+HOST = os.getenv("HOST")
+KEY = os.getenv("KEY")
 
 os.environ["OPENAI_API_KEY"] = "sk-xx"
 
+cosmos_client = CosmosClient(HOST, KEY)
 config = {
     "vector_store": {
-        "provider": "azure_cosmos_db",
+        "provider": cosmos_client,
         "config": {
             "cosmos_client": "cosmos_client",
-            "vector_embedding_policy": {
-                "vectorEmbeddings":[
-                    {
-                        "path": "/embedding",
-                        "dataType": "float32",
-                        "dimensions": 1536,
-                        "distanceFunction": "cosine",
-                    }
-                ],
-            },
             "indexing_policy": {
                 "indexingMode": "consistent",
                 "includedPaths": [{"path": "/*"}],
                 "excludedPaths": [{"path": '/"_etag"/?'}],
-                "vectorIndexes": [{"path": "/embedding", "type": "flat"}],
+                "vectorIndexes": [{"path": "/vector", "type": "flat"}],
                 "fullTextIndexes": [{"path": "/text"}],
             },
             "cosmos_database_properties": {},
             "cosmos_collection_properties": {"partition_key": "partition_key_value"},
+            "vector_properties": {
+                "path": "/vector",
+                "dataType": "float32",
+                "dimensions": 10,
+                "distanceFunction": "cosine",
+            },
             "vector_search_fields": {
                 "text_field": "description",
-                "embedding_field": "embedding",
+                "embedding_field": "vector",
             },
             "database_name": "vectorSearchDB",
             "collection_name": "vectorSearchContainer",
+            "search_type": "vector",
+            "metadata_key": "metadata",
+            "create_collection": True,
+            "table_alias": "c",
+            "full_text_policy": {
+                "defaultLanguage": "en-US",
+                "fullTextPaths": [{"path": "/text", "language": "en-US"}],
+            },
+            "full_text_search_enabled": True,
         }
     }
 }
@@ -70,11 +80,11 @@ Here are the parameters available for configuring Cosmos DB as the vector databa
 
 | Parameter | Description | Default Value |
 | --- | --- | --- |
-| cosmos_client | Client used to connect to azure cosmosdb no sql account | |
-| vector_embedding_policy | Vector Embedding Policy for the collection | |
+| cosmos_client | Cosmod DB Client used to connect to azure cosmosdb no sql account | |
 | indexing_policy | Indexing Policy for the collection | |
 | cosmos_database_properties | Database Properties for the collection | |
 | cosmos_collection_properties | Container Properties for the collection | |
+| vector_properties | Vector Embedding Properties for the collection | |
 | vector_search_fields | Vector Search and Text Search Fields for the collection | `None` |
 | database_name | Name of the database to be created | `"vectorSearchDB"` |
 | collection_name | Name of the collection to be created | `"vectorSearchContainer"` |
