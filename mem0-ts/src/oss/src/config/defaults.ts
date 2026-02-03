@@ -6,6 +6,7 @@ export const DEFAULT_MEMORY_CONFIG: MemoryConfig = {
   embedder: {
     provider: "openai",
     config: {
+      baseURL: "https://api.openai.com/v1",
       apiKey: process.env.OPENAI_API_KEY || "",
       model: "text-embedding-3-small",
     },
