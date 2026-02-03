@@ -12,7 +12,7 @@ class VertexAIEmbedding(EmbeddingBase):
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
         super().__init__(config)
 
-        self.config.model = self.config.model or "text-embedding-004"
+        self.config.model = self.config.model or "gemini-embedding-001"
         self.config.embedding_dims = self.config.embedding_dims or 256
 
         self.embedding_types = {
