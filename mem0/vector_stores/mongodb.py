@@ -1,4 +1,5 @@
 import logging
+import time
 from importlib.metadata import version
 from typing import Any, Dict, List, Optional
 
@@ -28,7 +29,15 @@ class OutputData(BaseModel):
 class MongoDB(VectorStoreBase):
     SIMILARITY_METRIC = "cosine"
 
-    def __init__(self, db_name: str, collection_name: str, embedding_model_dims: int, mongo_uri: str):
+    def __init__(
+        self,
+        db_name: str,
+        collection_name: str,
+        embedding_model_dims: int,
+        mongo_uri: str,
+        wait_for_index_ready: bool = True,
+        index_creation_timeout: int = 300,
+    ):
         """
         Initialize the MongoDB vector store with vector search capabilities.
 
@@ -37,24 +46,90 @@ class MongoDB(VectorStoreBase):
             collection_name (str): Collection name
             embedding_model_dims (int): Dimension of the embedding vector
             mongo_uri (str): MongoDB connection URI
+            wait_for_index_ready (bool): If True, block until index is queryable after creation.
+                                        Set to False for production APIs where index creation
+                                        should happen in background. Defaults to True.
+            index_creation_timeout (int): Maximum seconds to wait for index creation/deletion.
+                                         Increase for large datasets (1M+ vectors). Defaults to 300.
         """
         self.collection_name = collection_name
         self.embedding_model_dims = embedding_model_dims
         self.db_name = db_name
+        self.wait_for_index_ready = wait_for_index_ready
+        self.index_creation_timeout = index_creation_timeout
 
         self.client = MongoClient(mongo_uri, driver=_DRIVER_METADATA)
         self.db = self.client[db_name]
         self.collection = self.create_col()
 
+    def _wait_for_index_status(
+        self, collection, index_name: str, target_status: str, timeout: Optional[int] = None
+    ) -> bool:
+        """
+        Polls the index status until it matches the target_status.
+        
+        MongoDB Atlas Search index operations are asynchronous. This method ensures
+        indexes are fully ready before use or completely deleted before recreation.
+        
+        Args:
+            collection: MongoDB collection object
+            index_name: Name of the index to check
+            target_status: "ready" (wait for queryable=True) or "deleted" (wait for it to disappear)
+            timeout: Maximum seconds to wait. Uses self.index_creation_timeout if None.
+        
+        Returns:
+            bool: True if target status reached, False if timeout exceeded
+        """
+        if timeout is None:
+            timeout = self.index_creation_timeout
+        
+        start_time = time.time()
+        poll_interval = 2  # Poll every 2 seconds
+        
+        while (time.time() - start_time) < timeout:
+            indexes = list(collection.list_search_indexes(name=index_name))
+            
+            if target_status == "deleted":
+                if not indexes:
+                    logger.info(f"Index '{index_name}' successfully deleted.")
+                    return True
+            
+            elif target_status == "ready":
+                if indexes:
+                    # Check if the specific index is queryable
+                    idx = indexes[0]
+                    if idx.get("queryable") is True:
+                        logger.info(f"Index '{index_name}' is ready and queryable.")
+                        return True
+                    # Log status if not ready yet
+                    status = idx.get("status", "unknown")
+                    logger.debug(f"Index '{index_name}' status: {status}, queryable: {idx.get('queryable', False)}")
+            
+            time.sleep(poll_interval)
+        
+        logger.error(
+            f"Timeout waiting for index '{index_name}' to become {target_status} "
+            f"(waited {timeout}s). Index operations may still be in progress."
+        )
+        return False
+
     def create_col(self):
-        """Create new collection with vector search index."""
+        """
+        Create collection and automagically heal legacy knnVector indexes 
+        with robust asynchronous operation handling.
+        
+        MongoDB Atlas Search index operations are asynchronous. This method:
+        1. Waits for legacy index deletion to complete before recreating
+        2. Optionally waits for new index to become queryable (configurable)
+        3. Handles race conditions and timeouts gracefully
+        """
         try:
             database = self.client[self.db_name]
-            collection_names = database.list_collection_names()
-            if self.collection_name not in collection_names:
-                logger.info(f"Collection '{self.collection_name}' does not exist. Creating it now.")
+            
+            # 1. Ensure Collection Exists
+            if self.collection_name not in database.list_collection_names():
+                logger.info(f"Creating collection '{self.collection_name}'...")
                 collection = database[self.collection_name]
-                # Insert and remove a placeholder document to create the collection
                 collection.insert_one({"_id": 0, "placeholder": True})
                 collection.delete_one({"_id": 0})
                 logger.info(f"Collection '{self.collection_name}' created successfully.")
@@ -62,10 +137,71 @@ class MongoDB(VectorStoreBase):
                 collection = database[self.collection_name]
 
             self.index_name = f"{self.collection_name}_vector_index"
+            
+            # 2. Inspect Existing Index
             found_indexes = list(collection.list_search_indexes(name=self.index_name))
+            should_create_index = True
+
             if found_indexes:
-                logger.info(f"Search index '{self.index_name}' already exists in collection '{self.collection_name}'.")
-            else:
+                existing_index = found_indexes[0]
+                definition = existing_index.get("latestDefinition", {})
+                
+                # Check for legacy criteria
+                # Old format: mappings.fields.embedding.type == "knnVector"
+                # New format: fields[].type == "vector" and type == "vectorSearch"
+                is_legacy = False
+                
+                # Check if it's using the old mappings structure with knnVector
+                mappings = definition.get("mappings", {})
+                if mappings:
+                    # Old format detected
+                    legacy_fields = mappings.get("fields", {})
+                    embedding_field = legacy_fields.get("embedding", {})
+                    if embedding_field.get("type") == "knnVector":
+                        is_legacy = True
+                
+                # Also check if top-level type is not vectorSearch (covers other legacy formats)
+                if definition.get("type") != "vectorSearch":
+                    is_legacy = True
+                
+                # Check new format fields array for knnVector (shouldn't happen, but be safe)
+                fields = definition.get("fields", [])
+                if not is_legacy and fields:
+                    if any(field.get("type") == "knnVector" for field in fields):
+                        is_legacy = True
+
+                if is_legacy:
+                    logger.warning(f"Legacy 'knnVector' index detected: '{self.index_name}'. Healing...")
+                    try:
+                        # Drop ONLY the index, preserving data
+                        collection.drop_search_index(self.index_name)
+                        logger.info(f"Legacy index '{self.index_name}' deletion initiated...")
+                        
+                        # BLOCKING WAIT: We must ensure it is gone before creating a new one with the same name
+                        # Atlas prohibits creating an index if one with the same name is pending deletion
+                        if not self._wait_for_index_status(collection, self.index_name, "deleted"):
+                            raise PyMongoError(
+                                f"Failed to delete legacy index '{self.index_name}' within timeout. "
+                                "Index may still be deleting in background."
+                            )
+                        
+                        # should_create_index remains True, so we rebuild it below
+                    except PyMongoError as e:
+                        logger.error(f"Error dropping legacy index: {e}")
+                        return collection
+                else:
+                    # Index exists and is using the correct modern configuration
+                    if self.wait_for_index_ready and not existing_index.get("queryable"):
+                        logger.info(
+                            f"Index '{self.index_name}' exists but is not ready. Waiting for readiness..."
+                        )
+                        self._wait_for_index_status(collection, self.index_name, "ready")
+                    
+                    logger.info(f"Search index '{self.index_name}' is valid and up to date.")
+                    should_create_index = False
+
+            # 3. Create Index (if missing or just dropped)
+            if should_create_index:
                 search_index_model = SearchIndexModel(
                     name=self.index_name,
                     type="vectorSearch",
@@ -80,10 +216,34 @@ class MongoDB(VectorStoreBase):
                         ]
                     },
                 )
-                collection.create_search_index(search_index_model)
-                logger.info(
-                    f"Search index '{self.index_name}' created successfully for collection '{self.collection_name}'."
-                )
+                try:
+                    collection.create_search_index(search_index_model)
+                    logger.info(
+                        f"Search index '{self.index_name}' creation initiated. "
+                        f"(This may take time depending on data size)"
+                    )
+                    
+                    # BLOCKING WAIT: Ensure index is ready before returning (if configured)
+                    # Note: Vector index creation can take time depending on data size.
+                    # For large datasets (1M+ vectors), increase index_creation_timeout.
+                    if self.wait_for_index_ready:
+                        if not self._wait_for_index_status(collection, self.index_name, "ready"):
+                            logger.warning(
+                                f"Index '{self.index_name}' creation initiated but not ready within timeout. "
+                                "Search operations may fail until index is queryable. "
+                                "Consider increasing index_creation_timeout for large datasets."
+                            )
+                    else:
+                        logger.info(
+                            "Index creation initiated. Set wait_for_index_ready=True to block until ready. "
+                            "Search operations may fail until index is queryable."
+                        )
+                    
+                except PyMongoError as e:
+                    # Handle race conditions where index is still dropping or other errors
+                    logger.error(f"Error creating search index: {e}")
+                    return collection
+
             return collection
         except PyMongoError as e:
             logger.error(f"Error creating collection and search index: {e}")
