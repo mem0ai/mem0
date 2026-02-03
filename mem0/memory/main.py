@@ -885,7 +885,7 @@ class Memory(MemoryBase):
                 }
                 
                 if operator in operator_map:
-                    result[key] = {operator_map[operator]: value}
+                    result[key][operator_map[operator]] = value #merge filters for same key
                 else:
                     raise ValueError(f"Unsupported metadata filter operator: {operator}")
             return result
