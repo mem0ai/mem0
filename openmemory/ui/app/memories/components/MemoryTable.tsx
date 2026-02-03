@@ -5,6 +5,7 @@ import {
   Pause,
   Archive,
   Play,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -173,10 +174,27 @@ export function MemoryTable() {
                   onCheckedChange={(checked) =>
                     handleSelectMemory(memory.id, checked as boolean)
                   }
+                  disabled={memory.state === "processing"}
                 />
               </TableCell>
               <TableCell className="">
-                {memory.state === "paused" || memory.state === "archived" ? (
+                {memory.state === "processing" ? (
+                  <TooltipProvider>
+                    <Tooltip delayDuration={0}>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center gap-2 text-zinc-400">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span className="font-medium">{memory.memory}</span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>
+                          This memory is <span className="font-bold">processing</span> and will be available shortly.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : memory.state === "paused" || memory.state === "archived" ? (
                   <TooltipProvider>
                     <Tooltip delayDuration={0}>
                       <TooltipTrigger asChild>
@@ -217,7 +235,9 @@ export function MemoryTable() {
                   <Categories
                     categories={memory.categories}
                     isPaused={
-                      memory.state === "paused" || memory.state === "archived"
+                      memory.state === "paused" || 
+                      memory.state === "archived" ||
+                      memory.state === "processing"
                     }
                     concat={true}
                   />
@@ -232,7 +252,12 @@ export function MemoryTable() {
               <TableCell className="text-right flex justify-center">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8"
+                      disabled={memory.state === "processing"}
+                    >
                       <MoreHorizontal className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>

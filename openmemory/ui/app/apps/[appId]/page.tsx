@@ -2,18 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "@/store/store";
 import { useAppsApi } from "@/hooks/useAppsApi";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MemoryCard } from "./components/MemoryCard";
 import AppDetailCard from "./components/AppDetailCard";
+import { MemoriesPagination } from "./components/MemoriesPagination";
+import { setCreatedMemoriesPage, setAccessedMemoriesPage } from "@/store/appsSlice";
 import "@/styles/animation.css";
 import NotFound from "@/app/not-found";
 import { AppDetailCardSkeleton } from "@/skeleton/AppDetailCardSkeleton";
 import { MemoryCardSkeleton } from "@/skeleton/MemoryCardSkeleton";
 
 export default function AppDetailsPage() {
+  const dispatch = useDispatch();
   const params = useParams();
   const appId = params.appId as string;
   const [activeTab, setActiveTab] = useState("created");
@@ -37,8 +40,8 @@ export default function AppDetailsPage() {
           // Load all data in parallel
           await Promise.all([
             fetchAppDetails(appId),
-            fetchAppMemories(appId),
-            fetchAppAccessedMemories(appId),
+            fetchAppMemories(appId, selectedApp.memories.created.page, selectedApp.memories.created.pageSize),
+            fetchAppAccessedMemories(appId, selectedApp.memories.accessed.page, selectedApp.memories.accessed.pageSize),
           ]);
         } catch (error) {
           console.error("Error loading app data:", error);
@@ -47,7 +50,15 @@ export default function AppDetailsPage() {
     };
 
     loadData();
-  }, [appId, fetchAppDetails, fetchAppMemories, fetchAppAccessedMemories]);
+  }, [appId, fetchAppDetails, fetchAppMemories, fetchAppAccessedMemories, selectedApp.memories.created.page, selectedApp.memories.created.pageSize, selectedApp.memories.accessed.page, selectedApp.memories.accessed.pageSize]);
+
+  const handleCreatedMemoriesPageChange = (page: number) => {
+    dispatch(setCreatedMemoriesPage(page));
+  };
+
+  const handleAccessedMemoriesPageChange = (page: number) => {
+    dispatch(setAccessedMemoriesPage(page));
+  };
 
   if (selectedApp.error) {
     return (
@@ -102,18 +113,31 @@ export default function AppDetailsPage() {
       );
     }
 
-    return memories.items.map((memory) => (
-      <MemoryCard
-        key={memory.id + memory.created_at}
-        id={memory.id}
-        content={memory.content}
-        created_at={memory.created_at}
-        metadata={memory.metadata_}
-        categories={memory.categories}
-        app_name={memory.app_name}
-        state={memory.state}
-      />
-    ));
+    const totalPages = Math.ceil(memories.total / memories.pageSize);
+
+    return (
+      <div>
+        <div className="space-y-6">
+          {memories.items.map((memory) => (
+            <MemoryCard
+              key={memory.id + memory.created_at}
+              id={memory.id}
+              content={memory.content}
+              created_at={memory.created_at}
+              metadata={memory.metadata_}
+              categories={memory.categories}
+              app_name={memory.app_name}
+              state={memory.state}
+            />
+          ))}
+        </div>
+        <MemoriesPagination
+          currentPage={memories.page}
+          totalPages={totalPages}
+          onPageChange={handleCreatedMemoriesPageChange}
+        />
+      </div>
+    );
   };
 
   const renderAccessedMemories = () => {
@@ -145,23 +169,36 @@ export default function AppDetailsPage() {
       );
     }
 
-    return memories.items.map((accessedMemory) => (
-      <div
-        key={accessedMemory.memory.id + accessedMemory.memory.created_at}
-        className="relative"
-      >
-        <MemoryCard
-          id={accessedMemory.memory.id}
-          content={accessedMemory.memory.content}
-          created_at={accessedMemory.memory.created_at}
-          metadata={accessedMemory.memory.metadata_}
-          categories={accessedMemory.memory.categories}
-          access_count={accessedMemory.access_count}
-          app_name={accessedMemory.memory.app_name}
-          state={accessedMemory.memory.state}
+    const totalPages = Math.ceil(memories.total / memories.pageSize);
+
+    return (
+      <div>
+        <div className="space-y-6">
+          {memories.items.map((accessedMemory) => (
+            <div
+              key={accessedMemory.memory.id + accessedMemory.memory.created_at}
+              className="relative"
+            >
+              <MemoryCard
+                id={accessedMemory.memory.id}
+                content={accessedMemory.memory.content}
+                created_at={accessedMemory.memory.created_at}
+                metadata={accessedMemory.memory.metadata_}
+                categories={accessedMemory.memory.categories}
+                access_count={accessedMemory.access_count}
+                app_name={accessedMemory.memory.app_name}
+                state={accessedMemory.memory.state}
+              />
+            </div>
+          ))}
+        </div>
+        <MemoriesPagination
+          currentPage={memories.page}
+          totalPages={totalPages}
+          onPageChange={handleAccessedMemoriesPageChange}
         />
       </div>
-    ));
+    );
   };
 
   return (

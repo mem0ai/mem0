@@ -1,36 +1,82 @@
 services:
-  mem0_store:
-    image: qdrant/qdrant
-    ports:
-      - "6333:6333"
-    volumes:
-      - mem0_storage:/mem0/storage
-  openmemory-mcp:
-    image: mem0/openmemory-mcp
-    build: api/
-    environment:
-      - USER
-      - API_KEY
+  u-mem0-api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: u-mem0-api
     env_file:
-      - api/.env
-    depends_on:
-      - mem0_store
+      - .env
     ports:
       - "8765:8765"
     volumes:
-      - ./api:/usr/src/openmemory
-    command: >
-      sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --reload --workers 4"
-  openmemory-ui:
+      - mem0_data:/usr/src/openmemory/data
+      # for data persistence
+    networks:
+      - infra-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8765/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  u-mem0-ui:
     build:
-      context: ui/
+      context: ./ui
       dockerfile: Dockerfile
-    image: mem0/openmemory-ui:latest
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8765}
+        - NEXT_PUBLIC_USER_ID=${NEXT_PUBLIC_USER_ID:-user}
+    container_name: u-mem0-ui
+    env_file:
+      - .env
+    depends_on:
+      - u-mem0-api
     ports:
-      - "3000:3000"
+      - "3333:3000"
+    networks:
+      - infra-network
+    restart: unless-stopped
+
+  neo4j:
+    image: neo4j:latest
+    container_name: u-mem0-neo4j
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+      - neo4j_config:/config
     environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-      - NEXT_PUBLIC_USER_ID=${USER}
+      - NEO4J_AUTH=${NEO4J_USERNAME:-neo4j}/${NEO4J_PASSWORD}
+      - NEO4J_server_memory_heap_initial__size=1G
+      - NEO4J_server_memory_heap_max__size=2G
+      - NEO4J_server_memory_pagecache_size=1G
+      - NEO4J_apoc_export_file_enabled=true
+      - NEO4J_apoc_import_file_enabled=true
+      - NEO4J_apoc_import_file_use__neo4j__config=true
+      - NEO4J_PLUGINS=["apoc"]
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    networks:
+      - infra-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "${NEO4J_PASSWORD}", "RETURN 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
 volumes:
-  mem0_storage:
+  mem0_data:
+    driver: local
+  neo4j_data:
+    driver: local
+  neo4j_logs:
+    driver: local
+  neo4j_config:
+    driver: local 
+
+networks:
+  infra-network:
+    external: true  # Use existing shared network
