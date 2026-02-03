@@ -26,7 +26,6 @@ class OutputData(BaseModel):
 
 
 class MongoDB(VectorStoreBase):
-    VECTOR_TYPE = "knnVector"
     SIMILARITY_METRIC = "cosine"
 
     def __init__(self, db_name: str, collection_name: str, embedding_model_dims: int, mongo_uri: str):
@@ -69,17 +68,16 @@ class MongoDB(VectorStoreBase):
             else:
                 search_index_model = SearchIndexModel(
                     name=self.index_name,
+                    type="vectorSearch",
                     definition={
-                        "mappings": {
-                            "dynamic": False,
-                            "fields": {
-                                "embedding": {
-                                    "type": self.VECTOR_TYPE,
-                                    "dimensions": self.embedding_model_dims,
-                                    "similarity": self.SIMILARITY_METRIC,
-                                }
-                            },
-                        }
+                        "fields": [
+                            {
+                                "type": "vector",
+                                "path": "embedding",
+                                "numDimensions": self.embedding_model_dims,
+                                "similarity": self.SIMILARITY_METRIC,
+                            }
+                        ]
                     },
                 )
                 collection.create_search_index(search_index_model)
@@ -106,11 +104,14 @@ class MongoDB(VectorStoreBase):
 
         data = []
         for vector, payload, _id in zip(vectors, payloads or [{}] * len(vectors), ids or [None] * len(vectors)):
-            document = {"_id": _id, "embedding": vector, "payload": payload}
+            document = {"embedding": vector, "payload": payload}
+            if _id:
+                document["_id"] = _id
             data.append(document)
         try:
-            self.collection.insert_many(data)
-            logger.info(f"Inserted {len(data)} documents into '{self.collection_name}'.")
+            if data:
+                self.collection.insert_many(data)
+                logger.info(f"Inserted {len(data)} documents into '{self.collection_name}'.")
         except PyMongoError as e:
             logger.error(f"Error inserting data: {e}")
 
@@ -127,21 +128,22 @@ class MongoDB(VectorStoreBase):
         Returns:
             List[OutputData]: Search results.
         """
-
-        found_indexes = list(self.collection.list_search_indexes(name=self.index_name))
-        if not found_indexes:
-            logger.error(f"Index '{self.index_name}' does not exist.")
-            return []
-
+        # Note: In high-throughput scenarios, consider caching index existence or handling the error gracefully
+        # instead of checking on every search.
+        
         results = []
         try:
             collection = self.client[self.db_name][self.collection_name]
+            
+            # Ensure numCandidates is significantly higher than limit for accuracy (HNSW)
+            num_candidates = limit * 20
+
             pipeline = [
                 {
                     "$vectorSearch": {
                         "index": self.index_name,
                         "limit": limit,
-                        "numCandidates": limit,
+                        "numCandidates": num_candidates,
                         "queryVector": vectors,
                         "path": "embedding",
                     }
@@ -154,7 +156,7 @@ class MongoDB(VectorStoreBase):
             if filters:
                 filter_conditions = []
                 for key, value in filters.items():
-                    filter_conditions.append({"payload." + key: value})
+                    filter_conditions.append({f"payload.{key}": value})
 
                 if filter_conditions:
                     # Add a $match stage after vector search to apply filters
@@ -197,8 +199,10 @@ class MongoDB(VectorStoreBase):
         update_fields = {}
         if vector is not None:
             update_fields["embedding"] = vector
+        
         if payload is not None:
-            update_fields["payload"] = payload
+            for key, value in payload.items():
+                update_fields[f"payload.{key}"] = value
 
         if update_fields:
             try:
@@ -288,7 +292,7 @@ class MongoDB(VectorStoreBase):
                 # Apply filters to the payload field
                 filter_conditions = []
                 for key, value in filters.items():
-                    filter_conditions.append({"payload." + key: value})
+                    filter_conditions.append({f"payload.{key}": value})
                 if filter_conditions:
                     query = {"$and": filter_conditions}
 
@@ -304,7 +308,7 @@ class MongoDB(VectorStoreBase):
         """Reset the index by deleting and recreating it."""
         logger.warning(f"Resetting index {self.collection_name}...")
         self.delete_col()
-        self.collection = self.create_col(self.collection_name)
+        self.collection = self.create_col()
 
     def __del__(self) -> None:
         """Close the database connection when the object is deleted."""
