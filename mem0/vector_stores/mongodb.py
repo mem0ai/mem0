@@ -188,25 +188,17 @@ class MongoDB(VectorStoreBase):
     def update(self, vector_id: str, vector: Optional[List[float]] = None, payload: Optional[Dict] = None) -> None:
         """
         Update a vector and its payload.
-        
-        This performs a partial update (merge) for the payload. Existing fields in the
-        payload that are not included in the update will be preserved.
 
         Args:
             vector_id (str): ID of the vector to update.
             vector (List[float], optional): Updated vector.
-            payload (Dict, optional): Updated payload fields to merge.
+            payload (Dict, optional): Updated payload.
         """
         update_fields = {}
-        
         if vector is not None:
             update_fields["embedding"] = vector
-            
         if payload is not None:
-            # FIX: Use dot notation to update specific fields within the payload dictionary
-            # instead of overwriting the entire 'payload' field.
-            for key, value in payload.items():
-                update_fields[f"payload.{key}"] = value
+            update_fields["payload"] = payload
 
         if update_fields:
             try:
@@ -217,6 +209,7 @@ class MongoDB(VectorStoreBase):
                     logger.warning(f"No document found with ID '{vector_id}' to update.")
             except PyMongoError as e:
                 logger.error(f"Error updating document: {e}")
+
     def get(self, vector_id: str) -> Optional[OutputData]:
         """
         Retrieve a vector by ID.
