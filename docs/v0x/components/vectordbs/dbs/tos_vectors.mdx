@@ -1,0 +1,90 @@
+---
+title: TOS Vectors
+---
+
+[TOS Vectors](https://www.volcengine.com/docs/6459/1166454) is a fully managed vector database service provided by Volcengine (ByteDance Cloud). It offers high-performance vector storage and similarity search capabilities, designed for AI applications such as recommendation systems, semantic search, and RAG (Retrieval-Augmented Generation).
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+# Set environment variables for TOS Vectors authentication
+os.environ["TOS_ACCESS_KEY"] = "your-access-key"
+os.environ["TOS_SECRET_KEY"] = "your-secret-key"
+os.environ["TOS_ACCOUNT_ID"] = "your-account-id"
+
+config = {
+    "vector_store": {
+        "provider": "tos_vectors",
+        "config": {
+            "vector_bucket_name": "my-bucket",
+            "collection_name": "my-collection",
+            "embedding_model_dims": 1536,
+            "endpoint": "https://tosvectors-cn-beijing.volces.com",
+            "region": "cn-beijing",
+            "distance_metric": "cosine"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movie? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+### Config
+
+Here are the parameters available for configuring TOS Vectors:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `vector_bucket_name` | Name of the TOS Vectors bucket | `mem0` |
+| `collection_name` | Name of the collection/index | `mem0` |
+| `embedding_model_dims` | Dimensions of the embedding model | `1536` |
+| `endpoint` | Endpoint URL for TOS Vectors service | `https://tosvectors-cn-beijing.volces.com` |
+| `region` | Region for TOS Vectors service | `cn-beijing` |
+| `distance_metric` | Distance metric for similarity search | `cosine` |
+
+### Environment Variables
+
+TOS Vectors requires the following environment variables for authentication:
+
+- `TOS_ACCESS_KEY`: Your Volcengine access key
+- `TOS_SECRET_KEY`: Your Volcengine secret key
+- `TOS_ACCOUNT_ID`: Your Volcengine account ID
+
+These credentials can be obtained from the [Volcengine Console](https://console.volcengine.com/).
+
+### Distance Metrics
+
+The following distance metrics are supported:
+
+- `cosine`: Cosine similarity (default, recommended for most use cases)
+- `euclidean`: Euclidean distance (L2 distance)
+
+### Features
+
+TOS Vectors provides the following key features:
+
+- **High Performance**: Optimized for large-scale vector search with low latency
+- **Scalability**: Automatically scales to handle billions of vectors
+- **Multi-tenancy**: Support for multiple collections and user isolation
+- **Metadata Filtering**: Store and filter vectors by metadata
+- **Real-time Updates**: Support for real-time vector insertion and updates
+
+### Regions
+
+TOS Vectors is available in the following regions:
+
+- `cn-beijing`: China (Beijing)
+- `cn-shanghai`: China (Shanghai)
+- `cn-guangzhou`: China (Guangzhou)
+
+Choose the region closest to your application for optimal performance.
