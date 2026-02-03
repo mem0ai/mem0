@@ -244,4 +244,45 @@ def test_get_all_handles_flat_list_from_postgres(mock_sqlite, mock_llm_factory, 
 
     assert len(result) == 2
     assert result[0]["memory"] == "Memory 1"
-    assert result[1]["memory"] == "Memory 2" 
+    assert result[1]["memory"] == "Memory 2"
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_delete_all_does_not_reset_vector_store(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """
+    Test that delete_all() does NOT call vector_store.reset().
+
+    Bug #3918: delete_all() was calling reset() which drops the entire collection,
+    deleting ALL memories for ALL users instead of just the filtered ones.
+    This test ensures reset() is never called during filtered deletion.
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite_instance = MagicMock()
+    mock_sqlite.return_value = mock_sqlite_instance
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    mem1 = MockVectorMemory("mem_1", {"data": "User A memory 1"})
+    mem2 = MockVectorMemory("mem_2", {"data": "User A memory 2"})
+
+    mock_vector_store.list.return_value = ([mem1, mem2], 2)
+
+    mock_vector_store.get.side_effect = lambda vector_id: (
+        MagicMock(id=vector_id, payload={"data": f"Memory {vector_id}"})
+    )
+
+
+    result = memory.delete_all(user_id="user_a")
+
+    assert mock_vector_store.delete.call_count == 2
+
+    mock_vector_store.reset.assert_not_called()
+    assert result["message"] == "Memories deleted successfully!" 
