@@ -283,6 +283,31 @@ class AzureAISearch(VectorStoreBase):
                 raise Exception(f"Update failed for document {vector_id}: {doc}")
         return response
 
+    def _fetch_vector_values(self, vector_id):
+        """
+        Fetch vector values from Azure AI Search.
+        
+        Args:
+            vector_id: ID of the vector to fetch
+            
+        Returns:
+            list: The vector values
+            
+        Raises:
+            ValueError: If vector not found
+        """
+        try:
+            result = self.search_client.get_document(key=vector_id)
+            if result and "vector" in result:
+                return result["vector"]
+            else:
+                raise ValueError(f"Vector {vector_id} not found in Azure AI Search")
+        except ResourceNotFoundError:
+            raise ValueError(f"Vector {vector_id} not found in Azure AI Search")
+        except Exception as e:
+            logger.error(f"Error fetching vector values from Azure AI Search: {e}")
+            raise
+
     def get(self, vector_id) -> OutputData:
         """
         Retrieve a vector by ID.
