@@ -124,12 +124,14 @@ class OpenSearchDB(VectorStoreBase):
                 self.client.index(index=self.collection_name, body=body)
                 # Force refresh to make documents immediately searchable for tests
                 self.client.indices.refresh(index=self.collection_name)
-                
-                results.append(OutputData(
-                    id=id_,
-                    score=1.0,  # No score for inserts
-                    payload=payloads[i]
-                ))
+
+                results.append(
+                    OutputData(
+                        id=id_,
+                        score=1.0,  # No score for inserts
+                        payload=payloads[i],
+                    )
+                )
             except Exception as e:
                 logger.error(f"Error inserting vector {id_}: {e}")
                 raise
@@ -283,7 +285,6 @@ class OpenSearchDB(VectorStoreBase):
         except Exception as e:
             logger.error(f"Error listing vectors: {e}")
             return []
-        
 
     def reset(self):
         """Reset the index by deleting and recreating it."""

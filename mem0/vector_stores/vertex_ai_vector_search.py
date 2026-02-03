@@ -5,7 +5,9 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import google.api_core.exceptions
 from google.cloud import aiplatform, aiplatform_v1
-from google.cloud.aiplatform.matching_engine.matching_engine_index_endpoint import Namespace
+from google.cloud.aiplatform.matching_engine.matching_engine_index_endpoint import (
+    Namespace,
+)
 from google.oauth2 import service_account
 from pydantic import BaseModel
 
@@ -67,7 +69,7 @@ class GoogleMatchingEngine(VectorStoreBase):
             "project": self.project_id,
             "location": self.region,
         }
-        
+
         # Support both credentials_path and service_account_json
         if hasattr(config, "credentials_path") and config.credentials_path:
             logger.debug("Using credentials from file: %s", config.credentials_path)

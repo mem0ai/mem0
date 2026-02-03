@@ -17,7 +17,9 @@ def mock_openai_client():
 
 def test_openai_llm_base_url():
     # case1: default config: with openai official base url
-    config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key")
+    config = OpenAIConfig(
+        model="gpt-4.1-nano-2025-04-14", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key"
+    )
     llm = OpenAILLM(config)
     # Note: openai client will parse the raw base_url into a URL object, which will have a trailing slash
     assert str(llm.client.base_url) == "https://api.openai.com/v1/"
@@ -25,7 +27,9 @@ def test_openai_llm_base_url():
     # case2: with env variable OPENAI_API_BASE
     provider_base_url = "https://api.provider.com/v1"
     os.environ["OPENAI_BASE_URL"] = provider_base_url
-    config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key")
+    config = OpenAIConfig(
+        model="gpt-4.1-nano-2025-04-14", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key"
+    )
     llm = OpenAILLM(config)
     # Note: openai client will parse the raw base_url into a URL object, which will have a trailing slash
     assert str(llm.client.base_url) == provider_base_url + "/"
@@ -33,7 +37,12 @@ def test_openai_llm_base_url():
     # case3: with config.openai_base_url
     config_base_url = "https://api.config.com/v1"
     config = OpenAIConfig(
-        model="gpt-4.1-nano-2025-04-14", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key", openai_base_url=config_base_url
+        model="gpt-4.1-nano-2025-04-14",
+        temperature=0.7,
+        max_tokens=100,
+        top_p=1.0,
+        api_key="api_key",
+        openai_base_url=config_base_url,
     )
     llm = OpenAILLM(config)
     # Note: openai client will parse the raw base_url into a URL object, which will have a trailing slash
@@ -97,7 +106,14 @@ def test_generate_response_with_tools(mock_openai_client):
     response = llm.generate_response(messages, tools=tools)
 
     mock_openai_client.chat.completions.create.assert_called_once_with(
-        model="gpt-4.1-nano-2025-04-14", messages=messages, temperature=0.7, max_tokens=100, top_p=1.0, tools=tools, tool_choice="auto", store=False
+        model="gpt-4.1-nano-2025-04-14",
+        messages=messages,
+        temperature=0.7,
+        max_tokens=100,
+        top_p=1.0,
+        tools=tools,
+        tool_choice="auto",
+        store=False,
     )
 
     assert response["content"] == "I've added the memory for you."
@@ -109,19 +125,19 @@ def test_generate_response_with_tools(mock_openai_client):
 def test_response_callback_invocation(mock_openai_client):
     # Setup mock callback
     mock_callback = Mock()
-    
+
     config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", response_callback=mock_callback)
     llm = OpenAILLM(config)
     messages = [{"role": "user", "content": "Test callback"}]
-    
+
     # Mock response
     mock_response = Mock()
     mock_response.choices = [Mock(message=Mock(content="Response"))]
     mock_openai_client.chat.completions.create.return_value = mock_response
-    
+
     # Call method
     llm.generate_response(messages)
-    
+
     # Verify callback called with correct arguments
     mock_callback.assert_called_once()
     args = mock_callback.call_args[0]
@@ -134,16 +150,16 @@ def test_no_response_callback(mock_openai_client):
     config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14")
     llm = OpenAILLM(config)
     messages = [{"role": "user", "content": "Test no callback"}]
-    
+
     # Mock response
     mock_response = Mock()
     mock_response.choices = [Mock(message=Mock(content="Response"))]
     mock_openai_client.chat.completions.create.return_value = mock_response
-    
+
     # Should complete without calling any callback
     response = llm.generate_response(messages)
     assert response == "Response"
-    
+
     # Verify no callback is set
     assert llm.config.response_callback is None
 
@@ -152,20 +168,20 @@ def test_callback_exception_handling(mock_openai_client):
     # Callback that raises exception
     def faulty_callback(*args):
         raise ValueError("Callback error")
-    
+
     config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", response_callback=faulty_callback)
     llm = OpenAILLM(config)
     messages = [{"role": "user", "content": "Test exception"}]
-    
+
     # Mock response
     mock_response = Mock()
     mock_response.choices = [Mock(message=Mock(content="Expected response"))]
     mock_openai_client.chat.completions.create.return_value = mock_response
-    
+
     # Should complete without raising
     response = llm.generate_response(messages)
     assert response == "Expected response"
-    
+
     # Verify callback was called (even though it raised an exception)
     assert llm.config.response_callback is faulty_callback
 
@@ -186,10 +202,10 @@ def test_callback_with_tools(mock_openai_client):
                     "properties": {"param1": {"type": "string"}},
                     "required": ["param1"],
                 },
-            }
+            },
         }
     ]
-    
+
     # Mock tool response
     mock_response = Mock()
     mock_message = Mock()
@@ -200,10 +216,10 @@ def test_callback_with_tools(mock_openai_client):
     mock_message.tool_calls = [mock_tool_call]
     mock_response.choices = [Mock(message=mock_message)]
     mock_openai_client.chat.completions.create.return_value = mock_response
-    
+
     llm.generate_response(messages, tools=tools)
-    
+
     # Verify callback called with tool response
     mock_callback.assert_called_once()
     # Check that tool_calls exists in the message
-    assert hasattr(mock_callback.call_args[0][1].choices[0].message, 'tool_calls')
+    assert hasattr(mock_callback.call_args[0][1].choices[0].message, "tool_calls")

@@ -19,6 +19,7 @@ logging.basicConfig(level=logging.INFO)
 
 _DRIVER_METADATA = DriverInfo(name="Mem0", version=version("mem0ai"))
 
+
 class OutputData(BaseModel):
     id: Optional[str]
     score: Optional[float]
@@ -195,10 +196,10 @@ class MongoDB(VectorStoreBase):
             payload (Dict, optional): Updated payload.
         """
         update_fields = {}
-        
+
         if vector is not None:
             update_fields["embedding"] = vector
-            
+
         if payload is not None:
             # Use dot notation to merge fields instead of replacing the whole dict
             for key, value in payload.items():

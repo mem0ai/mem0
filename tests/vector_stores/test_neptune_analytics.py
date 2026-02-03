@@ -30,11 +30,13 @@ VECTOR_3 = [-0.3] * EMBEDDING_MODEL_DIMS
 SAMPLE_PAYLOADS = [
     {"test_text": "text_value", "another_field": "field_2_value"},
     {"test_text": "text_value_BBBB"},
-    {"test_text": "text_value_CCCC"}
+    {"test_text": "text_value_CCCC"},
 ]
 
 
-@pytest.mark.skipif(not os.getenv("RUN_TEST_NEPTUNE_ANALYTICS"), reason="Only run with RUN_TEST_NEPTUNE_ANALYTICS is true")
+@pytest.mark.skipif(
+    not os.getenv("RUN_TEST_NEPTUNE_ANALYTICS"), reason="Only run with RUN_TEST_NEPTUNE_ANALYTICS is true"
+)
 class TestNeptuneAnalyticsOperations:
     """Test basic CRUD operations."""
 
@@ -47,30 +49,20 @@ class TestNeptuneAnalyticsOperations:
         }
         return VectorStoreFactory.create("neptune", config)
 
-
     def test_insert_and_list(self, na_instance):
         """Test vector insertion and listing."""
         na_instance.reset()
-        na_instance.insert(
-            vectors=[VECTOR_1, VECTOR_2, VECTOR_3],
-            ids=["A", "B", "C"],
-            payloads=SAMPLE_PAYLOADS
-        )
-        
+        na_instance.insert(vectors=[VECTOR_1, VECTOR_2, VECTOR_3], ids=["A", "B", "C"], payloads=SAMPLE_PAYLOADS)
+
         list_result = na_instance.list()[0]
         assert len(list_result) == 3
         assert "label" not in list_result[0].payload
 
-
     def test_get(self, na_instance):
         """Test retrieving a specific vector."""
         na_instance.reset()
-        na_instance.insert(
-            vectors=[VECTOR_1],
-            ids=["A"],
-            payloads=[SAMPLE_PAYLOADS[0]]
-        )
-        
+        na_instance.insert(vectors=[VECTOR_1], ids=["A"], payloads=[SAMPLE_PAYLOADS[0]])
+
         vector_a = na_instance.get("A")
         assert vector_a.id == "A"
         assert vector_a.score is None
@@ -78,64 +70,44 @@ class TestNeptuneAnalyticsOperations:
         assert vector_a.payload["another_field"] == "field_2_value"
         assert "label" not in vector_a.payload
 
-
     def test_update(self, na_instance):
         """Test updating vector payload."""
         na_instance.reset()
-        na_instance.insert(
-            vectors=[VECTOR_1],
-            ids=["A"],
-            payloads=[SAMPLE_PAYLOADS[0]]
-        )
-        
+        na_instance.insert(vectors=[VECTOR_1], ids=["A"], payloads=[SAMPLE_PAYLOADS[0]])
+
         na_instance.update(vector_id="A", payload={"updated_payload_str": "update_str"})
         vector_a = na_instance.get("A")
-        
+
         assert vector_a.id == "A"
         assert vector_a.score is None
         assert vector_a.payload["updated_payload_str"] == "update_str"
         assert "label" not in vector_a.payload
 
-
     def test_delete(self, na_instance):
         """Test deleting a specific vector."""
         na_instance.reset()
-        na_instance.insert(
-            vectors=[VECTOR_1],
-            ids=["A"],
-            payloads=[SAMPLE_PAYLOADS[0]]
-        )
-        
+        na_instance.insert(vectors=[VECTOR_1], ids=["A"], payloads=[SAMPLE_PAYLOADS[0]])
+
         size_before = na_instance.list()[0]
         assert len(size_before) == 1
-        
+
         na_instance.delete("A")
         size_after = na_instance.list()[0]
         assert len(size_after) == 0
 
-
     def test_search(self, na_instance):
         """Test vector similarity search."""
         na_instance.reset()
-        na_instance.insert(
-            vectors=[VECTOR_1, VECTOR_2, VECTOR_3],
-            ids=["A", "B", "C"],
-            payloads=SAMPLE_PAYLOADS
-        )
-        
+        na_instance.insert(vectors=[VECTOR_1, VECTOR_2, VECTOR_3], ids=["A", "B", "C"], payloads=SAMPLE_PAYLOADS)
+
         result = na_instance.search(query="", vectors=VECTOR_1, limit=1)
         assert len(result) == 1
         assert "label" not in result[0].payload
 
-
     def test_reset(self, na_instance):
         """Test resetting the collection."""
         na_instance.reset()
-        na_instance.insert(
-            vectors=[VECTOR_1, VECTOR_2, VECTOR_3],
-            ids=["A", "B", "C"],
-            payloads=SAMPLE_PAYLOADS
-        )
+        na_instance.insert(vectors=[VECTOR_1, VECTOR_2, VECTOR_3], ids=["A", "B", "C"], payloads=SAMPLE_PAYLOADS)
 
         list_result = na_instance.list()[0]
         assert len(list_result) == 3
@@ -144,15 +116,10 @@ class TestNeptuneAnalyticsOperations:
         list_result = na_instance.list()[0]
         assert len(list_result) == 0
 
-
     def test_delete_col(self, na_instance):
         """Test deleting the entire collection."""
         na_instance.reset()
-        na_instance.insert(
-            vectors=[VECTOR_1, VECTOR_2, VECTOR_3],
-            ids=["A", "B", "C"],
-            payloads=SAMPLE_PAYLOADS
-        )
+        na_instance.insert(vectors=[VECTOR_1, VECTOR_2, VECTOR_3], ids=["A", "B", "C"], payloads=SAMPLE_PAYLOADS)
 
         list_result = na_instance.list()[0]
         assert len(list_result) == 3
@@ -161,19 +128,13 @@ class TestNeptuneAnalyticsOperations:
         list_result = na_instance.list()[0]
         assert len(list_result) == 0
 
-
     def test_list_cols(self, na_instance):
         """Test listing collections."""
         na_instance.reset()
-        na_instance.insert(
-            vectors=[VECTOR_1, VECTOR_2, VECTOR_3],
-            ids=["A", "B", "C"],
-            payloads=SAMPLE_PAYLOADS
-        )
+        na_instance.insert(vectors=[VECTOR_1, VECTOR_2, VECTOR_3], ids=["A", "B", "C"], payloads=SAMPLE_PAYLOADS)
 
         result = na_instance.list_cols()
         assert result == ["MEM0_VECTOR_test"]
-
 
     def test_invalid_endpoint_format(self):
         """Test that invalid endpoint format raises ValueError."""

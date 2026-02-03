@@ -69,7 +69,7 @@ def test_search_vectors_with_agent_id_run_id_filters(langchain_instance):
     # Mock search results
     mock_docs = [
         Mock(metadata={"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}, id="id1"),
-        Mock(metadata={"user_id": "bob", "agent_id": "agent2", "run_id": "run2"}, id="id2")
+        Mock(metadata={"user_id": "bob", "agent_id": "agent2", "run_id": "run2"}, id="id2"),
     ]
     langchain_instance.client.similarity_search_by_vector.return_value = mock_docs
 
@@ -117,9 +117,7 @@ def test_search_vectors_with_no_filters(langchain_instance):
     results = langchain_instance.search(query="", vectors=vectors, limit=2, filters=None)
 
     # Verify that no filters were passed to the underlying vector store
-    langchain_instance.client.similarity_search_by_vector.assert_called_once_with(
-        embedding=vectors, k=2
-    )
+    langchain_instance.client.similarity_search_by_vector.assert_called_once_with(embedding=vectors, k=2)
 
     assert len(results) == 1
 
@@ -150,7 +148,7 @@ def test_list_with_filters(langchain_instance):
     mock_collection.get.return_value = {
         "ids": [["id1"]],
         "metadatas": [[{"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}]],
-        "documents": [["test document"]]
+        "documents": [["test document"]],
     }
     langchain_instance.client._collection = mock_collection
 
@@ -175,7 +173,7 @@ def test_list_with_single_filter(langchain_instance):
     mock_collection.get.return_value = {
         "ids": [["id1"]],
         "metadatas": [[{"user_id": "alice"}]],
-        "documents": [["test document"]]
+        "documents": [["test document"]],
     }
     langchain_instance.client._collection = mock_collection
 
@@ -198,7 +196,7 @@ def test_list_with_no_filters(langchain_instance):
     mock_collection.get.return_value = {
         "ids": [["id1"]],
         "metadatas": [[{"name": "vector1"}]],
-        "documents": [["test document"]]
+        "documents": [["test document"]],
     }
     langchain_instance.client._collection = mock_collection
 

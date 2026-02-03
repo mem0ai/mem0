@@ -1,4 +1,3 @@
-
 """
 GitHub Repository Research Agent with Persistent Memory
 
@@ -47,45 +46,34 @@ from strands_tools import http_request
 
 from mem0.memory.main import Memory
 
-
 config = {
-    "embedder": {
-        "provider": "aws_bedrock",
-        "config": {
-            "model": "amazon.titan-embed-text-v2:0"
-        }
-    },
+    "embedder": {"provider": "aws_bedrock", "config": {"model": "amazon.titan-embed-text-v2:0"}},
     "llm": {
         "provider": "aws_bedrock",
-        "config": {
-            "model": "us.anthropic.claude-sonnet-4-20250514-v1:0",
-            "max_tokens": 512,
-            "temperature": 0.5
-        }
+        "config": {"model": "us.anthropic.claude-sonnet-4-20250514-v1:0", "max_tokens": 512, "temperature": 0.5},
     },
     "vector_store": {
-            "provider": "valkey",
-            "config": {
-                "collection_name": "blogpost1",
-                "embedding_model_dims": 1024,
-                "valkey_url": os.getenv("VALKEY_URL", "valkey://localhost:6379"),
-                "index_type": "hnsw",
-                "hnsw_m": 32,
-                "hnsw_ef_construction": 400,
-                "hnsw_ef_runtime": 40
-            }
-        }
-    ,
+        "provider": "valkey",
+        "config": {
+            "collection_name": "blogpost1",
+            "embedding_model_dims": 1024,
+            "valkey_url": os.getenv("VALKEY_URL", "valkey://localhost:6379"),
+            "index_type": "hnsw",
+            "hnsw_m": 32,
+            "hnsw_ef_construction": 400,
+            "hnsw_ef_runtime": 40,
+        },
+    },
     "graph_store": {
         "provider": "neptune",
         "config": {
             "endpoint": os.getenv("NEPTUNE_ENDPOINT", "neptune-graph://g-6n3v83av7a"),
         },
-    }
-
+    },
 }
 
 m = Memory.from_config(config)
+
 
 def get_assistant_response(messages):
     """
@@ -101,16 +89,12 @@ def get_assistant_response(messages):
     formatted_messages = []
 
     for message in messages:
-        formatted_message = {
-            "role": message["role"],
-            "content": [{"text": message["content"]}]
-        }
+        formatted_message = {"role": message["role"], "content": [{"text": message["content"]}]}
         formatted_messages.append(formatted_message)
 
     # Send the properly formatted message list to the agent
     result = agent(formatted_messages)
     return result
-
 
 
 @tool
@@ -142,6 +126,7 @@ def store_memory_tool(information: str, user_id: str = "user", category: str = "
     except Exception as e:
         print(f"Error storing vector memory: {e}")
         return f"❌ Failed to store vector memory: {str(e)}"
+
 
 @tool
 def store_graph_memory_tool(information: str, user_id: str = "user", category: str = "relationships") -> str:
@@ -175,6 +160,7 @@ def store_graph_memory_tool(information: str, user_id: str = "user", category: s
     except Exception as e:
         return f"❌ Failed to store graph memory: {str(e)}"
 
+
 @tool
 def search_memory_tool(query: str, user_id: str = "user") -> str:
     """
@@ -200,16 +186,16 @@ def search_memory_tool(query: str, user_id: str = "user") -> str:
     try:
         results = m.search(query, user_id=user_id)
 
-        if isinstance(results, dict) and 'results' in results:
-            memory_list = results['results']
+        if isinstance(results, dict) and "results" in results:
+            memory_list = results["results"]
             if memory_list:
                 memory_texts = []
                 for i, result in enumerate(memory_list, 1):
-                    memory_text = result.get('memory', 'No memory text available')
-                    metadata = result.get('metadata', {})
-                    category = metadata.get('category', 'unknown') if isinstance(metadata, dict) else 'unknown'
-                    storage_type = metadata.get('storage_type', 'unknown') if isinstance(metadata, dict) else 'unknown'
-                    score = result.get('score', 0)
+                    memory_text = result.get("memory", "No memory text available")
+                    metadata = result.get("metadata", {})
+                    category = metadata.get("category", "unknown") if isinstance(metadata, dict) else "unknown"
+                    storage_type = metadata.get("storage_type", "unknown") if isinstance(metadata, dict) else "unknown"
+                    score = result.get("score", 0)
                     memory_texts.append(f"{i}. [{category}|{storage_type}] {memory_text} (score: {score:.3f})")
 
                 return f"🔍 Found {len(memory_list)} relevant vector memories:\n" + "\n".join(memory_texts)
@@ -220,6 +206,7 @@ def search_memory_tool(query: str, user_id: str = "user") -> str:
     except Exception as e:
         print(f"Error searching vector memories: {e}")
         return f"❌ Failed to search vector memories: {str(e)}"
+
 
 @tool
 def search_graph_memory_tool(query: str, user_id: str = "user") -> str:
@@ -247,26 +234,28 @@ def search_graph_memory_tool(query: str, user_id: str = "user") -> str:
         graph_query = f"relationships connections {query}"
         results = m.search(graph_query, user_id=user_id)
 
-        if isinstance(results, dict) and 'results' in results:
-            memory_list = results['results']
+        if isinstance(results, dict) and "results" in results:
+            memory_list = results["results"]
             if memory_list:
                 memory_texts = []
                 relationship_count = 0
                 for i, result in enumerate(memory_list, 1):
-                    memory_text = result.get('memory', 'No memory text available')
-                    metadata = result.get('metadata', {})
-                    category = metadata.get('category', 'unknown') if isinstance(metadata, dict) else 'unknown'
-                    storage_type = metadata.get('storage_type', 'unknown') if isinstance(metadata, dict) else 'unknown'
-                    score = result.get('score', 0)
+                    memory_text = result.get("memory", "No memory text available")
+                    metadata = result.get("metadata", {})
+                    category = metadata.get("category", "unknown") if isinstance(metadata, dict) else "unknown"
+                    storage_type = metadata.get("storage_type", "unknown") if isinstance(metadata, dict) else "unknown"
+                    score = result.get("score", 0)
 
                     # Prioritize graph/relationship memories
-                    if 'RELATIONSHIP:' in memory_text or storage_type == 'graph' or category == 'relationships':
+                    if "RELATIONSHIP:" in memory_text or storage_type == "graph" or category == "relationships":
                         relationship_count += 1
                         memory_texts.append(f"{i}. 🔗 [{category}|{storage_type}] {memory_text} (score: {score:.3f})")
                     else:
                         memory_texts.append(f"{i}. [{category}|{storage_type}] {memory_text} (score: {score:.3f})")
 
-                result_summary = f"🔗 Found {len(memory_list)} relevant memories ({relationship_count} relationship-focused):\n"
+                result_summary = (
+                    f"🔗 Found {len(memory_list)} relevant memories ({relationship_count} relationship-focused):\n"
+                )
                 return result_summary + "\n".join(memory_texts)
             else:
                 return f"🔗 No graph memories found for query: '{query}'"
@@ -275,6 +264,7 @@ def search_graph_memory_tool(query: str, user_id: str = "user") -> str:
     except Exception as e:
         print(f"Error searching graph memories: {e}")
         return f"Failed to search graph memories: {str(e)}"
+
 
 @tool
 def get_all_memories_tool(user_id: str = "user") -> str:
@@ -292,15 +282,15 @@ def get_all_memories_tool(user_id: str = "user") -> str:
     try:
         all_memories = m.get_all(user_id=user_id)
 
-        if isinstance(all_memories, dict) and 'results' in all_memories:
-            memory_list = all_memories['results']
+        if isinstance(all_memories, dict) and "results" in all_memories:
+            memory_list = all_memories["results"]
             if memory_list:
                 memory_texts = []
                 for i, memory in enumerate(memory_list, 1):
-                    memory_text = memory.get('memory', 'No memory text available')
-                    metadata = memory.get('metadata', {})
-                    category = metadata.get('category', 'unknown') if isinstance(metadata, dict) else 'unknown'
-                    created_at = memory.get('created_at', 'unknown time')
+                    memory_text = memory.get("memory", "No memory text available")
+                    metadata = memory.get("metadata", {})
+                    category = metadata.get("category", "unknown") if isinstance(metadata, dict) else "unknown"
+                    created_at = memory.get("created_at", "unknown time")
                     memory_texts.append(f"{i}. [{category}] {memory_text} (stored: {created_at})")
 
                 return f"📚 Found {len(memory_list)} total memories:\n" + "\n".join(memory_texts)
@@ -312,8 +302,19 @@ def get_all_memories_tool(user_id: str = "user") -> str:
         print(f"Error retrieving all memories: {e}")
         return f"❌ Failed to retrieve memories: {str(e)}"
 
+
 # Initialize agent with tools (must be after tool definitions)
-agent = Agent(tools=[http_request, store_memory_tool, store_graph_memory_tool, search_memory_tool, search_graph_memory_tool, get_all_memories_tool])
+agent = Agent(
+    tools=[
+        http_request,
+        store_memory_tool,
+        store_graph_memory_tool,
+        search_memory_tool,
+        search_graph_memory_tool,
+        get_all_memories_tool,
+    ]
+)
+
 
 def store_memory(messages, user_id="alice", category="conversation"):
     """
@@ -329,16 +330,22 @@ def store_memory(messages, user_id="alice", category="conversation"):
     """
     try:
         result = m.add(messages, user_id=user_id, metadata={"category": category})
-        #print(f"Memory stored successfully: {result}")
+        # print(f"Memory stored successfully: {result}")
         return result
     except Exception:
-        #print(f"Error storing memory: {e}")
+        # print(f"Error storing memory: {e}")
         return None
 
+
 def get_agent_metrics(result):
-    agent_metrics = f"I've used {result.metrics.cycle_count} cycle counts," + f" {result.metrics.accumulated_usage['totalTokens']} tokens" + f", and {sum(result.metrics.cycle_durations):.2f} seconds finding that answer"
+    agent_metrics = (
+        f"I've used {result.metrics.cycle_count} cycle counts,"
+        + f" {result.metrics.accumulated_usage['totalTokens']} tokens"
+        + f", and {sum(result.metrics.cycle_durations):.2f} seconds finding that answer"
+    )
     print(agent_metrics)
     return agent_metrics
+
 
 st.title("Repo Research Agent")
 
@@ -356,7 +363,7 @@ with st.container():
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # React to user input
 if prompt := st.chat_input("Send a message"):

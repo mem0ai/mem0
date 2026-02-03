@@ -1,18 +1,16 @@
 import json
 import logging
+
 import httpx
 
-from mem0.exceptions import (
-    NetworkError,
-    create_exception_from_response,
-)
+from mem0.exceptions import NetworkError, create_exception_from_response
 
 logger = logging.getLogger(__name__)
 
 
 class APIError(Exception):
     """Exception raised for errors in the API.
-    
+
     Deprecated: Use specific exception classes from mem0.exceptions instead.
     This class is maintained for backward compatibility.
     """
@@ -22,10 +20,10 @@ class APIError(Exception):
 
 def api_error_handler(func):
     """Decorator to handle API errors consistently.
-    
+
     This decorator catches HTTP and request errors and converts them to
     appropriate structured exception classes with detailed error information.
-    
+
     The decorator analyzes HTTP status codes and response content to create
     the most specific exception type with helpful error messages, suggestions,
     and debug information.
@@ -38,7 +36,7 @@ def api_error_handler(func):
             return func(*args, **kwargs)
         except httpx.HTTPStatusError as e:
             logger.error(f"HTTP error occurred: {e}")
-            
+
             # Extract error details from response
             response_text = ""
             error_details = {}
@@ -47,7 +45,7 @@ def api_error_handler(func):
                 "url": str(e.request.url),
                 "method": e.request.method,
             }
-            
+
             try:
                 response_text = e.response.text
                 # Try to parse JSON response for additional error details
@@ -59,7 +57,7 @@ def api_error_handler(func):
             except (json.JSONDecodeError, AttributeError):
                 # Fallback to plain text response
                 pass
-            
+
             # Add rate limit information if available
             if e.response.status_code == 429:
                 retry_after = e.response.headers.get("Retry-After")
@@ -68,13 +66,13 @@ def api_error_handler(func):
                         debug_info["retry_after"] = int(retry_after)
                     except ValueError:
                         pass
-                
+
                 # Add rate limit headers if available
                 for header in ["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"]:
                     value = e.response.headers.get(header)
                     if value:
                         debug_info[header.lower().replace("-", "_")] = value
-            
+
             # Create specific exception based on status code
             exception = create_exception_from_response(
                 status_code=e.response.status_code,
@@ -82,12 +80,12 @@ def api_error_handler(func):
                 details=error_details,
                 debug_info=debug_info,
             )
-            
+
             raise exception
-            
+
         except httpx.RequestError as e:
             logger.error(f"Request error occurred: {e}")
-            
+
             # Determine the appropriate exception type based on error type
             if isinstance(e, httpx.TimeoutException):
                 raise NetworkError(

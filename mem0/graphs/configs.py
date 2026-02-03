@@ -50,13 +50,17 @@ class NeptuneConfig(BaseModel):
         ),
     )
     base_label: Optional[bool] = Field(None, description="Whether to use base node label __Entity__ for all entities")
-    collection_name: Optional[str] = Field(None, description="vector_store collection name to store vectors when using Neptune-DB Clusters")
+    collection_name: Optional[str] = Field(
+        None, description="vector_store collection name to store vectors when using Neptune-DB Clusters"
+    )
 
     @model_validator(mode="before")
     def check_host_port_or_path(cls, values):
         endpoint = values.get("endpoint")
         if not endpoint:
-            raise ValueError("Please provide 'endpoint' with the format as 'neptune-db://<endpoint>' or 'neptune-graph://<graphid>'.")
+            raise ValueError(
+                "Please provide 'endpoint' with the format as 'neptune-db://<endpoint>' or 'neptune-graph://<graphid>'."
+            )
         if endpoint.startswith("neptune-db://"):
             # This is a Neptune DB Graph
             return values
@@ -91,9 +95,9 @@ class GraphStoreConfig(BaseModel):
     )
     threshold: float = Field(
         description="Threshold for embedding similarity when matching nodes during graph ingestion. "
-                    "Range: 0.0 to 1.0. Higher values require closer matches. "
-                    "Use lower values (e.g., 0.5-0.7) for distinct entities with similar embeddings. "
-                    "Use higher values (e.g., 0.9+) when you want stricter matching.",
+        "Range: 0.0 to 1.0. Higher values require closer matches. "
+        "Use lower values (e.g., 0.5-0.7) for distinct entities with similar embeddings. "
+        "Use higher values (e.g., 0.9+) when you want stricter matching.",
         default=0.7,
         ge=0.0,
         le=1.0,

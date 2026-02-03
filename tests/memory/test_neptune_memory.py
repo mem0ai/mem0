@@ -1,8 +1,10 @@
 import unittest
 from unittest.mock import MagicMock, patch
+
 import pytest
-from mem0.graphs.neptune.neptunedb import MemoryGraph
+
 from mem0.graphs.neptune.base import NeptuneBase
+from mem0.graphs.neptune.neptunedb import MemoryGraph
 
 
 class TestNeptuneMemory(unittest.TestCase):
@@ -75,7 +77,7 @@ class TestNeptuneMemory(unittest.TestCase):
 
     def test_collection_name_variants(self):
         """Test all collection_name configuration variants."""
-        
+
         # Test 1: graph_store.config.collection_name is set
         config1 = MagicMock()
         config1.graph_store.config.endpoint = "neptune-db://test-graph"
@@ -85,10 +87,10 @@ class TestNeptuneMemory(unittest.TestCase):
         config1.graph_store.llm = None
         config1.vector_store.provider = "qdrant"
         config1.vector_store.config = MagicMock()
-        
+
         MemoryGraph(config1)
         self.assertEqual(config1.vector_store.config.collection_name, "custom_collection")
-        
+
         # Test 2: vector_store.config.collection_name exists, graph_store.config.collection_name is None
         config2 = MagicMock()
         config2.graph_store.config.endpoint = "neptune-db://test-graph"
@@ -99,10 +101,10 @@ class TestNeptuneMemory(unittest.TestCase):
         config2.vector_store.provider = "qdrant"
         config2.vector_store.config = MagicMock()
         config2.vector_store.config.collection_name = "existing_collection"
-        
+
         MemoryGraph(config2)
         self.assertEqual(config2.vector_store.config.collection_name, "existing_collection_neptune_vector_store")
-        
+
         # Test 3: Neither collection_name is set (default case)
         config3 = MagicMock()
         config3.graph_store.config.endpoint = "neptune-db://test-graph"
@@ -113,7 +115,7 @@ class TestNeptuneMemory(unittest.TestCase):
         config3.vector_store.provider = "qdrant"
         config3.vector_store.config = MagicMock()
         config3.vector_store.config.collection_name = None
-        
+
         MemoryGraph(config3)
         self.assertEqual(config3.vector_store.config.collection_name, "mem0_neptune_vector_store")
 

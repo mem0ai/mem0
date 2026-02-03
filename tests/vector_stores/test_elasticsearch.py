@@ -9,8 +9,8 @@ try:
 except ImportError:
     raise ImportError("Elasticsearch requires extra dependencies. Install with `pip install elasticsearch`") from None
 
-from mem0.vector_stores.elasticsearch import ElasticsearchDB, OutputData
 from mem0.configs.vector_stores.elasticsearch import ElasticsearchConfig
+from mem0.vector_stores.elasticsearch import ElasticsearchDB, OutputData
 
 
 class TestElasticsearchDB(unittest.TestCase):
@@ -314,11 +314,11 @@ class TestElasticsearchDB(unittest.TestCase):
     def test_es_config(self):
         config = {"host": "localhost", "port": 9200, "user": "elastic", "password": "password"}
         es_config = ElasticsearchConfig(**config)
-        
+
         # Assert that the config object was created successfully
         self.assertIsNotNone(es_config)
         self.assertIsInstance(es_config, ElasticsearchConfig)
-        
+
         # Assert that the configuration values are correctly set
         self.assertEqual(es_config.host, "localhost")
         self.assertEqual(es_config.port, 9200)
@@ -345,13 +345,13 @@ class TestElasticsearchDB(unittest.TestCase):
             "user": "elastic",
             "password": "password",
         }
-        
+
         invalid_headers = [
             "not-a-dict",  # Non-dict headers
             {"x-extra-info": 123},  # Non-string values
             {123: "456"},  # Non-string keys
         ]
-        
+
         for headers in invalid_headers:
             with self.assertRaises(ValueError):
                 config = {**base_config, "headers": headers}

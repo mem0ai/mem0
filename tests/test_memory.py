@@ -8,7 +8,7 @@ from mem0.configs.base import MemoryConfig
 
 class MockVectorMemory:
     """Mock memory object for testing incomplete payloads."""
-    
+
     def __init__(self, memory_id: str, payload: dict, score: float = 0.8):
         self.id = memory_id
         self.payload = payload
@@ -75,11 +75,13 @@ def test_list_memories(memory_client):
     assert data2 in memories
 
 
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
-def test_collection_name_preserved_after_reset(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_collection_name_preserved_after_reset(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
     mock_embedder_factory.return_value = MagicMock()
     mock_vector_store = MagicMock()
     mock_vector_factory.return_value = mock_vector_store
@@ -102,14 +104,16 @@ def test_collection_name_preserved_after_reset(mock_sqlite, mock_llm_factory, mo
 
     reset_calls = [call for call in mock_vector_factory.call_args_list if len(mock_vector_factory.call_args_list) > 2]
     if reset_calls:
-        reset_config = reset_calls[-1][0][1]  
-        assert reset_config.collection_name == test_collection_name, f"Reset used wrong collection name: {reset_config.collection_name}"
+        reset_config = reset_calls[-1][0][1]
+        assert (
+            reset_config.collection_name == test_collection_name
+        ), f"Reset used wrong collection name: {reset_config.collection_name}"
 
 
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
 def test_search_handles_incomplete_payloads(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
     """Test that search operations handle memory objects with missing 'data' key gracefully."""
     mock_embedder_factory.return_value = MagicMock()
@@ -119,6 +123,7 @@ def test_search_handles_incomplete_payloads(mock_sqlite, mock_llm_factory, mock_
     mock_sqlite.return_value = MagicMock()
 
     from mem0.memory.main import Memory as MemoryClass
+
     config = MemoryConfig()
     memory = MemoryClass(config)
 
@@ -127,13 +132,13 @@ def test_search_handles_incomplete_payloads(mock_sqlite, mock_llm_factory, mock_
     complete_memory = MockVectorMemory("mem_2", {"data": "content", "hash": "def456"})
 
     mock_vector_store.search.return_value = [incomplete_memory, complete_memory]
-    
+
     mock_embedder = MagicMock()
     mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
     memory.embedding_model = mock_embedder
 
     result = memory._search_vector_store("test", {"user_id": "test"}, 10)
-    
+
     assert len(result) == 2
     memories_by_id = {mem["id"]: mem for mem in result}
 
@@ -141,11 +146,13 @@ def test_search_handles_incomplete_payloads(mock_sqlite, mock_llm_factory, mock_
     assert memories_by_id["mem_2"]["memory"] == "content"
 
 
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
-def test_get_all_handles_nested_list_from_chroma(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_get_all_handles_nested_list_from_chroma(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
     """
     Test that get_all() handles nested list return from Chroma/Milvus.
 
@@ -159,6 +166,7 @@ def test_get_all_handles_nested_list_from_chroma(mock_sqlite, mock_llm_factory, 
     mock_sqlite.return_value = MagicMock()
 
     from mem0.memory.main import Memory as MemoryClass
+
     config = MemoryConfig()
     memory = MemoryClass(config)
 
@@ -179,10 +187,10 @@ def test_get_all_handles_nested_list_from_chroma(mock_sqlite, mock_llm_factory, 
     assert result[2]["memory"] == "I live in California"
 
 
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
 def test_get_all_handles_tuple_from_qdrant(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
     """
     Test that get_all() handles tuple return from Qdrant.
@@ -197,6 +205,7 @@ def test_get_all_handles_tuple_from_qdrant(mock_sqlite, mock_llm_factory, mock_v
     mock_sqlite.return_value = MagicMock()
 
     from mem0.memory.main import Memory as MemoryClass
+
     config = MemoryConfig()
     memory = MemoryClass(config)
 
@@ -213,11 +222,13 @@ def test_get_all_handles_tuple_from_qdrant(mock_sqlite, mock_llm_factory, mock_v
     assert result[1]["memory"] == "Memory 2"
 
 
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
-def test_get_all_handles_flat_list_from_postgres(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_get_all_handles_flat_list_from_postgres(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
     """
     Test that get_all() handles flat list return from PostgreSQL.
 
@@ -231,6 +242,7 @@ def test_get_all_handles_flat_list_from_postgres(mock_sqlite, mock_llm_factory, 
     mock_sqlite.return_value = MagicMock()
 
     from mem0.memory.main import Memory as MemoryClass
+
     config = MemoryConfig()
     memory = MemoryClass(config)
 
@@ -244,4 +256,4 @@ def test_get_all_handles_flat_list_from_postgres(mock_sqlite, mock_llm_factory, 
 
     assert len(result) == 2
     assert result[0]["memory"] == "Memory 1"
-    assert result[1]["memory"] == "Memory 2" 
+    assert result[1]["memory"] == "Memory 2"

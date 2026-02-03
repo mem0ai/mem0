@@ -1,7 +1,7 @@
-from mem0.configs.vector_stores.s3_vectors import S3VectorsConfig
 import pytest
 from botocore.exceptions import ClientError
 
+from mem0.configs.vector_stores.s3_vectors import S3VectorsConfig
 from mem0.memory.main import Memory
 from mem0.vector_stores.s3_vectors import S3Vectors
 
@@ -39,9 +39,7 @@ def mock_llm(mocker):
 
 def test_initialization_creates_resources(mock_boto_client):
     """Test that bucket and index are created if they don't exist."""
-    not_found_error = ClientError(
-        {"Error": {"Code": "NotFoundException"}}, "OperationName"
-    )
+    not_found_error = ClientError({"Error": {"Code": "NotFoundException"}}, "OperationName")
     mock_boto_client.get_vector_bucket.side_effect = not_found_error
     mock_boto_client.get_index.side_effect = not_found_error
 
@@ -52,9 +50,7 @@ def test_initialization_creates_resources(mock_boto_client):
         region_name=REGION,
     )
 
-    mock_boto_client.create_vector_bucket.assert_called_once_with(
-        vectorBucketName=BUCKET_NAME
-    )
+    mock_boto_client.create_vector_bucket.assert_called_once_with(vectorBucketName=BUCKET_NAME)
     mock_boto_client.create_index.assert_called_once_with(
         vectorBucketName=BUCKET_NAME,
         indexName=INDEX_NAME,
@@ -162,9 +158,7 @@ def test_search(mock_boto_client):
 
 def test_get(mock_boto_client):
     """Test retrieving a vector by ID."""
-    mock_boto_client.get_vectors.return_value = {
-        "vectors": [{"key": "id1", "metadata": {"meta": "data1"}}]
-    }
+    mock_boto_client.get_vectors.return_value = {"vectors": [{"key": "id1", "metadata": {"meta": "data1"}}]}
     store = S3Vectors(
         vector_bucket_name=BUCKET_NAME,
         collection_name=INDEX_NAME,
@@ -200,9 +194,7 @@ def test_delete(mock_boto_client):
 def test_reset(mock_boto_client):
     """Test resetting the vector index."""
     # GIVEN: The index does not exist, so it gets created on init and reset
-    not_found_error = ClientError(
-        {"Error": {"Code": "NotFoundException"}}, "OperationName"
-    )
+    not_found_error = ClientError({"Error": {"Code": "NotFoundException"}}, "OperationName")
     mock_boto_client.get_index.side_effect = not_found_error
 
     # WHEN: The store is initialized
@@ -219,7 +211,5 @@ def test_reset(mock_boto_client):
     store.reset()
 
     # THEN: The index is deleted and then created again
-    mock_boto_client.delete_index.assert_called_once_with(
-        vectorBucketName=BUCKET_NAME, indexName=INDEX_NAME
-    )
+    mock_boto_client.delete_index.assert_called_once_with(vectorBucketName=BUCKET_NAME, indexName=INDEX_NAME)
     assert mock_boto_client.create_index.call_count == 2

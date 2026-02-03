@@ -71,7 +71,7 @@ class MemoryGraph:
         self.llm = LlmFactory.create(self.llm_provider, llm_config)
         self.user_id = None
         # Use threshold from graph_store config, default to 0.7 for backward compatibility
-        self.threshold = self.config.graph_store.threshold if hasattr(self.config.graph_store, 'threshold') else 0.7
+        self.threshold = self.config.graph_store.threshold if hasattr(self.config.graph_store, "threshold") else 0.7
 
     def add(self, data, filters):
         """
@@ -436,7 +436,9 @@ class MemoryGraph:
 
             # search for the nodes with the closest embeddings
             source_node_search_result = self._search_source_node(source_embedding, filters, threshold=self.threshold)
-            destination_node_search_result = self._search_destination_node(dest_embedding, filters, threshold=self.threshold)
+            destination_node_search_result = self._search_destination_node(
+                dest_embedding, filters, threshold=self.threshold
+            )
 
             # TODO: Create a cypher query and common params for all the cases
             if not destination_node_search_result and source_node_search_result:

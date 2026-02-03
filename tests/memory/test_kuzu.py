@@ -1,6 +1,8 @@
+from unittest.mock import Mock, patch
+
 import numpy as np
 import pytest
-from unittest.mock import Mock, patch
+
 from mem0.memory.kuzu_memory import MemoryGraph
 
 
@@ -142,28 +144,26 @@ class TestKuzu:
         assert get_node_count(kuzu_memory) == 3
         assert get_edge_count(kuzu_memory) == 4
 
-        data3 = [
-            {"source": "dave", "destination": "alice", "relationship": "admires"}
-        ]
+        data3 = [{"source": "dave", "destination": "alice", "relationship": "admires"}]
         result = kuzu_memory._add_entities(data3, filters, {})
         assert result[0] == [{"source": "dave", "relationship": "admires", "target": "alice"}]
         assert get_node_count(kuzu_memory) == 4  # dave is new
         assert get_edge_count(kuzu_memory) == 5
 
         results = kuzu_memory.get_all(filters)
-        assert set([f"{result['source']}_{result['relationship']}_{result['target']}" for result in results]) == set([
-            "alice_knows_bob",
-            "bob_knows_charlie",
-            "charlie_likes_alice",
-            "charlie_knows_alice",
-            "dave_admires_alice"
-        ])
+        assert set([f"{result['source']}_{result['relationship']}_{result['target']}" for result in results]) == set(
+            ["alice_knows_bob", "bob_knows_charlie", "charlie_likes_alice", "charlie_knows_alice", "dave_admires_alice"]
+        )
 
         results = kuzu_memory._search_graph_db(["bob"], filters, threshold=0.8)
-        assert set([f"{result['source']}_{result['relationship']}_{result['destination']}" for result in results]) == set([
-            "alice_knows_bob",
-            "bob_knows_charlie",
-        ])
+        assert set(
+            [f"{result['source']}_{result['relationship']}_{result['destination']}" for result in results]
+        ) == set(
+            [
+                "alice_knows_bob",
+                "bob_knows_charlie",
+            ]
+        )
 
         result = kuzu_memory._delete_entities(data2, filters)
         assert result[0] == [{"source": "charlie", "relationship": "likes", "target": "alice"}]
@@ -190,6 +190,7 @@ class TestKuzu:
         assert get_node_count(kuzu_memory) == 0
         assert get_edge_count(kuzu_memory) == 0
 
+
 def get_node_count(kuzu_memory):
     results = kuzu_memory.kuzu_execute(
         """
@@ -197,7 +198,8 @@ def get_node_count(kuzu_memory):
         RETURN COUNT(n) as count
         """
     )
-    return int(results[0]['count'])
+    return int(results[0]["count"])
+
 
 def get_edge_count(kuzu_memory):
     results = kuzu_memory.kuzu_execute(
@@ -206,4 +208,4 @@ def get_edge_count(kuzu_memory):
         RETURN COUNT(e) as count
         """
     )
-    return int(results[0]['count'])
+    return int(results[0]["count"])

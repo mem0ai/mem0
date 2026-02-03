@@ -37,8 +37,10 @@ class HuggingFaceEmbedding(EmbeddingBase):
             list: The embedding vector.
         """
         if self.config.huggingface_base_url:
-            return self.client.embeddings.create(
-                input=text, model=self.config.model, **self.config.model_kwargs
-            ).data[0].embedding
+            return (
+                self.client.embeddings.create(input=text, model=self.config.model, **self.config.model_kwargs)
+                .data[0]
+                .embedding
+            )
         else:
             return self.model.encode(text, convert_to_numpy=True).tolist()

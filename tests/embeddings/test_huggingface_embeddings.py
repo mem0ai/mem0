@@ -81,14 +81,14 @@ def test_embed_with_huggingface_base_url():
     with patch("mem0.embeddings.huggingface.OpenAI") as mock_openai:
         mock_client = Mock()
         mock_openai.return_value = mock_client
-        
+
         # Create a mock for the response object and its attributes
         mock_embedding_response = Mock()
         mock_embedding_response.embedding = [0.1, 0.2, 0.3]
-        
+
         mock_create_response = Mock()
         mock_create_response.data = [mock_embedding_response]
-        
+
         mock_client.embeddings.create.return_value = mock_create_response
 
         embedder = HuggingFaceEmbedding(config)

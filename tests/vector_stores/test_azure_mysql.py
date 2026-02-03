@@ -1,6 +1,7 @@
 import json
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
 
 from mem0.vector_stores.azure_mysql import AzureMySQL, OutputData
 
@@ -35,7 +36,7 @@ def mock_connection_pool():
 @pytest.fixture
 def azure_mysql_instance(mock_connection_pool):
     """Create an AzureMySQL instance with mocked connection pool."""
-    with patch('mem0.vector_stores.azure_mysql.PooledDB') as mock_pooled_db:
+    with patch("mem0.vector_stores.azure_mysql.PooledDB") as mock_pooled_db:
         mock_pooled_db.return_value = mock_connection_pool
 
         instance = AzureMySQL(
@@ -55,7 +56,7 @@ def azure_mysql_instance(mock_connection_pool):
 
 def test_azure_mysql_init(mock_connection_pool):
     """Test AzureMySQL initialization."""
-    with patch('mem0.vector_stores.azure_mysql.PooledDB') as mock_pooled_db:
+    with patch("mem0.vector_stores.azure_mysql.PooledDB") as mock_pooled_db:
         mock_pooled_db.return_value = mock_connection_pool
 
         instance = AzureMySQL(
@@ -104,18 +105,12 @@ def test_search(azure_mysql_instance):
     # Mock the database response
     conn = azure_mysql_instance.connection_pool.connection()
     cursor = conn.cursor()
-    cursor.fetchall = Mock(return_value=[
-        {
-            'id': 'id1',
-            'vector': json.dumps([0.1, 0.2, 0.3]),
-            'payload': json.dumps({"text": "test1"})
-        },
-        {
-            'id': 'id2',
-            'vector': json.dumps([0.4, 0.5, 0.6]),
-            'payload': json.dumps({"text": "test2"})
-        }
-    ])
+    cursor.fetchall = Mock(
+        return_value=[
+            {"id": "id1", "vector": json.dumps([0.1, 0.2, 0.3]), "payload": json.dumps({"text": "test1"})},
+            {"id": "id2", "vector": json.dumps([0.4, 0.5, 0.6]), "payload": json.dumps({"text": "test2"})},
+        ]
+    )
 
     query_vector = [0.2, 0.3, 0.4]
     results = azure_mysql_instance.search(query="test", vectors=query_vector, limit=5)
@@ -150,11 +145,9 @@ def test_get(azure_mysql_instance):
     # Mock the database response
     conn = azure_mysql_instance.connection_pool.connection()
     cursor = conn.cursor()
-    cursor.fetchone = Mock(return_value={
-        'id': 'test_id',
-        'vector': json.dumps([0.1, 0.2, 0.3]),
-        'payload': json.dumps({"text": "test"})
-    })
+    cursor.fetchone = Mock(
+        return_value={"id": "test_id", "vector": json.dumps([0.1, 0.2, 0.3]), "payload": json.dumps({"text": "test"})}
+    )
 
     result = azure_mysql_instance.get(vector_id="test_id")
 
@@ -168,10 +161,7 @@ def test_list_cols(azure_mysql_instance):
     # Mock the database response
     conn = azure_mysql_instance.connection_pool.connection()
     cursor = conn.cursor()
-    cursor.fetchall = Mock(return_value=[
-        {"Tables_in_testdb": "collection1"},
-        {"Tables_in_testdb": "collection2"}
-    ])
+    cursor.fetchall = Mock(return_value=[{"Tables_in_testdb": "collection1"}, {"Tables_in_testdb": "collection2"}])
 
     collections = azure_mysql_instance.list_cols()
 
@@ -193,11 +183,7 @@ def test_col_info(azure_mysql_instance):
     # Mock the database response
     conn = azure_mysql_instance.connection_pool.connection()
     cursor = conn.cursor()
-    cursor.fetchone = Mock(return_value={
-        'name': 'test_collection',
-        'count': 100,
-        'size_mb': 1.5
-    })
+    cursor.fetchone = Mock(return_value={"name": "test_collection", "count": 100, "size_mb": 1.5})
 
     info = azure_mysql_instance.col_info()
 
@@ -210,13 +196,9 @@ def test_list(azure_mysql_instance):
     # Mock the database response
     conn = azure_mysql_instance.connection_pool.connection()
     cursor = conn.cursor()
-    cursor.fetchall = Mock(return_value=[
-        {
-            'id': 'id1',
-            'vector': json.dumps([0.1, 0.2, 0.3]),
-            'payload': json.dumps({"text": "test1"})
-        }
-    ])
+    cursor.fetchall = Mock(
+        return_value=[{"id": "id1", "vector": json.dumps([0.1, 0.2, 0.3]), "payload": json.dumps({"text": "test1"})}]
+    )
 
     results = azure_mysql_instance.list(limit=10)
 
@@ -237,7 +219,7 @@ def test_reset(azure_mysql_instance):
 @pytest.mark.skipif(True, reason="Requires Azure credentials")
 def test_azure_credential_authentication():
     """Test Azure DefaultAzureCredential authentication."""
-    with patch('mem0.vector_stores.azure_mysql.DefaultAzureCredential') as mock_cred:
+    with patch("mem0.vector_stores.azure_mysql.DefaultAzureCredential") as mock_cred:
         mock_token = Mock()
         mock_token.token = "test_token"
         mock_cred.return_value.get_token.return_value = mock_token
@@ -258,11 +240,7 @@ def test_azure_credential_authentication():
 
 def test_output_data_model():
     """Test OutputData model."""
-    data = OutputData(
-        id="test_id",
-        score=0.95,
-        payload={"text": "test"}
-    )
+    data = OutputData(id="test_id", score=0.95, payload={"text": "test"})
 
     assert data.id == "test_id"
     assert data.score == 0.95

@@ -12,7 +12,9 @@ class GoogleMatchingEngineConfig(BaseModel):
     deployment_index_id: str = Field(description="Deployment-specific index ID")
     collection_name: Optional[str] = Field(None, description="Collection name, defaults to index_id")
     credentials_path: Optional[str] = Field(None, description="Path to service account credentials JSON file")
-    service_account_json: Optional[Dict] = Field(None, description="Service account credentials as dictionary (alternative to credentials_path)")
+    service_account_json: Optional[Dict] = Field(
+        None, description="Service account credentials as dictionary (alternative to credentials_path)"
+    )
     vector_search_api_endpoint: Optional[str] = Field(None, description="Vector search API endpoint")
 
     model_config = ConfigDict(extra="forbid")

@@ -126,12 +126,14 @@ class AzureOpenAILLM(LLMBase):
         messages[-1]["content"] = user_prompt
 
         params = self._get_supported_params(messages=messages, **kwargs)
-        
+
         # Add model and messages
-        params.update({
-            "model": self.config.model,
-            "messages": messages,
-        })
+        params.update(
+            {
+                "model": self.config.model,
+                "messages": messages,
+            }
+        )
 
         if tools:
             params["tools"] = tools

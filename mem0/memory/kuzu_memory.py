@@ -63,7 +63,7 @@ class MemoryGraph:
 
         self.user_id = None
         # Use threshold from graph_store config, default to 0.7 for backward compatibility
-        self.threshold = self.config.graph_store.threshold if hasattr(self.config.graph_store, 'threshold') else 0.7
+        self.threshold = self.config.graph_store.threshold if hasattr(self.config.graph_store, "threshold") else 0.7
 
     def kuzu_create_schema(self):
         self.kuzu_execute(
@@ -320,10 +320,11 @@ class MemoryGraph:
             results = []
             for match_fragment in [
                 f"(n)-[r]->(m {self.node_label} {{{node_props_str}}}) WITH n as src, r, m as dst, similarity",
-                f"(m {self.node_label} {{{node_props_str}}})-[r]->(n) WITH m as src, r, n as dst, similarity"
+                f"(m {self.node_label} {{{node_props_str}}})-[r]->(n) WITH m as src, r, n as dst, similarity",
             ]:
-                results.extend(self.kuzu_execute(
-                    f"""
+                results.extend(
+                    self.kuzu_execute(
+                        f"""
                     MATCH (n {self.node_label} {{{node_props_str}}})
                     WHERE n.embedding IS NOT NULL
                     WITH n, array_cosine_similarity(n.embedding, CAST($n_embedding,'FLOAT[{self.embedding_dims}]')) AS similarity
@@ -339,7 +340,9 @@ class MemoryGraph:
                         similarity
                     LIMIT $limit
                     """,
-                    parameters=params))
+                        parameters=params,
+                    )
+                )
 
             # Kuzu does not support sort/limit over unions. Do it manually for now.
             result_relations.extend(sorted(results, key=lambda x: x["similarity"], reverse=True)[:limit])
@@ -454,7 +457,9 @@ class MemoryGraph:
 
             # search for the nodes with the closest embeddings
             source_node_search_result = self._search_source_node(source_embedding, filters, threshold=self.threshold)
-            destination_node_search_result = self._search_destination_node(dest_embedding, filters, threshold=self.threshold)
+            destination_node_search_result = self._search_destination_node(
+                dest_embedding, filters, threshold=self.threshold
+            )
 
             if not destination_node_search_result and source_node_search_result:
                 params = {

@@ -56,7 +56,7 @@ class MemoryGraph:
         self.llm = LlmFactory.create(self.llm_provider, llm_config)
         self.user_id = None
         # Use threshold from graph_store config, default to 0.7 for backward compatibility
-        self.threshold = self.config.graph_store.threshold if hasattr(self.config.graph_store, 'threshold') else 0.7
+        self.threshold = self.config.graph_store.threshold if hasattr(self.config.graph_store, "threshold") else 0.7
 
         # Setup Memgraph:
         # 1. Create vector index (created Entity label on all nodes)
@@ -424,7 +424,9 @@ class MemoryGraph:
 
             # search for the nodes with the closest embeddings
             source_node_search_result = self._search_source_node(source_embedding, filters, threshold=self.threshold)
-            destination_node_search_result = self._search_destination_node(dest_embedding, filters, threshold=self.threshold)
+            destination_node_search_result = self._search_destination_node(
+                dest_embedding, filters, threshold=self.threshold
+            )
 
             # Prepare agent_id for node creation
             agent_id_clause = ""
@@ -612,7 +614,6 @@ class MemoryGraph:
         result = self.graph.query(cypher, params=params)
         return result
 
-
     def _vector_index_exists(self, index_info, index_name):
         """
         Check if a vector index exists, compatible with both Memgraph versions.
@@ -628,9 +629,7 @@ class MemoryGraph:
 
         # Check for index by name regardless of version-specific format differences
         return any(
-            idx.get("index_name") == index_name or
-            idx.get("index name") == index_name or
-            idx.get("name") == index_name
+            idx.get("index_name") == index_name or idx.get("index name") == index_name or idx.get("name") == index_name
             for idx in vector_indexes
         )
 
@@ -649,9 +648,9 @@ class MemoryGraph:
         indexes = index_info.get("index_exists", [])
 
         return any(
-            (idx.get("index type") == "label+property" or idx.get("index_type") == "label+property") and
-            (idx.get("label") == label) and
-            (idx.get("property") == property_name or property_name in str(idx.get("properties", "")))
+            (idx.get("index type") == "label+property" or idx.get("index_type") == "label+property")
+            and (idx.get("label") == label)
+            and (idx.get("property") == property_name or property_name in str(idx.get("properties", "")))
             for idx in indexes
         )
 
@@ -669,8 +668,7 @@ class MemoryGraph:
         indexes = index_info.get("index_exists", [])
 
         return any(
-            (idx.get("index type") == "label" or idx.get("index_type") == "label") and
-            (idx.get("label") == label)
+            (idx.get("index type") == "label" or idx.get("index_type") == "label") and (idx.get("label") == label)
             for idx in indexes
         )
 

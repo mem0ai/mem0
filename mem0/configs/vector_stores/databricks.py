@@ -1,8 +1,11 @@
 from typing import Any, Dict, Optional
 
+from databricks.sdk.service.vectorsearch import (
+    EndpointType,
+    PipelineType,
+    VectorIndexType,
+)
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-
-from databricks.sdk.service.vectorsearch import EndpointType, VectorIndexType, PipelineType
 
 
 class DatabricksConfig(BaseModel):

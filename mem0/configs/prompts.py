@@ -407,7 +407,6 @@ def get_update_memory_messages(retrieved_old_memory_dict, response_content, cust
         global DEFAULT_UPDATE_MEMORY_PROMPT
         custom_update_memory_prompt = DEFAULT_UPDATE_MEMORY_PROMPT
 
-
     if retrieved_old_memory_dict:
         current_memory_part = f"""
     Below is the current content of my memory which I have collected till now. You have to update it in the following format only:

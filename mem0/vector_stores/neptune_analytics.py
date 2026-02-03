@@ -14,6 +14,7 @@ from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
 
+
 class OutputData(BaseModel):
     id: Optional[str]  # memory id
     score: Optional[float]  # distance
@@ -23,18 +24,18 @@ class OutputData(BaseModel):
 class NeptuneAnalyticsVector(VectorStoreBase):
     """
     Neptune Analytics vector store implementation for Mem0.
-    
+
     Provides vector storage and similarity search capabilities using Amazon Neptune Analytics,
     a serverless graph analytics service that supports vector operations.
     """
 
     _COLLECTION_PREFIX = "MEM0_VECTOR_"
-    _FIELD_N = 'n'
-    _FIELD_ID = '~id'
-    _FIELD_PROP = '~properties'
-    _FIELD_SCORE = 'score'
-    _FIELD_LABEL = 'label'
-    _TIMEZONE =  "UTC"
+    _FIELD_N = "n"
+    _FIELD_ID = "~id"
+    _FIELD_PROP = "~properties"
+    _FIELD_SCORE = "score"
+    _FIELD_LABEL = "label"
+    _TIMEZONE = "UTC"
 
     def __init__(
         self,
@@ -47,7 +48,7 @@ class NeptuneAnalyticsVector(VectorStoreBase):
         Args:
             endpoint (str): Neptune Analytics endpoint in format 'neptune-graph://<graphid>'.
             collection_name (str): Name of the collection to store vectors.
-            
+
         Raises:
             ValueError: If endpoint format is invalid.
             ImportError: If langchain_aws is not installed.
@@ -60,14 +61,13 @@ class NeptuneAnalyticsVector(VectorStoreBase):
         self.graph = NeptuneAnalyticsGraph(graph_id)
         self.collection_name = self._COLLECTION_PREFIX + collection_name
 
-    
     def create_col(self, name, vector_size, distance):
         """
         Create a collection (no-op for Neptune Analytics).
-        
+
         Neptune Analytics supports dynamic indices that are created implicitly
         when vectors are inserted, so this method performs no operation.
-        
+
         Args:
             name: Collection name (unused).
             vector_size: Vector dimension (unused).
@@ -75,16 +75,13 @@ class NeptuneAnalyticsVector(VectorStoreBase):
         """
         pass
 
-    
-    def insert(self, vectors: List[list],
-        payloads: Optional[List[Dict]] = None,
-        ids: Optional[List[str]] = None):
+    def insert(self, vectors: List[list], payloads: Optional[List[Dict]] = None, ids: Optional[List[str]] = None):
         """
         Insert vectors into the collection.
-        
+
         Creates or updates nodes in Neptune Analytics with vector embeddings and metadata.
         Uses MERGE operation to handle both creation and updates.
-        
+
         Args:
             vectors (List[list]): List of embedding vectors to insert.
             payloads (Optional[List[Dict]]): Optional metadata for each vector.
@@ -99,25 +96,25 @@ class NeptuneAnalyticsVector(VectorStoreBase):
                 payload["updated_at"] = str(int(time.time()))
             else:
                 payload = {}
-            para_list.append(dict(
-                node_id=ids[index] if ids else str(uuid.uuid4()),
-                properties=payload,
-                embedding=data_vector,
-            ))
+            para_list.append(
+                dict(
+                    node_id=ids[index] if ids else str(uuid.uuid4()),
+                    properties=payload,
+                    embedding=data_vector,
+                )
+            )
 
         para_map_to_insert = {"rows": para_list}
 
-        query_string = (f"""
+        query_string = f"""
             UNWIND $rows AS row
             MERGE (n :{self.collection_name} {{`~id`: row.node_id}})
             ON CREATE SET n = row.properties 
             ON MATCH SET n += row.properties 
         """
-        )
         self.execute_query(query_string, para_map_to_insert)
 
-
-        query_string_vector = (f"""
+        query_string_vector = f"""
             UNWIND $rows AS row
             MATCH (n 
             :{self.collection_name}
@@ -127,26 +124,24 @@ class NeptuneAnalyticsVector(VectorStoreBase):
             YIELD success
             RETURN success
         """
-        )
         result = self.execute_query(query_string_vector, para_map_to_insert)
         self._process_success_message(result, "Vector store - Insert")
 
-
     def search(
-            self, query: str, vectors: List[float], limit: int = 5, filters: Optional[Dict] = None
+        self, query: str, vectors: List[float], limit: int = 5, filters: Optional[Dict] = None
     ) -> List[OutputData]:
         """
         Search for similar vectors using embedding similarity.
-        
+
         Performs vector similarity search using Neptune Analytics' topKByEmbeddingWithFiltering
         algorithm to find the most similar vectors.
-        
+
         Args:
             query (str): Search query text (unused in vector search).
             vectors (List[float]): Query embedding vector.
             limit (int, optional): Maximum number of results to return. Defaults to 5.
             filters (Optional[Dict]): Optional filters to apply to search results.
-            
+
         Returns:
             List[OutputData]: List of similar vectors with scores and metadata.
         """
@@ -170,16 +165,15 @@ class NeptuneAnalyticsVector(VectorStoreBase):
         query_response = self.execute_query(query_string)
         if len(query_response) > 0:
             return self._parse_query_responses(query_response, with_score=True)
-        else :
+        else:
             return []
 
-    
     def delete(self, vector_id: str):
         """
         Delete a vector by its ID.
-        
+
         Removes the node and all its relationships from the Neptune Analytics graph.
-        
+
         Args:
             vector_id (str): ID of the vector to delete.
         """
@@ -192,17 +186,17 @@ class NeptuneAnalyticsVector(VectorStoreBase):
         self.execute_query(query_string, params)
 
     def update(
-            self,
-            vector_id: str,
-            vector: Optional[List[float]] = None,
-            payload: Optional[Dict] = None,
+        self,
+        vector_id: str,
+        vector: Optional[List[float]] = None,
+        payload: Optional[Dict] = None,
     ):
         """
         Update a vector's embedding and/or metadata.
-        
+
         Updates the node properties and/or vector embedding for an existing vector.
         Can update either the payload, the vector, or both.
-        
+
         Args:
             vector_id (str): ID of the vector to update.
             vector (Optional[List[float]]): New embedding vector.
@@ -213,10 +207,7 @@ class NeptuneAnalyticsVector(VectorStoreBase):
             # Replace payload
             payload[self._FIELD_LABEL] = self.collection_name
             payload["updated_at"] = str(int(time.time()))
-            para_payload = {
-                "properties": payload,
-                "vector_id": vector_id
-            }
+            para_payload = {"properties": payload, "vector_id": vector_id}
             query_string_embedding = f"""
             MATCH (n :{self.collection_name}) 
                 WHERE id(n) = $vector_id 
@@ -225,10 +216,7 @@ class NeptuneAnalyticsVector(VectorStoreBase):
             self.execute_query(query_string_embedding, para_payload)
 
         if vector:
-            para_embedding = {
-                "embedding": vector,
-                "vector_id": vector_id
-            }
+            para_embedding = {"embedding": vector, "vector_id": vector_id}
             query_string_embedding = f"""
             MATCH (n :{self.collection_name}) 
                 WHERE id(n) = $vector_id 
@@ -239,17 +227,15 @@ class NeptuneAnalyticsVector(VectorStoreBase):
             """
             self.execute_query(query_string_embedding, para_embedding)
 
-
-    
     def get(self, vector_id: str):
         """
         Retrieve a vector by its ID.
-        
+
         Fetches the node data including metadata for the specified vector ID.
-        
+
         Args:
             vector_id (str): ID of the vector to retrieve.
-            
+
         Returns:
             OutputData: Vector data with metadata, or None if not found.
         """
@@ -266,14 +252,13 @@ class NeptuneAnalyticsVector(VectorStoreBase):
         if len(result) != 0:
             return self._parse_query_responses(result)[0]
 
-
     def list_cols(self):
         """
         List all collections with the Mem0 prefix.
-        
+
         Queries the Neptune Analytics schema to find all node labels that start
         with the Mem0 collection prefix.
-        
+
         Returns:
             List[str]: List of collection names.
         """
@@ -288,37 +273,34 @@ class NeptuneAnalyticsVector(VectorStoreBase):
         else:
             return []
 
-
     def delete_col(self):
         """
         Delete the entire collection.
-        
+
         Removes all nodes with the collection label and their relationships
         from the Neptune Analytics graph.
         """
         self.execute_query(f"MATCH (n :{self.collection_name}) DETACH DELETE n")
 
-
     def col_info(self):
         """
         Get collection information (no-op for Neptune Analytics).
-        
+
         Collections are created dynamically in Neptune Analytics, so no
         collection-specific metadata is available.
         """
         pass
 
-
     def list(self, filters: Optional[Dict] = None, limit: int = 100) -> List[OutputData]:
         """
         List all vectors in the collection with optional filtering.
-        
+
         Retrieves vectors from the collection, optionally filtered by metadata properties.
-        
+
         Args:
             filters (Optional[Dict]): Optional filters to apply based on metadata.
             limit (int, optional): Maximum number of vectors to return. Defaults to 100.
-            
+
         Returns:
             List[OutputData]: List of vectors with their metadata.
         """
@@ -340,24 +322,22 @@ class NeptuneAnalyticsVector(VectorStoreBase):
             return [self._parse_query_responses(query_response)]
         return [[]]
 
-    
     def reset(self):
         """
         Reset the collection by deleting all vectors.
-        
+
         Removes all vectors from the collection, effectively resetting it to empty state.
         """
         self.delete_col()
 
-
     def _parse_query_responses(self, response: dict, with_score: bool = False):
         """
         Parse Neptune Analytics query responses into OutputData objects.
-        
+
         Args:
             response (dict): Raw query response from Neptune Analytics.
             with_score (bool, optional): Whether to include similarity scores. Defaults to False.
-            
+
         Returns:
             List[OutputData]: Parsed response data.
         """
@@ -371,25 +351,26 @@ class NeptuneAnalyticsVector(VectorStoreBase):
                 score = item[self._FIELD_SCORE]
             else:
                 score = None
-            result.append(OutputData(
-                id=id,
-                score=score,
-                payload=properties,
-            ))
+            result.append(
+                OutputData(
+                    id=id,
+                    score=score,
+                    payload=properties,
+                )
+            )
         return result
-
 
     def execute_query(self, query_string: str, params=None):
         """
         Execute an openCypher query on Neptune Analytics.
-        
+
         This is a wrapper method around the Neptune Analytics graph query execution
         that provides debug logging for query monitoring and troubleshooting.
-        
+
         Args:
             query_string (str): The openCypher query string to execute.
             params (dict): Parameters to bind to the query.
-            
+
         Returns:
             Query result from Neptune Analytics graph execution.
         """
@@ -398,15 +379,14 @@ class NeptuneAnalyticsVector(VectorStoreBase):
         logger.debug(f"Executing openCypher query:[{query_string}], with parameters:[{params}].")
         return self.graph.query(query_string, params)
 
-
     @staticmethod
     def _get_where_clause(filters: dict):
         """
         Build WHERE clause for Cypher queries from filters.
-        
+
         Args:
             filters (dict): Filter conditions as key-value pairs.
-            
+
         Returns:
             str: Formatted WHERE clause for Cypher query.
         """
@@ -444,7 +424,6 @@ class NeptuneAnalyticsVector(VectorStoreBase):
                   """
         return filter_clause
 
-
     @staticmethod
     def _process_success_message(response, context):
         """
@@ -463,5 +442,7 @@ class NeptuneAnalyticsVector(VectorStoreBase):
                 break
 
             if success_message["success"] is not True:
-                logger.error(f"Abnormal response status on action: [{context}] with message: [{success_message['success']}] ")
+                logger.error(
+                    f"Abnormal response status on action: [{context}] with message: [{success_message['success']}] "
+                )
                 break

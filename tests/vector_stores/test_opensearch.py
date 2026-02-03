@@ -18,25 +18,25 @@ from mem0.vector_stores.opensearch import OpenSearchDB
 # Mock classes for testing OpenSearch with AWS authentication
 class MockFieldInfo:
     """Mock pydantic field info."""
+
     def __init__(self, default=None):
         self.default = default
 
 
 class MockOpenSearchConfig:
-    
     model_fields = {
-        'collection_name': MockFieldInfo(default="default_collection"),
-        'host': MockFieldInfo(default="localhost"),
-        'port': MockFieldInfo(default=9200),
-        'embedding_model_dims': MockFieldInfo(default=1536),
-        'http_auth': MockFieldInfo(default=None),
-        'auth': MockFieldInfo(default=None),
-        'credentials': MockFieldInfo(default=None),
-        'connection_class': MockFieldInfo(default=None),
-        'use_ssl': MockFieldInfo(default=False),
-        'verify_certs': MockFieldInfo(default=False),
+        "collection_name": MockFieldInfo(default="default_collection"),
+        "host": MockFieldInfo(default="localhost"),
+        "port": MockFieldInfo(default=9200),
+        "embedding_model_dims": MockFieldInfo(default=1536),
+        "http_auth": MockFieldInfo(default=None),
+        "auth": MockFieldInfo(default=None),
+        "credentials": MockFieldInfo(default=None),
+        "connection_class": MockFieldInfo(default=None),
+        "use_ssl": MockFieldInfo(default=False),
+        "verify_certs": MockFieldInfo(default=False),
     }
-    
+
     def __init__(self, collection_name="test_collection", include_auth=True, **kwargs):
         self.collection_name = collection_name
         self.host = kwargs.get("host", "localhost")
@@ -44,7 +44,7 @@ class MockOpenSearchConfig:
         self.embedding_model_dims = kwargs.get("embedding_model_dims", 1536)
         self.use_ssl = kwargs.get("use_ssl", True)
         self.verify_certs = kwargs.get("verify_certs", True)
-        
+
         if any(field in kwargs for field in ["http_auth", "auth", "credentials", "connection_class"]):
             self.http_auth = kwargs.get("http_auth")
             self.auth = kwargs.get("auth")
@@ -63,20 +63,18 @@ class MockOpenSearchConfig:
 
 
 class MockAWSAuth:
-    
     def __init__(self):
         self._lock = threading.Lock()
         self.region = "us-east-1"
-    
+
     def __deepcopy__(self, memo):
         raise TypeError("cannot pickle '_thread.lock' object")
 
 
 class MockConnectionClass:
-    
     def __init__(self):
         self._state = {"connected": False}
-    
+
     def __deepcopy__(self, memo):
         raise TypeError("cannot pickle connection state")
 
@@ -282,11 +280,13 @@ class TestOpenSearchDB(unittest.TestCase):
 
 
 # Tests for OpenSearch config deepcopy with AWS authentication (Issue #3464)
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
-def test_safe_deepcopy_config_handles_opensearch_auth(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_safe_deepcopy_config_handles_opensearch_auth(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
     """Test that _safe_deepcopy_config handles OpenSearch configs with AWS auth objects gracefully."""
     mock_embedder_factory.return_value = MagicMock()
     mock_vector_store = MagicMock()
@@ -295,16 +295,16 @@ def test_safe_deepcopy_config_handles_opensearch_auth(mock_sqlite, mock_llm_fact
     mock_sqlite.return_value = MagicMock()
 
     from mem0.memory.main import _safe_deepcopy_config
-    
+
     config_with_auth = MockOpenSearchConfig(collection_name="opensearch_test", include_auth=True)
-    
+
     safe_config = _safe_deepcopy_config(config_with_auth)
-    
+
     assert safe_config.http_auth is None
     assert safe_config.auth is None
     assert safe_config.credentials is None
     assert safe_config.connection_class is None
-    
+
     assert safe_config.collection_name == "opensearch_test"
     assert safe_config.host == "localhost"
     assert safe_config.port == 9200
@@ -313,10 +313,10 @@ def test_safe_deepcopy_config_handles_opensearch_auth(mock_sqlite, mock_llm_fact
     assert safe_config.verify_certs is True
 
 
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create') 
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
 def test_safe_deepcopy_config_normal_configs(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
     """Test that _safe_deepcopy_config handles normal OpenSearch configs without auth."""
     mock_embedder_factory.return_value = MagicMock()
@@ -326,12 +326,12 @@ def test_safe_deepcopy_config_normal_configs(mock_sqlite, mock_llm_factory, mock
     mock_sqlite.return_value = MagicMock()
 
     from mem0.memory.main import _safe_deepcopy_config
-    
+
     config_without_auth = MockOpenSearchConfig(collection_name="normal_test", include_auth=False)
-    
+
     safe_config = _safe_deepcopy_config(config_without_auth)
-    
-    assert safe_config.collection_name == "normal_test" 
+
+    assert safe_config.collection_name == "normal_test"
     assert safe_config.host == "localhost"
     assert safe_config.port == 9200
     assert safe_config.embedding_model_dims == 1536
@@ -339,13 +339,15 @@ def test_safe_deepcopy_config_normal_configs(mock_sqlite, mock_llm_factory, mock
     assert safe_config.verify_certs is True
 
 
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
-def test_memory_initialization_opensearch_aws_auth(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_memory_initialization_opensearch_aws_auth(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
     """Test that Memory initialization works with OpenSearch configs containing AWS auth."""
-    
+
     mock_embedder_factory.return_value = MagicMock()
     mock_vector_store = MagicMock()
     mock_vector_factory.return_value = mock_vector_store

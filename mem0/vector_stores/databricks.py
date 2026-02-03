@@ -1,19 +1,27 @@
 import json
 import logging
 import uuid
-from typing import Optional, List
-from datetime import datetime, date
-from databricks.sdk.service.catalog import ColumnInfo, ColumnTypeName, TableType, DataSourceFormat
-from databricks.sdk.service.catalog import TableConstraint, PrimaryKeyConstraint
+from datetime import date, datetime
+from typing import List, Optional
+
 from databricks.sdk import WorkspaceClient
+from databricks.sdk.service.catalog import (
+    ColumnInfo,
+    ColumnTypeName,
+    DataSourceFormat,
+    PrimaryKeyConstraint,
+    TableConstraint,
+    TableType,
+)
 from databricks.sdk.service.vectorsearch import (
-    VectorIndexType,
     DeltaSyncVectorIndexSpecRequest,
     DirectAccessVectorIndexSpec,
     EmbeddingSourceColumn,
     EmbeddingVectorColumn,
+    VectorIndexType,
 )
 from pydantic import BaseModel
+
 from mem0.memory.utils import extract_json
 from mem0.vector_stores.base import VectorStoreBase
 
@@ -589,7 +597,9 @@ class Databricks(VectorStoreBase):
                 raise KeyError(f"Vector with ID {vector_id} not found")
 
             result = data_array[0]
-            columns = columns = [col.name for col in results.manifest.columns] if results.manifest and results.manifest.columns else []
+            columns = columns = (
+                [col.name for col in results.manifest.columns] if results.manifest and results.manifest.columns else []
+            )
             row_data = dict(zip(columns, result))
 
             # Build payload following the standard schema
@@ -609,7 +619,7 @@ class Databricks(VectorStoreBase):
                     payload[field] = row_data[field]
 
             # Add metadata
-            if "metadata" in row_data and row_data.get('metadata'):
+            if "metadata" in row_data and row_data.get("metadata"):
                 try:
                     metadata = json.loads(extract_json(row_data["metadata"]))
                     payload.update(metadata)
@@ -708,7 +718,7 @@ class Databricks(VectorStoreBase):
                     except Exception:
                         pass
                 memory_id = row_dict.get("memory_id") or row_dict.get("id")
-                payload['data'] = payload['memory']
+                payload["data"] = payload["memory"]
                 memory_results.append(MemoryResult(id=memory_id, payload=payload))
             return [memory_results]
         except Exception as e:

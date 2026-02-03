@@ -29,7 +29,7 @@ def memory_instance():
         mock_vector_store.create.return_value = Mock()
         mock_vector_store.create.return_value.search.return_value = []
         mock_llm.create.return_value = Mock()
-        
+
         # Create a mock instance that won't try to access config attributes
         mock_graph_instance = Mock()
         mock_graph_store.create.return_value = mock_graph_instance
@@ -53,7 +53,7 @@ def memory_custom_instance():
         mock_vector_store.create.return_value = Mock()
         mock_vector_store.create.return_value.search.return_value = []
         mock_llm.create.return_value = Mock()
-        
+
         # Create a mock instance that won't try to access config attributes
         mock_graph_instance = Mock()
         mock_graph_store.create.return_value = mock_graph_instance

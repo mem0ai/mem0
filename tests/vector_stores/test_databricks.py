@@ -1,9 +1,16 @@
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
-from databricks.sdk.service.vectorsearch import VectorIndexType, QueryVectorIndexResponse, ResultManifest, ResultData, ColumnInfo
-from mem0.vector_stores.databricks import Databricks
-import pytest
 
+import pytest
+from databricks.sdk.service.vectorsearch import (
+    ColumnInfo,
+    QueryVectorIndexResponse,
+    ResultData,
+    ResultManifest,
+    VectorIndexType,
+)
+
+from mem0.vector_stores.databricks import Databricks
 
 # ---------------------- Fixtures ---------------------- #
 
@@ -242,18 +249,20 @@ def test_update_vector(db_instance_direct, mock_workspace_client):
 
 def test_get_vector(db_instance_delta, mock_workspace_client):
     mock_workspace_client.vector_search_indexes.query_index.return_value = QueryVectorIndexResponse(
-        manifest=ResultManifest(columns=[
-            ColumnInfo(name="memory_id"),
-            ColumnInfo(name="hash"),
-            ColumnInfo(name="agent_id"),
-            ColumnInfo(name="run_id"),
-            ColumnInfo(name="user_id"),
-            ColumnInfo(name="memory"),
-            ColumnInfo(name="metadata"),
-            ColumnInfo(name="created_at"),
-            ColumnInfo(name="updated_at"),
-            ColumnInfo(name="score"),
-        ]),
+        manifest=ResultManifest(
+            columns=[
+                ColumnInfo(name="memory_id"),
+                ColumnInfo(name="hash"),
+                ColumnInfo(name="agent_id"),
+                ColumnInfo(name="run_id"),
+                ColumnInfo(name="user_id"),
+                ColumnInfo(name="memory"),
+                ColumnInfo(name="metadata"),
+                ColumnInfo(name="created_at"),
+                ColumnInfo(name="updated_at"),
+                ColumnInfo(name="score"),
+            ]
+        ),
         result=ResultData(
             data_array=[
                 [
@@ -269,7 +278,7 @@ def test_get_vector(db_instance_delta, mock_workspace_client):
                     "0.99",
                 ]
             ]
-        )
+        ),
     )
     res = db_instance_delta.get("id-get")
     assert res.id == "id-get"
@@ -297,18 +306,20 @@ def test_col_info(db_instance_delta):
 
 def test_list_memories(db_instance_delta, mock_workspace_client):
     mock_workspace_client.vector_search_indexes.query_index.return_value = QueryVectorIndexResponse(
-        manifest=ResultManifest(columns=[
-            ColumnInfo(name="memory_id"),
-            ColumnInfo(name="hash"),
-            ColumnInfo(name="agent_id"),
-            ColumnInfo(name="run_id"),
-            ColumnInfo(name="user_id"),
-            ColumnInfo(name="memory"),
-            ColumnInfo(name="metadata"),
-            ColumnInfo(name="created_at"),
-            ColumnInfo(name="updated_at"),
-            ColumnInfo(name="score"),
-        ]),
+        manifest=ResultManifest(
+            columns=[
+                ColumnInfo(name="memory_id"),
+                ColumnInfo(name="hash"),
+                ColumnInfo(name="agent_id"),
+                ColumnInfo(name="run_id"),
+                ColumnInfo(name="user_id"),
+                ColumnInfo(name="memory"),
+                ColumnInfo(name="metadata"),
+                ColumnInfo(name="created_at"),
+                ColumnInfo(name="updated_at"),
+                ColumnInfo(name="score"),
+            ]
+        ),
         result=ResultData(
             data_array=[
                 [
@@ -324,7 +335,7 @@ def test_list_memories(db_instance_delta, mock_workspace_client):
                     "0.99",
                 ]
             ]
-        )
+        ),
     )
     res = db_instance_delta.list(limit=1)
     assert isinstance(res, list)

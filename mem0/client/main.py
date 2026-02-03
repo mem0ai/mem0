@@ -9,6 +9,7 @@ import requests
 
 from mem0.client.project import AsyncProject, Project
 from mem0.client.utils import api_error_handler
+
 # Exception classes are referenced in docstrings only
 from mem0.memory.setup import get_user_id, setup_config
 from mem0.memory.telemetry import capture_client_event
@@ -155,9 +156,7 @@ class MemoryClient:
         elif isinstance(messages, dict):
             messages = [messages]
         elif not isinstance(messages, list):
-            raise ValueError(
-                f"messages must be str, dict, or list[dict], got {type(messages).__name__}"
-            )
+            raise ValueError(f"messages must be str, dict, or list[dict], got {type(messages).__name__}")
 
         kwargs = self._prepare_params(kwargs)
 
@@ -303,15 +302,15 @@ class MemoryClient:
     ) -> Dict[str, Any]:
         """
         Update a memory by ID.
-        
+
         Args:
             memory_id (str): Memory ID.
             text (str, optional): New content to update the memory with.
             metadata (dict, optional): Metadata to update in the memory.
-            
+
         Returns:
             Dict[str, Any]: The response from the server.
-            
+
         Example:
             >>> client.update(memory_id="mem_123", text="Likes to play tennis on weekends")
         """
@@ -1086,9 +1085,7 @@ class AsyncMemoryClient:
         elif isinstance(messages, dict):
             messages = [messages]
         elif not isinstance(messages, list):
-            raise ValueError(
-                f"messages must be str, dict, or list[dict], got {type(messages).__name__}"
-            )
+            raise ValueError(f"messages must be str, dict, or list[dict], got {type(messages).__name__}")
 
         kwargs = self._prepare_params(kwargs)
 
@@ -1180,15 +1177,15 @@ class AsyncMemoryClient:
     ) -> Dict[str, Any]:
         """
         Update a memory by ID asynchronously.
-        
+
         Args:
             memory_id (str): Memory ID.
             text (str, optional): New content to update the memory with.
             metadata (dict, optional): Metadata to update in the memory.
-            
+
         Returns:
             Dict[str, Any]: The response from the server.
-            
+
         Example:
             >>> await client.update(memory_id="mem_123", text="Likes to play tennis on weekends")
         """

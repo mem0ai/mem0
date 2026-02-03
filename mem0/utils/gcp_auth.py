@@ -1,11 +1,11 @@
-import os
 import json
-from typing import Optional, Dict, Any
+import os
+from typing import Any, Dict, Optional
 
 try:
-    from google.oauth2 import service_account
-    from google.auth import default
     import google.auth.credentials
+    from google.auth import default
+    from google.oauth2 import service_account
 except ImportError:
     raise ImportError("google-auth is required for GCP authentication. Install with: pip install google-auth")
 
@@ -25,7 +25,7 @@ class GCPAuthenticator:
     def get_credentials(
         service_account_json: Optional[Dict[str, Any]] = None,
         credentials_path: Optional[str] = None,
-        scopes: Optional[list] = None
+        scopes: Optional[list] = None,
     ) -> tuple[google.auth.credentials.Credentials, Optional[str]]:
         """
         Get Google credentials using the priority order defined above.
@@ -46,18 +46,14 @@ class GCPAuthenticator:
 
         # Method 1: Service account JSON (in-memory)
         if service_account_json:
-            credentials = service_account.Credentials.from_service_account_info(
-                service_account_json, scopes=scopes
-            )
+            credentials = service_account.Credentials.from_service_account_info(service_account_json, scopes=scopes)
             project_id = service_account_json.get("project_id")
 
         # Method 2: Service account file path
         elif credentials_path and os.path.isfile(credentials_path):
-            credentials = service_account.Credentials.from_service_account_file(
-                credentials_path, scopes=scopes
-            )
+            credentials = service_account.Credentials.from_service_account_file(credentials_path, scopes=scopes)
             # Extract project_id from the file
-            with open(credentials_path, 'r') as f:
+            with open(credentials_path, "r") as f:
                 cred_data = json.load(f)
                 project_id = cred_data.get("project_id")
 
@@ -65,11 +61,9 @@ class GCPAuthenticator:
         elif os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
             env_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
             if os.path.isfile(env_path):
-                credentials = service_account.Credentials.from_service_account_file(
-                    env_path, scopes=scopes
-                )
+                credentials = service_account.Credentials.from_service_account_file(env_path, scopes=scopes)
                 # Extract project_id from the file
-                with open(env_path, 'r') as f:
+                with open(env_path, "r") as f:
                     cred_data = json.load(f)
                     project_id = cred_data.get("project_id")
 
@@ -94,7 +88,7 @@ class GCPAuthenticator:
         service_account_json: Optional[Dict[str, Any]] = None,
         credentials_path: Optional[str] = None,
         project_id: Optional[str] = None,
-        location: str = "us-central1"
+        location: str = "us-central1",
     ) -> str:
         """
         Initialize Vertex AI with proper authentication.
@@ -114,19 +108,23 @@ class GCPAuthenticator:
         try:
             import vertexai
         except ImportError:
-            raise ImportError("google-cloud-aiplatform is required for Vertex AI. Install with: pip install google-cloud-aiplatform")
+            raise ImportError(
+                "google-cloud-aiplatform is required for Vertex AI. Install with: pip install google-cloud-aiplatform"
+            )
 
         credentials, detected_project_id = GCPAuthenticator.get_credentials(
             service_account_json=service_account_json,
             credentials_path=credentials_path,
-            scopes=["https://www.googleapis.com/auth/cloud-platform"]
+            scopes=["https://www.googleapis.com/auth/cloud-platform"],
         )
 
         # Use provided project_id or fall back to detected one
         final_project_id = project_id or detected_project_id or os.getenv("GOOGLE_CLOUD_PROJECT")
 
         if not final_project_id:
-            raise ValueError("Project ID could not be determined. Please provide project_id parameter or set GOOGLE_CLOUD_PROJECT environment variable.")
+            raise ValueError(
+                "Project ID could not be determined. Please provide project_id parameter or set GOOGLE_CLOUD_PROJECT environment variable."
+            )
 
         vertexai.init(project=final_project_id, location=location, credentials=credentials)
         return final_project_id
@@ -135,7 +133,7 @@ class GCPAuthenticator:
     def get_genai_client(
         service_account_json: Optional[Dict[str, Any]] = None,
         credentials_path: Optional[str] = None,
-        api_key: Optional[str] = None
+        api_key: Optional[str] = None,
     ):
         """
         Get a Google GenAI client with authentication.
@@ -161,7 +159,7 @@ class GCPAuthenticator:
         credentials, _ = GCPAuthenticator.get_credentials(
             service_account_json=service_account_json,
             credentials_path=credentials_path,
-            scopes=["https://www.googleapis.com/auth/generative-language"]
+            scopes=["https://www.googleapis.com/auth/generative-language"],
         )
 
         return GenAIClient(credentials=credentials)

@@ -68,7 +68,9 @@ def test_completions_create(mock_memory_client, mock_litellm):
     mock_litellm.completion.return_value = {"choices": [{"message": {"content": "I'm doing well, thank you!"}}]}
     mock_litellm.supports_function_calling.return_value = True
 
-    response = completions.create(model="gpt-4.1-nano-2025-04-14", messages=messages, user_id="test_user", temperature=0.7)
+    response = completions.create(
+        model="gpt-4.1-nano-2025-04-14", messages=messages, user_id="test_user", temperature=0.7
+    )
 
     mock_memory_client.add.assert_called_once()
     mock_memory_client.search.assert_called_once()

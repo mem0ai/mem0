@@ -235,7 +235,9 @@ class NeptuneBase(ABC):
 
             # search for the nodes with the closest embeddings
             source_node_search_result = self._search_source_node(source_embedding, user_id, threshold=self.threshold)
-            destination_node_search_result = self._search_destination_node(dest_embedding, user_id, threshold=self.threshold)
+            destination_node_search_result = self._search_destination_node(
+                dest_embedding, user_id, threshold=self.threshold
+            )
 
             cypher, params = self._add_entities_cypher(
                 source_node_search_result,
@@ -271,82 +273,66 @@ class NeptuneBase(ABC):
         """
         if not destination_node_list and source_node_list:
             return self._add_entities_by_source_cypher(
-                source_node_list,
-                destination,
-                dest_embedding,
-                destination_type,
-                relationship,
-                user_id)
+                source_node_list, destination, dest_embedding, destination_type, relationship, user_id
+            )
         elif destination_node_list and not source_node_list:
             return self._add_entities_by_destination_cypher(
-                source,
-                source_embedding,
-                source_type,
-                destination_node_list,
-                relationship,
-                user_id)
+                source, source_embedding, source_type, destination_node_list, relationship, user_id
+            )
         elif source_node_list and destination_node_list:
             return self._add_relationship_entities_cypher(
-                source_node_list,
-                destination_node_list,
-                relationship,
-                user_id)
+                source_node_list, destination_node_list, relationship, user_id
+            )
         # else source_node_list and destination_node_list are empty
         return self._add_new_entities_cypher(
-            source,
-            source_embedding,
-            source_type,
-            destination,
-            dest_embedding,
-            destination_type,
-            relationship,
-            user_id)
+            source, source_embedding, source_type, destination, dest_embedding, destination_type, relationship, user_id
+        )
 
     @abstractmethod
     def _add_entities_by_source_cypher(
-            self,
-            source_node_list,
-            destination,
-            dest_embedding,
-            destination_type,
-            relationship,
-            user_id,
+        self,
+        source_node_list,
+        destination,
+        dest_embedding,
+        destination_type,
+        relationship,
+        user_id,
     ):
         pass
 
     @abstractmethod
     def _add_entities_by_destination_cypher(
-            self,
-            source,
-            source_embedding,
-            source_type,
-            destination_node_list,
-            relationship,
-            user_id,
+        self,
+        source,
+        source_embedding,
+        source_type,
+        destination_node_list,
+        relationship,
+        user_id,
     ):
         pass
 
     @abstractmethod
     def _add_relationship_entities_cypher(
-            self,
-            source_node_list,
-            destination_node_list,
-            relationship,
-            user_id,
+        self,
+        source_node_list,
+        destination_node_list,
+        relationship,
+        user_id,
     ):
         pass
 
     @abstractmethod
     def _add_new_entities_cypher(
-            self,
-            source,
-            source_embedding,
-            source_type,
-            destination,
-            dest_embedding,
-            destination_type,
-            relationship,
-            user_id,
+        self,
+        source,
+        source_embedding,
+        source_type,
+        destination,
+        dest_embedding,
+        destination_type,
+        relationship,
+        user_id,
     ):
         pass
 
