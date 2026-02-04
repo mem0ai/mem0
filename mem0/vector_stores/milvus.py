@@ -178,9 +178,19 @@ class MilvusDB(VectorStoreBase):
 
         Args:
             vector_id (str): ID of the vector to update.
-            vector (List[float], optional): Updated vector.
+            vector (List[float], optional): Updated vector. If None, the existing vector will be preserved.
             payload (Dict, optional): Updated payload.
         """
+        
+        # If vector is None, fetch the existing vector to preserve it
+        if vector is None:
+            existing_data = self.client.get(collection_name=self.collection_name, ids=vector_id)
+            if not existing_data:
+                raise ValueError(f"Vector with ID {vector_id} not found")
+            vector = existing_data[0].get("vectors")
+            if vector is None:
+                raise ValueError(f"Could not retrieve existing vector for ID {vector_id}")
+        
         schema = {"id": vector_id, "vectors": vector, "metadata": payload}
         self.client.upsert(collection_name=self.collection_name, data=schema)
 
