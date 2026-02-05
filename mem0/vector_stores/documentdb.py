@@ -51,7 +51,7 @@ class DocumentDB(VectorStoreBase):
         self.similarity = similarity
         self.num_candidates = num_candidates
 
-        self.client = MongoClient(mongo_uri)
+        self.client = MongoClient(mongo_uri, appName="mem0")
         self.db = self.client[db_name]
         self.collection = self.create_col()
 
