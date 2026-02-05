@@ -39,6 +39,8 @@ class OpenSearchDB(VectorStoreBase):
 
         self.collection_name = config.collection_name
         self.embedding_model_dims = config.embedding_model_dims
+        self.auto_refresh = config.auto_refresh
+
         self.create_col(self.collection_name, self.embedding_model_dims)
 
     def create_index(self) -> None:
@@ -122,9 +124,12 @@ class OpenSearchDB(VectorStoreBase):
             }
             try:
                 self.client.index(index=self.collection_name, body=body)
-                # Force refresh to make documents immediately searchable for tests
-                self.client.indices.refresh(index=self.collection_name)
-                
+                # Only refresh if explicitly enabled (disabled by default for Serverless compatibility)
+                # OpenSearch Serverless does not support indices.refresh() API
+                # See: https://docs.aws.amazon.com/opensearch-service/latest/developerguide/serverless-genref.html
+                if self.auto_refresh:
+                    self.client.indices.refresh(index=self.collection_name)
+
                 results.append(OutputData(
                     id=id_,
                     score=1.0,  # No score for inserts
