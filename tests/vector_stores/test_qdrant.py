@@ -288,6 +288,67 @@ class TestQdrant(unittest.TestCase):
         # The list method returns the result directly
         self.assertEqual(len(results), 1)
 
+    def test_create_filter_with_and_operator(self):
+        """Test _create_filter with $and operator."""
+        filters = {
+            "$and": [
+                {"user_id": "alice"},
+                {"agent_id": "agent1"}
+            ]
+        }
+        result = self.qdrant._create_filter(filters)
+
+        self.assertIsInstance(result, Filter)
+        self.assertEqual(len(result.must), 2)
+
+    def test_create_filter_with_or_operator(self):
+        """Test _create_filter with $or operator."""
+        filters = {
+            "$or": [
+                {"user_id": "alice"},
+                {"user_id": "bob"}
+            ]
+        }
+        result = self.qdrant._create_filter(filters)
+
+        self.assertIsInstance(result, Filter)
+        self.assertEqual(len(result.should), 2)
+        self.assertIsNone(result.must)
+
+    def test_create_filter_with_mixed_operators(self):
+        """Test _create_filter with mixed $and and $or operators."""
+        filters = {
+            "$and": [
+                {"agent_id": "agent1"}
+            ],
+            "$or": [
+                {"user_id": "alice"},
+                {"user_id": "bob"}
+            ]
+        }
+        result = self.qdrant._create_filter(filters)
+
+        self.assertIsInstance(result, Filter)
+        self.assertEqual(len(result.must), 1)
+        self.assertEqual(len(result.should), 2)
+
+    def test_create_filter_with_simple_and_composite(self):
+        """Test _create_filter with both simple filters and composite operators."""
+        filters = {
+            "run_id": "run1",
+            "$or": [
+                {"user_id": "alice"},
+                {"user_id": "bob"}
+            ]
+        }
+        result = self.qdrant._create_filter(filters)
+
+        self.assertIsInstance(result, Filter)
+        # Simple filter goes to must
+        self.assertEqual(len(result.must), 1)
+        # $or conditions go to should
+        self.assertEqual(len(result.should), 2)
+
     def test_delete_col(self):
         self.qdrant.delete_col()
         self.client_mock.delete_collection.assert_called_once_with(collection_name="test_collection")
