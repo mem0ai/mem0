@@ -23,13 +23,13 @@ POSTGRES_USER = os.environ.get("POSTGRES_USER", "postgres")
 POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "postgres")
 POSTGRES_COLLECTION_NAME = os.environ.get("POSTGRES_COLLECTION_NAME", "memories")
 
-NEO4J_URI = os.environ.get("NEO4J_URI")
-NEO4J_USERNAME = os.environ.get("NEO4J_USERNAME")
-NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD")
+NEO4J_URI = os.environ.get("NEO4J_URI", "bolt://neo4j:7687")
+NEO4J_USERNAME = os.environ.get("NEO4J_USERNAME", "neo4j")
+NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "mem0graph")
 
-MEMGRAPH_URI = os.environ.get("MEMGRAPH_URI")
-MEMGRAPH_USERNAME = os.environ.get("MEMGRAPH_USERNAME")
-MEMGRAPH_PASSWORD = os.environ.get("MEMGRAPH_PASSWORD")
+MEMGRAPH_URI = os.environ.get("MEMGRAPH_URI", "bolt://localhost:7687")
+MEMGRAPH_USERNAME = os.environ.get("MEMGRAPH_USERNAME", "memgraph")
+MEMGRAPH_PASSWORD = os.environ.get("MEMGRAPH_PASSWORD", "mem0graph")
 
 GRAPH_STORE_PROVIDER = os.environ.get("GRAPH_STORE_PROVIDER")
 KUZU_DB_PATH = os.environ.get("KUZU_DB_PATH", ":memory:")
@@ -93,7 +93,9 @@ def _normalize_provider(value: Optional[str]) -> Optional[str]:
 
 def _build_graph_store_config() -> Dict[str, Any]:
     provider = _normalize_provider(GRAPH_STORE_PROVIDER)
-    if provider in (None, "none"):
+    if provider == "none":
+        return {"provider": "neo4j", "config": None}
+    if provider is None:
         if NEO4J_URI and NEO4J_USERNAME and NEO4J_PASSWORD:
             return {
                 "provider": "neo4j",
