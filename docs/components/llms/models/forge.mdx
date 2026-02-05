@@ -1,0 +1,44 @@
+---
+title: Forge
+---
+
+[Forge](https://forge.tensorblock.co) is an LLM router that provides unified access to multiple AI providers (OpenAI, Anthropic, Google, and more) through a single API. It's compatible with the OpenAI API format, making it easy to integrate with existing applications.
+
+## Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["FORGE_API_KEY"] = "your-api-key"
+
+config = {
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "OpenAI/gpt-4o-mini",
+            "temperature": 0.2,
+            "max_tokens": 2000,
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+You can optionally set a custom base URL:
+
+```python
+os.environ["FORGE_API_BASE"] = "https://api.forge.tensorblock.co/v1"
+```
+
+## Config
+
+All available parameters for the `openai` config are present in [Master List of All Params in Config](../config).
