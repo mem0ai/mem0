@@ -33,7 +33,7 @@ class MemoryGraph:
             self.config.graph_store.config.url,
             self.config.graph_store.config.username,
             self.config.graph_store.config.password,
-            self.config.graph_store.config.database,
+            database=self.config.graph_store.config.database,
             refresh_schema=False,
             driver_config={"notifications_min_severity": "OFF"},
         )
