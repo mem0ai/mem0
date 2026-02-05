@@ -31,6 +31,21 @@ MEMGRAPH_USERNAME = os.environ.get("MEMGRAPH_USERNAME", "memgraph")
 MEMGRAPH_PASSWORD = os.environ.get("MEMGRAPH_PASSWORD", "mem0graph")
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+LLM_AZURE_OPENAI_API_KEY = os.environ.get("LLM_AZURE_OPENAI_API_KEY")
+LLM_AZURE_DEPLOYMENT = os.environ.get("LLM_AZURE_DEPLOYMENT")
+LLM_AZURE_ENDPOINT = os.environ.get("LLM_AZURE_ENDPOINT")
+LLM_AZURE_API_VERSION = os.environ.get("LLM_AZURE_API_VERSION")
+
+EMBEDDING_AZURE_OPENAI_API_KEY = os.environ.get("EMBEDDING_AZURE_OPENAI_API_KEY")
+EMBEDDING_AZURE_DEPLOYMENT = os.environ.get("EMBEDDING_AZURE_DEPLOYMENT")
+EMBEDDING_AZURE_ENDPOINT = os.environ.get("EMBEDDING_AZURE_ENDPOINT")
+EMBEDDING_AZURE_API_VERSION = os.environ.get("EMBEDDING_AZURE_API_VERSION")
+
+VLLM_BASE_URL = os.environ.get("VLLM_BASE_URL")
+VLLM_API_KEY = os.environ.get("VLLM_API_KEY")
+VLLM_MODEL = os.environ.get("VLLM_MODEL")
+VLLM_TEMPERATURE = os.environ.get("VLLM_TEMPERATURE")
+VLLM_MAX_TOKENS = os.environ.get("VLLM_MAX_TOKENS")
 HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/history/history.db")
 
 DEFAULT_CONFIG = {
@@ -54,6 +69,86 @@ DEFAULT_CONFIG = {
     "embedder": {"provider": "openai", "config": {"api_key": OPENAI_API_KEY, "model": "text-embedding-3-small"}},
     "history_db_path": HISTORY_DB_PATH,
 }
+
+
+def _compact_dict(data: Dict[str, Any]) -> Dict[str, Any]:
+    return {k: v for k, v in data.items() if v is not None}
+
+
+def _parse_float(value: Optional[str]) -> Optional[float]:
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except ValueError:
+        return None
+
+
+def _parse_int(value: Optional[str]) -> Optional[int]:
+    if value is None or value == "":
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        return None
+
+
+def _azure_llm_config():
+    llm_model = os.environ.get("LLM_MODEL") or LLM_AZURE_DEPLOYMENT
+    return {
+        "provider": "azure_openai",
+        "config": {
+            "model": llm_model,
+            "temperature": 0.2,
+            "azure_kwargs": {
+                "api_key": LLM_AZURE_OPENAI_API_KEY,
+                "azure_deployment": LLM_AZURE_DEPLOYMENT,
+                "azure_endpoint": LLM_AZURE_ENDPOINT,
+                "api_version": LLM_AZURE_API_VERSION,
+            },
+        },
+    }
+
+
+def _azure_embedder_config():
+    embedding_model = os.environ.get("EMBEDDING_MODEL") or EMBEDDING_AZURE_DEPLOYMENT
+    return {
+        "provider": "azure_openai",
+        "config": {
+            "model": embedding_model,
+            "azure_kwargs": {
+                "api_key": EMBEDDING_AZURE_OPENAI_API_KEY,
+                "azure_deployment": EMBEDDING_AZURE_DEPLOYMENT,
+                "azure_endpoint": EMBEDDING_AZURE_ENDPOINT,
+                "api_version": EMBEDDING_AZURE_API_VERSION,
+            },
+        },
+    }
+
+
+def _vllm_llm_config():
+    return {
+        "provider": "vllm",
+        "config": _compact_dict(
+            {
+                "model": VLLM_MODEL,
+                "vllm_base_url": VLLM_BASE_URL,
+                "api_key": VLLM_API_KEY,
+                "temperature": _parse_float(VLLM_TEMPERATURE),
+                "max_tokens": _parse_int(VLLM_MAX_TOKENS),
+            }
+        ),
+    }
+
+
+if LLM_AZURE_DEPLOYMENT and LLM_AZURE_ENDPOINT:
+    DEFAULT_CONFIG["llm"] = _azure_llm_config()
+
+if EMBEDDING_AZURE_DEPLOYMENT and EMBEDDING_AZURE_ENDPOINT:
+    DEFAULT_CONFIG["embedder"] = _azure_embedder_config()
+
+if VLLM_BASE_URL:
+    DEFAULT_CONFIG["llm"] = _vllm_llm_config()
 
 
 MEMORY_INSTANCE = Memory.from_config(DEFAULT_CONFIG)
