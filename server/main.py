@@ -16,11 +16,17 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 load_dotenv()
 
 
-POSTGRES_HOST = os.environ.get("POSTGRES_HOST", "postgres")
-POSTGRES_PORT = os.environ.get("POSTGRES_PORT", "5432")
-POSTGRES_DB = os.environ.get("POSTGRES_DB", "postgres")
-POSTGRES_USER = os.environ.get("POSTGRES_USER", "postgres")
-POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "postgres")
+POSTGRES_HOST_ENV = os.environ.get("POSTGRES_HOST")
+POSTGRES_PORT_ENV = os.environ.get("POSTGRES_PORT")
+POSTGRES_DB_ENV = os.environ.get("POSTGRES_DB")
+POSTGRES_USER_ENV = os.environ.get("POSTGRES_USER")
+POSTGRES_PASSWORD_ENV = os.environ.get("POSTGRES_PASSWORD")
+
+POSTGRES_HOST = POSTGRES_HOST_ENV or "postgres"
+POSTGRES_PORT = POSTGRES_PORT_ENV or "5432"
+POSTGRES_DB = POSTGRES_DB_ENV or "postgres"
+POSTGRES_USER = POSTGRES_USER_ENV or "postgres"
+POSTGRES_PASSWORD = POSTGRES_PASSWORD_ENV or "postgres"
 POSTGRES_COLLECTION_NAME = os.environ.get("POSTGRES_COLLECTION_NAME", "memories")
 
 NEO4J_URI = os.environ.get("NEO4J_URI", "bolt://neo4j:7687")
@@ -51,7 +57,7 @@ VLLM_MODEL = os.environ.get("VLLM_MODEL")
 VLLM_TEMPERATURE = os.environ.get("VLLM_TEMPERATURE")
 VLLM_MAX_TOKENS = os.environ.get("VLLM_MAX_TOKENS")
 HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/history/history.db")
-HISTORY_DB_PROVIDER = os.environ.get("HISTORY_DB_PROVIDER", "sqlite")
+HISTORY_DB_PROVIDER = os.environ.get("HISTORY_DB_PROVIDER")
 HISTORY_DB_URL = os.environ.get("HISTORY_DB_URL")
 HISTORY_DB_TABLE = os.environ.get("HISTORY_DB_TABLE", "history")
 
@@ -148,7 +154,23 @@ def _build_history_db_url() -> Optional[str]:
 
 
 DEFAULT_CONFIG["graph_store"] = _build_graph_store_config()
-DEFAULT_CONFIG["history_db_url"] = _build_history_db_url()
+
+def _resolve_history_provider() -> str:
+    provider = _normalize_provider(HISTORY_DB_PROVIDER)
+    if provider == "none":
+        return "sqlite"
+    if provider:
+        return provider
+    if HISTORY_DB_URL:
+        return "postgres"
+    if any([POSTGRES_HOST_ENV, POSTGRES_PORT_ENV, POSTGRES_DB_ENV, POSTGRES_USER_ENV, POSTGRES_PASSWORD_ENV]):
+        return "postgres"
+    return "sqlite"
+
+
+_HISTORY_PROVIDER = _resolve_history_provider()
+DEFAULT_CONFIG["history_db_provider"] = _HISTORY_PROVIDER
+DEFAULT_CONFIG["history_db_url"] = _build_history_db_url() if _HISTORY_PROVIDER in {"postgres", "postgresql", "pg"} else None
 
 
 def _azure_llm_config():
