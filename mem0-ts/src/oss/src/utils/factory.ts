@@ -5,6 +5,7 @@ import { OpenAIStructuredLLM } from "../llms/openai_structured";
 import { AnthropicLLM } from "../llms/anthropic";
 import { GroqLLM } from "../llms/groq";
 import { MistralLLM } from "../llms/mistral";
+import { AWSBedrockLLM } from "../llms/aws_bedrock";
 import { MemoryVectorStore } from "../vector_stores/memory";
 import {
   EmbeddingConfig,
@@ -75,6 +76,9 @@ export class LLMFactory {
         return new MistralLLM(config);
       case "langchain":
         return new LangchainLLM(config);
+      case "aws_bedrock":
+      case "bedrock":
+        return new AWSBedrockLLM(config);
       default:
         throw new Error(`Unsupported LLM provider: ${provider}`);
     }
