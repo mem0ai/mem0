@@ -22,13 +22,16 @@ POSTGRES_USER = os.environ.get("POSTGRES_USER", "postgres")
 POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "postgres")
 POSTGRES_COLLECTION_NAME = os.environ.get("POSTGRES_COLLECTION_NAME", "memories")
 
-NEO4J_URI = os.environ.get("NEO4J_URI", "bolt://neo4j:7687")
-NEO4J_USERNAME = os.environ.get("NEO4J_USERNAME", "neo4j")
-NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "mem0graph")
+NEO4J_URI = os.environ.get("NEO4J_URI")
+NEO4J_USERNAME = os.environ.get("NEO4J_USERNAME")
+NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD")
 
-MEMGRAPH_URI = os.environ.get("MEMGRAPH_URI", "bolt://localhost:7687")
-MEMGRAPH_USERNAME = os.environ.get("MEMGRAPH_USERNAME", "memgraph")
-MEMGRAPH_PASSWORD = os.environ.get("MEMGRAPH_PASSWORD", "mem0graph")
+MEMGRAPH_URI = os.environ.get("MEMGRAPH_URI")
+MEMGRAPH_USERNAME = os.environ.get("MEMGRAPH_USERNAME")
+MEMGRAPH_PASSWORD = os.environ.get("MEMGRAPH_PASSWORD")
+
+GRAPH_STORE_PROVIDER = os.environ.get("GRAPH_STORE_PROVIDER")
+KUZU_DB_PATH = os.environ.get("KUZU_DB_PATH", ":memory:")
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 LLM_AZURE_OPENAI_API_KEY = os.environ.get("LLM_AZURE_OPENAI_API_KEY")
@@ -61,10 +64,7 @@ DEFAULT_CONFIG = {
             "collection_name": POSTGRES_COLLECTION_NAME,
         },
     },
-    "graph_store": {
-        "provider": "neo4j",
-        "config": {"url": NEO4J_URI, "username": NEO4J_USERNAME, "password": NEO4J_PASSWORD},
-    },
+    "graph_store": None,
     "llm": {"provider": "openai", "config": {"api_key": OPENAI_API_KEY, "temperature": 0.2, "model": "gpt-4.1-nano-2025-04-14"}},
     "embedder": {"provider": "openai", "config": {"api_key": OPENAI_API_KEY, "model": "text-embedding-3-small"}},
     "history_db_path": HISTORY_DB_PATH,
@@ -73,6 +73,40 @@ DEFAULT_CONFIG = {
 
 def _compact_dict(data: Dict[str, Any]) -> Dict[str, Any]:
     return {k: v for k, v in data.items() if v is not None}
+
+
+def _normalize_provider(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    value = value.strip().lower()
+    if value in {"none", "disabled", "off", "false", "0", ""}:
+        return "none"
+    return value
+
+
+def _build_graph_store_config() -> Dict[str, Any]:
+    provider = _normalize_provider(GRAPH_STORE_PROVIDER)
+    if provider in (None, "none"):
+        if NEO4J_URI and NEO4J_USERNAME and NEO4J_PASSWORD:
+            return {
+                "provider": "neo4j",
+                "config": {"url": NEO4J_URI, "username": NEO4J_USERNAME, "password": NEO4J_PASSWORD},
+            }
+        return {"provider": "neo4j", "config": None}
+    if provider == "neo4j":
+        if not (NEO4J_URI and NEO4J_USERNAME and NEO4J_PASSWORD):
+            return {"provider": "neo4j", "config": None}
+        return {"provider": "neo4j", "config": {"url": NEO4J_URI, "username": NEO4J_USERNAME, "password": NEO4J_PASSWORD}}
+    if provider == "memgraph":
+        if not (MEMGRAPH_URI and MEMGRAPH_USERNAME and MEMGRAPH_PASSWORD):
+            return {"provider": "memgraph", "config": None}
+        return {
+            "provider": "memgraph",
+            "config": {"url": MEMGRAPH_URI, "username": MEMGRAPH_USERNAME, "password": MEMGRAPH_PASSWORD},
+        }
+    if provider == "kuzu":
+        return {"provider": "kuzu", "config": {"db": KUZU_DB_PATH}}
+    raise ValueError(f"Unsupported GRAPH_STORE_PROVIDER: {provider}")
 
 
 def _parse_float(value: Optional[str]) -> Optional[float]:
@@ -91,6 +125,9 @@ def _parse_int(value: Optional[str]) -> Optional[int]:
         return int(value)
     except ValueError:
         return None
+
+
+DEFAULT_CONFIG["graph_store"] = _build_graph_store_config()
 
 
 def _azure_llm_config():
