@@ -23,7 +23,7 @@ from mem0.configs.prompts import (
 from mem0.exceptions import ValidationError as Mem0ValidationError
 from mem0.memory.base import MemoryBase
 from mem0.memory.setup import mem0_dir, setup_config
-from mem0.memory.storage import SQLiteManager
+from mem0.memory.storage import create_history_manager
 from mem0.memory.telemetry import capture_event
 from mem0.memory.utils import (
     extract_json,
@@ -184,7 +184,7 @@ class Memory(MemoryBase):
             self.config.vector_store.provider, self.config.vector_store.config
         )
         self.llm = LlmFactory.create(self.config.llm.provider, self.config.llm.config)
-        self.db = SQLiteManager(self.config.history_db_path)
+        self.db = create_history_manager(self.config)
         self.collection_name = self.config.vector_store.config.collection_name
         self.api_version = self.config.version
         
@@ -1218,11 +1218,8 @@ class Memory(MemoryBase):
         """
         logger.warning("Resetting all memories")
 
-        if hasattr(self.db, "connection") and self.db.connection:
-            self.db.connection.execute("DROP TABLE IF EXISTS history")
-            self.db.connection.close()
-
-        self.db = SQLiteManager(self.config.history_db_path)
+        self.db.reset()
+        self.db = create_history_manager(self.config)
 
         if hasattr(self.vector_store, "reset"):
             self.vector_store = VectorStoreFactory.reset(self.vector_store)
@@ -1251,7 +1248,7 @@ class AsyncMemory(MemoryBase):
             self.config.vector_store.provider, self.config.vector_store.config
         )
         self.llm = LlmFactory.create(self.config.llm.provider, self.config.llm.config)
-        self.db = SQLiteManager(self.config.history_db_path)
+        self.db = create_history_manager(self.config)
         self.collection_name = self.config.vector_store.config.collection_name
         self.api_version = self.config.version
         
@@ -2310,11 +2307,8 @@ class AsyncMemory(MemoryBase):
         if hasattr(self.vector_store, "client") and hasattr(self.vector_store.client, "close"):
             await asyncio.to_thread(self.vector_store.client.close)
 
-        if hasattr(self.db, "connection") and self.db.connection:
-            await asyncio.to_thread(lambda: self.db.connection.execute("DROP TABLE IF EXISTS history"))
-            await asyncio.to_thread(self.db.connection.close)
-
-        self.db = SQLiteManager(self.config.history_db_path)
+        await asyncio.to_thread(self.db.reset)
+        self.db = create_history_manager(self.config)
 
         self.vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config

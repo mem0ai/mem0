@@ -1,5 +1,6 @@
 import logging
 import os
+from urllib.parse import quote_plus
 from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
@@ -50,6 +51,9 @@ VLLM_MODEL = os.environ.get("VLLM_MODEL")
 VLLM_TEMPERATURE = os.environ.get("VLLM_TEMPERATURE")
 VLLM_MAX_TOKENS = os.environ.get("VLLM_MAX_TOKENS")
 HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/history/history.db")
+HISTORY_DB_PROVIDER = os.environ.get("HISTORY_DB_PROVIDER", "sqlite")
+HISTORY_DB_URL = os.environ.get("HISTORY_DB_URL")
+HISTORY_DB_TABLE = os.environ.get("HISTORY_DB_TABLE", "history")
 
 DEFAULT_CONFIG = {
     "version": "v1.1",
@@ -68,6 +72,9 @@ DEFAULT_CONFIG = {
     "llm": {"provider": "openai", "config": {"api_key": OPENAI_API_KEY, "temperature": 0.2, "model": "gpt-4.1-nano-2025-04-14"}},
     "embedder": {"provider": "openai", "config": {"api_key": OPENAI_API_KEY, "model": "text-embedding-3-small"}},
     "history_db_path": HISTORY_DB_PATH,
+    "history_db_provider": HISTORY_DB_PROVIDER,
+    "history_db_url": None,
+    "history_db_table": HISTORY_DB_TABLE,
 }
 
 
@@ -127,7 +134,19 @@ def _parse_int(value: Optional[str]) -> Optional[int]:
         return None
 
 
+def _build_history_db_url() -> Optional[str]:
+    if HISTORY_DB_URL:
+        return HISTORY_DB_URL
+    if not (POSTGRES_HOST and POSTGRES_PORT and POSTGRES_DB and POSTGRES_USER):
+        return None
+    user = quote_plus(POSTGRES_USER)
+    password = quote_plus(POSTGRES_PASSWORD) if POSTGRES_PASSWORD else None
+    auth = f"{user}:{password}@" if password else f"{user}@"
+    return f"postgresql://{auth}{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+
+
 DEFAULT_CONFIG["graph_store"] = _build_graph_store_config()
+DEFAULT_CONFIG["history_db_url"] = _build_history_db_url()
 
 
 def _azure_llm_config():
