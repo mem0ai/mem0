@@ -272,7 +272,11 @@ class FAISS(VectorStoreBase):
 
         Args:
             payload (Dict): Payload to filter.
-            filters (Dict): Filters to apply.
+            filters (Dict): Filters to apply. Supports operators:
+                - equality: {"key": value}
+                - list membership: {"key": [val1, val2]}
+                - range: {"key": {"gt": 1, "lt": 10}}
+                - operators: gt, gte, lt, lte, eq, ne, in
 
         Returns:
             bool: True if payload passes filters, False otherwise.
@@ -283,11 +287,40 @@ class FAISS(VectorStoreBase):
         for key, value in filters.items():
             if key not in payload:
                 return False
+            
+            payload_val = payload[key]
 
-            if isinstance(value, list):
-                if payload[key] not in value:
+            if isinstance(value, dict):
+                # Handle comparison operators
+                for op, filter_val in value.items():
+                    if op == "gt":
+                        if not (payload_val > filter_val):
+                            return False
+                    elif op == "gte":
+                        if not (payload_val >= filter_val):
+                            return False
+                    elif op == "lt":
+                        if not (payload_val < filter_val):
+                            return False
+                    elif op == "lte":
+                        if not (payload_val <= filter_val):
+                            return False
+                    elif op == "eq":
+                        if not (payload_val == filter_val):
+                            return False
+                    elif op == "ne":
+                        if not (payload_val != filter_val):
+                            return False
+                    elif op == "in":
+                        if payload_val not in filter_val:
+                            return False
+                    elif op == "nin":
+                        if payload_val in filter_val:
+                            return False
+            elif isinstance(value, list):
+                if payload_val not in value:
                     return False
-            elif payload[key] != value:
+            elif payload_val != value:
                 return False
 
         return True
