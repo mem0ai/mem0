@@ -13,6 +13,8 @@ from mem0.memory.utils import extract_json
 
 
 class TogetherLLM(LLMBase):
+    """LLM wrapper for Together API."""
+
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         super().__init__(config)
 

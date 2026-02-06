@@ -61,6 +61,17 @@ class BaseLlmConfig(ABC):
                 Options: "low", "high", "auto". Defaults to "auto"
             http_client_proxies: Proxy settings for HTTP client.
                 Can be a dict or string. Defaults to None
+            together_base_url: Optional Together base URL override.
+            deepseek_base_url: Optional DeepSeek base URL override.
+            xai_base_url: Optional xAI base URL override.
+            sarvam_base_url: Optional Sarvam base URL override.
+            lmstudio_base_url: Optional LM Studio base URL override.
+            lmstudio_response_format: Optional LM Studio response format payload.
+            aws_access_key_id: Optional AWS access key for Bedrock.
+            aws_secret_access_key: Optional AWS secret key for Bedrock.
+            aws_region: Optional AWS region for Bedrock.
+            aws_session_token: Optional AWS session token.
+            aws_profile: Optional AWS profile name.
         """
         self.model = model
         self.temperature = temperature

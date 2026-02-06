@@ -8,6 +8,8 @@ from mem0.embeddings.base import EmbeddingBase
 
 
 class TogetherEmbedding(EmbeddingBase):
+    """Embedding wrapper for Together API."""
+
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
         super().__init__(config)
 

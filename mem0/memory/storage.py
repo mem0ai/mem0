@@ -235,6 +235,7 @@ class SQLiteManager:
 
 
 def _sanitize_identifier(name: str) -> str:
+    """Allow only safe SQL identifiers for dynamic table names."""
     if not name:
         raise ValueError("History table name cannot be empty.")
     if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", name):
@@ -243,7 +244,10 @@ def _sanitize_identifier(name: str) -> str:
 
 
 class PostgresHistoryManager:
+    """History manager backed by PostgreSQL."""
+
     def __init__(self, dsn: str, table_name: str = "history", minconn: int = 1, maxconn: int = 5):
+        """Initialize pooled PostgreSQL connections and ensure table exists."""
         if not dsn:
             raise ValueError("history_db_url is required for postgres history store.")
         self.table_name = _sanitize_identifier(table_name)
@@ -270,6 +274,7 @@ class PostgresHistoryManager:
 
     @contextmanager
     def _get_connection(self):
+        """Yield a connection and safely return/close it on every backend path."""
         if self._pool_kind == "psycopg3" and self._pool is not None:
             with self._pool.connection() as conn:
                 yield conn
@@ -299,6 +304,7 @@ class PostgresHistoryManager:
                 conn.close()
 
     def _execute(self, query: str, params: Optional[tuple] = None, fetch: bool = False):
+        """Execute SQL with commit/rollback handling."""
         params = params or tuple()
         with self._get_connection() as conn:
             rows = None
@@ -317,6 +323,7 @@ class PostgresHistoryManager:
         return rows
 
     def _create_history_table(self) -> None:
+        """Create history table if it does not exist."""
         query = f"""
             CREATE TABLE IF NOT EXISTS {self.table_name} (
                 id           TEXT PRIMARY KEY,
@@ -395,11 +402,13 @@ class PostgresHistoryManager:
         ]
 
     def reset(self) -> None:
+        """Reset table contents by recreating the table schema."""
         query = f"DROP TABLE IF EXISTS {self.table_name}"
         self._execute(query)
         self._create_history_table()
 
     def close(self) -> None:
+        """Close open PostgreSQL pools."""
         if self._pool_kind == "psycopg3" and self._pool is not None:
             self._pool.close()
         elif self._pool_kind == "psycopg2" and self._pool is not None:
@@ -410,6 +419,7 @@ class PostgresHistoryManager:
 
 
 def create_history_manager(config):
+    """Create history manager instance based on ``history_db_provider`` setting."""
     provider = getattr(config, "history_db_provider", "sqlite")
     provider = (provider or "sqlite").strip().lower()
     if provider in {"postgres", "postgresql", "pg"}:

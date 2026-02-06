@@ -177,10 +177,12 @@ DEFAULT_CONFIG = {
 
 
 def _compact_dict(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Drop keys with ``None`` values."""
     return {k: v for k, v in data.items() if v is not None}
 
 
 def _normalize_provider(value: Optional[str]) -> Optional[str]:
+    """Normalize provider text and map disabled-like values to ``none``."""
     if value is None:
         return None
     value = value.strip().lower()
@@ -190,6 +192,7 @@ def _normalize_provider(value: Optional[str]) -> Optional[str]:
 
 
 def _normalize_llm_provider(value: Optional[str]) -> Optional[str]:
+    """Normalize LLM provider names and supported aliases."""
     provider = _normalize_provider(value)
     if provider is None:
         return None
@@ -204,6 +207,7 @@ def _normalize_llm_provider(value: Optional[str]) -> Optional[str]:
 
 
 def _resolve_llm_api_key(provider: str) -> Optional[str]:
+    """Resolve API key using provider-specific env var, then generic fallback."""
     mapping = {
         "openai": OPENAI_API_KEY,
         "anthropic": ANTHROPIC_API_KEY,
@@ -220,6 +224,7 @@ def _resolve_llm_api_key(provider: str) -> Optional[str]:
 
 
 def _build_graph_store_config() -> Dict[str, Any]:
+    """Build graph store config from env settings."""
     provider = _normalize_provider(GRAPH_STORE_PROVIDER)
     if provider == "none":
         return {"provider": "neo4j", "config": None}
@@ -247,6 +252,7 @@ def _build_graph_store_config() -> Dict[str, Any]:
 
 
 def _parse_float(value: Optional[str]) -> Optional[float]:
+    """Safely parse an optional float value."""
     if value is None or value == "":
         return None
     try:
@@ -256,6 +262,7 @@ def _parse_float(value: Optional[str]) -> Optional[float]:
 
 
 def _parse_int(value: Optional[str]) -> Optional[int]:
+    """Safely parse an optional int value."""
     if value is None or value == "":
         return None
     try:
@@ -265,6 +272,7 @@ def _parse_int(value: Optional[str]) -> Optional[int]:
 
 
 def _parse_json(value: Optional[str], field_name: str = "value") -> Optional[Dict[str, Any]]:
+    """Parse optional JSON string into dict."""
     if value is None or value == "":
         return None
     try:
@@ -274,6 +282,7 @@ def _parse_json(value: Optional[str], field_name: str = "value") -> Optional[Dic
 
 
 def _normalize_embedder_provider(value: Optional[str]) -> Optional[str]:
+    """Normalize embedder provider names and aliases."""
     provider = _normalize_provider(value)
     if provider is None:
         return None
@@ -285,6 +294,7 @@ def _normalize_embedder_provider(value: Optional[str]) -> Optional[str]:
 
 
 def _resolve_embedder_api_key(provider: str) -> Optional[str]:
+    """Resolve embedder API key using provider-specific env var first."""
     mapping = {
         "openai": OPENAI_API_KEY,
         "gemini": GOOGLE_API_KEY,
@@ -296,6 +306,7 @@ def _resolve_embedder_api_key(provider: str) -> Optional[str]:
 
 
 def _build_history_db_url() -> Optional[str]:
+    """Build DSN for history storage based on explicit URL or Postgres env vars."""
     if HISTORY_DB_URL:
         return HISTORY_DB_URL
     if not (POSTGRES_HOST and POSTGRES_PORT and POSTGRES_DB and POSTGRES_USER):
@@ -310,6 +321,7 @@ DEFAULT_CONFIG["graph_store"] = _build_graph_store_config()
 
 
 def _resolve_history_provider() -> str:
+    """Resolve history backend provider from explicit or inferred env settings."""
     provider = _normalize_provider(HISTORY_DB_PROVIDER)
     if provider == "none":
         return "sqlite"
@@ -327,7 +339,8 @@ DEFAULT_CONFIG["history_db_provider"] = _HISTORY_PROVIDER
 DEFAULT_CONFIG["history_db_url"] = _build_history_db_url() if _HISTORY_PROVIDER in {"postgres", "postgresql", "pg"} else None
 
 
-def _azure_llm_config():
+def _azure_llm_config() -> Dict[str, Any]:
+    """Build Azure OpenAI LLM config block."""
     llm_model = LLM_MODEL or LLM_AZURE_DEPLOYMENT
     return {
         "provider": "azure_openai",
@@ -344,7 +357,8 @@ def _azure_llm_config():
     }
 
 
-def _azure_embedder_config():
+def _azure_embedder_config() -> Dict[str, Any]:
+    """Build Azure OpenAI embedder config block."""
     embedding_model = os.environ.get("EMBEDDING_MODEL") or EMBEDDING_AZURE_DEPLOYMENT
     return {
         "provider": "azure_openai",
@@ -360,7 +374,8 @@ def _azure_embedder_config():
     }
 
 
-def _vllm_llm_config():
+def _vllm_llm_config() -> Dict[str, Any]:
+    """Build vLLM config block."""
     return {
         "provider": "vllm",
         "config": _compact_dict(
@@ -377,6 +392,7 @@ def _vllm_llm_config():
 
 
 def _build_llm_config(provider: str) -> Dict[str, Any]:
+    """Build provider-specific LLM config payload."""
     api_key = _resolve_llm_api_key(provider)
     config = _compact_dict(
         {
@@ -423,6 +439,7 @@ def _build_llm_config(provider: str) -> Dict[str, Any]:
 
 
 def _build_embedder_config(provider: str) -> Dict[str, Any]:
+    """Build provider-specific embedder config payload."""
     api_key = _resolve_embedder_api_key(provider)
     config = _compact_dict(
         {
@@ -478,6 +495,7 @@ def _build_embedder_config(provider: str) -> Dict[str, Any]:
 
 
 def _resolve_embedder_provider() -> str:
+    """Resolve active embedder provider with backward-compatible defaults."""
     provider = _normalize_embedder_provider(EMBEDDER_PROVIDER)
     if provider and provider != "none":
         return provider
@@ -487,6 +505,7 @@ def _resolve_embedder_provider() -> str:
 
 
 def _resolve_llm_provider() -> str:
+    """Resolve active LLM provider with backward-compatible defaults."""
     provider = _normalize_llm_provider(LLM_PROVIDER)
     if provider and provider != "none":
         return provider
@@ -546,6 +565,7 @@ class SearchRequest(BaseModel):
 
 
 def _require_configure_token(request: Request) -> None:
+    """Guard configuration endpoint with optional token."""
     if not CONFIGURE_API_TOKEN:
         return
     auth_header = request.headers.get("Authorization", "")
