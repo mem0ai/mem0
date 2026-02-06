@@ -9,6 +9,7 @@ Tanggal: 2026-02-05
 - Menambah **pilihan LLM provider** lewat env (anthropic, groq, together, litellm, gemini, aws_bedrock, deepseek, xai, sarvam, ollama, lmstudio, vllm, azure_openai).
 - Perbaikan kecil agar **xAI base URL** bisa diambil dari env tanpa error.
 - Menambah **pilihan embedder provider** lewat env (ollama, huggingface, vertexai, gemini, lmstudio, together, langchain, aws_bedrock, azure_openai).
+- Perbaiki **reset history**: close manager lama, rollback saat error psycopg2, reset drop+create table.
 
 ## Daftar commit yang menambah fitur
 - `f8d81225` Allow disabling graph store
@@ -20,6 +21,7 @@ Tanggal: 2026-02-05
 - `be4ca534` Add embedder provider selection + env
 - `b980fc71` Tidy server main config sections
 - `d42c6c4c` Add tests for graph store/history/xAI
+- `8676ad1c` Fix history reset cleanup and rollback
 
 ---
 
@@ -404,6 +406,70 @@ EMBEDDING_AWS_SECRET_ACCESS_KEY=
 
 **Penjelasan**
 - Mempermudah setup embedder tanpa ubah kode.
+
+---
+
+## 13) Reset menutup history manager lama
+### File: `mem0/memory/main.py`
+**Sebelum**
+```python
+self.db.reset()
+self.db = create_history_manager(self.config)
+```
+
+**Sesudah**
+```python
+self.db.reset()
+if hasattr(self.db, "close"):
+    self.db.close()
+self.db = create_history_manager(self.config)
+```
+
+**Penjelasan**
+- Mencegah **pool/connection leak** saat reset membuat manager baru.
+- Berlaku juga di `AsyncMemory.reset()` (via `asyncio.to_thread`).
+
+---
+
+## 14) Postgres rollback & reset aman
+### File: `mem0/memory/storage.py`
+**Sebelum**
+```python
+with self._get_connection() as conn:
+    with conn.cursor() as cur:
+        cur.execute(query, params)
+        rows = cur.fetchall() if fetch else None
+    conn.commit()
+...
+query = f"TRUNCATE TABLE {self.table_name}"
+self._execute(query)
+```
+
+**Sesudah**
+```python
+with self._get_connection() as conn:
+    rows = None
+    try:
+        with conn.cursor() as cur:
+            cur.execute(query, params)
+            rows = cur.fetchall() if fetch else None
+        conn.commit()
+    except Exception:
+        if hasattr(conn, "rollback"):
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+        raise
+...
+query = f"DROP TABLE IF EXISTS {self.table_name}"
+self._execute(query)
+self._create_history_table()
+```
+
+**Penjelasan**
+- Jika query error, **rollback** dilakukan (penting untuk psycopg2 pool).
+- Reset aman walau table belum ada (drop+create).
 
 ---
 
