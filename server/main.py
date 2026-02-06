@@ -17,6 +17,9 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 load_dotenv()
 
 
+# -----------------------
+# Database (pgvector)
+# -----------------------
 POSTGRES_HOST_ENV = os.environ.get("POSTGRES_HOST")
 POSTGRES_PORT_ENV = os.environ.get("POSTGRES_PORT")
 POSTGRES_DB_ENV = os.environ.get("POSTGRES_DB")
@@ -30,6 +33,9 @@ POSTGRES_USER = POSTGRES_USER_ENV or "postgres"
 POSTGRES_PASSWORD = POSTGRES_PASSWORD_ENV or "postgres"
 POSTGRES_COLLECTION_NAME = os.environ.get("POSTGRES_COLLECTION_NAME", "memories")
 
+# -----------------------
+# Graph store
+# -----------------------
 NEO4J_URI = os.environ.get("NEO4J_URI", "bolt://neo4j:7687")
 NEO4J_USERNAME = os.environ.get("NEO4J_USERNAME", "neo4j")
 NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "mem0graph")
@@ -41,6 +47,9 @@ MEMGRAPH_PASSWORD = os.environ.get("MEMGRAPH_PASSWORD", "mem0graph")
 GRAPH_STORE_PROVIDER = os.environ.get("GRAPH_STORE_PROVIDER")
 KUZU_DB_PATH = os.environ.get("KUZU_DB_PATH", ":memory:")
 
+# -----------------------
+# LLM (generic + providers)
+# -----------------------
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 LLM_PROVIDER = os.environ.get("LLM_PROVIDER")
 LLM_API_KEY = os.environ.get("LLM_API_KEY")
@@ -48,41 +57,56 @@ LLM_MODEL = os.environ.get("LLM_MODEL")
 LLM_TEMPERATURE = os.environ.get("LLM_TEMPERATURE")
 LLM_MAX_TOKENS = os.environ.get("LLM_MAX_TOKENS")
 LLM_TOP_P = os.environ.get("LLM_TOP_P")
+
 LLM_AZURE_OPENAI_API_KEY = os.environ.get("LLM_AZURE_OPENAI_API_KEY")
 LLM_AZURE_DEPLOYMENT = os.environ.get("LLM_AZURE_DEPLOYMENT")
 LLM_AZURE_ENDPOINT = os.environ.get("LLM_AZURE_ENDPOINT")
 LLM_AZURE_API_VERSION = os.environ.get("LLM_AZURE_API_VERSION")
-
-EMBEDDING_AZURE_OPENAI_API_KEY = os.environ.get("EMBEDDING_AZURE_OPENAI_API_KEY")
-EMBEDDING_AZURE_DEPLOYMENT = os.environ.get("EMBEDDING_AZURE_DEPLOYMENT")
-EMBEDDING_AZURE_ENDPOINT = os.environ.get("EMBEDDING_AZURE_ENDPOINT")
-EMBEDDING_AZURE_API_VERSION = os.environ.get("EMBEDDING_AZURE_API_VERSION")
-EMBEDDER_PROVIDER = os.environ.get("EMBEDDER_PROVIDER")
-EMBEDDING_API_KEY = os.environ.get("EMBEDDING_API_KEY")
-EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL")
-EMBEDDING_DIMS = os.environ.get("EMBEDDING_DIMS")
-HUGGINGFACE_BASE_URL = os.environ.get("HUGGINGFACE_BASE_URL")
-HUGGINGFACE_MODEL_KWARGS = os.environ.get("HUGGINGFACE_MODEL_KWARGS")
-VERTEX_CREDENTIALS_JSON = os.environ.get("VERTEX_CREDENTIALS_JSON")
-VERTEX_PROJECT_ID = os.environ.get("VERTEX_PROJECT_ID")
-GOOGLE_SERVICE_ACCOUNT_JSON = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
-GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
-GEMINI_OUTPUT_DIM = os.environ.get("GEMINI_OUTPUT_DIM")
-EMBEDDING_OLLAMA_BASE_URL = os.environ.get("EMBEDDING_OLLAMA_BASE_URL") or OLLAMA_BASE_URL
-EMBEDDING_LMSTUDIO_BASE_URL = os.environ.get("EMBEDDING_LMSTUDIO_BASE_URL") or LMSTUDIO_BASE_URL
-EMBEDDING_AWS_REGION = os.environ.get("EMBEDDING_AWS_REGION")
-EMBEDDING_AWS_ACCESS_KEY_ID = os.environ.get("EMBEDDING_AWS_ACCESS_KEY_ID")
-EMBEDDING_AWS_SECRET_ACCESS_KEY = os.environ.get("EMBEDDING_AWS_SECRET_ACCESS_KEY")
 
 VLLM_BASE_URL = os.environ.get("VLLM_BASE_URL")
 VLLM_API_KEY = os.environ.get("VLLM_API_KEY")
 VLLM_MODEL = os.environ.get("VLLM_MODEL")
 VLLM_TEMPERATURE = os.environ.get("VLLM_TEMPERATURE")
 VLLM_MAX_TOKENS = os.environ.get("VLLM_MAX_TOKENS")
+
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL")
 DEEPSEEK_API_BASE = os.environ.get("DEEPSEEK_API_BASE")
 LMSTUDIO_BASE_URL = os.environ.get("LMSTUDIO_BASE_URL")
 LMSTUDIO_RESPONSE_FORMAT = os.environ.get("LMSTUDIO_RESPONSE_FORMAT")
+
+# -----------------------
+# Embeddings (generic + providers)
+# -----------------------
+EMBEDDER_PROVIDER = os.environ.get("EMBEDDER_PROVIDER")
+EMBEDDING_API_KEY = os.environ.get("EMBEDDING_API_KEY")
+EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL")
+EMBEDDING_DIMS = os.environ.get("EMBEDDING_DIMS")
+
+EMBEDDING_AZURE_OPENAI_API_KEY = os.environ.get("EMBEDDING_AZURE_OPENAI_API_KEY")
+EMBEDDING_AZURE_DEPLOYMENT = os.environ.get("EMBEDDING_AZURE_DEPLOYMENT")
+EMBEDDING_AZURE_ENDPOINT = os.environ.get("EMBEDDING_AZURE_ENDPOINT")
+EMBEDDING_AZURE_API_VERSION = os.environ.get("EMBEDDING_AZURE_API_VERSION")
+
+HUGGINGFACE_BASE_URL = os.environ.get("HUGGINGFACE_BASE_URL")
+HUGGINGFACE_MODEL_KWARGS = os.environ.get("HUGGINGFACE_MODEL_KWARGS")
+
+VERTEX_CREDENTIALS_JSON = os.environ.get("VERTEX_CREDENTIALS_JSON")
+VERTEX_PROJECT_ID = os.environ.get("VERTEX_PROJECT_ID")
+GOOGLE_SERVICE_ACCOUNT_JSON = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
+
+GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
+GEMINI_OUTPUT_DIM = os.environ.get("GEMINI_OUTPUT_DIM")
+
+EMBEDDING_OLLAMA_BASE_URL = os.environ.get("EMBEDDING_OLLAMA_BASE_URL") or OLLAMA_BASE_URL
+EMBEDDING_LMSTUDIO_BASE_URL = os.environ.get("EMBEDDING_LMSTUDIO_BASE_URL") or LMSTUDIO_BASE_URL
+
+EMBEDDING_AWS_REGION = os.environ.get("EMBEDDING_AWS_REGION")
+EMBEDDING_AWS_ACCESS_KEY_ID = os.environ.get("EMBEDDING_AWS_ACCESS_KEY_ID")
+EMBEDDING_AWS_SECRET_ACCESS_KEY = os.environ.get("EMBEDDING_AWS_SECRET_ACCESS_KEY")
+
+# -----------------------
+# History DB
+# -----------------------
 HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/history/history.db")
 HISTORY_DB_PROVIDER = os.environ.get("HISTORY_DB_PROVIDER")
 HISTORY_DB_URL = os.environ.get("HISTORY_DB_URL")
@@ -102,8 +126,21 @@ DEFAULT_CONFIG = {
         },
     },
     "graph_store": None,
-    "llm": {"provider": "openai", "config": {"api_key": OPENAI_API_KEY, "temperature": 0.2, "model": "gpt-4.1-nano-2025-04-14"}},
-    "embedder": {"provider": "openai", "config": {"api_key": OPENAI_API_KEY, "model": "text-embedding-3-small"}},
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "api_key": OPENAI_API_KEY,
+            "temperature": 0.2,
+            "model": "gpt-4.1-nano-2025-04-14",
+        },
+    },
+    "embedder": {
+        "provider": "openai",
+        "config": {
+            "api_key": OPENAI_API_KEY,
+            "model": "text-embedding-3-small",
+        },
+    },
     "history_db_path": HISTORY_DB_PATH,
     "history_db_provider": HISTORY_DB_PROVIDER,
     "history_db_url": None,
@@ -215,6 +252,7 @@ def _build_history_db_url() -> Optional[str]:
 
 
 DEFAULT_CONFIG["graph_store"] = _build_graph_store_config()
+
 
 def _resolve_history_provider() -> str:
     provider = _normalize_provider(HISTORY_DB_PROVIDER)

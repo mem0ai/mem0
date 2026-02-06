@@ -17,7 +17,7 @@ Tanggal: 2026-02-05
 - `47e778b5` Infer history DB from Postgres env
 - `89919bd3` Add LLM provider selection + env
 - `89919bd3` Fix xAI base URL access
-- `TBD` Add embedder provider selection + env
+- `be4ca534` Add embedder provider selection + env
 
 ---
 
