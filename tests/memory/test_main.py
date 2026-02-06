@@ -247,3 +247,22 @@ class TestAsyncCustomPromptJsonInstruction:
         first_call_args = mock_async_memory_custom_prompt.llm.generate_response.call_args_list[0]
         system_message = first_call_args[1]["messages"][0] if "messages" in first_call_args[1] else first_call_args[0][0][0]
         assert system_message["content"] == original_prompt
+
+    @pytest.mark.asyncio
+    async def test_async_custom_prompt_with_json_uppercase_not_modified(self, mocker, mock_async_memory_custom_prompt):
+        """Test that a custom prompt containing 'JSON' (uppercase) is not modified (async)."""
+        mocker.patch("mem0.utils.factory.EmbedderFactory.create", return_value=MagicMock())
+        original_prompt = "Extract facts and return in JSON format."
+        mock_async_memory_custom_prompt.config.custom_fact_extraction_prompt = original_prompt
+        mock_async_memory_custom_prompt.llm.generate_response.return_value = '{"facts": ["test fact"]}'
+        mock_capture_event = mocker.MagicMock()
+        mocker.patch("mem0.memory.main.capture_event", mock_capture_event)
+
+        await mock_async_memory_custom_prompt._add_to_vector_store(
+            messages=[{"role": "user", "content": "I like pizza"}], metadata={}, effective_filters={}, infer=True
+        )
+
+        # Verify the system prompt in the first call (fact extraction) is the original (not modified)
+        first_call_args = mock_async_memory_custom_prompt.llm.generate_response.call_args_list[0]
+        system_message = first_call_args[1]["messages"][0] if "messages" in first_call_args[1] else first_call_args[0][0][0]
+        assert system_message["content"] == original_prompt
