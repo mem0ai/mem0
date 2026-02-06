@@ -8,6 +8,7 @@ Tanggal: 2026-02-05
 - **History Postgres otomatis aktif** jika `POSTGRES_*` sudah di‐set (tanpa perlu env history tambahan).
 - Menambah **pilihan LLM provider** lewat env (anthropic, groq, together, litellm, gemini, aws_bedrock, deepseek, xai, sarvam, ollama, lmstudio, vllm, azure_openai).
 - Perbaikan kecil agar **xAI base URL** bisa diambil dari env tanpa error.
+- Menambah **pilihan embedder provider** lewat env (ollama, huggingface, vertexai, gemini, lmstudio, together, langchain, aws_bedrock, azure_openai).
 
 ## Daftar commit yang menambah fitur
 - `f8d81225` Allow disabling graph store
@@ -16,6 +17,7 @@ Tanggal: 2026-02-05
 - `47e778b5` Infer history DB from Postgres env
 - `89919bd3` Add LLM provider selection + env
 - `89919bd3` Fix xAI base URL access
+- `TBD` Add embedder provider selection + env
 
 ---
 
@@ -335,6 +337,71 @@ base_url = getattr(self.config, "xai_base_url", None) or os.getenv("XAI_API_BASE
 
 **Penjelasan**
 - Mencegah `AttributeError` saat `xai_base_url` tidak ada di config.
+
+---
+
+## 11) Pilihan embedder provider lewat env
+### File: `server/main.py`
+**Sebelum**
+```python
+if EMBEDDING_AZURE_DEPLOYMENT and EMBEDDING_AZURE_ENDPOINT:
+    DEFAULT_CONFIG["embedder"] = _azure_embedder_config()
+```
+
+**Sesudah**
+```python
+EMBEDDER_PROVIDER = os.environ.get("EMBEDDER_PROVIDER")
+EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL")
+EMBEDDING_DIMS = os.environ.get("EMBEDDING_DIMS")
+
+def _resolve_embedder_provider() -> str:
+    provider = _normalize_embedder_provider(EMBEDDER_PROVIDER)
+    if provider and provider != "none":
+        return provider
+    if EMBEDDING_AZURE_DEPLOYMENT and EMBEDDING_AZURE_ENDPOINT:
+        return "azure_openai"
+    return "openai"
+
+_EMBEDDER_PROVIDER = _resolve_embedder_provider()
+if _EMBEDDER_PROVIDER == "azure_openai":
+    DEFAULT_CONFIG["embedder"] = _azure_embedder_config()
+else:
+    DEFAULT_CONFIG["embedder"] = {
+        "provider": _EMBEDDER_PROVIDER,
+        "config": _build_embedder_config(_EMBEDDER_PROVIDER),
+    }
+```
+
+**Penjelasan**
+- Bisa set `EMBEDDER_PROVIDER` langsung (ollama, huggingface, vertexai, gemini, lmstudio, together, langchain, aws_bedrock, azure_openai).
+- Jika tidak diset, fallback tetap: **Azure → OpenAI**.
+
+---
+
+## 12) Contoh env embedder diperluas
+### File: `server/.env.example`
+**Ditambahkan**
+```
+EMBEDDER_PROVIDER=
+EMBEDDING_API_KEY=
+EMBEDDING_MODEL=
+EMBEDDING_DIMS=
+HUGGINGFACE_BASE_URL=
+HUGGINGFACE_MODEL_KWARGS=
+VERTEX_CREDENTIALS_JSON=
+VERTEX_PROJECT_ID=
+GOOGLE_SERVICE_ACCOUNT_JSON=
+GOOGLE_API_KEY=
+GEMINI_OUTPUT_DIM=
+EMBEDDING_OLLAMA_BASE_URL=
+EMBEDDING_LMSTUDIO_BASE_URL=
+EMBEDDING_AWS_REGION=
+EMBEDDING_AWS_ACCESS_KEY_ID=
+EMBEDDING_AWS_SECRET_ACCESS_KEY=
+```
+
+**Penjelasan**
+- Mempermudah setup embedder tanpa ubah kode.
 
 ---
 

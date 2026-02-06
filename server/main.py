@@ -57,6 +57,22 @@ EMBEDDING_AZURE_OPENAI_API_KEY = os.environ.get("EMBEDDING_AZURE_OPENAI_API_KEY"
 EMBEDDING_AZURE_DEPLOYMENT = os.environ.get("EMBEDDING_AZURE_DEPLOYMENT")
 EMBEDDING_AZURE_ENDPOINT = os.environ.get("EMBEDDING_AZURE_ENDPOINT")
 EMBEDDING_AZURE_API_VERSION = os.environ.get("EMBEDDING_AZURE_API_VERSION")
+EMBEDDER_PROVIDER = os.environ.get("EMBEDDER_PROVIDER")
+EMBEDDING_API_KEY = os.environ.get("EMBEDDING_API_KEY")
+EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL")
+EMBEDDING_DIMS = os.environ.get("EMBEDDING_DIMS")
+HUGGINGFACE_BASE_URL = os.environ.get("HUGGINGFACE_BASE_URL")
+HUGGINGFACE_MODEL_KWARGS = os.environ.get("HUGGINGFACE_MODEL_KWARGS")
+VERTEX_CREDENTIALS_JSON = os.environ.get("VERTEX_CREDENTIALS_JSON")
+VERTEX_PROJECT_ID = os.environ.get("VERTEX_PROJECT_ID")
+GOOGLE_SERVICE_ACCOUNT_JSON = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
+GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
+GEMINI_OUTPUT_DIM = os.environ.get("GEMINI_OUTPUT_DIM")
+EMBEDDING_OLLAMA_BASE_URL = os.environ.get("EMBEDDING_OLLAMA_BASE_URL") or OLLAMA_BASE_URL
+EMBEDDING_LMSTUDIO_BASE_URL = os.environ.get("EMBEDDING_LMSTUDIO_BASE_URL") or LMSTUDIO_BASE_URL
+EMBEDDING_AWS_REGION = os.environ.get("EMBEDDING_AWS_REGION")
+EMBEDDING_AWS_ACCESS_KEY_ID = os.environ.get("EMBEDDING_AWS_ACCESS_KEY_ID")
+EMBEDDING_AWS_SECRET_ACCESS_KEY = os.environ.get("EMBEDDING_AWS_SECRET_ACCESS_KEY")
 
 VLLM_BASE_URL = os.environ.get("VLLM_BASE_URL")
 VLLM_API_KEY = os.environ.get("VLLM_API_KEY")
@@ -176,6 +192,17 @@ def _parse_json(value: Optional[str]) -> Optional[Dict[str, Any]]:
         raise ValueError("LMSTUDIO_RESPONSE_FORMAT must be valid JSON")
 
 
+def _normalize_embedder_provider(value: Optional[str]) -> Optional[str]:
+    provider = _normalize_provider(value)
+    if provider is None:
+        return None
+    aliases = {
+        "google_ai": "gemini",
+        "google": "gemini",
+    }
+    return aliases.get(provider, provider)
+
+
 def _build_history_db_url() -> Optional[str]:
     if HISTORY_DB_URL:
         return HISTORY_DB_URL
@@ -279,6 +306,56 @@ def _build_llm_config(provider: str) -> Dict[str, Any]:
     return _compact_dict(config)
 
 
+def _build_embedder_config(provider: str) -> Dict[str, Any]:
+    config = _compact_dict(
+        {
+            "model": EMBEDDING_MODEL,
+            "api_key": EMBEDDING_API_KEY,
+            "embedding_dims": _parse_int(EMBEDDING_DIMS),
+        }
+    )
+
+    if provider == "ollama":
+        config["ollama_base_url"] = EMBEDDING_OLLAMA_BASE_URL
+    elif provider == "huggingface":
+        if HUGGINGFACE_BASE_URL:
+            config["huggingface_base_url"] = HUGGINGFACE_BASE_URL
+        if HUGGINGFACE_MODEL_KWARGS:
+            config["model_kwargs"] = _parse_json(HUGGINGFACE_MODEL_KWARGS)
+    elif provider == "vertexai":
+        if VERTEX_CREDENTIALS_JSON:
+            config["vertex_credentials_json"] = VERTEX_CREDENTIALS_JSON
+        if VERTEX_PROJECT_ID:
+            config["google_project_id"] = VERTEX_PROJECT_ID
+        if GOOGLE_SERVICE_ACCOUNT_JSON:
+            config["google_service_account_json"] = GOOGLE_SERVICE_ACCOUNT_JSON
+    elif provider == "gemini":
+        if GEMINI_OUTPUT_DIM:
+            config["output_dimensionality"] = GEMINI_OUTPUT_DIM
+        if GOOGLE_API_KEY and not EMBEDDING_API_KEY:
+            config["api_key"] = GOOGLE_API_KEY
+    elif provider == "lmstudio":
+        config["lmstudio_base_url"] = EMBEDDING_LMSTUDIO_BASE_URL
+    elif provider == "aws_bedrock":
+        if EMBEDDING_AWS_REGION:
+            config["aws_region"] = EMBEDDING_AWS_REGION
+        if EMBEDDING_AWS_ACCESS_KEY_ID:
+            config["aws_access_key_id"] = EMBEDDING_AWS_ACCESS_KEY_ID
+        if EMBEDDING_AWS_SECRET_ACCESS_KEY:
+            config["aws_secret_access_key"] = EMBEDDING_AWS_SECRET_ACCESS_KEY
+
+    return _compact_dict(config)
+
+
+def _resolve_embedder_provider() -> str:
+    provider = _normalize_embedder_provider(EMBEDDER_PROVIDER)
+    if provider and provider != "none":
+        return provider
+    if EMBEDDING_AZURE_DEPLOYMENT and EMBEDDING_AZURE_ENDPOINT:
+        return "azure_openai"
+    return "openai"
+
+
 def _resolve_llm_provider() -> str:
     provider = _normalize_llm_provider(LLM_PROVIDER)
     if provider and provider != "none":
@@ -298,9 +375,14 @@ elif _LLM_PROVIDER == "vllm":
 else:
     DEFAULT_CONFIG["llm"] = {"provider": _LLM_PROVIDER, "config": _build_llm_config(_LLM_PROVIDER)}
 
-
-if EMBEDDING_AZURE_DEPLOYMENT and EMBEDDING_AZURE_ENDPOINT:
+_EMBEDDER_PROVIDER = _resolve_embedder_provider()
+if _EMBEDDER_PROVIDER == "azure_openai":
     DEFAULT_CONFIG["embedder"] = _azure_embedder_config()
+else:
+    DEFAULT_CONFIG["embedder"] = {
+        "provider": _EMBEDDER_PROVIDER,
+        "config": _build_embedder_config(_EMBEDDER_PROVIDER),
+    }
 
 
 MEMORY_INSTANCE = Memory.from_config(DEFAULT_CONFIG)
