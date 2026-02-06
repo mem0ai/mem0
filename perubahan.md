@@ -18,6 +18,8 @@ Tanggal: 2026-02-05
 - `89919bd3` Add LLM provider selection + env
 - `89919bd3` Fix xAI base URL access
 - `be4ca534` Add embedder provider selection + env
+- `b980fc71` Tidy server main config sections
+- `TBD` Add tests for graph store/history/xAI
 
 ---
 
