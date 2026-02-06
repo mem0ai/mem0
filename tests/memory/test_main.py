@@ -78,6 +78,72 @@ class TestAddToVectorStoreErrors:
         assert "Empty response from LLM, no memories to extract" in caplog.text
 
 
+class TestCustomPromptJsonInstruction:
+    """Test that custom prompts without 'json' get a JSON instruction appended."""
+
+    @pytest.fixture
+    def mock_memory_custom_prompt(self, mocker):
+        """Fixture that returns a Memory instance with a custom fact extraction prompt."""
+        mock_llm, _ = _setup_mocks(mocker)
+
+        memory = Memory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_update_memory_prompt = None
+        memory.api_version = "v1.1"
+
+        return memory
+
+    def test_custom_prompt_without_json_gets_json_instruction(self, mocker, mock_memory_custom_prompt, caplog):
+        """Test that a custom prompt not containing 'json' gets a JSON instruction appended."""
+        mock_memory_custom_prompt.config.custom_fact_extraction_prompt = "Extract all important facts from the conversation."
+        mock_memory_custom_prompt.llm.generate_response.return_value = '{"facts": ["test fact"]}'
+        mock_capture_event = mocker.MagicMock()
+        mocker.patch("mem0.memory.main.capture_event", mock_capture_event)
+
+        mock_memory_custom_prompt._add_to_vector_store(
+            messages=[{"role": "user", "content": "I like pizza"}], metadata={}, filters={}, infer=True
+        )
+
+        # Verify the system prompt passed to generate_response contains the JSON instruction
+        call_args = mock_memory_custom_prompt.llm.generate_response.call_args
+        system_message = call_args[1]["messages"][0] if "messages" in call_args[1] else call_args[0][0][0]
+        assert "json" in system_message["content"].lower()
+
+    def test_custom_prompt_with_json_not_modified(self, mocker, mock_memory_custom_prompt, caplog):
+        """Test that a custom prompt already containing 'json' is not modified."""
+        original_prompt = "Extract facts and return them in json format."
+        mock_memory_custom_prompt.config.custom_fact_extraction_prompt = original_prompt
+        mock_memory_custom_prompt.llm.generate_response.return_value = '{"facts": ["test fact"]}'
+        mock_capture_event = mocker.MagicMock()
+        mocker.patch("mem0.memory.main.capture_event", mock_capture_event)
+
+        mock_memory_custom_prompt._add_to_vector_store(
+            messages=[{"role": "user", "content": "I like pizza"}], metadata={}, filters={}, infer=True
+        )
+
+        # Verify the system prompt in the first call (fact extraction) is the original (not modified)
+        first_call_args = mock_memory_custom_prompt.llm.generate_response.call_args_list[0]
+        system_message = first_call_args[1]["messages"][0] if "messages" in first_call_args[1] else first_call_args[0][0][0]
+        assert system_message["content"] == original_prompt
+
+    def test_custom_prompt_with_json_uppercase_not_modified(self, mocker, mock_memory_custom_prompt, caplog):
+        """Test that a custom prompt containing 'JSON' (uppercase) is not modified."""
+        original_prompt = "Extract facts and return in JSON format."
+        mock_memory_custom_prompt.config.custom_fact_extraction_prompt = original_prompt
+        mock_memory_custom_prompt.llm.generate_response.return_value = '{"facts": ["test fact"]}'
+        mock_capture_event = mocker.MagicMock()
+        mocker.patch("mem0.memory.main.capture_event", mock_capture_event)
+
+        mock_memory_custom_prompt._add_to_vector_store(
+            messages=[{"role": "user", "content": "I like pizza"}], metadata={}, filters={}, infer=True
+        )
+
+        # Verify the system prompt in the first call (fact extraction) is the original (not modified)
+        first_call_args = mock_memory_custom_prompt.llm.generate_response.call_args_list[0]
+        system_message = first_call_args[1]["messages"][0] if "messages" in first_call_args[1] else first_call_args[0][0][0]
+        assert system_message["content"] == original_prompt
+
+
 @pytest.mark.asyncio
 class TestAsyncAddToVectorStoreErrors:
     @pytest.fixture
@@ -127,3 +193,57 @@ class TestAsyncAddToVectorStoreErrors:
         assert result == []
         assert "Empty response from LLM, no memories to extract" in caplog.text
         assert mock_capture_event.call_count == 1
+
+
+@pytest.mark.asyncio
+class TestAsyncCustomPromptJsonInstruction:
+    """Test that custom prompts without 'json' get a JSON instruction appended (async)."""
+
+    @pytest.fixture
+    def mock_async_memory_custom_prompt(self, mocker):
+        """Fixture for AsyncMemory with a custom fact extraction prompt."""
+        mock_llm, _ = _setup_mocks(mocker)
+
+        memory = AsyncMemory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_update_memory_prompt = None
+        memory.api_version = "v1.1"
+
+        return memory
+
+    @pytest.mark.asyncio
+    async def test_async_custom_prompt_without_json_gets_json_instruction(self, mocker, mock_async_memory_custom_prompt):
+        """Test that a custom prompt not containing 'json' gets a JSON instruction appended (async)."""
+        mocker.patch("mem0.utils.factory.EmbedderFactory.create", return_value=MagicMock())
+        mock_async_memory_custom_prompt.config.custom_fact_extraction_prompt = "Extract all important facts from the conversation."
+        mock_async_memory_custom_prompt.llm.generate_response.return_value = '{"facts": ["test fact"]}'
+        mock_capture_event = mocker.MagicMock()
+        mocker.patch("mem0.memory.main.capture_event", mock_capture_event)
+
+        await mock_async_memory_custom_prompt._add_to_vector_store(
+            messages=[{"role": "user", "content": "I like pizza"}], metadata={}, effective_filters={}, infer=True
+        )
+
+        # Verify the system prompt passed to generate_response contains the JSON instruction
+        call_args = mock_async_memory_custom_prompt.llm.generate_response.call_args
+        system_message = call_args[1]["messages"][0] if "messages" in call_args[1] else call_args[0][0][0]
+        assert "json" in system_message["content"].lower()
+
+    @pytest.mark.asyncio
+    async def test_async_custom_prompt_with_json_not_modified(self, mocker, mock_async_memory_custom_prompt):
+        """Test that a custom prompt already containing 'json' is not modified (async)."""
+        mocker.patch("mem0.utils.factory.EmbedderFactory.create", return_value=MagicMock())
+        original_prompt = "Extract facts and return them in json format."
+        mock_async_memory_custom_prompt.config.custom_fact_extraction_prompt = original_prompt
+        mock_async_memory_custom_prompt.llm.generate_response.return_value = '{"facts": ["test fact"]}'
+        mock_capture_event = mocker.MagicMock()
+        mocker.patch("mem0.memory.main.capture_event", mock_capture_event)
+
+        await mock_async_memory_custom_prompt._add_to_vector_store(
+            messages=[{"role": "user", "content": "I like pizza"}], metadata={}, effective_filters={}, infer=True
+        )
+
+        # Verify the system prompt in the first call (fact extraction) is the original (not modified)
+        first_call_args = mock_async_memory_custom_prompt.llm.generate_response.call_args_list[0]
+        system_message = first_call_args[1]["messages"][0] if "messages" in first_call_args[1] else first_call_args[0][0][0]
+        assert system_message["content"] == original_prompt
