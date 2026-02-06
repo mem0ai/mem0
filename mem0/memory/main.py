@@ -2,6 +2,7 @@ import asyncio
 import concurrent
 import gc
 import hashlib
+import inspect
 import json
 import logging
 import os
@@ -87,6 +88,38 @@ def _safe_deepcopy_config(config):
                 f"Telemetry may be affected."
             )
             raise
+
+
+def _get_manager_close_method(manager):
+    """Return the first available close/shutdown callable for a manager."""
+    for method_name in ("close", "shutdown", "stop", "shutdown_pool", "aclose"):
+        method = getattr(manager, method_name, None)
+        if callable(method):
+            return method
+    return None
+
+
+def _close_manager_sync(manager):
+    """Close/shutdown manager in sync context when supported."""
+    close_method = _get_manager_close_method(manager)
+    if close_method is None:
+        return
+    result = close_method()
+    if inspect.isawaitable(result):
+        asyncio.run(result)
+
+
+async def _close_manager_async(manager):
+    """Close/shutdown manager in async context when supported."""
+    close_method = _get_manager_close_method(manager)
+    if close_method is None:
+        return
+    if inspect.iscoroutinefunction(close_method):
+        await close_method()
+    else:
+        result = await asyncio.to_thread(close_method)
+        if inspect.isawaitable(result):
+            await result
 
 
 def _build_filters_and_metadata(
@@ -1223,9 +1256,14 @@ class Memory(MemoryBase):
         """
         logger.warning("Resetting all memories")
 
-        self.db.reset()
-        if hasattr(self.db, "close"):
-            self.db.close()
+        previous_db = self.db
+        try:
+            previous_db.reset()
+        finally:
+            try:
+                _close_manager_sync(previous_db)
+            except Exception:
+                logger.exception("Failed to close history manager during reset.")
         self.db = create_history_manager(self.config)
 
         if hasattr(self.vector_store, "reset"):
@@ -2314,9 +2352,14 @@ class AsyncMemory(MemoryBase):
         if hasattr(self.vector_store, "client") and hasattr(self.vector_store.client, "close"):
             await asyncio.to_thread(self.vector_store.client.close)
 
-        await asyncio.to_thread(self.db.reset)
-        if hasattr(self.db, "close"):
-            await asyncio.to_thread(self.db.close)
+        previous_db = self.db
+        try:
+            await asyncio.to_thread(previous_db.reset)
+        finally:
+            try:
+                await _close_manager_async(previous_db)
+            except Exception:
+                logger.exception("Failed to close history manager during async reset.")
         self.db = create_history_manager(self.config)
 
         self.vector_store = VectorStoreFactory.create(

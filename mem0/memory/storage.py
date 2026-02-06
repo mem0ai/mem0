@@ -277,12 +277,24 @@ class PostgresHistoryManager:
             conn = self._pool.getconn()
             try:
                 yield conn
+            except Exception:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+                raise
             finally:
                 self._pool.putconn(conn)
         else:
             conn = psycopg.connect(self._dsn)
             try:
                 yield conn
+            except Exception:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+                raise
             finally:
                 conn.close()
 

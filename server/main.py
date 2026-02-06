@@ -615,6 +615,8 @@ def update_memory(memory_id: str, updated_memory: Dict[str, Any]):
         if not isinstance(data, str):
             raise HTTPException(status_code=400, detail="Field 'data' must be a string.")
         return MEMORY_INSTANCE.update(memory_id=memory_id, data=data)
+    except HTTPException:
+        raise
     except Exception as e:
         logging.exception("Error in update_memory:")
         raise HTTPException(status_code=500, detail=str(e))
