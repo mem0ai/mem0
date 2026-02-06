@@ -20,7 +20,14 @@ class TogetherLLM(LLMBase):
             self.config.model = "mistralai/Mixtral-8x7B-Instruct-v0.1"
 
         api_key = self.config.api_key or os.getenv("TOGETHER_API_KEY")
-        self.client = Together(api_key=api_key)
+        base_url = getattr(self.config, "together_base_url", None) or os.getenv("TOGETHER_BASE_URL")
+        if base_url:
+            try:
+                self.client = Together(api_key=api_key, base_url=base_url)
+            except TypeError:
+                self.client = Together(api_key=api_key)
+        else:
+            self.client = Together(api_key=api_key)
 
     def _parse_response(self, response, tools):
         """

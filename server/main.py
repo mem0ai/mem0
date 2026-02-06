@@ -61,6 +61,7 @@ LLM_TOP_P = os.environ.get("LLM_TOP_P")
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 TOGETHER_API_KEY = os.environ.get("TOGETHER_API_KEY")
+TOGETHER_BASE_URL = os.environ.get("TOGETHER_BASE_URL")
 MISTRAL_API_KEY = os.environ.get("MISTRAL_API_KEY")
 LITELLM_API_KEY = os.environ.get("LITELLM_API_KEY")
 DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
@@ -116,6 +117,11 @@ GEMINI_OUTPUT_DIM = os.environ.get("GEMINI_OUTPUT_DIM")
 
 EMBEDDING_OLLAMA_BASE_URL = os.environ.get("EMBEDDING_OLLAMA_BASE_URL") or OLLAMA_BASE_URL
 EMBEDDING_LMSTUDIO_BASE_URL = os.environ.get("EMBEDDING_LMSTUDIO_BASE_URL") or LMSTUDIO_BASE_URL
+EMBEDDING_TOGETHER_BASE_URL = os.environ.get("EMBEDDING_TOGETHER_BASE_URL") or TOGETHER_BASE_URL
+
+LANGCHAIN_API_KEY = os.environ.get("LANGCHAIN_API_KEY")
+LANGCHAIN_EMBEDDER_PATH = os.environ.get("LANGCHAIN_EMBEDDER_PATH")
+LANGCHAIN_EMBEDDER_KWARGS = os.environ.get("LANGCHAIN_EMBEDDER_KWARGS")
 
 EMBEDDING_AWS_REGION = os.environ.get("EMBEDDING_AWS_REGION")
 EMBEDDING_AWS_ACCESS_KEY_ID = os.environ.get("EMBEDDING_AWS_ACCESS_KEY_ID")
@@ -198,8 +204,6 @@ def _normalize_llm_provider(value: Optional[str]) -> Optional[str]:
 
 
 def _resolve_llm_api_key(provider: str) -> Optional[str]:
-    if LLM_API_KEY:
-        return LLM_API_KEY
     mapping = {
         "openai": OPENAI_API_KEY,
         "anthropic": ANTHROPIC_API_KEY,
@@ -211,7 +215,8 @@ def _resolve_llm_api_key(provider: str) -> Optional[str]:
         "xai": XAI_API_KEY,
         "sarvam": SARVAM_API_KEY,
     }
-    return mapping.get(provider)
+    provider_api_key = mapping.get(provider)
+    return provider_api_key or LLM_API_KEY
 
 
 def _build_graph_store_config() -> Dict[str, Any]:
@@ -259,13 +264,13 @@ def _parse_int(value: Optional[str]) -> Optional[int]:
         return None
 
 
-def _parse_json(value: Optional[str]) -> Optional[Dict[str, Any]]:
+def _parse_json(value: Optional[str], field_name: str = "value") -> Optional[Dict[str, Any]]:
     if value is None or value == "":
         return None
     try:
         return json.loads(value)
     except json.JSONDecodeError:
-        raise ValueError("LMSTUDIO_RESPONSE_FORMAT must be valid JSON")
+        raise ValueError(f"{field_name} must be valid JSON")
 
 
 def _normalize_embedder_provider(value: Optional[str]) -> Optional[str]:
@@ -280,14 +285,14 @@ def _normalize_embedder_provider(value: Optional[str]) -> Optional[str]:
 
 
 def _resolve_embedder_api_key(provider: str) -> Optional[str]:
-    if EMBEDDING_API_KEY:
-        return EMBEDDING_API_KEY
     mapping = {
         "openai": OPENAI_API_KEY,
         "gemini": GOOGLE_API_KEY,
         "together": TOGETHER_API_KEY,
+        "langchain": LANGCHAIN_API_KEY,
     }
-    return mapping.get(provider)
+    provider_api_key = mapping.get(provider)
+    return provider_api_key or EMBEDDING_API_KEY
 
 
 def _build_history_db_url() -> Optional[str]:
@@ -385,6 +390,9 @@ def _build_llm_config(provider: str) -> Dict[str, Any]:
 
     if provider == "ollama":
         config["ollama_base_url"] = OLLAMA_BASE_URL
+    elif provider == "together":
+        if TOGETHER_BASE_URL:
+            config["together_base_url"] = TOGETHER_BASE_URL
     elif provider == "aws_bedrock":
         if AWS_REGION:
             config["aws_region"] = AWS_REGION
@@ -408,7 +416,9 @@ def _build_llm_config(provider: str) -> Dict[str, Any]:
         if LMSTUDIO_BASE_URL:
             config["lmstudio_base_url"] = LMSTUDIO_BASE_URL
         if LMSTUDIO_RESPONSE_FORMAT:
-            config["lmstudio_response_format"] = _parse_json(LMSTUDIO_RESPONSE_FORMAT)
+            config["lmstudio_response_format"] = _parse_json(
+                LMSTUDIO_RESPONSE_FORMAT, field_name="LMSTUDIO_RESPONSE_FORMAT"
+            )
     return _compact_dict(config)
 
 
@@ -428,7 +438,7 @@ def _build_embedder_config(provider: str) -> Dict[str, Any]:
         if HUGGINGFACE_BASE_URL:
             config["huggingface_base_url"] = HUGGINGFACE_BASE_URL
         if HUGGINGFACE_MODEL_KWARGS:
-            config["model_kwargs"] = _parse_json(HUGGINGFACE_MODEL_KWARGS)
+            config["model_kwargs"] = _parse_json(HUGGINGFACE_MODEL_KWARGS, field_name="HUGGINGFACE_MODEL_KWARGS")
     elif provider == "vertexai":
         if VERTEX_CREDENTIALS_JSON:
             config["vertex_credentials_json"] = VERTEX_CREDENTIALS_JSON
@@ -441,6 +451,18 @@ def _build_embedder_config(provider: str) -> Dict[str, Any]:
             config["output_dimensionality"] = GEMINI_OUTPUT_DIM
     elif provider == "lmstudio":
         config["lmstudio_base_url"] = EMBEDDING_LMSTUDIO_BASE_URL
+    elif provider == "together":
+        if EMBEDDING_TOGETHER_BASE_URL:
+            config["together_base_url"] = EMBEDDING_TOGETHER_BASE_URL
+    elif provider == "langchain":
+        if LANGCHAIN_API_KEY:
+            config["langchain_api_key"] = LANGCHAIN_API_KEY
+        if LANGCHAIN_EMBEDDER_PATH:
+            config["langchain_embedder_path"] = LANGCHAIN_EMBEDDER_PATH
+        if LANGCHAIN_EMBEDDER_KWARGS:
+            config["langchain_embedder_kwargs"] = _parse_json(
+                LANGCHAIN_EMBEDDER_KWARGS, field_name="LANGCHAIN_EMBEDDER_KWARGS"
+            )
     elif provider == "aws_bedrock":
         aws_region = EMBEDDING_AWS_REGION or AWS_REGION
         aws_access_key = EMBEDDING_AWS_ACCESS_KEY_ID or AWS_ACCESS_KEY_ID
