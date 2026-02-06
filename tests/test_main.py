@@ -214,6 +214,12 @@ def test_delete_all(memory_instance, version, enable_graph):
     assert result["message"] == "Memories deleted successfully!"
 
 
+def test_delete_all_requires_filter(memory_instance):
+    """delete_all() without any filter must raise ValueError."""
+    with pytest.raises(ValueError, match="At least one filter is required"):
+        memory_instance.delete_all()
+
+
 @pytest.mark.parametrize(
     "version, enable_graph, expected_result",
     [
