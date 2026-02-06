@@ -23,7 +23,7 @@ Tanggal: 2026-02-05
 - `b980fc71` Tidy server main config sections
 - `d42c6c4c` Add tests for graph store/history/xAI
 - `8676ad1c` Fix history reset cleanup and rollback
-- `TBD` Fix CodeRabbit suggestions (configure auth, update_memory, api key resolution, masking, env cleanup)
+- `f2a144f1` Address CodeRabbit review items
 
 ---
 
