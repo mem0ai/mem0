@@ -14,8 +14,8 @@ Tanggal: 2026-02-05
 - `64b2a086` Store history in Postgres
 - `2f75a3a1` Restore graph defaults; keep disable option
 - `47e778b5` Infer history DB from Postgres env
-- `TBD` Add LLM provider selection + env
-- `TBD` Fix xAI base URL access
+- `89919bd3` Add LLM provider selection + env
+- `89919bd3` Fix xAI base URL access
 
 ---
 
