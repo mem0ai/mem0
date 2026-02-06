@@ -36,6 +36,12 @@ class BaseEmbedderConfig(ABC):
         output_dimensionality: Optional[str] = None,
         # LM Studio specific
         lmstudio_base_url: Optional[str] = "http://localhost:1234/v1",
+        # Together specific
+        together_base_url: Optional[str] = None,
+        # LangChain specific
+        langchain_api_key: Optional[str] = None,
+        langchain_embedder_path: Optional[str] = None,
+        langchain_embedder_kwargs: Optional[dict] = None,
         # AWS Bedrock specific
         aws_access_key_id: Optional[str] = None,
         aws_secret_access_key: Optional[str] = None,
@@ -72,6 +78,14 @@ class BaseEmbedderConfig(ABC):
         :type memory_search_embedding_type: Optional[str], optional
         :param lmstudio_base_url: LM Studio base URL to be use, defaults to "http://localhost:1234/v1"
         :type lmstudio_base_url: Optional[str], optional
+        :param together_base_url: Together API base URL, defaults to None
+        :type together_base_url: Optional[str], optional
+        :param langchain_api_key: Optional API key for langchain-backed embedder providers
+        :type langchain_api_key: Optional[str], optional
+        :param langchain_embedder_path: Import path for langchain embedding class
+        :type langchain_embedder_path: Optional[str], optional
+        :param langchain_embedder_kwargs: JSON-like kwargs for langchain embedder initialization
+        :type langchain_embedder_kwargs: Optional[dict], optional
         """
 
         self.model = model
@@ -103,8 +117,15 @@ class BaseEmbedderConfig(ABC):
         # LM Studio specific
         self.lmstudio_base_url = lmstudio_base_url
 
+        # Together specific
+        self.together_base_url = together_base_url
+
+        # LangChain specific
+        self.langchain_api_key = langchain_api_key
+        self.langchain_embedder_path = langchain_embedder_path
+        self.langchain_embedder_kwargs = langchain_embedder_kwargs or {}
+
         # AWS Bedrock specific
         self.aws_access_key_id = aws_access_key_id
         self.aws_secret_access_key = aws_secret_access_key
         self.aws_region = aws_region or os.environ.get("AWS_REGION") or "us-west-2"
-
