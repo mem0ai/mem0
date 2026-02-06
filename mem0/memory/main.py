@@ -1219,6 +1219,8 @@ class Memory(MemoryBase):
         logger.warning("Resetting all memories")
 
         self.db.reset()
+        if hasattr(self.db, "close"):
+            self.db.close()
         self.db = create_history_manager(self.config)
 
         if hasattr(self.vector_store, "reset"):
@@ -2308,6 +2310,8 @@ class AsyncMemory(MemoryBase):
             await asyncio.to_thread(self.vector_store.client.close)
 
         await asyncio.to_thread(self.db.reset)
+        if hasattr(self.db, "close"):
+            await asyncio.to_thread(self.db.close)
         self.db = create_history_manager(self.config)
 
         self.vector_store = VectorStoreFactory.create(

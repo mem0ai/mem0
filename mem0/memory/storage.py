@@ -289,10 +289,19 @@ class PostgresHistoryManager:
     def _execute(self, query: str, params: Optional[tuple] = None, fetch: bool = False):
         params = params or tuple()
         with self._get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(query, params)
-                rows = cur.fetchall() if fetch else None
-            conn.commit()
+            rows = None
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(query, params)
+                    rows = cur.fetchall() if fetch else None
+                conn.commit()
+            except Exception:
+                if hasattr(conn, "rollback"):
+                    try:
+                        conn.rollback()
+                    except Exception:
+                        pass
+                raise
         return rows
 
     def _create_history_table(self) -> None:
@@ -374,8 +383,9 @@ class PostgresHistoryManager:
         ]
 
     def reset(self) -> None:
-        query = f"TRUNCATE TABLE {self.table_name}"
+        query = f"DROP TABLE IF EXISTS {self.table_name}"
         self._execute(query)
+        self._create_history_table()
 
     def close(self) -> None:
         if self._pool_kind == "psycopg3" and self._pool is not None:
