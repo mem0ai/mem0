@@ -88,6 +88,11 @@ class LLMBase(ABC):
                 supported_params["tools"] = kwargs["tools"]
             if "tool_choice" in kwargs:
                 supported_params["tool_choice"] = kwargs["tool_choice"]
+            
+            # Add reasoning_effort if configured (for o1, o3, gpt-5 models)
+            reasoning_effort = getattr(self.config, 'reasoning_effort', None)
+            if reasoning_effort:
+                supported_params["reasoning_effort"] = reasoning_effort
                 
             return supported_params
         else:
