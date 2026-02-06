@@ -10,6 +10,7 @@ Tanggal: 2026-02-05
 - Perbaikan kecil agar **xAI base URL** bisa diambil dari env tanpa error.
 - Menambah **pilihan embedder provider** lewat env (ollama, huggingface, vertexai, gemini, lmstudio, together, langchain, aws_bedrock, azure_openai).
 - Perbaiki **reset history**: close manager lama, rollback saat error psycopg2, reset drop+create table.
+- Perbaiki **saran CodeRabbit**: `/configure` optional token, `update_memory` validasi data string, mapping API key per provider, masking `history_db_url`, dan `.env` cleanup.
 
 ## Daftar commit yang menambah fitur
 - `f8d81225` Allow disabling graph store
@@ -22,6 +23,7 @@ Tanggal: 2026-02-05
 - `b980fc71` Tidy server main config sections
 - `d42c6c4c` Add tests for graph store/history/xAI
 - `8676ad1c` Fix history reset cleanup and rollback
+- `TBD` Fix CodeRabbit suggestions (configure auth, update_memory, api key resolution, masking, env cleanup)
 
 ---
 
@@ -229,7 +231,7 @@ DEFAULT_CONFIG["history_db_url"] = _build_history_db_url() if _HISTORY_PROVIDER 
 ## 7) .env example diperluas (tanpa menghapus bawaan)
 ### File: `server/.env.example`
 **Ditambahkan**
-```
+```dotenv
 # Graph store (optional)
 GRAPH_STORE_PROVIDER=
 MEMGRAPH_URI=
@@ -296,7 +298,7 @@ else:
 ## 9) Contoh env LLM diperluas
 ### File: `server/.env.example`
 **Ditambahkan**
-```
+```dotenv
 LLM_PROVIDER=
 LLM_MODEL=
 LLM_TEMPERATURE=
@@ -385,7 +387,7 @@ else:
 ## 12) Contoh env embedder diperluas
 ### File: `server/.env.example`
 **Ditambahkan**
-```
+```dotenv
 EMBEDDER_PROVIDER=
 EMBEDDING_API_KEY=
 EMBEDDING_MODEL=
@@ -470,6 +472,153 @@ self._create_history_table()
 **Penjelasan**
 - Jika query error, **rollback** dilakukan (penting untuk psycopg2 pool).
 - Reset aman walau table belum ada (drop+create).
+
+---
+
+## 15) `/configure` bisa dikunci pakai token (opsional)
+### File: `server/main.py`
+**Sebelum**
+```python
+@app.post("/configure", summary="Configure Mem0")
+def set_config(config: Dict[str, Any]):
+    global MEMORY_INSTANCE
+    MEMORY_INSTANCE = Memory.from_config(config)
+```
+
+**Sesudah**
+```python
+def _require_configure_token(request: Request) -> None:
+    if not CONFIGURE_API_TOKEN:
+        return
+    auth_header = request.headers.get("Authorization", "")
+    token = auth_header.removeprefix("Bearer ").strip() if auth_header else ""
+    header_token = request.headers.get("X-Config-Token")
+    if token != CONFIGURE_API_TOKEN and header_token != CONFIGURE_API_TOKEN:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+@app.post("/configure", summary="Configure Mem0")
+def set_config(config: Dict[str, Any], request: Request):
+    _require_configure_token(request)
+    global MEMORY_INSTANCE
+    MEMORY_INSTANCE = Memory.from_config(config)
+```
+
+**Penjelasan**
+- Jika `CONFIGURE_API_TOKEN` diset, endpoint `/configure` butuh `Authorization: Bearer <token>` atau `X-Config-Token`.
+- Jika tidak diset, perilaku lama **tetap**.
+
+---
+
+## 16) `update_memory` memastikan `data` adalah string
+### File: `server/main.py`
+**Sebelum**
+```python
+def update_memory(memory_id: str, updated_memory: Dict[str, Any]):
+    return MEMORY_INSTANCE.update(memory_id=memory_id, data=updated_memory)
+```
+
+**Sesudah**
+```python
+def update_memory(memory_id: str, updated_memory: Dict[str, Any]):
+    data = updated_memory.get("data")
+    if data is None:
+        data = updated_memory.get("memory") or updated_memory.get("content")
+    if not isinstance(data, str):
+        raise HTTPException(status_code=400, detail="Field 'data' must be a string.")
+    return MEMORY_INSTANCE.update(memory_id=memory_id, data=data)
+```
+
+**Penjelasan**
+- Mencegah error karena `Memory.update()` butuh string, bukan dict.
+
+---
+
+## 17) API key LLM/Embedder jadi provider-aware
+### File: `server/main.py`
+**Sebelum**
+```python
+config = {
+    "model": LLM_MODEL,
+    "temperature": _parse_float(LLM_TEMPERATURE),
+    "max_tokens": _parse_int(LLM_MAX_TOKENS),
+    "top_p": _parse_float(LLM_TOP_P),
+    "api_key": LLM_API_KEY,
+}
+```
+
+**Sesudah**
+```python
+def _resolve_llm_api_key(provider: str) -> Optional[str]:
+    if LLM_API_KEY:
+        return LLM_API_KEY
+    mapping = {
+        "openai": OPENAI_API_KEY,
+        "anthropic": ANTHROPIC_API_KEY,
+        "groq": GROQ_API_KEY,
+        "together": TOGETHER_API_KEY,
+        "litellm": LITELLM_API_KEY or MISTRAL_API_KEY,
+        "gemini": GOOGLE_API_KEY,
+        "deepseek": DEEPSEEK_API_KEY,
+        "xai": XAI_API_KEY,
+        "sarvam": SARVAM_API_KEY,
+    }
+    return mapping.get(provider)
+
+api_key = _resolve_llm_api_key(provider)
+config = {
+    "model": LLM_MODEL,
+    "temperature": _parse_float(LLM_TEMPERATURE),
+    "max_tokens": _parse_int(LLM_MAX_TOKENS),
+    "top_p": _parse_float(LLM_TOP_P),
+    "api_key": api_key,
+}
+```
+
+**Penjelasan**
+- `LLM_API_KEY` tetap prioritas utama.
+- Jika kosong, otomatis ambil key sesuai provider (mis. `ANTHROPIC_API_KEY`, `GROQ_API_KEY`, dll).
+- `OPENAI_API_KEY` dan `GOOGLE_API_KEY` sekarang dipakai saat provider `openai`/`gemini`.
+
+---
+
+## 18) Masking `history_db_url` di telemetry
+### File: `mem0/memory/main.py`
+**Sebelum**
+```python
+sensitive_tokens = ("auth", "credential", "password", "token", "secret", "key", "connection_class")
+for field_name in list(clone_dict.keys()):
+    if any(token in field_name.lower() for token in sensitive_tokens):
+        clone_dict[field_name] = None
+```
+
+**Sesudah**
+```python
+sensitive_tokens = ("auth", "credential", "password", "token", "secret", "key", "connection_class")
+sensitive_fields = {"history_db_url", "database_url", "db_url", "dsn"}
+for field_name in list(clone_dict.keys()):
+    field_name_lower = field_name.lower()
+    if field_name_lower in sensitive_fields:
+        clone_dict[field_name] = None
+        continue
+    if any(token in field_name_lower for token in sensitive_tokens):
+        clone_dict[field_name] = None
+```
+
+**Penjelasan**
+- DSN/URL DB tidak ikut terkirim ke telemetry.
+
+---
+
+## 19) `.env.example` dirapikan
+### File: `server/.env.example`
+**Ditambahkan**
+```dotenv
+CONFIGURE_API_TOKEN=
+LITELLM_API_KEY=
+```
+
+**Diubah**
+- `GOOGLE_API_KEY` tidak lagi diduplikasi (dipakai bersama LLM/Embedder).
 
 ---
 

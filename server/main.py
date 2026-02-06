@@ -5,7 +5,7 @@ from urllib.parse import quote_plus
 from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 
@@ -58,6 +58,24 @@ LLM_TEMPERATURE = os.environ.get("LLM_TEMPERATURE")
 LLM_MAX_TOKENS = os.environ.get("LLM_MAX_TOKENS")
 LLM_TOP_P = os.environ.get("LLM_TOP_P")
 
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+TOGETHER_API_KEY = os.environ.get("TOGETHER_API_KEY")
+MISTRAL_API_KEY = os.environ.get("MISTRAL_API_KEY")
+LITELLM_API_KEY = os.environ.get("LITELLM_API_KEY")
+DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
+DEEPSEEK_API_BASE = os.environ.get("DEEPSEEK_API_BASE")
+XAI_API_KEY = os.environ.get("XAI_API_KEY")
+XAI_API_BASE = os.environ.get("XAI_API_BASE")
+SARVAM_API_KEY = os.environ.get("SARVAM_API_KEY")
+SARVAM_API_BASE = os.environ.get("SARVAM_API_BASE")
+
+AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
+AWS_REGION = os.environ.get("AWS_REGION")
+AWS_SESSION_TOKEN = os.environ.get("AWS_SESSION_TOKEN")
+AWS_PROFILE = os.environ.get("AWS_PROFILE")
+
 LLM_AZURE_OPENAI_API_KEY = os.environ.get("LLM_AZURE_OPENAI_API_KEY")
 LLM_AZURE_DEPLOYMENT = os.environ.get("LLM_AZURE_DEPLOYMENT")
 LLM_AZURE_ENDPOINT = os.environ.get("LLM_AZURE_ENDPOINT")
@@ -70,7 +88,6 @@ VLLM_TEMPERATURE = os.environ.get("VLLM_TEMPERATURE")
 VLLM_MAX_TOKENS = os.environ.get("VLLM_MAX_TOKENS")
 
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL")
-DEEPSEEK_API_BASE = os.environ.get("DEEPSEEK_API_BASE")
 LMSTUDIO_BASE_URL = os.environ.get("LMSTUDIO_BASE_URL")
 LMSTUDIO_RESPONSE_FORMAT = os.environ.get("LMSTUDIO_RESPONSE_FORMAT")
 
@@ -111,6 +128,11 @@ HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/history/history.db")
 HISTORY_DB_PROVIDER = os.environ.get("HISTORY_DB_PROVIDER")
 HISTORY_DB_URL = os.environ.get("HISTORY_DB_URL")
 HISTORY_DB_TABLE = os.environ.get("HISTORY_DB_TABLE", "history")
+
+# -----------------------
+# Server
+# -----------------------
+CONFIGURE_API_TOKEN = os.environ.get("CONFIGURE_API_TOKEN")
 
 DEFAULT_CONFIG = {
     "version": "v1.1",
@@ -173,6 +195,23 @@ def _normalize_llm_provider(value: Optional[str]) -> Optional[str]:
         "azure": "azure_openai",
     }
     return aliases.get(provider, provider)
+
+
+def _resolve_llm_api_key(provider: str) -> Optional[str]:
+    if LLM_API_KEY:
+        return LLM_API_KEY
+    mapping = {
+        "openai": OPENAI_API_KEY,
+        "anthropic": ANTHROPIC_API_KEY,
+        "groq": GROQ_API_KEY,
+        "together": TOGETHER_API_KEY,
+        "litellm": LITELLM_API_KEY or MISTRAL_API_KEY,
+        "gemini": GOOGLE_API_KEY,
+        "deepseek": DEEPSEEK_API_KEY,
+        "xai": XAI_API_KEY,
+        "sarvam": SARVAM_API_KEY,
+    }
+    return mapping.get(provider)
 
 
 def _build_graph_store_config() -> Dict[str, Any]:
@@ -238,6 +277,17 @@ def _normalize_embedder_provider(value: Optional[str]) -> Optional[str]:
         "google": "gemini",
     }
     return aliases.get(provider, provider)
+
+
+def _resolve_embedder_api_key(provider: str) -> Optional[str]:
+    if EMBEDDING_API_KEY:
+        return EMBEDDING_API_KEY
+    mapping = {
+        "openai": OPENAI_API_KEY,
+        "gemini": GOOGLE_API_KEY,
+        "together": TOGETHER_API_KEY,
+    }
+    return mapping.get(provider)
 
 
 def _build_history_db_url() -> Optional[str]:
@@ -322,20 +372,38 @@ def _vllm_llm_config():
 
 
 def _build_llm_config(provider: str) -> Dict[str, Any]:
+    api_key = _resolve_llm_api_key(provider)
     config = _compact_dict(
         {
             "model": LLM_MODEL,
             "temperature": _parse_float(LLM_TEMPERATURE),
             "max_tokens": _parse_int(LLM_MAX_TOKENS),
             "top_p": _parse_float(LLM_TOP_P),
-            "api_key": LLM_API_KEY,
+            "api_key": api_key,
         }
     )
 
     if provider == "ollama":
         config["ollama_base_url"] = OLLAMA_BASE_URL
+    elif provider == "aws_bedrock":
+        if AWS_REGION:
+            config["aws_region"] = AWS_REGION
+        if AWS_ACCESS_KEY_ID:
+            config["aws_access_key_id"] = AWS_ACCESS_KEY_ID
+        if AWS_SECRET_ACCESS_KEY:
+            config["aws_secret_access_key"] = AWS_SECRET_ACCESS_KEY
+        if AWS_SESSION_TOKEN:
+            config["aws_session_token"] = AWS_SESSION_TOKEN
+        if AWS_PROFILE:
+            config["aws_profile"] = AWS_PROFILE
     elif provider == "deepseek":
         config["deepseek_base_url"] = DEEPSEEK_API_BASE
+    elif provider == "xai":
+        if XAI_API_BASE:
+            config["xai_base_url"] = XAI_API_BASE
+    elif provider == "sarvam":
+        if SARVAM_API_BASE:
+            config["sarvam_base_url"] = SARVAM_API_BASE
     elif provider == "lmstudio":
         if LMSTUDIO_BASE_URL:
             config["lmstudio_base_url"] = LMSTUDIO_BASE_URL
@@ -345,10 +413,11 @@ def _build_llm_config(provider: str) -> Dict[str, Any]:
 
 
 def _build_embedder_config(provider: str) -> Dict[str, Any]:
+    api_key = _resolve_embedder_api_key(provider)
     config = _compact_dict(
         {
             "model": EMBEDDING_MODEL,
-            "api_key": EMBEDDING_API_KEY,
+            "api_key": api_key,
             "embedding_dims": _parse_int(EMBEDDING_DIMS),
         }
     )
@@ -370,17 +439,18 @@ def _build_embedder_config(provider: str) -> Dict[str, Any]:
     elif provider == "gemini":
         if GEMINI_OUTPUT_DIM:
             config["output_dimensionality"] = GEMINI_OUTPUT_DIM
-        if GOOGLE_API_KEY and not EMBEDDING_API_KEY:
-            config["api_key"] = GOOGLE_API_KEY
     elif provider == "lmstudio":
         config["lmstudio_base_url"] = EMBEDDING_LMSTUDIO_BASE_URL
     elif provider == "aws_bedrock":
-        if EMBEDDING_AWS_REGION:
-            config["aws_region"] = EMBEDDING_AWS_REGION
-        if EMBEDDING_AWS_ACCESS_KEY_ID:
-            config["aws_access_key_id"] = EMBEDDING_AWS_ACCESS_KEY_ID
-        if EMBEDDING_AWS_SECRET_ACCESS_KEY:
-            config["aws_secret_access_key"] = EMBEDDING_AWS_SECRET_ACCESS_KEY
+        aws_region = EMBEDDING_AWS_REGION or AWS_REGION
+        aws_access_key = EMBEDDING_AWS_ACCESS_KEY_ID or AWS_ACCESS_KEY_ID
+        aws_secret_access = EMBEDDING_AWS_SECRET_ACCESS_KEY or AWS_SECRET_ACCESS_KEY
+        if aws_region:
+            config["aws_region"] = aws_region
+        if aws_access_key:
+            config["aws_access_key_id"] = aws_access_key
+        if aws_secret_access:
+            config["aws_secret_access_key"] = aws_secret_access
 
     return _compact_dict(config)
 
@@ -453,9 +523,20 @@ class SearchRequest(BaseModel):
     filters: Optional[Dict[str, Any]] = None
 
 
+def _require_configure_token(request: Request) -> None:
+    if not CONFIGURE_API_TOKEN:
+        return
+    auth_header = request.headers.get("Authorization", "")
+    token = auth_header.removeprefix("Bearer ").strip() if auth_header else ""
+    header_token = request.headers.get("X-Config-Token")
+    if token != CONFIGURE_API_TOKEN and header_token != CONFIGURE_API_TOKEN:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+
 @app.post("/configure", summary="Configure Mem0")
-def set_config(config: Dict[str, Any]):
+def set_config(config: Dict[str, Any], request: Request):
     """Set memory configuration."""
+    _require_configure_token(request)
     global MEMORY_INSTANCE
     MEMORY_INSTANCE = Memory.from_config(config)
     return {"message": "Configuration set successfully"}
@@ -522,13 +603,18 @@ def update_memory(memory_id: str, updated_memory: Dict[str, Any]):
     
     Args:
         memory_id (str): ID of the memory to update
-        updated_memory (str): New content to update the memory with
-        
+        updated_memory (dict): Payload containing new content
+
     Returns:
         dict: Success message indicating the memory was updated
     """
     try:
-        return MEMORY_INSTANCE.update(memory_id=memory_id, data=updated_memory)
+        data = updated_memory.get("data")
+        if data is None:
+            data = updated_memory.get("memory") or updated_memory.get("content")
+        if not isinstance(data, str):
+            raise HTTPException(status_code=400, detail="Field 'data' must be a string.")
+        return MEMORY_INSTANCE.update(memory_id=memory_id, data=data)
     except Exception as e:
         logging.exception("Error in update_memory:")
         raise HTTPException(status_code=500, detail=str(e))

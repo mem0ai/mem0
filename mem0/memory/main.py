@@ -70,8 +70,13 @@ def _safe_deepcopy_config(config):
             clone_dict = {k: v for k, v in config.__dict__.items()}
         
         sensitive_tokens = ("auth", "credential", "password", "token", "secret", "key", "connection_class")
+        sensitive_fields = {"history_db_url", "database_url", "db_url", "dsn"}
         for field_name in list(clone_dict.keys()):
-            if any(token in field_name.lower() for token in sensitive_tokens):
+            field_name_lower = field_name.lower()
+            if field_name_lower in sensitive_fields:
+                clone_dict[field_name] = None
+                continue
+            if any(token in field_name_lower for token in sensitive_tokens):
                 clone_dict[field_name] = None
         
         try:
