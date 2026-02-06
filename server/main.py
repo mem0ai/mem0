@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 from urllib.parse import quote_plus
@@ -41,6 +42,12 @@ GRAPH_STORE_PROVIDER = os.environ.get("GRAPH_STORE_PROVIDER")
 KUZU_DB_PATH = os.environ.get("KUZU_DB_PATH", ":memory:")
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+LLM_PROVIDER = os.environ.get("LLM_PROVIDER")
+LLM_API_KEY = os.environ.get("LLM_API_KEY")
+LLM_MODEL = os.environ.get("LLM_MODEL")
+LLM_TEMPERATURE = os.environ.get("LLM_TEMPERATURE")
+LLM_MAX_TOKENS = os.environ.get("LLM_MAX_TOKENS")
+LLM_TOP_P = os.environ.get("LLM_TOP_P")
 LLM_AZURE_OPENAI_API_KEY = os.environ.get("LLM_AZURE_OPENAI_API_KEY")
 LLM_AZURE_DEPLOYMENT = os.environ.get("LLM_AZURE_DEPLOYMENT")
 LLM_AZURE_ENDPOINT = os.environ.get("LLM_AZURE_ENDPOINT")
@@ -56,6 +63,10 @@ VLLM_API_KEY = os.environ.get("VLLM_API_KEY")
 VLLM_MODEL = os.environ.get("VLLM_MODEL")
 VLLM_TEMPERATURE = os.environ.get("VLLM_TEMPERATURE")
 VLLM_MAX_TOKENS = os.environ.get("VLLM_MAX_TOKENS")
+OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL")
+DEEPSEEK_API_BASE = os.environ.get("DEEPSEEK_API_BASE")
+LMSTUDIO_BASE_URL = os.environ.get("LMSTUDIO_BASE_URL")
+LMSTUDIO_RESPONSE_FORMAT = os.environ.get("LMSTUDIO_RESPONSE_FORMAT")
 HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/history/history.db")
 HISTORY_DB_PROVIDER = os.environ.get("HISTORY_DB_PROVIDER")
 HISTORY_DB_URL = os.environ.get("HISTORY_DB_URL")
@@ -95,6 +106,20 @@ def _normalize_provider(value: Optional[str]) -> Optional[str]:
     if value in {"none", "disabled", "off", "false", "0", ""}:
         return "none"
     return value
+
+
+def _normalize_llm_provider(value: Optional[str]) -> Optional[str]:
+    provider = _normalize_provider(value)
+    if provider is None:
+        return None
+    aliases = {
+        "google_ai": "gemini",
+        "google": "gemini",
+        "mistral_ai": "litellm",
+        "mistral": "litellm",
+        "azure": "azure_openai",
+    }
+    return aliases.get(provider, provider)
 
 
 def _build_graph_store_config() -> Dict[str, Any]:
@@ -142,6 +167,15 @@ def _parse_int(value: Optional[str]) -> Optional[int]:
         return None
 
 
+def _parse_json(value: Optional[str]) -> Optional[Dict[str, Any]]:
+    if value is None or value == "":
+        return None
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError:
+        raise ValueError("LMSTUDIO_RESPONSE_FORMAT must be valid JSON")
+
+
 def _build_history_db_url() -> Optional[str]:
     if HISTORY_DB_URL:
         return HISTORY_DB_URL
@@ -174,7 +208,7 @@ DEFAULT_CONFIG["history_db_url"] = _build_history_db_url() if _HISTORY_PROVIDER 
 
 
 def _azure_llm_config():
-    llm_model = os.environ.get("LLM_MODEL") or LLM_AZURE_DEPLOYMENT
+    llm_model = LLM_MODEL or LLM_AZURE_DEPLOYMENT
     return {
         "provider": "azure_openai",
         "config": {
@@ -211,24 +245,62 @@ def _vllm_llm_config():
         "provider": "vllm",
         "config": _compact_dict(
             {
-                "model": VLLM_MODEL,
+                "model": VLLM_MODEL or LLM_MODEL,
                 "vllm_base_url": VLLM_BASE_URL,
-                "api_key": VLLM_API_KEY,
-                "temperature": _parse_float(VLLM_TEMPERATURE),
-                "max_tokens": _parse_int(VLLM_MAX_TOKENS),
+                "api_key": VLLM_API_KEY or LLM_API_KEY,
+                "temperature": _parse_float(VLLM_TEMPERATURE or LLM_TEMPERATURE),
+                "max_tokens": _parse_int(VLLM_MAX_TOKENS or LLM_MAX_TOKENS),
+                "top_p": _parse_float(LLM_TOP_P),
             }
         ),
     }
 
 
-if LLM_AZURE_DEPLOYMENT and LLM_AZURE_ENDPOINT:
+def _build_llm_config(provider: str) -> Dict[str, Any]:
+    config = _compact_dict(
+        {
+            "model": LLM_MODEL,
+            "temperature": _parse_float(LLM_TEMPERATURE),
+            "max_tokens": _parse_int(LLM_MAX_TOKENS),
+            "top_p": _parse_float(LLM_TOP_P),
+            "api_key": LLM_API_KEY,
+        }
+    )
+
+    if provider == "ollama":
+        config["ollama_base_url"] = OLLAMA_BASE_URL
+    elif provider == "deepseek":
+        config["deepseek_base_url"] = DEEPSEEK_API_BASE
+    elif provider == "lmstudio":
+        if LMSTUDIO_BASE_URL:
+            config["lmstudio_base_url"] = LMSTUDIO_BASE_URL
+        if LMSTUDIO_RESPONSE_FORMAT:
+            config["lmstudio_response_format"] = _parse_json(LMSTUDIO_RESPONSE_FORMAT)
+    return _compact_dict(config)
+
+
+def _resolve_llm_provider() -> str:
+    provider = _normalize_llm_provider(LLM_PROVIDER)
+    if provider and provider != "none":
+        return provider
+    if LLM_AZURE_DEPLOYMENT and LLM_AZURE_ENDPOINT:
+        return "azure_openai"
+    if VLLM_BASE_URL:
+        return "vllm"
+    return "openai"
+
+
+_LLM_PROVIDER = _resolve_llm_provider()
+if _LLM_PROVIDER == "azure_openai":
     DEFAULT_CONFIG["llm"] = _azure_llm_config()
+elif _LLM_PROVIDER == "vllm":
+    DEFAULT_CONFIG["llm"] = _vllm_llm_config()
+else:
+    DEFAULT_CONFIG["llm"] = {"provider": _LLM_PROVIDER, "config": _build_llm_config(_LLM_PROVIDER)}
+
 
 if EMBEDDING_AZURE_DEPLOYMENT and EMBEDDING_AZURE_ENDPOINT:
     DEFAULT_CONFIG["embedder"] = _azure_embedder_config()
-
-if VLLM_BASE_URL:
-    DEFAULT_CONFIG["llm"] = _vllm_llm_config()
 
 
 MEMORY_INSTANCE = Memory.from_config(DEFAULT_CONFIG)
