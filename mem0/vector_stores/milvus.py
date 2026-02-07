@@ -117,22 +117,30 @@ class MilvusDB(VectorStoreBase):
 
     def _parse_output(self, data: list):
         """
-        Parse the output data.
+        Parse the output data and convert distance to similarity score.
+
+        For L2 (Euclidean) metric, lower distance means more similar, so we
+        convert to a similarity score using 1/(1+distance) to get a value in
+        (0, 1] where 1 means identical. For COSINE and IP metrics, Milvus
+        already returns a similarity score (higher = more similar).
 
         Args:
-            data (Dict): Output data.
+            data (list): Output data from Milvus search.
 
         Returns:
-            List[OutputData]: Parsed output data.
+            List[OutputData]: Parsed output data with similarity scores.
         """
         memory = []
 
         for value in data:
-            uid, score, metadata = (
-                value.get("id"),
-                value.get("distance"),
-                value.get("entity", {}).get("metadata"),
-            )
+            uid = value.get("id")
+            distance = value.get("distance")
+            metadata = value.get("entity", {}).get("metadata")
+
+            if distance is not None and self.metric_type in (MetricType.L2, "L2"):
+                score = 1.0 / (1.0 + distance)
+            else:
+                score = distance
 
             memory_obj = OutputData(id=uid, score=score, payload=metadata)
             memory.append(memory_obj)
