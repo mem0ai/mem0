@@ -76,6 +76,7 @@ class MemoryCreate(BaseModel):
     agent_id: Optional[str] = None
     run_id: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
+    infer: Optional[bool] = Field(default=None, description="Whether to infer facts from messages. Defaults to True.")
 
 
 class SearchRequest(BaseModel):
@@ -83,6 +84,8 @@ class SearchRequest(BaseModel):
     user_id: Optional[str] = None
     run_id: Optional[str] = None
     agent_id: Optional[str] = None
+    limit: Optional[int] = Field(default=None, description="Maximum number of results to return.")
+    threshold: Optional[float] = Field(default=None, description="Minimum similarity score threshold for results.")
     filters: Optional[Dict[str, Any]] = None
 
 
