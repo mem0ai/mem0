@@ -121,7 +121,7 @@ class WeaviateDB(BaseVectorDB):
     def get(self, ids: Optional[list[str]] = None, where: Optional[dict[str, any]] = None, limit: Optional[int] = None):
         """
         Get existing doc ids present in vector database
-        :param ids: _list of doc ids to check for existance
+        :param ids: _list of doc ids to check for existence
         :type ids: list[str]
         :param where: to filter data
         :type where: dict[str, any]
