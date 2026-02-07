@@ -223,7 +223,7 @@ export class Memory {
     if (!infer) {
       const returnedMemories: MemoryItem[] = [];
       for (const message of messages) {
-        if (message.content === "system") {
+        if (message.role === "system") {
           continue;
         }
         const memoryId = await this.createMemory(
