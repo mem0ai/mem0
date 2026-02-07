@@ -257,7 +257,8 @@
                               "components/embedders/models/lmstudio",
                               "components/embedders/models/together",
                               "components/embedders/models/langchain",
-                              "components/embedders/models/aws_bedrock"
+                              "components/embedders/models/aws_bedrock",
+                              "components/embedders/models/voyageai"
                             ]
                           }
                         ]
@@ -278,7 +279,8 @@
                               "components/rerankers/models/sentence_transformer",
                               "components/rerankers/models/huggingface",
                               "components/rerankers/models/llm_reranker",
-                              "components/rerankers/models/zero_entropy"
+                              "components/rerankers/models/zero_entropy",
+                              "components/rerankers/models/voyageai"
                             ]
                           }
                         ]
