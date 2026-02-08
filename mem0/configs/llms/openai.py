@@ -1,4 +1,4 @@
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, List, Optional, Literal
 
 from mem0.configs.llms.base import BaseLlmConfig
 
@@ -21,6 +21,7 @@ class OpenAIConfig(BaseLlmConfig):
         enable_vision: bool = False,
         vision_details: Optional[str] = "auto",
         http_client_proxies: Optional[dict] = None,
+        reasoning_effort: Optional[Literal["low", "medium", "high"]] = None,
         # OpenAI-specific parameters
         openai_base_url: Optional[str] = None,
         models: Optional[List[str]] = None,
@@ -45,6 +46,7 @@ class OpenAIConfig(BaseLlmConfig):
             enable_vision: Enable vision capabilities, defaults to False
             vision_details: Vision detail level, defaults to "auto"
             http_client_proxies: HTTP client proxy settings, defaults to None
+            reasoning_effort: Reasoning effort level for reasoning models, defaults to None
             openai_base_url: OpenAI API base URL, defaults to None
             models: List of models for OpenRouter, defaults to None
             route: OpenRouter route strategy, defaults to "fallback"
@@ -64,6 +66,7 @@ class OpenAIConfig(BaseLlmConfig):
             enable_vision=enable_vision,
             vision_details=vision_details,
             http_client_proxies=http_client_proxies,
+            reasoning_effort=reasoning_effort,
         )
 
         # OpenAI-specific parameters
