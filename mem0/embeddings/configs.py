@@ -25,6 +25,7 @@ class EmbedderConfig(BaseModel):
             "langchain",
             "aws_bedrock",
             "fastembed",
+            "sambanova",
         ]:
             return v
         else:
