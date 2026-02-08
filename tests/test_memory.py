@@ -438,3 +438,82 @@ async def test_async_update_nonexistent_memory_raises_error(mock_sqlite, mock_ll
         await memory._update_memory("non-existent-id", "new data", {"new data": [0.1, 0.2]})
 
     mock_vector_store.update.assert_not_called()
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_add_infer_false_embeds_once(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """
+    Regression test for issue #3723: adding with infer=False should not trigger duplicate embedding calls.
+
+    Root cause: _create_memory expected a dict for existing_embeddings but received a raw list[float],
+    causing the cache check `data in existing_embeddings` to always fail and trigger a redundant embed.
+    """
+    embedder = MagicMock()
+    embedder.embed.return_value = [0.1, 0.2, 0.3]
+    embedder.config = MagicMock(embedding_dims=3)
+    mock_embedder_factory.return_value = embedder
+
+    mock_vector_store = MagicMock()
+    mock_vector_store.search.return_value = []
+    mock_vector_store.insert.return_value = None
+    mock_vector_store.get.return_value = None
+    telemetry_vector_store = MagicMock()
+    mock_vector_factory.side_effect = [mock_vector_store, telemetry_vector_store]
+
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    memory = MemoryClass(MemoryConfig())
+
+    memory.add("foo", user_id="test_user", infer=False)
+
+    assert embedder.embed.call_count == 1
+    mock_vector_store.insert.assert_called_once()
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_add_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """
+    Regression test for issue #3723 (infer=True path): when the LLM rewrites a fact during the
+    ADD action, the embedding should be computed once and cached, not computed again inside _create_memory.
+    """
+    embedder = MagicMock()
+    embedder.embed.return_value = [0.1, 0.2, 0.3]
+    embedder.config = MagicMock(embedding_dims=3)
+    mock_embedder_factory.return_value = embedder
+
+    mock_vector_store = MagicMock()
+    mock_vector_store.search.return_value = []
+    mock_vector_store.insert.return_value = None
+    mock_vector_store.get.return_value = None
+    telemetry_vector_store = MagicMock()
+    mock_vector_factory.side_effect = [mock_vector_store, telemetry_vector_store]
+
+    # LLM extracts fact "User likes Python", then ADD action rewrites to "The user enjoys Python"
+    mock_llm = MagicMock()
+    mock_llm.generate_response.side_effect = [
+        json.dumps({"facts": ["User likes Python"]}),
+        json.dumps({"memory": [{"id": "0", "text": "The user enjoys Python", "event": "ADD", "old_memory": None}]}),
+    ]
+    mock_llm_factory.return_value = mock_llm
+
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    memory = MemoryClass(MemoryConfig())
+
+    memory.add("I like Python", user_id="test_user", infer=True)
+
+    # embed should be called exactly twice:
+    # 1. For the extracted fact "User likes Python" (search)
+    # 2. For the rewritten text "The user enjoys Python" (pre-cached before _create_memory)
+    # It should NOT be called a 3rd time inside _create_memory
+    assert embedder.embed.call_count == 2
+    mock_vector_store.insert.assert_called_once()
