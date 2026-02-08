@@ -183,9 +183,11 @@ class Mem0MemoryService(BaseMemoryService):
 Create a callback to automatically save sessions to memory:
 
 ```python
-from google.adk.agents.callback_context import CallbackContext
+import logging
 
-async def auto_save_session_to_memory_callback(callback_context: CallbackContext) -> None:
+memory_logger = logging.getLogger("memory")
+
+async def auto_save_session_to_memory_callback(callback_context) -> None:
     """Automatically save session to memory after agent completes.
 
     This callback is called after the agent finishes processing a turn.
@@ -195,22 +197,35 @@ async def auto_save_session_to_memory_callback(callback_context: CallbackContext
         callback_context: The callback context containing invocation context with session and memory service
     """
     try:
-        # Access invocation_context from callback_context
+        # Access invocation_context from callback_context as shown in ADK documentation
         invocation_context = getattr(callback_context, "_invocation_context", None)
         if not invocation_context:
+            memory_logger.debug("No invocation context, skipping memory save")
             return
 
         session = getattr(invocation_context, "session", None)
         memory_service = getattr(invocation_context, "memory_service", None)
 
-        if session and memory_service:
-            # Only save if session has meaningful content (more than just initial message)
-            events = getattr(session, "events", [])
-            if len(events) >= 2:  # Need at least user message + agent response
-                await memory_service.add_session_to_memory(session)
+        if not session:
+            memory_logger.debug("No session found, skipping memory save")
+            return
+
+        if not memory_service:
+            memory_logger.debug("No memory service configured, skipping memory save")
+            return
+
+        # Only save if session has meaningful content (more than just initial message)
+        events = getattr(session, "events", [])
+        if len(events) < 2:  # Need at least user message + agent response
+            memory_logger.debug("Session has insufficient events, skipping memory save")
+            return
+
+        memory_logger.info("Auto-saving session to memory via callback")
+        await memory_service.add_session_to_memory(session)
+        memory_logger.info("Successfully saved session to memory via callback")
 
     except Exception as e:
-        print(f"Error in auto_save_session_to_memory_callback: {e}")
+        memory_logger.exception(f"Error in auto_save_session_to_memory_callback: {e}")
 ```
 
 ### Complete Integration Example
