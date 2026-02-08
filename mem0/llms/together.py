@@ -20,7 +20,10 @@ class TogetherLLM(LLMBase):
             self.config.model = "mistralai/Mixtral-8x7B-Instruct-v0.1"
 
         api_key = self.config.api_key or os.getenv("TOGETHER_API_KEY")
-        self.client = Together(api_key=api_key)
+        self.client = Together(
+            api_key=api_key,
+            default_headers=self.config.extra_headers,
+        )
 
     def _parse_response(self, response, tools):
         """
