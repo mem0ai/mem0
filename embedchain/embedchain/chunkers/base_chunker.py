@@ -1,5 +1,6 @@
 import hashlib
 import logging
+import uuid
 from typing import Any, Optional
 
 from embedchain.config.add_config import ChunkerConfig
@@ -61,6 +62,7 @@ class BaseChunker(JSONSerializable):
             for chunk in chunks:
                 chunk_id = hashlib.sha256((chunk + url).encode()).hexdigest()
                 chunk_id = f"{app_id}--{chunk_id}" if app_id is not None else chunk_id
+                chunk_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, chunk_id))
                 if id_map.get(chunk_id) is None and len(chunk) >= min_chunk_size:
                     id_map[chunk_id] = True
                     chunk_ids.append(chunk_id)
