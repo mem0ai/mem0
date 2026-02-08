@@ -15,7 +15,7 @@ import pytz
 from pydantic import ValidationError
 
 from mem0.configs.base import MemoryConfig, MemoryItem
-from mem0.configs.enums import MemoryType
+from mem0.configs.enums import MemoryType, MemoryLayer
 from mem0.configs.prompts import (
     PROCEDURAL_MEMORY_SYSTEM_PROMPT,
     get_update_memory_messages,
@@ -89,6 +89,8 @@ def _build_filters_and_metadata(
     user_id: Optional[str] = None,
     agent_id: Optional[str] = None,
     run_id: Optional[str] = None,
+    source_id: Optional[str] = None,
+    memory_layer: Optional[str] = None,
     actor_id: Optional[str] = None,  # For query-time filtering
     input_metadata: Optional[Dict[str, Any]] = None,
     input_filters: Optional[Dict[str, Any]] = None,
@@ -113,6 +115,8 @@ def _build_filters_and_metadata(
         user_id (Optional[str]): User identifier, for session scoping.
         agent_id (Optional[str]): Agent identifier, for session scoping.
         run_id (Optional[str]): Run identifier, for session scoping.
+        source_id (Optional[str]): Source identifier (e.g. Discord message ID).
+        memory_layer (Optional[str]): Memory layer (general, agent, global, chat).
         actor_id (Optional[str]): Explicit actor identifier, used as a potential source for
             actor-specific filtering. See actor resolution precedence in the main description.
         input_metadata (Optional[Dict[str, Any]]): Base dictionary to be augmented with
@@ -148,6 +152,14 @@ def _build_filters_and_metadata(
         base_metadata_template["run_id"] = run_id
         effective_query_filters["run_id"] = run_id
         session_ids_provided.append("run_id")
+
+    if source_id:
+        base_metadata_template["source_id"] = source_id
+        effective_query_filters["source_id"] = source_id
+
+    if memory_layer:
+        base_metadata_template["memory_layer"] = memory_layer
+        effective_query_filters["memory_layer"] = memory_layer
 
     if not session_ids_provided:
         raise Mem0ValidationError(
@@ -285,6 +297,8 @@ class Memory(MemoryBase):
         user_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
+        source_id: Optional[str] = None,
+        memory_layer: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         infer: bool = True,
         memory_type: Optional[str] = None,
@@ -302,6 +316,8 @@ class Memory(MemoryBase):
             user_id (str, optional): ID of the user creating the memory. Defaults to None.
             agent_id (str, optional): ID of the agent creating the memory. Defaults to None.
             run_id (str, optional): ID of the run creating the memory. Defaults to None.
+            source_id (str, optional): ID of the source (e.g. Discord message ID). Defaults to None.
+            memory_layer (str, optional): Memory layer (general, agent, global, chat). Defaults to None.
             metadata (dict, optional): Metadata to store with the memory. Defaults to None.
             infer (bool, optional): If True (default), an LLM is used to extract key facts from
                 'messages' and decide whether to add, update, or delete related memories.
@@ -332,6 +348,8 @@ class Memory(MemoryBase):
             user_id=user_id,
             agent_id=agent_id,
             run_id=run_id,
+            source_id=source_id,
+            memory_layer=memory_layer,
             input_metadata=metadata,
         )
 
@@ -656,6 +674,8 @@ class Memory(MemoryBase):
         user_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
+        source_id: Optional[str] = None,
+        memory_layer: Optional[str] = None,
         filters: Optional[Dict[str, Any]] = None,
         limit: int = 100,
     ):
@@ -666,6 +686,8 @@ class Memory(MemoryBase):
             user_id (str, optional): user id
             agent_id (str, optional): agent id
             run_id (str, optional): run id
+            source_id (str, optional): source id
+            memory_layer (str, optional): memory layer
             filters (dict, optional): Additional custom key-value filters to apply to the search.
                 These are merged with the ID-based scoping filters. For example,
                 `filters={"actor_id": "some_user"}`.
@@ -679,7 +701,12 @@ class Memory(MemoryBase):
         """
 
         _, effective_filters = _build_filters_and_metadata(
-            user_id=user_id, agent_id=agent_id, run_id=run_id, input_filters=filters
+            user_id=user_id,
+            agent_id=agent_id,
+            run_id=run_id,
+            source_id=source_id,
+            memory_layer=memory_layer,
+            input_filters=filters,
         )
 
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
@@ -762,6 +789,8 @@ class Memory(MemoryBase):
         user_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
+        source_id: Optional[str] = None,
+        memory_layer: Optional[str] = None,
         limit: int = 100,
         filters: Optional[Dict[str, Any]] = None,
         threshold: Optional[float] = None,
@@ -774,33 +803,25 @@ class Memory(MemoryBase):
             user_id (str, optional): ID of the user to search for. Defaults to None.
             agent_id (str, optional): ID of the agent to search for. Defaults to None.
             run_id (str, optional): ID of the run to search for. Defaults to None.
+            source_id (str, optional): ID of the source to search for. Defaults to None.
+            memory_layer (str, optional): memory layer to search for. Defaults to None.
             limit (int, optional): Limit the number of results. Defaults to 100.
             filters (dict, optional): Legacy filters to apply to the search. Defaults to None.
             threshold (float, optional): Minimum score for a memory to be included in the results. Defaults to None.
             filters (dict, optional): Enhanced metadata filtering with operators:
-                - {"key": "value"} - exact match
-                - {"key": {"eq": "value"}} - equals
-                - {"key": {"ne": "value"}} - not equals  
-                - {"key": {"in": ["val1", "val2"]}} - in list
-                - {"key": {"nin": ["val1", "val2"]}} - not in list
-                - {"key": {"gt": 10}} - greater than
-                - {"key": {"gte": 10}} - greater than or equal
-                - {"key": {"lt": 10}} - less than
-                - {"key": {"lte": 10}} - less than or equal
-                - {"key": {"contains": "text"}} - contains text
-                - {"key": {"icontains": "text"}} - case-insensitive contains
-                - {"key": "*"} - wildcard match (any value)
-                - {"AND": [filter1, filter2]} - logical AND
-                - {"OR": [filter1, filter2]} - logical OR
-                - {"NOT": [filter1]} - logical NOT
-
+                ...
         Returns:
             dict: A dictionary containing the search results, typically under a "results" key,
                   and potentially "relations" if graph store is enabled.
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "score": 0.8, ...}]}`
         """
         _, effective_filters = _build_filters_and_metadata(
-            user_id=user_id, agent_id=agent_id, run_id=run_id, input_filters=filters
+            user_id=user_id,
+            agent_id=agent_id,
+            run_id=run_id,
+            source_id=source_id,
+            memory_layer=memory_layer,
+            input_filters=filters,
         )
 
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
@@ -1335,6 +1356,8 @@ class AsyncMemory(MemoryBase):
         user_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
+        source_id: Optional[str] = None,
+        memory_layer: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         infer: bool = True,
         memory_type: Optional[str] = None,
@@ -1349,6 +1372,8 @@ class AsyncMemory(MemoryBase):
             user_id (str, optional): ID of the user creating the memory.
             agent_id (str, optional): ID of the agent creating the memory. Defaults to None.
             run_id (str, optional): ID of the run creating the memory. Defaults to None.
+            source_id (str, optional): ID of the source (e.g. Discord message ID). Defaults to None.
+            memory_layer (str, optional): Memory layer (general, agent, global, chat). Defaults to None.
             metadata (dict, optional): Metadata to store with the memory. Defaults to None.
             infer (bool, optional): Whether to infer the memories. Defaults to True.
             memory_type (str, optional): Type of memory to create. Defaults to None.
@@ -1359,7 +1384,12 @@ class AsyncMemory(MemoryBase):
             dict: A dictionary containing the result of the memory addition operation.
         """
         processed_metadata, effective_filters = _build_filters_and_metadata(
-            user_id=user_id, agent_id=agent_id, run_id=run_id, input_metadata=metadata
+            user_id=user_id,
+            agent_id=agent_id,
+            run_id=run_id,
+            source_id=source_id,
+            memory_layer=memory_layer,
+            input_metadata=metadata,
         )
 
         if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
@@ -1700,6 +1730,8 @@ class AsyncMemory(MemoryBase):
         user_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
+        source_id: Optional[str] = None,
+        memory_layer: Optional[str] = None,
         filters: Optional[Dict[str, Any]] = None,
         limit: int = 100,
     ):
@@ -1710,6 +1742,8 @@ class AsyncMemory(MemoryBase):
              user_id (str, optional): user id
              agent_id (str, optional): agent id
              run_id (str, optional): run id
+             source_id (str, optional): source id
+             memory_layer (str, optional): memory layer
              filters (dict, optional): Additional custom key-value filters to apply to the search.
                  These are merged with the ID-based scoping filters. For example,
                  `filters={"actor_id": "some_user"}`.
@@ -1723,7 +1757,12 @@ class AsyncMemory(MemoryBase):
         """
 
         _, effective_filters = _build_filters_and_metadata(
-            user_id=user_id, agent_id=agent_id, run_id=run_id, input_filters=filters
+            user_id=user_id,
+            agent_id=agent_id,
+            run_id=run_id,
+            source_id=source_id,
+            memory_layer=memory_layer,
+            input_filters=filters,
         )
 
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
@@ -1811,6 +1850,8 @@ class AsyncMemory(MemoryBase):
         user_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
+        source_id: Optional[str] = None,
+        memory_layer: Optional[str] = None,
         limit: int = 100,
         filters: Optional[Dict[str, Any]] = None,
         threshold: Optional[float] = None,
@@ -1824,26 +1865,13 @@ class AsyncMemory(MemoryBase):
             user_id (str, optional): ID of the user to search for. Defaults to None.
             agent_id (str, optional): ID of the agent to search for. Defaults to None.
             run_id (str, optional): ID of the run to search for. Defaults to None.
+            source_id (str, optional): ID of the source to search for. Defaults to None.
+            memory_layer (str, optional): memory layer to search for. Defaults to None.
             limit (int, optional): Limit the number of results. Defaults to 100.
             filters (dict, optional): Legacy filters to apply to the search. Defaults to None.
             threshold (float, optional): Minimum score for a memory to be included in the results. Defaults to None.
             filters (dict, optional): Enhanced metadata filtering with operators:
-                - {"key": "value"} - exact match
-                - {"key": {"eq": "value"}} - equals
-                - {"key": {"ne": "value"}} - not equals  
-                - {"key": {"in": ["val1", "val2"]}} - in list
-                - {"key": {"nin": ["val1", "val2"]}} - not in list
-                - {"key": {"gt": 10}} - greater than
-                - {"key": {"gte": 10}} - greater than or equal
-                - {"key": {"lt": 10}} - less than
-                - {"key": {"lte": 10}} - less than or equal
-                - {"key": {"contains": "text"}} - contains text
-                - {"key": {"icontains": "text"}} - case-insensitive contains
-                - {"key": "*"} - wildcard match (any value)
-                - {"AND": [filter1, filter2]} - logical AND
-                - {"OR": [filter1, filter2]} - logical OR
-                - {"NOT": [filter1]} - logical NOT
-
+                ...
         Returns:
             dict: A dictionary containing the search results, typically under a "results" key,
                   and potentially "relations" if graph store is enabled.
@@ -1851,7 +1879,12 @@ class AsyncMemory(MemoryBase):
         """
 
         _, effective_filters = _build_filters_and_metadata(
-            user_id=user_id, agent_id=agent_id, run_id=run_id, input_filters=filters
+            user_id=user_id,
+            agent_id=agent_id,
+            run_id=run_id,
+            source_id=source_id,
+            memory_layer=memory_layer,
+            input_filters=filters,
         )
 
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
