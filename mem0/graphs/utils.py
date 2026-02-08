@@ -87,7 +87,7 @@ Do not delete in the above example because there is a possibility that Alice lov
 Memory Format:
 source -- relationship -- destination
 
-Provide a list of deletion instructions, each specifying the relationship to be deleted.
+Provide a list of deletion instructions, each specifying the relationship to be deleted.Additionally, provide the reason for each deletion.
 """
 
 
