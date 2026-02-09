@@ -43,9 +43,11 @@ def signal_handler(sig, frame):
     console.print("\n🛑 [bold yellow]Stopping servers...[/bold yellow]")
     if api_process:
         api_process.terminate()
+        api_process.wait()
         console.print("🛑 [bold yellow]API server stopped.[/bold yellow]")
     if ui_process:
         ui_process.terminate()
+        ui_process.wait()
         console.print("🛑 [bold yellow]UI server stopped.[/bold yellow]")
     sys.exit(0)
 
