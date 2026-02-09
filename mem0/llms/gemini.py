@@ -18,8 +18,16 @@ class GeminiLLM(LLMBase):
         if not self.config.model:
             self.config.model = "gemini-2.0-flash"
 
-        api_key = self.config.api_key or os.getenv("GOOGLE_API_KEY")
-        self.client = genai.Client(api_key=api_key)
+        # Support VertexAI via GOOGLE_GENAI_USE_VERTEXAI environment variable
+        use_vertexai = os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "").lower() in ("true", "1", "yes")
+        if use_vertexai:
+            # When using VertexAI, the client authenticates via Application Default Credentials
+            # (ADC) instead of an API key. Set GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION
+            # environment variables to configure the project and region.
+            self.client = genai.Client(vertexai=True)
+        else:
+            api_key = self.config.api_key or os.getenv("GOOGLE_API_KEY")
+            self.client = genai.Client(api_key=api_key)
 
     def _parse_response(self, response, tools):
         """
