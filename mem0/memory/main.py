@@ -885,7 +885,9 @@ class Memory(MemoryBase):
                 }
                 
                 if operator in operator_map:
-                    result[key] = {operator_map[operator]: value}
+                    if key not in result:
+                        result[key] = {}
+                    result[key][operator_map[operator]] = value
                 else:
                     raise ValueError(f"Unsupported metadata filter operator: {operator}")
             return result
@@ -1941,7 +1943,9 @@ class AsyncMemory(MemoryBase):
                 }
 
                 if operator in operator_map:
-                    result[key] = {operator_map[operator]: value}
+                    if key not in result:
+                        result[key] = {}
+                    result[key][operator_map[operator]] = value
                 else:
                     raise ValueError(f"Unsupported metadata filter operator: {operator}")
             return result
