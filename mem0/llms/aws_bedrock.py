@@ -9,6 +9,8 @@ try:
 except ImportError:
     raise ImportError("The 'boto3' library is required. Please install it using 'pip install boto3'.")
 
+from botocore.config import Config as BotocoreConfig
+
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.configs.llms.aws_bedrock import AWSBedrockConfig
 from mem0.llms.base import LLMBase
@@ -77,6 +79,15 @@ class AWSBedrockLLM(LLMBase):
         """Initialize AWS Bedrock client with proper credentials."""
         try:
             aws_config = self.config.get_aws_config()
+
+            # Build botocore config with timeout settings if provided
+            timeout_kwargs = {}
+            if getattr(self.config, "read_timeout", None) is not None:
+                timeout_kwargs["read_timeout"] = self.config.read_timeout
+            if getattr(self.config, "connect_timeout", None) is not None:
+                timeout_kwargs["connect_timeout"] = self.config.connect_timeout
+            if timeout_kwargs:
+                aws_config["config"] = BotocoreConfig(**timeout_kwargs)
 
             # Create Bedrock runtime client
             self.client = boto3.client("bedrock-runtime", **aws_config)
