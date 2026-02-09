@@ -479,7 +479,28 @@ class AWSBedrockLLM(LLMBase):
 
         return converse_tools
 
-    def _generate_with_tools(self, messages: List[Dict[str, str]], tools: List[Dict], stream: bool = False) -> Dict[str, Any]:
+    def _build_inference_config(self) -> Dict[str, Any]:
+        """Build inferenceConfig for the Converse API.
+
+        Avoids sending both temperature and topP simultaneously, since some
+        models (e.g. Anthropic Claude on Bedrock) reject requests containing
+        both parameters. Only includes topP when temperature is not set.
+        """
+        config = {
+            "maxTokens": self.model_config.get("max_tokens", 2000),
+        }
+
+        temperature = self.model_config.get("temperature")
+        top_p = self.model_config.get("top_p")
+
+        if temperature is not None:
+            config["temperature"] = temperature
+        if top_p is not None and temperature is None:
+            config["topP"] = top_p
+
+        return config
+
+        def _generate_with_tools(self, messages: List[Dict[str, str]], tools: List[Dict], stream: bool = False) -> Dict[str, Any]:
         """Generate response with tool calling support using correct message format."""
         # Format messages for tool-enabled models
         system_message = None
@@ -501,11 +522,7 @@ class AWSBedrockLLM(LLMBase):
         converse_params = {
             "modelId": self.config.model,
             "messages": formatted_messages,
-            "inferenceConfig": {
-                "maxTokens": self.model_config.get("max_tokens", 2000),
-                "temperature": self.model_config.get("temperature", 0.1),
-                "topP": self.model_config.get("top_p", 0.9),
-            }
+            "inferenceConfig": self._build_inference_config(),
         }
 
         # Add system message if present (for Anthropic)
@@ -531,11 +548,7 @@ class AWSBedrockLLM(LLMBase):
             converse_params = {
                 "modelId": self.config.model,
                 "messages": formatted_messages,
-                "inferenceConfig": {
-                    "maxTokens": self.model_config.get("max_tokens", 2000),
-                    "temperature": self.model_config.get("temperature", 0.1),
-                    "topP": self.model_config.get("top_p", 0.9),
-                }
+                "inferenceConfig": self._build_inference_config(),
             }
 
             # Add system message if present
@@ -567,11 +580,7 @@ class AWSBedrockLLM(LLMBase):
             response = self.client.converse(
                 modelId=self.config.model,
                 messages=input_body["messages"],
-                inferenceConfig={
-                    "maxTokens": input_body["max_tokens"],
-                    "temperature": input_body["temperature"],
-                    "topP": input_body["top_p"],
-                }
+                inferenceConfig=self._build_inference_config()
             )
             
             return self._parse_response(response)
