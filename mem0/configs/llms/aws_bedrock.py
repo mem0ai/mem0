@@ -24,6 +24,8 @@ class AWSBedrockConfig(BaseLlmConfig):
         aws_session_token: Optional[str] = None,
         aws_profile: Optional[str] = None,
         model_kwargs: Optional[Dict[str, Any]] = None,
+        read_timeout: Optional[int] = None,
+        connect_timeout: Optional[int] = None,
         **kwargs,
     ):
         """
@@ -41,6 +43,8 @@ class AWSBedrockConfig(BaseLlmConfig):
             aws_session_token: AWS session token for temporary credentials
             aws_profile: AWS profile name for credentials
             model_kwargs: Additional model-specific parameters
+            read_timeout: Read timeout in seconds for boto3 client (optional)
+            connect_timeout: Connection timeout in seconds for boto3 client (optional)
             **kwargs: Additional arguments passed to base class
         """
         super().__init__(
@@ -58,6 +62,8 @@ class AWSBedrockConfig(BaseLlmConfig):
         self.aws_session_token = aws_session_token
         self.aws_profile = aws_profile
         self.model_kwargs = model_kwargs or {}
+        self.read_timeout = read_timeout
+        self.connect_timeout = connect_timeout
 
     @property
     def provider(self) -> str:
