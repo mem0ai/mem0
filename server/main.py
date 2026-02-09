@@ -76,6 +76,7 @@ class MemoryCreate(BaseModel):
     agent_id: Optional[str] = None
     run_id: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
+    infer: Optional[bool] = Field(None, description="Whether to use LLM to extract facts from messages. Defaults to True when not provided.")
 
 
 class SearchRequest(BaseModel):
@@ -83,6 +84,8 @@ class SearchRequest(BaseModel):
     user_id: Optional[str] = None
     run_id: Optional[str] = None
     agent_id: Optional[str] = None
+    limit: Optional[int] = Field(None, description="Maximum number of results to return.")
+    threshold: Optional[float] = Field(None, description="Minimum similarity score threshold for results.")
     filters: Optional[Dict[str, Any]] = None
 
 
