@@ -269,5 +269,10 @@ export function parseMessages(messages: string[]): string {
 }
 
 export function removeCodeBlocks(text: string): string {
-  return text.replace(/```[^`]*```/g, "");
+  // If the response contains a code block, extract its content rather than
+  // stripping it. Many local/open-source models wrap JSON in ```json fences
+  // even when response_format is set to json_object.
+  const match = text.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
+  if (match) return match[1].trim();
+  return text.replace(/```[^`]*```/g, "").trim();
 }
