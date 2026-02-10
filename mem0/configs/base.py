@@ -64,6 +64,7 @@ class AzureConfig(BaseModel):
         azure_endpoint (str): The endpoint URL for the Azure service.
         api_version (str): The version of the Azure API being used.
         default_headers (Dict[str, str]): Headers to include in requests to the Azure API.
+        reasoning_effort (str): Controls reasoning effort for reasoning models (o1, o3, gpt-5). Values: "low", "medium", "high".
     """
 
     api_key: str = Field(
@@ -75,4 +76,8 @@ class AzureConfig(BaseModel):
     api_version: str = Field(description="The version of the Azure API being used.", default=None)
     default_headers: Optional[Dict[str, str]] = Field(
         description="Headers to include in requests to the Azure API.", default=None
+    )
+    reasoning_effort: Optional[str] = Field(
+        description="Controls reasoning effort for reasoning models (o1, o3, gpt-5). Values: 'low', 'medium', 'high'.",
+        default=None,
     )

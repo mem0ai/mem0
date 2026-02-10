@@ -87,6 +87,11 @@ class AzureOpenAILLM(LLMBase):
             "max_tokens": self.config.max_tokens,
             "top_p": self.config.top_p,
         }
+        
+        # Add reasoning_effort if specified for reasoning models
+        if self.config.azure_kwargs.reasoning_effort:
+            params["reasoning_effort"] = self.config.azure_kwargs.reasoning_effort
+            
         if response_format:
             params["response_format"] = response_format
         if tools:  # TODO: Remove tools if no issues found with new memory addition logic

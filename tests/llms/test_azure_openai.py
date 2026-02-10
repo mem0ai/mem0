@@ -129,3 +129,68 @@ def test_generate_with_http_proxies(default_headers):
             default_headers=default_headers,
         )
         mock_http_client.assert_called_once_with(proxies="http://testproxy.mem0.net:8000")
+
+
+def test_generate_response_with_reasoning_effort(mock_openai_client):
+    """Test that reasoning_effort parameter is properly passed to Azure OpenAI client."""
+    config = BaseLlmConfig(
+        model="o1-preview",
+        temperature=TEMPERATURE,
+        max_tokens=MAX_TOKENS,
+        top_p=TOP_P,
+        azure_kwargs={"reasoning_effort": "low"}
+    )
+    llm = AzureOpenAILLM(config)
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Solve this complex problem."},
+    ]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Here's my reasoning..."))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages)
+
+    # Verify that reasoning_effort is included in the API call
+    mock_openai_client.chat.completions.create.assert_called_once_with(
+        model="o1-preview", 
+        messages=messages, 
+        temperature=TEMPERATURE, 
+        max_tokens=MAX_TOKENS, 
+        top_p=TOP_P,
+        reasoning_effort="low"
+    )
+    assert response == "Here's my reasoning..."
+
+
+def test_generate_response_without_reasoning_effort(mock_openai_client):
+    """Test that reasoning_effort parameter is not passed when not specified."""
+    config = BaseLlmConfig(
+        model="gpt-4o",
+        temperature=TEMPERATURE,
+        max_tokens=MAX_TOKENS,
+        top_p=TOP_P,
+        azure_kwargs={}
+    )
+    llm = AzureOpenAILLM(config)
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Hello, how are you?"},
+    ]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="I'm doing well, thank you!"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages)
+
+    # Verify that reasoning_effort is NOT included in the API call
+    mock_openai_client.chat.completions.create.assert_called_once_with(
+        model="gpt-4o", 
+        messages=messages, 
+        temperature=TEMPERATURE, 
+        max_tokens=MAX_TOKENS, 
+        top_p=TOP_P
+    )
+    assert response == "I'm doing well, thank you!"
