@@ -13,6 +13,7 @@ class VectorStoreConfig(BaseModel):
     _provider_configs: Dict[str, str] = {
         "qdrant": "QdrantConfig",
         "chroma": "ChromaDbConfig",
+        "skypydb": "SkypyDBConfig",
         "pgvector": "PGVectorConfig",
         "pinecone": "PineconeConfig",
         "mongodb": "MongoDBConfig",
