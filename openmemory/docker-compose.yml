@@ -80,3 +80,8 @@ volumes:
     name: openmemory
   openmemory_postgres:
     name: openmemory_postgres
+
+networks:
+  openmemory_network:
+    name: openmemory_default
+    external: true

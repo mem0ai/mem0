@@ -1,0 +1,45 @@
+
+
+# add these apps to your docker file if you would like them
+
+  adminer:
+    image: adminer:latest
+    container_name: openmemory-adminer
+    restart: always
+    ports:
+      - "10006:8080"
+    environment:
+      - ADMINER_DEFAULT_SERVER=openmemory-postgres
+    depends_on:
+      - postgres
+    networks:
+      - openmemory_network
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: openmemory-pgadmin
+    restart: always
+    ports:
+      - "10007:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@local.com
+      - PGADMIN_DEFAULT_PASSWORD=admin
+    depends_on:
+      - postgres
+    networks:
+      - openmemory_network
+
+  postgrest:
+    image: postgrest/postgrest:latest
+    container_name: openmemory-postgrest
+    restart: always
+    ports:
+      - "10008:3000"
+    environment:
+      - PGRST_DB_URI=postgres://openmemory:openmemory@openmemory-postgres:5432/openmemory
+      - PGRST_DB_SCHEMA=public
+      - PGRST_DB_ANON_ROLE=openmemory
+    depends_on:
+      - postgres
+    networks:
+      - openmemory_network
