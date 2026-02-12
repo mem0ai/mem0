@@ -181,8 +181,20 @@ class MilvusDB(VectorStoreBase):
             vector (List[float], optional): Updated vector.
             payload (Dict, optional): Updated payload.
         """
-        schema = {"id": vector_id, "vectors": vector, "metadata": payload}
-        self.client.upsert(collection_name=self.collection_name, data=schema)
+        if vector is None:
+            """
+            When using Milvus, the vector cannot be None, otherwise Milvus will throw an exception. 
+            The original intention here was to pass None when no operation on the memory was needed. 
+            However, Milvus does not support this usage, 
+            so here we directly query the original vector and use the original vector for the update.
+            """
+            result = self.client.get(collection_name=self.collection_name, ids=vector_id)
+            old_vector = result[0].get("vectors", None)
+            schema = {"id": vector_id, "vectors": old_vector, "metadata": payload}
+            self.client.upsert(collection_name=self.collection_name, data=schema)
+        else:
+            schema = {"id": vector_id, "vectors": vector, "metadata": payload}
+            self.client.upsert(collection_name=self.collection_name, data=schema)
 
     def get(self, vector_id):
         """
