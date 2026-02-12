@@ -405,6 +405,122 @@ async def move_memories_to_app(
 
 
 
+@router.post("/filter/enriched")
+async def filter_memories_enriched(
+    request: FilterMemoriesRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Filter memories WITH graph enrichment (entities and relationships).
+
+    This endpoint enriches each memory with:
+    - entities: List of entities with their types (Person, Place, Date, etc.)
+    - relationships: List of relationships between entities (HAS_BIRTHDAY, WORKS_AT, etc.)
+
+    Use this endpoint when you need semantic context about entities in memories.
+    Example: "Josephine" -> {name: "Josephine", type: "PERSON"}
+    """
+    from app.services.graph_enrichment import get_enrichment_service
+
+    # First get memories using standard filter
+    user = db.query(User).filter(User.user_id == request.user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Build base query (same as filter_memories)
+    if user.is_superuser:
+        query = db.query(Memory).filter(Memory.state != MemoryState.deleted)
+    else:
+        query = db.query(Memory).filter(
+            Memory.user_id == user.id,
+            Memory.state != MemoryState.deleted,
+        )
+
+    # Apply all filters (same as filter_memories)
+    if not request.show_archived:
+        query = query.filter(Memory.state != MemoryState.archived)
+
+    if request.search_query:
+        query = query.filter(Memory.content.ilike(f"%{request.search_query}%"))
+
+    if request.app_ids:
+        query = query.filter(Memory.app_id.in_(request.app_ids))
+
+    query = query.outerjoin(App, Memory.app_id == App.id)
+
+    if request.category_ids:
+        query = query.join(Memory.categories).filter(Category.id.in_(request.category_ids))
+    else:
+        query = query.outerjoin(Memory.categories)
+
+    if request.from_date:
+        from_datetime = datetime.fromtimestamp(request.from_date, tz=UTC)
+        query = query.filter(Memory.created_at >= from_datetime)
+
+    if request.to_date:
+        to_datetime = datetime.fromtimestamp(request.to_date, tz=UTC)
+        query = query.filter(Memory.created_at <= to_datetime)
+
+    # Apply sorting
+    if request.sort_column and request.sort_direction:
+        sort_direction = request.sort_direction.lower()
+        if sort_direction not in ['asc', 'desc']:
+            raise HTTPException(status_code=400, detail="Invalid sort direction")
+
+        sort_mapping = {
+            'memory': Memory.content,
+            'app_name': App.name,
+            'created_at': Memory.created_at
+        }
+
+        if request.sort_column not in sort_mapping:
+            raise HTTPException(status_code=400, detail="Invalid sort column")
+
+        sort_field = sort_mapping[request.sort_column]
+        if sort_direction == 'desc':
+            query = query.order_by(sort_field.desc())
+        else:
+            query = query.order_by(sort_field.asc())
+    else:
+        query = query.order_by(Memory.created_at.desc())
+
+    query = query.options(joinedload(Memory.categories)).distinct(Memory.id)
+
+    # Execute query
+    params = Params(page=request.page, size=request.size)
+    page_result = sqlalchemy_paginate(
+        query,
+        params,
+        transformer=lambda items: [
+            {
+                "id": str(memory.id),
+                "memory": memory.content,  # Use 'memory' key for enrichment
+                "content": memory.content,
+                "created_at": int(memory.created_at.timestamp()),
+                "state": memory.state.value,
+                "app_id": str(memory.app_id),
+                "app_name": memory.app.name if memory.app else None,
+                "categories": [category.name for category in memory.categories],
+                "metadata_": memory.metadata_
+            }
+            for memory in items
+        ]
+    )
+
+    # Enrich with graph data
+    enrichment_service = get_enrichment_service()
+    enriched_items = await enrichment_service.enrich_memories(page_result.items)
+
+    # Return enriched page
+    return {
+        "items": enriched_items,
+        "total": page_result.total,
+        "page": page_result.page,
+        "size": page_result.size,
+        "pages": page_result.pages
+    }
+
+
 @router.post("/filter", response_model=Page[MemoryResponse])
 async def filter_memories(
     request: FilterMemoriesRequest,
@@ -529,6 +645,39 @@ async def recover_stuck_memories(
             for memory in stuck_memories
         ]
     }
+
+
+@router.get("/entity/{entity_name}")
+async def get_entity_context(
+    entity_name: str,
+    user_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Get full context for an entity from the graph.
+
+    Returns:
+    - Entity type (Person, Place, Organization, etc.)
+    - All properties
+    - All relationships to other entities
+    - Related memories
+
+    Example: GET /entity/Josephine?user_id=user123
+    Returns: {type: "Person", relationships: [{relation: "HAS_BIRTHDAY", target: "20th March"}]}
+    """
+    from app.services.graph_enrichment import get_enrichment_service
+
+    user = db.query(User).filter(User.user_id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    enrichment_service = get_enrichment_service()
+    entity_context = await enrichment_service.get_entity_context(entity_name, user_id)
+
+    if not entity_context:
+        raise HTTPException(status_code=404, detail=f"Entity '{entity_name}' not found")
+
+    return entity_context
 
 
 @router.get("/{memory_id}/related", response_model=Page[MemoryResponse])

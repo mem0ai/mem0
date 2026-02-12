@@ -111,6 +111,10 @@ async def search_memory(query: str) -> str:
     try:
         db = SessionLocal()
         try:
+            # Import enrichment service
+            from app.services.graph_enrichment import get_enrichment_service
+            enrichment_service = get_enrichment_service()
+
             # Get or create user and app
             user, app = get_user_and_app(db, user_id=uid, app_id=client_name)
 
@@ -125,9 +129,9 @@ async def search_memory(query: str) -> str:
             embeddings = memory_client.embedding_model.embed(query, "search")
 
             hits = memory_client.vector_store.search(
-                query=query, 
-                vectors=embeddings, 
-                limit=10, 
+                query=query,
+                vectors=embeddings,
+                limit=10,
                 filters=filters,
             )
 
@@ -137,20 +141,23 @@ async def search_memory(query: str) -> str:
             for h in hits:
                 # All vector db search functions return OutputData class
                 id, score, payload = h.id, h.score, h.payload
-                if allowed and h.id is None or h.id not in allowed: 
+                if allowed and h.id is None or h.id not in allowed:
                     continue
-                
+
                 results.append({
-                    "id": id, 
-                    "memory": payload.get("data"), 
+                    "id": id,
+                    "memory": payload.get("data"),
                     "hash": payload.get("hash"),
-                    "created_at": payload.get("created_at"), 
-                    "updated_at": payload.get("updated_at"), 
+                    "created_at": payload.get("created_at"),
+                    "updated_at": payload.get("updated_at"),
                     "score": score,
                 })
 
-            for r in results: 
-                if r.get("id"): 
+            # ✨ NEW: Enrich results with graph data
+            enriched_results = await enrichment_service.enrich_memories(results)
+
+            for r in enriched_results:
+                if r.get("id"):
                     access_log = MemoryAccessLog(
                         memory_id=uuid.UUID(r["id"]),
                         app_id=app.id,
@@ -164,7 +171,7 @@ async def search_memory(query: str) -> str:
                     db.add(access_log)
             db.commit()
 
-            return json.dumps({"results": results}, indent=2)
+            return json.dumps({"results": enriched_results}, indent=2)
         finally:
             db.close()
     except Exception as e:
