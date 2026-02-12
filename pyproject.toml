@@ -79,6 +79,8 @@ test = [
     "pytest>=8.2.2",
     "pytest-mock>=3.14.0",
     "pytest-asyncio>=0.23.7",
+    "sentence-transformers>=3.0.0",
+    "qdrant-client>=1.9.0",
 ]
 dev = [
     "ruff>=0.6.5",
