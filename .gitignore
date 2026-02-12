@@ -188,3 +188,6 @@ qdrant_storage/
 testing.ipynb
 openmemory/.backup_dir
 backups*.tar
+*.tar
+backups/
+*.backup
