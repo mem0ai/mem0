@@ -187,3 +187,4 @@ qdrant_storage/
 .crossnote
 testing.ipynb
 openmemory/.backup_dir
+backups*.tar
