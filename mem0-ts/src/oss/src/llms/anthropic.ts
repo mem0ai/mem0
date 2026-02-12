@@ -2,16 +2,48 @@ import Anthropic from "@anthropic-ai/sdk";
 import { LLM, LLMResponse } from "./base";
 import { LLMConfig, Message } from "../types";
 
+const CLAUDE_CODE_VERSION = "2.1.2";
+
+const OAT_HEADERS = {
+  accept: "application/json",
+  "anthropic-dangerous-direct-browser-access": "true",
+  "anthropic-beta": "claude-code-20250219,oauth-2025-04-20",
+  "user-agent": `claude-cli/${CLAUDE_CODE_VERSION} (external, cli)`,
+  "x-app": "cli",
+};
+
+export function isOAuthToken(token: string): boolean {
+  return token.includes("sk-ant-oat");
+}
+
 export class AnthropicLLM implements LLM {
   private client: Anthropic;
   private model: string;
 
   constructor(config: LLMConfig) {
-    const apiKey = config.apiKey || process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      throw new Error("Anthropic API key is required");
+    const token =
+      config.apiKey ||
+      process.env.ANTHROPIC_AUTH_TOKEN ||
+      process.env.ANTHROPIC_API_KEY;
+
+    if (!token) {
+      throw new Error(
+        "Anthropic API key or auth token is required. " +
+          "Set apiKey in config, or ANTHROPIC_AUTH_TOKEN / ANTHROPIC_API_KEY env var.",
+      );
     }
-    this.client = new Anthropic({ apiKey });
+
+    if (isOAuthToken(token)) {
+      this.client = new Anthropic({
+        apiKey: null,
+        authToken: token,
+        defaultHeaders: OAT_HEADERS,
+        dangerouslyAllowBrowser: true,
+      });
+    } else {
+      this.client = new Anthropic({ apiKey: token });
+    }
+
     this.model = config.model || "claude-3-sonnet-20240229";
   }
 
