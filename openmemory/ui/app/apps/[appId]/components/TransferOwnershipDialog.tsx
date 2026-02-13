@@ -44,7 +44,7 @@ export const TransferOwnershipDialog: React.FC<TransferOwnershipDialogProps> = (
   currentOwner,
   onSuccess,
 }) => {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8765";
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "__RUNTIME_API_URL__";
   const [isLoading, setIsLoading] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string>("");

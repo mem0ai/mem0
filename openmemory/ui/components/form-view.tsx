@@ -26,7 +26,7 @@ export function FormView({ settings, onChange }: FormViewProps) {
   const [isUploading, setIsUploading] = useReactState(false)
   const [selectedImportFileName, setSelectedImportFileName] = useReactState("")
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8765"
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "__RUNTIME_API_URL__"
   const userId = useSelector((state: RootState) => state.profile.userId)
 
   const handleOpenMemoryChange = (key: string, value: any) => {

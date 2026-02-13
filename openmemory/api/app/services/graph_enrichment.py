@@ -84,64 +84,134 @@ class GraphEnrichmentService:
                 if not words:
                     return memory
 
-                # Query for entities by name (case-insensitive)
+                # Query for entities by name - aggregate ALL nodes with same name
+                # This handles cases like "Skye" having 3 nodes with different properties
                 entities_query = """
                 UNWIND $names as search_name
                 MATCH (e)
                 WHERE toLower(e.name) = toLower(search_name)
-                RETURN DISTINCT e.name as name,
-                       labels(e) as labels,
-                       properties(e) as properties
+                WITH e.name as name,
+                     collect(DISTINCT labels(e)) as all_labels,
+                     collect(properties(e)) as all_properties,
+                     sum(COALESCE(e.mentions, 0)) as total_mentions,
+                     min(e.created) as first_created
+                RETURN name,
+                       all_labels,
+                       all_properties,
+                       total_mentions,
+                       first_created
                 LIMIT 20
                 """
 
                 entities_result = session.run(entities_query, names=list(set(words)))
                 entities = []
                 entity_names = set()
+                seen_entities = set()  # Track which entities we've already added
+                relationships = []  # Initialize here to avoid UnboundLocalError
 
                 for record in entities_result:
-                    # Get the primary label (entity type)
-                    labels = [l for l in record['labels'] if l != '__User__']
-                    entity_type = labels[0].upper() if labels else 'ENTITY'
-
                     entity_name = record['name']
+
+                    # Get all unique labels across all nodes with this name
+                    all_label_sets = record['all_labels']
+                    all_labels = []
+                    for label_set in all_label_sets:
+                        all_labels.extend([l for l in label_set if l != '__User__'])
+                    all_labels = list(set(all_labels))
+
+                    # Use the first label as primary type
+                    entity_type = all_labels[0].upper() if all_labels else 'ENTITY'
+
+                    # Skip if we've already added this entity
+                    entity_key = entity_name.lower()
+                    if entity_key in seen_entities:
+                        continue
+
+                    seen_entities.add(entity_key)
                     entity_names.add(entity_name)
 
-                    entities.append({
+                    # Merge properties from all nodes with this name
+                    all_properties = record['all_properties']
+                    merged_props = {}
+                    for props in all_properties:
+                        for k, v in props.items():
+                            if k not in ['embedding', 'embeddings', 'vector', 'name', 'user_id', 'created', 'mentions'] and not k.startswith('_'):
+                                merged_props[k] = v  # Later values override earlier ones
+
+                    entity_dict = {
                         'name': entity_name,
                         'type': entity_type.upper(),
+                        'types': [t.upper() for t in all_labels],  # All types across nodes
                         'label': entity_type.title(),
-                        'properties': dict(record['properties'])
-                    })
+                        'properties': merged_props if merged_props else None
+                    }
 
-                # Query for relationships between found entities
+                    # Add aggregated mentions and earliest created timestamp
+                    if record['total_mentions'] and record['total_mentions'] > 0:
+                        entity_dict['mentions'] = record['total_mentions']
+                    if record['first_created']:
+                        entity_dict['created_at'] = record['first_created']
+
+                    entities.append(entity_dict)
+
+                # Query for relationships - include both entity-to-entity AND user-to-entity
                 if entity_names:
                     relationships_query = """
                     UNWIND $names as search_name
+                    // Find relationships where entity is source OR target
                     MATCH (e1)-[r]->(e2)
                     WHERE toLower(e1.name) = toLower(search_name)
+                       OR toLower(e2.name) = toLower(search_name)
                     RETURN e1.name as source,
                            type(r) as relation,
                            e2.name as target,
                            labels(e1) as source_labels,
                            labels(e2) as target_labels,
                            properties(r) as properties
-                    LIMIT 20
+                    LIMIT 50
                     """
 
                     relationships_result = session.run(relationships_query, names=list(entity_names))
-                    relationships = []
+                    seen_rels = set()  # Deduplicate relationships
 
                     for record in relationships_result:
-                        source_labels = [l for l in record['source_labels'] if l != '__User__']
-                        target_labels = [l for l in record['target_labels'] if l != '__User__']
+                        source_labels = record['source_labels']
+                        target_labels = record['target_labels']
+
+                        # Handle __User__ nodes - translate to "You" or user's identity
+                        source_name = record['source']
+                        target_name = record['target']
+
+                        # Filter labels
+                        source_labels_filtered = [l for l in source_labels if l != '__User__']
+                        target_labels_filtered = [l for l in target_labels if l != '__User__']
+
+                        # If source is __User__, show it as "You"
+                        if '__User__' in source_labels and not source_labels_filtered:
+                            source_name = "You"
+                            source_type = "USER"
+                        else:
+                            source_type = source_labels_filtered[0].upper() if source_labels_filtered else 'ENTITY'
+
+                        # If target is __User__, show it as "You"
+                        if '__User__' in target_labels and not target_labels_filtered:
+                            target_name = "You"
+                            target_type = "USER"
+                        else:
+                            target_type = target_labels_filtered[0].upper() if target_labels_filtered else 'ENTITY'
+
+                        # Create unique key for deduplication
+                        rel_key = (source_name.lower(), record['relation'].lower(), target_name.lower())
+                        if rel_key in seen_rels:
+                            continue
+                        seen_rels.add(rel_key)
 
                         relationships.append({
-                            'source': record['source'],
+                            'source': source_name,
                             'relation': record['relation'].upper().replace('_', '_'),
-                            'target': record['target'],
-                            'source_type': source_labels[0].upper() if source_labels else 'ENTITY',
-                            'target_type': target_labels[0].upper() if target_labels else 'ENTITY',
+                            'target': target_name,
+                            'source_type': source_type,
+                            'target_type': target_type,
                             'properties': dict(record['properties']) if record['properties'] else {}
                         })
 

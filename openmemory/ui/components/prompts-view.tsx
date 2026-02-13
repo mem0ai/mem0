@@ -50,7 +50,7 @@ interface Prompt {
   updated_at: string;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8765";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "__RUNTIME_API_URL__";
 
 export function PromptsView() {
   const { toast } = useToast();

@@ -45,9 +45,9 @@ const allTabs = [{ key: "mcp", label: "MCP Link", icon: "🔗" }, ...clientTabs]
 
 export const Install = () => {
   const [copiedTab, setCopiedTab] = useState<string | null>(null);
-  const user = process.env.NEXT_PUBLIC_USER_ID || "user";
+  const user = process.env.NEXT_PUBLIC_USER_ID || "__RUNTIME_USER_ID__";
 
-  const URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8765";
+  const URL = process.env.NEXT_PUBLIC_API_URL || "__RUNTIME_API_URL__";
 
   const handleCopy = async (tab: string, isMcp: boolean = false) => {
     const text = isMcp

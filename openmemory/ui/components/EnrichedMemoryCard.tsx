@@ -2,6 +2,7 @@ import { EnrichedMemory } from "@/hooks/useMemoriesApi";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useRouter } from "next/navigation";
 
 interface EnrichedMemoryCardProps {
   memory: EnrichedMemory;
@@ -32,10 +33,24 @@ const relationshipIcons: Record<string, string> = {
 };
 
 export function EnrichedMemoryCard({ memory, showComparison = false }: EnrichedMemoryCardProps) {
+  const router = useRouter();
   const hasGraphData = memory.graph_enriched && (memory.entities?.length || memory.relationships?.length);
 
+  const handleCardClick = () => {
+    router.push(`/memory/${memory.id}`);
+  };
+
+  const handleEntityClick = (entityName: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click
+    // Navigate to enriched view with search filter
+    router.push(`/memories?tab=enriched&search=${encodeURIComponent(entityName)}`);
+  };
+
   return (
-    <Card className="bg-zinc-900/50 border-zinc-800">
+    <Card
+      className="bg-zinc-900/50 border-zinc-800 cursor-pointer hover:border-zinc-700 transition-colors"
+      onClick={handleCardClick}
+    >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex-1">
@@ -89,10 +104,11 @@ export function EnrichedMemoryCard({ memory, showComparison = false }: EnrichedM
                   {memory.entities.map((entity, idx) => (
                     <TooltipProvider key={idx}>
                       <Tooltip>
-                        <TooltipTrigger>
+                        <TooltipTrigger asChild>
                           <Badge
                             variant="outline"
-                            className={entityTypeColors[entity.type] || entityTypeColors.default}
+                            className={`${entityTypeColors[entity.type] || entityTypeColors.default} cursor-pointer hover:opacity-80 transition-opacity`}
+                            onClick={(e) => handleEntityClick(entity.name, e)}
                           >
                             <span className="font-medium">{entity.name}</span>
                             <span className="ml-1 text-xs opacity-70">({entity.type})</span>
@@ -111,6 +127,9 @@ export function EnrichedMemoryCard({ memory, showComparison = false }: EnrichedM
                                 ))}
                               </div>
                             )}
+                            <p className="text-zinc-500 mt-1 pt-1 border-t border-zinc-700 italic">
+                              Click to search for this entity
+                            </p>
                           </div>
                         </TooltipContent>
                       </Tooltip>

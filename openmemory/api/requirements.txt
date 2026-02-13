@@ -16,6 +16,6 @@ pytest-cov>=4.0.0
 tenacity==9.1.2
 anthropic==0.51.0
 ollama==0.4.8
-langchain-neo4j>=0.4.0
-neo4j>=5.0.0
+langchain-neo4j==0.4.0
+neo4j>=5.25.0,<6.0.0
 rank_bm25>=0.2.0

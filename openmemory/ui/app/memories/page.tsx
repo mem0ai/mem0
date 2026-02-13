@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { MemoriesSection } from "@/app/memories/components/MemoriesSection";
-import { ComparisonView } from "@/app/memories/components/ComparisonView";
+import { EnrichedMemoriesView } from "@/app/memories/components/EnrichedMemoriesView";
 import { MemoryFilters } from "@/app/memories/components/MemoryFilters";
 import { useRouter, useSearchParams } from "next/navigation";
 import "@/styles/animation.css";
@@ -16,7 +16,23 @@ export default function MemoriesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { updateMemoryDialog, handleCloseUpdateMemoryDialog } = useUI();
-  const [activeTab, setActiveTab] = useState("regular");
+
+  // Read tab from URL params, default to "regular"
+  const tabParam = searchParams.get("tab") || "regular";
+  const [activeTab, setActiveTab] = useState(tabParam);
+
+  // Sync activeTab with URL params
+  useEffect(() => {
+    setActiveTab(tabParam);
+  }, [tabParam]);
+
+  // Update URL when tab changes
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", value);
+    router.push(`?${params.toString()}`);
+  };
 
   useEffect(() => {
     // Set default pagination values if not present in URL
@@ -42,7 +58,7 @@ export default function MemoriesPage() {
             <MemoryFilters />
           </div>
           <div className="animate-fade-slide-down delay-1">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
               <TabsList className="grid w-full max-w-md grid-cols-2 mb-4">
                 <TabsTrigger value="regular" className="flex items-center gap-2">
                   <Zap className="h-4 w-4" />
@@ -51,19 +67,19 @@ export default function MemoriesPage() {
                     Fast
                   </Badge>
                 </TabsTrigger>
-                <TabsTrigger value="comparison" className="flex items-center gap-2">
+                <TabsTrigger value="enriched" className="flex items-center gap-2">
                   <Network className="h-4 w-4" />
-                  Comparison
+                  Enriched
                   <Badge variant="outline" className="ml-1 bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-xs">
-                    NEW
+                    Graph
                   </Badge>
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="regular">
                 <MemoriesSection />
               </TabsContent>
-              <TabsContent value="comparison">
-                <ComparisonView />
+              <TabsContent value="enriched">
+                <EnrichedMemoriesView />
               </TabsContent>
             </Tabs>
           </div>

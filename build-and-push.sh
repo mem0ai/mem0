@@ -67,11 +67,22 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "Building u-mem0 UI (Frontend)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
+# Build with placeholder values that will be replaced at runtime
+# This allows the same image to be used with different configurations
+echo "Building with runtime placeholders..."
+echo "  User ID will be set via NEXT_PUBLIC_USER_ID at container startup"
+echo "  API URL will be set via NEXT_PUBLIC_API_URL at container startup"
+echo ""
+
 docker buildx build \
     --platform linux/amd64,linux/arm64 \
     --tag "${UI_IMAGE}:${VERSION}" \
     --tag "${UI_IMAGE}:latest" \
     --file openmemory/ui/Dockerfile \
+    --build-arg NEXT_PUBLIC_USER_ID="__RUNTIME_USER_ID__" \
+    --build-arg NEXT_PUBLIC_API_URL="__RUNTIME_API_URL__" \
+    --build-arg NEXT_PUBLIC_API_URL_HTTP="__RUNTIME_API_URL__" \
+    --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     --push \
     openmemory/ui/
 
