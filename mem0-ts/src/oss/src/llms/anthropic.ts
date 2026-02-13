@@ -51,9 +51,14 @@ export class AnthropicLLM implements LLM {
     };
 
     if (responseFormat?.schema && supportsStructuredOutputs(this.model)) {
-      params.output_config = {
-        format: zodOutputFormat(responseFormat.schema),
-      };
+      try {
+        params.output_config = {
+          format: zodOutputFormat(responseFormat.schema),
+        };
+      } catch {
+        // zodOutputFormat requires zod >= 3.25.0 (for z.toJSONSchema).
+        // Fall back to prompt-based JSON if the runtime zod version is older.
+      }
     }
 
     const response = await this.client.messages.create(params);
