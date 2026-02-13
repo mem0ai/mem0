@@ -32,6 +32,39 @@ export const MemoryUpdateSchema = z.object({
     ),
 });
 
+// Raw JSON schemas for jsonSchemaOutputFormat (no zod runtime dependency).
+// MUST be kept in sync with the Zod schemas above.
+export const FactRetrievalJsonSchema = {
+  type: "object" as const,
+  properties: {
+    facts: { type: "array" as const, items: { type: "string" as const } },
+  },
+  required: ["facts"] as const,
+};
+
+export const MemoryUpdateJsonSchema = {
+  type: "object" as const,
+  properties: {
+    memory: {
+      type: "array" as const,
+      items: {
+        type: "object" as const,
+        properties: {
+          id: { type: "string" as const },
+          text: { type: "string" as const },
+          event: {
+            type: "string" as const,
+            enum: ["ADD", "UPDATE", "DELETE", "NONE"] as const,
+          },
+          old_memory: { type: "string" as const },
+        },
+        required: ["id", "text", "event"] as const,
+      },
+    },
+  },
+  required: ["memory"] as const,
+};
+
 export function getFactRetrievalMessages(
   parsedMessages: string,
 ): [string, string] {

@@ -8,8 +8,8 @@ importers:
   .:
     dependencies:
       "@anthropic-ai/sdk":
-        specifier: ^0.40.1
-        version: 0.40.1(encoding@0.1.13)
+        specifier: ^0.74.0
+        version: 0.74.0(zod@3.25.76)
       "@azure/identity":
         specifier: ^4.0.0
         version: 4.13.0
@@ -24,10 +24,10 @@ importers:
         version: 1.2.0(@modelcontextprotocol/sdk@1.12.1)(encoding@0.1.13)
       "@langchain/core":
         specifier: ^0.3.44
-        version: 0.3.44(openai@4.93.0(encoding@0.1.13)(ws@8.18.1)(zod@3.24.2))
+        version: 0.3.44(openai@4.93.0(encoding@0.1.13)(ws@8.18.1)(zod@3.25.76))
       "@mistralai/mistralai":
         specifier: ^1.5.2
-        version: 1.5.2(zod@3.24.2)
+        version: 1.5.2(zod@3.25.76)
       "@qdrant/js-client-rest":
         specifier: 1.13.0
         version: 1.13.0(typescript@5.5.4)
@@ -60,7 +60,7 @@ importers:
         version: 0.5.14
       openai:
         specifier: ^4.93.0
-        version: 4.93.0(encoding@0.1.13)(ws@8.18.1)(zod@3.24.2)
+        version: 4.93.0(encoding@0.1.13)(ws@8.18.1)(zod@3.25.76)
       pg:
         specifier: 8.11.3
         version: 8.11.3
@@ -74,8 +74,8 @@ importers:
         specifier: 9.0.1
         version: 9.0.1
       zod:
-        specifier: ^3.24.1
-        version: 3.24.2
+        specifier: ^3.25.0
+        version: 3.25.76
     devDependencies:
       "@types/node":
         specifier: ^22.7.6
@@ -122,11 +122,17 @@ packages:
       }
     engines: { node: ">=6.0.0" }
 
-  "@anthropic-ai/sdk@0.40.1":
+  "@anthropic-ai/sdk@0.74.0":
     resolution:
       {
-        integrity: sha512-DJMWm8lTEM9Lk/MSFL+V+ugF7jKOn0M2Ujvb5fN8r2nY14aHbGPZ1k6sgjL+tpJ3VuOGJNG+4R83jEpOuYPv8w==,
+        integrity: sha512-srbJV7JKsc5cQ6eVuFzjZO7UR3xEPJqPamHFIe29bs38Ij2IripoAhC0S5NslNbaFUYqBKypmmpzMTpqfHEUDw==,
       }
+    hasBin: true
+    peerDependencies:
+      zod: ^3.25.0 || ^4.0.0
+    peerDependenciesMeta:
+      zod:
+        optional: true
 
   "@azure/abort-controller@2.1.2":
     resolution:
@@ -461,6 +467,13 @@ packages:
     engines: { node: ">=6.9.0" }
     peerDependencies:
       "@babel/core": ^7.0.0-0
+
+  "@babel/runtime@7.28.6":
+    resolution:
+      {
+        integrity: sha512-05WQkdpL9COIMz4LjTxGpPNCdlpyimKppYNoJ5Di5EUObifl8t4tuLuUBBZEpoLYOmfvIWrsp9fCl0HoPRVTdA==,
+      }
+    engines: { node: ">=6.9.0" }
 
   "@babel/template@7.26.9":
     resolution:
@@ -3410,6 +3423,13 @@ packages:
       }
     engines: { node: ^14.17.0 || ^16.13.0 || >=18.0.0 }
 
+  json-schema-to-ts@3.1.1:
+    resolution:
+      {
+        integrity: sha512-+DWg8jCJG2TEnpy7kOm/7/AxaYoaRbjVB4LFZLySZlWn8exGs3A4OLJR966cVvU26N7X9TWxl+Jsw7dzAqKT6g==,
+      }
+    engines: { node: ">=16" }
+
   json-schema-traverse@0.4.1:
     resolution:
       {
@@ -5121,6 +5141,12 @@ packages:
       }
     hasBin: true
 
+  ts-algebra@2.0.0:
+    resolution:
+      {
+        integrity: sha512-FPAhNPFMrkwz76P7cdjdmiShwMynZYN6SgOujD1urY4oNm80Ou9oMdmbR45LotcKOXoy7wSmHkRFE6Mxbrhefw==,
+      }
+
   ts-interface-checker@0.1.13:
     resolution:
       {
@@ -5535,10 +5561,10 @@ packages:
     peerDependencies:
       zod: ^3.24.1
 
-  zod@3.24.2:
+  zod@3.25.76:
     resolution:
       {
-        integrity: sha512-lY7CDW43ECgW9u1TcT3IoXHflywfVqDYze4waEz812jR/bZ8FHDsl7pFQoSZTz5N+2NqRXs8GBwnAwo3ZNxqhQ==,
+        integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==,
       }
 
 snapshots:
@@ -5547,17 +5573,11 @@ snapshots:
       "@jridgewell/gen-mapping": 0.3.8
       "@jridgewell/trace-mapping": 0.3.25
 
-  "@anthropic-ai/sdk@0.40.1(encoding@0.1.13)":
+  "@anthropic-ai/sdk@0.74.0(zod@3.25.76)":
     dependencies:
-      "@types/node": 18.19.76
-      "@types/node-fetch": 2.6.12
-      abort-controller: 3.0.0
-      agentkeepalive: 4.6.0
-      form-data-encoder: 1.7.2
-      formdata-node: 4.4.1
-      node-fetch: 2.7.0(encoding@0.1.13)
-    transitivePeerDependencies:
-      - encoding
+      json-schema-to-ts: 3.1.1
+    optionalDependencies:
+      zod: 3.25.76
 
   "@azure/abort-controller@2.1.2":
     dependencies:
@@ -5831,6 +5851,8 @@ snapshots:
       "@babel/core": 7.26.9
       "@babel/helper-plugin-utils": 7.26.5
 
+  "@babel/runtime@7.28.6": {}
+
   "@babel/template@7.26.9":
     dependencies:
       "@babel/code-frame": 7.26.2
@@ -5949,8 +5971,8 @@ snapshots:
       "@modelcontextprotocol/sdk": 1.12.1
       google-auth-library: 9.15.1(encoding@0.1.13)
       ws: 8.18.1
-      zod: 3.24.2
-      zod-to-json-schema: 3.24.5(zod@3.24.2)
+      zod: 3.25.76
+      zod-to-json-schema: 3.24.5(zod@3.25.76)
     transitivePeerDependencies:
       - bufferutil
       - encoding
@@ -6160,27 +6182,27 @@ snapshots:
       "@jridgewell/resolve-uri": 3.1.2
       "@jridgewell/sourcemap-codec": 1.5.0
 
-  "@langchain/core@0.3.44(openai@4.93.0(encoding@0.1.13)(ws@8.18.1)(zod@3.24.2))":
+  "@langchain/core@0.3.44(openai@4.93.0(encoding@0.1.13)(ws@8.18.1)(zod@3.25.76))":
     dependencies:
       "@cfworker/json-schema": 4.1.1
       ansi-styles: 5.2.0
       camelcase: 6.3.0
       decamelize: 1.2.0
       js-tiktoken: 1.0.19
-      langsmith: 0.3.15(openai@4.93.0(encoding@0.1.13)(ws@8.18.1)(zod@3.24.2))
+      langsmith: 0.3.15(openai@4.93.0(encoding@0.1.13)(ws@8.18.1)(zod@3.25.76))
       mustache: 4.2.0
       p-queue: 6.6.2
       p-retry: 4.6.2
       uuid: 10.0.0
-      zod: 3.24.2
-      zod-to-json-schema: 3.24.5(zod@3.24.2)
+      zod: 3.25.76
+      zod-to-json-schema: 3.24.5(zod@3.25.76)
     transitivePeerDependencies:
       - openai
 
-  "@mistralai/mistralai@1.5.2(zod@3.24.2)":
+  "@mistralai/mistralai@1.5.2(zod@3.25.76)":
     dependencies:
-      zod: 3.24.2
-      zod-to-json-schema: 3.24.5(zod@3.24.2)
+      zod: 3.25.76
+      zod-to-json-schema: 3.24.5(zod@3.25.76)
 
   "@modelcontextprotocol/sdk@1.12.1":
     dependencies:
@@ -6193,8 +6215,8 @@ snapshots:
       express-rate-limit: 7.5.0(express@5.1.0)
       pkce-challenge: 5.0.0
       raw-body: 3.0.0
-      zod: 3.24.2
-      zod-to-json-schema: 3.24.5(zod@3.24.2)
+      zod: 3.25.76
+      zod-to-json-schema: 3.24.5(zod@3.25.76)
     transitivePeerDependencies:
       - supports-color
 
@@ -7875,6 +7897,11 @@ snapshots:
 
   json-parse-even-better-errors@3.0.2: {}
 
+  json-schema-to-ts@3.1.1:
+    dependencies:
+      "@babel/runtime": 7.28.6
+      ts-algebra: 2.0.0
+
   json-schema-traverse@0.4.1: {}
 
   json5@2.2.3: {}
@@ -7918,7 +7945,7 @@ snapshots:
 
   kolorist@1.8.0: {}
 
-  langsmith@0.3.15(openai@4.93.0(encoding@0.1.13)(ws@8.18.1)(zod@3.24.2)):
+  langsmith@0.3.15(openai@4.93.0(encoding@0.1.13)(ws@8.18.1)(zod@3.25.76)):
     dependencies:
       "@types/uuid": 10.0.0
       chalk: 4.1.2
@@ -7928,7 +7955,7 @@ snapshots:
       semver: 7.7.1
       uuid: 10.0.0
     optionalDependencies:
-      openai: 4.93.0(encoding@0.1.13)(ws@8.18.1)(zod@3.24.2)
+      openai: 4.93.0(encoding@0.1.13)(ws@8.18.1)(zod@3.25.76)
 
   leven@3.1.0: {}
 
@@ -8241,7 +8268,7 @@ snapshots:
       is-inside-container: 1.0.0
       wsl-utils: 0.1.0
 
-  openai@4.93.0(encoding@0.1.13)(ws@8.18.1)(zod@3.24.2):
+  openai@4.93.0(encoding@0.1.13)(ws@8.18.1)(zod@3.25.76):
     dependencies:
       "@types/node": 18.19.76
       "@types/node-fetch": 2.6.12
@@ -8252,7 +8279,7 @@ snapshots:
       node-fetch: 2.7.0(encoding@0.1.13)
     optionalDependencies:
       ws: 8.18.1
-      zod: 3.24.2
+      zod: 3.25.76
     transitivePeerDependencies:
       - encoding
 
@@ -8904,6 +8931,8 @@ snapshots:
 
   tree-kill@1.2.2: {}
 
+  ts-algebra@2.0.0: {}
+
   ts-interface-checker@0.1.13: {}
 
   ts-jest@29.2.6(@babel/core@7.26.9)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.26.9))(esbuild@0.25.1)(jest@29.7.0(@types/node@22.13.5)(ts-node@10.9.2(@types/node@22.13.5)(typescript@5.5.4)))(typescript@5.5.4):
@@ -9131,8 +9160,8 @@ snapshots:
 
   yocto-queue@0.1.0: {}
 
-  zod-to-json-schema@3.24.5(zod@3.24.2):
+  zod-to-json-schema@3.24.5(zod@3.25.76):
     dependencies:
-      zod: 3.24.2
+      zod: 3.25.76
 
-  zod@3.24.2: {}
+  zod@3.25.76: {}
