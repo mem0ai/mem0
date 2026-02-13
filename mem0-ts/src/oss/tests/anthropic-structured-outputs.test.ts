@@ -11,16 +11,26 @@ jest.mock("@anthropic-ai/sdk", () => {
   }));
 });
 
+const mockJsonSchemaOutputFormat = jest.fn((schema: any) => ({
+  type: "json_schema",
+  schema: { type: "object", source: "jsonSchema" },
+}));
+
+jest.mock("@anthropic-ai/sdk/helpers/json-schema", () => ({
+  jsonSchemaOutputFormat: mockJsonSchemaOutputFormat,
+}));
+
+const mockZodOutputFormat = jest.fn((schema: any) => ({
+  type: "json_schema",
+  schema: { type: "object", source: "zod" },
+}));
+
 jest.mock("@anthropic-ai/sdk/helpers/zod", () => ({
-  zodOutputFormat: jest.fn((schema: any) => ({
-    type: "json_schema",
-    schema: { type: "object" },
-  })),
+  zodOutputFormat: mockZodOutputFormat,
 }));
 
 import { z } from "zod";
 import { AnthropicLLM, supportsStructuredOutputs } from "../src/llms/anthropic";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 
 describe("supportsStructuredOutputs", () => {
   it("should return true for Claude 4.x models", () => {
@@ -38,6 +48,13 @@ describe("supportsStructuredOutputs", () => {
 
 describe("AnthropicLLM structured outputs", () => {
   const TestSchema = z.object({ facts: z.array(z.string()) });
+  const TestJsonSchema = {
+    type: "object" as const,
+    properties: {
+      facts: { type: "array" as const, items: { type: "string" as const } },
+    },
+    required: ["facts"] as const,
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -48,7 +65,33 @@ describe("AnthropicLLM structured outputs", () => {
     delete process.env.ANTHROPIC_API_KEY;
   });
 
-  it("should send output_config when schema provided on supported model", async () => {
+  it("should use jsonSchemaOutputFormat as primary path when both schemas provided", async () => {
+    const llm = new AnthropicLLM({
+      apiKey: "test-key",
+      model: "claude-sonnet-4-5-20250929",
+    });
+
+    await llm.generateResponse([{ role: "user", content: "Hello" }], {
+      type: "json_object",
+      schema: TestSchema,
+      jsonSchema: TestJsonSchema,
+    });
+
+    expect(mockJsonSchemaOutputFormat).toHaveBeenCalledWith(TestJsonSchema);
+    expect(mockZodOutputFormat).not.toHaveBeenCalled();
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        output_config: {
+          format: {
+            type: "json_schema",
+            schema: { type: "object", source: "jsonSchema" },
+          },
+        },
+      }),
+    );
+  });
+
+  it("should fall back to zodOutputFormat when jsonSchema not provided", async () => {
     const llm = new AnthropicLLM({
       apiKey: "test-key",
       model: "claude-sonnet-4-5-20250929",
@@ -59,14 +102,78 @@ describe("AnthropicLLM structured outputs", () => {
       schema: TestSchema,
     });
 
-    expect(zodOutputFormat).toHaveBeenCalledWith(TestSchema);
+    expect(mockJsonSchemaOutputFormat).not.toHaveBeenCalled();
+    expect(mockZodOutputFormat).toHaveBeenCalledWith(TestSchema);
     expect(mockCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         output_config: {
-          format: { type: "json_schema", schema: { type: "object" } },
+          format: {
+            type: "json_schema",
+            schema: { type: "object", source: "zod" },
+          },
         },
       }),
     );
+  });
+
+  it("should fall back to zodOutputFormat when jsonSchemaOutputFormat throws", async () => {
+    mockJsonSchemaOutputFormat.mockImplementationOnce(() => {
+      throw new Error("jsonSchemaOutputFormat unavailable");
+    });
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    const llm = new AnthropicLLM({
+      apiKey: "test-key",
+      model: "claude-sonnet-4-5-20250929",
+    });
+
+    await llm.generateResponse([{ role: "user", content: "Hello" }], {
+      type: "json_object",
+      schema: TestSchema,
+      jsonSchema: TestJsonSchema,
+    });
+
+    expect(mockJsonSchemaOutputFormat).toHaveBeenCalled();
+    expect(mockZodOutputFormat).toHaveBeenCalledWith(TestSchema);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[mem0] jsonSchemaOutputFormat failed"),
+      expect.any(String),
+    );
+    warnSpy.mockRestore();
+  });
+
+  it("should warn when both structured output methods fail", async () => {
+    mockJsonSchemaOutputFormat.mockImplementationOnce(() => {
+      throw new Error("jsonSchema failed");
+    });
+    mockZodOutputFormat.mockImplementationOnce(() => {
+      throw new Error("zod failed");
+    });
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    const llm = new AnthropicLLM({
+      apiKey: "test-key",
+      model: "claude-sonnet-4-5-20250929",
+    });
+
+    await llm.generateResponse([{ role: "user", content: "Hello" }], {
+      type: "json_object",
+      schema: TestSchema,
+      jsonSchema: TestJsonSchema,
+    });
+
+    expect(warnSpy).toHaveBeenCalledTimes(2);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[mem0] jsonSchemaOutputFormat failed"),
+      expect.any(String),
+    );
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[mem0] Structured outputs unavailable"),
+      expect.any(String),
+    );
+    const callArgs = mockCreate.mock.calls[0][0];
+    expect(callArgs.output_config).toBeUndefined();
+    warnSpy.mockRestore();
   });
 
   it("should not send output_config on unsupported model", async () => {
@@ -78,9 +185,11 @@ describe("AnthropicLLM structured outputs", () => {
     await llm.generateResponse([{ role: "user", content: "Hello" }], {
       type: "json_object",
       schema: TestSchema,
+      jsonSchema: TestJsonSchema,
     });
 
-    expect(zodOutputFormat).not.toHaveBeenCalled();
+    expect(mockJsonSchemaOutputFormat).not.toHaveBeenCalled();
+    expect(mockZodOutputFormat).not.toHaveBeenCalled();
     const callArgs = mockCreate.mock.calls[0][0];
     expect(callArgs.output_config).toBeUndefined();
   });
@@ -95,7 +204,8 @@ describe("AnthropicLLM structured outputs", () => {
       type: "json_object",
     });
 
-    expect(zodOutputFormat).not.toHaveBeenCalled();
+    expect(mockJsonSchemaOutputFormat).not.toHaveBeenCalled();
+    expect(mockZodOutputFormat).not.toHaveBeenCalled();
     const callArgs = mockCreate.mock.calls[0][0];
     expect(callArgs.output_config).toBeUndefined();
   });

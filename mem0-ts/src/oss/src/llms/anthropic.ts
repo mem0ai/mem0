@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { jsonSchemaOutputFormat } from "@anthropic-ai/sdk/helpers/json-schema";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { LLM, LLMResponse, ResponseFormat } from "./base";
 import { LLMConfig, Message } from "../types";
@@ -50,14 +51,32 @@ export class AnthropicLLM implements LLM {
       max_tokens: 4096,
     };
 
-    if (responseFormat?.schema && supportsStructuredOutputs(this.model)) {
-      try {
-        params.output_config = {
-          format: zodOutputFormat(responseFormat.schema),
-        };
-      } catch {
-        // zodOutputFormat requires zod >= 3.25.0 (for z.toJSONSchema).
-        // Fall back to prompt-based JSON if the runtime zod version is older.
+    if (supportsStructuredOutputs(this.model)) {
+      // Layer 1: jsonSchemaOutputFormat (no zod dependency)
+      if (responseFormat?.jsonSchema) {
+        try {
+          params.output_config = {
+            format: jsonSchemaOutputFormat(responseFormat.jsonSchema as any),
+          };
+        } catch (e) {
+          console.warn(
+            "[mem0] jsonSchemaOutputFormat failed, trying zodOutputFormat:",
+            e instanceof Error ? e.message : String(e),
+          );
+        }
+      }
+      // Layer 1b: zodOutputFormat fallback (needs zod >= 3.25.0)
+      if (!params.output_config && responseFormat?.schema) {
+        try {
+          params.output_config = {
+            format: zodOutputFormat(responseFormat.schema),
+          };
+        } catch (e) {
+          console.warn(
+            "[mem0] Structured outputs unavailable (zod < 3.25.0?), falling back to prompt-based JSON:",
+            e instanceof Error ? e.message : String(e),
+          );
+        }
       }
     }
 

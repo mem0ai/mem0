@@ -4,6 +4,7 @@ import { Message } from "../types";
 export interface ResponseFormat {
   type: string;
   schema?: z.ZodType;
+  jsonSchema?: Record<string, unknown> & { type: "object" };
 }
 
 export interface LLMResponse {
