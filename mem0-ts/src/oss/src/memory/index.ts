@@ -18,7 +18,7 @@ import {
   getFactRetrievalMessages,
   getUpdateMemoryMessages,
   parseMessages,
-  removeCodeBlocks,
+  extractJson,
 } from "../prompts";
 import { DummyHistoryManager } from "../storage/DummyHistoryManager";
 import { Embedder } from "../embeddings/base";
@@ -258,17 +258,16 @@ export class Memory {
       { type: "json_object" },
     );
 
-    const cleanResponse = removeCodeBlocks(response as string);
     let facts: string[] = [];
     try {
-      facts = JSON.parse(cleanResponse).facts || [];
-    } catch (e) {
-      console.error(
-        "Failed to parse facts from LLM response:",
-        cleanResponse,
-        e,
-      );
-      facts = [];
+      facts = JSON.parse(response as string).facts || [];
+    } catch {
+      try {
+        facts = JSON.parse(extractJson(response as string)).facts || [];
+      } catch (e) {
+        console.error("Failed to parse facts from LLM response:", response, e);
+        facts = [];
+      }
     }
 
     // Get embeddings for new facts
@@ -311,17 +310,21 @@ export class Memory {
       { type: "json_object" },
     );
 
-    const cleanUpdateResponse = removeCodeBlocks(updateResponse as string);
     let memoryActions: any[] = [];
     try {
-      memoryActions = JSON.parse(cleanUpdateResponse).memory || [];
-    } catch (e) {
-      console.error(
-        "Failed to parse memory actions from LLM response:",
-        cleanUpdateResponse,
-        e,
-      );
-      memoryActions = [];
+      memoryActions = JSON.parse(updateResponse as string).memory || [];
+    } catch {
+      try {
+        memoryActions =
+          JSON.parse(extractJson(updateResponse as string)).memory || [];
+      } catch (e) {
+        console.error(
+          "Failed to parse memory actions from LLM response:",
+          updateResponse,
+          e,
+        );
+        memoryActions = [];
+      }
     }
 
     // Process memory actions
