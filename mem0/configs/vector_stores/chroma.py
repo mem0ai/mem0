@@ -1,3 +1,5 @@
+import os
+import tempfile
 from typing import Any, ClassVar, Dict, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -23,24 +25,27 @@ class ChromaDbConfig(BaseModel):
     def check_connection_config(cls, values):
         host, port, path = values.get("host"), values.get("port"), values.get("path")
         api_key, tenant = values.get("api_key"), values.get("tenant")
-        
+
+        # Default temp path for comparison
+        default_chroma_path = os.path.join(tempfile.gettempdir(), "chroma")
+
         # Check if cloud configuration is provided
         cloud_config = bool(api_key and tenant)
-        
+
         # If cloud configuration is provided, remove any default path that might have been added
-        if cloud_config and path == "/tmp/chroma":
+        if cloud_config and path == default_chroma_path:
             values.pop("path", None)
             return values
-        
+
         # Check if local/server configuration is provided (excluding default tmp path for cloud config)
-        local_config = bool(path and path != "/tmp/chroma") or bool(host and port)
-        
+        local_config = bool(path and path != default_chroma_path) or bool(host and port)
+
         if not cloud_config and not local_config:
             raise ValueError("Either ChromaDB Cloud configuration (api_key, tenant) or local configuration (path or host/port) must be provided.")
-        
+
         if cloud_config and local_config:
             raise ValueError("Cannot specify both cloud configuration and local configuration. Choose one.")
-            
+
         return values
 
     @model_validator(mode="before")

@@ -1,6 +1,7 @@
 import logging
 import os
 import pickle
+import tempfile
 import uuid
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -58,7 +59,7 @@ class FAISS(VectorStoreBase):
                 Defaults to False.
         """
         self.collection_name = collection_name
-        self.path = path or f"/tmp/faiss/{collection_name}"
+        self.path = path or os.path.join(tempfile.gettempdir(), "faiss", collection_name)
         self.distance_strategy = distance_strategy
         self.normalize_L2 = normalize_L2
         self.embedding_model_dims = embedding_model_dims

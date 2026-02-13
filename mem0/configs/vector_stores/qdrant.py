@@ -1,3 +1,5 @@
+import os
+import tempfile
 from typing import Any, ClassVar, Dict, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -13,7 +15,10 @@ class QdrantConfig(BaseModel):
     client: Optional[QdrantClient] = Field(None, description="Existing Qdrant client instance")
     host: Optional[str] = Field(None, description="Host address for Qdrant server")
     port: Optional[int] = Field(None, description="Port for Qdrant server")
-    path: Optional[str] = Field("/tmp/qdrant", description="Path for local Qdrant database")
+    path: Optional[str] = Field(
+        default_factory=lambda: os.path.join(tempfile.gettempdir(), "qdrant"),
+        description="Path for local Qdrant database"
+    )
     url: Optional[str] = Field(None, description="Full URL for Qdrant server")
     api_key: Optional[str] = Field(None, description="API key for Qdrant server")
     on_disk: Optional[bool] = Field(False, description="Enables persistent storage")
