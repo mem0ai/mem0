@@ -1,0 +1,130 @@
+---
+title: AG2 (formerly AutoGen)
+---
+
+Build conversational and multi-agent systems with AG2 (formerly AutoGen) and Mem0 for persistent memory. This integration enables context-aware responses that improve across sessions.
+
+## Overview
+
+In this guide, we'll create a memory-aware agent that:
+1. Uses AG2 (formerly AutoGen) for agent orchestration
+2. Uses Mem0 to store and retrieve relevant conversation history
+3. Works across single-agent and multi-agent workflows
+
+## Setup and Configuration
+
+Install required packages:
+
+```bash
+pip install "ag2[openai]" mem0ai
+```
+
+<Note>AG2 is published on PyPI as `ag2`, and `autogen` is an alias for the same package.</Note>
+<Note>OpenAI package is not installed by default. Use the `openai` extra as shown above.</Note>
+
+```python
+import os
+from mem0 import MemoryClient
+from autogen import ConversableAgent
+
+# Configuration
+os.environ["OPENAI_API_KEY"] = "your-openai-api-key"
+os.environ["MEM0_API_KEY"] = "your-mem0-api-key"
+
+memory = MemoryClient()
+```
+
+## Single-Agent Memory Example
+
+Create a single agent that retrieves memories before responding and stores new interactions after responding:
+
+```python
+def build_agent():
+    return ConversableAgent(
+        "support_agent",
+        llm_config={"config_list": [{"model": "gpt-4", "api_key": os.environ.get("OPENAI_API_KEY")}]},
+        code_execution_config=False,
+        human_input_mode="NEVER",
+    )
+
+agent = build_agent()
+user_id = "support_user_1"
+
+
+def answer_with_memory(question: str) -> str:
+    memories = memory.search(question, user_id=user_id)
+    results = memories.get("results", [])
+    context = "\n".join([f"- {item['memory']}" for item in results])
+
+    prompt = f"""Answer the user question using the relevant memories. Keep it concise.
+Memories:
+{context}
+
+Question: {question}
+"""
+
+    reply = agent.generate_reply(messages=[{"role": "user", "content": prompt}])
+
+    memory.add(
+        [
+            {"role": "user", "content": question},
+            {"role": "assistant", "content": reply},
+        ],
+        user_id=user_id,
+    )
+    return reply
+```
+
+## Multi-Agent Memory Example
+
+Use shared memory across two collaborating agents:
+
+```python
+manager = ConversableAgent(
+    "manager",
+    system_message="You are a manager who resolves complex customer issues.",
+    llm_config={"config_list": [{"model": "gpt-4", "api_key": os.environ.get("OPENAI_API_KEY")}]},
+    human_input_mode="NEVER",
+)
+
+customer_bot = ConversableAgent(
+    "customer_bot",
+    system_message="You gather customer details and clarify the issue.",
+    llm_config={"config_list": [{"model": "gpt-4", "api_key": os.environ.get("OPENAI_API_KEY")}]},
+    human_input_mode="NEVER",
+)
+
+question = "When is my appointment?"
+memories = memory.search(question, user_id=user_id)
+results = memories.get("results", [])
+context = "\n".join([f"- {item['memory']}" for item in results])
+
+prompt = f"""Context:
+{context}
+
+Question: {question}
+"""
+
+result = manager.send(prompt, customer_bot, request_reply=True)
+print(result)
+```
+
+## Key Features
+
+1. **Persistent Memory**: Mem0 stores and retrieves user history across sessions.
+2. **Flexible Orchestration**: AG2 (formerly AutoGen) supports single- and multi-agent workflows.
+3. **Simple Integration**: Minimal code changes are required to add memory to agents.
+
+## Further Reading
+
+- [AG2 (formerly AutoGen) notebook: agent with memory using Mem0](https://docs.ag2.ai/latest/docs/use-cases/notebooks/notebooks/agentchat_with_memory/)
+- [Mem0 Platform Overview](/platform/overview)
+
+<CardGroup cols={2}>
+  <Card title="CrewAI Integration" icon="users" href="/integrations/crewai">
+    Develop collaborative AI agents with shared memory using CrewAI and Mem0.
+  </Card>
+  <Card title="LangGraph Integration" icon="diagram-project" href="/integrations/langgraph">
+    Create stateful agent workflows with memory.
+  </Card>
+</CardGroup>

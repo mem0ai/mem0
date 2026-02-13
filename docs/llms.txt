@@ -151,6 +151,7 @@ Key differentiators:
 - [LangGraph](https://docs.mem0.ai/integrations/langgraph): Build stateful, multi-actor applications with persistent memory
 - [LlamaIndex](https://docs.mem0.ai/integrations/llama-index): Enhanced RAG applications with intelligent memory layer
 - [CrewAI](https://docs.mem0.ai/integrations/crewai): Multi-agent systems with shared and individual memory capabilities
+- [AG2 (formerly AutoGen)](https://docs.mem0.ai/integrations/ag2): Multi-agent systems with persistent memory using AG2 (formerly AutoGen)
 - [AutoGen](https://docs.mem0.ai/integrations/autogen): Microsoft's multi-agent conversation framework with memory
 - [Vercel AI SDK](https://docs.mem0.ai/integrations/vercel-ai-sdk): Build AI-powered web applications with persistent memory
 - [Flowise](https://docs.mem0.ai/integrations/flowise): No-code LLM workflow builder with memory capabilities
