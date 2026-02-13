@@ -50,6 +50,11 @@ class GraphEnrichmentService:
         """
         Enrich a single memory with graph data
 
+        Mem0's Neo4j schema:
+        - Entities are stored as nodes with labels: person, location, organization, etc.
+        - Entities have properties: name, user_id, created, mentions
+        - Relationships connect entities directly (no Memory nodes)
+
         Args:
             memory: Memory dict with 'id' and 'memory' fields
 
@@ -59,72 +64,98 @@ class GraphEnrichmentService:
         if not self.driver:
             return memory
 
-        memory_id = str(memory.get('id'))
-        if not memory_id:
+        memory_content = memory.get('memory') or memory.get('content', '')
+        metadata = memory.get('metadata_', {}) or memory.get('metadata', {})
+
+        if not memory_content:
             return memory
 
         try:
             with self.driver.session() as session:
-                # Query for entities connected to this memory
+                # Extract entity names from memory content (simple word extraction)
+                # In production, you'd use NER or mem0's entity extraction
+                import re
+                words = re.findall(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b', memory_content)
+
+                # Also check metadata for entity names
+                if 'entities' in metadata and isinstance(metadata['entities'], list):
+                    words.extend(metadata['entities'])
+
+                if not words:
+                    return memory
+
+                # Query for entities by name (case-insensitive)
                 entities_query = """
-                MATCH (m:Memory {id: $memory_id})-[:HAS_ENTITY]->(e)
-                RETURN e.name as name,
+                UNWIND $names as search_name
+                MATCH (e)
+                WHERE toLower(e.name) = toLower(search_name)
+                RETURN DISTINCT e.name as name,
                        labels(e) as labels,
                        properties(e) as properties
-                """
-
-                entities_result = session.run(entities_query, memory_id=memory_id)
-                entities = []
-
-                for record in entities_result:
-                    # Get the primary label (first non-Memory label)
-                    labels = [l for l in record['labels'] if l != 'Memory']
-                    entity_type = labels[0] if labels else 'Entity'
-
-                    entities.append({
-                        'name': record['name'],
-                        'type': entity_type,
-                        'label': entity_type,
-                        'properties': dict(record['properties'])
-                    })
-
-                # Query for relationships involving entities in this memory
-                relationships_query = """
-                MATCH (m:Memory {id: $memory_id})-[:HAS_ENTITY]->(e1)
-                MATCH (e1)-[r]->(e2)
-                WHERE NOT type(r) = 'HAS_ENTITY'
-                RETURN e1.name as source,
-                       type(r) as relation,
-                       e2.name as target,
-                       labels(e1) as source_labels,
-                       labels(e2) as target_labels,
-                       properties(r) as properties
                 LIMIT 20
                 """
 
-                relationships_result = session.run(relationships_query, memory_id=memory_id)
-                relationships = []
+                entities_result = session.run(entities_query, names=list(set(words)))
+                entities = []
+                entity_names = set()
 
-                for record in relationships_result:
-                    relationships.append({
-                        'source': record['source'],
-                        'relation': record['relation'],
-                        'target': record['target'],
-                        'source_type': record['source_labels'][0] if record['source_labels'] else 'Entity',
-                        'target_type': record['target_labels'][0] if record['target_labels'] else 'Entity',
+                for record in entities_result:
+                    # Get the primary label (entity type)
+                    labels = [l for l in record['labels'] if l != '__User__']
+                    entity_type = labels[0].upper() if labels else 'ENTITY'
+
+                    entity_name = record['name']
+                    entity_names.add(entity_name)
+
+                    entities.append({
+                        'name': entity_name,
+                        'type': entity_type.upper(),
+                        'label': entity_type.title(),
                         'properties': dict(record['properties'])
                     })
+
+                # Query for relationships between found entities
+                if entity_names:
+                    relationships_query = """
+                    UNWIND $names as search_name
+                    MATCH (e1)-[r]->(e2)
+                    WHERE toLower(e1.name) = toLower(search_name)
+                    RETURN e1.name as source,
+                           type(r) as relation,
+                           e2.name as target,
+                           labels(e1) as source_labels,
+                           labels(e2) as target_labels,
+                           properties(r) as properties
+                    LIMIT 20
+                    """
+
+                    relationships_result = session.run(relationships_query, names=list(entity_names))
+                    relationships = []
+
+                    for record in relationships_result:
+                        source_labels = [l for l in record['source_labels'] if l != '__User__']
+                        target_labels = [l for l in record['target_labels'] if l != '__User__']
+
+                        relationships.append({
+                            'source': record['source'],
+                            'relation': record['relation'].upper().replace('_', '_'),
+                            'target': record['target'],
+                            'source_type': source_labels[0].upper() if source_labels else 'ENTITY',
+                            'target_type': target_labels[0].upper() if target_labels else 'ENTITY',
+                            'properties': dict(record['properties']) if record['properties'] else {}
+                        })
 
                 # Add graph data to memory
                 enriched = memory.copy()
                 enriched['entities'] = entities
                 enriched['relationships'] = relationships
-                enriched['graph_enriched'] = True
+                enriched['graph_enriched'] = len(entities) > 0 or len(relationships) > 0
 
                 return enriched
 
         except Exception as e:
-            logger.error(f"Failed to enrich memory {memory_id}: {e}")
+            logger.error(f"Failed to enrich memory: {e}")
+            logger.exception(e)
             return memory
 
     async def enrich_memories(self, memories: List[Dict]) -> List[Dict]:
@@ -163,13 +194,14 @@ class GraphEnrichmentService:
 
         try:
             with self.driver.session() as session:
-                # Build query with optional user filter
+                # Build query with case-insensitive name match and optional user filter
                 query = """
-                MATCH (e {name: $entity_name})
+                MATCH (e)
+                WHERE toLower(e.name) = toLower($entity_name)
                 """
 
                 if user_id:
-                    query += "WHERE e.user_id = $user_id\n"
+                    query += "AND e.user_id = $user_id\n"
 
                 query += """
                 OPTIONAL MATCH (e)-[r]-(related)
@@ -182,6 +214,7 @@ class GraphEnrichmentService:
                            related_labels: labels(related),
                            direction: CASE WHEN startNode(r) = e THEN 'outgoing' ELSE 'incoming' END
                        }) as relationships
+                LIMIT 1
                 """
 
                 params = {"entity_name": entity_name}
@@ -194,18 +227,19 @@ class GraphEnrichmentService:
                 if not record:
                     return {}
 
-                entity_labels = [l for l in record['entity_labels'] if l != 'Memory']
+                # Filter out internal labels
+                entity_labels = [l for l in record['entity_labels'] if l != '__User__']
 
                 return {
                     'name': entity_name,
-                    'type': entity_labels[0] if entity_labels else 'Entity',
+                    'type': entity_labels[0].upper() if entity_labels else 'ENTITY',
                     'labels': entity_labels,
                     'properties': dict(record['entity_props']),
                     'relationships': [
                         {
                             'relation': rel['relation'],
                             'related_entity': rel['related_name'],
-                            'related_type': rel['related_labels'][0] if rel['related_labels'] else 'Entity',
+                            'related_type': rel['related_labels'][0].upper() if rel['related_labels'] else 'ENTITY',
                             'direction': rel['direction']
                         }
                         for rel in record['relationships'] if rel['related_name']
@@ -214,6 +248,7 @@ class GraphEnrichmentService:
 
         except Exception as e:
             logger.error(f"Failed to get entity context for {entity_name}: {e}")
+            logger.exception(e)
             return {}
 
 
