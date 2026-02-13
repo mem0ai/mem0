@@ -25,13 +25,20 @@ pip install "ag2[openai]" mem0ai
 ```python
 import os
 from mem0 import MemoryClient
-from autogen import ConversableAgent
+from autogen import ConversableAgent, LLMConfig
 
 # Configuration
 os.environ["OPENAI_API_KEY"] = "your-openai-api-key"
 os.environ["MEM0_API_KEY"] = "your-mem0-api-key"
 
 memory = MemoryClient()
+llm_config = LLMConfig(
+    {
+        "api_type": "openai",
+        "model": "gpt-5-nano",
+        "api_key": os.environ["OPENAI_API_KEY"],
+    }
+)
 ```
 
 ## Single-Agent Memory Example
@@ -42,7 +49,7 @@ Create a single agent that retrieves memories before responding and stores new i
 def build_agent():
     return ConversableAgent(
         "support_agent",
-        llm_config={"config_list": [{"model": "gpt-4", "api_key": os.environ.get("OPENAI_API_KEY")}]},
+        llm_config=llm_config,
         code_execution_config=False,
         human_input_mode="NEVER",
     )
@@ -83,14 +90,14 @@ Use shared memory across two collaborating agents:
 manager = ConversableAgent(
     "manager",
     system_message="You are a manager who resolves complex customer issues.",
-    llm_config={"config_list": [{"model": "gpt-4", "api_key": os.environ.get("OPENAI_API_KEY")}]},
+    llm_config=llm_config,
     human_input_mode="NEVER",
 )
 
 customer_bot = ConversableAgent(
     "customer_bot",
     system_message="You gather customer details and clarify the issue.",
-    llm_config={"config_list": [{"model": "gpt-4", "api_key": os.environ.get("OPENAI_API_KEY")}]},
+    llm_config=llm_config,
     human_input_mode="NEVER",
 )
 
