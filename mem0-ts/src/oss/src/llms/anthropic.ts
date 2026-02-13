@@ -12,7 +12,7 @@ export class AnthropicLLM implements LLM {
       throw new Error("Anthropic API key is required");
     }
     this.client = new Anthropic({ apiKey });
-    this.model = config.model || "claude-3-sonnet-20240229";
+    this.model = config.model || "claude-sonnet-4-5-20250929";
   }
 
   async generateResponse(

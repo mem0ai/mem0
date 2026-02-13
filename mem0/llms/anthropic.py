@@ -35,7 +35,7 @@ class AnthropicLLM(LLMBase):
         super().__init__(config)
 
         if not self.config.model:
-            self.config.model = "claude-3-5-sonnet-20240620"
+            self.config.model = "claude-sonnet-4-5-20250929"
 
         api_key = self.config.api_key or os.getenv("ANTHROPIC_API_KEY")
         self.client = anthropic.Anthropic(api_key=api_key)
