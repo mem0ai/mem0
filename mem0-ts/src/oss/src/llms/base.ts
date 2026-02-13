@@ -1,4 +1,10 @@
+import { z } from "zod";
 import { Message } from "../types";
+
+export interface ResponseFormat {
+  type: string;
+  schema?: z.ZodType;
+}
 
 export interface LLMResponse {
   content: string;
@@ -12,7 +18,7 @@ export interface LLMResponse {
 export interface LLM {
   generateResponse(
     messages: Array<{ role: string; content: string }>,
-    response_format?: { type: string },
+    response_format?: ResponseFormat,
     tools?: any[],
   ): Promise<any>;
   generateChat(messages: Message[]): Promise<LLMResponse>;

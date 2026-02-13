@@ -1,6 +1,17 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { LLM, LLMResponse } from "./base";
+import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
+import { LLM, LLMResponse, ResponseFormat } from "./base";
 import { LLMConfig, Message } from "../types";
+
+const STRUCTURED_OUTPUT_PREFIXES = [
+  "claude-opus-4",
+  "claude-sonnet-4",
+  "claude-haiku-4",
+];
+
+export function supportsStructuredOutputs(model: string): boolean {
+  return STRUCTURED_OUTPUT_PREFIXES.some((prefix) => model.startsWith(prefix));
+}
 
 export class AnthropicLLM implements LLM {
   private client: Anthropic;
@@ -17,13 +28,13 @@ export class AnthropicLLM implements LLM {
 
   async generateResponse(
     messages: Message[],
-    responseFormat?: { type: string },
+    responseFormat?: ResponseFormat,
   ): Promise<string> {
     // Extract system message if present
     const systemMessage = messages.find((msg) => msg.role === "system");
     const otherMessages = messages.filter((msg) => msg.role !== "system");
 
-    const response = await this.client.messages.create({
+    const params: any = {
       model: this.model,
       messages: otherMessages.map((msg) => ({
         role: msg.role as "user" | "assistant",
@@ -37,7 +48,15 @@ export class AnthropicLLM implements LLM {
           ? systemMessage.content
           : undefined,
       max_tokens: 4096,
-    });
+    };
+
+    if (responseFormat?.schema && supportsStructuredOutputs(this.model)) {
+      params.output_config = {
+        format: zodOutputFormat(responseFormat.schema),
+      };
+    }
+
+    const response = await this.client.messages.create(params);
 
     const firstBlock = response.content[0];
     if (firstBlock.type === "text") {
