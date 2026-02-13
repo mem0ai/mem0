@@ -68,6 +68,25 @@ interface RelatedMemoriesResponse {
   pages: number;
 }
 
+// Enhanced memory type with graph enrichment
+export interface EnrichedMemory extends Memory {
+  entities?: Array<{
+    name: string;
+    type: string;
+    label: string;
+    properties?: Record<string, any>;
+  }>;
+  relationships?: Array<{
+    source: string;
+    relation: string;
+    target: string;
+    source_type?: string;
+    target_type?: string;
+    properties?: Record<string, any>;
+  }>;
+  graph_enriched?: boolean;
+}
+
 interface UseMemoriesApiReturn {
   fetchMemories: (
     query?: string,
@@ -81,6 +100,18 @@ interface UseMemoriesApiReturn {
       showArchived?: boolean;
     }
   ) => Promise<{ memories: Memory[]; total: number; pages: number }>;
+  fetchEnrichedMemories: (
+    query?: string,
+    page?: number,
+    size?: number,
+    filters?: {
+      apps?: string[];
+      categories?: string[];
+      sortColumn?: string;
+      sortDirection?: 'asc' | 'desc';
+      showArchived?: boolean;
+    }
+  ) => Promise<{ memories: EnrichedMemory[]; total: number; pages: number }>;
   fetchMemoryById: (memoryId: string) => Promise<void>;
   fetchAccessLogs: (memoryId: string, page?: number, pageSize?: number) => Promise<void>;
   fetchRelatedMemories: (memoryId: string) => Promise<void>;
@@ -104,7 +135,7 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
   const memories = useSelector((state: RootState) => state.memories.memories);
   const selectedMemory = useSelector((state: RootState) => state.memories.selectedMemory);
 
-  const URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8765";
+  const URL = process.env.NEXT_PUBLIC_API_URL || "__RUNTIME_API_URL__";
 
   const fetchMemories = useCallback(async (
     query?: string,
@@ -160,6 +191,64 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
       throw new Error(errorMessage);
     }
   }, [user_id, dispatch]);
+
+  const fetchEnrichedMemories = useCallback(async (
+    query?: string,
+    page: number = 1,
+    size: number = 10,
+    filters?: {
+      apps?: string[];
+      categories?: string[];
+      sortColumn?: string;
+      sortDirection?: 'asc' | 'desc';
+      showArchived?: boolean;
+    }
+  ): Promise<{ memories: EnrichedMemory[], total: number, pages: number }> => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await axios.post<any>(
+        `${URL}/api/v1/memories/filter/enriched`,
+        {
+          user_id: user_id,
+          page: page,
+          size: size,
+          search_query: query,
+          app_ids: filters?.apps,
+          category_ids: filters?.categories,
+          sort_column: filters?.sortColumn?.toLowerCase(),
+          sort_direction: filters?.sortDirection,
+          show_archived: filters?.showArchived
+        }
+      );
+
+      const adaptedMemories: EnrichedMemory[] = response.data.items.map((item: any) => ({
+        id: item.id,
+        memory: item.content || item.memory,
+        created_at: new Date(item.created_at).getTime(),
+        state: item.state as "active" | "paused" | "archived" | "deleted" | "processing",
+        metadata: item.metadata_,
+        categories: item.categories as Category[],
+        client: 'api',
+        app_name: item.app_name,
+        // Graph enrichment data
+        entities: item.entities,
+        relationships: item.relationships,
+        graph_enriched: item.graph_enriched
+      }));
+      setIsLoading(false);
+      return {
+        memories: adaptedMemories,
+        total: response.data.total,
+        pages: response.data.pages
+      };
+    } catch (err: any) {
+      const errorMessage = err.message || 'Failed to fetch enriched memories';
+      setError(errorMessage);
+      setIsLoading(false);
+      throw new Error(errorMessage);
+    }
+  }, [user_id]);
 
   const createMemory = async (text: string, infer: boolean = true): Promise<Memory> => {
     try {
@@ -345,6 +434,7 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
 
   return {
     fetchMemories,
+    fetchEnrichedMemories,
     fetchMemoryById,
     fetchAccessLogs,
     fetchRelatedMemories,
