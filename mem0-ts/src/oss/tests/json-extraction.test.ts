@@ -53,6 +53,32 @@ describe("extractJson", () => {
     const input = '  {"facts": ["a"]}  ';
     expect(extractJson(input)).toBe('{"facts": ["a"]}');
   });
+
+  it('should extract JSON from "Output:\\n{...}" prefix', () => {
+    const input = 'Output:\n{"facts": ["Sky is blue"]}';
+    expect(extractJson(input)).toBe('{"facts": ["Sky is blue"]}');
+  });
+
+  it("should extract array from text prefix", () => {
+    const input = "Here is the result:\n[1,2,3]";
+    expect(extractJson(input)).toBe("[1,2,3]");
+  });
+
+  it("should extract JSON from multi-line text prefix", () => {
+    const input = 'Some preamble text\nMore text\n{"facts": ["Name is John"]}';
+    expect(extractJson(input)).toBe('{"facts": ["Name is John"]}');
+  });
+
+  it("should prefer code fence over text-prefix when both present", () => {
+    const input =
+      'Output:\n```json\n{"facts": ["from fence"]}\n```\n{"facts": ["from prefix"]}';
+    expect(extractJson(input)).toBe('{"facts": ["from fence"]}');
+  });
+
+  it("should return text unchanged when no JSON-like content", () => {
+    const input = "This has no JSON at all";
+    expect(extractJson(input)).toBe("This has no JSON at all");
+  });
 });
 
 describe("Two-stage JSON parse", () => {
@@ -72,6 +98,11 @@ describe("Two-stage JSON parse", () => {
   it("should fall back to extractJson for fenced JSON", () => {
     const input = '```json\n{"facts": ["a", "b"]}\n```';
     expect(twoStageParse(input)).toEqual({ facts: ["a", "b"] });
+  });
+
+  it("should fall back to extractJson for text-prefixed JSON", () => {
+    const input = 'Output:\n{"facts": ["Sky is blue"]}';
+    expect(twoStageParse(input)).toEqual({ facts: ["Sky is blue"] });
   });
 
   it("should throw when both stages fail", () => {

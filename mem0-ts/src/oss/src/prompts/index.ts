@@ -299,5 +299,16 @@ export function extractJson(text: string): string {
   if (unclosedMatch) {
     return unclosedMatch[1].trim();
   }
+  // Handle text-prefixed JSON (e.g. "Output:\n{...}" from few-shot patterns)
+  const firstChar = text[0];
+  if (firstChar !== "{" && firstChar !== "[") {
+    const objIdx = text.indexOf("{");
+    const arrIdx = text.indexOf("[");
+    let startIdx = -1;
+    if (objIdx >= 0 && arrIdx >= 0) startIdx = Math.min(objIdx, arrIdx);
+    else if (objIdx >= 0) startIdx = objIdx;
+    else if (arrIdx >= 0) startIdx = arrIdx;
+    if (startIdx >= 0) return text.substring(startIdx);
+  }
   return text;
 }
