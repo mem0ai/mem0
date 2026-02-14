@@ -31,6 +31,7 @@ class AzureOpenAILLM(LLMBase):
                 top_k=config.top_k,
                 enable_vision=config.enable_vision,
                 vision_details=config.vision_details,
+                reasoning_effort=config.reasoning_effort,
                 http_client_proxies=config.http_client,
             )
 
