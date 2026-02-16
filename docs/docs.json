@@ -15,11 +15,8 @@
     "href": "https://app.mem0.ai/"
   },
   "navigation": {
-    "versions": [
+    "anchors": [
       {
-        "version": "latest",
-        "anchors": [
-          {
             "anchor": "Documentation",
             "icon": "book-open",
             "tabs": [
@@ -544,8 +541,6 @@
             ]
           }
         ]
-      }
-    ]
   },
   "background": {
     "color": {
