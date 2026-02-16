@@ -1318,8 +1318,6 @@ const memoryPlugin = {
                 if (
                   block &&
                   typeof block === "object" &&
-                  "type" in block &&
-                  (block as Record<string, unknown>).type === "text" &&
                   "text" in block &&
                   typeof (block as Record<string, unknown>).text === "string"
                 ) {
@@ -1331,8 +1329,11 @@ const memoryPlugin = {
             }
 
             if (!textContent) continue;
-            // Skip injected memory context
-            if (textContent.includes("<relevant-memories>")) continue;
+            // Strip injected memory context, keep the actual user text
+            if (textContent.includes("<relevant-memories>")) {
+              textContent = textContent.replace(/<relevant-memories>[\s\S]*?<\/relevant-memories>\s*/g, "").trim();
+              if (!textContent) continue;
+            }
 
             formattedMessages.push({
               role: role as string,
