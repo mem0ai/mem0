@@ -1274,7 +1274,7 @@ const memoryPlugin = {
           );
 
           return {
-            systemContext: `<relevant-memories>\nThe following memories may be relevant to this conversation:\n${memoryContext}\n</relevant-memories>`,
+            prependContext: `<relevant-memories>\nThe following memories may be relevant to this conversation:\n${memoryContext}\n</relevant-memories>`,
           };
         } catch (err) {
           api.logger.warn(`openclaw-mem0: recall failed: ${String(err)}`);
