@@ -11,7 +11,7 @@ export class OllamaLLM implements LLM {
 
   constructor(config: LLMConfig) {
     this.ollama = new Ollama({
-      host: config.config?.url || "http://localhost:11434",
+      host: config.url || config.baseURL || config.config?.url || "http://127.0.0.1:11434",
     });
     this.model = config.model || "llama3.1:8b";
     this.ensureModelExists().catch((err) => {
