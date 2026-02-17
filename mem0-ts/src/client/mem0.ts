@@ -253,10 +253,24 @@ export default class MemoryClient {
 
   async update(
     memoryId: string,
-    { text, metadata, timestamp }: { text?: string; metadata?: Record<string, any>; timestamp?: number | string },
+    {
+      text,
+      metadata,
+      timestamp,
+    }: {
+      text?: string;
+      metadata?: Record<string, any>;
+      timestamp?: number | string;
+    },
   ): Promise<Array<Memory>> {
-    if (text === undefined && metadata === undefined && timestamp === undefined) {
-      throw new Error("At least one of text, metadata, or timestamp must be provided for update.");
+    if (
+      text === undefined &&
+      metadata === undefined &&
+      timestamp === undefined
+    ) {
+      throw new Error(
+        "At least one of text, metadata, or timestamp must be provided for update.",
+      );
     }
 
     if (this.telemetryId === "") await this.ping();
