@@ -6,6 +6,10 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from fastapi.exceptions import RequestValidationError
 
 from mem0 import Memory
 
@@ -58,11 +62,21 @@ DEFAULT_CONFIG = {
 
 MEMORY_INSTANCE = Memory.from_config(DEFAULT_CONFIG)
 
+# Initialize rate limiter
+limiter = Limiter(key_func=get_remote_address)
+
 app = FastAPI(
     title="Mem0 REST APIs",
     description="A REST API for managing and searching memories for your AI Agents and Apps.",
     version="1.0.0",
 )
+
+# Add rate limiting middleware to the application
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, lambda request, exc: JSONResponse(
+    status_code=429,
+    content={"detail": "Rate limit exceeded. Please try again later."},
+))
 
 
 class Message(BaseModel):
@@ -87,6 +101,7 @@ class SearchRequest(BaseModel):
 
 
 @app.post("/configure", summary="Configure Mem0")
+@limiter.limit("10/minute")
 def set_config(config: Dict[str, Any]):
     """Set memory configuration."""
     global MEMORY_INSTANCE
@@ -95,6 +110,7 @@ def set_config(config: Dict[str, Any]):
 
 
 @app.post("/memories", summary="Create memories")
+@limiter.limit("30/minute")
 def add_memory(memory_create: MemoryCreate):
     """Store new memories."""
     if not any([memory_create.user_id, memory_create.agent_id, memory_create.run_id]):
@@ -110,6 +126,7 @@ def add_memory(memory_create: MemoryCreate):
 
 
 @app.get("/memories", summary="Get memories")
+@limiter.limit("50/minute")
 def get_all_memories(
     user_id: Optional[str] = None,
     run_id: Optional[str] = None,
@@ -129,6 +146,7 @@ def get_all_memories(
 
 
 @app.get("/memories/{memory_id}", summary="Get a memory")
+@limiter.limit("50/minute")
 def get_memory(memory_id: str):
     """Retrieve a specific memory by ID."""
     try:
@@ -139,6 +157,7 @@ def get_memory(memory_id: str):
 
 
 @app.post("/search", summary="Search memories")
+@limiter.limit("20/minute")
 def search_memories(search_req: SearchRequest):
     """Search for memories based on a query."""
     try:
@@ -150,6 +169,7 @@ def search_memories(search_req: SearchRequest):
 
 
 @app.put("/memories/{memory_id}", summary="Update a memory")
+@limiter.limit("30/minute")
 def update_memory(memory_id: str, updated_memory: Dict[str, Any]):
     """Update an existing memory with new content.
     
@@ -168,6 +188,7 @@ def update_memory(memory_id: str, updated_memory: Dict[str, Any]):
 
 
 @app.get("/memories/{memory_id}/history", summary="Get memory history")
+@limiter.limit("50/minute")
 def memory_history(memory_id: str):
     """Retrieve memory history."""
     try:
@@ -178,6 +199,7 @@ def memory_history(memory_id: str):
 
 
 @app.delete("/memories/{memory_id}", summary="Delete a memory")
+@limiter.limit("30/minute")
 def delete_memory(memory_id: str):
     """Delete a specific memory by ID."""
     try:
@@ -189,6 +211,7 @@ def delete_memory(memory_id: str):
 
 
 @app.delete("/memories", summary="Delete all memories")
+@limiter.limit("10/minute")
 def delete_all_memories(
     user_id: Optional[str] = None,
     run_id: Optional[str] = None,
@@ -209,6 +232,7 @@ def delete_all_memories(
 
 
 @app.post("/reset", summary="Reset all memories")
+@limiter.limit("5/minute")
 def reset_memory():
     """Completely reset stored memories."""
     try:
