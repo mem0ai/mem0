@@ -104,6 +104,14 @@ export class ConfigManager {
       historyStore: {
         ...DEFAULT_MEMORY_CONFIG.historyStore,
         ...userConfig.historyStore,
+        ...(userConfig.historyDbPath && !userConfig.historyStore
+          ? {
+              config: {
+                ...DEFAULT_MEMORY_CONFIG.historyStore.config,
+                historyDbPath: userConfig.historyDbPath,
+              },
+            }
+          : {}),
       },
       disableHistory:
         userConfig.disableHistory || DEFAULT_MEMORY_CONFIG.disableHistory,
