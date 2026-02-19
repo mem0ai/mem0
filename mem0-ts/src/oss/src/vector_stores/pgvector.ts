@@ -35,6 +35,11 @@ export class PGVector implements VectorStore {
       host: config.host,
       port: config.port,
     });
+
+    this.initialize().catch((err) => {
+      console.error("Failed to initialize PGVector:", err);
+      throw err;
+    });
   }
 
   async initialize(): Promise<void> {
