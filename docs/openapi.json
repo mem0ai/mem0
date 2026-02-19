@@ -4539,7 +4539,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\n# Get all webhooks\nwebhooks = client.get_webhooks(project_id=\"your_project_id\")\nprint(webhooks)\n\n# Create a webhook\nwebhook = client.create_webhook(\n    url=\"https://your-webhook-url.com\",\n    name=\"My Webhook\",\n    project_id=\"your_project_id\",\n    event_types=[\"memory:add\"]\n)\nprint(webhook)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\n# Get all webhooks\nwebhooks = client.get_webhooks(project_id=\"your_project_id\")\nprint(webhooks)\n\n# Create a webhook\nwebhook = client.create_webhook(\n    url=\"https://your-webhook-url.com\",\n    name=\"My Webhook\",\n    project_id=\"your_project_id\",\n    event_types=[\"memory:add\", \"memory:categorize\"]\n)\nprint(webhook)"
 					},
 					{
 						"lang": "JavaScript",
@@ -4606,7 +4606,8 @@
 											"enum": [
 												"memory:add",
 												"memory:update",
-												"memory:delete"
+												"memory:delete",
+												"memory:categorize"
 											]
 										},
 										"description": "List of event types to subscribe to."
@@ -4701,7 +4702,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\n# Create a webhook\nwebhook = client.create_webhook(\n    url=\"https://your-webhook-url.com\",\n    name=\"My Webhook\",\n    project_id=\"your_project_id\",\n    event_types=[\"memory:add\"]\n)\nprint(webhook)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\n# Create a webhook\nwebhook = client.create_webhook(\n    url=\"https://your-webhook-url.com\",\n    name=\"My Webhook\",\n    project_id=\"your_project_id\",\n    event_types=[\"memory:add\", \"memory:categorize\"]\n)\nprint(webhook)"
 					},
 					{
 						"lang": "JavaScript",
@@ -4767,7 +4768,8 @@
 											"enum": [
 												"memory:add",
 												"memory:update",
-												"memory:delete"
+												"memory:delete",
+												"memory:categorize"
 											]
 										},
 										"description": "New list of event types to subscribe to"
@@ -4845,11 +4847,11 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\n# Update a webhook\nwebhook = client.update_webhook(\n    webhook_id=\"your_webhook_id\",\n    name=\"Updated Webhook\",\n    url=\"https://new-webhook-url.com\",\n    event_types=[\"memory:add\"]\n)\nprint(webhook)\n\n# Delete a webhook\nresponse = client.delete_webhook(webhook_id=\"your_webhook_id\")\nprint(response)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\n# Update a webhook\nwebhook = client.update_webhook(\n    webhook_id=\"your_webhook_id\",\n    name=\"Updated Webhook\",\n    url=\"https://new-webhook-url.com\",\n    event_types=[\"memory:add\", \"memory:categorize\"]\n)\nprint(webhook)\n\n# Delete a webhook\nresponse = client.delete_webhook(webhook_id=\"your_webhook_id\")\nprint(response)"
 					},
 					{
 						"lang": "JavaScript",
-						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: 'your-api-key' });\n\n// Update a webhook\nclient.updateWebhook('your_webhook_id', {\n  name: 'Updated Webhook',\n  url: 'https://new-webhook-url.com',\n  event_types: ['memory:add']\n})\n  .then(webhook => console.log(webhook))\n  .catch(err => console.error(err));\n\n// Delete a webhook\nclient.deleteWebhook('your_webhook_id')\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
+						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: 'your-api-key' });\n\n// Update a webhook\nclient.updateWebhook('your_webhook_id', {\n  name: 'Updated Webhook',\n  url: 'https://new-webhook-url.com',\n  event_types: ['memory:add', 'memory:categorize']\n})\n  .then(webhook => console.log(webhook))\n  .catch(err => console.error(err));\n\n// Delete a webhook\nclient.deleteWebhook('your_webhook_id')\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
 					},
 					{
 						"lang": "cURL",

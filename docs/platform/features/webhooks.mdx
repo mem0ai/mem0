@@ -5,7 +5,7 @@ description: 'Configure and manage webhooks to receive real-time notifications a
 
 ## Overview
 
-Webhooks enable real-time notifications for memory events in your Mem0 project. Webhooks are configured at the project level, meaning each webhook is tied to a specific project and receives events solely from that project. You can configure webhooks to send HTTP POST requests to your specified URLs whenever memories are created, updated, or deleted.
+Webhooks enable real-time notifications for memory events in your Mem0 project. Webhooks are configured at the project level, meaning each webhook is tied to a specific project and receives events solely from that project. You can configure webhooks to send HTTP POST requests to your specified URLs whenever memories are created, updated, deleted, or categorized.
 
 ## Managing Webhooks
 
@@ -27,7 +27,7 @@ webhook = client.create_webhook(
     url="https://your-app.com/webhook",
     name="Memory Logger",
     project_id="proj_123",
-    event_types=["memory_add"]
+    event_types=["memory_add", "memory_categorize"]
 )
 print(webhook)
 ```
@@ -41,7 +41,7 @@ const webhook = await client.createWebhook({
     url: "https://your-app.com/webhook",
     name: "Memory Logger",
     projectId: "proj_123",
-    eventTypes: ["memory_add"]
+    eventTypes: ["memory_add", "memory_categorize"]
 });
 console.log(webhook);
 ```
@@ -167,11 +167,13 @@ Mem0 supports the following event types for webhooks:
 - `memory_add`: Triggered when a memory is added.
 - `memory_update`: Triggered when an existing memory is updated.
 - `memory_delete`: Triggered when a memory is deleted.
+- `memory_categorize`: Triggered when a memory is categorized.
 
 ## Webhook Payload
 
 When a memory event occurs, Mem0 sends an HTTP POST request to your webhook URL with the following payload:
 
+**Memory add/update/delete payload:**
 ```json
 {
     "event_details": {
@@ -180,6 +182,17 @@ When a memory event occurs, Mem0 sends an HTTP POST request to your webhook URL 
             "memory": "Name is Alex"
             },
         "event": "ADD"
+    }
+}
+```
+
+**Memory categorize payload:**
+```json
+{
+    "event_details": {
+        "event": "CATEGORIZE",
+        "memory_id": "a1b2c3d4-e5f6-4g7h-8i9j-k0l1m2n3o4p5",
+        "categories": ["hobbies", "travel"]
     }
 }
 ```
