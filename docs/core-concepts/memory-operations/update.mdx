@@ -21,6 +21,7 @@ Mem0’s update operation lets you fix or enrich an existing memory without dele
 - **memory_id** – Unique identifier returned by `add` or `search` results.
 - **text** / **data** – New content that replaces the stored memory value.
 - **metadata** – Optional key-value pairs you update alongside the text.
+- **timestamp** – Unix epoch (int/float) or ISO 8601 string to override the memory's timestamp.
 - **batch_update** – Platform API that edits multiple memories in a single request.
 - **immutable** – Flagged memories that must be deleted and re-added instead of updated.
 
@@ -50,7 +51,8 @@ memory_id = "your_memory_id"
 client.update(
     memory_id=memory_id,
     text="Updated memory content about the user",
-    metadata={"category": "profile-update"}
+    metadata={"category": "profile-update"},
+    timestamp="2025-01-15T12:00:00Z"
 )
 ```
 
@@ -62,7 +64,8 @@ const memory_id = "your_memory_id";
 
 await client.update(memory_id, {
   text: "Updated memory content about the user",
-  metadata: { category: "profile-update" }
+  metadata: { category: "profile-update" },
+  timestamp: "2025-01-15T12:00:00Z"
 });
 ```
 </CodeGroup>
