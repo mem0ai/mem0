@@ -1,3 +1,4 @@
+import logging
 from typing import List, Dict, Any, Union
 import numpy as np
 
@@ -5,11 +6,25 @@ from mem0.reranker.base import BaseReranker
 from mem0.configs.rerankers.base import BaseRerankerConfig
 from mem0.configs.rerankers.sentence_transformer import SentenceTransformerRerankerConfig
 
+logger = logging.getLogger(__name__)
+
 try:
-    from sentence_transformers import SentenceTransformer
+    from sentence_transformers import SentenceTransformer, CrossEncoder
     SENTENCE_TRANSFORMERS_AVAILABLE = True
 except ImportError:
     SENTENCE_TRANSFORMERS_AVAILABLE = False
+
+
+def _is_cross_encoder_model(model_name: str) -> bool:
+    """Detect whether a model name refers to a cross-encoder model.
+
+    Cross-encoder models are designed for reranking and should be loaded with
+    ``CrossEncoder`` rather than ``SentenceTransformer``.  This function uses
+    a simple heuristic: if the model name contains ``cross-encoder`` or
+    ``reranker`` (case-insensitive), it is considered a cross-encoder model.
+    """
+    name_lower = model_name.lower()
+    return "cross-encoder" in name_lower or "reranker" in name_lower
 
 
 class SentenceTransformerReranker(BaseReranker):
@@ -41,7 +56,19 @@ class SentenceTransformerReranker(BaseReranker):
             )
 
         self.config = config
-        self.model = SentenceTransformer(self.config.model, device=self.config.device)
+
+        # Use CrossEncoder for cross-encoder models, SentenceTransformer otherwise.
+        # Cross-encoder models (e.g. "cross-encoder/ms-marco-MiniLM-L-6-v2") must
+        # be loaded with CrossEncoder to produce meaningful relevance scores.
+        # Loading them with SentenceTransformer causes a silent fallback to mean
+        # pooling which yields all-zero rerank scores (see issue #4033).
+        self._is_cross_encoder = _is_cross_encoder_model(self.config.model)
+        if self._is_cross_encoder:
+            self.model = CrossEncoder(self.config.model, device=self.config.device)
+            logger.info("Loaded cross-encoder model '%s' with CrossEncoder", self.config.model)
+        else:
+            self.model = SentenceTransformer(self.config.model, device=self.config.device)
+            logger.info("Loaded bi-encoder model '%s' with SentenceTransformer", self.config.model)
         
     def rerank(self, query: str, documents: List[Dict[str, Any]], top_k: int = None) -> List[Dict[str, Any]]:
         """
