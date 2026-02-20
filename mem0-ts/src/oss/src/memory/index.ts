@@ -15,6 +15,7 @@ import {
   HistoryManagerFactory,
 } from "../utils/factory";
 import {
+  FactRetrievalSchema,
   getFactRetrievalMessages,
   getUpdateMemoryMessages,
   parseMessages,
@@ -261,7 +262,8 @@ export class Memory {
     const cleanResponse = removeCodeBlocks(response as string);
     let facts: string[] = [];
     try {
-      facts = JSON.parse(cleanResponse).facts || [];
+      const parsed = FactRetrievalSchema.parse(JSON.parse(cleanResponse));
+      facts = parsed.facts;
     } catch (e) {
       console.error(
         "Failed to parse facts from LLM response:",
