@@ -278,9 +278,12 @@ def test_custom_prompts(memory_custom_instance):
             ##
             mock_parse_messages.assert_called_once_with(messages)
 
+            expected_system_prompt = memory_custom_instance.config.custom_fact_extraction_prompt
+            if "json" not in expected_system_prompt.lower():
+                expected_system_prompt += "\nYou must respond with a valid JSON object containing a 'facts' key with an array of strings."
             memory_custom_instance.llm.generate_response.assert_any_call(
                 messages=[
-                    {"role": "system", "content": memory_custom_instance.config.custom_fact_extraction_prompt},
+                    {"role": "system", "content": expected_system_prompt},
                     {"role": "user", "content": f"Input:\n{mock_parse_messages.return_value}"},
                 ],
                 response_format={"type": "json_object"},
