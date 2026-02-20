@@ -7,19 +7,33 @@ export OPENAI_API_KEY="your_openai_api_key"
 export MEM0_API_KEY="your_mem0_api_key"
 """
 
+import os
+import requests
 from openai import OpenAI
-from mem0 import MemoryClient
+
+openai_api_key = os.getenv("OPENAI_API_KEY", "EMPTY")
+openai_api_base = "http://192.168.1.14:8000/v1"
+mem0_api_base = "http://192.168.1.14:8888"
 
 # 初始化客户端
-openai_client = OpenAI()
-mem0_client = MemoryClient()
+openai_client = OpenAI(
+    api_key=openai_api_key,
+    base_url=openai_api_base,
+)
+
+#model = "gpt-3.5-turbo"
+model="Qwen/Qwen3-4B"
 
 def chat(user_id: str, user_message: str) -> str:
     """带记忆的对话函数"""
 
     # 1. 搜索相关记忆
-    memories = mem0_client.search(user_message, user_id=user_id, limit=5)
-    memory_context = "\n".join(f"- {m['memory']}" for m in memories) if memories else "无历史记忆"
+    search_resp = requests.post(
+        f"{mem0_api_base}/search",
+        json={"query": user_message, "user_id": user_id}
+    )
+    memories = search_resp.json().get("results", [])
+    memory_context = "\n".join(f"- {m.get('memory', m)}" for m in memories) if memories else "无历史记忆"
 
     # 2. 构建提示词
     prompt = f"""你是一个智能助手，能记住用户的对话历史和偏好。
@@ -33,18 +47,21 @@ def chat(user_id: str, user_message: str) -> str:
 
     # 3. 调用 LLM
     response = openai_client.chat.completions.create(
-        model="gpt-4o-mini",
+        model=model,
         messages=[{"role": "user", "content": prompt}]
     )
     assistant_reply = response.choices[0].message.content
 
     # 4. 存储对话到记忆
-    mem0_client.add(
-        [
-            {"role": "user", "content": user_message},
-            {"role": "assistant", "content": assistant_reply}
-        ],
-        user_id=user_id
+    requests.post(
+        f"{mem0_api_base}/memories",
+        json={
+            "messages": [
+                {"role": "user", "content": user_message},
+                {"role": "assistant", "content": assistant_reply}
+            ],
+            "user_id": user_id
+        }
     )
 
     return assistant_reply
