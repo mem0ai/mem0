@@ -27,9 +27,12 @@ export class OllamaEmbedder implements Embedder {
     } catch (err) {
       logger.error(`Error ensuring model exists: ${err}`);
     }
+    // Ollama's Go server requires prompt to be a string. Coerce defensively
+    // since callers may pass values parsed from untrusted LLM JSON output.
+    const prompt = typeof text === "string" ? text : JSON.stringify(text);
     const response = await this.ollama.embeddings({
       model: this.model,
-      prompt: text,
+      prompt,
     });
     return response.embedding;
   }
