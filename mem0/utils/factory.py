@@ -12,10 +12,12 @@ from mem0.configs.llms.openai import OpenAIConfig
 from mem0.configs.llms.vllm import VllmConfig
 from mem0.configs.rerankers.base import BaseRerankerConfig
 from mem0.configs.rerankers.cohere import CohereRerankerConfig
-from mem0.configs.rerankers.sentence_transformer import SentenceTransformerRerankerConfig
-from mem0.configs.rerankers.zero_entropy import ZeroEntropyRerankerConfig
-from mem0.configs.rerankers.llm import LLMRerankerConfig
 from mem0.configs.rerankers.huggingface import HuggingFaceRerankerConfig
+from mem0.configs.rerankers.llm import LLMRerankerConfig
+from mem0.configs.rerankers.sentence_transformer import (
+    SentenceTransformerRerankerConfig,
+)
+from mem0.configs.rerankers.zero_entropy import ZeroEntropyRerankerConfig
 from mem0.embeddings.mock import MockEmbeddings
 
 
@@ -186,6 +188,7 @@ class VectorStoreFactory:
         "baidu": "mem0.vector_stores.baidu.BaiduDB",
         "cassandra": "mem0.vector_stores.cassandra.CassandraDB",
         "neptune": "mem0.vector_stores.neptune_analytics.NeptuneAnalyticsVector",
+        "tencent": "mem0.vector_stores.tencent.TencentVectorDB",
     }
 
     @classmethod
