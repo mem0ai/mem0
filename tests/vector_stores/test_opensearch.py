@@ -299,12 +299,14 @@ def test_safe_deepcopy_config_handles_opensearch_auth(mock_sqlite, mock_llm_fact
     config_with_auth = MockOpenSearchConfig(collection_name="opensearch_test", include_auth=True)
     
     safe_config = _safe_deepcopy_config(config_with_auth)
-    
-    assert safe_config.http_auth is None
-    assert safe_config.auth is None
+
+    # Runtime auth objects should be preserved (not nullified)
+    assert safe_config.http_auth is not None
+    assert safe_config.connection_class is not None
+
+    # Genuinely sensitive plaintext data should still be nullified
     assert safe_config.credentials is None
-    assert safe_config.connection_class is None
-    
+
     assert safe_config.collection_name == "opensearch_test"
     assert safe_config.host == "localhost"
     assert safe_config.port == 9200
@@ -362,3 +364,47 @@ def test_memory_initialization_opensearch_aws_auth(mock_sqlite, mock_llm_factory
     assert memory.config.vector_store.provider == "opensearch"
 
     assert mock_vector_factory.call_count >= 2
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_safe_deepcopy_preserves_http_auth_on_real_config(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """Test that _safe_deepcopy_config preserves http_auth on actual OpenSearchConfig (Issue #3580)."""
+    from mem0.configs.vector_stores.opensearch import OpenSearchConfig
+    from mem0.memory.main import _safe_deepcopy_config
+
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    mock_auth = MockAWSAuth()
+
+    config = OpenSearchConfig(
+        collection_name="test_preserve_auth",
+        host="search-domain.us-east-1.aoss.amazonaws.com",
+        port=443,
+        http_auth=mock_auth,
+        connection_class=MockConnectionClass,
+        use_ssl=True,
+        verify_certs=True,
+    )
+
+    cloned = _safe_deepcopy_config(config)
+
+    # http_auth and connection_class must be preserved for the connection to work
+    assert cloned.http_auth is mock_auth
+    assert cloned.connection_class is MockConnectionClass
+
+    # Non-sensitive fields should be copied correctly
+    assert cloned.collection_name == "test_preserve_auth"
+    assert cloned.host == "search-domain.us-east-1.aoss.amazonaws.com"
+    assert cloned.port == 443
+    assert cloned.use_ssl is True
+    assert cloned.verify_certs is True
+
+    # Sensitive plaintext fields should be nullified
+    assert cloned.password is None
+    assert cloned.api_key is None
