@@ -256,3 +256,66 @@ def test_init_with_placeholder_api_key(monkeypatch):
             http_client=None,
             default_headers=None,
         )
+
+
+@pytest.mark.parametrize("model_name", ["o1", "o3-mini", "gpt-5"])
+def test_generate_response_reasoning_model_with_reasoning_effort(mock_openai_client, model_name):
+    config = AzureOpenAIConfig(model=model_name, reasoning_effort="low")
+    llm = AzureOpenAILLM(config)
+    messages = [
+        {"role": "user", "content": "Hello, how are you?"},
+    ]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="I'm doing well!"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages)
+
+    # For reasoning models, temperature/max_tokens/top_p should be excluded,
+    # but reasoning_effort should be included
+    mock_openai_client.chat.completions.create.assert_called_once_with(
+        model=model_name, messages=messages, reasoning_effort="low"
+    )
+    assert response == "I'm doing well!"
+
+
+def test_generate_response_reasoning_model_without_reasoning_effort(mock_openai_client):
+    config = AzureOpenAIConfig(model="o3-mini")
+    llm = AzureOpenAILLM(config)
+    messages = [
+        {"role": "user", "content": "Hello"},
+    ]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Hi!"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages)
+
+    # reasoning_effort should NOT be in params when not configured
+    mock_openai_client.chat.completions.create.assert_called_once_with(
+        model="o3-mini", messages=messages
+    )
+    assert response == "Hi!"
+
+
+def test_generate_response_non_reasoning_model_ignores_reasoning_effort(mock_openai_client):
+    config = AzureOpenAIConfig(model=MODEL, temperature=TEMPERATURE, max_tokens=MAX_TOKENS, top_p=TOP_P, reasoning_effort="high")
+    llm = AzureOpenAILLM(config)
+    messages = [
+        {"role": "user", "content": "Hello"},
+    ]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Hi!"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages)
+
+    # For non-reasoning models, reasoning_effort should NOT be included,
+    # but temperature/max_tokens/top_p should be
+    mock_openai_client.chat.completions.create.assert_called_once_with(
+        model=MODEL, messages=messages, temperature=TEMPERATURE, max_tokens=MAX_TOKENS, top_p=TOP_P
+    )
+    assert response == "Hi!"

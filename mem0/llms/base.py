@@ -79,7 +79,7 @@ class LLMBase(ABC):
         
         if self._is_reasoning_model(model):
             supported_params = {}
-            
+
             if "messages" in kwargs:
                 supported_params["messages"] = kwargs["messages"]
             if "response_format" in kwargs:
@@ -88,7 +88,11 @@ class LLMBase(ABC):
                 supported_params["tools"] = kwargs["tools"]
             if "tool_choice" in kwargs:
                 supported_params["tool_choice"] = kwargs["tool_choice"]
-                
+
+            reasoning_effort = getattr(self.config, 'reasoning_effort', None)
+            if reasoning_effort:
+                supported_params["reasoning_effort"] = reasoning_effort
+
             return supported_params
         else:
             # For regular models, include all common parameters
