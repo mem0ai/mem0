@@ -56,6 +56,7 @@ interface AddOptions {
   custom_categories?: Array<Record<string, string>>;
   enable_graph?: boolean;
   output_format?: string;
+  source?: string;
 }
 
 interface SearchOptions {
@@ -66,12 +67,14 @@ interface SearchOptions {
   limit?: number;
   keyword_search?: boolean;
   reranking?: boolean;
+  source?: string;
 }
 
 interface ListOptions {
   user_id: string;
   run_id?: string;
   page_size?: number;
+  source?: string;
 }
 
 interface MemoryItem {
@@ -152,6 +155,7 @@ class PlatformProvider implements Mem0Provider {
       opts.custom_categories = options.custom_categories;
     if (options.enable_graph) opts.enable_graph = options.enable_graph;
     if (options.output_format) opts.output_format = options.output_format;
+    if (options.source) opts.source = options.source;
 
     const result = await this.client.add(messages, opts);
     return normalizeAddResult(result);
@@ -165,6 +169,7 @@ class PlatformProvider implements Mem0Provider {
     if (options.threshold != null) opts.threshold = options.threshold;
     if (options.keyword_search != null) opts.keyword_search = options.keyword_search;
     if (options.reranking != null) opts.reranking = options.reranking;
+    if (options.source) opts.source = options.source;
 
     const results = await this.client.search(query, opts);
     return normalizeSearchResults(results);
@@ -181,6 +186,7 @@ class PlatformProvider implements Mem0Provider {
     const opts: Record<string, unknown> = { user_id: options.user_id };
     if (options.run_id) opts.run_id = options.run_id;
     if (options.page_size != null) opts.page_size = options.page_size;
+    if (options.source) opts.source = options.source;
 
     const results = await this.client.getAll(opts);
     if (Array.isArray(results)) return results.map(normalizeMemoryItem);
@@ -247,6 +253,7 @@ class OSSProvider implements Mem0Provider {
     // OSS SDK uses camelCase: userId/runId, not user_id/run_id
     const addOpts: Record<string, unknown> = { userId: options.user_id };
     if (options.run_id) addOpts.runId = options.run_id;
+    if (options.source) addOpts.source = options.source;
     const result = await this.memory.add(messages, addOpts);
     return normalizeAddResult(result);
   }
@@ -260,6 +267,7 @@ class OSSProvider implements Mem0Provider {
     else if (options.top_k != null) opts.limit = options.top_k;
     if (options.keyword_search != null) opts.keyword_search = options.keyword_search;
     if (options.reranking != null) opts.reranking = options.reranking;
+    if (options.source) opts.source = options.source;
 
     const results = await this.memory.search(query, opts);
     return normalizeSearchResults(results);
@@ -276,6 +284,7 @@ class OSSProvider implements Mem0Provider {
     // OSS SDK uses camelCase: userId/runId, not user_id/run_id
     const getAllOpts: Record<string, unknown> = { userId: options.user_id };
     if (options.run_id) getAllOpts.runId = options.run_id;
+    if (options.source) getAllOpts.source = options.source;
     const results = await this.memory.getAll(getAllOpts);
     if (Array.isArray(results)) return results.map(normalizeMemoryItem);
     if (results?.results && Array.isArray(results.results))
@@ -615,6 +624,7 @@ const memoryPlugin = {
     function buildAddOptions(userIdOverride?: string, runId?: string): AddOptions {
       const opts: AddOptions = {
         user_id: userIdOverride || cfg.userId,
+        source: "OPENCLAW",
       };
       if (runId) opts.run_id = runId;
       if (cfg.mode === "platform") {
@@ -639,6 +649,7 @@ const memoryPlugin = {
         threshold: cfg.searchThreshold,
         keyword_search: true,
         reranking: true,
+        source: "OPENCLAW",
       };
       if (runId) opts.run_id = runId;
       return opts;
@@ -931,18 +942,20 @@ const memoryPlugin = {
                 memories = await provider.getAll({
                   user_id: uid,
                   run_id: currentSessionId,
+                  source: "OPENCLAW",
                 });
               }
             } else if (scope === "long-term") {
-              memories = await provider.getAll({ user_id: uid });
+              memories = await provider.getAll({ user_id: uid, source: "OPENCLAW" });
             } else {
               // "all" — combine both scopes
-              const longTerm = await provider.getAll({ user_id: uid });
+              const longTerm = await provider.getAll({ user_id: uid, source: "OPENCLAW" });
               let session: MemoryItem[] = [];
               if (currentSessionId) {
                 session = await provider.getAll({
                   user_id: uid,
                   run_id: currentSessionId,
+                  source: "OPENCLAW",
                 });
               }
               const seen = new Set(longTerm.map((r) => r.id));
@@ -1195,6 +1208,7 @@ const memoryPlugin = {
             try {
               const memories = await provider.getAll({
                 user_id: cfg.userId,
+                source: "OPENCLAW",
               });
               console.log(`Mode: ${cfg.mode}`);
               console.log(`User: ${cfg.userId}`);
