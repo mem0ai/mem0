@@ -2,9 +2,8 @@
 
 ### Usage
 
-#### Local Installation
-
-```python
+<CodeGroup>
+```python Python
 import os
 from mem0 import Memory
 
@@ -27,16 +26,43 @@ m = Memory.from_config(config)
 messages = [
     {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
     {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
-    {"role": "user", "content": "I’m not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
     {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
 ]
 m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
 
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  vectorStore: {
+    provider: 'chroma',
+    config: {
+      collectionName: 'test',
+      host: 'localhost',
+      port: 8000,
+    },
+  },
+};
+
+const memory = new Memory(config);
+const messages = [
+    { role: "user", content: "I'm planning to watch a movie tonight. Any recommendations?" },
+    { role: "assistant", content: "How about thriller movies? They can be quite engaging." },
+    { role: "user", content: "I'm not a big fan of thriller movies but I love sci-fi movies." },
+    { role: "assistant", content: "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future." }
+];
+await memory.add(messages, { userId: "alice", metadata: { category: "movies" } });
+```
+</CodeGroup>
+
 ### Config
 
 Here are the parameters available for configuring Chroma:
 
+<Tabs>
+<Tab title="Python">
 | Parameter | Description | Default Value |
 | --- | --- | --- |
 | `collection_name` | The name of the collection | `mem0` |
@@ -46,3 +72,15 @@ Here are the parameters available for configuring Chroma:
 | `port` | The port where the Chroma server is running | `None` |
 | `api_key` | ChromaDB Cloud API key (for cloud usage) | `None` |
 | `tenant` | ChromaDB Cloud tenant ID (for cloud usage) | `None` |
+</Tab>
+<Tab title="TypeScript">
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `collectionName` | The name of the collection | `mem0` |
+| `host` | The host where the Chroma server is running | `localhost` |
+| `port` | The port where the Chroma server is running | `8000` |
+| `ssl` | Whether to use SSL | `false` |
+| `path` | Path for local persistent Chroma | `None` |
+| `distanceFunction` | Distance metric (`cosine`, `l2`, `ip`) | `cosine` |
+</Tab>
+</Tabs>
