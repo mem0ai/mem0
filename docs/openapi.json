@@ -1180,7 +1180,7 @@
 				"tags": [
 					"memories"
 				],
-				"description": "Delete memories.",
+				"description": "Delete memories by filter. At least one filter is required — previously omitting all filters silently deleted everything; now it returns a validation error.",
 				"operationId": "memories_delete",
 				"parameters": [
 					{
@@ -1189,7 +1189,7 @@
 						"schema": {
 							"type": "string"
 						},
-						"description": "Filter memories by user ID."
+						"description": "Filter by user ID. Pass `*` to delete memories for all users."
 					},
 					{
 						"name": "agent_id",
@@ -1197,7 +1197,7 @@
 						"schema": {
 							"type": "string"
 						},
-						"description": "Filter memories by agent ID."
+						"description": "Filter by agent ID. Pass `*` to delete memories for all agents."
 					},
 					{
 						"name": "app_id",
@@ -1205,7 +1205,7 @@
 						"schema": {
 							"type": "string"
 						},
-						"description": "Filter memories by app ID."
+						"description": "Filter by app ID. Pass `*` to delete memories for all apps."
 					},
 					{
 						"name": "run_id",
@@ -1213,7 +1213,7 @@
 						"schema": {
 							"type": "string"
 						},
-						"description": "Filter memories by run ID."
+						"description": "Filter by run ID. Pass `*` to delete memories for all runs."
 					},
 					{
 						"name": "metadata",
@@ -1263,15 +1263,15 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\n# Delete all memories for a specific user\nclient.delete_all(user_id=\"<user_id>\")"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\n# Delete all memories for a specific user\nclient.delete_all(user_id=\"<user_id>\")\n\n# Delete all memories for every user in the project (wildcard)\nclient.delete_all(user_id=\"*\")\n\n# Full project wipe — all four filters must be explicitly set to \"*\"\nclient.delete_all(user_id=\"*\", agent_id=\"*\", app_id=\"*\", run_id=\"*\")\n\n# NOTE: Calling delete_all() with no filters raises a validation error.\n# At least one filter is required to prevent accidental data loss."
 					},
 					{
 						"lang": "JavaScript",
-						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\n// Delete all memories for a specific user\nclient.deleteAll({ user_id: \"<user_id>\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
+						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\n// Delete all memories for a specific user\nclient.deleteAll({ user_id: \"<user_id>\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));\n\n// Delete all memories for every user in the project (wildcard)\nclient.deleteAll({ user_id: \"*\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));\n\n// Full project wipe — all four filters must be explicitly set to \"*\"\nclient.deleteAll({ user_id: \"*\", agent_id: \"*\", app_id: \"*\", run_id: \"*\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
 					},
 					{
 						"lang": "cURL",
-						"source": "curl --request DELETE \\\n  --url https://api.mem0.ai/v1/memories/ \\\n  --header 'Authorization: Token <api-key>'"
+						"source": "# Delete memories for a specific user\ncurl --request DELETE \\\n  --url 'https://api.mem0.ai/v1/memories/?user_id=<user_id>' \\\n  --header 'Authorization: Token <api-key>'\n\n# Delete memories for all users (wildcard)\ncurl --request DELETE \\\n  --url 'https://api.mem0.ai/v1/memories/?user_id=*' \\\n  --header 'Authorization: Token <api-key>'\n\n# Full project wipe — all four filters must be set to *\ncurl --request DELETE \\\n  --url 'https://api.mem0.ai/v1/memories/?user_id=*&agent_id=*&app_id=*&run_id=*' \\\n  --header 'Authorization: Token <api-key>'"
 					},
 					{
 						"lang": "Go",
@@ -5570,26 +5570,26 @@
 			},
 			"DeleteMemoriesInput": {
 				"type": "object",
-				"description": "Input for deleting memories associated with a specific user, agent, app, or run.",
+				"description": "Filters for bulk memory deletion. At least one field is required. Pass \"*\" for a field to delete all memories for that entity type. Set all four to \"*\" for a full project wipe.",
 				"properties": {
 					"user_id": {
 						"type": "string",
-						"description": "The unique identifier of the user whose memories should be deleted.",
+						"description": "User ID to delete memories for. Pass \"*\" for all users.",
 						"nullable": true
 					},
 					"agent_id": {
 						"type": "string",
-						"description": "The unique identifier of the agent whose memories should be deleted.",
+						"description": "Agent ID to delete memories for. Pass \"*\" for all agents.",
 						"nullable": true
 					},
 					"app_id": {
 						"type": "string",
-						"description": "The unique identifier of the application whose memories should be deleted.",
+						"description": "App ID to delete memories for. Pass \"*\" for all apps.",
 						"nullable": true
 					},
 					"run_id": {
 						"type": "string",
-						"description": "The unique identifier of the run whose memories should be deleted.",
+						"description": "Run ID to delete memories for. Pass \"*\" for all runs.",
 						"nullable": true
 					}
 				},
