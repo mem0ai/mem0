@@ -16,6 +16,8 @@ class LLMRerankerConfig(BaseRerankerConfig):
         temperature (float): Temperature for LLM generation. Defaults to 0.0 for deterministic scoring.
         max_tokens (int): Maximum tokens for LLM response. Defaults to 100.
         scoring_prompt (str): Custom prompt template for scoring documents.
+        llm (dict): Nested LLM config with its own provider/config, matching the
+            standard mem0 LLM configuration format.
     """
     
     model: str = Field(
@@ -45,4 +47,9 @@ class LLMRerankerConfig(BaseRerankerConfig):
     scoring_prompt: Optional[str] = Field(
         default=None,
         description="Custom prompt template for scoring documents"
+    )
+    llm: Optional[dict] = Field(
+        default=None,
+        description="Nested LLM config with provider and config keys, "
+        "e.g. {'provider': 'ollama', 'config': {'model': '...', 'ollama_base_url': '...'}}",
     )
