@@ -269,5 +269,46 @@ export function parseMessages(messages: string[]): string {
 }
 
 export function removeCodeBlocks(text: string): string {
-  return text.replace(/```[^`]*```/g, "");
+  // Handle complete code fences (with optional language tag)
+  const completeFence = /```(?:\w+)?\s*\n?([\s\S]*?)```/;
+  const match = text.match(completeFence);
+  if (match) {
+    return match[1].trim();
+  }
+  // Handle unclosed code fences (truncated responses)
+  const unclosedFence = /```(?:\w+)?\s*\n?([\s\S]*)/;
+  const unclosedMatch = text.match(unclosedFence);
+  if (unclosedMatch) {
+    return unclosedMatch[1].trim();
+  }
+  return text;
+}
+
+/**
+ * Extract JSON from a string that may be wrapped in code fences.
+ * Port of Python's extract_json() from mem0/memory/utils.py (commit 2bb0653e).
+ */
+export function extractJson(text: string): string {
+  text = text.trim();
+  const match = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  if (match) {
+    return match[1];
+  }
+  // Handle unclosed fence
+  const unclosedMatch = text.match(/```(?:json)?\s*([\s\S]*)/);
+  if (unclosedMatch) {
+    return unclosedMatch[1].trim();
+  }
+  // Handle text-prefixed JSON (e.g. "Output:\n{...}" from few-shot patterns)
+  const firstChar = text[0];
+  if (firstChar !== "{" && firstChar !== "[") {
+    const objIdx = text.indexOf("{");
+    const arrIdx = text.indexOf("[");
+    let startIdx = -1;
+    if (objIdx >= 0 && arrIdx >= 0) startIdx = Math.min(objIdx, arrIdx);
+    else if (objIdx >= 0) startIdx = objIdx;
+    else if (arrIdx >= 0) startIdx = arrIdx;
+    if (startIdx >= 0) return text.substring(startIdx);
+  }
+  return text;
 }
