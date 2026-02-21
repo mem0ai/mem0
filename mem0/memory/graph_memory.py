@@ -607,12 +607,17 @@ class MemoryGraph:
         return results
 
     def _remove_spaces_from_entities(self, entity_list):
+        valid_entities = []
         for item in entity_list:
+            if not item or not all(k in item for k in ("source", "relationship", "destination")):
+                logger.warning(f"Skipping invalid entity (missing required keys): {item}")
+                continue
             item["source"] = item["source"].lower().replace(" ", "_")
             # Use the sanitization function for relationships to handle special characters
             item["relationship"] = sanitize_relationship_for_cypher(item["relationship"].lower().replace(" ", "_"))
             item["destination"] = item["destination"].lower().replace(" ", "_")
-        return entity_list
+            valid_entities.append(item)
+        return valid_entities
 
     def _search_source_node(self, source_embedding, filters, threshold=0.9):
         # Build WHERE conditions
