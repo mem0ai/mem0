@@ -8,6 +8,7 @@ from qdrant_client.models import (
     FieldCondition,
     Filter,
     MatchValue,
+    MatchAny,
     PointIdsList,
     PointStruct,
     Range,
@@ -150,14 +151,54 @@ class Qdrant(VectorStoreBase):
         """
         if not filters:
             return None
-            
-        conditions = []
+
+        must_conditions = []
+        should_conditions = []
+        must_not_conditions = []
+
         for key, value in filters.items():
-            if isinstance(value, dict) and "gte" in value and "lte" in value:
-                conditions.append(FieldCondition(key=key, range=Range(gte=value["gte"], lte=value["lte"])))
+            if key == "AND":
+                for item in value:
+                    sub_filter = self._create_filter(item)
+                    if sub_filter:
+                        must_conditions.append(sub_filter)
+            elif key == "OR":
+                for item in value:
+                    sub_filter = self._create_filter(item)
+                    if sub_filter:
+                        should_conditions.append(sub_filter)
+            elif key == "NOT":
+                for item in value:
+                    sub_filter = self._create_filter(item)
+                    if sub_filter:
+                        must_not_conditions.append(sub_filter)
+            elif isinstance(value, dict):
+                # Handle operators
+                range_ops = {k: v for k, v in value.items() if k in ["gt", "gte", "lt", "lte"]}
+                other_ops = {k: v for k, v in value.items() if k not in ["gt", "gte", "lt", "lte"]}
+
+                if range_ops:
+                    must_conditions.append(FieldCondition(key=key, range=Range(**range_ops)))
+
+                for operator, operand in other_ops.items():
+                    if operator == "eq":
+                        must_conditions.append(FieldCondition(key=key, match=MatchValue(value=operand)))
+                    elif operator == "ne":
+                        must_not_conditions.append(FieldCondition(key=key, match=MatchValue(value=operand)))
+                    elif operator == "in":
+                        must_conditions.append(FieldCondition(key=key, match=MatchAny(any=operand)))
+                    elif operator == "nin":
+                        must_not_conditions.append(FieldCondition(key=key, match=MatchAny(any=operand)))
+                    else:
+                        logger.warning(f"Unsupported operator: {operator}")
             else:
-                conditions.append(FieldCondition(key=key, match=MatchValue(value=value)))
-        return Filter(must=conditions) if conditions else None
+                must_conditions.append(FieldCondition(key=key, match=MatchValue(value=value)))
+
+        return Filter(
+            must=must_conditions if must_conditions else None,
+            should=should_conditions if should_conditions else None,
+            must_not=must_not_conditions if must_not_conditions else None
+        )
 
     def search(self, query: str, vectors: list, limit: int = 5, filters: dict = None) -> list:
         """
