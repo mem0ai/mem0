@@ -33,6 +33,13 @@ class ElasticsearchDB(VectorStoreBase):
                 verify_certs=config.verify_certs,
                 headers= config.headers or {},
             )
+        elif config.api_key:
+            self.client = Elasticsearch(
+                hosts=[f"{config.host}" if config.port is None else f"{config.host}:{config.port}"],
+                api_key=config.api_key,
+                verify_certs=config.verify_certs,
+                headers= config.headers or {},
+            )
         else:
             self.client = Elasticsearch(
                 hosts=[f"{config.host}" if config.port is None else f"{config.host}:{config.port}"],
