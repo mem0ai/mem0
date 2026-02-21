@@ -37,8 +37,8 @@ from mem0.utils.factory import (
     EmbedderFactory,
     GraphStoreFactory,
     LlmFactory,
-    VectorStoreFactory,
     RerankerFactory,
+    VectorStoreFactory,
 )
 
 # Suppress SWIG deprecation warnings globally
@@ -1234,6 +1234,63 @@ class Memory(MemoryBase):
             )
         capture_event("mem0.reset", self, {"sync_type": "sync"})
 
+    def close(self):
+        """Gracefully release all resources held by this Memory instance.
+
+        Closes the SQLite history database, vector store client connections,
+        telemetry vector store, and graph store driver (if configured).
+        Safe to call multiple times. After calling close(), this instance
+        should not be used.
+        """
+        # Close SQLite history database
+        if hasattr(self, "db") and self.db is not None:
+            try:
+                self.db.close()
+            except Exception:
+                logger.debug("Failed to close history database", exc_info=True)
+
+        # Close the main vector store client
+        if hasattr(self, "vector_store") and hasattr(self.vector_store, "client"):
+            client = self.vector_store.client
+            if hasattr(client, "close"):
+                try:
+                    client.close()
+                except Exception:
+                    logger.debug("Failed to close vector store client", exc_info=True)
+
+        # Close the telemetry vector store client
+        if hasattr(self, "_telemetry_vector_store") and hasattr(self._telemetry_vector_store, "client"):
+            client = self._telemetry_vector_store.client
+            if hasattr(client, "close"):
+                try:
+                    client.close()
+                except Exception:
+                    logger.debug("Failed to close telemetry vector store client", exc_info=True)
+
+        # Close graph store driver if present
+        if hasattr(self, "graph") and self.graph is not None:
+            if hasattr(self.graph, "_driver") and hasattr(self.graph._driver, "close"):
+                try:
+                    self.graph._driver.close()
+                except Exception:
+                    logger.debug("Failed to close graph store driver", exc_info=True)
+
+    def __enter__(self):
+        """Enable use as a context manager."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Close resources when exiting context manager."""
+        self.close()
+        return False
+
+    def __del__(self):
+        """Attempt cleanup on garbage collection."""
+        try:
+            self.close()
+        except Exception:
+            pass
+
     def chat(self, query):
         raise NotImplementedError("Chat function not implemented yet.")
 
@@ -2320,6 +2377,56 @@ class AsyncMemory(MemoryBase):
             self.config.vector_store.provider, self.config.vector_store.config
         )
         capture_event("mem0.reset", self, {"sync_type": "async"})
+
+    async def close(self):
+        """Gracefully release all resources held by this AsyncMemory instance.
+
+        Closes the SQLite history database, vector store client connections,
+        telemetry vector store, and graph store driver (if configured).
+        Safe to call multiple times. After calling close(), this instance
+        should not be used.
+        """
+        # Close SQLite history database
+        if hasattr(self, "db") and self.db is not None:
+            try:
+                await asyncio.to_thread(self.db.close)
+            except Exception:
+                logger.debug("Failed to close history database", exc_info=True)
+
+        # Close the main vector store client
+        if hasattr(self, "vector_store") and hasattr(self.vector_store, "client"):
+            client = self.vector_store.client
+            if hasattr(client, "close"):
+                try:
+                    await asyncio.to_thread(client.close)
+                except Exception:
+                    logger.debug("Failed to close vector store client", exc_info=True)
+
+        # Close the telemetry vector store client
+        if hasattr(self, "_telemetry_vector_store") and hasattr(self._telemetry_vector_store, "client"):
+            client = self._telemetry_vector_store.client
+            if hasattr(client, "close"):
+                try:
+                    await asyncio.to_thread(client.close)
+                except Exception:
+                    logger.debug("Failed to close telemetry vector store client", exc_info=True)
+
+        # Close graph store driver if present
+        if hasattr(self, "graph") and self.graph is not None:
+            if hasattr(self.graph, "_driver") and hasattr(self.graph._driver, "close"):
+                try:
+                    await asyncio.to_thread(self.graph._driver.close)
+                except Exception:
+                    logger.debug("Failed to close graph store driver", exc_info=True)
+
+    async def __aenter__(self):
+        """Enable use as an async context manager."""
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Close resources when exiting async context manager."""
+        await self.close()
+        return False
 
     async def chat(self, query):
         raise NotImplementedError("Chat function not implemented yet.")
