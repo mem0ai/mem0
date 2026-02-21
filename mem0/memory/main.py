@@ -539,29 +539,58 @@ class Memory(MemoryBase):
                         )
                         returned_memories.append({"id": memory_id, "memory": action_text, "event": event_type})
                     elif event_type == "UPDATE":
-                        self._update_memory(
-                            memory_id=temp_uuid_mapping[resp.get("id")],
-                            data=action_text,
-                            existing_embeddings=new_message_embeddings,
-                            metadata=deepcopy(metadata),
-                        )
-                        returned_memories.append(
-                            {
-                                "id": temp_uuid_mapping[resp.get("id")],
-                                "memory": action_text,
-                                "event": event_type,
-                                "previous_memory": resp.get("old_memory"),
-                            }
-                        )
+                        memory_id_str = resp.get("id")
+                        if memory_id_str not in temp_uuid_mapping:
+                            # Issue 1 Fix: LLM returned invalid memory ID
+                            logger.warning(
+                                f"Invalid memory ID '{memory_id_str}' returned by LLM for UPDATE. "
+                                f"Available IDs: {list(temp_uuid_mapping.keys())}. "
+                                f"Treating as ADD instead."
+                            )
+                            # Treat as ADD instead of failing
+                            memory_id = self._create_memory(
+                                data=action_text,
+                                existing_embeddings=new_message_embeddings,
+                                metadata=deepcopy(metadata),
+                            )
+                            returned_memories.append({"id": memory_id, "memory": action_text, "event": "ADD"})
+                        else:
+                            actual_memory_id = temp_uuid_mapping[memory_id_str]
+                            self._update_memory(
+                                memory_id=actual_memory_id,
+                                data=action_text,
+                                existing_embeddings=new_message_embeddings,
+                                metadata=deepcopy(metadata),
+                            )
+                            returned_memories.append(
+                                {
+                                    "id": actual_memory_id,
+                                    "memory": action_text,
+                                    "event": event_type,
+                                    "previous_memory": resp.get("old_memory"),
+                                }
+                            )
                     elif event_type == "DELETE":
-                        self._delete_memory(memory_id=temp_uuid_mapping[resp.get("id")])
-                        returned_memories.append(
-                            {
-                                "id": temp_uuid_mapping[resp.get("id")],
-                                "memory": action_text,
-                                "event": event_type,
-                            }
-                        )
+                        memory_id_str = resp.get("id")
+                        if memory_id_str not in temp_uuid_mapping:
+                            # Issue 1 Fix: LLM returned invalid memory ID
+                            logger.warning(
+                                f"Invalid memory ID '{memory_id_str}' returned by LLM for DELETE. "
+                                f"Available IDs: {list(temp_uuid_mapping.keys())}. "
+                                f"Skipping DELETE operation."
+                            )
+                            # Skip DELETE operation instead of failing
+                            continue
+                        else:
+                            actual_memory_id = temp_uuid_mapping[memory_id_str]
+                            self._delete_memory(memory_id=actual_memory_id)
+                            returned_memories.append(
+                                {
+                                    "id": actual_memory_id,
+                                    "memory": action_text,
+                                    "event": event_type,
+                                }
+                            )
                     elif event_type == "NONE":
                         # Even if content doesn't need updating, update session IDs if provided
                         memory_id = temp_uuid_mapping.get(resp.get("id"))
@@ -1570,18 +1599,49 @@ class AsyncMemory(MemoryBase):
                         )
                         memory_tasks.append((task, resp, "ADD", None))
                     elif event_type == "UPDATE":
-                        task = asyncio.create_task(
-                            self._update_memory(
-                                memory_id=temp_uuid_mapping[resp["id"]],
-                                data=action_text,
-                                existing_embeddings=new_message_embeddings,
-                                metadata=deepcopy(metadata),
+                        memory_id_str = resp.get("id")
+                        if memory_id_str not in temp_uuid_mapping:
+                            # Issue 1 Fix: LLM returned invalid memory ID
+                            logger.warning(
+                                f"Invalid memory ID '{memory_id_str}' returned by LLM for UPDATE (async). "
+                                f"Available IDs: {list(temp_uuid_mapping.keys())}. "
+                                f"Treating as ADD instead."
                             )
-                        )
-                        memory_tasks.append((task, resp, "UPDATE", temp_uuid_mapping[resp["id"]]))
+                            # Treat as ADD instead of failing
+                            task = asyncio.create_task(
+                                self._create_memory(
+                                    data=action_text,
+                                    existing_embeddings=new_message_embeddings,
+                                    metadata=deepcopy(metadata),
+                                )
+                            )
+                            memory_tasks.append((task, resp, "ADD", None))
+                        else:
+                            actual_memory_id = temp_uuid_mapping[memory_id_str]
+                            task = asyncio.create_task(
+                                self._update_memory(
+                                    memory_id=actual_memory_id,
+                                    data=action_text,
+                                    existing_embeddings=new_message_embeddings,
+                                    metadata=deepcopy(metadata),
+                                )
+                            )
+                            memory_tasks.append((task, resp, "UPDATE", actual_memory_id))
                     elif event_type == "DELETE":
-                        task = asyncio.create_task(self._delete_memory(memory_id=temp_uuid_mapping[resp.get("id")]))
-                        memory_tasks.append((task, resp, "DELETE", temp_uuid_mapping[resp.get("id")]))
+                        memory_id_str = resp.get("id")
+                        if memory_id_str not in temp_uuid_mapping:
+                            # Issue 1 Fix: LLM returned invalid memory ID
+                            logger.warning(
+                                f"Invalid memory ID '{memory_id_str}' returned by LLM for DELETE (async). "
+                                f"Available IDs: {list(temp_uuid_mapping.keys())}. "
+                                f"Skipping DELETE operation."
+                            )
+                            # Skip DELETE operation instead of failing
+                            continue
+                        else:
+                            actual_memory_id = temp_uuid_mapping[memory_id_str]
+                            task = asyncio.create_task(self._delete_memory(memory_id=actual_memory_id))
+                            memory_tasks.append((task, resp, "DELETE", actual_memory_id))
                     elif event_type == "NONE":
                         # Even if content doesn't need updating, update session IDs if provided
                         memory_id = temp_uuid_mapping.get(resp.get("id"))
