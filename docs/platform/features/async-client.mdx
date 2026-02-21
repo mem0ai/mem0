@@ -123,6 +123,10 @@ await client.deleteAll({ user_id: "alice" });
 
 </CodeGroup>
 
+<Note>
+  At least one filter (`user_id`, `agent_id`, `app_id`, or `run_id`) is required — calling `delete_all` with no filters raises an error to prevent accidental data loss. You can pass `"*"` as a value to delete all memories for a given entity type (e.g., `user_id="*"` removes memories for every user). A full project wipe requires all four filters set to `"*"`.
+</Note>
+
 ### History
 
 Get the history of a specific memory asynchronously.
