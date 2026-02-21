@@ -102,7 +102,7 @@ chromadb = "^0.5.10"
 posthog = "^3.0.2"
 rich = "^13.7.0"
 beautifulsoup4 = "^4.12.2"
-pypdf = "^5.0.0"
+pypdf = ">5.0.0"
 gptcache = "^0.1.43"
 pysbd = "^0.3.4"
 mem0ai = "^0.1.54"
@@ -134,7 +134,7 @@ google-auth = { version = "^2.25.2", optional = true }
 google-auth-httplib2 = { version = "^0.2.0", optional = true }
 google-api-core = { version = "^2.15.0", optional = true }
 langchain-mistralai = { version = "^0.2.0", optional = true }
-langchain-openai = "^0.2.1"
+langchain-openai = ">0.2.1,<0.4.0"
 langchain-google-vertexai = { version = "^2.0.2", optional = true }
 sqlalchemy = "^2.0.27"
 alembic = "^1.13.1"
@@ -142,6 +142,7 @@ langchain-cohere = "^0.3.0"
 langchain-community = "^0.3.1"
 langchain-aws = {version = "^0.2.1", optional = true}
 langsmith = "^0.3.18"
+langchain-anthropic = ">=0.2.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
