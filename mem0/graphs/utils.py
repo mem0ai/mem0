@@ -39,6 +39,9 @@ You are an advanced algorithm designed to extract structured information from te
 1. Extract only explicitly stated information from the text.
 2. Establish relationships among the entities provided.
 3. Use "USER_ID" as the source entity for any self-references (e.g., "I," "me," "my," etc.) in user messages.
+   NOTE: "USER_ID" is the user's unique identifier (may be email, username, UUID, etc.) and represents THE USER.
+   When the user states their name (e.g., "my name is Stu"), create: USER_ID --has_name--> Stu
+   The name becomes an attribute of the user, not a replacement for USER_ID.
 CUSTOM_PROMPT
 
 Relationships:

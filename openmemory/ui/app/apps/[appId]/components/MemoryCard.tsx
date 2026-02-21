@@ -1,4 +1,4 @@
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
 import Categories from "@/components/shared/categories";
 import Link from "next/link";
 import { constants } from "@/components/shared/source-app";
@@ -28,23 +28,23 @@ export function MemoryCard({
     <div className="rounded-lg border border-zinc-800 bg-zinc-900 overflow-hidden">
       <div className="p-4">
         <div className="border-l-2 border-primary pl-4 mb-4">
-          <p
-            className={`${state !== "active" ? "text-zinc-400" : "text-white"}`}
-          >
-            {content}
-          </p>
+          {state === "processing" ? (
+            <div className="flex items-center gap-2 text-zinc-400">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <p className="font-medium">{content}</p>
+            </div>
+          ) : (
+            <p
+              className={`${state !== "active" ? "text-zinc-400" : "text-white"}`}
+            >
+              {content}
+            </p>
+          )}
         </div>
 
-        {metadata && Object.keys(metadata).length > 0 && (
-          <div className="mb-4">
-            <p className="text-xs text-zinc-500 uppercase mb-2">METADATA</p>
-            <div className="bg-zinc-800 rounded p-3 text-zinc-400">
-              <pre className="whitespace-pre-wrap">
-                {JSON.stringify(metadata, null, 2)}
-              </pre>
-            </div>
-          </div>
-        )}
+
+        {/* Metadata moved to details page */}
+
 
         <div className="mb-2">
           <Categories

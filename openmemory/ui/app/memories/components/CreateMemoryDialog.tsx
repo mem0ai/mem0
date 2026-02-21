@@ -11,6 +11,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useState, useRef } from "react";
 import { GoPlus } from "react-icons/go";
 import { Loader2 } from "lucide-react";
@@ -21,16 +22,23 @@ import { Textarea } from "@/components/ui/textarea";
 export function CreateMemoryDialog() {
   const { createMemory, isLoading, fetchMemories } = useMemoriesApi();
   const [open, setOpen] = useState(false);
+  const [useInfer, setUseInfer] = useState(true);
   const textRef = useRef<HTMLTextAreaElement>(null);
 
   const handleCreateMemory = async (text: string) => {
     try {
-      await createMemory(text);
+      const newMemory = await createMemory(text, useInfer);
       toast.success("Memory created successfully");
       // close the dialog
       setOpen(false);
-      // refetch memories
-      await fetchMemories();
+      // Clear the textarea
+      if (textRef.current) {
+        textRef.current.value = "";
+      }
+      // Optionally refetch memories after a short delay to get the final processed state
+      setTimeout(async () => {
+        await fetchMemories();
+      }, 2000);
     } catch (error) {
       console.error(error);
       toast.error("Failed to create memory");
@@ -65,6 +73,19 @@ export function CreateMemoryDialog() {
               placeholder="e.g., Lives in San Francisco"
               className="bg-zinc-950 border-zinc-800 min-h-[150px]"
             />
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="infer"
+              checked={useInfer}
+              onCheckedChange={(checked) => setUseInfer(checked as boolean)}
+            />
+            <Label
+              htmlFor="infer"
+              className="text-sm font-normal cursor-pointer"
+            >
+              Use AI processing (detect contradictions, extract facts, normalize text)
+            </Label>
           </div>
         </div>
         <DialogFooter>

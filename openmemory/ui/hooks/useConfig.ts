@@ -35,9 +35,9 @@ export const useConfig = (): UseConfigApiReturn => {
   const fetchConfig = async () => {
     setIsLoading(true);
     dispatch(setConfigLoading());
-    
+
     try {
-      const response = await axios.get(`${URL}/api/v1/config`);
+      const response = await axios.get(`${URL}/api/v1/config/`);
       dispatch(setConfigSuccess(response.data));
       setIsLoading(false);
     } catch (err: any) {
@@ -52,9 +52,9 @@ export const useConfig = (): UseConfigApiReturn => {
   const saveConfig = async (config: { openmemory?: OpenMemoryConfig; mem0: Mem0Config }) => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
-      const response = await axios.put(`${URL}/api/v1/config`, config);
+      const response = await axios.put(`${URL}/api/v1/config/`, config);
       dispatch(setConfigSuccess(response.data));
       setIsLoading(false);
       return response.data;
