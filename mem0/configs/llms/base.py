@@ -24,6 +24,7 @@ class BaseLlmConfig(ABC):
         enable_vision: bool = False,
         vision_details: Optional[str] = "auto",
         http_client_proxies: Optional[Union[Dict, str]] = None,
+        reasoning_effort: Optional[str] = None,
     ):
         """
         Initialize a base configuration class instance for the LLM.
@@ -50,6 +51,9 @@ class BaseLlmConfig(ABC):
                 Options: "low", "high", "auto". Defaults to "auto"
             http_client_proxies: Proxy settings for HTTP client.
                 Can be a dict or string. Defaults to None
+            reasoning_effort: Controls the effort level for reasoning models (e.g., o1, o3, gpt-5).
+                Options: "low", "medium", "high". Only applicable to reasoning models.
+                Defaults to None (uses provider default)
         """
         self.model = model
         self.temperature = temperature
@@ -59,4 +63,5 @@ class BaseLlmConfig(ABC):
         self.top_k = top_k
         self.enable_vision = enable_vision
         self.vision_details = vision_details
+        self.reasoning_effort = reasoning_effort
         self.http_client = httpx.Client(proxies=http_client_proxies) if http_client_proxies else None
