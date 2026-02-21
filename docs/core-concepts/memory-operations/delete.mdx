@@ -168,6 +168,7 @@ client.deleteAll({ user_id: "*" })
 
 // Full project wipe — all four filters must be explicitly set to "*"
 client.deleteAll({ user_id: "*", agent_id: "*", app_id: "*", run_id: "*" })
+  .then(result => console.log(result))
   .catch(error => console.error(error));
 ```
 </CodeGroup>
