@@ -572,3 +572,89 @@ def test_update_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm
     # It should NOT be called a 3rd time inside _update_memory
     assert embedder.embed.call_count == 2
     mock_vector_store.update.assert_called_once()
+
+
+# ── close() / context-manager tests ──────────────────────────────────────
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_close_releases_resources(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """Test that close() calls close on db and vector store client."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_client = MagicMock()
+    mock_vector_store.client = mock_vector_client
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_db = MagicMock()
+    mock_sqlite.return_value = mock_db
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    memory.close()
+
+    # SQLiteManager.close() should have been called
+    mock_db.close.assert_called_once()
+    # Vector store client.close() should have been called
+    mock_vector_client.close.assert_called()
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_close_is_idempotent(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """Test that calling close() twice does not raise errors."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_store.client = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    # Calling close twice should not raise
+    memory.close()
+    memory.close()
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_context_manager(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """Test that Memory can be used as a context manager."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_client = MagicMock()
+    mock_vector_store.client = mock_vector_client
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_db = MagicMock()
+    mock_sqlite.return_value = mock_db
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+
+    with MemoryClass(config) as memory:
+        assert memory is not None
+
+    # After exiting context, resources should be closed
+    mock_db.close.assert_called_once()
+    mock_vector_client.close.assert_called()
+
+
+def test_close_on_partial_init():
+    """Test that close() is safe to call when __init__ failed partway through."""
+    with patch.object(Memory, "__init__", return_value=None):
+        memory = Memory()
+        # Simulate partial init — no attributes set
+        memory.close()  # Should not raise
