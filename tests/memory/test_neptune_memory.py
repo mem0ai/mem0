@@ -1,8 +1,25 @@
+import sys
+import types
 import unittest
 from unittest.mock import MagicMock, patch
 import pytest
+
+try:
+    import langchain_aws  # noqa: F401
+except ImportError:
+    stub = types.ModuleType("langchain_aws")
+    stub.NeptuneGraph = object
+    sys.modules["langchain_aws"] = stub
+
 from mem0.graphs.neptune.neptunedb import MemoryGraph
 from mem0.graphs.neptune.base import NeptuneBase
+
+DEFAULT_PROMPT_TEMPLATE = (
+    "You are a smart assistant who understands entities and their types in a given text. "
+    "If user message contains self reference such as 'I', 'me', 'my' etc. then use {user_id} "
+    "as the source entity. Extract all the entities from the text. ***DO NOT*** answer the question "
+    "itself if the given text is a question."
+)
 
 
 class TestNeptuneMemory(unittest.TestCase):
@@ -198,6 +215,25 @@ class TestNeptuneMemory(unittest.TestCase):
             self.assertEqual(result[0]["source"], "alice")
             self.assertEqual(result[0]["relationship"], "knows")
             self.assertEqual(result[0]["destination"], "bob")
+
+    def test_retrieve_nodes_uses_custom_search_prompt(self):
+        """Test custom_search_prompt handling in entity extraction."""
+        self.memory_graph.llm.generate_response = MagicMock(return_value={"tool_calls": []})
+        filters = {"user_id": self.user_id}
+
+        self.config.graph_store.custom_search_prompt = None
+        self.memory_graph._retrieve_nodes_from_data("Find Alice", filters)
+        messages = self.memory_graph.llm.generate_response.call_args.kwargs["messages"]
+        self.assertEqual(
+            messages[0]["content"],
+            DEFAULT_PROMPT_TEMPLATE.format(user_id=self.user_id),
+        )
+
+        self.memory_graph.llm.generate_response.reset_mock()
+        self.config.graph_store.custom_search_prompt = "Search entities for USER_ID only."
+        self.memory_graph._retrieve_nodes_from_data("Find Alice", filters)
+        messages = self.memory_graph.llm.generate_response.call_args.kwargs["messages"]
+        self.assertEqual(messages[0]["content"], "Search entities for test_user only.")
 
     def test_get_all_method(self):
         """Test the get_all method."""
