@@ -452,11 +452,16 @@ export class MemoryGraph {
     const results: any[] = [];
     const session = this.graph.session();
 
+    const sanitizeLabel = (label: string) =>
+      label.replace(/[^A-Za-z0-9_]/g, "_");
+
     try {
       for (const item of toBeAdded) {
         const { source, destination, relationship } = item;
-        const sourceType = entityTypeMap[source] || "unknown";
-        const destinationType = entityTypeMap[destination] || "unknown";
+        const sourceTypeRaw = entityTypeMap[source] || "unknown";
+        const destinationTypeRaw = entityTypeMap[destination] || "unknown";
+        const sourceType = sanitizeLabel(sourceTypeRaw);
+        const destinationType = sanitizeLabel(destinationTypeRaw);
 
         const sourceEmbedding = await this.embeddingModel.embed(source);
         const destEmbedding = await this.embeddingModel.embed(destination);
