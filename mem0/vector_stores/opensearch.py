@@ -157,9 +157,8 @@ class OpenSearchDB(VectorStoreBase):
         # Prepare filter conditions if applicable
         filter_clauses = []
         if filters:
-            for key in ["user_id", "run_id", "agent_id"]:
-                value = filters.get(key)
-                if value:
+            for key, value in filters.items():
+                if value is not None:
                     filter_clauses.append({"term": {f"payload.{key}.keyword": value}})
 
         # Combine knn with filters if needed
