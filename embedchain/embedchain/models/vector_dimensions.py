@@ -14,3 +14,5 @@ class VectorDimensions(Enum):
     OLLAMA = 384
     AMAZON_TITAN_V1 = 1536
     AMAZON_TITAN_V2 = 1024
+    JINA_NANO = 768
+    JINA_SMALL = 1024
