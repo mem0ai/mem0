@@ -280,6 +280,69 @@ class TestOpenSearchDB(unittest.TestCase):
                 pool_maxsize=20,
             )
 
+    def test_search_with_dynamic_filters(self):
+
+        mock_response = {
+            "hits": {
+                "hits": [
+                    {
+                        "_id": "id1",
+                        "_score": 0.9,
+                        "_source": {"vector_field": [0.1] * 1536, "id": "id1", "payload": {"user_id": "u1", "session_id": "s1"}},
+                    }
+                ]
+            }
+        }
+        self.client_mock.search.return_value = mock_response
+        vectors = [[0.1] * 1536]
+
+        filters = {"user_id": "u1", "session_id": "s1"}
+        results = self.os_db.search(query="", vectors=vectors, limit=5, filters=filters)
+
+        self.client_mock.search.assert_called_once()
+        body = self.client_mock.search.call_args[1]["body"]
+
+        self.assertIn("bool", body["query"])
+        self.assertIn("filter", body["query"]["bool"])
+
+        filter_clauses = body["query"]["bool"]["filter"]
+        filter_keys = [list(f["term"].keys())[0] for f in filter_clauses]
+
+        self.assertIn("payload.user_id.keyword", filter_keys)
+        self.assertIn("payload.session_id.keyword", filter_keys)
+        self.assertEqual(len(filter_clauses), 2)
+        self.assertEqual(len(results), 1)
+
+
+    def test_search_ignores_none_filter_values(self):
+
+        mock_response = {"hits": {"hits": []}}
+        self.client_mock.search.return_value = mock_response
+        vectors = [[0.1] * 1536]
+
+        filters = {"user_id": "u1", "run_id": None}
+        self.os_db.search(query="", vectors=vectors, limit=5, filters=filters)
+
+        body = self.client_mock.search.call_args[1]["body"]
+        filter_clauses = body["query"]["bool"]["filter"]
+        filter_keys = [list(f["term"].keys())[0] for f in filter_clauses]
+
+        self.assertIn("payload.user_id.keyword", filter_keys)
+        self.assertNotIn("payload.run_id.keyword", filter_keys)
+        self.assertEqual(len(filter_clauses), 1)
+
+
+    def test_search_no_filters(self):
+
+        mock_response = {"hits": {"hits": []}}
+        self.client_mock.search.return_value = mock_response
+        vectors = [[0.1] * 1536]
+
+        self.os_db.search(query="", vectors=vectors, limit=5, filters=None)
+
+        body = self.client_mock.search.call_args[1]["body"]
+        self.assertIn("knn", body["query"])
+        self.assertNotIn("bool", body["query"])
 
 # Tests for OpenSearch config deepcopy with AWS authentication (Issue #3464)
 @patch('mem0.utils.factory.EmbedderFactory.create')
@@ -362,3 +425,4 @@ def test_memory_initialization_opensearch_aws_auth(mock_sqlite, mock_llm_factory
     assert memory.config.vector_store.provider == "opensearch"
 
     assert mock_vector_factory.call_count >= 2
+
