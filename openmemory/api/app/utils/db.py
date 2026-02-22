@@ -1,14 +1,27 @@
 from typing import Tuple
 
 from app.models import App, User
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 
 def get_or_create_user(db: Session, user_id: str) -> User:
-    """Get or create a user with the given user_id"""
-    user = db.query(User).filter(User.user_id == user_id).first()
+    """Get or create a user with the given user_id.
+
+    If user_id contains '@', also matches against the email field,
+    so callers can pass an email address as the user identifier.
+    """
+    if "@" in user_id:
+        user = db.query(User).filter(
+            or_(User.user_id == user_id, User.email == user_id)
+        ).first()
+    else:
+        user = db.query(User).filter(User.user_id == user_id).first()
+
     if not user:
         user = User(user_id=user_id)
+        if "@" in user_id:
+            user.email = user_id
         db.add(user)
         db.commit()
         db.refresh(user)
