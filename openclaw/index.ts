@@ -10,6 +10,8 @@
  * - Short-term (session-scoped) and long-term (user-scoped) memory
  * - Auto-recall: injects relevant memories (both scopes) before each agent turn
  * - Auto-capture: stores key facts scoped to the current session after each agent turn
+ * - Per-agent isolation: multi-agent setups write/read from separate userId namespaces
+ *   automatically via sessionKey routing (zero breaking changes for single-agent setups)
  * - CLI: openclaw mem0 search, openclaw mem0 stats
  * - Dual mode: platform or open-source (self-hosted)
  */
@@ -616,14 +618,32 @@ const memoryPlugin = {
     // Track current session ID for tool-level session scoping
     let currentSessionId: string | undefined;
 
+    // ========================================================================
+    // Per-agent isolation helpers (fixes #3998)
+    // Session keys follow the pattern: agent:<agentId>:<uuid>
+    // For the primary (main) session, fall back to configured userId.
+    // ========================================================================
+    function extractAgentId(sessionKey: string | undefined): string | undefined {
+      if (!sessionKey) return undefined;
+      const match = sessionKey.match(/^agent:([^:]+):/);
+      const agentId = match?.[1];
+      // "main" is the primary session — fall back to configured userId
+      if (!agentId || agentId === "main") return undefined;
+      return agentId;
+    }
+
+    function effectiveUserId(sessionKey?: string): string {
+      return extractAgentId(sessionKey) ?? cfg.userId;
+    }
+
     api.logger.info(
       `openclaw-mem0: registered (mode: ${cfg.mode}, user: ${cfg.userId}, graph: ${cfg.enableGraph}, autoRecall: ${cfg.autoRecall}, autoCapture: ${cfg.autoCapture})`,
     );
 
     // Helper: build add options
-    function buildAddOptions(userIdOverride?: string, runId?: string): AddOptions {
+    function buildAddOptions(userIdOverride?: string, runId?: string, sessionKey?: string): AddOptions {
       const opts: AddOptions = {
-        user_id: userIdOverride || cfg.userId,
+        user_id: userIdOverride || effectiveUserId(sessionKey),
         source: "OPENCLAW",
       };
       if (runId) opts.run_id = runId;
@@ -641,9 +661,10 @@ const memoryPlugin = {
       userIdOverride?: string,
       limit?: number,
       runId?: string,
+      sessionKey?: string,
     ): SearchOptions {
       const opts: SearchOptions = {
-        user_id: userIdOverride || cfg.userId,
+        user_id: userIdOverride || effectiveUserId(sessionKey),
         top_k: limit ?? cfg.topK,
         limit: limit ?? cfg.topK,
         threshold: cfg.searchThreshold,
@@ -1241,10 +1262,10 @@ const memoryPlugin = {
         if (sessionId) currentSessionId = sessionId;
 
         try {
-          // Search long-term memories (user-scoped)
+          // Search long-term memories (user-scoped, isolated per agent)
           const longTermResults = await provider.search(
             event.prompt,
-            buildSearchOptions(),
+            buildSearchOptions(undefined, undefined, undefined, sessionId),
           );
 
           // Search session memories (session-scoped) if we have a session ID
@@ -1252,7 +1273,7 @@ const memoryPlugin = {
           if (currentSessionId) {
             sessionResults = await provider.search(
               event.prompt,
-              buildSearchOptions(undefined, undefined, currentSessionId),
+              buildSearchOptions(undefined, undefined, currentSessionId, sessionId),
             );
           }
 
@@ -1357,7 +1378,7 @@ const memoryPlugin = {
 
           if (formattedMessages.length === 0) return;
 
-          const addOpts = buildAddOptions(undefined, currentSessionId);
+          const addOpts = buildAddOptions(undefined, currentSessionId, sessionId);
           const result = await provider.add(
             formattedMessages,
             addOpts,
