@@ -1,0 +1,50 @@
+---
+title: Jina AI
+---
+
+To use Jina AI embedding models, set the `JINA_API_KEY` environment variable. You can obtain the API key from [jina.ai](https://jina.ai).
+
+### Usage
+
+```python Python
+import os
+from mem0 import Memory
+
+os.environ["JINA_API_KEY"] = "your_api_key"
+
+config = {
+    "embedder": {
+        "provider": "jina",
+        "config": {
+            "model": "jina-embeddings-v5-text-nano"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="john")
+```
+
+### Config
+
+Here are the parameters available for configuring the Jina AI embedder:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `model` | The name of the embedding model to use | `jina-embeddings-v5-text-nano` |
+| `embedding_dims` | Dimensions of the embedding model | `768` |
+| `api_key` | The Jina AI API key | `None` |
+| `model_kwargs` | Additional model parameters (e.g. `{"task": "retrieval.passage"}`) | `{}` |
+
+### Available Models
+
+| Model | Parameters | Dimensions | Max Tokens |
+| --- | --- | --- | --- |
+| `jina-embeddings-v5-text-nano` | 239M | 768 | 8192 |
+| `jina-embeddings-v5-text-small` | 677M | 1024 | 32768 |
