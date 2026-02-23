@@ -101,10 +101,24 @@ export class ConfigManager {
         ...DEFAULT_MEMORY_CONFIG.graphStore,
         ...userConfig.graphStore,
       },
-      historyStore: {
-        ...DEFAULT_MEMORY_CONFIG.historyStore,
-        ...userConfig.historyStore,
-      },
+      historyStore: (() => {
+        const historyStore = {
+          ...DEFAULT_MEMORY_CONFIG.historyStore,
+          ...userConfig.historyStore,
+        };
+
+        // Ensure top-level historyDbPath is respected even when the default
+        // sqlite historyStore is present.
+        if (
+          userConfig.historyDbPath &&
+          historyStore?.provider === "sqlite" &&
+          historyStore.config
+        ) {
+          historyStore.config.historyDbPath = userConfig.historyDbPath;
+        }
+
+        return historyStore;
+      })(),
       disableHistory:
         userConfig.disableHistory || DEFAULT_MEMORY_CONFIG.disableHistory,
       enableGraph: userConfig.enableGraph || DEFAULT_MEMORY_CONFIG.enableGraph,
