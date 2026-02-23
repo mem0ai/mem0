@@ -268,9 +268,17 @@ class OSSProvider implements Mem0Provider {
     if (options.keyword_search != null) opts.keyword_search = options.keyword_search;
     if (options.reranking != null) opts.reranking = options.reranking;
     if (options.source) opts.source = options.source;
+    if (options.threshold != null) opts.threshold = options.threshold;
 
     const results = await this.memory.search(query, opts);
-    return normalizeSearchResults(results);
+    const normalized = normalizeSearchResults(results);
+
+    // Filter results by threshold if specified (client-side filtering as fallback)
+    if (options.threshold != null) {
+      return normalized.filter(item => (item.score ?? 0) >= options.threshold!);
+    }
+
+    return normalized;
   }
 
   async get(memoryId: string): Promise<MemoryItem> {
