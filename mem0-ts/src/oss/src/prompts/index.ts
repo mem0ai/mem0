@@ -278,5 +278,11 @@ export function parseMessages(messages: string[]): string {
 }
 
 export function removeCodeBlocks(text: string): string {
-  return text.replace(/```[^`]*```/g, "");
+  // Extract content from markdown code blocks (e.g. ```json\n{...}\n```)
+  // rather than removing them entirely, since the JSON we need is inside.
+  const match = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
+  if (match) {
+    return match[1].trim();
+  }
+  return text;
 }
