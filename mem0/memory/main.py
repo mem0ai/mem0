@@ -37,8 +37,8 @@ from mem0.utils.factory import (
     EmbedderFactory,
     GraphStoreFactory,
     LlmFactory,
-    VectorStoreFactory,
     RerankerFactory,
+    VectorStoreFactory,
 )
 
 # Suppress SWIG deprecation warnings globally
@@ -666,9 +666,22 @@ class Memory(MemoryBase):
             user_id (str, optional): user id
             agent_id (str, optional): agent id
             run_id (str, optional): run id
-            filters (dict, optional): Additional custom key-value filters to apply to the search.
-                These are merged with the ID-based scoping filters. For example,
-                `filters={"actor_id": "some_user"}`.
+            filters (dict, optional): Enhanced metadata filtering with operators:
+                - {"key": "value"} - exact match
+                - {"key": {"eq": "value"}} - equalsp
+                - {"key": {"ne": "value"}} - not equals
+                - {"key": {"in": ["val1", "val2"]}} - in list
+                - {"key": {"nin": ["val1", "val2"]}} - not in list
+                - {"key": {"gt": 10}} - greater than
+                - {"key": {"gte": 10}} - greater than or equal
+                - {"key": {"lt": 10}} - less than
+                - {"key": {"lte": 10}} - less than or equal
+                - {"key": {"contains": "text"}} - contains text
+                - {"key": {"icontains": "text"}} - case-insensitive contains
+                - {"key": "*"} - wildcard match (any value)
+                - {"AND": [filter1, filter2]} - logical AND
+                - {"OR": [filter1, filter2]} - logical OR
+                - {"NOT": [filter1]} - logical NOT
             limit (int, optional): The maximum number of memories to return. Defaults to 100.
 
         Returns:
@@ -684,6 +697,11 @@ class Memory(MemoryBase):
 
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError("At least one of 'user_id', 'agent_id', or 'run_id' must be specified.")
+
+        # Apply enhanced metadata filtering if advanced operators are detected
+        if filters and self._has_advanced_operators(filters):
+            processed_filters = self._process_metadata_filters(filters)
+            effective_filters.update(processed_filters)
 
         keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
@@ -1710,9 +1728,22 @@ class AsyncMemory(MemoryBase):
              user_id (str, optional): user id
              agent_id (str, optional): agent id
              run_id (str, optional): run id
-             filters (dict, optional): Additional custom key-value filters to apply to the search.
-                 These are merged with the ID-based scoping filters. For example,
-                 `filters={"actor_id": "some_user"}`.
+             filters (dict, optional): Enhanced metadata filtering with operators:
+                 - {"key": "value"} - exact match
+                 - {"key": {"eq": "value"}} - equals
+                 - {"key": {"ne": "value"}} - not equals
+                 - {"key": {"in": ["val1", "val2"]}} - in list
+                 - {"key": {"nin": ["val1", "val2"]}} - not in list
+                 - {"key": {"gt": 10}} - greater than
+                 - {"key": {"gte": 10}} - greater than or equal
+                 - {"key": {"lt": 10}} - less than
+                 - {"key": {"lte": 10}} - less than or equal
+                 - {"key": {"contains": "text"}} - contains text
+                 - {"key": {"icontains": "text"}} - case-insensitive contains
+                 - {"key": "*"} - wildcard match (any value)
+                 - {"AND": [filter1, filter2]} - logical AND
+                 - {"OR": [filter1, filter2]} - logical OR
+                 - {"NOT": [filter1]} - logical NOT
              limit (int, optional): The maximum number of memories to return. Defaults to 100.
 
          Returns:
@@ -1731,6 +1762,11 @@ class AsyncMemory(MemoryBase):
                 "When 'conversation_id' is not provided (classic mode), "
                 "at least one of 'user_id', 'agent_id', or 'run_id' must be specified for get_all."
             )
+
+        # Apply enhanced metadata filtering if advanced operators are detected
+        if filters and self._has_advanced_operators(filters):
+            processed_filters = self._process_metadata_filters(filters)
+            effective_filters.update(processed_filters)
 
         keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
