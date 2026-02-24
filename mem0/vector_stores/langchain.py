@@ -115,7 +115,7 @@ class Langchain(VectorStoreBase):
         Update a vector and its payload.
         """
         self.delete(vector_id)
-        self.insert(vector, payload, [vector_id])
+        self.insert([vector], [payload] if payload is not None else None, [vector_id])
 
     def get(self, vector_id):
         """
