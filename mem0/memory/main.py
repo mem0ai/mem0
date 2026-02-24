@@ -1050,7 +1050,8 @@ class Memory(MemoryBase):
         memories = self.vector_store.list(filters=filters)[0]
         for memory in memories:
             self._delete_memory(memory.id)
-        self.vector_store.reset()
+        if not filters:
+            self.vector_store.reset()
 
         logger.info(f"Deleted {len(memories)} memories")
 
