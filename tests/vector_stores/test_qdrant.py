@@ -5,9 +5,15 @@ from unittest.mock import MagicMock
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
+    FieldCondition,
     Filter,
+    MatchAny,
+    MatchExcept,
+    MatchText,
+    MatchValue,
     PointIdsList,
     PointStruct,
+    Range,
     VectorParams,
 )
 
@@ -295,6 +301,239 @@ class TestQdrant(unittest.TestCase):
     def test_col_info(self):
         self.qdrant.col_info()
         self.client_mock.get_collection.assert_called_once_with(collection_name="test_collection")
+
+    def tearDown(self):
+        del self.qdrant
+
+
+class TestQdrantEnhancedFilters(unittest.TestCase):
+    """Tests for enhanced metadata filtering operators (issue #3975)."""
+
+    def setUp(self):
+        self.client_mock = MagicMock(spec=QdrantClient)
+        self.qdrant = Qdrant(
+            collection_name="test_collection",
+            embedding_model_dims=128,
+            client=self.client_mock,
+        )
+
+    # ------------------------------------------------------------------ #
+    # _build_field_condition                                               #
+    # ------------------------------------------------------------------ #
+
+    def test_simple_equality(self):
+        """Plain value maps to MatchValue."""
+        cond = self.qdrant._build_field_condition("category", "programming")
+        self.assertIsInstance(cond, FieldCondition)
+        self.assertEqual(cond.key, "category")
+        self.assertIsInstance(cond.match, MatchValue)
+        self.assertEqual(cond.match.value, "programming")
+
+    def test_eq_operator(self):
+        """{\"eq\": v} maps to MatchValue."""
+        cond = self.qdrant._build_field_condition("category", {"eq": "programming"})
+        self.assertIsInstance(cond.match, MatchValue)
+        self.assertEqual(cond.match.value, "programming")
+
+    def test_ne_operator(self):
+        """{\"ne\": v} maps to MatchExcept with a single-element list."""
+        cond = self.qdrant._build_field_condition("category", {"ne": "spam"})
+        self.assertIsInstance(cond.match, MatchExcept)
+        self.assertIn("spam", getattr(cond.match, "except_", None) or getattr(cond.match, "except"))
+
+    def test_in_operator(self):
+        """{\"in\": [...]} maps to MatchAny."""
+        cond = self.qdrant._build_field_condition("category", {"in": ["a", "b", "c"]})
+        self.assertIsInstance(cond.match, MatchAny)
+        self.assertEqual(cond.match.any, ["a", "b", "c"])
+
+    def test_nin_operator(self):
+        """{\"nin\": [...]} maps to MatchExcept."""
+        cond = self.qdrant._build_field_condition("status", {"nin": ["deleted", "banned"]})
+        self.assertIsInstance(cond.match, MatchExcept)
+        excluded = getattr(cond.match, "except_", None) or getattr(cond.match, "except")
+        self.assertIn("deleted", excluded)
+        self.assertIn("banned", excluded)
+
+    def test_contains_operator(self):
+        """{\"contains\": x} maps to MatchText."""
+        cond = self.qdrant._build_field_condition("bio", {"contains": "python"})
+        self.assertIsInstance(cond.match, MatchText)
+        self.assertEqual(cond.match.text, "python")
+
+    def test_icontains_operator(self):
+        """{\"icontains\": x} maps to MatchText (same as contains for Qdrant)."""
+        cond = self.qdrant._build_field_condition("bio", {"icontains": "Python"})
+        self.assertIsInstance(cond.match, MatchText)
+        self.assertEqual(cond.match.text, "Python")
+
+    def test_gt_operator(self):
+        """{\"gt\": v} maps to Range with gt only."""
+        cond = self.qdrant._build_field_condition("priority", {"gt": 5})
+        self.assertIsInstance(cond.range, Range)
+        self.assertEqual(cond.range.gt, 5)
+        self.assertIsNone(cond.range.gte)
+        self.assertIsNone(cond.range.lt)
+        self.assertIsNone(cond.range.lte)
+
+    def test_gte_operator(self):
+        """{\"gte\": v} maps to Range with gte only."""
+        cond = self.qdrant._build_field_condition("priority", {"gte": 5})
+        self.assertIsInstance(cond.range, Range)
+        self.assertEqual(cond.range.gte, 5)
+        self.assertIsNone(cond.range.gt)
+
+    def test_lt_operator(self):
+        """{\"lt\": v} maps to Range with lt only."""
+        cond = self.qdrant._build_field_condition("priority", {"lt": 10})
+        self.assertIsInstance(cond.range, Range)
+        self.assertEqual(cond.range.lt, 10)
+
+    def test_lte_operator(self):
+        """{\"lte\": v} maps to Range with lte only."""
+        cond = self.qdrant._build_field_condition("priority", {"lte": 10})
+        self.assertIsInstance(cond.range, Range)
+        self.assertEqual(cond.range.lte, 10)
+
+    def test_range_gte_lte(self):
+        """Combined {\"gte\": x, \"lte\": y} maps to Range with both bounds."""
+        cond = self.qdrant._build_field_condition("priority", {"gte": 5, "lte": 10})
+        self.assertIsInstance(cond.range, Range)
+        self.assertEqual(cond.range.gte, 5)
+        self.assertEqual(cond.range.lte, 10)
+
+    def test_range_gt_lt(self):
+        """Open interval {\"gt\": x, \"lt\": y} maps to Range with both bounds."""
+        cond = self.qdrant._build_field_condition("score", {"gt": 0.5, "lt": 0.9})
+        self.assertIsInstance(cond.range, Range)
+        self.assertEqual(cond.range.gt, 0.5)
+        self.assertEqual(cond.range.lt, 0.9)
+
+    # ------------------------------------------------------------------ #
+    # _create_filter — comparison and list operators                       #
+    # ------------------------------------------------------------------ #
+
+    def test_create_filter_eq(self):
+        result = self.qdrant._create_filter({"category": {"eq": "programming"}})
+        self.assertIsInstance(result, Filter)
+        self.assertEqual(len(result.must), 1)
+        self.assertIsInstance(result.must[0].match, MatchValue)
+
+    def test_create_filter_ne(self):
+        result = self.qdrant._create_filter({"category": {"ne": "spam"}})
+        self.assertIsInstance(result, Filter)
+        self.assertIsInstance(result.must[0].match, MatchExcept)
+
+    def test_create_filter_in(self):
+        result = self.qdrant._create_filter({"category": {"in": ["prog", "data"]}})
+        self.assertIsInstance(result, Filter)
+        self.assertIsInstance(result.must[0].match, MatchAny)
+        self.assertEqual(result.must[0].match.any, ["prog", "data"])
+
+    def test_create_filter_nin(self):
+        result = self.qdrant._create_filter({"status": {"nin": ["deleted", "banned"]}})
+        self.assertIsInstance(result, Filter)
+        self.assertIsInstance(result.must[0].match, MatchExcept)
+
+    def test_create_filter_gt(self):
+        result = self.qdrant._create_filter({"priority": {"gt": 7}})
+        self.assertIsInstance(result, Filter)
+        self.assertIsInstance(result.must[0].range, Range)
+        self.assertEqual(result.must[0].range.gt, 7)
+
+    def test_create_filter_gte_lte_range(self):
+        result = self.qdrant._create_filter({"priority": {"gte": 5, "lte": 9}})
+        self.assertIsInstance(result, Filter)
+        r = result.must[0].range
+        self.assertEqual(r.gte, 5)
+        self.assertEqual(r.lte, 9)
+
+    def test_create_filter_contains(self):
+        result = self.qdrant._create_filter({"bio": {"contains": "python"}})
+        self.assertIsInstance(result, Filter)
+        self.assertIsInstance(result.must[0].match, MatchText)
+
+    # ------------------------------------------------------------------ #
+    # _create_filter — logical operators                                   #
+    # ------------------------------------------------------------------ #
+
+    def test_and_operator(self):
+        """AND populates Filter.must with nested Filter objects."""
+        filters = {"AND": [{"category": "programming"}, {"priority": 10}]}
+        result = self.qdrant._create_filter(filters)
+        self.assertIsInstance(result, Filter)
+        self.assertEqual(len(result.must), 2)
+        # Each item is a Filter that wraps a single FieldCondition
+        for item in result.must:
+            self.assertIsInstance(item, Filter)
+
+    def test_or_operator(self):
+        """OR populates Filter.should with nested Filter objects."""
+        filters = {"OR": [{"category": "programming"}, {"category": "data"}]}
+        result = self.qdrant._create_filter(filters)
+        self.assertIsInstance(result, Filter)
+        self.assertEqual(len(result.should), 2)
+        self.assertIsNone(result.must)
+
+    def test_not_operator(self):
+        """NOT populates Filter.must_not with nested Filter objects."""
+        filters = {"NOT": [{"category": "spam"}]}
+        result = self.qdrant._create_filter(filters)
+        self.assertIsInstance(result, Filter)
+        self.assertEqual(len(result.must_not), 1)
+        self.assertIsNone(result.must)
+        self.assertIsNone(result.should)
+
+    def test_mixed_field_and_and(self):
+        """Top-level field conditions and AND can coexist in must."""
+        filters = {
+            "user_id": "alice",
+            "AND": [{"priority": {"gte": 5}}, {"category": "programming"}],
+        }
+        result = self.qdrant._create_filter(filters)
+        self.assertIsInstance(result, Filter)
+        # user_id FieldCondition + 2 nested AND Filters = 3 items in must
+        self.assertEqual(len(result.must), 3)
+
+    def test_nested_and_or(self):
+        """AND containing an OR sub-condition produces correct nesting."""
+        filters = {
+            "AND": [
+                {"OR": [{"category": "prog"}, {"category": "data"}]},
+                {"priority": {"gt": 3}},
+            ]
+        }
+        result = self.qdrant._create_filter(filters)
+        self.assertIsInstance(result, Filter)
+        self.assertEqual(len(result.must), 2)
+        # First item is a Filter with should (the OR)
+        or_filter = result.must[0]
+        self.assertIsInstance(or_filter, Filter)
+        self.assertEqual(len(or_filter.should), 2)
+
+    # ------------------------------------------------------------------ #
+    # Edge cases                                                           #
+    # ------------------------------------------------------------------ #
+
+    def test_empty_filter_returns_none(self):
+        self.assertIsNone(self.qdrant._create_filter({}))
+        self.assertIsNone(self.qdrant._create_filter(None))
+
+    def test_backward_compat_simple_equality(self):
+        """Plain scalar equality still works as before."""
+        result = self.qdrant._create_filter({"user_id": "alice", "run_id": "r1"})
+        self.assertIsInstance(result, Filter)
+        keys = [c.key for c in result.must]
+        self.assertIn("user_id", keys)
+        self.assertIn("run_id", keys)
+
+    def test_backward_compat_gte_lte_range(self):
+        """Original gte+lte range filter still produces a Range condition."""
+        result = self.qdrant._create_filter({"count": {"gte": 5, "lte": 10}})
+        self.assertIsInstance(result, Filter)
+        self.assertIsInstance(result.must[0].range, Range)
+        self.assertEqual(result.must[0].range.gte, 5)
+        self.assertEqual(result.must[0].range.lte, 10)
 
     def tearDown(self):
         del self.qdrant
