@@ -44,6 +44,7 @@ export interface LLMConfig {
   config?: Record<string, any>;
   apiKey?: string;
   model?: string | any;
+  url?: string;
   modelProperties?: Record<string, any>;
 }
 
