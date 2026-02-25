@@ -107,6 +107,12 @@ client = MemoryClient(api_key="your-api-key")
 
 # Delete all memories for a specific user
 client.delete_all(user_id="alice")
+
+# Delete all memories for a specific agent
+client.delete_all(agent_id="support-bot")
+
+# Delete all memories for a specific run
+client.delete_all(run_id="session-xyz")
 ```
 
 ```javascript JavaScript
@@ -127,7 +133,48 @@ You can also filter by other parameters such as:
 - `metadata` (as JSON string)
 
 <Warning>
-  `delete_all` requires at least one filter (user, agent, run, or metadata). Calling it with no filters raises an error to prevent accidental data loss.
+  **Breaking change:** `delete_all` previously wiped all project memories when called with no filters. It now **raises an error** if no filters are provided. Use `"*"` wildcards for intentional bulk deletion (see below).
+</Warning>
+
+### Wildcard deletes
+
+Setting a filter to `"*"` deletes **all memories** for that entity type across the entire project. This is an intentionally explicit opt-in to bulk deletion.
+
+<CodeGroup>
+```python Python
+from mem0 import MemoryClient
+
+client = MemoryClient(api_key="your-api-key")
+
+# Delete all memories across every user in the project
+client.delete_all(user_id="*")
+
+# Delete all memories across every agent in the project
+client.delete_all(agent_id="*")
+
+# Full project wipe — all four filters must be explicitly set to "*"
+client.delete_all(user_id="*", agent_id="*", app_id="*", run_id="*")
+```
+
+```javascript JavaScript
+import MemoryClient from 'mem0ai';
+
+const client = new MemoryClient({ apiKey: "your-api-key" });
+
+// Delete all memories across every user in the project
+client.deleteAll({ user_id: "*" })
+  .then(result => console.log(result))
+  .catch(error => console.error(error));
+
+// Full project wipe — all four filters must be explicitly set to "*"
+client.deleteAll({ user_id: "*", agent_id: "*", app_id: "*", run_id: "*" })
+  .then(result => console.log(result))
+  .catch(error => console.error(error));
+```
+</CodeGroup>
+
+<Warning>
+  A full project wipe requires **all four** filters set to `"*"`. Setting only some to `"*"` deletes memories only for those entity types, not the entire project.
 </Warning>
 
 ## Delete with Mem0 OSS
