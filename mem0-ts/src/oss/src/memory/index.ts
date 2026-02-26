@@ -77,6 +77,11 @@ export class Memory {
         },
       };
 
+      // If user provided historyDbPath, ensure it overrides the historyStore default
+      if (this.config.historyDbPath && this.config.historyStore?.config) {
+        this.config.historyStore.config.historyDbPath = this.config.historyDbPath;
+      }
+
       this.db =
         this.config.historyStore && !this.config.disableHistory
           ? HistoryManagerFactory.create(
