@@ -497,15 +497,25 @@ class AWSBedrockLLM(LLMBase):
             if converse_tools:
                 tool_config = {"tools": converse_tools}
 
+        # Prepare inference config — only include temperature OR topP, not both,
+        # as some models (e.g., Anthropic Claude on Bedrock) reject both together.
+        inference_config = {
+            "maxTokens": self.model_config.get("max_tokens", 2000),
+        }
+        temperature = self.model_config.get("temperature")
+        top_p = self.model_config.get("top_p")
+        if temperature is not None:
+            inference_config["temperature"] = temperature
+        elif top_p is not None:
+            inference_config["topP"] = top_p
+        else:
+            inference_config["temperature"] = 0.1
+
         # Prepare converse parameters
         converse_params = {
             "modelId": self.config.model,
             "messages": formatted_messages,
-            "inferenceConfig": {
-                "maxTokens": self.model_config.get("max_tokens", 2000),
-                "temperature": self.model_config.get("temperature", 0.1),
-                "topP": self.model_config.get("top_p", 0.9),
-            }
+            "inferenceConfig": inference_config,
         }
 
         # Add system message if present (for Anthropic)
@@ -527,15 +537,24 @@ class AWSBedrockLLM(LLMBase):
         if self.provider == "anthropic":
             formatted_messages, system_message = self._format_messages_anthropic(messages)
 
+            # Prepare inference config — only include temperature OR topP, not both
+            inference_config = {
+                "maxTokens": self.model_config.get("max_tokens", 2000),
+            }
+            temperature = self.model_config.get("temperature")
+            top_p = self.model_config.get("top_p")
+            if temperature is not None:
+                inference_config["temperature"] = temperature
+            elif top_p is not None:
+                inference_config["topP"] = top_p
+            else:
+                inference_config["temperature"] = 0.1
+
             # Prepare converse parameters
             converse_params = {
                 "modelId": self.config.model,
                 "messages": formatted_messages,
-                "inferenceConfig": {
-                    "maxTokens": self.model_config.get("max_tokens", 2000),
-                    "temperature": self.model_config.get("temperature", 0.1),
-                    "topP": self.model_config.get("top_p", 0.9),
-                }
+                "inferenceConfig": inference_config,
             }
 
             # Add system message if present
