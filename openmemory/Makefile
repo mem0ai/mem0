@@ -38,6 +38,12 @@ up:
 down:
 	docker compose down
 
+clean: down
+	@echo "Wiping all databases and infrastructure..."
+	docker compose down -v
+	docker image prune -f
+	rm -f api/openmemory.db
+
 restart: down up
 
 logs:
@@ -76,12 +82,6 @@ ui-build:
 
 ui-dev-start:
 	cd ui && NEXT_PUBLIC_USER_ID=$(USER) pnpm dev
-
-clean:
-	docker compose down -v
-	docker volume rm openmemory openmemory_postgres || true
-	docker image prune -f
-	rm -f api/openmemory.db
 
 # === Backup & Restore ===
 backup:

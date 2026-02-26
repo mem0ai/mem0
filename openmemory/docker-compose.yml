@@ -39,7 +39,7 @@ services:
       - "10003:8765"
     environment:
       - OPENAI_API_KEY=lmstudio
-      - OPENAI_BASE_URL=http://192.168.1.100:1234/v1
+      - OPENAI_BASE_URL=http://host.docker.internal:1234/v1
       - FORCE_CONFIG_SAVE=true
       - HISTORY_DB_PATH=/data/history.db
       - DATABASE_URL=postgresql://openmemory:openmemory@postgres:5432/openmemory
