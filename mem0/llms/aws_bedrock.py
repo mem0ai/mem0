@@ -22,12 +22,16 @@ PROVIDERS = [
 ]
 
 
-def extract_provider(model: str) -> str:
-    """Extract provider from model identifier."""
-    for provider in PROVIDERS:
-        if re.search(rf"\b{re.escape(provider)}\b", model):
-            return provider
-    raise ValueError(f"Unknown provider in model: {model}")
+def extract_provider(model_id: str) -> str:
+    """Extract provider from model ID, handling inference profile prefixes."""
+    if "." not in model_id:
+        return model_id
+    parts = model_id.split(".")
+    provider = parts[0]
+    # Handle cross-region inference profile prefixes (e.g., us.anthropic.claude-xxx)
+    if provider in ("us", "eu", "global", "ap") and len(parts) >= 2:
+        return parts[1]
+    return provider
 
 
 class AWSBedrockLLM(LLMBase):
@@ -497,15 +501,22 @@ class AWSBedrockLLM(LLMBase):
             if converse_tools:
                 tool_config = {"tools": converse_tools}
 
+        # Build inference config - avoid sending both temperature and topP
+        tools_inference_config = {
+            "maxTokens": self.model_config.get("max_tokens", 2000),
+        }
+        if "temperature" in self.model_config:
+            tools_inference_config["temperature"] = self.model_config["temperature"]
+        elif "top_p" in self.model_config:
+            tools_inference_config["topP"] = self.model_config["top_p"]
+        else:
+            tools_inference_config["temperature"] = 0.1
+
         # Prepare converse parameters
         converse_params = {
             "modelId": self.config.model,
             "messages": formatted_messages,
-            "inferenceConfig": {
-                "maxTokens": self.model_config.get("max_tokens", 2000),
-                "temperature": self.model_config.get("temperature", 0.1),
-                "topP": self.model_config.get("top_p", 0.9),
-            }
+            "inferenceConfig": tools_inference_config,
         }
 
         # Add system message if present (for Anthropic)
@@ -527,15 +538,22 @@ class AWSBedrockLLM(LLMBase):
         if self.provider == "anthropic":
             formatted_messages, system_message = self._format_messages_anthropic(messages)
 
+            # Build inference config - avoid sending both temperature and topP
+            inference_config = {
+                "maxTokens": self.model_config.get("max_tokens", 2000),
+            }
+            if "temperature" in self.model_config:
+                inference_config["temperature"] = self.model_config["temperature"]
+            elif "top_p" in self.model_config:
+                inference_config["topP"] = self.model_config["top_p"]
+            else:
+                inference_config["temperature"] = 0.1
+
             # Prepare converse parameters
             converse_params = {
                 "modelId": self.config.model,
                 "messages": formatted_messages,
-                "inferenceConfig": {
-                    "maxTokens": self.model_config.get("max_tokens", 2000),
-                    "temperature": self.model_config.get("temperature", 0.1),
-                    "topP": self.model_config.get("top_p", 0.9),
-                }
+                "inferenceConfig": inference_config,
             }
 
             # Add system message if present
@@ -563,15 +581,22 @@ class AWSBedrockLLM(LLMBase):
                 "top_p": self.model_config.get("top_p", 0.9),
             }
             
+            # Build inference config - avoid sending both temperature and topP
+            nova_inference_config = {
+                "maxTokens": input_body["max_tokens"],
+            }
+            if "temperature" in self.model_config:
+                nova_inference_config["temperature"] = self.model_config["temperature"]
+            elif "top_p" in self.model_config:
+                nova_inference_config["topP"] = self.model_config["top_p"]
+            else:
+                nova_inference_config["temperature"] = 0.1
+
             # Use converse API for Nova models
             response = self.client.converse(
                 modelId=self.config.model,
                 messages=input_body["messages"],
-                inferenceConfig={
-                    "maxTokens": input_body["max_tokens"],
-                    "temperature": input_body["temperature"],
-                    "topP": input_body["top_p"],
-                }
+                inferenceConfig=nova_inference_config,
             )
             
             return self._parse_response(response)
