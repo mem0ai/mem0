@@ -197,6 +197,7 @@ def sanitize_relationship_for_cypher(relationship) -> str:
         "}": "_rbrace_",
         "<": "_langle_",
         ">": "_rangle_",
+        "-": "_",
     }
 
     # Apply replacements and clean up
