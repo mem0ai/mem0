@@ -30,6 +30,7 @@ import { AzureOpenAILLM } from "../llms/azure";
 import { AzureOpenAIEmbedder } from "../embeddings/azure";
 import { LangchainLLM } from "../llms/langchain";
 import { LangchainEmbedder } from "../embeddings/langchain";
+import { AWSBedrockEmbedder } from "../embeddings/aws_bedrock";
 import { LangchainVectorStore } from "../vector_stores/langchain";
 import { AzureAISearch } from "../vector_stores/azure_ai_search";
 
@@ -47,6 +48,9 @@ export class EmbedderFactory {
         return new AzureOpenAIEmbedder(config);
       case "langchain":
         return new LangchainEmbedder(config);
+      case "aws_bedrock":
+      case "bedrock":
+        return new AWSBedrockEmbedder(config as any);
       default:
         throw new Error(`Unsupported embedder provider: ${provider}`);
     }

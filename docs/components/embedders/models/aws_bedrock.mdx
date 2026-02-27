@@ -2,17 +2,29 @@
 title: AWS Bedrock
 ---
 
-To use AWS Bedrock embedding models, you need to have the appropriate AWS credentials and permissions. The embeddings implementation relies on the `boto3` library.
+To use AWS Bedrock embedding models, you need to have the appropriate AWS credentials and permissions.
 
 ### Setup
 - Ensure you have model access from the [AWS Bedrock Console](https://us-east-1.console.aws.amazon.com/bedrock/home?region=us-east-1#/modelaccess)
-- Authenticate the boto3 client using a method described in the [AWS documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html)
+- Authenticate using AWS credentials via environment variables or IAM roles
 - Set up environment variables for authentication:
   ```bash
   export AWS_REGION=us-east-1
   export AWS_ACCESS_KEY_ID=your-access-key
   export AWS_SECRET_ACCESS_KEY=your-secret-key
   ```
+
+### Installation
+
+<CodeGroup>
+```bash pip
+pip install boto3
+```
+
+```bash npm
+npm install @aws-sdk/client-bedrock-runtime
+```
+</CodeGroup>
 
 ### Usage
 
@@ -47,6 +59,29 @@ messages = [
 ]
 m.add(messages, user_id="alice")
 ```
+
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  embedder: {
+    provider: 'aws_bedrock',
+    config: {
+      model: 'amazon.titan-embed-text-v2:0',
+      region: 'us-west-2',
+    },
+  },
+};
+
+const memory = new Memory(config);
+const messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+await memory.add(messages, { userId: "alice" });
+```
 </CodeGroup>
 
 ### Config
@@ -59,4 +94,24 @@ Here are the parameters available for configuring AWS Bedrock embedder:
 | --- | --- | --- |
 | `model` | The name of the embedding model to use | `amazon.titan-embed-text-v1` |
 </Tab>
+<Tab title="TypeScript">
+| Parameter     | Description                                        | Default Value                   |
+| ------------- | -------------------------------------------------- | ------------------------------- |
+| `model`       | The name of the embedding model to use             | `"amazon.titan-embed-text-v1"` |
+| `region`      | AWS region (e.g., "us-east-1")                     | Environment default             |
+| `credentials` | AWS credentials object with `accessKeyId`, `secretAccessKey`, and optional `sessionToken` | Environment/IAM default |
+| `normalize`   | Whether to normalize embeddings to unit vectors    | `false`                         |
+</Tab>
 </Tabs>
+
+### Supported Models
+
+The TypeScript SDK supports the following Bedrock embedding models:
+
+| Model | Dimensions | Provider |
+| --- | --- | --- |
+| `amazon.titan-embed-text-v1` | 1536 | Amazon |
+| `amazon.titan-embed-text-v2:0` | 1024 | Amazon |
+| `amazon.titan-embed-image-v1` | 1024 | Amazon |
+| `cohere.embed-english-v3` | 1024 | Cohere |
+| `cohere.embed-multilingual-v3` | 1024 | Cohere |
