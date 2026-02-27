@@ -1,0 +1,66 @@
+---
+title: Avian
+---
+
+[Avian](https://avian.io) is an OpenAI-compatible LLM inference API that provides access to frontier models including DeepSeek V3.2, Kimi K2.5, GLM-5, and MiniMax M2.5 with competitive pricing.
+
+To use Avian LLM models, set the `AVIAN_API_KEY` environment variable. You can also optionally set `AVIAN_API_BASE` if you need to use a different API endpoint (defaults to "https://api.avian.io/v1").
+
+## Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["AVIAN_API_KEY"] = "your-api-key"
+os.environ["OPENAI_API_KEY"] = "your-api-key" # for embedder model
+
+config = {
+    "llm": {
+        "provider": "avian",
+        "config": {
+            "model": "deepseek/deepseek-v3.2",  # default model
+            "temperature": 0.2,
+            "max_tokens": 2000,
+            "top_p": 1.0
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+You can also configure the API base URL in the config:
+
+```python
+config = {
+    "llm": {
+        "provider": "avian",
+        "config": {
+            "model": "deepseek/deepseek-v3.2",
+            "avian_base_url": "https://your-custom-endpoint.com",
+            "api_key": "your-api-key"  # alternatively to using environment variable
+        }
+    }
+}
+```
+
+## Available Models
+
+| Model | Context Window | Max Output | Input Price | Output Price |
+|-------|---------------|------------|-------------|--------------|
+| `deepseek/deepseek-v3.2` | 164K | 65K | $0.26/M | $0.38/M |
+| `moonshotai/kimi-k2.5` | 131K | 8K | $0.45/M | $2.20/M |
+| `z-ai/glm-5` | 131K | 16K | $0.30/M | $2.55/M |
+| `minimax/minimax-m2.5` | 1M | 1M | $0.30/M | $1.10/M |
+
+## Config
+
+All available parameters for the `avian` config are present in [Master List of All Params in Config](../config).

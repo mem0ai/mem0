@@ -187,6 +187,7 @@
                               "components/llms/models/mistral_AI",
                               "components/llms/models/google_AI",
                               "components/llms/models/aws_bedrock",
+                              "components/llms/models/avian",
                               "components/llms/models/deepseek",
                               "components/llms/models/xAI",
                               "components/llms/models/sarvam",
