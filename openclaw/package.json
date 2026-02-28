@@ -11,9 +11,17 @@
     "mem0",
     "long-term-memory"
   ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
   "dependencies": {
     "@sinclair/typebox": "0.34.47",
     "mem0ai": "^2.2.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "vitest": "^2.0.0"
   },
   "openclaw": {
     "extensions": [
