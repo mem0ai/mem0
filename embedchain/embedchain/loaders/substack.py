@@ -8,6 +8,7 @@ import requests
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils.misc import is_readable
+from embedchain.utils.url_security import get_allowed_url
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,7 @@ class SubstackLoader(BaseLoader):
             url = url + "/sitemap.xml"
 
         output = []
-        response = requests.get(url)
+        response = get_allowed_url(url)
 
         try:
             response.raise_for_status()
@@ -83,7 +84,7 @@ class SubstackLoader(BaseLoader):
 
         def load_link(link: str):
             try:
-                substack_data = requests.get(link)
+                substack_data = get_allowed_url(link)
                 substack_data.raise_for_status()
 
                 soup = BeautifulSoup(substack_data.text, "html.parser")

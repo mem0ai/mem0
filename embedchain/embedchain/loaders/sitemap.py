@@ -18,6 +18,7 @@ except ImportError:
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.loaders.web_page import WebPageLoader
+from embedchain.utils.url_security import SSRFSecurityError, get_allowed_url
 
 logger = logging.getLogger(__name__)
 
@@ -39,9 +40,12 @@ class SitemapLoader(BaseLoader):
 
         if urlparse(sitemap_source).scheme in ("http", "https"):
             try:
-                response = requests.get(sitemap_source, headers=headers)
+                response = get_allowed_url(sitemap_source, headers=headers)
                 response.raise_for_status()
                 soup = BeautifulSoup(response.text, "xml")
+            except SSRFSecurityError as e:
+                logger.error(f"Security error fetching sitemap from URL: {e}")
+                raise
             except requests.RequestException as e:
                 logger.error(f"Error fetching sitemap from URL: {e}")
                 return

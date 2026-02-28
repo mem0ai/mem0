@@ -100,7 +100,8 @@ def test_get_file_content_http(content):
     Test _get_file_content method of CsvLoader for http and https URLs
     """
 
-    with patch("requests.get") as mock_get:
+    # Mock get_allowed_url instead of requests.get since we now use SSRF protection
+    with patch("embedchain.loaders.csv.get_allowed_url") as mock_get:
         mock_response = MagicMock()
         mock_response.text = "Name,Age,Occupation\nAlice,28,Engineer\nBob,35,Doctor\nCharlie,22,Student"
         mock_get.return_value = mock_response

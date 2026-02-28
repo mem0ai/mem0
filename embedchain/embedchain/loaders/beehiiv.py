@@ -8,6 +8,7 @@ import requests
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils.misc import is_readable
+from embedchain.utils.url_security import get_allowed_url
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,7 @@ class BeehiivLoader(BaseLoader):
                 "Safari/537.36"
             ),
         }
-        response = requests.get(url, headers=headers)
+        response = get_allowed_url(url, headers=headers)
         try:
             response.raise_for_status()
         except requests.exceptions.HTTPError as e:
@@ -83,7 +84,7 @@ class BeehiivLoader(BaseLoader):
 
         def load_link(link: str):
             try:
-                beehiiv_data = requests.get(link, headers=headers)
+                beehiiv_data = get_allowed_url(link, headers=headers)
                 beehiiv_data.raise_for_status()
 
                 soup = BeautifulSoup(beehiiv_data.text, "html.parser")

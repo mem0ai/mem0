@@ -4,10 +4,9 @@ import os
 import re
 from typing import Union
 
-import requests
-
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils.misc import clean_string, is_valid_json_string
+from embedchain.utils.url_security import get_allowed_url
 
 
 class JSONReader:
@@ -68,7 +67,7 @@ class JSONLoader(BaseLoader):
             with open(content, "r", encoding="utf-8") as json_file:
                 json_data = json.load(json_file)
         elif re.match(VALID_URL_PATTERN, content):
-            response = requests.get(content)
+            response = get_allowed_url(content)
             if response.status_code == 200:
                 json_data = response.json()
             else:

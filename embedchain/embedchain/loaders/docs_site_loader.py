@@ -2,8 +2,6 @@ import hashlib
 import logging
 from urllib.parse import urljoin, urlparse
 
-import requests
-
 try:
     from bs4 import BeautifulSoup
 except ImportError:
@@ -14,6 +12,7 @@ except ImportError:
 
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
+from embedchain.utils.url_security import get_allowed_url
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +30,7 @@ class DocsSiteLoader(BaseLoader):
         base_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
         current_path = parsed_url.path
 
-        response = requests.get(url)
+        response = get_allowed_url(url)
         if response.status_code != 200:
             logger.info(f"Failed to fetch the website: {response.status_code}")
             return
@@ -55,7 +54,7 @@ class DocsSiteLoader(BaseLoader):
 
     @staticmethod
     def _load_data_from_url(url: str) -> list:
-        response = requests.get(url)
+        response = get_allowed_url(url)
         if response.status_code != 200:
             logger.info(f"Failed to fetch the website: {response.status_code}")
             return []

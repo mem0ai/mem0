@@ -2,10 +2,10 @@ import hashlib
 from io import StringIO
 from urllib.parse import urlparse
 
-import requests
 import yaml
 
 from embedchain.loaders.base_loader import BaseLoader
+from embedchain.utils.url_security import get_allowed_url
 
 
 class OpenAPILoader(BaseLoader):
@@ -16,7 +16,7 @@ class OpenAPILoader(BaseLoader):
             raise ValueError("Not a valid URL.")
 
         if url.scheme in ["http", "https"]:
-            response = requests.get(content)
+            response = get_allowed_url(content)
             response.raise_for_status()
             return StringIO(response.text)
         elif url.scheme == "file":
