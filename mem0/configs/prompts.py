@@ -172,7 +172,7 @@ Remember the following:
 Following is a conversation between the user and the assistant. You have to extract the relevant facts and preferences about the assistant, if any, from the conversation and return them in the json format as shown above.
 """
 
-DEFAULT_UPDATE_MEMORY_PROMPT = """You are a smart memory manager which controls the memory of a system.
+DEFAULT_UPDATE_MEMORY_PROMPT = """You are a smart memory manager which controls the memory of a system. You must return a JSON object with a "memory" key.
 You can perform four operations: (1) add into the memory, (2) update the memory, (3) delete from the memory, and (4) no change.
 
 Based on the above four operations, the memory will change.

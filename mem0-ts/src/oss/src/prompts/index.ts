@@ -96,7 +96,7 @@ export function getUpdateMemoryMessages(
   retrievedOldMemory: Array<{ id: string; text: string }>,
   newRetrievedFacts: string[],
 ): string {
-  return `You are a smart memory manager which controls the memory of a system.
+  return `You are a smart memory manager which controls the memory of a system. You must return a JSON object with a "memory" key.
   You can perform four operations: (1) add into the memory, (2) update the memory, (3) delete from the memory, and (4) no change.
   
   Based on the above four operations, the memory will change.
