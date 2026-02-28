@@ -49,5 +49,5 @@ class OllamaEmbedding(EmbeddingBase):
         Returns:
             list: The embedding vector.
         """
-        response = self.client.embeddings(model=self.config.model, prompt=text)
+        response = self.client.embed(model=self.config.model, input=text)
         return response["embedding"]

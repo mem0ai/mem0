@@ -20,12 +20,12 @@ def test_embed_text(mock_ollama_client):
     embedder = OllamaEmbedding(config)
 
     mock_response = {"embedding": [0.1, 0.2, 0.3, 0.4, 0.5]}
-    mock_ollama_client.embeddings.return_value = mock_response
+    mock_ollama_client.embed.return_value = mock_response
 
     text = "Sample text to embed."
     embedding = embedder.embed(text)
 
-    mock_ollama_client.embeddings.assert_called_once_with(model="nomic-embed-text", prompt=text)
+    mock_ollama_client.embed.assert_called_once_with(model="nomic-embed-text", input=text)
 
     assert embedding == [0.1, 0.2, 0.3, 0.4, 0.5]
 
