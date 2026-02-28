@@ -287,7 +287,7 @@ class TestOpenSearchDB(unittest.TestCase):
 @patch('mem0.utils.factory.LlmFactory.create')
 @patch('mem0.memory.storage.SQLiteManager')
 def test_safe_deepcopy_config_handles_opensearch_auth(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
-    """Test that _safe_deepcopy_config handles OpenSearch configs with AWS auth objects gracefully."""
+    """Test that _safe_deepcopy_config preserves http_auth and auth handler objects."""
     mock_embedder_factory.return_value = MagicMock()
     mock_vector_store = MagicMock()
     mock_vector_factory.return_value = mock_vector_store
@@ -300,8 +300,12 @@ def test_safe_deepcopy_config_handles_opensearch_auth(mock_sqlite, mock_llm_fact
     
     safe_config = _safe_deepcopy_config(config_with_auth)
     
-    assert safe_config.http_auth is None
-    assert safe_config.auth is None
+    # http_auth and auth are handler objects (e.g. AWS4Auth signers), not raw
+    # secrets.  They must be preserved so the telemetry vector store can
+    # authenticate.  See #3580.
+    assert safe_config.http_auth is not None
+    assert safe_config.auth is not None
+    # credentials and connection_class are still stripped
     assert safe_config.credentials is None
     assert safe_config.connection_class is None
     
