@@ -14,6 +14,7 @@ export interface Message {
 
 export interface EmbeddingConfig {
   apiKey?: string;
+  baseURL?: string;
   model?: string | any;
   url?: string;
   embeddingDims?: number;
