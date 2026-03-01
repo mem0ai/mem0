@@ -1,3 +1,5 @@
+import json
+
 from typing import Dict, List, Optional, Union
 
 try:
@@ -61,7 +63,28 @@ class OllamaLLM(LLMBase):
                 "tool_calls": [],
             }
 
-            # Ollama doesn't support tool calls in the same way, so we return the content
+            if isinstance(response, dict):
+                raw_calls = response.get("message", {}).get("tool_calls") or []
+            else:
+                raw_calls = getattr(response.message, "tool_calls", None) or []
+
+            for tool_call in raw_calls:
+                if isinstance(tool_call, dict):
+                    fn = tool_call.get("function", {})
+                    name = fn.get("name", "")
+                    arguments = fn.get("arguments", {})
+                else:
+                    fn = getattr(tool_call, "function", None)
+                    name = getattr(fn, "name", "") if fn else ""
+                    arguments = getattr(fn, "arguments", {}) if fn else {}
+
+                if isinstance(arguments, str):
+                    arguments = json.loads(arguments)
+
+                processed_response["tool_calls"].append(
+                    {"name": name, "arguments": arguments}
+                )
+
             return processed_response
         else:
             return content
@@ -112,6 +135,9 @@ class OllamaLLM(LLMBase):
 
         # Remove OpenAI-specific parameters that Ollama doesn't support
         params.pop("max_tokens", None)  # Ollama uses different parameter names
+
+        if tools:
+            params["tools"] = tools
 
         response = self.client.chat(**params)
         return self._parse_response(response, tools)
