@@ -1234,6 +1234,9 @@ class Memory(MemoryBase):
             )
         capture_event("mem0.reset", self, {"sync_type": "sync"})
 
+        if self.enable_graph:
+            self.graph.reset()
+
     def chat(self, query):
         raise NotImplementedError("Chat function not implemented yet.")
 
@@ -2320,6 +2323,9 @@ class AsyncMemory(MemoryBase):
             self.config.vector_store.provider, self.config.vector_store.config
         )
         capture_event("mem0.reset", self, {"sync_type": "async"})
+
+        if self.enable_graph:
+            await asyncio.to_thread(self.graph.reset)
 
     async def chat(self, query):
         raise NotImplementedError("Chat function not implemented yet.")
