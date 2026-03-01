@@ -1283,7 +1283,7 @@ class AsyncMemory(MemoryBase):
         capture_event("mem0.init", self, {"sync_type": "async"})
 
     @classmethod
-    async def from_config(cls, config_dict: Dict[str, Any]):
+    def from_config(cls, config_dict: Dict[str, Any]):
         try:
             config = cls._process_config(config_dict)
             config = MemoryConfig(**config_dict)
