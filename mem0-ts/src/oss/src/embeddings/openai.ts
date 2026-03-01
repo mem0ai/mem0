@@ -10,7 +10,7 @@ export class OpenAIEmbedder implements Embedder {
   constructor(config: EmbeddingConfig) {
     this.openai = new OpenAI({
       apiKey: config.apiKey,
-      baseURL: config.baseURL || "https://api.openai.com/v1",
+      baseURL: config.baseURL,
     });
     this.model = config.model || "text-embedding-3-small";
     this.embeddingDims = config.embeddingDims || 1536;
