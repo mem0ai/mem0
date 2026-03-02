@@ -1,5 +1,6 @@
 from typing import Any, Dict, Optional
 
+from app.config import load_config
 from app.database import get_db
 from app.models import Config as ConfigModel
 from app.utils.memory import reset_memory_client
@@ -48,30 +49,7 @@ class ConfigSchema(BaseModel):
 
 def get_default_configuration():
     """Get the default configuration with sensible defaults for LLM and embedder."""
-    return {
-        "openmemory": {
-            "custom_instructions": None
-        },
-        "mem0": {
-            "llm": {
-                "provider": "openai",
-                "config": {
-                    "model": "gpt-4o-mini",
-                    "temperature": 0.1,
-                    "max_tokens": 2000,
-                    "api_key": "env:OPENAI_API_KEY"
-                }
-            },
-            "embedder": {
-                "provider": "openai",
-                "config": {
-                    "model": "text-embedding-3-small",
-                    "api_key": "env:OPENAI_API_KEY"
-                }
-            },
-            "vector_store": None
-        }
-    }
+    return load_config()
 
 def get_config_from_db(db: Session, key: str = "main"):
     """Get configuration from database."""
@@ -129,9 +107,6 @@ def save_config_to_db(db: Session, config: Dict[str, Any], key: str = "main"):
         db.add(db_config)
         
     db.commit()
-    db.refresh(db_config)
-    return db_config.value
-
 @router.get("/", response_model=ConfigSchema)
 async def get_configuration(db: Session = Depends(get_db)):
     """Get the current configuration."""
