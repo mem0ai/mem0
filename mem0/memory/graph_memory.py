@@ -174,6 +174,7 @@ class MemoryGraph:
 
         query = f"""
         MATCH (n {self.node_label} {{{node_props_str}}})-[r]->(m {self.node_label} {{{node_props_str}}})
+        WHERE r.valid IS NULL OR r.valid = true
         RETURN n.name AS source, type(r) AS relationship, m.name AS target
         LIMIT $limit
         """
@@ -291,10 +292,12 @@ class MemoryGraph:
             CALL {{
                 WITH n
                 MATCH (n)-[r]->(m {self.node_label} {{{node_props_str}}})
+                WHERE r.valid IS NULL OR r.valid = true
                 RETURN n.name AS source, elementId(n) AS source_id, type(r) AS relationship, elementId(r) AS relation_id, m.name AS destination, elementId(m) AS destination_id
                 UNION
                 WITH n  
                 MATCH (n)<-[r]-(m {self.node_label} {{{node_props_str}}})
+                WHERE r.valid IS NULL OR r.valid = true
                 RETURN m.name AS source, elementId(m) AS source_id, type(r) AS relationship, elementId(r) AS relation_id, n.name AS destination, elementId(n) AS destination_id
             }}
             WITH distinct source, source_id, relationship, relation_id, destination, destination_id, similarity
@@ -392,13 +395,15 @@ class MemoryGraph:
             source_props_str = ", ".join(source_props)
             dest_props_str = ", ".join(dest_props)
 
-            # Delete the specific relationship between nodes
+            # Soft-delete: mark relationship as invalid instead of removing it,
+            # enabling temporal reasoning over historical graph state.
+            # See: https://github.com/mem0ai/mem0/issues/4187
             cypher = f"""
             MATCH (n {self.node_label} {{{source_props_str}}})
             -[r:{relationship}]->
             (m {self.node_label} {{{dest_props_str}}})
-            
-            DELETE r
+            WHERE r.valid IS NULL OR r.valid = true
+            SET r.valid = false, r.invalidated_at = datetime()
             RETURN 
                 n.name AS source,
                 m.name AS target,
