@@ -624,6 +624,22 @@ const memoryPlugin = {
     // Track current session ID for tool-level session scoping
     let currentSessionId: string | undefined;
 
+    // Track current agent ID for per-agent memory isolation
+    let currentAgentId: string | undefined;
+
+    // Helper: extract agentId from session key (pattern: agent:<agentId>:...)
+    // Returns undefined for the "main" agent to preserve default behavior.
+    function extractAgentId(sessionKey: string): string | undefined {
+      const match = sessionKey.match(/^agent:([^:]+):/);
+      return match && match[1] !== "main" ? match[1] : undefined;
+    }
+
+    // Helper: get effective userId for Mem0 operations.
+    // Precedence: explicit override > current agentId (non-main) > configured userId.
+    function effectiveUserId(userIdOverride?: string): string {
+      return userIdOverride || currentAgentId || cfg.userId;
+    }
+
     api.logger.info(
       `openclaw-mem0: registered (mode: ${cfg.mode}, user: ${cfg.userId}, graph: ${cfg.enableGraph}, autoRecall: ${cfg.autoRecall}, autoCapture: ${cfg.autoCapture})`,
     );
@@ -631,7 +647,7 @@ const memoryPlugin = {
     // Helper: build add options
     function buildAddOptions(userIdOverride?: string, runId?: string): AddOptions {
       const opts: AddOptions = {
-        user_id: userIdOverride || cfg.userId,
+        user_id: effectiveUserId(userIdOverride),
         source: "OPENCLAW",
       };
       if (runId) opts.run_id = runId;
@@ -651,7 +667,7 @@ const memoryPlugin = {
       runId?: string,
     ): SearchOptions {
       const opts: SearchOptions = {
-        user_id: userIdOverride || cfg.userId,
+        user_id: effectiveUserId(userIdOverride),
         top_k: limit ?? cfg.topK,
         limit: limit ?? cfg.topK,
         threshold: cfg.searchThreshold,
@@ -943,7 +959,7 @@ const memoryPlugin = {
 
           try {
             let memories: MemoryItem[] = [];
-            const uid = userId || cfg.userId;
+            const uid = effectiveUserId(userId);
 
             if (scope === "session") {
               if (currentSessionId) {
@@ -1244,9 +1260,12 @@ const memoryPlugin = {
       api.on("before_agent_start", async (event, ctx) => {
         if (!event.prompt || event.prompt.length < 5) return;
 
-        // Track session ID
+        // Track session ID and agent ID
         const sessionId = (ctx as any)?.sessionKey ?? undefined;
-        if (sessionId) currentSessionId = sessionId;
+        if (sessionId) {
+          currentSessionId = sessionId;
+          currentAgentId = extractAgentId(sessionId);
+        }
 
         try {
           // Search long-term memories (user-scoped)
@@ -1311,9 +1330,12 @@ const memoryPlugin = {
           return;
         }
 
-        // Track session ID
+        // Track session ID and agent ID
         const sessionId = (ctx as any)?.sessionKey ?? undefined;
-        if (sessionId) currentSessionId = sessionId;
+        if (sessionId) {
+          currentSessionId = sessionId;
+          currentAgentId = extractAgentId(sessionId);
+        }
 
         try {
           // Extract messages, limiting to last 10
