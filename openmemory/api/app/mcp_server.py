@@ -184,7 +184,7 @@ async def search_memory(query: str) -> str:
             for h in hits:
                 # All vector db search functions return OutputData class
                 id, score, payload = h.id, h.score, h.payload
-                if allowed and h.id is None or h.id not in allowed: 
+                if allowed is not None and h.id not in allowed:
                     continue
                 
                 results.append({
