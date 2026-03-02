@@ -42,7 +42,7 @@ export function AppCard({ app }: AppCardProps) {
               </div>
             )}
           </div>
-          <h2 className="text-xl font-semibold">{appConfig.name}</h2>
+          <h2 className="text-xl font-semibold">{app.name}</h2>
         </div>
       </CardHeader>
       <CardContent className="pb-4 my-1">
