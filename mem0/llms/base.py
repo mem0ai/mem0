@@ -40,6 +40,21 @@ class LLMBase(ABC):
             # This will be handled by individual providers
             pass
 
+        reasoning_effort = getattr(self.config, 'reasoning_effort', None)
+        if reasoning_effort is not None:
+            valid_efforts = ["low", "medium", "high"]
+            if reasoning_effort not in valid_efforts:
+                raise ValueError(f"reasoning_effort must be one of {valid_efforts}, got: {reasoning_effort}")
+            
+            # Optionally warn if reasoning_effort is set for non-reasoning models
+            model = getattr(self.config, 'model', '')
+            if not self._is_reasoning_model(model):
+                import warnings
+                warnings.warn(
+                    f"reasoning_effort parameter is set but model '{model}' is not a reasoning model. "
+                    "This parameter will be ignored."
+                )
+
     def _is_reasoning_model(self, model: str) -> bool:
         """
         Check if the model is a reasoning model or GPT-5 series that doesn't support certain parameters.
@@ -88,7 +103,10 @@ class LLMBase(ABC):
                 supported_params["tools"] = kwargs["tools"]
             if "tool_choice" in kwargs:
                 supported_params["tool_choice"] = kwargs["tool_choice"]
-                
+
+            reasoning_effort = getattr(self.config, 'reasoning_effort', None)
+            if reasoning_effort is not None:
+                supported_params["reasoning_effort"] = reasoning_effort
             return supported_params
         else:
             # For regular models, include all common parameters

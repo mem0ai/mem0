@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Literal
 
 from mem0.configs.llms.base import BaseLlmConfig
 
@@ -24,6 +24,7 @@ class AWSBedrockConfig(BaseLlmConfig):
         aws_session_token: Optional[str] = None,
         aws_profile: Optional[str] = None,
         model_kwargs: Optional[Dict[str, Any]] = None,
+        reasoning_effort: Optional[Literal["low", "medium", "high"]] = None,
         **kwargs,
     ):
         """
@@ -41,6 +42,7 @@ class AWSBedrockConfig(BaseLlmConfig):
             aws_session_token: AWS session token for temporary credentials
             aws_profile: AWS profile name for credentials
             model_kwargs: Additional model-specific parameters
+            reasoning_effort: Reasoning effort level for reasoning models, defaults to None
             **kwargs: Additional arguments passed to base class
         """
         super().__init__(
@@ -49,6 +51,7 @@ class AWSBedrockConfig(BaseLlmConfig):
             max_tokens=max_tokens,
             top_p=top_p,
             top_k=top_k,
+            reasoning_effort=reasoning_effort,
             **kwargs,
         )
 
