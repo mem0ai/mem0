@@ -196,12 +196,16 @@ def test_delete_all(memory_instance, version, enable_graph):
     memory_instance.enable_graph = enable_graph
     mock_memories = [Mock(id="1"), Mock(id="2")]
     memory_instance.vector_store.list = Mock(return_value=(mock_memories, None))
+    memory_instance.vector_store.reset = Mock()
     memory_instance._delete_memory = Mock()
     memory_instance.graph.delete_all = Mock()
 
     result = memory_instance.delete_all(user_id="test_user")
 
     assert memory_instance._delete_memory.call_count == 2
+    # reset() must NOT be called -- it would drop the entire collection,
+    # deleting memories for ALL users instead of just the filtered ones.
+    memory_instance.vector_store.reset.assert_not_called()
 
     if enable_graph:
         memory_instance.graph.delete_all.assert_called_once_with({"user_id": "test_user"})
@@ -209,6 +213,12 @@ def test_delete_all(memory_instance, version, enable_graph):
         memory_instance.graph.delete_all.assert_not_called()
 
     assert result["message"] == "Memories deleted successfully!"
+
+
+def test_delete_all_requires_filter(memory_instance):
+    """delete_all() without any filter must raise ValueError."""
+    with pytest.raises(ValueError, match="At least one filter is required"):
+        memory_instance.delete_all()
 
 
 @pytest.mark.parametrize(
