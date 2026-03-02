@@ -203,18 +203,131 @@ def test_delete(mongo_vector_fixture):
     mock_collection.delete_one.assert_called_once_with({"_id": vector_id})
 
 
-def test_update(mongo_vector_fixture):
+def test_update_vector_and_payload(mongo_vector_fixture):
+    """Test updating both vector and payload fields."""
     mongo_vector, mock_collection, _ = mongo_vector_fixture
     vector_id = "id1"
     updated_vector = [0.3] * 1536
-    updated_payload = {"name": "updated_vector"}
+    updated_payload = {"name": "updated_vector", "status": "active"}
 
     mock_collection.update_one.return_value = MagicMock(matched_count=1)
 
     mongo_vector.update(vector_id=vector_id, vector=updated_vector, payload=updated_payload)
 
+    # Verify that dot notation is used for payload fields
     mock_collection.update_one.assert_called_once_with(
-        {"_id": vector_id}, {"$set": {"embedding": updated_vector, "payload": updated_payload}}
+        {"_id": vector_id},
+        {"$set": {"embedding": updated_vector, "payload.name": "updated_vector", "payload.status": "active"}},
+    )
+
+
+def test_update_vector_only(mongo_vector_fixture):
+    """Test updating only the vector."""
+    mongo_vector, mock_collection, _ = mongo_vector_fixture
+    vector_id = "id1"
+    updated_vector = [0.5] * 1536
+
+    mock_collection.update_one.return_value = MagicMock(matched_count=1)
+
+    mongo_vector.update(vector_id=vector_id, vector=updated_vector, payload=None)
+
+    mock_collection.update_one.assert_called_once_with(
+        {"_id": vector_id}, {"$set": {"embedding": updated_vector}}
+    )
+
+
+def test_update_payload_only(mongo_vector_fixture):
+    """Test updating only the payload fields."""
+    mongo_vector, mock_collection, _ = mongo_vector_fixture
+    vector_id = "id1"
+    updated_payload = {"name": "updated_name", "value": 42}
+
+    mock_collection.update_one.return_value = MagicMock(matched_count=1)
+
+    mongo_vector.update(vector_id=vector_id, vector=None, payload=updated_payload)
+
+    # Verify that dot notation is used for payload fields
+    mock_collection.update_one.assert_called_once_with(
+        {"_id": vector_id}, {"$set": {"payload.name": "updated_name", "payload.value": 42}}
+    )
+
+
+def test_update_payload_partial_merge(mongo_vector_fixture):
+    """Test that payload update uses dot notation for partial merge (preserving existing fields)."""
+    mongo_vector, mock_collection, _ = mongo_vector_fixture
+    vector_id = "id1"
+    # Only update specific fields, not the entire payload
+    updated_payload = {"status": "inactive"}
+
+    mock_collection.update_one.return_value = MagicMock(matched_count=1)
+
+    mongo_vector.update(vector_id=vector_id, vector=None, payload=updated_payload)
+
+    # Verify dot notation is used - this allows MongoDB to merge fields instead of replacing entire payload
+    mock_collection.update_one.assert_called_once_with(
+        {"_id": vector_id}, {"$set": {"payload.status": "inactive"}}
+    )
+
+
+def test_update_no_fields(mongo_vector_fixture):
+    """Test update with no vector or payload (should not call update_one)."""
+    mongo_vector, mock_collection, _ = mongo_vector_fixture
+    vector_id = "id1"
+
+    # Reset the mock to ensure we can verify it wasn't called
+    mock_collection.update_one.reset_mock()
+
+    mongo_vector.update(vector_id=vector_id, vector=None, payload=None)
+
+    # Should not call update_one when there are no fields to update
+    mock_collection.update_one.assert_not_called()
+
+
+def test_update_document_not_found(mongo_vector_fixture):
+    """Test update when document is not found."""
+    mongo_vector, mock_collection, _ = mongo_vector_fixture
+    vector_id = "nonexistent_id"
+    updated_vector = [0.3] * 1536
+    updated_payload = {"name": "updated_vector"}
+
+    # Simulate document not found
+    mock_collection.update_one.return_value = MagicMock(matched_count=0)
+
+    mongo_vector.update(vector_id=vector_id, vector=updated_vector, payload=updated_payload)
+
+    # Verify update_one was called even if document not found
+    mock_collection.update_one.assert_called_once_with(
+        {"_id": vector_id},
+        {"$set": {"embedding": updated_vector, "payload.name": "updated_vector"}},
+    )
+
+
+def test_update_payload_with_nested_fields(mongo_vector_fixture):
+    """Test updating payload with nested field names."""
+    mongo_vector, mock_collection, _ = mongo_vector_fixture
+    vector_id = "id1"
+    updated_payload = {
+        "user_id": "alice",
+        "agent_id": "agent1",
+        "run_id": "run1",
+        "metadata": "test",
+    }
+
+    mock_collection.update_one.return_value = MagicMock(matched_count=1)
+
+    mongo_vector.update(vector_id=vector_id, vector=None, payload=updated_payload)
+
+    # Verify all payload fields use dot notation
+    mock_collection.update_one.assert_called_once_with(
+        {"_id": vector_id},
+        {
+            "$set": {
+                "payload.user_id": "alice",
+                "payload.agent_id": "agent1",
+                "payload.run_id": "run1",
+                "payload.metadata": "test",
+            }
+        },
     )
 
 
