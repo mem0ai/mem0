@@ -1,5 +1,6 @@
 from enum import Enum
 from typing import Any, Dict
+from typing_extensions import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -18,6 +19,13 @@ class MetricType(str, Enum):
     HAMMING = "HAMMING"
     JACCARD = "JACCARD"
 
+class HybridSearchConfig(BaseModel):
+    """Configuration for hybrid search combining dense vectors and BM25 sparse vectors"""
+    enabled: bool = Field(False,description="Enable hybrid search")
+    rrf_k: int = Field(60,description="RRf (Reciprocal Rank Fusion) parameter k")
+    text_field_max_length: int = Field(65535,description="Maximum length of text field for BM25")
+    analyzer_type: str = Field("standard",description="Tokenizer type: standard, english, chinese")
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 class MilvusDBConfig(BaseModel):
     url: str = Field("http://localhost:19530", description="Full URL for Milvus/Zilliz server")
@@ -26,6 +34,9 @@ class MilvusDBConfig(BaseModel):
     embedding_model_dims: int = Field(1536, description="Dimensions of the embedding model")
     metric_type: str = Field("L2", description="Metric type for similarity search")
     db_name: str = Field("", description="Name of the database")
+    hybrid_search: Optional[HybridSearchConfig] = Field(
+        None, description="Configuration for hybrid search combining dense vectors and BM25 sparse vectors"
+    )
 
     @model_validator(mode="before")
     @classmethod
