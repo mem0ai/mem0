@@ -397,6 +397,7 @@
                       "integrations/langchain",
                       "integrations/langgraph",
                       "integrations/llama-index",
+                      "integrations/ag2",
                       "integrations/crewai",
                       "integrations/autogen",
                       "integrations/agno",
