@@ -1,3 +1,5 @@
+import json
+import os
 from typing import Any, Dict, Optional
 
 from app.database import get_db
@@ -6,6 +8,11 @@ from app.utils.memory import reset_memory_client
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+
+_DEFAULT_CONFIG_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "default_config.json",
+)
 
 router = APIRouter(prefix="/api/v1/config", tags=["config"])
 
@@ -46,32 +53,51 @@ class ConfigSchema(BaseModel):
     openmemory: Optional[OpenMemoryConfig] = None
     mem0: Optional[Mem0Config] = None
 
-def get_default_configuration():
-    """Get the default configuration with sensible defaults for LLM and embedder."""
-    return {
-        "openmemory": {
-            "custom_instructions": None
+_HARDCODED_DEFAULTS = {
+    "openmemory": {
+        "custom_instructions": None
+    },
+    "mem0": {
+        "llm": {
+            "provider": "openai",
+            "config": {
+                "model": "gpt-4o-mini",
+                "temperature": 0.1,
+                "max_tokens": 2000,
+                "api_key": "env:OPENAI_API_KEY"
+            }
         },
-        "mem0": {
-            "llm": {
-                "provider": "openai",
-                "config": {
-                    "model": "gpt-4o-mini",
-                    "temperature": 0.1,
-                    "max_tokens": 2000,
-                    "api_key": "env:OPENAI_API_KEY"
-                }
-            },
-            "embedder": {
-                "provider": "openai",
-                "config": {
-                    "model": "text-embedding-3-small",
-                    "api_key": "env:OPENAI_API_KEY"
-                }
-            },
-            "vector_store": None
-        }
+        "embedder": {
+            "provider": "openai",
+            "config": {
+                "model": "text-embedding-3-small",
+                "api_key": "env:OPENAI_API_KEY"
+            }
+        },
+        "vector_store": None
     }
+}
+
+
+def get_default_configuration():
+    """Get the default configuration.
+
+    Loads from ``default_config.json`` when the file exists and is valid JSON,
+    falling back to hardcoded defaults otherwise.  The ``openmemory`` section
+    is always ensured to be present so that the rest of the codebase can rely
+    on it.
+    """
+    try:
+        with open(_DEFAULT_CONFIG_PATH, "r") as f:
+            config = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return _HARDCODED_DEFAULTS.copy()
+
+    # Ensure the openmemory section always exists
+    config.setdefault("openmemory", {"custom_instructions": None})
+    # Ensure the mem0 section always exists
+    config.setdefault("mem0", _HARDCODED_DEFAULTS["mem0"])
+    return config
 
 def get_config_from_db(db: Session, key: str = "main"):
     """Get configuration from database."""
