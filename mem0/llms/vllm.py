@@ -29,6 +29,7 @@ class VllmLLM(LLMBase):
                 enable_vision=config.enable_vision,
                 vision_details=config.vision_details,
                 http_client_proxies=config.http_client,
+                enable_thinking=getattr(config, 'enable_thinking', False),
             )
 
         super().__init__(config)
@@ -102,6 +103,12 @@ class VllmLLM(LLMBase):
         if tools:
             params["tools"] = tools
             params["tool_choice"] = tool_choice
+
+        # Add thinking mode support
+        # When enable_thinking=False, add stop tokens to prevent thinking mode
+        # When enable_thinking=True, don't add stop tokens to allow thinking mode
+        if not self.config.enable_thinking:
+            params["extra_body"] = {"stop": ["<think>", "</think>"]}
 
         response = self.client.chat.completions.create(**params)
         return self._parse_response(response, tools)

@@ -23,6 +23,7 @@ class VllmConfig(BaseLlmConfig):
         http_client_proxies: Optional[dict] = None,
         # vLLM-specific parameters
         vllm_base_url: Optional[str] = None,
+        enable_thinking: bool = False,
     ):
         """
         Initialize vLLM configuration.
@@ -38,6 +39,8 @@ class VllmConfig(BaseLlmConfig):
             vision_details: Vision detail level, defaults to "auto"
             http_client_proxies: HTTP client proxy settings, defaults to None
             vllm_base_url: vLLM base URL, defaults to None
+            enable_thinking: Enable thinking mode (when True, model can generate thinking content; 
+                when False, stop tokens are added to prevent thinking), defaults to False
         """
         # Initialize base parameters
         super().__init__(
@@ -54,3 +57,4 @@ class VllmConfig(BaseLlmConfig):
 
         # vLLM-specific parameters
         self.vllm_base_url = vllm_base_url or "http://localhost:8000/v1"
+        self.enable_thinking = enable_thinking
