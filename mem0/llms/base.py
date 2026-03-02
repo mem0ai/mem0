@@ -88,6 +88,8 @@ class LLMBase(ABC):
                 supported_params["tools"] = kwargs["tools"]
             if "tool_choice" in kwargs:
                 supported_params["tool_choice"] = kwargs["tool_choice"]
+            if hasattr(self.config, 'reasoning_effort') and self.config.reasoning_effort:
+                supported_params["reasoning_effort"] = self.config.reasoning_effort
                 
             return supported_params
         else:
