@@ -241,8 +241,8 @@ class MilvusDB(VectorStoreBase):
         for data in result:
             obj = OutputData(id=data.get("id"), score=None, payload=data.get("metadata"))
             memories.append(obj)
-        return [memories]
-
+        return memories
+    
     def reset(self):
         """Reset the index by deleting and recreating it."""
         logger.warning(f"Resetting index {self.collection_name}...")
