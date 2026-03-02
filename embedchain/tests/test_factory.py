@@ -64,3 +64,14 @@ class TestFactories:
         mocker.patch("embedchain.vectordb.opensearch.OpenSearchDB", autospec=True)
         vectordb_instance = VectorDBFactory.create(provider_name, config_data)
         assert isinstance(vectordb_instance, expected_class)
+
+    def test_vertexai_embedder_max_batch_size(self, mocker):
+        # Patch VertexAIEmbeddings to check if max_batch_size is passed
+        mock_embeddings = mocker.patch("embedchain.embedder.vertexai.VertexAIEmbeddings", autospec=True)
+        config_data = {"model": "textembedding-gecko", "max_batch_size": 7}
+        # Remove the patch for VertexAIEmbedder so we test the real constructor
+        mocker.stopall()
+        embedder = EmbedderFactory.create("vertexai", config_data)
+        mock_embeddings.assert_called_once()
+        # Check that max_batch_size is in the call arguments
+        assert mock_embeddings.call_args[1].get("max_batch_size") == 7
