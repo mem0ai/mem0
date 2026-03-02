@@ -172,6 +172,29 @@ class ElasticsearchDB(VectorStoreBase):
 
         self.client.update(index=self.collection_name, id=vector_id, body={"doc": doc})
 
+    def _fetch_vector_values(self, vector_id: str) -> List[float]:
+        """
+        Fetch vector values from Elasticsearch.
+        
+        Args:
+            vector_id: ID of the vector to fetch
+            
+        Returns:
+            List[float]: The vector values
+            
+        Raises:
+            ValueError: If vector not found
+        """
+        try:
+            response = self.client.get(index=self.collection_name, id=vector_id, _source=["vector"])
+            if response and "_source" in response and "vector" in response["_source"]:
+                return response["_source"]["vector"]
+            else:
+                raise ValueError(f"Vector {vector_id} not found in Elasticsearch")
+        except Exception as e:
+            logger.error(f"Error fetching vector values from Elasticsearch: {e}")
+            raise
+
     def get(self, vector_id: str) -> Optional[OutputData]:
         """Retrieve a vector by ID."""
         try:

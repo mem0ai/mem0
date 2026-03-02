@@ -164,6 +164,36 @@ class Supabase(VectorStoreBase):
         if vector:
             self.collection.upsert([(vector_id, vector, payload or {})])
 
+    def _fetch_vector_values(self, vector_id: str) -> List[float]:
+        """
+        Fetch vector values from Supabase.
+        
+        Args:
+            vector_id: ID of the vector to fetch
+            
+        Returns:
+            List[float]: The vector values
+            
+        Raises:
+            ValueError: If vector not found
+        """
+        try:
+            result = self.collection.fetch([(vector_id,)])
+            if result and len(result) > 0:
+                # The vector is stored in the record
+                record = result[0]
+                if hasattr(record, 'vector') and record.vector:
+                    return list(record.vector)
+                elif hasattr(record, 'embedding') and record.embedding:
+                    return list(record.embedding)
+                else:
+                    raise ValueError(f"Vector {vector_id} found but no vector data available")
+            else:
+                raise ValueError(f"Vector {vector_id} not found in Supabase")
+        except Exception as e:
+            logger.error(f"Error fetching vector values from Supabase: {e}")
+            raise
+
     def get(self, vector_id: str) -> Optional[OutputData]:
         """
         Retrieve a vector by ID.

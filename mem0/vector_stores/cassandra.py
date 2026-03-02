@@ -336,6 +336,36 @@ class CassandraDB(VectorStoreBase):
             logger.error(f"Failed to update vector: {e}")
             raise
 
+    def _fetch_vector_values(self, vector_id: str) -> List[float]:
+        """
+        Fetch vector values from Cassandra.
+        
+        Args:
+            vector_id: ID of the vector to fetch
+            
+        Returns:
+            List[float]: The vector values
+            
+        Raises:
+            ValueError: If vector not found
+        """
+        try:
+            query = f"""
+                SELECT vector
+                FROM {self.keyspace}.{self.collection_name}
+                WHERE id = ?
+            """
+            prepared = self.session.prepare(query)
+            result = self.session.execute(prepared, (vector_id,)).one()
+            
+            if result and result.vector:
+                return list(result.vector)
+            else:
+                raise ValueError(f"Vector {vector_id} not found in Cassandra")
+        except Exception as e:
+            logger.error(f"Error fetching vector values from Cassandra: {e}")
+            raise
+
     def get(self, vector_id: str) -> Optional[OutputData]:
         """
         Retrieve a vector by ID.

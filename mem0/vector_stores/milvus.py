@@ -184,6 +184,33 @@ class MilvusDB(VectorStoreBase):
         schema = {"id": vector_id, "vectors": vector, "metadata": payload}
         self.client.upsert(collection_name=self.collection_name, data=schema)
 
+    def _fetch_vector_values(self, vector_id):
+        """
+        Fetch vector values from Milvus.
+        
+        Args:
+            vector_id: ID of the vector to fetch
+            
+        Returns:
+            list: The vector values
+            
+        Raises:
+            ValueError: If vector not found
+        """
+        try:
+            result = self.client.get(
+                collection_name=self.collection_name,
+                ids=vector_id,
+                output_fields=["vectors"]
+            )
+            if result and len(result) > 0 and "vectors" in result[0]:
+                return result[0]["vectors"]
+            else:
+                raise ValueError(f"Vector {vector_id} not found in Milvus")
+        except Exception as e:
+            logger.error(f"Error fetching vector values from Milvus: {e}")
+            raise
+
     def get(self, vector_id):
         """
         Retrieve a vector by ID.

@@ -256,6 +256,34 @@ class Weaviate(VectorStoreBase):
                 existing_payload: Mapping[str, str] = existing_data
                 collection.data.update(uuid=vector_id, properties=existing_payload, vector=vector)
 
+    def _fetch_vector_values(self, vector_id):
+        """
+        Fetch vector values from Weaviate.
+        
+        Args:
+            vector_id: ID of the vector to fetch
+            
+        Returns:
+            list: The vector values
+            
+        Raises:
+            ValueError: If vector not found
+        """
+        try:
+            vector_id = get_valid_uuid(vector_id)
+            collection = self.client.collections.get(str(self.collection_name))
+            response = collection.query.fetch_object_by_id(
+                uuid=vector_id,
+                include_vector=True
+            )
+            if response and response.vector:
+                return list(response.vector.values())[0] if isinstance(response.vector, dict) else response.vector
+            else:
+                raise ValueError(f"Vector {vector_id} not found in Weaviate")
+        except Exception as e:
+            logger.error(f"Error fetching vector values from Weaviate: {e}")
+            raise
+
     def get(self, vector_id):
         """
         Retrieve a vector by ID.

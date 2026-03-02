@@ -125,6 +125,36 @@ class S3Vectors(VectorStoreBase):
         # S3 Vectors uses put_vectors for updates (overwrite)
         self.insert(vectors=[vector], payloads=[payload], ids=[vector_id])
 
+    def _fetch_vector_values(self, vector_id):
+        """
+        Fetch vector values from S3 Vectors.
+        
+        Args:
+            vector_id: ID of the vector to fetch
+            
+        Returns:
+            list: The vector values
+            
+        Raises:
+            ValueError: If vector not found
+        """
+        try:
+            response = self.client.get_vectors(
+                vectorBucketName=self.vector_bucket_name,
+                indexName=self.collection_name,
+                keys=[vector_id],
+                returnData=True,  # Get the vector data
+                returnMetadata=False,
+            )
+            vectors = response.get("vectors", [])
+            if vectors and len(vectors) > 0 and "vectorData" in vectors[0]:
+                return vectors[0]["vectorData"]
+            else:
+                raise ValueError(f"Vector {vector_id} not found in S3 Vectors")
+        except Exception as e:
+            logger.error(f"Error fetching vector values from S3 Vectors: {e}")
+            raise
+
     def get(self, vector_id) -> Optional[OutputData]:
         response = self.client.get_vectors(
             vectorBucketName=self.vector_bucket_name,

@@ -352,6 +352,43 @@ class FAISS(VectorStoreBase):
 
         logger.info(f"Updated vector {vector_id} in collection {self.collection_name}")
 
+    def _fetch_vector_values(self, vector_id: str) -> List[float]:
+        """
+        Fetch vector values from FAISS.
+        
+        Note: FAISS doesn't store vectors in a directly retrievable way by ID.
+        We need to search through the index to find the vector.
+        
+        Args:
+            vector_id: ID of the vector to fetch
+            
+        Returns:
+            List[float]: The vector values
+            
+        Raises:
+            ValueError: If vector not found
+        """
+        if self.index is None:
+            raise ValueError("Collection not initialized. Call create_col first.")
+        
+        # Find the index position for this vector_id
+        index_pos = None
+        for idx, vid in self.index_to_id.items():
+            if vid == vector_id:
+                index_pos = idx
+                break
+        
+        if index_pos is None:
+            raise ValueError(f"Vector {vector_id} not found in FAISS")
+        
+        try:
+            # Reconstruct the vector from FAISS index
+            vector = self.index.reconstruct(int(index_pos))
+            return vector.tolist()
+        except Exception as e:
+            logger.error(f"Error fetching vector values from FAISS: {e}")
+            raise ValueError(f"Cannot fetch vector {vector_id}: {e}")
+
     def get(self, vector_id: str) -> OutputData:
         """
         Retrieve a vector by ID.

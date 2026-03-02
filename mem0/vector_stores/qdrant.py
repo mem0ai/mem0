@@ -207,6 +207,34 @@ class Qdrant(VectorStoreBase):
         point = PointStruct(id=vector_id, vector=vector, payload=payload)
         self.client.upsert(collection_name=self.collection_name, points=[point])
 
+    def _fetch_vector_values(self, vector_id: int) -> list:
+        """
+        Fetch vector values from Qdrant.
+        
+        Args:
+            vector_id: ID of the vector to fetch
+            
+        Returns:
+            list: The vector values
+            
+        Raises:
+            ValueError: If vector not found
+        """
+        try:
+            result = self.client.retrieve(
+                collection_name=self.collection_name,
+                ids=[vector_id],
+                with_payload=False,
+                with_vectors=True
+            )
+            if result and len(result) > 0:
+                return result[0].vector
+            else:
+                raise ValueError(f"Vector {vector_id} not found in Qdrant")
+        except Exception as e:
+            logger.error(f"Error fetching vector values from Qdrant: {e}")
+            raise
+
     def get(self, vector_id: int) -> dict:
         """
         Retrieve a vector by ID.
