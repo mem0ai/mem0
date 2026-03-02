@@ -12,6 +12,9 @@
       ],
       "oss": [
         "./dist/oss/index.d.ts"
+      ],
+      "workers": [
+        "./dist/workers/index.d.ts"
       ]
     }
   },
@@ -25,6 +28,11 @@
       "types": "./dist/oss/index.d.ts",
       "require": "./dist/oss/index.js",
       "import": "./dist/oss/index.mjs"
+    },
+    "./workers": {
+      "types": "./dist/workers/index.d.ts",
+      "require": "./dist/workers/index.js",
+      "import": "./dist/workers/index.mjs"
     }
   },
   "files": [

@@ -28,4 +28,13 @@ export default defineConfig([
     sourcemap: true,
     external,
   },
+  {
+    entry: ["src/workers/index.ts"],
+    outDir: "dist/workers",
+    format: ["cjs", "esm"],
+    dts: true,
+    sourcemap: true,
+    external: [], // Workers build should bundle dependencies
+    platform: "browser",
+  },
 ]);
