@@ -4,6 +4,7 @@ import { Message } from "../types";
 const get_image_description = async (image_url: string) => {
   const llm = new OpenAILLM({
     apiKey: process.env.OPENAI_API_KEY,
+    baseURL: process.env.OPENAI_BASE_URL || "https://api.openai.com/v1",
   });
   const response = await llm.generateResponse([
     {

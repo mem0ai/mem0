@@ -9,7 +9,7 @@ export class OpenAILLM implements LLM {
   constructor(config: LLMConfig) {
     this.openai = new OpenAI({
       apiKey: config.apiKey,
-      baseURL: config.baseURL,
+      baseURL: config.baseURL || "https://api.openai.com/v1",
     });
     this.model = config.model || "gpt-4.1-nano-2025-04-14";
   }
