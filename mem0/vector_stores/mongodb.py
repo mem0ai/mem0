@@ -198,7 +198,8 @@ class MongoDB(VectorStoreBase):
         if vector is not None:
             update_fields["embedding"] = vector
         if payload is not None:
-            update_fields["payload"] = payload
+            for key, value in payload.items():
+                update_fields[f"payload.{key}"] = value
 
         if update_fields:
             try:
