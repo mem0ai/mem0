@@ -494,10 +494,13 @@ class Databricks(VectorStoreBase):
         try:
             logger.info(f"Deleting vector with ID {vector_id} from Delta table {self.fully_qualified_table_name}")
 
-            delete_sql = f"DELETE FROM {self.fully_qualified_table_name} WHERE memory_id = '{vector_id}'"
+            delete_sql = f"DELETE FROM {self.fully_qualified_table_name} WHERE memory_id = :vector_id"
 
             response = self.client.statement_execution.execute_statement(
-                statement=delete_sql, warehouse_id=self.warehouse_id, wait_timeout="30s"
+                statement=delete_sql,
+                warehouse_id=self.warehouse_id,
+                wait_timeout="30s",
+                parameters=[{"name": "vector_id", "value": str(vector_id)}],
             )
 
             if response.status.state.value == "SUCCEEDED":
@@ -519,8 +522,8 @@ class Databricks(VectorStoreBase):
             payload (dict, optional): New payload data.
         """
 
-        update_sql = f"UPDATE {self.fully_qualified_table_name} SET "
         set_clauses = []
+        parameters = []
         if not vector_id:
             logger.error("vector_id is required for update operation")
             return
@@ -535,18 +538,25 @@ class Databricks(VectorStoreBase):
                 return
             for key, value in payload.items():
                 if key not in excluded_keys:
-                    set_clauses.append(f"{key} = '{value}'")
+                    param_name = f"param_{key}"
+                    set_clauses.append(f"{key} = :{param_name}")
+                    parameters.append({"name": param_name, "value": str(value)})
 
         if not set_clauses:
             logger.error("No fields to update")
             return
+        update_sql = f"UPDATE {self.fully_qualified_table_name} SET "
         update_sql += ", ".join(set_clauses)
-        update_sql += f" WHERE memory_id = '{vector_id}'"
+        update_sql += " WHERE memory_id = :vector_id"
+        parameters.append({"name": "vector_id", "value": str(vector_id)})
         try:
             logger.info(f"Updating vector with ID {vector_id} in Delta table {self.fully_qualified_table_name}")
 
             response = self.client.statement_execution.execute_statement(
-                statement=update_sql, warehouse_id=self.warehouse_id, wait_timeout="30s"
+                statement=update_sql,
+                warehouse_id=self.warehouse_id,
+                wait_timeout="30s",
+                parameters=parameters,
             )
 
             if response.status.state.value == "SUCCEEDED":
