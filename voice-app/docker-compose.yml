@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+      - "8080:8080"
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - WS_PORT=8080
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      - MEM0_API_KEY=${MEM0_API_KEY}
+      - TAVILY_API_KEY=${TAVILY_API_KEY}
+      - MEM0_ORG=daddyholmes-default-org
+      - MEM0_USER_ID=mem0-zai-crew
+      - CLAUDE_MODEL=claude-sonnet-4-5-20250929
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    command: npm run dev
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_WS_URL=ws://localhost:8080
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    command: npm run dev
+    depends_on:
+      - backend
