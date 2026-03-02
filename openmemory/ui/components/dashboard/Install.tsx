@@ -15,6 +15,7 @@ const clientTabs = [
   { key: "witsy", label: "Witsy", icon: "/images/witsy.png" },
   { key: "enconvo", label: "Enconvo", icon: "/images/enconvo.png" },
   { key: "augment", label: "Augment", icon: "/images/augment.png" },
+  { key: "warp", label: "Warp", icon: "/images/warp.png" },
 ];
 
 const colorGradientMap: { [key: string]: string } = {
@@ -32,6 +33,8 @@ const colorGradientMap: { [key: string]: string } = {
     "data-[state=active]:bg-[linear-gradient(to_top,_rgba(33,135,255,0.3),_rgba(33,135,255,0))] data-[state=active]:border-[#2187FF]",
   enconvo:
     "data-[state=active]:bg-[linear-gradient(to_top,_rgba(126,63,242,0.3),_rgba(126,63,242,0))] data-[state=active]:border-[#7E3FF2]",
+  warp:
+    "data-[state=active]:bg-[linear-gradient(to_top,_rgba(1,176,241,0.3),_rgba(1,176,241,0))] data-[state=active]:border-[#01B0F1]",
 };
 
 const getColorGradient = (color: string) => {
@@ -93,10 +96,11 @@ export const Install = () => {
         <div className="data-[state=active]:bg-[linear-gradient(to_top,_rgba(239,108,60,0.3),_rgba(239,108,60,0))] data-[state=active]:border-[#EF6C3C]"></div>
         <div className="data-[state=active]:bg-[linear-gradient(to_top,_rgba(107,33,168,0.3),_rgba(107,33,168,0))] data-[state=active]:border-primary"></div>
         <div className="data-[state=active]:bg-[linear-gradient(to_top,_rgba(255,255,255,0.08),_rgba(255,255,255,0))] data-[state=active]:border-[#708090]"></div>
+        <div className="data-[state=active]:bg-[linear-gradient(to_top,_rgba(1,176,241,0.3),_rgba(1,176,241,0))] data-[state=active]:border-[#01B0F1]"></div>
       </div>
 
       <Tabs defaultValue="claude" className="w-full">
-        <TabsList className="bg-transparent border-b border-zinc-800 rounded-none w-full justify-start gap-0 p-0 grid grid-cols-9">
+        <TabsList className="bg-transparent border-b border-zinc-800 rounded-none w-full justify-start gap-0 p-0 grid grid-cols-10">
           {allTabs.map(({ key, label, icon }) => (
             <TabsTrigger
               key={key}
