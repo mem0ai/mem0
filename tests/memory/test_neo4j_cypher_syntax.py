@@ -1,6 +1,32 @@
 import os
 from unittest.mock import Mock, patch
 
+from mem0.memory.utils import sanitize_relationship_for_cypher
+
+
+class TestSanitizeRelationshipForCypher:
+    """Test that relationship names are properly sanitized for Neo4j Cypher queries."""
+
+    def test_hyphen_replaced_with_underscore(self):
+        """Hyphens in relationship names cause Neo4j CypherSyntaxError and must be replaced."""
+        assert sanitize_relationship_for_cypher("manages_via_low-cost_models") == "manages_via_low_cost_models"
+
+    def test_multiple_hyphens(self):
+        assert sanitize_relationship_for_cypher("co-owns-with") == "co_owns_with"
+
+    def test_no_special_chars_unchanged(self):
+        assert sanitize_relationship_for_cypher("works_at") == "works_at"
+
+    def test_spaces_not_handled_here(self):
+        """Spaces are replaced upstream before this function is called."""
+        # sanitize only handles special chars, spaces are handled by the caller
+        result = sanitize_relationship_for_cypher("has relationship")
+        assert result == "has relationship"
+
+    def test_existing_chars_still_sanitized(self):
+        assert "_slash_" in sanitize_relationship_for_cypher("read/write")
+        assert "_at_" in sanitize_relationship_for_cypher("user@company")
+
 
 class TestNeo4jCypherSyntaxFix:
     """Test that Neo4j Cypher syntax fixes work correctly"""
