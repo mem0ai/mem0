@@ -114,7 +114,7 @@ class MemoryEnabledAgent(Agent):
             logger.info("About to await mem0_client.search for RAG context")
             search_results = await mem0_client.search(
                 new_message.text_content,
-                user_id=RAG_USER_ID,
+                filters={"user_id": RAG_USER_ID},
             )
             logger.info(f"mem0_client.search returned: {search_results}")
             if search_results and search_results.get('results', []):
