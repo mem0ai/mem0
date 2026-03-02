@@ -24,6 +24,17 @@ class BaseLlmConfig(ABC):
         enable_vision: bool = False,
         vision_details: Optional[str] = "auto",
         http_client_proxies: Optional[Union[Dict, str]] = None,
+        together_base_url: Optional[str] = None,
+        deepseek_base_url: Optional[str] = None,
+        xai_base_url: Optional[str] = None,
+        sarvam_base_url: Optional[str] = None,
+        lmstudio_base_url: Optional[str] = None,
+        lmstudio_response_format: Optional[Dict] = None,
+        aws_access_key_id: Optional[str] = None,
+        aws_secret_access_key: Optional[str] = None,
+        aws_region: Optional[str] = None,
+        aws_session_token: Optional[str] = None,
+        aws_profile: Optional[str] = None,
     ):
         """
         Initialize a base configuration class instance for the LLM.
@@ -50,6 +61,17 @@ class BaseLlmConfig(ABC):
                 Options: "low", "high", "auto". Defaults to "auto"
             http_client_proxies: Proxy settings for HTTP client.
                 Can be a dict or string. Defaults to None
+            together_base_url: Optional Together base URL override.
+            deepseek_base_url: Optional DeepSeek base URL override.
+            xai_base_url: Optional xAI base URL override.
+            sarvam_base_url: Optional Sarvam base URL override.
+            lmstudio_base_url: Optional LM Studio base URL override.
+            lmstudio_response_format: Optional LM Studio response format payload.
+            aws_access_key_id: Optional AWS access key for Bedrock.
+            aws_secret_access_key: Optional AWS secret key for Bedrock.
+            aws_region: Optional AWS region for Bedrock.
+            aws_session_token: Optional AWS session token.
+            aws_profile: Optional AWS profile name.
         """
         self.model = model
         self.temperature = temperature
@@ -60,3 +82,14 @@ class BaseLlmConfig(ABC):
         self.enable_vision = enable_vision
         self.vision_details = vision_details
         self.http_client = httpx.Client(proxies=http_client_proxies) if http_client_proxies else None
+        self.together_base_url = together_base_url
+        self.deepseek_base_url = deepseek_base_url
+        self.xai_base_url = xai_base_url
+        self.sarvam_base_url = sarvam_base_url
+        self.lmstudio_base_url = lmstudio_base_url
+        self.lmstudio_response_format = lmstudio_response_format
+        self.aws_access_key_id = aws_access_key_id
+        self.aws_secret_access_key = aws_secret_access_key
+        self.aws_region = aws_region
+        self.aws_session_token = aws_session_token
+        self.aws_profile = aws_profile

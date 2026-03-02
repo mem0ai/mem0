@@ -44,6 +44,18 @@ class MemoryConfig(BaseModel):
         description="Path to the history database",
         default=os.path.join(mem0_dir, "history.db"),
     )
+    history_db_provider: str = Field(
+        description="History database provider ('sqlite' or 'postgres')",
+        default="sqlite",
+    )
+    history_db_url: Optional[str] = Field(
+        description="PostgreSQL connection string for history storage",
+        default=None,
+    )
+    history_db_table: str = Field(
+        description="History table name (used for postgres provider)",
+        default="history",
+    )
     graph_store: GraphStoreConfig = Field(
         description="Configuration for the graph",
         default_factory=GraphStoreConfig,
