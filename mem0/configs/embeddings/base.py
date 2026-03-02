@@ -40,6 +40,12 @@ class BaseEmbedderConfig(ABC):
         aws_access_key_id: Optional[str] = None,
         aws_secret_access_key: Optional[str] = None,
         aws_region: Optional[str] = None,
+        # VoyageAI specific
+        voyageai_truncation: Optional[bool] = True,
+        voyageai_output_dtype: Optional[str] = None,
+        voyageai_multimodal_model: Optional[str] = None,
+        voyageai_context_model: Optional[str] = None,
+        voyageai_batch_size: Optional[int] = None,
     ):
         """
         Initializes a configuration class instance for the Embeddings.
@@ -72,6 +78,16 @@ class BaseEmbedderConfig(ABC):
         :type memory_search_embedding_type: Optional[str], optional
         :param lmstudio_base_url: LM Studio base URL to be use, defaults to "http://localhost:1234/v1"
         :type lmstudio_base_url: Optional[str], optional
+        :param voyageai_truncation: Whether to truncate text exceeding context window for VoyageAI, defaults to True
+        :type voyageai_truncation: Optional[bool], optional
+        :param voyageai_output_dtype: Output data type for VoyageAI (float, int8, uint8, binary, ubinary), defaults to None (float)
+        :type voyageai_output_dtype: Optional[str], optional
+        :param voyageai_multimodal_model: VoyageAI model for multimodal embeddings, defaults to None (voyage-multimodal-3)
+        :type voyageai_multimodal_model: Optional[str], optional
+        :param voyageai_context_model: VoyageAI model for contextualized chunk embeddings, defaults to None (voyage-context-3)
+        :type voyageai_context_model: Optional[str], optional
+        :param voyageai_batch_size: Maximum number of texts per batch for VoyageAI, defaults to None (1000)
+        :type voyageai_batch_size: Optional[int], optional
         """
 
         self.model = model
@@ -107,4 +123,11 @@ class BaseEmbedderConfig(ABC):
         self.aws_access_key_id = aws_access_key_id
         self.aws_secret_access_key = aws_secret_access_key
         self.aws_region = aws_region or os.environ.get("AWS_REGION") or "us-west-2"
+
+        # VoyageAI specific
+        self.voyageai_truncation = voyageai_truncation
+        self.voyageai_output_dtype = voyageai_output_dtype
+        self.voyageai_multimodal_model = voyageai_multimodal_model
+        self.voyageai_context_model = voyageai_context_model
+        self.voyageai_batch_size = voyageai_batch_size
 
