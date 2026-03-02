@@ -1,4 +1,3 @@
-import os
 import threading
 from unittest.mock import MagicMock, patch
 
@@ -51,7 +50,7 @@ class TestTelemetryDisabled:
         """No consumer threads should be created when telemetry is disabled."""
         with patch.object(telemetry_module, "MEM0_TELEMETRY", False):
             threads_before = threading.active_count()
-            at = telemetry_module.AnonymousTelemetry()
+            telemetry_module.AnonymousTelemetry()
             threads_after = threading.active_count()
             assert threads_after == threads_before
 
