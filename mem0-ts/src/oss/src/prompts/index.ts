@@ -278,5 +278,8 @@ export function parseMessages(messages: string[]): string {
 }
 
 export function removeCodeBlocks(text: string): string {
-  return text.replace(/```[^`]*```/g, "");
+  return text
+    .replace(/```(?:\w+)?\s*([\s\S]*?)\s*```/g, "$1")
+    .trim();
 }
+
