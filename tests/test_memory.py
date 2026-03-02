@@ -244,4 +244,42 @@ def test_get_all_handles_flat_list_from_postgres(mock_sqlite, mock_llm_factory, 
 
     assert len(result) == 2
     assert result[0]["memory"] == "Memory 1"
-    assert result[1]["memory"] == "Memory 2" 
+    assert result[1]["memory"] == "Memory 2"
+
+
+@patch('mem0.memory.storage.SQLiteManager')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.EmbedderFactory.create')
+def test_get_all_with_advanced_filters(mock_embedder_factory, mock_vector_factory, mock_llm_factory, mock_sqlite):
+    """
+    Test that get_all() processes advanced filters (e.g., comparison operators)
+    before passing them to the vector store.
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    mem1 = MockVectorMemory("mem_1", {"data": "Recent memory", "created_at": "2024-06-01T12:00:00"})
+    mock_vector_store.list.return_value = [mem1]
+
+    filters = {
+        "AND": [
+            {"created_at": {"gte": "2024-06-01T00:00:00"}},
+            {"created_at": {"lte": "2024-06-02T00:00:00"}},
+        ]
+    }
+
+    result = memory.get_all(user_id="test_user", filters=filters)
+
+    # Verify vector store was called with processed filters
+    call_filters = mock_vector_store.list.call_args[1]["filters"]
+    assert "created_at" in call_filters
+    assert call_filters["user_id"] == "test_user"
+    assert result["results"][0]["memory"] == "Recent memory"
