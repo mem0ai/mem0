@@ -9,8 +9,8 @@ try:
 except ImportError:
     raise ImportError("Elasticsearch requires extra dependencies. Install with `pip install elasticsearch`") from None
 
-from mem0.vector_stores.elasticsearch import ElasticsearchDB, OutputData
 from mem0.configs.vector_stores.elasticsearch import ElasticsearchConfig
+from mem0.vector_stores.elasticsearch import ElasticsearchDB, OutputData
 
 
 class TestElasticsearchDB(unittest.TestCase):
@@ -324,6 +324,31 @@ class TestElasticsearchDB(unittest.TestCase):
         self.assertEqual(es_config.port, 9200)
         self.assertEqual(es_config.user, "elastic")
         self.assertEqual(es_config.password, "password")
+
+    def test_es_config_with_api_key(self):
+        config = {"host": "localhost", "port": 9200, "api_key": "test-api-key"}
+        es_config = ElasticsearchConfig(**config)
+
+        # Assert that the config object was created successfully
+        self.assertIsNotNone(es_config)
+        self.assertIsInstance(es_config, ElasticsearchConfig)
+
+        # Assert that the configuration values are correctly set
+        self.assertEqual(es_config.host, "localhost")
+        self.assertEqual(es_config.port, 9200)
+        self.assertEqual(es_config.api_key, "test-api-key")
+
+    def test_es_config_with_cloud_id(self):
+        config = {"cloud_id": "test-cloud-id", "api_key": "test-api-key"}
+        es_config = ElasticsearchConfig(**config)
+
+        # Assert that the config object was created successfully
+        self.assertIsNotNone(es_config)
+        self.assertIsInstance(es_config, ElasticsearchConfig)
+
+        # Assert that the configuration values are correctly set
+        self.assertEqual(es_config.cloud_id, "test-cloud-id")
+        self.assertEqual(es_config.api_key, "test-api-key")
 
     def test_es_valid_headers(self):
         config = {
