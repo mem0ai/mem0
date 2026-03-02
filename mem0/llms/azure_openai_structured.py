@@ -77,6 +77,11 @@ class AzureOpenAIStructuredLLM(LLMBase):
             "max_tokens": self.config.max_tokens,
             "top_p": self.config.top_p,
         }
+
+        reasoning_effort = getattr(self.config, 'reasoning_effort', None)
+        if reasoning_effort:
+            params["reasoning_effort"] = reasoning_effort
+
         if response_format:
             params["response_format"] = response_format
         if tools:
