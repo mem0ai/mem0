@@ -10,7 +10,6 @@ services:
     build: api/
     environment:
       - USER
-      - API_KEY
     env_file:
       - api/.env
     depends_on:
@@ -31,6 +30,8 @@ services:
     environment:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
       - NEXT_PUBLIC_USER_ID=${USER}
+    env_file:
+      - ui/.env
 
 volumes:
   mem0_storage:
