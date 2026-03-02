@@ -1,6 +1,7 @@
 /// <reference types="jest" />
 import { VectorStoreFactory } from "../src/utils/factory";
 import { AzureAISearch } from "../src/vector_stores/azure_ai_search";
+import { PGVector } from "../src/vector_stores/pgvector";
 
 describe("VectorStoreFactory", () => {
   describe("create", () => {
@@ -31,6 +32,21 @@ describe("VectorStoreFactory", () => {
 
       expect(vectorStore).toBeDefined();
       expect(vectorStore.constructor.name).toBe("MemoryVectorStore");
+    });
+
+    it("should create pgvector vector store", () => {
+      const config = {
+        collectionName: "test-memories",
+        user: "test-user",
+        password: "test-password",
+        host: "localhost",
+        port: 5432,
+        embeddingModelDims: 1536,
+      };
+
+      const vectorStore = VectorStoreFactory.create("pgvector", config);
+
+      expect(vectorStore).toBeInstanceOf(PGVector);
     });
 
     it("should throw error for unsupported provider", () => {
