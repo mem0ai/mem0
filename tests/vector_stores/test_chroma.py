@@ -3,6 +3,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from mem0.vector_stores.chroma import ChromaDB
+from mem0.configs.vector_stores.chroma import ChromaDbConfig
 
 
 @pytest.fixture
@@ -249,3 +250,15 @@ def test_generate_where_clause_non_string_values():
     # ChromaDB accepts non-string values in filters
     expected = {"$and": [{"user_id": {"$eq": "alice"}}, {"count": {"$eq": 5}}, {"active": {"$eq": True}}]}
     assert result == expected
+
+
+def test_chroma_config_accepts_default_tmp_path():
+    """Test that ChromaDbConfig accepts the default /tmp/chroma path."""
+    config = ChromaDbConfig(path="/tmp/chroma")
+    assert config.path == "/tmp/chroma"
+
+
+def test_chroma_config_rejects_no_config():
+    """Test that ChromaDbConfig rejects when no connection config is provided."""
+    with pytest.raises(ValueError):
+        ChromaDbConfig()
