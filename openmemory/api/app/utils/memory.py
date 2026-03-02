@@ -135,12 +135,15 @@ def reset_memory_client():
 
 def get_default_memory_config():
     """Get default memory client configuration with sensible defaults."""
+    # Read embedding dimensions from environment (run.sh exposes EMBEDDING_DIMS)
+    embedding_dims = int(os.environ.get('EMBEDDING_DIMS', '1536'))
+
     # Detect vector store based on environment variables
     vector_store_config = {
         "collection_name": "openmemory",
         "host": "mem0_store",
     }
-    
+
     # Check for different vector store configurations based on environment variables
     if os.environ.get('CHROMA_HOST') and os.environ.get('CHROMA_PORT'):
         vector_store_provider = "chroma"
@@ -152,7 +155,8 @@ def get_default_memory_config():
         vector_store_provider = "qdrant"
         vector_store_config.update({
             "host": os.environ.get('QDRANT_HOST'),
-            "port": int(os.environ.get('QDRANT_PORT'))
+            "port": int(os.environ.get('QDRANT_PORT')),
+            "embedding_model_dims": embedding_dims,
         })
     elif os.environ.get('WEAVIATE_CLUSTER_URL') or (os.environ.get('WEAVIATE_HOST') and os.environ.get('WEAVIATE_PORT')):
         vector_store_provider = "weaviate"
@@ -193,7 +197,7 @@ def get_default_memory_config():
             "url": milvus_url,
             "token": os.environ.get('MILVUS_TOKEN', ''),  # Always include, empty string for local setup
             "db_name": os.environ.get('MILVUS_DB_NAME', ''),
-            "embedding_model_dims": 1536,
+            "embedding_model_dims": embedding_dims,
             "metric_type": "COSINE"  # Using COSINE for better semantic similarity
         }
     elif os.environ.get('ELASTICSEARCH_HOST') and os.environ.get('ELASTICSEARCH_PORT'):
@@ -211,7 +215,7 @@ def get_default_memory_config():
             "password": os.environ.get('ELASTICSEARCH_PASSWORD', 'changeme'),
             "verify_certs": False,
             "use_ssl": False,
-            "embedding_model_dims": 1536
+            "embedding_model_dims": embedding_dims
         })
     elif os.environ.get('OPENSEARCH_HOST') and os.environ.get('OPENSEARCH_PORT'):
         vector_store_provider = "opensearch"
@@ -224,7 +228,7 @@ def get_default_memory_config():
         vector_store_config = {
             "collection_name": "openmemory",
             "path": os.environ.get('FAISS_PATH'),
-            "embedding_model_dims": 1536,
+            "embedding_model_dims": embedding_dims,
             "distance_strategy": "cosine"
         }
     else:
@@ -232,6 +236,7 @@ def get_default_memory_config():
         vector_store_provider = "qdrant"
         vector_store_config.update({
             "port": 6333,
+            "embedding_model_dims": embedding_dims,
         })
     
     print(f"Auto-detected vector store: {vector_store_provider} with config: {vector_store_config}")
