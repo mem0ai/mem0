@@ -1,0 +1,157 @@
+---
+title: n1n API
+---
+
+[n1n API](https://n1n.ai/) is a robust API aggregation platform that provides access to 400+ large language models (LLMs) through a single OpenAI-compatible API. With n1n, you can access models from OpenAI, Anthropic, Google, Meta, and many other providers without managing multiple API keys.
+
+## Features
+
+- **Single API Key**: Access 400+ models with one API key
+- **Wide Model Support**: OpenAI GPT-4, Claude, Gemini, Llama, and many more
+- **Cost Effective**: Competitive pricing, some models up to 1/10 of official prices
+- **Global Access**: No VPN required, deployed across 7 global regions
+- **OpenAI Compatible**: Drop-in replacement for OpenAI API
+- **Multimodal Support**: Text, image, video, and audio generation capabilities
+
+## Setup
+
+To use n1n API with mem0, you need to get an API key from the [n1n Console](https://n1n.ai/console). New users receive $0.2 in free credits.
+
+1. Register at [https://n1n.ai/register](https://n1n.ai/register)
+2. Go to the [Console](https://n1n.ai/console)
+3. Navigate to "令牌" (Tokens) page
+4. Click "添加令牌" (Add Token) to generate your API key
+
+Set the API key as `N1N_API_KEY` environment variable or pass it directly in the configuration.
+
+## Usage
+
+<CodeGroup>
+```python Python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your-api-key"  # used for embedding model
+os.environ["N1N_API_KEY"] = "your-n1n-api-key"
+
+config = {
+    "llm": {
+        "provider": "n1n",
+        "config": {
+            "model": "gpt-4o-mini",  # or any other model from n1n
+            "temperature": 0.1,
+            "max_tokens": 2000,
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I love reading science fiction books."},
+    {"role": "assistant", "content": "That's great! Sci-fi offers amazing explorations of future possibilities."},
+    {"role": "user", "content": "My favorite author is Isaac Asimov."},
+]
+m.add(messages, user_id="alice", metadata={"category": "books"})
+```
+
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  llm: {
+    provider: 'n1n',
+    config: {
+      apiKey: process.env.N1N_API_KEY || '',
+      model: 'gpt-4o-mini',
+      temperature: 0.1,
+      maxTokens: 2000,
+      n1nBaseUrl: 'https://n1n.ai/v1',  // optional, default value
+    },
+  },
+};
+
+const memory = new Memory(config);
+const messages = [
+    {"role": "user", "content": "I love reading science fiction books."},
+    {"role": "assistant", "content": "That's great! Sci-fi offers amazing explorations of future possibilities."},
+    {"role": "user", "content": "My favorite author is Isaac Asimov."},
+];
+await memory.add(messages, { userId: "alice", metadata: { category: "books" } });
+```
+</CodeGroup>
+
+## Available Models
+
+n1n provides access to hundreds of models. Some popular options include:
+
+**OpenAI Models:**
+- `gpt-4o`, `gpt-4o-mini`
+- `gpt-4-turbo`, `gpt-4`
+- `o1`, `o1-mini`, `o3-mini`
+
+**Anthropic Models:**
+- `claude-3-5-sonnet-20241022`
+- `claude-3-5-haiku-20241022`
+- `claude-3-opus-20240229`
+
+**Google Models:**
+- `gemini-2.0-flash-exp`
+- `gemini-1.5-pro`
+- `gemini-1.5-flash`
+
+**Meta Models:**
+- `llama-3.3-70b-instruct`
+- `llama-3.1-405b-instruct`
+- `llama-3.1-70b-instruct`
+
+**And many more...**
+
+For a complete list of available models and pricing, visit the [n1n Pricing Page](https://n1n.ai/pricing).
+
+## Custom Base URL
+
+If you need to use a different base URL (for example, for testing or regional endpoints), you can specify it in the configuration:
+
+```python
+config = {
+    "llm": {
+        "provider": "n1n",
+        "config": {
+            "model": "claude-3-5-sonnet-20241022",
+            "api_key": "your-n1n-api-key",
+            "n1n_base_url": "https://n1n.ai/v1",  # custom base URL
+        }
+    }
+}
+```
+
+## Config
+
+All available parameters for the `n1n` config:
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `model` | str | `"gpt-4o-mini"` | Model identifier from n1n platform |
+| `temperature` | float | `0.1` | Controls randomness (0-1) |
+| `max_tokens` | int | `2000` | Maximum tokens to generate |
+| `top_p` | float | `0.1` | Nucleus sampling parameter |
+| `api_key` | str | `None` | n1n API key (or use `N1N_API_KEY` env var) |
+| `n1n_base_url` | str | `"https://n1n.ai/v1"` | n1n API base URL |
+
+Additional common parameters are available in the [Master List of All Params in Config](../config).
+
+## Resources
+
+- **Website**: [https://n1n.ai/](https://n1n.ai/)
+- **Documentation**: [https://docs.n1n.ai/](https://docs.n1n.ai/)
+- **Console**: [https://n1n.ai/console](https://n1n.ai/console)
+- **Pricing**: [https://n1n.ai/pricing](https://n1n.ai/pricing)
+- **Support**: help@n1n.ai
+
+## Benefits
+
+1. **Simplified Integration**: One API key for all 400+ models instead of managing multiple provider accounts
+2. **Cost Optimization**: Access models at competitive prices with unified billing
+3. **Easy Model Switching**: Change between different models without code modifications
+4. **High Availability**: Global infrastructure with automatic load balancing
+5. **Developer Friendly**: OpenAI-compatible API makes migration seamless
