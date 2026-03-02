@@ -1,0 +1,97 @@
+---
+title: SiliconFlow
+---
+
+[SiliconFlow](https://siliconflow.com/) is an AI inference platform that provides access to various open-source LLMs including DeepSeek, Qwen, GLM, and more.
+
+In order to use LLMs from SiliconFlow, go to their [platform](https://siliconflow.com/) and get the API key. Set the API key as `SILICONFLOW_API_KEY` environment variable to use the model as given below in the example.
+
+## Usage
+
+<CodeGroup>
+```python Python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your-api-key" # used for embedding model
+os.environ["SILICONFLOW_API_KEY"] = "your-api-key"
+
+config = {
+    "llm": {
+        "provider": "siliconflow",
+        "config": {
+            "model": "deepseek-ai/DeepSeek-V3",
+            "temperature": 0.1,
+            "max_tokens": 2000,
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  llm: {
+    provider: 'siliconflow',
+    config: {
+      apiKey: process.env.SILICONFLOW_API_KEY || '',
+      model: 'deepseek-ai/DeepSeek-V3',
+      temperature: 0.1,
+      maxTokens: 2000,
+    },
+  },
+};
+
+const memory = new Memory(config);
+const messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+await memory.add(messages, { userId: "alice", metadata: { category: "movies" } });
+```
+</CodeGroup>
+
+## Custom Base URL
+
+If you're using a different region (e.g., China), you can specify a custom base URL:
+
+```python
+config = {
+    "llm": {
+        "provider": "siliconflow",
+        "config": {
+            "model": "deepseek-ai/DeepSeek-V3",
+            "base_url": "https://api.siliconflow.cn/v1",  # For China region
+            "temperature": 0.1,
+            "max_tokens": 2000,
+        }
+    }
+}
+```
+
+## Supported Models
+
+SiliconFlow supports various models including:
+- deepseek-ai/DeepSeek-V3
+- deepseek-ai/DeepSeek-R1
+- Qwen/Qwen2.5-72B-Instruct
+- THUDM/GLM-4-9B
+- meta-llama/Meta-Llama-3.1-8B-Instruct
+
+And many more. Check the [SiliconFlow documentation](https://docs.siliconflow.com/) for the full list.
+
+## Config
+
+All available parameters for the `siliconflow` config are present in [Master List of All Params in Config](../config).
