@@ -13,6 +13,7 @@ from app.models import (
     MemoryState,
     MemoryStatusHistory,
     User,
+    categorize_memory,
 )
 from app.schemas import MemoryResponse
 from app.utils.memory import get_memory_client
@@ -506,6 +507,46 @@ async def get_memory_access_log(
         "page": page,
         "page_size": page_size,
         "logs": logs
+    }
+
+
+class RecategorizeRequest(BaseModel):
+    user_id: str
+
+
+@router.post("/actions/recategorize")
+async def recategorize_all_memories(
+    request: RecategorizeRequest,
+    db: Session = Depends(get_db)
+):
+    """Recategorize all memories for a user with current categorization prompt."""
+    user = db.query(User).filter(User.user_id == request.user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    memories = db.query(Memory).filter(
+        Memory.user_id == user.id,
+        Memory.state == MemoryState.active
+    ).all()
+
+    recategorized = 0
+    errors = []
+
+    for memory in memories:
+        try:
+            # Clear existing categories
+            memory.categories = []
+            db.flush()
+            # Recategorize
+            categorize_memory(memory, db)
+            recategorized += 1
+        except Exception as e:
+            errors.append({"id": str(memory.id), "error": str(e)})
+
+    return {
+        "message": f"Recategorized {recategorized} memories",
+        "total": len(memories),
+        "errors": errors
     }
 
 
