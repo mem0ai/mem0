@@ -6,6 +6,7 @@ from datetime import datetime, date
 from databricks.sdk.service.catalog import ColumnInfo, ColumnTypeName, TableType, DataSourceFormat
 from databricks.sdk.service.catalog import TableConstraint, PrimaryKeyConstraint
 from databricks.sdk import WorkspaceClient
+from databricks.sdk.service.sql import StatementParameterListItem
 from databricks.sdk.service.vectorsearch import (
     VectorIndexType,
     DeltaSyncVectorIndexSpecRequest,
@@ -494,10 +495,13 @@ class Databricks(VectorStoreBase):
         try:
             logger.info(f"Deleting vector with ID {vector_id} from Delta table {self.fully_qualified_table_name}")
 
-            delete_sql = f"DELETE FROM {self.fully_qualified_table_name} WHERE memory_id = '{vector_id}'"
+            delete_sql = f"DELETE FROM {self.fully_qualified_table_name} WHERE memory_id = :vector_id"
 
             response = self.client.statement_execution.execute_statement(
-                statement=delete_sql, warehouse_id=self.warehouse_id, wait_timeout="30s"
+                statement=delete_sql,
+                warehouse_id=self.warehouse_id,
+                wait_timeout="30s",
+                parameters=[StatementParameterListItem(name="vector_id", value=str(vector_id))],
             )
 
             if response.status.state.value == "SUCCEEDED":
@@ -529,24 +533,30 @@ class Databricks(VectorStoreBase):
                 logger.error("vector must be a list of float values")
                 return
             set_clauses.append(f"embedding = {vector}")
+        params = [StatementParameterListItem(name="vector_id", value=str(vector_id))]
         if payload:
             if not isinstance(payload, dict):
                 logger.error("payload must be a dictionary")
                 return
             for key, value in payload.items():
                 if key not in excluded_keys:
-                    set_clauses.append(f"{key} = '{value}'")
+                    param_name = f"payload_{key}"
+                    set_clauses.append(f"{key} = :{param_name}")
+                    params.append(StatementParameterListItem(name=param_name, value=str(value)))
 
         if not set_clauses:
             logger.error("No fields to update")
             return
         update_sql += ", ".join(set_clauses)
-        update_sql += f" WHERE memory_id = '{vector_id}'"
+        update_sql += " WHERE memory_id = :vector_id"
         try:
             logger.info(f"Updating vector with ID {vector_id} in Delta table {self.fully_qualified_table_name}")
 
             response = self.client.statement_execution.execute_statement(
-                statement=update_sql, warehouse_id=self.warehouse_id, wait_timeout="30s"
+                statement=update_sql,
+                warehouse_id=self.warehouse_id,
+                wait_timeout="30s",
+                parameters=params,
             )
 
             if response.status.state.value == "SUCCEEDED":
