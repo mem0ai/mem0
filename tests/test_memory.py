@@ -244,4 +244,170 @@ def test_get_all_handles_flat_list_from_postgres(mock_sqlite, mock_llm_factory, 
 
     assert len(result) == 2
     assert result[0]["memory"] == "Memory 1"
-    assert result[1]["memory"] == "Memory 2" 
+    assert result[1]["memory"] == "Memory 2"
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_delete_all_does_not_reset_vector_store(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """
+    Test that delete_all() does NOT call vector_store.reset().
+
+    Bug #3918: delete_all() was calling reset() which drops the entire collection,
+    deleting ALL memories for ALL users instead of just the filtered ones.
+    This test ensures reset() is never called during filtered deletion.
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite_instance = MagicMock()
+    mock_sqlite.return_value = mock_sqlite_instance
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    mem1 = MockVectorMemory("mem_1", {"data": "User A memory 1"})
+    mem2 = MockVectorMemory("mem_2", {"data": "User A memory 2"})
+
+    mock_vector_store.list.return_value = ([mem1, mem2], 2)
+
+    mock_vector_store.get.side_effect = lambda vector_id: (
+        MagicMock(id=vector_id, payload={"data": f"Memory {vector_id}"})
+    )
+
+
+    result = memory.delete_all(user_id="user_a")
+
+    assert mock_vector_store.delete.call_count == 2
+
+    mock_vector_store.reset.assert_not_called()
+    assert result["message"] == "Memories deleted successfully!" 
+
+
+# ============================================================================
+# Tests for Chained Comparison Operators (Range Queries) - Issue #3914
+# ============================================================================
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_process_metadata_filters_chained_operators(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """
+    Test that chained comparison operators are properly combined for range queries.
+    
+    Issue #3914: {"key": {"gt": 1, "lt": 10}} should produce {"key": {"gt": 1, "lt": 10}}
+    instead of just {"key": {"lt": 10}} (which happened due to overwriting).
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    # Test exclusive range (gt/lt): 1 < age < 10
+    filters = {"age": {"gt": 1, "lt": 10}}
+    result = memory._process_metadata_filters(filters)
+    assert result["age"] == {"gt": 1, "lt": 10}
+
+    # Test inclusive range (gte/lte): 5 <= score <= 15
+    filters = {"score": {"gte": 5, "lte": 15}}
+    result = memory._process_metadata_filters(filters)
+    assert result["score"] == {"gte": 5, "lte": 15}
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_process_metadata_filters_multiple_keys_with_chained_operators(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """
+    Test that multiple keys can each have their own chained operators.
+    
+    {"age": {"gt": 18, "lt": 65}, "score": {"gte": 0, "lte": 100}}
+    should properly preserve all operators for all keys.
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    filters = {
+        "age": {"gt": 18, "lt": 65},
+        "score": {"gte": 0, "lte": 100}
+    }
+    result = memory._process_metadata_filters(filters)
+
+    # Both keys should have their chained operators
+    assert result["age"] == {"gt": 18, "lt": 65}
+    assert result["score"] == {"gte": 0, "lte": 100}
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_process_metadata_filters_single_operator(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """
+    Test that single operators still work correctly after the chained operator fix.
+    
+    {"key": {"gt": 10}} should still produce {"key": {"gt": 10}}
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    # Single operator should still work
+    filters = {"age": {"gt": 10}}
+    result = memory._process_metadata_filters(filters)
+
+    assert result == {"age": {"gt": 10}}
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_process_metadata_filters_mixed_chained_and_simple(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """
+    Test mixing chained operators with simple equality filters.
+    
+    {"age": {"gt": 18, "lt": 65}, "status": "active"}
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    filters = {
+        "age": {"gt": 18, "lt": 65},
+        "status": "active"
+    }
+    result = memory._process_metadata_filters(filters)
+
+    assert result["age"] == {"gt": 18, "lt": 65}
+    assert result["status"] == "active"

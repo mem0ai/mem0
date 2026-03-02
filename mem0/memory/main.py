@@ -787,6 +787,8 @@ class Memory(MemoryBase):
                 - {"key": {"gte": 10}} - greater than or equal
                 - {"key": {"lt": 10}} - less than
                 - {"key": {"lte": 10}} - less than or equal
+                - {"key": {"gt": 1, "lt": 10}} - range query (1 < key < 10)
+                - {"key": {"gte": 5, "lte": 15}} - inclusive range (5 <= key <= 15)
                 - {"key": {"contains": "text"}} - contains text
                 - {"key": {"icontains": "text"}} - case-insensitive contains
                 - {"key": "*"} - wildcard match (any value)
@@ -885,7 +887,10 @@ class Memory(MemoryBase):
                 }
                 
                 if operator in operator_map:
-                    result[key] = {operator_map[operator]: value}
+                    # Accumulate operators to support chained comparisons (e.g., {"gt": 1, "lt": 10})
+                    if key not in result:
+                        result[key] = {}
+                    result[key][operator_map[operator]] = value
                 else:
                     raise ValueError(f"Unsupported metadata filter operator: {operator}")
             return result
@@ -1046,11 +1051,10 @@ class Memory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"})
-        # delete all vector memories and reset the collections
+        # delete all vector memories
         memories = self.vector_store.list(filters=filters)[0]
         for memory in memories:
             self._delete_memory(memory.id)
-        self.vector_store.reset()
 
         logger.info(f"Deleted {len(memories)} memories")
 
@@ -1941,7 +1945,10 @@ class AsyncMemory(MemoryBase):
                 }
 
                 if operator in operator_map:
-                    result[key] = {operator_map[operator]: value}
+                    # Accumulate operators to support chained comparisons (e.g., {"gt": 1, "lt": 10})
+                    if key not in result:
+                        result[key] = {}
+                    result[key][operator_map[operator]] = value
                 else:
                     raise ValueError(f"Unsupported metadata filter operator: {operator}")
             return result
