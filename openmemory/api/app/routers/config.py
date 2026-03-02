@@ -1,3 +1,4 @@
+import os
 from typing import Any, Dict, Optional
 
 from app.database import get_db
@@ -47,27 +48,55 @@ class ConfigSchema(BaseModel):
     mem0: Optional[Mem0Config] = None
 
 def get_default_configuration():
-    """Get the default configuration with sensible defaults for LLM and embedder."""
+    """Get the default configuration with sensible defaults for LLM and embedder.
+
+    Environment variables override the hardcoded defaults so that Docker Compose
+    users can configure the provider/model via ``.env`` or ``environment:``
+    without touching the database:
+
+    - ``LLM_PROVIDER``      – LLM provider name (default: ``openai``)
+    - ``LLM_MODEL``         – LLM model name (default: ``gpt-4o-mini``)
+    - ``LLM_API_KEY``       – API key for the LLM (default: ``env:OPENAI_API_KEY``)
+    - ``LLM_TEMPERATURE``   – Temperature (default: ``0.1``)
+    - ``LLM_MAX_TOKENS``    – Max tokens (default: ``2000``)
+    - ``EMBEDDER_PROVIDER``  – Embedder provider name (default: ``openai``)
+    - ``EMBEDDER_MODEL``     – Embedder model name (default: ``text-embedding-3-small``)
+    - ``EMBEDDER_API_KEY``   – API key for the embedder (default: ``env:OPENAI_API_KEY``)
+    - ``OLLAMA_BASE_URL``    – Base URL for Ollama, applied to both LLM and embedder
+                               when their provider is ``ollama``
+    """
+    llm_provider = os.environ.get("LLM_PROVIDER", "openai")
+    embedder_provider = os.environ.get("EMBEDDER_PROVIDER", "openai")
+    ollama_base_url = os.environ.get("OLLAMA_BASE_URL")
+
+    llm_config: Dict[str, Any] = {
+        "model": os.environ.get("LLM_MODEL", "gpt-4o-mini"),
+        "temperature": float(os.environ.get("LLM_TEMPERATURE", "0.1")),
+        "max_tokens": int(os.environ.get("LLM_MAX_TOKENS", "2000")),
+        "api_key": os.environ.get("LLM_API_KEY", "env:OPENAI_API_KEY"),
+    }
+    if llm_provider == "ollama" and ollama_base_url:
+        llm_config["ollama_base_url"] = ollama_base_url
+
+    embedder_config: Dict[str, Any] = {
+        "model": os.environ.get("EMBEDDER_MODEL", "text-embedding-3-small"),
+        "api_key": os.environ.get("EMBEDDER_API_KEY", "env:OPENAI_API_KEY"),
+    }
+    if embedder_provider == "ollama" and ollama_base_url:
+        embedder_config["ollama_base_url"] = ollama_base_url
+
     return {
         "openmemory": {
             "custom_instructions": None
         },
         "mem0": {
             "llm": {
-                "provider": "openai",
-                "config": {
-                    "model": "gpt-4o-mini",
-                    "temperature": 0.1,
-                    "max_tokens": 2000,
-                    "api_key": "env:OPENAI_API_KEY"
-                }
+                "provider": llm_provider,
+                "config": llm_config,
             },
             "embedder": {
-                "provider": "openai",
-                "config": {
-                    "model": "text-embedding-3-small",
-                    "api_key": "env:OPENAI_API_KEY"
-                }
+                "provider": embedder_provider,
+                "config": embedder_config,
             },
             "vector_store": None
         }

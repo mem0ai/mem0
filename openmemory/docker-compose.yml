@@ -11,6 +11,15 @@ services:
     environment:
       - USER
       - API_KEY
+      - LLM_PROVIDER
+      - LLM_MODEL
+      - LLM_API_KEY
+      - LLM_TEMPERATURE
+      - LLM_MAX_TOKENS
+      - EMBEDDER_PROVIDER
+      - EMBEDDER_MODEL
+      - EMBEDDER_API_KEY
+      - OLLAMA_BASE_URL
     env_file:
       - api/.env
     depends_on:
