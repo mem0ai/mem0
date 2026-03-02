@@ -18,13 +18,9 @@ config = {
     "reranker": {
         "provider": "llm_reranker",
         "config": {
-            "llm": {
-                "provider": "openai",
-                "config": {
-                    "model": "gpt-4",
-                    "api_key": "your-openai-api-key"
-                }
-            }
+            "provider": "openai",
+            "model": "gpt-4",
+            "api_key": "your-openai-api-key"
         }
     }
 }
@@ -36,11 +32,13 @@ m = Memory.from_config(config)
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `llm` | dict | Required | LLM configuration object |
-| `top_k` | int | 10 | Number of results to rerank |
+| `provider` | str | "openai" | LLM provider (openai, anthropic, ollama, etc.) |
+| `model` | str | "gpt-4o-mini" | LLM model to use for reranking |
+| `api_key` | str | None | API key for the LLM provider |
+| `top_k` | int | None | Number of top documents to return after reranking |
 | `temperature` | float | 0.0 | LLM temperature for consistency |
-| `custom_prompt` | str | None | Custom reranking prompt |
-| `score_range` | tuple | (0, 10) | Score range for relevance |
+| `max_tokens` | int | 100 | Maximum tokens for LLM response |
+| `scoring_prompt` | str | None | Custom prompt template for scoring documents |
 
 ### Advanced Configuration
 
@@ -49,18 +47,13 @@ config = {
     "reranker": {
         "provider": "llm_reranker",
         "config": {
-            "llm": {
-                "provider": "anthropic",
-                "config": {
-                    "model": "claude-3-sonnet-20240229",
-                    "api_key": "your-anthropic-api-key"
-                }
-            },
+            "provider": "anthropic",
+            "model": "claude-3-sonnet-20240229",
+            "api_key": "your-anthropic-api-key",
             "top_k": 15,
             "temperature": 0.0,
-            "score_range": (1, 5),
-            "custom_prompt": """
-            Rate the relevance of each memory to the query on a scale of 1-5.
+            "scoring_prompt": """
+            Rate the relevance of each memory to the query on a scale of 0.0-1.0.
             Consider semantic similarity, context, and practical utility.
             Only provide the numeric score.
             """
@@ -78,14 +71,10 @@ config = {
     "reranker": {
         "provider": "llm_reranker",
         "config": {
-            "llm": {
-                "provider": "openai",
-                "config": {
-                    "model": "gpt-4",
-                    "api_key": "your-openai-api-key",
-                    "temperature": 0.0
-                }
-            }
+            "provider": "openai",
+            "model": "gpt-4",
+            "api_key": "your-openai-api-key",
+            "temperature": 0.0
         }
     }
 }
@@ -98,13 +87,9 @@ config = {
     "reranker": {
         "provider": "llm_reranker",
         "config": {
-            "llm": {
-                "provider": "anthropic",
-                "config": {
-                    "model": "claude-3-sonnet-20240229",
-                    "api_key": "your-anthropic-api-key"
-                }
-            }
+            "provider": "anthropic",
+            "model": "claude-3-sonnet-20240229",
+            "api_key": "your-anthropic-api-key"
         }
     }
 }
@@ -117,13 +102,9 @@ config = {
     "reranker": {
         "provider": "llm_reranker",
         "config": {
-            "llm": {
-                "provider": "ollama",
-                "config": {
-                    "model": "llama2",
-                    "ollama_base_url": "http://localhost:11434"
-                }
-            }
+            "provider": "ollama",
+            "model": "llama2",
+            "ollama_base_url": "http://localhost:11434"
         }
     }
 }
@@ -136,15 +117,11 @@ config = {
     "reranker": {
         "provider": "llm_reranker",
         "config": {
-            "llm": {
-                "provider": "azure_openai",
-                "config": {
-                    "model": "gpt-4",
-                    "api_key": "your-azure-api-key",
-                    "azure_endpoint": "https://your-resource.openai.azure.com/",
-                    "azure_deployment": "gpt-4-deployment"
-                }
-            }
+            "provider": "azure_openai",
+            "model": "gpt-4",
+            "api_key": "your-azure-api-key",
+            "azure_endpoint": "https://your-resource.openai.azure.com/",
+            "azure_deployment": "gpt-4-deployment"
         }
     }
 }
@@ -189,14 +166,10 @@ config = {
     "reranker": {
         "provider": "llm_reranker",
         "config": {
-            "llm": {
-                "provider": "openai",
-                "config": {
-                    "model": "gpt-4",
-                    "api_key": "your-api-key"
-                }
-            },
-            "custom_prompt": custom_prompt
+            "provider": "openai",
+            "model": "gpt-4",
+            "api_key": "your-api-key",
+            "scoring_prompt": custom_prompt
         }
     }
 }
@@ -308,13 +281,9 @@ fast_config = {
     "reranker": {
         "provider": "llm_reranker",
         "config": {
-            "llm": {
-                "provider": "openai",
-                "config": {
-                    "model": "gpt-3.5-turbo",
-                    "api_key": "your-api-key"
-                }
-            },
+            "provider": "openai",
+            "model": "gpt-3.5-turbo",
+            "api_key": "your-api-key",
             "top_k": 5,  # Limit candidates
             "temperature": 0.0
         }
@@ -326,13 +295,9 @@ quality_config = {
     "reranker": {
         "provider": "llm_reranker",
         "config": {
-            "llm": {
-                "provider": "openai",
-                "config": {
-                    "model": "gpt-4",
-                    "api_key": "your-api-key"
-                }
-            },
+            "provider": "openai",
+            "model": "gpt-4",
+            "api_key": "your-api-key",
             "top_k": 15,
             "temperature": 0.0
         }
@@ -433,14 +398,14 @@ class RobustLLMReranker:
 primary_config = {
     "reranker": {
         "provider": "llm_reranker",
-        "config": {"llm": {"provider": "openai", "config": {"model": "gpt-4"}}}
+        "config": {"provider": "openai", "model": "gpt-4"}
     }
 }
 
 fallback_config = {
     "reranker": {
         "provider": "llm_reranker",
-        "config": {"llm": {"provider": "openai", "config": {"model": "gpt-3.5-turbo"}}}
+        "config": {"provider": "openai", "model": "gpt-3.5-turbo"}
     }
 }
 
