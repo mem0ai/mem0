@@ -69,9 +69,16 @@ def _safe_deepcopy_config(config):
         else:
             clone_dict = {k: v for k, v in config.__dict__.items()}
         
-        sensitive_tokens = ("auth", "credential", "password", "token", "secret", "key", "connection_class")
+        # Fields that should be excluded from telemetry but preserved for runtime
+        # Note: we use specific patterns to avoid matching runtime fields like http_auth
+        sensitive_tokens = ("credential", "password", "secret", "api_key", "access_key")
+        # Fields with non-serializable objects that should be nulled for telemetry
+        runtime_tokens = ("connection_class",)
         for field_name in list(clone_dict.keys()):
-            if any(token in field_name.lower() for token in sensitive_tokens):
+            field_lower = field_name.lower()
+            if any(token in field_lower for token in sensitive_tokens):
+                clone_dict[field_name] = None
+            elif any(token in field_lower for token in runtime_tokens):
                 clone_dict[field_name] = None
         
         try:
