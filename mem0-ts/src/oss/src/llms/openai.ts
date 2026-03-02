@@ -35,6 +35,12 @@ export class OpenAILLM implements LLM {
       ...(tools && { tools, tool_choice: "auto" }),
     });
 
+    if (completion.choices[0].finish_reason === "length") {
+      console.warn(
+        `[mem0] OpenAI response truncated (finish_reason: "length"). Consider increasing maxTokens in your LLM config.`,
+      );
+    }
+
     const response = completion.choices[0].message;
 
     if (response.tool_calls) {
