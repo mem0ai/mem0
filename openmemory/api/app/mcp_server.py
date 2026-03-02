@@ -94,9 +94,13 @@ async def add_memories(text: str) -> str:
                 for result in response['results']:
                     memory_id = uuid.UUID(result['id'])
                     memory = db.query(Memory).filter(Memory.id == memory_id).first()
+                    
+                    # Capture previous state
+                    previous_state = memory.state if memory else MemoryState.deleted
+                    existed = memory is not None
 
-                    if result['event'] == 'ADD':
-                        if not memory:
+                    if result['event'] == 'ADD' or result['event'] == 'UPDATE':
+                        if not existed:
                             memory = Memory(
                                 id=memory_id,
                                 user_id=user.id,
@@ -113,7 +117,7 @@ async def add_memories(text: str) -> str:
                         history = MemoryStatusHistory(
                             memory_id=memory_id,
                             changed_by=user.id,
-                            old_state=MemoryState.deleted if memory else None,
+                            old_state=previous_state,
                             new_state=MemoryState.active
                         )
                         db.add(history)
@@ -126,7 +130,7 @@ async def add_memories(text: str) -> str:
                             history = MemoryStatusHistory(
                                 memory_id=memory_id,
                                 changed_by=user.id,
-                                old_state=MemoryState.active,
+                                old_state=previous_state,
                                 new_state=MemoryState.deleted
                             )
                             db.add(history)
