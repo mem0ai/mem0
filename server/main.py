@@ -31,7 +31,12 @@ MEMGRAPH_USERNAME = os.environ.get("MEMGRAPH_USERNAME", "memgraph")
 MEMGRAPH_PASSWORD = os.environ.get("MEMGRAPH_PASSWORD", "mem0graph")
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+OPENAI_COMPLETION_MODEL = os.environ.get("OPENAI_COMPLETION_MODEL","gpt-4.1-nano-2025-04-14")
+OPENAI_EMBEDDING_MODEL = os.environ.get("OPENAI_EMBEDDING_MODEL","text-embedding-3-small")
+OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
 HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/history/history.db")
+
+EMBEDIING_DIMS = os.environ.get("EMBEDIING_DIMS", "1536")
 
 DEFAULT_CONFIG = {
     "version": "v1.1",
@@ -44,14 +49,17 @@ DEFAULT_CONFIG = {
             "user": POSTGRES_USER,
             "password": POSTGRES_PASSWORD,
             "collection_name": POSTGRES_COLLECTION_NAME,
+            "embedding_model_dims": int(EMBEDIING_DIMS),
         },
     },
     "graph_store": {
         "provider": "neo4j",
         "config": {"url": NEO4J_URI, "username": NEO4J_USERNAME, "password": NEO4J_PASSWORD},
     },
-    "llm": {"provider": "openai", "config": {"api_key": OPENAI_API_KEY, "temperature": 0.2, "model": "gpt-4.1-nano-2025-04-14"}},
-    "embedder": {"provider": "openai", "config": {"api_key": OPENAI_API_KEY, "model": "text-embedding-3-small"}},
+    "llm": {"provider": "openai", "config": {"api_key": OPENAI_API_KEY, "temperature": 0.2, "model": OPENAI_COMPLETION_MODEL,
+                                             "openai_base_url": OPENAI_BASE_URL}},
+    "embedder": {"provider": "openai", "config": {"api_key": OPENAI_API_KEY, "model": OPENAI_EMBEDDING_MODEL,
+                                                  "openai_base_url": OPENAI_BASE_URL, "embedding_dims": EMBEDIING_DIMS}},
     "history_db_path": HISTORY_DB_PATH,
 }
 
