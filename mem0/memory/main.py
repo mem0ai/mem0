@@ -37,8 +37,8 @@ from mem0.utils.factory import (
     EmbedderFactory,
     GraphStoreFactory,
     LlmFactory,
-    VectorStoreFactory,
     RerankerFactory,
+    VectorStoreFactory,
 )
 
 # Suppress SWIG deprecation warnings globally
@@ -69,9 +69,12 @@ def _safe_deepcopy_config(config):
         else:
             clone_dict = {k: v for k, v in config.__dict__.items()}
         
-        sensitive_tokens = ("auth", "credential", "password", "token", "secret", "key", "connection_class")
+        # Preserve runtime authentication objects while removing sensitive data
+        # http_auth, auth, and connection_class are required for OpenSearch clients
+        preserve_fields = ("http_auth", "auth", "connection_class")
+        sensitive_tokens = ("credentials", "password", "token", "secret", "key")
         for field_name in list(clone_dict.keys()):
-            if any(token in field_name.lower() for token in sensitive_tokens):
+            if field_name not in preserve_fields and any(token in field_name.lower() for token in sensitive_tokens):
                 clone_dict[field_name] = None
         
         try:
