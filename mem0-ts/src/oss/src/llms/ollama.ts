@@ -94,7 +94,12 @@ export class OllamaLLM implements LLM {
       return true;
     }
     const local_models = await this.ollama.list();
-    if (!local_models.models.find((m: any) => m.name === this.model)) {
+    // Ollama list returns names with an implicit :latest tag (e.g. "llama3.1:8b"
+    // stays as-is, but "mymodel" becomes "mymodel:latest"). Normalize the
+    // configured model name the same way before comparing so locally-created
+    // aliases (via `ollama cp` or custom Modelfiles) are found without pulling.
+    const normalize = (name: string) => (name.includes(":") ? name : `${name}:latest`);
+    if (!local_models.models.find((m: any) => m.name === normalize(this.model))) {
       logger.info(`Pulling model ${this.model}...`);
       await this.ollama.pull({ model: this.model });
     }
