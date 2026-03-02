@@ -14,9 +14,9 @@
   ·
   <a href="https://mem0.dev/DiG">Join Discord</a>
   ·
-  <a href="https://mem0.dev/demo">Demo</a>
+  <a href="https://mem0.ai/demo">Demo</a>
   ·
-  <a href="https://mem0.dev/openmemory">OpenMemory</a>
+  <a href="https://mem0.ai/openmemory">OpenMemory</a>
 </p>
 
 <p align="center">
@@ -142,7 +142,7 @@ For detailed integration steps, see the [Quickstart](https://docs.mem0.ai/quicks
 
 ## 🔗 Integrations & Demos
 
-- **ChatGPT with Memory**: Personalized chat powered by Mem0 ([Live Demo](https://mem0.dev/demo))
+- **ChatGPT with Memory**: Personalized chat powered by Mem0 ([Live Demo](https://mem0.ai/demo))
 - **Browser Extension**: Store memories across ChatGPT, Perplexity, and Claude ([Chrome Extension](https://chromewebstore.google.com/detail/onihkkbipkfeijkadecaafbgagkhglop?utm_source=item-share-cb))
 - **Langgraph Support**: Build a customer bot with Langgraph + Mem0 ([Guide](https://docs.mem0.ai/integrations/langgraph))
 - **CrewAI Integration**: Tailor CrewAI outputs with Mem0 ([Example](https://docs.mem0.ai/integrations/crewai))
