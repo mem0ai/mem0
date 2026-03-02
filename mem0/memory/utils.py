@@ -181,6 +181,7 @@ def sanitize_relationship_for_cypher(relationship) -> str:
         "&": "_ampersand_",
         "=": "_equals_",
         "+": "_plus_",
+        "-": "_dash_",
         "*": "_asterisk_",
         "^": "_caret_",
         "%": "_percent_",
