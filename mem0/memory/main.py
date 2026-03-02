@@ -69,9 +69,15 @@ def _safe_deepcopy_config(config):
         else:
             clone_dict = {k: v for k, v in config.__dict__.items()}
         
-        sensitive_tokens = ("auth", "credential", "password", "token", "secret", "key", "connection_class")
+        # Preserve runtime objects needed for connection (e.g. http_auth, connection_class)
+        # while stripping genuinely sensitive plaintext data (passwords, API keys, etc.)
+        preserve_fields = {"http_auth", "connection_class"}
+        sensitive_tokens = ("credential", "password", "token", "secret", "key")
         for field_name in list(clone_dict.keys()):
-            if any(token in field_name.lower() for token in sensitive_tokens):
+            if field_name in preserve_fields:
+                # Restore original runtime objects that may have been lost during serialization
+                clone_dict[field_name] = getattr(config, field_name, clone_dict[field_name])
+            elif any(token in field_name.lower() for token in sensitive_tokens):
                 clone_dict[field_name] = None
         
         try:
