@@ -6,24 +6,29 @@ from app.utils.memory import reset_memory_client
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+# Import mem0 config classes for reference, but we'll create Pydantic models that match their structure
 
 router = APIRouter(prefix="/api/v1/config", tags=["config"])
 
+# Pydantic models that match mem0's config structure exactly
 class LLMConfig(BaseModel):
-    model: str = Field(..., description="LLM model name")
-    temperature: float = Field(..., description="Temperature setting for the model")
-    max_tokens: int = Field(..., description="Maximum tokens to generate")
-    api_key: Optional[str] = Field(None, description="API key or 'env:API_KEY' to use environment variable")
-    ollama_base_url: Optional[str] = Field(None, description="Base URL for Ollama server (e.g., http://host.docker.internal:11434)")
+    """Matches mem0.configs.llms.openai.OpenAIConfig structure"""
+    model: Optional[str] = Field(None, description="LLM model name")
+    temperature: float = Field(0.1, description="Temperature for LLM responses")
+    api_key: Optional[str] = Field(None, description="API key for LLM provider")
+    max_tokens: int = Field(2000, description="Maximum tokens for LLM responses")
+    openai_base_url: Optional[str] = Field(None, description="Base URL for OpenAI-compatible API")
 
 class LLMProvider(BaseModel):
     provider: str = Field(..., description="LLM provider name")
     config: LLMConfig
 
 class EmbedderConfig(BaseModel):
-    model: str = Field(..., description="Embedder model name")
-    api_key: Optional[str] = Field(None, description="API key or 'env:API_KEY' to use environment variable")
-    ollama_base_url: Optional[str] = Field(None, description="Base URL for Ollama server (e.g., http://host.docker.internal:11434)")
+    """Matches mem0.configs.embeddings.base.BaseEmbedderConfig structure"""
+    model: Optional[str] = Field(None, description="Embedder model name")
+    api_key: Optional[str] = Field(None, description="API key for embedder provider")
+    openai_base_url: Optional[str] = Field(None, description="Base URL for OpenAI-compatible API")
+    embedding_dims: Optional[int] = Field(1536, description="Dimensions of the embedding model")
 
 class EmbedderProvider(BaseModel):
     provider: str = Field(..., description="Embedder provider name")
@@ -34,20 +39,76 @@ class VectorStoreProvider(BaseModel):
     # Below config can vary widely based on the vector store used. Refer https://docs.mem0.ai/components/vectordbs/config
     config: Dict[str, Any] = Field(..., description="Vector store-specific configuration")
 
+class GraphStoreConfig(BaseModel):
+    """Matches mem0.graphs.configs.GraphStoreConfig structure"""
+    provider: str = Field("neo4j", description="Provider of the data store")
+    config: Optional[Dict[str, Any]] = Field(None, description="Configuration for the specific data store")
+    llm: Optional[LLMProvider] = Field(None, description="LLM configuration for querying the graph store")
+    custom_prompt: Optional[str] = Field(None, description="Custom prompt to fetch entities from the given text")
+
 class OpenMemoryConfig(BaseModel):
     custom_instructions: Optional[str] = Field(None, description="Custom instructions for memory management and fact extraction")
+    llm: Optional[LLMProvider] = Field(None, description="LLM configuration")
+    embedder: Optional[EmbedderProvider] = Field(None, description="Embedder configuration")
+    vector_store: Optional[VectorStoreProvider] = Field(None, description="Vector store configuration")
+    graph_store: Optional[GraphStoreConfig] = Field(None, description="Graph store configuration")
 
 class Mem0Config(BaseModel):
     llm: Optional[LLMProvider] = None
     embedder: Optional[EmbedderProvider] = None
     vector_store: Optional[VectorStoreProvider] = None
+    graph_store: Optional[GraphStoreConfig] = None
 
 class ConfigSchema(BaseModel):
     openmemory: Optional[OpenMemoryConfig] = None
     mem0: Optional[Mem0Config] = None
 
 def get_default_configuration():
-    """Get the default configuration with sensible defaults for LLM and embedder."""
+    """Get the default configuration with sensible defaults for LLM, embedder, vector store, and graph store."""
+    import os
+
+    # Detect vector store configuration from environment variables
+    vector_store_config = None
+    if os.environ.get('QDRANT_HOST') and os.environ.get('QDRANT_PORT'):
+        qdrant_config = {
+            "collection_name": "openmemory",
+            "host": os.environ.get('QDRANT_HOST'),
+            "port": int(os.environ.get('QDRANT_PORT'))
+        }
+        # Only add API key if it's explicitly set and not a placeholder value
+        api_key = os.environ.get('QDRANT_API_KEY', '')
+        if api_key and api_key not in ['QdrantApiKey', 'changeme', 'your-api-key']:
+            qdrant_config["api_key"] = "env:QDRANT_API_KEY"
+
+        vector_store_config = {
+            "provider": "qdrant",
+            "config": qdrant_config
+        }
+    elif os.environ.get('CHROMA_HOST') and os.environ.get('CHROMA_PORT'):
+        vector_store_config = {
+            "provider": "chroma",
+            "config": {
+                "collection_name": "openmemory",
+                "host": os.environ.get('CHROMA_HOST'),
+                "port": int(os.environ.get('CHROMA_PORT'))
+            }
+        }
+
+    # Detect graph store configuration from environment variables
+    graph_store_config = None
+    if os.environ.get('NEO4J_URL') or os.environ.get('NEO4J_USERNAME') or os.environ.get('NEO4J_PASSWORD'):
+        graph_store_config = {
+            "provider": "neo4j",
+            "config": {
+                "url": os.environ.get('NEO4J_URL', 'neo4j://neo4j'),
+                "username": os.environ.get('NEO4J_USERNAME', 'neo4j'),
+                "password": "env:NEO4J_PASSWORD",
+                "database": os.environ.get('NEO4J_DB', 'neo4j')
+            },
+            "llm": None,
+            "custom_prompt": None
+        }
+
     return {
         "openmemory": {
             "custom_instructions": None
@@ -69,7 +130,8 @@ def get_default_configuration():
                     "api_key": "env:OPENAI_API_KEY"
                 }
             },
-            "vector_store": None
+            "vector_store": vector_store_config,
+            "graph_store": graph_store_config
         }
     }
 
@@ -106,9 +168,12 @@ def get_config_from_db(db: Session, key: str = "main"):
             config_value["mem0"]["embedder"] = default_config["mem0"]["embedder"]
         
         # Ensure vector_store config exists with defaults
-        if "vector_store" not in config_value["mem0"]:
+        if "vector_store" not in config_value["mem0"] or config_value["mem0"]["vector_store"] is None:
             config_value["mem0"]["vector_store"] = default_config["mem0"]["vector_store"]
-
+        
+        # Graph store is optional - only set defaults if user explicitly configures it
+        # If not present, it remains None (disabled)
+    
     # Save the updated config back to database if it was modified
     if config_value != config.value:
         config.value = config_value
@@ -142,19 +207,27 @@ async def get_configuration(db: Session = Depends(get_db)):
 async def update_configuration(config: ConfigSchema, db: Session = Depends(get_db)):
     """Update the configuration."""
     current_config = get_config_from_db(db)
-    
+
     # Convert to dict for processing
     updated_config = current_config.copy()
-    
+
     # Update openmemory settings if provided
     if config.openmemory is not None:
         if "openmemory" not in updated_config:
             updated_config["openmemory"] = {}
         updated_config["openmemory"].update(config.openmemory.dict(exclude_none=True))
-    
+
     # Update mem0 settings
     updated_config["mem0"] = config.mem0.dict(exclude_none=True)
-    
+
+    # Save to database
+    save_config_to_db(db, updated_config)
+
+    # Reset memory client to pick up new configuration
+    reset_memory_client()
+
+    return updated_config
+
 
 @router.patch("/", response_model=ConfigSchema)
 async def patch_configuration(config_update: ConfigSchema, db: Session = Depends(get_db)):
@@ -268,10 +341,20 @@ async def update_vector_store_configuration(vector_store_config: VectorStoreProv
 
 @router.get("/openmemory", response_model=OpenMemoryConfig)
 async def get_openmemory_configuration(db: Session = Depends(get_db)):
-    """Get only the OpenMemory configuration."""
+    """Get the OpenMemory configuration including mem0 settings."""
     config = get_config_from_db(db)
-    openmemory_config = config.get("openmemory", {})
-    return openmemory_config
+
+    # Merge openmemory and mem0 config sections
+    openmemory_section = config.get("openmemory", {})
+    mem0_section = config.get("mem0", {})
+
+    return {
+        "custom_instructions": openmemory_section.get("custom_instructions"),
+        "llm": mem0_section.get("llm"),
+        "embedder": mem0_section.get("embedder"),
+        "vector_store": mem0_section.get("vector_store"),
+        "graph_store": mem0_section.get("graph_store")
+    }
 
 @router.put("/openmemory", response_model=OpenMemoryConfig)
 async def update_openmemory_configuration(openmemory_config: OpenMemoryConfig, db: Session = Depends(get_db)):

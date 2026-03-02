@@ -198,12 +198,20 @@ class MemoryGraph:
         _tools = [EXTRACT_ENTITIES_TOOL]
         if self.llm_provider in ["azure_openai_structured", "openai_structured"]:
             _tools = [EXTRACT_ENTITIES_STRUCT_TOOL]
+
+        user_id = filters['user_id']
+        # Build prompt that explicitly types user_id as "user" regardless of format
+        system_prompt = f"""You are a smart assistant who understands entities and their types in a given text.
+
+CRITICAL: The user's identifier is "{user_id}". This is the USER, regardless of its format (email, username, UUID, etc.).
+- If user message contains self-references like 'I', 'me', 'my', use "{user_id}" as the entity with type "user".
+- The entity "{user_id}" must ALWAYS have entity_type "user", never "email", "person", or anything else.
+
+Extract all entities from the text. ***DO NOT*** answer the question itself if the given text is a question."""
+
         search_results = self.llm.generate_response(
             messages=[
-                {
-                    "role": "system",
-                    "content": f"You are a smart assistant who understands entities and their types in a given text. If user message contains self reference such as 'I', 'me', 'my' etc. then use {filters['user_id']} as the source entity. Extract all the entities from the text. ***DO NOT*** answer the question itself if the given text is a question.",
-                },
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": data},
             ],
             tools=_tools,
@@ -223,6 +231,12 @@ class MemoryGraph:
             )
 
         entity_type_map = {k.lower().replace(" ", "_"): v.lower().replace(" ", "_") for k, v in entity_type_map.items()}
+
+        # Force user_id to be typed as "user" regardless of what LLM inferred
+        user_id_normalized = user_id.lower().replace(" ", "_")
+        if user_id_normalized in entity_type_map:
+            entity_type_map[user_id_normalized] = "user"
+
         logger.debug(f"Entity type map: {entity_type_map}\n search_results={search_results}")
         return entity_type_map
 

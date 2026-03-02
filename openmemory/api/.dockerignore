@@ -1,23 +1,83 @@
-# Ignore all .env files
-**/.env
-**/.env.*
+# Prevent secrets and sensitive data from being copied into the Docker image
 
-# Ignore all database files
-**/*.db
-**/*.sqlite
-**/*.sqlite3
+# Environment files
+.env
+.env.*
+!.env.example
+*.env
 
-# Ignore logs
-**/*.log
+# Secrets and credentials
+*.key
+*.pem
+*.p12
+*.pfx
+*.cer
+*.crt
+secrets/
+credentials/
 
-# Ignore runtime data
-**/node_modules
-**/__pycache__
-**/.pytest_cache
-**/.coverage
-**/coverage
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+database.sqlite
 
-# Ignore Docker runtime files
-**/.dockerignore
-**/Dockerfile
-**/docker-compose*.yml 
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Development files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# Testing
+test_*.py
+tests/
+.tox/
+coverage/
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+Jenkinsfile
+.circleci/
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Logs
+*.log
+logs/

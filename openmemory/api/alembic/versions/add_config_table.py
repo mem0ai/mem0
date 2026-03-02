@@ -18,23 +18,39 @@ depends_on = None
 
 
 def upgrade():
-    # Create configs table if it doesn't exist
-    op.create_table(
-        'configs',
-        sa.Column('id', sa.UUID(), nullable=False, default=lambda: uuid.uuid4()),
-        sa.Column('key', sa.String(), nullable=False),
-        sa.Column('value', sa.JSON(), nullable=False),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.Column('updated_at', sa.DateTime(), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('key')
-    )
-    
-    # Create index for key lookups
-    op.create_index('idx_configs_key', 'configs', ['key'])
+    from sqlalchemy import inspect
+
+    # Check if table already exists
+    conn = op.get_bind()
+    inspector = inspect(conn)
+    tables = inspector.get_table_names()
+
+    if 'configs' not in tables:
+        # Create configs table if it doesn't exist
+        op.create_table(
+            'configs',
+            sa.Column('id', sa.UUID(), nullable=False, default=lambda: uuid.uuid4()),
+            sa.Column('key', sa.String(), nullable=False),
+            sa.Column('value', sa.JSON(), nullable=False),
+            sa.Column('created_at', sa.DateTime(), nullable=True),
+            sa.Column('updated_at', sa.DateTime(), nullable=True),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('key')
+        )
+
+        # Create index for key lookups
+        op.create_index('idx_configs_key', 'configs', ['key'])
 
 
 def downgrade():
-    # Drop the configs table
-    op.drop_index('idx_configs_key', 'configs')
-    op.drop_table('configs') 
+    from sqlalchemy import inspect
+
+    # Check if table exists before dropping
+    conn = op.get_bind()
+    inspector = inspect(conn)
+    tables = inspector.get_table_names()
+
+    if 'configs' in tables:
+        # Drop the configs table
+        op.drop_index('idx_configs_key', 'configs')
+        op.drop_table('configs') 

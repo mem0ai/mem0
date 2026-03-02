@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { SaveIcon, RotateCcw } from "lucide-react"
 import { FormView } from "@/components/form-view"
 import { JsonEditor } from "@/components/json-editor"
+import { PromptsView } from "@/components/prompts-view"
 import { useConfig } from "@/hooks/useConfig"
 import { useSelector } from "react-redux"
 import { RootState } from "@/store/store"
@@ -32,7 +33,7 @@ export default function SettingsPage() {
     },
     mem0: configState.mem0
   })
-  const [viewMode, setViewMode] = useState<"form" | "json">("form")
+  const [viewMode, setViewMode] = useState<"form" | "json" | "prompts">("form")
   const { fetchConfig, saveConfig, resetConfig, isLoading, error } = useConfig()
 
   useEffect(() => {
@@ -137,10 +138,11 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as "form" | "json")} className="w-full animate-fade-slide-down delay-1">
-          <TabsList className="grid w-full grid-cols-2 mb-8">
+        <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as "form" | "json" | "prompts")} className="w-full animate-fade-slide-down delay-1">
+          <TabsList className="grid w-full grid-cols-3 mb-8">
             <TabsTrigger value="form">Form View</TabsTrigger>
             <TabsTrigger value="json">JSON Editor</TabsTrigger>
+            <TabsTrigger value="prompts">Prompts</TabsTrigger>
           </TabsList>
 
           <TabsContent value="form">
@@ -157,6 +159,10 @@ export default function SettingsPage() {
                 <JsonEditor value={settings} onChange={setSettings} />
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="prompts">
+            <PromptsView />
           </TabsContent>
         </Tabs>
       </div>

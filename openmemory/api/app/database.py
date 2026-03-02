@@ -8,8 +8,8 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./openmemory.db")
-if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL is not set in environment")
+# DATABASE_URL always has a default, so this check is unnecessary
+# Keeping engine creation simple and relying on the default
 
 # SQLAlchemy engine & session
 engine = create_engine(

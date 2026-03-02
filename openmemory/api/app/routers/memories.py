@@ -1,6 +1,10 @@
+import asyncio
+import json
 import logging
-from datetime import UTC, datetime
-from typing import List, Optional, Set
+import os
+import time
+from datetime import UTC, datetime, timedelta
+from typing import Dict, List, Optional, Set
 from uuid import UUID
 
 from app.database import get_db
@@ -14,87 +18,43 @@ from app.models import (
     MemoryStatusHistory,
     User,
 )
+from app.models.schemas import (
+    TimeRange,
+    TemporalEntity,
+    CreateMemoryRequest,
+    DeleteMemoriesRequest,
+    PauseMemoriesRequest,
+    UpdateMemoryRequest,
+    MoveMemoriesRequest,
+    FilterMemoriesRequest,
+)
+from app.services.temporal_service import (
+    build_temporal_extraction_prompt,
+    extract_temporal_entity,
+    enrich_metadata_with_temporal_data,
+    enrich_metadata_with_mycelia_fields,
+    format_temporal_log_string,
+)
+from app.services.memory_service import (
+    get_memory_or_404,
+    update_memory_state,
+    create_history_entry,
+)
+from app.controllers.permission_controller import (
+    get_accessible_memory_ids,
+)
 from app.schemas import MemoryResponse
-from app.utils.memory import get_memory_client
+from app.utils.memory import get_memory_client, create_memory_async
+from app.database import SessionLocal
 from app.utils.permissions import check_memory_access_permissions
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi_pagination import Page, Params
 from fastapi_pagination.ext.sqlalchemy import paginate as sqlalchemy_paginate
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 router = APIRouter(prefix="/api/v1/memories", tags=["memories"])
-
-
-def get_memory_or_404(db: Session, memory_id: UUID) -> Memory:
-    memory = db.query(Memory).filter(Memory.id == memory_id).first()
-    if not memory:
-        raise HTTPException(status_code=404, detail="Memory not found")
-    return memory
-
-
-def update_memory_state(db: Session, memory_id: UUID, new_state: MemoryState, user_id: UUID):
-    memory = get_memory_or_404(db, memory_id)
-    old_state = memory.state
-
-    # Update memory state
-    memory.state = new_state
-    if new_state == MemoryState.archived:
-        memory.archived_at = datetime.now(UTC)
-    elif new_state == MemoryState.deleted:
-        memory.deleted_at = datetime.now(UTC)
-
-    # Record state change
-    history = MemoryStatusHistory(
-        memory_id=memory_id,
-        changed_by=user_id,
-        old_state=old_state,
-        new_state=new_state
-    )
-    db.add(history)
-    db.commit()
-    return memory
-
-
-def get_accessible_memory_ids(db: Session, app_id: UUID) -> Set[UUID]:
-    """
-    Get the set of memory IDs that the app has access to based on app-level ACL rules.
-    Returns all memory IDs if no specific restrictions are found.
-    """
-    # Get app-level access controls
-    app_access = db.query(AccessControl).filter(
-        AccessControl.subject_type == "app",
-        AccessControl.subject_id == app_id,
-        AccessControl.object_type == "memory"
-    ).all()
-
-    # If no app-level rules exist, return None to indicate all memories are accessible
-    if not app_access:
-        return None
-
-    # Initialize sets for allowed and denied memory IDs
-    allowed_memory_ids = set()
-    denied_memory_ids = set()
-
-    # Process app-level rules
-    for rule in app_access:
-        if rule.effect == "allow":
-            if rule.object_id:  # Specific memory access
-                allowed_memory_ids.add(rule.object_id)
-            else:  # All memories access
-                return None  # All memories allowed
-        elif rule.effect == "deny":
-            if rule.object_id:  # Specific memory denied
-                denied_memory_ids.add(rule.object_id)
-            else:  # All memories denied
-                return set()  # No memories accessible
-
-    # Remove denied memories from allowed set
-    if allowed_memory_ids:
-        allowed_memory_ids -= denied_memory_ids
-
-    return allowed_memory_ids
 
 
 # List all memories with filtering
@@ -102,86 +62,60 @@ def get_accessible_memory_ids(db: Session, app_id: UUID) -> Set[UUID]:
 async def list_memories(
     user_id: str,
     app_id: Optional[UUID] = None,
-    from_date: Optional[int] = Query(
-        None,
-        description="Filter memories created after this date (timestamp)",
-        examples=[1718505600]
-    ),
-    to_date: Optional[int] = Query(
-        None,
-        description="Filter memories created before this date (timestamp)",
-        examples=[1718505600]
-    ),
+    from_date: Optional[int] = Query(None, description="Filter memories created after this date (timestamp)", examples=[1718505600]),
+    to_date: Optional[int] = Query(None, description="Filter memories created before this date (timestamp)", examples=[1718505600]),
     categories: Optional[str] = None,
     params: Params = Depends(),
     search_query: Optional[str] = None,
-    sort_column: Optional[str] = Query(None, description="Column to sort by (memory, categories, app_name, created_at)"),
+    sort_column: Optional[str] = Query(None, description="Column to sort by"),
     sort_direction: Optional[str] = Query(None, description="Sort direction (asc or desc)"),
     db: Session = Depends(get_db)
 ):
-    user = db.query(User).filter(User.user_id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    """List memories with filtering and pagination.
 
-    # Build base query
-    query = db.query(Memory).filter(
-        Memory.user_id == user.id,
-        Memory.state != MemoryState.deleted,
-        Memory.state != MemoryState.archived,
-        Memory.content.ilike(f"%{search_query}%") if search_query else True
-    )
+    Flow:
+    1. Get user
+    2. Build base query (user's active memories)
+    3. Apply filters (app, dates, search, categories)
+    4. Apply joins and sorting
+    5. Paginate with permission checking
+    """
+    from app.controllers import query_controller as qc
 
-    # Apply filters
-    if app_id:
-        query = query.filter(Memory.app_id == app_id)
+    # Step 1: Get user (auto-create if not exists)
+    user = qc.get_user_or_create(user_id, db)
 
-    if from_date:
-        from_datetime = datetime.fromtimestamp(from_date, tz=UTC)
-        query = query.filter(Memory.created_at >= from_datetime)
+    # Step 2: Build base query for user's active memories
+    query = qc.build_base_memory_query(user, db)
 
-    if to_date:
-        to_datetime = datetime.fromtimestamp(to_date, tz=UTC)
-        query = query.filter(Memory.created_at <= to_datetime)
+    # Step 3: Apply search filter
+    query = qc.apply_search_filter(query, search_query)
 
-    # Add joins for app and categories after filtering
-    query = query.outerjoin(App, Memory.app_id == App.id)
-    query = query.outerjoin(Memory.categories)
+    # Step 4: Apply other filters
+    query = qc.apply_app_filter(query, app_id)
+    query = qc.apply_date_filters(query, from_date, to_date)
 
-    # Apply category filter if provided
-    if categories:
-        category_list = [c.strip() for c in categories.split(",")]
-        query = query.filter(Category.name.in_(category_list))
+    # Step 5: Add joins for related data
+    query = qc.apply_joins(query)
 
-    # Apply sorting if specified
-    if sort_column:
-        sort_field = getattr(Memory, sort_column, None)
-        if sort_field:
-            query = query.order_by(sort_field.desc()) if sort_direction == "desc" else query.order_by(sort_field.asc())
+    # Step 6: Apply category filter (after join)
+    query = qc.apply_category_filter(query, categories)
 
-    # Add eager loading for app and categories
+    # Step 7: Apply sorting
+    query = qc.apply_sorting(query, sort_column, sort_direction)
+
+    # Step 8: Eager load relationships (standard SQLAlchemy optimization)
     query = query.options(
         joinedload(Memory.app),
-        joinedload(Memory.categories)
+        joinedload(Memory.categories),
+        joinedload(Memory.user)
     ).distinct(Memory.id)
 
-    # Get paginated results with transformer
+    # Step 9: Paginate and transform with permission checking
     return sqlalchemy_paginate(
         query,
         params,
-        transformer=lambda items: [
-            MemoryResponse(
-                id=memory.id,
-                content=memory.content,
-                created_at=memory.created_at,
-                state=memory.state.value,
-                app_id=memory.app_id,
-                app_name=memory.app.name if memory.app else None,
-                categories=[category.name for category in memory.categories],
-                metadata_=memory.metadata_
-            )
-            for memory in items
-            if check_memory_access_permissions(db, memory, app_id)
-        ]
+        transformer=lambda items: qc.transform_to_response(items, app_id, db)
     )
 
 
@@ -209,121 +143,40 @@ async def get_categories(
     }
 
 
-class CreateMemoryRequest(BaseModel):
-    user_id: str
-    text: str
-    metadata: dict = {}
-    infer: bool = True
-    app: str = "openmemory"
-
-
 # Create new memory
 @router.post("/")
 async def create_memory(
     request: CreateMemoryRequest,
     db: Session = Depends(get_db)
 ):
-    user = db.query(User).filter(User.user_id == request.user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    # Get or create app
-    app_obj = db.query(App).filter(App.name == request.app,
-                                   App.owner_id == user.id).first()
-    if not app_obj:
-        app_obj = App(name=request.app, owner_id=user.id)
-        db.add(app_obj)
-        db.commit()
-        db.refresh(app_obj)
+    """Create a new memory.
 
-    # Check if app is active
-    if not app_obj.is_active:
-        raise HTTPException(status_code=403, detail=f"App {request.app} is currently paused on OpenMemory. Cannot create new memories.")
+    Flow:
+    1. Get/create user and app
+    2. Validate app is active
+    3. Add timestamp and user info to metadata
+    4. Create placeholder (instant response)
+    5. Process with mem0 (controller handles client lifecycle)
+    """
+    from app.controllers import memory_controller as controller
 
-    # Log what we're about to do
-    logging.info(f"Creating memory for user_id: {request.user_id} with app: {request.app}")
-    
-    # Try to get memory client safely
-    try:
-        memory_client = get_memory_client()
-        if not memory_client:
-            raise Exception("Memory client is not available")
-    except Exception as client_error:
-        logging.warning(f"Memory client unavailable: {client_error}. Creating memory in database only.")
-        # Return a json response with the error
-        return {
-            "error": str(client_error)
-        }
+    # Step 1: Get or create user and app
+    user, app = await controller.get_or_create_user_and_app(request, db)
 
-    # Try to save to Qdrant via memory_client
-    try:
-        qdrant_response = memory_client.add(
-            request.text,
-            user_id=request.user_id,  # Use string user_id to match search
-            metadata={
-                "source_app": "openmemory",
-                "mcp_client": request.app,
-            },
-            infer=request.infer
-        )
-        
-        # Log the response for debugging
-        logging.info(f"Qdrant response: {qdrant_response}")
-        
-        # Process Qdrant response
-        if isinstance(qdrant_response, dict) and 'results' in qdrant_response:
-            created_memories = []
-            
-            for result in qdrant_response['results']:
-                if result['event'] == 'ADD':
-                    # Get the Qdrant-generated ID
-                    memory_id = UUID(result['id'])
-                    
-                    # Check if memory already exists
-                    existing_memory = db.query(Memory).filter(Memory.id == memory_id).first()
-                    
-                    if existing_memory:
-                        # Update existing memory
-                        existing_memory.state = MemoryState.active
-                        existing_memory.content = result['memory']
-                        memory = existing_memory
-                    else:
-                        # Create memory with the EXACT SAME ID from Qdrant
-                        memory = Memory(
-                            id=memory_id,  # Use the same ID that Qdrant generated
-                            user_id=user.id,
-                            app_id=app_obj.id,
-                            content=result['memory'],
-                            metadata_=request.metadata,
-                            state=MemoryState.active
-                        )
-                        db.add(memory)
-                    
-                    # Create history entry
-                    history = MemoryStatusHistory(
-                        memory_id=memory_id,
-                        changed_by=user.id,
-                        old_state=MemoryState.deleted if existing_memory else MemoryState.deleted,
-                        new_state=MemoryState.active
-                    )
-                    db.add(history)
-                    
-                    created_memories.append(memory)
-            
-            # Commit all changes at once
-            if created_memories:
-                db.commit()
-                for memory in created_memories:
-                    db.refresh(memory)
-                
-                # Return the first memory (for API compatibility)
-                # but all memories are now saved to the database
-                return created_memories[0]
-    except Exception as qdrant_error:
-        logging.warning(f"Qdrant operation failed: {qdrant_error}.")
-        # Return a json response with the error
-        return {
-            "error": str(qdrant_error)
-        }
+    # Step 2: Validate app is active
+    controller.validate_app_active(app)
+
+    # Step 3: Add timestamp and user info to metadata
+    metadata = controller.add_timestamp_and_user_to_metadata(request, user)
+
+    # Step 4: Create placeholder for instant response
+    placeholder = controller.create_placeholder(user, app, request, metadata, db)
+
+    # Step 5: Process with mem0 (controller handles mem0 client internally)
+    await controller.process_memory_with_mem0(placeholder, request, metadata)
+
+    return placeholder
+
 
 
 
@@ -347,10 +200,6 @@ async def get_memory(
     }
 
 
-class DeleteMemoriesRequest(BaseModel):
-    memory_ids: List[UUID]
-    user_id: str
-
 # Delete multiple memories
 @router.delete("/")
 async def delete_memories(
@@ -363,7 +212,7 @@ async def delete_memories(
 
     # Get memory client to delete from vector store
     try:
-        memory_client = get_memory_client()
+        memory_client = await get_memory_client()
         if not memory_client:
             raise HTTPException(
                 status_code=503,
@@ -381,7 +230,7 @@ async def delete_memories(
     # Delete from vector store then mark as deleted in database
     for memory_id in request.memory_ids:
         try:
-            memory_client.delete(str(memory_id))
+            await memory_client.delete(str(memory_id))
         except Exception as delete_error:
             logging.warning(f"Failed to delete memory {memory_id} from vector store: {delete_error}")
 
@@ -401,15 +250,6 @@ async def archive_memories(
         update_memory_state(db, memory_id, MemoryState.archived, user_id)
     return {"message": f"Successfully archived {len(memory_ids)} memories"}
 
-
-class PauseMemoriesRequest(BaseModel):
-    memory_ids: Optional[List[UUID]] = None
-    category_ids: Optional[List[UUID]] = None
-    app_id: Optional[UUID] = None
-    all_for_app: bool = False
-    global_pause: bool = False
-    state: Optional[MemoryState] = None
-    user_id: str
 
 # Pause access to memories
 @router.post("/actions/pause")
@@ -509,10 +349,6 @@ async def get_memory_access_log(
     }
 
 
-class UpdateMemoryRequest(BaseModel):
-    memory_content: str
-    user_id: str
-
 # Update a memory
 @router.put("/{memory_id}")
 async def update_memory(
@@ -525,22 +361,49 @@ async def update_memory(
         raise HTTPException(status_code=404, detail="User not found")
     memory = get_memory_or_404(db, memory_id)
     memory.content = request.memory_content
+    if request.target_app_id:
+        memory.app_id = request.target_app_id
     db.commit()
     db.refresh(memory)
     return memory
 
-class FilterMemoriesRequest(BaseModel):
-    user_id: str
-    page: int = 1
-    size: int = 10
-    search_query: Optional[str] = None
-    app_ids: Optional[List[UUID]] = None
-    category_ids: Optional[List[UUID]] = None
-    sort_column: Optional[str] = None
-    sort_direction: Optional[str] = None
-    from_date: Optional[int] = None
-    to_date: Optional[int] = None
-    show_archived: Optional[bool] = False
+@router.post("/{app_id}/memories/move/")
+async def move_memories_to_app(
+    app_id: UUID,
+    request: UpdateMemoryRequest,
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(User.user_id == request.user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")    
+    # Get memories to move
+    memories = db.query(Memory).filter(
+        Memory.id.in_(request.memory_ids),
+        Memory.app_id == app_id,
+        # Memory.user_id == user.id,
+        # Memory.state != MemoryState.deleted
+    ).all()
+    
+    if not memories:
+        raise HTTPException(status_code=404, detail="No memories found to move")
+    
+    # Move memories to target app
+    moved_count = 0
+    for memory in memories:
+        try:
+            await update_memory(memory.id, request, db)
+            moved_count += 1
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Failed to move memory {memory.id}: {str(e)}")
+    
+    return {
+        "status": "success",
+        "message": f"Successfully moved {moved_count} memories to {request.target_app_id}",
+        "moved_count": moved_count
+    }
+
+
 
 @router.post("/filter", response_model=Page[MemoryResponse])
 async def filter_memories(
@@ -552,10 +415,16 @@ async def filter_memories(
         raise HTTPException(status_code=404, detail="User not found")
 
     # Build base query
-    query = db.query(Memory).filter(
-        Memory.user_id == user.id,
-        Memory.state != MemoryState.deleted,
-    )
+    # Superusers can see all memories, regular users only see their own
+    if user.is_superuser:
+        query = db.query(Memory).filter(
+            Memory.state != MemoryState.deleted,
+        )
+    else:
+        query = db.query(Memory).filter(
+            Memory.user_id == user.id,
+            Memory.state != MemoryState.deleted,
+        )
 
     # Filter archived memories based on show_archived parameter
     if not request.show_archived:
@@ -636,6 +505,32 @@ async def filter_memories(
     )
 
 
+@router.post("/actions/recover-stuck")
+async def recover_stuck_memories(
+    db: Session = Depends(get_db)
+):
+    """Manual endpoint to check for and recover stuck processing memories"""
+    stuck_memories = db.query(Memory).filter(Memory.state == MemoryState.processing).all()
+    
+    if not stuck_memories:
+        return {"message": "No stuck processing memories found", "count": 0}
+    
+    return {
+        "message": f"Found {len(stuck_memories)} stuck processing memories",
+        "count": len(stuck_memories),
+        "memories": [
+            {
+                "id": str(memory.id),
+                "content": memory.content[:100] + "..." if len(memory.content) > 100 else memory.content,
+                "created_at": memory.created_at.isoformat(),
+                "user_id": memory.user_id,
+                "app_id": memory.app_id
+            }
+            for memory in stuck_memories
+        ]
+    }
+
+
 @router.get("/{memory_id}/related", response_model=Page[MemoryResponse])
 async def get_related_memories(
     memory_id: UUID,
@@ -692,3 +587,5 @@ async def get_related_memories(
             for memory in items
         ]
     )
+
+    

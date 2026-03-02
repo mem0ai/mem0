@@ -352,6 +352,343 @@ export function FormView({ settings, onChange }: FormViewProps) {
         </CardContent>
       </Card>
 
+      {/* Vector Store Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Vector Store Settings</CardTitle>
+          <CardDescription>Configure your Vector Database provider and settings</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="vector-store-provider">Vector Store Provider</Label>
+            <Select 
+              value={settings.mem0?.vector_store?.provider || "qdrant"} 
+              onValueChange={(value) => {
+                onChange({
+                  ...settings,
+                  mem0: {
+                    ...settings.mem0,
+                    llm: settings.mem0?.llm,
+                    embedder: settings.mem0?.embedder,
+                    graph_store: settings.mem0?.graph_store,
+                    vector_store: {
+                      provider: value,
+                      config: {
+                        collection_name: "openmemory",
+                        host: value === "qdrant" ? "qdrant.root.svc.cluster.local" : "",
+                        port: value === "qdrant" ? 6333 : undefined,
+                        api_key: "",
+                      }
+                    }
+                  }
+                })
+              }}
+            >
+              <SelectTrigger id="vector-store-provider">
+                <SelectValue placeholder="Select a provider" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="qdrant">Qdrant</SelectItem>
+                <SelectItem value="chroma">Chroma</SelectItem>
+                <SelectItem value="weaviate">Weaviate</SelectItem>
+                <SelectItem value="redis">Redis</SelectItem>
+                <SelectItem value="pgvector">PGVector</SelectItem>
+                <SelectItem value="milvus">Milvus</SelectItem>
+                <SelectItem value="elasticsearch">Elasticsearch</SelectItem>
+                <SelectItem value="opensearch">OpenSearch</SelectItem>
+                <SelectItem value="faiss">FAISS</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {true && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="vector-collection-name">Collection Name</Label>
+                <Input
+                  id="vector-collection-name"
+                  value={settings.mem0?.vector_store?.config?.collection_name || "openmemory"}
+                  onChange={(e) => {
+                    onChange({
+                      ...settings,
+                      mem0: {
+                        ...settings.mem0,
+                        vector_store: {
+                          ...settings.mem0?.vector_store,
+                          config: {
+                            ...settings.mem0?.vector_store?.config,
+                            collection_name: e.target.value
+                          }
+                        }
+                      }
+                    })
+                  }}
+                  placeholder="openmemory"
+                />
+              </div>
+
+              {["qdrant", "chroma", "weaviate", "redis", "pgvector", "milvus", "elasticsearch", "opensearch"].includes(settings.mem0?.vector_store?.provider) && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="vector-host">Host</Label>
+                    <Input
+                      id="vector-host"
+                      value={settings.mem0?.vector_store?.config?.host || ""}
+                      onChange={(e) => {
+                        onChange({
+                          ...settings,
+                          mem0: {
+                            ...settings.mem0,
+                            vector_store: {
+                              ...settings.mem0?.vector_store,
+                              config: {
+                                ...settings.mem0?.vector_store?.config,
+                                host: e.target.value
+                              }
+                            }
+                          }
+                        })
+                      }}
+                      placeholder="localhost or env:VECTOR_HOST"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="vector-port">Port</Label>
+                    <Input
+                      id="vector-port"
+                      type="number"
+                      value={settings.mem0?.vector_store?.config?.port || ""}
+                      onChange={(e) => {
+                        onChange({
+                          ...settings,
+                          mem0: {
+                            ...settings.mem0,
+                            vector_store: {
+                              ...settings.mem0?.vector_store,
+                              config: {
+                                ...settings.mem0?.vector_store?.config,
+                                port: e.target.value ? parseInt(e.target.value) : undefined
+                              }
+                            }
+                          }
+                        })
+                      }}
+                      placeholder="6333 or env:VECTOR_PORT"
+                    />
+                  </div>
+                </>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="vector-api-key">API Key (Optional)</Label>
+                <Input
+                  id="vector-api-key"
+                  type="password"
+                  value={settings.mem0?.vector_store?.config?.api_key || ""}
+                  onChange={(e) => {
+                    onChange({
+                      ...settings,
+                      mem0: {
+                        ...settings.mem0,
+                        vector_store: {
+                          ...settings.mem0?.vector_store,
+                          config: {
+                            ...settings.mem0?.vector_store?.config,
+                            api_key: e.target.value
+                          }
+                        }
+                      }
+                    })
+                  }}
+                  placeholder="env:VECTOR_API_KEY"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Use "env:API_KEY" to load from environment variable, or enter directly
+                </p>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Graph Store Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Graph Store Settings</CardTitle>
+          <CardDescription>Configure your Graph Database provider and settings</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="graph-store-provider">Graph Store Provider</Label>
+            <Select 
+              value={settings.mem0?.graph_store?.provider || "neo4j"} 
+              onValueChange={(value) => {
+                onChange({
+                  ...settings,
+                  mem0: {
+                    ...settings.mem0,
+                    vector_store: settings.mem0?.vector_store,
+                    embedder: settings.mem0?.embedder,
+                    llm: settings.mem0?.llm,
+                    graph_store: {
+                      provider: value,
+                      config: {
+                        url: value === "neo4j" ? "neo4j://neo4j" : "",
+                        username: value === "neo4j" ? "neo4j" : "",
+                        password: "",
+                        database: value === "neo4j" ? "neo4j" : "",
+                      },
+                      llm: null,
+                      custom_prompt: null
+                    }
+                  }
+                })
+              }}
+            >
+              <SelectTrigger id="graph-store-provider">
+                <SelectValue placeholder="Select a provider" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="neo4j">Neo4j</SelectItem>
+                <SelectItem value="memgraph">Memgraph</SelectItem>
+                <SelectItem value="neptune">Neptune</SelectItem>
+                <SelectItem value="kuzu">Kuzu</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {true && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="graph-url">URL</Label>
+                <Input
+                  id="graph-url"
+                  value={settings.mem0?.graph_store?.config?.url || ""}
+                  onChange={(e) => {
+                    onChange({
+                      ...settings,
+                      mem0: {
+                        ...settings.mem0,
+                        graph_store: {
+                          ...settings.mem0?.graph_store,
+                          config: {
+                            ...settings.mem0?.graph_store?.config,
+                            url: e.target.value
+                          }
+                        }
+                      }
+                    })
+                  }}
+                  placeholder="neo4j://localhost:7687 or env:NEO4J_URL"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="graph-username">Username</Label>
+                <Input
+                  id="graph-username"
+                  value={settings.mem0?.graph_store?.config?.username || ""}
+                  onChange={(e) => {
+                    onChange({
+                      ...settings,
+                      mem0: {
+                        ...settings.mem0,
+                        graph_store: {
+                          ...settings.mem0?.graph_store,
+                          config: {
+                            ...settings.mem0?.graph_store?.config,
+                            username: e.target.value
+                          }
+                        }
+                      }
+                    })
+                  }}
+                  placeholder="neo4j or env:NEO4J_USERNAME"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="graph-password">Password</Label>
+                <Input
+                  id="graph-password"
+                  type="password"
+                  value={settings.mem0?.graph_store?.config?.password || ""}
+                  onChange={(e) => {
+                    onChange({
+                      ...settings,
+                      mem0: {
+                        ...settings.mem0,
+                        graph_store: {
+                          ...settings.mem0?.graph_store,
+                          config: {
+                            ...settings.mem0?.graph_store?.config,
+                            password: e.target.value
+                          }
+                        }
+                      }
+                    })
+                  }}
+                  placeholder="env:NEO4J_PASSWORD"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Use "env:PASSWORD" to load from environment variable, or enter directly
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="graph-database">Database</Label>
+                <Input
+                  id="graph-database"
+                  value={settings.mem0?.graph_store?.config?.database || ""}
+                  onChange={(e) => {
+                    onChange({
+                      ...settings,
+                      mem0: {
+                        ...settings.mem0,
+                        graph_store: {
+                          ...settings.mem0?.graph_store,
+                          config: {
+                            ...settings.mem0?.graph_store?.config,
+                            database: e.target.value
+                          }
+                        }
+                      }
+                    })
+                  }}
+                  placeholder="neo4j or env:NEO4J_DB"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="graph-custom-prompt">Custom Prompt (Optional)</Label>
+                <Textarea
+                  id="graph-custom-prompt"
+                  value={settings.mem0?.graph_store?.custom_prompt || ""}
+                  onChange={(e) => {
+                    onChange({
+                      ...settings,
+                      mem0: {
+                        ...settings.mem0,
+                        graph_store: {
+                          ...settings.mem0?.graph_store,
+                          custom_prompt: e.target.value
+                        }
+                      }
+                    })
+                  }}
+                  placeholder="Custom prompt for graph store operations..."
+                  className="min-h-[80px]"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Optional custom prompt for graph store operations and entity extraction.
+                </p>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Backup (Export / Import) */}
       <Card>
         <CardHeader>

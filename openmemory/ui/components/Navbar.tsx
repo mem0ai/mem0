@@ -11,7 +11,7 @@ import { useMemoriesApi } from "@/hooks/useMemoriesApi";
 import Image from "next/image";
 import { useStats } from "@/hooks/useStats";
 import { useAppsApi } from "@/hooks/useAppsApi";
-import { Settings } from "lucide-react";
+import { Settings, Network } from "lucide-react";
 import { useConfig } from "@/hooks/useConfig";
 
 export function Navbar() {
@@ -132,6 +132,18 @@ export function Navbar() {
             >
               <RiApps2AddFill />
               Apps
+            </Button>
+          </Link>
+          <Link href="/graph">
+            <Button
+              variant="outline"
+              size="sm"
+              className={`flex items-center gap-2 border-none ${
+                isActive("/graph") ? activeClass : inactiveClass
+              }`}
+            >
+              <Network />
+              Graph
             </Button>
           </Link>
           <Link href="/settings">
