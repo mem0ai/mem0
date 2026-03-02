@@ -77,10 +77,32 @@ class MilvusDB(VectorStoreBase):
 
             schema = CollectionSchema(fields, enable_dynamic_field=True)
 
-            index = self.client.prepare_index_params(
-                field_name="vectors", metric_type=metric_type, index_type="AUTOINDEX", index_name="vector_index"
+            # Prepare index parameters
+            index_params = self.client.prepare_index_params()
+
+            # Add vector index
+            index_params.add_index(
+                field_name="vectors",
+                metric_type=metric_type,
+                index_type="AUTOINDEX",
+                index_name="vector_index",
             )
-            self.client.create_collection(collection_name=collection_name, schema=schema, index_params=index)
+
+            # Add inverted index for JSON metadata fields to improve filter performance
+            # These fields are commonly used for filtering in mem0 queries
+            json_index_fields = ["user_id", "agent_id", "run_id"]
+            for idx, field_key in enumerate(json_index_fields):
+                index_params.add_index(
+                    field_name="metadata",
+                    index_type="INVERTED",
+                    index_name=f"idx_metadata_{field_key}",
+                    params={
+                        "json_path": field_key,
+                        "json_cast_type": "varchar",
+                    },
+                )
+
+            self.client.create_collection(collection_name=collection_name, schema=schema, index_params=index_params)
 
     def insert(self, ids, vectors, payloads, **kwargs: Optional[dict[str, any]]):
         """Insert vectors into a collection.

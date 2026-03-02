@@ -249,6 +249,67 @@ class TestMilvusDB:
         # create_collection should not be called
         mock_milvus_client.create_collection.assert_not_called()
 
+    def test_create_col_with_json_field_indexes(self, mock_milvus_client):
+        """Test that JSON metadata field indexes are created for user_id, agent_id, run_id."""
+        # Setup mock for index_params
+        mock_index_params = MagicMock()
+        mock_milvus_client.prepare_index_params.return_value = mock_index_params
+        mock_milvus_client.has_collection.return_value = False
+        
+        MilvusDB(
+            url="http://localhost:19530",
+            token="test_token",
+            collection_name="test_collection",
+            embedding_model_dims=1536,
+            metric_type=MetricType.COSINE,
+            db_name="test_db"
+        )
+        
+        # Verify prepare_index_params was called
+        mock_milvus_client.prepare_index_params.assert_called_once()
+        
+        # Verify add_index was called 4 times (1 vector + 3 JSON fields)
+        assert mock_index_params.add_index.call_count == 4
+        
+        # Get all add_index calls
+        add_index_calls = mock_index_params.add_index.call_args_list
+        
+        # First call should be for vector index
+        vector_index_call = add_index_calls[0]
+        assert vector_index_call[1]['field_name'] == 'vectors'
+        assert vector_index_call[1]['index_type'] == 'AUTOINDEX'
+        assert vector_index_call[1]['index_name'] == 'vector_index'
+        
+        # Next 3 calls should be for JSON metadata fields
+        expected_json_fields = ['user_id', 'agent_id', 'run_id']
+        for i, field_key in enumerate(expected_json_fields):
+            json_index_call = add_index_calls[i + 1]
+            assert json_index_call[1]['field_name'] == 'metadata'
+            assert json_index_call[1]['index_type'] == 'INVERTED'
+            assert json_index_call[1]['index_name'] == f'idx_metadata_{field_key}'
+            assert json_index_call[1]['params']['json_path'] == field_key
+            assert json_index_call[1]['params']['json_cast_type'] == 'varchar'
+
+    def test_create_col_index_params_passed_to_create_collection(self, mock_milvus_client):
+        """Test that index_params is correctly passed to create_collection."""
+        mock_index_params = MagicMock()
+        mock_milvus_client.prepare_index_params.return_value = mock_index_params
+        mock_milvus_client.has_collection.return_value = False
+        
+        MilvusDB(
+            url="http://localhost:19530",
+            token="test_token",
+            collection_name="test_collection",
+            embedding_model_dims=1536,
+            metric_type=MetricType.COSINE,
+            db_name="test_db"
+        )
+        
+        # Verify create_collection was called with index_params
+        mock_milvus_client.create_collection.assert_called_once()
+        call_args = mock_milvus_client.create_collection.call_args
+        assert call_args[1]['index_params'] == mock_index_params
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
