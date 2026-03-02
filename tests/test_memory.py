@@ -245,3 +245,36 @@ def test_get_all_handles_flat_list_from_postgres(mock_sqlite, mock_llm_factory, 
     assert len(result) == 2
     assert result[0]["memory"] == "Memory 1"
     assert result[1]["memory"] == "Memory 2" 
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_add_infer_false_embeds_once(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """
+    Regression test for issue #3723: adding with infer=False should not trigger duplicate embedding calls.
+    """
+    embedder = MagicMock()
+    embedder.embed.return_value = [0.1, 0.2, 0.3]
+    embedder.config = MagicMock(embedding_dims=3)
+    mock_embedder_factory.return_value = embedder
+
+    mock_vector_store = MagicMock()
+    mock_vector_store.search.return_value = []
+    mock_vector_store.insert.return_value = None
+    mock_vector_store.get.return_value = None
+    telemetry_vector_store = MagicMock()
+    mock_vector_factory.side_effect = [mock_vector_store, telemetry_vector_store]
+
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    memory = MemoryClass(MemoryConfig())
+
+    memory.add("foo", user_id="test_user", infer=False)
+
+    # Should only call embed once for the message content
+    assert embedder.embed.call_count == 1
+    mock_vector_store.insert.assert_called_once()
