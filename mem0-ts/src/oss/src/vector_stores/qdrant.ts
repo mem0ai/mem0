@@ -32,6 +32,7 @@ export class Qdrant implements VectorStore {
   private client: QdrantClient;
   private readonly collectionName: string;
   private dimension: number;
+  private _initPromise: Promise<void>;
 
   constructor(config: QdrantConfig) {
     if (config.client) {
@@ -65,7 +66,7 @@ export class Qdrant implements VectorStore {
 
     this.collectionName = config.collectionName;
     this.dimension = config.dimension || 1536; // Default OpenAI dimension
-    this.initialize().catch(console.error);
+    this._initPromise = this.initialize().catch(console.error) as Promise<void>;
   }
 
   private createFilter(filters?: SearchFilters): QdrantFilter | undefined {
@@ -211,6 +212,9 @@ export class Qdrant implements VectorStore {
 
   async getUserId(): Promise<string> {
     try {
+      // Ensure initialize() has completed before proceeding
+      if (this._initPromise) await this._initPromise;
+
       // First check if the collection exists
       const collections = await this.client.getCollections();
       const userCollectionExists = collections.collections.some(
@@ -219,13 +223,21 @@ export class Qdrant implements VectorStore {
 
       if (!userCollectionExists) {
         // Create the collection if it doesn't exist
-        await this.client.createCollection("memory_migrations", {
-          vectors: {
-            size: 1,
-            distance: "Cosine",
-            on_disk: false,
-          },
-        });
+        try {
+          await this.client.createCollection("memory_migrations", {
+            vectors: {
+              size: 1,
+              distance: "Cosine",
+              on_disk: false,
+            },
+          });
+        } catch (error: any) {
+          // Handle race condition where collection was created between check and create
+          if (error?.status !== 409) {
+            throw error;
+          }
+          // 409 means collection already exists — safe to continue
+        }
       }
 
       // Now try to get the user ID
