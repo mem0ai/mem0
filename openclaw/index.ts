@@ -203,6 +203,47 @@ class PlatformProvider implements Mem0Provider {
 }
 
 // ============================================================================
+// OSS Config Builder
+// ============================================================================
+
+/**
+ * Builds the config object passed to mem0ai's `Memory` constructor for
+ * open-source (self-hosted) mode.
+ *
+ * Exported for unit testing. Not part of the public plugin API.
+ *
+ * @internal
+ */
+export function buildOSSMemoryConfig(
+  ossConfig: Mem0Config["oss"],
+  resolvePath?: (p: string) => string,
+): Record<string, unknown> {
+  const config: Record<string, unknown> = { version: "v1.1" };
+
+  if (ossConfig?.embedder) config.embedder = ossConfig.embedder;
+  if (ossConfig?.vectorStore) config.vectorStore = ossConfig.vectorStore;
+  if (ossConfig?.llm) config.llm = ossConfig.llm;
+
+  if (ossConfig?.historyDbPath) {
+    const dbPath = resolvePath
+      ? resolvePath(ossConfig.historyDbPath)
+      : ossConfig.historyDbPath;
+    config.historyDbPath = dbPath;
+    // Also override historyStore so mem0ai's DEFAULT_MEMORY_CONFIG
+    // (which sets historyStore.config.historyDbPath = "memory.db", a relative
+    // path) does not silently win over the explicit historyDbPath value.
+    // Without this, the Memory constructor always takes the historyStore branch
+    // and ignores the top-level historyDbPath entirely.
+    config.historyStore = {
+      provider: "sqlite",
+      config: { historyDbPath: dbPath },
+    };
+  }
+
+  return config;
+}
+
+// ============================================================================
 // Open-Source Provider (Self-hosted)
 // ============================================================================
 
@@ -225,23 +266,8 @@ class OSSProvider implements Mem0Provider {
 
   private async _init(): Promise<void> {
     const { Memory } = await import("mem0ai/oss");
-
-    const config: Record<string, unknown> = { version: "v1.1" };
-
-    if (this.ossConfig?.embedder) config.embedder = this.ossConfig.embedder;
-    if (this.ossConfig?.vectorStore)
-      config.vectorStore = this.ossConfig.vectorStore;
-    if (this.ossConfig?.llm) config.llm = this.ossConfig.llm;
-
-    if (this.ossConfig?.historyDbPath) {
-      const dbPath = this.resolvePath
-        ? this.resolvePath(this.ossConfig.historyDbPath)
-        : this.ossConfig.historyDbPath;
-      config.historyDbPath = dbPath;
-    }
-
+    const config = buildOSSMemoryConfig(this.ossConfig, this.resolvePath);
     if (this.customPrompt) config.customPrompt = this.customPrompt;
-
     this.memory = new Memory(config);
   }
 
