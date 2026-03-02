@@ -106,6 +106,7 @@ Key differentiators:
 - [Sarvam](https://docs.mem0.ai/components/llms/models/sarvam): Indian language models
 - [XAI](https://docs.mem0.ai/components/llms/models/xai): xAI models integration
 - [LiteLLM](https://docs.mem0.ai/components/llms/models/litellm): Unified LLM interface and proxy
+- [Forge](https://docs.mem0.ai/components/llms/models/forge): LLM router with unified access to multiple AI providers
 - [LangChain](https://docs.mem0.ai/components/llms/models/langchain): LangChain LLM integration
 - [OpenAI Structured](https://docs.mem0.ai/components/llms/models/openai_structured): OpenAI with structured output support
 - [Azure OpenAI Structured](https://docs.mem0.ai/components/llms/models/azure_openai_structured): Azure OpenAI with structured outputs

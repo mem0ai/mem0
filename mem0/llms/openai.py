@@ -37,7 +37,12 @@ class OpenAILLM(LLMBase):
         if not self.config.model:
             self.config.model = "gpt-4.1-nano-2025-04-14"
 
-        if os.environ.get("OPENROUTER_API_KEY"):  # Use OpenRouter
+        if os.environ.get("FORGE_API_KEY"):  # Use Forge
+            self.client = OpenAI(
+                api_key=os.environ.get("FORGE_API_KEY"),
+                base_url=os.getenv("FORGE_API_BASE") or "https://api.forge.tensorblock.co/v1",
+            )
+        elif os.environ.get("OPENROUTER_API_KEY"):  # Use OpenRouter
             self.client = OpenAI(
                 api_key=os.environ.get("OPENROUTER_API_KEY"),
                 base_url=self.config.openrouter_base_url
@@ -102,13 +107,18 @@ class OpenAILLM(LLMBase):
             json: The generated response.
         """
         params = self._get_supported_params(messages=messages, **kwargs)
-        
-        params.update({
-            "model": self.config.model,
-            "messages": messages,
-        })
 
-        if os.getenv("OPENROUTER_API_KEY"):
+        params.update(
+            {
+                "model": self.config.model,
+                "messages": messages,
+            }
+        )
+
+        if os.getenv("FORGE_API_KEY"):
+            # Forge uses standard OpenAI API format, no special parameters needed
+            pass
+        elif os.getenv("OPENROUTER_API_KEY"):
             openrouter_params = {}
             if self.config.models:
                 openrouter_params["models"] = self.config.models
@@ -123,13 +133,13 @@ class OpenAILLM(LLMBase):
                 openrouter_params["extra_headers"] = extra_headers
 
             params.update(**openrouter_params)
-        
+
         else:
             openai_specific_generation_params = ["store"]
             for param in openai_specific_generation_params:
                 if hasattr(self.config, param):
                     params[param] = getattr(self.config, param)
-            
+
         if response_format:
             params["response_format"] = response_format
         if tools:  # TODO: Remove tools if no issues found with new memory addition logic
