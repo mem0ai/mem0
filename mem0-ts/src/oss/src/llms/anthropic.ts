@@ -5,6 +5,7 @@ import { LLMConfig, Message } from "../types";
 export class AnthropicLLM implements LLM {
   private client: Anthropic;
   private model: string;
+  private maxTokens: number;
 
   constructor(config: LLMConfig) {
     const apiKey = config.apiKey || process.env.ANTHROPIC_API_KEY;
@@ -13,6 +14,7 @@ export class AnthropicLLM implements LLM {
     }
     this.client = new Anthropic({ apiKey });
     this.model = config.model || "claude-3-sonnet-20240229";
+    this.maxTokens = config.maxTokens || 16384;
   }
 
   async generateResponse(
@@ -36,7 +38,7 @@ export class AnthropicLLM implements LLM {
         typeof systemMessage?.content === "string"
           ? systemMessage.content
           : undefined,
-      max_tokens: 4096,
+      max_tokens: this.maxTokens,
     });
 
     const firstBlock = response.content[0];
