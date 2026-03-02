@@ -117,6 +117,7 @@ Key differentiators:
 - [Chroma](https://docs.mem0.ai/components/vectordbs/dbs/chroma): AI-native open-source vector database optimized for speed
 - [Weaviate](https://docs.mem0.ai/components/vectordbs/dbs/weaviate): Open-source vector search engine with built-in ML capabilities
 - [PGVector](https://docs.mem0.ai/components/vectordbs/dbs/pgvector): PostgreSQL extension for vector similarity search
+- [Hologres](https://docs.mem0.ai/components/vectordbs/dbs/hologres): High-performance database with vector search
 - [Milvus](https://docs.mem0.ai/components/vectordbs/dbs/milvus): Open-source vector database for AI applications at scale
 - [Redis](https://docs.mem0.ai/components/vectordbs/dbs/redis): Real-time vector storage and search with Redis Stack
 - [Supabase](https://docs.mem0.ai/components/vectordbs/dbs/supabase): Open-source Firebase alternative with vector support
