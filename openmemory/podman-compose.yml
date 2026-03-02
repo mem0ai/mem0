@@ -6,15 +6,18 @@ services:
       - "6333:6333"
       - "6334:6334"
     volumes:
-      - mem0_storage:/mem0/storage
+      - mem0_storage:/mem0/storage:Z
     networks:
       - openmemory_network
+
   openmemory-mcp:
-    image: mem0/openmemory-mcp
-    build: api/
+    image: mem0/openmemory-mcp:latest
+    build:
+      context: api/
+    container_name: openmemory-mcp
     environment:
-      - USER
-      - API_KEY
+      - USER=${USER}
+      - API_KEY=${API_KEY}
       - QDRANT_HOST=mem0_store
       - QDRANT_PORT=6333
     env_file:
@@ -24,13 +27,14 @@ services:
     ports:
       - "8765:8765"
     volumes:
-      - ./api/data:/usr/src/openmemory/data
+      - ./api/data:/usr/src/openmemory/data:Z
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "host.containers.internal:host-gateway"
     networks:
       - openmemory_network
     command: >
       sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --reload --workers 4"
+
   openmemory-ui:
     build:
       context: ui/
@@ -53,3 +57,4 @@ volumes:
 networks:
   openmemory_network:
     driver: bridge
+
