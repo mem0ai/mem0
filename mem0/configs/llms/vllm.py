@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Dict, Optional
 
 from mem0.configs.llms.base import BaseLlmConfig
 
@@ -21,6 +21,7 @@ class VllmConfig(BaseLlmConfig):
         enable_vision: bool = False,
         vision_details: Optional[str] = "auto",
         http_client_proxies: Optional[dict] = None,
+        extra_headers: Optional[Dict[str, str]] = None,
         # vLLM-specific parameters
         vllm_base_url: Optional[str] = None,
     ):
@@ -50,6 +51,7 @@ class VllmConfig(BaseLlmConfig):
             enable_vision=enable_vision,
             vision_details=vision_details,
             http_client_proxies=http_client_proxies,
+            extra_headers=extra_headers,
         )
 
         # vLLM-specific parameters

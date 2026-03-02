@@ -16,7 +16,11 @@ class XAILLM(LLMBase):
 
         api_key = self.config.api_key or os.getenv("XAI_API_KEY")
         base_url = self.config.xai_base_url or os.getenv("XAI_API_BASE") or "https://api.x.ai/v1"
-        self.client = OpenAI(api_key=api_key, base_url=base_url)
+        self.client = OpenAI(
+            api_key=api_key,
+            base_url=base_url,
+            default_headers=self.config.extra_headers,
+        )
 
     def generate_response(
         self,

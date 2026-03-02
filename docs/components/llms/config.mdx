@@ -76,6 +76,32 @@ await memory.add("Your text here", { userId: "user123", metadata: { category: "e
 
 </CodeGroup>
 
+### Using Extra Headers for Observability
+
+You can pass custom HTTP headers to supported LLM providers using the `extra_headers` config option. This is useful for integrating with observability tools like Helicone or custom proxy servers:
+
+```python Python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "gpt-4o-mini",
+            "extra_headers": {
+                "Helicone-Auth": "Bearer <your-helicone-key>",
+                "Helicone-Cache-Enabled": "true"
+            }
+        }
+    }
+}
+
+m = Memory.from_config(config)
+```
+
 ## Why is Config Needed?
 
 Config is essential for:
@@ -115,6 +141,7 @@ Here's a comprehensive list of all parameters that can be used across different 
     | `seed`               | Seed for deterministic sampling               | Sarvam            |
     | `stop`               | Stop sequences (max 4)                        | Sarvam            |
     | `lmstudio_base_url`  | Base URL for LM Studio API                    | LM Studio         |
+    | `extra_headers`      | Custom HTTP headers for observability/proxy   | All               |
     | `response_callback`  | LLM response callback function                | OpenAI            |
   </Tab>
   <Tab title="TypeScript">

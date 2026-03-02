@@ -207,3 +207,40 @@ def test_callback_with_tools(mock_openai_client):
     mock_callback.assert_called_once()
     # Check that tool_calls exists in the message
     assert hasattr(mock_callback.call_args[0][1].choices[0].message, 'tool_calls')
+
+
+def test_openai_llm_extra_headers():
+    """Test that extra_headers are passed to OpenAI client."""
+    custom_headers = {
+        "Helicone-Auth": "Bearer test-token",
+        "Custom-Header": "custom-value"
+    }
+    
+    with patch("mem0.llms.openai.OpenAI") as mock_openai:
+        config = OpenAIConfig(
+            model="gpt-4.1-nano-2025-04-14",
+            api_key="test-key",
+            extra_headers=custom_headers
+        )
+        llm = OpenAILLM(config)
+        
+        # Verify OpenAI client was initialized with default_headers
+        mock_openai.assert_called_once()
+        call_kwargs = mock_openai.call_args[1]
+        assert call_kwargs.get("default_headers") == custom_headers
+
+
+def test_openai_llm_no_extra_headers():
+    """Test that OpenAI client works without extra_headers."""
+    with patch("mem0.llms.openai.OpenAI") as mock_openai:
+        config = OpenAIConfig(
+            model="gpt-4.1-nano-2025-04-14",
+            api_key="test-key"
+        )
+        llm = OpenAILLM(config)
+        
+        # Verify OpenAI client was initialized without default_headers or with None
+        mock_openai.assert_called_once()
+        call_kwargs = mock_openai.call_args[1]
+        assert call_kwargs.get("default_headers") is None
+

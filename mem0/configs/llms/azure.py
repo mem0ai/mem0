@@ -24,6 +24,7 @@ class AzureOpenAIConfig(BaseLlmConfig):
         http_client_proxies: Optional[dict] = None,
         # Azure OpenAI-specific parameters
         azure_kwargs: Optional[Dict[str, Any]] = None,
+        extra_headers: Optional[Dict[str, str]] = None,
     ):
         """
         Initialize Azure OpenAI configuration.
@@ -51,6 +52,7 @@ class AzureOpenAIConfig(BaseLlmConfig):
             enable_vision=enable_vision,
             vision_details=vision_details,
             http_client_proxies=http_client_proxies,
+            extra_headers=extra_headers,
         )
 
         # Azure OpenAI-specific parameters
