@@ -37,6 +37,7 @@ export class EmbedderFactory {
   static create(provider: string, config: EmbeddingConfig): Embedder {
     switch (provider.toLowerCase()) {
       case "openai":
+      case "custom":
         return new OpenAIEmbedder(config);
       case "ollama":
         return new OllamaEmbedder(config);
@@ -57,6 +58,7 @@ export class LLMFactory {
   static create(provider: string, config: LLMConfig): LLM {
     switch (provider.toLowerCase()) {
       case "openai":
+      case "custom":
         return new OpenAILLM(config);
       case "openai_structured":
         return new OpenAIStructuredLLM(config);

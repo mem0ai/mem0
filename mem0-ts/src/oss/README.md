@@ -89,6 +89,35 @@ const memory = new Memory({
   },
 });
 
+// Or with an OpenAI-compatible custom provider (e.g. Scaleway)
+const memory = new Memory({
+  embedder: {
+    provider: "custom",
+    config: {
+      baseURL: process.env.SCALEWAY_API_URL,
+      apiKey: process.env.SCALEWAY_API_KEY,
+      model: "bge-multilingual-gemma2",
+    },
+  },
+  vectorStore: {
+    provider: "memory",
+    config: {
+      collectionName: "memories",
+      dimension: 3584
+    }
+  },
+  llm: {
+    provider: "custom",
+    config: {
+      baseURL: process.env.SCALEWAY_API_URL,
+      apiKey: process.env.SCALEWAY_API_KEY,
+      model: "gpt-oss-120b",
+    },
+  },
+});
+
+// `url` also works for backward compatibility if you prefer that field name.
+
 // Add a memory
 await memory.add("The sky is blue", "user123");
 
