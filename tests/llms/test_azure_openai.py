@@ -39,6 +39,27 @@ def test_generate_response_without_tools(mock_openai_client):
     assert response == "I'm doing well, thank you for asking!"
 
 
+def test_generate_response_reasoning_model_includes_reasoning_effort(mock_openai_client):
+    config = AzureOpenAIConfig(model="o3", reasoning_effort="low")
+    llm = AzureOpenAILLM(config)
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Hello, how are you?"},
+    ]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="ok"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    mock_openai_client.chat.completions.create.assert_called_once_with(
+        model="o3",
+        messages=messages,
+        reasoning_effort="low",
+    )
+
+
 def test_generate_response_with_tools(mock_openai_client):
     config = AzureOpenAIConfig(model=MODEL, temperature=TEMPERATURE, max_tokens=MAX_TOKENS, top_p=TOP_P)
     llm = AzureOpenAILLM(config)

@@ -21,6 +21,7 @@ class BaseLlmConfig(ABC):
         max_tokens: int = 2000,
         top_p: float = 0.1,
         top_k: int = 1,
+        reasoning_effort: Optional[str] = None,
         enable_vision: bool = False,
         vision_details: Optional[str] = "auto",
         http_client_proxies: Optional[Union[Dict, str]] = None,
@@ -44,6 +45,8 @@ class BaseLlmConfig(ABC):
             top_k: Top-k sampling parameter. Limits the number of tokens considered for each step.
                 Higher values make word selection more diverse.
                 Range: 1 to 40. Defaults to 1
+            reasoning_effort: Reasoning effort level for reasoning-capable models.
+                Typical values: "low", "medium", "high". Defaults to None
             enable_vision: Whether to enable vision capabilities for the model.
                 Only applicable to vision-enabled models. Defaults to False
             vision_details: Level of detail for vision processing.
@@ -57,6 +60,7 @@ class BaseLlmConfig(ABC):
         self.max_tokens = max_tokens
         self.top_p = top_p
         self.top_k = top_k
+        self.reasoning_effort = reasoning_effort
         self.enable_vision = enable_vision
         self.vision_details = vision_details
         self.http_client = httpx.Client(proxies=http_client_proxies) if http_client_proxies else None
