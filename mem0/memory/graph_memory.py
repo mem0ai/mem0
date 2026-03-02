@@ -30,10 +30,11 @@ class MemoryGraph:
     def __init__(self, config):
         self.config = config
         self.graph = Neo4jGraph(
-            self.config.graph_store.config.url,
-            self.config.graph_store.config.username,
-            self.config.graph_store.config.password,
-            self.config.graph_store.config.database,
+            url= self.config.graph_store.config.url,
+            username= self.config.graph_store.config.username,
+            password= self.config.graph_store.config.password,
+            database= self.config.graph_store.config.database,
+            token= getattr(self.config.graph_store.config, "token", None),
             refresh_schema=False,
             driver_config={"notifications_min_severity": "OFF"},
         )
