@@ -1,16 +1,16 @@
-import sqlite3 from "sqlite3";
+import Database from "better-sqlite3";
 import { HistoryManager } from "./base";
 
 export class SQLiteManager implements HistoryManager {
-  private db: sqlite3.Database;
+  private db: Database.Database;
 
   constructor(dbPath: string) {
-    this.db = new sqlite3.Database(dbPath);
-    this.init().catch(console.error);
+    this.db = new Database(dbPath);
+    this.init();
   }
 
-  private async init() {
-    await this.run(`
+  private init(): void {
+    this.db.exec(`
       CREATE TABLE IF NOT EXISTS memory_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         memory_id TEXT NOT NULL,
@@ -24,24 +24,6 @@ export class SQLiteManager implements HistoryManager {
     `);
   }
 
-  private async run(sql: string, params: any[] = []): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.db.run(sql, params, (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
-  }
-
-  private async all(sql: string, params: any[] = []): Promise<any[]> {
-    return new Promise((resolve, reject) => {
-      this.db.all(sql, params, (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows);
-      });
-    });
-  }
-
   async addHistory(
     memoryId: string,
     previousValue: string | null,
@@ -51,32 +33,32 @@ export class SQLiteManager implements HistoryManager {
     updatedAt?: string,
     isDeleted: number = 0,
   ): Promise<void> {
-    await this.run(
+    const stmt = this.db.prepare(
       `INSERT INTO memory_history 
       (memory_id, previous_value, new_value, action, created_at, updated_at, is_deleted)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [
-        memoryId,
-        previousValue,
-        newValue,
-        action,
-        createdAt,
-        updatedAt,
-        isDeleted,
-      ],
+      VALUES (?, ?, ?, ?, ?, ?, ?)`
+    );
+    stmt.run(
+      memoryId,
+      previousValue,
+      newValue,
+      action,
+      createdAt,
+      updatedAt,
+      isDeleted,
     );
   }
 
   async getHistory(memoryId: string): Promise<any[]> {
-    return this.all(
-      "SELECT * FROM memory_history WHERE memory_id = ? ORDER BY id DESC",
-      [memoryId],
+    const stmt = this.db.prepare(
+      "SELECT * FROM memory_history WHERE memory_id = ? ORDER BY id DESC"
     );
+    return stmt.all(memoryId) as any[];
   }
 
   async reset(): Promise<void> {
-    await this.run("DROP TABLE IF EXISTS memory_history");
-    await this.init();
+    this.db.exec("DROP TABLE IF EXISTS memory_history");
+    this.init();
   }
 
   close(): void {

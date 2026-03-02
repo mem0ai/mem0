@@ -108,14 +108,13 @@
     "@supabase/supabase-js": "^2.49.1",
     "@types/jest": "29.5.14",
     "@types/pg": "8.11.0",
-    "@types/sqlite3": "3.1.11",
     "cloudflare": "^4.2.0",
     "groq-sdk": "0.3.0",
     "neo4j-driver": "^5.28.1",
     "ollama": "^0.5.14",
     "pg": "8.11.3",
     "redis": "^4.6.13",
-    "sqlite3": "5.1.7"
+    "better-sqlite3": "^11.9.1"
   },
   "engines": {
     "node": ">=18"
@@ -127,7 +126,7 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild",
-      "sqlite3"
+      "better-sqlite3"
     ]
   }
 }
