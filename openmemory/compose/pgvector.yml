@@ -1,5 +1,5 @@
 services:
-  mem0_store:
+  mem0-store:
     image: pgvector/pgvector:pg16
     restart: unless-stopped
     environment:
