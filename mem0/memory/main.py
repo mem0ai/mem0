@@ -763,7 +763,8 @@ class Memory(MemoryBase):
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
         limit: int = 100,
-        filters: Optional[Dict[str, Any]] = None,
+        top_k: Optional[int] = None,
+        filters: Optional[Dict[str, Any]] = None, # legacy filters
         threshold: Optional[float] = None,
         rerank: bool = True,
     ):
@@ -799,6 +800,8 @@ class Memory(MemoryBase):
                   and potentially "relations" if graph store is enabled.
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "score": 0.8, ...}]}`
         """
+        if top_k is not None:
+            limit = top_k
         _, effective_filters = _build_filters_and_metadata(
             user_id=user_id, agent_id=agent_id, run_id=run_id, input_filters=filters
         )
@@ -1812,6 +1815,7 @@ class AsyncMemory(MemoryBase):
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
         limit: int = 100,
+        top_k: Optional[int] = None,
         filters: Optional[Dict[str, Any]] = None,
         threshold: Optional[float] = None,
         metadata_filters: Optional[Dict[str, Any]] = None,
@@ -1849,7 +1853,8 @@ class AsyncMemory(MemoryBase):
                   and potentially "relations" if graph store is enabled.
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "score": 0.8, ...}]}`
         """
-
+        if top_k is not None:
+            limit = top_k
         _, effective_filters = _build_filters_and_metadata(
             user_id=user_id, agent_id=agent_id, run_id=run_id, input_filters=filters
         )
