@@ -26,7 +26,6 @@ class OutputData(BaseModel):
 
 
 class MongoDB(VectorStoreBase):
-    VECTOR_TYPE = "knnVector"
     SIMILARITY_METRIC = "cosine"
 
     def __init__(self, db_name: str, collection_name: str, embedding_model_dims: int, mongo_uri: str):
@@ -69,17 +68,16 @@ class MongoDB(VectorStoreBase):
             else:
                 search_index_model = SearchIndexModel(
                     name=self.index_name,
+                    type="vectorSearch",
                     definition={
-                        "mappings": {
-                            "dynamic": False,
-                            "fields": {
-                                "embedding": {
-                                    "type": self.VECTOR_TYPE,
-                                    "dimensions": self.embedding_model_dims,
-                                    "similarity": self.SIMILARITY_METRIC,
-                                }
-                            },
-                        }
+                        "fields": [
+                            {
+                                "type": "vector",
+                                "path": "embedding",
+                                "numDimensions": self.embedding_model_dims,
+                                "similarity": self.SIMILARITY_METRIC,
+                            }
+                        ]
                     },
                 )
                 collection.create_search_index(search_index_model)
@@ -141,7 +139,7 @@ class MongoDB(VectorStoreBase):
                     "$vectorSearch": {
                         "index": self.index_name,
                         "limit": limit,
-                        "numCandidates": limit,
+                        "numCandidates": limit * 10,
                         "queryVector": vectors,
                         "path": "embedding",
                     }
