@@ -13,10 +13,10 @@ class AnthropicConfig(BaseLlmConfig):
         self,
         # Base parameters
         model: Optional[str] = None,
-        temperature: float = 0.1,
+        temperature: float = None,
         api_key: Optional[str] = None,
         max_tokens: int = 2000,
-        top_p: float = 0.1,
+        top_p: float = None,
         top_k: int = 1,
         enable_vision: bool = False,
         vision_details: Optional[str] = "auto",
