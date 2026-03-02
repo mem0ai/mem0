@@ -1,5 +1,73 @@
 import os
-from unittest.mock import Mock, patch
+import sys
+from unittest.mock import Mock, patch, call
+
+
+class TestNeo4jGraphInitParameterOrder:
+    """Test that Neo4jGraph is initialized with the correct parameter order (issue #3906)."""
+
+    def test_database_passed_as_keyword_argument(self):
+        """Ensure database is passed as a keyword arg, not as the 4th positional arg.
+
+        In langchain-neo4j>=0.4, Neo4jGraph.__init__ signature is:
+            (url, username, password, token, database, ...)
+        Passing database as the 4th positional arg would incorrectly assign it to
+        the 'token' parameter.
+        """
+        mock_neo4j_graph_cls = Mock()
+        mock_neo4j_module = Mock()
+        mock_neo4j_module.Neo4jGraph = mock_neo4j_graph_cls
+
+        mock_bm25_module = Mock()
+
+        # Patch the imports so we don't need real Neo4j/BM25
+        with patch.dict(
+            "sys.modules",
+            {
+                "langchain_neo4j": mock_neo4j_module,
+                "rank_bm25": mock_bm25_module,
+            },
+        ):
+            # Force reimport so patched modules are picked up
+            if "mem0.memory.graph_memory" in sys.modules:
+                del sys.modules["mem0.memory.graph_memory"]
+
+            from mem0.memory.graph_memory import MemoryGraph
+
+            # Build a minimal config mock
+            config = Mock()
+            config.graph_store.config.url = "bolt://localhost:7687"
+            config.graph_store.config.username = "neo4j"
+            config.graph_store.config.password = "password"
+            config.graph_store.config.database = "neo4j"
+            config.graph_store.config.base_label = False
+            config.graph_store.custom_prompt = None
+            config.graph_store.llm = None
+            config.graph_store.threshold = 0.7
+            config.llm.provider = "openai"
+            config.llm.config = {}
+
+            with patch("mem0.memory.graph_memory.EmbedderFactory"), \
+                 patch("mem0.memory.graph_memory.LlmFactory"):
+                MemoryGraph(config)
+
+            # Verify Neo4jGraph was called with database as a keyword argument
+            mock_neo4j_graph_cls.assert_called_once()
+            args, kwargs = mock_neo4j_graph_cls.call_args
+
+            # The first 3 positional args should be url, username, password
+            assert args == (
+                "bolt://localhost:7687",
+                "neo4j",
+                "password",
+            ), f"Expected (url, username, password) as positional args, got {args}"
+
+            # database must be a keyword argument, NOT a positional argument
+            assert "database" in kwargs, (
+                "database should be passed as a keyword argument to avoid "
+                "being interpreted as the 'token' parameter"
+            )
+            assert kwargs["database"] == "neo4j"
 
 
 class TestNeo4jCypherSyntaxFix:
