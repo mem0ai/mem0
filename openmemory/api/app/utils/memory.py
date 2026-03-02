@@ -304,10 +304,11 @@ def get_memory_client(custom_instructions: str = None):
     try:
         # Start with default configuration
         config = get_default_memory_config()
-        
-        # Variable to track custom instructions
+
+        # Variables to track custom prompts and defaults from database
         db_custom_instructions = None
-        
+        db_default_infer = None
+
         # Load configuration from database
         try:
             db = SessionLocal()
@@ -316,14 +317,19 @@ def get_memory_client(custom_instructions: str = None):
             if db_config:
                 json_config = db_config.value
                 
-                # Extract custom instructions from openmemory settings
-                if "openmemory" in json_config and "custom_instructions" in json_config["openmemory"]:
-                    db_custom_instructions = json_config["openmemory"]["custom_instructions"]
-                
+                # Extract custom prompts from openmemory settings
+                if "openmemory" in json_config:
+                    if "custom_instructions" in json_config["openmemory"]:
+                        db_custom_instructions = json_config["openmemory"]["custom_instructions"]
+
                 # Override defaults with configurations from the database
                 if "mem0" in json_config:
                     mem0_config = json_config["mem0"]
-                    
+
+                    # Extract default flags from mem0 config
+                    if "default_infer" in mem0_config:
+                        db_default_infer = mem0_config["default_infer"]
+
                     # Update LLM configuration if available
                     if "llm" in mem0_config and mem0_config["llm"] is not None:
                         config["llm"] = mem0_config["llm"]
@@ -356,6 +362,11 @@ def get_memory_client(custom_instructions: str = None):
         instructions_to_use = custom_instructions or db_custom_instructions
         if instructions_to_use:
             config["custom_fact_extraction_prompt"] = instructions_to_use
+
+        # Use database value for default_infer
+        # Note: Must use 'is not None' check to properly handle False value
+        if db_default_infer is not None:
+            config["default_infer"] = db_default_infer
 
         # ALWAYS parse environment variables in the final config
         # This ensures that even default config values like "env:OPENAI_API_KEY" get parsed

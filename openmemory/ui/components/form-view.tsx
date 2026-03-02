@@ -97,6 +97,16 @@ export function FormView({ settings, onChange }: FormViewProps) {
     })
   }
 
+  const handleMem0ConfigChange = (key: string, value: any) => {
+    onChange({
+      ...settings,
+      mem0: {
+        ...settings.mem0,
+        [key]: value,
+      },
+    })
+  }
+
   const needsLlmApiKey = settings.mem0?.llm?.provider?.toLowerCase() !== "ollama"
   const needsEmbedderApiKey = settings.mem0?.embedder?.provider?.toLowerCase() !== "ollama"
   const isLlmOllama = settings.mem0?.llm?.provider?.toLowerCase() === "ollama"
@@ -349,6 +359,29 @@ export function FormView({ settings, onChange }: FormViewProps) {
               </p>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Default Memory Processing Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Default Memory Processing Settings</CardTitle>
+          <CardDescription>Configure default behavior for memory operations</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5 flex-1">
+              <Label htmlFor="default-infer">Default Infer</Label>
+              <p className="text-xs text-muted-foreground">
+                Enable LLM processing (extraction & deduplication) by default
+              </p>
+            </div>
+            <Switch
+              id="default-infer"
+              checked={settings.mem0?.default_infer !== false}
+              onCheckedChange={(checked) => handleMem0ConfigChange("default_infer", checked)}
+            />
+          </div>
         </CardContent>
       </Card>
 
