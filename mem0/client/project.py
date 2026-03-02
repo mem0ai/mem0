@@ -482,9 +482,9 @@ class Project(BaseProject):
             {"sync_type": "sync"},
         )
         return response.json()
-
+    
     @api_error_handler
-    def get_members(self) -> Dict[str, Any]:
+    def get_members(self) -> Dict[str, List[Dict[str, Any]]]:
         """
         Get all members of the current project.
 
@@ -497,16 +497,23 @@ class Project(BaseProject):
             RateLimitError: If rate limits are exceeded.
             NetworkError: If network connectivity issues occur.
             ValueError: If org_id or project_id are not set.
-        """
+
+        Example:
+            >>> client.get_members()
+            {'members': [{'id': '123', 'name': 'Alice'}, ...]}
+            """
+        if not self.config.org_id or not self.config.project_id:
+            raise ValueError("Both org_id and project_id must be set before calling get_members().")
+
         response = self._client.get(
             f"/api/v1/orgs/organizations/{self.config.org_id}/projects/{self.config.project_id}/members/",
         )
-        response.raise_for_status()
-        capture_client_event(
-            "client.project.get_members",
-            self,
-            {"sync_type": "sync"},
-        )
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as e:
+            raise APIError(f"Failed to fetch project members: {e}") from e
+
+        capture_client_event("client.project.get_members", self, {"sync_type": "sync"})
         return response.json()
 
     @api_error_handler
