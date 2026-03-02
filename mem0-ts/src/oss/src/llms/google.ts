@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { LLM, LLMResponse } from "./base";
 import { LLMConfig, Message } from "../types";
 
@@ -28,18 +28,48 @@ export class GoogleLLM implements LLM {
         ],
         role: msg.role === "system" ? "model" : "user",
       })),
-
       model: this.model,
-      // config: {
-      //   responseSchema: {}, // Add response schema if needed
-      // },
+      config: {
+        ...(tools && {
+          tools: [
+            {
+              functionDeclarations: tools.map((tool) => ({
+                name: tool.function.name,
+                description: tool.function.description,
+                parameters: tool.function.parameters,
+              })),
+            },
+          ],
+        }),
+      },
     });
 
-    const text = completion.text
+    const candidate = completion.candidates?.[0];
+    const parts = candidate?.content?.parts || [];
+
+    const functionCalls = parts.filter((part) => part.functionCall);
+    const textParts = parts.filter((part) => part.text);
+
+    // Extract text content from text parts
+    const textContent = textParts.map((part) => part.text).join("");
+
+    // Clean up markdown JSON formatting if present
+    const cleanText = textContent
       ?.replace(/^```json\n/, "")
       .replace(/\n```$/, "");
 
-    return text || "";
+    if (functionCalls?.length) {
+      return {
+        content: cleanText,
+        role: "assistant",
+        toolCalls: functionCalls.map((part: any) => ({
+          name: part.functionCall.name,
+          arguments: JSON.stringify(part.functionCall.args || {}),
+        })),
+      };
+    }
+
+    return cleanText;
   }
 
   async generateChat(messages: Message[]): Promise<LLMResponse> {
