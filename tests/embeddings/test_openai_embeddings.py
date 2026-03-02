@@ -24,7 +24,7 @@ def test_embed_default_model(mock_openai_client):
     result = embedder.embed("Hello world")
 
     mock_openai_client.embeddings.create.assert_called_once_with(
-        input=["Hello world"], model="text-embedding-3-small", dimensions=1536
+        input=["Hello world"], model="text-embedding-3-small"
     )
     assert result == [0.1, 0.2, 0.3]
 
@@ -54,7 +54,7 @@ def test_embed_removes_newlines(mock_openai_client):
     result = embedder.embed("Hello\nworld")
 
     mock_openai_client.embeddings.create.assert_called_once_with(
-        input=["Hello world"], model="text-embedding-3-small", dimensions=1536
+        input=["Hello world"], model="text-embedding-3-small"
     )
     assert result == [0.7, 0.8, 0.9]
 
@@ -69,7 +69,7 @@ def test_embed_without_api_key_env_var(mock_openai_client):
     result = embedder.embed("Testing API key")
 
     mock_openai_client.embeddings.create.assert_called_once_with(
-        input=["Testing API key"], model="text-embedding-3-small", dimensions=1536
+        input=["Testing API key"], model="text-embedding-3-small"
     )
     assert result == [1.0, 1.1, 1.2]
 
@@ -85,6 +85,35 @@ def test_embed_uses_environment_api_key(mock_openai_client, monkeypatch):
     result = embedder.embed("Environment key test")
 
     mock_openai_client.embeddings.create.assert_called_once_with(
-        input=["Environment key test"], model="text-embedding-3-small", dimensions=1536
+        input=["Environment key test"], model="text-embedding-3-small"
     )
     assert result == [1.3, 1.4, 1.5]
+
+
+def test_embed_no_dimensions_when_not_configured(mock_openai_client):
+    """Verify dimensions is NOT sent when embedding_dims is not explicitly configured."""
+    config = BaseEmbedderConfig(model="custom_embedding")
+    embedder = OpenAIEmbedding(config)
+    mock_response = Mock()
+    mock_response.data = [Mock(embedding=[0.1, 0.2])]
+    mock_openai_client.embeddings.create.return_value = mock_response
+
+    embedder.embed("test")
+
+    call_kwargs = mock_openai_client.embeddings.create.call_args
+    assert "dimensions" not in call_kwargs.kwargs
+
+
+def test_embed_dimensions_when_explicitly_configured(mock_openai_client):
+    """Verify dimensions IS sent when embedding_dims is explicitly configured."""
+    config = BaseEmbedderConfig(model="text-embedding-3-large", embedding_dims=512)
+    embedder = OpenAIEmbedding(config)
+    mock_response = Mock()
+    mock_response.data = [Mock(embedding=[0.1, 0.2])]
+    mock_openai_client.embeddings.create.return_value = mock_response
+
+    embedder.embed("test")
+
+    mock_openai_client.embeddings.create.assert_called_once_with(
+        input=["test"], model="text-embedding-3-large", dimensions=512
+    )

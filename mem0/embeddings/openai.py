@@ -13,6 +13,9 @@ class OpenAIEmbedding(EmbeddingBase):
         super().__init__(config)
 
         self.config.model = self.config.model or "text-embedding-3-small"
+        # Only pass 'dimensions' to the API when the user explicitly set it.
+        # Non-matryoshka models (e.g. on vLLM) reject the parameter entirely.
+        self._pass_dimensions = self.config.embedding_dims is not None
         self.config.embedding_dims = self.config.embedding_dims or 1536
 
         api_key = self.config.api_key or os.getenv("OPENAI_API_KEY")
@@ -42,8 +45,7 @@ class OpenAIEmbedding(EmbeddingBase):
             list: The embedding vector.
         """
         text = text.replace("\n", " ")
-        return (
-            self.client.embeddings.create(input=[text], model=self.config.model, dimensions=self.config.embedding_dims)
-            .data[0]
-            .embedding
-        )
+        kwargs = {"input": [text], "model": self.config.model}
+        if self._pass_dimensions:
+            kwargs["dimensions"] = self.config.embedding_dims
+        return self.client.embeddings.create(**kwargs).data[0].embedding
