@@ -22,6 +22,7 @@ class AzureOpenAIConfig(BaseLlmConfig):
         enable_vision: bool = False,
         vision_details: Optional[str] = "auto",
         http_client_proxies: Optional[dict] = None,
+        reasoning_effort: Optional[str] = None,
         # Azure OpenAI-specific parameters
         azure_kwargs: Optional[Dict[str, Any]] = None,
     ):
@@ -38,6 +39,8 @@ class AzureOpenAIConfig(BaseLlmConfig):
             enable_vision: Enable vision capabilities, defaults to False
             vision_details: Vision detail level, defaults to "auto"
             http_client_proxies: HTTP client proxy settings, defaults to None
+            reasoning_effort: Controls reasoning effort for reasoning models (o1, o3, gpt-5).
+                Options: "low", "medium", "high". Defaults to None
             azure_kwargs: Azure-specific configuration, defaults to None
         """
         # Initialize base parameters
@@ -51,6 +54,7 @@ class AzureOpenAIConfig(BaseLlmConfig):
             enable_vision=enable_vision,
             vision_details=vision_details,
             http_client_proxies=http_client_proxies,
+            reasoning_effort=reasoning_effort,
         )
 
         # Azure OpenAI-specific parameters

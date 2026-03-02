@@ -256,3 +256,65 @@ def test_init_with_placeholder_api_key(monkeypatch):
             http_client=None,
             default_headers=None,
         )
+
+
+def test_generate_response_reasoning_model_with_reasoning_effort(mock_openai_client):
+    """Test that reasoning_effort is passed through for reasoning models."""
+    config = AzureOpenAIConfig(
+        model="o3-mini",
+        temperature=TEMPERATURE,
+        max_tokens=MAX_TOKENS,
+        top_p=TOP_P,
+        reasoning_effort="low",
+    )
+    llm = AzureOpenAILLM(config)
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Hello, how are you?"},
+    ]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="I'm doing well!"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages)
+
+    # Verify reasoning_effort is included in the API call
+    call_kwargs = mock_openai_client.chat.completions.create.call_args
+    assert call_kwargs[1]["reasoning_effort"] == "low"
+    # Verify temperature/max_tokens/top_p are NOT included for reasoning models
+    assert "temperature" not in call_kwargs[1]
+    assert "max_tokens" not in call_kwargs[1]
+    assert "top_p" not in call_kwargs[1]
+    assert response == "I'm doing well!"
+
+
+def test_generate_response_non_reasoning_model_ignores_reasoning_effort(mock_openai_client):
+    """Test that reasoning_effort is NOT passed for non-reasoning models."""
+    config = AzureOpenAIConfig(
+        model=MODEL,
+        temperature=TEMPERATURE,
+        max_tokens=MAX_TOKENS,
+        top_p=TOP_P,
+        reasoning_effort="high",
+    )
+    llm = AzureOpenAILLM(config)
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Hello, how are you?"},
+    ]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="I'm doing well!"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages)
+
+    # Verify reasoning_effort is NOT included for non-reasoning models
+    call_kwargs = mock_openai_client.chat.completions.create.call_args
+    assert "reasoning_effort" not in call_kwargs[1]
+    # Verify standard params ARE included
+    assert call_kwargs[1]["temperature"] == TEMPERATURE
+    assert call_kwargs[1]["max_tokens"] == MAX_TOKENS
+    assert response == "I'm doing well!"
+
