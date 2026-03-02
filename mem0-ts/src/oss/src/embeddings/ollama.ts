@@ -12,7 +12,13 @@ export class OllamaEmbedder implements Embedder {
 
   constructor(config: EmbeddingConfig) {
     this.ollama = new Ollama({
-      host: config.url || "http://localhost:11434",
+      host:
+        config.url ||
+        // allow OpenAI-style baseURL/baseUrl or env fallback
+        (config as any).baseURL ||
+        (config as any).baseUrl ||
+        process.env.OLLAMA_HOST ||
+        "http://localhost:11434",
     });
     this.model = config.model || "nomic-embed-text:latest";
     this.embeddingDims = config.embeddingDims || 768;
