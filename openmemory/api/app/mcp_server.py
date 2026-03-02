@@ -21,6 +21,8 @@ import json
 import logging
 import uuid
 
+import anyio
+
 from app.database import SessionLocal
 from app.models import Memory, MemoryAccessLog, MemoryState, MemoryStatusHistory
 from app.utils.db import get_user_and_app
@@ -31,6 +33,7 @@ from fastapi import FastAPI, Request
 from fastapi.routing import APIRouter
 from mcp.server.fastmcp import FastMCP
 from mcp.server.sse import SseServerTransport
+from mcp.server.streamable_http import StreamableHTTPServerTransport
 
 # Load environment variables
 load_dotenv()
@@ -483,6 +486,42 @@ async def handle_post_message(request: Request):
         return {"status": "ok"}
     finally:
         pass
+
+
+@mcp_router.api_route("/{client_name}/http/{user_id}", methods=["POST", "GET", "DELETE"])
+async def handle_streamable_http(request: Request):
+    """Handle Streamable HTTP connections for a specific user and client"""
+    uid = request.path_params.get("user_id")
+    user_token = user_id_var.set(uid or "")
+    client_name = request.path_params.get("client_name")
+    client_token = client_name_var.set(client_name or "")
+
+    try:
+        transport = StreamableHTTPServerTransport(
+            mcp_session_id=None,
+            is_json_response_enabled=True,
+        )
+
+        async with anyio.create_task_group() as tg:
+
+            async def run_server(*, task_status=anyio.TASK_STATUS_IGNORED):
+                async with transport.connect() as (read_stream, write_stream):
+                    task_status.started()
+                    await mcp._mcp_server.run(
+                        read_stream,
+                        write_stream,
+                        mcp._mcp_server.create_initialization_options(),
+                        stateless=True,
+                    )
+
+            await tg.start(run_server)
+            await transport.handle_request(request.scope, request.receive, request._send)
+            await transport.terminate()
+            tg.cancel_scope.cancel()
+    finally:
+        user_id_var.reset(user_token)
+        client_name_var.reset(client_token)
+
 
 def setup_mcp_server(app: FastAPI):
     """Setup MCP server with the FastAPI application"""
