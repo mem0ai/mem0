@@ -28,6 +28,7 @@ class LlmConfig(BaseModel):
             "lmstudio",
             "vllm",
             "langchain",
+            "cometapi",
         ):
             return v
         else:
