@@ -424,6 +424,9 @@ class Memory(MemoryBase):
 
         if self.config.custom_fact_extraction_prompt:
             system_prompt = self.config.custom_fact_extraction_prompt
+            # Ensure the prompt contains "json" to satisfy response_format=json_object requirement
+            if "json" not in system_prompt.lower():
+                system_prompt += "\n\nYou must return your response in a valid JSON format with a 'facts' key containing an array of strings."
             user_prompt = f"Input:\n{parsed_messages}"
         else:
             # Determine if this should use agent memory extraction based on agent_id presence
@@ -1453,6 +1456,9 @@ class AsyncMemory(MemoryBase):
         parsed_messages = parse_messages(messages)
         if self.config.custom_fact_extraction_prompt:
             system_prompt = self.config.custom_fact_extraction_prompt
+            # Ensure the prompt contains "json" to satisfy response_format=json_object requirement
+            if "json" not in system_prompt.lower():
+                system_prompt += "\n\nYou must return your response in a valid JSON format with a 'facts' key containing an array of strings."
             user_prompt = f"Input:\n{parsed_messages}"
         else:
             # Determine if this should use agent memory extraction based on agent_id presence
