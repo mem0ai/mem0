@@ -11,6 +11,7 @@ from schema import Optional, Or, Schema
 from tqdm import tqdm
 
 from embedchain.models.data_type import DataType
+from embedchain.utils.url_security import SSRFSecurityError, get_allowed_url
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +66,7 @@ def parse_content(content, type):
     cleaned_size = len(content)
     if original_size != 0:
         logger.info(
-            f"Cleaned page size: {cleaned_size} characters, down from {original_size} (shrunk: {original_size-cleaned_size} chars, {round((1-(cleaned_size/original_size)) * 100, 2)}%)"  # noqa:E501
+            f"Cleaned page size: {cleaned_size} characters, down from {original_size} (shrunk: {original_size - cleaned_size} chars, {round((1 - (cleaned_size / original_size)) * 100, 2)}%)"  # noqa:E501
         )
 
     return content
@@ -246,7 +247,8 @@ def detect_datatype(source: Any) -> DataType:
 
         if url.path.endswith(".yaml"):
             try:
-                response = requests.get(source)
+                # Use SSRF-safe URL fetching
+                response = get_allowed_url(source, timeout=30)
                 response.raise_for_status()
                 try:
                     yaml_content = yaml.safe_load(response.text)
@@ -266,6 +268,9 @@ def detect_datatype(source: Any) -> DataType:
                         "Not a valid data type. Check 'https://spec.openapis.org/oas/v3.1.0', \
                         make sure you have all the required fields in YAML config data"
                     )
+            except SSRFSecurityError as e:
+                logger.error(f"Security error fetching URL {formatted_source}: {e}")
+                raise TypeError(f"Not a valid data type. URL blocked for security: {e}")
             except requests.exceptions.RequestException as e:
                 logger.error(f"Error fetching URL {formatted_source}: {e}")
 

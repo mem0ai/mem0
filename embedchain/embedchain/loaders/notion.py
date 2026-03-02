@@ -3,11 +3,10 @@ import logging
 import os
 from typing import Any, Optional
 
-import requests
-
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils.misc import clean_string
+from embedchain.utils.url_security import get_allowed_url
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +35,7 @@ class NotionPageLoader:
             integration_token = os.getenv("NOTION_INTEGRATION_TOKEN")
             if integration_token is None:
                 raise ValueError(
-                    "Must specify `integration_token` or set environment " "variable `NOTION_INTEGRATION_TOKEN`."
+                    "Must specify `integration_token` or set environment variable `NOTION_INTEGRATION_TOKEN`."
                 )
         self.token = integration_token
         self.headers = {
@@ -52,7 +51,7 @@ class NotionPageLoader:
         cur_block_id = block_id
         while not done:
             block_url = self.BLOCK_CHILD_URL_TMPL.format(block_id=cur_block_id)
-            res = requests.get(block_url, headers=self.headers)
+            res = get_allowed_url(block_url, headers=self.headers, allowed_hosts=["api.notion.com"])
             data = res.json()
 
             for result in data["results"]:

@@ -14,6 +14,7 @@ except ImportError:
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils.misc import clean_string
+from embedchain.utils.url_security import SSRFSecurityError, get_allowed_url
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,22 @@ class WebPageLoader(BaseLoader):
     _session = requests.Session()
 
     def load_data(self, url, **kwargs: Optional[dict[str, Any]]):
-        """Load data from a web page using a shared requests' session."""
+        """Load data from a web page using a shared requests' session.
+
+        Args:
+            url: The URL to load data from
+            **kwargs: Optional arguments including:
+                - all_references: If True, also fetch reference links
+                - allow_private_ips: If True, allow private IP addresses (use with caution)
+                - allowed_hosts: List of hostnames to always allow
+
+        Raises:
+            SSRFSecurityError: If the URL is blocked for security reasons
+        """
+        # Extract security-related kwargs
+        allow_private_ips = kwargs.pop("allow_private_ips", False)
+        allowed_hosts = kwargs.pop("allowed_hosts", None)
+
         all_references = False
         for key, value in kwargs.items():
             if key == "all_references":
@@ -32,18 +48,46 @@ class WebPageLoader(BaseLoader):
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36",  # noqa:E501
         }
-        response = self._session.get(url, headers=headers, timeout=30)
-        response.raise_for_status()
+
+        # Validate and fetch the main URL with SSRF protection
+        try:
+            response = get_allowed_url(
+                url,
+                headers=headers,
+                timeout=30,
+                allow_private_ips=allow_private_ips,
+                allowed_hosts=allowed_hosts,
+                session=self._session,
+            )
+            response.raise_for_status()
+        except SSRFSecurityError:
+            # Re-raise security errors directly
+            raise
+        except Exception as e:
+            logging.error(f"Failed to fetch URL {url}: {e}")
+            raise
+
         data = response.content
         reference_links = self.fetch_reference_links(response)
         if all_references:
             for i in reference_links:
                 try:
-                    response = self._session.get(i, headers=headers, timeout=30)
+                    # Also validate reference links for SSRF
+                    response = get_allowed_url(
+                        i,
+                        headers=headers,
+                        timeout=30,
+                        allow_private_ips=allow_private_ips,
+                        allowed_hosts=allowed_hosts,
+                        session=self._session,
+                    )
                     response.raise_for_status()
                     data += response.content
+                except SSRFSecurityError as e:
+                    logging.warning(f"Skipping reference URL {i} due to security policy: {e}")
+                    continue
                 except Exception as e:
-                    logging.error(f"Failed to add URL {url}: {e}")
+                    logging.error(f"Failed to add URL {i}: {e}")
                     continue
 
         content = self._get_clean_content(data, url)
@@ -106,7 +150,7 @@ class WebPageLoader(BaseLoader):
         cleaned_size = len(content)
         if original_size != 0:
             logger.info(
-                f"[{url}] Cleaned page size: {cleaned_size} characters, down from {original_size} (shrunk: {original_size-cleaned_size} chars, {round((1-(cleaned_size/original_size)) * 100, 2)}%)"  # noqa:E501
+                f"[{url}] Cleaned page size: {cleaned_size} characters, down from {original_size} (shrunk: {original_size - cleaned_size} chars, {round((1 - (cleaned_size / original_size)) * 100, 2)}%)"  # noqa:E501
             )
 
         return content

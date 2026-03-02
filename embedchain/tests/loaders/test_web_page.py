@@ -28,7 +28,11 @@ def test_load_data(web_page_loader):
             </body>
         </html>
     """
-    with patch("embedchain.loaders.web_page.WebPageLoader._session.get", return_value=mock_response):
+    mock_response.url = page_url
+    mock_response.history = []
+
+    # Mock get_allowed_url instead of session.get since we now use SSRF protection
+    with patch("embedchain.loaders.web_page.get_allowed_url", return_value=mock_response):
         result = web_page_loader.load_data(page_url)
 
     content = web_page_loader._get_clean_content(mock_response.content, page_url)

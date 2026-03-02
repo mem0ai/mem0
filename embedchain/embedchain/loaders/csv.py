@@ -3,9 +3,8 @@ import hashlib
 from io import StringIO
 from urllib.parse import urlparse
 
-import requests
-
 from embedchain.loaders.base_loader import BaseLoader
+from embedchain.utils.url_security import get_allowed_url
 
 
 class CsvLoader(BaseLoader):
@@ -22,7 +21,7 @@ class CsvLoader(BaseLoader):
             raise ValueError("Not a valid URL.")
 
         if url.scheme in ["http", "https"]:
-            response = requests.get(content)
+            response = get_allowed_url(content)
             response.raise_for_status()
             return StringIO(response.text)
         elif url.scheme == "file":

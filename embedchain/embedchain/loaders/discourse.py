@@ -3,10 +3,9 @@ import logging
 import time
 from typing import Any, Optional
 
-import requests
-
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils.misc import clean_string
+from embedchain.utils.url_security import get_allowed_url
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +32,7 @@ class DiscourseLoader(BaseLoader):
 
     def _load_post(self, post_id):
         post_url = f"{self.domain}posts/{post_id}.json"
-        response = requests.get(post_url)
+        response = get_allowed_url(post_url)
         try:
             response.raise_for_status()
         except Exception as e:
@@ -60,7 +59,7 @@ class DiscourseLoader(BaseLoader):
         data_contents = []
         logger.info(f"Searching data on discourse url: {self.domain}, for query: {query}")
         search_url = f"{self.domain}search.json?q={query}"
-        response = requests.get(search_url)
+        response = get_allowed_url(search_url)
         try:
             response.raise_for_status()
         except Exception as e:
