@@ -7,6 +7,9 @@ from qdrant_client.models import (
     Distance,
     FieldCondition,
     Filter,
+    MatchAny,
+    MatchExcept,
+    MatchText,
     MatchValue,
     PointIdsList,
     PointStruct,
@@ -138,26 +141,96 @@ class Qdrant(VectorStoreBase):
         ]
         self.client.upsert(collection_name=self.collection_name, points=points)
 
+    def _build_field_condition(self, key: str, value) -> FieldCondition:
+        """
+        Build a single FieldCondition from a key-value filter pair.
+
+        Supports the enhanced filter syntax documented at
+        https://docs.mem0.ai/open-source/features/metadata-filtering
+
+        Args:
+            key (str): The payload field name.
+            value: A scalar for simple equality, or a dict with one operator key.
+
+        Returns:
+            FieldCondition: The Qdrant field condition.
+        """
+        if not isinstance(value, dict):
+            # Simple equality: {"field": "value"}
+            return FieldCondition(key=key, match=MatchValue(value=value))
+
+        ops = set(value.keys())
+        range_ops = {"gt", "gte", "lt", "lte"}
+
+        if ops & range_ops:
+            # Any combination of range operators: gt, gte, lt, lte
+            range_kwargs = {op: value[op] for op in range_ops if op in value}
+            return FieldCondition(key=key, range=Range(**range_kwargs))
+        elif "eq" in value:
+            return FieldCondition(key=key, match=MatchValue(value=value["eq"]))
+        elif "ne" in value:
+            return FieldCondition(key=key, match=MatchExcept(**{"except": [value["ne"]]}))
+        elif "in" in value:
+            return FieldCondition(key=key, match=MatchAny(any=value["in"]))
+        elif "nin" in value:
+            return FieldCondition(key=key, match=MatchExcept(**{"except": value["nin"]}))
+        elif "contains" in value or "icontains" in value:
+            # MatchText performs case-insensitive substring search on full-text indexed fields.
+            # Note: icontains behaves identically to contains for Qdrant keyword payloads.
+            text = value.get("contains") or value.get("icontains")
+            return FieldCondition(key=key, match=MatchText(text=text))
+        else:
+            # Unknown operator — fall back to equality
+            return FieldCondition(key=key, match=MatchValue(value=value))
+
     def _create_filter(self, filters: dict) -> Filter:
         """
         Create a Filter object from the provided filters.
+
+        Supports the enhanced filter syntax with comparison operators (eq, ne,
+        gt, gte, lt, lte), list operators (in, nin), string operators (contains,
+        icontains), and logical operators (AND, OR, NOT).
 
         Args:
             filters (dict): Filters to apply.
 
         Returns:
-            Filter: The created Filter object.
+            Filter: The created Filter object, or None if filters is empty.
         """
         if not filters:
             return None
-            
-        conditions = []
+
+        must = []
+        should = []
+        must_not = []
+
         for key, value in filters.items():
-            if isinstance(value, dict) and "gte" in value and "lte" in value:
-                conditions.append(FieldCondition(key=key, range=Range(gte=value["gte"], lte=value["lte"])))
+            if key == "AND":
+                for sub in value:
+                    built = self._create_filter(sub)
+                    if built:
+                        must.append(built)
+            elif key == "OR":
+                for sub in value:
+                    built = self._create_filter(sub)
+                    if built:
+                        should.append(built)
+            elif key == "NOT":
+                for sub in value:
+                    built = self._create_filter(sub)
+                    if built:
+                        must_not.append(built)
             else:
-                conditions.append(FieldCondition(key=key, match=MatchValue(value=value)))
-        return Filter(must=conditions) if conditions else None
+                must.append(self._build_field_condition(key, value))
+
+        if not any([must, should, must_not]):
+            return None
+
+        return Filter(
+            must=must or None,
+            should=should or None,
+            must_not=must_not or None,
+        )
 
     def search(self, query: str, vectors: list, limit: int = 5, filters: dict = None) -> list:
         """
