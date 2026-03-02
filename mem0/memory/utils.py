@@ -45,10 +45,13 @@ def format_entities(entities):
     if not entities:
         return ""
 
+    seen = set()
     formatted_lines = []
     for entity in entities:
         simplified = f"{entity['source']} -- {entity['relationship']} -- {entity['destination']}"
-        formatted_lines.append(simplified)
+        if simplified not in seen:
+            seen.add(simplified)
+            formatted_lines.append(simplified)
 
     return "\n".join(formatted_lines)
 
