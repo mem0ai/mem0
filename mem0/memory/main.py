@@ -70,7 +70,12 @@ def _safe_deepcopy_config(config):
             clone_dict = {k: v for k, v in config.__dict__.items()}
         
         sensitive_tokens = ("auth", "credential", "password", "token", "secret", "key", "connection_class")
+        safe_fields = {"http_auth", "auth", "connection_class"}
+
         for field_name in list(clone_dict.keys()):
+            if field_name.lower() in safe_fields:
+                continue
+            
             if any(token in field_name.lower() for token in sensitive_tokens):
                 clone_dict[field_name] = None
         
@@ -327,6 +332,7 @@ class Memory(MemoryBase):
             LLMError: If LLM operations fail.
             DatabaseError: If database operations fail.
         """
+        capture_event("mem0.add", self, {"user_id": user_id, "agent_id": agent_id, "run_id": run_id, "sync_type": "sync"})
 
         processed_metadata, effective_filters = _build_filters_and_metadata(
             user_id=user_id,
@@ -384,6 +390,18 @@ class Memory(MemoryBase):
         return {"results": vector_store_result}
 
     def _add_to_vector_store(self, messages, metadata, filters, infer):
+        """
+        Add messages to the vector store.
+
+        Args:
+            messages (List[Dict[str, Any]]): List of message dictionaries to add.
+            metadata (Dict[str, Any]): Metadata associated with the messages.
+            filters (Dict[str, Any]): Filters to apply (e.g. user_id).
+            infer (bool): Whether to use LLM for fact extraction.
+
+        Returns:
+            List[Dict[str, Any]]: List of added memory items.
+        """
         if not infer:
             returned_memories = []
             for message_dict in messages:
@@ -597,6 +615,16 @@ class Memory(MemoryBase):
         return returned_memories
 
     def _add_to_graph(self, messages, filters):
+        """
+        Add messages to the knowledge graph.
+
+        Args:
+            messages (List[Dict[str, Any]]): List of message dictionaries to add.
+            filters (Dict[str, Any]): Filters to apply (e.g. user_id).
+
+        Returns:
+            List[Dict[str, Any]]: List of added graph entities/relations.
+        """
         added_entities = []
         if self.enable_graph:
             if filters.get("user_id") is None:
@@ -1358,6 +1386,8 @@ class AsyncMemory(MemoryBase):
         Returns:
             dict: A dictionary containing the result of the memory addition operation.
         """
+        capture_event("mem0.add", self, {"user_id": user_id, "agent_id": agent_id, "run_id": run_id, "sync_type": "async"})
+
         processed_metadata, effective_filters = _build_filters_and_metadata(
             user_id=user_id, agent_id=agent_id, run_id=run_id, input_metadata=metadata
         )
