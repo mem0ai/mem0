@@ -244,4 +244,34 @@ def test_get_all_handles_flat_list_from_postgres(mock_sqlite, mock_llm_factory, 
 
     assert len(result) == 2
     assert result[0]["memory"] == "Memory 1"
-    assert result[1]["memory"] == "Memory 2" 
+    assert result[1]["memory"] == "Memory 2"
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_delete_memory_not_found_raises_error(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """
+    Test that delete() raises ValueError when memory_id does not exist.
+
+    Issue #3849: memory.delete() fails with AttributeError when memory not found.
+    Should raise a clear ValueError instead.
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    # Simulate memory not found - vector_store.get returns None
+    mock_vector_store.get.return_value = None
+
+    with pytest.raises(ValueError) as exc_info:
+        memory._delete_memory("non-existent-id")
+
+    assert "Memory with id non-existent-id not found" in str(exc_info.value)
