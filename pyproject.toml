@@ -34,6 +34,7 @@ graph = [
 ]
 vector_stores = [
     "vecs>=0.4.0",
+    "zvec>=0.2.0",
     "chromadb>=0.4.24",
     "cassandra-driver>=3.29.0",
     "weaviate-client>=4.4.0,<4.15.0",
