@@ -201,11 +201,19 @@ class MemoryGraph:
         _tools = [EXTRACT_ENTITIES_TOOL]
         if self.llm_provider in ["azure_openai_structured", "openai_structured"]:
             _tools = [EXTRACT_ENTITIES_STRUCT_TOOL]
+        
+        default_search_prompt = f"You are a smart assistant who understands entities and their types in a given text. If user message contains self reference such as 'I', 'me', 'my' etc. then use {filters['user_id']} as the source entity. Extract all the entities from the text. ***DO NOT*** answer the question itself if the given text is a question."
+        
+        search_prompt = getattr(self.config.graph_store, 'custom_search_prompt', None) or default_search_prompt
+        
+        if "{user_id}" in search_prompt:
+            search_prompt = search_prompt.replace("{user_id}", str(filters.get("user_id", "USER")))
+        
         search_results = self.llm.generate_response(
             messages=[
                 {
                     "role": "system",
-                    "content": f"You are a smart assistant who understands entities and their types in a given text. If user message contains self reference such as 'I', 'me', 'my' etc. then use {filters['user_id']} as the source entity. Extract all the entities from the text. ***DO NOT*** answer the question itself if the given text is a question.",
+                    "content": search_prompt,
                 },
                 {"role": "user", "content": data},
             ],
