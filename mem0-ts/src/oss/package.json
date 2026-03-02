@@ -1,6 +1,6 @@
 {
   "name": "mem0ai-oss",
-  "version": "1.0.0",
+  "version": "2.1.38",
   "description": "TypeScript implementation of mem0 memory system",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -23,13 +23,14 @@
     "@types/uuid": "^9.0.8",
     "cloudflare": "^4.2.0",
     "dotenv": "^16.4.4",
-    "groq-sdk": "^0.3.0",
-    "openai": "^4.28.0",
+    "groq-sdk": "0.3.0",
+    "neo4j-driver": "^5.28.1",
+    "openai": "^4.93.0",
     "pg": "^8.11.3",
-    "redis": "^4.7.0",
+    "redis": "^4.6.13",
     "sqlite3": "^5.1.7",
-    "uuid": "^9.0.1",
-    "zod": "^3.22.4"
+    "uuid": "9.0.1",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250504.0",
