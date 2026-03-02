@@ -52,15 +52,18 @@ class AnonymousTelemetry:
         self.posthog.shutdown()
 
 
-client_telemetry = AnonymousTelemetry()
+# Lazy-loaded singletons (separate instances for different use cases)
+oss_telemetry = None
+client_telemetry = None
 
 
 def capture_event(event_name, memory_instance, additional_data=None):
-    oss_telemetry = AnonymousTelemetry(
-        vector_store=memory_instance._telemetry_vector_store
-        if hasattr(memory_instance, "_telemetry_vector_store")
-        else None,
-    )
+    """Capture telemetry event for OSS Memory operations."""
+    global oss_telemetry
+
+    if oss_telemetry is None:
+        vector_store = getattr(memory_instance, "_telemetry_vector_store", None)
+        oss_telemetry = AnonymousTelemetry(vector_store=vector_store)
 
     event_data = {
         "collection": memory_instance.collection_name,
@@ -81,6 +84,12 @@ def capture_event(event_name, memory_instance, additional_data=None):
 
 
 def capture_client_event(event_name, instance, additional_data=None):
+    """Capture telemetry event for Cloud API Client operations."""
+    global client_telemetry
+
+    if client_telemetry is None:
+        client_telemetry = AnonymousTelemetry()
+
     event_data = {
         "function": f"{instance.__class__.__module__}.{instance.__class__.__name__}",
     }
