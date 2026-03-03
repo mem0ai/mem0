@@ -470,6 +470,9 @@ class Memory(MemoryBase):
         if filters.get("run_id"):
             search_filters["run_id"] = filters["run_id"]
         for new_mem in new_retrieved_facts:
+            # Convert list to string if needed
+            if isinstance(new_mem, list):
+                new_mem = " ".join(str(x) for x in new_mem)
             messages_embeddings = self.embedding_model.embed(new_mem, "add")
             new_message_embeddings[new_mem] = messages_embeddings
             existing_memories = self.vector_store.search(
