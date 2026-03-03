@@ -7,6 +7,11 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-03-03" description="v1.0.5">
+- **Telemetry Fix**
+  - Fixed an issue where the PostHog client was initialized even after telemetry was disabled. Although events were not captured, the client was unnecessarily initialized.
+</Update>
+
 <Update label="2026-02-17" description="v1.0.4">
 
 **New Features & Updates:**

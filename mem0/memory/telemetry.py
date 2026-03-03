@@ -24,14 +24,18 @@ logging.getLogger("urllib3").setLevel(logging.CRITICAL + 1)
 
 class AnonymousTelemetry:
     def __init__(self, vector_store=None):
-        self.posthog = Posthog(project_api_key=PROJECT_API_KEY, host=HOST)
+        if not MEM0_TELEMETRY:
+            self.posthog = None
+            self.user_id = None
+            return
 
+        self.posthog = Posthog(project_api_key=PROJECT_API_KEY, host=HOST)
         self.user_id = get_or_create_user_id(vector_store)
 
-        if not MEM0_TELEMETRY:
-            self.posthog.disabled = True
-
     def capture_event(self, event_name, properties=None, user_email=None):
+        if self.posthog is None:
+            return
+
         if properties is None:
             properties = {}
         properties = {
@@ -49,13 +53,17 @@ class AnonymousTelemetry:
         self.posthog.capture(distinct_id=distinct_id, event=event_name, properties=properties)
 
     def close(self):
-        self.posthog.shutdown()
+        if self.posthog is not None:
+            self.posthog.shutdown()
 
 
 client_telemetry = AnonymousTelemetry()
 
 
 def capture_event(event_name, memory_instance, additional_data=None):
+    if not MEM0_TELEMETRY:
+        return
+
     oss_telemetry = AnonymousTelemetry(
         vector_store=memory_instance._telemetry_vector_store
         if hasattr(memory_instance, "_telemetry_vector_store")
@@ -81,6 +89,9 @@ def capture_event(event_name, memory_instance, additional_data=None):
 
 
 def capture_client_event(event_name, instance, additional_data=None):
+    if not MEM0_TELEMETRY:
+        return
+
     event_data = {
         "function": f"{instance.__class__.__module__}.{instance.__class__.__name__}",
     }
