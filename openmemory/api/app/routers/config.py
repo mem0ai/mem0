@@ -1,4 +1,6 @@
 from typing import Any, Dict, Optional
+import json
+from pathlib import Path
 
 from app.database import get_db
 from app.models import Config as ConfigModel
@@ -47,11 +49,9 @@ class ConfigSchema(BaseModel):
     mem0: Optional[Mem0Config] = None
 
 def get_default_configuration():
-    """Get the default configuration with sensible defaults for LLM and embedder."""
-    return {
-        "openmemory": {
-            "custom_instructions": None
-        },
+    """Get default config from default_config.json with a safe fallback."""
+    fallback = {
+        "openmemory": {"custom_instructions": None},
         "mem0": {
             "llm": {
                 "provider": "openai",
@@ -59,19 +59,38 @@ def get_default_configuration():
                     "model": "gpt-4o-mini",
                     "temperature": 0.1,
                     "max_tokens": 2000,
-                    "api_key": "env:OPENAI_API_KEY"
-                }
+                    "api_key": "env:OPENAI_API_KEY",
+                },
             },
             "embedder": {
                 "provider": "openai",
                 "config": {
                     "model": "text-embedding-3-small",
-                    "api_key": "env:OPENAI_API_KEY"
-                }
+                    "api_key": "env:OPENAI_API_KEY",
+                },
             },
-            "vector_store": None
-        }
+            "vector_store": None,
+        },
     }
+
+    config_path = Path(__file__).resolve().parents[2] / "default_config.json"
+    try:
+        file_config = json.loads(config_path.read_text(encoding="utf-8"))
+        merged = {
+            "openmemory": file_config.get("openmemory", fallback["openmemory"]),
+            "mem0": file_config.get("mem0", fallback["mem0"]),
+        }
+    except Exception:
+        merged = fallback
+
+    # Ensure required sections always exist
+    merged.setdefault("openmemory", fallback["openmemory"])
+    merged.setdefault("mem0", {})
+    merged["mem0"].setdefault("llm", fallback["mem0"]["llm"])
+    merged["mem0"].setdefault("embedder", fallback["mem0"]["embedder"])
+    merged["mem0"].setdefault("vector_store", fallback["mem0"]["vector_store"])
+
+    return merged
 
 def get_config_from_db(db: Session, key: str = "main"):
     """Get configuration from database."""
