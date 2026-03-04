@@ -1,0 +1,23 @@
+{
+  "plugins": {
+    "entries": {
+      "openclaw-mem0": {
+        "enabled": true,
+        "config": {
+          "mode": "platform",
+          "apiKey": "${MEM0_API_KEY}",
+          "userId": "demo-user",
+          "autoRecall": true,
+          "autoCapture": true,
+          "topK": 5,
+          "searchThreshold": 0.3
+        }
+      }
+    }
+  },
+  "agent": {
+    "name": "MnemoAssistant",
+    "model": "gpt-4o",
+    "systemPrompt": "You are a helpful assistant with perfect memory. Use the memory tools to provide personalized responses."
+  }
+}
