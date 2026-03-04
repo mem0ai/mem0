@@ -69,9 +69,15 @@ def _safe_deepcopy_config(config):
         else:
             clone_dict = {k: v for k, v in config.__dict__.items()}
         
-        sensitive_tokens = ("auth", "credential", "password", "token", "secret", "key", "connection_class")
+        # Keep runtime authentication objects required by OpenSearch clients,
+        # while still redacting truly sensitive scalar secrets for telemetry safety.
+        sensitive_tokens = ("credential", "password", "token", "secret", "key")
+        preserve_fields = {"http_auth", "auth", "connection_class"}
         for field_name in list(clone_dict.keys()):
-            if any(token in field_name.lower() for token in sensitive_tokens):
+            lowered = field_name.lower()
+            if lowered in preserve_fields:
+                continue
+            if any(token in lowered for token in sensitive_tokens):
                 clone_dict[field_name] = None
         
         try:
