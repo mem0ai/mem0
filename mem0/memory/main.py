@@ -69,8 +69,12 @@ def _safe_deepcopy_config(config):
         else:
             clone_dict = {k: v for k, v in config.__dict__.items()}
         
-        sensitive_tokens = ("auth", "credential", "password", "token", "secret", "key", "connection_class")
+        # Only remove truly sensitive string values, preserve runtime auth objects like http_auth
+        sensitive_tokens = ("password", "secret", "api_key")
         for field_name in list(clone_dict.keys()):
+            # Skip http_auth and auth objects - they are runtime authentication that must be preserved
+            if field_name.lower() in ("http_auth", "auth") or field_name.lower().endswith("_auth"):
+                continue
             if any(token in field_name.lower() for token in sensitive_tokens):
                 clone_dict[field_name] = None
         
