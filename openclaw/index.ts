@@ -238,6 +238,17 @@ class OSSProvider implements Mem0Provider {
         ? this.resolvePath(this.ossConfig.historyDbPath)
         : this.ossConfig.historyDbPath;
       config.historyDbPath = dbPath;
+      // mem0ai's HistoryManagerFactory reads from historyStore.config.historyDbPath,
+      // not the top-level historyDbPath. Set both to ensure SQLite history works.
+      if (!this.ossConfig.historyStore) {
+        config.historyStore = {
+          provider: "sqlite",
+          config: { historyDbPath: dbPath },
+        };
+      }
+    }
+    if (this.ossConfig?.historyStore) {
+      config.historyStore = this.ossConfig.historyStore;
     }
 
     if (this.customPrompt) config.customPrompt = this.customPrompt;
