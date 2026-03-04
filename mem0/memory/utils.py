@@ -1,5 +1,6 @@
 import hashlib
 import re
+from typing import Any, Dict, List, Optional, Tuple
 
 from mem0.configs.prompts import (
     FACT_RETRIEVAL_PROMPT,
@@ -8,15 +9,15 @@ from mem0.configs.prompts import (
 )
 
 
-def get_fact_retrieval_messages(message, is_agent_memory=False):
+def get_fact_retrieval_messages(message: str, is_agent_memory: bool = False) -> Tuple[str, str]:
     """Get fact retrieval messages based on the memory type.
-    
+
     Args:
-        message: The message content to extract facts from
-        is_agent_memory: If True, use agent memory extraction prompt, else use user memory extraction prompt
-        
+        message: The message content to extract facts from.
+        is_agent_memory: If True, use agent memory extraction prompt, else use user memory extraction prompt.
+
     Returns:
-        tuple: (system_prompt, user_prompt)
+        A tuple of (system_prompt, user_prompt).
     """
     if is_agent_memory:
         return AGENT_MEMORY_EXTRACTION_PROMPT, f"Input:\n{message}"
@@ -24,12 +25,20 @@ def get_fact_retrieval_messages(message, is_agent_memory=False):
         return USER_MEMORY_EXTRACTION_PROMPT, f"Input:\n{message}"
 
 
-def get_fact_retrieval_messages_legacy(message):
+def get_fact_retrieval_messages_legacy(message: str) -> Tuple[str, str]:
     """Legacy function for backward compatibility."""
     return FACT_RETRIEVAL_PROMPT, f"Input:\n{message}"
 
 
-def parse_messages(messages):
+def parse_messages(messages: List[Dict[str, str]]) -> str:
+    """Parse a list of chat messages into a single formatted string.
+
+    Args:
+        messages: List of message dicts with 'role' and 'content' keys.
+
+    Returns:
+        Formatted string with role-prefixed lines.
+    """
     response = ""
     for msg in messages:
         if msg["role"] == "system":
@@ -41,7 +50,15 @@ def parse_messages(messages):
     return response
 
 
-def format_entities(entities):
+def format_entities(entities: Optional[List[Dict[str, str]]]) -> str:
+    """Format a list of entity relationship dicts into a readable string.
+
+    Args:
+        entities: List of dicts with 'source', 'relationship', and 'destination' keys.
+
+    Returns:
+        Newline-separated string of formatted relationships, or empty string if no entities.
+    """
     if not entities:
         return ""
 
@@ -83,7 +100,7 @@ def extract_json(text):
     return json_str
 
 
-def get_image_description(image_obj, llm, vision_details):
+def get_image_description(image_obj: Any, llm: Any, vision_details: str) -> str:
     """
     Get the description of the image
     """
@@ -108,7 +125,7 @@ def get_image_description(image_obj, llm, vision_details):
     return response
 
 
-def parse_vision_messages(messages, llm=None, vision_details="auto"):
+def parse_vision_messages(messages: List[Dict[str, Any]], llm: Any = None, vision_details: str = "auto") -> List[Dict[str, Any]]:
     """
     Parse the vision messages from the messages
     """
@@ -138,7 +155,7 @@ def parse_vision_messages(messages, llm=None, vision_details="auto"):
     return returned_messages
 
 
-def process_telemetry_filters(filters):
+def process_telemetry_filters(filters: Optional[Dict[str, str]]) -> Any:
     """
     Process the telemetry filters
     """
