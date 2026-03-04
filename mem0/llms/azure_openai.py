@@ -65,6 +65,7 @@ class AzureOpenAILLM(LLMBase):
             api_key=api_key,
             http_client=self.config.http_client,
             default_headers=default_headers,
+            reasoning_effort=self.config.reasoning_effort,
         )
 
     def _parse_response(self, response, tools):
