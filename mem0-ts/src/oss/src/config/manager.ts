@@ -43,13 +43,22 @@ export class ConfigManager {
           const defaultConf = DEFAULT_MEMORY_CONFIG.vectorStore.config;
           const userConf = userConfig.vectorStore?.config;
 
+          // Infer vector dimension from the embedder config when the user
+          // has not explicitly set it on the vector store.  This prevents
+          // dimension mismatches when using non-OpenAI embedders (e.g.
+          // Ollama nomic-embed-text produces 768-dim vectors while the
+          // default was hardcoded to 1536).
+          const embeddingDims = userConfig.embedder?.config?.embeddingDims;
+          const inferredDimension =
+            userConf?.dimension || embeddingDims || defaultConf.dimension;
+
           // Prioritize user-provided client instance
           if (userConf?.client && typeof userConf.client === "object") {
             return {
               client: userConf.client,
               // Include other fields from userConf if necessary, or omit defaults
               collectionName: userConf.collectionName, // Can be undefined
-              dimension: userConf.dimension || defaultConf.dimension, // Merge dimension
+              dimension: inferredDimension,
               ...userConf, // Include any other passthrough fields from user
             };
           } else {
@@ -57,7 +66,7 @@ export class ConfigManager {
             return {
               collectionName:
                 userConf?.collectionName || defaultConf.collectionName,
-              dimension: userConf?.dimension || defaultConf.dimension,
+              dimension: inferredDimension,
               // Ensure client is not carried over from defaults if not provided by user
               client: undefined,
               // Include other passthrough fields from userConf even if no client
