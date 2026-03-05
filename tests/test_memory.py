@@ -5,6 +5,7 @@ import pytest
 
 from mem0 import Memory
 from mem0.configs.base import MemoryConfig
+from mem0.memory.utils import normalize_facts
 
 
 class MockVectorMemory:
@@ -294,3 +295,28 @@ def test_add_infer_with_malformed_llm_facts(mock_sqlite, mock_llm_factory, mock_
         filters={"user_id": "test_user"},
         infer=True,
     )
+
+
+def test_normalize_facts_plain_strings():
+    assert normalize_facts(["fact one", "fact two"]) == ["fact one", "fact two"]
+
+
+def test_normalize_facts_dict_with_fact_key():
+    assert normalize_facts([{"fact": "User likes Python"}]) == ["User likes Python"]
+
+
+def test_normalize_facts_dict_with_text_key():
+    assert normalize_facts([{"text": "User is a developer"}]) == ["User is a developer"]
+
+
+def test_normalize_facts_mixed():
+    raw = [
+        "plain string",
+        {"fact": "from fact key"},
+        {"text": "from text key"},
+    ]
+    assert normalize_facts(raw) == ["plain string", "from fact key", "from text key"]
+
+
+def test_normalize_facts_filters_empty_strings():
+    assert normalize_facts(["", "valid", ""]) == ["valid"]
