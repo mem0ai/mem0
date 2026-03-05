@@ -2,9 +2,9 @@ import hashlib
 import re
 
 from mem0.configs.prompts import (
+    AGENT_MEMORY_EXTRACTION_PROMPT,
     FACT_RETRIEVAL_PROMPT,
     USER_MEMORY_EXTRACTION_PROMPT,
-    AGENT_MEMORY_EXTRACTION_PROMPT,
 )
 
 
@@ -51,6 +51,25 @@ def format_entities(entities):
         formatted_lines.append(simplified)
 
     return "\n".join(formatted_lines)
+
+def normalize_facts(raw_facts):
+    """Normalize LLM-extracted facts to a list of strings.
+
+    Smaller LLMs (e.g. llama3.1:8b) sometimes return facts as objects
+    like {"fact": "..."} or {"text": "..."} instead of plain strings.
+    This mirrors the TypeScript FactRetrievalSchema validation.
+    """
+    normalized = []
+    for item in raw_facts:
+        if isinstance(item, str):
+            fact = item
+        elif isinstance(item, dict):
+            fact = item.get("fact") or item.get("text") or str(item)
+        else:
+            fact = str(item)
+        if fact:
+            normalized.append(fact)
+    return normalized
 
 
 def remove_code_blocks(content: str) -> str:
