@@ -1,3 +1,4 @@
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -244,4 +245,52 @@ def test_get_all_handles_flat_list_from_postgres(mock_sqlite, mock_llm_factory, 
 
     assert len(result) == 2
     assert result[0]["memory"] == "Memory 1"
-    assert result[1]["memory"] == "Memory 2" 
+    assert result[1]["memory"] == "Memory 2"
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_add_infer_with_malformed_llm_facts(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """
+    Repro for: 'list' object has no attribute 'replace' on infer=true.
+
+    When an LLM (especially smaller models like llama3.1:8b) returns facts as
+    objects ({"fact": "..."} or {"text": "..."}) instead of plain strings,
+    the embedding model's .replace() call crashes with AttributeError.
+    """
+    mock_embedder = MagicMock()
+    mock_embedder.embed.side_effect = lambda text, action: (_ for _ in ()).throw(
+        AttributeError("'dict' object has no attribute 'replace'")
+    ) if not isinstance(text, str) else [0.1, 0.2, 0.3]
+    mock_embedder_factory.return_value = mock_embedder
+
+    mock_vector_store = MagicMock()
+    mock_vector_store.search.return_value = []
+    mock_vector_factory.return_value = mock_vector_store
+
+    # LLM returns malformed facts: dicts instead of strings
+    malformed_response = json.dumps({
+        "facts": [
+            {"fact": "User likes Python"},
+            {"text": "User is a developer"},
+        ]
+    })
+    mock_llm = MagicMock()
+    mock_llm.generate_response.return_value = malformed_response
+    mock_llm_factory.return_value = mock_llm
+
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    # This should NOT raise AttributeError
+    memory._add_to_vector_store(
+        messages=[{"role": "user", "content": "I like Python and I'm a developer"}],
+        metadata={"user_id": "test_user"},
+        filters={"user_id": "test_user"},
+        infer=True,
+    )
