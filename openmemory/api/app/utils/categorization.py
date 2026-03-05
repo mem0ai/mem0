@@ -1,14 +1,29 @@
 import logging
+import os
 from typing import List
 
 from app.utils.prompts import MEMORY_CATEGORIZATION_PROMPT
 from dotenv import load_dotenv
-from openai import OpenAI
+from openai import AzureOpenAI, OpenAI
 from pydantic import BaseModel
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 load_dotenv()
-openai_client = OpenAI()
+
+
+def _create_openai_client():
+    """Create the appropriate OpenAI client based on available env vars."""
+    if os.environ.get("AZURE_OPENAI_API_KEY") and os.environ.get("AZURE_OPENAI_ENDPOINT"):
+        return AzureOpenAI(
+            api_key=os.environ["AZURE_OPENAI_API_KEY"],
+            azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
+            api_version=os.environ.get("OPENAI_API_VERSION", "2024-12-01-preview"),
+        )
+    return OpenAI()
+
+
+openai_client = _create_openai_client()
+categorization_model = os.environ.get("CATEGORIZATION_MODEL", "gpt-4o-mini")
 
 
 class MemoryCategories(BaseModel):
@@ -25,7 +40,7 @@ def get_categories_for_memory(memory: str) -> List[str]:
 
         # Let OpenAI handle the pydantic parsing directly
         completion = openai_client.beta.chat.completions.parse(
-            model="gpt-4o-mini",
+            model=categorization_model,
             messages=messages,
             response_format=MemoryCategories,
             temperature=0
