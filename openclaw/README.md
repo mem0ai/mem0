@@ -28,6 +28,35 @@ Memories are organized into three scopes:
 
 During **auto-recall**, the plugin searches all three scopes and presents them separately — long-term memories first, then session memories, then org-wide memories — so the agent has full context.
 
+### Persistent subagent sessions
+
+By default, subagent sessionKeys contain a volatile UUID that changes on every spawn:
+
+```
+agent:forge:subagent:c83eb768-027b-4511-817e-da642ba58770
+agent:forge:subagent:a1b2c3d4-e5f6-7890-abcd-ef1234567890
+```
+
+This means session-scoped memories are lost between subagent invocations — each spawn gets a fresh, empty session scope.
+
+When `persistentSubagentSessions` is enabled (the default), the plugin derives a **stable** `run_id` by stripping the volatile UUID:
+
+```
+agent:forge:subagent:* → agent:forge:persistent-session
+```
+
+All subagent spawns of the same parent agent now share a persistent session memory scope. Memories captured during one subagent run are recalled in the next.
+
+Non-subagent sessions (e.g. `agent:reeve:main`) are unaffected — their sessionKeys pass through unchanged.
+
+To disable this behavior:
+
+```json5
+"config": {
+  "persistentSubagentSessions": false
+}
+```
+
 The agent tools (`memory_search`, `memory_list`) accept a `scope` parameter (`"session"`, `"long-term"`, `"org"`, or `"all"`) to control which memories are queried. The `memory_store` tool accepts both a `longTerm` boolean and a `scope` parameter (`"user"` or `"org"`).
 
 All parameters are optional and backward-compatible — existing configurations work without changes.
@@ -128,6 +157,7 @@ openclaw mem0 stats
 | `searchThreshold` | `number` | `0.3` | Min similarity (0–1) |
 | `recallOrg` | `boolean` | `true` | Include org-level shared memories in auto-recall |
 | `orgAgentId` | `string` | `"openclaw-org"` | Agent ID used to scope org memories (share this across instances) |
+| `persistentSubagentSessions` | `boolean` | `true` | Derive stable `run_id` for subagents so session memories persist across spawns |
 
 ### Platform mode
 

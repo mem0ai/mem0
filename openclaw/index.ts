@@ -11,6 +11,8 @@
  * - Auto-recall: injects relevant memories (user, session, and org scopes) before each agent turn
  * - Auto-capture: stores key facts scoped to the current session after each agent turn
  * - Org memory: shared knowledge layer accessible to all agents in the organization
+ * - Persistent subagent sessions: derives stable run_id from volatile subagent sessionKeys
+ *   so memories persist across subagent spawns (enabled by default)
  * - CLI: openclaw mem0 search, openclaw mem0 stats
  * - Dual mode: platform or open-source (self-hosted)
  */
@@ -50,6 +52,8 @@ type Mem0Config = {
   // Org-level memory
   recallOrg: boolean;
   orgAgentId: string;
+  // Persistent subagent sessions
+  persistentSubagentSessions: boolean;
 };
 
 // Unified types for the provider interface
@@ -524,6 +528,7 @@ const ALLOWED_KEYS = [
   "oss",
   "recallOrg",
   "orgAgentId",
+  "persistentSubagentSessions",
 ];
 
 function assertAllowedKeys(
@@ -599,6 +604,7 @@ const mem0ConfigSchema = {
         typeof cfg.orgAgentId === "string" && cfg.orgAgentId
           ? cfg.orgAgentId
           : "openclaw-org",
+      persistentSubagentSessions: cfg.persistentSubagentSessions !== false,
     };
   },
 };
@@ -632,6 +638,33 @@ function categoriesToArray(
 }
 
 // ============================================================================
+// Persistent Subagent Sessions
+// ============================================================================
+
+/**
+ * Derive a stable run_id from a volatile subagent sessionKey.
+ *
+ * Subagent sessionKeys follow the pattern:
+ *   `agent:<name>:subagent:<uuid>`
+ *
+ * The UUID changes on every spawn, making session-scoped memories ephemeral.
+ * This function strips the volatile UUID and produces a stable identifier:
+ *   `agent:<name>:persistent-session`
+ *
+ * This allows all subagent spawns of the same parent agent to share a
+ * persistent session memory scope, so memories survive across invocations.
+ *
+ * Non-subagent sessionKeys (e.g. `agent:reeve:main`) pass through unchanged.
+ */
+function deriveStableRunId(sessionKey: string): string {
+  const match = sessionKey.match(/^(agent:[^:]+):subagent:/);
+  if (match) {
+    return `${match[1]}:persistent-session`;
+  }
+  return sessionKey;
+}
+
+// ============================================================================
 // Plugin Definition
 // ============================================================================
 
@@ -651,7 +684,7 @@ const memoryPlugin = {
     let currentSessionId: string | undefined;
 
     api.logger.info(
-      `openclaw-mem0: registered (mode: ${cfg.mode}, user: ${cfg.userId}, graph: ${cfg.enableGraph}, autoRecall: ${cfg.autoRecall}, autoCapture: ${cfg.autoCapture}, recallOrg: ${cfg.recallOrg})`,
+      `openclaw-mem0: registered (mode: ${cfg.mode}, user: ${cfg.userId}, graph: ${cfg.enableGraph}, autoRecall: ${cfg.autoRecall}, autoCapture: ${cfg.autoCapture}, recallOrg: ${cfg.recallOrg}, persistentSubagentSessions: ${cfg.persistentSubagentSessions})`,
     );
 
     // Helper: build add options
@@ -1314,9 +1347,13 @@ const memoryPlugin = {
       api.on("before_agent_start", async (event, ctx) => {
         if (!event.prompt || event.prompt.length < 5) return;
 
-        // Track session ID
+        // Track session ID — derive stable run_id for subagents if enabled
         const sessionId = (ctx as any)?.sessionKey ?? undefined;
-        if (sessionId) currentSessionId = sessionId;
+        if (sessionId) {
+          currentSessionId = cfg.persistentSubagentSessions
+            ? deriveStableRunId(sessionId)
+            : sessionId;
+        }
 
         try {
           // Search long-term memories (user-scoped)
@@ -1413,9 +1450,13 @@ const memoryPlugin = {
           return;
         }
 
-        // Track session ID
+        // Track session ID — derive stable run_id for subagents if enabled
         const sessionId = (ctx as any)?.sessionKey ?? undefined;
-        if (sessionId) currentSessionId = sessionId;
+        if (sessionId) {
+          currentSessionId = cfg.persistentSubagentSessions
+            ? deriveStableRunId(sessionId)
+            : sessionId;
+        }
 
         try {
           // Extract messages, limiting to last 10
