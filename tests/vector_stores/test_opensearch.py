@@ -300,8 +300,10 @@ def test_safe_deepcopy_config_handles_opensearch_auth(mock_sqlite, mock_llm_fact
     
     safe_config = _safe_deepcopy_config(config_with_auth)
     
-    assert safe_config.http_auth is None
-    assert safe_config.auth is None
+    # http_auth and auth should be preserved — they're runtime-required fields, not secrets
+    assert safe_config.http_auth is not None
+    assert safe_config.auth is not None
+    # credentials should still be sanitized — it matches sensitive token "credential"
     assert safe_config.credentials is None
     assert safe_config.connection_class is None
     

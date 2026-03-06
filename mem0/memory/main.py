@@ -69,9 +69,11 @@ def _safe_deepcopy_config(config):
         else:
             clone_dict = {k: v for k, v in config.__dict__.items()}
         
-        sensitive_tokens = ("auth", "credential", "password", "token", "secret", "key", "connection_class")
+        sensitive_exact_fields = {"password", "api_key", "secret_key", "access_token", "credentials", "connection_class"}
+        sensitive_tokens = ("credential", "secret", "_token")
         for field_name in list(clone_dict.keys()):
-            if any(token in field_name.lower() for token in sensitive_tokens):
+            lower_name = field_name.lower()
+            if lower_name in sensitive_exact_fields or any(token in lower_name for token in sensitive_tokens):
                 clone_dict[field_name] = None
         
         try:
@@ -1148,6 +1150,9 @@ class Memory(MemoryBase):
             logger.error(f"Error getting memory with ID {memory_id} during update.")
             raise ValueError(f"Error getting memory with ID {memory_id}. Please provide a valid 'memory_id'")
 
+        if existing_memory is None:
+            raise ValueError(f"Memory with ID {memory_id} not found. Please provide a valid 'memory_id'")
+
         prev_value = existing_memory.payload.get("data")
 
         new_metadata = deepcopy(metadata) if metadata is not None else {}
@@ -1196,6 +1201,9 @@ class Memory(MemoryBase):
     def _delete_memory(self, memory_id):
         logger.info(f"Deleting memory with {memory_id=}")
         existing_memory = self.vector_store.get(vector_id=memory_id)
+        if existing_memory is None:
+            logger.warning(f"Memory with ID {memory_id} not found, skipping delete")
+            return memory_id
         prev_value = existing_memory.payload.get("data", "")
         self.vector_store.delete(vector_id=memory_id)
         self.db.add_history(
@@ -2228,6 +2236,9 @@ class AsyncMemory(MemoryBase):
             logger.error(f"Error getting memory with ID {memory_id} during update.")
             raise ValueError(f"Error getting memory with ID {memory_id}. Please provide a valid 'memory_id'")
 
+        if existing_memory is None:
+            raise ValueError(f"Memory with ID {memory_id} not found. Please provide a valid 'memory_id'")
+
         prev_value = existing_memory.payload.get("data")
 
         new_metadata = deepcopy(metadata) if metadata is not None else {}
@@ -2279,6 +2290,9 @@ class AsyncMemory(MemoryBase):
     async def _delete_memory(self, memory_id):
         logger.info(f"Deleting memory with {memory_id=}")
         existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
+        if existing_memory is None:
+            logger.warning(f"Memory with ID {memory_id} not found, skipping delete")
+            return memory_id
         prev_value = existing_memory.payload.get("data", "")
 
         await asyncio.to_thread(self.vector_store.delete, vector_id=memory_id)
