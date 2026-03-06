@@ -46,6 +46,12 @@ Add to your `openclaw.json`:
 
 No Mem0 key needed. Requires `OPENAI_API_KEY` for default embeddings/LLM.
 
+### What to use for `userId`
+
+`userId` is your own stable user identifier from your app (for example, your auth user ID, email hash, or account UUID). It is **not** a value from the Mem0 dashboard.
+
+Use the same `userId` for the same person across sessions so long-term memories can be recalled consistently. If you do not set it, the plugin falls back to `"default"`, which causes all users to share one memory namespace.
+
 ```json5
 "openclaw-mem0": {
   "enabled": true,
