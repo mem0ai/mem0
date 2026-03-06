@@ -177,6 +177,12 @@ async function sendMessage() {
           if (streamBubble) streamBubble.innerHTML = renderContent(rawText);
           appendSystemMsg(`🧠 Mem0 记忆检索: ${event.mem_count} 条 · 后台更新中…`);
 
+          // ── Tool call detection
+          const toolCall = extractToolCall(rawText);
+          if (toolCall) {
+            await handleToolCall(toolCall, body);
+          }
+
         } else if (event.type === 'error') {
           ensureTypingRemoved();
           appendMessage('assistant', `❌ 请求失败：${event.message}`);
@@ -327,10 +333,6 @@ function showMemoryPeek() {
   peek.style.flexDirection = 'column';
 }
 
-function escHtml(t) {
-  return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
 // ─── Skills ────────────────────────────────────────────────────────────────
 async function loadSkills() {
   try {
@@ -466,6 +468,203 @@ async function deleteSkill(id) {
 $('skillModal').addEventListener('click', e => {
   if (e.target === $('skillModal')) closeSkillModal();
 });
+
+// ─── Tool Call (client_tools_call) ────────────────────────────────────────
+
+/**
+ * Extract {"client_tools_call": {...}} from the AI's raw response text.
+ * Handles plain JSON and ```json ... ``` code blocks.
+ */
+function extractToolCall(text) {
+  // Strip markdown code fences if present
+  const stripped = text.replace(/```(?:json)?\s*/g, '').replace(/```/g, '');
+
+  const key = '"client_tools_call"';
+  const idx = stripped.indexOf(key);
+  if (idx === -1) return null;
+
+  // Walk back to the opening brace of the outer object
+  let start = idx - 1;
+  while (start >= 0 && stripped[start] !== '{') start--;
+  if (start < 0) return null;
+
+  // Walk forward to the matching closing brace
+  let depth = 0;
+  for (let i = start; i < stripped.length; i++) {
+    if (stripped[i] === '{') depth++;
+    else if (stripped[i] === '}') {
+      depth--;
+      if (depth === 0) {
+        try {
+          return JSON.parse(stripped.slice(start, i + 1));
+        } catch {
+          return null;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Execute the tool call, show result card, then auto-continue the conversation.
+ * @param {Object} toolCall - parsed JSON containing client_tools_call
+ * @param {Object} chatBody  - original chat request body (for session/user context)
+ */
+async function handleToolCall(toolCall, chatBody) {
+  const call = toolCall.client_tools_call;
+  if (!call || call.name !== 'execute_command') return;
+
+  const command = call.arguments?.command || '';
+  if (!command) return;
+
+  // Show tool card in chat
+  const card = appendToolCard(command);
+
+  try {
+    const res = await fetch('/api/execute', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command }),
+    });
+    const result = await res.json();
+    updateToolCard(card, result);
+
+    // Build tool result message to feed back to the AI
+    const parts = [`[Tool Result] command: ${result.command}`, `exit_code: ${result.returncode}`];
+    if (result.stdout.trim()) parts.push(`stdout:\n${result.stdout.trim()}`);
+    if (result.stderr.trim()) parts.push(`stderr:\n${result.stderr.trim()}`);
+
+    // Auto-send result back into the conversation (reuse same session/user context)
+    const followUp = { ...chatBody, message: parts.join('\n') };
+
+    // Small delay so the user can see the card before the next AI turn starts
+    await new Promise(r => setTimeout(r, 600));
+    await sendMessageWithBody(followUp);
+
+  } catch (err) {
+    updateToolCard(card, { success: false, stdout: '', stderr: err.message, returncode: -1 });
+  }
+}
+
+/** Append a tool-call card to the message list. Returns the card element. */
+function appendToolCard(command) {
+  const div = document.createElement('div');
+  div.className = 'tool-card';
+  div.innerHTML = `
+    <div class="tool-header">
+      <span class="tool-icon">⚡</span>
+      <span class="tool-title">执行命令</span>
+      <span class="tool-status running">运行中…</span>
+    </div>
+    <div class="tool-command"><code>${escHtml(command)}</code></div>
+    <div class="tool-output" style="display:none"></div>`;
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  return div;
+}
+
+/** Update tool card with execution result. */
+function updateToolCard(card, result) {
+  const statusEl = card.querySelector('.tool-status');
+  const outputEl = card.querySelector('.tool-output');
+
+  statusEl.textContent = result.success ? '✅ 成功' : `❌ 退出码 ${result.returncode}`;
+  statusEl.className = `tool-status ${result.success ? 'ok' : 'fail'}`;
+
+  const lines = [];
+  if (result.stdout?.trim()) lines.push(`<b>stdout</b>\n${escHtml(result.stdout.trim())}`);
+  if (result.stderr?.trim()) lines.push(`<b>stderr</b>\n${escHtml(result.stderr.trim())}`);
+
+  if (lines.length) {
+    outputEl.innerHTML = lines.join('\n\n');
+    outputEl.style.display = 'block';
+  }
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+/**
+ * Like sendMessage() but accepts a pre-built body object.
+ * Used for auto-sending tool results back to the AI.
+ */
+async function sendMessageWithBody(body) {
+  // Show the tool result as a "user" message in the UI
+  appendMessage('user', body.message);
+
+  const typingEl = appendTyping();
+  sendBtn.disabled = true;
+
+  let streamBubble = null, thinkBlock = null;
+  let thinkContent = '', rawText = '', typingRemoved = false;
+
+  function ensureTypingRemoved() {
+    if (!typingRemoved) { typingEl.remove(); typingRemoved = true; }
+  }
+
+  try {
+    const res = await fetch('/api/chat/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error('Stream error');
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.split('\n\n');
+      buffer = parts.pop();
+
+      for (const part of parts) {
+        const line = part.trim();
+        if (!line.startsWith('data:')) continue;
+        let event;
+        try { event = JSON.parse(line.slice(5).trim()); } catch { continue; }
+
+        if (event.type === 'memories') {
+          state.lastMemories = event.data || [];
+        } else if (event.type === 'thinking_delta') {
+          ensureTypingRemoved();
+          if (!thinkBlock) thinkBlock = appendThinkBlock();
+          thinkContent += event.text;
+          updateThinkBlock(thinkBlock, thinkContent, false);
+        } else if (event.type === 'thinking_done') {
+          if (thinkBlock) updateThinkBlock(thinkBlock, thinkContent, true);
+        } else if (event.type === 'delta') {
+          ensureTypingRemoved();
+          if (!streamBubble) streamBubble = appendStreamBubble(state.lastMemories.length);
+          rawText += event.text;
+          updateStreamBubble(streamBubble, rawText);
+        } else if (event.type === 'done') {
+          ensureTypingRemoved();
+          if (streamBubble) streamBubble.innerHTML = renderContent(rawText);
+          // Recursive tool call support
+          const nextToolCall = extractToolCall(rawText);
+          if (nextToolCall) await handleToolCall(nextToolCall, body);
+        } else if (event.type === 'error') {
+          ensureTypingRemoved();
+          appendMessage('assistant', `❌ ${event.message}`);
+        }
+      }
+    }
+  } catch (err) {
+    if (!typingRemoved && typingEl.parentNode) typingEl.remove();
+    if (!streamBubble) appendMessage('assistant', `❌ ${err.message}`);
+  } finally {
+    sendBtn.disabled = false;
+    userInputEl.focus();
+  }
+}
+
+// ─── Helpers ───────────────────────────────────────────────────────────────
+function escHtml(t) {
+  return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
 
 // Expose for inline handlers
 window.openSkillModal = openSkillModal;

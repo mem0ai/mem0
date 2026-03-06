@@ -11,6 +11,7 @@ import json
 import uuid
 import asyncio
 import logging
+import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, AsyncIterator
@@ -401,6 +402,53 @@ async def chat_stream(req: ChatRequest, background_tasks: BackgroundTasks):
             "X-Accel-Buffering": "no",
         },
     )
+
+
+# ─── Routes: Tool Execution ──────────────────────────────────────────────────
+class ExecuteRequest(BaseModel):
+    command: str
+    working_dir: Optional[str] = None
+    timeout: int = 60
+
+
+@app.post("/api/execute")
+async def execute_command(req: ExecuteRequest):
+    """Execute a shell command and return stdout/stderr/returncode."""
+    logger.info(f"Executing command: {req.command!r}")
+    try:
+        result = await asyncio.to_thread(
+            subprocess.run,
+            req.command,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=req.timeout,
+            cwd=req.working_dir or None,
+        )
+        return {
+            "command": req.command,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+            "returncode": result.returncode,
+            "success": result.returncode == 0,
+        }
+    except subprocess.TimeoutExpired:
+        return {
+            "command": req.command,
+            "stdout": "",
+            "stderr": f"Command timed out after {req.timeout}s",
+            "returncode": -1,
+            "success": False,
+        }
+    except Exception as e:
+        logger.error(f"Execute failed: {e}")
+        return {
+            "command": req.command,
+            "stdout": "",
+            "stderr": str(e),
+            "returncode": -1,
+            "success": False,
+        }
 
 
 @app.delete("/api/chat/session/{session_id}")

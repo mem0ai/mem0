@@ -578,6 +578,63 @@ textarea {
   word-break: break-word;
 }
 
+/* ─── Tool Call Card ─────────────────────────────────────────────────── */
+.tool-card {
+  align-self: flex-start;
+  width: 100%;
+  max-width: 82%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface2);
+  overflow: hidden;
+  animation: fadeUp 0.2s ease;
+}
+
+.tool-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  background: rgba(108,99,255,0.08);
+  border-bottom: 1px solid var(--border);
+}
+
+.tool-icon { font-size: 0.95rem; }
+.tool-title { font-size: 0.8rem; font-weight: 600; flex: 1; color: var(--text); }
+
+.tool-status {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.tool-status.running { background: rgba(240,167,50,0.15); color: var(--warning); }
+.tool-status.ok      { background: rgba(76,175,125,0.15);  color: var(--success); }
+.tool-status.fail    { background: rgba(224,92,92,0.15);   color: var(--danger);  }
+
+.tool-command {
+  padding: 9px 14px;
+  font-size: 0.82rem;
+}
+.tool-command code {
+  font-family: var(--mono);
+  color: var(--accent);
+  word-break: break-all;
+}
+
+.tool-output {
+  border-top: 1px solid var(--border);
+  padding: 10px 14px;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 300px;
+  overflow-y: auto;
+  line-height: 1.55;
+}
+
 /* ─── Stream cursor ───────────────────────────────────────────────────── */
 .stream-cursor {
   display: inline-block;
