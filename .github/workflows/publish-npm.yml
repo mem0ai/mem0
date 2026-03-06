@@ -23,7 +23,7 @@ jobs:
         with:
           node-version: "22"
           registry-url: "https://npm.pkg.github.com"
-          scope: "@foxlightfoundation"
+          scope: "@foxlight-foundation"
 
       - name: Install pnpm
         run: npm install -g pnpm

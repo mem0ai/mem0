@@ -1,5 +1,5 @@
 {
-  "name": "@foxlightfoundation/mem0ai",
+  "name": "@foxlight-foundation/mem0ai",
   "version": "2.2.4",
   "description": "The Memory Layer For Your AI Apps",
   "main": "./dist/index.js",
