@@ -16,19 +16,21 @@ Your agent forgets everything between sessions. This plugin fixes that. It watch
 
 Both run silently. No prompting, no configuration, no manual calls.
 
-### Short-term vs long-term memory
+### Memory scopes
 
-Memories are organized into two scopes:
+Memories are organized into three scopes:
 
 - **Session (short-term)** — Auto-capture stores memories scoped to the current session via Mem0's `run_id` / `runId` parameter. These are contextual to the ongoing conversation and automatically recalled alongside long-term memories.
 
 - **User (long-term)** — The agent can explicitly store long-term memories using the `memory_store` tool (with `longTerm: true`, the default). These persist across all sessions for the user.
 
-During **auto-recall**, the plugin searches both scopes and presents them separately — long-term memories first, then session memories — so the agent has full context.
+- **Organization (shared)** — Org-level memories are shared across all users and agents in the organization. Store them with `memory_store(scope: "org")`. They're recalled automatically during auto-recall when `recallOrg` is enabled (the default).
 
-The agent tools (`memory_search`, `memory_list`) accept a `scope` parameter (`"session"`, `"long-term"`, or `"all"`) to control which memories are queried. The `memory_store` tool accepts a `longTerm` boolean (default: `true`) to choose where to store.
+During **auto-recall**, the plugin searches all three scopes and presents them separately — long-term memories first, then session memories, then org-wide memories — so the agent has full context.
 
-All new parameters are optional and backward-compatible — existing configurations work without changes.
+The agent tools (`memory_search`, `memory_list`) accept a `scope` parameter (`"session"`, `"long-term"`, `"org"`, or `"all"`) to control which memories are queried. The `memory_store` tool accepts both a `longTerm` boolean and a `scope` parameter (`"user"` or `"org"`).
+
+All parameters are optional and backward-compatible — existing configurations work without changes.
 
 ## Setup
 
@@ -105,6 +107,9 @@ openclaw mem0 search "what languages does the user know" --scope long-term
 # Search only session/short-term memories
 openclaw mem0 search "what languages does the user know" --scope session
 
+# Search only org-level shared memories
+openclaw mem0 search "company tech stack" --scope org
+
 # Stats
 openclaw mem0 stats
 ```
@@ -121,6 +126,8 @@ openclaw mem0 stats
 | `autoCapture` | `boolean` | `true` | Store facts after each turn |
 | `topK` | `number` | `5` | Max memories per recall |
 | `searchThreshold` | `number` | `0.3` | Min similarity (0–1) |
+| `recallOrg` | `boolean` | `true` | Include org-level shared memories in auto-recall |
+| `orgAgentId` | `string` | `"openclaw-org"` | Agent ID used to scope org memories (share this across instances) |
 
 ### Platform mode
 
