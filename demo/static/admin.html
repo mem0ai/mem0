@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mem0 管理后台</title>
+<link rel="stylesheet" href="/static/css/main.css" />
+<link rel="stylesheet" href="/static/css/admin.css" />
+</head>
+<body class="admin-body">
+
+<div class="admin-layout">
+
+  <!-- TOP NAV -->
+  <nav class="admin-nav">
+    <div class="nav-brand">🧠 Mem0 管理后台</div>
+    <div class="nav-links">
+      <a href="/" target="_blank">← 返回对话</a>
+    </div>
+  </nav>
+
+  <div class="admin-container">
+
+    <!-- STATS BAR -->
+    <div class="stats-bar" id="statsBar">
+      <div class="stat-card">
+        <div class="stat-num" id="statTotal">—</div>
+        <div class="stat-label">总记忆条数</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="statUsers">—</div>
+        <div class="stat-label">用户数量</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="statFiltered">—</div>
+        <div class="stat-label">当前筛选</div>
+      </div>
+    </div>
+
+    <!-- TOOLBAR -->
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <!-- User Filter -->
+        <div class="filter-group">
+          <label>用户</label>
+          <select id="userFilter">
+            <option value="">全部用户</option>
+          </select>
+        </div>
+        <!-- Search -->
+        <div class="filter-group search-group">
+          <label>语义搜索记忆</label>
+          <div class="search-row">
+            <input id="searchQuery" type="text" placeholder="输入关键词语义搜索…" />
+            <button class="btn btn-primary btn-sm" id="searchBtn">搜索</button>
+            <button class="btn btn-outline btn-sm" id="clearSearchBtn">清除</button>
+          </div>
+        </div>
+      </div>
+      <div class="toolbar-right">
+        <button class="btn btn-outline btn-sm" id="refreshBtn">🔄 刷新</button>
+        <button class="btn btn-danger btn-sm" id="deleteAllBtn">🗑️ 清空记忆</button>
+      </div>
+    </div>
+
+    <!-- MEMORY TABLE -->
+    <div class="table-container">
+      <table class="memory-table" id="memoryTable">
+        <thead>
+          <tr>
+            <th style="width:200px">用户 ID</th>
+            <th>记忆内容</th>
+            <th style="width:140px">创建时间</th>
+            <th style="width:140px">更新时间</th>
+            <th style="width:100px">操作</th>
+          </tr>
+        </thead>
+        <tbody id="memoryTableBody">
+          <tr><td colspan="5" class="table-empty">加载中…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<!-- Memory Detail Modal -->
+<div id="detailModal" class="modal-overlay" style="display:none">
+  <div class="modal" style="width:620px">
+    <div class="modal-header">
+      <h3>记忆详情 & 历史</h3>
+      <button class="modal-close" onclick="$('detailModal').style.display='none'">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="detail-section">
+        <label>记忆内容</label>
+        <div id="detailContent" class="detail-content"></div>
+      </div>
+      <div class="detail-section">
+        <label>元数据</label>
+        <pre id="detailMeta" class="detail-pre"></pre>
+      </div>
+      <div class="detail-section">
+        <label>变更历史</label>
+        <div id="detailHistory" class="history-list"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="$('detailModal').style.display='none'">关闭</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/admin.js"></script>
+</body>
+</html>

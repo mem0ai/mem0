@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mem0 Demo – AI 记忆对话</title>
+<link rel="stylesheet" href="/static/css/main.css" />
+</head>
+<body>
+<!-- ═══ LAYOUT ═══════════════════════════════════════════════════════════ -->
+<div class="app-layout">
+
+  <!-- LEFT SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <span class="logo">🧠 Mem0 Demo</span>
+      <a href="/admin" class="admin-link" target="_blank">管理后台 ↗</a>
+    </div>
+
+    <!-- User ID -->
+    <div class="sidebar-section">
+      <label class="section-label">用户标识 (User ID)</label>
+      <input id="userId" type="text" value="demo_user" placeholder="用于区分记忆归属" />
+      <button id="newSessionBtn" class="btn btn-sm btn-outline" style="margin-top:6px;width:100%">
+        🔄 新建会话
+      </button>
+    </div>
+
+    <!-- Memory Toggle -->
+    <div class="sidebar-section">
+      <label class="section-label">Mem0 记忆</label>
+      <div class="toggle-row">
+        <span>启用记忆增强</span>
+        <label class="toggle">
+          <input type="checkbox" id="useMemory" checked />
+          <span class="slider"></span>
+        </label>
+      </div>
+      <p class="hint">关闭后对话不会写入/读取记忆库，可用于对比效果</p>
+    </div>
+
+    <!-- Skills Panel -->
+    <div class="sidebar-section skills-section">
+      <div class="section-label-row">
+        <label class="section-label">Skills</label>
+        <button id="addSkillBtn" class="btn btn-xs btn-primary">＋ 新建</button>
+      </div>
+      <div id="skillsList" class="skills-list"></div>
+      <div class="active-skill-bar" id="activeSkillBar" style="display:none">
+        <span id="activeSkillName"></span>
+        <button id="clearSkillBtn" class="btn btn-xs btn-outline">✕ 取消</button>
+      </div>
+    </div>
+
+    <!-- System Prompt -->
+    <div class="sidebar-section flex-grow">
+      <label class="section-label">System Prompt</label>
+      <textarea id="systemPrompt" placeholder="自定义系统提示词（Skill 激活时会被 Skill Prompt 覆盖）">你是一个智能助手，请友好、准确地回答用户的问题。</textarea>
+      <p class="hint" id="promptHint"></p>
+    </div>
+  </aside>
+
+  <!-- MAIN CHAT -->
+  <main class="chat-area">
+    <div class="chat-header">
+      <div>
+        <span id="chatTitle">💬 对话</span>
+        <span class="session-badge" id="sessionBadge"></span>
+      </div>
+      <div class="header-actions">
+        <span id="memStatus" class="mem-status"></span>
+      </div>
+    </div>
+
+    <div id="messages" class="messages"></div>
+
+    <!-- Memory peek panel -->
+    <div id="memoryPeek" class="memory-peek" style="display:none">
+      <div class="peek-header">
+        <span>🔍 本次检索到的记忆 (<span id="memCount">0</span>)</span>
+        <button onclick="document.getElementById('memoryPeek').style.display='none'">✕</button>
+      </div>
+      <div id="memoryList" class="memory-list"></div>
+    </div>
+
+    <div class="input-area">
+      <div class="input-row">
+        <textarea id="userInput" placeholder="输入消息… (Shift+Enter 换行，Enter 发送)" rows="1"></textarea>
+        <button id="sendBtn" class="btn btn-primary send-btn">发送</button>
+      </div>
+      <div class="input-meta">
+        <span id="sessionInfo" class="hint"></span>
+        <button id="showMemBtn" class="btn btn-xs btn-outline" style="display:none">📋 查看记忆</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ═══ MODALS ════════════════════════════════════════════════════════════ -->
+
+<!-- Skill Edit Modal -->
+<div id="skillModal" class="modal-overlay" style="display:none">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="skillModalTitle">新建 Skill</h3>
+      <button class="modal-close" onclick="closeSkillModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <label>名称</label>
+      <div class="icon-name-row">
+        <input id="skillIcon" type="text" value="🤖" maxlength="2" style="width:52px;text-align:center;font-size:1.4rem" />
+        <input id="skillName" type="text" placeholder="Skill 名称" style="flex:1" />
+      </div>
+      <label>描述</label>
+      <input id="skillDesc" type="text" placeholder="简短描述这个 Skill 的功能" />
+      <label>Skill Prompt</label>
+      <textarea id="skillPrompt" rows="8" placeholder="详细的 Skill 系统提示词，激活此 Skill 后将作为 System Prompt 使用…"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeSkillModal()">取消</button>
+      <button class="btn btn-primary" id="saveSkillBtn" onclick="saveSkill()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/main.js"></script>
+</body>
+</html>
