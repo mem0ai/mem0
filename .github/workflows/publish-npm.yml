@@ -1,0 +1,46 @@
+name: publish-npm
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mem0-ts
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@foxlightfoundation"
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Set version
+        run: |
+          BASE=$(node -p "require('./package.json').version")
+          SHA="${GITHUB_SHA::8}"
+          npm version "${BASE}-fox.${SHA}" --no-git-tag-version
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Publish to GitHub Packages
+        run: npm publish --tag latest
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

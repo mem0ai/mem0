@@ -104,8 +104,11 @@ export function getFactRetrievalMessages(
 export function getUpdateMemoryMessages(
   retrievedOldMemory: Array<{ id: string; text: string }>,
   newRetrievedFacts: string[],
+  customInstructions?: string,
 ): string {
-  return `You are a smart memory manager which controls the memory of a system.
+  const preamble =
+    customInstructions ??
+    `You are a smart memory manager which controls the memory of a system.
   You can perform four operations: (1) add into the memory, (2) update the memory, (3) delete from the memory, and (4) no change.
   
   Based on the above four operations, the memory will change.
@@ -252,25 +255,28 @@ export function getUpdateMemoryMessages(
                   ]
               }
   
-  Below is the current content of my memory which I have collected till now. You have to update it in the following format only:
-  
-  ${JSON.stringify(retrievedOldMemory, null, 2)}
-  
-  The new retrieved facts are mentioned below. You have to analyze the new retrieved facts and determine whether these facts should be added, updated, or deleted in the memory.
-  
-  ${JSON.stringify(newRetrievedFacts, null, 2)}
-  
-  Follow the instruction mentioned below:
-  - Do not return anything from the custom few shot example prompts provided above.
-  - If the current memory is empty, then you have to add the new retrieved facts to the memory.
-  - You should return the updated memory in only JSON format as shown below. The memory key should be the same if no changes are made.
-  - If there is an addition, generate a new key and add the new memory corresponding to it.
-  - If there is a deletion, the memory key-value pair should be removed from the memory.
-  - If there is an update, the ID key should remain the same and only the value needs to be updated.
-  - DO NOT RETURN ANYTHING ELSE OTHER THAN THE JSON FORMAT.
-  - DO NOT ADD ANY ADDITIONAL TEXT OR CODEBLOCK IN THE JSON FIELDS WHICH MAKE IT INVALID SUCH AS "\`\`\`json" OR "\`\`\`".
-  
-  Do not return anything except the JSON format.`;
+  Below is the current content of my memory which I have collected till now. You have to update it in the following format only:`;
+
+  const dynamicSection = `
+${JSON.stringify(retrievedOldMemory, null, 2)}
+
+The new retrieved facts are mentioned below. You have to analyze the new retrieved facts and determine whether these facts should be added, updated, or deleted in the memory.
+
+${JSON.stringify(newRetrievedFacts, null, 2)}
+
+Follow the instruction mentioned below:
+- Do not return anything from the custom few shot example prompts provided above.
+- If the current memory is empty, then you have to add the new retrieved facts to the memory.
+- You should return the updated memory in only JSON format as shown below. The memory key should be the same if no changes are made.
+- If there is an addition, generate a new key and add the new memory corresponding to it.
+- If there is a deletion, the memory key-value pair should be removed from the memory.
+- If there is an update, the ID key should remain the same and only the value needs to be updated.
+- DO NOT RETURN ANYTHING ELSE OTHER THAN THE JSON FORMAT.
+- DO NOT ADD ANY ADDITIONAL TEXT OR CODEBLOCK IN THE JSON FIELDS WHICH MAKE IT INVALID SUCH AS "\`\`\`json" OR "\`\`\`".
+
+Do not return anything except the JSON format.`;
+
+  return `${preamble}${dynamicSection}`;
 }
 
 export function parseMessages(messages: string[]): string {

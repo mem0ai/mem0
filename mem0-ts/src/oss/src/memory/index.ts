@@ -40,6 +40,7 @@ import { captureClientEvent } from "../utils/telemetry";
 export class Memory {
   private config: MemoryConfig;
   private customPrompt: string | undefined;
+  private customUpdatePrompt: string | undefined;
   private embedder: Embedder;
   private vectorStore: VectorStore;
   private llm: LLM;
@@ -55,6 +56,7 @@ export class Memory {
     this.config = ConfigManager.mergeConfig(config);
 
     this.customPrompt = this.config.customPrompt;
+    this.customUpdatePrompt = this.config.customUpdatePrompt;
     this.embedder = EmbedderFactory.create(
       this.config.embedder.provider,
       this.config.embedder.config,
@@ -306,7 +308,11 @@ export class Memory {
     });
 
     // Get memory update decisions
-    const updatePrompt = getUpdateMemoryMessages(uniqueOldMemories, facts);
+    const updatePrompt = getUpdateMemoryMessages(
+      uniqueOldMemories,
+      facts,
+      this.customUpdatePrompt,
+    );
 
     const updateResponse = await this.llm.generateResponse(
       [{ role: "user", content: updatePrompt }],

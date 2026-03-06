@@ -78,6 +78,7 @@ export interface MemoryConfig {
   disableHistory?: boolean;
   historyDbPath?: string;
   customPrompt?: string;
+  customUpdatePrompt?: string;
   graphStore?: GraphStoreConfig;
   enableGraph?: boolean;
 }
@@ -144,6 +145,7 @@ export const MemoryConfigSchema = z.object({
   }),
   historyDbPath: z.string().optional(),
   customPrompt: z.string().optional(),
+  customUpdatePrompt: z.string().optional(),
   enableGraph: z.boolean().optional(),
   graphStore: z
     .object({
