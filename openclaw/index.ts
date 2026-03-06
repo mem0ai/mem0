@@ -66,6 +66,8 @@ interface AddOptions {
   enable_graph?: boolean;
   output_format?: string;
   source?: string;
+  metadata?: Record<string, unknown>;
+  infer?: boolean;
 }
 
 interface SearchOptions {
@@ -78,6 +80,7 @@ interface SearchOptions {
   keyword_search?: boolean;
   reranking?: boolean;
   source?: string;
+  filters?: Record<string, unknown>;
 }
 
 interface ListOptions {
@@ -169,6 +172,8 @@ class PlatformProvider implements Mem0Provider {
     if (options.enable_graph) opts.enable_graph = options.enable_graph;
     if (options.output_format) opts.output_format = options.output_format;
     if (options.source) opts.source = options.source;
+    if (options.metadata) opts.metadata = options.metadata;
+    if (options.infer != null) opts.infer = options.infer;
 
     const result = await this.client.add(messages, opts);
     return normalizeAddResult(result);
@@ -185,6 +190,7 @@ class PlatformProvider implements Mem0Provider {
     if (options.keyword_search != null) opts.keyword_search = options.keyword_search;
     if (options.reranking != null) opts.reranking = options.reranking;
     if (options.source) opts.source = options.source;
+    if (options.filters) opts.filters = options.filters;
 
     const results = await this.client.search(query, opts);
     return normalizeSearchResults(results);
@@ -273,6 +279,8 @@ class OSSProvider implements Mem0Provider {
     if (options.agent_id) addOpts.agentId = options.agent_id;
     if (options.run_id) addOpts.runId = options.run_id;
     if (options.source) addOpts.source = options.source;
+    if (options.metadata) addOpts.metadata = options.metadata;
+    if (options.infer != null) addOpts.infer = options.infer;
     const result = await this.memory.add(messages, addOpts);
     return normalizeAddResult(result);
   }
@@ -290,6 +298,7 @@ class OSSProvider implements Mem0Provider {
     if (options.reranking != null) opts.reranking = options.reranking;
     if (options.source) opts.source = options.source;
     if (options.threshold != null) opts.threshold = options.threshold;
+    if (options.filters) opts.filters = options.filters;
 
     const results = await this.memory.search(query, opts);
     const normalized = normalizeSearchResults(results);
@@ -688,7 +697,12 @@ const memoryPlugin = {
     );
 
     // Helper: build add options
-    function buildAddOptions(userIdOverride?: string, runId?: string, orgOnly?: boolean): AddOptions {
+    function buildAddOptions(
+      userIdOverride?: string,
+      runId?: string,
+      orgOnly?: boolean,
+      metadata?: Record<string, unknown>,
+    ): AddOptions {
       const opts: AddOptions = {
         source: "OPENCLAW",
       };
@@ -699,6 +713,9 @@ const memoryPlugin = {
         opts.user_id = userIdOverride || cfg.userId;
       }
       if (runId) opts.run_id = runId;
+      if (metadata && Object.keys(metadata).length > 0) {
+        opts.metadata = metadata;
+      }
       if (cfg.mode === "platform") {
         opts.custom_instructions = cfg.customInstructions;
         opts.custom_categories = categoriesToArray(cfg.customCategories);
@@ -714,6 +731,7 @@ const memoryPlugin = {
       limit?: number,
       runId?: string,
       orgOnly?: boolean,
+      filters?: Record<string, unknown>,
     ): SearchOptions {
       const opts: SearchOptions = {
         top_k: limit ?? cfg.topK,
@@ -730,6 +748,9 @@ const memoryPlugin = {
         opts.user_id = userIdOverride || cfg.userId;
       }
       if (runId) opts.run_id = runId;
+      if (filters && Object.keys(filters).length > 0) {
+        opts.filters = filters;
+      }
       return opts;
     }
 
@@ -767,13 +788,20 @@ const memoryPlugin = {
                 'Memory scope: "session" (current session only), "long-term" (user-scoped only), "org" (organization-wide shared memories), or "all" (both user and session, excludes org). Default: "all"',
             }),
           ),
+          filters: Type.Optional(
+            Type.Record(Type.String(), Type.Unknown(), {
+              description:
+                'Metadata filters for search (e.g., {"type": "deal", "company": {"in": ["Acme", "Corp"]}}). Supports operators: eq, ne, gt, gte, lt, lte, in, nin, contains, icontains. Combine with AND/OR/NOT.',
+            }),
+          ),
         }),
         async execute(_toolCallId, params) {
-          const { query, limit, userId, scope = "all" } = params as {
+          const { query, limit, userId, scope = "all", filters } = params as {
             query: string;
             limit?: number;
             userId?: string;
             scope?: "session" | "long-term" | "org" | "all";
+            filters?: Record<string, unknown>;
           };
 
           try {
@@ -782,31 +810,31 @@ const memoryPlugin = {
             if (scope === "org") {
               results = await provider.search(
                 query,
-                buildSearchOptions(undefined, limit, undefined, true),
+                buildSearchOptions(undefined, limit, undefined, true, filters),
               );
             } else if (scope === "session") {
               if (currentSessionId) {
                 results = await provider.search(
                   query,
-                  buildSearchOptions(userId, limit, currentSessionId),
+                  buildSearchOptions(userId, limit, currentSessionId, false, filters),
                 );
               }
             } else if (scope === "long-term") {
               results = await provider.search(
                 query,
-                buildSearchOptions(userId, limit),
+                buildSearchOptions(userId, limit, undefined, false, filters),
               );
             } else {
               // "all" — search both scopes and combine
               const longTermResults = await provider.search(
                 query,
-                buildSearchOptions(userId, limit),
+                buildSearchOptions(userId, limit, undefined, false, filters),
               );
               let sessionResults: MemoryItem[] = [];
               if (currentSessionId) {
                 sessionResults = await provider.search(
                   query,
-                  buildSearchOptions(userId, limit, currentSessionId),
+                  buildSearchOptions(userId, limit, currentSessionId, false, filters),
                 );
               }
               // Deduplicate by ID, preferring long-term
@@ -828,8 +856,13 @@ const memoryPlugin = {
 
             const text = results
               .map(
-                (r, i) =>
-                  `${i + 1}. ${r.memory} (score: ${((r.score ?? 0) * 100).toFixed(0)}%, id: ${r.id})`,
+                (r, i) => {
+                  let line = `${i + 1}. ${r.memory} (score: ${((r.score ?? 0) * 100).toFixed(0)}%, id: ${r.id})`;
+                  if (r.metadata && Object.keys(r.metadata).length > 0) {
+                    line += ` [metadata: ${JSON.stringify(r.metadata)}]`;
+                  }
+                  return line;
+                },
               )
               .join("\n");
 
@@ -838,6 +871,7 @@ const memoryPlugin = {
               memory: r.memory,
               score: r.score,
               categories: r.categories,
+              metadata: r.metadata,
               created_at: r.created_at,
             }));
 
@@ -901,7 +935,7 @@ const memoryPlugin = {
           ),
         }),
         async execute(_toolCallId, params) {
-          const { text, userId, longTerm = true, scope = "user" } = params as {
+          const { text, userId, metadata, longTerm = true, scope = "user" } = params as {
             text: string;
             userId?: string;
             metadata?: Record<string, unknown>;
@@ -914,7 +948,7 @@ const memoryPlugin = {
             const runId = !orgOnly && !longTerm && currentSessionId ? currentSessionId : undefined;
             const result = await provider.add(
               [{ role: "user", content: text }],
-              buildAddOptions(userId, runId, orgOnly),
+              buildAddOptions(userId, runId, orgOnly, metadata),
             );
 
             const added =
@@ -976,11 +1010,19 @@ const memoryPlugin = {
           try {
             const memory = await provider.get(memoryId);
 
+            let text = `Memory ${memory.id}:\n${memory.memory}\n\nCreated: ${memory.created_at ?? "unknown"}\nUpdated: ${memory.updated_at ?? "unknown"}`;
+            if (memory.categories?.length) {
+              text += `\nCategories: ${memory.categories.join(", ")}`;
+            }
+            if (memory.metadata && Object.keys(memory.metadata).length > 0) {
+              text += `\nMetadata: ${JSON.stringify(memory.metadata)}`;
+            }
+
             return {
               content: [
                 {
                   type: "text",
-                  text: `Memory ${memory.id}:\n${memory.memory}\n\nCreated: ${memory.created_at ?? "unknown"}\nUpdated: ${memory.updated_at ?? "unknown"}`,
+                  text,
                 },
               ],
               details: { memory },
@@ -1077,8 +1119,13 @@ const memoryPlugin = {
 
             const text = memories
               .map(
-                (r, i) =>
-                  `${i + 1}. ${r.memory} (id: ${r.id})`,
+                (r, i) => {
+                  let line = `${i + 1}. ${r.memory} (id: ${r.id})`;
+                  if (r.metadata && Object.keys(r.metadata).length > 0) {
+                    line += ` [metadata: ${JSON.stringify(r.metadata)}]`;
+                  }
+                  return line;
+                },
               )
               .join("\n");
 
@@ -1086,6 +1133,7 @@ const memoryPlugin = {
               id: r.id,
               memory: r.memory,
               categories: r.categories,
+              metadata: r.metadata,
               created_at: r.created_at,
             }));
 
