@@ -73,7 +73,25 @@ Sensible defaults out of the box. To customize the embedder, vector store, or LL
   "userId": "your-user-id",
   "oss": {
     "embedder": { "provider": "openai", "config": { "model": "text-embedding-3-small" } },
-    "vectorStore": { "provider": "qdrant", "config": { "host": "localhost", "port": 6333 } },
+    "vectorStore": {
+      "provider": "qdrant",
+      "config": {
+        "url": "http://localhost:6333",
+        "collectionName": "my-memories",
+        "dimension": 1536
+      }
+    },
+    // Remote Qdrant with API key — note: all keys must be camelCase
+    // "vectorStore": {
+    //   "provider": "qdrant",
+    //   "config": {
+    //     "url": "https://your-qdrant-host:6333",
+    //     "apiKey": "your-qdrant-api-key",
+    //     "collectionName": "my-memories",
+    //     "dimension": 1536,
+    //     "checkCompatibility": false
+    //   }
+    // },
     "llm": { "provider": "openai", "config": { "model": "gpt-4o" } }
   }
 }
@@ -143,7 +161,7 @@ Works with zero extra config. The `oss` block lets you swap out any component:
 | `oss.embedder.provider` | `string` | `"openai"` | Embedding provider (`"openai"`, `"ollama"`, etc.) |
 | `oss.embedder.config` | `object` | — | Provider config: `apiKey`, `model`, `baseURL` |
 | `oss.vectorStore.provider` | `string` | `"memory"` | Vector store (`"memory"`, `"qdrant"`, `"chroma"`, etc.) |
-| `oss.vectorStore.config` | `object` | — | Provider config: `host`, `port`, `collectionName`, `dimension` |
+| `oss.vectorStore.config` | `object` | — | Provider config (all keys **camelCase**): `url`, `host`, `port`, `apiKey` (for authenticated remote instances), `collectionName`, `dimension`, `checkCompatibility` |
 | `oss.llm.provider` | `string` | `"openai"` | LLM provider (`"openai"`, `"anthropic"`, `"ollama"`, etc.) |
 | `oss.llm.config` | `object` | — | Provider config: `apiKey`, `model`, `baseURL`, `temperature` |
 | `oss.historyDbPath` | `string` | — | SQLite path for memory edit history |
