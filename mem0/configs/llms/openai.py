@@ -29,6 +29,7 @@ class OpenAIConfig(BaseLlmConfig):
         site_url: Optional[str] = None,
         app_name: Optional[str] = None,
         store: bool = False,
+        reasoning_effort: Optional[str] = None,
         # Response monitoring callback
         response_callback: Optional[Callable[[Any, dict, dict], None]] = None,
     ):
@@ -51,6 +52,8 @@ class OpenAIConfig(BaseLlmConfig):
             openrouter_base_url: OpenRouter base URL, defaults to None
             site_url: Site URL for OpenRouter, defaults to None
             app_name: Application name for OpenRouter, defaults to None
+            store: Storage flag, defaults to False
+            reasoning_effort: Reasoning effort level for reasoning models ("low", "medium", "high"), defaults to None
             response_callback: Optional callback for monitoring LLM responses.
         """
         # Initialize base parameters
@@ -74,6 +77,7 @@ class OpenAIConfig(BaseLlmConfig):
         self.site_url = site_url
         self.app_name = app_name
         self.store = store
+        self.reasoning_effort = reasoning_effort
 
         # Response monitoring
         self.response_callback = response_callback

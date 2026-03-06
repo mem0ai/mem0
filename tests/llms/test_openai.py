@@ -106,6 +106,56 @@ def test_generate_response_with_tools(mock_openai_client):
     assert response["tool_calls"][0]["arguments"] == {"data": "Today is a sunny day."}
 
 
+def test_generate_response_with_reasoning_model(mock_openai_client):
+    config = OpenAIConfig(model="o3-mini", reasoning_effort="low")
+    llm = OpenAILLM(config)
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Hello, how are you?"},
+    ]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="I'm doing well, thank you for asking!"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages)
+
+    mock_openai_client.chat.completions.create.assert_called_once_with(
+        model="o3-mini", messages=messages, reasoning_effort="low", store=False
+    )
+    assert response == "I'm doing well, thank you for asking!"
+
+
+def test_generate_response_reasoning_model_without_reasoning_effort(mock_openai_client):
+    config = OpenAIConfig(model="o3-mini")
+    llm = OpenAILLM(config)
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Hello, how are you?"},
+    ]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="I'm doing well!"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages)
+
+    mock_openai_client.chat.completions.create.assert_called_once_with(
+        model="o3-mini", messages=messages, store=False
+    )
+    assert response == "I'm doing well!"
+
+
+def test_reasoning_effort_config_parameter():
+    config = OpenAIConfig(model="o3-mini", reasoning_effort="high")
+    assert config.reasoning_effort == "high"
+
+
+def test_reasoning_effort_config_default():
+    config = OpenAIConfig(model="o3-mini")
+    assert config.reasoning_effort is None
+
+
 def test_response_callback_invocation(mock_openai_client):
     # Setup mock callback
     mock_callback = Mock()
