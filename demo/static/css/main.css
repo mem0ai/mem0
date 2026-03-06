@@ -515,3 +515,17 @@ textarea {
   color: var(--text-dim);
   padding: 4px 0;
 }
+
+/* ─── Stream cursor ───────────────────────────────────────────────────── */
+.stream-cursor {
+  display: inline-block;
+  color: var(--accent);
+  animation: blink 0.8s step-end infinite;
+  font-size: 0.9em;
+  vertical-align: baseline;
+  margin-left: 1px;
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}

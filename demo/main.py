@@ -9,14 +9,15 @@ Mem0 Demo Web Application
 import os
 import json
 import uuid
+import asyncio
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, AsyncIterator
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse, FileResponse, StreamingResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -254,6 +255,101 @@ async def chat(req: ChatRequest):
         session_id=session_id,
         memories_used=memories_used,
         memory_add_result=memory_add_result,
+    )
+
+
+@app.post("/api/chat/stream")
+async def chat_stream(req: ChatRequest, background_tasks: BackgroundTasks):
+    """SSE streaming endpoint. Yields:
+      data: {"type":"memories","data":[...]}
+      data: {"type":"delta","text":"..."}
+      data: {"type":"done","session_id":"...","mem_count":N}
+      data: {"type":"error","message":"..."}
+    """
+    session_id = req.session_id or str(uuid.uuid4())
+
+    # 1. Memory search (before streaming starts)
+    memories_used = []
+    if req.use_memory and memory:
+        try:
+            result = memory.search(query=req.message, user_id=req.user_id, limit=5)
+            memories_used = result.get("results", [])
+        except Exception as e:
+            logger.warning(f"Memory search failed: {e}")
+
+    # 2. Build system prompt
+    skills = load_skills()
+    base_system = req.system_prompt or "你是一个智能助手，请友好、准确地回答用户的问题。"
+    if req.skill_id and req.skill_id in skills:
+        base_system = skills[req.skill_id]["prompt"]
+    if memories_used:
+        mem_lines = "\n".join(f"- {m['memory']}" for m in memories_used)
+        base_system += f"\n\n【关于该用户的已知信息（来自记忆库）】\n{mem_lines}"
+
+    # 3. Session history
+    sessions = load_sessions()
+    session_history = sessions.get(session_id, [])
+    messages = [{"role": "system", "content": base_system}]
+    messages.extend(session_history)
+    messages.append({"role": "user", "content": req.message})
+
+    async def event_generator() -> AsyncIterator[str]:
+        # Send memories metadata first
+        yield f"data: {json.dumps({'type': 'memories', 'data': memories_used}, ensure_ascii=False)}\n\n"
+
+        full_reply = []
+        try:
+            # Stream LLM response
+            stream = await asyncio.to_thread(
+                llm_client.chat.completions.create,
+                model=LLM_MODEL,
+                messages=messages,
+                temperature=0.7,
+                stream=True,
+            )
+            for chunk in stream:
+                delta = chunk.choices[0].delta.content if chunk.choices else None
+                if delta:
+                    full_reply.append(delta)
+                    yield f"data: {json.dumps({'type': 'delta', 'text': delta}, ensure_ascii=False)}\n\n"
+
+        except Exception as e:
+            logger.error(f"LLM stream failed: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+            return
+
+        reply = "".join(full_reply)
+
+        # Save session history
+        session_history.append({"role": "user", "content": req.message})
+        session_history.append({"role": "assistant", "content": reply})
+        sessions[session_id] = session_history[-20:]
+        save_sessions(sessions)
+
+        # Add to Mem0 as background task (avoid blocking the response)
+        if req.use_memory and memory and reply:
+            def _mem_add():
+                try:
+                    mem_messages = [
+                        {"role": "user", "content": req.message},
+                        {"role": "assistant", "content": reply},
+                    ]
+                    result = memory.add(mem_messages, user_id=req.user_id)
+                    added = [r for r in (result.get("results") or []) if r.get("event") != "NONE"]
+                    logger.info(f"Mem0 add: {len(added)} memory updates for user {req.user_id}")
+                except Exception as e:
+                    logger.warning(f"Memory add failed: {e}")
+            background_tasks.add_task(_mem_add)
+
+        yield f"data: {json.dumps({'type': 'done', 'session_id': session_id, 'mem_count': len(memories_used)})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
     )
 
 

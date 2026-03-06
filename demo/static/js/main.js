@@ -91,7 +91,7 @@ function bindEvents() {
   $('showMemBtn').addEventListener('click', showMemoryPeek);
 }
 
-// ─── Send Message ──────────────────────────────────────────────────────────
+// ─── Send Message (SSE streaming) ─────────────────────────────────────────
 async function sendMessage() {
   const text = userInputEl.value.trim();
   if (!text) return;
@@ -103,48 +103,82 @@ async function sendMessage() {
   const typingEl = appendTyping();
   sendBtn.disabled = true;
 
-  try {
-    const body = {
-      message: text,
-      user_id: $('userId').value.trim() || 'default_user',
-      session_id: state.sessionId,
-      system_prompt: $('systemPrompt').value.trim() || null,
-      skill_id: state.activeSkillId || null,
-      use_memory: $('useMemory').checked,
-    };
+  const body = {
+    message: text,
+    user_id: $('userId').value.trim() || 'default_user',
+    session_id: state.sessionId,
+    system_prompt: $('systemPrompt').value.trim() || null,
+    skill_id: state.activeSkillId || null,
+    use_memory: $('useMemory').checked,
+  };
 
-    const res = await fetch('/api/chat', {
+  // Streaming bubble (inserted after typing indicator is removed)
+  let streamBubble = null;
+  let rawText = '';   // accumulate plain text for memory peek
+
+  try {
+    const res = await fetch('/api/chat/stream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
 
     if (!res.ok) {
-      const err = await res.json();
+      const err = await res.json().catch(() => ({ detail: 'Stream error' }));
       throw new Error(err.detail || 'API Error');
     }
 
-    const data = await res.json();
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
 
-    typingEl.remove();
-    appendMessage('assistant', data.reply, data.memories_used);
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-    // Store last memories for peek panel
-    state.lastMemories = data.memories_used || [];
-    if (state.lastMemories.length > 0) {
-      $('showMemBtn').style.display = 'inline-block';
-    }
+      buffer += decoder.decode(value, { stream: true });
 
-    // Update memory add result hint
-    if (data.memory_add_result) {
-      const added = (data.memory_add_result.results || []).filter(r => r.event !== 'NONE');
-      if (added.length > 0) {
-        appendSystemMsg(`✅ Mem0 已处理 ${added.length} 条记忆更新`);
+      // SSE lines are separated by "\n\n"
+      const parts = buffer.split('\n\n');
+      buffer = parts.pop(); // last partial chunk back to buffer
+
+      for (const part of parts) {
+        const line = part.trim();
+        if (!line.startsWith('data:')) continue;
+        const jsonStr = line.slice(5).trim();
+        let event;
+        try { event = JSON.parse(jsonStr); } catch { continue; }
+
+        if (event.type === 'memories') {
+          // Show memories retrieved before first token
+          state.lastMemories = event.data || [];
+          if (state.lastMemories.length > 0) {
+            $('showMemBtn').style.display = 'inline-block';
+          }
+
+        } else if (event.type === 'delta') {
+          // First token: remove typing indicator, create stream bubble
+          if (!streamBubble) {
+            typingEl.remove();
+            streamBubble = appendStreamBubble(state.lastMemories.length);
+          }
+          rawText += event.text;
+          updateStreamBubble(streamBubble, rawText);
+
+        } else if (event.type === 'done') {
+          if (!streamBubble) typingEl.remove(); // empty reply edge case
+          appendSystemMsg(`🧠 Mem0 记忆检索: ${event.mem_count} 条 · 后台更新中…`);
+
+        } else if (event.type === 'error') {
+          typingEl.remove();
+          appendMessage('assistant', `❌ 请求失败：${event.message}`);
+        }
       }
     }
   } catch (err) {
-    typingEl.remove();
-    appendMessage('assistant', `❌ 请求失败：${err.message}`);
+    if (typingEl.parentNode) typingEl.remove();
+    if (!streamBubble) appendMessage('assistant', `❌ 请求失败：${err.message}`);
+    else appendSystemMsg(`❌ 流中断：${err.message}`);
   } finally {
     sendBtn.disabled = false;
     userInputEl.focus();
@@ -188,6 +222,36 @@ function appendTyping() {
   messagesEl.appendChild(div);
   messagesEl.scrollTop = messagesEl.scrollHeight;
   return div;
+}
+
+function appendStreamBubble(memCount) {
+  const welcome = messagesEl.querySelector('.welcome-msg');
+  if (welcome) welcome.remove();
+
+  const time = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+  const memTag = memCount > 0
+    ? `<span style="color:var(--accent);font-size:0.65rem">🧠 引用了 ${memCount} 条记忆</span>`
+    : '';
+
+  const div = document.createElement('div');
+  div.className = 'msg assistant';
+  div.innerHTML = `
+    <div class="msg-avatar">🤖</div>
+    <div>
+      <div class="msg-bubble stream-bubble"></div>
+      <div class="msg-meta">${time} ${memTag}</div>
+    </div>`;
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  return div.querySelector('.stream-bubble');
+}
+
+function updateStreamBubble(bubbleEl, rawText) {
+  bubbleEl.innerHTML = renderContent(rawText) + '<span class="stream-cursor">▋</span>';
+  // Auto-scroll only if user is near bottom
+  const threshold = 120;
+  const nearBottom = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < threshold;
+  if (nearBottom) messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
 function appendSystemMsg(text) {
