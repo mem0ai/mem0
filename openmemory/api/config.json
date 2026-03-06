@@ -1,19 +1,28 @@
 {
     "mem0": {
         "llm": {
-            "provider": "openai",
+            "provider": "ollama",
             "config": {
-                "model": "gpt-4o-mini",
+                "model": "qwen2.5:7b",
+                "ollama_base_url": "http://localhost:11434",
                 "temperature": 0.1,
-                "max_tokens": 2000,
-                "api_key": "env:API_KEY"
+                "max_tokens": 2000
             }
         },
         "embedder": {
-            "provider": "openai",
+            "provider": "ollama",
             "config": {
-                "model": "text-embedding-3-small",
-                "api_key": "env:API_KEY"
+                "model": "nomic-embed-text:latest",
+                "ollama_base_url": "http://localhost:11434"
+            }
+        },
+        "vector_store": {
+            "provider": "faiss",
+            "config": {
+                "collection_name": "openmemory",
+                "path": "/Users/mirror-admin/.mirrordna/openmemory/faiss",
+                "embedding_model_dims": 768,
+                "distance_strategy": "cosine"
             }
         }
     }
