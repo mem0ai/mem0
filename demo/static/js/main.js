@@ -112,9 +112,15 @@ async function sendMessage() {
     use_memory: $('useMemory').checked,
   };
 
-  // Streaming bubble (inserted after typing indicator is removed)
-  let streamBubble = null;
-  let rawText = '';   // accumulate plain text for memory peek
+  let streamBubble = null;   // main reply bubble element
+  let thinkBlock = null;     // thinking panel element
+  let thinkContent = '';     // accumulated thinking text
+  let rawText = '';          // accumulated reply text
+  let typingRemoved = false;
+
+  function ensureTypingRemoved() {
+    if (!typingRemoved) { typingEl.remove(); typingRemoved = true; }
+  }
 
   try {
     const res = await fetch('/api/chat/stream', {
@@ -137,46 +143,48 @@ async function sendMessage() {
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
-
-      // SSE lines are separated by "\n\n"
       const parts = buffer.split('\n\n');
-      buffer = parts.pop(); // last partial chunk back to buffer
+      buffer = parts.pop();
 
       for (const part of parts) {
         const line = part.trim();
         if (!line.startsWith('data:')) continue;
-        const jsonStr = line.slice(5).trim();
         let event;
-        try { event = JSON.parse(jsonStr); } catch { continue; }
+        try { event = JSON.parse(line.slice(5).trim()); } catch { continue; }
 
         if (event.type === 'memories') {
-          // Show memories retrieved before first token
           state.lastMemories = event.data || [];
-          if (state.lastMemories.length > 0) {
-            $('showMemBtn').style.display = 'inline-block';
-          }
+          if (state.lastMemories.length > 0) $('showMemBtn').style.display = 'inline-block';
+
+        } else if (event.type === 'thinking_delta') {
+          ensureTypingRemoved();
+          if (!thinkBlock) thinkBlock = appendThinkBlock();
+          thinkContent += event.text;
+          updateThinkBlock(thinkBlock, thinkContent, false);
+
+        } else if (event.type === 'thinking_done') {
+          if (thinkBlock) updateThinkBlock(thinkBlock, thinkContent, true);
 
         } else if (event.type === 'delta') {
-          // First token: remove typing indicator, create stream bubble
-          if (!streamBubble) {
-            typingEl.remove();
-            streamBubble = appendStreamBubble(state.lastMemories.length);
-          }
+          ensureTypingRemoved();
+          if (!streamBubble) streamBubble = appendStreamBubble(state.lastMemories.length);
           rawText += event.text;
           updateStreamBubble(streamBubble, rawText);
 
         } else if (event.type === 'done') {
-          if (!streamBubble) typingEl.remove(); // empty reply edge case
+          ensureTypingRemoved();
+          // Remove cursor from final bubble
+          if (streamBubble) streamBubble.innerHTML = renderContent(rawText);
           appendSystemMsg(`🧠 Mem0 记忆检索: ${event.mem_count} 条 · 后台更新中…`);
 
         } else if (event.type === 'error') {
-          typingEl.remove();
+          ensureTypingRemoved();
           appendMessage('assistant', `❌ 请求失败：${event.message}`);
         }
       }
     }
   } catch (err) {
-    if (typingEl.parentNode) typingEl.remove();
+    if (!typingRemoved && typingEl.parentNode) typingEl.remove();
     if (!streamBubble) appendMessage('assistant', `❌ 请求失败：${err.message}`);
     else appendSystemMsg(`❌ 流中断：${err.message}`);
   } finally {
@@ -222,6 +230,38 @@ function appendTyping() {
   messagesEl.appendChild(div);
   messagesEl.scrollTop = messagesEl.scrollHeight;
   return div;
+}
+
+function appendThinkBlock() {
+  const welcome = messagesEl.querySelector('.welcome-msg');
+  if (welcome) welcome.remove();
+
+  const div = document.createElement('div');
+  div.className = 'think-block thinking';
+  div.innerHTML = `
+    <div class="think-header" onclick="this.parentElement.classList.toggle('collapsed')">
+      <span class="think-icon">⚙️</span>
+      <span class="think-label">思考中…</span>
+      <span class="think-toggle">▾</span>
+    </div>
+    <div class="think-body"><pre class="think-pre"></pre></div>`;
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  return div;
+}
+
+function updateThinkBlock(blockEl, text, done) {
+  const pre = blockEl.querySelector('.think-pre');
+  const label = blockEl.querySelector('.think-label');
+  pre.textContent = text;
+  if (done) {
+    blockEl.classList.remove('thinking');
+    blockEl.classList.add('done', 'collapsed');
+    label.textContent = '查看思考过程';
+  }
+  const threshold = 120;
+  const nearBottom = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < threshold;
+  if (nearBottom) messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
 function appendStreamBubble(memCount) {

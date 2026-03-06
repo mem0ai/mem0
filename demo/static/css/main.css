@@ -516,6 +516,68 @@ textarea {
   padding: 4px 0;
 }
 
+/* ─── Thinking Block ──────────────────────────────────────────────────── */
+.think-block {
+  align-self: flex-start;
+  max-width: 82%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface2);
+  overflow: hidden;
+  animation: fadeUp 0.2s ease;
+}
+
+.think-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  transition: background 0.15s;
+}
+.think-header:hover { background: rgba(255,255,255,0.04); }
+
+.think-icon { font-size: 0.85rem; }
+.think-label { flex: 1; font-weight: 500; }
+.think-toggle { font-size: 0.7rem; transition: transform 0.2s; }
+
+.think-block.collapsed .think-toggle { transform: rotate(-90deg); }
+.think-block.collapsed .think-body { display: none; }
+
+/* Pulse border while thinking */
+.think-block.thinking {
+  border-color: var(--accent);
+  animation: fadeUp 0.2s ease, thinkPulse 1.8s ease-in-out infinite;
+}
+.think-block.thinking .think-label { color: var(--accent); }
+
+@keyframes thinkPulse {
+  0%, 100% { border-color: var(--accent); }
+  50%       { border-color: rgba(108,99,255,0.3); }
+}
+
+.think-body {
+  border-top: 1px solid var(--border);
+  max-height: 220px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.think-pre {
+  margin: 0;
+  padding: 10px 14px;
+  font-family: var(--font);
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 /* ─── Stream cursor ───────────────────────────────────────────────────── */
 .stream-cursor {
   display: inline-block;

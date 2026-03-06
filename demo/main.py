@@ -298,8 +298,10 @@ async def chat_stream(req: ChatRequest, background_tasks: BackgroundTasks):
         yield f"data: {json.dumps({'type': 'memories', 'data': memories_used}, ensure_ascii=False)}\n\n"
 
         full_reply = []
+        full_thinking = []
+        in_think_tag = False   # for <think>...</think> style models
+
         try:
-            # Stream LLM response
             stream = await asyncio.to_thread(
                 llm_client.chat.completions.create,
                 model=LLM_MODEL,
@@ -308,15 +310,63 @@ async def chat_stream(req: ChatRequest, background_tasks: BackgroundTasks):
                 stream=True,
             )
             for chunk in stream:
-                delta = chunk.choices[0].delta.content if chunk.choices else None
-                if delta:
-                    full_reply.append(delta)
-                    yield f"data: {json.dumps({'type': 'delta', 'text': delta}, ensure_ascii=False)}\n\n"
+                if not chunk.choices:
+                    continue
+                delta = chunk.choices[0].delta
+
+                # ── Thinking content (DeepSeek-R1 / QwQ style: reasoning_content field)
+                reasoning = getattr(delta, "reasoning_content", None)
+                if reasoning:
+                    full_thinking.append(reasoning)
+                    yield f"data: {json.dumps({'type': 'thinking_delta', 'text': reasoning}, ensure_ascii=False)}\n\n"
+
+                # ── Regular content (may contain <think> tags for other models)
+                content = delta.content or ""
+                if not content:
+                    continue
+
+                # Handle <think>...</think> inline tag style
+                while content:
+                    if in_think_tag:
+                        end = content.find("</think>")
+                        if end == -1:
+                            # Still inside <think>, forward as thinking
+                            full_thinking.append(content)
+                            yield f"data: {json.dumps({'type': 'thinking_delta', 'text': content}, ensure_ascii=False)}\n\n"
+                            content = ""
+                        else:
+                            # End of think block
+                            think_part = content[:end]
+                            if think_part:
+                                full_thinking.append(think_part)
+                                yield f"data: {json.dumps({'type': 'thinking_delta', 'text': think_part}, ensure_ascii=False)}\n\n"
+                            yield f"data: {json.dumps({'type': 'thinking_done'})}\n\n"
+                            in_think_tag = False
+                            content = content[end + len("</think>"):]
+                    else:
+                        start = content.find("<think>")
+                        if start == -1:
+                            # Normal content, no think tag
+                            full_reply.append(content)
+                            yield f"data: {json.dumps({'type': 'delta', 'text': content}, ensure_ascii=False)}\n\n"
+                            content = ""
+                        else:
+                            # Normal content before <think>
+                            before = content[:start]
+                            if before:
+                                full_reply.append(before)
+                                yield f"data: {json.dumps({'type': 'delta', 'text': before}, ensure_ascii=False)}\n\n"
+                            in_think_tag = True
+                            content = content[start + len("<think>"):]
 
         except Exception as e:
             logger.error(f"LLM stream failed: {e}")
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
             return
+
+        # Signal thinking complete if we got thinking content via reasoning_content field
+        if full_thinking and not in_think_tag:
+            yield f"data: {json.dumps({'type': 'thinking_done'})}\n\n"
 
         reply = "".join(full_reply)
 
@@ -326,7 +376,7 @@ async def chat_stream(req: ChatRequest, background_tasks: BackgroundTasks):
         sessions[session_id] = session_history[-20:]
         save_sessions(sessions)
 
-        # Add to Mem0 as background task (avoid blocking the response)
+        # Add to Mem0 as background task
         if req.use_memory and memory and reply:
             def _mem_add():
                 try:
