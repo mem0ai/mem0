@@ -137,5 +137,9 @@ class AzureOpenAILLM(LLMBase):
             params["tools"] = tools
             params["tool_choice"] = tool_choice
 
+        # Add reasoning_effort if configured
+        if hasattr(self.config, 'reasoning_effort') and self.config.reasoning_effort:
+            params["reasoning_effort"] = self.config.reasoning_effort
+
         response = self.client.chat.completions.create(**params)
         return self._parse_response(response, tools)
