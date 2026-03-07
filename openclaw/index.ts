@@ -6,10 +6,13 @@
  *
  * Features:
  * - 5 tools: memory_search, memory_list, memory_store, memory_get, memory_forget
- *   (with session/long-term scope support via scope and longTerm parameters)
- * - Short-term (session-scoped) and long-term (user-scoped) memory
- * - Auto-recall: injects relevant memories (both scopes) before each agent turn
+ *   (with session/long-term/org scope support via scope and longTerm parameters)
+ * - Short-term (session-scoped), long-term (user-scoped), and org-level (shared) memory
+ * - Auto-recall: injects relevant memories (user, session, and org scopes) before each agent turn
  * - Auto-capture: stores key facts scoped to the current session after each agent turn
+ * - Org memory: shared knowledge layer accessible to all agents in the organization
+ * - Persistent subagent sessions: derives stable run_id from volatile subagent sessionKeys
+ *   so memories persist across subagent spawns (enabled by default)
  * - CLI: openclaw mem0 search, openclaw mem0 stats
  * - Dual mode: platform or open-source (self-hosted)
  */
@@ -46,21 +49,30 @@ type Mem0Config = {
   autoRecall: boolean;
   searchThreshold: number;
   topK: number;
+  // Org-level memory
+  recallOrg: boolean;
+  orgAgentId: string;
+  // Persistent subagent sessions
+  persistentSubagentSessions: boolean;
 };
 
 // Unified types for the provider interface
 interface AddOptions {
-  user_id: string;
+  user_id?: string;
+  agent_id?: string;
   run_id?: string;
   custom_instructions?: string;
   custom_categories?: Array<Record<string, string>>;
   enable_graph?: boolean;
   output_format?: string;
   source?: string;
+  metadata?: Record<string, unknown>;
+  infer?: boolean;
 }
 
 interface SearchOptions {
-  user_id: string;
+  user_id?: string;
+  agent_id?: string;
   run_id?: string;
   top_k?: number;
   threshold?: number;
@@ -68,10 +80,12 @@ interface SearchOptions {
   keyword_search?: boolean;
   reranking?: boolean;
   source?: string;
+  filters?: Record<string, unknown>;
 }
 
 interface ListOptions {
-  user_id: string;
+  user_id?: string;
+  agent_id?: string;
   run_id?: string;
   page_size?: number;
   source?: string;
@@ -147,7 +161,9 @@ class PlatformProvider implements Mem0Provider {
     options: AddOptions,
   ): Promise<AddResult> {
     await this.ensureClient();
-    const opts: Record<string, unknown> = { user_id: options.user_id };
+    const opts: Record<string, unknown> = {};
+    if (options.user_id) opts.user_id = options.user_id;
+    if (options.agent_id) opts.agent_id = options.agent_id;
     if (options.run_id) opts.run_id = options.run_id;
     if (options.custom_instructions)
       opts.custom_instructions = options.custom_instructions;
@@ -156,6 +172,8 @@ class PlatformProvider implements Mem0Provider {
     if (options.enable_graph) opts.enable_graph = options.enable_graph;
     if (options.output_format) opts.output_format = options.output_format;
     if (options.source) opts.source = options.source;
+    if (options.metadata) opts.metadata = options.metadata;
+    if (options.infer != null) opts.infer = options.infer;
 
     const result = await this.client.add(messages, opts);
     return normalizeAddResult(result);
@@ -163,13 +181,16 @@ class PlatformProvider implements Mem0Provider {
 
   async search(query: string, options: SearchOptions): Promise<MemoryItem[]> {
     await this.ensureClient();
-    const opts: Record<string, unknown> = { user_id: options.user_id };
+    const opts: Record<string, unknown> = {};
+    if (options.user_id) opts.user_id = options.user_id;
+    if (options.agent_id) opts.agent_id = options.agent_id;
     if (options.run_id) opts.run_id = options.run_id;
     if (options.top_k != null) opts.top_k = options.top_k;
     if (options.threshold != null) opts.threshold = options.threshold;
     if (options.keyword_search != null) opts.keyword_search = options.keyword_search;
     if (options.reranking != null) opts.reranking = options.reranking;
     if (options.source) opts.source = options.source;
+    if (options.filters) opts.filters = options.filters;
 
     const results = await this.client.search(query, opts);
     return normalizeSearchResults(results);
@@ -183,7 +204,9 @@ class PlatformProvider implements Mem0Provider {
 
   async getAll(options: ListOptions): Promise<MemoryItem[]> {
     await this.ensureClient();
-    const opts: Record<string, unknown> = { user_id: options.user_id };
+    const opts: Record<string, unknown> = {};
+    if (options.user_id) opts.user_id = options.user_id;
+    if (options.agent_id) opts.agent_id = options.agent_id;
     if (options.run_id) opts.run_id = options.run_id;
     if (options.page_size != null) opts.page_size = options.page_size;
     if (options.source) opts.source = options.source;
@@ -251,9 +274,13 @@ class OSSProvider implements Mem0Provider {
   ): Promise<AddResult> {
     await this.ensureMemory();
     // OSS SDK uses camelCase: userId/runId, not user_id/run_id
-    const addOpts: Record<string, unknown> = { userId: options.user_id };
+    const addOpts: Record<string, unknown> = {};
+    if (options.user_id) addOpts.userId = options.user_id;
+    if (options.agent_id) addOpts.agentId = options.agent_id;
     if (options.run_id) addOpts.runId = options.run_id;
     if (options.source) addOpts.source = options.source;
+    if (options.metadata) addOpts.metadata = options.metadata;
+    if (options.infer != null) addOpts.infer = options.infer;
     const result = await this.memory.add(messages, addOpts);
     return normalizeAddResult(result);
   }
@@ -261,7 +288,9 @@ class OSSProvider implements Mem0Provider {
   async search(query: string, options: SearchOptions): Promise<MemoryItem[]> {
     await this.ensureMemory();
     // OSS SDK uses camelCase: userId/runId, not user_id/run_id
-    const opts: Record<string, unknown> = { userId: options.user_id };
+    const opts: Record<string, unknown> = {};
+    if (options.user_id) opts.userId = options.user_id;
+    if (options.agent_id) opts.agentId = options.agent_id;
     if (options.run_id) opts.runId = options.run_id;
     if (options.limit != null) opts.limit = options.limit;
     else if (options.top_k != null) opts.limit = options.top_k;
@@ -269,6 +298,7 @@ class OSSProvider implements Mem0Provider {
     if (options.reranking != null) opts.reranking = options.reranking;
     if (options.source) opts.source = options.source;
     if (options.threshold != null) opts.threshold = options.threshold;
+    if (options.filters) opts.filters = options.filters;
 
     const results = await this.memory.search(query, opts);
     const normalized = normalizeSearchResults(results);
@@ -290,7 +320,9 @@ class OSSProvider implements Mem0Provider {
   async getAll(options: ListOptions): Promise<MemoryItem[]> {
     await this.ensureMemory();
     // OSS SDK uses camelCase: userId/runId, not user_id/run_id
-    const getAllOpts: Record<string, unknown> = { userId: options.user_id };
+    const getAllOpts: Record<string, unknown> = {};
+    if (options.user_id) getAllOpts.userId = options.user_id;
+    if (options.agent_id) getAllOpts.agentId = options.agent_id;
     if (options.run_id) getAllOpts.runId = options.run_id;
     if (options.source) getAllOpts.source = options.source;
     const results = await this.memory.getAll(getAllOpts);
@@ -503,6 +535,9 @@ const ALLOWED_KEYS = [
   "searchThreshold",
   "topK",
   "oss",
+  "recallOrg",
+  "orgAgentId",
+  "persistentSubagentSessions",
 ];
 
 function assertAllowedKeys(
@@ -573,6 +608,12 @@ const mem0ConfigSchema = {
         typeof cfg.searchThreshold === "number" ? cfg.searchThreshold : 0.5,
       topK: typeof cfg.topK === "number" ? cfg.topK : 5,
       oss: ossConfig,
+      recallOrg: cfg.recallOrg !== false,
+      orgAgentId:
+        typeof cfg.orgAgentId === "string" && cfg.orgAgentId
+          ? cfg.orgAgentId
+          : "openclaw-org",
+      persistentSubagentSessions: cfg.persistentSubagentSessions !== false,
     };
   },
 };
@@ -606,6 +647,33 @@ function categoriesToArray(
 }
 
 // ============================================================================
+// Persistent Subagent Sessions
+// ============================================================================
+
+/**
+ * Derive a stable run_id from a volatile subagent sessionKey.
+ *
+ * Subagent sessionKeys follow the pattern:
+ *   `agent:<name>:subagent:<uuid>`
+ *
+ * The UUID changes on every spawn, making session-scoped memories ephemeral.
+ * This function strips the volatile UUID and produces a stable identifier:
+ *   `agent:<name>:persistent-session`
+ *
+ * This allows all subagent spawns of the same parent agent to share a
+ * persistent session memory scope, so memories survive across invocations.
+ *
+ * Non-subagent sessionKeys (e.g. `agent:reeve:main`) pass through unchanged.
+ */
+function deriveStableRunId(sessionKey: string): string {
+  const match = sessionKey.match(/^(agent:[^:]+):subagent:/);
+  if (match) {
+    return `${match[1]}:persistent-session`;
+  }
+  return sessionKey;
+}
+
+// ============================================================================
 // Plugin Definition
 // ============================================================================
 
@@ -625,16 +693,29 @@ const memoryPlugin = {
     let currentSessionId: string | undefined;
 
     api.logger.info(
-      `openclaw-mem0: registered (mode: ${cfg.mode}, user: ${cfg.userId}, graph: ${cfg.enableGraph}, autoRecall: ${cfg.autoRecall}, autoCapture: ${cfg.autoCapture})`,
+      `openclaw-mem0: registered (mode: ${cfg.mode}, user: ${cfg.userId}, graph: ${cfg.enableGraph}, autoRecall: ${cfg.autoRecall}, autoCapture: ${cfg.autoCapture}, recallOrg: ${cfg.recallOrg}, persistentSubagentSessions: ${cfg.persistentSubagentSessions})`,
     );
 
     // Helper: build add options
-    function buildAddOptions(userIdOverride?: string, runId?: string): AddOptions {
+    function buildAddOptions(
+      userIdOverride?: string,
+      runId?: string,
+      orgOnly?: boolean,
+      metadata?: Record<string, unknown>,
+    ): AddOptions {
       const opts: AddOptions = {
-        user_id: userIdOverride || cfg.userId,
         source: "OPENCLAW",
       };
+      if (orgOnly) {
+        // Org-level memory: scope by agent_id, no user_id
+        opts.agent_id = cfg.orgAgentId;
+      } else {
+        opts.user_id = userIdOverride || cfg.userId;
+      }
       if (runId) opts.run_id = runId;
+      if (metadata && Object.keys(metadata).length > 0) {
+        opts.metadata = metadata;
+      }
       if (cfg.mode === "platform") {
         opts.custom_instructions = cfg.customInstructions;
         opts.custom_categories = categoriesToArray(cfg.customCategories);
@@ -649,9 +730,10 @@ const memoryPlugin = {
       userIdOverride?: string,
       limit?: number,
       runId?: string,
+      orgOnly?: boolean,
+      filters?: Record<string, unknown>,
     ): SearchOptions {
       const opts: SearchOptions = {
-        user_id: userIdOverride || cfg.userId,
         top_k: limit ?? cfg.topK,
         limit: limit ?? cfg.topK,
         threshold: cfg.searchThreshold,
@@ -659,7 +741,16 @@ const memoryPlugin = {
         reranking: true,
         source: "OPENCLAW",
       };
+      if (orgOnly) {
+        // Org-level search: scope by agent_id, no user_id
+        opts.agent_id = cfg.orgAgentId;
+      } else {
+        opts.user_id = userIdOverride || cfg.userId;
+      }
       if (runId) opts.run_id = runId;
+      if (filters && Object.keys(filters).length > 0) {
+        opts.filters = filters;
+      }
       return opts;
     }
 
@@ -672,7 +763,7 @@ const memoryPlugin = {
         name: "memory_search",
         label: "Memory Search",
         description:
-          "Search through long-term memories stored in Mem0. Use when you need context about user preferences, past decisions, or previously discussed topics.",
+          "Search through long-term memories stored in Mem0. Use when you need context about user preferences, past decisions, previously discussed topics, or shared organizational knowledge.",
         parameters: Type.Object({
           query: Type.String({ description: "Search query" }),
           limit: Type.Optional(
@@ -690,47 +781,60 @@ const memoryPlugin = {
             Type.Union([
               Type.Literal("session"),
               Type.Literal("long-term"),
+              Type.Literal("org"),
               Type.Literal("all"),
             ], {
               description:
-                'Memory scope: "session" (current session only), "long-term" (user-scoped only), or "all" (both). Default: "all"',
+                'Memory scope: "session" (current session only), "long-term" (user-scoped only), "org" (organization-wide shared memories), or "all" (both user and session, excludes org). Default: "all"',
+            }),
+          ),
+          filters: Type.Optional(
+            Type.Record(Type.String(), Type.Unknown(), {
+              description:
+                'Metadata filters for search (e.g., {"type": "deal", "company": {"in": ["Acme", "Corp"]}}). Supports operators: eq, ne, gt, gte, lt, lte, in, nin, contains, icontains. Combine with AND/OR/NOT.',
             }),
           ),
         }),
         async execute(_toolCallId, params) {
-          const { query, limit, userId, scope = "all" } = params as {
+          const { query, limit, userId, scope = "all", filters } = params as {
             query: string;
             limit?: number;
             userId?: string;
-            scope?: "session" | "long-term" | "all";
+            scope?: "session" | "long-term" | "org" | "all";
+            filters?: Record<string, unknown>;
           };
 
           try {
             let results: MemoryItem[] = [];
 
-            if (scope === "session") {
+            if (scope === "org") {
+              results = await provider.search(
+                query,
+                buildSearchOptions(undefined, limit, undefined, true, filters),
+              );
+            } else if (scope === "session") {
               if (currentSessionId) {
                 results = await provider.search(
                   query,
-                  buildSearchOptions(userId, limit, currentSessionId),
+                  buildSearchOptions(userId, limit, currentSessionId, false, filters),
                 );
               }
             } else if (scope === "long-term") {
               results = await provider.search(
                 query,
-                buildSearchOptions(userId, limit),
+                buildSearchOptions(userId, limit, undefined, false, filters),
               );
             } else {
               // "all" — search both scopes and combine
               const longTermResults = await provider.search(
                 query,
-                buildSearchOptions(userId, limit),
+                buildSearchOptions(userId, limit, undefined, false, filters),
               );
               let sessionResults: MemoryItem[] = [];
               if (currentSessionId) {
                 sessionResults = await provider.search(
                   query,
-                  buildSearchOptions(userId, limit, currentSessionId),
+                  buildSearchOptions(userId, limit, currentSessionId, false, filters),
                 );
               }
               // Deduplicate by ID, preferring long-term
@@ -752,8 +856,13 @@ const memoryPlugin = {
 
             const text = results
               .map(
-                (r, i) =>
-                  `${i + 1}. ${r.memory} (score: ${((r.score ?? 0) * 100).toFixed(0)}%, id: ${r.id})`,
+                (r, i) => {
+                  let line = `${i + 1}. ${r.memory} (score: ${((r.score ?? 0) * 100).toFixed(0)}%, id: ${r.id})`;
+                  if (r.metadata && Object.keys(r.metadata).length > 0) {
+                    line += ` [metadata: ${JSON.stringify(r.metadata)}]`;
+                  }
+                  return line;
+                },
               )
               .join("\n");
 
@@ -762,6 +871,7 @@ const memoryPlugin = {
               memory: r.memory,
               score: r.score,
               categories: r.categories,
+              metadata: r.metadata,
               created_at: r.created_at,
             }));
 
@@ -795,7 +905,7 @@ const memoryPlugin = {
         name: "memory_store",
         label: "Memory Store",
         description:
-          "Save important information in long-term memory via Mem0. Use for preferences, facts, decisions, and anything worth remembering.",
+          "Save important information in long-term memory via Mem0. Use for preferences, facts, decisions, and anything worth remembering. Use scope \"org\" for shared organizational knowledge visible to all agents.",
         parameters: Type.Object({
           text: Type.String({ description: "Information to remember" }),
           userId: Type.Optional(
@@ -814,20 +924,31 @@ const memoryPlugin = {
                 "Store as long-term (user-scoped) memory. Default: true. Set to false for session-scoped memory.",
             }),
           ),
+          scope: Type.Optional(
+            Type.Union([
+              Type.Literal("user"),
+              Type.Literal("org"),
+            ], {
+              description:
+                'Memory scope: "user" (default, scoped to user) or "org" (organization-wide, shared across all users/agents).',
+            }),
+          ),
         }),
         async execute(_toolCallId, params) {
-          const { text, userId, longTerm = true } = params as {
+          const { text, userId, metadata, longTerm = true, scope = "user" } = params as {
             text: string;
             userId?: string;
             metadata?: Record<string, unknown>;
             longTerm?: boolean;
+            scope?: "user" | "org";
           };
 
           try {
-            const runId = !longTerm && currentSessionId ? currentSessionId : undefined;
+            const orgOnly = scope === "org";
+            const runId = !orgOnly && !longTerm && currentSessionId ? currentSessionId : undefined;
             const result = await provider.add(
               [{ role: "user", content: text }],
-              buildAddOptions(userId, runId),
+              buildAddOptions(userId, runId, orgOnly, metadata),
             );
 
             const added =
@@ -889,11 +1010,19 @@ const memoryPlugin = {
           try {
             const memory = await provider.get(memoryId);
 
+            let text = `Memory ${memory.id}:\n${memory.memory}\n\nCreated: ${memory.created_at ?? "unknown"}\nUpdated: ${memory.updated_at ?? "unknown"}`;
+            if (memory.categories?.length) {
+              text += `\nCategories: ${memory.categories.join(", ")}`;
+            }
+            if (memory.metadata && Object.keys(memory.metadata).length > 0) {
+              text += `\nMetadata: ${JSON.stringify(memory.metadata)}`;
+            }
+
             return {
               content: [
                 {
                   type: "text",
-                  text: `Memory ${memory.id}:\n${memory.memory}\n\nCreated: ${memory.created_at ?? "unknown"}\nUpdated: ${memory.updated_at ?? "unknown"}`,
+                  text,
                 },
               ],
               details: { memory },
@@ -919,7 +1048,7 @@ const memoryPlugin = {
         name: "memory_list",
         label: "Memory List",
         description:
-          "List all stored memories for a user. Use this when you want to see everything that's been remembered, rather than searching for something specific.",
+          "List all stored memories for a user or organization. Use this when you want to see everything that's been remembered, rather than searching for something specific.",
         parameters: Type.Object({
           userId: Type.Optional(
             Type.String({
@@ -931,21 +1060,27 @@ const memoryPlugin = {
             Type.Union([
               Type.Literal("session"),
               Type.Literal("long-term"),
+              Type.Literal("org"),
               Type.Literal("all"),
             ], {
               description:
-                'Memory scope: "session" (current session only), "long-term" (user-scoped only), or "all" (both). Default: "all"',
+                'Memory scope: "session" (current session only), "long-term" (user-scoped only), "org" (organization-wide shared memories), or "all" (both user and session, excludes org). Default: "all"',
             }),
           ),
         }),
         async execute(_toolCallId, params) {
-          const { userId, scope = "all" } = params as { userId?: string; scope?: "session" | "long-term" | "all" };
+          const { userId, scope = "all" } = params as { userId?: string; scope?: "session" | "long-term" | "org" | "all" };
 
           try {
             let memories: MemoryItem[] = [];
             const uid = userId || cfg.userId;
 
-            if (scope === "session") {
+            if (scope === "org") {
+              memories = await provider.getAll({
+                agent_id: cfg.orgAgentId,
+                source: "OPENCLAW",
+              });
+            } else if (scope === "session") {
               if (currentSessionId) {
                 memories = await provider.getAll({
                   user_id: uid,
@@ -984,8 +1119,13 @@ const memoryPlugin = {
 
             const text = memories
               .map(
-                (r, i) =>
-                  `${i + 1}. ${r.memory} (id: ${r.id})`,
+                (r, i) => {
+                  let line = `${i + 1}. ${r.memory} (id: ${r.id})`;
+                  if (r.metadata && Object.keys(r.metadata).length > 0) {
+                    line += ` [metadata: ${JSON.stringify(r.metadata)}]`;
+                  }
+                  return line;
+                },
               )
               .join("\n");
 
@@ -993,6 +1133,7 @@ const memoryPlugin = {
               id: r.id,
               memory: r.memory,
               categories: r.categories,
+              metadata: r.metadata,
               created_at: r.created_at,
             }));
 
@@ -1147,36 +1288,46 @@ const memoryPlugin = {
           .description("Search memories in Mem0")
           .argument("<query>", "Search query")
           .option("--limit <n>", "Max results", String(cfg.topK))
-          .option("--scope <scope>", 'Memory scope: "session", "long-term", or "all"', "all")
+          .option("--scope <scope>", 'Memory scope: "session", "long-term", "org", or "all"', "all")
           .action(async (query: string, opts: { limit: string; scope: string }) => {
             try {
               const limit = parseInt(opts.limit, 10);
-              const scope = opts.scope as "session" | "long-term" | "all";
+              const scope = opts.scope as "session" | "long-term" | "org" | "all";
 
               let allResults: MemoryItem[] = [];
 
-              if (scope === "session" || scope === "all") {
-                if (currentSessionId) {
-                  const sessionResults = await provider.search(
-                    query,
-                    buildSearchOptions(undefined, limit, currentSessionId),
-                  );
-                  if (sessionResults?.length) {
-                    allResults.push(...sessionResults.map((r) => ({ ...r, _scope: "session" as const })));
-                  }
-                } else if (scope === "session") {
-                  console.log("No active session ID available for session-scoped search.");
-                  return;
-                }
-              }
-
-              if (scope === "long-term" || scope === "all") {
-                const longTermResults = await provider.search(
+              if (scope === "org") {
+                const orgResults = await provider.search(
                   query,
-                  buildSearchOptions(undefined, limit),
+                  buildSearchOptions(undefined, limit, undefined, true),
                 );
-                if (longTermResults?.length) {
-                  allResults.push(...longTermResults.map((r) => ({ ...r, _scope: "long-term" as const })));
+                if (orgResults?.length) {
+                  allResults.push(...orgResults.map((r) => ({ ...r, _scope: "org" as const })));
+                }
+              } else {
+                if (scope === "session" || scope === "all") {
+                  if (currentSessionId) {
+                    const sessionResults = await provider.search(
+                      query,
+                      buildSearchOptions(undefined, limit, currentSessionId),
+                    );
+                    if (sessionResults?.length) {
+                      allResults.push(...sessionResults.map((r) => ({ ...r, _scope: "session" as const })));
+                    }
+                  } else if (scope === "session") {
+                    console.log("No active session ID available for session-scoped search.");
+                    return;
+                  }
+                }
+
+                if (scope === "long-term" || scope === "all") {
+                  const longTermResults = await provider.search(
+                    query,
+                    buildSearchOptions(undefined, limit),
+                  );
+                  if (longTermResults?.length) {
+                    allResults.push(...longTermResults.map((r) => ({ ...r, _scope: "long-term" as const })));
+                  }
                 }
               }
 
@@ -1244,9 +1395,13 @@ const memoryPlugin = {
       api.on("before_agent_start", async (event, ctx) => {
         if (!event.prompt || event.prompt.length < 5) return;
 
-        // Track session ID
+        // Track session ID — derive stable run_id for subagents if enabled
         const sessionId = (ctx as any)?.sessionKey ?? undefined;
-        if (sessionId) currentSessionId = sessionId;
+        if (sessionId) {
+          currentSessionId = cfg.persistentSubagentSessions
+            ? deriveStableRunId(sessionId)
+            : sessionId;
+        }
 
         try {
           // Search long-term memories (user-scoped)
@@ -1264,13 +1419,35 @@ const memoryPlugin = {
             );
           }
 
+          // Search org-level memories if enabled
+          let orgResults: MemoryItem[] = [];
+          if (cfg.recallOrg) {
+            try {
+              orgResults = await provider.search(
+                event.prompt,
+                buildSearchOptions(undefined, undefined, undefined, true),
+              );
+            } catch (orgErr) {
+              api.logger.warn(`openclaw-mem0: org recall failed: ${String(orgErr)}`);
+            }
+          }
+
           // Deduplicate session results against long-term
           const longTermIds = new Set(longTermResults.map((r) => r.id));
           const uniqueSessionResults = sessionResults.filter(
             (r) => !longTermIds.has(r.id),
           );
 
-          if (longTermResults.length === 0 && uniqueSessionResults.length === 0) return;
+          // Deduplicate org results against long-term and session
+          const allUserIds = new Set([
+            ...longTermResults.map((r) => r.id),
+            ...uniqueSessionResults.map((r) => r.id),
+          ]);
+          const uniqueOrgResults = orgResults.filter(
+            (r) => !allUserIds.has(r.id),
+          );
+
+          if (longTermResults.length === 0 && uniqueSessionResults.length === 0 && uniqueOrgResults.length === 0) return;
 
           // Build context with clear labels
           let memoryContext = "";
@@ -1289,10 +1466,20 @@ const memoryPlugin = {
               .map((r) => `- ${r.memory}`)
               .join("\n");
           }
+          if (uniqueOrgResults.length > 0) {
+            if (memoryContext) memoryContext += "\n";
+            memoryContext += "\nOrganization-wide memories:\n";
+            memoryContext += uniqueOrgResults
+              .map(
+                (r) =>
+                  `- ${r.memory}${r.categories?.length ? ` [${r.categories.join(", ")}]` : ""}`,
+              )
+              .join("\n");
+          }
 
-          const totalCount = longTermResults.length + uniqueSessionResults.length;
+          const totalCount = longTermResults.length + uniqueSessionResults.length + uniqueOrgResults.length;
           api.logger.info(
-            `openclaw-mem0: injecting ${totalCount} memories into context (${longTermResults.length} long-term, ${uniqueSessionResults.length} session)`,
+            `openclaw-mem0: injecting ${totalCount} memories into context (${longTermResults.length} long-term, ${uniqueSessionResults.length} session, ${uniqueOrgResults.length} org)`,
           );
 
           return {
@@ -1311,9 +1498,13 @@ const memoryPlugin = {
           return;
         }
 
-        // Track session ID
+        // Track session ID — derive stable run_id for subagents if enabled
         const sessionId = (ctx as any)?.sessionKey ?? undefined;
-        if (sessionId) currentSessionId = sessionId;
+        if (sessionId) {
+          currentSessionId = cfg.persistentSubagentSessions
+            ? deriveStableRunId(sessionId)
+            : sessionId;
+        }
 
         try {
           // Extract messages, limiting to last 10

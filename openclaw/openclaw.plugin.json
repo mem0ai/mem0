@@ -68,6 +68,16 @@
       "label": "Open-Source Configuration",
       "advanced": true,
       "help": "Optional. Configure custom embedder, vector store, LLM, or history DB for open-source mode. Has sensible defaults — only override what you need."
+    },
+    "recallOrg": {
+      "label": "Recall Org Memories",
+      "help": "Include organization-wide shared memories in auto-recall. Default: true."
+    },
+    "orgAgentId": {
+      "label": "Org Agent ID",
+      "placeholder": "openclaw-org",
+      "advanced": true,
+      "help": "Agent ID used to scope org-level memories. Default: \"openclaw-org\". All instances sharing this value share org memories."
     }
   },
   "configSchema": {
@@ -120,6 +130,12 @@
       },
       "topK": {
         "type": "number"
+      },
+      "recallOrg": {
+        "type": "boolean"
+      },
+      "orgAgentId": {
+        "type": "string"
       },
       "oss": {
         "type": "object",
