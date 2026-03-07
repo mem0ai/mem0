@@ -460,6 +460,7 @@ class Memory(MemoryBase):
 
         retrieved_old_memory = []
         new_message_embeddings = {}
+        id_to_mem_map = {}
         # Search for existing memories using the provided session identifiers
         # Use all available session identifiers for accurate memory retrieval
         search_filters = {}
@@ -480,6 +481,7 @@ class Memory(MemoryBase):
             )
             for mem in existing_memories:
                 retrieved_old_memory.append({"id": mem.id, "text": mem.payload.get("data", "")})
+                id_to_mem_map[mem.id] = mem
 
         unique_data = {}
         for item in retrieved_old_memory:
@@ -539,11 +541,13 @@ class Memory(MemoryBase):
                         )
                         returned_memories.append({"id": memory_id, "memory": action_text, "event": event_type})
                     elif event_type == "UPDATE":
+                        actual_id = temp_uuid_mapping[resp.get("id")]
                         self._update_memory(
-                            memory_id=temp_uuid_mapping[resp.get("id")],
+                            memory_id=actual_id,
                             data=action_text,
                             existing_embeddings=new_message_embeddings,
                             metadata=deepcopy(metadata),
+                            existing_memory=id_to_mem_map.get(actual_id),
                         )
                         returned_memories.append(
                             {
@@ -554,7 +558,11 @@ class Memory(MemoryBase):
                             }
                         )
                     elif event_type == "DELETE":
-                        self._delete_memory(memory_id=temp_uuid_mapping[resp.get("id")])
+                        actual_id = temp_uuid_mapping[resp.get("id")]
+                        self._delete_memory(
+                            memory_id=actual_id,
+                            existing_memory=id_to_mem_map.get(actual_id),
+                        )
                         returned_memories.append(
                             {
                                 "id": temp_uuid_mapping[resp.get("id")],
@@ -567,7 +575,9 @@ class Memory(MemoryBase):
                         memory_id = temp_uuid_mapping.get(resp.get("id"))
                         if memory_id and (metadata.get("agent_id") or metadata.get("run_id")):
                             # Update only the session identifiers, keep content the same
-                            existing_memory = self.vector_store.get(vector_id=memory_id)
+                            existing_memory = id_to_mem_map.get(memory_id)
+                            if not existing_memory:
+                                existing_memory = self.vector_store.get(vector_id=memory_id)
                             updated_metadata = deepcopy(existing_memory.payload)
                             if metadata.get("agent_id"):
                                 updated_metadata["agent_id"] = metadata["agent_id"]
@@ -1139,14 +1149,15 @@ class Memory(MemoryBase):
 
         return result
 
-    def _update_memory(self, memory_id, data, existing_embeddings, metadata=None):
+    def _update_memory(self, memory_id, data, existing_embeddings, metadata=None, existing_memory=None):
         logger.info(f"Updating memory with {data=}")
 
-        try:
-            existing_memory = self.vector_store.get(vector_id=memory_id)
-        except Exception:
-            logger.error(f"Error getting memory with ID {memory_id} during update.")
-            raise ValueError(f"Error getting memory with ID {memory_id}. Please provide a valid 'memory_id'")
+        if not existing_memory:
+            try:
+                existing_memory = self.vector_store.get(vector_id=memory_id)
+            except Exception:
+                logger.error(f"Error getting memory with ID {memory_id} during update.")
+                raise ValueError(f"Error getting memory with ID {memory_id}. Please provide a valid 'memory_id'")
 
         prev_value = existing_memory.payload.get("data")
 
@@ -1193,9 +1204,10 @@ class Memory(MemoryBase):
         )
         return memory_id
 
-    def _delete_memory(self, memory_id):
+    def _delete_memory(self, memory_id, existing_memory=None):
         logger.info(f"Deleting memory with {memory_id=}")
-        existing_memory = self.vector_store.get(vector_id=memory_id)
+        if not existing_memory:
+            existing_memory = self.vector_store.get(vector_id=memory_id)
         prev_value = existing_memory.payload.get("data", "")
         self.vector_store.delete(vector_id=memory_id)
         self.db.add_history(
@@ -1486,6 +1498,7 @@ class AsyncMemory(MemoryBase):
 
         retrieved_old_memory = []
         new_message_embeddings = {}
+        id_to_mem_map = {}
         # Search for existing memories using the provided session identifiers
         # Use all available session identifiers for accurate memory retrieval
         search_filters = {}
@@ -1506,6 +1519,8 @@ class AsyncMemory(MemoryBase):
                 limit=5,
                 filters=search_filters,
             )
+            for mem in existing_mems:
+                id_to_mem_map[mem.id] = mem
             return [{"id": mem.id, "text": mem.payload.get("data", "")} for mem in existing_mems]
 
         search_tasks = [process_fact_for_search(fact) for fact in new_retrieved_facts]
@@ -1570,25 +1585,35 @@ class AsyncMemory(MemoryBase):
                         )
                         memory_tasks.append((task, resp, "ADD", None))
                     elif event_type == "UPDATE":
+                        actual_id = temp_uuid_mapping[resp.get("id")]
                         task = asyncio.create_task(
                             self._update_memory(
-                                memory_id=temp_uuid_mapping[resp["id"]],
+                                memory_id=actual_id,
                                 data=action_text,
                                 existing_embeddings=new_message_embeddings,
                                 metadata=deepcopy(metadata),
+                                existing_memory=id_to_mem_map.get(actual_id),
                             )
                         )
-                        memory_tasks.append((task, resp, "UPDATE", temp_uuid_mapping[resp["id"]]))
+                        memory_tasks.append((task, resp, "UPDATE", actual_id))
                     elif event_type == "DELETE":
-                        task = asyncio.create_task(self._delete_memory(memory_id=temp_uuid_mapping[resp.get("id")]))
-                        memory_tasks.append((task, resp, "DELETE", temp_uuid_mapping[resp.get("id")]))
+                        actual_id = temp_uuid_mapping[resp.get("id")]
+                        task = asyncio.create_task(
+                            self._delete_memory(
+                                memory_id=actual_id,
+                                existing_memory=id_to_mem_map.get(actual_id),
+                            )
+                        )
+                        memory_tasks.append((task, resp, "DELETE", actual_id))
                     elif event_type == "NONE":
                         # Even if content doesn't need updating, update session IDs if provided
                         memory_id = temp_uuid_mapping.get(resp.get("id"))
                         if memory_id and (metadata.get("agent_id") or metadata.get("run_id")):
                             # Create async task to update only the session identifiers
                             async def update_session_ids(mem_id, meta):
-                                existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=mem_id)
+                                existing_memory = id_to_mem_map.get(mem_id)
+                                if not existing_memory:
+                                    existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=mem_id)
                                 updated_metadata = deepcopy(existing_memory.payload)
                                 if meta.get("agent_id"):
                                     updated_metadata["agent_id"] = meta["agent_id"]
@@ -2219,14 +2244,15 @@ class AsyncMemory(MemoryBase):
 
         return result
 
-    async def _update_memory(self, memory_id, data, existing_embeddings, metadata=None):
+    async def _update_memory(self, memory_id, data, existing_embeddings, metadata=None, existing_memory=None):
         logger.info(f"Updating memory with {data=}")
 
-        try:
-            existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
-        except Exception:
-            logger.error(f"Error getting memory with ID {memory_id} during update.")
-            raise ValueError(f"Error getting memory with ID {memory_id}. Please provide a valid 'memory_id'")
+        if not existing_memory:
+            try:
+                existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
+            except Exception:
+                logger.error(f"Error getting memory with ID {memory_id} during update.")
+                raise ValueError(f"Error getting memory with ID {memory_id}. Please provide a valid 'memory_id'")
 
         prev_value = existing_memory.payload.get("data")
 
@@ -2276,9 +2302,10 @@ class AsyncMemory(MemoryBase):
         )
         return memory_id
 
-    async def _delete_memory(self, memory_id):
+    async def _delete_memory(self, memory_id, existing_memory=None):
         logger.info(f"Deleting memory with {memory_id=}")
-        existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
+        if not existing_memory:
+            existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
         prev_value = existing_memory.payload.get("data", "")
 
         await asyncio.to_thread(self.vector_store.delete, vector_id=memory_id)
