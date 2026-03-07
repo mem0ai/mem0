@@ -1076,8 +1076,21 @@ class Memory(MemoryBase):
 
     def _create_memory(self, data, existing_embeddings, metadata=None):
         logger.debug(f"Creating memory with {data=}")
-        if data in existing_embeddings:
+        # existing_embeddings may be a mapping (preferred), a precomputed vector, or None
+        if isinstance(existing_embeddings, dict) and data in existing_embeddings:
             embeddings = existing_embeddings[data]
+        elif isinstance(existing_embeddings, dict):
+            # Try to find embedding by hash (in case LLM modified the text)
+            data_hash = hashlib.md5(data.encode()).hexdigest()
+            for key, emb in existing_embeddings.items():
+                if isinstance(key, str) and hashlib.md5(key.encode()).hexdigest() == data_hash:
+                    embeddings = emb
+                    break
+            else:
+                # No matching embedding found, compute new one
+                embeddings = self.embedding_model.embed(data, memory_action="add")
+        elif existing_embeddings is not None and not isinstance(existing_embeddings, dict):
+            embeddings = existing_embeddings
         else:
             embeddings = self.embedding_model.embed(data, memory_action="add")
         memory_id = str(uuid.uuid4())
@@ -1171,8 +1184,20 @@ class Memory(MemoryBase):
         if "role" not in new_metadata and "role" in existing_memory.payload:
             new_metadata["role"] = existing_memory.payload["role"]
 
-        if data in existing_embeddings:
+        if isinstance(existing_embeddings, dict) and data in existing_embeddings:
             embeddings = existing_embeddings[data]
+        elif isinstance(existing_embeddings, dict):
+            # Try to find embedding by hash (in case LLM modified the text)
+            data_hash = hashlib.md5(data.encode()).hexdigest()
+            for key, emb in existing_embeddings.items():
+                if isinstance(key, str) and hashlib.md5(key.encode()).hexdigest() == data_hash:
+                    embeddings = emb
+                    break
+            else:
+                # No matching embedding found, compute new one
+                embeddings = self.embedding_model.embed(data, "update")
+        elif existing_embeddings is not None and not isinstance(existing_embeddings, dict):
+            embeddings = existing_embeddings
         else:
             embeddings = self.embedding_model.embed(data, "update")
 
@@ -2155,8 +2180,21 @@ class AsyncMemory(MemoryBase):
 
     async def _create_memory(self, data, existing_embeddings, metadata=None):
         logger.debug(f"Creating memory with {data=}")
-        if data in existing_embeddings:
+        # existing_embeddings may be a mapping (preferred), a precomputed vector, or None
+        if isinstance(existing_embeddings, dict) and data in existing_embeddings:
             embeddings = existing_embeddings[data]
+        elif isinstance(existing_embeddings, dict):
+            # Try to find embedding by hash (in case LLM modified the text)
+            data_hash = hashlib.md5(data.encode()).hexdigest()
+            for key, emb in existing_embeddings.items():
+                if isinstance(key, str) and hashlib.md5(key.encode()).hexdigest() == data_hash:
+                    embeddings = emb
+                    break
+            else:
+                # No matching embedding found, compute new one
+                embeddings = await asyncio.to_thread(self.embedding_model.embed, data, memory_action="add")
+        elif existing_embeddings is not None and not isinstance(existing_embeddings, dict):
+            embeddings = existing_embeddings
         else:
             embeddings = await asyncio.to_thread(self.embedding_model.embed, data, memory_action="add")
 
@@ -2270,8 +2308,20 @@ class AsyncMemory(MemoryBase):
         if "role" not in new_metadata and "role" in existing_memory.payload:
             new_metadata["role"] = existing_memory.payload["role"]
 
-        if data in existing_embeddings:
+        if isinstance(existing_embeddings, dict) and data in existing_embeddings:
             embeddings = existing_embeddings[data]
+        elif isinstance(existing_embeddings, dict):
+            # Try to find embedding by hash (in case LLM modified the text)
+            data_hash = hashlib.md5(data.encode()).hexdigest()
+            for key, emb in existing_embeddings.items():
+                if isinstance(key, str) and hashlib.md5(key.encode()).hexdigest() == data_hash:
+                    embeddings = emb
+                    break
+            else:
+                # No matching embedding found, compute new one
+                embeddings = await asyncio.to_thread(self.embedding_model.embed, data, "update")
+        elif existing_embeddings is not None and not isinstance(existing_embeddings, dict):
+            embeddings = existing_embeddings
         else:
             embeddings = await asyncio.to_thread(self.embedding_model.embed, data, "update")
 
