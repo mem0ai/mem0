@@ -1,4 +1,3 @@
-import pytest
 from unittest.mock import MagicMock, Mock, patch
 
 # langchain_memgraph and rank_bm25 are optional deps — mock them so tests run without install
@@ -10,7 +9,7 @@ patch.dict("sys.modules", {
     "rank_bm25": Mock(),
 }).start()
 
-from mem0.memory.memgraph_memory import MemoryGraph as MemgraphMemoryGraph
+from mem0.memory.memgraph_memory import MemoryGraph as MemgraphMemoryGraph  # noqa: E402
 MemoryGraph = MemgraphMemoryGraph
 
 
