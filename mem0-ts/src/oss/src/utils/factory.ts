@@ -18,6 +18,7 @@ import { VectorStore } from "../vector_stores/base";
 import { Qdrant } from "../vector_stores/qdrant";
 import { VectorizeDB } from "../vector_stores/vectorize";
 import { RedisDB } from "../vector_stores/redis";
+import { PGVector } from "../vector_stores/pgvector";
 import { OllamaLLM } from "../llms/ollama";
 import { SupabaseDB } from "../vector_stores/supabase";
 import { SQLiteManager } from "../storage/SQLiteManager";
@@ -92,6 +93,8 @@ export class VectorStoreFactory {
         return new RedisDB(config as any);
       case "supabase":
         return new SupabaseDB(config as any);
+      case "pgvector":
+        return new PGVector(config as any);
       case "langchain":
         return new LangchainVectorStore(config as any);
       case "vectorize":

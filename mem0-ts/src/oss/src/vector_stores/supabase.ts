@@ -360,49 +360,38 @@ See the SQL migration instructions in the code comments.`,
 
   async getUserId(): Promise<string> {
     try {
-      // First check if the table exists
-      const { data: tableExists } = await this.client
-        .from("memory_migrations")
-        .select("user_id")
-        .limit(1);
-
-      if (!tableExists || tableExists.length === 0) {
-        // Generate a random user_id
-        const randomUserId =
-          Math.random().toString(36).substring(2, 15) +
-          Math.random().toString(36).substring(2, 15);
-
-        // Insert the new user_id
-        const { error: insertError } = await this.client
-          .from("memory_migrations")
-          .insert({ user_id: randomUserId });
-
-        if (insertError) throw insertError;
-        return randomUserId;
-      }
-
-      // Get the first user_id
       const { data, error } = await this.client
         .from("memory_migrations")
         .select("user_id")
         .limit(1);
 
-      if (error) throw error;
-      if (!data || data.length === 0) {
-        // Generate a random user_id if no data found
-        const randomUserId =
-          Math.random().toString(36).substring(2, 15) +
-          Math.random().toString(36).substring(2, 15);
-
-        const { error: insertError } = await this.client
-          .from("memory_migrations")
-          .insert({ user_id: randomUserId });
-
-        if (insertError) throw insertError;
-        return randomUserId;
+      if (error) {
+        if (error.code === "PGRST205" || error.code === "42P01") {
+          return "anonymous-supabase";
+        }
+        throw error;
       }
 
-      return data[0].user_id;
+      if (data && data.length > 0) {
+        return data[0].user_id;
+      }
+
+      const randomUserId =
+        Math.random().toString(36).substring(2, 15) +
+        Math.random().toString(36).substring(2, 15);
+
+      const { error: insertError } = await this.client
+        .from("memory_migrations")
+        .insert({ user_id: randomUserId });
+
+      if (insertError) {
+        if (insertError.code === "PGRST205" || insertError.code === "42P01") {
+          return "anonymous-supabase";
+        }
+        throw insertError;
+      }
+
+      return randomUserId;
     } catch (error) {
       console.error("Error getting user ID:", error);
       return "anonymous-supabase";

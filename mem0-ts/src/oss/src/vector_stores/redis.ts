@@ -244,17 +244,20 @@ export class RedisDB implements VectorStore {
       await this.client.connect();
       console.log("Connected to Redis");
 
-      // Check if Redis Stack modules are loaded
       const modulesResponse =
         (await this.client.moduleList()) as unknown as any[];
 
-      // Parse module list to find search module
-      const hasSearch = modulesResponse.some((module: any[]) => {
-        const moduleMap = new Map();
-        for (let i = 0; i < module.length; i += 2) {
-          moduleMap.set(module[i], module[i + 1]);
-        }
-        const moduleName = moduleMap.get("name");
+      const hasSearch = modulesResponse.some((module: any) => {
+        const moduleName =
+          typeof module === "object" && !Array.isArray(module)
+            ? module.name
+            : (() => {
+                const moduleMap = new Map();
+                for (let i = 0; i < module.length; i += 2) {
+                  moduleMap.set(module[i], module[i + 1]);
+                }
+                return moduleMap.get("name");
+              })();
         return (
           moduleName?.toLowerCase() === "search" ||
           moduleName?.toLowerCase() === "searchlight"
