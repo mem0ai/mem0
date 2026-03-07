@@ -1,4 +1,4 @@
-import sys
+import pytest
 from unittest.mock import MagicMock, Mock, patch
 
 # langchain_memgraph and rank_bm25 are optional deps — mock them so tests run without install
@@ -10,7 +10,7 @@ patch.dict("sys.modules", {
     "rank_bm25": Mock(),
 }).start()
 
-from mem0.memory.memgraph_memory import MemoryGraph as MemgraphMemoryGraph  # noqa: E402
+from mem0.memory.memgraph_memory import MemoryGraph as MemgraphMemoryGraph
 MemoryGraph = MemgraphMemoryGraph
 
 
@@ -46,14 +46,14 @@ class TestRetrieveNodesFromData:
         instance.llm.generate_response.return_value = {
             "tool_calls": [{"name": "extract_entities", "arguments": {"entities": [
                 {"entity": "matrix multiplication", "entity_type": "task"},
-                {"entity": "task"},  # malformed — no entity_type key
+                {"entity": "task"},
                 {"entity": "ReLU", "entity_type": "task"},
             ]}}]
         }
         result = instance._retrieve_nodes_from_data("some text", {"user_id": "u1"})
         assert "matrix_multiplication" in result
         assert "relu" in result
-        assert "task" not in result  # malformed item skipped, not propagated
+        assert "task" not in result
 
     def test_none_tool_calls_returns_empty(self):
         instance = _make_instance()
