@@ -137,12 +137,14 @@ export function getUpdateMemoryMessages(
                       {
                           "id" : "0",
                           "text" : "User is a software engineer",
-                          "event" : "NONE"
+                          "event" : "NONE",
+                          "reason" : "Already present in memory, no change needed"
                       },
                       {
                           "id" : "1",
                           "text" : "Name is John",
-                          "event" : "ADD"
+                          "event" : "ADD",
+                          "reason" : "New fact not previously stored"
                       }
                   ]
               }
@@ -178,18 +180,21 @@ export function getUpdateMemoryMessages(
                           "id" : "0",
                           "text" : "Loves cheese and chicken pizza",
                           "event" : "UPDATE",
-                          "old_memory" : "I really like cheese pizza"
+                          "old_memory" : "I really like cheese pizza",
+                          "reason" : "New fact adds chicken pizza preference to existing pizza preference"
                       },
                       {
                           "id" : "1",
                           "text" : "User is a software engineer",
-                          "event" : "NONE"
+                          "event" : "NONE",
+                          "reason" : "Already present in memory, no change needed"
                       },
                       {
                           "id" : "2",
                           "text" : "Loves to play cricket with friends",
                           "event" : "UPDATE",
-                          "old_memory" : "User likes to play cricket"
+                          "old_memory" : "User likes to play cricket",
+                          "reason" : "New fact adds more detail (with friends) to existing cricket preference"
                       }
                   ]
               }
@@ -215,12 +220,14 @@ export function getUpdateMemoryMessages(
                       {
                           "id" : "0",
                           "text" : "Name is John",
-                          "event" : "NONE"
+                          "event" : "NONE",
+                          "reason" : "Already present in memory, no change needed"
                       },
                       {
                           "id" : "1",
                           "text" : "Loves cheese pizza",
-                          "event" : "DELETE"
+                          "event" : "DELETE",
+                          "reason" : "Contradicted by new fact: user now dislikes cheese pizza"
                       }
               ]
               }
@@ -245,12 +252,14 @@ export function getUpdateMemoryMessages(
                       {
                           "id" : "0",
                           "text" : "Name is John",
-                          "event" : "NONE"
+                          "event" : "NONE",
+                          "reason" : "Fact already present in memory"
                       },
                       {
                           "id" : "1",
                           "text" : "Loves cheese pizza",
-                          "event" : "NONE"
+                          "event" : "NONE",
+                          "reason" : "No new information about pizza preference"
                       }
                   ]
               }
@@ -271,6 +280,7 @@ Follow the instruction mentioned below:
 - If there is an addition, generate a new key and add the new memory corresponding to it.
 - If there is a deletion, the memory key-value pair should be removed from the memory.
 - If there is an update, the ID key should remain the same and only the value needs to be updated.
+- Each memory entry MUST include a "reason" field with a brief explanation of why that operation was chosen (e.g. "Contradicted by new fact: ...", "New fact not previously stored", "Already present in memory").
 - DO NOT RETURN ANYTHING ELSE OTHER THAN THE JSON FORMAT.
 - DO NOT ADD ANY ADDITIONAL TEXT OR CODEBLOCK IN THE JSON FIELDS WHICH MAKE IT INVALID SUCH AS "\`\`\`json" OR "\`\`\`".
 

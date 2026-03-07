@@ -3,6 +3,7 @@ import { createHash } from "crypto";
 import {
   MemoryConfig,
   MemoryConfigSchema,
+  MemoryDecisions,
   MemoryItem,
   Message,
   SearchFilters,
@@ -212,8 +213,10 @@ export class Memory {
     }
 
     return {
-      results: vectorStoreResult,
+      results: vectorStoreResult.results,
       relations: graphResult?.relations,
+      added_entities: graphResult?.added_entities,
+      decisions: vectorStoreResult.decisions,
     };
   }
 
@@ -222,7 +225,13 @@ export class Memory {
     metadata: Record<string, any>,
     filters: SearchFilters,
     infer: boolean,
-  ): Promise<MemoryItem[]> {
+  ): Promise<{ results: MemoryItem[]; decisions: MemoryDecisions }> {
+    const emptyDecisions: MemoryDecisions = {
+      extractedFacts: [],
+      candidates: [],
+      actions: [],
+    };
+
     if (!infer) {
       const returnedMemories: MemoryItem[] = [];
       for (const message of messages) {
@@ -240,7 +249,7 @@ export class Memory {
           metadata: { event: "ADD" },
         });
       }
-      return returnedMemories;
+      return { results: returnedMemories, decisions: emptyDecisions };
     }
     const parsedMessages = messages.map((m) => m.content).join("\n");
 
@@ -300,6 +309,12 @@ export class Memory {
         retrievedOldMemory.findIndex((m) => m.id === mem.id) === index,
     );
 
+    // Snapshot candidates with original UUIDs before the temp-ID mapping mutates them
+    const candidates = uniqueOldMemories.map((m) => ({
+      id: m.id,
+      text: m.text,
+    }));
+
     // Create UUID mapping for handling UUID hallucinations
     const tempUuidMapping: Record<string, string> = {};
     uniqueOldMemories.forEach((item, idx) => {
@@ -346,7 +361,7 @@ export class Memory {
             results.push({
               id: memoryId,
               memory: action.text,
-              metadata: { event: action.event },
+              metadata: { event: action.event, reason: action.reason },
             });
             break;
           }
@@ -364,6 +379,7 @@ export class Memory {
               metadata: {
                 event: action.event,
                 previousMemory: action.old_memory,
+                reason: action.reason,
               },
             });
             break;
@@ -374,7 +390,7 @@ export class Memory {
             results.push({
               id: realMemoryId,
               memory: action.text,
-              metadata: { event: action.event },
+              metadata: { event: action.event, reason: action.reason },
             });
             break;
           }
@@ -384,7 +400,19 @@ export class Memory {
       }
     }
 
-    return results;
+    const decisions: MemoryDecisions = {
+      extractedFacts: facts,
+      candidates,
+      actions: memoryActions.map((a: any) => ({
+        event: a.event,
+        id: tempUuidMapping[a.id] ?? a.id,
+        text: a.text,
+        old_memory: a.old_memory,
+        reason: a.reason,
+      })),
+    };
+
+    return { results, decisions };
   }
 
   async get(memoryId: string): Promise<MemoryItem | null> {

@@ -55,6 +55,8 @@ export class MemoryGraph {
   private structuredLlm: LLM;
   private llmProvider: string;
   private threshold: number;
+  private nodeDeduplicationThreshold: number;
+  private bm25TopK: number;
 
   constructor(config: MemoryConfig) {
     this.config = config;
@@ -87,12 +89,17 @@ export class MemoryGraph {
       this.llmProvider = this.config.graphStore.llm.provider;
     }
 
-    this.llm = LLMFactory.create(this.llmProvider, this.config.llm.config);
-    this.structuredLlm = LLMFactory.create(
-      this.llmProvider,
-      this.config.llm.config,
-    );
-    this.threshold = 0.7;
+    // Use graphStore-specific LLM config when provided, fall back to main LLM config.
+    // This is what makes MEM0_GRAPH_LLM_MODEL take effect.
+    const graphLlmConfig =
+      this.config.graphStore?.llm?.config ?? this.config.llm.config;
+    this.llm = LLMFactory.create(this.llmProvider, graphLlmConfig);
+    this.structuredLlm = LLMFactory.create(this.llmProvider, graphLlmConfig);
+
+    this.threshold = config.graphStore?.searchThreshold ?? 0.7;
+    this.nodeDeduplicationThreshold =
+      config.graphStore?.nodeDeduplicationThreshold ?? 0.9;
+    this.bm25TopK = config.graphStore?.bm25TopK ?? 5;
   }
 
   async add(
@@ -155,7 +162,7 @@ export class MemoryGraph {
 
     const bm25 = new BM25(searchOutputsSequence);
     const tokenizedQuery = query.split(" ");
-    const rerankedResults = bm25.search(tokenizedQuery).slice(0, 5);
+    const rerankedResults = bm25.search(tokenizedQuery).slice(0, this.bm25TopK);
 
     const searchResults = rerankedResults.map((item) => ({
       source: item[0],
@@ -464,10 +471,12 @@ export class MemoryGraph {
         const sourceNodeSearchResult = await this._searchSourceNode(
           sourceEmbedding,
           userId,
+          this.nodeDeduplicationThreshold,
         );
         const destinationNodeSearchResult = await this._searchDestinationNode(
           destEmbedding,
           userId,
+          this.nodeDeduplicationThreshold,
         );
 
         let cypher: string;

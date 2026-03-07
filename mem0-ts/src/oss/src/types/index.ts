@@ -58,6 +58,12 @@ export interface GraphStoreConfig {
   config: Neo4jConfig;
   llm?: LLMConfig;
   customPrompt?: string;
+  /** Cosine similarity threshold for graph search candidate retrieval (default: 0.7) */
+  searchThreshold?: number;
+  /** Cosine similarity threshold for node deduplication during entity upsert (default: 0.9) */
+  nodeDeduplicationThreshold?: number;
+  /** Maximum results returned after BM25 reranking in graph search (default: 5) */
+  bm25TopK?: number;
 }
 
 export interface MemoryConfig {
@@ -100,9 +106,25 @@ export interface SearchFilters {
   [key: string]: any;
 }
 
+export interface MemoryDecision {
+  event: "ADD" | "UPDATE" | "DELETE" | "NONE";
+  id?: string;
+  text: string;
+  old_memory?: string;
+  reason?: string;
+}
+
+export interface MemoryDecisions {
+  extractedFacts: string[];
+  candidates: { id: string; text: string }[];
+  actions: MemoryDecision[];
+}
+
 export interface SearchResult {
   results: MemoryItem[];
   relations?: any[];
+  added_entities?: any[];
+  decisions?: MemoryDecisions;
 }
 
 export interface VectorStoreResult {
@@ -162,6 +184,9 @@ export const MemoryConfigSchema = z.object({
         })
         .optional(),
       customPrompt: z.string().optional(),
+      searchThreshold: z.number().min(0).max(1).optional(),
+      nodeDeduplicationThreshold: z.number().min(0).max(1).optional(),
+      bm25TopK: z.number().int().min(1).optional(),
     })
     .optional(),
   historyStore: z
