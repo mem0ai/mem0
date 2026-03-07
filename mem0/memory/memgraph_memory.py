@@ -219,7 +219,8 @@ class MemoryGraph:
                 if tool_call["name"] != "extract_entities":
                     continue
                 for item in tool_call["arguments"]["entities"]:
-                    entity_type_map[item["entity"]] = item["entity_type"]
+                    if "entity" in item and "entity_type" in item:
+                        entity_type_map[item["entity"]] = item["entity_type"]
         except Exception as e:
             logger.exception(
                 f"Error in search tool: {e}, llm_provider={self.llm_provider}, search_results={search_results}"
@@ -263,8 +264,8 @@ class MemoryGraph:
         )
 
         entities = []
-        if extracted_entities["tool_calls"]:
-            entities = extracted_entities["tool_calls"][0]["arguments"]["entities"]
+        if extracted_entities and extracted_entities.get("tool_calls"):
+            entities = extracted_entities["tool_calls"][0].get("arguments", {}).get("entities", [])
 
         entities = self._remove_spaces_from_entities(entities)
         logger.debug(f"Extracted entities: {entities}")
