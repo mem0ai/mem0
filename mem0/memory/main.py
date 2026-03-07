@@ -1236,6 +1236,24 @@ class Memory(MemoryBase):
             )
         capture_event("mem0.reset", self, {"sync_type": "sync"})
 
+    def cleanup(self):
+        """
+        Cleanup resources including telemetry connections.
+        Call this method when done using the Memory instance to prevent thread leaks.
+        """
+        from mem0.memory.telemetry import shutdown_telemetry
+        
+        # Close vector store client if available
+        if hasattr(self.vector_store, "client") and hasattr(self.vector_store.client, "close"):
+            self.vector_store.client.close()
+        
+        # Close database connection if available
+        if hasattr(self.db, "connection") and self.db.connection:
+            self.db.connection.close()
+        
+        # Shutdown telemetry to prevent thread leaks
+        shutdown_telemetry()
+
     def chat(self, query):
         raise NotImplementedError("Chat function not implemented yet.")
 
@@ -2322,6 +2340,24 @@ class AsyncMemory(MemoryBase):
             self.config.vector_store.provider, self.config.vector_store.config
         )
         capture_event("mem0.reset", self, {"sync_type": "async"})
+
+    def cleanup(self):
+        """
+        Cleanup resources including telemetry connections.
+        Call this method when done using the Memory instance to prevent thread leaks.
+        """
+        from mem0.memory.telemetry import shutdown_telemetry
+        
+        # Close vector store client if available
+        if hasattr(self.vector_store, "client") and hasattr(self.vector_store.client, "close"):
+            self.vector_store.client.close()
+        
+        # Close database connection if available
+        if hasattr(self.db, "connection") and self.db.connection:
+            self.db.connection.close()
+        
+        # Shutdown telemetry to prevent thread leaks
+        shutdown_telemetry()
 
     async def chat(self, query):
         raise NotImplementedError("Chat function not implemented yet.")

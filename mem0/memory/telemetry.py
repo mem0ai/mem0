@@ -2,6 +2,7 @@ import logging
 import os
 import platform
 import sys
+from threading import Lock
 
 from posthog import Posthog
 
@@ -20,6 +21,40 @@ if not isinstance(MEM0_TELEMETRY, bool):
 
 logging.getLogger("posthog").setLevel(logging.CRITICAL + 1)
 logging.getLogger("urllib3").setLevel(logging.CRITICAL + 1)
+
+
+# Cache for AnonymousTelemetry instances to avoid thread leaks
+_telemetry_cache = {}
+_telemetry_lock = Lock()
+
+
+def _get_telemetry_instance(vector_store=None):
+    """
+    Get or create a cached AnonymousTelemetry instance for the given vector store.
+    This prevents creating multiple Posthog instances that cause thread leaks.
+    """
+    if not MEM0_TELEMETRY:
+        return None
+    
+    # Use vector store id as cache key, or None for default
+    cache_key = id(vector_store) if vector_store else "default"
+    
+    with _telemetry_lock:
+        if cache_key not in _telemetry_cache:
+            _telemetry_cache[cache_key] = AnonymousTelemetry(vector_store)
+        return _telemetry_cache[cache_key]
+
+
+def shutdown_telemetry():
+    """
+    Shutdown all cached telemetry instances. Call this during application shutdown.
+    """
+    global _telemetry_cache
+    with _telemetry_lock:
+        for instance in _telemetry_cache.values():
+            if instance is not None:
+                instance.close()
+        _telemetry_cache.clear()
 
 
 class AnonymousTelemetry:
@@ -57,14 +92,14 @@ class AnonymousTelemetry:
             self.posthog.shutdown()
 
 
-client_telemetry = AnonymousTelemetry()
+client_telemetry = _get_telemetry_instance()
 
 
 def capture_event(event_name, memory_instance, additional_data=None):
     if not MEM0_TELEMETRY:
         return
 
-    oss_telemetry = AnonymousTelemetry(
+    oss_telemetry = _get_telemetry_instance(
         vector_store=memory_instance._telemetry_vector_store
         if hasattr(memory_instance, "_telemetry_vector_store")
         else None,
