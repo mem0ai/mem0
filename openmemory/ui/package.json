@@ -79,6 +79,9 @@
     "onlyBuiltDependencies": [
       "@parcel/watcher",
       "sharp"
-    ]
+    ],
+    "overrides": {
+      "rollup": ">=4.59.0"
+    }
   }
 }
