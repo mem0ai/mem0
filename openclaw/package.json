@@ -11,6 +11,9 @@
     "mem0",
     "long-term-memory"
   ],
+  "scripts": {
+    "test": "vitest run"
+  },
   "dependencies": {
     "@sinclair/typebox": "0.34.47",
     "mem0ai": "^2.2.1"
@@ -19,5 +22,8 @@
     "extensions": [
       "./index.ts"
     ]
+  },
+  "devDependencies": {
+    "vitest": "^4.0.18"
   }
 }

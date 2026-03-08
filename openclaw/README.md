@@ -30,6 +30,26 @@ The agent tools (`memory_search`, `memory_list`) accept a `scope` parameter (`"s
 
 All new parameters are optional and backward-compatible — existing configurations work without changes.
 
+### Per-agent memory isolation
+
+In multi-agent setups, each agent automatically gets its own memory namespace. Session keys following the pattern `agent:<agentId>:<uuid>` are parsed to derive isolated namespaces (`${userId}:agent:${agentId}`). Single-agent deployments are unaffected — plain session keys and `agent:main:*` keys resolve to the configured `userId`.
+
+**How it works:**
+
+- The agent's session key is inspected on every recall/capture cycle
+- If the key matches `agent:<name>:<uuid>`, memories are stored under `userId:agent:<name>`
+- Different agents never see each other's memories unless explicitly queried
+
+**Explicit cross-agent queries:**
+
+All memory tools (`memory_search`, `memory_store`, `memory_list`, `memory_forget`) accept an optional `agentId` parameter to query another agent's namespace:
+
+```
+memory_search({ query: "user's tech stack", agentId: "researcher" })
+```
+
+Resolution priority: explicit `agentId` > explicit `userId` > session-derived > configured default.
+
 ## Setup
 
 ```bash
@@ -87,11 +107,11 @@ The agent gets five tools it can call during conversations:
 
 | Tool | Description |
 |------|-------------|
-| `memory_search` | Search memories by natural language |
-| `memory_list` | List all stored memories for a user |
-| `memory_store` | Explicitly save a fact |
+| `memory_search` | Search memories by natural language. Optional `agentId` to scope to a specific agent. |
+| `memory_list` | List all stored memories for a user. Optional `agentId` to scope to a specific agent. |
+| `memory_store` | Explicitly save a fact. Optional `agentId` to store under a specific agent's namespace. |
 | `memory_get` | Retrieve a memory by ID |
-| `memory_forget` | Delete by ID or by query |
+| `memory_forget` | Delete by ID or by query. Optional `agentId` to scope deletion to a specific agent. |
 
 ## CLI
 
@@ -107,6 +127,12 @@ openclaw mem0 search "what languages does the user know" --scope session
 
 # Stats
 openclaw mem0 stats
+
+# Search a specific agent's memories
+openclaw mem0 search "user preferences" --agent researcher
+
+# Stats for a specific agent
+openclaw mem0 stats --agent researcher
 ```
 
 ## Options

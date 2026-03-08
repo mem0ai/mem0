@@ -608,6 +608,50 @@ function categoriesToArray(
 }
 
 // ============================================================================
+// Per-agent isolation helpers (exported for testability)
+// ============================================================================
+
+/**
+ * Parse an agent ID from a session key following the pattern `agent:<agentId>:<uuid>`.
+ * Returns undefined for non-agent sessions, the "main" sentinel, or malformed keys.
+ */
+export function extractAgentId(sessionKey: string | undefined): string | undefined {
+  if (!sessionKey) return undefined;
+  const match = sessionKey.match(/^agent:([^:]+):/);
+  const agentId = match?.[1];
+  // "main" is the primary session — fall back to configured userId
+  if (!agentId || agentId === "main") return undefined;
+  return agentId;
+}
+
+/**
+ * Derive the effective user_id from a session key, namespacing per-agent.
+ * Falls back to baseUserId when the session is not agent-scoped.
+ */
+export function effectiveUserId(baseUserId: string, sessionKey?: string): string {
+  const agentId = extractAgentId(sessionKey);
+  return agentId ? `${baseUserId}:agent:${agentId}` : baseUserId;
+}
+
+/** Build a user_id for an explicit agentId (e.g. from tool params). */
+export function agentUserId(baseUserId: string, agentId: string): string {
+  return `${baseUserId}:agent:${agentId}`;
+}
+
+/**
+ * Resolve user_id with priority: explicit agentId > explicit userId > session-derived > configured.
+ */
+export function resolveUserId(
+  baseUserId: string,
+  opts: { agentId?: string; userId?: string },
+  currentSessionId?: string,
+): string {
+  if (opts.agentId) return agentUserId(baseUserId, opts.agentId);
+  if (opts.userId) return opts.userId;
+  return effectiveUserId(baseUserId, currentSessionId);
+}
+
+// ============================================================================
 // Plugin Definition
 // ============================================================================
 
@@ -627,35 +671,13 @@ const memoryPlugin = {
     let currentSessionId: string | undefined;
 
     // ========================================================================
-    // Per-agent isolation helpers
-    // Session keys follow the pattern: agent:<agentId>:<uuid>
-    // For the primary (main) session, fall back to configured userId.
+    // Per-agent isolation helpers (thin wrappers around exported functions)
     // ========================================================================
-    function extractAgentId(sessionKey: string | undefined): string | undefined {
-      if (!sessionKey) return undefined;
-      const match = sessionKey.match(/^agent:([^:]+):/);
-      const agentId = match?.[1];
-      // "main" is the primary session — fall back to configured userId
-      if (!agentId || agentId === "main") return undefined;
-      return agentId;
-    }
-
-    function effectiveUserId(sessionKey?: string): string {
-      const agentId = extractAgentId(sessionKey);
-      return agentId ? `${cfg.userId}:agent:${agentId}` : cfg.userId;
-    }
-
-    /** Build a user_id for an explicit agentId (e.g. from tool params) */
-    function agentUserId(agentId: string): string {
-      return `${cfg.userId}:agent:${agentId}`;
-    }
-
-    /** Resolve user_id: explicit agentId > explicit userId > session-derived > configured */
-    function resolveUserId(opts: { agentId?: string; userId?: string }): string {
-      if (opts.agentId) return agentUserId(opts.agentId);
-      if (opts.userId) return opts.userId;
-      return effectiveUserId(currentSessionId);
-    }
+    const _effectiveUserId = (sessionKey?: string) =>
+      effectiveUserId(cfg.userId, sessionKey);
+    const _agentUserId = (id: string) => agentUserId(cfg.userId, id);
+    const _resolveUserId = (opts: { agentId?: string; userId?: string }) =>
+      resolveUserId(cfg.userId, opts, currentSessionId);
 
     api.logger.info(
       `openclaw-mem0: registered (mode: ${cfg.mode}, user: ${cfg.userId}, graph: ${cfg.enableGraph}, autoRecall: ${cfg.autoRecall}, autoCapture: ${cfg.autoCapture})`,
@@ -664,7 +686,7 @@ const memoryPlugin = {
     // Helper: build add options
     function buildAddOptions(userIdOverride?: string, runId?: string, sessionKey?: string): AddOptions {
       const opts: AddOptions = {
-        user_id: userIdOverride || effectiveUserId(sessionKey),
+        user_id: userIdOverride || _effectiveUserId(sessionKey),
         source: "OPENCLAW",
       };
       if (runId) opts.run_id = runId;
@@ -685,7 +707,7 @@ const memoryPlugin = {
       sessionKey?: string,
     ): SearchOptions {
       const opts: SearchOptions = {
-        user_id: userIdOverride || effectiveUserId(sessionKey),
+        user_id: userIdOverride || _effectiveUserId(sessionKey),
         top_k: limit ?? cfg.topK,
         limit: limit ?? cfg.topK,
         threshold: cfg.searchThreshold,
@@ -748,7 +770,7 @@ const memoryPlugin = {
 
           try {
             let results: MemoryItem[] = [];
-            const uid = resolveUserId({ agentId, userId });
+            const uid = _resolveUserId({ agentId, userId });
 
             if (scope === "session") {
               if (currentSessionId) {
@@ -873,7 +895,7 @@ const memoryPlugin = {
           };
 
           try {
-            const uid = resolveUserId({ agentId, userId });
+            const uid = _resolveUserId({ agentId, userId });
             const runId = !longTerm && currentSessionId ? currentSessionId : undefined;
             const result = await provider.add(
               [{ role: "user", content: text }],
@@ -999,7 +1021,7 @@ const memoryPlugin = {
 
           try {
             let memories: MemoryItem[] = [];
-            const uid = resolveUserId({ agentId, userId });
+            const uid = _resolveUserId({ agentId, userId });
 
             if (scope === "session") {
               if (currentSessionId) {
@@ -1118,7 +1140,7 @@ const memoryPlugin = {
             }
 
             if (query) {
-              const uid = resolveUserId({ agentId });
+              const uid = _resolveUserId({ agentId });
               const results = await provider.search(
                 query,
                 buildSearchOptions(uid, 5),
@@ -1217,7 +1239,7 @@ const memoryPlugin = {
             try {
               const limit = parseInt(opts.limit, 10);
               const scope = opts.scope as "session" | "long-term" | "all";
-              const uid = opts.agent ? agentUserId(opts.agent) : effectiveUserId(currentSessionId);
+              const uid = opts.agent ? _agentUserId(opts.agent) : _effectiveUserId(currentSessionId);
 
               let allResults: MemoryItem[] = [];
 
@@ -1281,7 +1303,7 @@ const memoryPlugin = {
           .option("--agent <agentId>", "Show stats for a specific agent")
           .action(async (opts: { agent?: string }) => {
             try {
-              const uid = opts.agent ? agentUserId(opts.agent) : cfg.userId;
+              const uid = opts.agent ? _agentUserId(opts.agent) : cfg.userId;
               const memories = await provider.getAll({
                 user_id: uid,
                 source: "OPENCLAW",
