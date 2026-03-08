@@ -6,6 +6,28 @@ export class OpenAIStructuredLLM implements LLM {
   private openai: OpenAI;
   private model: string;
 
+  private ensureJsonInstruction(
+    messages: Message[],
+    responseFormat?: { type: string } | null,
+  ): Message[] {
+    if (responseFormat?.type !== "json_object") return messages;
+
+    const hasJsonInstruction = messages.some(
+      (m) => typeof m.content === "string" && /\bjson\b/i.test(m.content),
+    );
+
+    if (hasJsonInstruction) return messages;
+
+    return [
+      {
+        role: "system",
+        content:
+          "Return output as valid JSON only. Do not include markdown or extra text.",
+      },
+      ...messages,
+    ];
+  }
+
   constructor(config: LLMConfig) {
     this.openai = new OpenAI({ apiKey: config.apiKey });
     this.model = config.model || "gpt-4-turbo-preview";
@@ -16,8 +38,13 @@ export class OpenAIStructuredLLM implements LLM {
     responseFormat?: { type: string } | null,
     tools?: any[],
   ): Promise<string | LLMResponse> {
+    const normalizedMessages = this.ensureJsonInstruction(
+      messages,
+      responseFormat,
+    );
+
     const completion = await this.openai.chat.completions.create({
-      messages: messages.map((msg) => ({
+      messages: normalizedMessages.map((msg) => ({
         role: msg.role as "system" | "user" | "assistant",
         content:
           typeof msg.content === "string"
