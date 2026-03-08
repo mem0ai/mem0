@@ -33,19 +33,28 @@ class LLMReranker(BaseReranker):
 
         self.config = config
 
-        # Create LLM configuration for the factory
-        llm_config = {
-            "model": self.config.model,
-            "temperature": self.config.temperature,
-            "max_tokens": self.config.max_tokens,
-        }
+        # When a nested ``llm`` dict is provided (e.g. from the standard mem0
+        # config format), use its provider and config to create the LLM
+        # instead of the flat top-level fields.
+        if getattr(self.config, "llm", None) and isinstance(self.config.llm, dict):
+            nested = self.config.llm
+            nested_provider = nested.get("provider", self.config.provider)
+            nested_config = nested.get("config", {})
+            self.llm = LlmFactory.create(nested_provider, nested_config)
+        else:
+            # Fall back to flat config fields
+            llm_config = {
+                "model": self.config.model,
+                "temperature": self.config.temperature,
+                "max_tokens": self.config.max_tokens,
+            }
 
-        # Add API key if provided
-        if self.config.api_key:
-            llm_config["api_key"] = self.config.api_key
+            # Add API key if provided
+            if self.config.api_key:
+                llm_config["api_key"] = self.config.api_key
 
-        # Initialize LLM using the factory
-        self.llm = LlmFactory.create(self.config.provider, llm_config)
+            # Initialize LLM using the factory
+            self.llm = LlmFactory.create(self.config.provider, llm_config)
 
         # Default scoring prompt
         self.scoring_prompt = getattr(self.config, 'scoring_prompt', None) or self._get_default_prompt()

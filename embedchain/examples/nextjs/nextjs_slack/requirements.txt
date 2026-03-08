@@ -1,4 +1,0 @@
-python-dotenv
-slack-sdk
-slack_bolt
-embedchain
