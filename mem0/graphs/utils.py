@@ -88,6 +88,8 @@ Memory Format:
 source -- relationship -- destination
 
 Provide a list of deletion instructions, each specifying the relationship to be deleted.
+
+Respond in JSON format.
 """
 
 
