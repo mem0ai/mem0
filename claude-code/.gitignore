@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+mem0_export_*.json
