@@ -31,8 +31,11 @@ export class OpenAILLM implements LLM {
         };
       }),
       model: this.model,
-      response_format: responseFormat as { type: "text" | "json_object" },
-      ...(tools && { tools, tool_choice: "auto" }),
+      ...(tools
+        ? { tools, tool_choice: "auto" as const }
+        : responseFormat
+          ? { response_format: responseFormat as { type: "text" | "json_object" } }
+          : {}),
     });
 
     const response = completion.choices[0].message;
