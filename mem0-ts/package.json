@@ -104,7 +104,7 @@
     "@google/genai": "^1.2.0",
     "@langchain/core": "^0.3.44",
     "@mistralai/mistralai": "^1.5.2",
-    "@qdrant/js-client-rest": "1.13.0",
+    "@qdrant/js-client-rest": "1.17.0",
     "@supabase/supabase-js": "^2.49.1",
     "@types/jest": "29.5.14",
     "@types/pg": "8.11.0",
