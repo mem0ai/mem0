@@ -69,9 +69,12 @@ def _safe_deepcopy_config(config):
         else:
             clone_dict = {k: v for k, v in config.__dict__.items()}
         
-        sensitive_tokens = ("auth", "credential", "password", "token", "secret", "key", "connection_class")
+        # Remove truly sensitive fields (exact matches or specific suffixes)
+        # But preserve runtime auth objects like http_auth which are required for clients
+        sensitive_fields = ("password", "api_key", "secret", "token", "credential", "connection_class")
         for field_name in list(clone_dict.keys()):
-            if any(token in field_name.lower() for token in sensitive_tokens):
+            # Remove if exact match or if it ends with _auth (but not http_auth)
+            if field_name.lower() in sensitive_fields or (field_name.lower().endswith("_auth") and field_name.lower() != "http_auth"):
                 clone_dict[field_name] = None
         
         try:
