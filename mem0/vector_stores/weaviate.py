@@ -178,6 +178,28 @@ class Weaviate(VectorStoreBase):
 
                 batch.add_object(collection=self.collection_name, properties=data_object, uuid=object_id, vector=vector)
 
+    def _build_filters(self, filters: Optional[Dict]) -> Optional[object]:
+        """
+        Build Weaviate filter conditions from a filters dictionary.
+
+        Supports filtering on any property stored in the collection, not just
+        user_id/agent_id/run_id.
+
+        Args:
+            filters (dict, optional): Dictionary of filter key-value pairs.
+
+        Returns:
+            Combined Weaviate filter or None if no valid filters provided.
+        """
+        if not filters:
+            return None
+
+        filter_conditions = []
+        for key, value in filters.items():
+            if value is not None:
+                filter_conditions.append(Filter.by_property(key).equal(value))
+        return Filter.all_of(filter_conditions) if filter_conditions else None
+
     def search(
         self, query: str, vectors: List[float], limit: int = 5, filters: Optional[Dict] = None
     ) -> List[OutputData]:
@@ -185,12 +207,7 @@ class Weaviate(VectorStoreBase):
         Search for similar vectors.
         """
         collection = self.client.collections.get(str(self.collection_name))
-        filter_conditions = []
-        if filters:
-            for key, value in filters.items():
-                if value and key in ["user_id", "agent_id", "run_id"]:
-                    filter_conditions.append(Filter.by_property(key).equal(value))
-        combined_filter = Filter.all_of(filter_conditions) if filter_conditions else None
+        combined_filter = self._build_filters(filters)
         response = collection.query.hybrid(
             query="",
             vector=vectors,
@@ -318,12 +335,7 @@ class Weaviate(VectorStoreBase):
         List all vectors in a collection.
         """
         collection = self.client.collections.get(self.collection_name)
-        filter_conditions = []
-        if filters:
-            for key, value in filters.items():
-                if value and key in ["user_id", "agent_id", "run_id"]:
-                    filter_conditions.append(Filter.by_property(key).equal(value))
-        combined_filter = Filter.all_of(filter_conditions) if filter_conditions else None
+        combined_filter = self._build_filters(filters)
         response = collection.query.fetch_objects(
             limit=limit,
             filters=combined_filter,
