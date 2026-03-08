@@ -211,6 +211,28 @@ def test_delete_all(memory_instance, version, enable_graph):
     assert result["message"] == "Memories deleted successfully!"
 
 
+def test_delete_all_does_not_reset_vector_store(memory_instance):
+    """Regression test: delete_all for one user must not wipe the entire vector store.
+
+    Previously, delete_all() called vector_store.reset() after deleting filtered
+    memories, which destroyed all data regardless of scope.
+    """
+    mock_memories = [Mock(id="mem_1"), Mock(id="mem_2")]
+    memory_instance.vector_store.list = Mock(return_value=(mock_memories, None))
+    memory_instance._delete_memory = Mock()
+    memory_instance.enable_graph = False
+
+    memory_instance.delete_all(user_id="user_a")
+
+    # Only the filtered memories should be deleted individually
+    assert memory_instance._delete_memory.call_count == 2
+    memory_instance._delete_memory.assert_any_call("mem_1")
+    memory_instance._delete_memory.assert_any_call("mem_2")
+
+    # The vector store must NOT be globally reset
+    memory_instance.vector_store.reset.assert_not_called()
+
+
 @pytest.mark.parametrize(
     "version, enable_graph, expected_result",
     [
