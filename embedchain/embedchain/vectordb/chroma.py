@@ -87,8 +87,7 @@ class ChromaDB(BaseVectorDB):
             return where
         where_filters = []
         for k, v in where.items():
-            if isinstance(v, str):
-                where_filters.append({k: v})
+            where_filters.append({k: v})
         return {"$and": where_filters}
 
     def _get_or_create_collection(self, name: str) -> Collection:
