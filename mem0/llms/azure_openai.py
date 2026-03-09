@@ -126,12 +126,16 @@ class AzureOpenAILLM(LLMBase):
         messages[-1]["content"] = user_prompt
 
         params = self._get_supported_params(messages=messages, **kwargs)
-        
+
         # Add model and messages
         params.update({
             "model": self.config.model,
             "messages": messages,
         })
+
+        # Add reasoning_effort for reasoning models if configured
+        if hasattr(self.config, 'reasoning_effort') and self.config.reasoning_effort:
+            params["reasoning_effort"] = self.config.reasoning_effort
 
         if tools:
             params["tools"] = tools
