@@ -48,6 +48,73 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*swigva
 # Initialize logger early for util functions
 logger = logging.getLogger(__name__)
 
+# Fields that contain sensitive secrets and must be nulled during config cloning for telemetry.
+# Uses exact match on field names (case-insensitive) to avoid over-scrubbing runtime objects.
+_SENSITIVE_FIELDS_EXACT = frozenset({
+    "password",
+    "api_key",
+    "secret",
+    "token",
+    "credential",
+    "credentials",
+    "client_secret",
+    "private_key",
+    "refresh_token",
+    "access_token",
+    "auth_client_secret",
+    "azure_client_secret",
+    "service_account_json",
+    "aws_session_token",
+})
+
+# Suffix patterns: any field ending with these is sensitive.
+_SENSITIVE_SUFFIXES = (
+    "_secret",
+    "_token",
+    "_password",
+    "_key",
+    "_credentials",
+)
+
+# Fields that hold runtime objects (e.g., auth signers, connection classes) and must be
+# preserved for the config to remain functional. These are NOT secret strings.
+_SAFE_FIELDS = frozenset({
+    "http_auth",
+    "connection_class",
+    "ssl_context",
+})
+
+
+def _is_sensitive_field(field_name: str) -> bool:
+    """Determine if a config field contains sensitive data that should be nulled.
+
+    Uses a layered approach:
+    1. Allow list — runtime objects that must be preserved (http_auth, connection_class, ssl_context)
+    2. Exact deny — known secret field names (password, api_key, token, etc.)
+    3. Suffix deny — fields ending with _secret, _token, _password, _key, _credentials
+
+    Args:
+        field_name: The config field name to check.
+
+    Returns:
+        True if the field should be nulled (contains sensitive data).
+    """
+    name = field_name.lower()
+
+    # 1. Allow list takes priority — these are runtime objects, not secrets
+    if name in _SAFE_FIELDS:
+        return False
+
+    # 2. Exact match against known sensitive field names
+    if name in _SENSITIVE_FIELDS_EXACT:
+        return True
+
+    # 3. Suffix match for patterns like *_secret, *_token, etc.
+    if any(name.endswith(suffix) for suffix in _SENSITIVE_SUFFIXES):
+        return True
+
+    return False
+
 
 def _safe_deepcopy_config(config):
     """Safely deepcopy config, falling back to JSON serialization for non-serializable objects."""
@@ -69,9 +136,8 @@ def _safe_deepcopy_config(config):
         else:
             clone_dict = {k: v for k, v in config.__dict__.items()}
         
-        sensitive_tokens = ("auth", "credential", "password", "token", "secret", "key", "connection_class")
         for field_name in list(clone_dict.keys()):
-            if any(token in field_name.lower() for token in sensitive_tokens):
+            if _is_sensitive_field(field_name):
                 clone_dict[field_name] = None
         
         try:
