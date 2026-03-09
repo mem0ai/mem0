@@ -37,7 +37,7 @@ export const useConfig = (): UseConfigApiReturn => {
     dispatch(setConfigLoading());
     
     try {
-      const response = await axios.get(`${URL}/api/v1/config`);
+      const response = await axios.get(`${URL}/api/v1/config/`);
       dispatch(setConfigSuccess(response.data));
       setIsLoading(false);
     } catch (err: any) {
@@ -54,7 +54,7 @@ export const useConfig = (): UseConfigApiReturn => {
     setError(null);
     
     try {
-      const response = await axios.put(`${URL}/api/v1/config`, config);
+      const response = await axios.put(`${URL}/api/v1/config/`, config);
       dispatch(setConfigSuccess(response.data));
       setIsLoading(false);
       return response.data;
