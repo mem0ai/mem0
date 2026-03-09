@@ -1,9 +1,51 @@
+import os
+import sys
+import types
 from datetime import UTC, datetime
+from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
+
+if "fastapi_pagination" not in sys.modules:
+    fastapi_pagination = types.ModuleType("fastapi_pagination")
+
+    class _Params:
+        def __init__(self, page=1, size=50):
+            self.page = page
+            self.size = size
+
+    class _Page:
+        def __init__(self, items, total, params):
+            self.items = items
+            self.total = total
+            self.page = params.page
+            self.size = params.size
+
+        @classmethod
+        def create(cls, items, total, params):
+            return cls(items, total, params)
+
+        def __class_getitem__(cls, item):
+            return cls
+
+    fastapi_pagination.Page = _Page
+    fastapi_pagination.Params = _Params
+    sys.modules["fastapi_pagination"] = fastapi_pagination
+
+    fastapi_pagination_ext = types.ModuleType("fastapi_pagination.ext")
+    fastapi_pagination_ext_sqlalchemy = types.ModuleType("fastapi_pagination.ext.sqlalchemy")
+    fastapi_pagination_ext_sqlalchemy.paginate = lambda *args, **kwargs: None
+    sys.modules["fastapi_pagination.ext"] = fastapi_pagination_ext
+    sys.modules["fastapi_pagination.ext.sqlalchemy"] = fastapi_pagination_ext_sqlalchemy
+
 from fastapi_pagination import Params
+
+API_ROOT = Path(__file__).resolve().parents[1] / "openmemory" / "api"
+if str(API_ROOT) not in sys.path:
+    sys.path.insert(0, str(API_ROOT))
+os.environ.setdefault("OPENAI_API_KEY", "test-key")
 
 from openmemory.api.app.routers import config as config_router
 from openmemory.api.app.routers import memories as memories_router
