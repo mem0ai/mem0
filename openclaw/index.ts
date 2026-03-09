@@ -165,13 +165,17 @@ class PlatformProvider implements Mem0Provider {
 
   async search(query: string, options: SearchOptions): Promise<MemoryItem[]> {
     await this.ensureClient();
-    const opts: Record<string, unknown> = { user_id: options.user_id };
-    if (options.run_id) opts.run_id = options.run_id;
+    const filters: Record<string, unknown> = { user_id: options.user_id };
+    if (options.run_id) filters.run_id = options.run_id;
+
+    const opts: Record<string, unknown> = {
+      api_version: "v2",
+      filters,
+    };
     if (options.top_k != null) opts.top_k = options.top_k;
     if (options.threshold != null) opts.threshold = options.threshold;
     if (options.keyword_search != null) opts.keyword_search = options.keyword_search;
-    if (options.reranking != null) opts.reranking = options.reranking;
-    if (options.source) opts.source = options.source;
+    if (options.reranking != null) opts.rerank = options.reranking;
 
     const results = await this.client.search(query, opts);
     return normalizeSearchResults(results);
