@@ -34,6 +34,10 @@ class VectorStoreProvider(BaseModel):
     # Below config can vary widely based on the vector store used. Refer https://docs.mem0.ai/components/vectordbs/config
     config: Dict[str, Any] = Field(..., description="Vector store-specific configuration")
 
+class RerankerProvider(BaseModel):
+    provider: str = Field(..., description="Reranker provider name")
+    config: Dict[str, Any] = Field(default_factory=dict, description="Reranker-specific configuration")
+
 class OpenMemoryConfig(BaseModel):
     custom_instructions: Optional[str] = Field(None, description="Custom instructions for memory management and fact extraction")
 
@@ -41,6 +45,9 @@ class Mem0Config(BaseModel):
     llm: Optional[LLMProvider] = None
     embedder: Optional[EmbedderProvider] = None
     vector_store: Optional[VectorStoreProvider] = None
+    reranker: Optional[RerankerProvider] = None
+    custom_fact_extraction_prompt: Optional[str] = None
+    custom_update_memory_prompt: Optional[str] = None
 
 class ConfigSchema(BaseModel):
     openmemory: Optional[OpenMemoryConfig] = None
@@ -69,7 +76,10 @@ def get_default_configuration():
                     "api_key": "env:OPENAI_API_KEY"
                 }
             },
-            "vector_store": None
+            "vector_store": None,
+            "reranker": None,
+            "custom_fact_extraction_prompt": None,
+            "custom_update_memory_prompt": None,
         }
     }
 

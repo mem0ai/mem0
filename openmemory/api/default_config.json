@@ -15,6 +15,9 @@
                 "model": "text-embedding-3-small",
                 "api_key": "env:OPENAI_API_KEY"
             }
-        }
+        },
+        "reranker": null,
+        "custom_fact_extraction_prompt": null,
+        "custom_update_memory_prompt": null
     }
 } 

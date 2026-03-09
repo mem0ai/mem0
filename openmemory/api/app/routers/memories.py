@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.utils.db import get_or_create_user
 
 router = APIRouter(prefix="/api/v1/memories", tags=["memories"])
+logger = logging.getLogger(__name__)
 
 
 def get_memory_or_404(db: Session, memory_id: UUID) -> Memory:
@@ -98,6 +99,150 @@ def get_accessible_memory_ids(db: Session, app_id: UUID) -> Set[UUID]:
     return allowed_memory_ids
 
 
+def _build_memory_response(memory: Memory, score: Optional[float] = None) -> MemoryResponse:
+    return MemoryResponse(
+        id=memory.id,
+        content=memory.content,
+        created_at=memory.created_at,
+        state=memory.state.value,
+        app_id=memory.app_id,
+        app_name=memory.app.name if memory.app else None,
+        categories=[category.name for category in memory.categories],
+        score=score,
+        metadata_=memory.metadata_,
+    )
+
+
+def _semantic_search_limit(page: int, size: int) -> int:
+    return min(max(page * size * 3, size * 5), 250)
+
+
+def _sort_memory_responses(
+    items: List[MemoryResponse],
+    sort_column: Optional[str],
+    sort_direction: Optional[str],
+) -> List[MemoryResponse]:
+    if not sort_column:
+        return items
+
+    reverse = sort_direction == "desc"
+
+    if sort_column == "score":
+        return sorted(items, key=lambda item: item.score or 0.0, reverse=reverse)
+    if sort_column == "memory":
+        return sorted(items, key=lambda item: item.content.lower(), reverse=reverse)
+    if sort_column == "app_name":
+        return sorted(items, key=lambda item: (item.app_name or "").lower(), reverse=reverse)
+    if sort_column == "created_at":
+        return sorted(items, key=lambda item: item.created_at, reverse=reverse)
+
+    return items
+
+
+def _semantic_memory_page(
+    *,
+    db: Session,
+    user: User,
+    params: Params,
+    search_query: str,
+    app_id: Optional[UUID] = None,
+    app_ids: Optional[List[UUID]] = None,
+    category_names: Optional[List[str]] = None,
+    category_ids: Optional[List[UUID]] = None,
+    from_date: Optional[int] = None,
+    to_date: Optional[int] = None,
+    show_archived: bool = False,
+    threshold: Optional[float] = None,
+    rerank: bool = True,
+    sort_column: Optional[str] = None,
+    sort_direction: Optional[str] = None,
+    enforce_permissions: bool = True,
+) -> Optional[Page[MemoryResponse]]:
+    try:
+        memory_client = get_memory_client()
+        if not memory_client:
+            return None
+
+        semantic_limit = _semantic_search_limit(params.page, params.size)
+        raw_results = memory_client.search(
+            query=search_query,
+            user_id=user.user_id,
+            limit=semantic_limit,
+            threshold=threshold,
+            rerank=rerank,
+        )
+        result_items = raw_results.get("results", raw_results if isinstance(raw_results, list) else [])
+        if not result_items:
+            return Page.create([], total=0, params=params)
+
+        ordered_ids: List[UUID] = []
+        score_by_id = {}
+        for item in result_items:
+            memory_id = item.get("id")
+            if not memory_id:
+                continue
+            try:
+                parsed_id = UUID(str(memory_id))
+            except (TypeError, ValueError):
+                continue
+            if parsed_id not in score_by_id:
+                ordered_ids.append(parsed_id)
+            score_by_id[parsed_id] = item.get("score")
+
+        if not ordered_ids:
+            return Page.create([], total=0, params=params)
+
+        memories = (
+            db.query(Memory)
+            .filter(Memory.id.in_(ordered_ids), Memory.user_id == user.id, Memory.state != MemoryState.deleted)
+            .options(joinedload(Memory.app), joinedload(Memory.categories))
+            .all()
+        )
+        memory_by_id = {memory.id: memory for memory in memories}
+
+        from_datetime = datetime.fromtimestamp(from_date, tz=UTC) if from_date else None
+        to_datetime = datetime.fromtimestamp(to_date, tz=UTC) if to_date else None
+        app_id_set = set(app_ids or [])
+        category_id_set = set(category_ids or [])
+        category_name_set = set(category_names or [])
+
+        filtered_items: List[MemoryResponse] = []
+        for memory_id in ordered_ids:
+            memory = memory_by_id.get(memory_id)
+            if not memory:
+                continue
+            if not show_archived and memory.state == MemoryState.archived:
+                continue
+            if app_id and memory.app_id != app_id:
+                continue
+            if app_id_set and memory.app_id not in app_id_set:
+                continue
+            if from_datetime and memory.created_at < from_datetime:
+                continue
+            if to_datetime and memory.created_at > to_datetime:
+                continue
+
+            memory_category_ids = {category.id for category in memory.categories}
+            memory_category_names = {category.name for category in memory.categories}
+            if category_id_set and not memory_category_ids.intersection(category_id_set):
+                continue
+            if category_name_set and not memory_category_names.intersection(category_name_set):
+                continue
+            if enforce_permissions and not check_memory_access_permissions(db, memory, app_id):
+                continue
+
+            filtered_items.append(_build_memory_response(memory, score_by_id.get(memory.id)))
+
+        filtered_items = _sort_memory_responses(filtered_items, sort_column, sort_direction)
+
+        start = (params.page - 1) * params.size
+        end = start + params.size
+        return Page.create(filtered_items[start:end], total=len(filtered_items), params=params)
+    except Exception as exc:
+        logger.warning("Semantic memory search failed, falling back to SQL: %s", exc)
+        return None
+
+
 # List all memories with filtering
 @router.get("/", response_model=Page[MemoryResponse])
 async def list_memories(
@@ -116,6 +261,8 @@ async def list_memories(
     categories: Optional[str] = None,
     params: Params = Depends(),
     search_query: Optional[str] = None,
+    threshold: Optional[float] = Query(None, description="Minimum semantic score threshold"),
+    rerank: bool = Query(True, description="Whether to apply Mem0 reranking when available"),
     sort_column: Optional[str] = Query(None, description="Column to sort by (memory, categories, app_name, created_at)"),
     sort_direction: Optional[str] = Query(None, description="Sort direction (asc or desc)"),
     db: Session = Depends(get_db)
@@ -123,6 +270,26 @@ async def list_memories(
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
+    category_list = [c.strip() for c in categories.split(",")] if categories else None
+    if search_query:
+        semantic_page = _semantic_memory_page(
+            db=db,
+            user=user,
+            params=params,
+            search_query=search_query,
+            app_id=app_id,
+            category_names=category_list,
+            from_date=from_date,
+            to_date=to_date,
+            threshold=threshold,
+            rerank=rerank,
+            sort_column=sort_column,
+            sort_direction=sort_direction,
+            enforce_permissions=True,
+        )
+        if semantic_page is not None:
+            return semantic_page
 
     # Build base query
     query = db.query(Memory).filter(
@@ -150,7 +317,6 @@ async def list_memories(
 
     # Apply category filter if provided
     if categories:
-        category_list = [c.strip() for c in categories.split(",")]
         query = query.filter(Category.name.in_(category_list))
 
     # Apply sorting if specified
@@ -170,16 +336,7 @@ async def list_memories(
         query,
         params,
         transformer=lambda items: [
-            MemoryResponse(
-                id=memory.id,
-                content=memory.content,
-                created_at=memory.created_at,
-                state=memory.state.value,
-                app_id=memory.app_id,
-                app_name=memory.app.name if memory.app else None,
-                categories=[category.name for category in memory.categories],
-                metadata_=memory.metadata_
-            )
+            _build_memory_response(memory)
             for memory in items
             if check_memory_access_permissions(db, memory, app_id)
         ]
@@ -540,6 +697,8 @@ class FilterMemoriesRequest(BaseModel):
     from_date: Optional[int] = None
     to_date: Optional[int] = None
     show_archived: Optional[bool] = False
+    threshold: Optional[float] = None
+    rerank: bool = True
 
 @router.post("/filter", response_model=Page[MemoryResponse])
 async def filter_memories(
@@ -549,6 +708,26 @@ async def filter_memories(
     user = db.query(User).filter(User.user_id == request.user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
+    if request.search_query:
+        semantic_page = _semantic_memory_page(
+            db=db,
+            user=user,
+            params=Params(page=request.page, size=request.size),
+            search_query=request.search_query,
+            app_ids=request.app_ids,
+            category_ids=request.category_ids,
+            from_date=request.from_date,
+            to_date=request.to_date,
+            show_archived=bool(request.show_archived),
+            threshold=request.threshold,
+            rerank=request.rerank,
+            sort_column=request.sort_column,
+            sort_direction=request.sort_direction,
+            enforce_permissions=False,
+        )
+        if semantic_page is not None:
+            return semantic_page
 
     # Build base query
     query = db.query(Memory).filter(
@@ -620,16 +799,7 @@ async def filter_memories(
         query,
         Params(page=request.page, size=request.size),
         transformer=lambda items: [
-            MemoryResponse(
-                id=memory.id,
-                content=memory.content,
-                created_at=memory.created_at,
-                state=memory.state.value,
-                app_id=memory.app_id,
-                app_name=memory.app.name if memory.app else None,
-                categories=[category.name for category in memory.categories],
-                metadata_=memory.metadata_
-            )
+            _build_memory_response(memory)
             for memory in items
         ]
     )

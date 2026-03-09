@@ -49,6 +49,7 @@ class MemoryResponse(BaseModel):
     app_id: UUID
     app_name: str
     categories: List[str]
+    score: Optional[float] = None
     metadata_: Optional[dict] = None
 
     @validator('created_at', pre=True)
