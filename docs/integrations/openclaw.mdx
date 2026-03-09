@@ -25,6 +25,20 @@ openclaw plugins install @mem0/openclaw-mem0
 
 ## Setup and Configuration
 
+### Understanding `userId`
+
+The `userId` field is a **string you choose** to uniquely identify the user whose memories are being stored. It is **not** something you look up in the Mem0 dashboard — you define it yourself.
+
+Pick any stable, unique identifier for the user. Common choices:
+
+- Your application's internal user ID (e.g. `"user_123"`, `"alice@example.com"`)
+- A UUID (e.g. `"550e8400-e29b-41d4-a716-446655440000"`)
+- A simple username (e.g. `"alice"`)
+
+All memories are scoped to this `userId` — different values create separate memory namespaces. If you don't set it, it defaults to `"default"`, which means all users share the same memory space.
+
+<Tip>In a multi-user application, set `userId` dynamically per user (e.g. from your auth system) rather than hardcoding a single value.</Tip>
+
 ### Platform Mode (Mem0 Cloud)
 
 <Note>Get your API key from [app.mem0.ai](https://app.mem0.ai).</Note>
@@ -37,7 +51,7 @@ Add to your `openclaw.json`:
   "enabled": true,
   "config": {
     "apiKey": "${MEM0_API_KEY}",
-    "userId": "your-user-id"
+    "userId": "alice"  // any unique identifier you choose for this user
   }
 }
 ```
@@ -51,7 +65,7 @@ No Mem0 key needed. Requires `OPENAI_API_KEY` for default embeddings/LLM.
   "enabled": true,
   "config": {
     "mode": "open-source",
-    "userId": "your-user-id"
+    "userId": "alice"  // any unique identifier you choose for this user
   }
 }
 ```

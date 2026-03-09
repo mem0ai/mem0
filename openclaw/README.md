@@ -56,6 +56,20 @@ Resolution priority: explicit `agentId` > explicit `userId` > session-derived > 
 openclaw plugins install @mem0/openclaw-mem0
 ```
 
+### Understanding `userId`
+
+The `userId` field is a **string you choose** to uniquely identify the user whose memories are being stored. It is **not** something you look up in the Mem0 dashboard — you define it yourself.
+
+Pick any stable, unique identifier for the user. Common choices:
+
+- Your application's internal user ID (e.g. `"user_123"`, `"alice@example.com"`)
+- A UUID (e.g. `"550e8400-e29b-41d4-a716-446655440000"`)
+- A simple username (e.g. `"alice"`)
+
+All memories are scoped to this `userId` — different values create separate memory namespaces. If you don't set it, it defaults to `"default"`, which means all users share the same memory space.
+
+> **Tip:** In a multi-user application, set `userId` dynamically per user (e.g. from your auth system) rather than hardcoding a single value.
+
 ### Platform (Mem0 Cloud)
 
 Get an API key from [app.mem0.ai](https://app.mem0.ai), then add to your `openclaw.json`:
@@ -66,7 +80,7 @@ Get an API key from [app.mem0.ai](https://app.mem0.ai), then add to your `opencl
   "enabled": true,
   "config": {
     "apiKey": "${MEM0_API_KEY}",
-    "userId": "your-user-id"
+    "userId": "alice"  // any unique identifier you choose for this user
   }
 }
 ```
@@ -80,7 +94,7 @@ No Mem0 key needed. Requires `OPENAI_API_KEY` for default embeddings/LLM.
   "enabled": true,
   "config": {
     "mode": "open-source",
-    "userId": "your-user-id"
+    "userId": "alice"  // any unique identifier you choose for this user
   }
 }
 ```
@@ -142,7 +156,7 @@ openclaw mem0 stats --agent researcher
 | Key | Type | Default | |
 |-----|------|---------|---|
 | `mode` | `"platform"` \| `"open-source"` | `"platform"` | Which backend to use |
-| `userId` | `string` | `"default"` | Scope memories per user |
+| `userId` | `string` | `"default"` | Any unique identifier you choose for the user (e.g. `"alice"`, `"user_123"`). All memories are scoped to this value. Not found in any dashboard — you define it yourself. |
 | `autoRecall` | `boolean` | `true` | Inject memories before each turn |
 | `autoCapture` | `boolean` | `true` | Store facts after each turn |
 | `topK` | `number` | `5` | Max memories per recall |
