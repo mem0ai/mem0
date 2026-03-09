@@ -8,7 +8,16 @@ export class OpenAIEmbedder implements Embedder {
   private embeddingDims?: number;
 
   constructor(config: EmbeddingConfig) {
-    this.openai = new OpenAI({ apiKey: config.apiKey });
+    const openaiConfig: ConstructorParameters<typeof OpenAI>[0] = {
+      apiKey: config.apiKey,
+    };
+    
+    // Support custom baseURL for OpenRouter, Ollama, or other OpenAI-compatible endpoints
+    if (config.baseURL || config.url) {
+      openaiConfig.baseURL = config.baseURL || config.url;
+    }
+    
+    this.openai = new OpenAI(openaiConfig);
     this.model = config.model || "text-embedding-3-small";
     this.embeddingDims = config.embeddingDims || 1536;
   }
