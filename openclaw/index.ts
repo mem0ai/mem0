@@ -10,6 +10,8 @@
  * - Short-term (session-scoped) and long-term (user-scoped) memory
  * - Auto-recall: injects relevant memories (both scopes) before each agent turn
  * - Auto-capture: stores key facts scoped to the current session after each agent turn
+ * - Per-agent isolation: multi-agent setups write/read from separate userId namespaces
+ *   automatically via sessionKey routing (zero breaking changes for single-agent setups)
  * - CLI: openclaw mem0 search, openclaw mem0 stats
  * - Dual mode: platform or open-source (self-hosted)
  */
@@ -606,6 +608,50 @@ function categoriesToArray(
 }
 
 // ============================================================================
+// Per-agent isolation helpers (exported for testability)
+// ============================================================================
+
+/**
+ * Parse an agent ID from a session key following the pattern `agent:<agentId>:<uuid>`.
+ * Returns undefined for non-agent sessions, the "main" sentinel, or malformed keys.
+ */
+export function extractAgentId(sessionKey: string | undefined): string | undefined {
+  if (!sessionKey) return undefined;
+  const match = sessionKey.match(/^agent:([^:]+):/);
+  const agentId = match?.[1];
+  // "main" is the primary session — fall back to configured userId
+  if (!agentId || agentId === "main") return undefined;
+  return agentId;
+}
+
+/**
+ * Derive the effective user_id from a session key, namespacing per-agent.
+ * Falls back to baseUserId when the session is not agent-scoped.
+ */
+export function effectiveUserId(baseUserId: string, sessionKey?: string): string {
+  const agentId = extractAgentId(sessionKey);
+  return agentId ? `${baseUserId}:agent:${agentId}` : baseUserId;
+}
+
+/** Build a user_id for an explicit agentId (e.g. from tool params). */
+export function agentUserId(baseUserId: string, agentId: string): string {
+  return `${baseUserId}:agent:${agentId}`;
+}
+
+/**
+ * Resolve user_id with priority: explicit agentId > explicit userId > session-derived > configured.
+ */
+export function resolveUserId(
+  baseUserId: string,
+  opts: { agentId?: string; userId?: string },
+  currentSessionId?: string,
+): string {
+  if (opts.agentId) return agentUserId(baseUserId, opts.agentId);
+  if (opts.userId) return opts.userId;
+  return effectiveUserId(baseUserId, currentSessionId);
+}
+
+// ============================================================================
 // Plugin Definition
 // ============================================================================
 
@@ -624,14 +670,23 @@ const memoryPlugin = {
     // Track current session ID for tool-level session scoping
     let currentSessionId: string | undefined;
 
+    // ========================================================================
+    // Per-agent isolation helpers (thin wrappers around exported functions)
+    // ========================================================================
+    const _effectiveUserId = (sessionKey?: string) =>
+      effectiveUserId(cfg.userId, sessionKey);
+    const _agentUserId = (id: string) => agentUserId(cfg.userId, id);
+    const _resolveUserId = (opts: { agentId?: string; userId?: string }) =>
+      resolveUserId(cfg.userId, opts, currentSessionId);
+
     api.logger.info(
       `openclaw-mem0: registered (mode: ${cfg.mode}, user: ${cfg.userId}, graph: ${cfg.enableGraph}, autoRecall: ${cfg.autoRecall}, autoCapture: ${cfg.autoCapture})`,
     );
 
     // Helper: build add options
-    function buildAddOptions(userIdOverride?: string, runId?: string): AddOptions {
+    function buildAddOptions(userIdOverride?: string, runId?: string, sessionKey?: string): AddOptions {
       const opts: AddOptions = {
-        user_id: userIdOverride || cfg.userId,
+        user_id: userIdOverride || _effectiveUserId(sessionKey),
         source: "OPENCLAW",
       };
       if (runId) opts.run_id = runId;
@@ -649,9 +704,10 @@ const memoryPlugin = {
       userIdOverride?: string,
       limit?: number,
       runId?: string,
+      sessionKey?: string,
     ): SearchOptions {
       const opts: SearchOptions = {
-        user_id: userIdOverride || cfg.userId,
+        user_id: userIdOverride || _effectiveUserId(sessionKey),
         top_k: limit ?? cfg.topK,
         limit: limit ?? cfg.topK,
         threshold: cfg.searchThreshold,
@@ -686,6 +742,12 @@ const memoryPlugin = {
                 "User ID to scope search (default: configured userId)",
             }),
           ),
+          agentId: Type.Optional(
+            Type.String({
+              description:
+                "Agent ID to search memories for a specific agent (e.g. \"researcher\"). Overrides userId.",
+            }),
+          ),
           scope: Type.Optional(
             Type.Union([
               Type.Literal("session"),
@@ -698,39 +760,41 @@ const memoryPlugin = {
           ),
         }),
         async execute(_toolCallId, params) {
-          const { query, limit, userId, scope = "all" } = params as {
+          const { query, limit, userId, agentId, scope = "all" } = params as {
             query: string;
             limit?: number;
             userId?: string;
+            agentId?: string;
             scope?: "session" | "long-term" | "all";
           };
 
           try {
             let results: MemoryItem[] = [];
+            const uid = _resolveUserId({ agentId, userId });
 
             if (scope === "session") {
               if (currentSessionId) {
                 results = await provider.search(
                   query,
-                  buildSearchOptions(userId, limit, currentSessionId),
+                  buildSearchOptions(uid, limit, currentSessionId),
                 );
               }
             } else if (scope === "long-term") {
               results = await provider.search(
                 query,
-                buildSearchOptions(userId, limit),
+                buildSearchOptions(uid, limit),
               );
             } else {
               // "all" — search both scopes and combine
               const longTermResults = await provider.search(
                 query,
-                buildSearchOptions(userId, limit),
+                buildSearchOptions(uid, limit),
               );
               let sessionResults: MemoryItem[] = [];
               if (currentSessionId) {
                 sessionResults = await provider.search(
                   query,
-                  buildSearchOptions(userId, limit, currentSessionId),
+                  buildSearchOptions(uid, limit, currentSessionId),
                 );
               }
               // Deduplicate by ID, preferring long-term
@@ -803,6 +867,12 @@ const memoryPlugin = {
               description: "User ID to scope this memory",
             }),
           ),
+          agentId: Type.Optional(
+            Type.String({
+              description:
+                "Agent ID to store memory under a specific agent's namespace (e.g. \"researcher\"). Overrides userId.",
+            }),
+          ),
           metadata: Type.Optional(
             Type.Record(Type.String(), Type.Unknown(), {
               description: "Optional metadata to attach to this memory",
@@ -816,18 +886,20 @@ const memoryPlugin = {
           ),
         }),
         async execute(_toolCallId, params) {
-          const { text, userId, longTerm = true } = params as {
+          const { text, userId, agentId, longTerm = true } = params as {
             text: string;
             userId?: string;
+            agentId?: string;
             metadata?: Record<string, unknown>;
             longTerm?: boolean;
           };
 
           try {
+            const uid = _resolveUserId({ agentId, userId });
             const runId = !longTerm && currentSessionId ? currentSessionId : undefined;
             const result = await provider.add(
               [{ role: "user", content: text }],
-              buildAddOptions(userId, runId),
+              buildAddOptions(uid, runId, currentSessionId),
             );
 
             const added =
@@ -919,12 +991,18 @@ const memoryPlugin = {
         name: "memory_list",
         label: "Memory List",
         description:
-          "List all stored memories for a user. Use this when you want to see everything that's been remembered, rather than searching for something specific.",
+          "List all stored memories for a user or agent. Use this when you want to see everything that's been remembered, rather than searching for something specific.",
         parameters: Type.Object({
           userId: Type.Optional(
             Type.String({
               description:
                 "User ID to list memories for (default: configured userId)",
+            }),
+          ),
+          agentId: Type.Optional(
+            Type.String({
+              description:
+                "Agent ID to list memories for a specific agent (e.g. \"researcher\"). Overrides userId.",
             }),
           ),
           scope: Type.Optional(
@@ -939,11 +1017,11 @@ const memoryPlugin = {
           ),
         }),
         async execute(_toolCallId, params) {
-          const { userId, scope = "all" } = params as { userId?: string; scope?: "session" | "long-term" | "all" };
+          const { userId, agentId, scope = "all" } = params as { userId?: string; agentId?: string; scope?: "session" | "long-term" | "all" };
 
           try {
             let memories: MemoryItem[] = [];
-            const uid = userId || cfg.userId;
+            const uid = _resolveUserId({ agentId, userId });
 
             if (scope === "session") {
               if (currentSessionId) {
@@ -1026,7 +1104,7 @@ const memoryPlugin = {
         name: "memory_forget",
         label: "Memory Forget",
         description:
-          "Delete memories from Mem0. Provide a specific memoryId to delete directly, or a query to search and delete matching memories. GDPR-compliant.",
+          "Delete memories from Mem0. Provide a specific memoryId to delete directly, or a query to search and delete matching memories. Supports agent-scoped deletion. GDPR-compliant.",
         parameters: Type.Object({
           query: Type.Optional(
             Type.String({
@@ -1036,11 +1114,18 @@ const memoryPlugin = {
           memoryId: Type.Optional(
             Type.String({ description: "Specific memory ID to delete" }),
           ),
+          agentId: Type.Optional(
+            Type.String({
+              description:
+                "Agent ID to scope deletion to a specific agent's memories (e.g. \"researcher\").",
+            }),
+          ),
         }),
         async execute(_toolCallId, params) {
-          const { query, memoryId } = params as {
+          const { query, memoryId, agentId } = params as {
             query?: string;
             memoryId?: string;
+            agentId?: string;
           };
 
           try {
@@ -1055,9 +1140,10 @@ const memoryPlugin = {
             }
 
             if (query) {
+              const uid = _resolveUserId({ agentId });
               const results = await provider.search(
                 query,
-                buildSearchOptions(undefined, 5),
+                buildSearchOptions(uid, 5),
               );
 
               if (!results || results.length === 0) {
@@ -1148,10 +1234,12 @@ const memoryPlugin = {
           .argument("<query>", "Search query")
           .option("--limit <n>", "Max results", String(cfg.topK))
           .option("--scope <scope>", 'Memory scope: "session", "long-term", or "all"', "all")
-          .action(async (query: string, opts: { limit: string; scope: string }) => {
+          .option("--agent <agentId>", "Search a specific agent's memory namespace")
+          .action(async (query: string, opts: { limit: string; scope: string; agent?: string }) => {
             try {
               const limit = parseInt(opts.limit, 10);
               const scope = opts.scope as "session" | "long-term" | "all";
+              const uid = opts.agent ? _agentUserId(opts.agent) : _effectiveUserId(currentSessionId);
 
               let allResults: MemoryItem[] = [];
 
@@ -1159,7 +1247,7 @@ const memoryPlugin = {
                 if (currentSessionId) {
                   const sessionResults = await provider.search(
                     query,
-                    buildSearchOptions(undefined, limit, currentSessionId),
+                    buildSearchOptions(uid, limit, currentSessionId),
                   );
                   if (sessionResults?.length) {
                     allResults.push(...sessionResults.map((r) => ({ ...r, _scope: "session" as const })));
@@ -1173,7 +1261,7 @@ const memoryPlugin = {
               if (scope === "long-term" || scope === "all") {
                 const longTermResults = await provider.search(
                   query,
-                  buildSearchOptions(undefined, limit),
+                  buildSearchOptions(uid, limit),
                 );
                 if (longTermResults?.length) {
                   allResults.push(...longTermResults.map((r) => ({ ...r, _scope: "long-term" as const })));
@@ -1212,14 +1300,16 @@ const memoryPlugin = {
         mem0
           .command("stats")
           .description("Show memory statistics from Mem0")
-          .action(async () => {
+          .option("--agent <agentId>", "Show stats for a specific agent")
+          .action(async (opts: { agent?: string }) => {
             try {
+              const uid = opts.agent ? _agentUserId(opts.agent) : cfg.userId;
               const memories = await provider.getAll({
-                user_id: cfg.userId,
+                user_id: uid,
                 source: "OPENCLAW",
               });
               console.log(`Mode: ${cfg.mode}`);
-              console.log(`User: ${cfg.userId}`);
+              console.log(`User: ${uid}${opts.agent ? ` (agent: ${opts.agent})` : ""}`);
               console.log(
                 `Total memories: ${Array.isArray(memories) ? memories.length : "unknown"}`,
               );
@@ -1249,10 +1339,10 @@ const memoryPlugin = {
         if (sessionId) currentSessionId = sessionId;
 
         try {
-          // Search long-term memories (user-scoped)
+          // Search long-term memories (user-scoped, isolated per agent)
           const longTermResults = await provider.search(
             event.prompt,
-            buildSearchOptions(),
+            buildSearchOptions(undefined, undefined, undefined, sessionId),
           );
 
           // Search session memories (session-scoped) if we have a session ID
@@ -1260,7 +1350,7 @@ const memoryPlugin = {
           if (currentSessionId) {
             sessionResults = await provider.search(
               event.prompt,
-              buildSearchOptions(undefined, undefined, currentSessionId),
+              buildSearchOptions(undefined, undefined, currentSessionId, sessionId),
             );
           }
 
@@ -1365,7 +1455,7 @@ const memoryPlugin = {
 
           if (formattedMessages.length === 0) return;
 
-          const addOpts = buildAddOptions(undefined, currentSessionId);
+          const addOpts = buildAddOptions(undefined, currentSessionId, sessionId);
           const result = await provider.add(
             formattedMessages,
             addOpts,
