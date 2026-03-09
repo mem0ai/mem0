@@ -69,11 +69,7 @@ export class MemoryVectorStore implements VectorStore {
       `INSERT OR REPLACE INTO vectors (id, vector, payload) VALUES (?, ?, ?)`,
     );
     const insertMany = this.db.transaction(
-      (
-        vecs: number[][],
-        vIds: string[],
-        vPayloads: Record<string, any>[],
-      ) => {
+      (vecs: number[][], vIds: string[], vPayloads: Record<string, any>[]) => {
         for (let i = 0; i < vecs.length; i++) {
           if (vecs[i].length !== this.dimension) {
             throw new Error(

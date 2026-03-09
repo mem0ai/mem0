@@ -120,10 +120,7 @@ describe("SQLiteManager (better-sqlite3)", () => {
   });
 
   it("works with file-based database and persists data", async () => {
-    const dbPath = path.join(
-      os.tmpdir(),
-      `mem0-test-history-${Date.now()}.db`,
-    );
+    const dbPath = path.join(os.tmpdir(), `mem0-test-history-${Date.now()}.db`);
 
     try {
       const fmgr = new SQLiteManager(dbPath);

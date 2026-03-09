@@ -109,7 +109,7 @@
     "@supabase/supabase-js": "^2.49.1",
     "@types/jest": "29.5.14",
     "@types/pg": "8.11.0",
-    "better-sqlite3": "^11.9.1",
+    "better-sqlite3": "^12.6.2",
     "cloudflare": "^4.2.0",
     "groq-sdk": "0.3.0",
     "neo4j-driver": "^5.28.1",
