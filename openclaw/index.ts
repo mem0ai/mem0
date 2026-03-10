@@ -424,70 +424,88 @@ function resolveEnvVarsDeep(obj: Record<string, unknown>): Record<string, unknow
 // Default Custom Instructions & Categories
 // ============================================================================
 
-const DEFAULT_CUSTOM_INSTRUCTIONS = `Your Task: Extract and maintain a structured, evolving profile of the user from their conversations with an AI assistant. Capture information that would help the assistant provide personalized, context-aware responses in future interactions.
+const DEFAULT_CUSTOM_INSTRUCTIONS = `Your Task: Extract durable, actionable facts from conversations between a user and an AI assistant. Only store information that would be useful to an agent in a FUTURE session, days or weeks later.
 
-Information to Extract:
+Before storing any fact, ask: "Would a new agent — with no prior context — benefit from knowing this?" If the answer is no, do not store it.
 
-1. Identity & Demographics:
-   - Name, age, location, timezone, language preferences
+Information to Extract (in priority order):
+
+1. Configuration & System State Changes:
+   - Tools/services configured, installed, or removed (with versions/dates)
+   - Model assignments for agents, API keys configured (NEVER the key itself — see Exclude)
+   - Cron schedules, automation pipelines, deployment configurations
+   - Architecture decisions (agent hierarchy, system design, deployment strategy)
+   - Specific identifiers: file paths, sheet IDs, channel IDs, user IDs, folder IDs
+
+2. Standing Rules & Policies:
+   - Explicit user directives about behavior ("never create accounts without consent")
+   - Workflow policies ("each agent must review model selection before completing a task")
+   - Security constraints, permission boundaries, access patterns
+
+3. Identity & Demographics:
+   - Name, location, timezone, language preferences
    - Occupation, employer, job role, industry
-   - Education background
 
-2. Preferences & Opinions:
-   - Communication style preferences (formal/casual, verbose/concise)
-   - Tool and technology preferences (languages, frameworks, editors, OS)
-   - Content preferences (topics of interest, learning style)
-   - Strong opinions or values they've expressed
-   - Likes and dislikes they've explicitly stated
+4. Preferences & Opinions:
+   - Communication style preferences
+   - Tool and technology preferences (with specifics: versions, configs)
+   - Strong opinions or values explicitly stated
+   - The WHY behind preferences when stated
 
-3. Goals & Projects:
-   - Current projects they're working on (name, description, status)
-   - Short-term and long-term goals
-   - Deadlines and milestones mentioned
-   - Problems they're actively trying to solve
+5. Goals, Projects & Milestones:
+   - Active projects (name, description, current status)
+   - Completed setup milestones ("ElevenLabs fully configured as of 2026-02-20")
+   - Deadlines, roadmaps, and progress tracking
+   - Problems actively being solved
 
-4. Technical Context:
-   - Tech stack and tools they use
-   - Skill level in different areas (beginner/intermediate/expert)
-   - Development environment and setup details
-   - Recurring technical challenges
+6. Technical Context:
+   - Tech stack, tools, development environment
+   - Agent ecosystem structure (names, roles, relationships)
+   - Skill levels in different areas
 
-5. Relationships & People:
-   - Names and roles of people they mention (colleagues, family, friends)
-   - Team structure and dynamics
-   - Key contacts and their relevance
+7. Relationships & People:
+   - Names and roles of people mentioned (colleagues, family, clients)
+   - Team structure, key contacts
 
-6. Decisions & Lessons:
+8. Decisions & Lessons:
    - Important decisions made and their reasoning
-   - Lessons learned from past experiences
-   - Strategies that worked or failed
-   - Changed opinions or updated beliefs
-
-7. Routines & Habits:
-   - Daily routines and schedules mentioned
-   - Work patterns (when they're productive, how they organize work)
-   - Health and wellness habits if voluntarily shared
-
-8. Life Events:
-   - Significant events (new job, moving, milestones)
-   - Upcoming events or plans
-   - Changes in circumstances
+   - Lessons learned, strategies that worked or failed
 
 Guidelines:
-- Store memories as clear, self-contained statements (each memory should make sense on its own)
-- Use third person: "User prefers..." not "I prefer..."
-- Include temporal context when relevant: "As of [date], user is working on..."
-- When information updates, UPDATE the existing memory rather than creating duplicates
-- Merge related facts into single coherent memories when possible
-- Preserve specificity: "User uses Next.js 14 with App Router" is better than "User uses React"
-- Capture the WHY behind preferences when stated: "User prefers Vim because of keyboard-driven workflow"
 
-Exclude:
-- Passwords, API keys, tokens, or any authentication credentials
-- Exact financial amounts (account balances, salaries) unless the user explicitly asks to remember them
-- Temporary or ephemeral information (one-time questions, debugging sessions with no lasting insight)
+TEMPORAL ANCHORING (critical):
+- ALWAYS include temporal context for time-sensitive facts using "As of YYYY-MM-DD, ..."
+- Extract dates from message timestamps, dates mentioned in the text, or the system-provided current date
+- If no date is available, note "date unknown" rather than omitting temporal context
+- Examples: "As of 2026-02-20, ElevenLabs setup is complete" NOT "ElevenLabs setup is complete"
+
+CONCISENESS:
+- Each memory should be 1-2 sentences, self-contained, and in third person
+- "User's Tailscale machine 'mac' (IP 100.71.135.41) is configured under beau@rizedigital.io (as of 2026-02-20)"
+- NOT a paragraph retelling the whole conversation
+
+OUTCOMES OVER INTENT:
+- When an assistant message summarizes completed work, extract the durable OUTCOMES
+- "Call scripts sheet (ID: 146Qbb...) was updated with truth-based templates" NOT "User wants to update call scripts"
+- Extract what WAS DONE, not what was requested
+
+DEDUPLICATION:
+- Before creating a new memory, check if a substantially similar fact already exists
+- If so, UPDATE the existing memory with any new details rather than creating a duplicate
+
+LANGUAGE:
+- ALWAYS preserve the original language of the conversation
+- If the user speaks Spanish, store the memory in Spanish; do not translate
+
+Exclude (NEVER store):
+- Passwords, API keys, tokens, secrets, or any credentials — even if shared in conversation. Instead store: "Tavily API key was configured and saved to .env (as of 2026-02-20)"
+- One-time commands or instructions ("stop the script", "continue where you left off")
+- Acknowledgments or emotional reactions ("ok", "sounds good", "you're right", "sir")
+- Transient UI/navigation states ("user is in the admin panel", "relay is attached")
+- Ephemeral process status ("download at 50%", "daemon not running", "still syncing")
+- Cron heartbeat outputs, NO_REPLY responses, compaction flush directives
+- System routing metadata (message IDs, sender IDs, channel routing info)
 - Generic small talk with no informational content
-- The assistant's own responses unless they contain a commitment or promise to the user
 - Raw code snippets (capture the intent/decision, not the code itself)
 - Information the user explicitly asks not to remember`;
 
@@ -604,7 +622,7 @@ export const mem0ConfigSchema = {
           : DEFAULT_CUSTOM_INSTRUCTIONS,
       enableGraph: cfg.enableGraph === true,
       searchThreshold:
-        typeof cfg.searchThreshold === "number" ? cfg.searchThreshold : 0.5,
+        typeof cfg.searchThreshold === "number" ? cfg.searchThreshold : 0.7,
       topK: typeof cfg.topK === "number" ? cfg.topK : 5,
       oss: ossConfig,
     };
@@ -637,6 +655,118 @@ function categoriesToArray(
   cats: Record<string, string>,
 ): Array<Record<string, string>> {
   return Object.entries(cats).map(([key, value]) => ({ [key]: value }));
+}
+
+// ============================================================================
+// Message Filtering (pre-extraction noise removal)
+// ============================================================================
+
+/** Patterns that indicate an entire message is noise and should be dropped. */
+const NOISE_MESSAGE_PATTERNS: RegExp[] = [
+  /^(HEARTBEAT_OK|NO_REPLY)$/i,
+  /^Current time:.*\d{4}/,
+  /^Pre-compaction memory flush/i,
+  /^(ok|yes|no|sir|sure|thanks|done|good|nice|cool|got it|it's on|continue)$/i,
+  /^System: \[.*\] (Slack message edited|Gateway restart|Exec (failed|completed))/,
+  /^System: \[.*\] ⚠️ Post-Compaction Audit:/,
+];
+
+/** Content fragments that should be stripped from otherwise-valid messages. */
+const NOISE_CONTENT_PATTERNS: Array<{ pattern: RegExp; replacement: string }> = [
+  { pattern: /Conversation info \(untrusted metadata\):\s*```json\s*\{[\s\S]*?\}\s*```/g, replacement: "" },
+  { pattern: /\[media attached:.*?\]/g, replacement: "" },
+  { pattern: /To send an image back, prefer the message tool[\s\S]*?Keep caption in the text body\./g, replacement: "" },
+  { pattern: /System: \[\d{4}-\d{2}-\d{2}.*?\] ⚠️ Post-Compaction Audit:[\s\S]*?after memory compaction\./g, replacement: "" },
+  { pattern: /Replied message \(untrusted, for context\):\s*```json[\s\S]*?```/g, replacement: "" },
+];
+
+const MAX_MESSAGE_LENGTH = 2000;
+
+/**
+ * Check whether a message's content is entirely noise (cron heartbeats,
+ * single-word acknowledgments, system routing metadata, etc.).
+ */
+export function isNoiseMessage(content: string): boolean {
+  const trimmed = content.trim();
+  if (!trimmed) return true;
+  return NOISE_MESSAGE_PATTERNS.some((p) => p.test(trimmed));
+}
+
+/**
+ * Remove embedded noise fragments (routing metadata, media boilerplate,
+ * compaction audit blocks) from a message while preserving the useful content.
+ */
+export function stripNoiseFromContent(content: string): string {
+  let cleaned = content;
+  for (const { pattern, replacement } of NOISE_CONTENT_PATTERNS) {
+    cleaned = cleaned.replace(pattern, replacement);
+  }
+  // Collapse excessive whitespace left behind after stripping
+  cleaned = cleaned.replace(/\n{3,}/g, "\n\n").trim();
+  return cleaned;
+}
+
+/**
+ * Truncate a message to `MAX_MESSAGE_LENGTH` characters, preserving the
+ * opening (which typically contains the summary/conclusion) and appending
+ * a truncation marker so the extraction model knows content was cut.
+ */
+function truncateMessage(content: string): string {
+  if (content.length <= MAX_MESSAGE_LENGTH) return content;
+  return content.slice(0, MAX_MESSAGE_LENGTH) + "\n[...truncated]";
+}
+
+/**
+ * Full pre-extraction pipeline: drop noise messages, strip noise fragments,
+ * and truncate remaining messages to a reasonable length.
+ */
+export function filterMessagesForExtraction(
+  messages: Array<{ role: string; content: string }>,
+): Array<{ role: string; content: string }> {
+  const filtered: Array<{ role: string; content: string }> = [];
+  for (const msg of messages) {
+    if (isNoiseMessage(msg.content)) continue;
+    const cleaned = stripNoiseFromContent(msg.content);
+    if (!cleaned) continue;
+    filtered.push({ role: msg.role, content: truncateMessage(cleaned) });
+  }
+  return filtered;
+}
+
+/**
+ * Compute word-level Jaccard similarity between two strings.
+ * Used to detect near-duplicate recalled memories.
+ */
+function wordJaccard(a: string, b: string): number {
+  const wordsA = new Set(a.toLowerCase().split(/\s+/));
+  const wordsB = new Set(b.toLowerCase().split(/\s+/));
+  let intersection = 0;
+  for (const w of wordsA) {
+    if (wordsB.has(w)) intersection++;
+  }
+  const union = wordsA.size + wordsB.size - intersection;
+  return union === 0 ? 0 : intersection / union;
+}
+
+/**
+ * Remove near-duplicate memories from a list. When two memories have
+ * >80% word overlap, only the higher-scoring one is kept.
+ * Sorts by score descending first so the highest-scored variant wins.
+ */
+export function deduplicateByContent(memories: MemoryItem[]): MemoryItem[] {
+  if (memories.length <= 1) return memories;
+  // Sort descending by score so the highest-scored item is encountered first
+  const sorted = [...memories].sort(
+    (a, b) => (b.score ?? 0) - (a.score ?? 0),
+  );
+  const kept: MemoryItem[] = [];
+  for (const mem of sorted) {
+    const isDuplicate = kept.some(
+      (existing) => wordJaccard(existing.memory, mem.memory) > 0.8,
+    );
+    if (!isDuplicate) kept.push(mem);
+  }
+  return kept;
 }
 
 // ============================================================================
@@ -929,6 +1059,19 @@ const memoryPlugin = {
           try {
             const uid = _resolveUserId({ agentId, userId });
             const runId = !longTerm && currentSessionId ? currentSessionId : undefined;
+
+            // Pre-check for near-duplicates so the extraction model has
+            // context about existing memories and can UPDATE rather than ADD
+            const preview = text.slice(0, 200);
+            const dedupOpts = buildSearchOptions(uid, 3);
+            dedupOpts.threshold = 0.85;
+            const existing = await provider.search(preview, dedupOpts);
+            if (existing.length > 0) {
+              api.logger.info(
+                `openclaw-mem0: found ${existing.length} similar existing memories — mem0 may update instead of add`,
+              );
+            }
+
             const result = await provider.add(
               [{ role: "user", content: text }],
               buildAddOptions(uid, runId, currentSessionId),
@@ -1366,16 +1509,51 @@ const memoryPlugin = {
       api.on("before_agent_start", async (event, ctx) => {
         if (!event.prompt || event.prompt.length < 5) return;
 
-        // Track session ID
+        // Track session ID and detect session boundary
         const sessionId = (ctx as any)?.sessionKey ?? undefined;
+        const isNewSession = sessionId && sessionId !== currentSessionId;
         if (sessionId) currentSessionId = sessionId;
 
         try {
+          // Use a larger candidate pool for recall, then filter down
+          const recallTopK = Math.max((cfg.topK ?? 5) * 2, 10);
+
           // Search long-term memories (user-scoped, isolated per agent)
-          const longTermResults = await provider.search(
+          let longTermResults = await provider.search(
             event.prompt,
-            buildSearchOptions(undefined, undefined, undefined, sessionId),
+            buildSearchOptions(undefined, recallTopK, undefined, sessionId),
           );
+
+          // Client-side threshold filter — ensures low-relevance results
+          // are dropped even if the API doesn't honor the threshold
+          longTermResults = longTermResults.filter(
+            (r) => (r.score ?? 0) >= cfg.searchThreshold,
+          );
+
+          // For short/generic prompts or new sessions, broaden recall
+          // with a general query to avoid cold-start blindness.
+          // Use a lower threshold (0.5) since the generic query is
+          // intentionally broad and strict thresholds defeat the purpose.
+          if (event.prompt.length < 100 || isNewSession) {
+            const broadOpts = buildSearchOptions(undefined, 5, undefined, sessionId);
+            broadOpts.threshold = 0.5;
+            const broadResults = await provider.search(
+              "recent decisions, preferences, active projects, and configuration",
+              broadOpts,
+            );
+            const existingIds = new Set(longTermResults.map((r) => r.id));
+            for (const r of broadResults) {
+              if (!existingIds.has(r.id)) {
+                longTermResults.push(r);
+              }
+            }
+          }
+
+          // Remove near-duplicate recalled memories (>80% word overlap)
+          longTermResults = deduplicateByContent(longTermResults);
+
+          // Cap at configured topK after filtering and dedup
+          longTermResults = longTermResults.slice(0, cfg.topK);
 
           // Search session memories (session-scoped) if we have a session ID
           let sessionResults: MemoryItem[] = [];
@@ -1383,6 +1561,9 @@ const memoryPlugin = {
             sessionResults = await provider.search(
               event.prompt,
               buildSearchOptions(undefined, undefined, currentSessionId, sessionId),
+            );
+            sessionResults = sessionResults.filter(
+              (r) => (r.score ?? 0) >= cfg.searchThreshold,
             );
           }
 
@@ -1438,14 +1619,28 @@ const memoryPlugin = {
         if (sessionId) currentSessionId = sessionId;
 
         try {
-          // Extract messages, limiting to last 10
-          const recentMessages = event.messages.slice(-10);
-          const formattedMessages: Array<{
+          // Patterns indicating an assistant message contains a summary of
+          // completed work — these are high-value for extraction and should
+          // be included even if they fall outside the recent-message window.
+          const SUMMARY_PATTERNS = [
+            /## What I (Accomplished|Built|Updated)/i,
+            /✅\s*(Done|Complete|All done)/i,
+            /Here's (what I updated|the recap|a summary)/i,
+            /### Changes Made/i,
+            /Implementation Status/i,
+            /All locked in\. Quick summary/i,
+          ];
+
+          // First pass: extract all messages into a typed array
+          const allParsed: Array<{
             role: string;
             content: string;
+            index: number;
+            isSummary: boolean;
           }> = [];
 
-          for (const msg of recentMessages) {
+          for (let i = 0; i < event.messages.length; i++) {
+            const msg = event.messages[i];
             if (!msg || typeof msg !== "object") continue;
             const msgObj = msg as Record<string, unknown>;
 
@@ -1479,13 +1674,63 @@ const memoryPlugin = {
               if (!textContent) continue;
             }
 
-            formattedMessages.push({
+            const isSummary =
+              role === "assistant" &&
+              SUMMARY_PATTERNS.some((p) => p.test(textContent));
+
+            allParsed.push({
               role: role as string,
               content: textContent,
+              index: i,
+              isSummary,
             });
           }
 
+          if (allParsed.length === 0) return;
+
+          // Select messages: last 20 + any earlier summary messages,
+          // sorted by original index to preserve chronological order.
+          const recentWindow = 20;
+          const recentCutoff = allParsed.length - recentWindow;
+
+          const candidates: typeof allParsed = [];
+
+          // Include summary messages from anywhere in the conversation
+          for (const msg of allParsed) {
+            if (msg.isSummary && msg.index < recentCutoff) {
+              candidates.push(msg);
+            }
+          }
+
+          // Include recent messages
+          const seenIndices = new Set(candidates.map((m) => m.index));
+          for (const msg of allParsed) {
+            if (msg.index >= recentCutoff && !seenIndices.has(msg.index)) {
+              candidates.push(msg);
+            }
+          }
+
+          // Sort by original position so the extraction model sees
+          // messages in the order they actually occurred
+          candidates.sort((a, b) => a.index - b.index);
+
+          const selected = candidates.map((m) => ({
+            role: m.role,
+            content: m.content,
+          }));
+
+          // Apply noise filtering pipeline: drop noise, strip fragments, truncate
+          const formattedMessages = filterMessagesForExtraction(selected);
+
           if (formattedMessages.length === 0) return;
+
+          // Inject a timestamp preamble so the extraction model can anchor
+          // time-sensitive facts to a concrete date
+          const timestamp = new Date().toISOString().split("T")[0];
+          formattedMessages.unshift({
+            role: "system",
+            content: `Current date: ${timestamp}. Extract durable facts from this conversation. Include this date when storing time-sensitive information.`,
+          });
 
           const addOpts = buildAddOptions(undefined, currentSessionId, sessionId);
           const result = await provider.add(
