@@ -95,16 +95,33 @@ export class ConfigManager {
         })(),
       },
       historyDbPath:
-        userConfig.historyDbPath || DEFAULT_MEMORY_CONFIG.historyDbPath,
+        userConfig.historyDbPath ||
+        userConfig.historyStore?.config?.historyDbPath ||
+        DEFAULT_MEMORY_CONFIG.historyStore.config.historyDbPath,
       customPrompt: userConfig.customPrompt,
       graphStore: {
         ...DEFAULT_MEMORY_CONFIG.graphStore,
         ...userConfig.graphStore,
       },
-      historyStore: {
-        ...DEFAULT_MEMORY_CONFIG.historyStore,
-        ...userConfig.historyStore,
-      },
+      historyStore: (() => {
+        const defaultHistoryStore = DEFAULT_MEMORY_CONFIG.historyStore;
+        const historyProvider =
+          userConfig.historyStore?.provider || defaultHistoryStore.provider;
+
+        return {
+          ...defaultHistoryStore,
+          ...userConfig.historyStore,
+          provider: historyProvider,
+          config: {
+            ...defaultHistoryStore.config,
+            ...userConfig.historyStore?.config,
+            ...(historyProvider.toLowerCase() === "sqlite" &&
+            userConfig.historyDbPath
+              ? { historyDbPath: userConfig.historyDbPath }
+              : {}),
+          },
+        };
+      })(),
       disableHistory:
         userConfig.disableHistory || DEFAULT_MEMORY_CONFIG.disableHistory,
       enableGraph: userConfig.enableGraph || DEFAULT_MEMORY_CONFIG.enableGraph,
