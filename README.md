@@ -169,3 +169,45 @@ We now have a paper you can cite:
 ## ⚖️ License
 
 Apache 2.0 — see the [LICENSE](https://github.com/mem0ai/mem0/blob/main/LICENSE) file for details.
+
+## 🇨🇳 中文说明
+
+Mem0 ("mem-zero") 为 AI 助手和 Agent 增强智能记忆层，实现个性化 AI 交互。它能记住用户偏好、适应个体需求并持续学习，非常适合客户支持聊天机器人、AI 助手和自主系统。
+
+### 核心特性
+
+- **多层次记忆**: 无缝保留用户、会话和 Agent 状态，实现自适应个性化
+- **开发者友好**: 直观的 API、跨平台 SDK，完全托管服务选项
+- **+26% 准确率**: 在 LOCOMO 基准测试中比 OpenAI Memory 准确率更高
+- **91% 更快响应**: 比全上下文响应更快，确保低延迟扩展
+- **90% 更少 Token**: 比全上下文使用更少 Token，降低成本
+
+### 快速开始
+
+```bash
+# 安装 mem0
+pip install mem0ai
+
+# 使用
+from mem0 import Memory
+
+m = Memory()
+m.add("用户喜欢蓝色，偏好深色模式", user_id="user_123")
+results = m.get_all(user_id="user_123")
+```
+
+### 文档
+
+了解更多，请访问 [官方文档](https://docs.mem0.ai/)。
+
+## 📖 Citation
+
+如果您在研究中使用了 Mem0，请引用：
+
+```bibtex
+@article{mem0,
+  title={Mem0: Building Production-Ready AI Agents with Scalable Long-Term Memory},
+  author={Chhikara, Prateek and Khant, Dev and Aryan, Saket and Singh, Taranjeet and Yadav, Deshraj},
+  journal={arXiv preprint arXiv:2504.19413},
+  year={2025}
+}
