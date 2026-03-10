@@ -9,6 +9,7 @@ import {
   agentUserId,
   resolveUserId,
   isNoiseMessage,
+  isGenericAssistantMessage,
   stripNoiseFromContent,
   filterMessagesForExtraction,
   deduplicateByContent,
@@ -221,6 +222,45 @@ describe("isNoiseMessage", () => {
 });
 
 // ---------------------------------------------------------------------------
+// isGenericAssistantMessage
+// ---------------------------------------------------------------------------
+describe("isGenericAssistantMessage", () => {
+  it("detects 'I see you've shared' openers", () => {
+    expect(isGenericAssistantMessage("I see you've shared an update. How can I help?")).toBe(true);
+    expect(isGenericAssistantMessage("I see you've shared a summary of the Atlas configuration update. Is there anything specific you'd like me to help with?")).toBe(true);
+  });
+
+  it("detects 'Thanks for sharing' openers", () => {
+    expect(isGenericAssistantMessage("Thanks for sharing that update! Would you like me to review the changes?")).toBe(true);
+  });
+
+  it("detects 'How can I help' standalone", () => {
+    expect(isGenericAssistantMessage("How can I help you with this?")).toBe(true);
+  });
+
+  it("detects 'Got it' + follow-up", () => {
+    expect(isGenericAssistantMessage("Got it! How can I assist?")).toBe(true);
+    expect(isGenericAssistantMessage("Got it. Let me know what you need.")).toBe(true);
+  });
+
+  it("detects 'I'll help/review/look into'", () => {
+    expect(isGenericAssistantMessage("I'll review that for you.")).toBe(true);
+    expect(isGenericAssistantMessage("I'll look into this right away.")).toBe(true);
+  });
+
+  it("preserves substantive assistant content", () => {
+    expect(isGenericAssistantMessage("## What I Accomplished\n\nDeployed the API to production with Vercel.")).toBe(false);
+    expect(isGenericAssistantMessage("The ElevenLabs SDK has been installed and configured. Voice skill is ready.")).toBe(false);
+    expect(isGenericAssistantMessage("Updated the call scripts sheet with truth-based messaging templates.")).toBe(false);
+  });
+
+  it("preserves long messages even with generic openers", () => {
+    const longMsg = "I see you've shared an update. " + "Here are the detailed changes I made to the configuration. ".repeat(10);
+    expect(isGenericAssistantMessage(longMsg)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // stripNoiseFromContent
 // ---------------------------------------------------------------------------
 describe("stripNoiseFromContent", () => {
@@ -329,6 +369,26 @@ What is the deployment plan?`,
     const result = filterMessagesForExtraction(messages);
     expect(result).toHaveLength(1);
     expect(result[0].content).toContain("Deployed the API");
+  });
+
+  it("drops generic assistant acknowledgments", () => {
+    const messages = [
+      { role: "user", content: "[ASSISTANT]: Updated the Google Sheet with truth-based scripts." },
+      { role: "assistant", content: "I see you've shared an update. How can I help?" },
+    ];
+    const result = filterMessagesForExtraction(messages);
+    expect(result).toHaveLength(1);
+    expect(result[0].role).toBe("user");
+    expect(result[0].content).toContain("Google Sheet");
+  });
+
+  it("keeps substantive assistant messages even with generic opener", () => {
+    const messages = [
+      { role: "user", content: "What did you do?" },
+      { role: "assistant", content: "I deployed the API to production and configured the webhook endpoints for Stripe integration." },
+    ];
+    const result = filterMessagesForExtraction(messages);
+    expect(result).toHaveLength(2);
   });
 });
 

@@ -683,6 +683,19 @@ const NOISE_CONTENT_PATTERNS: Array<{ pattern: RegExp; replacement: string }> = 
 const MAX_MESSAGE_LENGTH = 2000;
 
 /**
+ * Patterns indicating an assistant message is a generic acknowledgment with
+ * no extractable facts. These are produced when the agent receives a
+ * transcript dump or forwarded message and responds with a boilerplate reply.
+ */
+const GENERIC_ASSISTANT_PATTERNS: RegExp[] = [
+  /^(I see you'?ve shared|Thanks for sharing|Got it[.!]?\s*(I see|Let me|How can)|I understand[.!]?\s*(How can|Is there|Would you))/i,
+  /^(How can I help|Is there anything|Would you like me to|Let me know (if|how|what))/i,
+  /^(I('?ll| will) (help|assist|look into|review|take a look))/i,
+  /^(Sure[.!]?\s*(How|What|Is)|Understood[.!]?\s*(How|What|Is))/i,
+  /^(That('?s| is) (noted|understood|clear))/i,
+];
+
+/**
  * Check whether a message's content is entirely noise (cron heartbeats,
  * single-word acknowledgments, system routing metadata, etc.).
  */
@@ -690,6 +703,19 @@ export function isNoiseMessage(content: string): boolean {
   const trimmed = content.trim();
   if (!trimmed) return true;
   return NOISE_MESSAGE_PATTERNS.some((p) => p.test(trimmed));
+}
+
+/**
+ * Check whether an assistant message is a generic acknowledgment with no
+ * extractable facts (e.g. "I see you've shared an update. How can I help?").
+ * Only applies to short assistant messages — longer responses likely contain
+ * substantive content even if they start with a generic opener.
+ */
+export function isGenericAssistantMessage(content: string): boolean {
+  const trimmed = content.trim();
+  // Only flag short messages — longer ones likely have substance after the opener
+  if (trimmed.length > 300) return false;
+  return GENERIC_ASSISTANT_PATTERNS.some((p) => p.test(trimmed));
 }
 
 /**
@@ -726,6 +752,8 @@ export function filterMessagesForExtraction(
   const filtered: Array<{ role: string; content: string }> = [];
   for (const msg of messages) {
     if (isNoiseMessage(msg.content)) continue;
+    // Drop generic assistant acknowledgments that contain no facts
+    if (msg.role === "assistant" && isGenericAssistantMessage(msg.content)) continue;
     const cleaned = stripNoiseFromContent(msg.content);
     if (!cleaned) continue;
     filtered.push({ role: msg.role, content: truncateMessage(cleaned) });
