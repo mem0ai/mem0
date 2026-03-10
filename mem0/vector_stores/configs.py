@@ -1,3 +1,6 @@
+import os
+
+from pathlib import Path
 from typing import Dict, Optional
 
 from pydantic import BaseModel, Field, model_validator
@@ -61,7 +64,18 @@ class VectorStoreConfig(BaseModel):
 
         # also check if path in allowed kays for pydantic model, and whether config extra fields are allowed
         if "path" not in config and "path" in config_class.__annotations__:
-            config["path"] = f"/tmp/{provider}"
+            # Use a platform-appropriate user data directory instead of /tmp, which is
+            # ephemeral on many systems and may be unwritable in service/restricted environments.
+            # Preference order: XDG_DATA_HOME (Linux) → APPDATA (Windows) → ~/.local/share
+            xdg = os.environ.get("XDG_DATA_HOME")
+            app_data = os.environ.get("APPDATA")
+            if xdg:
+                base = Path(xdg)
+            elif app_data:
+                base = Path(app_data)
+            else:
+                base = Path.home() / ".local" / "share"
+            config["path"] = str(base / "mem0" / provider)
 
         self.config = config_class(**config)
         return self
