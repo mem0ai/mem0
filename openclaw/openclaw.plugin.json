@@ -17,6 +17,10 @@
       "placeholder": "default",
       "help": "User ID for scoping memories"
     },
+    "userIdScope": {
+      "label": "User ID Scope",
+      "help": "\"static\" (one userId for all) or \"per-sender\" (each sender gets isolated memory namespace). Use per-sender for multi-user DM bots."
+    },
     "orgId": {
       "label": "Organization ID",
       "placeholder": "org-...",
@@ -87,6 +91,10 @@
       },
       "userId": {
         "type": "string"
+      },
+      "userIdScope": {
+        "type": "string",
+        "enum": ["static", "per-sender"]
       },
       "orgId": {
         "type": "string"
