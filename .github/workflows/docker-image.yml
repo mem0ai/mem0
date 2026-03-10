@@ -14,5 +14,17 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: Build the Docker image
-      run: docker build ../../server/ --file dev.Dockerfile --tag mem0:v0.0.1
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build the Mem0 REST API Server Docker image
+      run: |
+        docker build ./server \
+          --file ./server/Dockerfile \
+          --tag mem0-api-server:latest \
+          --tag mem0-api-server:${{ github.sha }}
+
+    - name: Test the Docker image
+      run: |
+        docker run --rm mem0-api-server:latest python -c "import fastapi; import uvicorn; print('Dependencies OK')"
