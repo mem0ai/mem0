@@ -131,8 +131,11 @@ export class MemoryGraph {
     const { records: deletedEntities, edgeIds: deletedEdgeIds } =
       await this._deleteEntities(toBeDeleted, filters["userId"]);
 
-    const { records: addedEntities, nodeIds: addedNodeIds, edgeIds: addedEdgeIds } =
-      await this._addEntities(toBeAdded, filters["userId"], entityTypeMap);
+    const {
+      records: addedEntities,
+      nodeIds: addedNodeIds,
+      edgeIds: addedEdgeIds,
+    } = await this._addEntities(toBeAdded, filters["userId"], entityTypeMap);
 
     return {
       deleted_entities: deletedEntities,
@@ -590,9 +593,12 @@ export class MemoryGraph {
           const srcId = record.get("source_id");
           const dstId = record.get("dest_id");
           const relId = record.get("rel_id");
-          if (srcId && !nodeIds.includes(String(srcId))) nodeIds.push(String(srcId));
-          if (dstId && !nodeIds.includes(String(dstId))) nodeIds.push(String(dstId));
-          if (relId && !edgeIds.includes(String(relId))) edgeIds.push(String(relId));
+          if (srcId && !nodeIds.includes(String(srcId)))
+            nodeIds.push(String(srcId));
+          if (dstId && !nodeIds.includes(String(dstId)))
+            nodeIds.push(String(dstId));
+          if (relId && !edgeIds.includes(String(relId)))
+            edgeIds.push(String(relId));
         }
         results.push(result.records);
       }
