@@ -27,7 +27,13 @@ export class ConfigManager {
                 : defaultConf.apiKey,
             model: finalModel,
             url: userConf?.url,
-            embeddingDims: userConf?.embeddingDims,
+            baseURL:
+              userConf?.baseURL ??
+              (userConf as any)?.lmstudio_base_url ??
+              userConf?.url,
+            embeddingDims:
+              userConf?.embeddingDims ??
+              (userConf as any)?.embedding_dims,
             modelProperties:
               userConf?.modelProperties !== undefined
                 ? userConf.modelProperties
