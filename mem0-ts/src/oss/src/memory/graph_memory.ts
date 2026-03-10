@@ -45,6 +45,9 @@ interface GraphMemoryResult {
   deleted_entities: any[];
   added_entities: any[];
   relations?: any[];
+  added_node_ids: string[];
+  added_edge_ids: string[];
+  deleted_edge_ids: string[];
 }
 
 export class MemoryGraph {
@@ -125,21 +128,19 @@ export class MemoryGraph {
       filters,
     );
 
-    const deletedEntities = await this._deleteEntities(
-      toBeDeleted,
-      filters["userId"],
-    );
+    const { records: deletedEntities, edgeIds: deletedEdgeIds } =
+      await this._deleteEntities(toBeDeleted, filters["userId"]);
 
-    const addedEntities = await this._addEntities(
-      toBeAdded,
-      filters["userId"],
-      entityTypeMap,
-    );
+    const { records: addedEntities, nodeIds: addedNodeIds, edgeIds: addedEdgeIds } =
+      await this._addEntities(toBeAdded, filters["userId"], entityTypeMap);
 
     return {
       deleted_entities: deletedEntities,
       added_entities: addedEntities,
       relations: toBeAdded,
+      added_node_ids: addedNodeIds,
+      added_edge_ids: addedEdgeIds,
+      deleted_edge_ids: deletedEdgeIds,
     };
   }
 
@@ -419,6 +420,7 @@ export class MemoryGraph {
 
   private async _deleteEntities(toBeDeleted: any[], userId: string) {
     const results: any[] = [];
+    const edgeIds: string[] = [];
     const session = this.graph.session();
 
     try {
@@ -429,11 +431,13 @@ export class MemoryGraph {
           MATCH (n {name: $source_name, user_id: $user_id})
           -[r:${relationship}]->
           (m {name: $dest_name, user_id: $user_id})
+          WITH n, r, m, elementId(r) AS rel_id
           DELETE r
-          RETURN 
+          RETURN
               n.name AS source,
               m.name AS target,
-              type(r) AS relationship
+              type(r) AS relationship,
+              rel_id
         `;
 
         const result = await session.run(cypher, {
@@ -442,21 +446,27 @@ export class MemoryGraph {
           user_id: userId,
         });
 
+        for (const record of result.records) {
+          const relId = record.get("rel_id");
+          if (relId) edgeIds.push(String(relId));
+        }
         results.push(result.records);
       }
     } finally {
       await session.close();
     }
 
-    return results;
+    return { records: results, edgeIds };
   }
 
   private async _addEntities(
     toBeAdded: any[],
     userId: string,
     entityTypeMap: Record<string, string>,
-  ) {
+  ): Promise<{ records: any[]; nodeIds: string[]; edgeIds: string[] }> {
     const results: any[] = [];
+    const nodeIds: string[] = [];
+    const edgeIds: string[] = [];
     const session = this.graph.session();
 
     try {
@@ -494,9 +504,10 @@ export class MemoryGraph {
                 destination.created = timestamp(),
                 destination.embedding = $destination_embedding
             MERGE (source)-[r:${relationship}]->(destination)
-            ON CREATE SET 
+            ON CREATE SET
                 r.created = timestamp()
-            RETURN source.name AS source, type(r) AS relationship, destination.name AS target
+            RETURN source.name AS source, type(r) AS relationship, destination.name AS target,
+                   elementId(source) AS source_id, elementId(destination) AS dest_id, elementId(r) AS rel_id
           `;
 
           params = {
@@ -517,9 +528,10 @@ export class MemoryGraph {
                 source.created = timestamp(),
                 source.embedding = $source_embedding
             MERGE (source)-[r:${relationship}]->(destination)
-            ON CREATE SET 
+            ON CREATE SET
                 r.created = timestamp()
-            RETURN source.name AS source, type(r) AS relationship, destination.name AS target
+            RETURN source.name AS source, type(r) AS relationship, destination.name AS target,
+                   elementId(source) AS source_id, elementId(destination) AS dest_id, elementId(r) AS rel_id
           `;
 
           params = {
@@ -538,10 +550,11 @@ export class MemoryGraph {
             MATCH (destination)
             WHERE elementId(destination) = $destination_id
             MERGE (source)-[r:${relationship}]->(destination)
-            ON CREATE SET 
+            ON CREATE SET
                 r.created_at = timestamp(),
                 r.updated_at = timestamp()
-            RETURN source.name AS source, type(r) AS relationship, destination.name AS target
+            RETURN source.name AS source, type(r) AS relationship, destination.name AS target,
+                   elementId(source) AS source_id, elementId(destination) AS dest_id, elementId(r) AS rel_id
           `;
 
           params = {
@@ -559,7 +572,8 @@ export class MemoryGraph {
             ON MATCH SET m.embedding = $dest_embedding
             MERGE (n)-[rel:${relationship}]->(m)
             ON CREATE SET rel.created = timestamp()
-            RETURN n.name AS source, type(rel) AS relationship, m.name AS target
+            RETURN n.name AS source, type(rel) AS relationship, m.name AS target,
+                   elementId(n) AS source_id, elementId(m) AS dest_id, elementId(rel) AS rel_id
           `;
 
           params = {
@@ -572,13 +586,21 @@ export class MemoryGraph {
         }
 
         const result = await session.run(cypher, params);
+        for (const record of result.records) {
+          const srcId = record.get("source_id");
+          const dstId = record.get("dest_id");
+          const relId = record.get("rel_id");
+          if (srcId && !nodeIds.includes(String(srcId))) nodeIds.push(String(srcId));
+          if (dstId && !nodeIds.includes(String(dstId))) nodeIds.push(String(dstId));
+          if (relId && !edgeIds.includes(String(relId))) edgeIds.push(String(relId));
+        }
         results.push(result.records);
       }
     } finally {
       await session.close();
     }
 
-    return results;
+    return { records: results, nodeIds, edgeIds };
   }
 
   private _removeSpacesFromEntities(entityList: any[]) {

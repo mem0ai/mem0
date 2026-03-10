@@ -216,6 +216,9 @@ export class Memory {
       results: vectorStoreResult.results,
       relations: graphResult?.relations,
       added_entities: graphResult?.added_entities,
+      added_node_ids: graphResult?.added_node_ids ?? [],
+      added_edge_ids: graphResult?.added_edge_ids ?? [],
+      deleted_edge_ids: graphResult?.deleted_edge_ids ?? [],
       decisions: vectorStoreResult.decisions,
     };
   }

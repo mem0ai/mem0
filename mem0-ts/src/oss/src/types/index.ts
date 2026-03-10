@@ -124,6 +124,9 @@ export interface SearchResult {
   results: MemoryItem[];
   relations?: any[];
   added_entities?: any[];
+  added_node_ids?: string[];
+  added_edge_ids?: string[];
+  deleted_edge_ids?: string[];
   decisions?: MemoryDecisions;
 }
 
