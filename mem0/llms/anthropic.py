@@ -83,5 +83,5 @@ class AnthropicLLM(LLMBase):
             params["tools"] = tools
             params["tool_choice"] = tool_choice
 
-        response = self.client.messages.create(**params)
+        response = self._retry_with_backoff(self.client.messages.create, **params)
         return response.content[0].text

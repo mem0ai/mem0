@@ -87,5 +87,5 @@ class AzureOpenAIStructuredLLM(LLMBase):
             params["tools"] = tools
             params["tool_choice"] = tool_choice
 
-        response = self.client.chat.completions.create(**params)
+        response = self._retry_with_backoff(self.client.chat.completions.create, **params)
         return self._parse_response(response, tools)

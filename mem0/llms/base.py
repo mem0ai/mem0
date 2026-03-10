@@ -1,7 +1,15 @@
+import logging
+import random
+import time
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Union
 
 from mem0.configs.llms.base import BaseLlmConfig
+
+logger = logging.getLogger(__name__)
+
+# HTTP status codes that indicate a transient/retryable error
+RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 
 
 class LLMBase(ABC):
@@ -43,10 +51,10 @@ class LLMBase(ABC):
     def _is_reasoning_model(self, model: str) -> bool:
         """
         Check if the model is a reasoning model or GPT-5 series that doesn't support certain parameters.
-        
+
         Args:
             model: The model name to check
-            
+
         Returns:
             bool: True if the model is a reasoning model or GPT-5 series
         """
@@ -54,32 +62,32 @@ class LLMBase(ABC):
             "o1", "o1-preview", "o3-mini", "o3",
             "gpt-5", "gpt-5o", "gpt-5o-mini", "gpt-5o-micro",
         }
-        
+
         if model.lower() in reasoning_models:
             return True
-        
+
         model_lower = model.lower()
         if any(reasoning_model in model_lower for reasoning_model in ["gpt-5", "o1", "o3"]):
             return True
-            
+
         return False
 
     def _get_supported_params(self, **kwargs) -> Dict:
         """
         Get parameters that are supported by the current model.
         Filters out unsupported parameters for reasoning models and GPT-5 series.
-        
+
         Args:
             **kwargs: Additional parameters to include
-            
+
         Returns:
             Dict: Filtered parameters dictionary
         """
         model = getattr(self.config, 'model', '')
-        
+
         if self._is_reasoning_model(model):
             supported_params = {}
-            
+
             if "messages" in kwargs:
                 supported_params["messages"] = kwargs["messages"]
             if "response_format" in kwargs:
@@ -88,11 +96,93 @@ class LLMBase(ABC):
                 supported_params["tools"] = kwargs["tools"]
             if "tool_choice" in kwargs:
                 supported_params["tool_choice"] = kwargs["tool_choice"]
-                
+
             return supported_params
         else:
             # For regular models, include all common parameters
             return self._get_common_params(**kwargs)
+
+    def _is_retryable_error(self, error: Exception) -> bool:
+        """
+        Determine if an error is transient and should be retried.
+
+        Covers rate limits (HTTP 429), server errors (5xx), timeouts,
+        and connection errors across all major LLM provider SDKs.
+        """
+        error_type = type(error).__name__
+
+        # OpenAI / Groq / Together / DeepSeek / xAI (all use openai-python SDK)
+        if error_type == "RateLimitError":
+            return True
+        if error_type == "APIConnectionError":
+            return True
+        if error_type == "InternalServerError":
+            return True
+        if error_type == "APITimeoutError":
+            return True
+
+        # Anthropic SDK
+        if error_type in ("OverloadedError", "APIConnectionError", "InternalServerError"):
+            return True
+
+        # Check for status_code on any API error
+        status_code = getattr(error, "status_code", None)
+        if status_code and status_code in RETRYABLE_STATUS_CODES:
+            return True
+
+        # Generic network errors
+        error_msg = str(error).lower()
+        if any(keyword in error_msg for keyword in ["timeout", "connection", "temporarily unavailable"]):
+            return True
+
+        return False
+
+    def _retry_with_backoff(self, func, *args, **kwargs):
+        """
+        Execute a function with retry logic and exponential backoff.
+
+        Retries on transient errors (rate limits, timeouts, server errors)
+        with jittered exponential backoff. Non-retryable errors are raised
+        immediately.
+
+        Args:
+            func: The callable to execute.
+            *args: Positional arguments for func.
+            **kwargs: Keyword arguments for func.
+
+        Returns:
+            The return value of func.
+
+        Raises:
+            The last exception if all retries are exhausted.
+        """
+        max_retries = getattr(self.config, "max_retries", 3)
+        base_delay = getattr(self.config, "retry_delay", 1.0)
+
+        last_exception = None
+        for attempt in range(max_retries + 1):
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                last_exception = e
+
+                if attempt >= max_retries or not self._is_retryable_error(e):
+                    raise
+
+                delay = min(base_delay * (2 ** attempt), 60.0)
+                jitter = random.uniform(0, delay * 0.5)
+                total_delay = delay + jitter
+                logger.warning(
+                    "LLM call failed with %s: %s. Retrying in %.1fs (attempt %d/%d)",
+                    type(e).__name__,
+                    str(e)[:200],
+                    total_delay,
+                    attempt + 1,
+                    max_retries,
+                )
+                time.sleep(total_delay)
+
+        raise last_exception
 
     @abstractmethod
     def generate_response(
