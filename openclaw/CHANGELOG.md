@@ -2,6 +2,11 @@
 
 All notable changes to the `@mem0/openclaw-mem0` plugin will be documented in this file.
 
+## [0.3.0] - 2026-03-10
+
+### Fixed
+- Updated `mem0ai` dependency which includes the sqlite3 to better-sqlite3 migration for native binding resolution (#4270)
+
 ## [0.2.0] - 2026-03-09
 
 ### Added
