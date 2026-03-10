@@ -8,6 +8,7 @@ from mem0.configs.llms.base import BaseLlmConfig
 from mem0.configs.llms.deepseek import DeepSeekConfig
 from mem0.configs.llms.lmstudio import LMStudioConfig
 from mem0.configs.llms.ollama import OllamaConfig
+from mem0.configs.llms.novita import NovitaConfig
 from mem0.configs.llms.openai import OpenAIConfig
 from mem0.configs.llms.vllm import VllmConfig
 from mem0.configs.rerankers.base import BaseRerankerConfig
@@ -45,6 +46,7 @@ class LlmFactory:
         "azure_openai_structured": ("mem0.llms.azure_openai_structured.AzureOpenAIStructuredLLM", AzureOpenAIConfig),
         "gemini": ("mem0.llms.gemini.GeminiLLM", BaseLlmConfig),
         "deepseek": ("mem0.llms.deepseek.DeepSeekLLM", DeepSeekConfig),
+        "novita": ("mem0.llms.novita.NovitaLLM", NovitaConfig),
         "xai": ("mem0.llms.xai.XAILLM", BaseLlmConfig),
         "sarvam": ("mem0.llms.sarvam.SarvamLLM", BaseLlmConfig),
         "lmstudio": ("mem0.llms.lmstudio.LMStudioLLM", LMStudioConfig),
@@ -140,6 +142,7 @@ class EmbedderFactory:
         "huggingface": "mem0.embeddings.huggingface.HuggingFaceEmbedding",
         "azure_openai": "mem0.embeddings.azure_openai.AzureOpenAIEmbedding",
         "gemini": "mem0.embeddings.gemini.GoogleGenAIEmbedding",
+        "novita": "mem0.embeddings.novita.NovitaEmbedding",
         "vertexai": "mem0.embeddings.vertexai.VertexAIEmbedding",
         "together": "mem0.embeddings.together.TogetherEmbedding",
         "lmstudio": "mem0.embeddings.lmstudio.LMStudioEmbedding",
@@ -238,7 +241,10 @@ class RerankerFactory:
     # Provider mappings with their config classes
     provider_to_class = {
         "cohere": ("mem0.reranker.cohere_reranker.CohereReranker", CohereRerankerConfig),
-        "sentence_transformer": ("mem0.reranker.sentence_transformer_reranker.SentenceTransformerReranker", SentenceTransformerRerankerConfig),
+        "sentence_transformer": (
+            "mem0.reranker.sentence_transformer_reranker.SentenceTransformerReranker",
+            SentenceTransformerRerankerConfig,
+        ),
         "zero_entropy": ("mem0.reranker.zero_entropy_reranker.ZeroEntropyReranker", ZeroEntropyRerankerConfig),
         "llm_reranker": ("mem0.reranker.llm_reranker.LLMReranker", LLMRerankerConfig),
         "huggingface": ("mem0.reranker.huggingface_reranker.HuggingFaceReranker", HuggingFaceRerankerConfig),
