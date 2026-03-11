@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Any, Callable, Dict, Optional, Union
 
 from mem0.configs.llms.base import BaseLlmConfig
 
@@ -20,9 +20,10 @@ class NovitaConfig(BaseLlmConfig):
         top_k: int = 1,
         enable_vision: bool = False,
         vision_details: Optional[str] = "auto",
-        http_client_proxies: Optional[dict] = None,
+        http_client_proxies: Optional[Union[Dict, str]] = None,
         # Novita-specific parameters
         novita_base_url: Optional[str] = None,
+        response_callback: Optional[Callable[[Any, dict, dict], None]] = None,
     ):
         """
         Initialize Novita configuration.
@@ -38,6 +39,7 @@ class NovitaConfig(BaseLlmConfig):
             vision_details: Vision detail level, defaults to "auto"
             http_client_proxies: HTTP client proxy settings, defaults to None
             novita_base_url: Novita API base URL, defaults to None
+            response_callback: Optional callback for monitoring LLM responses.
         """
         # Initialize base parameters
         super().__init__(
@@ -54,3 +56,4 @@ class NovitaConfig(BaseLlmConfig):
 
         # Novita-specific parameters
         self.novita_base_url = novita_base_url
+        self.response_callback = response_callback

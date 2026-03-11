@@ -12,8 +12,8 @@ class NovitaEmbedding(EmbeddingBase):
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
         super().__init__(config)
 
-        self.config.model = self.config.model or "nomic-embed-text"
-        self.config.embedding_dims = self.config.embedding_dims or 768
+        self.config.model = self.config.model or "qwen/qwen3-embedding-0.6b"
+        self.config.embedding_dims = self.config.embedding_dims or 1024
 
         api_key = self.config.api_key or os.getenv("NOVITA_API_KEY")
         base_url = (

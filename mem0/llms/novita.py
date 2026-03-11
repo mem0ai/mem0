@@ -1,5 +1,7 @@
 import json
+import logging
 import os
+import warnings
 from typing import Dict, List, Optional, Union
 
 from openai import OpenAI
@@ -34,10 +36,22 @@ class NovitaLLM(LLMBase):
         super().__init__(config)
 
         if not self.config.model:
-            self.config.model = "gpt-4.1-nano-2025-04-14"
+            self.config.model = "deepseek/deepseek-v3.2"
+
+        if os.environ.get("NOVITA_API_BASE"):
+            warnings.warn(
+                "The environment variable 'NOVITA_API_BASE' is deprecated and will be removed in a future version. "
+                "Please use 'NOVITA_API_URL' instead.",
+                DeprecationWarning,
+            )
 
         api_key = self.config.api_key or os.getenv("NOVITA_API_KEY")
-        base_url = self.config.novita_base_url or os.getenv("NOVITA_API_BASE") or "https://api.novita.ai/openai"
+        base_url = (
+            self.config.novita_base_url
+            or os.getenv("NOVITA_API_URL")
+            or os.getenv("NOVITA_API_BASE")
+            or "https://api.novita.ai/openai"
+        )
         self.client = OpenAI(api_key=api_key, base_url=base_url)
 
     def _parse_response(self, response, tools):
@@ -99,9 +113,18 @@ class NovitaLLM(LLMBase):
             }
         )
 
+        if response_format:
+            params["response_format"] = response_format
         if tools:
             params["tools"] = tools
             params["tool_choice"] = tool_choice
 
         response = self.client.chat.completions.create(**params)
-        return self._parse_response(response, tools)
+        parsed_response = self._parse_response(response, tools)
+        if self.config.response_callback:
+            try:
+                self.config.response_callback(self, response, params)
+            except Exception as e:
+                logging.error(f"Error due to callback: {e}")
+                pass
+        return parsed_response

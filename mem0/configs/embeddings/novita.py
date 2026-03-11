@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Dict, Optional, Union
 
 from mem0.configs.embeddings.base import BaseEmbedderConfig
 
@@ -19,7 +19,7 @@ class NovitaEmbeddingConfig(BaseEmbedderConfig):
         openai_base_url: Optional[str] = None,
         # Novita-specific parameters
         novita_base_url: Optional[str] = None,
-        http_client_proxies: Optional[str] = None,
+        http_client_proxies: Optional[Union[Dict, str]] = None,
     ):
         """
         Initialize Novita embedding configuration.
