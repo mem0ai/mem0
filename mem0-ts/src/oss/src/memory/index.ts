@@ -140,11 +140,23 @@ export class Memory {
   /**
    * Ensures that auto-initialization (dimension detection + vector store
    * creation) has completed before any public method proceeds.
+   * If a previous init attempt failed, retries automatically.
    */
   private async _ensureInitialized(): Promise<void> {
     await this._initPromise;
     if (this._initError) {
-      throw this._initError;
+      // Clear failed state and retry — the embedder or vector store
+      // may have been transiently unavailable at startup.
+      this._initError = undefined;
+      this._initPromise = this._autoInitialize().catch((error) => {
+        this._initError =
+          error instanceof Error ? error : new Error(String(error));
+        console.error(this._initError);
+      });
+      await this._initPromise;
+      if (this._initError) {
+        throw this._initError;
+      }
     }
   }
 

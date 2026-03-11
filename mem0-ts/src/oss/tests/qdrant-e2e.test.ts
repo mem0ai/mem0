@@ -5,19 +5,47 @@
  * Requires a running Qdrant instance at localhost:6333 (v1.13.x).
  * These tests replicate the exact scenarios from issues #4212, #4173, #4056.
  *
+ * Skipped automatically when Qdrant is not available.
+ *
  * Run: npx jest --config jest.config.js src/oss/tests/qdrant-e2e.test.ts --forceExit
  */
 
 import { QdrantClient } from "@qdrant/js-client-rest";
 import { Qdrant } from "../src/vector_stores/qdrant";
 import { v4 as uuidv4 } from "uuid";
-
 jest.setTimeout(30000);
 
 const QDRANT_HOST = "localhost";
 const QDRANT_PORT = 6333;
 
+// Check if Qdrant is reachable synchronously at load time using
+// a sync check via child_process so describe.skip works correctly.
+function isQdrantAvailable(): boolean {
+  try {
+    const { execSync } = require("child_process");
+    execSync(
+      `node -e "const s=require('net').createConnection({host:'${QDRANT_HOST}',port:${QDRANT_PORT}});s.on('connect',()=>{s.destroy();process.exit(0)});s.on('error',()=>process.exit(1));s.setTimeout(2000,()=>process.exit(1))"`,
+      { timeout: 3000, stdio: "ignore" },
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const qdrantAvailable = isQdrantAvailable();
+if (!qdrantAvailable) {
+  console.warn("Qdrant not available at localhost:6333 — skipping e2e tests");
+}
+
 let qdrantClient: QdrantClient;
+
+beforeAll(async () => {
+  if (!qdrantAvailable) return;
+  qdrantClient = new QdrantClient({ host: QDRANT_HOST, port: QDRANT_PORT });
+  const collections = await qdrantClient.getCollections();
+  expect(collections).toBeDefined();
+});
 
 // Helper: delete a collection if it exists
 async function deleteCollectionIfExists(name: string) {
@@ -52,11 +80,8 @@ function createFakeEmbedder(dims: number) {
   };
 }
 
-beforeAll(async () => {
-  qdrantClient = new QdrantClient({ host: QDRANT_HOST, port: QDRANT_PORT });
-  const collections = await qdrantClient.getCollections();
-  expect(collections).toBeDefined();
-});
+// Conditionally skip tests when Qdrant is unavailable
+const describeIfQdrant = qdrantAvailable ? describe : describe.skip;
 
 afterAll(async () => {
   await deleteCollectionIfExists("e2e_test_768");
@@ -73,7 +98,7 @@ afterAll(async () => {
 // ───────────────────────────────────────────────────────────────────────────
 // 1. Reproduce #4212 / #4173: dimension mismatch with 768-dim embedder
 // ───────────────────────────────────────────────────────────────────────────
-describe("Issue #4212/#4173: Qdrant dimension mismatch", () => {
+describeIfQdrant("Issue #4212/#4173: Qdrant dimension mismatch", () => {
   it("BEFORE FIX scenario: 768-dim vector into 1536-dim collection → Bad Request", async () => {
     const collectionName = "e2e_test_1536";
     await deleteCollectionIfExists(collectionName);
@@ -384,7 +409,7 @@ describe("Issue #4212/#4173: Qdrant dimension mismatch", () => {
 // ───────────────────────────────────────────────────────────────────────────
 // 2. Reproduce #4056 issue 1: Collection creation race condition
 // ───────────────────────────────────────────────────────────────────────────
-describe("Issue #4056: Qdrant race condition", () => {
+describeIfQdrant("Issue #4056: Qdrant race condition", () => {
   it("concurrent ensureCollection calls don't crash (no 409 error leak)", async () => {
     const collectionName = "e2e_test_race";
     await deleteCollectionIfExists(collectionName);
@@ -452,7 +477,7 @@ describe("Issue #4056: Qdrant race condition", () => {
 // ───────────────────────────────────────────────────────────────────────────
 // 3. Reproduce #4056 issue 2: memory_migrations dimension isolation
 // ───────────────────────────────────────────────────────────────────────────
-describe("Issue #4056: memory_migrations dimension isolation", () => {
+describeIfQdrant("Issue #4056: memory_migrations dimension isolation", () => {
   it("memory_migrations uses dim=1 independently of main collection dim=768", async () => {
     const collectionName = "e2e_test_noexplicit";
     await deleteCollectionIfExists(collectionName);

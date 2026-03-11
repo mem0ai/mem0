@@ -305,6 +305,9 @@ export class Qdrant implements VectorStore {
             }
             // Transient errors (e.g. 500 while collection is being committed)
             // are non-fatal — the collection exists per the 409.
+            console.warn(
+              `Collection '${name}' exists (409) but dimension verification failed: ${verifyError?.message || verifyError}. Proceeding anyway.`,
+            );
           }
         }
         // Otherwise collection exists and is fine — proceed

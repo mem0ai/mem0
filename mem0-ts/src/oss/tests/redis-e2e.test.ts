@@ -3,22 +3,45 @@
  * End-to-end tests for Redis vector store with init guard fix.
  *
  * Requires a running Redis Stack instance at localhost:6379.
+ * Skipped automatically when Redis is not available.
+ *
  * Run: npx jest --config jest.config.js src/oss/tests/redis-e2e.test.ts --forceExit
  */
 
 import { createClient } from "redis";
 import { RedisDB } from "../src/vector_stores/redis";
 import { v4 as uuidv4 } from "uuid";
-
 jest.setTimeout(30000);
 
-const REDIS_URL = "redis://localhost:6379";
+const REDIS_HOST = "localhost";
+const REDIS_PORT = 6379;
+const REDIS_URL = `redis://${REDIS_HOST}:${REDIS_PORT}`;
 const COLLECTION_NAME = "e2e_redis_test";
+
+// Check if Redis is reachable synchronously at load time
+function isRedisAvailable(): boolean {
+  try {
+    const { execSync } = require("child_process");
+    execSync(
+      `node -e "const s=require('net').createConnection({host:'${REDIS_HOST}',port:${REDIS_PORT}});s.on('connect',()=>{s.destroy();process.exit(0)});s.on('error',()=>process.exit(1));s.setTimeout(2000,()=>process.exit(1))"`,
+      { timeout: 3000, stdio: "ignore" },
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const redisAvailable = isRedisAvailable();
+if (!redisAvailable) {
+  console.warn("Redis not available at localhost:6379 — skipping e2e tests");
+}
 
 // Standalone client for cleanup
 let cleanupClient: ReturnType<typeof createClient>;
 
 async function cleanupRedis() {
+  if (!redisAvailable) return;
   try {
     // Drop the index if it exists
     await cleanupClient.ft.dropIndex(COLLECTION_NAME);
@@ -37,6 +60,8 @@ async function cleanupRedis() {
 }
 
 beforeAll(async () => {
+  if (!redisAvailable) return;
+
   cleanupClient = createClient({ url: REDIS_URL });
   await cleanupClient.connect();
 
@@ -53,14 +78,18 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (!redisAvailable) return;
   await cleanupRedis();
   await cleanupClient.quit();
 });
 
+// Conditionally skip tests when Redis is unavailable
+const describeIfRedis = redisAvailable ? describe : describe.skip;
+
 // ───────────────────────────────────────────────────────────────────────────
 // 1. Basic initialization and idempotent init guard
 // ───────────────────────────────────────────────────────────────────────────
-describe("Redis: initialization", () => {
+describeIfRedis("Redis: initialization", () => {
   afterEach(async () => {
     await cleanupRedis();
   });
@@ -106,7 +135,7 @@ describe("Redis: initialization", () => {
 // ───────────────────────────────────────────────────────────────────────────
 // 2. Full CRUD operations
 // ───────────────────────────────────────────────────────────────────────────
-describe("Redis: CRUD operations", () => {
+describeIfRedis("Redis: CRUD operations", () => {
   let store: RedisDB;
 
   beforeEach(async () => {
@@ -300,7 +329,7 @@ describe("Redis: CRUD operations", () => {
 // ───────────────────────────────────────────────────────────────────────────
 // 3. getUserId / setUserId
 // ───────────────────────────────────────────────────────────────────────────
-describe("Redis: getUserId / setUserId", () => {
+describeIfRedis("Redis: getUserId / setUserId", () => {
   let store: RedisDB;
 
   beforeEach(async () => {
@@ -340,7 +369,7 @@ describe("Redis: getUserId / setUserId", () => {
 // ───────────────────────────────────────────────────────────────────────────
 // 4. Dimension handling (our fix ensures correct dims from Memory)
 // ───────────────────────────────────────────────────────────────────────────
-describe("Redis: dimension handling", () => {
+describeIfRedis("Redis: dimension handling", () => {
   afterEach(async () => {
     await cleanupRedis();
   });
