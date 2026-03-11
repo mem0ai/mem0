@@ -8,6 +8,7 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 COPY config.json .
+# Includes automatos_logging.py + automatos_metrics.py for observability
 COPY . .
 
 EXPOSE 8765

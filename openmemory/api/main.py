@@ -1,4 +1,6 @@
 import datetime
+import logging
+import os
 from uuid import uuid4
 
 from app.config import DEFAULT_APP_ID, USER_ID
@@ -10,7 +12,26 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
 
+# --- Observability: structured logs → Loki, metrics → Prometheus ---
+try:
+    from automatos_logging import setup_logging
+    setup_logging(service="mem0-server")
+except ImportError:
+    logging.basicConfig(
+        level=os.environ.get("LOG_LEVEL", "INFO"),
+        format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+    )
+    logging.getLogger("mem0-server").warning(
+        "automatos_logging not available — using basic logging"
+    )
+
 app = FastAPI(title="OpenMemory API")
+
+try:
+    from automatos_metrics import add_fastapi_metrics
+    add_fastapi_metrics(app, service="mem0-server")
+except ImportError:
+    pass
 
 app.add_middleware(
     CORSMiddleware,
