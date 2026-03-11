@@ -517,18 +517,3 @@ describe("Memory – auto-initialization", () => {
     consoleSpy.mockRestore();
   });
 });
-
-// ───────────────────────────────────────────────────────────────────────────
-// 4. defaults.ts – historyDbPath
-// ───────────────────────────────────────────────────────────────────────────
-describe("Default config – historyDbPath", () => {
-  it("uses absolute path under ~/.mem0/", () => {
-    const { DEFAULT_MEMORY_CONFIG } = require("../src/config/defaults");
-    const dbPath = DEFAULT_MEMORY_CONFIG.historyStore.config.historyDbPath;
-
-    expect(path.isAbsolute(dbPath)).toBe(true);
-    expect(dbPath).toContain(".mem0");
-    expect(dbPath).toContain("memory.db");
-    expect(dbPath.startsWith(os.homedir())).toBe(true);
-  });
-});

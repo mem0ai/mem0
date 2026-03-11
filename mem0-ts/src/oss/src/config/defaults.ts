@@ -1,12 +1,4 @@
-import * as path from "path";
-import * as os from "os";
 import { MemoryConfig } from "../types";
-
-const DEFAULT_HISTORY_DB_PATH = path.join(
-  os.homedir(),
-  ".mem0",
-  "memory.db",
-);
 
 export const DEFAULT_MEMORY_CONFIG: MemoryConfig = {
   disableHistory: false,
@@ -52,7 +44,7 @@ export const DEFAULT_MEMORY_CONFIG: MemoryConfig = {
   historyStore: {
     provider: "sqlite",
     config: {
-      historyDbPath: DEFAULT_HISTORY_DB_PATH,
+      historyDbPath: "memory.db",
     },
   },
 };
