@@ -32,6 +32,7 @@ export class Qdrant implements VectorStore {
   private client: QdrantClient;
   private readonly collectionName: string;
   private dimension: number;
+  private _initPromise?: Promise<void>;
 
   constructor(config: QdrantConfig) {
     if (config.client) {
@@ -287,14 +288,23 @@ export class Qdrant implements VectorStore {
       if (error?.status === 409) {
         // Collection already exists — verify configuration for the main collection
         if (name === this.collectionName) {
-          const collectionInfo = await this.client.getCollection(name);
-          const vectorConfig = collectionInfo.config?.params?.vectors;
+          try {
+            const collectionInfo = await this.client.getCollection(name);
+            const vectorConfig = collectionInfo.config?.params?.vectors;
 
-          if (vectorConfig && vectorConfig.size !== size) {
-            throw new Error(
-              `Collection ${name} exists but has wrong vector size. ` +
-                `Expected: ${size}, got: ${vectorConfig.size}`,
-            );
+            if (vectorConfig && vectorConfig.size !== size) {
+              throw new Error(
+                `Collection ${name} exists but has wrong vector size. ` +
+                  `Expected: ${size}, got: ${vectorConfig.size}`,
+              );
+            }
+          } catch (verifyError: any) {
+            // Re-throw dimension mismatch errors
+            if (verifyError?.message?.includes("wrong vector size")) {
+              throw verifyError;
+            }
+            // Transient errors (e.g. 500 while collection is being committed)
+            // are non-fatal — the collection exists per the 409.
           }
         }
         // Otherwise collection exists and is fine — proceed
@@ -305,6 +315,13 @@ export class Qdrant implements VectorStore {
   }
 
   async initialize(): Promise<void> {
+    if (!this._initPromise) {
+      this._initPromise = this._doInitialize();
+    }
+    return this._initPromise;
+  }
+
+  private async _doInitialize(): Promise<void> {
     try {
       await this.ensureCollection(this.collectionName, this.dimension);
       await this.ensureCollection("memory_migrations", 1);

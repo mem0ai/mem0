@@ -128,6 +128,12 @@ export class Memory {
       this.config.vectorStore.config,
     );
 
+    // The vector store constructor may fire initialize() asynchronously
+    // (e.g. Qdrant). Explicitly await it here to guarantee the backing
+    // store (collections, tables, etc.) is ready before any public method
+    // attempts to read or write.
+    await this.vectorStore.initialize();
+
     await this._initializeTelemetry();
   }
 
