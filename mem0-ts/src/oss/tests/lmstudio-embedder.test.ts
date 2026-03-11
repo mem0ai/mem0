@@ -30,10 +30,13 @@ describe("LMStudioEmbedder", () => {
       const result = await embedder.embed("Sample text to embed.");
 
       expect(mockCreate).toHaveBeenCalledTimes(1);
-      expect(mockCreate).toHaveBeenCalledWith({
+      const [apiParams] = mockCreate.mock.calls[0];
+      expect(apiParams).toEqual({
         model: "nomic-embed-text-v1.5-GGUF",
         input: "Sample text to embed.",
       });
+      expect(apiParams.model).toBe("nomic-embed-text-v1.5-GGUF");
+      expect(apiParams.input).toBe("Sample text to embed.");
       expect(result).toEqual(mockEmbedding);
     });
 
@@ -45,10 +48,22 @@ describe("LMStudioEmbedder", () => {
 
       await embedder.embed("Line one\nLine two");
 
-      expect(mockCreate).toHaveBeenCalledWith({
+      const [apiParams] = mockCreate.mock.calls[0];
+      expect(apiParams.model).toBe("test-model");
+      expect(apiParams.input).toBe("Line one Line two");
+    });
+
+    it("should wrap API errors with a clear message", async () => {
+      mockCreate.mockRejectedValueOnce(new Error("Connection refused"));
+
+      const embedder = new LMStudioEmbedder({
         model: "test-model",
-        input: "Line one Line two",
+        baseURL: "http://localhost:1234/v1",
       });
+
+      await expect(embedder.embed("text")).rejects.toThrow(
+        "LM Studio embedder failed: Connection refused",
+      );
     });
   });
 
@@ -73,10 +88,10 @@ describe("LMStudioEmbedder", () => {
       const result = await embedder.embedBatch(["text1", "text2"]);
 
       expect(mockCreate).toHaveBeenCalledTimes(1);
-      expect(mockCreate).toHaveBeenCalledWith({
-        model: "test-model",
-        input: ["text1", "text2"],
-      });
+      const [apiParams] = mockCreate.mock.calls[0];
+      expect(apiParams.model).toBe("test-model");
+      expect(apiParams.input).toEqual(["text1", "text2"]);
+      expect(Array.isArray(apiParams.input)).toBe(true);
       expect(result).toEqual(mockBatchEmbedding);
     });
   });

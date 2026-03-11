@@ -20,6 +20,15 @@ export class ConfigManager {
             finalModel = userConf.model;
           }
 
+          // Normalize embedder config: accept both camelCase (TypeScript) and snake_case
+          const baseURL =
+            userConf?.baseURL ??
+            (userConf as { lmstudio_base_url?: string })?.lmstudio_base_url ??
+            userConf?.url;
+          const embeddingDims =
+            userConf?.embeddingDims ??
+            (userConf as { embedding_dims?: number })?.embedding_dims;
+
           return {
             apiKey:
               userConf?.apiKey !== undefined
@@ -27,13 +36,8 @@ export class ConfigManager {
                 : defaultConf.apiKey,
             model: finalModel,
             url: userConf?.url,
-            baseURL:
-              userConf?.baseURL ??
-              (userConf as any)?.lmstudio_base_url ??
-              userConf?.url,
-            embeddingDims:
-              userConf?.embeddingDims ??
-              (userConf as any)?.embedding_dims,
+            baseURL,
+            embeddingDims,
             modelProperties:
               userConf?.modelProperties !== undefined
                 ? userConf.modelProperties

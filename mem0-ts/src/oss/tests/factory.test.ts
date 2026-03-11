@@ -20,15 +20,23 @@ describe("EmbedderFactory", () => {
       expect(embedder).toBeInstanceOf(LMStudioEmbedder);
     });
 
-    it("should create LM Studio embedder with lmstudio_base_url", () => {
-      const config = {
+    it("should create LM Studio embedder with baseURL or lmstudio_base_url", () => {
+      const configWithBaseURL = {
         model: "custom-model",
-        lmstudio_base_url: "http://192.168.1.1:1234/v1",
+        baseURL: "http://192.168.1.1:1234/v1",
       };
+      expect(
+        EmbedderFactory.create("lmstudio", configWithBaseURL),
+      ).toBeInstanceOf(LMStudioEmbedder);
 
-      const embedder = EmbedderFactory.create("lmstudio", config);
-
-      expect(embedder).toBeInstanceOf(LMStudioEmbedder);
+      const configWithSnakeCase = {
+        model: "text-embedding-gte-qwen2-1.5b-instruct",
+        embedding_dims: 1536,
+        lmstudio_base_url: "http://192.168.200.83:1234/v1",
+      };
+      expect(
+        EmbedderFactory.create("lmstudio", configWithSnakeCase),
+      ).toBeInstanceOf(LMStudioEmbedder);
     });
 
     it("should throw error for unsupported embedder provider", () => {
