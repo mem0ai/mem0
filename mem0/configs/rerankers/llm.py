@@ -46,3 +46,7 @@ class LLMRerankerConfig(BaseRerankerConfig):
         default=None,
         description="Custom prompt template for scoring documents"
     )
+    max_concurrency: Optional[int] = Field(
+        default=None,
+        description="Max parallel LLM calls for reranking; None or <=1 keeps sequential behavior"
+    )

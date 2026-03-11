@@ -21,6 +21,7 @@ dependencies = [
     "pytz>=2024.1",
     "sqlalchemy>=2.0.31",
     "protobuf>=5.29.0,<6.0.0",
+    "hatch>=1.15.1",
 ]
 
 [project.optional-dependencies]

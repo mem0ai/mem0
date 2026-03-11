@@ -5,6 +5,7 @@ from mem0.reranker.base import BaseReranker
 from mem0.utils.factory import LlmFactory
 from mem0.configs.rerankers.base import BaseRerankerConfig
 from mem0.configs.rerankers.llm import LLMRerankerConfig
+import concurrent.futures
 
 
 class LLMReranker(BaseReranker):
@@ -82,61 +83,77 @@ Provide only a single numerical score between 0.0 and 1.0. Do not include any ex
     def rerank(self, query: str, documents: List[Dict[str, Any]], top_k: int = None) -> List[Dict[str, Any]]:
         """
         Rerank documents using LLM scoring.
-        
+
         Args:
             query: The search query
             documents: List of documents to rerank
             top_k: Number of top documents to return
-            
+
         Returns:
             List of reranked documents with rerank_score
         """
         if not documents:
             return documents
-        
-        scored_docs = []
-        
-        for doc in documents:
-            # Extract text content
-            if 'memory' in doc:
-                doc_text = doc['memory']
-            elif 'text' in doc:
-                doc_text = doc['text']  
-            elif 'content' in doc:
-                doc_text = doc['content']
-            else:
-                doc_text = str(doc)
-            
-            try:
-                # Generate scoring prompt
-                prompt = self.scoring_prompt.format(query=query, document=doc_text)
-                
-                # Get LLM response
-                response = self.llm.generate_response(
-                    messages=[{"role": "user", "content": prompt}]
-                )
-                
-                # Extract score from response
-                score = self._extract_score(response)
-                
-                # Create scored document
+
+        effective_top_k = top_k or self.config.top_k
+        max_concurrency = getattr(self.config, "max_concurrency", None)
+
+        def _doc_to_text(doc: Dict[str, Any]) -> str:
+            if "memory" in doc:
+                return doc["memory"]
+            if "text" in doc:
+                return doc["text"]
+            if "content" in doc:
+                return doc["content"]
+            return str(doc)
+
+        def _score_doc(doc_text: str) -> float:
+            prompt = self.scoring_prompt.format(query=query, document=doc_text)
+            response = self.llm.generate_response(messages=[{"role": "user", "content": prompt}])
+            return self._extract_score(response)
+
+        # Sequential path (default / backwards compatible)
+        if not max_concurrency or max_concurrency <= 1 or len(documents) == 1:
+            scored_docs: List[Dict[str, Any]] = []
+            for doc in documents:
+                try:
+                    score = _score_doc(_doc_to_text(doc))
+                except Exception:
+                    score = 0.5
+
                 scored_doc = doc.copy()
-                scored_doc['rerank_score'] = score
+                scored_doc["rerank_score"] = score
                 scored_docs.append(scored_doc)
 
+            scored_docs.sort(key=lambda x: x["rerank_score"], reverse=True)
+            if effective_top_k:
+                scored_docs = scored_docs[:effective_top_k]
+            return scored_docs
+
+        # Concurrent path (threaded, concurrency-limited)
+        max_workers = min(int(max_concurrency), len(documents))
+
+        def _score_single(idx: int, doc: Dict[str, Any]) -> tuple[int, float]:
+            try:
+                score = _score_doc(_doc_to_text(doc))
             except Exception:
-                # Fallback: assign neutral score if scoring fails
-                scored_doc = doc.copy()
-                scored_doc['rerank_score'] = 0.5
-                scored_docs.append(scored_doc)
-        
-        # Sort by relevance score in descending order
-        scored_docs.sort(key=lambda x: x['rerank_score'], reverse=True)
-        
-        # Apply top_k limit
-        if top_k:
-            scored_docs = scored_docs[:top_k]
-        elif self.config.top_k:
-            scored_docs = scored_docs[:self.config.top_k]
-            
+                score = 0.5
+            return idx, score
+
+        scores: Dict[int, float] = {}
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [executor.submit(_score_single, idx, doc) for idx, doc in enumerate(documents)]
+            for future in concurrent.futures.as_completed(futures):
+                idx, score = future.result()
+                scores[idx] = score
+
+        scored_docs: List[Dict[str, Any]] = []
+        for idx, doc in enumerate(documents):
+            scored_doc = doc.copy()
+            scored_doc["rerank_score"] = scores.get(idx, 0.5)
+            scored_docs.append(scored_doc)
+
+        scored_docs.sort(key=lambda x: x["rerank_score"], reverse=True)
+        if effective_top_k:
+            scored_docs = scored_docs[:effective_top_k]
         return scored_docs
