@@ -49,13 +49,17 @@ export const GraphAddRelationshipArgsSchema =
       .describe("The type or category of the destination node."),
   });
 
+// Closed vocabulary for entity types — keeps Neo4j labels consistent and meaningful.
+export const ENTITY_TYPES = ["Person", "AI", "Project", "Technology", "Organization", "Emotion", "Concept", "Event"] as const;
+export type EntityType = typeof ENTITY_TYPES[number];
+
 // Schema for extracting entities
 export const GraphExtractEntitiesArgsSchema = z.object({
   entities: z
     .array(
       z.object({
         entity: z.string().describe("The name or identifier of the entity."),
-        entity_type: z.string().describe("The type or category of the entity."),
+        entity_type: z.enum(ENTITY_TYPES).describe("The type or category of the entity."),
       }),
     )
     .describe("An array of entities with their types."),
@@ -222,7 +226,8 @@ export const EXTRACT_ENTITIES_TOOL = {
               },
               entity_type: {
                 type: "string",
-                description: "The type or category of the entity.",
+                enum: ["Person", "AI", "Project", "Technology", "Organization", "Emotion", "Concept", "Event"],
+                description: "The type or category of the entity. Must be one of the listed values. If the entity cannot be classified, omit it entirely.",
               },
             },
             required: ["entity", "entity_type"],
