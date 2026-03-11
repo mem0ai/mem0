@@ -4,6 +4,21 @@ All notable changes to the `@mem0/openclaw-mem0` plugin will be documented in th
 
 ## [0.3.1] - 2026-03-12
 
+### Added
+- **Message filtering pipeline**: Multi-stage noise removal before extraction — drops heartbeats, timestamps, single-word acks, system routing metadata, compaction audit logs, and generic assistant acknowledgments
+- **Memory deduplication**: Word-level Jaccard similarity (>80% overlap) removes near-duplicate recalled memories, keeping only the highest-scored variant
+- **Broad recall for new sessions**: Short or new-session prompts trigger a secondary broad search to avoid cold-start blindness
+- **Client-side threshold filtering**: Safety net that drops low-relevance results even if the API doesn't honor the threshold parameter
+- **Temporal anchoring**: Extraction instructions now include current date so memories are prefixed with "As of YYYY-MM-DD, ..."
+- **Summary message inclusion**: Earlier assistant messages containing work summaries are included in extraction context even if outside the recent-message window
+- 55 unit tests covering all filtering, deduplication, and isolation helpers
+
+### Changed
+- Default `searchThreshold` remains at 0.5, with client-side filtering as a safety net
+- Extraction window expanded from last 10 → last 20 messages for richer context
+- Rewritten custom extraction instructions: conciseness, outcome-over-intent, deduplication guidance, language preservation
+- **Refactored** monolithic `index.ts` (1772 lines) into 6 focused modules: `types.ts`, `providers.ts`, `config.ts`, `filtering.ts`, `isolation.ts`, `index.ts`
+
 ### Fixed
 - **README image on npmjs.com**: Changed architecture diagram from relative path to absolute GitHub URL so it renders correctly on the npm registry
 

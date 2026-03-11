@@ -12,9 +12,22 @@ Your agent forgets everything between sessions. This plugin fixes that. It watch
 
 **Auto-Recall** — Before the agent responds, the plugin searches Mem0 for memories that match the current message and injects them into context.
 
-**Auto-Capture** — After the agent responds, the plugin sends the exchange to Mem0. Mem0 decides what's worth keeping — new facts get stored, stale ones updated, duplicates merged.
+**Auto-Capture** — After the agent responds, the plugin filters the conversation through a noise-removal pipeline, then sends the cleaned exchange to Mem0. Mem0 decides what's worth keeping — new facts get stored, stale ones updated, duplicates merged.
 
 Both run silently. No prompting, no configuration, no manual calls.
+
+### Message filtering
+
+Before extraction, messages pass through a multi-stage filtering pipeline:
+
+1. **Noise detection** — Drops entire messages that are system noise: heartbeats (`HEARTBEAT_OK`, `NO_REPLY`), timestamps, single-word acknowledgments (`ok`, `sure`, `done`), system routing metadata, and compaction audit logs.
+2. **Generic assistant detection** — Drops short assistant messages that are boilerplate acknowledgments with no extractable facts (e.g. "I see you've shared an update. How can I help?").
+3. **Content stripping** — Removes embedded noise fragments (media boilerplate, routing metadata, compaction blocks) from otherwise useful messages.
+4. **Truncation** — Caps messages at 2000 characters to avoid sending excessive context.
+
+### Memory deduplication
+
+During recall, near-duplicate memories are detected using word-level Jaccard similarity. When two memories have >80% word overlap, only the higher-scoring one is kept. This prevents the agent from seeing the same fact repeated multiple times.
 
 ### Short-term vs long-term memory
 
@@ -160,7 +173,7 @@ openclaw mem0 stats --agent researcher
 | `autoRecall` | `boolean` | `true` | Inject memories before each turn |
 | `autoCapture` | `boolean` | `true` | Store facts after each turn |
 | `topK` | `number` | `5` | Max memories per recall |
-| `searchThreshold` | `number` | `0.3` | Min similarity (0–1) |
+| `searchThreshold` | `number` | `0.5` | Min similarity (0–1) |
 
 ### Platform mode
 
@@ -170,7 +183,7 @@ openclaw mem0 stats --agent researcher
 | `orgId` | `string` | — | Organization ID |
 | `projectId` | `string` | — | Project ID |
 | `enableGraph` | `boolean` | `false` | Entity graph for relationships |
-| `customInstructions` | `string` | *(built-in)* | Extraction rules — what to store, how to format |
+| `customInstructions` | `string` | *(built-in)* | Extraction rules — what to store, how to format. Built-in instructions include temporal anchoring, conciseness, outcome-over-intent, deduplication, and language preservation guidelines. |
 | `customCategories` | `object` | *(12 defaults)* | Category name → description map for tagging |
 
 ### Open-source mode
