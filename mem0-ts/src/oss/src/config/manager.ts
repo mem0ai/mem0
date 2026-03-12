@@ -43,13 +43,23 @@ export class ConfigManager {
           const defaultConf = DEFAULT_MEMORY_CONFIG.vectorStore.config;
           const userConf = userConfig.vectorStore?.config;
 
+          // Resolve the vector store dimension.  If the user explicitly
+          // provided one, use it.  Otherwise leave it undefined so that
+          // Memory._autoInitialize() can auto-detect it by running a
+          // probe embedding at startup — this makes *any* embedder work
+          // out of the box without the user needing to know or set the
+          // dimension manually.
+          const explicitDimension =
+            userConf?.dimension ||
+            userConfig.embedder?.config?.embeddingDims ||
+            undefined;
+
           // Prioritize user-provided client instance
           if (userConf?.client && typeof userConf.client === "object") {
             return {
               client: userConf.client,
-              // Include other fields from userConf if necessary, or omit defaults
-              collectionName: userConf.collectionName, // Can be undefined
-              dimension: userConf.dimension || defaultConf.dimension, // Merge dimension
+              collectionName: userConf.collectionName,
+              dimension: explicitDimension,
               ...userConf, // Include any other passthrough fields from user
             };
           } else {
@@ -57,7 +67,7 @@ export class ConfigManager {
             return {
               collectionName:
                 userConf?.collectionName || defaultConf.collectionName,
-              dimension: userConf?.dimension || defaultConf.dimension,
+              dimension: explicitDimension,
               // Ensure client is not carried over from defaults if not provided by user
               client: undefined,
               // Include other passthrough fields from userConf even if no client

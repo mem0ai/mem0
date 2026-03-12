@@ -20,6 +20,7 @@ export class VectorizeDB implements VectorStore {
   private dimensions: number;
   private indexName: string;
   private accountId: string;
+  private _initPromise?: Promise<void>;
 
   constructor(config: VectorizeConfig) {
     this.client = new Cloudflare({ apiToken: config.apiKey });
@@ -343,6 +344,13 @@ export class VectorizeDB implements VectorStore {
   }
 
   async initialize(): Promise<void> {
+    if (!this._initPromise) {
+      this._initPromise = this._doInitialize();
+    }
+    return this._initPromise;
+  }
+
+  private async _doInitialize(): Promise<void> {
     try {
       // Check if the index already exists
       let indexFound = false;
