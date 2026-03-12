@@ -23,6 +23,7 @@ export interface EmbeddingConfig {
 export interface VectorStoreConfig {
   collectionName?: string;
   dimension?: number;
+  dbPath?: string;
   client?: any;
   instance?: any;
   [key: string]: any;
@@ -129,6 +130,7 @@ export const MemoryConfigSchema = z.object({
       .object({
         collectionName: z.string().optional(),
         dimension: z.number().optional(),
+        dbPath: z.string().optional(),
         client: z.any().optional(),
       })
       .passthrough(),
