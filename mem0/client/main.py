@@ -676,6 +676,7 @@ class MemoryClient:
         exclusion_prompt: Optional[str] = None,
         memory_depth: Optional[str] = None,
         usecase_setting: Optional[str] = None,
+        use_input_language: Optional[bool] = None,
     ) -> Dict[str, Any]:
         """Update the project settings.
 
@@ -689,6 +690,7 @@ class MemoryClient:
             exclusion_prompt: Exclusion prompt for the project
             memory_depth: Memory depth for the project
             usecase_setting: Usecase setting for the project
+            use_input_language: Whether to use the input language for memory storage and retrieval
 
         Returns:
             Dictionary containing the API response.
@@ -718,6 +720,7 @@ class MemoryClient:
             and exclusion_prompt is None
             and memory_depth is None
             and usecase_setting is None
+            and use_input_language is None
         ):
             raise ValueError(
                 "Currently we only support updating custom_instructions or "
@@ -736,6 +739,7 @@ class MemoryClient:
                 "exclusion_prompt": exclusion_prompt,
                 "memory_depth": memory_depth,
                 "usecase_setting": usecase_setting,
+                "use_input_language": use_input_language,
             }
         )
         response = self.client.patch(
@@ -756,6 +760,7 @@ class MemoryClient:
                 "exclusion_prompt": exclusion_prompt,
                 "memory_depth": memory_depth,
                 "usecase_setting": usecase_setting,
+                "use_input_language": use_input_language,
                 "sync_type": "sync",
             },
         )
@@ -1554,6 +1559,7 @@ class AsyncMemoryClient:
         retrieval_criteria: Optional[List[Dict[str, Any]]] = None,
         enable_graph: Optional[bool] = None,
         version: Optional[str] = None,
+        use_input_language: Optional[bool] = None,
     ) -> Dict[str, Any]:
         """Update the project settings.
 
@@ -1563,6 +1569,7 @@ class AsyncMemoryClient:
             retrieval_criteria: New retrieval criteria for the project
             enable_graph: Enable or disable the graph for the project
             version: Version of the project
+            use_input_language: Whether to use the input language for memory storage and retrieval
 
         Returns:
             Dictionary containing the API response.
@@ -1588,6 +1595,7 @@ class AsyncMemoryClient:
             and retrieval_criteria is None
             and enable_graph is None
             and version is None
+            and use_input_language is None
         ):
             raise ValueError(
                 "Currently we only support updating custom_instructions or custom_categories or retrieval_criteria, so you must provide at least one of them"
@@ -1600,6 +1608,7 @@ class AsyncMemoryClient:
                 "retrieval_criteria": retrieval_criteria,
                 "enable_graph": enable_graph,
                 "version": version,
+                "use_input_language": use_input_language,
             }
         )
         response = await self.async_client.patch(
@@ -1616,6 +1625,7 @@ class AsyncMemoryClient:
                 "retrieval_criteria": retrieval_criteria,
                 "enable_graph": enable_graph,
                 "version": version,
+                "use_input_language": use_input_language,
                 "sync_type": "async",
             },
         )

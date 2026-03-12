@@ -167,6 +167,7 @@ export interface PromptUpdatePayload {
   exclusion_prompt?: string;
   memory_depth?: string | null;
   usecase_setting?: string | number;
+  use_input_language?: boolean;
   [key: string]: any;
 }
 
