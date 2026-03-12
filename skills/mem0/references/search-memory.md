@@ -189,7 +189,7 @@ curl -X POST https://api.mem0.ai/v2/memories/search/ \
 
 ```json
 {
-  "memories": [
+  "results": [
     {
       "id": "ea925981-272f-40dd-b576-be64e4871429",
       "memory": "Is a vegetarian and allergic to nuts.",
@@ -209,7 +209,7 @@ curl -X POST https://api.mem0.ai/v2/memories/search/ \
 When `enable_graph=True`, response includes additional `relations` array:
 ```json
 {
-  "memories": [...],
+  "results": [...],
   "relations": [
     {
       "source": "Alice",

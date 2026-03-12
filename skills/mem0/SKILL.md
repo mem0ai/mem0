@@ -14,7 +14,7 @@ metadata:
   version: 1.0.0
   category: ai-memory
   tags: "memory, personalization, ai, python, typescript, vector-search"
-compatibility: Requires Python 3.10+ or Node.js 14+, pip install mem0ai or npm install mem0ai, MEM0_API_KEY env var, and internet access to api.mem0.ai
+compatibility: Requires Python 3.10+ or Node.js 18+, pip install mem0ai or npm install mem0ai, MEM0_API_KEY env var, and internet access to api.mem0.ai
 ---
 
 # Mem0 Platform Integration

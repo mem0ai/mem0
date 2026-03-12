@@ -14,11 +14,13 @@ When installed, Claude can:
 ## Installation
 
 ### Claude.ai
+
 1. Download this folder as a ZIP
 2. Go to Settings > Capabilities > Skills
 3. Click "Upload skill" and select the ZIP
 
 ### Claude Code
+
 ```bash
 # Clone and copy to your project
 git clone https://github.com/mem0ai/mem0-skills
@@ -26,8 +28,10 @@ cp -r mem0-skills/mem0 .claude/skills/
 ```
 
 ### Prerequisites
+
 - A Mem0 Platform API key ([Get one here](https://app.mem0.ai/dashboard/api-keys))
 - Set the environment variable:
+
   ```bash
   export MEM0_API_KEY="m0-your-api-key"
   ```
@@ -43,7 +47,7 @@ After installing, just ask Claude:
 
 ## What's Inside
 
-```
+```text
 mem0/
 ├── SKILL.md                    # Skill definition and instructions
 ├── scripts/                    # Executable CLI tools
