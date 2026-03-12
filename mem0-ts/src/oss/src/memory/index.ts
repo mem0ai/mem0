@@ -41,7 +41,7 @@ export class Memory {
   private config: MemoryConfig;
   private customPrompt: string | undefined;
   private embedder: Embedder;
-  private vectorStore: VectorStore;
+  private vectorStore!: VectorStore;
   private llm: LLM;
   private db: HistoryManager;
   private collectionName: string | undefined;
@@ -49,6 +49,8 @@ export class Memory {
   private graphMemory?: MemoryGraph;
   private enableGraph: boolean;
   telemetryId: string;
+  private _initPromise: Promise<void>;
+  private _initError?: Error;
 
   constructor(config: Partial<MemoryConfig> = {}) {
     // Merge and validate config
@@ -59,10 +61,9 @@ export class Memory {
       this.config.embedder.provider,
       this.config.embedder.config,
     );
-    this.vectorStore = VectorStoreFactory.create(
-      this.config.vectorStore.provider,
-      this.config.vectorStore.config,
-    );
+    // Vector store creation is deferred to _autoInitialize() so that
+    // the embedding dimension can be auto-detected first when not
+    // explicitly configured.
     this.llm = LLMFactory.create(
       this.config.llm.provider,
       this.config.llm.config,
@@ -86,8 +87,67 @@ export class Memory {
       this.graphMemory = new MemoryGraph(this.config);
     }
 
-    // Initialize telemetry if vector store is initialized
-    this._initializeTelemetry();
+    // Auto-detect embedding dimension (if needed), create vector store,
+    // and initialize it. All public methods await this before proceeding.
+    this._initPromise = this._autoInitialize().catch((error) => {
+      this._initError =
+        error instanceof Error ? error : new Error(String(error));
+      console.error(this._initError);
+    });
+  }
+
+  /**
+   * If no explicit dimension was provided, runs a probe embedding to
+   * detect it. Then creates and initializes the vector store.
+   */
+  private async _autoInitialize(): Promise<void> {
+    if (!this.config.vectorStore.config.dimension) {
+      try {
+        const probe = await this.embedder.embed("dimension probe");
+        this.config.vectorStore.config.dimension = probe.length;
+      } catch (error: any) {
+        throw new Error(
+          `Failed to auto-detect embedding dimension from provider '${this.config.embedder.provider}': ${error.message}. ` +
+            `Please set 'dimension' in vectorStore.config or 'embeddingDims' in embedder.config explicitly.`,
+        );
+      }
+    }
+
+    this.vectorStore = VectorStoreFactory.create(
+      this.config.vectorStore.provider,
+      this.config.vectorStore.config,
+    );
+
+    // The vector store constructor may fire initialize() asynchronously
+    // (e.g. Qdrant). Explicitly await it here to guarantee the backing
+    // store (collections, tables, etc.) is ready before any public method
+    // attempts to read or write.
+    await this.vectorStore.initialize();
+
+    await this._initializeTelemetry();
+  }
+
+  /**
+   * Ensures that auto-initialization (dimension detection + vector store
+   * creation) has completed before any public method proceeds.
+   * If a previous init attempt failed, retries automatically.
+   */
+  private async _ensureInitialized(): Promise<void> {
+    await this._initPromise;
+    if (this._initError) {
+      // Clear failed state and retry — the embedder or vector store
+      // may have been transiently unavailable at startup.
+      this._initError = undefined;
+      this._initPromise = this._autoInitialize().catch((error) => {
+        this._initError =
+          error instanceof Error ? error : new Error(String(error));
+        console.error(this._initError);
+      });
+      await this._initPromise;
+      if (this._initError) {
+        throw this._initError;
+      }
+    }
   }
 
   private async _initializeTelemetry() {
@@ -147,6 +207,7 @@ export class Memory {
     messages: string | Message[],
     config: AddMemoryOptions,
   ): Promise<SearchResult> {
+    await this._ensureInitialized();
     await this._captureEvent("add", {
       message_count: Array.isArray(messages) ? messages.length : 1,
       has_metadata: !!config.metadata,
@@ -372,6 +433,7 @@ export class Memory {
   }
 
   async get(memoryId: string): Promise<MemoryItem | null> {
+    await this._ensureInitialized();
     const memory = await this.vectorStore.get(memoryId);
     if (!memory) return null;
 
@@ -413,6 +475,7 @@ export class Memory {
     query: string,
     config: SearchMemoryOptions,
   ): Promise<SearchResult> {
+    await this._ensureInitialized();
     await this._captureEvent("search", {
       query_length: query.length,
       limit: config.limit,
@@ -479,6 +542,7 @@ export class Memory {
   }
 
   async update(memoryId: string, data: string): Promise<{ message: string }> {
+    await this._ensureInitialized();
     await this._captureEvent("update", { memory_id: memoryId });
     const embedding = await this.embedder.embed(data);
     await this.updateMemory(memoryId, data, { [data]: embedding });
@@ -486,6 +550,7 @@ export class Memory {
   }
 
   async delete(memoryId: string): Promise<{ message: string }> {
+    await this._ensureInitialized();
     await this._captureEvent("delete", { memory_id: memoryId });
     await this.deleteMemory(memoryId);
     return { message: "Memory deleted successfully!" };
@@ -494,6 +559,7 @@ export class Memory {
   async deleteAll(
     config: DeleteAllMemoryOptions,
   ): Promise<{ message: string }> {
+    await this._ensureInitialized();
     await this._captureEvent("delete_all", {
       has_user_id: !!config.userId,
       has_agent_id: !!config.agentId,
@@ -521,10 +587,12 @@ export class Memory {
   }
 
   async history(memoryId: string): Promise<any[]> {
+    await this._ensureInitialized();
     return this.db.getHistory(memoryId);
   }
 
   async reset(): Promise<void> {
+    await this._ensureInitialized();
     await this._captureEvent("reset");
     await this.db.reset();
 
@@ -549,28 +617,30 @@ export class Memory {
       await this.graphMemory.deleteAll({ userId: "default" }); // Assuming this is okay, or needs similar check?
     }
 
-    // Re-initialize factories/clients based on the original config
+    // Re-initialize factories/clients based on the original config.
+    // Dimension is already set in this.config from the initial probe,
+    // so _autoInitialize will skip the probe and just re-create the store.
     this.embedder = EmbedderFactory.create(
       this.config.embedder.provider,
       this.config.embedder.config,
-    );
-    // Re-create vector store instance - crucial for Langchain to reset wrapper state if needed
-    this.vectorStore = VectorStoreFactory.create(
-      this.config.vectorStore.provider,
-      this.config.vectorStore.config, // This will pass the original client instance back
     );
     this.llm = LLMFactory.create(
       this.config.llm.provider,
       this.config.llm.config,
     );
-    // Re-init DB if needed (though db.reset() likely handles its state)
-    // Re-init Graph if needed
 
-    // Re-initialize telemetry
-    this._initializeTelemetry();
+    // Re-create vector store via _autoInitialize (which handles dimension + creation)
+    this._initError = undefined;
+    this._initPromise = this._autoInitialize().catch((error) => {
+      this._initError =
+        error instanceof Error ? error : new Error(String(error));
+      console.error(this._initError);
+    });
+    await this._initPromise;
   }
 
   async getAll(config: GetAllMemoryOptions): Promise<SearchResult> {
+    await this._ensureInitialized();
     await this._captureEvent("get_all", {
       limit: config.limit,
       has_user_id: !!config.userId,
