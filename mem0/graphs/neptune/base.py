@@ -97,7 +97,7 @@ class NeptuneBase(ABC):
             for tool_call in search_results["tool_calls"]:
                 if tool_call["name"] != "extract_entities":
                     continue
-                for item in tool_call["arguments"]["entities"]:
+                for item in tool_call.get("arguments", {}).get("entities", []):
                     entity_type_map[item["entity"]] = item["entity_type"]
         except Exception as e:
             logger.exception(
@@ -144,7 +144,7 @@ class NeptuneBase(ABC):
 
         entities = []
         if extracted_entities["tool_calls"]:
-            entities = extracted_entities["tool_calls"][0]["arguments"]["entities"]
+            entities = extracted_entities["tool_calls"][0].get("arguments", {}).get("entities", [])
 
         entities = self._remove_spaces_from_entities(entities)
         logger.debug(f"Extracted entities: {entities}")
