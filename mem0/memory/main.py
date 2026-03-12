@@ -99,7 +99,7 @@ def _is_sensitive_field(field_name: str) -> bool:
     Returns:
         True if the field should be nulled (contains sensitive data).
     """
-    name = field_name.lower()
+    name = field_name.strip().lower()
 
     # 1. Allow list takes priority — these are runtime objects, not secrets
     if name in _SAFE_FIELDS:

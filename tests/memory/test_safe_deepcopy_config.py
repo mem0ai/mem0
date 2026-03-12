@@ -383,7 +383,10 @@ class TestEdgeCases:
         assert _is_sensitive_field("") is False
 
     def test_field_name_with_spaces(self):
-        assert _is_sensitive_field("  password  ") is False  # exact match, spaces not stripped
+        assert _is_sensitive_field("  password  ") is True    # exact deny — spaces stripped
+        assert _is_sensitive_field("  http_auth  ") is False  # allow list — spaces stripped
+        assert _is_sensitive_field("\tapi_key\n") is True     # other whitespace stripped
+        assert _is_sensitive_field("  db_password  ") is True # suffix deny — spaces stripped
 
     def test_partial_match_not_triggered(self):
         """Old code used substring matching — verify we don't over-match."""
