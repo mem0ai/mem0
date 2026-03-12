@@ -1,5 +1,6 @@
 import Database from "better-sqlite3";
 import { HistoryManager } from "./base";
+import { ensureSQLiteDirectory } from "../utils/sqlite";
 
 export class SQLiteManager implements HistoryManager {
   private db: Database.Database;
@@ -7,6 +8,7 @@ export class SQLiteManager implements HistoryManager {
   private stmtSelect!: Database.Statement;
 
   constructor(dbPath: string) {
+    ensureSQLiteDirectory(dbPath);
     this.db = new Database(dbPath);
     this.init();
   }
