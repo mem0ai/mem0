@@ -54,8 +54,6 @@ Returns full memory object: `id`, `memory`, `user_id`, `agent_id`, `app_id`, `ru
 | `fields` | array of strings | No | Specific fields to include |
 | `page` | integer | No | Page number (default: 1) |
 | `page_size` | integer | No | Items per page (default: 100) |
-| `org_id` | string | No | Organization scope |
-| `project_id` | string | No | Project scope |
 
 **Critical:** At least one of `user_id`, `agent_id`, `app_id`, or `run_id` must be in filters.
 

@@ -20,13 +20,6 @@ pnpm add mem0ai
 import MemoryClient from 'mem0ai';
 
 const client = new MemoryClient({ apiKey: 'm0-your-api-key' });
-
-// With org and project scope
-const client = new MemoryClient({
-    apiKey: 'm0-your-api-key',
-    organizationId: 'your-org-id',
-    projectId: 'your-project-id',
-});
 ```
 
 ### Constructor Options
@@ -35,10 +28,6 @@ const client = new MemoryClient({
 |-----------|------|----------|-------------|
 | `apiKey` | string | Yes | Mem0 Platform API key (starts with `m0-`) |
 | `host` | string | No | API base URL (default: `https://api.mem0.ai`) |
-| `organizationName` | string | No | Organization name |
-| `projectName` | string | No | Project name |
-| `organizationId` | string | No | Organization ID |
-| `projectId` | string | No | Project ID |
 
 ---
 
@@ -339,24 +328,6 @@ await client.updateProject({
     ],
 });
 ```
-
----
-
-## OSS Client (Self-Hosted)
-
-For self-hosted Mem0 (not recommended for most users -- use Platform instead):
-
-```javascript
-import { Memory } from "mem0ai/oss";
-
-const memory = new Memory();
-
-// Same interface but runs locally
-await memory.add(messages, { userId: "alice" });
-const results = await memory.search("query", { userId: "alice" });
-```
-
-Note: OSS client uses `camelCase` parameters (`userId`) while Platform client uses `snake_case` (`user_id`).
 
 ---
 

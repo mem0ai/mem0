@@ -51,7 +51,7 @@ import MemoryClient from 'mem0ai';
 const client = new MemoryClient({ apiKey: 'm0-xxx' });
 ```
 
-For async Python, use `AsyncMemoryClient`. For org/project scoping, pass `org_id` and `project_id`.
+For async Python, use `AsyncMemoryClient`.
 
 ## Step 3: Core operations
 
@@ -139,7 +139,7 @@ Base URL: `https://api.mem0.ai` — Auth header: `Authorization: Token <MEM0_API
 - **Search returns empty:** Memories process asynchronously. Wait 2-3s after `add()` before searching. Also verify `user_id` matches exactly (case-sensitive).
 - **AND filter with user_id + agent_id returns empty:** Entities are stored separately. Use `OR` instead, or query separately.
 - **Duplicate memories:** Don't mix `infer=True` (default) and `infer=False` for the same data. Stick to one mode.
-- **Wrong import:** Platform uses `from mem0 import MemoryClient`. OSS uses `from mem0 import Memory`. Don't mix them.
+- **Wrong import:** Always use `from mem0 import MemoryClient` (or `AsyncMemoryClient` for async). Do not use `from mem0 import Memory`.
 
 ## Available scripts
 

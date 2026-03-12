@@ -132,16 +132,6 @@ await client.add(messages, user_id="user123")
 results = await client.search("query", user_id="user123")
 ```
 
-## With Organization & Project Scope
-
-```python
-client = MemoryClient(
-    api_key="your-api-key",
-    org_id="your-org-id",
-    project_id="your-project-id"
-)
-```
-
 ## Next Steps
 
 - [Platform API Reference](general.md)

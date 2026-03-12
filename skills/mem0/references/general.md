@@ -51,15 +51,6 @@ import MemoryClient from 'mem0ai';
 const client = new MemoryClient({ apiKey: 'your-api-key' });
 ```
 
-**With org/project scope:**
-```python
-client = MemoryClient(
-    api_key="your-api-key",
-    org_id="your-org-id",
-    project_id="your-project-id"
-)
-```
-
 ## Endpoint Summary
 
 | Operation | Method | URL |
@@ -114,7 +105,5 @@ Memories can be scoped to different levels:
 | Agent | `agent_id` | Per-agent memory partitioning |
 | Application | `app_id` | Cross-agent app-level memory |
 | Run/Session | `run_id` | Session-scoped temporary memory |
-| Organization | `org_id` | Org-level access control |
-| Project | `project_id` | Project-level partitioning |
 
 **Critical note:** Combining `user_id` and `agent_id` in a single AND filter yields empty results. Entities are stored separately. Use `OR` logic or separate queries.

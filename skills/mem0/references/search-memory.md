@@ -36,8 +36,6 @@
 | `fields` | array of strings | -- | Specific fields to include in response |
 | `version` | string | `v2` | Memory version |
 | `enable_graph` | boolean | -- | Include graph relations in results |
-| `org_id` | string | -- | Organization scope |
-| `project_id` | string | -- | Project scope |
 
 ## Filter System Overview
 

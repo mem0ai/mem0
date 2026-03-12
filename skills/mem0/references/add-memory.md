@@ -72,8 +72,6 @@ See [graph-memory.md](graph-memory.md) for complete graph memory details.
 | `agent_id` | string | Agent identifier |
 | `app_id` | string | Application identifier |
 | `run_id` | string | Run/session identifier |
-| `project_id` | string | Project identifier |
-| `org_id` | string | Organization identifier |
 
 ### Advanced Options
 
