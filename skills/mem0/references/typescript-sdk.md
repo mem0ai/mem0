@@ -85,7 +85,7 @@ await client.add(
 | `options.agent_id` | string | Agent identifier |
 | `options.run_id` | string | Run/session identifier |
 | `options.metadata` | object | Custom key-value pairs |
-| `options.enable_graph` | boolean | Enable graph memory (Pro plan) |
+| `options.enable_graph` | boolean | Enable graph memory |
 | `options.infer` | boolean | If `false`, store raw text without LLM inference (default: `true`) |
 | `options.immutable` | boolean | Make memory immutable |
 | `options.expiration_date` | string | Auto-expiry date (YYYY-MM-DD) |
@@ -239,7 +239,7 @@ Bulk operations.
 // Batch update (note: uses camelCase memoryId)
 await client.batchUpdate([
     { memoryId: "uuid-1", text: "Updated text" },
-    { memoryId: "uuid-2", metadata: { reviewed: true } },
+    { memoryId: "uuid-2", text: "Another updated text" },
 ]);
 
 // Batch delete
@@ -284,13 +284,13 @@ Export memories for backup or migration.
 ```javascript
 // Create an export
 const exportResult = await client.createMemoryExport({
-    schema: "v1",
-    user_id: "alice",
+    schema: { version: "v1" },
+    filters: { AND: [{ user_id: "alice" }] },
 });
 
 // Retrieve the export
 const exportData = await client.getMemoryExport({
-    id: exportResult.id,
+    memory_export_id: exportResult.id,
 });
 ```
 

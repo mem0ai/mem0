@@ -16,7 +16,7 @@ Mem0 is a universal, self-improving memory layer for LLM applications. It provid
 - **Memory persistence** across users and agents -- conversations maintain context
 - **Automatic inference** -- extracts structured memories from conversation messages
 - **Semantic search** -- find relevant memories by natural language query
-- **Graph relationships** -- entity-level connections between memories (Pro plan)
+- **Graph relationships** -- entity-level connections between memories
 - **Prompt reduction** -- eliminates repeated context by retrieving relevant memories
 
 The Platform is a fully managed hosted service. Infrastructure (vector stores, graph services, rerankers) is handled internally.

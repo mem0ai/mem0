@@ -171,8 +171,7 @@ results = client.search(
 
 **JavaScript:**
 ```javascript
-const results = await client.search({
-    query: "What are my dietary restrictions?",
+const results = await client.search("What are my dietary restrictions?", {
     user_id: "user123"
 });
 ```

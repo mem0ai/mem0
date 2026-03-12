@@ -11,7 +11,7 @@ description: >
 license: Apache-2.0
 metadata:
   author: mem0ai
-  version: 1.0.0
+  version: "1.0.0"
   category: ai-memory
   tags: "memory, personalization, ai, python, typescript, vector-search"
 compatibility: Requires Python 3.10+ or Node.js 18+, pip install mem0ai or npm install mem0ai, MEM0_API_KEY env var, and internet access to api.mem0.ai
@@ -166,7 +166,8 @@ Load these on demand for deeper detail:
 | Search memory (filters, operators, gotchas) | [references/search-memory.md](references/search-memory.md) |
 | Update and delete operations | [references/update-delete.md](references/update-delete.md) |
 | V2 filter system (AND/OR/NOT, operators) | [references/filters.md](references/filters.md) |
-| Graph memory (Pro plan, entity relations) | [references/graph-memory.md](references/graph-memory.md) |
+| Graph memory (entity relations) | [references/graph-memory.md](references/graph-memory.md) |
 | Platform features (categories, webhooks, multimodal) | [references/features.md](references/features.md) |
 | TypeScript/JavaScript SDK (full API reference) | [references/typescript-sdk.md](references/typescript-sdk.md) |
 | Framework integrations (LangChain, CrewAI, Vercel AI, etc.) | [references/integration-patterns.md](references/integration-patterns.md) |
+| Use cases & examples (8 real-world patterns with code) | [references/use-cases.md](references/use-cases.md) |

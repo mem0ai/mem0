@@ -94,7 +94,7 @@ const memories = await client.getAll({
 ```
 
 ### Response
-Returns array of memory objects plus `total_memories` count. With `enable_graph=True`, includes `entities` and `relations` arrays.
+Returns array of memory objects plus `total_memories` count. With `enable_graph=True`, includes a top-level `relations` array and each memory may contain an `entities` array.
 
 ### Error (400)
 ```json
@@ -135,7 +135,7 @@ client.update(
 
 **JavaScript:**
 ```javascript
-await client.update("ea925981-...", "Updated dietary info: vegan since 2024");
+await client.update("ea925981-...", { text: "Updated dietary info: vegan since 2024" });
 ```
 
 **cURL:**

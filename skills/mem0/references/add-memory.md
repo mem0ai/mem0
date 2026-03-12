@@ -25,11 +25,11 @@ Mem0 supports two memory storage modes:
 - Available on all plans
 - Default behavior when `enable_graph` is not set
 
-### Graph Memory (Pro Plan Required)
+### Graph Memory
 - Creates entity nodes and relationships in a knowledge graph
 - Enables multi-hop relationship traversal
 - Adds a `relations` array to search results containing source/target entity pairs
-- **Requires Pro plan** -- not available on free tier
+- Requires graph memory to be enabled (per request or at project level)
 - Activated by setting `enable_graph=true` per request or at project level
 - Graph metadata is processed asynchronously; use `get_all()` for complete graph data
 - Graph relations augment vector results **without reordering them**
@@ -79,7 +79,7 @@ See [graph-memory.md](graph-memory.md) for complete graph memory details.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `enable_graph` | boolean | -- | Activate knowledge graph (Pro plan) |
+| `enable_graph` | boolean | -- | Activate knowledge graph |
 | `custom_categories` | object | -- | Category definitions with descriptions |
 | `custom_instructions` | string | -- | Project-specific memory extraction guidelines |
 | `immutable` | boolean | `false` | Prevents modification after creation |
@@ -116,7 +116,7 @@ await client.add(messages, { user_id: "user123" });
 
 **JavaScript with graph:**
 ```javascript
-await client.add({ messages, user_id: "user123", enable_graph: true });
+await client.add(messages, { user_id: "user123", enable_graph: true });
 ```
 
 **cURL:**

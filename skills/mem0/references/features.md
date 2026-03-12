@@ -28,7 +28,7 @@ new_categories = [
 client.project.update(custom_categories=new_categories)
 ```
 ```javascript
-await client.project.update({ custom_categories: new_categories });
+await client.updateProject({ custom_categories: new_categories });
 ```
 
 **Retrieve active categories:**
@@ -53,7 +53,7 @@ Natural language filters that control what information Mem0 extracts when creati
 client.project.update(custom_instructions="Your guidelines here...")
 ```
 ```javascript
-await client.project.update({ custom_instructions: "Your guidelines here..." });
+await client.updateProject({ custom_instructions: "Your guidelines here..." });
 ```
 
 ### Retrieve Instructions

@@ -1,6 +1,6 @@
 # Graph Memory -- Mem0 Platform
 
-Entity-level knowledge graph that creates relationships between memories. **Requires Pro plan.**
+Entity-level knowledge graph that creates relationships between memories.
 
 ## Table of Contents
 - [How It Works](#how-it-works)
@@ -33,7 +33,7 @@ client.get_all(filters={"AND": [{"user_id": "alice"}]}, enable_graph=True)
 client.project.update(enable_graph=True)
 ```
 ```javascript
-await client.project.update({ enable_graph: true });
+await client.updateProject({ enable_graph: true });
 ```
 
 ## Add with Graph
@@ -50,7 +50,7 @@ client.add(messages, user_id="joseph", enable_graph=True)
 
 **JavaScript:**
 ```javascript
-await client.add({ messages, user_id: "joseph", enable_graph: true });
+await client.add(messages, { user_id: "joseph", enable_graph: true });
 ```
 
 **Response:** Returns standard memory events (`ADD`, `UPDATE`, `DELETE`). Graph metadata is processed **asynchronously** -- use `get_all()` for complete graph data.
@@ -64,15 +64,14 @@ results = client.search("what is my name?", user_id="joseph", enable_graph=True)
 
 **JavaScript:**
 ```javascript
-const results = await client.search({
-    query: "what is my name?",
+const results = await client.search("what is my name?", {
     user_id: "joseph",
     enable_graph: true
 });
 ```
 
 **Response includes:**
-- `memories` array -- vector-ordered results (with optional reranking)
+- `results` array -- vector-ordered results (with optional reranking)
 - `relations` array -- entity relationships from graph
 
 ## Get All with Graph
@@ -93,7 +92,7 @@ const memories = await client.getAll({
 });
 ```
 
-**Response includes:** `entities` array (with `id`, `name`, `type`) and `relations` array.
+**Response includes:** `results` array (each memory may contain `entities`) and top-level `relations` array.
 
 **Note:** `filters` parameter is mandatory for `get_all()`.
 
@@ -136,7 +135,7 @@ Each relation in the response contains:
 
 ## Technical Notes
 
-- Graph Memory requires **Pro plan** -- not available on free tier
+- Graph Memory adds processing time; see docs for current plan availability
 - Works optimally with rich conversation histories containing entity relationships
 - Best suited for long-running assistants tracking evolving information
 - Graph writes and reads toggle independently per request

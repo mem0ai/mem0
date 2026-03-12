@@ -28,7 +28,7 @@ def main():
     parser.add_argument("--agent_id", help="Agent identifier")
     parser.add_argument("--run_id", help="Run/session identifier")
     parser.add_argument("--metadata", help="JSON string of metadata key-value pairs")
-    parser.add_argument("--enable_graph", action="store_true", help="Enable graph memory (Pro plan)")
+    parser.add_argument("--enable_graph", action="store_true", help="Enable graph memory")
     parser.add_argument("--immutable", action="store_true", help="Make memory immutable")
     parser.add_argument("--expiration_date", help="Expiration date (YYYY-MM-DD)")
     parser.add_argument("--sync", action="store_true", help="Synchronous processing")
