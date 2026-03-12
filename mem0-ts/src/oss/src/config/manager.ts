@@ -98,6 +98,7 @@ export class ConfigManager {
         userConfig.historyDbPath || DEFAULT_MEMORY_CONFIG.historyDbPath,
       customPrompt: userConfig.customPrompt,
       customUpdatePrompt: userConfig.customUpdatePrompt,
+      roleNames: userConfig.roleNames,
       graphStore: {
         ...DEFAULT_MEMORY_CONFIG.graphStore,
         ...userConfig.graphStore,

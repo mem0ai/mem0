@@ -58,6 +58,8 @@ export interface GraphStoreConfig {
   config: Neo4jConfig;
   llm?: LLMConfig;
   customPrompt?: string;
+  /** Custom system prompt prepended to entity extraction (Call A). */
+  customEntityPrompt?: string;
   /** Cosine similarity threshold for graph search candidate retrieval (default: 0.7) */
   searchThreshold?: number;
   /** Cosine similarity threshold for node deduplication during entity upsert (default: 0.9) */
@@ -85,6 +87,8 @@ export interface MemoryConfig {
   historyDbPath?: string;
   customPrompt?: string;
   customUpdatePrompt?: string;
+  /** Maps message roles to real names for role-preserving extraction. */
+  roleNames?: { user?: string; assistant?: string };
   graphStore?: GraphStoreConfig;
   enableGraph?: boolean;
 }
@@ -171,6 +175,9 @@ export const MemoryConfigSchema = z.object({
   historyDbPath: z.string().optional(),
   customPrompt: z.string().optional(),
   customUpdatePrompt: z.string().optional(),
+  roleNames: z
+    .object({ user: z.string().optional(), assistant: z.string().optional() })
+    .optional(),
   enableGraph: z.boolean().optional(),
   graphStore: z
     .object({
@@ -187,6 +194,7 @@ export const MemoryConfigSchema = z.object({
         })
         .optional(),
       customPrompt: z.string().optional(),
+      customEntityPrompt: z.string().optional(),
       searchThreshold: z.number().min(0).max(1).optional(),
       nodeDeduplicationThreshold: z.number().min(0).max(1).optional(),
       bm25TopK: z.number().int().min(1).optional(),

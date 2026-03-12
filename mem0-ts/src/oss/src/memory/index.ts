@@ -35,6 +35,7 @@ import {
   GetAllMemoryOptions,
 } from "./memory.types";
 import { parse_vision_messages } from "../utils/memory";
+import { formatMessagesWithRoles } from "../utils/formatMessages";
 import { HistoryManager } from "../storage/base";
 import { captureClientEvent } from "../utils/telemetry";
 
@@ -204,7 +205,7 @@ export class Memory {
     if (this.graphMemory) {
       try {
         graphResult = await this.graphMemory.add(
-          final_parsedMessages.map((m) => m.content).join("\n"),
+          formatMessagesWithRoles(final_parsedMessages, this.config.roleNames),
           filters,
         );
       } catch (error) {
@@ -254,7 +255,10 @@ export class Memory {
       }
       return { results: returnedMemories, decisions: emptyDecisions };
     }
-    const parsedMessages = messages.map((m) => m.content).join("\n");
+    const parsedMessages = formatMessagesWithRoles(
+      messages,
+      this.config.roleNames,
+    );
 
     const [systemPrompt, userPrompt] = this.customPrompt
       ? [
