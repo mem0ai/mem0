@@ -219,12 +219,16 @@ export class MemoryGraph {
     filters: Record<string, any>,
   ) {
     const tools = [EXTRACT_ENTITIES_TOOL] as Tool[];
+
+    const defaultEntityPrompt = `You are a smart assistant who understands entities and their types in a given text. If user message contains self reference such as 'I', 'me', 'my' etc. then use ${filters["userId"]} as the source entity. Extract all the entities from the text. ***DO NOT*** answer the question itself if the given text is a question.`;
+
+    const entityPrompt = this.config.graphStore?.customEntityPrompt
+      ? `${this.config.graphStore.customEntityPrompt}\n\n${defaultEntityPrompt}`
+      : defaultEntityPrompt;
+
     const searchResults = await this.structuredLlm.generateResponse(
       [
-        {
-          role: "system",
-          content: `You are a smart assistant who understands entities and their types in a given text. If user message contains self reference such as 'I', 'me', 'my' etc. then use ${filters["userId"]} as the source entity. Extract all the entities from the text. ***DO NOT*** answer the question itself if the given text is a question.`,
-        },
+        { role: "system", content: entityPrompt },
         { role: "user", content: data },
       ],
       { type: "json_object" },
@@ -475,8 +479,18 @@ export class MemoryGraph {
     try {
       for (const item of toBeAdded) {
         const { source, destination, relationship } = item;
-        const sourceType = entityTypeMap[source] || "unknown";
-        const destinationType = entityTypeMap[destination] || "unknown";
+        const sourceType = entityTypeMap[source] || "concept";
+        const destinationType = entityTypeMap[destination] || "concept";
+        if (!entityTypeMap[source]) {
+          logger.warn(
+            `Entity "${source}" not in entity map, defaulting to "concept"`,
+          );
+        }
+        if (!entityTypeMap[destination]) {
+          logger.warn(
+            `Entity "${destination}" not in entity map, defaulting to "concept"`,
+          );
+        }
 
         const sourceEmbedding = await this.embeddingModel.embed(source);
         const destEmbedding = await this.embeddingModel.embed(destination);
