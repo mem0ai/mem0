@@ -70,20 +70,10 @@ export class Memory {
     if (this.config.disableHistory) {
       this.db = new DummyHistoryManager();
     } else {
-      const defaultConfig = {
-        provider: "sqlite",
-        config: {
-          historyDbPath: this.config.historyDbPath || ":memory:",
-        },
-      };
-
-      this.db =
-        this.config.historyStore && !this.config.disableHistory
-          ? HistoryManagerFactory.create(
-              this.config.historyStore.provider,
-              this.config.historyStore,
-            )
-          : HistoryManagerFactory.create("sqlite", defaultConfig);
+      this.db = HistoryManagerFactory.create(
+        this.config.historyStore!.provider,
+        this.config.historyStore!,
+      );
     }
 
     this.collectionName = this.config.vectorStore.config.collectionName;
