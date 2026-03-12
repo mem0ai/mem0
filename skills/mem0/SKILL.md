@@ -121,38 +121,25 @@ def chat(user_input: str, user_id: str) -> str:
     return reply
 ```
 
-## API endpoints
-
-| Operation | Method | Endpoint |
-|-----------|--------|----------|
-| Add | POST | `/v1/memories/` |
-| Search | POST | `/v2/memories/search/` |
-| Get All | POST | `/v2/memories/` |
-| Get One | GET | `/v1/memories/{id}/` |
-| Update | PUT | `/v1/memories/{id}/` |
-| Delete | DELETE | `/v1/memories/{id}/` |
-
-Base URL: `https://api.mem0.ai` — Auth header: `Authorization: Token <MEM0_API_KEY>`
-
 ## Common edge cases
 
 - **Search returns empty:** Memories process asynchronously. Wait 2-3s after `add()` before searching. Also verify `user_id` matches exactly (case-sensitive).
 - **AND filter with user_id + agent_id returns empty:** Entities are stored separately. Use `OR` instead, or query separately.
 - **Duplicate memories:** Don't mix `infer=True` (default) and `infer=False` for the same data. Stick to one mode.
 - **Wrong import:** Always use `from mem0 import MemoryClient` (or `AsyncMemoryClient` for async). Do not use `from mem0 import Memory`.
+- **Immutable memories:** Cannot be updated or deleted once created. Use `client.history(memory_id)` to track changes over time.
 
-## Available scripts
+## Live documentation search
 
-Run these directly for memory operations:
+For the latest docs beyond what's in the references, use the doc search tool:
 
-- **`scripts/add_memory.py`** — Add memories from CLI. Usage: `python scripts/add_memory.py --user_id USER --message "text"`
-- **`scripts/search_memory.py`** — Search with filters. Usage: `python scripts/search_memory.py --user_id USER --query "text"`
-- **`scripts/update_memory.py`** — Update by ID. Usage: `python scripts/update_memory.py --memory_id ID --text "new text"`
-- **`scripts/delete_memory.py`** — Delete by ID or bulk. Usage: `python scripts/delete_memory.py --memory_id ID`
-- **`scripts/get_memories.py`** — List memories. Usage: `python scripts/get_memories.py --user_id USER`
-- **`scripts/mem0_doc_search.py`** — Search latest Mem0 docs. Usage: `python scripts/mem0_doc_search.py --query "topic"`
+```bash
+python scripts/mem0_doc_search.py --query "topic"
+python scripts/mem0_doc_search.py --page "/platform/features/graph-memory"
+python scripts/mem0_doc_search.py --index
+```
 
-All scripts require `MEM0_API_KEY` env var. Run with `--help` for full options.
+No API key needed — searches docs.mem0.ai directly.
 
 ## References
 
@@ -160,14 +147,10 @@ Load these on demand for deeper detail:
 
 | Topic | File |
 |-------|------|
-| Full quickstart (Python, TS, cURL) | [references/quickstart.md](references/quickstart.md) |
-| API concepts, endpoints, memory object shape | [references/general.md](references/general.md) |
-| Add memory (all options, graph, multimodal) | [references/add-memory.md](references/add-memory.md) |
-| Search memory (filters, operators, gotchas) | [references/search-memory.md](references/search-memory.md) |
-| Update and delete operations | [references/update-delete.md](references/update-delete.md) |
-| V2 filter system (AND/OR/NOT, operators) | [references/filters.md](references/filters.md) |
-| Graph memory (entity relations) | [references/graph-memory.md](references/graph-memory.md) |
-| Platform features (categories, webhooks, multimodal) | [references/features.md](references/features.md) |
-| TypeScript/JavaScript SDK (full API reference) | [references/typescript-sdk.md](references/typescript-sdk.md) |
+| Quickstart (Python, TS, cURL) | [references/quickstart.md](references/quickstart.md) |
+| SDK guide (all methods, both languages) | [references/sdk-guide.md](references/sdk-guide.md) |
+| API reference (endpoints, filters, object schema) | [references/api-reference.md](references/api-reference.md) |
+| Architecture (pipeline, lifecycle, scoping, performance) | [references/architecture.md](references/architecture.md) |
+| Platform features (retrieval, graph, categories, MCP, etc.) | [references/features.md](references/features.md) |
 | Framework integrations (LangChain, CrewAI, Vercel AI, etc.) | [references/integration-patterns.md](references/integration-patterns.md) |
-| Use cases & examples (8 real-world patterns with code) | [references/use-cases.md](references/use-cases.md) |
+| Use cases & examples (real-world patterns with code) | [references/use-cases.md](references/use-cases.md) |

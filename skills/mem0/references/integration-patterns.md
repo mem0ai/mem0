@@ -199,7 +199,7 @@ mem0 = MemoryClient()
 @function_tool
 def search_memory(query: str, user_id: str) -> str:
     """Search through past conversations and memories"""
-    memories = mem0.search(query, user_id=user_id, limit=3)
+    memories = mem0.search(query, user_id=user_id, top_k=3)
     if memories and memories.get('results'):
         return "\n".join([f"- {mem['memory']}" for mem in memories['results']])
     return "No relevant memories found."
@@ -285,38 +285,160 @@ pipeline = Pipeline([
 ])
 ```
 
+
+
 ---
 
-## General Python Pattern (No Framework)
+## LangGraph
 
-If you're not using a framework, here's the minimal pattern:
+Source: [docs.mem0.ai/integrations/langgraph](https://docs.mem0.ai/integrations/langgraph)
+
+State-based agent workflows with memory persistence. Best for complex conversation flows with branching logic.
 
 ```python
+from typing import Annotated, TypedDict, List
+from langgraph.graph import StateGraph, START
+from langgraph.graph.message import add_messages
+from langchain_openai import ChatOpenAI
 from mem0 import MemoryClient
-from openai import OpenAI
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 
+llm = ChatOpenAI(model="gpt-4")
 mem0 = MemoryClient()
-openai = OpenAI()
 
-def chat(user_input: str, user_id: str) -> str:
-    # 1. Retrieve relevant memories
-    memories = mem0.search(user_input, user_id=user_id)
-    context = "\n".join([m["memory"] for m in memories.get("results", [])])
+class State(TypedDict):
+    messages: Annotated[List[HumanMessage | AIMessage], add_messages]
+    mem0_user_id: str
 
-    # 2. Generate response with memory context
-    response = openai.chat.completions.create(
-        model="gpt-4.1-nano-2025-04-14",
-        messages=[
-            {"role": "system", "content": f"User context: {context}"},
-            {"role": "user", "content": user_input},
-        ]
-    )
-    reply = response.choices[0].message.content
+def chatbot(state: State):
+    messages = state["messages"]
+    user_id = state["mem0_user_id"]
 
-    # 3. Store interaction
+    # Retrieve relevant memories
+    memories = mem0.search(messages[-1].content, user_id=user_id)
+    context = "Relevant context:\n"
+    for memory in memories["results"]:
+        context += f"- {memory['memory']}\n"
+
+    system_message = SystemMessage(content=f"""You are a helpful support assistant.
+{context}""")
+
+    response = llm.invoke([system_message] + messages)
+
+    # Store the interaction
     mem0.add(
-        [{"role": "user", "content": user_input}, {"role": "assistant", "content": reply}],
+        [{"role": "user", "content": messages[-1].content},
+         {"role": "assistant", "content": response.content}],
         user_id=user_id
+    )
+    return {"messages": [response]}
+
+graph = StateGraph(State)
+graph.add_node("chatbot", chatbot)
+graph.add_edge(START, "chatbot")
+app = graph.compile()
+
+# Usage
+result = app.invoke({
+    "messages": [HumanMessage(content="I need help with my order")],
+    "mem0_user_id": "customer_123"
+})
+```
+
+---
+
+## LlamaIndex
+
+Source: [docs.mem0.ai/integrations/llama-index](https://docs.mem0.ai/integrations/llama-index)
+
+Install: `pip install llama-index-core llama-index-memory-mem0`
+
+LlamaIndex has native Mem0 support via `Mem0Memory`. Works with ReAct and FunctionCalling agents.
+
+```python
+from llama_index.memory.mem0 import Mem0Memory
+
+context = {"user_id": "alice", "agent_id": "llama_agent_1"}
+memory = Mem0Memory.from_client(
+    context=context,
+    search_msg_limit=4,  # messages from chat history used for retrieval (default: 5)
+)
+
+# Use with LlamaIndex agent
+from llama_index.core.agent import FunctionCallingAgent
+from llama_index.llms.openai import OpenAI
+
+llm = OpenAI(model="gpt-4")
+agent = FunctionCallingAgent.from_tools(
+    tools=[],
+    llm=llm,
+    memory=memory,
+    verbose=True,
+)
+
+response = agent.chat("I prefer vegetarian restaurants")
+# Memory automatically stores and retrieves context
+response = agent.chat("What kind of food do I like?")
+# Agent retrieves the vegetarian preference from Mem0
+```
+
+---
+
+## AutoGen
+
+Source: [docs.mem0.ai/integrations/autogen](https://docs.mem0.ai/integrations/autogen)
+
+Install: `pip install autogen mem0ai`
+
+Multi-agent conversational systems with memory persistence.
+
+```python
+from autogen import ConversableAgent
+from mem0 import MemoryClient
+
+memory_client = MemoryClient()
+USER_ID = "alice"
+
+agent = ConversableAgent(
+    "chatbot",
+    llm_config={"config_list": [{"model": "gpt-4", "api_key": os.environ["OPENAI_API_KEY"]}]},
+    code_execution_config=False,
+    human_input_mode="NEVER",
+)
+
+def get_context_aware_response(question: str) -> str:
+    # Retrieve memories for context
+    relevant_memories = memory_client.search(question, user_id=USER_ID)
+    context = "\n".join([m["memory"] for m in relevant_memories.get("results", [])])
+
+    prompt = f"""Answer considering previous interactions:
+    Previous context: {context}
+    Question: {question}"""
+
+    reply = agent.generate_reply(messages=[{"content": prompt, "role": "user"}])
+
+    # Store the new interaction
+    memory_client.add(
+        [{"role": "user", "content": question}, {"role": "assistant", "content": reply}],
+        user_id=USER_ID
     )
     return reply
 ```
+
+---
+
+## All Supported Frameworks
+
+Beyond the examples above, Mem0 integrates with:
+
+| Framework | Type | Install |
+|-----------|------|---------|
+| [Mastra](https://docs.mem0.ai/integrations/mastra) | TS agent framework | `npm install @mastra/mem0` |
+| [ElevenLabs](https://docs.mem0.ai/integrations/elevenlabs) | Voice AI | `pip install elevenlabs mem0ai` |
+| [LiveKit](https://docs.mem0.ai/integrations/livekit) | Real-time voice/video | `pip install livekit-agents mem0ai` |
+| [Camel AI](https://docs.mem0.ai/integrations/camel-ai) | Multi-agent framework | `pip install camel-ai[all] mem0ai` |
+| [AWS Bedrock](https://docs.mem0.ai/integrations/aws-bedrock) | Cloud LLM provider | `pip install boto3 mem0ai` |
+| [Dify](https://docs.mem0.ai/integrations/dify) | Low-code AI platform | Plugin-based |
+| [Google AI ADK](https://docs.mem0.ai/integrations/google-ai-adk) | Google agent framework | `pip install google-adk mem0ai` |
+
+For the general Python pattern (no framework), see the "Common integration pattern" in [SKILL.md](../SKILL.md).

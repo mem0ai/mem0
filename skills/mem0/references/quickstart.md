@@ -9,19 +9,10 @@ Get running with Mem0 in 2 minutes. No infrastructure to deploy -- just an API k
 
 ## Python Setup
 
-### 1. Install
-
 ```bash
 pip install mem0ai
-```
-
-### 2. Set API Key
-
-```bash
 export MEM0_API_KEY="m0-your-api-key"
 ```
-
-### 3. Use
 
 ```python
 from mem0 import MemoryClient
@@ -36,42 +27,27 @@ messages = [
 client.add(messages, user_id="user123")
 
 # Search memories
-results = client.search("What are my dietary restrictions?", filters={"user_id": "user123"})
+results = client.search("What are my dietary restrictions?", user_id="user123")
 print(results)
 ```
 
-### Output
+### Async Client
 
-```json
-{
-  "results": [
-    {
-      "id": "14e1b28a-2014-40ad-ac42-69c9ef42193d",
-      "memory": "Allergic to nuts",
-      "user_id": "user123",
-      "categories": ["health"],
-      "created_at": "2025-10-22T04:40:22.864647-07:00",
-      "score": 0.30
-    }
-  ]
-}
+```python
+from mem0 import AsyncMemoryClient
+
+client = AsyncMemoryClient(api_key="your-api-key")
+
+await client.add(messages, user_id="user123")
+results = await client.search("query", user_id="user123")
 ```
 
 ## TypeScript / JavaScript Setup
 
-### 1. Install
-
 ```bash
 npm install mem0ai
-```
-
-### 2. Set API Key
-
-```bash
 export MEM0_API_KEY="m0-your-api-key"
 ```
-
-### 3. Use
 
 ```javascript
 import MemoryClient from 'mem0ai';
@@ -87,7 +63,7 @@ await client.add(messages, { user_id: "user123" });
 
 // Search memories
 const results = await client.search("What are my dietary restrictions?", {
-    filters: { user_id: "user123" }
+    user_id: "user123"
 });
 console.log(results);
 ```
@@ -119,21 +95,25 @@ curl -X POST https://api.mem0.ai/v2/memories/search/ \
   }'
 ```
 
-## Async Client (Python)
+## Sample Response
 
-For high-throughput applications:
-
-```python
-from mem0 import AsyncMemoryClient
-
-client = AsyncMemoryClient(api_key="your-api-key")
-
-await client.add(messages, user_id="user123")
-results = await client.search("query", user_id="user123")
+```json
+{
+  "results": [
+    {
+      "id": "14e1b28a-2014-40ad-ac42-69c9ef42193d",
+      "memory": "Allergic to nuts",
+      "user_id": "user123",
+      "categories": ["health"],
+      "created_at": "2025-10-22T04:40:22.864647-07:00",
+      "score": 0.30
+    }
+  ]
+}
 ```
 
 ## Next Steps
 
-- [Platform API Reference](general.md)
-- [Integration Patterns](integration-patterns.md) -- add memory to LangChain, CrewAI, Vercel AI, etc.
-- [TypeScript SDK Reference](typescript-sdk.md) -- complete TS/JS API
+- [SDK Guide](sdk-guide.md) -- all methods for Python and TypeScript
+- [API Reference](api-reference.md) -- REST endpoints and memory object structure
+- [Integration Patterns](integration-patterns.md) -- LangChain, CrewAI, Vercel AI, etc.

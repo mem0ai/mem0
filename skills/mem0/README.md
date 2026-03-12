@@ -7,10 +7,9 @@ Add persistent memory to any AI application in minutes using [Mem0 Platform](htt
 When installed, Claude can:
 
 - **Set up Mem0** in your Python or TypeScript project
-- **Integrate memory** into your existing AI app (LangChain, CrewAI, Vercel AI SDK, OpenAI Agents SDK, Pipecat)
+- **Integrate memory** into your existing AI app (LangChain, CrewAI, Vercel AI, OpenAI Agents, LangGraph, LlamaIndex, etc.)
 - **Generate working code** using real API references and tested patterns
-- **Search Mem0 docs** on demand for the latest information
-- **Run CLI scripts** for quick memory operations (add, search, update, delete)
+- **Search live docs** on demand for the latest Mem0 documentation
 
 ## Installation
 
@@ -56,25 +55,16 @@ skills/mem0/
 ├── SKILL.md                    # Skill definition and instructions
 ├── README.md                   # This file
 ├── LICENSE                     # Apache-2.0
-├── scripts/                    # Executable CLI tools
-│   ├── add_memory.py           # Add memories from CLI
-│   ├── search_memory.py        # Search with filters
-│   ├── update_memory.py        # Update by ID
-│   ├── delete_memory.py        # Delete by ID or bulk
-│   ├── get_memories.py         # List memories
-│   └── mem0_doc_search.py      # Search latest Mem0 docs
+├── scripts/
+│   └── mem0_doc_search.py      # Search live Mem0 docs on demand
 └── references/                 # Documentation (loaded on demand)
     ├── quickstart.md           # Full quickstart (Python, TS, cURL)
-    ├── general.md              # API concepts and memory object shape
-    ├── add-memory.md           # Add memory (all options, graph, multimodal)
-    ├── search-memory.md        # Search (filters, operators, gotchas)
-    ├── update-delete.md        # Update and delete operations
-    ├── filters.md              # V2 filter system (AND/OR/NOT)
-    ├── graph-memory.md         # Graph memory (entity relations)
-    ├── features.md             # Categories, webhooks, multimodal, async
-    ├── typescript-sdk.md       # TypeScript/JavaScript SDK reference
-    ├── integration-patterns.md # LangChain, CrewAI, Vercel AI, OpenAI Agents, Pipecat
-    └── use-cases.md            # 7 real-world examples from official cookbooks
+    ├── sdk-guide.md            # All SDK methods (Python + TypeScript)
+    ├── api-reference.md        # REST endpoints, filters, memory object
+    ├── architecture.md         # Processing pipeline, lifecycle, scoping, performance
+    ├── features.md             # Retrieval, graph, categories, MCP, webhooks, multimodal
+    ├── integration-patterns.md # LangChain, CrewAI, Vercel AI, LangGraph, LlamaIndex, etc.
+    └── use-cases.md            # 7 real-world patterns with Python + TypeScript code
 ```
 
 ## Links
