@@ -26,7 +26,7 @@ cp -r mem0-skills/mem0 .claude/skills/
 ```
 
 ### Prerequisites
-- A Mem0 Platform API key ([Get one here](https://app.mem0.ai/dashboard/settings?tab=api-keys))
+- A Mem0 Platform API key ([Get one here](https://app.mem0.ai/dashboard/api-keys))
 - Set the environment variable:
   ```bash
   export MEM0_API_KEY="m0-your-api-key"

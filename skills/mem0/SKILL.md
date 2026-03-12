@@ -35,7 +35,7 @@ npm install mem0ai
 export MEM0_API_KEY="m0-your-api-key"
 ```
 
-Get an API key at: https://app.mem0.ai/dashboard/settings?tab=api-keys
+Get an API key at: https://app.mem0.ai/dashboard/api-keys
 
 ## Step 2: Initialize the client
 
