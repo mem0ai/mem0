@@ -2,6 +2,11 @@
 
 All notable changes to the `@mem0/openclaw-mem0` plugin will be documented in this file.
 
+## [0.3.1] - 2026-03-12
+
+### Fixed
+- **README image on npmjs.com**: Changed architecture diagram from relative path to absolute GitHub URL so it renders correctly on the npm registry
+
 ## [0.3.0] - 2026-03-10
 
 ### Fixed
