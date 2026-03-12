@@ -107,6 +107,7 @@ export class ConfigManager {
         const defaultHistoryStore = DEFAULT_MEMORY_CONFIG.historyStore!;
         const historyProvider =
           userConfig.historyStore?.provider || defaultHistoryStore.provider;
+        const isSqlite = historyProvider.toLowerCase() === "sqlite";
 
         // Precedence: explicit historyStore.config > top-level historyDbPath > default
         return {
@@ -114,9 +115,8 @@ export class ConfigManager {
           ...userConfig.historyStore,
           provider: historyProvider,
           config: {
-            ...defaultHistoryStore.config,
-            ...(historyProvider.toLowerCase() === "sqlite" &&
-            userConfig.historyDbPath
+            ...(isSqlite ? defaultHistoryStore.config : {}),
+            ...(isSqlite && userConfig.historyDbPath
               ? { historyDbPath: userConfig.historyDbPath }
               : {}),
             ...userConfig.historyStore?.config,
