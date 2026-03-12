@@ -5,11 +5,15 @@
  * malformed input, and the resolveUserId priority chain.
  */
 import { describe, it, expect } from "vitest";
+import { mkdtemp, rm, stat } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import {
   extractAgentId,
   effectiveUserId,
   agentUserId,
   resolveUserId,
+  resolveOssHistoryConfig,
 } from "./index.ts";
 
 // ---------------------------------------------------------------------------
@@ -161,5 +165,46 @@ describe("multi-agent isolation", () => {
   it("main session shares the base namespace (no isolation)", () => {
     const mainId = effectiveUserId(base, "agent:main:uuid-m");
     expect(mainId).toBe(base);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// OSS history sqlite config helper
+// ---------------------------------------------------------------------------
+
+describe("resolveOssHistoryConfig", () => {
+  it("creates the parent directory and returns both history fields", async () => {
+    const tmp = await mkdtemp(join(tmpdir(), "openclaw-mem0-"));
+    try {
+      const dbPath = join(tmp, "nested", "history.db");
+      const result = await resolveOssHistoryConfig(dbPath);
+      expect(result.historyDbPath).toBe(dbPath);
+      expect(result.historyStore).toEqual({
+        provider: "sqlite",
+        config: { historyDbPath: dbPath },
+      });
+      const parent = await stat(join(tmp, "nested"));
+      expect(parent.isDirectory()).toBe(true);
+    } finally {
+      await rm(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("applies resolvePath before creating directories and wiring historyStore", async () => {
+    const tmp = await mkdtemp(join(tmpdir(), "openclaw-mem0-"));
+    try {
+      const result = await resolveOssHistoryConfig("history.db", (p) =>
+        join(tmp, "resolved", p),
+      );
+      expect(result.historyDbPath).toBe(join(tmp, "resolved", "history.db"));
+      expect(result.historyStore).toEqual({
+        provider: "sqlite",
+        config: { historyDbPath: join(tmp, "resolved", "history.db") },
+      });
+      const parent = await stat(join(tmp, "resolved"));
+      expect(parent.isDirectory()).toBe(true);
+    } finally {
+      await rm(tmp, { recursive: true, force: true });
+    }
   });
 });

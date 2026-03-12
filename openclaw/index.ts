@@ -16,6 +16,8 @@
  * - Dual mode: platform or open-source (self-hosted)
  */
 
+import { mkdir } from "node:fs/promises";
+import { dirname } from "node:path";
 import { Type } from "@sinclair/typebox";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 
@@ -240,10 +242,13 @@ class OSSProvider implements Mem0Provider {
     if (this.ossConfig?.llm) config.llm = this.ossConfig.llm;
 
     if (this.ossConfig?.historyDbPath) {
-      const dbPath = this.resolvePath
-        ? this.resolvePath(this.ossConfig.historyDbPath)
-        : this.ossConfig.historyDbPath;
-      config.historyDbPath = dbPath;
+      Object.assign(
+        config,
+        await resolveOssHistoryConfig(
+          this.ossConfig.historyDbPath,
+          this.resolvePath,
+        ),
+      );
     }
 
     if (this.customPrompt) config.customPrompt = this.customPrompt;
@@ -603,6 +608,24 @@ function createProvider(
 // ============================================================================
 // Helpers
 // ============================================================================
+
+export async function resolveOssHistoryConfig(
+  historyDbPath: string,
+  resolvePath?: (p: string) => string,
+): Promise<{
+  historyDbPath: string;
+  historyStore: { provider: "sqlite"; config: { historyDbPath: string } };
+}> {
+  const resolvedPath = resolvePath ? resolvePath(historyDbPath) : historyDbPath;
+  await mkdir(dirname(resolvedPath), { recursive: true });
+  return {
+    historyDbPath: resolvedPath,
+    historyStore: {
+      provider: "sqlite",
+      config: { historyDbPath: resolvedPath },
+    },
+  };
+}
 
 /** Convert Record<string, string> categories to the array format mem0ai expects */
 function categoriesToArray(
