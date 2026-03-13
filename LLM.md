@@ -273,7 +273,7 @@ config = MemoryConfig(
 
 ### Supported Providers
 
-#### LLM Providers (19 supported)
+#### LLM Providers (20 supported)
 - **openai** - OpenAI GPT models (default)
 - **anthropic** - Claude models
 - **gemini** - Google Gemini
@@ -289,6 +289,7 @@ config = MemoryConfig(
 - **lmstudio** - LM Studio local server
 - **vllm** - vLLM inference server
 - **langchain** - LangChain integration
+- **minimax** - MiniMax models
 - **openai_structured** - OpenAI with structured output
 - **azure_openai_structured** - Azure OpenAI with structured output
 
