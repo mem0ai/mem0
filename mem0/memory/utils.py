@@ -38,6 +38,8 @@ def parse_messages(messages):
             response += f"user: {msg['content']}\n"
         if msg["role"] == "assistant":
             response += f"assistant: {msg['content']}\n"
+        if msg["role"] == "tool":
+            response += f"tool: {msg['content']}\n"
     return response
 
 
