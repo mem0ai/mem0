@@ -442,6 +442,20 @@ What is the deployment plan?`,
     expect(result[0].content).toContain("Google Sheet");
   });
 
+  it("returns only assistant messages when all user messages are noise", () => {
+    // This scenario triggers the #2 guard: no user content remains
+    const messages = [
+      { role: "user", content: "ok" },
+      { role: "user", content: "HEARTBEAT_OK" },
+      { role: "assistant", content: "I deployed the API to production." },
+    ];
+    const result = filterMessagesForExtraction(messages);
+    expect(result).toHaveLength(1);
+    expect(result[0].role).toBe("assistant");
+    // The capture hook checks: if no user messages remain, skip add()
+    expect(result.some((m) => m.role === "user")).toBe(false);
+  });
+
   it("keeps substantive assistant messages even with generic opener", () => {
     const messages = [
       { role: "user", content: "What did you do?" },

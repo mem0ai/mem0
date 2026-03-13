@@ -858,11 +858,24 @@ function registerHooks(
           buildSearchOptions(undefined, recallTopK, undefined, sessionId),
         );
 
-        // Client-side threshold filter — ensures low-relevance results
-        // are dropped even if the API doesn't honor the threshold
+        // Client-side threshold filter for auto-recall — use a stricter
+        // threshold (0.6) than explicit tool searches (0.5) to avoid
+        // injecting irrelevant memories into agent context
+        const recallThreshold = Math.max(cfg.searchThreshold, 0.6);
         longTermResults = longTermResults.filter(
-          (r) => (r.score ?? 0) >= cfg.searchThreshold,
+          (r) => (r.score ?? 0) >= recallThreshold,
         );
+
+        // Dynamic thresholding: drop memories scoring less than 50% of
+        // the top result's score to filter out the long tail of weak matches
+        if (longTermResults.length > 1) {
+          const topScore = longTermResults[0]?.score ?? 0;
+          if (topScore > 0) {
+            longTermResults = longTermResults.filter(
+              (r) => (r.score ?? 0) >= topScore * 0.5,
+            );
+          }
+        }
 
         // For short/generic prompts or new sessions, broaden recall
         // with a general query to avoid cold-start blindness.
@@ -1066,12 +1079,15 @@ function registerHooks(
 
         if (formattedMessages.length === 0) return;
 
+        // Skip if no meaningful user content remains after filtering
+        if (!formattedMessages.some((m) => m.role === "user")) return;
+
         // Inject a timestamp preamble so the extraction model can anchor
-        // time-sensitive facts to a concrete date
+        // time-sensitive facts to a concrete date and attribute to the correct user
         const timestamp = new Date().toISOString().split("T")[0];
         formattedMessages.unshift({
           role: "system",
-          content: `Current date: ${timestamp}. Extract durable facts from this conversation. Include this date when storing time-sensitive information.`,
+          content: `Current date: ${timestamp}. The user is identified as "${cfg.userId}". Extract durable facts from this conversation. Include this date when storing time-sensitive information.`,
         });
 
         const activeSessionId = session.getCurrentSessionId();
