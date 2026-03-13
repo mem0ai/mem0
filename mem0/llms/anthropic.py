@@ -35,10 +35,36 @@ class AnthropicLLM(LLMBase):
         super().__init__(config)
 
         if not self.config.model:
-            self.config.model = "claude-3-5-sonnet-20240620"
+            self.config.model = "claude-sonnet-4-20250514"
 
         api_key = self.config.api_key or os.getenv("ANTHROPIC_API_KEY")
-        self.client = anthropic.Anthropic(api_key=api_key)
+        client_kwargs = {"api_key": api_key}
+        if self.config.anthropic_base_url:
+            client_kwargs["base_url"] = self.config.anthropic_base_url
+        self.client = anthropic.Anthropic(**client_kwargs)
+
+    def _parse_response(self, response, tools):
+        """
+        Process the response based on whether tools are used or not.
+
+        Args:
+            response: The raw Anthropic Message response.
+            tools: The list of tools provided in the request.
+
+        Returns:
+            str or dict: The processed response.
+        """
+        if tools:
+            content = ""
+            tool_calls = []
+            for block in response.content:
+                if block.type == "text":
+                    content = block.text
+                elif block.type == "tool_use":
+                    tool_calls.append({"name": block.name, "arguments": block.input})
+            return {"content": content, "tool_calls": tool_calls}
+        else:
+            return response.content[0].text
 
     def _get_common_params(self, **kwargs) -> Dict:
         """Get common parameters, avoiding sending both temperature and top_p together.
@@ -84,7 +110,8 @@ class AnthropicLLM(LLMBase):
             **kwargs: Additional Anthropic-specific parameters.
 
         Returns:
-            str: The generated response.
+            str or dict: The generated response. When tools are provided, returns
+                a dict with 'content' and 'tool_calls' keys matching the OpenAI connector format.
         """
         # Separate system message from other messages
         system_message = ""
@@ -104,9 +131,9 @@ class AnthropicLLM(LLMBase):
             }
         )
 
-        if tools:  # TODO: Remove tools if no issues found with new memory addition logic
+        if tools:
             params["tools"] = tools
             params["tool_choice"] = tool_choice
 
         response = self.client.messages.create(**params)
-        return response.content[0].text
+        return self._parse_response(response, tools)
