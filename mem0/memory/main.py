@@ -242,6 +242,73 @@ class Memory(MemoryBase):
             raise
         return cls(config)
 
+    def close(self) -> None:
+        """Release all resources held by this Memory instance.
+
+        Shuts down the PostHog telemetry background thread, closes the SQLite
+        history-store connection, and calls ``close()`` on the vector store(s)
+        when the underlying client exposes such a method.
+
+        It is safe to call this method more than once.
+
+        Example::
+
+            mm = Memory.from_config(config)
+            try:
+                mm.add(...)
+            finally:
+                mm.close()
+
+        Or, equivalently, use the context-manager form::
+
+            with Memory.from_config(config) as mm:
+                mm.add(...)
+        """
+        # 1. Close the SQLite history-store connection.
+        if hasattr(self, "db") and self.db is not None:
+            try:
+                self.db.close()
+            except Exception:
+                logger.debug("Error closing SQLite history store", exc_info=True)
+
+        # 2. Close the primary vector store if it exposes a close() method.
+        if hasattr(self, "vector_store") and self.vector_store is not None:
+            _close = getattr(self.vector_store, "close", None)
+            if callable(_close):
+                try:
+                    _close()
+                except Exception:
+                    logger.debug("Error closing vector store", exc_info=True)
+
+        # 3. Close the telemetry vector store.
+        if hasattr(self, "_telemetry_vector_store") and self._telemetry_vector_store is not None:
+            _close = getattr(self._telemetry_vector_store, "close", None)
+            if callable(_close):
+                try:
+                    _close()
+                except Exception:
+                    logger.debug("Error closing telemetry vector store", exc_info=True)
+
+        # 4. Force a GC cycle so that any remaining circular references between
+        #    LLM/embedder clients are broken and their __del__ finalizers run.
+        gc.collect()
+
+    def __enter__(self):
+        """Support usage as a context manager: ``with Memory.from_config(...) as m:``."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Ensure :meth:`close` is called when leaving a ``with`` block."""
+        self.close()
+        return False  # do not suppress exceptions
+
+    def __del__(self):
+        """Best-effort cleanup when the object is garbage collected."""
+        try:
+            self.close()
+        except Exception:
+            pass
+
     @staticmethod
     def _process_config(config_dict: Dict[str, Any]) -> Dict[str, Any]:
         if "graph_store" in config_dict:

@@ -22,7 +22,6 @@ def memory_instance():
         patch("mem0.memory.main.VectorStoreFactory") as mock_vector_store,
         patch("mem0.utils.factory.LlmFactory") as mock_llm,
         patch("mem0.memory.telemetry.capture_event"),
-        patch("mem0.memory.graph_memory.MemoryGraph"),
         patch("mem0.memory.main.GraphStoreFactory") as mock_graph_store,
     ):
         mock_embedder.create.return_value = Mock()
@@ -46,7 +45,6 @@ def memory_custom_instance():
         patch("mem0.memory.main.VectorStoreFactory") as mock_vector_store,
         patch("mem0.utils.factory.LlmFactory") as mock_llm,
         patch("mem0.memory.telemetry.capture_event"),
-        patch("mem0.memory.graph_memory.MemoryGraph"),
         patch("mem0.memory.main.GraphStoreFactory") as mock_graph_store,
     ):
         mock_embedder.create.return_value = Mock()
@@ -296,3 +294,90 @@ def test_custom_prompts(memory_custom_instance):
                 messages=[{"role": "user", "content": mock_get_update_memory_messages.return_value}],
                 response_format={"type": "json_object"},
             )
+
+
+# ---------------------------------------------------------------------------
+# Tests for resource-cleanup: close(), context manager, __del__            #
+# issue #3376 — Memory leak and thread leak in mem0 library                #
+# ---------------------------------------------------------------------------
+
+
+class TestMemoryClose:
+    """Verify that Memory.close() properly releases all held resources."""
+
+    def test_close_calls_db_close(self, memory_instance):
+        """close() must close the SQLite history-store connection."""
+        memory_instance.db = Mock()
+        memory_instance.close()
+        memory_instance.db.close.assert_called_once()
+
+    def test_close_calls_vector_store_close_when_available(self, memory_instance):
+        """close() must call vector_store.close() when the method exists."""
+        mock_vs = Mock(spec=["close"])
+        memory_instance.vector_store = mock_vs
+        memory_instance.close()
+        mock_vs.close.assert_called_once()
+
+    def test_close_skips_vector_store_close_when_not_available(self, memory_instance):
+        """close() must not raise when vector_store has no close() method."""
+        mock_vs = Mock(spec=[])  # no 'close' attribute
+        memory_instance.vector_store = mock_vs
+        memory_instance.close()  # should not raise
+
+    def test_close_calls_telemetry_vector_store_close_when_available(self, memory_instance):
+        """close() must call _telemetry_vector_store.close() when the method exists."""
+        mock_tvs = Mock(spec=["close"])
+        memory_instance._telemetry_vector_store = mock_tvs
+        memory_instance.close()
+        mock_tvs.close.assert_called_once()
+
+    def test_close_is_idempotent(self, memory_instance):
+        """Calling close() multiple times must not raise."""
+        memory_instance.db = Mock()
+        memory_instance.close()
+        memory_instance.close()  # should not raise
+
+    def test_close_does_not_raise_on_db_error(self, memory_instance):
+        """close() must swallow exceptions from db.close() and continue cleanup."""
+        memory_instance.db = Mock()
+        memory_instance.db.close.side_effect = Exception("db error")
+        mock_vs = Mock(spec=["close"])
+        memory_instance.vector_store = mock_vs
+        memory_instance.close()  # must not raise
+        # vector store close must still have been attempted
+        mock_vs.close.assert_called_once()
+
+
+class TestMemoryContextManager:
+    """Verify that Memory works as a context manager (with statement)."""
+
+    def test_context_manager_returns_self(self, memory_instance):
+        """__enter__ must return the Memory instance itself."""
+        result = memory_instance.__enter__()
+        assert result is memory_instance
+
+    def test_context_manager_calls_close_on_exit(self, memory_instance):
+        """__exit__ must call close() so resources are released."""
+        memory_instance.db = Mock()
+        memory_instance.__exit__(None, None, None)
+        memory_instance.db.close.assert_called_once()
+
+    def test_context_manager_does_not_suppress_exceptions(self, memory_instance):
+        """__exit__ must return False so caller exceptions propagate."""
+        result = memory_instance.__exit__(ValueError, ValueError("oops"), None)
+        assert result is False
+
+    def test_with_statement_releases_resources(self, memory_instance):
+        """Resources must be released when exiting a 'with' block normally."""
+        memory_instance.db = Mock()
+        with memory_instance:
+            pass
+        memory_instance.db.close.assert_called_once()
+
+    def test_with_statement_releases_resources_on_exception(self, memory_instance):
+        """Resources must be released even when an exception is raised inside 'with'."""
+        memory_instance.db = Mock()
+        with pytest.raises(RuntimeError):
+            with memory_instance:
+                raise RuntimeError("test error")
+        memory_instance.db.close.assert_called_once()

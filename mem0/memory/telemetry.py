@@ -70,22 +70,26 @@ def capture_event(event_name, memory_instance, additional_data=None):
         else None,
     )
 
-    event_data = {
-        "collection": memory_instance.collection_name,
-        "vector_size": memory_instance.embedding_model.config.embedding_dims,
-        "history_store": "sqlite",
-        "graph_store": f"{memory_instance.graph.__class__.__module__}.{memory_instance.graph.__class__.__name__}"
-        if memory_instance.config.graph_store.config
-        else None,
-        "vector_store": f"{memory_instance.vector_store.__class__.__module__}.{memory_instance.vector_store.__class__.__name__}",
-        "llm": f"{memory_instance.llm.__class__.__module__}.{memory_instance.llm.__class__.__name__}",
-        "embedding_model": f"{memory_instance.embedding_model.__class__.__module__}.{memory_instance.embedding_model.__class__.__name__}",
-        "function": f"{memory_instance.__class__.__module__}.{memory_instance.__class__.__name__}.{memory_instance.api_version}",
-    }
-    if additional_data:
-        event_data.update(additional_data)
+    try:
+        event_data = {
+            "collection": memory_instance.collection_name,
+            "vector_size": memory_instance.embedding_model.config.embedding_dims,
+            "history_store": "sqlite",
+            "graph_store": f"{memory_instance.graph.__class__.__module__}.{memory_instance.graph.__class__.__name__}"
+            if memory_instance.config.graph_store.config
+            else None,
+            "vector_store": f"{memory_instance.vector_store.__class__.__module__}.{memory_instance.vector_store.__class__.__name__}",
+            "llm": f"{memory_instance.llm.__class__.__module__}.{memory_instance.llm.__class__.__name__}",
+            "embedding_model": f"{memory_instance.embedding_model.__class__.__module__}.{memory_instance.embedding_model.__class__.__name__}",
+            "function": f"{memory_instance.__class__.__module__}.{memory_instance.__class__.__name__}.{memory_instance.api_version}",
+        }
+        if additional_data:
+            event_data.update(additional_data)
 
-    oss_telemetry.capture_event(event_name, event_data)
+        oss_telemetry.capture_event(event_name, event_data)
+    finally:
+        # Always shut down the PostHog background thread to prevent thread leaks.
+        oss_telemetry.close()
 
 
 def capture_client_event(event_name, instance, additional_data=None):

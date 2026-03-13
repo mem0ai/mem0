@@ -68,17 +68,30 @@ class TestTelemetryEnabled:
                     assert at.posthog is not None
                     assert at.user_id == "test-user"
 
-    def test_capture_event_sends_when_enabled(self):
-        """capture_event() should create AnonymousTelemetry and call capture when enabled."""
+    def test_capture_event_always_calls_close(self):
+        """capture_event() must call .close() on the AnonymousTelemetry it creates
+        so the PostHog background consumer thread is not leaked."""
         with patch.object(telemetry_module, "MEM0_TELEMETRY", True):
-            with patch("mem0.memory.telemetry.AnonymousTelemetry") as mock_cls:
-                mock_at = MagicMock()
-                mock_cls.return_value = mock_at
+            mock_at = MagicMock()
+            with patch("mem0.memory.telemetry.AnonymousTelemetry", return_value=mock_at):
                 mock_memory = MagicMock()
                 mock_memory.config.graph_store.config = None
                 mock_memory.api_version = "v1"
                 telemetry_module.capture_event("test.event", mock_memory)
-                mock_at.capture_event.assert_called_once()
+                mock_at.close.assert_called_once()
+
+    def test_capture_event_calls_close_even_on_exception(self):
+        """capture_event() must call .close() even when capture_event raises."""
+        with patch.object(telemetry_module, "MEM0_TELEMETRY", True):
+            mock_at = MagicMock()
+            mock_at.capture_event.side_effect = RuntimeError("boom")
+            with patch("mem0.memory.telemetry.AnonymousTelemetry", return_value=mock_at):
+                mock_memory = MagicMock()
+                mock_memory.config.graph_store.config = None
+                mock_memory.api_version = "v1"
+                with pytest.raises(RuntimeError):
+                    telemetry_module.capture_event("test.event", mock_memory)
+                mock_at.close.assert_called_once()
 
     def test_capture_client_event_sends_when_enabled(self):
         """capture_client_event() should call client_telemetry.capture_event when enabled."""
