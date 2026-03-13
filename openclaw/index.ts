@@ -36,13 +36,14 @@ import {
   effectiveUserId,
   agentUserId,
   resolveUserId,
+  isNonInteractiveTrigger,
 } from "./isolation.ts";
 
 // ============================================================================
 // Re-exports (for tests and external consumers)
 // ============================================================================
 
-export { extractAgentId, effectiveUserId, agentUserId, resolveUserId } from "./isolation.ts";
+export { extractAgentId, effectiveUserId, agentUserId, resolveUserId, isNonInteractiveTrigger } from "./isolation.ts";
 export {
   isNoiseMessage,
   isGenericAssistantMessage,
@@ -834,8 +835,15 @@ function registerHooks(
     api.on("before_agent_start", async (event, ctx) => {
       if (!event.prompt || event.prompt.length < 5) return;
 
-      // Track session ID and detect session boundary
+      // Skip non-interactive triggers (cron, heartbeat, automation)
+      const trigger = (ctx as any)?.trigger ?? undefined;
       const sessionId = (ctx as any)?.sessionKey ?? undefined;
+      if (isNonInteractiveTrigger(trigger, sessionId)) {
+        api.logger.info("openclaw-mem0: skipping recall for non-interactive trigger");
+        return;
+      }
+
+      // Track session ID and detect session boundary
       const currentSessionId = session.getCurrentSessionId();
       const isNewSession = sessionId && sessionId !== currentSessionId;
       if (sessionId) session.setCurrentSessionId(sessionId);
@@ -941,8 +949,15 @@ function registerHooks(
         return;
       }
 
-      // Track session ID
+      // Skip non-interactive triggers (cron, heartbeat, automation)
+      const trigger = (ctx as any)?.trigger ?? undefined;
       const sessionId = (ctx as any)?.sessionKey ?? undefined;
+      if (isNonInteractiveTrigger(trigger, sessionId)) {
+        api.logger.info("openclaw-mem0: skipping capture for non-interactive trigger");
+        return;
+      }
+
+      // Track session ID
       if (sessionId) session.setCurrentSessionId(sessionId);
 
       try {

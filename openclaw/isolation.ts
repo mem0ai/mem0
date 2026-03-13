@@ -5,12 +5,57 @@
  * automatically via sessionKey routing.
  */
 
+// ============================================================================
+// Trigger filtering — skip non-interactive sessions
+// ============================================================================
+
 /**
- * Parse an agent ID from a session key following the pattern `agent:<agentId>:<uuid>`.
- * Returns undefined for non-agent sessions, the "main" sentinel, or malformed keys.
+ * Triggers that should NOT run autocapture/autorecall.
+ * These are system-initiated sessions (cron jobs, heartbeats, automation
+ * pipelines) whose prompts would pollute the user's memory store.
+ */
+const SKIP_TRIGGERS = new Set(["cron", "heartbeat", "automation", "schedule"]);
+
+/**
+ * Returns true if the session trigger is non-interactive and memory
+ * hooks should be skipped entirely.
+ *
+ * Also detects cron-style session keys (e.g. "agent:main:cron:<id>")
+ * as a fallback when the trigger field is not set.
+ */
+export function isNonInteractiveTrigger(
+  trigger: string | undefined,
+  sessionKey: string | undefined,
+): boolean {
+  if (trigger && SKIP_TRIGGERS.has(trigger.toLowerCase())) return true;
+
+  // Fallback: detect cron/heartbeat from the session key pattern
+  if (sessionKey) {
+    if (/:cron:/i.test(sessionKey) || /:heartbeat:/i.test(sessionKey)) return true;
+  }
+
+  return false;
+}
+
+/**
+ * Parse an agent ID from a session key.
+ *
+ * OpenClaw session key formats:
+ *   - Main agent:  "agent:main:main"
+ *   - Subagent:    "agent:main:subagent:<uuid>"
+ *   - Named agent: "agent:<agentId>:<session>"
+ *
+ * Returns the subagent UUID for subagent sessions, the agentId for
+ * non-"main" named agents, or undefined for the main agent session.
  */
 export function extractAgentId(sessionKey: string | undefined): string | undefined {
   if (!sessionKey) return undefined;
+
+  // Check for subagent pattern: "agent:<parent>:subagent:<uuid>"
+  const subagentMatch = sessionKey.match(/:subagent:([^:]+)$/);
+  if (subagentMatch?.[1]) return `subagent-${subagentMatch[1]}`;
+
+  // Check for named agent pattern: "agent:<agentId>:<session>"
   const match = sessionKey.match(/^agent:([^:]+):/);
   const agentId = match?.[1];
   // "main" is the primary session — fall back to configured userId

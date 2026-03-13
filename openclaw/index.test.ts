@@ -8,6 +8,7 @@ import {
   effectiveUserId,
   agentUserId,
   resolveUserId,
+  isNonInteractiveTrigger,
   isNoiseMessage,
   isGenericAssistantMessage,
   stripNoiseFromContent,
@@ -19,8 +20,19 @@ import {
 // extractAgentId
 // ---------------------------------------------------------------------------
 describe("extractAgentId", () => {
-  it("returns agentId from a well-formed session key", () => {
+  it("returns agentId from a named agent session key", () => {
     expect(extractAgentId("agent:researcher:550e8400-e29b")).toBe("researcher");
+  });
+
+  it("returns subagent namespace from subagent session key", () => {
+    // OpenClaw subagent format: agent:main:subagent:<uuid>
+    expect(extractAgentId("agent:main:subagent:3b85177f-69e0-412d-8ecd-fbe542f362ce")).toBe(
+      "subagent-3b85177f-69e0-412d-8ecd-fbe542f362ce",
+    );
+  });
+
+  it("returns undefined for the main agent session (agent:main:main)", () => {
+    expect(extractAgentId("agent:main:main")).toBeUndefined();
   });
 
   it("returns undefined for the 'main' sentinel", () => {
@@ -164,6 +176,54 @@ describe("multi-agent isolation", () => {
   it("main session shares the base namespace (no isolation)", () => {
     const mainId = effectiveUserId(base, "agent:main:uuid-m");
     expect(mainId).toBe(base);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isNonInteractiveTrigger
+// ---------------------------------------------------------------------------
+describe("isNonInteractiveTrigger", () => {
+  it("returns true for cron trigger", () => {
+    expect(isNonInteractiveTrigger("cron", undefined)).toBe(true);
+  });
+
+  it("returns true for heartbeat trigger", () => {
+    expect(isNonInteractiveTrigger("heartbeat", undefined)).toBe(true);
+  });
+
+  it("returns true for automation trigger", () => {
+    expect(isNonInteractiveTrigger("automation", undefined)).toBe(true);
+  });
+
+  it("returns true for schedule trigger", () => {
+    expect(isNonInteractiveTrigger("schedule", undefined)).toBe(true);
+  });
+
+  it("is case-insensitive for trigger", () => {
+    expect(isNonInteractiveTrigger("CRON", undefined)).toBe(true);
+    expect(isNonInteractiveTrigger("Heartbeat", undefined)).toBe(true);
+  });
+
+  it("returns false for user-initiated triggers", () => {
+    expect(isNonInteractiveTrigger("user", undefined)).toBe(false);
+    expect(isNonInteractiveTrigger("webchat", undefined)).toBe(false);
+    expect(isNonInteractiveTrigger("telegram", undefined)).toBe(false);
+  });
+
+  it("returns false when trigger is undefined and session key is normal", () => {
+    expect(isNonInteractiveTrigger(undefined, "agent:main:main")).toBe(false);
+  });
+
+  it("detects cron from session key as fallback", () => {
+    expect(isNonInteractiveTrigger(undefined, "agent:main:cron:c85abdb2-d900-4cd8-8601-9dd960c560c9")).toBe(true);
+  });
+
+  it("detects heartbeat from session key as fallback", () => {
+    expect(isNonInteractiveTrigger(undefined, "agent:main:heartbeat:abc123")).toBe(true);
+  });
+
+  it("returns false when both trigger and sessionKey are undefined", () => {
+    expect(isNonInteractiveTrigger(undefined, undefined)).toBe(false);
   });
 });
 
