@@ -3635,7 +3635,7 @@
 										},
 										"description": "List of custom categories to be used for memory categorization."
 									},
-									"use_input_language": {
+									"multilingual": {
 										"type": "boolean",
 										"description": "Whether to use the input language for memory storage and retrieval."
 									}
