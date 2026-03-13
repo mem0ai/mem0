@@ -248,7 +248,9 @@ class OSSProvider implements Mem0Provider {
     }
 
     if (this.customPrompt) config.customPrompt = this.customPrompt;
-    if (this.ossConfig?.disableHistory) config.disableHistory = true;
+    if (this.ossConfig && "disableHistory" in this.ossConfig) {
+      config.disableHistory = this.ossConfig.disableHistory;
+    }
 
     this.memory = new Memory(config);
   }
