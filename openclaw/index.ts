@@ -41,6 +41,7 @@ type Mem0Config = {
     vectorStore?: { provider: string; config: Record<string, unknown> };
     llm?: { provider: string; config: Record<string, unknown> };
     historyDbPath?: string;
+    disableHistory?: boolean;
   };
   // Shared
   userId: string;
@@ -247,6 +248,7 @@ class OSSProvider implements Mem0Provider {
     }
 
     if (this.customPrompt) config.customPrompt = this.customPrompt;
+    if (this.ossConfig?.disableHistory) config.disableHistory = true;
 
     this.memory = new Memory(config);
   }
