@@ -7,7 +7,7 @@ const external = [
   "uuid",
   "pg",
   "zod",
-  "sqlite3",
+  "better-sqlite3",
   "@qdrant/js-client-rest",
   "redis",
 ];

@@ -26,6 +26,7 @@ export class ConfigManager {
                 ? userConf.apiKey
                 : defaultConf.apiKey,
             model: finalModel,
+            baseURL: userConf?.baseURL,
             url: userConf?.url,
             embeddingDims: userConf?.embeddingDims,
             modelProperties:
@@ -43,13 +44,23 @@ export class ConfigManager {
           const defaultConf = DEFAULT_MEMORY_CONFIG.vectorStore.config;
           const userConf = userConfig.vectorStore?.config;
 
+          // Resolve the vector store dimension.  If the user explicitly
+          // provided one, use it.  Otherwise leave it undefined so that
+          // Memory._autoInitialize() can auto-detect it by running a
+          // probe embedding at startup — this makes *any* embedder work
+          // out of the box without the user needing to know or set the
+          // dimension manually.
+          const explicitDimension =
+            userConf?.dimension ||
+            userConfig.embedder?.config?.embeddingDims ||
+            undefined;
+
           // Prioritize user-provided client instance
           if (userConf?.client && typeof userConf.client === "object") {
             return {
               client: userConf.client,
-              // Include other fields from userConf if necessary, or omit defaults
-              collectionName: userConf.collectionName, // Can be undefined
-              dimension: userConf.dimension || defaultConf.dimension, // Merge dimension
+              collectionName: userConf.collectionName,
+              dimension: explicitDimension,
               ...userConf, // Include any other passthrough fields from user
             };
           } else {
@@ -57,7 +68,7 @@ export class ConfigManager {
             return {
               collectionName:
                 userConf?.collectionName || defaultConf.collectionName,
-              dimension: userConf?.dimension || defaultConf.dimension,
+              dimension: explicitDimension,
               // Ensure client is not carried over from defaults if not provided by user
               client: undefined,
               // Include other passthrough fields from userConf even if no client
@@ -95,16 +106,34 @@ export class ConfigManager {
         })(),
       },
       historyDbPath:
-        userConfig.historyDbPath || DEFAULT_MEMORY_CONFIG.historyDbPath,
+        userConfig.historyDbPath ||
+        userConfig.historyStore?.config?.historyDbPath ||
+        DEFAULT_MEMORY_CONFIG.historyStore?.config?.historyDbPath,
       customPrompt: userConfig.customPrompt,
       graphStore: {
         ...DEFAULT_MEMORY_CONFIG.graphStore,
         ...userConfig.graphStore,
       },
-      historyStore: {
-        ...DEFAULT_MEMORY_CONFIG.historyStore,
-        ...userConfig.historyStore,
-      },
+      historyStore: (() => {
+        const defaultHistoryStore = DEFAULT_MEMORY_CONFIG.historyStore!;
+        const historyProvider =
+          userConfig.historyStore?.provider || defaultHistoryStore.provider;
+        const isSqlite = historyProvider.toLowerCase() === "sqlite";
+
+        // Precedence: explicit historyStore.config > top-level historyDbPath > default
+        return {
+          ...defaultHistoryStore,
+          ...userConfig.historyStore,
+          provider: historyProvider,
+          config: {
+            ...(isSqlite ? defaultHistoryStore.config : {}),
+            ...(isSqlite && userConfig.historyDbPath
+              ? { historyDbPath: userConfig.historyDbPath }
+              : {}),
+            ...userConfig.historyStore?.config,
+          },
+        };
+      })(),
       disableHistory:
         userConfig.disableHistory || DEFAULT_MEMORY_CONFIG.disableHistory,
       enableGraph: userConfig.enableGraph || DEFAULT_MEMORY_CONFIG.enableGraph,
