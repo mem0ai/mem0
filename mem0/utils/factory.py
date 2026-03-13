@@ -35,6 +35,7 @@ class LlmFactory:
     provider_to_class = {
         "ollama": ("mem0.llms.ollama.OllamaLLM", OllamaConfig),
         "openai": ("mem0.llms.openai.OpenAILLM", OpenAIConfig),
+        "minimax": ("mem0.llms.litellm.LiteLLM", BaseLlmConfig),
         "groq": ("mem0.llms.groq.GroqLLM", BaseLlmConfig),
         "together": ("mem0.llms.together.TogetherLLM", BaseLlmConfig),
         "aws_bedrock": ("mem0.llms.aws_bedrock.AWSBedrockLLM", BaseLlmConfig),
