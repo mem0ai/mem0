@@ -19,7 +19,7 @@ class GoogleGenAIEmbedding(EmbeddingBase):
 
         self.client = genai.Client(api_key=api_key)
 
-    def embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
+    def _embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
         """
         Get the embedding for the given text using Google Generative AI.
         Args:

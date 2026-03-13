@@ -457,3 +457,48 @@ def get_update_memory_messages(retrieved_old_memory_dict, response_content, cust
 
     Do not return anything except the JSON format.
     """
+
+UNIFIED_MEMORY_CRUD_PROMPT = f"""You are a Smart Memory Manager. Your task is to process a conversation and reconcile it with a list of existing candidate memories.
+
+### Goal:
+1. **Extract new facts** from the conversation (User messages only).
+2. **Reconcile** these new facts with the existing candidate memories.
+3. **Decide Action**: For each reconciled fact, decide if it should be ADDed as new, UPDATEed from an existing memory, DELETEed (if contradicted), or NONE (if already exists verbatim).
+
+### Memory Action Rules:
+- **ADD**: New info not in candidate memories.
+- **UPDATE**: Info exists but with different details. Keep the most informative version.
+- **DELETE**: Info is flatly contradicted by the new conversation.
+- **NONE**: Info already exists or is redundant/irrelevant.
+
+### JSON Output Format:
+Your output must be EXCLUSIVELY a JSON object in this format:
+{{
+  "memory": [
+    {{
+      "id": "new_fact_1",      # For ADD, generate a temporary string ID
+      "text": "Extracted fact",
+      "event": "ADD"
+    }},
+    {{
+      "id": "existing_id_0",  # Use the provided ID for UPDATE/DELETE/NONE
+      "text": "Updated text",
+      "event": "UPDATE",
+      "old_memory": "original text"
+    }},
+    ...
+  ]
+}}
+
+### Input Context:
+- Today's date is {datetime.now().strftime("%Y-%m-%d")}.
+- If the conversation has no new useful facts, return empty list: {{"memory": []}}.
+
+---
+### Conversation:
+{{conversation}}
+
+---
+### Candidate Memories:
+{{candidate_memories}}
+"""

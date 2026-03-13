@@ -15,7 +15,7 @@ class FastEmbedEmbedding(EmbeddingBase):
         self.config.model = self.config.model or "thenlper/gte-large"
         self.dense_model = TextEmbedding(model_name = self.config.model)
 
-    def embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
+    def _embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
         """
         Convert the text to embeddings using FastEmbed running in the Onnx runtime
         Args:

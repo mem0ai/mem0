@@ -4,7 +4,7 @@ from mem0.embeddings.base import EmbeddingBase
 
 
 class MockEmbeddings(EmbeddingBase):
-    def embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
+    def _embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
         """
         Generate a mock embedding with dimension of 10.
         """
