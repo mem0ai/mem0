@@ -947,7 +947,7 @@ function registerHooks(
         );
 
         return {
-          prependContext: `<relevant-memories>\nThe following memories may be relevant to this conversation:\n${memoryContext}\n</relevant-memories>`,
+          prependContext: `<relevant-memories>\nThe following are stored memories for user "${cfg.userId}". Use them to personalize your response:\n${memoryContext}\n</relevant-memories>`,
         };
       } catch (err) {
         api.logger.warn(`openclaw-mem0: recall failed: ${String(err)}`);
