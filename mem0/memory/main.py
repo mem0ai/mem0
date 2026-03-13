@@ -249,6 +249,11 @@ class Memory(MemoryBase):
         history-store connection, and calls ``close()`` on the vector store(s)
         when the underlying client exposes such a method.
 
+        Note: When using Memory in long-running services (e.g., as a local
+        dependency in web apps), you should explicitly call this method at
+        the end of your request handler or lifecycle flow to prevent resource
+        leakage. This method is not thread-safe.
+
         It is safe to call this method more than once.
 
         Example::
@@ -269,7 +274,7 @@ class Memory(MemoryBase):
             try:
                 self.db.close()
             except Exception:
-                logger.debug("Error closing SQLite history store", exc_info=True)
+                logger.warning("Error closing SQLite history store", exc_info=True)
 
         # 2. Close the primary vector store if it exposes a close() method.
         if hasattr(self, "vector_store") and self.vector_store is not None:
@@ -278,7 +283,7 @@ class Memory(MemoryBase):
                 try:
                     _close()
                 except Exception:
-                    logger.debug("Error closing vector store", exc_info=True)
+                    logger.warning("Error closing vector store", exc_info=True)
 
         # 3. Close the telemetry vector store.
         if hasattr(self, "_telemetry_vector_store") and self._telemetry_vector_store is not None:
@@ -287,11 +292,7 @@ class Memory(MemoryBase):
                 try:
                     _close()
                 except Exception:
-                    logger.debug("Error closing telemetry vector store", exc_info=True)
-
-        # 4. Force a GC cycle so that any remaining circular references between
-        #    LLM/embedder clients are broken and their __del__ finalizers run.
-        gc.collect()
+                    logger.warning("Error closing telemetry vector store", exc_info=True)
 
     def __enter__(self):
         """Support usage as a context manager: ``with Memory.from_config(...) as m:``."""
@@ -306,8 +307,8 @@ class Memory(MemoryBase):
         """Best-effort cleanup when the object is garbage collected."""
         try:
             self.close()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Error during Memory.__del__ cleanup: {e}")
 
     @staticmethod
     def _process_config(config_dict: Dict[str, Any]) -> Dict[str, Any]:
