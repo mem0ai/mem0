@@ -39,6 +39,43 @@ Enhanced metadata filtering in Mem0 1.0.0 lets you run complex queries across me
   </Accordion>
 </AccordionGroup>
 
+### Supported methods
+
+Enhanced metadata filters work with both `search()` and `get_all()`:
+
+```python
+from mem0 import Memory
+
+m = Memory()
+
+# search() — semantic search with filters
+results = m.search(
+    "What are my preferences?",
+    user_id="alice",
+    filters={
+        "AND": [
+            {"category": "preferences"},
+            {"priority": {"gte": 5}}
+        ]
+    }
+)
+
+# get_all() — retrieve all matching memories without semantic search
+results = m.get_all(
+    user_id="alice",
+    filters={
+        "AND": [
+            {"created_at": {"gte": "2024-06-01T00:00:00"}},
+            {"created_at": {"lt": "2024-07-01T00:00:00"}}
+        ]
+    }
+)
+```
+
+<Info icon="check">
+  Use `search()` when you have a query and want relevance-ranked results. Use `get_all()` when you want everything matching your filters — no embedding, no ranking, just filtered retrieval.
+</Info>
+
 ### Metadata selectors
 
 Start with key-value filters when you need direct matches on metadata fields.
