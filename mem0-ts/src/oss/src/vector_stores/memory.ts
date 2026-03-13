@@ -1,7 +1,12 @@
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
-import sqlite3 from "sqlite3";
+import Database from "better-sqlite3";
+import fs from "fs";
 import path from "path";
+import {
+  ensureSQLiteDirectory,
+  getDefaultVectorStoreDbPath,
+} from "../utils/sqlite";
 
 interface MemoryVector {
   id: string;
@@ -10,22 +15,31 @@ interface MemoryVector {
 }
 
 export class MemoryVectorStore implements VectorStore {
-  private db: sqlite3.Database;
+  private db: Database.Database;
   private dimension: number;
   private dbPath: string;
 
   constructor(config: VectorStoreConfig) {
     this.dimension = config.dimension || 1536; // Default OpenAI dimension
-    this.dbPath = path.join(process.cwd(), "vector_store.db");
-    if (config.dbPath) {
-      this.dbPath = config.dbPath;
+    this.dbPath = config.dbPath || getDefaultVectorStoreDbPath();
+
+    if (!config.dbPath) {
+      const oldDefault = path.join(process.cwd(), "vector_store.db");
+      if (fs.existsSync(oldDefault) && oldDefault !== this.dbPath) {
+        console.warn(
+          `[mem0] Default vector_store.db location changed from ${oldDefault} to ${this.dbPath}. ` +
+            `Move your existing file or set vectorStore.config.dbPath explicitly.`,
+        );
+      }
     }
-    this.db = new sqlite3.Database(this.dbPath);
-    this.init().catch(console.error);
+
+    ensureSQLiteDirectory(this.dbPath);
+    this.db = new Database(this.dbPath);
+    this.init();
   }
 
-  private async init() {
-    await this.run(`
+  private init(): void {
+    this.db.exec(`
       CREATE TABLE IF NOT EXISTS vectors (
         id TEXT PRIMARY KEY,
         vector BLOB NOT NULL,
@@ -33,39 +47,12 @@ export class MemoryVectorStore implements VectorStore {
       )
     `);
 
-    await this.run(`
+    this.db.exec(`
       CREATE TABLE IF NOT EXISTS memory_migrations (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id TEXT NOT NULL UNIQUE
       )
     `);
-  }
-
-  private async run(sql: string, params: any[] = []): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.db.run(sql, params, (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
-  }
-
-  private async all(sql: string, params: any[] = []): Promise<any[]> {
-    return new Promise((resolve, reject) => {
-      this.db.all(sql, params, (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows);
-      });
-    });
-  }
-
-  private async getOne(sql: string, params: any[] = []): Promise<any> {
-    return new Promise((resolve, reject) => {
-      this.db.get(sql, params, (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
-      });
-    });
   }
 
   private cosineSimilarity(a: number[], b: number[]): number {
@@ -92,18 +79,23 @@ export class MemoryVectorStore implements VectorStore {
     ids: string[],
     payloads: Record<string, any>[],
   ): Promise<void> {
-    for (let i = 0; i < vectors.length; i++) {
-      if (vectors[i].length !== this.dimension) {
-        throw new Error(
-          `Vector dimension mismatch. Expected ${this.dimension}, got ${vectors[i].length}`,
-        );
-      }
-      const vectorBuffer = Buffer.from(new Float32Array(vectors[i]).buffer);
-      await this.run(
-        `INSERT OR REPLACE INTO vectors (id, vector, payload) VALUES (?, ?, ?)`,
-        [ids[i], vectorBuffer, JSON.stringify(payloads[i])],
-      );
-    }
+    const stmt = this.db.prepare(
+      `INSERT OR REPLACE INTO vectors (id, vector, payload) VALUES (?, ?, ?)`,
+    );
+    const insertMany = this.db.transaction(
+      (vecs: number[][], vIds: string[], vPayloads: Record<string, any>[]) => {
+        for (let i = 0; i < vecs.length; i++) {
+          if (vecs[i].length !== this.dimension) {
+            throw new Error(
+              `Vector dimension mismatch. Expected ${this.dimension}, got ${vecs[i].length}`,
+            );
+          }
+          const vectorBuffer = Buffer.from(new Float32Array(vecs[i]).buffer);
+          stmt.run(vIds[i], vectorBuffer, JSON.stringify(vPayloads[i]));
+        }
+      },
+    );
+    insertMany(vectors, ids, payloads);
   }
 
   async search(
@@ -117,11 +109,15 @@ export class MemoryVectorStore implements VectorStore {
       );
     }
 
-    const rows = await this.all(`SELECT * FROM vectors`);
+    const rows = this.db.prepare(`SELECT * FROM vectors`).all() as any[];
     const results: VectorStoreResult[] = [];
 
     for (const row of rows) {
-      const vector = new Float32Array(row.vector.buffer);
+      const vector = new Float32Array(
+        row.vector.buffer,
+        row.vector.byteOffset,
+        row.vector.byteLength / 4,
+      );
       const payload = JSON.parse(row.payload);
       const memoryVector: MemoryVector = {
         id: row.id,
@@ -144,9 +140,9 @@ export class MemoryVectorStore implements VectorStore {
   }
 
   async get(vectorId: string): Promise<VectorStoreResult | null> {
-    const row = await this.getOne(`SELECT * FROM vectors WHERE id = ?`, [
-      vectorId,
-    ]);
+    const row = this.db
+      .prepare(`SELECT * FROM vectors WHERE id = ?`)
+      .get(vectorId) as any;
     if (!row) return null;
 
     const payload = JSON.parse(row.payload);
@@ -167,34 +163,38 @@ export class MemoryVectorStore implements VectorStore {
       );
     }
     const vectorBuffer = Buffer.from(new Float32Array(vector).buffer);
-    await this.run(`UPDATE vectors SET vector = ?, payload = ? WHERE id = ?`, [
-      vectorBuffer,
-      JSON.stringify(payload),
-      vectorId,
-    ]);
+    this.db
+      .prepare(`UPDATE vectors SET vector = ?, payload = ? WHERE id = ?`)
+      .run(vectorBuffer, JSON.stringify(payload), vectorId);
   }
 
   async delete(vectorId: string): Promise<void> {
-    await this.run(`DELETE FROM vectors WHERE id = ?`, [vectorId]);
+    this.db.prepare(`DELETE FROM vectors WHERE id = ?`).run(vectorId);
   }
 
   async deleteCol(): Promise<void> {
-    await this.run(`DROP TABLE IF EXISTS vectors`);
-    await this.init();
+    this.db.exec(`DROP TABLE IF EXISTS vectors`);
+    this.init();
   }
 
   async list(
     filters?: SearchFilters,
     limit: number = 100,
   ): Promise<[VectorStoreResult[], number]> {
-    const rows = await this.all(`SELECT * FROM vectors`);
+    const rows = this.db.prepare(`SELECT * FROM vectors`).all() as any[];
     const results: VectorStoreResult[] = [];
 
     for (const row of rows) {
       const payload = JSON.parse(row.payload);
       const memoryVector: MemoryVector = {
         id: row.id,
-        vector: Array.from(new Float32Array(row.vector.buffer)),
+        vector: Array.from(
+          new Float32Array(
+            row.vector.buffer,
+            row.vector.byteOffset,
+            row.vector.byteLength / 4,
+          ),
+        ),
         payload,
       };
 
@@ -210,9 +210,9 @@ export class MemoryVectorStore implements VectorStore {
   }
 
   async getUserId(): Promise<string> {
-    const row = await this.getOne(
-      `SELECT user_id FROM memory_migrations LIMIT 1`,
-    );
+    const row = this.db
+      .prepare(`SELECT user_id FROM memory_migrations LIMIT 1`)
+      .get() as any;
     if (row) {
       return row.user_id;
     }
@@ -221,20 +221,20 @@ export class MemoryVectorStore implements VectorStore {
     const randomUserId =
       Math.random().toString(36).substring(2, 15) +
       Math.random().toString(36).substring(2, 15);
-    await this.run(`INSERT INTO memory_migrations (user_id) VALUES (?)`, [
-      randomUserId,
-    ]);
+    this.db
+      .prepare(`INSERT INTO memory_migrations (user_id) VALUES (?)`)
+      .run(randomUserId);
     return randomUserId;
   }
 
   async setUserId(userId: string): Promise<void> {
-    await this.run(`DELETE FROM memory_migrations`);
-    await this.run(`INSERT INTO memory_migrations (user_id) VALUES (?)`, [
-      userId,
-    ]);
+    this.db.prepare(`DELETE FROM memory_migrations`).run();
+    this.db
+      .prepare(`INSERT INTO memory_migrations (user_id) VALUES (?)`)
+      .run(userId);
   }
 
   async initialize(): Promise<void> {
-    await this.init();
+    this.init();
   }
 }

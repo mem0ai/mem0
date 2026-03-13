@@ -7,6 +7,53 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-03-03" description="v1.0.5">
+- **Telemetry Fix**
+  - Fixed an issue where the PostHog client was initialized even after telemetry was disabled. Although events were not captured, the client was unnecessarily initialized.
+</Update>
+
+<Update label="2026-02-17" description="v1.0.4">
+
+**New Features & Updates:**
+- **Memory Update:**
+  - Added `timestamp` parameter to `update()` — accepts Unix epoch (int/float) or ISO 8601 string
+
+</Update>
+
+<Update label="2026-01-29" description="v1.0.3">
+
+**New Features & Updates:**
+- **Project Settings:**
+  - Added inclusion prompt, exclusion prompt, memory depth, and usecase setting
+
+</Update>
+
+<Update label="2026-01-13" description="v1.0.2">
+
+**New Features & Updates:**
+- **Vector Stores:**
+  - Added DriverInfo metadata to MongoDB vector store
+
+</Update>
+
+<Update label="2025-11-14" description="v1.0.1">
+
+**New Features & Updates:**
+- **Vector Stores:**
+  - Added Apache Cassandra vector store support
+- **Embeddings:**
+  - Added FastEmbed embedding support for local embeddings
+- **Graph Store:**
+  - Added configurable embedding similarity threshold for graph store node matching
+
+**Bug Fixes:**
+- **Core:**
+  - Fixed condition check for memories_result type in Memory class
+  - Fixed list_memories endpoint Pydantic validation error
+  - Fixed memory deletion not removing from vector store
+
+</Update>
+
 <Update label="2025-10-16" description="v1.0.0">
 
 **New Features & Updates:**
@@ -681,6 +728,46 @@ mode: "wide"
 </Tab>
 
 <Tab title="TypeScript">
+
+<Update label="2026-03-09" description="v2.3.0">
+
+**Breaking Changes:**
+- **Dependencies:** Minimum Node.js version for OSS sqlite features is now Node 20+ (due to `better-sqlite3` v12)
+
+**Bug Fixes:**
+- **OSS Storage:** Replaced `sqlite3` with `better-sqlite3` to fix native binding resolution failures under jiti-based loaders (e.g. OpenClaw plugin system). Fixes issues where the `bindings` module walked V8 stack frames with synthetic filenames, failing to locate the native `.node` addon.
+- **OSS Storage:** Fixed async init race condition in `SQLiteManager` — `init()` is now synchronous
+- **OSS Vector Store:** Migrated `MemoryVectorStore` from `sqlite3` to `better-sqlite3` with transactional batch inserts
+
+**Improvements:**
+- **Performance:** Cached prepared statements in `SQLiteManager` for faster history operations
+- **Performance:** Batch `insert()` in `MemoryVectorStore` wrapped in a transaction for atomicity
+- **Build:** Updated `tsup.config.ts` externals from `sqlite3` to `better-sqlite3`
+
+</Update>
+
+<Update label="2026-02-17" description="v2.2.3">
+
+**New Features & Updates:**
+- **Memory Update:**
+  - Added `timestamp` parameter to `update()` — accepts Unix epoch or ISO 8601 string
+
+</Update>
+
+<Update label="2026-01-29" description="v2.2.2">
+
+**New Features & Updates:**
+- **Project Settings:**
+  - Added inclusion prompt, exclusion prompt, memory depth, and usecase setting
+
+</Update>
+
+<Update label="2025-12-30" description="v2.2.1">
+
+**Improvements:**
+- **Client:** Added support for keyword arguments in `add` and `search` methods, allowing additional properties beyond defined options for experimental features
+
+</Update>
 
 <Update label="2025-12-29" description="v2.2.0">
 

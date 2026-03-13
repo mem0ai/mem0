@@ -160,6 +160,13 @@ interface custom_categories {
 export interface PromptUpdatePayload {
   custom_instructions?: string;
   custom_categories?: custom_categories[];
+  retrieval_criteria?: any[];
+  enable_graph?: boolean;
+  version?: string;
+  inclusion_prompt?: string;
+  exclusion_prompt?: string;
+  memory_depth?: string | null;
+  usecase_setting?: string | number;
   [key: string]: any;
 }
 

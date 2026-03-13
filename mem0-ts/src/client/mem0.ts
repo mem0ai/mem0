@@ -213,7 +213,7 @@ export default class MemoryClient {
 
   async add(
     messages: Array<Message>,
-    options: MemoryOptions = {},
+    options: MemoryOptions & Record<string, any> = {},
   ): Promise<Array<Memory>> {
     if (this.telemetryId === "") await this.ping();
     this._validateOrgProject();
@@ -253,18 +253,32 @@ export default class MemoryClient {
 
   async update(
     memoryId: string,
-    { text, metadata }: { text?: string; metadata?: Record<string, any> },
+    {
+      text,
+      metadata,
+      timestamp,
+    }: {
+      text?: string;
+      metadata?: Record<string, any>;
+      timestamp?: number | string;
+    },
   ): Promise<Array<Memory>> {
-    if (text === undefined && metadata === undefined) {
-      throw new Error("Either text or metadata must be provided for update.");
+    if (
+      text === undefined &&
+      metadata === undefined &&
+      timestamp === undefined
+    ) {
+      throw new Error(
+        "At least one of text, metadata, or timestamp must be provided for update.",
+      );
     }
 
     if (this.telemetryId === "") await this.ping();
     this._validateOrgProject();
-    const payload = {
-      text: text,
-      metadata: metadata,
-    };
+    const payload: Record<string, any> = {};
+    if (text !== undefined) payload.text = text;
+    if (metadata !== undefined) payload.metadata = metadata;
+    if (timestamp !== undefined) payload.timestamp = timestamp;
 
     const payloadKeys = Object.keys(payload);
     this._captureEvent("update", [payloadKeys]);
@@ -339,7 +353,10 @@ export default class MemoryClient {
     }
   }
 
-  async search(query: string, options?: SearchOptions): Promise<Array<Memory>> {
+  async search(
+    query: string,
+    options?: SearchOptions & Record<string, any>,
+  ): Promise<Array<Memory>> {
     if (this.telemetryId === "") await this.ping();
     this._validateOrgProject();
     const payloadKeys = Object.keys(options || {});

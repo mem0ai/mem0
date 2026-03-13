@@ -255,13 +255,28 @@ def delete(
 
 ### delete_all() Method
 
-#### No Breaking Changes
+#### Breaking Change — Empty filter no longer silently deletes everything
+
+**Before:** calling `delete_all()` with no filters silently deleted **all memories in the project**.
+
+**After:**
+- No filters → raises a validation error (prevents accidental full-project wipe).
+- Concrete ID (e.g. `user_id="alice"`) → deletes memories for that entity (unchanged).
+- `"*"` for a filter → deletes all memories for that entity type across the project (new).
+- All four filters set to `"*"` → explicit full project wipe (new, requires opt-in on every parameter).
+
+This change replaces the silent full-project delete (triggered by an empty or missing filter) with a validation error, and introduces `"*"` wildcards as the intentional path for bulk deletion.
+
 ```python
-# Same signature in both versions
-def delete_all(
-    self,
-    user_id: str
-) -> dict
+# v0.x — no filter silently wiped all project memories
+m.delete_all()                      # DANGER: deleted everything
+m.delete_all(user_id="alice")       # deleted alice's memories
+
+# v1.x — no filter now raises an error; use "*" for intentional bulk deletes
+m.delete_all()                                                       # ERROR: at least one filter required
+m.delete_all(user_id="alice")                                        # unchanged
+m.delete_all(user_id="*")                                            # NEW — delete all users' memories
+m.delete_all(user_id="*", agent_id="*", app_id="*", run_id="*")     # NEW — full project wipe
 ```
 
 ## Platform Client (MemoryClient) Changes
