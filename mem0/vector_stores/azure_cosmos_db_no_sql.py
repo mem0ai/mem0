@@ -18,7 +18,8 @@ except ImportError as e:
     ) from e
 
 class Constants:
-    # User Agent for Cosmos DB No SQL client
+    # User-agent suffix to pass when constructing CosmosClient:
+    #   CosmosClient(url, credential, user_agent_suffix=Constants.USER_AGENT)
     USER_AGENT = "Mem0-CDBNoSql-VectorStore-Python"
 
     # All Search Types
@@ -55,6 +56,13 @@ class Constants:
     DESCRIPTION = "description"
     METADATA = "metadata"
 
+    # Cosmos DB internal system fields present on every item
+    COSMOS_FIELD_RID = "_rid"
+    COSMOS_FIELD_SELF = "_self"
+    COSMOS_FIELD_ETAG = "_etag"
+    COSMOS_FIELD_ATTACHMENTS = "_attachments"
+    COSMOS_FIELD_TS = "_ts"
+
     # Vector Embedding Policy Keys
     VECTOR_EMBEDDINGS = "vectorEmbeddings"
     PATH = "path"
@@ -77,8 +85,6 @@ class Constants:
     NAME = "name"
     VALUE = "value"
     VECTOR_KEY = "vectorKey"
-    TEXT_KEY = "textKey"
-    METADATA_KEY = "metadataKey"
     WEIGHTS = "weights"
     SIMILARITY_SCORE = "SimilarityScore"
     FILTER_VALUE = "filter_value"
@@ -161,15 +167,35 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         Constants.HYBRID_SCORE_THRESHOLD,
     )
 
+    @property
+    def _excluded_payload_fields(self) -> frozenset:
+        """The complete set of fields stripped from a raw Cosmos DB item before
+        building the public payload. Cached once in ``__init__``:
+          - five Cosmos DB internal fields (_rid, _self, _etag, _attachments, _ts)
+          - ``id``              — surfaced separately as OutputData.id
+          - ``SimilarityScore`` — surfaced separately as OutputData.score
+          - the vector key      — included only when return_with_vectors=True
+        """
+        return self.__excluded_payload_fields
+
+    def _validate_vector_id(self, vector_id: str) -> None:
+        """Raise ValueError if vector_id is falsy."""
+        if not vector_id:
+            raise ValueError("vector_id cannot be null or empty.")
+
+    def _resolve_partition_key(self, vector_id: str, partition_key_value: Optional[str]) -> str:
+        """Return partition_key_value, defaulting to vector_id when not supplied."""
+        return partition_key_value if partition_key_value is not None else vector_id
+
     def __init__(
         self,
         *,
         cosmos_client: CosmosClient,
-        indexing_policy: Dict[str, Any],
-        cosmos_database_properties: Dict[str, Any],
-        cosmos_collection_properties: Dict[str, Any],
         vector_properties: Dict[str, Any],
         vector_search_fields: Dict[str, Any],
+        indexing_policy: Optional[Dict[str, Any]] = None,
+        cosmos_database_properties: Optional[Dict[str, Any]] = None,
+        cosmos_collection_properties: Optional[Dict[str, Any]] = None,
         database_name: str = Constants.VECTOR_SEARCH_DB,
         collection_name: str = Constants.VECTOR_SEARCH_CONTAINER,
         search_type: str = Constants.VECTOR,
@@ -182,28 +208,43 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         """
         Initialize the AzureCosmosDBNoSql vector store.
 
-        Args:
+        Required args:
             cosmos_client: Client used to connect to azure cosmosdb no sql account.
-            indexing_policy: Indexing Policy for the collection.
-            cosmos_database_properties: Database Properties for the collection.
-            cosmos_collection_properties: Container Properties for the collection.
-            vector_properties: Vector Embedding Properties for the collection.
-            vector_search_fields: Vector Search and Text
-                                  Search Fields for the collection.
-            database_name: Name of the database to be created.
-            collection_name: Name of the collection to be created.
-            search_type: CosmosDB Search Type to be performed.
-            metadata_key: Metadata key to use for data schema.
-            create_collection: Set to true if the collection does not exist.
-            table_alias: Alias for the table to use in the WHERE clause.
-            full_text_policy: Full Text Policy for the collection.
-            full_text_search_enabled: Set to true if the full text search is enabled.
+                It is recommended to pass ``user_agent_suffix=Constants.USER_AGENT`` when
+                constructing the client so that requests are identifiable in diagnostics:
+                ``CosmosClient(url, credential, user_agent_suffix=Constants.USER_AGENT)``.
+            vector_properties: Vector embedding properties for the collection. Must contain
+                'path', 'dataType', 'dimensions', and 'distanceFunction'.
+            vector_search_fields: Field name mapping for search. Must contain
+                'text_field' and 'vector_field'.
+
+        Optional args:
+            indexing_policy: Indexing policy for the collection. Defaults to an empty dict.
+                Must include 'fullTextIndexes' when full_text_search_enabled=True.
+            cosmos_database_properties: Extra properties forwarded to the
+                ``create_database_if_not_exists`` call (e.g. offer_throughput, etag).
+                Defaults to an empty dict.
+            cosmos_collection_properties: Container properties forwarded to the
+                ``create_container_if_not_exists`` call. Must include 'partition_key'
+                when create_collection=True. Defaults to an empty dict.
+            database_name: Name of the database. Defaults to 'vectorSearchDB'.
+            collection_name: Name of the container. Defaults to 'vectorSearchContainer'.
+            search_type: Default search type. Must be one of
+                [vector, vector_score_threshold, full_text_search, full_text_ranking,
+                hybrid, hybrid_score_threshold]. Defaults to 'vector'.
+            metadata_key: Metadata field name used in the data schema. Defaults to 'metadata'.
+            create_collection: Whether to create the container if it does not exist.
+                Defaults to True.
+            table_alias: Alias for the container in SQL queries. Defaults to 'c'.
+            full_text_policy: Full-text policy for the collection. Must include 'fullTextPaths'
+                when full_text_search_enabled=True. Defaults to None.
+            full_text_search_enabled: Whether full-text search is enabled. Defaults to False.
         """
         self._cosmos_client: CosmosClient = cosmos_client
-        self._indexing_policy = indexing_policy
-        self._cosmos_collection_properties = cosmos_collection_properties
-        self._cosmos_database_properties = cosmos_database_properties
         self._vector_properties = vector_properties
+        self._indexing_policy = indexing_policy or {}
+        self._cosmos_collection_properties = cosmos_collection_properties or {}
+        self._cosmos_database_properties = cosmos_database_properties or {}
         self._database_name = database_name
         self._collection_name = collection_name
         self._search_type = search_type
@@ -212,12 +253,22 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         self._table_alias = table_alias
         self._full_text_policy = full_text_policy
         self._full_text_search_enabled = full_text_search_enabled
+        self._text_key = vector_search_fields.get(Constants.TEXT_FIELD) if vector_search_fields else None
+        self._vector_key = vector_search_fields.get(Constants.VECTOR_FIELD) if vector_search_fields else None
+        # Built once — _vector_key never changes after __init__.
+        self.__excluded_payload_fields: frozenset = frozenset({
+            Constants.COSMOS_FIELD_RID,
+            Constants.COSMOS_FIELD_SELF,
+            Constants.COSMOS_FIELD_ETAG,
+            Constants.COSMOS_FIELD_ATTACHMENTS,
+            Constants.COSMOS_FIELD_TS,
+            Constants.ID,
+            Constants.SIMILARITY_SCORE,
+            self._vector_key,
+        })
 
-        # If vector_search_fields provided, extract text and vector fields
-        if vector_search_fields is None:
-            raise ValueError("vector_search_fields cannot be null. It must contain 'text_field' and 'vector_field'.")
-        self._text_key = vector_search_fields.get(Constants.TEXT_FIELD)
-        self._vector_key = vector_search_fields.get(Constants.VECTOR_FIELD)
+        # Validate all init parameters
+        self._validate_init_params(vector_search_fields=vector_search_fields)
 
         # Create (or ensure) the database exists
         self._database: DatabaseProxy = self._cosmos_client.create_database_if_not_exists(
@@ -239,28 +290,116 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         else:
             self._collection: ContainerProxy  = self._database.get_container_client(container=self._collection_name)
 
+    def _validate_init_params(
+        self,
+        vector_search_fields: Optional[Dict[str, Any]],
+    ) -> None:
+        """
+        Validate all parameters supplied to ``__init__``.
+
+        Raises:
+            ValueError: When a required parameter is missing, empty, or an
+                incompatible combination of parameters is detected.
+        """
+        # --- cosmos_client ---
+        if self._cosmos_client is None:
+            raise ValueError("'cosmos_client' is required and cannot be None.")
+
+        # --- vector_properties ---
+        if not self._vector_properties:
+            raise ValueError("'vector_properties' is required and cannot be empty.")
+        required_vector_keys = (
+            Constants.PATH,
+            Constants.DATA_TYPE,
+            Constants.DIMENSIONS,
+            Constants.DISTANCE_FUNCTION,
+        )
+        missing = [k for k in required_vector_keys if self._vector_properties.get(k) is None]
+        if missing:
+            raise ValueError(
+                f"'vector_properties' is missing required key(s): {', '.join(missing)}. "
+                f"Expected keys: {', '.join(required_vector_keys)}."
+            )
+        if not isinstance(self._vector_properties[Constants.DIMENSIONS], int) or \
+                self._vector_properties[Constants.DIMENSIONS] <= 0:
+            raise ValueError(
+                f"'vector_properties[\"{Constants.DIMENSIONS}\"]' must be a positive integer."
+            )
+
+        # --- vector_search_fields ---
+        if not vector_search_fields:
+            raise ValueError(
+                "'vector_search_fields' is required and cannot be empty. "
+                f"It must contain '{Constants.TEXT_FIELD}' and '{Constants.VECTOR_FIELD}'."
+            )
+        if not vector_search_fields.get(Constants.TEXT_FIELD):
+            raise ValueError(
+                f"'vector_search_fields[\"{Constants.TEXT_FIELD}\"]' is required and cannot be empty."
+            )
+        if not vector_search_fields.get(Constants.VECTOR_FIELD):
+            raise ValueError(
+                f"'vector_search_fields[\"{Constants.VECTOR_FIELD}\"]' is required and cannot be empty."
+            )
+
+        # --- database_name / collection_name ---
+        if not self._database_name or not self._database_name.strip():
+            raise ValueError("'database_name' is required and cannot be empty.")
+        if not self._collection_name or not self._collection_name.strip():
+            raise ValueError("'collection_name' is required and cannot be empty.")
+
+        # --- search_type ---
+        if self._search_type not in self.VALID_SEARCH_TYPES:
+            valid_options = ", ".join(self.VALID_SEARCH_TYPES)
+            raise ValueError(
+                f"Invalid 'search_type' '{self._search_type}'. "
+                f"Valid options are: {valid_options}."
+            )
+
+        # --- metadata_key ---
+        if not self._metadata_key or not self._metadata_key.strip():
+            raise ValueError("'metadata_key' is required and cannot be empty.")
+
+        # --- table_alias ---
+        if not self._table_alias or not self._table_alias.strip():
+            raise ValueError("'table_alias' is required and cannot be empty.")
+
+        # --- full_text_search cross-field constraints ---
+        if self._full_text_search_enabled:
+            if self._search_type not in (
+                Constants.FULL_TEXT_SEARCH,
+                Constants.FULL_TEXT_RANKING,
+                Constants.HYBRID,
+                Constants.HYBRID_SCORE_THRESHOLD,
+            ):
+                raise ValueError(
+                    f"'search_type' must be a full-text search type when 'full_text_search_enabled=True'. "
+                    f"Got '{self._search_type}'."
+                )
+            if not (self._full_text_policy and self._full_text_policy.get(Constants.FULL_TEXT_PATHS)):
+                raise ValueError(
+                    f"'full_text_policy' with '{Constants.FULL_TEXT_PATHS}' is required "
+                    f"when 'full_text_search_enabled=True'."
+                )
+            if not self._indexing_policy.get(Constants.FULL_TEXT_INDEXES):
+                raise ValueError(
+                    f"'indexing_policy' must include '{Constants.FULL_TEXT_INDEXES}' "
+                    f"when 'full_text_search_enabled=True'."
+                )
+
     def _validate_create_collection(self) -> None:
         """
         Validate parameters required for creating a Cosmos DB collection.
+        Called just before ``create_container_if_not_exists``.
         """
         if self._database is None:
             raise ValueError("Database must be initialized before creating a collection.")
         if not self._collection_name:
             raise ValueError("Collection name cannot be null or empty.")
-        if (
-            not self._cosmos_collection_properties
-            or self._cosmos_collection_properties.get(Constants.PARTITION_KEY) is None
-        ):
-            raise ValueError(f"{Constants.PARTITION_KEY} cannot be null or empty for a collection.")
-        if self._full_text_search_enabled:
-            if not (self._indexing_policy and self._indexing_policy.get(Constants.FULL_TEXT_INDEXES)):
-                raise ValueError(
-                    f"{Constants.FULL_TEXT_INDEXES} cannot be null or empty in the indexing_policy if full text search is enabled."
-                )
-            if not (self._full_text_policy and self._full_text_policy.get(Constants.FULL_TEXT_PATHS)):
-                raise ValueError(
-                    f"{Constants.FULL_TEXT_PATHS} cannot be null or empty in the full_text_policy if full text search is enabled."
-                )
+        if self._cosmos_collection_properties.get(Constants.PARTITION_KEY) is None:
+            raise ValueError(
+                f"'cosmos_collection_properties[\"{Constants.PARTITION_KEY}\"]' is required "
+                f"and cannot be None when creating a collection."
+            )
 
     def _create_vector_embedding_policy(
             self,
@@ -286,7 +425,7 @@ class AzureCosmosDBNoSql(VectorStoreBase):
             name: str,
             vector_size: int,
             distance: str,
-    ) -> ContainerProxy:  # signature updated to match base, args optional
+    ) -> ContainerProxy:
         """Create (or ensure) the Cosmos DB collection exists.
 
         Args:
@@ -324,12 +463,10 @@ class AzureCosmosDBNoSql(VectorStoreBase):
 
     def _create_item_to_insert(self, vector: List[float], payload: Optional[Dict], id: str) -> Dict[str, Any]:
         payload = payload or {}
-        return {
-            Constants.ID: id,
-            self._text_key: payload.get(self._text_key, ""),
-            self._vector_key: vector,
-            self._metadata_key: payload.get(self._metadata_key, {}),
-        }
+        item = dict(payload)
+        item[Constants.ID] = id
+        item[self._vector_key] = vector
+        return item
 
     def insert(
         self,
@@ -359,23 +496,13 @@ class AzureCosmosDBNoSql(VectorStoreBase):
             item = self._create_item_to_insert(emb, pl, vid)
             self._collection.create_item(item)
 
-    def _search(
-            self,
-            query: str,
-            vectors: Optional[List[float]] = None,
-            limit: int = 5,
-            filters: Optional[Dict[str, Any]] = None,
-
-    ):
-        pass
-
     def search(
         self,
         query: Optional[str] = None,
         vectors: Optional[List[float]] = None,
         limit: int = 5,
         filters: Optional[Dict[str, Any]] = None,
-        search_type: str = Constants.VECTOR,
+        search_type: Optional[str] = None,
         return_with_vectors: bool = False,
         offset_limit: Optional[str] = None,
         full_text_rank_filter: Optional[List[Dict[str, str]]] = None,
@@ -393,11 +520,13 @@ class AzureCosmosDBNoSql(VectorStoreBase):
                 If text search is needed, use 'where' or 'full_text_rank_filter' instead.
             vectors: The vector embedding to run vector search. This is a single vector embedding.
             limit: The number of top similar items to retrieve.
-            filters: [Not Implemented] This will be ignored in the current implementation.
-                Use 'where' parameter for filtering instead, which allows more flexible and powerful filtering,
-                including full text search conditions.
+            filters: Optional dict of exact-match filters to apply, e.g. {"metadata.a": 1, "id": "vec1"}.
+                Each key-value pair is translated into a parameterized equality condition and combined
+                with AND. When both 'filters' and 'where' are provided, the two conditions are merged
+                into a single WHERE clause using AND.
             search_type: The type of search to perform. Valid options are:
                 [vector, vector_score_threshold, full_text_search, full_text_ranking, hybrid, hybrid_score_threshold].
+                Defaults to the instance-level search_type set at construction time.
             return_with_vectors: Set to True to include vector embeddings in the search results.
                 Only applicable for vector and hybrid search types.
             offset_limit: Optional OFFSET and LIMIT clause for pagination.
@@ -405,18 +534,22 @@ class AzureCosmosDBNoSql(VectorStoreBase):
                 Each filter is a dict with 'search_field' and 'search_text' keys,
                 such as {"search_field": "description", "search_text": "the fastest dog"}.
             projection_mapping: Optional mapping for projecting specific fields.
-            where: Optional WHERE clause for filtering results. This allows filter results and integrations for
-                'full_text_search' type, such as "FullTextContains(c.description, 'energetic')"
+            where: Optional raw WHERE clause expression for filtering results. This allows flexible
+                filtering and is required for 'full_text_search' type,
+                e.g. "FullTextContains(c.description, 'energetic')". When both 'where' and
+                'filters' are provided, the two conditions are combined with AND.
             weights: Optional weights for hybrid search ranking.
             threshold: Similarity score threshold for filtering results.
         """
-        # Validate & build query
+        # Fall back to the instance-level default when the caller omits search_type
         search_type = search_type or self._search_type
+        # Validate & build sql_query
         self._validate_search_args(search_type=search_type, vector=vectors, return_with_vectors=return_with_vectors)
-        query, parameters = self._construct_query(
+        sql_query, parameters = self._construct_query(
             limit=limit,
             search_type=search_type,
             vector=vectors,
+            filters=filters,
             full_text_rank_filter=full_text_rank_filter,
             offset_limit=offset_limit,
             projection_mapping=projection_mapping,
@@ -425,7 +558,7 @@ class AzureCosmosDBNoSql(VectorStoreBase):
             weights=weights,
         )
         return self._execute_query(
-            query=query,
+            query=sql_query,
             search_type=search_type,
             parameters=parameters,
             return_with_vectors=return_with_vectors,
@@ -509,6 +642,18 @@ class AzureCosmosDBNoSql(VectorStoreBase):
             Constants.HYBRID_SCORE_THRESHOLD,
         )
 
+    def _is_hybrid_search_type(self, search_type: str) -> bool:
+        """
+        Check if the search type is a hybrid search type (combines vector and full-text).
+
+        Args:
+            search_type (str): The type of search.
+        """
+        return search_type in (
+            Constants.HYBRID,
+            Constants.HYBRID_SCORE_THRESHOLD,
+        )
+
     def _generate_projection_fields(
         self,
         search_type: str,
@@ -541,7 +686,7 @@ class AzureCosmosDBNoSql(VectorStoreBase):
             ]
 
         # If it's a vector search type, include vector distance projection and optionally the vector itself
-        if Constants.VECTOR in search_type or Constants.HYBRID in search_type:
+        if self._is_vector_search_type(search_type):
             if return_with_vectors:
                 projection_fields.append(
                     param_mapping.gen_proj_field(
@@ -570,13 +715,10 @@ class AzureCosmosDBNoSql(VectorStoreBase):
     ) -> str:
         where_clauses = []
         if filters:
-            id = 0
-            for key, value in filters.items():
+            for idx, (key, value) in enumerate(filters.items()):
                 filter_key = f"{self._table_alias}.{key}"
-                filter_value = param_mapping.gen_param_key(key=f"{Constants.FILTER_VALUE}_{id}", value=value)
-
+                filter_value = param_mapping.gen_param_key(key=f"{Constants.FILTER_VALUE}_{idx}", value=value)
                 where_clauses.append(f"{filter_key}={filter_value}")
-                id += 1
         return f" WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
     def _generate_order_by_component_with_full_text_rank_filter(
@@ -620,7 +762,7 @@ class AzureCosmosDBNoSql(VectorStoreBase):
                 )
                 for item in full_text_rank_filter
             ]
-            if "hybrid" in search_type:
+            if self._is_hybrid_search_type(search_type):
                 components.append(
                     param_mapping.gen_vector_distance_proj_field(
                         vector_field=self._vector_key, vector=vector
@@ -638,6 +780,7 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         limit: int,
         search_type: str,
         vector: Optional[List[float]] = None,
+        filters: Optional[Dict[str, Any]] = None,
         full_text_rank_filter: Optional[List[Dict[str, str]]] = None,
         offset_limit: Optional[str] = None,
         projection_mapping: Optional[Dict[str, Any]] = None,
@@ -661,7 +804,14 @@ class AzureCosmosDBNoSql(VectorStoreBase):
 
         query += f" FROM {self._table_alias}"
 
-        if where:
+        # Build WHERE clause by merging `filters` dict and raw `where` string with AND
+        filters_clause = self._generate_where_clause(param_mapping=param_mapping, filters=filters)
+        if filters_clause and where:
+            # filters_clause already starts with " WHERE ...", append the raw where with AND
+            query += filters_clause + f" AND {where}"
+        elif filters_clause:
+            query += filters_clause
+        elif where:
             query += f" WHERE {where}"
 
         if search_type != Constants.FULL_TEXT_SEARCH:
@@ -684,8 +834,8 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         self,
         query: str,
         search_type: Optional[str] = None,
-        parameters: Optional[List[Dict[str, Any]]] =  None,
-        return_with_vectors: bool = True,
+        parameters: Optional[List[Dict[str, Any]]] = None,
+        return_with_vectors: bool = False,
         projection_mapping: Optional[Dict[str, Any]] = None,
         threshold: Optional[float] = 0.0,
     ) -> List[OutputData]:
@@ -729,15 +879,16 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         if projection_mapping:
             payload = {alias: item[alias] for alias in projection_mapping.values()}
         else:
-            # If no projection mapping, include text and metadata in payload
-            payload = {
-                self._text_key: item.get(self._text_key, ""),
-                self._metadata_key: item.get(self._metadata_key, {})
-            }
+            # Exclude:
+            #   - Cosmos DB internal fields (_rid, _self, _etag, _attachments, _ts)
+            #   - Fields surfaced separately on OutputData: id, SimilarityScore
+            #   - The vector field — re-added below only when return_with_vectors=True
+            excluded = self._excluded_payload_fields
+            payload = {k: v for k, v in item.items() if k not in excluded}
 
         # Include vector in payload if requested
         if return_with_vectors:
-            payload[self._vector_key] = item[self._vector_key]
+            payload[self._vector_key] = item.get(self._vector_key)
 
         return OutputData(id=item_id, score=score, payload=payload)
 
@@ -753,10 +904,8 @@ class AzureCosmosDBNoSql(VectorStoreBase):
             vector_id: The unique ID of the item to delete.
             partition_key_value: The partition key value for the item. If not provided, defaults to vector_id.
         """
-        if not vector_id:
-            raise ValueError("vector_id cannot be null or empty.")
-        if partition_key_value is None:
-            partition_key_value = vector_id
+        self._validate_vector_id(vector_id)
+        partition_key_value = self._resolve_partition_key(vector_id, partition_key_value)
         try:
             self._collection.delete_item(
                 item=vector_id,
@@ -783,10 +932,8 @@ class AzureCosmosDBNoSql(VectorStoreBase):
             payload: The new payload to update.
             partition_key_value: The partition key value for the item. If not provided, defaults to vector_id.
         """
-        if not vector_id:
-            raise ValueError("vector_id cannot be null or empty.")
-        if partition_key_value is None:
-            partition_key_value = vector_id
+        self._validate_vector_id(vector_id)
+        partition_key_value = self._resolve_partition_key(vector_id, partition_key_value)
 
         # Retrieve existing item to merge data if needed
         try:
@@ -795,16 +942,18 @@ class AzureCosmosDBNoSql(VectorStoreBase):
                 partition_key=partition_key_value,
             )
         except CosmosResourceNotFoundError:
-            existing = None
-        if existing:
-            # Merge existing data when partial update
-            if vector is None:
-                vector = existing.get(self._vector_key)
-            if payload is None:
-                payload = {
-                    self._text_key: existing.get(self._text_key, ""),
-                    self._metadata_key: existing.get(self._metadata_key, {})
-                }
+            raise ValueError(f"Cannot update: item '{vector_id}' not found.")
+
+        # Merge existing data when partial update
+        if vector is None:
+            vector = existing.get(self._vector_key)
+        if payload is None:
+            # Preserve all application fields from the existing item so that
+            # custom fields are not silently dropped on a partial update.
+            # Exclude Cosmos DB internals, fields surfaced separately on OutputData,
+            # and the vector field (handled via the `vector` parameter).
+            excluded = self._excluded_payload_fields
+            payload = {k: v for k, v in existing.items() if k not in excluded}
         item = self._create_item_to_insert(vector=vector, payload=payload, id=vector_id)
         self._collection.upsert_item(body=item)
 
@@ -822,10 +971,8 @@ class AzureCosmosDBNoSql(VectorStoreBase):
             partition_key_value: The partition key value for the item. If not provided, defaults to vector_id.
             return_with_vectors: Whether to include the vector embeddings in the result.
         """
-        if not vector_id:
-            raise ValueError("vector_id cannot be null or empty.")
-        if partition_key_value is None:
-            partition_key_value = vector_id
+        self._validate_vector_id(vector_id)
+        partition_key_value = self._resolve_partition_key(vector_id, partition_key_value)
 
         # Retrieve the item
         item = self._collection.read_item(
@@ -879,13 +1026,12 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         query += self._generate_where_clause(param_mapping=param_mapping, filters=filters)
 
         parameters = param_mapping.export_parameter_list()
-        return self._execute_query(query=query, parameters=parameters)
+        return self._execute_query(query=query, parameters=parameters, return_with_vectors=False)
 
     def reset(self) -> None:
         """
         Reset the collection by deleting and recreating it.
         """
-        collection_name = self._collection_name
         self.delete_col()
         self.create_col(
             name=self._collection_name,

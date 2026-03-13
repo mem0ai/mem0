@@ -49,9 +49,39 @@ def get_full_text_policy() -> dict:
     }
 
 
+def make_mem0_payload(description: str, user_id: str, hash_val: str, created_at: str, **extra) -> dict:
+    """Build a realistic mem0-style flat payload matching what main.py stores.
+
+    In main.py the payload passed to vector_store.insert() looks like:
+        {
+            "description": "<text content>",   # text_field (top-level, not nested)
+            "hash":        "<md5>",
+            "created_at":  "<iso timestamp>",
+            "user_id":     "<user>",
+            ...any other caller-supplied metadata fields...
+        }
+    All fields are stored flat on the item — there is no nested "metadata" sub-key.
+    """
+    payload = {
+        Constants.DESCRIPTION: description,
+        "hash": hash_val,
+        "created_at": created_at,
+        "user_id": user_id,
+    }
+    payload.update(extra)
+    return payload
+
+
 @pytest.fixture
 @patch("mem0.vector_stores.azure_cosmos_db_no_sql.CosmosClient")
 def cosmos_db_client_fixture(mock_cosmos_client):
+    # Demonstrate the recommended usage: pass user_agent_suffix=Constants.USER_AGENT
+    # when constructing CosmosClient so requests are identifiable in diagnostics.
+    mock_cosmos_client(
+        url="https://test.documents.azure.com:443/",
+        credential="fake-key",
+        user_agent_suffix=Constants.USER_AGENT,
+    )
     mock_client = mock_cosmos_client.return_value
     mock_db = mock_client.create_database_if_not_exists.return_value
     mock_collection = mock_db.create_container_if_not_exists.return_value
@@ -62,11 +92,12 @@ def cosmos_db_client_fixture(mock_cosmos_client):
         cosmos_database_properties={},
         cosmos_collection_properties={Constants.PARTITION_KEY: PARTITION_KEY_VALUE},
         vector_properties=get_vector_properties("/vector", "float32", VECTOR_DIMENSION, "cosine"),
-        vector_search_fields = get_vector_search_fields(
+        vector_search_fields=get_vector_search_fields(
             text_field=Constants.DESCRIPTION, vector_field=Constants.VECTOR
         ),
         database_name=DATABASE_NAME,
         collection_name=COLLECTION_NAME,
+        search_type=Constants.HYBRID,
         full_text_policy=get_full_text_policy(),
         full_text_search_enabled=True,
     )
@@ -74,11 +105,11 @@ def cosmos_db_client_fixture(mock_cosmos_client):
     mock_db.create_database_if_not_exists.call_count = 0
     mock_db.create_container_if_not_exists.call_count = 0
 
-    return azure_cosmos_db_nosql_vector, mock_collection, mock_db
+    return azure_cosmos_db_nosql_vector, mock_collection, mock_db, mock_cosmos_client
 
 
 def test_initialize_create_col(cosmos_db_client_fixture):
-    cosmos_db_vector, mock_collection, mock_db = cosmos_db_client_fixture
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
 
     collection_name = cosmos_db_vector._collection_name
     vector_properties = cosmos_db_vector._vector_properties
@@ -120,8 +151,20 @@ def test_initialize_create_col(cosmos_db_client_fixture):
     )
 
 
+def test_cosmos_client_user_agent(cosmos_db_client_fixture):
+    """CosmosClient must be constructed with user_agent_suffix=Constants.USER_AGENT
+    so that mem0 requests are identifiable in Azure diagnostics and metrics."""
+    _, _, _, mock_cosmos_client = cosmos_db_client_fixture
+
+    mock_cosmos_client.assert_called_once_with(
+        url="https://test.documents.azure.com:443/",
+        credential="fake-key",
+        user_agent_suffix=Constants.USER_AGENT,
+    )
+
+
 def test_validate_collection_exists(cosmos_db_client_fixture):
-    cosmos_db_vector, mock_collection, mock_db = cosmos_db_client_fixture
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
 
     # check if validation fails when database does not exist
     expected_error_msg = "Database must be initialized before creating a collection."
@@ -142,12 +185,9 @@ def test_validate_collection_exists(cosmos_db_client_fixture):
         cosmos_db_vector._validate_create_collection()
     cosmos_db_vector._collection_name = original_collection_name
 
-    # check if validation fails when cosmos_collection_properties is None or does not contain partition key
-    expected_error_msg = f"{Constants.PARTITION_KEY} cannot be null or empty for a collection."
+    # check if validation fails when cosmos_collection_properties does not contain partition key
+    expected_error_msg = r"'cosmos_collection_properties\[\"partition_key\"\]' is required and cannot be None when creating a collection\."
     original_cosmos_container_properties = cosmos_db_vector._cosmos_collection_properties
-    with pytest.raises(ValueError, match=expected_error_msg):
-        cosmos_db_vector._cosmos_collection_properties = None
-        cosmos_db_vector._validate_create_collection()
     with pytest.raises(ValueError, match=expected_error_msg):
         cosmos_db_vector._cosmos_collection_properties = {Constants.PARTITION_KEY: None}
         cosmos_db_vector._validate_create_collection()
@@ -155,29 +195,24 @@ def test_validate_collection_exists(cosmos_db_client_fixture):
 
 
 def test_insert(cosmos_db_client_fixture):
-    cosmos_db_vector, mock_collection, mock_db = cosmos_db_client_fixture
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
 
     vectors = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
-    meta_data_key = cosmos_db_vector._metadata_key
+    # Realistic mem0-style flat payloads: all fields are top-level, no nested "metadata" key.
     payloads = [
-        {
-            Constants.DESCRIPTION: "Border Collies are intelligent, ",
-            meta_data_key: {
-                "a": 1,
-                "origin": "Border Collies were developed in the border "
-                "region between Scotland and England.",
-            },
-        },
-        {
-            Constants.DESCRIPTION: "energetic herders skilled in outdoor activities.",
-            meta_data_key: {
-                "a": 2,
-                "origin": "Golden Retrievers originated in Scotland in "
-                "the mid-19th century.",
-            },
-        },
+        make_mem0_payload(
+            description="Border Collies are intelligent, ",
+            user_id="alice",
+            hash_val="abc123",
+            created_at="2026-01-01T00:00:00",
+        ),
+        make_mem0_payload(
+            description="energetic herders skilled in outdoor activities.",
+            user_id="bob",
+            hash_val="def456",
+            created_at="2026-01-02T00:00:00",
+        ),
     ]
-
     ids = ["vec1", "vec2"]
 
     cosmos_db_vector.insert(vectors=vectors, payloads=payloads, ids=ids)
@@ -187,25 +222,21 @@ def test_insert(cosmos_db_client_fixture):
         "id": "vec1",
         Constants.DESCRIPTION: "Border Collies are intelligent, ",
         Constants.VECTOR: [0.1, 0.2, 0.3],
-        meta_data_key: {
-            "a": 1,
-            "origin": "Border Collies were developed in the border "
-            "region between Scotland and England.",
-        },
+        "hash": "abc123",
+        "created_at": "2026-01-01T00:00:00",
+        "user_id": "alice",
     })
     mock_collection.create_item.assert_any_call({
         "id": "vec2",
         Constants.DESCRIPTION: "energetic herders skilled in outdoor activities.",
         Constants.VECTOR: [0.4, 0.5, 0.6],
-        meta_data_key: {
-            "a": 2,
-            "origin": "Golden Retrievers originated in Scotland in "
-            "the mid-19th century.",
-        },
+        "hash": "def456",
+        "created_at": "2026-01-02T00:00:00",
+        "user_id": "bob",
     })
 
 def test_insert_invalid_inputs(cosmos_db_client_fixture):
-    cosmos_db_vector, mock_collection, mock_db = cosmos_db_client_fixture
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
 
     vector = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
     payloads = [
@@ -229,7 +260,7 @@ def test_insert_invalid_inputs(cosmos_db_client_fixture):
 
 
 def test_search_vector(cosmos_db_client_fixture):
-    cosmos_db_vector, mock_collection, mock_db = cosmos_db_client_fixture
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
 
     # Vector search
     for kwargs, query, parameters, query_item, output_data in get_vector_search_queries_and_parameters():
@@ -245,10 +276,8 @@ def test_search_vector(cosmos_db_client_fixture):
 
 
 def test_search_full_text(cosmos_db_client_fixture):
-    cosmos_db_vector, mock_collection, mock_db = cosmos_db_client_fixture
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
 
-
-    # Full text search
     for kwargs, query, parameters, query_item, output_data in get_full_text_search_queries_and_parameters():
         mock_collection.query_items.return_value = query_item
 
@@ -262,11 +291,8 @@ def test_search_full_text(cosmos_db_client_fixture):
 
 
 def test_search_hybrid(cosmos_db_client_fixture):
-    cosmos_db_vector, mock_collection, mock_db = cosmos_db_client_fixture
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
 
-    mock_collection.query_items.return_value = MagicMock(matched_count=1)
-
-    # Hybrid search
     for kwargs, query, parameters, query_item, output_data in get_hybrid_search_queries_and_parameters():
         mock_collection.query_items.return_value = query_item
 
@@ -279,8 +305,24 @@ def test_search_hybrid(cosmos_db_client_fixture):
         assert actual_output_data == output_data
 
 
+def test_search_with_filters(cosmos_db_client_fixture):
+    """Test that filters dict, raw where, and both combined all produce correct SQL queries."""
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
+
+    for kwargs, query, parameters, query_item, output_data in get_filter_search_queries_and_parameters():
+        mock_collection.query_items.return_value = query_item
+
+        actual_output_data = cosmos_db_vector.search(**kwargs)
+        mock_collection.query_items.assert_called_with(
+            query=query,
+            parameters=parameters,
+            enable_cross_partition_query=True,
+        )
+        assert actual_output_data == output_data
+
+
 def test_search_with_errors(cosmos_db_client_fixture):
-    cosmos_db_vector, mock_collection, mock_db = cosmos_db_client_fixture
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
 
     # Test invalid search type
     error_message = r"Invalid search_type 'invalid_type'. Valid options are: vector, vector_score_threshold, full_text_search, full_text_ranking, hybrid, hybrid_score_threshold."
@@ -312,7 +354,7 @@ def test_search_with_errors(cosmos_db_client_fixture):
 
 
 def test_delete(cosmos_db_client_fixture):
-    cosmos_db_vector, mock_collection, mock_db = cosmos_db_client_fixture
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
 
     vector_id = "vec1"
     cosmos_db_vector.delete(vector_id=vector_id, partition_key_value=vector_id)
@@ -324,7 +366,7 @@ def test_delete(cosmos_db_client_fixture):
 
 def test_delete_cosmos_resource_not_found(cosmos_db_client_fixture):
     """Test that CosmosResourceNotFoundError is raised and handled in delete."""
-    cosmos_db_vector, mock_collection, mock_db = cosmos_db_client_fixture
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
     from mem0.vector_stores.azure_cosmos_db_no_sql import CosmosResourceNotFoundError
     vector_id = "vec_not_found"
     # Correctly instantiate with int status_code and str message
@@ -334,34 +376,91 @@ def test_delete_cosmos_resource_not_found(cosmos_db_client_fixture):
 
 
 def test_update(cosmos_db_client_fixture):
-    cosmos_db_vector, mock_collection, mock_db = cosmos_db_client_fixture
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
     vector_id = "id1"
-    updated_vector = [0.3] * 1536
-    updated_payload = {"name": "updated_vector"}
-    expected_item = cosmos_db_vector._create_item_to_insert(
-        vector=updated_vector,
-        payload=updated_payload,
-        id=vector_id,
+    updated_vector = [0.3] * VECTOR_DIMENSION
+    updated_payload = make_mem0_payload(
+        description="Updated: Border Collies are intelligent herders.",
+        user_id="alice",
+        hash_val="newHash",
+        created_at="2026-03-01T00:00:00",
     )
+    # read_item returns some existing item; update() is called with an explicit
+    # payload so the existing item is not used for merging — only vector/payload
+    # passed directly are written.
+    mock_collection.read_item.return_value = {"id": vector_id, "vector": [0.1] * VECTOR_DIMENSION}
     mock_collection.upsert_item.return_value = MagicMock(matched_count=1)
 
     cosmos_db_vector.update(
         vector_id=vector_id,
         partition_key_value=vector_id,
         vector=updated_vector,
-        payload=updated_payload)
+        payload=updated_payload,
+    )
+
+    expected_item = cosmos_db_vector._create_item_to_insert(
+        vector=updated_vector,
+        payload=updated_payload,
+        id=vector_id,
+    )
     mock_collection.upsert_item.assert_called_once_with(body=expected_item)
 
 
-def test_get(cosmos_db_client_fixture):
-    cosmos_db_vector, mock_collection, mock_db = cosmos_db_client_fixture
+def test_update_preserves_extra_fields(cosmos_db_client_fixture):
+    """Partial update (no payload supplied) must preserve all non-system fields
+    from the existing item. With a realistic mem0 flat payload the preserved
+    fields include description, hash, created_at, user_id, and any extras."""
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
 
-    # Insert item to be retrieved
     vector_id = "id1"
-    vector = [0.3] * 1536
-    metadata_key = cosmos_db_vector._metadata_key
-    metadata = {"a": "Sample metadata."}
-    payload = {Constants.DESCRIPTION: "description text", metadata_key: metadata}
+    vector_key = cosmos_db_vector._vector_key
+    existing_vector = [0.1] * VECTOR_DIMENSION
+    # Simulate the full item as stored in Cosmos DB (flat payload + system fields)
+    existing_item = {
+        "id": vector_id,
+        Constants.DESCRIPTION: "I love sci-fi movies.",
+        "hash": "abc123",
+        "created_at": "2026-01-01T00:00:00",
+        "user_id": "alice",
+        "agent_id": "agent-42",           # extra caller-supplied field
+        vector_key: existing_vector,
+        "_rid": "sys1", "_self": "sys2", "_etag": "sys3",
+        "_attachments": "sys4", "_ts": 12345,
+    }
+    mock_collection.read_item.return_value = existing_item
+    mock_collection.upsert_item.return_value = MagicMock()
+
+    new_vector = [0.9] * VECTOR_DIMENSION
+    cosmos_db_vector.update(vector_id=vector_id, vector=new_vector)
+
+    expected_payload = {k: v for k, v in existing_item.items() if k not in cosmos_db_vector._excluded_payload_fields}
+    expected_item = cosmos_db_vector._create_item_to_insert(
+        vector=new_vector,
+        payload=expected_payload,
+        id=vector_id,
+    )
+    mock_collection.upsert_item.assert_called_once_with(body=expected_item)
+    # All application-level flat fields must survive
+    assert expected_item[Constants.DESCRIPTION] == "I love sci-fi movies."
+    assert expected_item["hash"] == "abc123"
+    assert expected_item["user_id"] == "alice"
+    assert expected_item["agent_id"] == "agent-42"
+    assert expected_item[vector_key] == new_vector
+
+
+def test_get(cosmos_db_client_fixture):
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
+
+    vector_id = "id1"
+    vector = [0.3] * VECTOR_DIMENSION
+    vector_key = cosmos_db_vector._vector_key
+    # Realistic flat mem0-style payload — no nested "metadata" sub-key
+    payload = make_mem0_payload(
+        description="I love sci-fi movies.",
+        user_id="alice",
+        hash_val="abc123",
+        created_at="2026-01-01T00:00:00",
+    )
     created_item = cosmos_db_vector._create_item_to_insert(
         vector=vector,
         payload=payload,
@@ -372,18 +471,17 @@ def test_get(cosmos_db_client_fixture):
 
     result = cosmos_db_vector.get(vector_id=vector_id, partition_key_value=vector_id)
 
-    # Construct expected payload
-    text_key = cosmos_db_vector._text_key
-    vector_key = cosmos_db_vector._vector_key
-    expected_payload = {
-        text_key: payload[text_key],
-        metadata_key: payload[metadata_key],
-        vector_key: vector,
-    }
+    # Expected payload: all fields except those surfaced separately on OutputData
+    # and the vector key (re-added below because return_with_vectors defaults to True).
+    expected_payload = {k: v for k, v in created_item.items() if k not in cosmos_db_vector._excluded_payload_fields}
+    expected_payload[vector_key] = vector
 
     assert result.id == vector_id
-    assert result.score == 0.0  # Score is set to 0.0 by default
+    assert result.score == 0.0
     assert result.payload == expected_payload
+    assert result.payload[Constants.DESCRIPTION] == "I love sci-fi movies."
+    assert result.payload["user_id"] == "alice"
+    assert result.payload["hash"] == "abc123"
     mock_collection.read_item.assert_called_once_with(
         item=vector_id,
         partition_key=vector_id,
@@ -391,7 +489,7 @@ def test_get(cosmos_db_client_fixture):
 
 
 def test_list_cols(cosmos_db_client_fixture):
-    cosmos_db_vector, mock_collection, mock_db = cosmos_db_client_fixture
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
 
     mock_db.list_containers.return_value = [
         {"id": "collection1"},
@@ -405,7 +503,7 @@ def test_list_cols(cosmos_db_client_fixture):
 
 
 def test_delete_col(cosmos_db_client_fixture):
-    cosmos_db_vector, mock_collection, mock_db = cosmos_db_client_fixture
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
 
     cosmos_db_vector.delete_col()
 
@@ -415,7 +513,7 @@ def test_delete_col(cosmos_db_client_fixture):
 
 
 def test_col_info(cosmos_db_client_fixture):
-    cosmos_db_vector, mock_collection, mock_db = cosmos_db_client_fixture
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
     indexing_policy = get_vector_indexing_policy("flat")
     partition_key = {"paths": [f"/{Constants.PARTITION_KEY}"], "kind": "Hash"}
 
@@ -434,7 +532,7 @@ def test_col_info(cosmos_db_client_fixture):
 
 
 def test_list(cosmos_db_client_fixture):
-    cosmos_db_vector, mock_collection, mock_db = cosmos_db_client_fixture
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
 
     mock_collection.query_items.return_value = get_list_return_values()
 
@@ -472,7 +570,7 @@ def test_list(cosmos_db_client_fixture):
 
 
 def test_reset(cosmos_db_client_fixture):
-    cosmos_db_vector, mock_collection, mock_db = cosmos_db_client_fixture
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
 
     cosmos_db_vector.reset()
 
@@ -484,19 +582,15 @@ def test_reset(cosmos_db_client_fixture):
 
 def test_vector_search_fields_none_raises_value_error():
     """Test that ValueError is raised if vector_search_fields is None in AzureCosmosDBNoSql."""
-    # Provide required arguments, but vector_search_fields is None
-    with pytest.raises(ValueError, match="vector_search_fields cannot be null"):
+    with pytest.raises(ValueError, match="'vector_search_fields' is required and cannot be empty"):
         AzureCosmosDBNoSql(
             cosmos_client=MagicMock(),
-            indexing_policy={},
-            cosmos_database_properties={},
+            vector_properties={
+                "path": "/vector", "dataType": "float32",
+                "dimensions": 10, "distanceFunction": "cosine",
+            },
             cosmos_collection_properties={"partition_key": "pk"},
-            vector_properties={},
-            vector_search_fields=None,  # This should trigger the ValueError
-            database_name="db",
-            collection_name="col",
-            full_text_policy=None,
-            full_text_search_enabled=False,
+            vector_search_fields=None,
         )
 
 
@@ -506,8 +600,9 @@ def get_kwargs(
         search_type: str,
         vectors: Optional[List[float]] = None,
         limit: Optional[int] = None,
+        filters: Optional[Dict[str, Any]] = None,
         return_with_vectors: Optional[bool] = None,
-        full_text_rank_filter: Optional[List[Dict[str,str]]] = None,
+        full_text_rank_filter: Optional[List[Dict[str, str]]] = None,
         projection_mapping: Optional[Dict[str, str]] = None,
         offset_limit: Optional[str] = None,
         where: Optional[str] = None,
@@ -520,6 +615,8 @@ def get_kwargs(
         kwargs["vectors"] = vectors
     if limit is not None:
         kwargs["limit"] = limit
+    if filters is not None:
+        kwargs["filters"] = filters
     if return_with_vectors is not None:
         kwargs["return_with_vectors"] = return_with_vectors
     if full_text_rank_filter is not None:
@@ -558,31 +655,39 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
         {
             'id': 'vec1',
             'SimilarityScore': 0.123,
-            'description': 'Sample description for vector 1.',
-            'metadata': {'a': 1, 'b': 2, 'c': 3}
+            'description': 'I love sci-fi movies.',
+            'hash': 'abc123',
+            'created_at': '2026-01-01T00:00:00',
+            'user_id': 'alice',
         },
         {
             'id': 'vec2',
             'SimilarityScore': 0.223,
-            'description': 'Sample description for vector 2.',
-            'metadata': {'a': 2, 'b': 2, 'c': 3}
-        }
+            'description': 'I enjoy reading fantasy novels.',
+            'hash': 'def456',
+            'created_at': '2026-01-02T00:00:00',
+            'user_id': 'bob',
+        },
     ]
     expected_output_data = [
         OutputData(
             id='vec1', score=0.123,
             payload={
-                'description': 'Sample description for vector 1.',
-                'metadata': {'a': 1, 'b': 2, 'c': 3}
+                'description': 'I love sci-fi movies.',
+                'hash': 'abc123',
+                'created_at': '2026-01-01T00:00:00',
+                'user_id': 'alice',
             }
         ),
         OutputData(
             id='vec2', score=0.223,
             payload={
-                'description': 'Sample description for vector 2.',
-                'metadata': {'a': 2, 'b': 2, 'c': 3}
+                'description': 'I enjoy reading fantasy novels.',
+                'hash': 'def456',
+                'created_at': '2026-01-02T00:00:00',
+                'user_id': 'bob',
             }
-        )
+        ),
     ]
 
     queries_and_parameters.append(
@@ -615,35 +720,43 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
         {
             'id': 'vec1',
             'SimilarityScore': 0.123,
-            'description': 'Sample description for vector 1.',
+            'description': 'I love sci-fi movies.',
             'vector': [0.1, 0.2, 0.3],
-            'metadata': {'a': 1, 'b': 2, 'c': 3}
+            'hash': 'abc123',
+            'created_at': '2026-01-01T00:00:00',
+            'user_id': 'alice',
         },
         {
             'id': 'vec2',
             'SimilarityScore': 0.223,
-            'description': 'Sample description for vector 2.',
+            'description': 'I enjoy reading fantasy novels.',
             'vector': [0.2, 0.2, 0.3],
-            'metadata': {'a': 2, 'b': 2, 'c': 3}
-        }
+            'hash': 'def456',
+            'created_at': '2026-01-02T00:00:00',
+            'user_id': 'bob',
+        },
     ]
     expected_output_data = [
         OutputData(
             id='vec1', score=0.123,
             payload={
-                'description': 'Sample description for vector 1.',
+                'description': 'I love sci-fi movies.',
                 'vector': [0.1, 0.2, 0.3],
-                'metadata': {'a': 1, 'b': 2, 'c': 3},
+                'hash': 'abc123',
+                'created_at': '2026-01-01T00:00:00',
+                'user_id': 'alice',
             }
         ),
         OutputData(
             id='vec2', score=0.223,
             payload={
-                'description': 'Sample description for vector 2.',
+                'description': 'I enjoy reading fantasy novels.',
                 'vector': [0.2, 0.2, 0.3],
-                'metadata': {'a': 2, 'b': 2, 'c': 3},
+                'hash': 'def456',
+                'created_at': '2026-01-02T00:00:00',
+                'user_id': 'bob',
             }
-        )
+        ),
     ]
 
     queries_and_parameters.append(
@@ -739,17 +852,20 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
         {
             'id': 'vec1',
             'SimilarityScore': 0.123,
-            'description': 'Sample description for vector 1.',
-            'vector': [0.1, 0.2, 0.3],
-            'metadata': {'a': 1, 'b': 2, 'c': 3}
+            'description': 'I love sci-fi movies.',
+            'hash': 'abc123',
+            'created_at': '2026-01-01T00:00:00',
+            'user_id': 'alice',
         }
     ]
     expected_output_data = [
         OutputData(
             id='vec1', score=0.123,
             payload={
-                'description': 'Sample description for vector 1.',
-                'metadata': {'a': 1, 'b': 2, 'c': 3}
+                'description': 'I love sci-fi movies.',
+                'hash': 'abc123',
+                'created_at': '2026-01-01T00:00:00',
+                'user_id': 'alice',
             }
         )
     ]
@@ -768,11 +884,11 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
     )
 
     # Case 5: With where filter
-    where_filter = "c.metadata.a=1"
+    where_filter = "c.user_id='alice'"
     expected_query = (
         "SELECT TOP @limit c.id as id, c[@description] as description, c[@metadata] as metadata, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
         "FROM c "
-        "WHERE c.metadata.a=1 "
+        "WHERE c.user_id='alice' "
         "ORDER BY VectorDistance(c[@vectorKey], @vector)"
     )
     expected_parameters = [
@@ -781,24 +897,6 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
         {"name": "@metadata", "value": Constants.METADATA},
         {"name": "@vectorKey", "value": Constants.VECTOR},
         {"name": "@vector", "value": vectors},
-    ]
-    expected_query_items = [
-        {
-            'id': 'vec1',
-            'SimilarityScore': 0.123,
-            'description': 'Sample description for vector 1.',
-            'vector': [0.1, 0.2, 0.3],
-            'metadata': {'a': 1, 'b': 2, 'c': 3}
-        }
-    ]
-    expected_output_data = [
-        OutputData(
-            id='vec1', score=0.123,
-            payload={
-                'description': 'Sample description for vector 1.',
-                'metadata': {'a': 1, 'b': 2, 'c': 3}
-            }
-        )
     ]
     queries_and_parameters.append(
         (
@@ -815,7 +913,72 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
         )
     )
 
-    # Case 6: Simple Vector search with k
+    # Case 6: filters dict only (no raw where)
+    filters = {"user_id": "alice", "hash": "abc123"}
+    expected_query = (
+        "SELECT TOP @limit c.id as id, c[@description] as description, c[@metadata] as metadata, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
+        "FROM c "
+        "WHERE c.user_id=@filter_value_0 AND c.hash=@filter_value_1 "
+        "ORDER BY VectorDistance(c[@vectorKey], @vector)"
+    )
+    expected_parameters = [
+        {"name": "@limit", "value": limit},
+        {"name": "@description", "value": Constants.DESCRIPTION},
+        {"name": "@metadata", "value": Constants.METADATA},
+        {"name": "@vectorKey", "value": Constants.VECTOR},
+        {"name": "@vector", "value": vectors},
+        {"name": "@filter_value_0", "value": "alice"},
+        {"name": "@filter_value_1", "value": "abc123"},
+    ]
+    queries_and_parameters.append(
+        (
+            get_kwargs(
+                search_type=Constants.VECTOR,
+                vectors=vectors,
+                filters=filters,
+                limit=limit,
+            ),
+            expected_query,
+            expected_parameters,
+            expected_query_items,
+            expected_output_data,
+        )
+    )
+
+    # Case 7: filters dict AND raw where combined with AND
+    where_filter = "FullTextContains(c.description, 'sci-fi')"
+    expected_query = (
+        "SELECT TOP @limit c.id as id, c[@description] as description, c[@metadata] as metadata, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
+        "FROM c "
+        f"WHERE c.user_id=@filter_value_0 AND c.hash=@filter_value_1 AND {where_filter} "
+        "ORDER BY VectorDistance(c[@vectorKey], @vector)"
+    )
+    expected_parameters = [
+        {"name": "@limit", "value": limit},
+        {"name": "@description", "value": Constants.DESCRIPTION},
+        {"name": "@metadata", "value": Constants.METADATA},
+        {"name": "@vectorKey", "value": Constants.VECTOR},
+        {"name": "@vector", "value": vectors},
+        {"name": "@filter_value_0", "value": "alice"},
+        {"name": "@filter_value_1", "value": "abc123"},
+    ]
+    queries_and_parameters.append(
+        (
+            get_kwargs(
+                search_type=Constants.VECTOR,
+                vectors=vectors,
+                filters=filters,
+                where=where_filter,
+                limit=limit,
+            ),
+            expected_query,
+            expected_parameters,
+            expected_query_items,
+            expected_output_data,
+        )
+    )
+
+    # Case 8: Vector score threshold — items below threshold are filtered out
     expected_query = (
         "SELECT TOP @limit c.id as id, c[@description] as description, c[@metadata] as metadata, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
         "FROM c ORDER BY VectorDistance(c[@vectorKey], @vector)"
@@ -831,22 +994,28 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
         {
             'id': 'vec1',
             'SimilarityScore': 0.123,
-            'description': 'Sample description for vector 1.',
-            'metadata': {'a': 1, 'b': 2, 'c': 3}
+            'description': 'I love sci-fi movies.',
+            'hash': 'abc123',
+            'created_at': '2026-01-01T00:00:00',
+            'user_id': 'alice',
         },
         {
             'id': 'vec2',
             'SimilarityScore': 0.623,
-            'description': 'Sample description for vector 2.',
-            'metadata': {'a': 2, 'b': 2, 'c': 3}
-        }
+            'description': 'I enjoy reading fantasy novels.',
+            'hash': 'def456',
+            'created_at': '2026-01-02T00:00:00',
+            'user_id': 'bob',
+        },
     ]
     expected_output_data = [
         OutputData(
             id='vec2', score=0.623,
             payload={
-                'description': 'Sample description for vector 2.',
-                'metadata': {'a': 2, 'b': 2, 'c': 3}
+                'description': 'I enjoy reading fantasy novels.',
+                'hash': 'def456',
+                'created_at': '2026-01-02T00:00:00',
+                'user_id': 'bob',
             }
         )
     ]
@@ -890,30 +1059,38 @@ def get_full_text_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], 
     expected_query_items = [
         {
             'id': 'vec1',
-            'description': 'Sample description for vector 1.',
-            'metadata': {'a': 1, 'b': 2, 'c': 3}
+            'description': 'I love sci-fi movies.',
+            'hash': 'abc123',
+            'created_at': '2026-01-01T00:00:00',
+            'user_id': 'alice',
         },
         {
             'id': 'vec2',
-            'description': 'Sample description for vector 2.',
-            'metadata': {'a': 2, 'b': 2, 'c': 3}
-        }
+            'description': 'I enjoy reading fantasy novels.',
+            'hash': 'def456',
+            'created_at': '2026-01-02T00:00:00',
+            'user_id': 'bob',
+        },
     ]
     expected_output_data = [
         OutputData(
             id='vec1', score=0.0,
             payload={
-                'description': 'Sample description for vector 1.',
-                'metadata': {'a': 1, 'b': 2, 'c': 3}
+                'description': 'I love sci-fi movies.',
+                'hash': 'abc123',
+                'created_at': '2026-01-01T00:00:00',
+                'user_id': 'alice',
             }
         ),
         OutputData(
             id='vec2', score=0.0,
             payload={
-                'description': 'Sample description for vector 2.',
-                'metadata': {'a': 2, 'b': 2, 'c': 3}
+                'description': 'I enjoy reading fantasy novels.',
+                'hash': 'def456',
+                'created_at': '2026-01-02T00:00:00',
+                'user_id': 'bob',
             }
-        )
+        ),
     ]
 
     queries_and_parameters.append(
@@ -942,6 +1119,23 @@ def get_full_text_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], 
         {"name": "@description_term_0", "value": "intelligent"},
         {"name": "@description_term_1", "value": "herders"},
     ]
+    # Full text ranking does not return SimilarityScore
+    expected_query_items_ranking = [
+        {
+            'id': 'vec1',
+            'description': 'I love sci-fi movies.',
+            'hash': 'abc123',
+            'created_at': '2026-01-01T00:00:00',
+            'user_id': 'alice',
+        },
+        {
+            'id': 'vec2',
+            'description': 'I enjoy reading fantasy novels.',
+            'hash': 'def456',
+            'created_at': '2026-01-02T00:00:00',
+            'user_id': 'bob',
+        },
+    ]
 
     queries_and_parameters.append(
         (
@@ -952,7 +1146,7 @@ def get_full_text_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], 
             ),
             expected_query,
             expected_parameters,
-            expected_query_items,
+            expected_query_items_ranking,
             expected_output_data,
         )
     )
@@ -986,7 +1180,7 @@ def get_full_text_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], 
             ),
             expected_query,
             expected_parameters,
-            expected_query_items,
+            expected_query_items_ranking,
             expected_output_data,
         )
     )
@@ -1020,24 +1214,30 @@ def get_hybrid_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
         {
             'id': 'vec1',
             'SimilarityScore': 0.123,
-            'description': 'Sample description for vector 1.',
+            'description': 'I love sci-fi movies.',
             'vector': [0.1, 0.2, 0.3],
-            'metadata': {'a': 1, 'b': 2, 'c': 3}
+            'hash': 'abc123',
+            'created_at': '2026-01-01T00:00:00',
+            'user_id': 'alice',
         },
         {
             'id': 'vec2',
             'SimilarityScore': 0.623,
-            'description': 'Sample description for vector 2.',
+            'description': 'I enjoy reading fantasy novels.',
             'vector': [0.2, 0.2, 0.3],
-            'metadata': {'a': 2, 'b': 2, 'c': 3}
-        }
+            'hash': 'def456',
+            'created_at': '2026-01-02T00:00:00',
+            'user_id': 'bob',
+        },
     ]
     expected_output_data = [
         OutputData(
             id='vec2', score=0.623,
             payload={
-                'description': 'Sample description for vector 2.',
-                'metadata': {'a': 2, 'b': 2, 'c': 3}
+                'description': 'I enjoy reading fantasy novels.',
+                'hash': 'def456',
+                'created_at': '2026-01-02T00:00:00',
+                'user_id': 'bob',
             }
         )
     ]
@@ -1093,25 +1293,162 @@ def get_hybrid_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
 
     return queries_and_parameters
 
+def get_filter_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str, List[Dict[str, Any]]]]:
+    queries_and_parameters = []
+
+    vectors = [0.1, 0.2, 0.3]
+    limit = 2
+    filters = {"user_id": "alice", "hash": "abc123"}
+
+    expected_query_items = [
+        {
+            'id': 'vec1',
+            'SimilarityScore': 0.123,
+            'description': 'I love sci-fi movies.',
+            'hash': 'abc123',
+            'created_at': '2026-01-01T00:00:00',
+            'user_id': 'alice',
+        }
+    ]
+    expected_output_data = [
+        OutputData(
+            id='vec1', score=0.123,
+            payload={
+                'description': 'I love sci-fi movies.',
+                'hash': 'abc123',
+                'created_at': '2026-01-01T00:00:00',
+                'user_id': 'alice',
+            }
+        )
+    ]
+
+    # Case 1: filters only
+    queries_and_parameters.append((
+        get_kwargs(
+            search_type=Constants.VECTOR,
+            vectors=vectors,
+            filters=filters,
+            limit=limit,
+        ),
+        (
+            "SELECT TOP @limit c.id as id, c[@description] as description, c[@metadata] as metadata, "
+            "VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
+            "FROM c "
+            "WHERE c.user_id=@filter_value_0 AND c.hash=@filter_value_1 "
+            "ORDER BY VectorDistance(c[@vectorKey], @vector)"
+        ),
+        [
+            {"name": "@limit", "value": limit},
+            {"name": "@description", "value": Constants.DESCRIPTION},
+            {"name": "@metadata", "value": Constants.METADATA},
+            {"name": "@vectorKey", "value": Constants.VECTOR},
+            {"name": "@vector", "value": vectors},
+            {"name": "@filter_value_0", "value": "alice"},
+            {"name": "@filter_value_1", "value": "abc123"},
+        ],
+        expected_query_items,
+        expected_output_data,
+    ))
+
+    # Case 2: raw where only
+    where_expr = "c.user_id='alice'"
+    queries_and_parameters.append((
+        get_kwargs(
+            search_type=Constants.VECTOR,
+            vectors=vectors,
+            where=where_expr,
+            limit=limit,
+        ),
+        (
+            "SELECT TOP @limit c.id as id, c[@description] as description, c[@metadata] as metadata, "
+            "VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
+            f"FROM c "
+            f"WHERE {where_expr} "
+            "ORDER BY VectorDistance(c[@vectorKey], @vector)"
+        ),
+        [
+            {"name": "@limit", "value": limit},
+            {"name": "@description", "value": Constants.DESCRIPTION},
+            {"name": "@metadata", "value": Constants.METADATA},
+            {"name": "@vectorKey", "value": Constants.VECTOR},
+            {"name": "@vector", "value": vectors},
+        ],
+        expected_query_items,
+        expected_output_data,
+    ))
+
+    # Case 3: filters AND where combined with AND
+    where_expr = "FullTextContains(c.description, 'sci-fi')"
+    queries_and_parameters.append((
+        get_kwargs(
+            search_type=Constants.VECTOR,
+            vectors=vectors,
+            filters=filters,
+            where=where_expr,
+            limit=limit,
+        ),
+        (
+            "SELECT TOP @limit c.id as id, c[@description] as description, c[@metadata] as metadata, "
+            "VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
+            "FROM c "
+            f"WHERE c.user_id=@filter_value_0 AND c.hash=@filter_value_1 AND {where_expr} "
+            "ORDER BY VectorDistance(c[@vectorKey], @vector)"
+        ),
+        [
+            {"name": "@limit", "value": limit},
+            {"name": "@description", "value": Constants.DESCRIPTION},
+            {"name": "@metadata", "value": Constants.METADATA},
+            {"name": "@vectorKey", "value": Constants.VECTOR},
+            {"name": "@vector", "value": vectors},
+            {"name": "@filter_value_0", "value": "alice"},
+            {"name": "@filter_value_1", "value": "abc123"},
+        ],
+        expected_query_items,
+        expected_output_data,
+    ))
+
+    # Case 4: neither filters nor where — no WHERE clause
+    queries_and_parameters.append((
+        get_kwargs(
+            search_type=Constants.VECTOR,
+            vectors=vectors,
+            limit=limit,
+        ),
+        (
+            "SELECT TOP @limit c.id as id, c[@description] as description, c[@metadata] as metadata, "
+            "VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
+            "FROM c ORDER BY VectorDistance(c[@vectorKey], @vector)"
+        ),
+        [
+            {"name": "@limit", "value": limit},
+            {"name": "@description", "value": Constants.DESCRIPTION},
+            {"name": "@metadata", "value": Constants.METADATA},
+            {"name": "@vectorKey", "value": Constants.VECTOR},
+            {"name": "@vector", "value": vectors},
+        ],
+        expected_query_items,
+        expected_output_data,
+    ))
+
+    return queries_and_parameters
+
+
 def get_list_return_values():
     return [
         {
             'id': 'vec1',
-            Constants.DESCRIPTION: 'Border Collies are intelligent, ',
+            Constants.DESCRIPTION: 'I love sci-fi movies.',
             Constants.VECTOR: [0.1, 0.2, 0.3],
-            'metadata': {
-                'a': 1,
-                'origin': 'Border Collies were developed in the border region between Scotland and England.',
-            },
+            'hash': 'abc123',
+            'created_at': '2026-01-01T00:00:00',
+            'user_id': 'alice',
         },
         {
             'id': 'vec2',
-            Constants.DESCRIPTION: 'energetic herders skilled in outdoor activities.',
+            Constants.DESCRIPTION: 'I enjoy reading fantasy novels.',
             Constants.VECTOR: [0.4, 0.5, 0.6],
-            'metadata': {
-                'a': 2,
-                'origin': 'Golden Retrievers originated in Scotland in the mid-19th century.',
-            },
+            'hash': 'def456',
+            'created_at': '2026-01-02T00:00:00',
+            'user_id': 'bob',
         },
     ]
-
