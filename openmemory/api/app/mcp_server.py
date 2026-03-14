@@ -29,8 +29,11 @@ from app.utils.db import get_user_and_app
 from app.utils.memory import get_memory_client
 from app.utils.permissions import check_memory_access_permissions
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request
+import os
+from fastapi import FastAPI, Request, Depends, HTTPException, status
 from fastapi.routing import APIRouter
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from app.mcp_oauth import verify_oauth_or_api_key
 from mcp.server.fastmcp import FastMCP
 from mcp.server.sse import SseServerTransport
 from mcp.server.streamable_http import StreamableHTTPServerTransport
@@ -38,6 +41,8 @@ from starlette.responses import Response
 
 # Load environment variables
 load_dotenv()
+
+security = HTTPBearer()
 
 # Initialize MCP
 mcp = FastMCP("mem0-mcp-server")
@@ -56,7 +61,7 @@ user_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("user_id")
 client_name_var: contextvars.ContextVar[str] = contextvars.ContextVar("client_name")
 
 # Create a router for MCP endpoints
-mcp_router = APIRouter(prefix="/mcp")
+mcp_router = APIRouter(prefix="/mcp", dependencies=[Depends(verify_oauth_or_api_key)])
 
 # Initialize SSE transport
 sse = SseServerTransport("/mcp/messages/")
@@ -432,7 +437,60 @@ async def delete_all_memories() -> str:
         return f"Error deleting memories: {e}"
 
 
+
+
+@mcp_router.get("")
+@mcp_router.get("/")
+async def root_sse(request: Request):
+    logging.error(f"SSE ENDPOINT HIT - METHOD: {request.method} PATH: {request.url.path}")
+
+    # Default to claude and default user for the base /mcp endpoint
+    request.scope['path_params'] = {'client_name': 'claude', 'user_id': 'default'}
+
+    # We must return an EventSourceResponse so FastAPI properly flushes the stream!
+    # Instead of using connect_sse context manager which breaks FastAPI, we use it properly:
+    from sse_starlette.sse import EventSourceResponse
+    import anyio
+
+    # Initialize streams manually to match how connect_sse does it
+    read_stream_writer, read_stream = anyio.create_memory_object_stream(0)
+    write_stream, write_stream_reader = anyio.create_memory_object_stream(0)
+
+    session_id = uuid.uuid4()
+    sse._read_stream_writers[session_id] = read_stream_writer
+
+    root_path = request.scope.get("root_path", "")
+    full_message_path_for_client = root_path.rstrip("/") + sse._endpoint
+    base_url = str(request.base_url).rstrip("/")
+    # DO NOT QUOTE THE SLASHES! Claude hates it.
+    client_post_uri_data = f"{base_url}{full_message_path_for_client}?session_id={session_id.hex}"
+
+    sse_stream_writer, sse_stream_reader = anyio.create_memory_object_stream(0)
+
+    async def sse_writer():
+        async with sse_stream_writer, write_stream_reader:
+            await sse_stream_writer.send({"event": "endpoint", "data": client_post_uri_data})
+            async for session_message in write_stream_reader:
+                await sse_stream_writer.send({
+                    "event": "message",
+                    "data": session_message.message.model_dump_json(by_alias=True, exclude_none=True),
+                })
+
+    async def run_server():
+        try:
+            await mcp._mcp_server.run(read_stream, write_stream, mcp._mcp_server.create_initialization_options())
+        finally:
+            await read_stream_writer.aclose()
+            await write_stream_reader.aclose()
+
+    # Start the server loop in a background task
+    import asyncio
+    asyncio.create_task(run_server())
+
+    return EventSourceResponse(content=sse_stream_reader, data_sender_callable=sse_writer)
+
 @mcp_router.get("/{client_name}/sse/{user_id}")
+
 async def handle_sse(request: Request):
     """Handle SSE connections for a specific user and client"""
     # Extract user_id and client_name from path parameters
@@ -475,6 +533,7 @@ async def handle_post_message(request: Request):
     """Handle POST messages for SSE"""
     try:
         body = await request.body()
+        logging.error(f"POST MESSAGE RECEIVED ON {request.url.path}: {body}")
 
         # Create a simple receive function that returns the body
         async def receive():
