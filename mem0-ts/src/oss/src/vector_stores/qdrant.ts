@@ -273,10 +273,7 @@ export class Qdrant implements VectorStore {
     }
   }
 
-  private async ensureCollection(
-    name: string,
-    size: number,
-  ): Promise<void> {
+  private async ensureCollection(name: string, size: number): Promise<void> {
     try {
       await this.client.createCollection(name, {
         vectors: {
