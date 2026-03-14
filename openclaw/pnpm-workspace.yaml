@@ -1,0 +1,3 @@
+onlyBuiltDependencies:
+  - better-sqlite3
+  - protobufjs
