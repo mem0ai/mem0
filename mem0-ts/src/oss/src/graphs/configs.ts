@@ -4,6 +4,7 @@ export interface Neo4jConfig {
   url: string | null;
   username: string | null;
   password: string | null;
+  database?: string;
 }
 
 export interface GraphStoreConfig {

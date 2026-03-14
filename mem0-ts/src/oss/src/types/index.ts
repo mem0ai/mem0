@@ -51,6 +51,7 @@ export interface Neo4jConfig {
   url: string;
   username: string;
   password: string;
+  database?: string;
 }
 
 export interface GraphStoreConfig {
@@ -186,6 +187,7 @@ export const MemoryConfigSchema = z.object({
         url: z.string(),
         username: z.string(),
         password: z.string(),
+        database: z.string().optional(),
       }),
       llm: z
         .object({

@@ -57,6 +57,7 @@ export class MemoryGraph {
   private llm: LLM;
   private structuredLlm: LLM;
   private llmProvider: string;
+  private database?: string;
   private threshold: number;
   private nodeDeduplicationThreshold: number;
   private bm25TopK: number;
@@ -99,6 +100,7 @@ export class MemoryGraph {
     this.llm = LLMFactory.create(this.llmProvider, graphLlmConfig);
     this.structuredLlm = LLMFactory.create(this.llmProvider, graphLlmConfig);
 
+    this.database = config.graphStore?.config?.database;
     this.threshold = config.graphStore?.searchThreshold ?? 0.7;
     this.nodeDeduplicationThreshold =
       config.graphStore?.nodeDeduplicationThreshold ?? 0.9;
@@ -179,7 +181,7 @@ export class MemoryGraph {
   }
 
   async deleteAll(filters: Record<string, any>) {
-    const session = this.graph.session();
+    const session = this.graph.session({ database: this.database });
     try {
       await session.run("MATCH (n {user_id: $user_id}) DETACH DELETE n", {
         user_id: filters["userId"],
@@ -190,7 +192,7 @@ export class MemoryGraph {
   }
 
   async getAll(filters: Record<string, any>, limit = 100) {
-    const session = this.graph.session();
+    const session = this.graph.session({ database: this.database });
     try {
       const result = await session.run(
         `
@@ -325,7 +327,7 @@ export class MemoryGraph {
     limit = 100,
   ): Promise<SearchOutput[]> {
     const resultRelations: SearchOutput[] = [];
-    const session = this.graph.session();
+    const session = this.graph.session({ database: this.database });
 
     try {
       for (const node of nodeList) {
@@ -428,7 +430,7 @@ export class MemoryGraph {
   private async _deleteEntities(toBeDeleted: any[], userId: string) {
     const results: any[] = [];
     const edgeIds: string[] = [];
-    const session = this.graph.session();
+    const session = this.graph.session({ database: this.database });
 
     try {
       for (const item of toBeDeleted) {
@@ -474,7 +476,7 @@ export class MemoryGraph {
     const results: any[] = [];
     const nodeIds: string[] = [];
     const edgeIds: string[] = [];
-    const session = this.graph.session();
+    const session = this.graph.session({ database: this.database });
 
     try {
       for (const item of toBeAdded) {
@@ -637,7 +639,7 @@ export class MemoryGraph {
     userId: string,
     threshold = 0.9,
   ) {
-    const session = this.graph.session();
+    const session = this.graph.session({ database: this.database });
     try {
       const cypher = `
         MATCH (source_candidate)
@@ -683,7 +685,7 @@ export class MemoryGraph {
     userId: string,
     threshold = 0.9,
   ) {
-    const session = this.graph.session();
+    const session = this.graph.session({ database: this.database });
     try {
       const cypher = `
         MATCH (destination_candidate)
