@@ -549,7 +549,7 @@ function assertAllowedKeys(
   throw new Error(`${label} has unknown keys: ${unknown.join(", ")}`);
 }
 
-const mem0ConfigSchema = {
+export const mem0ConfigSchema = {
   parse(value: unknown): Mem0Config {
     if (!value || typeof value !== "object" || Array.isArray(value)) {
       throw new Error("openclaw-mem0 config required");
@@ -615,7 +615,7 @@ const mem0ConfigSchema = {
 // Provider Factory
 // ============================================================================
 
-function createProvider(
+export function createProvider(
   cfg: Mem0Config,
   api: OpenClawPluginApi,
 ): Mem0Provider {
