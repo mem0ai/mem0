@@ -1,3 +1,5 @@
+approveBuilds: esbuild
+
 onlyBuiltDependencies:
   - better-sqlite3
   - protobufjs
