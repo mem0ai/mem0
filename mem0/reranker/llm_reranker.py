@@ -33,7 +33,17 @@ class LLMReranker(BaseReranker):
 
         self.config = config
 
-        # Create LLM configuration for the factory
+        # Build LLM config, incorporating nested llm config if present
+        llm_config = self._build_llm_config()
+
+        # Initialize LLM using the factory
+        self.llm = LlmFactory.create(self.config.provider, llm_config)
+
+        # Default scoring prompt
+        self.scoring_prompt = getattr(self.config, 'scoring_prompt', None) or self._get_default_prompt()
+
+    def _build_llm_config(self) -> Dict[str, Any]:
+        """Build the LLM configuration dict, merging nested llm config if present."""
         llm_config = {
             "model": self.config.model,
             "temperature": self.config.temperature,
@@ -44,12 +54,16 @@ class LLMReranker(BaseReranker):
         if self.config.api_key:
             llm_config["api_key"] = self.config.api_key
 
-        # Initialize LLM using the factory
-        self.llm = LlmFactory.create(self.config.provider, llm_config)
+        # If a nested llm config was provided, merge any extra provider-specific
+        # settings (e.g. ollama_base_url, openai_base_url) into the llm_config
+        if self.config.llm and isinstance(self.config.llm, dict):
+            nested_config = self.config.llm.get("config", {})
+            for key, value in nested_config.items():
+                if key not in llm_config and value is not None:
+                    llm_config[key] = value
 
-        # Default scoring prompt
-        self.scoring_prompt = getattr(self.config, 'scoring_prompt', None) or self._get_default_prompt()
-        
+        return llm_config
+
     def _get_default_prompt(self) -> str:
         """Get the default scoring prompt template."""
         return """You are a relevance scoring assistant. Given a query and a document, you need to score how relevant the document is to the query.
