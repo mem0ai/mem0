@@ -69,9 +69,23 @@ def _safe_deepcopy_config(config):
         else:
             clone_dict = {k: v for k, v in config.__dict__.items()}
         
-        sensitive_tokens = ("auth", "credential", "password", "token", "secret", "key", "connection_class")
+        # Exact field names that contain genuinely sensitive data and should
+        # be redacted before telemetry serialization.  We intentionally do NOT
+        # use substring matching here because it caused false positives — e.g.
+        # "auth" matched "http_auth", which is a runtime authentication object
+        # required by OpenSearch / AWS AOSS clients (see #3580).
+        sensitive_fields = {
+            "password",
+            "api_key",
+            "secret",
+            "secret_key",
+            "credential",
+            "credentials",
+            "token",
+            "access_token",
+        }
         for field_name in list(clone_dict.keys()):
-            if any(token in field_name.lower() for token in sensitive_tokens):
+            if field_name.lower() in sensitive_fields:
                 clone_dict[field_name] = None
         
         try:
