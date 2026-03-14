@@ -729,6 +729,19 @@ mode: "wide"
 
 <Tab title="TypeScript">
 
+<Update label="2026-03-14" description="v2.4.0">
+
+**Bug Fixes:**
+- **OSS Storage:** Fixed `SQLITE_CANTOPEN` errors when running as a LaunchAgent, systemd service, or in containers where `process.cwd()` is read-only (e.g. `/`). Default `vector_store.db` location changed from `process.cwd()/vector_store.db` to `~/.mem0/vector_store.db`.
+- **OSS Storage:** Fixed `historyDbPath` config being silently ignored — config merging always overwrote it with defaults. Top-level `historyDbPath` is now correctly propagated into `historyStore.config` with proper precedence.
+- **OSS Storage:** Added `ensureSQLiteDirectory()` — parent directories for SQLite database files are now auto-created before opening, preventing `SQLITE_CANTOPEN` when using nested paths.
+
+**Improvements:**
+- **Migration:** Added deprecation warning when an existing `vector_store.db` is found at the old `process.cwd()` location, guiding users to move it or set `vectorStore.config.dbPath` explicitly.
+- **Config:** Limited default SQLite config spreading to only SQLite history providers, preventing config leaking into Supabase or other providers.
+
+</Update>
+
 <Update label="2026-03-09" description="v2.3.0">
 
 **Breaking Changes:**
