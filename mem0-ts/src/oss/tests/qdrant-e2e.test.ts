@@ -151,10 +151,14 @@ describeIfQdrant("Issue #4212/#4173: Qdrant dimension mismatch", () => {
     const id1 = uuidv4();
     const id2 = uuidv4();
 
-    await store.insert([vec1, vec2], [id1, id2], [
-      { data: "hello", userId: "u1" },
-      { data: "world", userId: "u1" },
-    ]);
+    await store.insert(
+      [vec1, vec2],
+      [id1, id2],
+      [
+        { data: "hello", userId: "u1" },
+        { data: "world", userId: "u1" },
+      ],
+    );
 
     // Search with 768-dim query — this USED TO fail with Bad Request
     const results = await store.search(vec1, 2, { userId: "u1" });
@@ -203,9 +207,11 @@ describeIfQdrant("Issue #4212/#4173: Qdrant dimension mismatch", () => {
       return {
         EmbedderFactory: { create: jest.fn().mockReturnValue(fakeEmbedder) },
         VectorStoreFactory: {
-          create: jest.fn().mockImplementation((_provider: string, config: any) => {
-            return new QdrantStore(config);
-          }),
+          create: jest
+            .fn()
+            .mockImplementation((_provider: string, config: any) => {
+              return new QdrantStore(config);
+            }),
         },
         LLMFactory: {
           create: jest.fn().mockReturnValue({
@@ -280,9 +286,11 @@ describeIfQdrant("Issue #4212/#4173: Qdrant dimension mismatch", () => {
       return {
         EmbedderFactory: { create: jest.fn().mockReturnValue(fakeEmbedder) },
         VectorStoreFactory: {
-          create: jest.fn().mockImplementation((_provider: string, config: any) => {
-            return new QdrantStore(config);
-          }),
+          create: jest
+            .fn()
+            .mockImplementation((_provider: string, config: any) => {
+              return new QdrantStore(config);
+            }),
         },
         LLMFactory: {
           create: jest.fn().mockReturnValue({
@@ -350,9 +358,11 @@ describeIfQdrant("Issue #4212/#4173: Qdrant dimension mismatch", () => {
       return {
         EmbedderFactory: { create: jest.fn().mockReturnValue(fakeEmbedder) },
         VectorStoreFactory: {
-          create: jest.fn().mockImplementation((_provider: string, config: any) => {
-            return new QdrantStore(config);
-          }),
+          create: jest
+            .fn()
+            .mockImplementation((_provider: string, config: any) => {
+              return new QdrantStore(config);
+            }),
         },
         LLMFactory: {
           create: jest.fn().mockReturnValue({

@@ -76,10 +76,14 @@ describe("MemoryVectorStore – full backward compat", () => {
     vec2[1] = 1.0;
 
     // Insert
-    await store.insert([vec1, vec2], ["id-1", "id-2"], [
-      { data: "alpha", userId: "u1" },
-      { data: "beta", userId: "u1" },
-    ]);
+    await store.insert(
+      [vec1, vec2],
+      ["id-1", "id-2"],
+      [
+        { data: "alpha", userId: "u1" },
+        { data: "beta", userId: "u1" },
+      ],
+    );
 
     // Get
     const item = await store.get("id-1");
@@ -204,66 +208,87 @@ describe("MemoryVectorStore – full backward compat", () => {
 describe("Qdrant – backward compat with mocked client", () => {
   function createMockQdrantClient() {
     const collections = new Map<string, number>();
-    const points = new Map<string, { id: string; vector: number[]; payload: any }>();
+    const points = new Map<
+      string,
+      { id: string; vector: number[]; payload: any }
+    >();
 
     return {
       _collections: collections,
       _points: points,
-      createCollection: jest.fn().mockImplementation(async (name: string, opts: any) => {
-        if (collections.has(name)) {
-          const err: any = new Error("Collection already exists");
-          err.status = 409;
-          throw err;
-        }
-        collections.set(name, opts.vectors.size);
-      }),
+      createCollection: jest
+        .fn()
+        .mockImplementation(async (name: string, opts: any) => {
+          if (collections.has(name)) {
+            const err: any = new Error("Collection already exists");
+            err.status = 409;
+            throw err;
+          }
+          collections.set(name, opts.vectors.size);
+        }),
       getCollection: jest.fn().mockImplementation(async (name: string) => {
         if (!collections.has(name)) {
           const err: any = new Error("Not found");
           err.status = 404;
           throw err;
         }
-        return { config: { params: { vectors: { size: collections.get(name) } } } };
+        return {
+          config: { params: { vectors: { size: collections.get(name) } } },
+        };
       }),
       getCollections: jest.fn().mockResolvedValue({
         collections: [],
       }),
-      upsert: jest.fn().mockImplementation(async (collName: string, opts: any) => {
-        for (const pt of opts.points) {
-          points.set(`${collName}:${pt.id}`, { id: pt.id, vector: pt.vector, payload: pt.payload });
-        }
-      }),
-      retrieve: jest.fn().mockImplementation(async (collName: string, opts: any) => {
-        const results = [];
-        for (const id of opts.ids) {
-          const pt = points.get(`${collName}:${id}`);
-          if (pt) results.push({ id: pt.id, payload: pt.payload });
-        }
-        return results;
-      }),
-      search: jest.fn().mockImplementation(async (collName: string, opts: any) => {
-        const results: any[] = [];
-        points.forEach((pt, key) => {
-          if (key.startsWith(`${collName}:`)) {
-            results.push({ id: pt.id, payload: pt.payload, score: 0.9 });
+      upsert: jest
+        .fn()
+        .mockImplementation(async (collName: string, opts: any) => {
+          for (const pt of opts.points) {
+            points.set(`${collName}:${pt.id}`, {
+              id: pt.id,
+              vector: pt.vector,
+              payload: pt.payload,
+            });
           }
-        });
-        return results.slice(0, opts.limit);
-      }),
-      scroll: jest.fn().mockImplementation(async (collName: string, opts: any) => {
-        const results: any[] = [];
-        points.forEach((pt, key) => {
-          if (key.startsWith(`${collName}:`)) {
-            results.push({ id: pt.id, payload: pt.payload });
+        }),
+      retrieve: jest
+        .fn()
+        .mockImplementation(async (collName: string, opts: any) => {
+          const results = [];
+          for (const id of opts.ids) {
+            const pt = points.get(`${collName}:${id}`);
+            if (pt) results.push({ id: pt.id, payload: pt.payload });
           }
-        });
-        return { points: results.slice(0, opts.limit) };
-      }),
-      delete: jest.fn().mockImplementation(async (collName: string, opts: any) => {
-        for (const id of opts.points) {
-          points.delete(`${collName}:${id}`);
-        }
-      }),
+          return results;
+        }),
+      search: jest
+        .fn()
+        .mockImplementation(async (collName: string, opts: any) => {
+          const results: any[] = [];
+          points.forEach((pt, key) => {
+            if (key.startsWith(`${collName}:`)) {
+              results.push({ id: pt.id, payload: pt.payload, score: 0.9 });
+            }
+          });
+          return results.slice(0, opts.limit);
+        }),
+      scroll: jest
+        .fn()
+        .mockImplementation(async (collName: string, opts: any) => {
+          const results: any[] = [];
+          points.forEach((pt, key) => {
+            if (key.startsWith(`${collName}:`)) {
+              results.push({ id: pt.id, payload: pt.payload });
+            }
+          });
+          return { points: results.slice(0, opts.limit) };
+        }),
+      delete: jest
+        .fn()
+        .mockImplementation(async (collName: string, opts: any) => {
+          for (const id of opts.points) {
+            points.delete(`${collName}:${id}`);
+          }
+        }),
       deleteCollection: jest.fn().mockImplementation(async (name: string) => {
         collections.delete(name);
       }),
@@ -324,7 +349,10 @@ describe("Qdrant – backward compat with mocked client", () => {
 
     // Insert
     await store.insert(
-      [[1, 2, 3], [4, 5, 6]],
+      [
+        [1, 2, 3],
+        [4, 5, 6],
+      ],
       ["id-1", "id-2"],
       [{ data: "alpha" }, { data: "beta" }],
     );
@@ -391,9 +419,9 @@ describe("Redis – backward compat with mocked client", () => {
         connect: jest.fn().mockResolvedValue(undefined),
         on: jest.fn(),
         isOpen: false,
-        moduleList: jest.fn().mockResolvedValue([
-          ["name", "search", "ver", 20000],
-        ]),
+        moduleList: jest
+          .fn()
+          .mockResolvedValue([["name", "search", "ver", 20000]]),
         ft: {
           dropIndex: jest.fn().mockResolvedValue(undefined),
           create: jest.fn().mockResolvedValue(undefined),
@@ -599,14 +627,17 @@ describe("AzureAISearch – backward compat with mocked client", () => {
         createOrUpdateIndex: jest.fn().mockResolvedValue({}),
         deleteIndex: jest.fn().mockResolvedValue({}),
       })),
-      AzureKeyCredential: jest.fn().mockImplementation((key: string) => ({ key })),
+      AzureKeyCredential: jest
+        .fn()
+        .mockImplementation((key: string) => ({ key })),
     }));
 
     jest.doMock("@azure/identity", () => ({
       DefaultAzureCredential: jest.fn(),
     }));
 
-    AzureAISearch = require("../src/vector_stores/azure_ai_search").AzureAISearch;
+    AzureAISearch =
+      require("../src/vector_stores/azure_ai_search").AzureAISearch;
   });
 
   afterEach(() => {
@@ -661,7 +692,9 @@ describe("Vectorize – backward compat with mocked client", () => {
     jest.doMock("cloudflare", () => {
       const mockIndexes = {
         list: jest.fn().mockReturnValue({
-          [Symbol.asyncIterator]: () => ({ next: async () => ({ done: true }) }),
+          [Symbol.asyncIterator]: () => ({
+            next: async () => ({ done: true }),
+          }),
         }),
         create: jest.fn().mockResolvedValue({}),
         delete: jest.fn().mockResolvedValue({}),
@@ -772,9 +805,14 @@ describe("LangchainVectorStore – backward compat", () => {
     const { LangchainVectorStore } = require("../src/vector_stores/langchain");
     const mockLcStore = {
       addVectors: jest.fn().mockResolvedValue(undefined),
-      similaritySearchVectorWithScore: jest.fn().mockResolvedValue([
-        [{ metadata: { _mem0_id: "id-1", data: "test" }, pageContent: "" }, 0.95],
-      ]),
+      similaritySearchVectorWithScore: jest
+        .fn()
+        .mockResolvedValue([
+          [
+            { metadata: { _mem0_id: "id-1", data: "test" }, pageContent: "" },
+            0.95,
+          ],
+        ]),
     };
     const store = new LangchainVectorStore({
       client: mockLcStore,
@@ -821,9 +859,9 @@ describe("LangchainVectorStore – backward compat", () => {
       dimension: 4,
     });
 
-    await expect(
-      store.insert([[1, 2, 3]], ["id-1"], [{}]),
-    ).rejects.toThrow("Vector dimension mismatch");
+    await expect(store.insert([[1, 2, 3]], ["id-1"], [{}])).rejects.toThrow(
+      "Vector dimension mismatch",
+    );
   });
 });
 
@@ -976,11 +1014,27 @@ describe("Memory class – backward compat with all providers", () => {
     ]);
     mockVStore.get.mockResolvedValue({
       id: "id-1",
-      payload: { memory: "test", hash: "h", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+      payload: {
+        memory: "test",
+        hash: "h",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
     });
-    mockVStore.list.mockResolvedValue([[
-      { id: "id-1", payload: { memory: "test", hash: "h", created_at: new Date().toISOString(), updated_at: new Date().toISOString() } },
-    ], 1]);
+    mockVStore.list.mockResolvedValue([
+      [
+        {
+          id: "id-1",
+          payload: {
+            memory: "test",
+            hash: "h",
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+        },
+      ],
+      1,
+    ]);
     mockVectorStoreFactory.create.mockReturnValue(mockVStore);
 
     const mem = new MemoryClass({
@@ -1055,7 +1109,9 @@ describe("Memory class – backward compat with all providers", () => {
     };
     mockEmbedderFactory.create.mockReturnValue(failingEmbedder);
 
-    const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const consoleSpy = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
 
     const mem = new MemoryClass({
       embedder: { provider: "ollama", config: { model: "test" } },
@@ -1077,4 +1133,3 @@ describe("Memory class – backward compat with all providers", () => {
     consoleSpy.mockRestore();
   });
 });
-

@@ -13,7 +13,10 @@
  */
 
 import { MemoryGraph } from "../src/memory/graph_memory";
-import { EXTRACT_RELATIONS_PROMPT, getDeleteMessages } from "../src/graphs/utils";
+import {
+  EXTRACT_RELATIONS_PROMPT,
+  getDeleteMessages,
+} from "../src/graphs/utils";
 
 // ---------------------------------------------------------------------------
 // Mocks – we replace heavy dependencies so tests run without Neo4j / OpenAI
@@ -100,7 +103,10 @@ describe("_retrieveNodesFromData", () => {
     });
 
     const mg = graph();
-    const result = await mg._retrieveNodesFromData("Alice likes pizza", FILTERS);
+    const result = await mg._retrieveNodesFromData(
+      "Alice likes pizza",
+      FILTERS,
+    );
 
     expect(result).toEqual({ alice: "person", pizza: "food" });
   });
@@ -166,7 +172,9 @@ describe("_retrieveNodesFromData", () => {
       toolCalls: [
         {
           name: "some_other_tool",
-          arguments: JSON.stringify({ entities: [{ entity: "X", entity_type: "Y" }] }),
+          arguments: JSON.stringify({
+            entities: [{ entity: "X", entity_type: "Y" }],
+          }),
         },
       ],
     });
@@ -273,9 +281,7 @@ describe("_establishNodesRelationsFromData", () => {
 
   it("throws on malformed JSON in tool call arguments (no try/catch in source)", async () => {
     mockGenerateResponse.mockResolvedValueOnce({
-      toolCalls: [
-        { name: "establish_relationships", arguments: "<<BROKEN>>" },
-      ],
+      toolCalls: [{ name: "establish_relationships", arguments: "<<BROKEN>>" }],
     });
 
     const mg = graph();
@@ -347,7 +353,11 @@ describe("_getDeleteEntitiesFromSearchOutput", () => {
     });
 
     const mg = graph();
-    const result = await mg._getDeleteEntitiesFromSearchOutput(SEARCH_OUTPUT, "Alice hates pizza", FILTERS);
+    const result = await mg._getDeleteEntitiesFromSearchOutput(
+      SEARCH_OUTPUT,
+      "Alice hates pizza",
+      FILTERS,
+    );
 
     expect(result).toEqual([
       { source: "alice", relationship: "likes", destination: "pizza" },
@@ -358,7 +368,11 @@ describe("_getDeleteEntitiesFromSearchOutput", () => {
     mockGenerateResponse.mockResolvedValueOnce("string response");
 
     const mg = graph();
-    const result = await mg._getDeleteEntitiesFromSearchOutput(SEARCH_OUTPUT, "x", FILTERS);
+    const result = await mg._getDeleteEntitiesFromSearchOutput(
+      SEARCH_OUTPUT,
+      "x",
+      FILTERS,
+    );
     expect(result).toEqual([]);
   });
 
@@ -366,7 +380,11 @@ describe("_getDeleteEntitiesFromSearchOutput", () => {
     mockGenerateResponse.mockResolvedValueOnce({ toolCalls: [] });
 
     const mg = graph();
-    const result = await mg._getDeleteEntitiesFromSearchOutput(SEARCH_OUTPUT, "x", FILTERS);
+    const result = await mg._getDeleteEntitiesFromSearchOutput(
+      SEARCH_OUTPUT,
+      "x",
+      FILTERS,
+    );
     expect(result).toEqual([]);
   });
 
@@ -381,7 +399,11 @@ describe("_getDeleteEntitiesFromSearchOutput", () => {
     });
 
     const mg = graph();
-    const result = await mg._getDeleteEntitiesFromSearchOutput(SEARCH_OUTPUT, "x", FILTERS);
+    const result = await mg._getDeleteEntitiesFromSearchOutput(
+      SEARCH_OUTPUT,
+      "x",
+      FILTERS,
+    );
     expect(result).toEqual([]);
   });
 
@@ -390,17 +412,29 @@ describe("_getDeleteEntitiesFromSearchOutput", () => {
       toolCalls: [
         {
           name: "delete_graph_memory",
-          arguments: JSON.stringify({ source: "A", relationship: "r1", destination: "B" }),
+          arguments: JSON.stringify({
+            source: "A",
+            relationship: "r1",
+            destination: "B",
+          }),
         },
         {
           name: "delete_graph_memory",
-          arguments: JSON.stringify({ source: "C", relationship: "r2", destination: "D" }),
+          arguments: JSON.stringify({
+            source: "C",
+            relationship: "r2",
+            destination: "D",
+          }),
         },
       ],
     });
 
     const mg = graph();
-    const result = await mg._getDeleteEntitiesFromSearchOutput(SEARCH_OUTPUT, "x", FILTERS);
+    const result = await mg._getDeleteEntitiesFromSearchOutput(
+      SEARCH_OUTPUT,
+      "x",
+      FILTERS,
+    );
     expect(result).toHaveLength(2);
     expect(result[0].source).toBe("a");
     expect(result[1].source).toBe("c");
@@ -425,7 +459,11 @@ describe("_getDeleteEntitiesFromSearchOutput", () => {
     mockGenerateResponse.mockResolvedValueOnce({ toolCalls: [] });
 
     const mg = graph();
-    const result = await mg._getDeleteEntitiesFromSearchOutput([], "data", FILTERS);
+    const result = await mg._getDeleteEntitiesFromSearchOutput(
+      [],
+      "data",
+      FILTERS,
+    );
     expect(result).toEqual([]);
   });
 });
@@ -481,7 +519,11 @@ describe("_removeSpacesFromEntities (via _establishNodesRelationsFromData)", () 
           name: "establish_relationships",
           arguments: JSON.stringify({
             entities: [
-              { source: "New York", relationship: "Capital Of", destination: "United States" },
+              {
+                source: "New York",
+                relationship: "Capital Of",
+                destination: "United States",
+              },
             ],
           }),
         },
@@ -489,10 +531,18 @@ describe("_removeSpacesFromEntities (via _establishNodesRelationsFromData)", () 
     });
 
     const mg = graph();
-    const result = await mg._establishNodesRelationsFromData("test", FILTERS, {});
+    const result = await mg._establishNodesRelationsFromData(
+      "test",
+      FILTERS,
+      {},
+    );
 
     expect(result).toEqual([
-      { source: "new_york", relationship: "capital_of", destination: "united_states" },
+      {
+        source: "new_york",
+        relationship: "capital_of",
+        destination: "united_states",
+      },
     ]);
   });
 });

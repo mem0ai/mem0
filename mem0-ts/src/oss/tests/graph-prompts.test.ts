@@ -31,7 +31,8 @@ describe("Graph prompts — JSON keyword requirement", () => {
   it("EXTRACT_RELATIONS_PROMPT produces a message containing 'json' once the suffix is appended", () => {
     // graph_memory.ts appends "\nPlease provide your response in JSON format."
     const withSuffix =
-      EXTRACT_RELATIONS_PROMPT + "\nPlease provide your response in JSON format.";
+      EXTRACT_RELATIONS_PROMPT +
+      "\nPlease provide your response in JSON format.";
     expect(withSuffix.toLowerCase()).toContain("json");
   });
 
@@ -86,13 +87,21 @@ describe("getDeleteMessages", () => {
   });
 
   it("handles special characters in userId (e.g. angle brackets, quotes)", () => {
-    const [system] = getDeleteMessages("mem", "data", '<script>alert("xss")</script>');
+    const [system] = getDeleteMessages(
+      "mem",
+      "data",
+      '<script>alert("xss")</script>',
+    );
     expect(system).toContain('<script>alert("xss")</script>');
     expect(system).not.toContain("USER_ID");
   });
 
   it("handles unicode input", () => {
-    const [system, user] = getDeleteMessages("日本語メモリ", "新しい情報", "ユーザー1");
+    const [system, user] = getDeleteMessages(
+      "日本語メモリ",
+      "新しい情報",
+      "ユーザー1",
+    );
     expect(system).toContain("ユーザー1");
     expect(user).toContain("日本語メモリ");
     expect(user).toContain("新しい情報");
@@ -130,7 +139,7 @@ describe("formatEntities", () => {
 
   it("preserves special characters in entity fields", () => {
     const result = formatEntities([
-      { source: "O'Brien", relationship: "said \"hello\"", destination: "café" },
+      { source: "O'Brien", relationship: 'said "hello"', destination: "café" },
     ]);
     expect(result).toContain("O'Brien");
     expect(result).toContain('said "hello"');
