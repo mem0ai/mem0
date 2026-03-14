@@ -69,11 +69,11 @@ def test_search_vectors(upstash_instance, mock_index):
             {
                 "vector": vectors[0],
                 "top_k": 2,
-                "namespace": "ns",
                 "include_metadata": True,
                 "filter": 'age = 30 AND name = "John"',
             }
-        ]
+        ],
+        namespace="ns",
     )
 
     assert len(results) == 2
@@ -311,11 +311,11 @@ def test_search_vectors_empty_filters(upstash_instance):
             {
                 "vector": vectors[0],
                 "top_k": 1,
-                "namespace": "ns",
                 "include_metadata": True,
                 "filter": "",
             }
-        ]
+        ],
+        namespace="ns",
     )
 
     assert len(results) == 1
