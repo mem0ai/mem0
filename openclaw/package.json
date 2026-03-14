@@ -1,6 +1,6 @@
 {
   "name": "@mem0/openclaw-mem0",
-  "version": "0.3.1",
+  "version": "0.3.3",
   "type": "module",
   "description": "Mem0 memory backend for OpenClaw — platform or self-hosted open-source",
   "license": "Apache-2.0",
@@ -20,7 +20,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "openclaw.plugin.json"
   ],
   "scripts": {
     "build": "tsup",
@@ -32,7 +33,7 @@
   },
   "openclaw": {
     "extensions": [
-      "./index.ts"
+      "./dist/index.js"
     ]
   },
   "devDependencies": {
