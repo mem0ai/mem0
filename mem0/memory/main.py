@@ -69,10 +69,15 @@ def _safe_deepcopy_config(config):
         else:
             clone_dict = {k: v for k, v in config.__dict__.items()}
         
-        sensitive_tokens = ("auth", "credential", "password", "token", "secret", "key", "connection_class")
+        # Only sanitize truly sensitive fields, preserve runtime auth objects like http_auth
+        sensitive_tokens = ("password", "token", "secret", "api_key")
+        preserved_fields = ("http_auth", "auth", "connection_class")
         for field_name in list(clone_dict.keys()):
             if any(token in field_name.lower() for token in sensitive_tokens):
                 clone_dict[field_name] = None
+            elif field_name.lower() in preserved_fields or any(field_name.lower().endswith(f"_{t}") for t in preserved_fields):
+                # Preserve runtime auth objects (http_auth, auth, connection_class)
+                pass
         
         try:
             return config_class(**clone_dict)
