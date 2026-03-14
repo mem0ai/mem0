@@ -210,11 +210,7 @@ describe("backward compat: MemoryVectorStore", () => {
 
     try {
       const store = new MemoryVectorStore({ dimension: 3, dbPath });
-      await store.insert(
-        [normalize([1, 0, 0])],
-        ["id1"],
-        [{ text: "hello" }],
-      );
+      await store.insert([normalize([1, 0, 0])], ["id1"], [{ text: "hello" }]);
 
       expect(fs.existsSync(dbPath)).toBe(true);
 

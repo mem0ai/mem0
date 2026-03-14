@@ -22,7 +22,8 @@ describe("removeCodeBlocks", () => {
   });
 
   it("handles Claude-style response with surrounding text", () => {
-    const input = 'Here is the JSON:\n```json\n{"facts": ["user likes TypeScript"]}\n```';
+    const input =
+      'Here is the JSON:\n```json\n{"facts": ["user likes TypeScript"]}\n```';
     expect(removeCodeBlocks(input)).toContain('"facts"');
     expect(removeCodeBlocks(input)).not.toContain("```");
   });
