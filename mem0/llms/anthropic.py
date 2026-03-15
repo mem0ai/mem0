@@ -53,13 +53,14 @@ class AnthropicLLM(LLMBase):
 
         Args:
             messages (list): List of message dicts containing 'role' and 'content'.
-            response_format (str or object, optional): Format of the response. Defaults to "text".
+            response_format (optional): Unused; reserved for interface compatibility. Defaults to None.
             tools (list, optional): List of tools that the model can call. Defaults to None.
             tool_choice (str, optional): Tool choice method. Defaults to "auto".
             **kwargs: Additional Anthropic-specific parameters.
 
         Returns:
-            str: The generated response.
+            str: The generated text response when no tools are provided.
+            dict: A dict with keys ``content`` (str) and ``tool_calls`` (list) when tools are provided.
         """
         # Separate system message from other messages
         system_message = ""
@@ -79,9 +80,53 @@ class AnthropicLLM(LLMBase):
             }
         )
 
-        if tools:  # TODO: Remove tools if no issues found with new memory addition logic
-            params["tools"] = tools
-            params["tool_choice"] = tool_choice
+        if tools:
+            params["tools"] = self._convert_tools(tools)
+            params["tool_choice"] = {"type": tool_choice}
 
         response = self.client.messages.create(**params)
+        return self._parse_response(response, tools)
+
+    @staticmethod
+    def _convert_tools(tools):
+        """Convert OpenAI-format tools to Anthropic format.
+
+        Raises:
+            ValueError: If a tool entry is missing required keys (``function``,
+                ``name``, ``description``, or ``parameters``).
+        """
+        converted = []
+        for i, tool in enumerate(tools):
+            if "function" not in tool:
+                raise ValueError(f"Tool at index {i} is missing required key 'function'")
+            func = tool["function"]
+            for key in ("name", "description", "parameters"):
+                if key not in func:
+                    raise ValueError(f"Tool at index {i} is missing required function key '{key}'")
+            converted.append(
+                {
+                    "name": func["name"],
+                    "description": func["description"],
+                    "input_schema": func["parameters"],
+                }
+            )
+        return converted
+
+    @staticmethod
+    def _parse_response(response, tools):
+        """Parse Anthropic response, extracting tool calls when tools were provided."""
+        if tools:
+            content = ""
+            tool_calls = []
+            for block in response.content:
+                if block.type == "text":
+                    content = block.text
+                elif block.type == "tool_use":
+                    tool_calls.append(
+                        {
+                            "name": block.name,
+                            "arguments": block.input,
+                        }
+                    )
+            return {"content": content, "tool_calls": tool_calls}
         return response.content[0].text

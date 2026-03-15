@@ -18,12 +18,13 @@ export class AnthropicLLM implements LLM {
   async generateResponse(
     messages: Message[],
     responseFormat?: { type: string },
-  ): Promise<string> {
+    tools?: any[],
+  ): Promise<string | LLMResponse> {
     // Extract system message if present
     const systemMessage = messages.find((msg) => msg.role === "system");
     const otherMessages = messages.filter((msg) => msg.role !== "system");
 
-    const response = await this.client.messages.create({
+    const params: Record<string, any> = {
       model: this.model,
       messages: otherMessages.map((msg) => ({
         role: msg.role as "user" | "assistant",
@@ -37,9 +38,36 @@ export class AnthropicLLM implements LLM {
           ? systemMessage.content
           : undefined,
       max_tokens: 4096,
-    });
+    };
+
+    if (tools) {
+      params.tools = this._convertTools(tools);
+      params.tool_choice = { type: "auto" };
+    }
+
+    const response = await this.client.messages.create(params as any);
+
+    if (tools) {
+      let content = "";
+      const toolCalls: Array<{ name: string; arguments: string }> = [];
+      for (const block of response.content) {
+        if (block.type === "text") {
+          content = block.text;
+        } else if (block.type === "tool_use") {
+          toolCalls.push({
+            name: block.name,
+            arguments: JSON.stringify(block.input),
+          });
+        }
+      }
+      return { content, role: "assistant", toolCalls };
+    }
 
     const firstBlock = response.content[0];
+    // Guard against empty content array before accessing type
+    if (!firstBlock) {
+      throw new Error("Empty response from Anthropic API");
+    }
     if (firstBlock.type === "text") {
       return firstBlock.text;
     } else {
@@ -47,10 +75,27 @@ export class AnthropicLLM implements LLM {
     }
   }
 
+  private _convertTools(tools: any[]): any[] {
+    // Validate structure before mapping to catch malformed tool definitions early
+    return tools.map((tool, i) => {
+      if (!tool.function) {
+        throw new Error(`Tool at index ${i} is missing required key 'function'`);
+      }
+      const { name, description, parameters } = tool.function;
+      if (!name || !description || !parameters) {
+        throw new Error(
+          `Tool at index ${i} is missing required function keys (name, description, parameters)`,
+        );
+      }
+      return { name, description, input_schema: parameters };
+    });
+  }
+
   async generateChat(messages: Message[]): Promise<LLMResponse> {
     const response = await this.generateResponse(messages);
     return {
-      content: response,
+      // generateResponse returns string when called without tools
+      content: response as string,
       role: "assistant",
     };
   }

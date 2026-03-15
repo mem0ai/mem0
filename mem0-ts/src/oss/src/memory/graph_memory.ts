@@ -52,7 +52,7 @@ export class MemoryGraph {
   private graph: Driver;
   private embeddingModel: Embedder;
   private llm: LLM;
-  private structuredLlm: LLM;
+
   private llmProvider: string;
   private threshold: number;
 
@@ -88,10 +88,6 @@ export class MemoryGraph {
     }
 
     this.llm = LLMFactory.create(this.llmProvider, this.config.llm.config);
-    this.structuredLlm = LLMFactory.create(
-      this.llmProvider,
-      this.config.llm.config,
-    );
     this.threshold = 0.7;
   }
 
@@ -208,7 +204,7 @@ export class MemoryGraph {
     filters: Record<string, any>,
   ) {
     const tools = [EXTRACT_ENTITIES_TOOL] as Tool[];
-    const searchResults = await this.structuredLlm.generateResponse(
+    const searchResults = await this.llm.generateResponse(
       [
         {
           role: "system",
@@ -284,7 +280,7 @@ export class MemoryGraph {
     }
 
     const tools = [RELATIONS_TOOL] as Tool[];
-    const extractedEntities = await this.structuredLlm.generateResponse(
+    const extractedEntities = await this.llm.generateResponse(
       messages,
       { type: "json_object" },
       tools,
@@ -385,7 +381,7 @@ export class MemoryGraph {
     );
 
     const tools = [DELETE_MEMORY_TOOL_GRAPH] as Tool[];
-    const memoryUpdates = await this.structuredLlm.generateResponse(
+    const memoryUpdates = await this.llm.generateResponse(
       [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
