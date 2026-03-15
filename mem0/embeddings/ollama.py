@@ -39,7 +39,7 @@ class OllamaEmbedding(EmbeddingBase):
         if not any(model.get("name") == self.config.model or model.get("model") == self.config.model for model in local_models):
             self.client.pull(self.config.model)
 
-    def embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
+    def _embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
         """
         Get the embedding for the given text using Ollama.
 

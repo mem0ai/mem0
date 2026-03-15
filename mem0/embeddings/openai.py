@@ -31,7 +31,7 @@ class OpenAIEmbedding(EmbeddingBase):
 
         self.client = OpenAI(api_key=api_key, base_url=base_url)
 
-    def embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
+    def _embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
         """
         Get the embedding for the given text using OpenAI.
 
