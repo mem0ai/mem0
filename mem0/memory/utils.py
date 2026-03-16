@@ -29,6 +29,31 @@ def get_fact_retrieval_messages_legacy(message):
     return FACT_RETRIEVAL_PROMPT, f"Input:\n{message}"
 
 
+def ensure_json_instruction(system_prompt, user_prompt):
+    """Ensure the word 'json' appears in the prompts when using json_object response format.
+
+    OpenAI's API requires the word 'json' to appear in the messages when
+    response_format is set to {"type": "json_object"}. When users provide a
+    custom_fact_extraction_prompt that doesn't include 'json', this causes a
+    400 error. This function appends a JSON format instruction to the system
+    prompt if 'json' is not already present in either prompt.
+
+    Args:
+        system_prompt: The system prompt string
+        user_prompt: The user prompt string
+
+    Returns:
+        tuple: (system_prompt, user_prompt) with JSON instruction added if needed
+    """
+    combined = (system_prompt + user_prompt).lower()
+    if "json" not in combined:
+        system_prompt += (
+            "\n\nYou must return your response in valid JSON format "
+            "with a 'facts' key containing an array of strings."
+        )
+    return system_prompt, user_prompt
+
+
 def parse_messages(messages):
     response = ""
     for msg in messages:
