@@ -186,6 +186,7 @@ class VectorStoreFactory:
         "baidu": "mem0.vector_stores.baidu.BaiduDB",
         "cassandra": "mem0.vector_stores.cassandra.CassandraDB",
         "neptune": "mem0.vector_stores.neptune_analytics.NeptuneAnalyticsVector",
+        "polardb": "mem0.vector_stores.polardb.PolarDB",
     }
 
     @classmethod

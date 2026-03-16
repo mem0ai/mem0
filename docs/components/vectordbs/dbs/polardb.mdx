@@ -1,0 +1,112 @@
+---
+title: PolarDB
+---
+
+[PolarDB MySQL](https://www.alibabacloud.com/en/product/polardb-for-mysql) is a cloud-native relational database by Alibaba Cloud with native `VECTOR` type support, HNSW indexing via IMCI columnar engine, and server-side `DISTANCE()` function for high-performance approximate nearest neighbor (ANN) search.
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "polardb",
+        "config": {
+            "host": "your-polardb-host.rwlb.rds.aliyuncs.com",
+            "port": 3306,
+            "user": "your_username",
+            "password": "your_password",
+            "database": "mem0_db",
+            "collection_name": "memories",
+            "index_type": "FAISS_HNSW_FLAT",
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+#### Using FAISS_HNSW_PQ Index
+
+For large-scale datasets, use Product Quantization to reduce memory usage:
+
+```python
+config = {
+    "vector_store": {
+        "provider": "polardb",
+        "config": {
+            "host": "your-polardb-host.rwlb.rds.aliyuncs.com",
+            "port": 3306,
+            "user": "your_username",
+            "password": "your_password",
+            "database": "mem0_db",
+            "collection_name": "memories",
+            "index_type": "FAISS_HNSW_PQ",
+            "pq_m": 256,
+            "pq_nbits": 8,
+        }
+    }
+}
+```
+
+### Config
+
+Here are the parameters available for configuring PolarDB:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `host` | PolarDB MySQL server hostname | Required |
+| `port` | PolarDB MySQL server port | `3306` |
+| `user` | Database user | Required |
+| `password` | Database password | Required |
+| `database` | Database name | Required |
+| `collection_name` | Table name for storing vectors | `"mem0"` |
+| `embedding_model_dims` | Dimensions of embedding vectors | `1536` |
+| `metric` | Distance metric (`cosine`, `euclidean`, `inner_product`) | `"cosine"` |
+| `index_type` | Vector index algorithm (`FAISS_HNSW_FLAT`, `FAISS_HNSW_PQ`, `FAISS_HNSW_SQ`) | `"FAISS_HNSW_FLAT"` |
+| `hnsw_m` | HNSW max_degree (connections per node) | `16` |
+| `hnsw_ef_construction` | HNSW ef_construction parameter | `200` |
+| `pq_m` | PQ subspace count (required for `FAISS_HNSW_PQ`, must divide `embedding_model_dims`) | `None` |
+| `pq_nbits` | PQ bits per subspace (required for `FAISS_HNSW_PQ`, max 24) | `None` |
+| `sq_type` | SQ type (required for `FAISS_HNSW_SQ`) | `None` |
+| `ssl_ca` | Path to SSL CA certificate | `None` |
+| `ssl_disabled` | Disable SSL connection | `False` |
+| `minconn` | Minimum connections in pool | `1` |
+| `maxconn` | Maximum connections in pool | `5` |
+
+### Setup
+
+#### Prerequisites
+
+PolarDB MySQL version **8.0.2.2.31** or above is required for vector search support. The `host` parameter must point to a cluster address that includes an IMCI (In-Memory Column Index) read-only node.
+
+```bash
+pip install pymysql dbutils numpy
+```
+
+#### Create Database
+
+Connect to your PolarDB MySQL instance and create a database:
+
+```sql
+CREATE DATABASE mem0_db;
+```
+
+<Note>
+PolarDB vector search uses the IMCI columnar engine. Ensure your PolarDB cluster has a read-only columnar node enabled.
+</Note>
+
+<Tip>
+For best performance, set `index_type` to `FAISS_HNSW_FLAT` for high recall, or `FAISS_HNSW_PQ` for lower memory usage on large datasets.
+</Tip>
