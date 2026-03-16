@@ -66,7 +66,7 @@ Guidelines:
 2. Deletion Criteria: Delete a relationship only if it meets at least one of these conditions:
    - Outdated or Inaccurate: The new information is more recent or accurate.
    - Contradictory: The new information conflicts with or negates the existing information.
-3. DO NOT DELETE if their is a possibility of same type of relationship but different destination nodes.
+3. DO NOT DELETE if there is a possibility of same type of relationship but different destination nodes.
 4. Comprehensive Analysis:
    - Thoroughly examine each existing relationship against the new information and delete as necessary.
    - Multiple deletions may be required based on the new information.
@@ -76,7 +76,7 @@ Guidelines:
 6. Temporal Awareness: Prioritize recency when timestamps are available.
 7. Necessity Principle: Only DELETE relationships that must be deleted and are contradictory/outdated to the new information to maintain an accurate and coherent memory graph.
 
-Note: DO NOT DELETE if their is a possibility of same type of relationship but different destination nodes. 
+Note: DO NOT DELETE if there is a possibility of same type of relationship but different destination nodes. 
 
 For example: 
 Existing Memory: alice -- loves_to_eat -- pizza
