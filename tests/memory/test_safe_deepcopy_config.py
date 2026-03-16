@@ -10,9 +10,7 @@ Covers:
 """
 
 import pytest
-from copy import deepcopy
-from unittest.mock import MagicMock
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import Optional, Union, Type
 
 from mem0.memory.main import _is_sensitive_field, _safe_deepcopy_config
