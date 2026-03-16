@@ -49,4 +49,9 @@ class OpenAIStructuredLLM(LLMBase):
             params["tool_choice"] = tool_choice
 
         response = self.client.beta.chat.completions.parse(**params)
-        return response.choices[0].message.content
+        
+        # Guard against empty choices
+        if not response.choices:
+            return ""
+        
+        return response.choices[0].message.content or ""

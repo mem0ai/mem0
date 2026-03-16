@@ -49,4 +49,9 @@ class XAILLM(LLMBase):
             params["response_format"] = response_format
 
         response = self.client.chat.completions.create(**params)
-        return response.choices[0].message.content
+        
+        # Guard against empty choices
+        if not response.choices:
+            return ""
+        
+        return response.choices[0].message.content or ""

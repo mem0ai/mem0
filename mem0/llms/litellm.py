@@ -29,9 +29,13 @@ class LiteLLM(LLMBase):
         Returns:
             str or dict: The processed response.
         """
+        # Guard against empty choices
+        if not response.choices:
+            return {"content": "", "tool_calls": []} if tools else ""
+
         if tools:
             processed_response = {
-                "content": response.choices[0].message.content,
+                "content": response.choices[0].message.content or "",
                 "tool_calls": [],
             }
 
@@ -46,7 +50,7 @@ class LiteLLM(LLMBase):
 
             return processed_response
         else:
-            return response.choices[0].message.content
+            return response.choices[0].message.content or ""
 
     def generate_response(
         self,
