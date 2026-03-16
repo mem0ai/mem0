@@ -37,6 +37,7 @@
     "start": "pnpm run example memory",
     "example": "ts-node src/oss/examples/vector-stores/index.ts",
     "test": "jest",
+    "test:ci": "jest --coverage --ci",
     "test:ts": "jest --config jest.config.js",
     "test:watch": "jest --config jest.config.js --watch",
     "format": "npm run clean && prettier --write .",

@@ -55,7 +55,7 @@ jobs:
 
       - name: Run tests
         working-directory: mem0-ts
-        run: pnpm test -- --coverage --ci
+        run: pnpm run test:ci
 
       - name: Build
         working-directory: mem0-ts
