@@ -729,6 +729,17 @@ mode: "wide"
 
 <Tab title="TypeScript">
 
+<Update label="2026-03-17" description="v2.4.1">
+
+**Testing & Infrastructure:**
+- **Exception Hierarchy:** Added 14 structured exception classes with HTTP status code mapping — `AuthenticationError`, `RateLimitError`, `ValidationError`, `MemoryNotFoundError`, `NetworkError`, `ConfigurationError`, `MemoryQuotaExceededError`, `VectorStoreError`, `GraphStoreError`, `EmbeddingError`, `LLMError`, `DatabaseError`, `DependencyError` + `createExceptionFromResponse()` utility
+- **Client Tests:** Added comprehensive unit tests for all 23 MemoryClient methods (70 tests) — init, ping, add, get, getAll, search, update, delete, deleteAll, history, batchUpdate, batchDelete, users, deleteUsers, deleteUser, webhooks (CRUD), feedback, exports, getProject, updateProject
+- **Edge Case Tests:** Added 11 edge case tests covering empty arrays, special characters in user_id, empty API responses, missing options, and empty entity lists — discovered 2 bugs (`getAll()` and `search()` crash when called without options)
+- **Test Infrastructure:** Added mock fetch helpers, factory functions, and test constants for isolated testing without API keys
+- **CI Pipeline:** Added GitHub Actions workflow (`ts-sdk-ci.yml`) matching Python SDK pattern — path-filtered triggers, `dorny/paths-filter` change detection, Node 18/20/22 matrix, lint + test + build + export verification
+
+</Update>
+
 <Update label="2026-03-14" description="v2.4.0">
 
 **Bug Fixes:**
