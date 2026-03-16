@@ -37,13 +37,14 @@ import {
   agentUserId,
   resolveUserId,
   isNonInteractiveTrigger,
+  isSubagentSession,
 } from "./isolation.ts";
 
 // ============================================================================
 // Re-exports (for tests and external consumers)
 // ============================================================================
 
-export { extractAgentId, effectiveUserId, agentUserId, resolveUserId, isNonInteractiveTrigger } from "./isolation.ts";
+export { extractAgentId, effectiveUserId, agentUserId, resolveUserId, isNonInteractiveTrigger, isSubagentSession } from "./isolation.ts";
 export {
   isNoiseMessage,
   isGenericAssistantMessage,
@@ -848,14 +849,20 @@ function registerHooks(
       const isNewSession = sessionId && sessionId !== currentSessionId;
       if (sessionId) session.setCurrentSessionId(sessionId);
 
+      // Subagents have ephemeral UUIDs — their namespace is always empty.
+      // Search the parent (main) user namespace instead so subagents get
+      // the user's long-term context.
+      const isSubagent = isSubagentSession(sessionId);
+      const recallSessionKey = isSubagent ? undefined : sessionId;
+
       try {
         // Use a larger candidate pool for recall, then filter down
         const recallTopK = Math.max((cfg.topK ?? 5) * 2, 10);
 
-        // Search long-term memories (user-scoped, isolated per agent)
+        // Search long-term memories (user-scoped; subagents read from parent namespace)
         let longTermResults = await provider.search(
           event.prompt,
-          buildSearchOptions(undefined, recallTopK, undefined, sessionId),
+          buildSearchOptions(undefined, recallTopK, undefined, recallSessionKey),
         );
 
         // Client-side threshold filter for auto-recall — use a stricter
@@ -882,7 +889,7 @@ function registerHooks(
         // Use a lower threshold (0.5) since the generic query is
         // intentionally broad and strict thresholds defeat the purpose.
         if (event.prompt.length < 100 || isNewSession) {
-          const broadOpts = buildSearchOptions(undefined, 5, undefined, sessionId);
+          const broadOpts = buildSearchOptions(undefined, 5, undefined, recallSessionKey);
           broadOpts.threshold = 0.5;
           const broadResults = await provider.search(
             "recent decisions, preferences, active projects, and configuration",
@@ -946,8 +953,12 @@ function registerHooks(
           `openclaw-mem0: injecting ${totalCount} memories into context (${longTermResults.length} long-term, ${uniqueSessionResults.length} session)`,
         );
 
+        const preamble = isSubagent
+          ? `The following are stored memories for user "${cfg.userId}". You are a subagent — use these memories for context but do not assume you are this user.`
+          : `The following are stored memories for user "${cfg.userId}". Use them to personalize your response:`;
+
         return {
-          prependContext: `<relevant-memories>\nThe following are stored memories for user "${cfg.userId}". Use them to personalize your response:\n${memoryContext}\n</relevant-memories>`,
+          prependContext: `<relevant-memories>\n${preamble}\n${memoryContext}\n</relevant-memories>`,
         };
       } catch (err) {
         api.logger.warn(`openclaw-mem0: recall failed: ${String(err)}`);
@@ -967,6 +978,14 @@ function registerHooks(
       const sessionId = (ctx as any)?.sessionKey ?? undefined;
       if (isNonInteractiveTrigger(trigger, sessionId)) {
         api.logger.info("openclaw-mem0: skipping capture for non-interactive trigger");
+        return;
+      }
+
+      // Skip capture for subagents — their ephemeral UUIDs create orphaned
+      // namespaces that are never read again. The main agent's agent_end
+      // hook captures the consolidated result including subagent output.
+      if (isSubagentSession(sessionId)) {
+        api.logger.info("openclaw-mem0: skipping capture for subagent (main agent captures consolidated result)");
         return;
       }
 

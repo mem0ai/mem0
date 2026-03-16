@@ -38,6 +38,16 @@ export function isNonInteractiveTrigger(
 }
 
 /**
+ * Returns true if the session key indicates a subagent (ephemeral) session.
+ * Subagent UUIDs are random per-spawn, so their namespaces are always empty
+ * on recall and orphaned after capture.
+ */
+export function isSubagentSession(sessionKey: string | undefined): boolean {
+  if (!sessionKey) return false;
+  return /:subagent:/i.test(sessionKey);
+}
+
+/**
  * Parse an agent ID from a session key.
  *
  * OpenClaw session key formats:

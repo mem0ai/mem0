@@ -9,6 +9,7 @@ import {
   agentUserId,
   resolveUserId,
   isNonInteractiveTrigger,
+  isSubagentSession,
   isNoiseMessage,
   isGenericAssistantMessage,
   stripNoiseFromContent,
@@ -224,6 +225,27 @@ describe("isNonInteractiveTrigger", () => {
 
   it("returns false when both trigger and sessionKey are undefined", () => {
     expect(isNonInteractiveTrigger(undefined, undefined)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isSubagentSession
+// ---------------------------------------------------------------------------
+describe("isSubagentSession", () => {
+  it("returns true for subagent session keys", () => {
+    expect(isSubagentSession("agent:main:subagent:3b85177f-69e0-412d-8ecd-fbe542f362ce")).toBe(true);
+  });
+
+  it("returns false for main agent session", () => {
+    expect(isSubagentSession("agent:main:main")).toBe(false);
+  });
+
+  it("returns false for named agent session", () => {
+    expect(isSubagentSession("agent:researcher:550e8400-e29b")).toBe(false);
+  });
+
+  it("returns false for undefined", () => {
+    expect(isSubagentSession(undefined)).toBe(false);
   });
 });
 
