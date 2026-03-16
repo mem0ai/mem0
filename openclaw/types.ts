@@ -20,6 +20,7 @@ export type Mem0Config = {
     vectorStore?: { provider: string; config: Record<string, unknown> };
     llm?: { provider: string; config: Record<string, unknown> };
     historyDbPath?: string;
+    disableHistory?: boolean;
   };
   // Shared
   userId: string;

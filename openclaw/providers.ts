@@ -82,7 +82,10 @@ class PlatformProvider implements Mem0Provider {
   private async ensureClient(): Promise<void> {
     if (this.client) return;
     if (this.initPromise) return this.initPromise;
-    this.initPromise = this._init();
+    this.initPromise = this._init().catch((err) => {
+      this.initPromise = null;
+      throw err;
+    });
     return this.initPromise;
   }
 
@@ -175,7 +178,10 @@ class OSSProvider implements Mem0Provider {
   private async ensureMemory(): Promise<void> {
     if (this.memory) return;
     if (this.initPromise) return this.initPromise;
-    this.initPromise = this._init();
+    this.initPromise = this._init().catch((err) => {
+      this.initPromise = null;
+      throw err;
+    });
     return this.initPromise;
   }
 
@@ -196,9 +202,30 @@ class OSSProvider implements Mem0Provider {
       config.historyDbPath = dbPath;
     }
 
+    if (this.ossConfig?.disableHistory) {
+      config.disableHistory = true;
+    }
+
     if (this.customPrompt) config.customPrompt = this.customPrompt;
 
-    this.memory = new Memory(config);
+    try {
+      this.memory = new Memory(config);
+    } catch (err) {
+      // If initialization fails (e.g. native SQLite binding resolution under
+      // jiti), retry with history disabled — the history DB is the most common
+      // source of native-binding failures and is not required for core
+      // memory operations.
+      if (!config.disableHistory) {
+        console.warn(
+          "[mem0] Memory initialization failed, retrying with history disabled:",
+          err instanceof Error ? err.message : err,
+        );
+        config.disableHistory = true;
+        this.memory = new Memory(config);
+      } else {
+        throw err;
+      }
+    }
   }
 
   async add(

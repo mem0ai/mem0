@@ -12,11 +12,15 @@ All notable changes to the `@mem0/openclaw-mem0` plugin will be documented in th
 - **User identity in extraction preamble**: Extraction context includes user identity and current date for accurate attribution and temporal anchoring
 - **User-content guard**: Skips extraction when no meaningful user messages remain after filtering
 - **Dynamic recall thresholding**: Memories scoring less than 50% of the top result are dropped to filter out the long tail of weak matches
-- 72 unit tests covering all filtering, isolation, deduplication, trigger filtering, and subagent detection
+- **SQLite resilience for OSS mode**: Init error recovery with automatic retry (history disabled) when native SQLite bindings fail under jiti
+- **`disableHistory` config option**: New `oss.disableHistory` flag to explicitly skip history DB initialization
+- **Updated minimum package version of mem0ai package**: Updated minimum package version of mem0ai package to ^2.3.0 to force old users to migrate to better-sqlite3
+- 82 unit tests covering all filtering, isolation, deduplication, trigger filtering, subagent detection, and SQLite resilience
 
 ### Changed
 - Auto-recall threshold raised from 0.5 to 0.6 for stricter precision during automatic injection (explicit tool searches remain at 0.5)
 - Recall candidate pool increased to `topK * 2` for better filtering headroom
+- Provider init promises now reset on failure, allowing retry on subsequent calls
 
 ## [0.3.1] - 2026-03-12
 

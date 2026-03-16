@@ -52,6 +52,8 @@ export {
   filterMessagesForExtraction,
   deduplicateByContent,
 } from "./filtering.ts";
+export { mem0ConfigSchema } from "./config.ts";
+export { createProvider } from "./providers.ts";
 
 // ============================================================================
 // Helpers
