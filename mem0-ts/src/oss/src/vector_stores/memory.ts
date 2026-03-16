@@ -1,7 +1,12 @@
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 import Database from "better-sqlite3";
+import fs from "fs";
 import path from "path";
+import {
+  ensureSQLiteDirectory,
+  getDefaultVectorStoreDbPath,
+} from "../utils/sqlite";
 
 interface MemoryVector {
   id: string;
@@ -16,10 +21,19 @@ export class MemoryVectorStore implements VectorStore {
 
   constructor(config: VectorStoreConfig) {
     this.dimension = config.dimension || 1536; // Default OpenAI dimension
-    this.dbPath = path.join(process.cwd(), "vector_store.db");
-    if (config.dbPath) {
-      this.dbPath = config.dbPath;
+    this.dbPath = config.dbPath || getDefaultVectorStoreDbPath();
+
+    if (!config.dbPath) {
+      const oldDefault = path.join(process.cwd(), "vector_store.db");
+      if (fs.existsSync(oldDefault) && oldDefault !== this.dbPath) {
+        console.warn(
+          `[mem0] Default vector_store.db location changed from ${oldDefault} to ${this.dbPath}. ` +
+            `Move your existing file or set vectorStore.config.dbPath explicitly.`,
+        );
+      }
     }
+
+    ensureSQLiteDirectory(this.dbPath);
     this.db = new Database(this.dbPath);
     this.init();
   }

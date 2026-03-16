@@ -32,6 +32,7 @@ export class Qdrant implements VectorStore {
   private client: QdrantClient;
   private readonly collectionName: string;
   private dimension: number;
+  private _initPromise?: Promise<void>;
 
   constructor(config: QdrantConfig) {
     if (config.client) {
@@ -211,22 +212,8 @@ export class Qdrant implements VectorStore {
 
   async getUserId(): Promise<string> {
     try {
-      // First check if the collection exists
-      const collections = await this.client.getCollections();
-      const userCollectionExists = collections.collections.some(
-        (col: { name: string }) => col.name === "memory_migrations",
-      );
-
-      if (!userCollectionExists) {
-        // Create the collection if it doesn't exist
-        await this.client.createCollection("memory_migrations", {
-          vectors: {
-            size: 1,
-            distance: "Cosine",
-            on_disk: false,
-          },
-        });
-      }
+      // Ensure collection exists (idempotent — handles race conditions)
+      await this.ensureCollection("memory_migrations", 1);
 
       // Now try to get the user ID
       const result = await this.client.scroll("memory_migrations", {
@@ -286,66 +273,58 @@ export class Qdrant implements VectorStore {
     }
   }
 
-  async initialize(): Promise<void> {
+  private async ensureCollection(name: string, size: number): Promise<void> {
     try {
-      // Create collection if it doesn't exist
-      const collections = await this.client.getCollections();
-      const exists = collections.collections.some(
-        (c) => c.name === this.collectionName,
-      );
-
-      if (!exists) {
-        try {
-          await this.client.createCollection(this.collectionName, {
-            vectors: {
-              size: this.dimension,
-              distance: "Cosine",
-            },
-          });
-        } catch (error: any) {
-          // Handle case where collection was created between our check and create
-          if (error?.status === 409) {
-            // Collection already exists - verify it has the correct configuration
-            const collectionInfo = await this.client.getCollection(
-              this.collectionName,
-            );
+      await this.client.createCollection(name, {
+        vectors: {
+          size,
+          distance: "Cosine",
+        },
+      });
+    } catch (error: any) {
+      if (error?.status === 409) {
+        // Collection already exists — verify configuration for the main collection
+        if (name === this.collectionName) {
+          try {
+            const collectionInfo = await this.client.getCollection(name);
             const vectorConfig = collectionInfo.config?.params?.vectors;
 
-            if (!vectorConfig || vectorConfig.size !== this.dimension) {
+            if (vectorConfig && vectorConfig.size !== size) {
               throw new Error(
-                `Collection ${this.collectionName} exists but has wrong configuration. ` +
-                  `Expected vector size: ${this.dimension}, got: ${vectorConfig?.size}`,
+                `Collection ${name} exists but has wrong vector size. ` +
+                  `Expected: ${size}, got: ${vectorConfig.size}`,
               );
             }
-            // Collection exists with correct configuration - we can proceed
-          } else {
-            throw error;
+          } catch (verifyError: any) {
+            // Re-throw dimension mismatch errors
+            if (verifyError?.message?.includes("wrong vector size")) {
+              throw verifyError;
+            }
+            // Transient errors (e.g. 500 while collection is being committed)
+            // are non-fatal — the collection exists per the 409.
+            console.warn(
+              `Collection '${name}' exists (409) but dimension verification failed: ${verifyError?.message || verifyError}. Proceeding anyway.`,
+            );
           }
         }
+        // Otherwise collection exists and is fine — proceed
+      } else {
+        throw error;
       }
+    }
+  }
 
-      // Create memory_migrations collection if it doesn't exist
-      const userExists = collections.collections.some(
-        (c) => c.name === "memory_migrations",
-      );
+  async initialize(): Promise<void> {
+    if (!this._initPromise) {
+      this._initPromise = this._doInitialize();
+    }
+    return this._initPromise;
+  }
 
-      if (!userExists) {
-        try {
-          await this.client.createCollection("memory_migrations", {
-            vectors: {
-              size: 1, // Minimal size since we only store user_id
-              distance: "Cosine",
-            },
-          });
-        } catch (error: any) {
-          // Handle case where collection was created between our check and create
-          if (error?.status === 409) {
-            // Collection already exists - we can proceed
-          } else {
-            throw error;
-          }
-        }
-      }
+  private async _doInitialize(): Promise<void> {
+    try {
+      await this.ensureCollection(this.collectionName, this.dimension);
+      await this.ensureCollection("memory_migrations", 1);
     } catch (error) {
       console.error("Error initializing Qdrant:", error);
       throw error;

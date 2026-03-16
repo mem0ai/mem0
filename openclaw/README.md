@@ -7,7 +7,7 @@ Your agent forgets everything between sessions. This plugin fixes that. It watch
 ## How it works
 
 <p align="center">
-  <img src="../docs/images/openclaw-architecture.png" alt="Architecture" width="800" />
+  <img src="https://raw.githubusercontent.com/mem0ai/mem0/main/docs/images/openclaw-architecture.png" alt="Architecture" width="800" />
 </p>
 
 **Auto-Recall** — Before the agent responds, the plugin searches Mem0 for memories that match the current message and injects them into context.
