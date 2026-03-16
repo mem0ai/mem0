@@ -26,6 +26,7 @@ from mem0.memory.setup import mem0_dir, setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
 from mem0.memory.utils import (
+    ensure_json_instruction,
     extract_json,
     get_fact_retrieval_messages,
     parse_messages,
@@ -431,6 +432,9 @@ class Memory(MemoryBase):
             # and role types in messages
             is_agent_memory = self._should_use_agent_memory_extraction(messages, metadata)
             system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages, is_agent_memory)
+
+        # Ensure 'json' appears in prompts for json_object response format compatibility
+        system_prompt, user_prompt = ensure_json_instruction(system_prompt, user_prompt)
 
         response = self.llm.generate_response(
             messages=[
@@ -1459,6 +1463,9 @@ class AsyncMemory(MemoryBase):
             # and role types in messages
             is_agent_memory = self._should_use_agent_memory_extraction(messages, metadata)
             system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages, is_agent_memory)
+
+        # Ensure 'json' appears in prompts for json_object response format compatibility
+        system_prompt, user_prompt = ensure_json_instruction(system_prompt, user_prompt)
 
         response = await asyncio.to_thread(
             self.llm.generate_response,
