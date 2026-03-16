@@ -33,19 +33,33 @@ class LLMReranker(BaseReranker):
 
         self.config = config
 
-        # Create LLM configuration for the factory
-        llm_config = {
-            "model": self.config.model,
-            "temperature": self.config.temperature,
-            "max_tokens": self.config.max_tokens,
-        }
-
-        # Add API key if provided
-        if self.config.api_key:
-            llm_config["api_key"] = self.config.api_key
+        # If a nested ``llm`` dict was provided (e.g. when using non-OpenAI
+        # providers like Ollama that require provider-specific fields such as
+        # ``ollama_base_url``), use it directly to configure the LLM factory.
+        # The nested dict must contain at least a ``provider`` key; an optional
+        # ``config`` sub-dict is merged in as the LLM config.
+        if self.config.llm:
+            nested = self.config.llm
+            llm_provider = nested.get("provider", self.config.provider)
+            llm_config: dict = dict(nested.get("config") or {})
+            # Ensure temperature / max_tokens defaults are present unless
+            # the caller already supplied them in the nested config.
+            llm_config.setdefault("temperature", self.config.temperature)
+            llm_config.setdefault("max_tokens", self.config.max_tokens)
+        else:
+            llm_provider = self.config.provider
+            # Create LLM configuration for the factory
+            llm_config = {
+                "model": self.config.model,
+                "temperature": self.config.temperature,
+                "max_tokens": self.config.max_tokens,
+            }
+            # Add API key if provided
+            if self.config.api_key:
+                llm_config["api_key"] = self.config.api_key
 
         # Initialize LLM using the factory
-        self.llm = LlmFactory.create(self.config.provider, llm_config)
+        self.llm = LlmFactory.create(llm_provider, llm_config)
 
         # Default scoring prompt
         self.scoring_prompt = getattr(self.config, 'scoring_prompt', None) or self._get_default_prompt()
