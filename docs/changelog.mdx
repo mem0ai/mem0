@@ -7,6 +7,22 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-03-16" description="v1.0.6">
+
+**Bug Fixes:**
+- **Telemetry:** Fixed telemetry vector store initialization still running when `MEM0_TELEMETRY` is disabled (#4351)
+- **Core:** Removed destructive `vector_store.reset()` call from `delete_all()` that was wiping the entire vector store instead of deleting only the target memories (#4349)
+- **OSS:** `OllamaLLM` now respects the configured URL instead of always falling back to localhost (#4320)
+- **Core:** Fixed `KeyError` when LLM omits the `entities` key in tool call response (#4313)
+- **Prompts:** Ensured JSON instruction is included in prompts when using `json_object` response format (#4271)
+- **Core:** Fixed incorrect database parameter handling (#3913)
+
+**Dependencies:**
+- Updated LangChain dependencies to v1.0.0 (#4353)
+- Bumped protobuf dependency to 5.29.6 and extended upper bound to <7.0.0 (#4326)
+
+</Update>
+
 <Update label="2026-03-03" description="v1.0.5">
 - **Telemetry Fix**
   - Fixed an issue where the PostHog client was initialized even after telemetry was disabled. Although events were not captured, the client was unnecessarily initialized.
@@ -745,6 +761,16 @@ mode: "wide"
 - **OSS Tests:** Fixed stale dimension assertion — aligned with auto-detect behavior from PR #4297
 - **Client Tests:** Converted E2E tests to mock-based so all tests run in CI without API keys
 - **Build:** Added `.gitignore` and `.prettierignore` to exclude `coverage/`, `dist/`, `node_modules/`
+
+</Update>
+
+<Update label="2026-03-16" description="v2.4.1">
+
+**Bug Fixes:**
+- **Core:** Fixed code block content extraction — content inside code blocks is now properly extracted instead of being deleted (#4317)
+
+**Improvements:**
+- **Code Quality:** Fixed linting issues across the SDK (#4334)
 
 </Update>
 
