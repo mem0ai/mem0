@@ -10,6 +10,7 @@ patch.dict("sys.modules", {
 }).start()
 
 from mem0.memory.memgraph_memory import MemoryGraph as MemgraphMemoryGraph  # noqa: E402
+
 MemoryGraph = MemgraphMemoryGraph
 
 
@@ -53,6 +54,16 @@ class TestRetrieveNodesFromData:
         assert "matrix_multiplication" in result
         assert "relu" in result
         assert "task" not in result
+
+    def test_missing_entities_key_returns_empty(self):
+        """LLM returns extract_entities tool call without 'entities' key — should not crash.
+        Reproduces the exact scenario from issue #4238."""
+        instance = _make_instance()
+        instance.llm.generate_response.return_value = {
+            "tool_calls": [{"name": "extract_entities", "arguments": {"text": "Hello."}}]
+        }
+        result = instance._retrieve_nodes_from_data("Hello.", {"user_id": "u1"})
+        assert result == {}
 
     def test_none_tool_calls_returns_empty(self):
         instance = _make_instance()

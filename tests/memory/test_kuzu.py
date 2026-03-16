@@ -1,6 +1,8 @@
+from unittest.mock import MagicMock, Mock, patch
+
 import numpy as np
 import pytest
-from unittest.mock import Mock, patch
+
 from mem0.memory.kuzu_memory import MemoryGraph
 
 
@@ -189,6 +191,48 @@ class TestKuzu:
         result = kuzu_memory.reset()
         assert get_node_count(kuzu_memory) == 0
         assert get_edge_count(kuzu_memory) == 0
+
+def _make_kuzu_instance():
+    with patch.object(MemoryGraph, "__init__", return_value=None):
+        instance = MemoryGraph.__new__(MemoryGraph)
+        instance.llm_provider = "openai"
+        instance.llm = MagicMock()
+        instance.embedding_model = MagicMock()
+        instance.config = MagicMock()
+        instance.config.graph_store.custom_prompt = None
+        return instance
+
+
+class TestRetrieveNodesFromData:
+    """Tests for _retrieve_nodes_from_data in KuzuMemoryGraph."""
+
+    def test_missing_entities_key_returns_empty(self):
+        """LLM returns extract_entities tool call without 'entities' key — should not crash.
+        Reproduces the exact scenario from issue #4238."""
+        instance = _make_kuzu_instance()
+        instance.llm.generate_response.return_value = {
+            "tool_calls": [{"name": "extract_entities", "arguments": {"text": "Hello."}}]
+        }
+        result = instance._retrieve_nodes_from_data("Hello.", {"user_id": "u1"})
+        assert result == {}
+
+    def test_normal_entities_extracted(self):
+        instance = _make_kuzu_instance()
+        instance.llm.generate_response.return_value = {
+            "tool_calls": [{"name": "extract_entities", "arguments": {"entities": [
+                {"entity": "Alice", "entity_type": "person"},
+                {"entity": "hiking", "entity_type": "activity"},
+            ]}}]
+        }
+        result = instance._retrieve_nodes_from_data("Alice loves hiking", {"user_id": "u1"})
+        assert result == {"alice": "person", "hiking": "activity"}
+
+    def test_none_tool_calls_returns_empty(self):
+        instance = _make_kuzu_instance()
+        instance.llm.generate_response.return_value = {"tool_calls": None}
+        result = instance._retrieve_nodes_from_data("hello world", {"user_id": "u1"})
+        assert result == {}
+
 
 def get_node_count(kuzu_memory):
     results = kuzu_memory.kuzu_execute(
