@@ -2,6 +2,22 @@
 
 All notable changes to the `@mem0/openclaw-mem0` plugin will be documented in this file.
 
+## [0.4.0] - 2026-03-16
+
+### Added
+- **Non-interactive trigger filtering**: Skips recall and capture for `cron`, `heartbeat`, `automation`, and `schedule` triggers — prevents system-generated noise from polluting memory
+- **Subagent hallucination prevention**: `isSubagentSession()` detects ephemeral subagent sessions and routes recall to the parent (main user) namespace instead of empty ephemeral namespaces; skips capture to prevent orphaned memories
+- **Subagent-specific preamble**: Subagents receive "You are a subagent — use these memories for context but do not assume you are this user" to prevent identity assumption
+- **User identity in recall preamble**: Recalled memories now include `userId` attribution for better context
+- **User identity in extraction preamble**: Extraction context includes user identity and current date for accurate attribution and temporal anchoring
+- **User-content guard**: Skips extraction when no meaningful user messages remain after filtering
+- **Dynamic recall thresholding**: Memories scoring less than 50% of the top result are dropped to filter out the long tail of weak matches
+- 72 unit tests covering all filtering, isolation, deduplication, trigger filtering, and subagent detection
+
+### Changed
+- Auto-recall threshold raised from 0.5 to 0.6 for stricter precision during automatic injection (explicit tool searches remain at 0.5)
+- Recall candidate pool increased to `topK * 2` for better filtering headroom
+
 ## [0.3.1] - 2026-03-12
 
 ### Added
