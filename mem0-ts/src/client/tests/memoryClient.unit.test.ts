@@ -117,24 +117,44 @@ describe("MemoryClient - Initialization", () => {
     expect(client.host).toBe(TEST_HOST);
   });
 
-  test("sets organizationId and projectId", () => {
-    const client = new MemoryClient({
-      apiKey: TEST_API_KEY,
-      organizationId: TEST_ORG_ID,
-      projectId: TEST_PROJECT_ID,
+  describe("sets organizationId and projectId", () => {
+    let client: MemoryClient;
+
+    beforeEach(() => {
+      client = new MemoryClient({
+        apiKey: TEST_API_KEY,
+        organizationId: TEST_ORG_ID,
+        projectId: TEST_PROJECT_ID,
+      });
     });
-    expect(client.organizationId).toBe(TEST_ORG_ID);
-    expect(client.projectId).toBe(TEST_PROJECT_ID);
+
+    test("sets organizationId from constructor", () => {
+      expect(client.organizationId).toBe(TEST_ORG_ID);
+    });
+
+    test("sets projectId from constructor", () => {
+      expect(client.projectId).toBe(TEST_PROJECT_ID);
+    });
   });
 
-  test("sets organizationName and projectName (deprecated)", () => {
-    const client = new MemoryClient({
-      apiKey: TEST_API_KEY,
-      organizationName: "test-org",
-      projectName: "test-project",
+  describe("sets organizationName and projectName (deprecated)", () => {
+    let client: MemoryClient;
+
+    beforeEach(() => {
+      client = new MemoryClient({
+        apiKey: TEST_API_KEY,
+        organizationName: "test-org",
+        projectName: "test-project",
+      });
     });
-    expect(client.organizationName).toBe("test-org");
-    expect(client.projectName).toBe("test-project");
+
+    test("sets organizationName from constructor", () => {
+      expect(client.organizationName).toBe("test-org");
+    });
+
+    test("sets projectName from constructor", () => {
+      expect(client.projectName).toBe("test-project");
+    });
   });
 
   test("sets Authorization header with Token prefix", () => {
@@ -142,38 +162,68 @@ describe("MemoryClient - Initialization", () => {
     expect(client.headers["Authorization"]).toBe(`Token ${TEST_API_KEY}`);
   });
 
-  test("creates axios client with 60s timeout", () => {
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    // The client property exists and was created
-    expect(client.client).toBeDefined();
-    expect(client.client.defaults.timeout).toBe(60000);
+  describe("creates axios client", () => {
+    let client: MemoryClient;
+
+    beforeEach(() => {
+      client = new MemoryClient({ apiKey: TEST_API_KEY });
+    });
+
+    test("client property is defined", () => {
+      expect(client.client).toBeDefined();
+    });
+
+    test("timeout is set to 60s", () => {
+      expect(client.client.defaults.timeout).toBe(60000);
+    });
   });
 });
 
 // ─── Ping ────────────────────────────────────────────────
 
 describe("MemoryClient - ping()", () => {
-  test("extracts org_id, project_id, user_email from response", async () => {
-    setupMockFetch();
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.ping();
+  describe("extracts fields from response", () => {
+    let client: MemoryClient;
 
-    expect(client.organizationId).toBe(TEST_ORG_ID);
-    expect(client.projectId).toBe(TEST_PROJECT_ID);
-    expect(client.telemetryId).toBe("test@example.com");
+    beforeEach(async () => {
+      setupMockFetch();
+      client = new MemoryClient({ apiKey: TEST_API_KEY });
+      await client.ping();
+    });
+
+    test("sets organizationId from response", () => {
+      expect(client.organizationId).toBe(TEST_ORG_ID);
+    });
+
+    test("sets projectId from response", () => {
+      expect(client.projectId).toBe(TEST_PROJECT_ID);
+    });
+
+    test("sets telemetryId from user_email in response", () => {
+      expect(client.telemetryId).toBe("test@example.com");
+    });
   });
 
-  test("does not overwrite existing orgId/projectId from constructor", async () => {
-    setupMockFetch();
-    const client = new MemoryClient({
-      apiKey: TEST_API_KEY,
-      organizationId: "my_org",
-      projectId: "my_proj",
-    });
-    await client.ping();
+  describe("does not overwrite existing orgId/projectId from constructor", () => {
+    let client: MemoryClient;
 
-    expect(client.organizationId).toBe("my_org");
-    expect(client.projectId).toBe("my_proj");
+    beforeEach(async () => {
+      setupMockFetch();
+      client = new MemoryClient({
+        apiKey: TEST_API_KEY,
+        organizationId: "my_org",
+        projectId: "my_proj",
+      });
+      await client.ping();
+    });
+
+    test("preserves organizationId from constructor", () => {
+      expect(client.organizationId).toBe("my_org");
+    });
+
+    test("preserves projectId from constructor", () => {
+      expect(client.projectId).toBe("my_proj");
+    });
   });
 
   test("throws APIError on 401 response", async () => {
@@ -213,97 +263,154 @@ describe("MemoryClient - ping()", () => {
 // ─── add() ───────────────────────────────────────────────
 
 describe("MemoryClient - add()", () => {
-  test("sends messages and user_id in POST body to /v1/memories/", async () => {
-    const mockMem = createMockMemory({ id: "mem_new", event: "ADD" });
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v1/memories/", { status: 200, body: [mockMem] });
-    const mock = setupMockFetch(extra);
-
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+  describe("sends messages and user_id in POST body to /v1/memories/", () => {
+    let mock: jest.Mock;
+    let result: any;
     const messages = [{ role: "user" as const, content: "Hello, I am Alex" }];
-    const result = await client.add(messages, { user_id: "user_1" });
 
-    const call = findFetchCall(mock, "/v1/memories/", "POST");
-    expect(call).toBeDefined();
-    const body = getFetchBody(call!);
-    expect(body.messages).toEqual(messages);
-    expect(body.user_id).toBe("user_1");
+    beforeEach(async () => {
+      const mockMem = createMockMemory({ id: "mem_new", event: "ADD" });
+      const extra = new Map<string, { status: number; body: unknown }>();
+      extra.set("/v1/memories/", { status: 200, body: [mockMem] });
+      mock = setupMockFetch(extra);
 
-    // Verify response is correctly returned
-    expect(Array.isArray(result)).toBe(true);
-    expect(result[0].id).toBe("mem_new");
-  });
-
-  test("attaches org_id/project_id from constructor to payload", async () => {
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v1/memories/", { status: 200, body: [createMockMemory()] });
-    const mock = setupMockFetch(extra);
-
-    const client = new MemoryClient({
-      apiKey: TEST_API_KEY,
-      organizationId: TEST_ORG_ID,
-      projectId: TEST_PROJECT_ID,
+      const client = new MemoryClient({ apiKey: TEST_API_KEY });
+      result = await client.add(messages, { user_id: "user_1" });
     });
-    await client.add([{ role: "user", content: "test" }], { user_id: "u1" });
 
-    const call = findFetchCall(mock, "/v1/memories/", "POST");
-    const body = getFetchBody(call!);
-    expect(body.org_id).toBe(TEST_ORG_ID);
-    expect(body.project_id).toBe(TEST_PROJECT_ID);
+    test("sends POST to /v1/memories/", () => {
+      expect(findFetchCall(mock, "/v1/memories/", "POST")).toBeDefined();
+    });
+
+    test("includes messages in request body", () => {
+      const call = findFetchCall(mock, "/v1/memories/", "POST");
+      expect(getFetchBody(call!).messages).toEqual(messages);
+    });
+
+    test("includes user_id in request body", () => {
+      const call = findFetchCall(mock, "/v1/memories/", "POST");
+      expect(getFetchBody(call!).user_id).toBe("user_1");
+    });
+
+    test("returns an array", () => {
+      expect(Array.isArray(result)).toBe(true);
+    });
+
+    test("returns memory with correct id", () => {
+      expect(result[0].id).toBe("mem_new");
+    });
   });
 
-  test("returns response data without modification", async () => {
-    const mockResponse = [
-      createMockMemory({
-        id: "m1",
-        event: "ADD",
-        memory: "Alex is vegetarian",
-      }),
-      createMockMemory({
-        id: "m2",
-        event: "UPDATE",
-        memory: "Alex likes hiking",
-      }),
-    ];
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v1/memories/", { status: 200, body: mockResponse });
-    setupMockFetch(extra);
+  describe("attaches org_id/project_id from constructor to payload", () => {
+    let body: Record<string, unknown>;
 
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    const result = await client.add(
-      [{ role: "user", content: "I'm Alex, vegetarian, love hiking" }],
-      { user_id: "u1" },
-    );
+    beforeEach(async () => {
+      const extra = new Map<string, { status: number; body: unknown }>();
+      extra.set("/v1/memories/", { status: 200, body: [createMockMemory()] });
+      const mock = setupMockFetch(extra);
 
-    expect(result).toHaveLength(2);
-    expect(result[0].id).toBe("m1");
-    expect(result[1].memory).toBe("Alex likes hiking");
+      const client = new MemoryClient({
+        apiKey: TEST_API_KEY,
+        organizationId: TEST_ORG_ID,
+        projectId: TEST_PROJECT_ID,
+      });
+      await client.add([{ role: "user", content: "test" }], { user_id: "u1" });
+
+      const call = findFetchCall(mock, "/v1/memories/", "POST");
+      body = getFetchBody(call!);
+    });
+
+    test("includes org_id in request body", () => {
+      expect(body.org_id).toBe(TEST_ORG_ID);
+    });
+
+    test("includes project_id in request body", () => {
+      expect(body.project_id).toBe(TEST_PROJECT_ID);
+    });
+  });
+
+  describe("returns response data without modification", () => {
+    let result: any;
+
+    beforeEach(async () => {
+      const mockResponse = [
+        createMockMemory({
+          id: "m1",
+          event: "ADD",
+          memory: "Alex is vegetarian",
+        }),
+        createMockMemory({
+          id: "m2",
+          event: "UPDATE",
+          memory: "Alex likes hiking",
+        }),
+      ];
+      const extra = new Map<string, { status: number; body: unknown }>();
+      extra.set("/v1/memories/", { status: 200, body: mockResponse });
+      setupMockFetch(extra);
+
+      const client = new MemoryClient({ apiKey: TEST_API_KEY });
+      result = await client.add(
+        [{ role: "user", content: "I'm Alex, vegetarian, love hiking" }],
+        { user_id: "u1" },
+      );
+    });
+
+    test("returns two items", () => {
+      expect(result).toHaveLength(2);
+    });
+
+    test("first item has correct id", () => {
+      expect(result[0].id).toBe("m1");
+    });
+
+    test("second item has correct memory text", () => {
+      expect(result[1].memory).toBe("Alex likes hiking");
+    });
   });
 });
 
 // ─── get() ───────────────────────────────────────────────
 
 describe("MemoryClient - get()", () => {
-  test("returns the full memory object for a valid ID", async () => {
-    const mockMem = createMockMemory({
-      id: "mem_123",
-      memory: "I am Alex",
-      user_id: "u1",
-      categories: ["personal"],
-      metadata: { source: "chat" },
+  describe("returns the full memory object for a valid ID", () => {
+    let memory: any;
+
+    beforeEach(async () => {
+      const mockMem = createMockMemory({
+        id: "mem_123",
+        memory: "I am Alex",
+        user_id: "u1",
+        categories: ["personal"],
+        metadata: { source: "chat" },
+      });
+      const extra = new Map<string, { status: number; body: unknown }>();
+      extra.set("/v1/memories/mem_123/", { status: 200, body: mockMem });
+      setupMockFetch(extra);
+
+      const client = new MemoryClient({ apiKey: TEST_API_KEY });
+      memory = await client.get("mem_123");
     });
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v1/memories/mem_123/", { status: 200, body: mockMem });
-    setupMockFetch(extra);
 
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    const memory = await client.get("mem_123");
+    test("returns correct id", () => {
+      expect(memory.id).toBe("mem_123");
+    });
 
-    expect(memory.id).toBe("mem_123");
-    expect(memory.memory).toBe("I am Alex");
-    expect(memory.user_id).toBe("u1");
-    expect(memory.categories).toEqual(["personal"]);
-    expect(memory.metadata).toEqual({ source: "chat" });
+    test("returns correct memory text", () => {
+      expect(memory.memory).toBe("I am Alex");
+    });
+
+    test("returns correct user_id", () => {
+      expect(memory.user_id).toBe("u1");
+    });
+
+    test("returns correct categories", () => {
+      expect(memory.categories).toEqual(["personal"]);
+    });
+
+    test("returns correct metadata", () => {
+      expect(memory.metadata).toEqual({ source: "chat" });
+    });
   });
 
   test("throws on 404 with error message from server", async () => {
@@ -337,67 +444,104 @@ describe("MemoryClient - getAll()", () => {
     expect(call).toBeDefined();
   });
 
-  test("uses v1 GET endpoint by default", async () => {
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v1/memories/", { status: 200, body: [createMockMemory()] });
-    const mock = setupMockFetch(extra);
+  describe("uses v1 GET endpoint by default", () => {
+    let call: [string, RequestInit] | undefined;
 
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.getAll({ user_id: "u1" });
+    beforeEach(async () => {
+      const extra = new Map<string, { status: number; body: unknown }>();
+      extra.set("/v1/memories/", { status: 200, body: [createMockMemory()] });
+      const mock = setupMockFetch(extra);
 
-    // v1 uses GET (no method = GET by default)
-    const call = mock.mock.calls.find(
-      (c: [string, RequestInit]) =>
-        c[0].includes("/v1/memories/?") && !c[1]?.method,
-    );
-    expect(call).toBeDefined();
-    expect(call![0]).toContain("user_id=u1");
+      const client = new MemoryClient({ apiKey: TEST_API_KEY });
+      await client.getAll({ user_id: "u1" });
+
+      // v1 uses GET (no method = GET by default)
+      call = mock.mock.calls.find(
+        (c: [string, RequestInit]) =>
+          c[0].includes("/v1/memories/?") && !c[1]?.method,
+      );
+    });
+
+    test("sends GET request to /v1/memories/", () => {
+      expect(call).toBeDefined();
+    });
+
+    test("includes user_id as query param", () => {
+      expect(call![0]).toContain("user_id=u1");
+    });
   });
 
-  test("appends page and page_size to URL as query params", async () => {
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v2/memories/", {
-      status: 200,
-      body: { results: [createMockMemory()] },
-    });
-    const mock = setupMockFetch(extra);
+  describe("appends page and page_size to URL as query params", () => {
+    let call: [string, RequestInit] | undefined;
 
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.getAll({
-      user_id: "u1",
-      api_version: "v2",
-      page: 2,
-      page_size: 25,
+    beforeEach(async () => {
+      const extra = new Map<string, { status: number; body: unknown }>();
+      extra.set("/v2/memories/", {
+        status: 200,
+        body: { results: [createMockMemory()] },
+      });
+      const mock = setupMockFetch(extra);
+
+      const client = new MemoryClient({ apiKey: TEST_API_KEY });
+      await client.getAll({
+        user_id: "u1",
+        api_version: "v2",
+        page: 2,
+        page_size: 25,
+      });
+
+      call = mock.mock.calls.find((c: [string, RequestInit]) =>
+        c[0].includes("page="),
+      );
     });
 
-    const call = mock.mock.calls.find((c: [string, RequestInit]) =>
-      c[0].includes("page="),
-    );
-    expect(call).toBeDefined();
-    expect(call![0]).toContain("page=2");
-    expect(call![0]).toContain("page_size=25");
+    test("fetch call with page param exists", () => {
+      expect(call).toBeDefined();
+    });
+
+    test("includes page=2 in URL", () => {
+      expect(call![0]).toContain("page=2");
+    });
+
+    test("includes page_size=25 in URL", () => {
+      expect(call![0]).toContain("page_size=25");
+    });
   });
 });
 
 // ─── search() ────────────────────────────────────────────
 
 describe("MemoryClient - search()", () => {
-  test("includes query in POST body and returns scored results", async () => {
-    const scoredMemory = createMockMemory({ id: "s1", score: 0.95 });
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v1/memories/search/", { status: 200, body: [scoredMemory] });
-    const mock = setupMockFetch(extra);
+  describe("includes query in POST body and returns scored results", () => {
+    let mock: jest.Mock;
+    let result: any;
 
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    const result = await client.search("What is my name?", { user_id: "u1" });
+    beforeEach(async () => {
+      const scoredMemory = createMockMemory({ id: "s1", score: 0.95 });
+      const extra = new Map<string, { status: number; body: unknown }>();
+      extra.set("/v1/memories/search/", { status: 200, body: [scoredMemory] });
+      mock = setupMockFetch(extra);
 
-    const call = findFetchCall(mock, "/v1/memories/search/", "POST");
-    expect(call).toBeDefined();
-    const body = getFetchBody(call!);
-    expect(body.query).toBe("What is my name?");
+      const client = new MemoryClient({ apiKey: TEST_API_KEY });
+      result = await client.search("What is my name?", { user_id: "u1" });
+    });
 
-    expect(Array.isArray(result)).toBe(true);
-    expect(result[0].score).toBe(0.95);
+    test("sends POST to /v1/memories/search/", () => {
+      expect(findFetchCall(mock, "/v1/memories/search/", "POST")).toBeDefined();
+    });
+
+    test("includes query in request body", () => {
+      const call = findFetchCall(mock, "/v1/memories/search/", "POST");
+      expect(getFetchBody(call!).query).toBe("What is my name?");
+    });
+
+    test("returns an array", () => {
+      expect(Array.isArray(result)).toBe(true);
+    });
+
+    test("first result has correct score", () => {
+      expect(result[0].score).toBe(0.95);
+    });
   });
 
   test("uses /v2/memories/search/ when api_version=v2", async () => {
@@ -436,20 +580,30 @@ describe("MemoryClient - search()", () => {
 // ─── update() ────────────────────────────────────────────
 
 describe("MemoryClient - update()", () => {
-  test("sends text in PUT body", async () => {
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v1/memories/mem_123/", {
-      status: 200,
-      body: createMockMemory({ id: "mem_123" }),
+  describe("sends text in PUT body", () => {
+    let call: [string, RequestInit] | undefined;
+
+    beforeEach(async () => {
+      const extra = new Map<string, { status: number; body: unknown }>();
+      extra.set("/v1/memories/mem_123/", {
+        status: 200,
+        body: createMockMemory({ id: "mem_123" }),
+      });
+      const mock = setupMockFetch(extra);
+
+      const client = new MemoryClient({ apiKey: TEST_API_KEY });
+      await client.update("mem_123", { text: "Updated text" });
+
+      call = findFetchCall(mock, "/v1/memories/mem_123/", "PUT");
     });
-    const mock = setupMockFetch(extra);
 
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.update("mem_123", { text: "Updated text" });
+    test("sends PUT request to /v1/memories/mem_123/", () => {
+      expect(call).toBeDefined();
+    });
 
-    const call = findFetchCall(mock, "/v1/memories/mem_123/", "PUT");
-    expect(call).toBeDefined();
-    expect(getFetchBody(call!).text).toBe("Updated text");
+    test("includes text in request body", () => {
+      expect(getFetchBody(call!).text).toBe("Updated text");
+    });
   });
 
   test("sends metadata in PUT body", async () => {
@@ -494,160 +648,242 @@ describe("MemoryClient - update()", () => {
 // ─── delete() ────────────────────────────────────────────
 
 describe("MemoryClient - delete()", () => {
-  test("returns message on success", async () => {
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v1/memories/mem_123/", {
-      status: 200,
-      body: { message: "Memory deleted successfully" },
+  describe("returns message on success", () => {
+    let mock: jest.Mock;
+    let result: any;
+
+    beforeEach(async () => {
+      const extra = new Map<string, { status: number; body: unknown }>();
+      extra.set("/v1/memories/mem_123/", {
+        status: 200,
+        body: { message: "Memory deleted successfully" },
+      });
+      mock = setupMockFetch(extra);
+
+      const client = new MemoryClient({ apiKey: TEST_API_KEY });
+      result = await client.delete("mem_123");
     });
-    const mock = setupMockFetch(extra);
 
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    const result = await client.delete("mem_123");
+    test("sends DELETE to /v1/memories/mem_123/", () => {
+      expect(
+        findFetchCall(mock, "/v1/memories/mem_123/", "DELETE"),
+      ).toBeDefined();
+    });
 
-    expect(
-      findFetchCall(mock, "/v1/memories/mem_123/", "DELETE"),
-    ).toBeDefined();
-    expect(result.message).toBe("Memory deleted successfully");
+    test("returns correct message", () => {
+      expect(result.message).toBe("Memory deleted successfully");
+    });
   });
 });
 
 // ─── deleteAll() ─────────────────────────────────────────
 
 describe("MemoryClient - deleteAll()", () => {
-  test("includes user_id as query param in DELETE request", async () => {
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v1/memories/", {
-      status: 200,
-      body: { message: "Memories deleted" },
+  describe("includes user_id as query param in DELETE request", () => {
+    let call: [string, RequestInit] | undefined;
+    let result: any;
+
+    beforeEach(async () => {
+      const extra = new Map<string, { status: number; body: unknown }>();
+      extra.set("/v1/memories/", {
+        status: 200,
+        body: { message: "Memories deleted" },
+      });
+      const mock = setupMockFetch(extra);
+
+      const client = new MemoryClient({ apiKey: TEST_API_KEY });
+      result = await client.deleteAll({ user_id: "u1" });
+
+      call = mock.mock.calls.find(
+        (c: [string, RequestInit]) =>
+          c[0].includes("/v1/memories/?") && c[1]?.method === "DELETE",
+      );
     });
-    const mock = setupMockFetch(extra);
 
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    const result = await client.deleteAll({ user_id: "u1" });
+    test("sends DELETE request", () => {
+      expect(call).toBeDefined();
+    });
 
-    const call = mock.mock.calls.find(
-      (c: [string, RequestInit]) =>
-        c[0].includes("/v1/memories/?") && c[1]?.method === "DELETE",
-    );
-    expect(call).toBeDefined();
-    expect(call![0]).toContain("user_id=u1");
-    expect(result.message).toBe("Memories deleted");
+    test("includes user_id=u1 in URL", () => {
+      expect(call![0]).toContain("user_id=u1");
+    });
+
+    test("returns correct message", () => {
+      expect(result.message).toBe("Memories deleted");
+    });
   });
 });
 
 // ─── history() ───────────────────────────────────────────
 
 describe("MemoryClient - history()", () => {
-  test("returns array of history entries with correct shape", async () => {
-    const historyEntries = [
-      createMockMemoryHistory({
-        memory_id: "mem_123",
-        event: "ADD",
-        old_memory: null,
-        new_memory: "I am Alex",
-      }),
-      createMockMemoryHistory({
-        id: "hist_2",
-        memory_id: "mem_123",
-        event: "UPDATE",
-        old_memory: "I am Alex",
-        new_memory: "I am Alex, a vegetarian",
-      }),
-    ];
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v1/memories/mem_123/history/", {
-      status: 200,
-      body: historyEntries,
+  describe("returns array of history entries with correct shape", () => {
+    let history: any;
+
+    beforeEach(async () => {
+      const historyEntries = [
+        createMockMemoryHistory({
+          memory_id: "mem_123",
+          event: "ADD",
+          old_memory: null,
+          new_memory: "I am Alex",
+        }),
+        createMockMemoryHistory({
+          id: "hist_2",
+          memory_id: "mem_123",
+          event: "UPDATE",
+          old_memory: "I am Alex",
+          new_memory: "I am Alex, a vegetarian",
+        }),
+      ];
+      const extra = new Map<string, { status: number; body: unknown }>();
+      extra.set("/v1/memories/mem_123/history/", {
+        status: 200,
+        body: historyEntries,
+      });
+      setupMockFetch(extra);
+
+      const client = new MemoryClient({ apiKey: TEST_API_KEY });
+      history = await client.history("mem_123");
     });
-    setupMockFetch(extra);
 
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    const history = await client.history("mem_123");
+    test("returns two entries", () => {
+      expect(history).toHaveLength(2);
+    });
 
-    expect(history).toHaveLength(2);
-    expect(history[0].event).toBe("ADD");
-    expect(history[0].old_memory).toBeNull();
-    expect(history[0].new_memory).toBe("I am Alex");
-    expect(history[1].event).toBe("UPDATE");
-    expect(history[1].old_memory).toBe("I am Alex");
+    test("first entry has event ADD", () => {
+      expect(history[0].event).toBe("ADD");
+    });
+
+    test("first entry has null old_memory", () => {
+      expect(history[0].old_memory).toBeNull();
+    });
+
+    test("first entry has correct new_memory", () => {
+      expect(history[0].new_memory).toBe("I am Alex");
+    });
+
+    test("second entry has event UPDATE", () => {
+      expect(history[1].event).toBe("UPDATE");
+    });
+
+    test("second entry has correct old_memory", () => {
+      expect(history[1].old_memory).toBe("I am Alex");
+    });
   });
 });
 
 // ─── Batch Operations ────────────────────────────────────
 
 describe("MemoryClient - batchUpdate()", () => {
-  test("transforms memoryId to memory_id in request body", async () => {
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v1/batch/", {
-      status: 200,
-      body: { message: "Batch update successful" },
+  describe("transforms memoryId to memory_id in request body", () => {
+    let call: [string, RequestInit] | undefined;
+
+    beforeEach(async () => {
+      const extra = new Map<string, { status: number; body: unknown }>();
+      extra.set("/v1/batch/", {
+        status: 200,
+        body: { message: "Batch update successful" },
+      });
+      const mock = setupMockFetch(extra);
+
+      const client = new MemoryClient({ apiKey: TEST_API_KEY });
+      await client.batchUpdate([
+        { memoryId: "mem_1", text: "updated 1" },
+        { memoryId: "mem_2", text: "updated 2" },
+      ]);
+
+      call = findFetchCall(mock, "/v1/batch/", "PUT");
     });
-    const mock = setupMockFetch(extra);
 
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.batchUpdate([
-      { memoryId: "mem_1", text: "updated 1" },
-      { memoryId: "mem_2", text: "updated 2" },
-    ]);
+    test("sends PUT to /v1/batch/", () => {
+      expect(call).toBeDefined();
+    });
 
-    const call = findFetchCall(mock, "/v1/batch/", "PUT");
-    expect(call).toBeDefined();
-    const body = getFetchBody(call!);
-    // Verify the camelCase→snake_case transformation
-    expect(body.memories).toEqual([
-      { memory_id: "mem_1", text: "updated 1" },
-      { memory_id: "mem_2", text: "updated 2" },
-    ]);
+    test("transforms memoryId to memory_id in memories array", () => {
+      const body = getFetchBody(call!);
+      expect(body.memories).toEqual([
+        { memory_id: "mem_1", text: "updated 1" },
+        { memory_id: "mem_2", text: "updated 2" },
+      ]);
+    });
   });
 });
 
 describe("MemoryClient - batchDelete()", () => {
-  test("wraps string IDs into {memory_id} objects", async () => {
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v1/batch/", {
-      status: 200,
-      body: { message: "Batch delete successful" },
+  describe("wraps string IDs into {memory_id} objects", () => {
+    let call: [string, RequestInit] | undefined;
+
+    beforeEach(async () => {
+      const extra = new Map<string, { status: number; body: unknown }>();
+      extra.set("/v1/batch/", {
+        status: 200,
+        body: { message: "Batch delete successful" },
+      });
+      const mock = setupMockFetch(extra);
+
+      const client = new MemoryClient({ apiKey: TEST_API_KEY });
+      await client.batchDelete(["mem_1", "mem_2", "mem_3"]);
+
+      call = findFetchCall(mock, "/v1/batch/", "DELETE");
     });
-    const mock = setupMockFetch(extra);
 
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.batchDelete(["mem_1", "mem_2", "mem_3"]);
+    test("sends DELETE to /v1/batch/", () => {
+      expect(call).toBeDefined();
+    });
 
-    const call = findFetchCall(mock, "/v1/batch/", "DELETE");
-    expect(call).toBeDefined();
-    const body = getFetchBody(call!);
-    expect(body.memories).toEqual([
-      { memory_id: "mem_1" },
-      { memory_id: "mem_2" },
-      { memory_id: "mem_3" },
-    ]);
+    test("wraps IDs into memory_id objects in memories array", () => {
+      const body = getFetchBody(call!);
+      expect(body.memories).toEqual([
+        { memory_id: "mem_1" },
+        { memory_id: "mem_2" },
+        { memory_id: "mem_3" },
+      ]);
+    });
   });
 });
 
 // ─── Users ───────────────────────────────────────────────
 
 describe("MemoryClient - users()", () => {
-  test("returns AllUsers shape with count and results", async () => {
-    const mockUsers = [
-      createMockUser({ name: "alex", total_memories: 10 }),
-      createMockUser({ id: "user_456", name: "bob", total_memories: 3 }),
-    ];
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v1/entities/", {
-      status: 200,
-      body: createMockAllUsers(mockUsers),
+  describe("returns AllUsers shape with count and results", () => {
+    let allUsers: any;
+
+    beforeEach(async () => {
+      const mockUsers = [
+        createMockUser({ name: "alex", total_memories: 10 }),
+        createMockUser({ id: "user_456", name: "bob", total_memories: 3 }),
+      ];
+      const extra = new Map<string, { status: number; body: unknown }>();
+      extra.set("/v1/entities/", {
+        status: 200,
+        body: createMockAllUsers(mockUsers),
+      });
+      setupMockFetch(extra);
+
+      const client = new MemoryClient({ apiKey: TEST_API_KEY });
+      allUsers = await client.users();
     });
-    setupMockFetch(extra);
 
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    const allUsers = await client.users();
+    test("returns count of 2", () => {
+      expect(allUsers.count).toBe(2);
+    });
 
-    expect(allUsers.count).toBe(2);
-    expect(allUsers.results).toHaveLength(2);
-    expect(allUsers.results[0].name).toBe("alex");
-    expect(allUsers.results[0].total_memories).toBe(10);
-    expect(allUsers.results[1].name).toBe("bob");
+    test("returns two results", () => {
+      expect(allUsers.results).toHaveLength(2);
+    });
+
+    test("first user has name alex", () => {
+      expect(allUsers.results[0].name).toBe("alex");
+    });
+
+    test("first user has 10 total_memories", () => {
+      expect(allUsers.results[0].total_memories).toBe(10);
+    });
+
+    test("second user has name bob", () => {
+      expect(allUsers.results[1].name).toBe("bob");
+    });
   });
 });
 
@@ -670,28 +906,58 @@ describe("MemoryClient - deleteUsers()", () => {
     return { client, axiosDeleteMock };
   }
 
-  test("calls DELETE /v2/entities/user/:name/ for user_id", async () => {
-    const { client, axiosDeleteMock } = createClientWithMockedAxios();
-    const result = await client.deleteUsers({ user_id: "u1" });
+  describe("calls DELETE for user_id", () => {
+    let axiosDeleteMock: jest.Mock;
+    let result: any;
 
-    expect(axiosDeleteMock).toHaveBeenCalledWith("/v2/entities/user/u1/", {
-      params: expect.objectContaining({
-        org_id: TEST_ORG_ID,
-        project_id: TEST_PROJECT_ID,
-      }),
+    beforeEach(async () => {
+      ({ axiosDeleteMock } = createClientWithMockedAxios());
+      const { client } = createClientWithMockedAxios();
+      // Need fresh client reference
+      axiosDeleteMock = jest
+        .fn()
+        .mockResolvedValue({ data: { message: "Deleted" } });
+      client.client.delete = axiosDeleteMock;
+      result = await client.deleteUsers({ user_id: "u1" });
     });
-    expect(result.message).toBe("Entity deleted successfully.");
+
+    test("calls DELETE /v2/entities/user/u1/ with correct params", () => {
+      expect(axiosDeleteMock).toHaveBeenCalledWith("/v2/entities/user/u1/", {
+        params: expect.objectContaining({
+          org_id: TEST_ORG_ID,
+          project_id: TEST_PROJECT_ID,
+        }),
+      });
+    });
+
+    test("returns correct success message", () => {
+      expect(result.message).toBe("Entity deleted successfully.");
+    });
   });
 
-  test("calls DELETE /v2/entities/agent/:name/ for agent_id", async () => {
-    const { client, axiosDeleteMock } = createClientWithMockedAxios();
-    const result = await client.deleteUsers({ agent_id: "agent_1" });
+  describe("calls DELETE for agent_id", () => {
+    let axiosDeleteMock: jest.Mock;
+    let result: any;
 
-    expect(axiosDeleteMock).toHaveBeenCalledWith(
-      "/v2/entities/agent/agent_1/",
-      expect.any(Object),
-    );
-    expect(result.message).toBe("Entity deleted successfully.");
+    beforeEach(async () => {
+      const { client } = createClientWithMockedAxios();
+      axiosDeleteMock = jest
+        .fn()
+        .mockResolvedValue({ data: { message: "Deleted" } });
+      client.client.delete = axiosDeleteMock;
+      result = await client.deleteUsers({ agent_id: "agent_1" });
+    });
+
+    test("calls DELETE /v2/entities/agent/agent_1/", () => {
+      expect(axiosDeleteMock).toHaveBeenCalledWith(
+        "/v2/entities/agent/agent_1/",
+        expect.any(Object),
+      );
+    });
+
+    test("returns correct success message", () => {
+      expect(result.message).toBe("Entity deleted successfully.");
+    });
   });
 
   test("calls DELETE /v2/entities/app/:name/ for app_id", async () => {
@@ -739,105 +1005,153 @@ describe("MemoryClient - deleteUsers()", () => {
 // ─── Webhooks ────────────────────────────────────────────
 
 describe("MemoryClient - Webhooks", () => {
-  test("getWebhooks returns array of webhooks", async () => {
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/api/v1/webhooks/projects/", {
-      status: 200,
-      body: [
-        {
-          webhook_id: "wh_1",
-          name: "test",
-          url: "https://example.com",
-          is_active: true,
-        },
-      ],
-    });
-    setupMockFetch(extra);
+  describe("getWebhooks returns array of webhooks", () => {
+    let webhooks: any;
 
-    const client = new MemoryClient({
-      apiKey: TEST_API_KEY,
-      organizationId: TEST_ORG_ID,
-      projectId: TEST_PROJECT_ID,
-    });
-    const webhooks = await client.getWebhooks();
+    beforeEach(async () => {
+      const extra = new Map<string, { status: number; body: unknown }>();
+      extra.set("/api/v1/webhooks/projects/", {
+        status: 200,
+        body: [
+          {
+            webhook_id: "wh_1",
+            name: "test",
+            url: "https://example.com",
+            is_active: true,
+          },
+        ],
+      });
+      setupMockFetch(extra);
 
-    expect(Array.isArray(webhooks)).toBe(true);
-    expect(webhooks[0].webhook_id).toBe("wh_1");
-    expect(webhooks[0].is_active).toBe(true);
+      const client = new MemoryClient({
+        apiKey: TEST_API_KEY,
+        organizationId: TEST_ORG_ID,
+        projectId: TEST_PROJECT_ID,
+      });
+      webhooks = await client.getWebhooks();
+    });
+
+    test("returns an array", () => {
+      expect(Array.isArray(webhooks)).toBe(true);
+    });
+
+    test("first webhook has correct webhook_id", () => {
+      expect(webhooks[0].webhook_id).toBe("wh_1");
+    });
+
+    test("first webhook is active", () => {
+      expect(webhooks[0].is_active).toBe(true);
+    });
   });
 
-  test("createWebhook sends webhook data in POST body", async () => {
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/api/v1/webhooks/projects/", {
-      status: 200,
-      body: {
-        webhook_id: "wh_new",
+  describe("createWebhook sends webhook data in POST body", () => {
+    let mock: jest.Mock;
+    let result: any;
+
+    beforeEach(async () => {
+      const extra = new Map<string, { status: number; body: unknown }>();
+      extra.set("/api/v1/webhooks/projects/", {
+        status: 200,
+        body: {
+          webhook_id: "wh_new",
+          name: "new-hook",
+          url: "https://example.com",
+        },
+      });
+      mock = setupMockFetch(extra);
+
+      const client = new MemoryClient({
+        apiKey: TEST_API_KEY,
+        organizationId: TEST_ORG_ID,
+        projectId: TEST_PROJECT_ID,
+      });
+      result = await client.createWebhook({
         name: "new-hook",
         url: "https://example.com",
-      },
-    });
-    const mock = setupMockFetch(extra);
-
-    const client = new MemoryClient({
-      apiKey: TEST_API_KEY,
-      organizationId: TEST_ORG_ID,
-      projectId: TEST_PROJECT_ID,
-    });
-    const result = await client.createWebhook({
-      name: "new-hook",
-      url: "https://example.com",
-      eventTypes: ["memory_add" as never],
-      projectId: TEST_PROJECT_ID,
-      webhookId: "",
+        eventTypes: ["memory_add" as never],
+        projectId: TEST_PROJECT_ID,
+        webhookId: "",
+      });
     });
 
-    const call = findFetchCall(mock, "/api/v1/webhooks/", "POST");
-    expect(call).toBeDefined();
-    expect(result.name).toBe("new-hook");
+    test("sends POST to /api/v1/webhooks/", () => {
+      expect(findFetchCall(mock, "/api/v1/webhooks/", "POST")).toBeDefined();
+    });
+
+    test("returns webhook with correct name", () => {
+      expect(result.name).toBe("new-hook");
+    });
   });
 
-  test("deleteWebhook calls correct endpoint", async () => {
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/api/v1/webhooks/wh_1/", {
-      status: 200,
-      body: { message: "Webhook deleted" },
+  describe("deleteWebhook calls correct endpoint", () => {
+    let mock: jest.Mock;
+    let result: any;
+
+    beforeEach(async () => {
+      const extra = new Map<string, { status: number; body: unknown }>();
+      extra.set("/api/v1/webhooks/wh_1/", {
+        status: 200,
+        body: { message: "Webhook deleted" },
+      });
+      mock = setupMockFetch(extra);
+
+      const client = new MemoryClient({ apiKey: TEST_API_KEY });
+      result = await client.deleteWebhook({ webhookId: "wh_1" });
     });
-    const mock = setupMockFetch(extra);
 
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    const result = await client.deleteWebhook({ webhookId: "wh_1" });
+    test("sends DELETE to /api/v1/webhooks/wh_1/", () => {
+      expect(
+        findFetchCall(mock, "/api/v1/webhooks/wh_1/", "DELETE"),
+      ).toBeDefined();
+    });
 
-    expect(
-      findFetchCall(mock, "/api/v1/webhooks/wh_1/", "DELETE"),
-    ).toBeDefined();
-    expect(result.message).toBe("Webhook deleted");
+    test("returns correct message", () => {
+      expect(result.message).toBe("Webhook deleted");
+    });
   });
 });
 
 // ─── Feedback ────────────────────────────────────────────
 
 describe("MemoryClient - feedback()", () => {
-  test("sends memory_id, feedback, and reason in POST body", async () => {
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v1/feedback/", {
-      status: 200,
-      body: { message: "Feedback recorded" },
-    });
-    const mock = setupMockFetch(extra);
+  describe("sends memory_id, feedback, and reason in POST body", () => {
+    let body: Record<string, unknown>;
+    let result: any;
 
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    const result = await client.feedback({
-      memory_id: "mem_123",
-      feedback: Feedback.POSITIVE,
-      feedback_reason: "Very helpful",
+    beforeEach(async () => {
+      const extra = new Map<string, { status: number; body: unknown }>();
+      extra.set("/v1/feedback/", {
+        status: 200,
+        body: { message: "Feedback recorded" },
+      });
+      const mock = setupMockFetch(extra);
+
+      const client = new MemoryClient({ apiKey: TEST_API_KEY });
+      result = await client.feedback({
+        memory_id: "mem_123",
+        feedback: Feedback.POSITIVE,
+        feedback_reason: "Very helpful",
+      });
+
+      const call = findFetchCall(mock, "/v1/feedback/", "POST");
+      body = getFetchBody(call!);
     });
 
-    const call = findFetchCall(mock, "/v1/feedback/", "POST");
-    const body = getFetchBody(call!);
-    expect(body.memory_id).toBe("mem_123");
-    expect(body.feedback).toBe("POSITIVE");
-    expect(body.feedback_reason).toBe("Very helpful");
-    expect(result.message).toBe("Feedback recorded");
+    test("includes memory_id in request body", () => {
+      expect(body.memory_id).toBe("mem_123");
+    });
+
+    test("includes feedback in request body", () => {
+      expect(body.feedback).toBe("POSITIVE");
+    });
+
+    test("includes feedback_reason in request body", () => {
+      expect(body.feedback_reason).toBe("Very helpful");
+    });
+
+    test("returns correct message", () => {
+      expect(result.message).toBe("Feedback recorded");
+    });
   });
 });
 
@@ -934,52 +1248,73 @@ describe("MemoryClient - getProject()", () => {
     ).rejects.toThrow("organizationId and projectId must be set");
   });
 
-  test("returns project configuration", async () => {
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/api/v1/orgs/organizations/", {
-      status: 200,
-      body: {
-        custom_instructions: "Be helpful",
-        custom_categories: ["work", "personal"],
-      },
-    });
-    setupMockFetch(extra);
+  describe("returns project configuration", () => {
+    let project: any;
 
-    const client = new MemoryClient({
-      apiKey: TEST_API_KEY,
-      organizationId: TEST_ORG_ID,
-      projectId: TEST_PROJECT_ID,
-    });
-    const project = await client.getProject({
-      fields: ["custom_instructions"],
+    beforeEach(async () => {
+      const extra = new Map<string, { status: number; body: unknown }>();
+      extra.set("/api/v1/orgs/organizations/", {
+        status: 200,
+        body: {
+          custom_instructions: "Be helpful",
+          custom_categories: ["work", "personal"],
+        },
+      });
+      setupMockFetch(extra);
+
+      const client = new MemoryClient({
+        apiKey: TEST_API_KEY,
+        organizationId: TEST_ORG_ID,
+        projectId: TEST_PROJECT_ID,
+      });
+      project = await client.getProject({
+        fields: ["custom_instructions"],
+      });
     });
 
-    expect(project.custom_instructions).toBe("Be helpful");
-    expect(project.custom_categories).toEqual(["work", "personal"]);
+    test("returns correct custom_instructions", () => {
+      expect(project.custom_instructions).toBe("Be helpful");
+    });
+
+    test("returns correct custom_categories", () => {
+      expect(project.custom_categories).toEqual(["work", "personal"]);
+    });
   });
 });
 
 describe("MemoryClient - updateProject()", () => {
-  test("sends PATCH with project settings", async () => {
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/api/v1/orgs/organizations/", {
-      status: 200,
-      body: { custom_instructions: "Updated" },
-    });
-    const mock = setupMockFetch(extra);
+  describe("sends PATCH with project settings", () => {
+    let call: [string, RequestInit] | undefined;
 
-    const client = new MemoryClient({
-      apiKey: TEST_API_KEY,
-      organizationId: TEST_ORG_ID,
-      projectId: TEST_PROJECT_ID,
-    });
-    await client.updateProject({ custom_instructions: "Updated instructions" });
+    beforeEach(async () => {
+      const extra = new Map<string, { status: number; body: unknown }>();
+      extra.set("/api/v1/orgs/organizations/", {
+        status: 200,
+        body: { custom_instructions: "Updated" },
+      });
+      const mock = setupMockFetch(extra);
 
-    const call = findFetchCall(mock, "/api/v1/orgs/organizations/", "PATCH");
-    expect(call).toBeDefined();
-    expect(getFetchBody(call!).custom_instructions).toBe(
-      "Updated instructions",
-    );
+      const client = new MemoryClient({
+        apiKey: TEST_API_KEY,
+        organizationId: TEST_ORG_ID,
+        projectId: TEST_PROJECT_ID,
+      });
+      await client.updateProject({
+        custom_instructions: "Updated instructions",
+      });
+
+      call = findFetchCall(mock, "/api/v1/orgs/organizations/", "PATCH");
+    });
+
+    test("sends PATCH to /api/v1/orgs/organizations/", () => {
+      expect(call).toBeDefined();
+    });
+
+    test("includes custom_instructions in request body", () => {
+      expect(getFetchBody(call!).custom_instructions).toBe(
+        "Updated instructions",
+      );
+    });
   });
 });
 
@@ -1021,21 +1356,31 @@ describe("MemoryClient - Error Handling", () => {
     );
   });
 
-  test("Authorization header is included in every fetch call", async () => {
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v1/memories/mem_1/", {
-      status: 200,
-      body: createMockMemory({ id: "mem_1" }),
+  describe("Authorization header is included in every fetch call", () => {
+    let call: [string, RequestInit] | undefined;
+
+    beforeEach(async () => {
+      const extra = new Map<string, { status: number; body: unknown }>();
+      extra.set("/v1/memories/mem_1/", {
+        status: 200,
+        body: createMockMemory({ id: "mem_1" }),
+      });
+      const mock = setupMockFetch(extra);
+
+      const client = new MemoryClient({ apiKey: TEST_API_KEY });
+      await client.get("mem_1");
+
+      call = findFetchCall(mock, "/v1/memories/mem_1/");
     });
-    const mock = setupMockFetch(extra);
 
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.get("mem_1");
+    test("fetch call to /v1/memories/mem_1/ exists", () => {
+      expect(call).toBeDefined();
+    });
 
-    const call = findFetchCall(mock, "/v1/memories/mem_1/");
-    expect(call).toBeDefined();
-    const headers = call![1].headers as Record<string, string>;
-    expect(headers["Authorization"]).toContain(TEST_API_KEY);
+    test("Authorization header contains API key", () => {
+      const headers = call![1].headers as Record<string, string>;
+      expect(headers["Authorization"]).toContain(TEST_API_KEY);
+    });
   });
 
   test("network failure (fetch throws) is handled", async () => {
@@ -1073,24 +1418,34 @@ describe("MemoryClient - Error Handling", () => {
 // ─── Deprecated Methods ──────────────────────────────────
 
 describe("MemoryClient - deleteUser() (deprecated)", () => {
-  test("calls DELETE /v1/entities/:type/:id/", async () => {
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v1/entities/user/123/", {
-      status: 200,
-      body: { message: "Entity deleted successfully!" },
-    });
-    const mock = setupMockFetch(extra);
+  describe("calls DELETE /v1/entities/:type/:id/", () => {
+    let mock: jest.Mock;
+    let result: any;
 
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    const result = await client.deleteUser({
-      entity_id: 123 as never,
-      entity_type: "user",
+    beforeEach(async () => {
+      const extra = new Map<string, { status: number; body: unknown }>();
+      extra.set("/v1/entities/user/123/", {
+        status: 200,
+        body: { message: "Entity deleted successfully!" },
+      });
+      mock = setupMockFetch(extra);
+
+      const client = new MemoryClient({ apiKey: TEST_API_KEY });
+      result = await client.deleteUser({
+        entity_id: 123 as never,
+        entity_type: "user",
+      });
     });
 
-    expect(
-      findFetchCall(mock, "/v1/entities/user/123/", "DELETE"),
-    ).toBeDefined();
-    expect(result.message).toBe("Entity deleted successfully!");
+    test("sends DELETE to /v1/entities/user/123/", () => {
+      expect(
+        findFetchCall(mock, "/v1/entities/user/123/", "DELETE"),
+      ).toBeDefined();
+    });
+
+    test("returns correct message", () => {
+      expect(result.message).toBe("Entity deleted successfully!");
+    });
   });
 
   test("defaults entity_type to 'user' when not provided", async () => {
@@ -1113,33 +1468,53 @@ describe("MemoryClient - deleteUser() (deprecated)", () => {
 // ─── updateWebhook ───────────────────────────────────────
 
 describe("MemoryClient - updateWebhook()", () => {
-  test("sends PUT to /api/v1/webhooks/:id/ with updated data", async () => {
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/api/v1/webhooks/wh_1/", {
-      status: 200,
-      body: { message: "Webhook updated" },
-    });
-    const mock = setupMockFetch(extra);
+  describe("sends PUT to /api/v1/webhooks/:id/ with updated data", () => {
+    let mock: jest.Mock;
+    let result: any;
+    let body: Record<string, unknown>;
 
-    const client = new MemoryClient({
-      apiKey: TEST_API_KEY,
-      organizationId: TEST_ORG_ID,
-      projectId: TEST_PROJECT_ID,
-    });
-    const result = await client.updateWebhook({
-      webhookId: "wh_1",
-      name: "updated-hook",
-      url: "https://new-url.com",
-      eventTypes: ["memory_add" as never],
-      projectId: TEST_PROJECT_ID,
+    beforeEach(async () => {
+      const extra = new Map<string, { status: number; body: unknown }>();
+      extra.set("/api/v1/webhooks/wh_1/", {
+        status: 200,
+        body: { message: "Webhook updated" },
+      });
+      mock = setupMockFetch(extra);
+
+      const client = new MemoryClient({
+        apiKey: TEST_API_KEY,
+        organizationId: TEST_ORG_ID,
+        projectId: TEST_PROJECT_ID,
+      });
+      result = await client.updateWebhook({
+        webhookId: "wh_1",
+        name: "updated-hook",
+        url: "https://new-url.com",
+        eventTypes: ["memory_add" as never],
+        projectId: TEST_PROJECT_ID,
+      });
+
+      const call = findFetchCall(mock, "/api/v1/webhooks/wh_1/", "PUT");
+      body = getFetchBody(call!);
     });
 
-    const call = findFetchCall(mock, "/api/v1/webhooks/wh_1/", "PUT");
-    expect(call).toBeDefined();
-    const body = getFetchBody(call!);
-    expect(body.name).toBe("updated-hook");
-    expect(body.url).toBe("https://new-url.com");
-    expect(result.message).toBe("Webhook updated");
+    test("sends PUT to /api/v1/webhooks/wh_1/", () => {
+      expect(
+        findFetchCall(mock, "/api/v1/webhooks/wh_1/", "PUT"),
+      ).toBeDefined();
+    });
+
+    test("includes name in request body", () => {
+      expect(body.name).toBe("updated-hook");
+    });
+
+    test("includes url in request body", () => {
+      expect(body.url).toBe("https://new-url.com");
+    });
+
+    test("returns correct message", () => {
+      expect(result.message).toBe("Webhook updated");
+    });
   });
 });
 
@@ -1170,75 +1545,114 @@ describe("MemoryClient - Edge Cases", () => {
     await expect(client.search("query")).rejects.toThrow();
   });
 
-  // Verify add() with empty messages array doesn't crash
-  test("add() with empty messages array sends request", async () => {
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v1/memories/", { status: 200, body: [] });
-    const mock = setupMockFetch(extra);
+  describe("add() with empty messages array sends request", () => {
+    let body: Record<string, unknown>;
+    let result: any;
 
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    const result = await client.add([], { user_id: "u1" });
+    beforeEach(async () => {
+      const extra = new Map<string, { status: number; body: unknown }>();
+      extra.set("/v1/memories/", { status: 200, body: [] });
+      const mock = setupMockFetch(extra);
 
-    const call = findFetchCall(mock, "/v1/memories/", "POST");
-    const body = getFetchBody(call!);
-    expect(body.messages).toEqual([]);
-    expect(Array.isArray(result)).toBe(true);
-  });
+      const client = new MemoryClient({ apiKey: TEST_API_KEY });
+      result = await client.add([], { user_id: "u1" });
 
-  // Verify special characters in user_id don't break URL encoding
-  test("deleteAll() handles special characters in user_id", async () => {
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v1/memories/", {
-      status: 200,
-      body: { message: "Deleted" },
-    });
-    const mock = setupMockFetch(extra);
-
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.deleteAll({ user_id: "user@email.com" });
-
-    const call = mock.mock.calls.find(
-      (c: [string, RequestInit]) =>
-        c[0].includes("/v1/memories/?") && c[1]?.method === "DELETE",
-    );
-    expect(call).toBeDefined();
-    // URL should encode the @ symbol
-    expect(call![0]).toContain("user_id=");
-  });
-
-  // Verify update() with all three fields sends them all
-  test("update() with text + metadata + timestamp sends all fields", async () => {
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v1/memories/mem_123/", {
-      status: 200,
-      body: createMockMemory({ id: "mem_123" }),
-    });
-    const mock = setupMockFetch(extra);
-
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.update("mem_123", {
-      text: "Updated",
-      metadata: { source: "test" },
-      timestamp: 1710600000,
+      const call = findFetchCall(mock, "/v1/memories/", "POST");
+      body = getFetchBody(call!);
     });
 
-    const call = findFetchCall(mock, "/v1/memories/mem_123/", "PUT");
-    const body = getFetchBody(call!);
-    expect(body.text).toBe("Updated");
-    expect(body.metadata).toEqual({ source: "test" });
-    expect(body.timestamp).toBe(1710600000);
+    test("sends empty messages array in body", () => {
+      expect(body.messages).toEqual([]);
+    });
+
+    test("returns an array", () => {
+      expect(Array.isArray(result)).toBe(true);
+    });
   });
 
-  // API returning empty array for search — should not crash
-  test("search() handles empty results array", async () => {
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v1/memories/search/", { status: 200, body: [] });
-    setupMockFetch(extra);
+  describe("deleteAll() handles special characters in user_id", () => {
+    let call: [string, RequestInit] | undefined;
 
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    const result = await client.search("nonexistent query", { user_id: "u1" });
-    expect(Array.isArray(result)).toBe(true);
-    expect(result).toHaveLength(0);
+    beforeEach(async () => {
+      const extra = new Map<string, { status: number; body: unknown }>();
+      extra.set("/v1/memories/", {
+        status: 200,
+        body: { message: "Deleted" },
+      });
+      const mock = setupMockFetch(extra);
+
+      const client = new MemoryClient({ apiKey: TEST_API_KEY });
+      await client.deleteAll({ user_id: "user@email.com" });
+
+      call = mock.mock.calls.find(
+        (c: [string, RequestInit]) =>
+          c[0].includes("/v1/memories/?") && c[1]?.method === "DELETE",
+      );
+    });
+
+    test("sends DELETE request", () => {
+      expect(call).toBeDefined();
+    });
+
+    test("URL contains user_id param", () => {
+      expect(call![0]).toContain("user_id=");
+    });
+  });
+
+  describe("update() with text + metadata + timestamp sends all fields", () => {
+    let body: Record<string, unknown>;
+
+    beforeEach(async () => {
+      const extra = new Map<string, { status: number; body: unknown }>();
+      extra.set("/v1/memories/mem_123/", {
+        status: 200,
+        body: createMockMemory({ id: "mem_123" }),
+      });
+      const mock = setupMockFetch(extra);
+
+      const client = new MemoryClient({ apiKey: TEST_API_KEY });
+      await client.update("mem_123", {
+        text: "Updated",
+        metadata: { source: "test" },
+        timestamp: 1710600000,
+      });
+
+      const call = findFetchCall(mock, "/v1/memories/mem_123/", "PUT");
+      body = getFetchBody(call!);
+    });
+
+    test("includes text in body", () => {
+      expect(body.text).toBe("Updated");
+    });
+
+    test("includes metadata in body", () => {
+      expect(body.metadata).toEqual({ source: "test" });
+    });
+
+    test("includes timestamp in body", () => {
+      expect(body.timestamp).toBe(1710600000);
+    });
+  });
+
+  describe("search() handles empty results array", () => {
+    let result: any;
+
+    beforeEach(async () => {
+      const extra = new Map<string, { status: number; body: unknown }>();
+      extra.set("/v1/memories/search/", { status: 200, body: [] });
+      setupMockFetch(extra);
+
+      const client = new MemoryClient({ apiKey: TEST_API_KEY });
+      result = await client.search("nonexistent query", { user_id: "u1" });
+    });
+
+    test("returns an array", () => {
+      expect(Array.isArray(result)).toBe(true);
+    });
+
+    test("returns empty array", () => {
+      expect(result).toHaveLength(0);
+    });
   });
 
   // API returning empty array for history — should not crash
@@ -1253,7 +1667,7 @@ describe("MemoryClient - Edge Cases", () => {
   });
 
   // Verify batchUpdate with empty array doesn't crash
-  test("batchUpdate() with empty array sends request", async () => {
+  test("batchUpdate() with empty array sends empty memories", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
     extra.set("/v1/batch/", {
       status: 200,
@@ -1270,7 +1684,7 @@ describe("MemoryClient - Edge Cases", () => {
   });
 
   // Verify batchDelete with empty array doesn't crash
-  test("batchDelete() with empty array sends request", async () => {
+  test("batchDelete() with empty array sends empty memories", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
     extra.set("/v1/batch/", {
       status: 200,
@@ -1305,28 +1719,37 @@ describe("MemoryClient - Edge Cases", () => {
     await expect(client.deleteUsers()).rejects.toThrow("No entities to delete");
   });
 
-  // Verify createMemoryExport attaches org/project IDs
-  test("createMemoryExport() attaches org_id and project_id from client", async () => {
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v1/exports/", {
-      status: 200,
-      body: { message: "Created", id: "exp_1" },
-    });
-    const mock = setupMockFetch(extra);
+  describe("createMemoryExport() attaches org_id and project_id from client", () => {
+    let body: Record<string, unknown>;
 
-    const client = new MemoryClient({
-      apiKey: TEST_API_KEY,
-      organizationId: TEST_ORG_ID,
-      projectId: TEST_PROJECT_ID,
-    });
-    await client.createMemoryExport({
-      schema: { fields: ["memory"] },
-      filters: { user_id: "u1" },
+    beforeEach(async () => {
+      const extra = new Map<string, { status: number; body: unknown }>();
+      extra.set("/v1/exports/", {
+        status: 200,
+        body: { message: "Created", id: "exp_1" },
+      });
+      const mock = setupMockFetch(extra);
+
+      const client = new MemoryClient({
+        apiKey: TEST_API_KEY,
+        organizationId: TEST_ORG_ID,
+        projectId: TEST_PROJECT_ID,
+      });
+      await client.createMemoryExport({
+        schema: { fields: ["memory"] },
+        filters: { user_id: "u1" },
+      });
+
+      const call = findFetchCall(mock, "/v1/exports/", "POST");
+      body = getFetchBody(call!);
     });
 
-    const call = findFetchCall(mock, "/v1/exports/", "POST");
-    const body = getFetchBody(call!);
-    expect(body.org_id).toBe(TEST_ORG_ID);
-    expect(body.project_id).toBe(TEST_PROJECT_ID);
+    test("includes org_id in request body", () => {
+      expect(body.org_id).toBe(TEST_ORG_ID);
+    });
+
+    test("includes project_id in request body", () => {
+      expect(body.project_id).toBe(TEST_PROJECT_ID);
+    });
   });
 });

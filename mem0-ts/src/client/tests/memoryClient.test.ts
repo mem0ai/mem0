@@ -104,191 +104,381 @@ describe("MemoryClient API", () => {
     { role: "assistant" as const, content: "Hello Alex! Glad to hear!" },
   ];
 
-  it("should add messages successfully", async () => {
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    const res = await client.add(messages1, { user_id: userId });
+  describe("add messages", () => {
+    let res: any;
 
-    expect(Array.isArray(res)).toBe(true);
-    const message = res[0];
-    expect(typeof message.id).toBe("string");
-    expect(typeof message.data?.memory).toBe("string");
-    expect(typeof message.event).toBe("string");
+    beforeEach(async () => {
+      const client = new MemoryClient({ apiKey: TEST_API_KEY });
+      res = await client.add(messages1, { user_id: userId });
+    });
+
+    test("returns an array", () => {
+      expect(Array.isArray(res)).toBe(true);
+    });
+
+    test("first message has a string id", () => {
+      expect(typeof res[0].id).toBe("string");
+    });
+
+    test("first message has a string data.memory", () => {
+      expect(typeof res[0].data?.memory).toBe("string");
+    });
+
+    test("first message has a string event", () => {
+      expect(typeof res[0].event).toBe("string");
+    });
   });
 
-  it("should retrieve the specific memory by ID", async () => {
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    // getAll returns array, first item is our mock memory
-    const memories = await client.getAll({ user_id: userId });
-    const memory = Array.isArray(memories) ? memories[0] : memories;
+  describe("retrieve specific memory by ID", () => {
+    let memory: any;
 
-    expect(typeof memory.id).toBe("string");
-    expect(typeof memory.memory).toBe("string");
-    expect(typeof memory.user_id).toBe("string");
-    expect(memory.user_id).toBe(userId);
-    expect(
-      memory.metadata === null || typeof memory.metadata === "object",
-    ).toBe(true);
-    expect(Array.isArray(memory.categories) || memory.categories === null).toBe(
-      true,
-    );
-    if (Array.isArray(memory.categories)) {
-      memory.categories.forEach((category) => {
-        expect(typeof category).toBe("string");
-      });
-    }
-    expect(new Date(memory.created_at || "").toString()).not.toBe(
-      "Invalid Date",
-    );
-    expect(new Date(memory.updated_at || "").toString()).not.toBe(
-      "Invalid Date",
-    );
-  });
+    beforeEach(async () => {
+      const client = new MemoryClient({ apiKey: TEST_API_KEY });
+      const memories = await client.getAll({ user_id: userId });
+      memory = Array.isArray(memories) ? memories[0] : memories;
+    });
 
-  it("should retrieve all users successfully", async () => {
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    const allUsers = await client.users();
-
-    expect(typeof allUsers.count).toBe("number");
-    const firstUser = allUsers.results[0];
-    expect(typeof firstUser.id).toBe("string");
-    expect(typeof firstUser.name).toBe("string");
-    expect(typeof firstUser.created_at).toBe("string");
-    expect(typeof firstUser.updated_at).toBe("string");
-    expect(typeof firstUser.total_memories).toBe("number");
-    expect(typeof firstUser.type).toBe("string");
-
-    const entity = allUsers.results.find((user) => user.name === userId);
-    expect(entity).not.toBeUndefined();
-    expect(typeof entity?.id).toBe("string");
-  });
-
-  it("should retrieve all memories for the user", async () => {
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    const res3 = await client.getAll({ user_id: userId });
-
-    expect(Array.isArray(res3)).toBe(true);
-    if (res3.length > 0) {
-      const memory = res3[0];
+    test("returns string id", () => {
       expect(typeof memory.id).toBe("string");
+    });
+
+    test("returns string memory content", () => {
       expect(typeof memory.memory).toBe("string");
+    });
+
+    test("returns string user_id", () => {
       expect(typeof memory.user_id).toBe("string");
+    });
+
+    test("user_id matches the requested userId", () => {
       expect(memory.user_id).toBe(userId);
+    });
+
+    test("metadata is null or an object", () => {
       expect(
         memory.metadata === null || typeof memory.metadata === "object",
       ).toBe(true);
+    });
+
+    test("categories is an array or null", () => {
       expect(
         Array.isArray(memory.categories) || memory.categories === null,
       ).toBe(true);
+    });
+
+    test("each category is a string", () => {
+      if (Array.isArray(memory.categories)) {
+        expect(memory.categories.every((c: any) => typeof c === "string")).toBe(
+          true,
+        );
+      }
+    });
+
+    test("created_at is a valid date", () => {
       expect(new Date(memory.created_at || "").toString()).not.toBe(
         "Invalid Date",
       );
+    });
+
+    test("updated_at is a valid date", () => {
       expect(new Date(memory.updated_at || "").toString()).not.toBe(
         "Invalid Date",
       );
-    }
+    });
   });
 
-  it("should search and return results based on provided query and filters (API version 2)", async () => {
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    const searchResultV2 = await client.search("What do you know about me?", {
-      filters: {
-        OR: [{ user_id: userId }, { agent_id: "shopping-assistant" }],
-      },
-      threshold: 0.1,
-      api_version: "v2",
+  describe("retrieve all users", () => {
+    let allUsers: any;
+
+    beforeEach(async () => {
+      const client = new MemoryClient({ apiKey: TEST_API_KEY });
+      allUsers = await client.users();
     });
 
-    expect(Array.isArray(searchResultV2)).toBe(true);
-    if (searchResultV2.length > 0) {
-      const memory = searchResultV2[0];
+    test("count is a number", () => {
+      expect(typeof allUsers.count).toBe("number");
+    });
+
+    test("first user has a string id", () => {
+      expect(typeof allUsers.results[0].id).toBe("string");
+    });
+
+    test("first user has a string name", () => {
+      expect(typeof allUsers.results[0].name).toBe("string");
+    });
+
+    test("first user has a string created_at", () => {
+      expect(typeof allUsers.results[0].created_at).toBe("string");
+    });
+
+    test("first user has a string updated_at", () => {
+      expect(typeof allUsers.results[0].updated_at).toBe("string");
+    });
+
+    test("first user has a number total_memories", () => {
+      expect(typeof allUsers.results[0].total_memories).toBe("number");
+    });
+
+    test("first user has a string type", () => {
+      expect(typeof allUsers.results[0].type).toBe("string");
+    });
+
+    test("results contain an entity matching userId", () => {
+      const entity = allUsers.results.find((user: any) => user.name === userId);
+      expect(entity).not.toBeUndefined();
+    });
+
+    test("matched entity has a string id", () => {
+      const entity = allUsers.results.find((user: any) => user.name === userId);
+      expect(typeof entity?.id).toBe("string");
+    });
+  });
+
+  describe("retrieve all memories for the user", () => {
+    let memories: any;
+    let memory: any;
+
+    beforeEach(async () => {
+      const client = new MemoryClient({ apiKey: TEST_API_KEY });
+      memories = await client.getAll({ user_id: userId });
+      memory = memories[0];
+    });
+
+    test("returns an array", () => {
+      expect(Array.isArray(memories)).toBe(true);
+    });
+
+    test("first memory has a string id", () => {
       expect(typeof memory.id).toBe("string");
+    });
+
+    test("first memory has a string memory content", () => {
       expect(typeof memory.memory).toBe("string");
+    });
+
+    test("first memory has a string user_id", () => {
+      expect(typeof memory.user_id).toBe("string");
+    });
+
+    test("first memory user_id matches the requested userId", () => {
+      expect(memory.user_id).toBe(userId);
+    });
+
+    test("first memory metadata is null or an object", () => {
       expect(
         memory.metadata === null || typeof memory.metadata === "object",
       ).toBe(true);
+    });
+
+    test("first memory categories is an array or null", () => {
       expect(
         Array.isArray(memory.categories) || memory.categories === null,
       ).toBe(true);
+    });
+
+    test("first memory created_at is a valid date", () => {
       expect(new Date(memory.created_at || "").toString()).not.toBe(
         "Invalid Date",
       );
-      expect(typeof memory.score).toBe("number");
-    }
-  });
-
-  it("should search and return results based on provided query (API version 1)", async () => {
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    const searchResultV1 = await client.search("What is my name?", {
-      user_id: userId,
     });
 
-    expect(Array.isArray(searchResultV1)).toBe(true);
-    if (searchResultV1.length > 0) {
-      const memory = searchResultV1[0];
+    test("first memory updated_at is a valid date", () => {
+      expect(new Date(memory.updated_at || "").toString()).not.toBe(
+        "Invalid Date",
+      );
+    });
+  });
+
+  describe("search with API version 2", () => {
+    let results: any;
+    let memory: any;
+
+    beforeEach(async () => {
+      const client = new MemoryClient({ apiKey: TEST_API_KEY });
+      results = await client.search("What do you know about me?", {
+        filters: {
+          OR: [{ user_id: userId }, { agent_id: "shopping-assistant" }],
+        },
+        threshold: 0.1,
+        api_version: "v2",
+      });
+      memory = results[0];
+    });
+
+    test("returns an array", () => {
+      expect(Array.isArray(results)).toBe(true);
+    });
+
+    test("first result has a string id", () => {
       expect(typeof memory.id).toBe("string");
-      expect(typeof memory.memory).toBe("string");
-      expect(typeof memory.user_id).toBe("string");
-      expect(memory.user_id).toBe(userId);
-      expect(typeof memory.score).toBe("number");
-    }
-  });
-
-  it("should retrieve history of a specific memory and validate the fields", async () => {
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    const res22 = await client.history(memoryId);
-
-    expect(Array.isArray(res22)).toBe(true);
-    if (res22.length > 0) {
-      const historyEntry = res22[0];
-      expect(typeof historyEntry.id).toBe("string");
-      expect(typeof historyEntry.memory_id).toBe("string");
-      expect(typeof historyEntry.user_id).toBe("string");
-      expect(historyEntry.user_id).toBe(userId);
-      expect(
-        historyEntry.old_memory === null ||
-          typeof historyEntry.old_memory === "string",
-      ).toBe(true);
-      expect(
-        historyEntry.new_memory === null ||
-          typeof historyEntry.new_memory === "string",
-      ).toBe(true);
-      expect(new Date(historyEntry.created_at).toString()).not.toBe(
-        "Invalid Date",
-      );
-      expect(new Date(historyEntry.updated_at).toString()).not.toBe(
-        "Invalid Date",
-      );
-      expect(["ADD", "UPDATE", "DELETE", "NOOP"]).toContain(historyEntry.event);
-
-      if (historyEntry.event === "ADD") {
-        expect(historyEntry.old_memory).toBeNull();
-        expect(historyEntry.new_memory).not.toBeNull();
-      }
-
-      expect(
-        Array.isArray(historyEntry.input) || historyEntry.input === null,
-      ).toBe(true);
-      if (Array.isArray(historyEntry.input)) {
-        historyEntry.input.forEach((input) => {
-          expect(typeof input).toBe("object");
-          expect(typeof input.content).toBe("string");
-          expect(["user", "assistant"]).toContain(input.role);
-        });
-      }
-    }
-  });
-
-  it("should delete the user successfully", async () => {
-    const client = new MemoryClient({
-      apiKey: TEST_API_KEY,
-      organizationId: "org_test",
-      projectId: "proj_test",
     });
-    client.client.delete = jest
-      .fn()
-      .mockResolvedValue({ data: { message: "Entity deleted successfully!" } });
 
-    const result = await client.deleteUsers({ user_id: userId });
-    expect(result.message).toBe("Entity deleted successfully.");
+    test("first result has a string memory content", () => {
+      expect(typeof memory.memory).toBe("string");
+    });
+
+    test("first result metadata is null or an object", () => {
+      expect(
+        memory.metadata === null || typeof memory.metadata === "object",
+      ).toBe(true);
+    });
+
+    test("first result categories is an array or null", () => {
+      expect(
+        Array.isArray(memory.categories) || memory.categories === null,
+      ).toBe(true);
+    });
+
+    test("first result created_at is a valid date", () => {
+      expect(new Date(memory.created_at || "").toString()).not.toBe(
+        "Invalid Date",
+      );
+    });
+
+    test("first result has a number score", () => {
+      expect(typeof memory.score).toBe("number");
+    });
+  });
+
+  describe("search with API version 1", () => {
+    let results: any;
+    let memory: any;
+
+    beforeEach(async () => {
+      const client = new MemoryClient({ apiKey: TEST_API_KEY });
+      results = await client.search("What is my name?", {
+        user_id: userId,
+      });
+      memory = results[0];
+    });
+
+    test("returns an array", () => {
+      expect(Array.isArray(results)).toBe(true);
+    });
+
+    test("first result has a string id", () => {
+      expect(typeof memory.id).toBe("string");
+    });
+
+    test("first result has a string memory content", () => {
+      expect(typeof memory.memory).toBe("string");
+    });
+
+    test("first result has a string user_id", () => {
+      expect(typeof memory.user_id).toBe("string");
+    });
+
+    test("first result user_id matches the requested userId", () => {
+      expect(memory.user_id).toBe(userId);
+    });
+
+    test("first result has a number score", () => {
+      expect(typeof memory.score).toBe("number");
+    });
+  });
+
+  describe("retrieve history of a specific memory", () => {
+    let history: any;
+    let entry: any;
+
+    beforeEach(async () => {
+      const client = new MemoryClient({ apiKey: TEST_API_KEY });
+      history = await client.history(memoryId);
+      entry = history[0];
+    });
+
+    test("returns an array", () => {
+      expect(Array.isArray(history)).toBe(true);
+    });
+
+    test("first entry has a string id", () => {
+      expect(typeof entry.id).toBe("string");
+    });
+
+    test("first entry has a string memory_id", () => {
+      expect(typeof entry.memory_id).toBe("string");
+    });
+
+    test("first entry has a string user_id", () => {
+      expect(typeof entry.user_id).toBe("string");
+    });
+
+    test("first entry user_id matches the requested userId", () => {
+      expect(entry.user_id).toBe(userId);
+    });
+
+    test("old_memory is null or a string", () => {
+      expect(
+        entry.old_memory === null || typeof entry.old_memory === "string",
+      ).toBe(true);
+    });
+
+    test("new_memory is null or a string", () => {
+      expect(
+        entry.new_memory === null || typeof entry.new_memory === "string",
+      ).toBe(true);
+    });
+
+    test("created_at is a valid date", () => {
+      expect(new Date(entry.created_at).toString()).not.toBe("Invalid Date");
+    });
+
+    test("updated_at is a valid date", () => {
+      expect(new Date(entry.updated_at).toString()).not.toBe("Invalid Date");
+    });
+
+    test("event is one of ADD, UPDATE, DELETE, NOOP", () => {
+      expect(["ADD", "UPDATE", "DELETE", "NOOP"]).toContain(entry.event);
+    });
+
+    test("ADD event has null old_memory", () => {
+      expect(entry.old_memory).toBeNull();
+    });
+
+    test("ADD event has non-null new_memory", () => {
+      expect(entry.new_memory).not.toBeNull();
+    });
+
+    test("input is an array or null", () => {
+      expect(Array.isArray(entry.input) || entry.input === null).toBe(true);
+    });
+
+    test("each input item is an object", () => {
+      if (Array.isArray(entry.input)) {
+        expect(entry.input.every((i: any) => typeof i === "object")).toBe(true);
+      }
+    });
+
+    test("each input item has a string content", () => {
+      if (Array.isArray(entry.input)) {
+        expect(
+          entry.input.every((i: any) => typeof i.content === "string"),
+        ).toBe(true);
+      }
+    });
+
+    test("each input item has a valid role", () => {
+      if (Array.isArray(entry.input)) {
+        expect(
+          entry.input.every((i: any) => ["user", "assistant"].includes(i.role)),
+        ).toBe(true);
+      }
+    });
+  });
+
+  describe("delete user", () => {
+    test("returns success message", async () => {
+      const client = new MemoryClient({
+        apiKey: TEST_API_KEY,
+        organizationId: "org_test",
+        projectId: "proj_test",
+      });
+      client.client.delete = jest.fn().mockResolvedValue({
+        data: { message: "Entity deleted successfully!" },
+      });
+
+      const result = await client.deleteUsers({ user_id: userId });
+      expect(result.message).toBe("Entity deleted successfully.");
+    });
   });
 });

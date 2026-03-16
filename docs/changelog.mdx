@@ -729,14 +729,22 @@ mode: "wide"
 
 <Tab title="TypeScript">
 
-<Update label="2026-03-17" description="v2.4.1">
+<Update label="2026-03-17" description="v2.4.2">
 
 **Testing & Infrastructure:**
-- **Exception Hierarchy:** Added 14 structured exception classes with HTTP status code mapping — `AuthenticationError`, `RateLimitError`, `ValidationError`, `MemoryNotFoundError`, `NetworkError`, `ConfigurationError`, `MemoryQuotaExceededError`, `VectorStoreError`, `GraphStoreError`, `EmbeddingError`, `LLMError`, `DatabaseError`, `DependencyError` + `createExceptionFromResponse()` utility
-- **Client Tests:** Added comprehensive unit tests for all 23 MemoryClient methods (70 tests) — init, ping, add, get, getAll, search, update, delete, deleteAll, history, batchUpdate, batchDelete, users, deleteUsers, deleteUser, webhooks (CRUD), feedback, exports, getProject, updateProject
-- **Edge Case Tests:** Added 11 edge case tests covering empty arrays, special characters in user_id, empty API responses, missing options, and empty entity lists — discovered 2 bugs (`getAll()` and `search()` crash when called without options)
-- **Test Infrastructure:** Added mock fetch helpers, factory functions, and test constants for isolated testing without API keys
-- **CI Pipeline:** Added GitHub Actions workflow (`ts-sdk-ci.yml`) matching Python SDK pattern — path-filtered triggers, `dorny/paths-filter` change detection, Node 18/20/22 matrix, lint + test + build + export verification
+- **Exception Hierarchy:** Added 14 structured exception classes with HTTP status code mapping (infrastructure for upcoming error handling — not yet integrated into client, will be wired in v2.5.0)
+- **Client Tests:** 191 unit tests for all 23 MemoryClient methods — one assertion per test case following AAA pattern
+- **OSS Memory Tests:** 16 unit tests for Memory class CRUD with mocked LLM/embedder — no API keys needed
+- **Edge Case Tests:** Discovered 2 bugs (`getAll()` and `search()` crash when called without options)
+- **Test Infrastructure:** Mock fetch helpers, factory functions, and constants for isolated testing
+- **CI Pipeline:** GitHub Actions workflow (`ts-sdk-ci.yml`) matching Python SDK pattern — Node 18/20/22 matrix
+
+**Bug Fixes:**
+- **Factory:** Google embedder/LLM imports are now lazy-loaded to prevent crashes when `@google/genai` has environment issues
+- **OSS Tests:** Fixed stale test args — `memory.add(msg, userId)` corrected to `memory.add(msg, { userId })` matching current API
+- **OSS Tests:** Fixed stale dimension assertion — aligned with auto-detect behavior from PR #4297
+- **Client Tests:** Converted E2E tests to mock-based so all tests run in CI without API keys
+- **Build:** Added `.gitignore` and `.prettierignore` to exclude `coverage/`, `dist/`, `node_modules/`
 
 </Update>
 

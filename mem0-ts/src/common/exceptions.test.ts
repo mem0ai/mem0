@@ -18,28 +18,49 @@ import {
 } from "./exceptions";
 
 describe("MemoryError", () => {
-  test("creates error with all fields", () => {
-    const error = new MemoryError("test error", "MEM_001", {
-      details: { operation: "add" },
-      suggestion: "Try again",
-      debugInfo: { requestId: "req_123" },
-    });
-
-    expect(error).toBeInstanceOf(Error);
-    expect(error.message).toBe("test error");
-    expect(error.errorCode).toBe("MEM_001");
-    expect(error.details).toEqual({ operation: "add" });
-    expect(error.suggestion).toBe("Try again");
-    expect(error.debugInfo).toEqual({ requestId: "req_123" });
-    expect(error.name).toBe("MemoryError");
+  const error = new MemoryError("test error", "MEM_001", {
+    details: { operation: "add" },
+    suggestion: "Try again",
+    debugInfo: { requestId: "req_123" },
   });
 
-  test("creates error with defaults for optional fields", () => {
-    const error = new MemoryError("test error", "MEM_001");
+  test("is an instance of Error", () => {
+    expect(error).toBeInstanceOf(Error);
+  });
 
-    expect(error.details).toEqual({});
-    expect(error.suggestion).toBeUndefined();
-    expect(error.debugInfo).toEqual({});
+  test("has correct message", () => {
+    expect(error.message).toBe("test error");
+  });
+
+  test("has correct errorCode", () => {
+    expect(error.errorCode).toBe("MEM_001");
+  });
+
+  test("has correct details", () => {
+    expect(error.details).toEqual({ operation: "add" });
+  });
+
+  test("has correct suggestion", () => {
+    expect(error.suggestion).toBe("Try again");
+  });
+
+  test("has correct debugInfo", () => {
+    expect(error.debugInfo).toEqual({ requestId: "req_123" });
+  });
+
+  test("defaults details to empty object", () => {
+    const err = new MemoryError("test error", "MEM_001");
+    expect(err.details).toEqual({});
+  });
+
+  test("defaults suggestion to undefined", () => {
+    const err = new MemoryError("test error", "MEM_001");
+    expect(err.suggestion).toBeUndefined();
+  });
+
+  test("defaults debugInfo to empty object", () => {
+    const err = new MemoryError("test error", "MEM_001");
+    expect(err.debugInfo).toEqual({});
   });
 
   test("is throwable and catchable", () => {
@@ -66,10 +87,18 @@ describe("Exception subclasses", () => {
     { Class: DependencyError, name: "DependencyError" },
   ] as const;
 
-  test.each(subclasses)("$name extends MemoryError", ({ Class, name }) => {
+  test.each(subclasses)("$name extends MemoryError", ({ Class }) => {
     const error = new Class("test", "CODE_001");
     expect(error).toBeInstanceOf(MemoryError);
+  });
+
+  test.each(subclasses)("$name extends Error", ({ Class }) => {
+    const error = new Class("test", "CODE_001");
     expect(error).toBeInstanceOf(Error);
+  });
+
+  test.each(subclasses)("$name has correct name", ({ Class, name }) => {
+    const error = new Class("test", "CODE_001");
     expect(error.name).toBe(name);
   });
 
@@ -80,49 +109,73 @@ describe("Exception subclasses", () => {
 });
 
 describe("OSS exception defaults", () => {
-  test("VectorStoreError has default error code and suggestion", () => {
+  test("VectorStoreError has default error code", () => {
     const error = new VectorStoreError("store failed");
     expect(error.errorCode).toBe("VECTOR_001");
+  });
+
+  test("VectorStoreError has default suggestion", () => {
+    const error = new VectorStoreError("store failed");
     expect(error.suggestion).toBe(
       "Please check your vector store configuration and connection",
     );
   });
 
-  test("GraphStoreError has default error code and suggestion", () => {
+  test("GraphStoreError has default error code", () => {
     const error = new GraphStoreError("graph failed");
     expect(error.errorCode).toBe("GRAPH_001");
+  });
+
+  test("GraphStoreError has default suggestion", () => {
+    const error = new GraphStoreError("graph failed");
     expect(error.suggestion).toBe(
       "Please check your graph store configuration and connection",
     );
   });
 
-  test("EmbeddingError has default error code and suggestion", () => {
+  test("EmbeddingError has default error code", () => {
     const error = new EmbeddingError("embed failed");
     expect(error.errorCode).toBe("EMBED_001");
+  });
+
+  test("EmbeddingError has default suggestion", () => {
+    const error = new EmbeddingError("embed failed");
     expect(error.suggestion).toBe(
       "Please check your embedding model configuration",
     );
   });
 
-  test("LLMError has default error code and suggestion", () => {
+  test("LLMError has default error code", () => {
     const error = new LLMError("llm failed");
     expect(error.errorCode).toBe("LLM_001");
+  });
+
+  test("LLMError has default suggestion", () => {
+    const error = new LLMError("llm failed");
     expect(error.suggestion).toBe(
       "Please check your LLM configuration and API key",
     );
   });
 
-  test("DatabaseError has default error code and suggestion", () => {
+  test("DatabaseError has default error code", () => {
     const error = new DatabaseError("db failed");
     expect(error.errorCode).toBe("DB_001");
+  });
+
+  test("DatabaseError has default suggestion", () => {
+    const error = new DatabaseError("db failed");
     expect(error.suggestion).toBe(
       "Please check your database configuration and connection",
     );
   });
 
-  test("DependencyError has default error code and suggestion", () => {
+  test("DependencyError has default error code", () => {
     const error = new DependencyError("missing dep");
     expect(error.errorCode).toBe("DEPS_001");
+  });
+
+  test("DependencyError has default suggestion", () => {
+    const error = new DependencyError("missing dep");
     expect(error.suggestion).toBe("Please install the required dependencies");
   });
 });
@@ -131,17 +184,31 @@ describe("createExceptionFromResponse", () => {
   test("maps 401 to AuthenticationError", () => {
     const error = createExceptionFromResponse(401, "Unauthorized");
     expect(error).toBeInstanceOf(AuthenticationError);
+  });
+
+  test("maps 401 to errorCode HTTP_401", () => {
+    const error = createExceptionFromResponse(401, "Unauthorized");
     expect(error.errorCode).toBe("HTTP_401");
+  });
+
+  test("maps 401 to authentication suggestion", () => {
+    const error = createExceptionFromResponse(401, "Unauthorized");
     expect(error.suggestion).toBe(
       "Please check your API key and authentication credentials",
     );
   });
 
-  test("maps 429 to RateLimitError with debugInfo", () => {
+  test("maps 429 to RateLimitError", () => {
     const error = createExceptionFromResponse(429, "Too many requests", {
       debugInfo: { retryAfter: 60 },
     });
     expect(error).toBeInstanceOf(RateLimitError);
+  });
+
+  test("maps 429 passes debugInfo through", () => {
+    const error = createExceptionFromResponse(429, "Too many requests", {
+      debugInfo: { retryAfter: 60 },
+    });
     expect(error.debugInfo).toEqual({ retryAfter: 60 });
   });
 
@@ -160,23 +227,33 @@ describe("createExceptionFromResponse", () => {
     expect(error).toBeInstanceOf(MemoryQuotaExceededError);
   });
 
-  test("maps 502/503/504 to NetworkError", () => {
-    for (const code of [502, 503, 504]) {
-      const error = createExceptionFromResponse(code, "Service unavailable");
-      expect(error).toBeInstanceOf(NetworkError);
-    }
+  test.each([502, 503, 504])("maps %i to NetworkError", (code) => {
+    const error = createExceptionFromResponse(code, "Service unavailable");
+    expect(error).toBeInstanceOf(NetworkError);
   });
 
   test("maps 500 to MemoryError", () => {
     const error = createExceptionFromResponse(500, "Internal error");
     expect(error).toBeInstanceOf(MemoryError);
+  });
+
+  test("maps 500 to errorCode HTTP_500", () => {
+    const error = createExceptionFromResponse(500, "Internal error");
     expect(error.errorCode).toBe("HTTP_500");
   });
 
   test("maps unknown status to MemoryError", () => {
     const error = createExceptionFromResponse(418, "I am a teapot");
     expect(error).toBeInstanceOf(MemoryError);
+  });
+
+  test("maps unknown status to correct errorCode", () => {
+    const error = createExceptionFromResponse(418, "I am a teapot");
     expect(error.errorCode).toBe("HTTP_418");
+  });
+
+  test("maps unknown status to retry suggestion", () => {
+    const error = createExceptionFromResponse(418, "I am a teapot");
     expect(error.suggestion).toBe("Please try again later");
   });
 
@@ -199,19 +276,55 @@ describe("createExceptionFromResponse", () => {
 });
 
 describe("HTTP_STATUS_TO_EXCEPTION", () => {
-  test("contains all expected mappings", () => {
+  test("maps 400 to ValidationError", () => {
     expect(HTTP_STATUS_TO_EXCEPTION[400]).toBe(ValidationError);
+  });
+
+  test("maps 401 to AuthenticationError", () => {
     expect(HTTP_STATUS_TO_EXCEPTION[401]).toBe(AuthenticationError);
+  });
+
+  test("maps 403 to AuthenticationError", () => {
     expect(HTTP_STATUS_TO_EXCEPTION[403]).toBe(AuthenticationError);
+  });
+
+  test("maps 404 to MemoryNotFoundError", () => {
     expect(HTTP_STATUS_TO_EXCEPTION[404]).toBe(MemoryNotFoundError);
+  });
+
+  test("maps 408 to NetworkError", () => {
     expect(HTTP_STATUS_TO_EXCEPTION[408]).toBe(NetworkError);
+  });
+
+  test("maps 409 to ValidationError", () => {
     expect(HTTP_STATUS_TO_EXCEPTION[409]).toBe(ValidationError);
+  });
+
+  test("maps 413 to MemoryQuotaExceededError", () => {
     expect(HTTP_STATUS_TO_EXCEPTION[413]).toBe(MemoryQuotaExceededError);
+  });
+
+  test("maps 422 to ValidationError", () => {
     expect(HTTP_STATUS_TO_EXCEPTION[422]).toBe(ValidationError);
+  });
+
+  test("maps 429 to RateLimitError", () => {
     expect(HTTP_STATUS_TO_EXCEPTION[429]).toBe(RateLimitError);
+  });
+
+  test("maps 500 to MemoryError", () => {
     expect(HTTP_STATUS_TO_EXCEPTION[500]).toBe(MemoryError);
+  });
+
+  test("maps 502 to NetworkError", () => {
     expect(HTTP_STATUS_TO_EXCEPTION[502]).toBe(NetworkError);
+  });
+
+  test("maps 503 to NetworkError", () => {
     expect(HTTP_STATUS_TO_EXCEPTION[503]).toBe(NetworkError);
+  });
+
+  test("maps 504 to NetworkError", () => {
     expect(HTTP_STATUS_TO_EXCEPTION[504]).toBe(NetworkError);
   });
 });
