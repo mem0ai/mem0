@@ -1,6 +1,10 @@
 /**
- * MemoryClient API integration tests — converted from E2E to mock-based.
- * Same test names and assertions as original, but runs without API keys.
+ * MemoryClient API integration tests — mock-based, no API keys needed.
+ *
+ * Real usage examples (for manual E2E testing with actual API key):
+ *   const client = new MemoryClient({ apiKey, host: 'https://api.mem0.ai' });
+ *   const client = new MemoryClient({ apiKey, host: 'https://api.mem0.ai', organizationId: "org_xxx", projectId: "proj_xxx" });
+ *   const client = new MemoryClient({ apiKey, host: 'https://api.mem0.ai', organizationName: "my-org", projectName: "my-project" });
  */
 import { MemoryClient } from "../mem0";
 import {

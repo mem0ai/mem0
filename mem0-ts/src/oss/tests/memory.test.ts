@@ -4,8 +4,12 @@ import { MemoryItem, SearchResult } from "../src/types";
 
 jest.setTimeout(30000);
 
-// Mock LLM and embedder so tests run without API keys
-// Mock LLM: returns facts on first call, ADD decision on second call
+// Mock LLM and embedder so tests run without API keys.
+//
+// IMPORTANT: Memory.add() calls generateResponse exactly 2 times per invocation:
+//   1st call (odd): fact extraction → returns { facts: [...] }
+//   2nd call (even): memory update decision → returns { memory: [{ event: "ADD", text, ... }] }
+// If Memory's internal call sequence changes, this mock must be updated.
 let llmCallCount = 0;
 jest.mock("../src/llms/openai", () => ({
   OpenAILLM: jest.fn().mockImplementation(() => ({
