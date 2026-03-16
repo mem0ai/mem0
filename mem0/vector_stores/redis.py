@@ -192,8 +192,11 @@ class RedisDB(VectorStoreBase):
             "memory": payload["data"],
             "created_at": int(datetime.fromisoformat(payload["created_at"]).timestamp()),
             "updated_at": int(datetime.fromisoformat(payload["updated_at"]).timestamp()),
-            "embedding": np.array(vector, dtype=np.float32).tobytes(),
         }
+
+        # Only update embedding if vector is provided
+        if vector is not None:
+            data["embedding"] = np.array(vector, dtype=np.float32).tobytes()
 
         for field in ["agent_id", "run_id", "user_id"]:
             if field in payload:
