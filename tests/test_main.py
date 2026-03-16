@@ -296,3 +296,43 @@ def test_custom_prompts(memory_custom_instance):
                 messages=[{"role": "user", "content": mock_get_update_memory_messages.return_value}],
                 response_format={"type": "json_object"},
             )
+
+
+def test_no_telemetry_vector_store_when_disabled():
+    """VectorStoreFactory should only be called once (for user data) when telemetry is disabled."""
+    with (
+        patch("mem0.memory.main.MEM0_TELEMETRY", False),
+        patch("mem0.utils.factory.EmbedderFactory") as mock_embedder,
+        patch("mem0.memory.main.VectorStoreFactory") as mock_vector_store,
+        patch("mem0.utils.factory.LlmFactory") as mock_llm,
+        patch("mem0.memory.telemetry.capture_event"),
+    ):
+        mock_embedder.create.return_value = Mock()
+        mock_vector_store.create.return_value = Mock()
+        mock_llm.create.return_value = Mock()
+
+        config = MemoryConfig(version="v1.1")
+        Memory(config)
+
+        # VectorStoreFactory.create should be called exactly once — for user data only, not telemetry
+        assert mock_vector_store.create.call_count == 1
+
+
+def test_telemetry_vector_store_created_when_enabled():
+    """VectorStoreFactory should be called twice (user data + telemetry) when telemetry is enabled."""
+    with (
+        patch("mem0.memory.main.MEM0_TELEMETRY", True),
+        patch("mem0.utils.factory.EmbedderFactory") as mock_embedder,
+        patch("mem0.memory.main.VectorStoreFactory") as mock_vector_store,
+        patch("mem0.utils.factory.LlmFactory") as mock_llm,
+        patch("mem0.memory.telemetry.capture_event"),
+    ):
+        mock_embedder.create.return_value = Mock()
+        mock_vector_store.create.return_value = Mock()
+        mock_llm.create.return_value = Mock()
+
+        config = MemoryConfig(version="v1.1")
+        Memory(config)
+
+        # VectorStoreFactory.create should be called twice — user data + telemetry
+        assert mock_vector_store.create.call_count == 2
