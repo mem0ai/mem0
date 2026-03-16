@@ -13,6 +13,12 @@ When installed, Claude can:
 
 ## Installation
 
+### CLI (Claude Code, OpenCode, OpenClaw, or any tool that supports skills)
+
+```bash
+npx skills add https://github.com/mem0ai/mem0 --skill mem0
+```
+
 ### Claude.ai
 
 1. Download this `skills/mem0` folder as a ZIP
