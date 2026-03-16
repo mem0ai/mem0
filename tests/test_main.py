@@ -196,12 +196,15 @@ def test_delete_all(memory_instance, version, enable_graph):
     memory_instance.enable_graph = enable_graph
     mock_memories = [Mock(id="1"), Mock(id="2")]
     memory_instance.vector_store.list = Mock(return_value=(mock_memories, None))
+    memory_instance.vector_store.reset = Mock()
     memory_instance._delete_memory = Mock()
     memory_instance.graph.delete_all = Mock()
 
     result = memory_instance.delete_all(user_id="test_user")
 
     assert memory_instance._delete_memory.call_count == 2
+    # Ensure the collection is NOT dropped — only matched memories should be removed
+    memory_instance.vector_store.reset.assert_not_called()
 
     if enable_graph:
         memory_instance.graph.delete_all.assert_called_once_with({"user_id": "test_user"})
@@ -296,3 +299,43 @@ def test_custom_prompts(memory_custom_instance):
                 messages=[{"role": "user", "content": mock_get_update_memory_messages.return_value}],
                 response_format={"type": "json_object"},
             )
+
+
+def test_no_telemetry_vector_store_when_disabled():
+    """VectorStoreFactory should only be called once (for user data) when telemetry is disabled."""
+    with (
+        patch("mem0.memory.main.MEM0_TELEMETRY", False),
+        patch("mem0.utils.factory.EmbedderFactory") as mock_embedder,
+        patch("mem0.memory.main.VectorStoreFactory") as mock_vector_store,
+        patch("mem0.utils.factory.LlmFactory") as mock_llm,
+        patch("mem0.memory.telemetry.capture_event"),
+    ):
+        mock_embedder.create.return_value = Mock()
+        mock_vector_store.create.return_value = Mock()
+        mock_llm.create.return_value = Mock()
+
+        config = MemoryConfig(version="v1.1")
+        Memory(config)
+
+        # VectorStoreFactory.create should be called exactly once — for user data only, not telemetry
+        assert mock_vector_store.create.call_count == 1
+
+
+def test_telemetry_vector_store_created_when_enabled():
+    """VectorStoreFactory should be called twice (user data + telemetry) when telemetry is enabled."""
+    with (
+        patch("mem0.memory.main.MEM0_TELEMETRY", True),
+        patch("mem0.utils.factory.EmbedderFactory") as mock_embedder,
+        patch("mem0.memory.main.VectorStoreFactory") as mock_vector_store,
+        patch("mem0.utils.factory.LlmFactory") as mock_llm,
+        patch("mem0.memory.telemetry.capture_event"),
+    ):
+        mock_embedder.create.return_value = Mock()
+        mock_vector_store.create.return_value = Mock()
+        mock_llm.create.return_value = Mock()
+
+        config = MemoryConfig(version="v1.1")
+        Memory(config)
+
+        # VectorStoreFactory.create should be called twice — user data + telemetry
+        assert mock_vector_store.create.call_count == 2
