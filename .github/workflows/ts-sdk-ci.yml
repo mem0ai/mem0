@@ -53,13 +53,13 @@ jobs:
         working-directory: mem0-ts
         run: npx prettier --check .
 
-      - name: Run tests
-        working-directory: mem0-ts
-        run: pnpm run test:ci
-
       - name: Build
         working-directory: mem0-ts
         run: pnpm run build
+
+      - name: Run tests
+        working-directory: mem0-ts
+        run: pnpm run test:ci
 
       - name: Verify package exports
         working-directory: mem0-ts
