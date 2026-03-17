@@ -20,17 +20,26 @@ const describeIf = RUN_INTEGRATION ? describe : describe.skip;
 
 jest.setTimeout(120_000);
 
-async function listModels(): Promise<{ embedding: string | null; chat: string | null }> {
+async function listModels(): Promise<{
+  embedding: string | null;
+  chat: string | null;
+}> {
   const res = await fetch(`${LMSTUDIO_BASE_URL}/models`);
   const body = await res.json();
   const models: any[] = body.data || [];
-  const embedding = models.find((m) => m.id.includes("embed") || m.id.includes("nomic"));
-  const chat = models.find((m) => !m.id.includes("embed") && !m.id.includes("nomic"));
+  const embedding = models.find(
+    (m) => m.id.includes("embed") || m.id.includes("nomic"),
+  );
+  const chat = models.find(
+    (m) => !m.id.includes("embed") && !m.id.includes("nomic"),
+  );
   return { embedding: embedding?.id ?? null, chat: chat?.id ?? null };
 }
 
 function cosineSim(a: number[], b: number[]): number {
-  let dot = 0, normA = 0, normB = 0;
+  let dot = 0,
+    normA = 0,
+    normB = 0;
   for (let i = 0; i < a.length; i++) {
     dot += a[i] * b[i];
     normA += a[i] * a[i];
@@ -46,7 +55,10 @@ describeIf("LM Studio Integration", () => {
     expect(res.ok).toBe(true);
     const body = await res.json();
     expect(body.data).toBeDefined();
-    console.log("Loaded models:", body.data.map((m: any) => m.id));
+    console.log(
+      "Loaded models:",
+      body.data.map((m: any) => m.id),
+    );
   });
 
   // ─── Embedder ────────────────────────────────────────────────────────
@@ -58,7 +70,10 @@ describeIf("LM Studio Integration", () => {
       const models = await listModels();
       if (!models.embedding) throw new Error("No embedding model loaded");
       modelId = models.embedding;
-      embedder = new LMStudioEmbedder({ baseURL: LMSTUDIO_BASE_URL, model: modelId });
+      embedder = new LMStudioEmbedder({
+        baseURL: LMSTUDIO_BASE_URL,
+        model: modelId,
+      });
     });
 
     it("embed() returns a numeric vector", async () => {
@@ -94,7 +109,9 @@ describeIf("LM Studio Integration", () => {
       ]);
       const simSimilar = cosineSim(v1, v2);
       const simDifferent = cosineSim(v1, v3);
-      console.log(`  Similar: ${simSimilar.toFixed(4)}, Different: ${simDifferent.toFixed(4)}`);
+      console.log(
+        `  Similar: ${simSimilar.toFixed(4)}, Different: ${simDifferent.toFixed(4)}`,
+      );
       expect(Number.isFinite(simSimilar)).toBe(true);
       expect(Number.isFinite(simDifferent)).toBe(true);
       expect(simSimilar).toBeGreaterThan(simDifferent);
