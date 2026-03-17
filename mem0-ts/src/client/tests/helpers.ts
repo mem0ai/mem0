@@ -12,8 +12,9 @@ interface MockResponse {
 
 /**
  * Creates a mock fetch function that matches URL patterns to responses.
- * Patterns are matched using string includes (not exact match).
- * More specific patterns should be added first.
+ * Patterns are matched using string includes, sorted longest-first
+ * so more specific routes (e.g. /v1/memories/search/) win over
+ * broader ones (e.g. /v1/memories/) regardless of insertion order.
  */
 export function createMockFetch(
   responses: Map<string, MockResponse>,
@@ -27,7 +28,12 @@ export function createMockFetch(
             ? url.toString()
             : url.url;
 
-      for (const [pattern, response] of responses) {
+      // Sort patterns longest-first so specific routes match before broad ones
+      const sortedPatterns = [...responses.entries()].sort(
+        (a, b) => b[0].length - a[0].length,
+      );
+
+      for (const [pattern, response] of sortedPatterns) {
         if (urlStr.includes(pattern)) {
           return {
             ok: response.status >= 200 && response.status < 300,

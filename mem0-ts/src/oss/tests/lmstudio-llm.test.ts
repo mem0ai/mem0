@@ -18,9 +18,15 @@ describe("LMStudioLLM (unit)", () => {
 
   it("generateResponse() returns a text response", async () => {
     mockCreate.mockResolvedValueOnce({
-      choices: [{
-        message: { content: "Hello, world!", role: "assistant", tool_calls: null },
-      }],
+      choices: [
+        {
+          message: {
+            content: "Hello, world!",
+            role: "assistant",
+            tool_calls: null,
+          },
+        },
+      ],
     });
 
     const llm = new LMStudioLLM({ baseURL: "http://localhost:1234/v1" });
@@ -34,15 +40,22 @@ describe("LMStudioLLM (unit)", () => {
 
   it("generateResponse() handles tool calls", async () => {
     mockCreate.mockResolvedValueOnce({
-      choices: [{
-        message: {
-          content: "",
-          role: "assistant",
-          tool_calls: [{
-            function: { name: "get_weather", arguments: '{"city": "London"}' },
-          }],
+      choices: [
+        {
+          message: {
+            content: "",
+            role: "assistant",
+            tool_calls: [
+              {
+                function: {
+                  name: "get_weather",
+                  arguments: '{"city": "London"}',
+                },
+              },
+            ],
+          },
         },
-      }],
+      ],
     });
 
     const llm = new LMStudioLLM({ baseURL: "http://localhost:1234/v1" });
@@ -71,9 +84,11 @@ describe("LMStudioLLM (unit)", () => {
 
   it("generateChat() returns LLMResponse shape", async () => {
     mockCreate.mockResolvedValueOnce({
-      choices: [{
-        message: { content: "I can help with that.", role: "assistant" },
-      }],
+      choices: [
+        {
+          message: { content: "I can help with that.", role: "assistant" },
+        },
+      ],
     });
 
     const llm = new LMStudioLLM({ baseURL: "http://localhost:1234/v1" });
@@ -81,7 +96,10 @@ describe("LMStudioLLM (unit)", () => {
       { role: "user", content: "Help me" },
     ]);
 
-    expect(result).toEqual({ content: "I can help with that.", role: "assistant" });
+    expect(result).toEqual({
+      content: "I can help with that.",
+      role: "assistant",
+    });
   });
 
   it("generateChat() wraps API errors with a clear message", async () => {

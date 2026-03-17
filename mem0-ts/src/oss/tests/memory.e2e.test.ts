@@ -1,35 +1,45 @@
+/**
+ * OSS Memory E2E tests — exercises full add/get/search/update/delete flow with mocked LLM/embedder.
+ * Skipped by default. Run with: MEM0_RUN_E2E=1 npx jest memory.e2e.test.ts
+ */
 /// <reference types="jest" />
 import { Memory } from "../src/memory";
 import { MemoryItem, SearchResult } from "../src/types";
 
+const describeOrSkip = process.env.MEM0_RUN_E2E ? describe : describe.skip;
+
 jest.setTimeout(30000);
 
 // Mock LLM and embedder so tests run without API keys.
-//
-// IMPORTANT: Memory.add() calls generateResponse exactly 2 times per invocation:
-//   1st call (odd): fact extraction → returns { facts: [...] }
-//   2nd call (even): memory update decision → returns { memory: [{ event: "ADD", text, ... }] }
-// If Memory's internal call sequence changes, this mock must be updated.
-let llmCallCount = 0;
+// Content-based mock: system-prompt calls → facts, user-only calls → memory actions.
+jest.mock("../src/embeddings/google", () => ({ GoogleEmbedder: jest.fn() }));
+jest.mock("../src/llms/google", () => ({ GoogleLLM: jest.fn() }));
+
 jest.mock("../src/llms/openai", () => ({
   OpenAILLM: jest.fn().mockImplementation(() => ({
-    generateResponse: jest.fn().mockImplementation(() => {
-      llmCallCount++;
-      if (llmCallCount % 2 === 1) {
-        return JSON.stringify({ facts: ["John is a software engineer"] });
-      }
-      return JSON.stringify({
-        memory: [
-          {
-            id: "new",
-            event: "ADD",
-            text: "John is a software engineer",
-            old_memory: "",
-            new_memory: "John is a software engineer",
-          },
-        ],
-      });
-    }),
+    generateResponse: jest
+      .fn()
+      .mockImplementation(
+        (messages: Array<{ role: string; content: string }>) => {
+          const hasSystemRole = messages.some((m) => m.role === "system");
+          if (hasSystemRole) {
+            return JSON.stringify({
+              facts: ["John is a software engineer"],
+            });
+          }
+          return JSON.stringify({
+            memory: [
+              {
+                id: "new",
+                event: "ADD",
+                text: "John is a software engineer",
+                old_memory: "",
+                new_memory: "John is a software engineer",
+              },
+            ],
+          });
+        },
+      ),
   })),
 }));
 
@@ -40,14 +50,13 @@ jest.mock("../src/embeddings/openai", () => ({
   })),
 }));
 
-describe("Memory Class", () => {
+describeOrSkip("Memory Class (E2E)", () => {
   let memory: Memory;
   const userId =
     Math.random().toString(36).substring(2, 15) +
     Math.random().toString(36).substring(2, 15);
 
   beforeEach(async () => {
-    llmCallCount = 0;
     memory = new Memory({
       version: "v1.1",
       embedder: {

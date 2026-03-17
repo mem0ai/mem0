@@ -23,11 +23,15 @@ export class ConfigManager {
           // Normalize snake_case keys from Python SDK / OpenClaw configs
           const baseURL =
             userConf?.baseURL ??
-            (userConf as Record<string, unknown>)?.lmstudio_base_url as string | undefined ??
+            ((userConf as Record<string, unknown>)?.lmstudio_base_url as
+              | string
+              | undefined) ??
             userConf?.url;
           const embeddingDims =
             userConf?.embeddingDims ??
-            (userConf as Record<string, unknown>)?.embedding_dims as number | undefined;
+            ((userConf as Record<string, unknown>)?.embedding_dims as
+              | number
+              | undefined);
 
           return {
             apiKey:
@@ -103,7 +107,9 @@ export class ConfigManager {
           // Normalize snake_case keys from Python SDK / OpenClaw configs
           const llmBaseURL =
             userConf?.baseURL ??
-            (userConf as Record<string, unknown>)?.lmstudio_base_url as string | undefined ??
+            ((userConf as Record<string, unknown>)?.lmstudio_base_url as
+              | string
+              | undefined) ??
             defaultConf.baseURL;
 
           return {

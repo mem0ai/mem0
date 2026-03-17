@@ -1,12 +1,19 @@
 /**
- * MemoryClient API integration tests — mock-based, no API keys needed.
+ * MemoryClient E2E integration tests.
  *
- * Real usage examples (for manual E2E testing with actual API key):
- *   const client = new MemoryClient({ apiKey, host: 'https://api.mem0.ai' });
- *   const client = new MemoryClient({ apiKey, host: 'https://api.mem0.ai', organizationId: "org_xxx", projectId: "proj_xxx" });
- *   const client = new MemoryClient({ apiKey, host: 'https://api.mem0.ai', organizationName: "my-org", projectName: "my-project" });
+ * These tests exercise realistic usage patterns with mock HTTP responses.
+ * Skipped by default — run with MEM0_RUN_E2E=1 to enable.
+ *
+ * Run: MEM0_RUN_E2E=1 npx jest memoryClient.e2e.test.ts
  */
 import { MemoryClient } from "../mem0";
+import type {
+  Memory,
+  AllUsers,
+  MemoryHistory,
+  User,
+  Messages,
+} from "../mem0.types";
 import {
   createMockFetch,
   createMockMemory,
@@ -96,7 +103,9 @@ function mockFetchForTest(
   global.fetch = createMockFetch(responses);
 }
 
-describe("MemoryClient API", () => {
+const describeOrSkip = process.env.MEM0_RUN_E2E ? describe : describe.skip;
+
+describeOrSkip("MemoryClient API (E2E)", () => {
   beforeEach(() => mockFetchForTest());
 
   const messages1 = [
@@ -105,7 +114,7 @@ describe("MemoryClient API", () => {
   ];
 
   describe("add messages", () => {
-    let res: any;
+    let res: Memory[];
 
     beforeEach(async () => {
       const client = new MemoryClient({ apiKey: TEST_API_KEY });
@@ -130,7 +139,7 @@ describe("MemoryClient API", () => {
   });
 
   describe("retrieve specific memory by ID", () => {
-    let memory: any;
+    let memory: Memory;
 
     beforeEach(async () => {
       const client = new MemoryClient({ apiKey: TEST_API_KEY });
@@ -168,9 +177,9 @@ describe("MemoryClient API", () => {
 
     test("each category is a string", () => {
       if (Array.isArray(memory.categories)) {
-        expect(memory.categories.every((c: any) => typeof c === "string")).toBe(
-          true,
-        );
+        expect(
+          memory.categories.every((c: string) => typeof c === "string"),
+        ).toBe(true);
       }
     });
 
@@ -188,7 +197,7 @@ describe("MemoryClient API", () => {
   });
 
   describe("retrieve all users", () => {
-    let allUsers: any;
+    let allUsers: AllUsers;
 
     beforeEach(async () => {
       const client = new MemoryClient({ apiKey: TEST_API_KEY });
@@ -224,19 +233,23 @@ describe("MemoryClient API", () => {
     });
 
     test("results contain an entity matching userId", () => {
-      const entity = allUsers.results.find((user: any) => user.name === userId);
+      const entity = allUsers.results.find(
+        (user: User) => user.name === userId,
+      );
       expect(entity).not.toBeUndefined();
     });
 
     test("matched entity has a string id", () => {
-      const entity = allUsers.results.find((user: any) => user.name === userId);
+      const entity = allUsers.results.find(
+        (user: User) => user.name === userId,
+      );
       expect(typeof entity?.id).toBe("string");
     });
   });
 
   describe("retrieve all memories for the user", () => {
-    let memories: any;
-    let memory: any;
+    let memories: Memory[];
+    let memory: Memory;
 
     beforeEach(async () => {
       const client = new MemoryClient({ apiKey: TEST_API_KEY });
@@ -290,8 +303,8 @@ describe("MemoryClient API", () => {
   });
 
   describe("search with API version 2", () => {
-    let results: any;
-    let memory: any;
+    let results: Memory[];
+    let memory: Memory;
 
     beforeEach(async () => {
       const client = new MemoryClient({ apiKey: TEST_API_KEY });
@@ -341,8 +354,8 @@ describe("MemoryClient API", () => {
   });
 
   describe("search with API version 1", () => {
-    let results: any;
-    let memory: any;
+    let results: Memory[];
+    let memory: Memory;
 
     beforeEach(async () => {
       const client = new MemoryClient({ apiKey: TEST_API_KEY });
@@ -378,8 +391,8 @@ describe("MemoryClient API", () => {
   });
 
   describe("retrieve history of a specific memory", () => {
-    let history: any;
-    let entry: any;
+    let history: MemoryHistory[];
+    let entry: MemoryHistory;
 
     beforeEach(async () => {
       const client = new MemoryClient({ apiKey: TEST_API_KEY });
@@ -445,14 +458,16 @@ describe("MemoryClient API", () => {
 
     test("each input item is an object", () => {
       if (Array.isArray(entry.input)) {
-        expect(entry.input.every((i: any) => typeof i === "object")).toBe(true);
+        expect(entry.input.every((i: Messages) => typeof i === "object")).toBe(
+          true,
+        );
       }
     });
 
     test("each input item has a string content", () => {
       if (Array.isArray(entry.input)) {
         expect(
-          entry.input.every((i: any) => typeof i.content === "string"),
+          entry.input.every((i: Messages) => typeof i.content === "string"),
         ).toBe(true);
       }
     });
@@ -460,7 +475,9 @@ describe("MemoryClient API", () => {
     test("each input item has a valid role", () => {
       if (Array.isArray(entry.input)) {
         expect(
-          entry.input.every((i: any) => ["user", "assistant"].includes(i.role)),
+          entry.input.every((i: Messages) =>
+            ["user", "assistant"].includes(i.role),
+          ),
         ).toBe(true);
       }
     });

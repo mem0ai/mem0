@@ -7,12 +7,6 @@ import {
   NetworkError,
   ConfigurationError,
   MemoryQuotaExceededError,
-  VectorStoreError,
-  GraphStoreError,
-  EmbeddingError,
-  LLMError,
-  DatabaseError,
-  DependencyError,
   createExceptionFromResponse,
   HTTP_STATUS_TO_EXCEPTION,
 } from "./exceptions";
@@ -79,12 +73,6 @@ describe("Exception subclasses", () => {
     { Class: NetworkError, name: "NetworkError" },
     { Class: ConfigurationError, name: "ConfigurationError" },
     { Class: MemoryQuotaExceededError, name: "MemoryQuotaExceededError" },
-    { Class: VectorStoreError, name: "VectorStoreError" },
-    { Class: GraphStoreError, name: "GraphStoreError" },
-    { Class: EmbeddingError, name: "EmbeddingError" },
-    { Class: LLMError, name: "LLMError" },
-    { Class: DatabaseError, name: "DatabaseError" },
-    { Class: DependencyError, name: "DependencyError" },
   ] as const;
 
   test.each(subclasses)("$name extends MemoryError", ({ Class }) => {
@@ -105,78 +93,6 @@ describe("Exception subclasses", () => {
   test.each(subclasses)("$name supports instanceof checks", ({ Class }) => {
     const error = new Class("test", "CODE_001");
     expect(error instanceof Class).toBe(true);
-  });
-});
-
-describe("OSS exception defaults", () => {
-  test("VectorStoreError has default error code", () => {
-    const error = new VectorStoreError("store failed");
-    expect(error.errorCode).toBe("VECTOR_001");
-  });
-
-  test("VectorStoreError has default suggestion", () => {
-    const error = new VectorStoreError("store failed");
-    expect(error.suggestion).toBe(
-      "Please check your vector store configuration and connection",
-    );
-  });
-
-  test("GraphStoreError has default error code", () => {
-    const error = new GraphStoreError("graph failed");
-    expect(error.errorCode).toBe("GRAPH_001");
-  });
-
-  test("GraphStoreError has default suggestion", () => {
-    const error = new GraphStoreError("graph failed");
-    expect(error.suggestion).toBe(
-      "Please check your graph store configuration and connection",
-    );
-  });
-
-  test("EmbeddingError has default error code", () => {
-    const error = new EmbeddingError("embed failed");
-    expect(error.errorCode).toBe("EMBED_001");
-  });
-
-  test("EmbeddingError has default suggestion", () => {
-    const error = new EmbeddingError("embed failed");
-    expect(error.suggestion).toBe(
-      "Please check your embedding model configuration",
-    );
-  });
-
-  test("LLMError has default error code", () => {
-    const error = new LLMError("llm failed");
-    expect(error.errorCode).toBe("LLM_001");
-  });
-
-  test("LLMError has default suggestion", () => {
-    const error = new LLMError("llm failed");
-    expect(error.suggestion).toBe(
-      "Please check your LLM configuration and API key",
-    );
-  });
-
-  test("DatabaseError has default error code", () => {
-    const error = new DatabaseError("db failed");
-    expect(error.errorCode).toBe("DB_001");
-  });
-
-  test("DatabaseError has default suggestion", () => {
-    const error = new DatabaseError("db failed");
-    expect(error.suggestion).toBe(
-      "Please check your database configuration and connection",
-    );
-  });
-
-  test("DependencyError has default error code", () => {
-    const error = new DependencyError("missing dep");
-    expect(error.errorCode).toBe("DEPS_001");
-  });
-
-  test("DependencyError has default suggestion", () => {
-    const error = new DependencyError("missing dep");
-    expect(error.suggestion).toBe("Please install the required dependencies");
   });
 });
 

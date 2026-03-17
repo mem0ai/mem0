@@ -745,25 +745,6 @@ mode: "wide"
 
 <Tab title="TypeScript">
 
-<Update label="2026-03-17" description="v2.4.2">
-
-**Testing & Infrastructure:**
-- **Exception Hierarchy:** Added 14 structured exception classes with HTTP status code mapping (infrastructure for upcoming error handling — not yet integrated into client, will be wired in v2.5.0)
-- **Client Tests:** 191 unit tests for all 23 MemoryClient methods — one assertion per test case following AAA pattern
-- **OSS Memory Tests:** 16 unit tests for Memory class CRUD with mocked LLM/embedder — no API keys needed
-- **Edge Case Tests:** Discovered 2 bugs (`getAll()` and `search()` crash when called without options)
-- **Test Infrastructure:** Mock fetch helpers, factory functions, and constants for isolated testing
-- **CI Pipeline:** GitHub Actions workflow (`ts-sdk-ci.yml`) matching Python SDK pattern — Node 18/20/22 matrix
-
-**Bug Fixes:**
-- **Factory:** Google embedder/LLM imports are now lazy-loaded to prevent crashes when `@google/genai` has environment issues
-- **OSS Tests:** Fixed stale test args — `memory.add(msg, userId)` corrected to `memory.add(msg, { userId })` matching current API
-- **OSS Tests:** Fixed stale dimension assertion — aligned with auto-detect behavior from PR #4297
-- **Client Tests:** Converted E2E tests to mock-based so all tests run in CI without API keys
-- **Build:** Added `.gitignore` and `.prettierignore` to exclude `coverage/`, `dist/`, `node_modules/`
-
-</Update>
-
 <Update label="2026-03-16" description="v2.4.1">
 
 **Bug Fixes:**
