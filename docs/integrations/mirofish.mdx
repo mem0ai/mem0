@@ -1,78 +1,87 @@
 ---
 title: MiroFish
-description: "Plug Mem0 memory into MiroFish multi-agent swarm intelligence simulations."
+description: "Add persistent, per-agent memory to MiroFish swarm intelligence simulations with Mem0."
 partnerBadge: "MiroFish"
 ---
 
-# MiroFish integration
+# MiroFish Integration
 
-Connect [MiroFish](https://github.com/666ghj/MiroFish) multi-agent swarm intelligence simulations to Mem0 so every agent can persist and recall memory across simulation stages with per-agent isolation.
+[MiroFish](https://github.com/666ghj/MiroFish) is an open-source swarm intelligence engine that simulates thousands of autonomous agents with independent personalities to predict real-world outcomes. It runs a five-stage pipeline — graph building, environment setup, simulation, report generation, and deep interaction.
+
+Mem0 plugs into this pipeline as a memory layer so every agent can persist and recall memories across simulation stages with per-agent isolation.
 
 <Info>
   **Prerequisites**
-  - Mem0: `pip install mem0ai`, `MEM0_API_KEY` (or self-hosted endpoint)
+  - Mem0: `pip install mem0ai`, get your API key from [Mem0 Platform](https://app.mem0.ai)
   - MiroFish: cloned and set up per [MiroFish README](https://github.com/666ghj/MiroFish)
-  - Optional: Neo4j for graph memory (entity/relationship extraction)
+  - For OSS mode: `OPENAI_API_KEY` for LLM-powered memory extraction
 </Info>
 
-<Note>MiroFish is a Python-based framework. A TypeScript path is not available yet.</Note>
+## Why Mem0 with MiroFish
 
-## Why Mem0 for MiroFish?
+MiroFish ships with Zep Cloud for memory. Mem0 offers a complementary path with distinct advantages:
 
-MiroFish currently uses Zep Cloud as its sole memory layer. Mem0 offers significant advantages for multi-agent simulations:
+| | Zep Cloud | Mem0 Platform | Mem0 OSS |
+|---|---|---|---|
+| **Self-hosting** | No | No | Yes (full control) |
+| **Per-agent memory isolation** | Flat graph | Native `agent_id` scoping | Native `agent_id` scoping |
+| **Node/memory limits** | Free tier capped | Usage-based | Unlimited |
+| **Knowledge graph** | Built-in | Managed | Neo4j via `graph_store` |
+| **Setup complexity** | API key only | API key only | Requires vector store + LLM |
+| **Automatic entity extraction** | Built-in | Built-in | Via LLM + graph store |
 
-| Zep Cloud Limitation | Mem0 Solution |
-|----------------------|--------------|
-| Cloud-only, no self-hosting | Mem0 OSS runs fully local, no API keys needed |
-| 1,000 free credits/month | Mem0 OSS is unlimited; Platform free tier offers 10K memories |
-| 2,000 node hard cap | No artificial limits on memory count |
-| No per-agent memory isolation | Native `user_id` / `agent_id` / `run_id` partitioning |
-| Write-only during simulation | Agents can read their own memories mid-simulation |
-| 600s episode processing lag | `add()` is synchronous, memories immediately available |
-| Complex pagination boilerplate | Simple `get_all()` and `search()` APIs |
+<Tip>
+  For the closest feature parity with Zep's knowledge graph, use **Mem0 OSS with Graph Memory** (Neo4j). This gives you automatic entity/relationship extraction. See the [Advanced: Graph Memory](#advanced-graph-memory-with-neo4j) section.
+</Tip>
 
-## Configure credentials
+## Configure Credentials
 
 <Tabs>
-  <Tab title="Mem0">
+  <Tab title="Platform">
 <Steps>
+<Step title="Install Mem0">
+```bash
+pip install mem0ai
+```
+</Step>
 <Step title="Get your API key">
 Sign up at [Mem0 Platform](https://app.mem0.ai) and copy your API key.
 </Step>
 <Step title="Export your API key">
 ```bash
-export MEM0_API_KEY="your-mem0-api-key"
+export MEM0_API_KEY="m0-..."
 ```
 </Step>
 </Steps>
   </Tab>
-  <Tab title="MiroFish">
+  <Tab title="OSS (Self-Hosted)">
 <Steps>
-<Step title="Install Mem0 dependency">
+<Step title="Install Mem0">
 ```bash
 pip install mem0ai
 ```
 </Step>
-<Step title="(Optional) Set up LLM credentials for OSS mode">
+<Step title="Add your LLM credentials">
 ```bash
-export OPENAI_API_KEY="your-openai-key"
+export OPENAI_API_KEY="sk-..."
 ```
 </Step>
-<Step title="(Optional) Start Neo4j for graph memory">
+<Step title="(Optional) Point to your Mem0 API if self-hosting">
 ```bash
-docker run -d --name neo4j -p 7687:7687 -p 7474:7474 \
-  -e NEO4J_AUTH=neo4j/password neo4j:latest
+export MEM0_BASE_URL="https://your-mem0-domain"
 ```
 </Step>
 </Steps>
   </Tab>
 </Tabs>
 
-<Tip>
-  `MemoryClient` reads `MEM0_API_KEY` automatically. Pass `api_key` explicitly only when you need to override the environment.
-</Tip>
+## How Mem0 Maps to MiroFish's Pipeline
 
-## Store and retrieve agent memories
+MiroFish runs a five-stage workflow. Here's where Mem0 fits in each stage:
+
+### Stage 1: Graph Building — Ingest Seed Documents
+
+MiroFish ingests seed materials (news, reports, stories) to build background knowledge. With Mem0, each document chunk becomes a searchable memory.
 
 <Tabs>
   <Tab title="Platform">
@@ -80,23 +89,22 @@ docker run -d --name neo4j -p 7687:7687 -p 7474:7474 \
 from mem0 import MemoryClient
 
 client = MemoryClient()
+project_id = "mirofish_housing_sim"
 
-# Store an agent's action during simulation
-client.add(
-    "Agent_Alice posted: 'The new policy will increase housing costs significantly'",
-    user_id="simulation_001",
-    agent_id="agent_alice",
-    metadata={"platform": "twitter", "action": "CREATE_POST", "round": 5}
-)
+# Ingest seed documents as background knowledge
+seed_docs = [
+    "The city council proposed a new zoning reform allowing higher density housing. "
+    "Mayor Chen expressed strong support, citing a 40% housing shortage.",
+    "Local homeowners association president Wang opposes the reform, "
+    "arguing it will decrease property values by 15-20%.",
+]
 
-# Retrieve agent's memories for report generation
-results = client.search(
-    "What did Alice say about housing policy?",
-    user_id="simulation_001",
-    agent_id="agent_alice"
-)
-for r in results["results"]:
-    print(f"- {r['memory']}")
+for doc in seed_docs:
+    client.add(
+        [{"role": "user", "content": doc}],
+        user_id=project_id,
+        metadata={"stage": "graph_building", "source": "seed_document"}
+    )
 ```
   </Tab>
   <Tab title="OSS">
@@ -107,6 +115,231 @@ config = {
     "llm": {
         "provider": "openai",
         "config": {"model": "gpt-4o-mini"}
+    }
+}
+memory = Memory.from_config(config)
+project_id = "mirofish_housing_sim"
+
+# Ingest seed documents as background knowledge
+seed_docs = [
+    "The city council proposed a new zoning reform allowing higher density housing. "
+    "Mayor Chen expressed strong support, citing a 40% housing shortage.",
+    "Local homeowners association president Wang opposes the reform, "
+    "arguing it will decrease property values by 15-20%.",
+]
+
+for doc in seed_docs:
+    memory.add(
+        doc,
+        user_id=project_id,
+        metadata={"stage": "graph_building", "source": "seed_document"}
+    )
+```
+  </Tab>
+</Tabs>
+
+### Stage 2: Environment Setup — Enrich Agent Profiles
+
+Before simulation, MiroFish generates agent profiles. Use Mem0 to retrieve relevant context for each agent's persona.
+
+<Tabs>
+  <Tab title="Platform">
+```python
+# Search for context relevant to an agent's profile
+results = client.search(
+    "What is known about Mayor Chen's position on housing?",
+    filters={"user_id": project_id}
+)
+for r in results["results"]:
+    print(f"  - {r['memory']}")
+# Use these facts to enrich the agent's persona prompt
+```
+  </Tab>
+  <Tab title="OSS">
+```python
+results = memory.search(
+    "What is known about Mayor Chen's position on housing?",
+    user_id=project_id  # OSS uses top-level kwargs, not filters dict
+)
+for r in results["results"]:
+    print(f"  - {r['memory']}")
+```
+  </Tab>
+</Tabs>
+
+### Stage 3: Simulation — Track Agent Activities Per Round
+
+During simulation, agents perform actions (post, comment, like, follow). Each action is stored as a memory with the agent's own `agent_id` for isolation.
+
+<Tabs>
+  <Tab title="Platform">
+```python
+# Round 1: Agents post opening statements
+client.add(
+    [{"role": "user", "content": "Posted: 'This reform will create 10,000 new housing units by 2028.'"}],
+    user_id=project_id,
+    agent_id="mayor_chen",
+    metadata={"action": "CREATE_POST", "platform": "twitter", "round": 1}
+)
+
+client.add(
+    [{"role": "user", "content": "Posted: 'Our property values will plummet! #StopTheReform'"}],
+    user_id=project_id,
+    agent_id="wang_homeowner",
+    metadata={"action": "CREATE_POST", "platform": "twitter", "round": 1}
+)
+
+# Round 2: Agents interact with each other
+client.add(
+    [{"role": "user", "content": "Commented on wang_homeowner's post: 'The data does not support your claims.'"}],
+    user_id=project_id,
+    agent_id="mayor_chen",
+    metadata={"action": "CREATE_COMMENT", "platform": "twitter", "round": 2}
+)
+
+# Mid-simulation recall: agent reads own memory before deciding next action
+mayor_memories = client.search(
+    "What have I posted about housing reform?",
+    filters={"AND": [{"user_id": project_id}, {"agent_id": "mayor_chen"}]}
+)
+```
+  </Tab>
+  <Tab title="OSS">
+```python
+# Round 1: Agents post opening statements
+memory.add(
+    "Posted: 'This reform will create 10,000 new housing units by 2028.'",
+    user_id=project_id,
+    agent_id="mayor_chen",
+    metadata={"action": "CREATE_POST", "platform": "twitter", "round": 1}
+)
+
+memory.add(
+    "Posted: 'Our property values will plummet! #StopTheReform'",
+    user_id=project_id,
+    agent_id="wang_homeowner",
+    metadata={"action": "CREATE_POST", "platform": "twitter", "round": 1}
+)
+
+# Round 2: Agents interact
+memory.add(
+    "Commented on wang_homeowner's post: 'The data does not support your claims.'",
+    user_id=project_id,
+    agent_id="mayor_chen",
+    metadata={"action": "CREATE_COMMENT", "platform": "twitter", "round": 2}
+)
+
+# Mid-simulation recall
+mayor_memories = memory.search(
+    "What have I posted about housing reform?",
+    user_id=project_id,
+    agent_id="mayor_chen"
+)
+```
+  </Tab>
+</Tabs>
+
+<Note>
+  **Per-agent isolation**: Each agent only sees its own memories when `agent_id` is provided. This prevents cross-contamination — agent Wang cannot accidentally recall Mayor Chen's internal reasoning.
+</Note>
+
+### Stage 4: Report Generation — Semantic Retrieval for Analysis
+
+After simulation completes, MiroFish's ReportAgent queries memory to generate prediction reports.
+
+<Tabs>
+  <Tab title="Platform">
+```python
+# Broad retrieval: get all simulation memories
+all_memories = client.get_all(filters={"user_id": project_id})
+print(f"Total memories across all agents: {len(all_memories['results'])}")
+
+# Targeted search: find opposition arguments
+opposition = client.search(
+    "arguments against the housing reform",
+    filters={"user_id": project_id},
+    top_k=10
+)
+for r in opposition["results"]:
+    print(f"  - {r['memory']}")
+
+# Agent-specific search: what did a specific agent do?
+wang_actions = client.search(
+    "All actions and posts",
+    filters={"AND": [{"user_id": project_id}, {"agent_id": "wang_homeowner"}]}
+)
+```
+  </Tab>
+  <Tab title="OSS">
+```python
+all_memories = memory.get_all(user_id=project_id)
+print(f"Total memories across all agents: {len(all_memories['results'])}")
+
+opposition = memory.search(
+    "arguments against the housing reform",
+    user_id=project_id,
+    limit=10  # OSS uses top-level kwargs
+)
+for r in opposition["results"]:
+    print(f"  - {r['memory']}")
+
+wang_actions = memory.search(
+    "All actions and posts",
+    user_id=project_id,
+    agent_id="wang_homeowner"  # OSS uses top-level kwargs
+)
+```
+  </Tab>
+</Tabs>
+
+### Stage 5: Deep Interaction — Chat with Post-Simulation Memory
+
+After reports are generated, users can chat with agents or the ReportAgent. Mem0 provides the memory context for these conversations.
+
+```python
+# User asks a follow-up question to the ReportAgent
+context = client.search(
+    "How did public opinion shift between round 1 and round 3?",
+    filters={"user_id": project_id},
+    top_k=20
+)
+
+# Feed context into your LLM prompt for the ReportAgent
+report_context = "\n".join([f"- {r['memory']}" for r in context["results"]])
+```
+
+## ID Mapping Strategy
+
+Map MiroFish concepts to Mem0 identifiers for clean memory isolation:
+
+| MiroFish Concept | Mem0 Identifier | Example | Purpose |
+|---|---|---|---|
+| Project / Simulation | `user_id` | `"mirofish_housing_sim"` | Isolates all memories for one simulation |
+| Individual Agent | `agent_id` | `"mayor_chen"` | Per-agent memory isolation |
+| Simulation Run | `run_id` | `"run_2026_03_17"` | Separates repeated runs of same simulation |
+| Action Type | `metadata["action"]` | `"CREATE_POST"` | Filter by action type |
+| Platform | `metadata["platform"]` | `"twitter"` | Filter by simulated platform |
+| Round Number | `metadata["round"]` | `5` | Filter by simulation round |
+
+<Tip>
+  Use `user_id` for project-level isolation and `agent_id` for agent-level isolation. This lets you search across all agents (`filters={"user_id": ...}`) or within a single agent (`filters={"AND": [{"user_id": ...}, {"agent_id": ...}]}`).
+</Tip>
+
+## Advanced: Graph Memory with Neo4j
+
+For simulations that need **automatic entity extraction and relationship mining** (closest to Zep's knowledge graph), use Mem0 OSS with Graph Memory:
+
+```python
+from mem0 import Memory
+
+config = {
+    "llm": {
+        "provider": "openai",
+        "config": {"model": "gpt-4o-mini", "temperature": 0.1}
+    },
+    "embedder": {
+        "provider": "openai",
+        "config": {"model": "text-embedding-3-small"}
     },
     "graph_store": {
         "provider": "neo4j",
@@ -120,74 +353,99 @@ config = {
 
 memory = Memory.from_config(config)
 
-# Store an agent's action during simulation
+# Ingest seed document — entities and relationships are extracted automatically
 memory.add(
-    "Agent_Alice posted: 'The new policy will increase housing costs significantly'",
-    user_id="simulation_001",
-    agent_id="agent_alice",
-    metadata={"platform": "twitter", "action": "CREATE_POST", "round": 5}
+    "Mayor Chen supports the zoning reform. Wang opposes it and filed a petition with 3,000 signatures.",
+    user_id="mirofish_housing_sim"
 )
 
-# Retrieve agent's memories for report generation
-results = memory.search(
-    "What did Alice say about housing policy?",
-    user_id="simulation_001",
-    agent_id="agent_alice"
-)
-for r in results["results"]:
-    print(f"- {r['memory']}")
+# Search returns both memories AND extracted relations
+results = memory.search("Mayor Chen", user_id="mirofish_housing_sim")
+
+print("Memories:", results.get("results", []))
+print("Relations:", results.get("relations", []))
+# Relations: [
+#   {"source": "Mayor Chen", "relationship": "SUPPORTS", "target": "zoning reform"},
+#   {"source": "Wang", "relationship": "OPPOSES", "target": "zoning reform"},
+#   {"source": "Wang", "relationship": "FILED", "target": "petition"}
+# ]
 ```
-  </Tab>
-</Tabs>
 
-## How Mem0 maps to MiroFish's workflow
+This gives you:
+- **Automatic entity extraction** from raw text (names, organizations, policies)
+- **Relationship mining** (who supports/opposes/filed what)
+- **Graph traversal** for connected entity discovery
+- **Combined search** returning both semantic memories and structured relations
 
-MiroFish runs a five-stage pipeline. Here is how Mem0 plugs into each stage:
+<Info>
+  Graph Memory requires a running Neo4j instance. For quick local setup: `docker run -p 7687:7687 -e NEO4J_AUTH=neo4j/password neo4j:5`
+</Info>
 
-| MiroFish Stage | What Happens | Mem0 Feature Used |
-|---------------|-------------|-------------------|
-| **Graph Building** | Seed documents to entity/relationship extraction | `memory.add()` with graph store extracts entities automatically |
-| **Entity Extraction** | Filter entities by type for agent creation | `memory.get_all()` + metadata filtering |
-| **Simulation Memory** | Real-time agent actions to memory updates | `memory.add()` per agent with `agent_id` isolation |
-| **Report Retrieval** | Semantic search over simulation history | `memory.search()` with filters |
-| **Agent Interviews** | Context retrieval for agent responses | `memory.search(agent_id=...)` for agent-specific recall |
+## Verify the Integration
 
-## ID mapping strategy
+Run these checks to confirm everything works:
 
-Map MiroFish concepts to Mem0 identifiers for clean memory isolation:
+```python
+from mem0 import MemoryClient
+import time
 
-| MiroFish Concept | Mem0 Identifier | Example |
-|-----------------|----------------|---------|
-| Project / Graph | `user_id` | `"mirofish_a1b2c3d4"` |
-| Simulation Run | `run_id` | `"sim_run_2026_03_17"` |
-| Individual Agent | `agent_id` | `"agent_alice"` |
-| Action Type | `metadata.action_type` | `"CREATE_POST"` |
-| Platform | `metadata.platform` | `"twitter"` |
-| Round Number | `metadata.round` | `5` |
+client = MemoryClient()
+test_id = "mirofish_verify_test"
 
-## Verify the integration
+# 1. Store a memory
+result = client.add(
+    [{"role": "user", "content": "Agent_Alice posted about housing costs"}],
+    user_id=test_id,
+    agent_id="alice"
+)
+print(f"add() status: {result['results'][0]['status']}")
 
-- `memory.add()` returns extracted memories without errors.
-- `memory.search()` retrieves relevant agent-specific memories.
-- `memory.get_all(agent_id=...)` returns only that agent's memories.
-- Mem0 dashboard shows memories scoped to the correct `user_id` and `agent_id`.
+# 2. Wait for async processing
+time.sleep(30)
+
+# 3. Get all memories
+all_mems = client.get_all(filters={"user_id": test_id})
+print(f"get_all() returned {len(all_mems['results'])} memories")
+for m in all_mems["results"]:
+    print(f"  - {m['memory']}")
+
+# 4. Search for it
+results = client.search(
+    "housing costs",
+    filters={"AND": [{"user_id": test_id}, {"agent_id": "alice"}]}
+)
+print(f"search() returned {len(results.get('results', []))} results")
+
+# 5. Cleanup
+client.delete_all(user_id=test_id)
+print("Verification complete!")
+```
+
+<Note>
+Memory processing on Mem0 Platform is asynchronous. `add()` returns immediately with a `PENDING` status. Memories become available via `get_all()` within seconds, but `search()` may take up to 30-60 seconds as embeddings are generated and indexed.
+</Note>
 
 ## Troubleshooting
 
-- **Missing MEM0_API_KEY** - set `export MEM0_API_KEY="sk-..."` or pass `api_key` into `MemoryClient`.
-- **No memories returned** - ensure `agent_id`/`user_id` in your query match what you used when writing.
-- **Network errors to Mem0** - if self-hosting, set `MEM0_BASE_URL` to your deployment URL.
+| Problem | Solution |
+|---|---|
+| `AuthenticationError` | Set `export MEM0_API_KEY="m0-..."` or pass `api_key` to `MemoryClient()` |
+| `ValidationError: Filters are required` | `search()` and `get_all()` require `filters={"user_id": "..."}`. Use `filters` dict, not bare `user_id` kwarg. |
+| `search()` returns empty but `get_all()` works | Memory processing is async on Platform. Wait 30-60 seconds after `add()` for search indexing to complete. Use `get_all()` as a fallback for immediate retrieval. |
+| Network errors | If self-hosting, set `MEM0_BASE_URL` to your deployment URL |
+| OSS mode errors | Confirm `OPENAI_API_KEY` is set and the configured model is accessible |
+| Want knowledge graph features | Use Mem0 OSS with `graph_store` configured for Neo4j (see [Advanced section](#advanced-graph-memory-with-neo4j)) |
 
 <CardGroup cols={2}>
   <Card
     title="MiroFish Swarm Memory Cookbook"
-    description="Complete implementation and end-to-end examples for MiroFish memory."
+    description="Full end-to-end simulation example with complete runnable code."
     icon="fish"
     href="/cookbooks/frameworks/mirofish-swarm-memory"
   />
   <Card
     title="Camel AI Integration"
-    description="Mem0 with CAMEL agents, the framework powering MiroFish's OASIS engine."
+    description="Mem0 with CAMEL agents — the framework powering MiroFish's OASIS engine."
     icon="camel"
     href="/integrations/camel-ai"
   />
