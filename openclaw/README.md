@@ -180,11 +180,11 @@ Works with zero extra config. The `oss` block lets you swap out any component:
 | Key | Type | Default | |
 |-----|------|---------|---|
 | `customPrompt` | `string` | *(built-in)* | Extraction prompt for memory processing |
-| `oss.embedder.provider` | `string` | `"openai"` | Embedding provider (`"openai"`, `"ollama"`, etc.) |
+| `oss.embedder.provider` | `string` | `"openai"` | Embedding provider (`"openai"`, `"ollama"`, `"lmstudio"`, etc.) |
 | `oss.embedder.config` | `object` | — | Provider config: `apiKey`, `model`, `baseURL` |
 | `oss.vectorStore.provider` | `string` | `"memory"` | Vector store (`"memory"`, `"qdrant"`, `"chroma"`, etc.) |
 | `oss.vectorStore.config` | `object` | — | Provider config: `host`, `port`, `collectionName`, `dimension` |
-| `oss.llm.provider` | `string` | `"openai"` | LLM provider (`"openai"`, `"anthropic"`, `"ollama"`, etc.) |
+| `oss.llm.provider` | `string` | `"openai"` | LLM provider (`"openai"`, `"anthropic"`, `"ollama"`, `"lmstudio"`, etc.) |
 | `oss.llm.config` | `object` | — | Provider config: `apiKey`, `model`, `baseURL`, `temperature` |
 | `oss.historyDbPath` | `string` | — | SQLite path for memory edit history |
 

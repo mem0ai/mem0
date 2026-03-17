@@ -1,6 +1,29 @@
 /// <reference types="jest" />
-import { VectorStoreFactory } from "../src/utils/factory";
+import {
+  EmbedderFactory,
+  VectorStoreFactory,
+} from "../src/utils/factory";
+import { LMStudioEmbedder } from "../src/embeddings/lmstudio";
 import { AzureAISearch } from "../src/vector_stores/azure_ai_search";
+
+describe("EmbedderFactory", () => {
+  describe("create", () => {
+    it("should create LM Studio embedder with baseURL", () => {
+      const embedder = EmbedderFactory.create("lmstudio", {
+        model: "text-embedding-gte-qwen2-1.5b-instruct",
+        baseURL: "http://localhost:1234/v1",
+      });
+
+      expect(embedder).toBeInstanceOf(LMStudioEmbedder);
+    });
+
+    it("should throw error for unsupported embedder provider", () => {
+      expect(() => {
+        EmbedderFactory.create("unsupported-embedder", {});
+      }).toThrow("Unsupported embedder provider: unsupported-embedder");
+    });
+  });
+});
 
 describe("VectorStoreFactory", () => {
   describe("create", () => {
