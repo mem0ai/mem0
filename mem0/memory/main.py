@@ -69,9 +69,17 @@ def _safe_deepcopy_config(config):
         else:
             clone_dict = {k: v for k, v in config.__dict__.items()}
         
-        sensitive_tokens = ("auth", "credential", "password", "token", "secret", "key", "connection_class")
+        # Exact field names or suffix/prefix patterns to sanitize for telemetry.
+        # Deliberately more precise than simple substring matching to avoid
+        # clearing functional fields like `http_auth` that are needed for
+        # config reconstruction (e.g. AWS OpenSearch AWSV4SignerAuth).
+        sensitive_exact = {"connection_class"}
+        sensitive_suffixes = ("_auth", "_credential", "_password", "_token", "_secret", "_key",
+                               "auth_token", "auth_key")
         for field_name in list(clone_dict.keys()):
-            if any(token in field_name.lower() for token in sensitive_tokens):
+            fname = field_name.lower()
+            if fname in sensitive_exact or any(fname.endswith(sfx) or fname.startswith(sfx)
+                                               for sfx in sensitive_suffixes):
                 clone_dict[field_name] = None
         
         try:
