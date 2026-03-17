@@ -1,4 +1,5 @@
-approveBuilds: esbuild
+packages:
+  - '.'
 
 onlyBuiltDependencies:
   - better-sqlite3
