@@ -17,6 +17,7 @@ import {
   GetMemoryExportPayload,
 } from "./mem0.types";
 import { captureClientEvent, generateHash } from "./telemetry";
+import { createExceptionFromResponse, MemoryError } from "../common/exceptions";
 
 class APIError extends Error {
   constructor(message: string) {
@@ -155,7 +156,7 @@ export default class MemoryClient {
     });
     if (!response.ok) {
       const errorData = await response.text();
-      throw new APIError(`API request failed: ${errorData}`);
+      throw createExceptionFromResponse(response.status, errorData);
     }
     const jsonResponse = await response.json();
     return jsonResponse;
@@ -200,8 +201,8 @@ export default class MemoryClient {
       if (project_id && !this.projectId) this.projectId = project_id;
       if (user_email) this.telemetryId = user_email;
     } catch (error: any) {
-      // Convert generic errors to APIError with meaningful messages
-      if (error instanceof APIError) {
+      // Pass through structured exceptions and APIError
+      if (error instanceof MemoryError || error instanceof APIError) {
         throw error;
       } else {
         throw new APIError(
@@ -310,7 +311,7 @@ export default class MemoryClient {
     this._validateOrgProject();
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("get_all", [payloadKeys]);
-    const { api_version, page, page_size, ...otherOptions } = options!;
+    const { api_version, page, page_size, ...otherOptions } = options ?? {};
     if (this.organizationName != null && this.projectName != null) {
       otherOptions.org_name = this.organizationName;
       otherOptions.project_name = this.projectName;
@@ -361,7 +362,7 @@ export default class MemoryClient {
     this._validateOrgProject();
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("search", [payloadKeys]);
-    const { api_version, ...otherOptions } = options!;
+    const { api_version, ...otherOptions } = options ?? {};
     const payload = { query, ...otherOptions };
     if (this.organizationName != null && this.projectName != null) {
       payload.org_name = this.organizationName;

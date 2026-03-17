@@ -61,12 +61,12 @@ describe("LMStudioEmbedder (unit)", () => {
   });
 
   it("embedBatch() returns vectors for multiple inputs", async () => {
-    const mockBatch = [[0.1, 0.2], [0.3, 0.4]];
+    const mockBatch = [
+      [0.1, 0.2],
+      [0.3, 0.4],
+    ];
     mockCreate.mockResolvedValueOnce({
-      data: [
-        { embedding: mockBatch[0] },
-        { embedding: mockBatch[1] },
-      ],
+      data: [{ embedding: mockBatch[0] }, { embedding: mockBatch[1] }],
     });
 
     const embedder = new LMStudioEmbedder({

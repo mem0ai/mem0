@@ -190,7 +190,10 @@ describe("ConfigManager", () => {
       const cfg = ConfigManager.mergeConfig({
         embedder: {
           provider: "lmstudio",
-          config: { model: "nomic-embed-text-v1.5", embedding_dims: 768 } as any,
+          config: {
+            model: "nomic-embed-text-v1.5",
+            embedding_dims: 768,
+          } as any,
         },
         vectorStore: { provider: "memory", config: {} },
         llm: baseLlm,
@@ -313,7 +316,11 @@ describe("ConfigManager", () => {
         },
         vectorStore: {
           provider: "qdrant",
-          config: { host: "192.168.200.12", port: 6333, checkCompatibility: false },
+          config: {
+            host: "192.168.200.12",
+            port: 6333,
+            checkCompatibility: false,
+          },
         },
         llm: {
           provider: "lmstudio",
@@ -326,7 +333,9 @@ describe("ConfigManager", () => {
 
       expect(cfg.embedder.provider).toBe("lmstudio");
       expect(cfg.embedder.config.baseURL).toBe("http://192.168.200.83:1234/v1");
-      expect(cfg.embedder.config.model).toBe("text-embedding-gte-qwen2-1.5b-instruct");
+      expect(cfg.embedder.config.model).toBe(
+        "text-embedding-gte-qwen2-1.5b-instruct",
+      );
       expect(cfg.embedder.config.embeddingDims).toBe(1536);
 
       expect(cfg.llm.provider).toBe("lmstudio");
@@ -409,12 +418,18 @@ describe("Memory – LM Studio end-to-end flow", () => {
     const mem = new MemoryClass({
       embedder: {
         provider: "lmstudio",
-        config: { model: "nomic-embed-text-v1.5", baseURL: "http://localhost:1234/v1" },
+        config: {
+          model: "nomic-embed-text-v1.5",
+          baseURL: "http://localhost:1234/v1",
+        },
       },
       vectorStore: { provider: "memory", config: { collectionName: "test" } },
       llm: {
         provider: "lmstudio",
-        config: { model: "meta-llama-3.1-70b", baseURL: "http://localhost:1234/v1" },
+        config: {
+          model: "meta-llama-3.1-70b",
+          baseURL: "http://localhost:1234/v1",
+        },
       },
       disableHistory: true,
     });
@@ -423,11 +438,17 @@ describe("Memory – LM Studio end-to-end flow", () => {
 
     expect(mockEmbedderFactory.create).toHaveBeenCalledWith(
       "lmstudio",
-      expect.objectContaining({ model: "nomic-embed-text-v1.5", baseURL: "http://localhost:1234/v1" }),
+      expect.objectContaining({
+        model: "nomic-embed-text-v1.5",
+        baseURL: "http://localhost:1234/v1",
+      }),
     );
     expect(mockLlmFactory.create).toHaveBeenCalledWith(
       "lmstudio",
-      expect.objectContaining({ model: "meta-llama-3.1-70b", baseURL: "http://localhost:1234/v1" }),
+      expect.objectContaining({
+        model: "meta-llama-3.1-70b",
+        baseURL: "http://localhost:1234/v1",
+      }),
     );
   });
 
@@ -435,10 +456,16 @@ describe("Memory – LM Studio end-to-end flow", () => {
     const mem = new MemoryClass({
       embedder: {
         provider: "lmstudio",
-        config: { model: "nomic-embed-text-v1.5", baseURL: "http://localhost:1234/v1" },
+        config: {
+          model: "nomic-embed-text-v1.5",
+          baseURL: "http://localhost:1234/v1",
+        },
       },
       vectorStore: { provider: "qdrant", config: { collectionName: "test" } },
-      llm: { provider: "lmstudio", config: { baseURL: "http://localhost:1234/v1" } },
+      llm: {
+        provider: "lmstudio",
+        config: { baseURL: "http://localhost:1234/v1" },
+      },
       disableHistory: true,
     });
 
@@ -462,7 +489,10 @@ describe("Memory – LM Studio end-to-end flow", () => {
       vectorStore: { provider: "memory", config: { collectionName: "test" } },
       llm: {
         provider: "lmstudio",
-        config: { model: "openai/gpt-oss-20b", lmstudio_base_url: "http://192.168.200.83:1234/v1" } as any,
+        config: {
+          model: "openai/gpt-oss-20b",
+          lmstudio_base_url: "http://192.168.200.83:1234/v1",
+        } as any,
       },
       disableHistory: true,
     });
@@ -471,32 +501,57 @@ describe("Memory – LM Studio end-to-end flow", () => {
 
     expect(mockEmbedderFactory.create).toHaveBeenCalledWith(
       "lmstudio",
-      expect.objectContaining({ model: "text-embedding-gte-qwen2-1.5b-instruct", baseURL: "http://192.168.200.83:1234/v1" }),
+      expect.objectContaining({
+        model: "text-embedding-gte-qwen2-1.5b-instruct",
+        baseURL: "http://192.168.200.83:1234/v1",
+      }),
     );
     expect(mockLlmFactory.create).toHaveBeenCalledWith(
       "lmstudio",
-      expect.objectContaining({ model: "openai/gpt-oss-20b", baseURL: "http://192.168.200.83:1234/v1" }),
+      expect.objectContaining({
+        model: "openai/gpt-oss-20b",
+        baseURL: "http://192.168.200.83:1234/v1",
+      }),
     );
   });
 
   it("search flow works with lmstudio embedder", async () => {
-    mockVStore.search.mockResolvedValueOnce([{
-      id: "mem-1",
-      payload: { data: "User likes hiking", user_id: "u1", hash: "abc123", created_at: "2026-01-01" },
-      score: 0.95,
-    }]);
+    mockVStore.search.mockResolvedValueOnce([
+      {
+        id: "mem-1",
+        payload: {
+          data: "User likes hiking",
+          user_id: "u1",
+          hash: "abc123",
+          created_at: "2026-01-01",
+        },
+        score: 0.95,
+      },
+    ]);
 
     const mem = new MemoryClass({
       embedder: {
         provider: "lmstudio",
-        config: { model: "nomic-embed-text-v1.5", baseURL: "http://localhost:1234/v1", embeddingDims: 768 },
+        config: {
+          model: "nomic-embed-text-v1.5",
+          baseURL: "http://localhost:1234/v1",
+          embeddingDims: 768,
+        },
       },
-      vectorStore: { provider: "memory", config: { collectionName: "test", dimension: 768 } },
-      llm: { provider: "lmstudio", config: { baseURL: "http://localhost:1234/v1" } },
+      vectorStore: {
+        provider: "memory",
+        config: { collectionName: "test", dimension: 768 },
+      },
+      llm: {
+        provider: "lmstudio",
+        config: { baseURL: "http://localhost:1234/v1" },
+      },
       disableHistory: true,
     });
 
-    const result = await mem.search("What does the user like?", { userId: "u1" });
+    const result = await mem.search("What does the user like?", {
+      userId: "u1",
+    });
 
     expect(mockEmbedder.embed).toHaveBeenCalledWith("What does the user like?");
     expect(mockVStore.search).toHaveBeenCalled();
@@ -505,19 +560,31 @@ describe("Memory – LM Studio end-to-end flow", () => {
   });
 
   it("add flow works with lmstudio LLM for fact extraction", async () => {
-    mockLlm.generateResponse.mockResolvedValueOnce('{"facts":["User loves sushi"]}');
+    mockLlm.generateResponse.mockResolvedValueOnce(
+      '{"facts":["User loves sushi"]}',
+    );
     mockVStore.search.mockResolvedValue([]);
     mockVStore.list.mockResolvedValue([[], 0]);
 
     const mem = new MemoryClass({
       embedder: {
         provider: "lmstudio",
-        config: { model: "nomic-embed-text-v1.5", baseURL: "http://localhost:1234/v1", embeddingDims: 768 },
+        config: {
+          model: "nomic-embed-text-v1.5",
+          baseURL: "http://localhost:1234/v1",
+          embeddingDims: 768,
+        },
       },
-      vectorStore: { provider: "memory", config: { collectionName: "test", dimension: 768 } },
+      vectorStore: {
+        provider: "memory",
+        config: { collectionName: "test", dimension: 768 },
+      },
       llm: {
         provider: "lmstudio",
-        config: { model: "meta-llama-3.1-70b", baseURL: "http://localhost:1234/v1" },
+        config: {
+          model: "meta-llama-3.1-70b",
+          baseURL: "http://localhost:1234/v1",
+        },
       },
       disableHistory: true,
     });

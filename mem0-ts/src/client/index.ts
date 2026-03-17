@@ -18,9 +18,26 @@ export type {
   AllUsers,
   User,
   FeedbackPayload,
-  Feedback,
 } from "./mem0.types";
+
+// Re-export enums as values (not type-only)
+export { Feedback, WebhookEvent } from "./mem0.types";
 
 // Export the main client
 export { MemoryClient };
 export default MemoryClient;
+
+// Export structured exceptions
+export {
+  MemoryError,
+  AuthenticationError,
+  RateLimitError,
+  ValidationError,
+  MemoryNotFoundError,
+  NetworkError,
+  ConfigurationError,
+  MemoryQuotaExceededError,
+  createExceptionFromResponse,
+} from "../common/exceptions";
+
+export type { MemoryErrorOptions } from "../common/exceptions";
