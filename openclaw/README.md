@@ -53,6 +53,13 @@ In multi-agent setups, each agent automatically gets its own memory namespace. S
 - If the key matches `agent:<name>:<uuid>`, memories are stored under `userId:agent:<name>`
 - Different agents never see each other's memories unless explicitly queried
 
+**Subagent handling:**
+
+Ephemeral subagents (session keys like `agent:main:subagent:<uuid>`) are handled specially:
+- **Recall** is routed to the parent (main user) namespace — subagents get the user's long-term context instead of searching their empty ephemeral namespace
+- **Capture** is skipped entirely — the main agent's `agent_end` hook captures the consolidated result including subagent output, preventing orphaned memories
+- A **subagent-specific preamble** is used: "You are a subagent — use these memories for context but do not assume you are this user"
+
 **Explicit cross-agent queries:**
 
 All memory tools (`memory_search`, `memory_store`, `memory_list`, `memory_forget`) accept an optional `agentId` parameter to query another agent's namespace:
@@ -61,7 +68,17 @@ All memory tools (`memory_search`, `memory_store`, `memory_list`, `memory_forget
 memory_search({ query: "user's tech stack", agentId: "researcher" })
 ```
 
-Resolution priority: explicit `agentId` > explicit `userId` > session-derived > configured default.
+The `agentId` is always namespaced under the configured `userId` (e.g. `agentId: "researcher"` → `utkarsh:agent:researcher`), so it cannot be used to access other users' namespaces.
+
+### Concurrency safety
+
+Lifecycle hooks (`before_agent_start`, `agent_end`) use `ctx.sessionKey` directly from the event context rather than shared mutable state. This prevents race conditions when multiple sessions run concurrently (e.g. multiple Telegram users chatting simultaneously).
+
+Tools still read from a best-effort `currentSessionId` variable (since tools don't receive `ctx`), but hooks — where the critical recall and capture logic runs — are fully concurrency-safe.
+
+### Non-interactive trigger filtering
+
+The plugin automatically skips recall and capture for non-interactive triggers: `cron`, `heartbeat`, `automation`, and `schedule`. Detection works via both `ctx.trigger` and session key patterns (`:cron:`, `:heartbeat:`). This prevents system-generated noise from polluting long-term memory.
 
 ## Setup
 
@@ -134,11 +151,13 @@ The agent gets five tools it can call during conversations:
 
 | Tool | Description |
 |------|-------------|
-| `memory_search` | Search memories by natural language. Optional `agentId` to scope to a specific agent. |
-| `memory_list` | List all stored memories for a user. Optional `agentId` to scope to a specific agent. |
-| `memory_store` | Explicitly save a fact. Optional `agentId` to store under a specific agent's namespace. |
-| `memory_get` | Retrieve a memory by ID |
+| `memory_search` | Search memories by natural language. Optional `agentId` to scope to a specific agent, `scope` to filter by session/long-term. |
+| `memory_list` | List all stored memories. Optional `agentId` to scope to a specific agent, `scope` to filter. |
+| `memory_store` | Explicitly save a fact. Optional `agentId` to store under a specific agent's namespace, `longTerm` to choose scope. |
+| `memory_get` | Retrieve a memory by ID. |
 | `memory_forget` | Delete by ID or by query. Optional `agentId` to scope deletion to a specific agent. |
+
+> **Security note:** The `userId` parameter was intentionally removed from all tools to prevent LLM prompt injection from accessing other users' memory namespaces. Identity is always derived server-side from `cfg.userId`. The `agentId` parameter is safe because it is always namespaced under the configured user (e.g. `agentId: "researcher"` → `utkarsh:agent:researcher`).
 
 ## CLI
 
@@ -200,8 +219,11 @@ Works with zero extra config. The `oss` block lets you swap out any component:
 | `oss.llm.provider` | `string` | `"openai"` | LLM provider (`"openai"`, `"anthropic"`, `"ollama"`, etc.) |
 | `oss.llm.config` | `object` | — | Provider config: `apiKey`, `model`, `baseURL`, `temperature` |
 | `oss.historyDbPath` | `string` | — | SQLite path for memory edit history |
+| `oss.disableHistory` | `boolean` | `false` | Skip history DB initialization (useful when native SQLite bindings fail) |
 
 Everything inside `oss` is optional — defaults use OpenAI embeddings (`text-embedding-3-small`), in-memory vector store, and OpenAI LLM. Override only what you need.
+
+> **SQLite resilience:** If the history DB fails to initialize (e.g. native binding resolution under jiti), the plugin automatically retries with history disabled. Core memory operations (add, search, get, delete) work without the history DB.
 
 ## License
 

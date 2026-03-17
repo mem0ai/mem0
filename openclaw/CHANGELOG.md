@@ -21,6 +21,10 @@ All notable changes to the `@mem0/openclaw-mem0` plugin will be documented in th
 - Auto-recall threshold raised from 0.5 to 0.6 for stricter precision during automatic injection (explicit tool searches remain at 0.5)
 - Recall candidate pool increased to `topK * 2` for better filtering headroom
 - Provider init promises now reset on failure, allowing retry on subsequent calls
+- **Removed `userId` from tool parameters** — identity is always derived server-side from `cfg.userId`, preventing LLM prompt injection from accessing other users' namespaces. `agentId` is kept (safe — always namespaced under configured user)
+
+### Fixed
+- **Concurrent session race condition**: Lifecycle hooks (`before_agent_start`, `agent_end`) now use `ctx.sessionKey` directly from the event context instead of a shared mutable `currentSessionId` variable, preventing cross-session data leaks when multiple sessions run simultaneously
 
 ## [0.3.1] - 2026-03-12
 

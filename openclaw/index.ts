@@ -35,7 +35,6 @@ import {
 import {
   effectiveUserId,
   agentUserId,
-  resolveUserId,
   isNonInteractiveTrigger,
   isSubagentSession,
 } from "./isolation.ts";
@@ -82,7 +81,10 @@ const memoryPlugin = {
     const cfg = mem0ConfigSchema.parse(api.pluginConfig);
     const provider = createProvider(cfg, api);
 
-    // Track current session ID for tool-level session scoping
+    // Track current session ID for tool-level session scoping.
+    // NOTE: This is shared mutable state — tools don't receive ctx, so they
+    // read this as a best-effort fallback. Hooks should use ctx.sessionKey
+    // directly and avoid relying on this variable.
     let currentSessionId: string | undefined;
 
     // ========================================================================
@@ -91,8 +93,6 @@ const memoryPlugin = {
     const _effectiveUserId = (sessionKey?: string) =>
       effectiveUserId(cfg.userId, sessionKey);
     const _agentUserId = (id: string) => agentUserId(cfg.userId, id);
-    const _resolveUserId = (opts: { agentId?: string; userId?: string }) =>
-      resolveUserId(cfg.userId, opts, currentSessionId);
 
     api.logger.info(
       `openclaw-mem0: registered (mode: ${cfg.mode}, user: ${cfg.userId}, graph: ${cfg.enableGraph}, autoRecall: ${cfg.autoRecall}, autoCapture: ${cfg.autoCapture})`,
@@ -138,7 +138,7 @@ const memoryPlugin = {
     // Tools
     // ========================================================================
 
-    registerTools(api, provider, cfg, _resolveUserId, _effectiveUserId, _agentUserId, buildAddOptions, buildSearchOptions, () => currentSessionId);
+    registerTools(api, provider, cfg, _effectiveUserId, _agentUserId, buildAddOptions, buildSearchOptions, () => currentSessionId);
 
     // ========================================================================
     // CLI Commands
@@ -150,8 +150,7 @@ const memoryPlugin = {
     // Lifecycle Hooks
     // ========================================================================
 
-    registerHooks(api, provider, cfg, buildAddOptions, buildSearchOptions, {
-      getCurrentSessionId: () => currentSessionId,
+    registerHooks(api, provider, cfg, _effectiveUserId, buildAddOptions, buildSearchOptions, {
       setCurrentSessionId: (id: string) => { currentSessionId = id; },
     });
 
@@ -181,13 +180,15 @@ function registerTools(
   api: OpenClawPluginApi,
   provider: Mem0Provider,
   cfg: Mem0Config,
-  _resolveUserId: (opts: { agentId?: string; userId?: string }) => string,
   _effectiveUserId: (sessionKey?: string) => string,
   _agentUserId: (id: string) => string,
   buildAddOptions: (userIdOverride?: string, runId?: string, sessionKey?: string) => AddOptions,
   buildSearchOptions: (userIdOverride?: string, limit?: number, runId?: string, sessionKey?: string) => SearchOptions,
   getCurrentSessionId: () => string | undefined,
 ) {
+  // Resolve user_id: agentId → namespaced under cfg.userId; otherwise cfg.userId
+  const resolveUid = (agentId?: string) =>
+    agentId ? _agentUserId(agentId) : cfg.userId;
   api.registerTool(
     {
       name: "memory_search",
@@ -201,16 +202,10 @@ function registerTools(
             description: `Max results (default: ${cfg.topK})`,
           }),
         ),
-        userId: Type.Optional(
-          Type.String({
-            description:
-              "User ID to scope search (default: configured userId)",
-          }),
-        ),
         agentId: Type.Optional(
           Type.String({
             description:
-              "Agent ID to search memories for a specific agent (e.g. \"researcher\"). Overrides userId.",
+              "Agent ID to search memories for a specific agent (e.g. \"researcher\").",
           }),
         ),
         scope: Type.Optional(
@@ -225,17 +220,16 @@ function registerTools(
         ),
       }),
       async execute(_toolCallId, params) {
-        const { query, limit, userId, agentId, scope = "all" } = params as {
+        const { query, limit, agentId, scope = "all" } = params as {
           query: string;
           limit?: number;
-          userId?: string;
           agentId?: string;
           scope?: "session" | "long-term" | "all";
         };
 
         try {
           let results: MemoryItem[] = [];
-          const uid = _resolveUserId({ agentId, userId });
+          const uid = resolveUid(agentId);
           const currentSessionId = getCurrentSessionId();
 
           if (scope === "session") {
@@ -328,15 +322,10 @@ function registerTools(
         "Save important information in long-term memory via Mem0. Use for preferences, facts, decisions, and anything worth remembering.",
       parameters: Type.Object({
         text: Type.String({ description: "Information to remember" }),
-        userId: Type.Optional(
-          Type.String({
-            description: "User ID to scope this memory",
-          }),
-        ),
         agentId: Type.Optional(
           Type.String({
             description:
-              "Agent ID to store memory under a specific agent's namespace (e.g. \"researcher\"). Overrides userId.",
+              "Agent ID to store memory under a specific agent's namespace (e.g. \"researcher\").",
           }),
         ),
         metadata: Type.Optional(
@@ -352,16 +341,15 @@ function registerTools(
         ),
       }),
       async execute(_toolCallId, params) {
-        const { text, userId, agentId, longTerm = true } = params as {
+        const { text, agentId, longTerm = true } = params as {
           text: string;
-          userId?: string;
           agentId?: string;
           metadata?: Record<string, unknown>;
           longTerm?: boolean;
         };
 
         try {
-          const uid = _resolveUserId({ agentId, userId });
+          const uid = resolveUid(agentId);
           const currentSessionId = getCurrentSessionId();
           const runId = !longTerm && currentSessionId ? currentSessionId : undefined;
 
@@ -473,16 +461,10 @@ function registerTools(
       description:
         "List all stored memories for a user or agent. Use this when you want to see everything that's been remembered, rather than searching for something specific.",
       parameters: Type.Object({
-        userId: Type.Optional(
-          Type.String({
-            description:
-              "User ID to list memories for (default: configured userId)",
-          }),
-        ),
         agentId: Type.Optional(
           Type.String({
             description:
-              "Agent ID to list memories for a specific agent (e.g. \"researcher\"). Overrides userId.",
+              "Agent ID to list memories for a specific agent (e.g. \"researcher\").",
           }),
         ),
         scope: Type.Optional(
@@ -497,11 +479,11 @@ function registerTools(
         ),
       }),
       async execute(_toolCallId, params) {
-        const { userId, agentId, scope = "all" } = params as { userId?: string; agentId?: string; scope?: "session" | "long-term" | "all" };
+        const { agentId, scope = "all" } = params as { agentId?: string; scope?: "session" | "long-term" | "all" };
 
         try {
           let memories: MemoryItem[] = [];
-          const uid = _resolveUserId({ agentId, userId });
+          const uid = resolveUid(agentId);
           const currentSessionId = getCurrentSessionId();
 
           if (scope === "session") {
@@ -621,7 +603,7 @@ function registerTools(
           }
 
           if (query) {
-            const uid = _resolveUserId({ agentId });
+            const uid = resolveUid(agentId);
             const results = await provider.search(
               query,
               buildSearchOptions(uid, 5),
@@ -826,10 +808,10 @@ function registerHooks(
   api: OpenClawPluginApi,
   provider: Mem0Provider,
   cfg: Mem0Config,
+  _effectiveUserId: (sessionKey?: string) => string,
   buildAddOptions: (userIdOverride?: string, runId?: string, sessionKey?: string) => AddOptions,
   buildSearchOptions: (userIdOverride?: string, limit?: number, runId?: string, sessionKey?: string) => SearchOptions,
   session: {
-    getCurrentSessionId: () => string | undefined;
     setCurrentSessionId: (id: string) => void;
   },
 ) {
@@ -846,10 +828,11 @@ function registerHooks(
         return;
       }
 
-      // Track session ID and detect session boundary
-      const currentSessionId = session.getCurrentSessionId();
-      const isNewSession = sessionId && sessionId !== currentSessionId;
+      // Update shared state for tools (best-effort — tools don't have ctx)
       if (sessionId) session.setCurrentSessionId(sessionId);
+
+      // Detect new session for cold-start broadening
+      const isNewSession = true; // treat every hook invocation as potentially new
 
       // Subagents have ephemeral UUIDs — their namespace is always empty.
       // Search the parent (main) user namespace instead so subagents get
@@ -912,12 +895,11 @@ function registerHooks(
         longTermResults = longTermResults.slice(0, cfg.topK);
 
         // Search session memories (session-scoped) if we have a session ID
-        const activeSessionId = session.getCurrentSessionId();
         let sessionResults: MemoryItem[] = [];
-        if (activeSessionId) {
+        if (sessionId) {
           sessionResults = await provider.search(
             event.prompt,
-            buildSearchOptions(undefined, undefined, activeSessionId, sessionId),
+            buildSearchOptions(undefined, undefined, sessionId, recallSessionKey),
           );
           sessionResults = sessionResults.filter(
             (r) => (r.score ?? 0) >= cfg.searchThreshold,
@@ -991,7 +973,7 @@ function registerHooks(
         return;
       }
 
-      // Track session ID
+      // Update shared state for tools (best-effort — tools don't have ctx)
       if (sessionId) session.setCurrentSessionId(sessionId);
 
       try {
@@ -1111,8 +1093,7 @@ function registerHooks(
           content: `Current date: ${timestamp}. The user is identified as "${cfg.userId}". Extract durable facts from this conversation. Include this date when storing time-sensitive information.`,
         });
 
-        const activeSessionId = session.getCurrentSessionId();
-        const addOpts = buildAddOptions(undefined, activeSessionId, sessionId);
+        const addOpts = buildAddOptions(undefined, sessionId, sessionId);
         const result = await provider.add(
           formattedMessages,
           addOpts,

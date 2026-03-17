@@ -91,7 +91,7 @@ class PlatformProvider implements Mem0Provider {
 
   private async _init(): Promise<void> {
     const { default: MemoryClient } = await import("mem0ai");
-    const opts: Record<string, string> = { apiKey: this.apiKey };
+    const opts: { apiKey: string; org_id?: string; project_id?: string } = { apiKey: this.apiKey };
     if (this.orgId) opts.org_id = this.orgId;
     if (this.projectId) opts.project_id = this.projectId;
     this.client = new MemoryClient(opts);
