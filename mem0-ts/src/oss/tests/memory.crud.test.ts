@@ -129,15 +129,21 @@ describe("Memory - update()", () => {
     await memory.reset();
   });
 
+  // Use infer: false for update tests — bypasses LLM, gives us a stable ID
   test("returns success message", async () => {
-    const addResult: SearchResult = await memory.add("Original", { userId });
-    const result = await memory.update(addResult.results[0].id, "Updated");
+    const addResult: SearchResult = await memory.add("Original", {
+      userId,
+      infer: false,
+    });
+    const id = addResult.results[0].id;
+    const result = await memory.update(id, "Updated");
     expect(result.message).toBe("Memory updated successfully!");
   });
 
   test("persists the updated text", async () => {
     const addResult: SearchResult = await memory.add("Before update", {
       userId,
+      infer: false,
     });
     const id = addResult.results[0].id;
     await memory.update(id, "After update");
@@ -148,6 +154,7 @@ describe("Memory - update()", () => {
   test("preserves createdAt and sets updatedAt", async () => {
     const addResult: SearchResult = await memory.add("Timestamp test", {
       userId,
+      infer: false,
     });
     const id = addResult.results[0].id;
     const before: MemoryItem | null = await memory.get(id);
@@ -162,6 +169,7 @@ describe("Memory - update()", () => {
   test("updates the hash", async () => {
     const addResult: SearchResult = await memory.add("Hash change", {
       userId,
+      infer: false,
     });
     const id = addResult.results[0].id;
     const before: MemoryItem | null = await memory.get(id);
@@ -186,13 +194,19 @@ describe("Memory - delete()", () => {
   });
 
   test("returns success message", async () => {
-    const addResult: SearchResult = await memory.add("Delete me", { userId });
+    const addResult: SearchResult = await memory.add("Delete me", {
+      userId,
+      infer: false,
+    });
     const result = await memory.delete(addResult.results[0].id);
     expect(result.message).toBe("Memory deleted successfully!");
   });
 
   test("get() returns null after deletion", async () => {
-    const addResult: SearchResult = await memory.add("Temporary", { userId });
+    const addResult: SearchResult = await memory.add("Temporary", {
+      userId,
+      infer: false,
+    });
     const id = addResult.results[0].id;
     await memory.delete(id);
     expect(await memory.get(id)).toBeNull();
