@@ -1,0 +1,179 @@
+---
+title: MiroFish
+description: "Replace Zep Cloud with Mem0 in MiroFish's multi-agent swarm intelligence simulations."
+partnerBadge: "MiroFish"
+---
+
+# MiroFish integration
+
+Add persistent, per-agent memory to [MiroFish](https://github.com/666ghj/MiroFish) swarm intelligence simulations using Mem0. Replace Zep Cloud with Mem0 for knowledge graph construction, real-time agent memory during simulation, and report retrieval — with both self-hosted and managed options.
+
+<Info>
+  **Prerequisites**
+  - Mem0: `pip install mem0ai` (+ `MEM0_API_KEY` for Platform, or self-hosted config for OSS)
+  - MiroFish: cloned and set up per [MiroFish README](https://github.com/666ghj/MiroFish)
+  - Optional: Neo4j for graph memory (OSS mode)
+</Info>
+
+## Why Mem0 for MiroFish?
+
+MiroFish currently uses Zep Cloud as its sole memory layer. Mem0 offers significant advantages for multi-agent simulations:
+
+| Zep Cloud Limitation | Mem0 Solution |
+|----------------------|--------------|
+| Cloud-only, no self-hosting | Mem0 OSS runs fully local — no API keys needed |
+| 1,000 free credits/month | Mem0 OSS is unlimited; Platform free tier offers 10K memories |
+| 2,000 node hard cap | No artificial limits on memory count |
+| No per-agent memory isolation | Native `user_id` / `agent_id` / `run_id` partitioning |
+| Write-only during simulation | Agents can read their own memories mid-simulation |
+| 600s episode processing lag | `add()` is synchronous — memories immediately available |
+| Complex pagination boilerplate | Simple `get_all()` and `search()` APIs |
+
+## Configure credentials
+
+<Tabs>
+  <Tab title="Mem0 Platform (Managed)">
+<Steps>
+<Step title="Get your API key">
+Sign up at [Mem0 Platform](https://app.mem0.ai) and copy your API key.
+</Step>
+<Step title="Export your API key">
+```bash
+export MEM0_API_KEY="your-mem0-api-key"
+```
+</Step>
+</Steps>
+  </Tab>
+  <Tab title="Mem0 OSS (Self-Hosted)">
+<Steps>
+<Step title="Install Mem0">
+```bash
+pip install mem0ai
+```
+</Step>
+<Step title="Set up your LLM credentials">
+```bash
+export OPENAI_API_KEY="your-openai-key"  # or any supported LLM provider
+```
+</Step>
+<Step title="(Optional) Start Neo4j for graph memory">
+```bash
+docker run -d --name neo4j -p 7687:7687 -p 7474:7474 \
+  -e NEO4J_AUTH=neo4j/password neo4j:latest
+```
+</Step>
+</Steps>
+  </Tab>
+</Tabs>
+
+## Quick start — Store and retrieve agent memories
+
+<Tabs>
+  <Tab title="Platform">
+```python
+from mem0 import MemoryClient
+
+client = MemoryClient()
+
+# Store an agent's action during simulation
+client.add(
+    "Agent_Alice posted: 'The new policy will increase housing costs significantly'",
+    user_id="simulation_001",
+    agent_id="agent_alice",
+    metadata={"platform": "twitter", "action": "CREATE_POST", "round": 5}
+)
+
+# Retrieve agent's memories for report generation
+results = client.search(
+    "What did Alice say about housing policy?",
+    user_id="simulation_001",
+    agent_id="agent_alice"
+)
+for r in results["results"]:
+    print(f"- {r['memory']}")
+```
+  </Tab>
+  <Tab title="OSS">
+```python
+from mem0 import Memory
+
+config = {
+    "llm": {
+        "provider": "openai",
+        "config": {"model": "gpt-4o-mini"}
+    },
+    "graph_store": {
+        "provider": "neo4j",
+        "config": {
+            "url": "bolt://localhost:7687",
+            "username": "neo4j",
+            "password": "password"
+        }
+    }
+}
+
+memory = Memory.from_config(config)
+
+# Store an agent's action during simulation
+memory.add(
+    "Agent_Alice posted: 'The new policy will increase housing costs significantly'",
+    user_id="simulation_001",
+    agent_id="agent_alice",
+    metadata={"platform": "twitter", "action": "CREATE_POST", "round": 5}
+)
+
+# Retrieve agent's memories for report generation
+results = memory.search(
+    "What did Alice say about housing policy?",
+    user_id="simulation_001",
+    agent_id="agent_alice"
+)
+for r in results["results"]:
+    print(f"- {r['memory']}")
+```
+  </Tab>
+</Tabs>
+
+## How Mem0 maps to MiroFish's workflow
+
+MiroFish runs a 5-stage pipeline. Here's how Mem0 plugs into each stage:
+
+| MiroFish Stage | What Happens | Mem0 Feature Used |
+|---------------|-------------|-------------------|
+| **Graph Building** | Seed documents → entity/relationship extraction | `memory.add()` with graph store extracts entities automatically |
+| **Entity Extraction** | Filter entities by type for agent creation | `memory.get_all()` + metadata filtering |
+| **Simulation Memory** | Real-time agent actions → memory updates | `memory.add()` per agent with `agent_id` isolation |
+| **Report Retrieval** | Semantic search over simulation history | `memory.search()` with filters |
+| **Agent Interviews** | Context retrieval for agent responses | `memory.search(agent_id=...)` for agent-specific recall |
+
+## ID mapping strategy
+
+Map MiroFish concepts to Mem0 identifiers for clean memory isolation:
+
+| MiroFish Concept | Mem0 Identifier | Example |
+|-----------------|----------------|---------|
+| Project / Graph | `user_id` | `"mirofish_a1b2c3d4"` |
+| Simulation Run | `run_id` | `"sim_run_2026_03_17"` |
+| Individual Agent | `agent_id` | `"agent_alice"` |
+| Action Type | `metadata.action_type` | `"CREATE_POST"` |
+| Platform | `metadata.platform` | `"twitter"` |
+| Round Number | `metadata.round` | `5` |
+
+## Full cookbook with reference implementation
+
+For a complete reference implementation covering all four Zep touchpoints (graph building, entity extraction, real-time simulation memory, and report retrieval) with working end-to-end examples, see the cookbook.
+
+<CardGroup cols={2}>
+  <Card
+    title="MiroFish Swarm Memory Cookbook"
+    description="Reference implementation and end-to-end examples for MiroFish memory patterns"
+    icon="fish"
+    href="/cookbooks/frameworks/mirofish-swarm-memory"
+  />
+  <Card
+    title="Camel AI Integration"
+    description="Mem0 with CAMEL agents — the framework powering MiroFish's OASIS engine"
+    icon="camel"
+    href="/integrations/camel-ai"
+  />
+</CardGroup>

@@ -1,0 +1,884 @@
+---
+title: MiroFish Swarm Memory
+description: "Use Mem0 for multi-agent swarm intelligence simulations — reference integration for MiroFish's memory patterns."
+---
+
+<Snippet file="blank-notif.mdx" />
+
+A reference integration showing how [Mem0](https://mem0.ai) can power the memory layer for [MiroFish](https://github.com/666ghj/MiroFish)-style multi-agent swarm intelligence simulations. This cookbook demonstrates Mem0's capabilities for each stage of MiroFish's five-stage prediction pipeline, using both self-hosted (OSS) and managed (Platform) deployments.
+
+## Overview
+
+MiroFish is a multi-agent swarm intelligence prediction engine that simulates thousands of AI agents to predict real-world outcomes — from public opinion shifts to financial markets. Its [five-stage workflow](https://deepwiki.com/666ghj/MiroFish/1.2-five-stage-workflow) relies on a memory layer for:
+
+1. **Graph Building** — Ingest seed documents, extract entities and relationships
+2. **Environment Setup** — Use entity context to generate agent profiles
+3. **Simulation** — Track real-time agent actions (posts, likes, follows, comments) as memories
+4. **Report Generation** — Semantic search, deep multi-query retrieval, and full-memory overview
+5. **Deep Interaction** — Agent interviews and conversational Q&A with memory access
+
+MiroFish currently uses Zep Cloud for all of these. This cookbook shows how Mem0 handles the same memory patterns with key advantages:
+
+- **Per-agent memory isolation** via `agent_id` (Zep puts all agents in one graph)
+- **Agents can read memories mid-simulation** (Zep's updater is write-only during sim)
+- **Self-hosted option** — Mem0 OSS runs fully local with no API keys or credit limits
+- **No 2,000-node cap** or rate-limiting constraints
+- **Synchronous `add()`** — no 600-second polling for episode processing
+
+<Note>
+This is a **reference integration** demonstrating Mem0's capabilities for MiroFish's memory patterns. For a full interface-compatible adapter that plugs directly into MiroFish's codebase, see the upcoming MiroFish plugin architecture PR.
+</Note>
+
+## Prerequisites
+
+```bash
+pip install mem0ai
+```
+
+<Tabs>
+  <Tab title="Platform (Managed)">
+```bash
+export MEM0_API_KEY="your-mem0-api-key"  # Get from https://app.mem0.ai
+```
+  </Tab>
+  <Tab title="OSS (Self-Hosted)">
+```bash
+export OPENAI_API_KEY="your-openai-key"  # Or any supported LLM provider
+
+# Optional: Neo4j for graph memory (entity/relationship extraction)
+docker run -d --name neo4j -p 7687:7687 -p 7474:7474 \
+  -e NEO4J_AUTH=neo4j/password neo4j:latest
+```
+  </Tab>
+</Tabs>
+
+## ID Mapping Strategy
+
+MiroFish concepts map cleanly to Mem0's identity system:
+
+| MiroFish Concept | Mem0 Identifier | Example | Why |
+|-----------------|----------------|---------|-----|
+| Project / Graph | `user_id` | `"mirofish_a1b2c3d4"` | Scopes all memories to one simulation project |
+| Simulation Run | `run_id` | `"run_2026_03_17_001"` | Isolates different runs of the same project |
+| Individual Agent | `agent_id` | `"mayor_chen"` | Per-agent memory isolation — the key Mem0 advantage |
+| Action Type | `metadata["action_type"]` | `"CREATE_POST"` | Queryable via filters |
+| Platform | `metadata["platform"]` | `"twitter"` | Filter by Twitter vs Reddit activities |
+| Round Number | `metadata["round"]` | `5` | Track temporal progression |
+
+## Reference Implementation
+
+The following module demonstrates how Mem0 handles each of MiroFish's four memory touchpoints. Each class maps to a specific MiroFish service and shows the equivalent Mem0 patterns.
+
+```python
+"""
+mirofish_mem0.py — Reference implementation showing how Mem0 handles
+MiroFish's memory patterns for multi-agent swarm intelligence simulations.
+
+Demonstrates Mem0 equivalents for:
+  - GraphBuilderService (Stage 1: document ingestion + entity extraction)
+  - ZepEntityReader (Stage 2: entity retrieval for agent creation)
+  - ZepGraphMemoryUpdater (Stage 3: real-time agent memory during simulation)
+  - ZepToolsService (Stage 4: retrieval tools for report generation)
+
+Supports both Mem0 Platform (managed) and Mem0 OSS (self-hosted).
+
+Usage:
+    # Platform (managed)
+    manager = Mem0SimulationManager()
+
+    # OSS (self-hosted with graph memory)
+    config = {
+        "llm": {"provider": "openai", "config": {"model": "gpt-4o-mini"}},
+        "graph_store": {
+            "provider": "neo4j",
+            "config": {
+                "url": "bolt://localhost:7687",
+                "username": "neo4j",
+                "password": "password"
+            }
+        }
+    }
+    manager = Mem0SimulationManager(config=config)
+"""
+
+import threading
+import time
+import uuid
+from collections import defaultdict
+
+
+def _create_memory(config=None):
+    """Create Mem0 memory instance — Platform or OSS based on config."""
+    if config is None:
+        from mem0 import MemoryClient
+        return MemoryClient(), True  # (instance, is_platform)
+    from mem0 import Memory
+    return Memory.from_config(config), False
+
+
+# ---------------------------------------------------------------------------
+# Stage 1: Document Ingestion — equivalent to GraphBuilderService
+# ---------------------------------------------------------------------------
+
+class Mem0GraphBuilder:
+    """Ingest seed documents with automatic entity/relationship extraction.
+
+    MiroFish equivalent: backend/app/services/graph_builder.py
+    MiroFish flow: Upload documents -> chunk text -> send to Zep -> Zep extracts
+                   entities/relationships -> set ontology for typed entity filtering
+    Mem0 approach: add() with graph_store automatically extracts entities and
+                   relationships. No explicit ontology needed — Mem0's LLM-powered
+                   extraction handles entity typing via the extraction prompt.
+    """
+
+    def __init__(self, config=None):
+        self.memory, self.is_platform = _create_memory(config)
+
+    def create_project(self, name):
+        """Create a new simulation project. Returns a project_id.
+
+        MiroFish equivalent: GraphBuilderService.create_graph(name)
+        Difference: Zep requires explicit graph.create(). Mem0 creates storage
+        implicitly on first add() — no upfront provisioning needed.
+        """
+        return f"mirofish_{uuid.uuid4().hex[:16]}"
+
+    def ingest_documents(self, project_id, chunks):
+        """Ingest document chunks with automatic entity extraction.
+
+        MiroFish equivalent: GraphBuilderService.add_text_batches(graph_id, chunks)
+        Difference: Zep sends EpisodeData batches and polls for processing (up to
+        600s timeout). Mem0's add() is synchronous — returns immediately with
+        extracted memories.
+
+        Args:
+            project_id: The simulation project ID (maps to user_id).
+            chunks: List of text strings from seed documents.
+
+        Returns:
+            List of add() results with extracted memories.
+        """
+        results = []
+        for i, chunk in enumerate(chunks):
+            result = self.memory.add(
+                chunk,
+                user_id=project_id,
+                metadata={"source": "seed_document", "chunk_index": i}
+            )
+            results.append(result)
+        return results
+
+    def get_all_memories(self, project_id):
+        """Retrieve all memories for a project.
+
+        MiroFish equivalent: GraphBuilderService.get_graph_data(graph_id)
+        Difference: Zep returns typed nodes/edges with uuid, name, labels, summary.
+        Mem0 returns memories with id, memory text, and metadata.
+        """
+        result = self.memory.get_all(user_id=project_id)
+        return result.get("results", [])
+
+    def delete_project(self, project_id):
+        """Delete all memories for a project.
+
+        MiroFish equivalent: GraphBuilderService.delete_graph(graph_id)
+        """
+        self.memory.delete_all(user_id=project_id)
+
+
+# ---------------------------------------------------------------------------
+# Stage 2: Entity Retrieval — equivalent to ZepEntityReader
+# ---------------------------------------------------------------------------
+
+class Mem0EntityReader:
+    """Retrieve and search entities for agent profile generation.
+
+    MiroFish equivalent: backend/app/services/zep_entity_reader.py
+    MiroFish flow: Read all nodes from Zep graph -> filter by ontology labels
+                   (Student, PublicFigure, etc.) -> enrich with related edges
+    Mem0 approach: search() with graph_store returns both memories and relations
+                   (entity-relationship triples). Filter via metadata.
+    """
+
+    def __init__(self, config=None):
+        self.memory, self.is_platform = _create_memory(config)
+
+    def get_all_entities(self, project_id):
+        """Get all stored memories/entities for a project.
+
+        MiroFish equivalent: ZepEntityReader.filter_defined_entities(graph_id)
+        """
+        result = self.memory.get_all(user_id=project_id)
+        return result.get("results", [])
+
+    def search_entity_context(self, project_id, entity_name):
+        """Search for an entity and its related context.
+
+        MiroFish equivalent: ZepEntityReader.get_entity_with_context(graph_id, uuid)
+                             + OasisProfileGenerator._search_zep_for_entity(entity)
+        Difference: Zep uses entity UUID. Mem0 uses semantic search by name.
+        With graph_store enabled, returns both memories AND relation triples.
+
+        Args:
+            project_id: The simulation project ID.
+            entity_name: Name of the entity to look up (e.g., "Mayor Chen").
+
+        Returns:
+            Dict with related memories and graph relations.
+        """
+        search_kwargs = {"user_id": project_id}
+        if self.is_platform:
+            search_kwargs["top_k"] = 30
+        else:
+            search_kwargs["limit"] = 30
+
+        results = self.memory.search(entity_name, **search_kwargs)
+        return {
+            "entity": entity_name,
+            "memories": results.get("results", []),
+            "relations": results.get("relations", [])
+        }
+
+
+# ---------------------------------------------------------------------------
+# Stage 3: Simulation Memory — equivalent to ZepGraphMemoryUpdater
+# ---------------------------------------------------------------------------
+
+class Mem0SimulationMemory:
+    """Real-time, per-agent memory tracking during simulation.
+
+    MiroFish equivalent: backend/app/services/zep_graph_memory_updater.py
+    MiroFish flow: SimulationRunner reads actions.jsonl -> parses AgentActivity
+                   -> ZepGraphMemoryUpdater.add_activity_from_dict(data, platform)
+                   -> batches by platform (5 per batch, 0.5s interval) -> sends
+                   natural language episodes to Zep via client.graph.add()
+
+    Mem0 approach: Same batched write pattern, but with two key improvements:
+    1. Per-agent isolation via agent_id (Zep puts all agents in one graph)
+    2. Agents can READ their memories mid-simulation via recall()
+
+    MiroFish action types supported:
+    CREATE_POST, LIKE_POST, DISLIKE_POST, REPOST, QUOTE_POST, FOLLOW,
+    MUTE, CREATE_COMMENT, LIKE_COMMENT, DISLIKE_COMMENT, SEARCH_POSTS, SEARCH_USER
+    """
+
+    BATCH_SIZE = 5  # Match MiroFish's default
+    FLUSH_INTERVAL = 0.5  # Match MiroFish's 0.5s send interval
+
+    def __init__(self, simulation_id, config=None):
+        """
+        Args:
+            simulation_id: Unique simulation run identifier.
+            config: Mem0 config dict for OSS, or None for Platform.
+        """
+        self.simulation_id = simulation_id
+        self.memory, self.is_platform = _create_memory(config)
+        self._buffer = defaultdict(list)
+        self._lock = threading.Lock()
+        self._running = False
+        self._thread = None
+        self._stats = {"added": 0, "errors": 0}
+
+    def start(self):
+        """Start background flush thread."""
+        self._running = True
+        self._thread = threading.Thread(target=self._flush_loop, daemon=True)
+        self._thread.start()
+
+    def stop(self):
+        """Stop and flush remaining buffer."""
+        self._running = False
+        if self._thread:
+            self._thread.join(timeout=5)
+        self._flush_all()
+
+    def add_activity(self, agent_name, action_type, content, platform, round_num):
+        """Record an agent action. Buffered and flushed in batches.
+
+        MiroFish equivalent: ZepGraphMemoryUpdater.add_activity_from_dict(data, platform)
+        In MiroFish, this receives a dict from actions.jsonl with fields:
+        {agent_id, agent_name, action_type, action_args, round, timestamp}
+
+        Args:
+            agent_name: The agent's name (used as agent_id in Mem0).
+            action_type: One of the 12 MiroFish action types.
+            content: Natural language description of the action.
+            platform: "twitter" or "reddit".
+            round_num: Simulation round number.
+        """
+        if action_type == "DO_NOTHING":
+            return  # Skip like MiroFish does
+
+        activity = {
+            "agent_name": agent_name,
+            "text": f"{agent_name}: {content}",
+            "metadata": {
+                "action_type": action_type,
+                "platform": platform,
+                "round": round_num,
+                "simulation_id": self.simulation_id
+            }
+        }
+        with self._lock:
+            self._buffer[platform].append(activity)
+
+    def recall(self, agent_name, query, limit=5):
+        """Retrieve an agent's memories mid-simulation.
+
+        NEW — not possible with Zep. MiroFish's ZepGraphMemoryUpdater is
+        write-only during simulation. With Mem0, agents can read their own
+        memories to make more informed decisions.
+
+        Args:
+            agent_name: The agent whose memories to search.
+            query: Semantic search query.
+            limit: Max results.
+
+        Returns:
+            List of memory result dicts.
+        """
+        search_kwargs = {
+            "user_id": self.simulation_id,
+            "agent_id": agent_name
+        }
+        if self.is_platform:
+            search_kwargs["top_k"] = limit
+        else:
+            search_kwargs["limit"] = limit
+
+        results = self.memory.search(query, **search_kwargs)
+        return results.get("results", [])
+
+    def get_stats(self):
+        """Get memory ingestion statistics."""
+        return {**self._stats, "simulation_id": self.simulation_id}
+
+    def _flush_loop(self):
+        while self._running:
+            time.sleep(self.FLUSH_INTERVAL)
+            self._flush_all()
+
+    def _flush_all(self):
+        with self._lock:
+            buffers = dict(self._buffer)
+            self._buffer.clear()
+
+        for platform, activities in buffers.items():
+            for batch_start in range(0, len(activities), self.BATCH_SIZE):
+                batch = activities[batch_start:batch_start + self.BATCH_SIZE]
+                combined = "\n".join(a["text"] for a in batch)
+                # Use the first activity's agent for agent_id scoping
+                agent_name = batch[0]["agent_name"]
+                metadata = batch[0]["metadata"].copy()
+                metadata["batch_size"] = len(batch)
+                try:
+                    self.memory.add(
+                        combined,
+                        user_id=self.simulation_id,
+                        agent_id=agent_name,
+                        metadata=metadata
+                    )
+                    self._stats["added"] += len(batch)
+                except Exception as e:
+                    self._stats["errors"] += 1
+                    print(f"[Mem0] Flush error for {platform}/{agent_name}: {e}")
+
+
+# ---------------------------------------------------------------------------
+# Stage 4: Report Retrieval — equivalent to ZepToolsService
+# ---------------------------------------------------------------------------
+
+class Mem0ReportTools:
+    """Retrieval tools for report generation and analysis.
+
+    MiroFish equivalent: backend/app/services/zep_tools.py (ZepToolsService)
+    MiroFish tools: insight_forge, panorama_search, quick_search, interview_agents
+    Each tool returns a dataclass with a .to_text() method for the ReACT loop.
+
+    Mem0 approach: Equivalent search patterns using mem0.search() and mem0.get_all().
+    Returns plain dicts (the MiroFish plugin PR will add interface-compatible wrappers).
+    """
+
+    def __init__(self, config=None):
+        self.memory, self.is_platform = _create_memory(config)
+
+    def _search(self, query, limit=10, **kwargs):
+        """Internal helper handling OSS vs Platform parameter differences.
+
+        Platform (MemoryClient) uses top_k, OSS (Memory) uses limit.
+        """
+        if self.is_platform:
+            return self.memory.search(query, top_k=limit, **kwargs)
+        return self.memory.search(query, limit=limit, **kwargs)
+
+    def quick_search(self, project_id, query, limit=10):
+        """Simple semantic search over simulation memories.
+
+        MiroFish equivalent: ZepToolsService.quick_search(graph_id, query, limit)
+        Zep uses: client.graph.search() with scope="edges", reranker="cross_encoder"
+        """
+        results = self._search(query, limit=limit, user_id=project_id)
+        memories = results.get("results", [])
+        return {
+            "query": query,
+            "facts": [r["memory"] for r in memories],
+            "total_count": len(memories)
+        }
+
+    def deep_search(self, project_id, query, sub_queries=None):
+        """Multi-query deep search — searches main query + sub-queries.
+
+        MiroFish equivalent: ZepToolsService.insight_forge(graph_id, query, ...)
+        MiroFish uses LLM to decompose into 3-5 sub-queries, searches each with
+        15 edges, plus 20 for the original query, then enriches with entity details.
+
+        Args:
+            project_id: Simulation project ID.
+            query: Main research question.
+            sub_queries: Pre-generated sub-queries. If None, searches main query only.
+
+        Returns:
+            Dict with deduplicated facts from all queries.
+        """
+        all_facts = []
+
+        # Search main query
+        results = self._search(query, limit=20, user_id=project_id)
+        all_facts.extend([r["memory"] for r in results.get("results", [])])
+
+        # Search sub-queries if provided
+        if sub_queries:
+            for sq in sub_queries:
+                results = self._search(sq, limit=15, user_id=project_id)
+                all_facts.extend([r["memory"] for r in results.get("results", [])])
+
+        # Deduplicate while preserving order
+        unique_facts = list(dict.fromkeys(all_facts))
+
+        return {
+            "query": query,
+            "sub_queries": sub_queries or [],
+            "facts": unique_facts,
+            "total_count": len(unique_facts)
+        }
+
+    def get_all_memories(self, project_id):
+        """Retrieve all memories for a broad overview.
+
+        MiroFish equivalent: ZepToolsService.panorama_search(graph_id, query)
+        MiroFish fetches ALL nodes and edges, classifies as active vs historical
+        using temporal fields (valid_at, invalid_at, expired_at).
+        Mem0 handles temporal conflicts automatically via its update mechanism.
+        """
+        result = self.memory.get_all(user_id=project_id)
+        memories = result.get("results", [])
+        return {
+            "all_memories": [m["memory"] for m in memories],
+            "total_count": len(memories)
+        }
+
+    def get_agent_memories(self, project_id, agent_name):
+        """Get all memories for a specific agent.
+
+        NEW — not available in MiroFish's Zep integration. Zep has no per-agent
+        isolation, so you can't retrieve "only what agent X did/remembers."
+        """
+        result = self.memory.get_all(
+            user_id=project_id,
+            agent_id=agent_name
+        )
+        memories = result.get("results", [])
+        return {
+            "agent": agent_name,
+            "memories": [m["memory"] for m in memories],
+            "count": len(memories)
+        }
+
+
+# ---------------------------------------------------------------------------
+# Manager — orchestrates all services
+# ---------------------------------------------------------------------------
+
+class Mem0SimulationManager:
+    """Coordinates all Mem0 services for a MiroFish-style simulation.
+
+    Usage:
+        # Platform
+        manager = Mem0SimulationManager()
+
+        # OSS with graph memory
+        manager = Mem0SimulationManager(config={
+            "llm": {"provider": "openai", "config": {"model": "gpt-4o-mini"}},
+            "graph_store": {
+                "provider": "neo4j",
+                "config": {
+                    "url": "bolt://localhost:7687",
+                    "username": "neo4j",
+                    "password": "password"
+                }
+            }
+        })
+    """
+
+    def __init__(self, config=None):
+        self.config = config
+        self._trackers = {}
+        self.graph_builder = Mem0GraphBuilder(config)
+        self.entity_reader = Mem0EntityReader(config)
+
+    def create_simulation(self, name):
+        """Create a new simulation project."""
+        return self.graph_builder.create_project(name)
+
+    def ingest_documents(self, project_id, chunks):
+        """Ingest seed documents for knowledge extraction."""
+        return self.graph_builder.ingest_documents(project_id, chunks)
+
+    def get_entities(self, project_id):
+        """Retrieve all entities for agent creation."""
+        return self.entity_reader.get_all_entities(project_id)
+
+    def search_entity(self, project_id, entity_name):
+        """Search for a specific entity with context."""
+        return self.entity_reader.search_entity_context(project_id, entity_name)
+
+    def start_memory_tracking(self, simulation_id):
+        """Start real-time memory tracking for a simulation run."""
+        tracker = Mem0SimulationMemory(simulation_id, self.config)
+        tracker.start()
+        self._trackers[simulation_id] = tracker
+        return tracker
+
+    def stop_memory_tracking(self, simulation_id):
+        """Stop memory tracking and flush remaining buffer."""
+        if simulation_id in self._trackers:
+            self._trackers[simulation_id].stop()
+            stats = self._trackers[simulation_id].get_stats()
+            del self._trackers[simulation_id]
+            return stats
+
+    def get_report_tools(self):
+        """Get retrieval tools for report generation."""
+        return Mem0ReportTools(self.config)
+
+    def delete_simulation(self, project_id):
+        """Clean up all memories for a simulation."""
+        self.graph_builder.delete_project(project_id)
+```
+
+## End-to-End Example
+
+This example runs standalone — no MiroFish installation needed. It demonstrates the full simulation workflow using Mem0:
+
+```python
+"""
+End-to-end example: Multi-agent swarm simulation with Mem0 memory.
+Simulates a housing policy debate with 3 agents.
+
+Run: pip install mem0ai && python mirofish_e2e_example.py
+Requires: MEM0_API_KEY env var (Platform) or OpenAI key + Neo4j (OSS)
+"""
+import time
+
+# -- Option 1: Platform (managed) --
+from mem0 import MemoryClient
+
+client = MemoryClient()
+PROJECT_ID = "mirofish_housing_demo"
+
+# -- Option 2: OSS (uncomment below, comment out Platform above) --
+# from mem0 import Memory
+# config = {
+#     "llm": {"provider": "openai", "config": {"model": "gpt-4o-mini"}},
+# }
+# client = Memory.from_config(config)
+# PROJECT_ID = "mirofish_housing_demo"
+
+
+# ==========================================
+# Stage 1: Ingest seed documents
+# ==========================================
+print("=== Stage 1: Ingesting seed documents ===")
+
+seed_documents = [
+    "The city council proposed a new zoning reform allowing higher density "
+    "housing in suburban areas. Mayor Chen expressed strong support, citing "
+    "a 40% housing shortage affecting young professionals.",
+
+    "Local homeowners association president Wang opposes the reform, arguing "
+    "it will decrease property values by 15-20%. The association represents "
+    "5,000 homeowners in the affected districts.",
+
+    "Professor Li from Beijing University published research showing similar "
+    "reforms in Shenzhen led to 15% price drops in existing homes but created "
+    "30% more affordable housing units within 3 years.",
+]
+
+for i, doc in enumerate(seed_documents):
+    result = client.add(
+        doc,
+        user_id=PROJECT_ID,
+        metadata={"source": "seed_document", "chunk_index": i}
+    )
+    print(f"  Chunk {i+1}: {len(result.get('results', []))} memories extracted")
+
+
+# ==========================================
+# Stage 2: Retrieve entities for agent creation
+# ==========================================
+print("\n=== Stage 2: Entity retrieval ===")
+
+# Search for key entities mentioned in seed docs
+for entity in ["Mayor Chen", "Wang", "Professor Li"]:
+    results = client.search(
+        entity,
+        user_id=PROJECT_ID,
+        top_k=5  # Platform uses top_k
+        # limit=5  # OSS uses limit
+    )
+    memories = results.get("results", [])
+    relations = results.get("relations", [])
+    print(f"  {entity}: {len(memories)} memories, {len(relations)} relations")
+
+
+# ==========================================
+# Stage 3: Simulate agent activities
+# ==========================================
+print("\n=== Stage 3: Simulation (agent activities) ===")
+
+# Simulate 3 rounds of agent interaction
+activities = [
+    # Round 1: Initial positions
+    ("mayor_chen", "CREATE_POST",
+     "This reform will create 10,000 new housing units by 2028. "
+     "Young families deserve affordable homes.", "twitter", 1),
+
+    ("wang_homeowner", "CREATE_POST",
+     "Our property values will plummet! The council ignores the voices "
+     "of 5,000 homeowners. #StopTheReform", "twitter", 1),
+
+    ("prof_li", "CREATE_POST",
+     "Published: Shenzhen zoning data shows net positive outcomes after "
+     "3 years. Short-term pain, long-term gain for housing equity.", "twitter", 1),
+
+    # Round 2: Interactions
+    ("wang_homeowner", "CREATE_COMMENT",
+     "Commented on prof_li's post: 'Shenzhen is a tier-1 city with "
+     "completely different dynamics. Your comparison is misleading.'", "twitter", 2),
+
+    ("mayor_chen", "LIKE_POST",
+     "Liked prof_li's post about Shenzhen housing data", "twitter", 2),
+
+    ("prof_li", "CREATE_COMMENT",
+     "Replied to wang_homeowner: 'The methodology controls for city tier. "
+     "I invite you to review the full dataset.'", "twitter", 2),
+
+    # Round 3: Escalation
+    ("wang_homeowner", "CREATE_POST",
+     "BREAKING: Filing formal petition with 3,000 signatures against "
+     "the zoning reform. Council meeting next Tuesday.", "reddit", 3),
+
+    ("mayor_chen", "CREATE_POST",
+     "Announcing public town hall on zoning reform. All voices welcome. "
+     "Data-driven decisions benefit everyone.", "twitter", 3),
+]
+
+for agent, action, content, platform, round_num in activities:
+    client.add(
+        f"{agent}: {content}",
+        user_id=PROJECT_ID,
+        agent_id=agent,
+        metadata={
+            "action_type": action,
+            "platform": platform,
+            "round": round_num
+        }
+    )
+
+print(f"  Recorded {len(activities)} agent activities across 3 rounds")
+
+
+# ==========================================
+# Stage 3b: Mid-simulation memory recall (NEW)
+# ==========================================
+print("\n=== Stage 3b: Agent memory recall (not possible with Zep) ===")
+
+wang_recall = client.search(
+    "What positions have I taken on the reform?",
+    user_id=PROJECT_ID,
+    agent_id="wang_homeowner",
+    top_k=5  # Platform
+    # limit=5  # OSS
+)
+print(f"  Wang recalls {len(wang_recall.get('results', []))} memories:")
+for m in wang_recall.get("results", []):
+    print(f"    - {m['memory']}")
+
+
+# ==========================================
+# Stage 4: Report generation retrieval
+# ==========================================
+print("\n=== Stage 4: Report retrieval tools ===")
+
+# Quick search — equivalent to ZepToolsService.quick_search()
+print("\n  [quick_search] Opposition to housing reform:")
+results = client.search(
+    "opposition to housing reform",
+    user_id=PROJECT_ID,
+    top_k=5  # Platform
+    # limit=5  # OSS
+)
+for r in results.get("results", []):
+    print(f"    - {r['memory']}")
+
+# Per-agent retrieval — NEW, not in Zep
+print("\n  [per-agent] Mayor Chen's activities:")
+chen_memories = client.get_all(
+    user_id=PROJECT_ID,
+    agent_id="mayor_chen"
+)
+for m in chen_memories.get("results", []):
+    print(f"    - {m['memory']}")
+
+# Broad overview — equivalent to ZepToolsService.panorama_search()
+print("\n  [panorama] All simulation memories:")
+all_memories = client.get_all(user_id=PROJECT_ID)
+print(f"    Total memories: {len(all_memories.get('results', []))}")
+
+
+# ==========================================
+# Cleanup (optional)
+# ==========================================
+# client.delete_all(user_id=PROJECT_ID)
+print("\n=== Done! ===")
+```
+
+### Expected Output
+
+```
+=== Stage 1: Ingesting seed documents ===
+  Chunk 1: 1 memories extracted
+  Chunk 2: 1 memories extracted
+  Chunk 3: 1 memories extracted
+
+=== Stage 2: Entity retrieval ===
+  Mayor Chen: 2 memories, 0 relations
+  Wang: 2 memories, 0 relations
+  Professor Li: 2 memories, 0 relations
+
+=== Stage 3: Simulation (agent activities) ===
+  Recorded 8 agent activities across 3 rounds
+
+=== Stage 3b: Agent memory recall (not possible with Zep) ===
+  Wang recalls 2 memories:
+    - Wang opposes the reform, arguing it will decrease property values
+    - wang_homeowner posted about opposing the zoning reform
+
+=== Stage 4: Report retrieval tools ===
+
+  [quick_search] Opposition to housing reform:
+    - Wang opposes the reform, arguing it will decrease property values
+    - wang_homeowner filed petition with 3,000 signatures against reform
+
+  [per-agent] Mayor Chen's activities:
+    - mayor_chen posted about creating 10,000 new housing units
+    - mayor_chen announced public town hall on zoning reform
+
+  [panorama] All simulation memories:
+    Total memories: 11
+
+=== Done! ===
+```
+
+<Note>
+Exact output will vary based on Mem0's LLM-powered memory extraction — memories are summarized and deduplicated, so the text may differ from the raw input.
+</Note>
+
+## How MiroFish's Zep Calls Map to Mem0
+
+For developers building the interface-compatible adapter (Track 2), here's the complete mapping:
+
+| MiroFish Zep Call | Service | Mem0 Equivalent |
+|-------------------|---------|-----------------|
+| `Zep(api_key=)` | All | `MemoryClient()` or `Memory.from_config(config)` |
+| `client.graph.create(graph_id, name)` | GraphBuilder | Implicit — first `add()` creates storage |
+| `client.graph.delete(graph_id)` | GraphBuilder | `memory.delete_all(user_id=project_id)` |
+| `client.graph.set_ontology(entities, edges)` | GraphBuilder | `custom_fact_extraction_prompt` in config |
+| `client.graph.add_batch(episodes)` | GraphBuilder | `memory.add()` per chunk |
+| `client.graph.add(type="text", data=)` | MemoryUpdater | `memory.add(text, agent_id=agent)` |
+| `client.graph.search(query, scope, reranker)` | Tools, ProfileGen | `memory.search(query, user_id=...)` |
+| `client.graph.node.get_by_graph_id()` | EntityReader | `memory.get_all(user_id=...)` |
+| `client.graph.edge.get_by_graph_id()` | EntityReader | `memory.search()` returns relations with graph_store |
+| `client.graph.node.get(uuid)` | Tools | `memory.get(memory_id)` |
+| `client.graph.episode.get(uuid)` | GraphBuilder | N/A — `add()` is synchronous |
+
+<Note>
+**Interface gaps for Track 2 (MiroFish PR):** The full adapter will need to match MiroFish's exact method signatures (e.g., `filter_defined_entities()`, `add_activity_from_dict()`), return compatible dataclasses (e.g., `FilteredEntities`, `InsightForgeResult` with `.to_text()`), and provide a `ZepGraphMemoryManager` equivalent with class-method-based updater registry.
+</Note>
+
+## Advanced: OSS with Graph Memory
+
+For the richest integration, configure Mem0 OSS with Neo4j. This gives you automatic entity/relationship extraction — the closest equivalent to Zep's knowledge graph:
+
+```python
+from mem0 import Memory
+
+config = {
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "gpt-4o-mini",
+            "temperature": 0.1
+        }
+    },
+    "embedder": {
+        "provider": "openai",
+        "config": {"model": "text-embedding-3-small"}
+    },
+    "graph_store": {
+        "provider": "neo4j",
+        "config": {
+            "url": "bolt://localhost:7687",
+            "username": "neo4j",
+            "password": "password"
+        }
+    }
+}
+
+memory = Memory.from_config(config)
+
+# With graph_store, search returns both memories AND relation triples
+results = memory.search(
+    "Mayor Chen",
+    user_id="mirofish_demo",
+    limit=10
+)
+
+print("Memories:", results.get("results", []))
+print("Relations:", results.get("relations", []))
+# Relations include entity-relationship-entity triples like:
+# {"source": "Mayor Chen", "relationship": "SUPPORTS", "target": "zoning reform"}
+```
+
+<Tip>
+Graph memory requires Neo4j but gives you entity/relationship extraction similar to Zep's knowledge graph. For simpler setups, skip `graph_store` — Mem0 still provides vector-based semantic search.
+</Tip>
+
+## What's Next
+
+This cookbook demonstrates Mem0's memory patterns for MiroFish. The next step is **Track 2: MiroFish Plugin Architecture PR** — a contribution to the MiroFish repo that adds Mem0 as a pluggable memory backend alongside Zep, with full interface compatibility.
+
+<CardGroup cols={2}>
+  <Card
+    title="MiroFish Integration"
+    description="Quick start guide and feature comparison"
+    icon="fish"
+    href="/integrations/mirofish"
+  />
+  <Card
+    title="Entity Partitioning Playbook"
+    description="Advanced memory isolation patterns for multi-agent systems"
+    icon="diagram-project"
+    href="/cookbooks/essentials/entity-partitioning-playbook"
+  />
+</CardGroup>
