@@ -49,7 +49,14 @@ export class OllamaEmbedder implements Embedder {
     const local_models = await this.ollama.list();
     if (!local_models.models.find((m: any) => m.name === this.model)) {
       logger.info(`Pulling model ${this.model}...`);
-      await this.ollama.pull({ model: this.model });
+      try {
+        await this.ollama.pull({ model: this.model });
+      } catch (err) {
+        logger.warn(
+          `Failed to pull model ${this.model}: ${err}. ` +
+            `If the model is already available, this error can be safely ignored.`,
+        );
+      }
     }
     this.initialized = true;
     return true;
