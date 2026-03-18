@@ -34,7 +34,7 @@ class MiniMaxLLM(LLMBase):
         super().__init__(config)
 
         if not self.config.model:
-            self.config.model = "MiniMax-M1"
+            self.config.model = "MiniMax-M2.7"
 
         api_key = self.config.api_key or os.getenv("MINIMAX_API_KEY")
         base_url = self.config.minimax_base_url or os.getenv("MINIMAX_API_BASE") or "https://api.minimax.io/v1"

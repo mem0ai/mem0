@@ -18,21 +18,21 @@ def mock_minimax_client():
 
 def test_minimax_llm_base_url():
     # case1: default config with MiniMax official base url
-    config = BaseLlmConfig(model="MiniMax-M1", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key")
+    config = BaseLlmConfig(model="MiniMax-M2.7", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key")
     llm = MiniMaxLLM(config)
     assert str(llm.client.base_url).rstrip("/") == "https://api.minimax.io/v1"
 
     # case2: with env variable MINIMAX_API_BASE
     provider_base_url = "https://api.provider.com/v1/"
     os.environ["MINIMAX_API_BASE"] = provider_base_url
-    config = MiniMaxConfig(model="MiniMax-M1", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key")
+    config = MiniMaxConfig(model="MiniMax-M2.7", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key")
     llm = MiniMaxLLM(config)
     assert str(llm.client.base_url) == provider_base_url
 
     # case3: with config.minimax_base_url
     config_base_url = "https://api.config.com/v1/"
     config = MiniMaxConfig(
-        model="MiniMax-M1",
+        model="MiniMax-M2.7",
         temperature=0.7,
         max_tokens=100,
         top_p=1.0,
@@ -46,8 +46,15 @@ def test_minimax_llm_base_url():
     del os.environ["MINIMAX_API_BASE"]
 
 
+def test_minimax_default_model(mock_minimax_client):
+    """Test that MiniMax-M2.7 is used as default when no model is specified."""
+    config = MiniMaxConfig(temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key")
+    llm = MiniMaxLLM(config)
+    assert llm.config.model == "MiniMax-M2.7"
+
+
 def test_generate_response_without_tools(mock_minimax_client):
-    config = BaseLlmConfig(model="MiniMax-M1", temperature=0.7, max_tokens=100, top_p=1.0)
+    config = BaseLlmConfig(model="MiniMax-M2.7", temperature=0.7, max_tokens=100, top_p=1.0)
     llm = MiniMaxLLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
@@ -61,13 +68,13 @@ def test_generate_response_without_tools(mock_minimax_client):
     response = llm.generate_response(messages)
 
     mock_minimax_client.chat.completions.create.assert_called_once_with(
-        model="MiniMax-M1", messages=messages, temperature=0.7, max_tokens=100, top_p=1.0
+        model="MiniMax-M2.7", messages=messages, temperature=0.7, max_tokens=100, top_p=1.0
     )
     assert response == "I'm doing well, thank you for asking!"
 
 
 def test_generate_response_with_tools(mock_minimax_client):
-    config = BaseLlmConfig(model="MiniMax-M1", temperature=0.7, max_tokens=100, top_p=1.0)
+    config = BaseLlmConfig(model="MiniMax-M2.7", temperature=0.7, max_tokens=100, top_p=1.0)
     llm = MiniMaxLLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
@@ -103,7 +110,7 @@ def test_generate_response_with_tools(mock_minimax_client):
     response = llm.generate_response(messages, tools=tools)
 
     mock_minimax_client.chat.completions.create.assert_called_once_with(
-        model="MiniMax-M1",
+        model="MiniMax-M2.7",
         messages=messages,
         temperature=0.7,
         max_tokens=100,
