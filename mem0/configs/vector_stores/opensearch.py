@@ -18,6 +18,21 @@ class OpenSearchConfig(BaseModel):
         "RequestsHttpConnection", description="Connection class for OpenSearch"
     )
     pool_maxsize: int = Field(20, description="Maximum number of connections in the pool")
+    knn_engine: str = Field(
+        "lucene",
+        description=(
+            "k-NN engine for vector search. 'lucene' works on all OpenSearch versions. "
+            "'faiss' is recommended for large-scale workloads (OpenSearch 2.x+). "
+            "'nmslib' is deprecated since OpenSearch 3.0 and cannot be used for new indices."
+        ),
+    )
+    knn_space_type: str = Field(
+        "cosinesimil",
+        description=(
+            "Distance metric for k-NN search. Common values: 'cosinesimil' (nmslib/lucene), "
+            "'l2' (euclidean), 'innerproduct' (faiss)."
+        ),
+    )
 
     @model_validator(mode="before")
     @classmethod

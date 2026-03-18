@@ -39,6 +39,8 @@ class OpenSearchDB(VectorStoreBase):
 
         self.collection_name = config.collection_name
         self.embedding_model_dims = config.embedding_model_dims
+        self.knn_engine = config.knn_engine
+        self.knn_space_type = config.knn_space_type
         self.create_col(self.collection_name, self.embedding_model_dims)
 
     def create_index(self) -> None:
@@ -53,7 +55,11 @@ class OpenSearchDB(VectorStoreBase):
                     "vector_field": {
                         "type": "knn_vector",
                         "dimension": self.embedding_model_dims,
-                        "method": {"engine": "nmslib", "name": "hnsw", "space_type": "cosinesimil"},
+                        "method": {
+                            "engine": self.knn_engine,
+                            "name": "hnsw",
+                            "space_type": self.knn_space_type,
+                        },
                     },
                     "metadata": {"type": "object", "properties": {"user_id": {"type": "keyword"}}},
                 }
@@ -75,7 +81,11 @@ class OpenSearchDB(VectorStoreBase):
                     "vector_field": {
                         "type": "knn_vector",
                         "dimension": vector_size,
-                        "method": {"engine": "nmslib", "name": "hnsw", "space_type": "cosinesimil"},
+                        "method": {
+                            "engine": self.knn_engine,
+                            "name": "hnsw",
+                            "space_type": self.knn_space_type,
+                        },
                     },
                     "payload": {"type": "object"},
                     "id": {"type": "keyword"},
