@@ -34,7 +34,7 @@ def _iso(dt: Optional[datetime]) -> Optional[str]:
     if isinstance(dt, datetime): 
         try: 
             return dt.astimezone(UTC).isoformat()
-        except: 
+        except ValueError: 
             return dt.replace(tzinfo=UTC).isoformat()
     return None
 
