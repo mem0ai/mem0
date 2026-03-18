@@ -1,4 +1,5 @@
 *.db
+*.db-journal
 .env*
 !.env.example
 !.env.dev

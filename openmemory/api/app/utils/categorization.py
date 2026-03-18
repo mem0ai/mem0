@@ -1,43 +1,47 @@
+import json
 import logging
+import os
 from typing import List
 
 from app.utils.prompts import MEMORY_CATEGORIZATION_PROMPT
 from dotenv import load_dotenv
 from openai import OpenAI
-from pydantic import BaseModel
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 load_dotenv()
-openai_client = OpenAI()
+openai_client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY"),
+    base_url=os.getenv("OPENAI_BASE_URL"),
+)
 
-
-class MemoryCategories(BaseModel):
-    categories: List[str]
+CATEGORY_MODEL = os.getenv("OPENMEMORY_CATEGORIZATION_MODEL") or os.getenv("OPENMEMORY_LLM_MODEL", "qwen3-max")
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=15))
 def get_categories_for_memory(memory: str) -> List[str]:
+    completion = None
     try:
         messages = [
             {"role": "system", "content": MEMORY_CATEGORIZATION_PROMPT},
+            {"role": "system", "content": 'Respond with JSON only using this schema: {"categories": ["..."]}.'},
             {"role": "user", "content": memory}
         ]
 
-        # Let OpenAI handle the pydantic parsing directly
-        completion = openai_client.beta.chat.completions.parse(
-            model="gpt-4o-mini",
+        completion = openai_client.chat.completions.create(
+            model=CATEGORY_MODEL,
             messages=messages,
-            response_format=MemoryCategories,
+            response_format={"type": "json_object"},
             temperature=0
         )
 
-        parsed: MemoryCategories = completion.choices[0].message.parsed
-        return [cat.strip().lower() for cat in parsed.categories]
+        payload = json.loads(completion.choices[0].message.content or "{}")
+        categories = payload.get("categories", [])
+        if not isinstance(categories, list):
+            return []
+        return [str(cat).strip().lower() for cat in categories if str(cat).strip()]
 
     except Exception as e:
         logging.error(f"[ERROR] Failed to get categories: {e}")
-        try:
+        if completion is not None:
             logging.debug(f"[DEBUG] Raw response: {completion.choices[0].message.content}")
-        except Exception as debug_e:
-            logging.debug(f"[DEBUG] Could not extract raw response: {debug_e}")
         raise

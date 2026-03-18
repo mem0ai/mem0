@@ -1,19 +1,33 @@
 {
+    "openmemory": {
+        "custom_instructions": null
+    },
     "mem0": {
         "llm": {
             "provider": "openai",
             "config": {
-                "model": "gpt-4o-mini",
+                "model": "qwen3-max",
                 "temperature": 0.1,
-                "max_tokens": 2000,
-                "api_key": "env:API_KEY"
+                "api_key": "env:OPENAI_API_KEY",
+                "openai_base_url": "env:OPENAI_BASE_URL"
             }
         },
         "embedder": {
             "provider": "openai",
             "config": {
-                "model": "text-embedding-3-small",
-                "api_key": "env:API_KEY"
+                "model": "text-embedding-v4",
+                "api_key": "env:OPENAI_API_KEY",
+                "openai_base_url": "env:OPENAI_BASE_URL",
+                "embedding_dims": 2048
+            }
+        },
+        "vector_store": {
+            "provider": "qdrant",
+            "config": {
+                "collection_name": "openmemory",
+                "host": "mem0_store",
+                "port": 6333,
+                "embedding_model_dims": 2048
             }
         }
     }

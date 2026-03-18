@@ -1,3 +1,4 @@
+import os
 from typing import Any, Dict, Optional
 
 from app.database import get_db
@@ -9,45 +10,58 @@ from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/api/v1/config", tags=["config"])
 
+
 class LLMConfig(BaseModel):
     model: str = Field(..., description="LLM model name")
-    temperature: float = Field(..., description="Temperature setting for the model")
-    max_tokens: int = Field(..., description="Maximum tokens to generate")
-    api_key: Optional[str] = Field(None, description="API key or 'env:API_KEY' to use environment variable")
-    ollama_base_url: Optional[str] = Field(None, description="Base URL for Ollama server (e.g., http://host.docker.internal:11434)")
+    temperature: Optional[float] = Field(None, description="Temperature for generation")
+    max_tokens: Optional[int] = Field(None, description="Max tokens for generation")
+    api_key: Optional[str] = Field(None, description="API key")
+    ollama_base_url: Optional[str] = Field(None, description="Ollama base URL")
+    openai_base_url: Optional[str] = Field(None, description="OpenAI-compatible base URL")
+
 
 class LLMProvider(BaseModel):
     provider: str = Field(..., description="LLM provider name")
     config: LLMConfig
 
+
 class EmbedderConfig(BaseModel):
-    model: str = Field(..., description="Embedder model name")
-    api_key: Optional[str] = Field(None, description="API key or 'env:API_KEY' to use environment variable")
-    ollama_base_url: Optional[str] = Field(None, description="Base URL for Ollama server (e.g., http://host.docker.internal:11434)")
+    model: str = Field(..., description="Embedding model name")
+    api_key: Optional[str] = Field(None, description="API key")
+    ollama_base_url: Optional[str] = Field(None, description="Ollama base URL")
+    openai_base_url: Optional[str] = Field(None, description="OpenAI-compatible base URL")
+    embedding_dims: Optional[int] = Field(None, description="Embedding dimensions")
+
 
 class EmbedderProvider(BaseModel):
     provider: str = Field(..., description="Embedder provider name")
     config: EmbedderConfig
+
 
 class VectorStoreProvider(BaseModel):
     provider: str = Field(..., description="Vector store provider name")
     # Below config can vary widely based on the vector store used. Refer https://docs.mem0.ai/components/vectordbs/config
     config: Dict[str, Any] = Field(..., description="Vector store-specific configuration")
 
+
 class OpenMemoryConfig(BaseModel):
-    custom_instructions: Optional[str] = Field(None, description="Custom instructions for memory management and fact extraction")
+    custom_instructions: Optional[str] = Field(
+        None, description="Custom instructions for memory management and fact extraction"
+    )
+
 
 class Mem0Config(BaseModel):
     llm: Optional[LLMProvider] = None
     embedder: Optional[EmbedderProvider] = None
     vector_store: Optional[VectorStoreProvider] = None
 
+
 class ConfigSchema(BaseModel):
     openmemory: Optional[OpenMemoryConfig] = None
     mem0: Optional[Mem0Config] = None
 
+
 def get_default_configuration():
-    """Get the default configuration with sensible defaults for LLM and embedder."""
     return {
         "openmemory": {
             "custom_instructions": None
@@ -56,22 +70,33 @@ def get_default_configuration():
             "llm": {
                 "provider": "openai",
                 "config": {
-                    "model": "gpt-4o-mini",
+                    "model": os.getenv("OPENMEMORY_LLM_MODEL", "qwen3-max"),
                     "temperature": 0.1,
-                    "max_tokens": 2000,
-                    "api_key": "env:OPENAI_API_KEY"
+                    "api_key": "env:OPENAI_API_KEY",
+                    "openai_base_url": "env:OPENAI_BASE_URL"
                 }
             },
             "embedder": {
                 "provider": "openai",
                 "config": {
-                    "model": "text-embedding-3-small",
-                    "api_key": "env:OPENAI_API_KEY"
+                    "model": os.getenv("OPENMEMORY_EMBED_MODEL", "text-embedding-v4"),
+                    "api_key": "env:OPENAI_API_KEY",
+                    "openai_base_url": "env:OPENAI_BASE_URL",
+                    "embedding_dims": int(os.getenv("OPENMEMORY_EMBED_DIMS", "2048"))
                 }
             },
-            "vector_store": None
+            "vector_store": {
+                "provider": "qdrant",
+                "config": {
+                    "collection_name": "openmemory",
+                    "host": "mem0_store",
+                    "port": 6333,
+                    "embedding_model_dims": int(os.getenv("OPENMEMORY_EMBED_DIMS", "2048"))
+                }
+            }
         }
     }
+
 
 def get_config_from_db(db: Session, key: str = "main"):
     """Get configuration from database."""
@@ -117,6 +142,7 @@ def get_config_from_db(db: Session, key: str = "main"):
     
     return config_value
 
+
 def save_config_to_db(db: Session, config: Dict[str, Any], key: str = "main"):
     """Save configuration to database."""
     db_config = db.query(ConfigModel).filter(ConfigModel.key == key).first()
@@ -132,29 +158,30 @@ def save_config_to_db(db: Session, config: Dict[str, Any], key: str = "main"):
     db.refresh(db_config)
     return db_config.value
 
+
 @router.get("/", response_model=ConfigSchema)
 async def get_configuration(db: Session = Depends(get_db)):
     """Get the current configuration."""
     config = get_config_from_db(db)
     return config
 
+
 @router.put("/", response_model=ConfigSchema)
 async def update_configuration(config: ConfigSchema, db: Session = Depends(get_db)):
     """Update the configuration."""
     current_config = get_config_from_db(db)
-    
-    # Convert to dict for processing
     updated_config = current_config.copy()
-    
-    # Update openmemory settings if provided
+
     if config.openmemory is not None:
-        if "openmemory" not in updated_config:
-            updated_config["openmemory"] = {}
-        updated_config["openmemory"].update(config.openmemory.dict(exclude_none=True))
-    
-    # Update mem0 settings
-    updated_config["mem0"] = config.mem0.dict(exclude_none=True)
-    
+        updated_config["openmemory"] = config.openmemory.dict(exclude_none=True)
+
+    if config.mem0 is not None:
+        updated_config["mem0"] = config.mem0.dict(exclude_none=True)
+
+    save_config_to_db(db, updated_config)
+    reset_memory_client()
+    return updated_config
+
 
 @router.patch("/", response_model=ConfigSchema)
 async def patch_configuration(config_update: ConfigSchema, db: Session = Depends(get_db)):
@@ -194,12 +221,14 @@ async def reset_configuration(db: Session = Depends(get_db)):
             detail=f"Failed to reset configuration: {str(e)}"
         )
 
+
 @router.get("/mem0/llm", response_model=LLMProvider)
 async def get_llm_configuration(db: Session = Depends(get_db)):
     """Get only the LLM configuration."""
     config = get_config_from_db(db)
     llm_config = config.get("mem0", {}).get("llm", {})
     return llm_config
+
 
 @router.put("/mem0/llm", response_model=LLMProvider)
 async def update_llm_configuration(llm_config: LLMProvider, db: Session = Depends(get_db)):
@@ -218,12 +247,14 @@ async def update_llm_configuration(llm_config: LLMProvider, db: Session = Depend
     reset_memory_client()
     return current_config["mem0"]["llm"]
 
+
 @router.get("/mem0/embedder", response_model=EmbedderProvider)
 async def get_embedder_configuration(db: Session = Depends(get_db)):
     """Get only the Embedder configuration."""
     config = get_config_from_db(db)
     embedder_config = config.get("mem0", {}).get("embedder", {})
     return embedder_config
+
 
 @router.put("/mem0/embedder", response_model=EmbedderProvider)
 async def update_embedder_configuration(embedder_config: EmbedderProvider, db: Session = Depends(get_db)):
@@ -242,12 +273,14 @@ async def update_embedder_configuration(embedder_config: EmbedderProvider, db: S
     reset_memory_client()
     return current_config["mem0"]["embedder"]
 
+
 @router.get("/mem0/vector_store", response_model=Optional[VectorStoreProvider])
 async def get_vector_store_configuration(db: Session = Depends(get_db)):
     """Get only the Vector Store configuration."""
     config = get_config_from_db(db)
     vector_store_config = config.get("mem0", {}).get("vector_store", None)
     return vector_store_config
+
 
 @router.put("/mem0/vector_store", response_model=VectorStoreProvider)
 async def update_vector_store_configuration(vector_store_config: VectorStoreProvider, db: Session = Depends(get_db)):
@@ -266,12 +299,14 @@ async def update_vector_store_configuration(vector_store_config: VectorStoreProv
     reset_memory_client()
     return current_config["mem0"]["vector_store"]
 
+
 @router.get("/openmemory", response_model=OpenMemoryConfig)
 async def get_openmemory_configuration(db: Session = Depends(get_db)):
     """Get only the OpenMemory configuration."""
     config = get_config_from_db(db)
     openmemory_config = config.get("openmemory", {})
     return openmemory_config
+
 
 @router.put("/openmemory", response_model=OpenMemoryConfig)
 async def update_openmemory_configuration(openmemory_config: OpenMemoryConfig, db: Session = Depends(get_db)):

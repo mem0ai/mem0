@@ -1,5 +1,6 @@
 .PHONY: help up down logs shell migrate test test-clean env ui-install ui-start ui-dev ui-build ui-dev-start
 
+OPENMEMORY_UI_PORT=53000
 NEXT_PUBLIC_USER_ID=$(USER)
 NEXT_PUBLIC_API_URL=http://localhost:8765
 
@@ -49,4 +50,4 @@ downgrade:
 	docker compose exec api alembic downgrade -1
 
 ui-dev:
-	cd ui && NEXT_PUBLIC_USER_ID=$(USER) NEXT_PUBLIC_API_URL=$(NEXT_PUBLIC_API_URL) pnpm install && pnpm dev
+	cd ui && PORT=$(OPENMEMORY_UI_PORT) NEXT_PUBLIC_USER_ID=$(USER) NEXT_PUBLIC_API_URL=$(NEXT_PUBLIC_API_URL) pnpm install && pnpm dev
