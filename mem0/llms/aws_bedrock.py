@@ -498,14 +498,17 @@ class AWSBedrockLLM(LLMBase):
                 tool_config = {"tools": converse_tools}
 
         # Prepare converse parameters
+        inference_config = {
+            "maxTokens": self.model_config.get("max_tokens", 2000),
+            "temperature": self.model_config.get("temperature", 0.1),
+        }
+        if "top_p" in self.model_config:
+            inference_config["topP"] = self.model_config["top_p"]
+
         converse_params = {
             "modelId": self.config.model,
             "messages": formatted_messages,
-            "inferenceConfig": {
-                "maxTokens": self.model_config.get("max_tokens", 2000),
-                "temperature": self.model_config.get("temperature", 0.1),
-                "topP": self.model_config.get("top_p", 0.9),
-            }
+            "inferenceConfig": inference_config,
         }
 
         # Add system message if present (for Anthropic)
@@ -528,14 +531,17 @@ class AWSBedrockLLM(LLMBase):
             formatted_messages, system_message = self._format_messages_anthropic(messages)
 
             # Prepare converse parameters
+            inference_config = {
+                "maxTokens": self.model_config.get("max_tokens", 2000),
+                "temperature": self.model_config.get("temperature", 0.1),
+            }
+            if "top_p" in self.model_config:
+                inference_config["topP"] = self.model_config["top_p"]
+
             converse_params = {
                 "modelId": self.config.model,
                 "messages": formatted_messages,
-                "inferenceConfig": {
-                    "maxTokens": self.model_config.get("max_tokens", 2000),
-                    "temperature": self.model_config.get("temperature", 0.1),
-                    "topP": self.model_config.get("top_p", 0.9),
-                }
+                "inferenceConfig": inference_config,
             }
 
             # Add system message if present
@@ -564,14 +570,17 @@ class AWSBedrockLLM(LLMBase):
             }
             
             # Use converse API for Nova models
+            nova_inference_config = {
+                "maxTokens": input_body["max_tokens"],
+                "temperature": input_body["temperature"],
+            }
+            if "top_p" in input_body:
+                nova_inference_config["topP"] = input_body["top_p"]
+
             response = self.client.converse(
                 modelId=self.config.model,
                 messages=input_body["messages"],
-                inferenceConfig={
-                    "maxTokens": input_body["max_tokens"],
-                    "temperature": input_body["temperature"],
-                    "topP": input_body["top_p"],
-                }
+                inferenceConfig=nova_inference_config,
             )
             
             return self._parse_response(response)

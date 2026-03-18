@@ -16,7 +16,7 @@ class AWSBedrockConfig(BaseLlmConfig):
         model: Optional[str] = None,
         temperature: float = 0.1,
         max_tokens: int = 2000,
-        top_p: float = 0.9,
+        top_p: Optional[float] = None,
         top_k: int = 1,
         aws_access_key_id: Optional[str] = None,
         aws_secret_access_key: Optional[str] = None,
@@ -33,7 +33,9 @@ class AWSBedrockConfig(BaseLlmConfig):
             model: Bedrock model identifier (e.g., "amazon.nova-3-mini-20241119-v1:0")
             temperature: Controls randomness (0.0 to 2.0)
             max_tokens: Maximum tokens to generate
-            top_p: Nucleus sampling parameter (0.0 to 1.0)
+            top_p: Nucleus sampling parameter (0.0 to 1.0). Default None (omitted).
+                   Note: Some models (e.g. Claude Haiku 4.5) do not allow both
+                   temperature and top_p to be specified simultaneously.
             top_k: Top-k sampling parameter (1 to 40)
             aws_access_key_id: AWS access key (optional, uses env vars if not provided)
             aws_secret_access_key: AWS secret key (optional, uses env vars if not provided)
@@ -78,9 +80,13 @@ class AWSBedrockConfig(BaseLlmConfig):
         base_config = {
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,
-            "top_p": self.top_p,
             "top_k": self.top_k,
         }
+
+        # Only include top_p if explicitly set (some models like Claude Haiku 4.5
+        # reject requests that specify both temperature and top_p)
+        if self.top_p is not None:
+            base_config["top_p"] = self.top_p
 
         # Add custom model kwargs
         base_config.update(self.model_kwargs)
