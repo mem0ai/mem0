@@ -213,6 +213,44 @@ def test_list_with_no_filters(langchain_instance):
     assert results[0][0].payload["name"] == "vector1"
 
 
+def test_update_vector(langchain_instance):
+    """Test that update() wraps vector and payload in lists before calling insert()."""
+    vector = [0.1, 0.2, 0.3]
+    payload = {"data": "updated_text", "name": "vector1"}
+    vector_id = "id1"
+
+    # Provide add_embeddings so insert() uses the embeddings path
+    langchain_instance.client.add_embeddings = Mock()
+    langchain_instance.client.delete = Mock()
+
+    langchain_instance.update(vector_id=vector_id, vector=vector, payload=payload)
+
+    # Verify delete was called with the correct id
+    langchain_instance.client.delete.assert_called_once_with(ids=[vector_id])
+
+    # Verify insert was called with list-wrapped vector and payload
+    langchain_instance.client.add_embeddings.assert_called_once_with(
+        embeddings=[vector], metadatas=[payload], ids=[vector_id]
+    )
+
+
+def test_update_vector_with_add_texts_fallback(langchain_instance):
+    """Test that update() works correctly when falling back to add_texts."""
+    vector = [0.4, 0.5, 0.6]
+    payload = {"data": "some text", "key": "value"}
+    vector_id = "id2"
+
+    langchain_instance.client.delete = Mock()
+    langchain_instance.client.add_texts = Mock()
+
+    langchain_instance.update(vector_id=vector_id, vector=vector, payload=payload)
+
+    langchain_instance.client.delete.assert_called_once_with(ids=[vector_id])
+    langchain_instance.client.add_texts.assert_called_once_with(
+        texts=["some text"], metadatas=[payload], ids=[vector_id]
+    )
+
+
 def test_list_with_exception(langchain_instance):
     """Test list when an exception occurs."""
     # Mock the _collection.get method to raise an exception
