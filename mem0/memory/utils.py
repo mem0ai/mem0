@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import re
 
 from mem0.configs.prompts import (
@@ -6,6 +7,8 @@ from mem0.configs.prompts import (
     FACT_RETRIEVAL_PROMPT,
     USER_MEMORY_EXTRACTION_PROMPT,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def get_fact_retrieval_messages(message, is_agent_memory=False):
@@ -59,12 +62,17 @@ def normalize_facts(raw_facts):
     like {"fact": "..."} or {"text": "..."} instead of plain strings.
     This mirrors the TypeScript FactRetrievalSchema validation.
     """
+    if not raw_facts:
+        return []
     normalized = []
     for item in raw_facts:
         if isinstance(item, str):
             fact = item
         elif isinstance(item, dict):
-            fact = item.get("fact") or item.get("text") or str(item)
+            fact = item.get("fact") or item.get("text")
+            if fact is None:
+                logger.warning("Unexpected fact shape from LLM, skipping: %s", item)
+                continue
         else:
             fact = str(item)
         if fact:
