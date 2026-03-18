@@ -12,6 +12,8 @@
  * - Auto-capture: stores key facts scoped to the current session after each agent turn
  * - Per-agent isolation: multi-agent setups write/read from separate userId namespaces
  *   automatically via sessionKey routing (zero breaking changes for single-agent setups)
+ * - Per-sender isolation: with userIdScope "per-sender", each sender gets isolated memory
+ *   (requires ctx.senderId from OpenClaw; use for multi-user DM bots)
  * - CLI: openclaw mem0 search, openclaw mem0 stats
  * - Dual mode: platform or open-source (self-hosted)
  */
@@ -45,6 +47,7 @@ type Mem0Config = {
   };
   // Shared
   userId: string;
+  userIdScope: "static" | "per-sender";
   autoCapture: boolean;
   autoRecall: boolean;
   searchThreshold: number;
@@ -526,6 +529,7 @@ const ALLOWED_KEYS = [
   "mode",
   "apiKey",
   "userId",
+  "userIdScope",
   "orgId",
   "projectId",
   "autoCapture",
@@ -578,12 +582,16 @@ export const mem0ConfigSchema = {
       ) as unknown as Mem0Config["oss"];
     }
 
+    const userIdScope: "static" | "per-sender" =
+      cfg.userIdScope === "per-sender" ? "per-sender" : "static";
+
     return {
       mode,
       apiKey:
         typeof cfg.apiKey === "string" ? resolveEnvVars(cfg.apiKey) : undefined,
       userId:
         typeof cfg.userId === "string" && cfg.userId ? cfg.userId : "default",
+      userIdScope,
       orgId: typeof cfg.orgId === "string" ? cfg.orgId : undefined,
       projectId: typeof cfg.projectId === "string" ? cfg.projectId : undefined,
       autoCapture: cfg.autoCapture !== false,
@@ -665,6 +673,25 @@ export function effectiveUserId(baseUserId: string, sessionKey?: string): string
   return agentId ? `${baseUserId}:agent:${agentId}` : baseUserId;
 }
 
+/**
+ * Derive the effective user_id with optional per-sender scoping.
+ * When userIdScope is "per-sender" and senderId is present, namespaces by sender.
+ * Otherwise delegates to effectiveUserId (per-agent or base).
+ */
+export function effectiveUserIdForRequest(
+  baseUserId: string,
+  userIdScope: "static" | "per-sender",
+  sessionKey?: string,
+  senderId?: string,
+): string {
+  if (userIdScope === "per-sender" && senderId) {
+    const agentPart = extractAgentId(sessionKey);
+    const prefix = agentPart ? `${baseUserId}:agent:${agentPart}` : baseUserId;
+    return `${prefix}:sender:${senderId}`;
+  }
+  return effectiveUserId(baseUserId, sessionKey);
+}
+
 /** Build a user_id for an explicit agentId (e.g. from tool params). */
 export function agentUserId(baseUserId: string, agentId: string): string {
   return `${baseUserId}:agent:${agentId}`;
@@ -672,15 +699,29 @@ export function agentUserId(baseUserId: string, agentId: string): string {
 
 /**
  * Resolve user_id with priority: explicit agentId > explicit userId > session-derived > configured.
+ * When userIdScope is "per-sender" and senderId is present, namespacing includes sender.
  */
 export function resolveUserId(
   baseUserId: string,
   opts: { agentId?: string; userId?: string },
   currentSessionId?: string,
+  userIdScope?: "static" | "per-sender",
+  senderId?: string,
 ): string {
-  if (opts.agentId) return agentUserId(baseUserId, opts.agentId);
+  if (opts.agentId) {
+    const agentUid = agentUserId(baseUserId, opts.agentId);
+    if (userIdScope === "per-sender" && senderId) {
+      return `${agentUid}:sender:${senderId}`;
+    }
+    return agentUid;
+  }
   if (opts.userId) return opts.userId;
-  return effectiveUserId(baseUserId, currentSessionId);
+  return effectiveUserIdForRequest(
+    baseUserId,
+    userIdScope ?? "static",
+    currentSessionId,
+    senderId,
+  );
 }
 
 // ============================================================================
@@ -699,26 +740,43 @@ const memoryPlugin = {
     const cfg = mem0ConfigSchema.parse(api.pluginConfig);
     const provider = createProvider(cfg, api);
 
-    // Track current session ID for tool-level session scoping
+    // Track current session ID and sender ID for tool-level scoping
     let currentSessionId: string | undefined;
+    let currentSenderId: string | undefined;
 
     // ========================================================================
-    // Per-agent isolation helpers (thin wrappers around exported functions)
+    // Per-agent / per-sender isolation helpers (thin wrappers around exported functions)
     // ========================================================================
-    const _effectiveUserId = (sessionKey?: string) =>
-      effectiveUserId(cfg.userId, sessionKey);
+    const _effectiveUserId = (sessionKey?: string, senderId?: string) =>
+      effectiveUserIdForRequest(
+        cfg.userId,
+        cfg.userIdScope,
+        sessionKey,
+        senderId,
+      );
     const _agentUserId = (id: string) => agentUserId(cfg.userId, id);
     const _resolveUserId = (opts: { agentId?: string; userId?: string }) =>
-      resolveUserId(cfg.userId, opts, currentSessionId);
+      resolveUserId(
+        cfg.userId,
+        opts,
+        currentSessionId,
+        cfg.userIdScope,
+        currentSenderId,
+      );
 
     api.logger.info(
-      `openclaw-mem0: registered (mode: ${cfg.mode}, user: ${cfg.userId}, graph: ${cfg.enableGraph}, autoRecall: ${cfg.autoRecall}, autoCapture: ${cfg.autoCapture})`,
+      `openclaw-mem0: registered (mode: ${cfg.mode}, user: ${cfg.userId}, userIdScope: ${cfg.userIdScope}, graph: ${cfg.enableGraph}, autoRecall: ${cfg.autoRecall}, autoCapture: ${cfg.autoCapture})`,
     );
 
     // Helper: build add options
-    function buildAddOptions(userIdOverride?: string, runId?: string, sessionKey?: string): AddOptions {
+    function buildAddOptions(
+      userIdOverride?: string,
+      runId?: string,
+      sessionKey?: string,
+      senderId?: string,
+    ): AddOptions {
       const opts: AddOptions = {
-        user_id: userIdOverride || _effectiveUserId(sessionKey),
+        user_id: userIdOverride || _effectiveUserId(sessionKey, senderId),
         source: "OPENCLAW",
       };
       if (runId) opts.run_id = runId;
@@ -737,9 +795,10 @@ const memoryPlugin = {
       limit?: number,
       runId?: string,
       sessionKey?: string,
+      senderId?: string,
     ): SearchOptions {
       const opts: SearchOptions = {
-        user_id: userIdOverride || _effectiveUserId(sessionKey),
+        user_id: userIdOverride || _effectiveUserId(sessionKey, senderId),
         top_k: limit ?? cfg.topK,
         limit: limit ?? cfg.topK,
         threshold: cfg.searchThreshold,
@@ -1271,7 +1330,9 @@ const memoryPlugin = {
             try {
               const limit = parseInt(opts.limit, 10);
               const scope = opts.scope as "session" | "long-term" | "all";
-              const uid = opts.agent ? _agentUserId(opts.agent) : _effectiveUserId(currentSessionId);
+              const uid = opts.agent
+                ? _agentUserId(opts.agent)
+                : _effectiveUserId(currentSessionId, currentSenderId);
 
               let allResults: MemoryItem[] = [];
 
@@ -1366,15 +1427,23 @@ const memoryPlugin = {
       api.on("before_agent_start", async (event, ctx) => {
         if (!event.prompt || event.prompt.length < 5) return;
 
-        // Track session ID
+        // Track session ID and sender ID for per-sender scoping
         const sessionId = (ctx as any)?.sessionKey ?? undefined;
+        const senderId = (ctx as any)?.senderId ?? undefined;
         if (sessionId) currentSessionId = sessionId;
+        if (senderId !== undefined) currentSenderId = senderId;
 
         try {
-          // Search long-term memories (user-scoped, isolated per agent)
+          // Search long-term memories (user-scoped, isolated per agent/sender)
           const longTermResults = await provider.search(
             event.prompt,
-            buildSearchOptions(undefined, undefined, undefined, sessionId),
+            buildSearchOptions(
+              undefined,
+              undefined,
+              undefined,
+              sessionId,
+              senderId,
+            ),
           );
 
           // Search session memories (session-scoped) if we have a session ID
@@ -1382,7 +1451,13 @@ const memoryPlugin = {
           if (currentSessionId) {
             sessionResults = await provider.search(
               event.prompt,
-              buildSearchOptions(undefined, undefined, currentSessionId, sessionId),
+              buildSearchOptions(
+                undefined,
+                undefined,
+                currentSessionId,
+                sessionId,
+                senderId,
+              ),
             );
           }
 
@@ -1433,9 +1508,11 @@ const memoryPlugin = {
           return;
         }
 
-        // Track session ID
+        // Track session ID and sender ID for per-sender scoping
         const sessionId = (ctx as any)?.sessionKey ?? undefined;
+        const senderId = (ctx as any)?.senderId ?? undefined;
         if (sessionId) currentSessionId = sessionId;
+        if (senderId !== undefined) currentSenderId = senderId;
 
         try {
           // Extract messages, limiting to last 10
@@ -1487,7 +1564,12 @@ const memoryPlugin = {
 
           if (formattedMessages.length === 0) return;
 
-          const addOpts = buildAddOptions(undefined, currentSessionId, sessionId);
+          const addOpts = buildAddOptions(
+            undefined,
+            currentSessionId,
+            sessionId,
+            senderId,
+          );
           const result = await provider.add(
             formattedMessages,
             addOpts,

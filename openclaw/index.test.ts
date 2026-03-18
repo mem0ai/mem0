@@ -8,6 +8,7 @@ import { describe, it, expect } from "vitest";
 import {
   extractAgentId,
   effectiveUserId,
+  effectiveUserIdForRequest,
   agentUserId,
   resolveUserId,
 } from "./index.ts";
@@ -84,6 +85,54 @@ describe("effectiveUserId", () => {
 });
 
 // ---------------------------------------------------------------------------
+// effectiveUserIdForRequest
+// ---------------------------------------------------------------------------
+describe("effectiveUserIdForRequest", () => {
+  const base = "alice";
+
+  it("returns same as effectiveUserId when userIdScope is static", () => {
+    expect(
+      effectiveUserIdForRequest(base, "static", undefined, undefined),
+    ).toBe("alice");
+    expect(
+      effectiveUserIdForRequest(base, "static", "agent:researcher:uuid", undefined),
+    ).toBe("alice:agent:researcher");
+  });
+
+  it("returns per-sender namespace when userIdScope is per-sender and senderId present", () => {
+    expect(
+      effectiveUserIdForRequest(base, "per-sender", undefined, "user-123"),
+    ).toBe("alice:sender:user-123");
+  });
+
+  it("combines agent and sender when both present (per-sender)", () => {
+    expect(
+      effectiveUserIdForRequest(
+        base,
+        "per-sender",
+        "agent:researcher:uuid",
+        "user-456",
+      ),
+    ).toBe("alice:agent:researcher:sender:user-456");
+  });
+
+  it("falls back to effectiveUserId when per-sender but senderId absent", () => {
+    expect(
+      effectiveUserIdForRequest(base, "per-sender", undefined, undefined),
+    ).toBe("alice");
+    expect(
+      effectiveUserIdForRequest(base, "per-sender", "agent:beta:uuid", undefined),
+    ).toBe("alice:agent:beta");
+  });
+
+  it("falls back to effectiveUserId when per-sender but senderId empty string", () => {
+    expect(
+      effectiveUserIdForRequest(base, "per-sender", undefined, ""),
+    ).toBe("alice");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // agentUserId
 // ---------------------------------------------------------------------------
 describe("agentUserId", () => {
@@ -135,6 +184,24 @@ describe("resolveUserId", () => {
 
   it("ignores empty-string userId (falsy)", () => {
     expect(resolveUserId(base, { userId: "" })).toBe("alice");
+  });
+
+  it("uses per-sender namespace when userIdScope per-sender and senderId present", () => {
+    expect(
+      resolveUserId(base, {}, undefined, "per-sender", "telegram-789"),
+    ).toBe("alice:sender:telegram-789");
+  });
+
+  it("combines agent and sender when agentId + per-sender + senderId", () => {
+    expect(
+      resolveUserId(
+        base,
+        { agentId: "researcher" },
+        "agent:researcher:uuid",
+        "per-sender",
+        "user-99",
+      ),
+    ).toBe("alice:agent:researcher:sender:user-99");
   });
 });
 

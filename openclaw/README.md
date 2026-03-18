@@ -50,6 +50,16 @@ memory_search({ query: "user's tech stack", agentId: "researcher" })
 
 Resolution priority: explicit `agentId` > explicit `userId` > session-derived > configured default.
 
+### Per-sender memory isolation (multi-user deployments)
+
+When multiple human users (senders) talk to the same bot via DMs (e.g. `dmScope: per-channel-peer`), set `userIdScope: "per-sender"` so each sender gets their own memory namespace. Otherwise all senders share the configured `userId`.
+
+**How it works:**
+
+- With `userIdScope: "static"` (default): one `userId` for all senders 
+- With `userIdScope: "per-sender"`: effective userId is derived from `ctx.senderId` when available- each sender gets isolated memory (`baseUserId:sender:senderId`, or combined with per-agent).
+- When `senderId` is missing, falls back to static/per-agent behavior.
+
 ## Setup
 
 ```bash
@@ -68,7 +78,7 @@ Pick any stable, unique identifier for the user. Common choices:
 
 All memories are scoped to this `userId` — different values create separate memory namespaces. If you don't set it, it defaults to `"default"`, which means all users share the same memory space.
 
-> **Tip:** In a multi-user application, set `userId` dynamically per user (e.g. from your auth system) rather than hardcoding a single value.
+> **Tip:** In a multi-user application, set `userId` dynamically per user (e.g. from your auth system) rather than hardcoding a single value. For multi-user DM bots, use `userIdScope: "per-sender"`.
 
 ### Platform (Mem0 Cloud)
 
@@ -157,6 +167,7 @@ openclaw mem0 stats --agent researcher
 |-----|------|---------|---|
 | `mode` | `"platform"` \| `"open-source"` | `"platform"` | Which backend to use |
 | `userId` | `string` | `"default"` | Any unique identifier you choose for the user (e.g. `"alice"`, `"user_123"`). All memories are scoped to this value. Not found in any dashboard — you define it yourself. |
+| `userIdScope` | `"static"` \| `"per-sender"` | `"static"` | One userId for all senders, or isolate per sender. Use `"per-sender"` for multi-user DM bots. |
 | `autoRecall` | `boolean` | `true` | Inject memories before each turn |
 | `autoCapture` | `boolean` | `true` | Store facts after each turn |
 | `topK` | `number` | `5` | Max memories per recall |

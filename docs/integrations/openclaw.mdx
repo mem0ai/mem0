@@ -37,7 +37,7 @@ Pick any stable, unique identifier for the user. Common choices:
 
 All memories are scoped to this `userId` — different values create separate memory namespaces. If you don't set it, it defaults to `"default"`, which means all users share the same memory space.
 
-<Tip>In a multi-user application, set `userId` dynamically per user (e.g. from your auth system) rather than hardcoding a single value.</Tip>
+<Tip>In a multi-user application, set `userId` dynamically per user (e.g. from your auth system) rather than hardcoding a single value. For multi-user DM bots (e.g. Telegram, Discord DMs), use `userIdScope: "per-sender"` so each sender gets isolated memory automatically.</Tip>
 
 ### Platform Mode (Mem0 Cloud)
 
@@ -134,6 +134,7 @@ openclaw mem0 stats
 |-----|------|---------|-------------|
 | `mode` | `"platform"` \| `"open-source"` | `"platform"` | Which backend to use |
 | `userId` | `string` | `"default"` | Scope memories per user |
+| `userIdScope` | `"static"` \| `"per-sender"` | `"static"` | `"per-sender"` isolates memory per sender (for multi-user DM bots) |
 | `autoRecall` | `boolean` | `true` | Inject memories before each turn |
 | `autoCapture` | `boolean` | `true` | Store facts after each turn |
 | `topK` | `number` | `5` | Max memories per recall |
