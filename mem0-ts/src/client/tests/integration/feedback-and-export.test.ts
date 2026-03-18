@@ -38,15 +38,28 @@ describeIntegration("MemoryClient Integration — Feedback & Export", () => {
   });
 
   // ─── Feedback ─────────────────────────────────────────────
+  // Note: client.feedback() is deprecated and doesn't send org_id/project_id,
+  // so we call _fetchWithErrorHandling directly to test the API endpoint.
   describe("feedback", () => {
     test("submits positive feedback on a memory", async () => {
       const memoryId = memoryIds[0];
       expect(memoryId).toBeDefined();
 
-      const result = await client.feedback({
+      const payload = {
         memory_id: memoryId,
         feedback: Feedback.POSITIVE,
-      });
+        org_id: String(client.organizationId),
+        project_id: String(client.projectId),
+      };
+
+      const result = await (client as any)._fetchWithErrorHandling(
+        `${client.host}/v1/feedback/`,
+        {
+          method: "POST",
+          headers: client.headers,
+          body: JSON.stringify(payload),
+        },
+      );
 
       expect(result).toBeDefined();
     });
