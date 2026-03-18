@@ -200,9 +200,9 @@ describe("MemoryVectorStore – path handling", () => {
       expect(
         fs.existsSync(path.join(fakeHome, ".mem0", "vector_store.db")),
       ).toBe(true);
-      expect(
-        fs.existsSync(path.join(readOnlyCwd, "vector_store.db")),
-      ).toBe(false);
+      expect(fs.existsSync(path.join(readOnlyCwd, "vector_store.db"))).toBe(
+        false,
+      );
     } finally {
       fs.chmodSync(readOnlyCwd, 0o755);
       fs.rmSync(fakeHome, { recursive: true, force: true });

@@ -1,6 +1,6 @@
 {
   "name": "@mem0/openclaw-mem0",
-  "version": "0.3.1",
+  "version": "0.3.3",
   "type": "module",
   "description": "Mem0 memory backend for OpenClaw — platform or self-hosted open-source",
   "license": "Apache-2.0",
@@ -11,7 +11,20 @@
     "mem0",
     "long-term-memory"
   ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "openclaw.plugin.json"
+  ],
   "scripts": {
+    "build": "tsup",
     "test": "vitest run"
   },
   "dependencies": {
@@ -20,10 +33,14 @@
   },
   "openclaw": {
     "extensions": [
-      "./index.ts"
+      "./dist/index.js"
     ]
   },
   "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@vitest/coverage-v8": "^4.0.18",
+    "tsup": "^8.5.0",
+    "typescript": "^5.8.3",
     "vitest": "^4.0.18"
   }
 }

@@ -170,7 +170,7 @@ export interface PromptUpdatePayload {
   [key: string]: any;
 }
 
-enum WebhookEvent {
+export enum WebhookEvent {
   MEMORY_ADDED = "memory_add",
   MEMORY_UPDATED = "memory_update",
   MEMORY_DELETED = "memory_delete",

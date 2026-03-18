@@ -218,7 +218,7 @@ class MemoryGraph:
             for tool_call in search_results["tool_calls"]:
                 if tool_call["name"] != "extract_entities":
                     continue
-                for item in tool_call["arguments"]["entities"]:
+                for item in tool_call.get("arguments", {}).get("entities", []):
                     if "entity" in item and "entity_type" in item:
                         entity_type_map[item["entity"]] = item["entity_type"]
         except Exception as e:
