@@ -58,7 +58,11 @@ function createMemory(overrides: Partial<MemoryConfig> = {}): Memory {
     },
     vectorStore: {
       provider: "memory",
-      config: { collectionName: `test-add-${Date.now()}`, dimension: 1536 },
+      config: {
+        collectionName: `test-add-${Date.now()}`,
+        dimension: 1536,
+        dbPath: ":memory:",
+      },
     },
     llm: {
       provider: "openai",
