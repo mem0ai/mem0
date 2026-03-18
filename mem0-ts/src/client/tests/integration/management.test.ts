@@ -64,9 +64,7 @@ describeIntegration(
           expect(typeof user.type).toBe("string");
         }
 
-        const testUser = allUsers.results.find(
-          (u) => u.name === TEST_USER_ID,
-        );
+        const testUser = allUsers.results.find((u) => u.name === TEST_USER_ID);
         expect(testUser).toBeDefined();
       });
     });
