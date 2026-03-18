@@ -8,10 +8,9 @@ import os
 import uuid
 import warnings
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-import pytz
 from pydantic import ValidationError
 
 from mem0.configs.base import MemoryConfig, MemoryItem
@@ -37,8 +36,8 @@ from mem0.utils.factory import (
     EmbedderFactory,
     GraphStoreFactory,
     LlmFactory,
-    VectorStoreFactory,
     RerankerFactory,
+    VectorStoreFactory,
 )
 
 # Suppress SWIG deprecation warnings globally
@@ -573,7 +572,7 @@ class Memory(MemoryBase):
                                 updated_metadata["agent_id"] = metadata["agent_id"]
                             if metadata.get("run_id"):
                                 updated_metadata["run_id"] = metadata["run_id"]
-                            updated_metadata["updated_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+                            updated_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
                             self.vector_store.update(
                                 vector_id=memory_id,
@@ -1082,7 +1081,7 @@ class Memory(MemoryBase):
         metadata = metadata or {}
         metadata["data"] = data
         metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        metadata["created_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+        metadata["created_at"] = datetime.now(timezone.utc).isoformat()
 
         self.vector_store.insert(
             vectors=[embeddings],
@@ -1155,7 +1154,7 @@ class Memory(MemoryBase):
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
-        new_metadata["updated_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+        new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         # Preserve session identifiers from existing memory only if not provided in new metadata
         if "user_id" not in new_metadata and "user_id" in existing_memory.payload:
@@ -1594,7 +1593,7 @@ class AsyncMemory(MemoryBase):
                                     updated_metadata["agent_id"] = meta["agent_id"]
                                 if meta.get("run_id"):
                                     updated_metadata["run_id"] = meta["run_id"]
-                                updated_metadata["updated_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+                                updated_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
                                 await asyncio.to_thread(
                                     self.vector_store.update,
@@ -2144,7 +2143,7 @@ class AsyncMemory(MemoryBase):
         metadata = metadata or {}
         metadata["data"] = data
         metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        metadata["created_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+        metadata["created_at"] = datetime.now(timezone.utc).isoformat()
 
         await asyncio.to_thread(
             self.vector_store.insert,
@@ -2235,7 +2234,7 @@ class AsyncMemory(MemoryBase):
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
-        new_metadata["updated_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+        new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         # Preserve session identifiers from existing memory only if not provided in new metadata
         if "user_id" not in new_metadata and "user_id" in existing_memory.payload:
