@@ -48,6 +48,7 @@ export interface LLMConfig {
   apiKey?: string;
   model?: string | any;
   modelProperties?: Record<string, any>;
+  maxTokens?: number;
 }
 
 export interface Neo4jConfig {
