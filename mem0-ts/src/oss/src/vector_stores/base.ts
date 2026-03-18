@@ -10,6 +10,7 @@ export interface VectorStore {
     query: number[],
     limit?: number,
     filters?: SearchFilters,
+    scoreThreshold?: number,
   ): Promise<VectorStoreResult[]>;
   get(vectorId: string): Promise<VectorStoreResult | null>;
   update(

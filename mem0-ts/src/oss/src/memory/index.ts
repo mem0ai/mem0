@@ -499,6 +499,7 @@ export class Memory {
       queryEmbedding,
       limit,
       filters,
+      config.threshold,
     );
 
     // Search graph store if available
