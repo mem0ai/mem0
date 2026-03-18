@@ -1,5 +1,4 @@
 import json
-
 from typing import Dict, List, Optional, Union
 
 try:
@@ -10,6 +9,7 @@ except ImportError:
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.configs.llms.ollama import OllamaConfig
 from mem0.llms.base import LLMBase
+from mem0.memory.utils import extract_json
 
 
 class OllamaLLM(LLMBase):
@@ -79,7 +79,7 @@ class OllamaLLM(LLMBase):
                     arguments = getattr(fn, "arguments", {}) if fn else {}
 
                 if isinstance(arguments, str):
-                    arguments = json.loads(arguments)
+                    arguments = json.loads(extract_json(arguments))
 
                 processed_response["tool_calls"].append(
                     {"name": name, "arguments": arguments}
