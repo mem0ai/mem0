@@ -70,11 +70,16 @@ def _safe_deepcopy_config(config):
         else:
             clone_dict = {k: v for k, v in config.__dict__.items()}
         
-        sensitive_tokens = ("auth", "credential", "password", "token", "secret", "key", "connection_class")
+        # Strip sensitive values (passwords, tokens, etc.) but preserve runtime auth objects
+        # (http_auth, auth, connection_class) required for OpenSearch/AWS and similar clients
+        sensitive_tokens = ("credential", "password", "token", "secret", "key")
+        preserve_runtime_auth = ("http_auth", "auth", "connection_class")
         for field_name in list(clone_dict.keys()):
+            if field_name.lower() in preserve_runtime_auth:
+                continue
             if any(token in field_name.lower() for token in sensitive_tokens):
                 clone_dict[field_name] = None
-        
+
         try:
             return config_class(**clone_dict)
         except Exception as reconstruction_error:
