@@ -11,7 +11,7 @@ class SQLiteManager:
     def __init__(self, db_path: str = ":memory:"):
         self.db_path = db_path
         self.connection = sqlite3.connect(self.db_path, check_same_thread=False)
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._migrate_history_table()
         self._create_history_table()
 

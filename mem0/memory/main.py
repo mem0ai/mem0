@@ -237,7 +237,7 @@ class Memory(MemoryBase):
     @classmethod
     def from_config(cls, config_dict: Dict[str, Any]):
         try:
-            config = cls._process_config(config_dict)
+            cls._process_config(config_dict)
             config = MemoryConfig(**config_dict)
         except ValidationError as e:
             logger.error(f"Configuration validation error: {e}")
@@ -253,11 +253,7 @@ class Memory(MemoryBase):
                 config_dict["vector_store"]["config"]["embedding_model_dims"] = config_dict["embedder"]["config"][
                     "embedding_dims"
                 ]
-        try:
-            return config_dict
-        except ValidationError as e:
-            logger.error(f"Configuration validation error: {e}")
-            raise
+        return config_dict
 
     def _should_use_agent_memory_extraction(self, messages, metadata):
         """Determine whether to use agent memory extraction based on the logic:
@@ -605,7 +601,7 @@ class Memory(MemoryBase):
         added_entities = []
         if self.enable_graph:
             if filters.get("user_id") is None:
-                filters["user_id"] = "user"
+                filters = {**filters, "user_id": "user"}
 
             data = "\n".join([msg["content"] for msg in messages if "content" in msg and msg["role"] != "system"])
             added_entities = self.graph.add(data, filters)
@@ -1289,7 +1285,7 @@ class AsyncMemory(MemoryBase):
     @classmethod
     async def from_config(cls, config_dict: Dict[str, Any]):
         try:
-            config = cls._process_config(config_dict)
+            cls._process_config(config_dict)
             config = MemoryConfig(**config_dict)
         except ValidationError as e:
             logger.error(f"Configuration validation error: {e}")
@@ -1305,11 +1301,7 @@ class AsyncMemory(MemoryBase):
                 config_dict["vector_store"]["config"]["embedding_model_dims"] = config_dict["embedder"]["config"][
                     "embedding_dims"
                 ]
-        try:
-            return config_dict
-        except ValidationError as e:
-            logger.error(f"Configuration validation error: {e}")
-            raise
+        return config_dict
 
     def _should_use_agent_memory_extraction(self, messages, metadata):
         """Determine whether to use agent memory extraction based on the logic:
@@ -1651,7 +1643,7 @@ class AsyncMemory(MemoryBase):
         added_entities = []
         if self.enable_graph:
             if filters.get("user_id") is None:
-                filters["user_id"] = "user"
+                filters = {**filters, "user_id": "user"}
 
             data = "\n".join([msg["content"] for msg in messages if "content" in msg and msg["role"] != "system"])
             added_entities = await asyncio.to_thread(self.graph.add, data, filters)
