@@ -34,7 +34,9 @@ export class OllamaEmbedder implements Embedder {
       input,
     });
     if (!response.embeddings || response.embeddings.length === 0) {
-      throw new Error(`Ollama embed() returned no embeddings for model '${this.model}'`);
+      throw new Error(
+        `Ollama embed() returned no embeddings for model '${this.model}'`,
+      );
     }
     return response.embeddings[0];
   }
@@ -54,7 +56,11 @@ export class OllamaEmbedder implements Embedder {
     }
     const local_models = await this.ollama.list();
     const target = OllamaEmbedder.normalizeModelName(this.model);
-    if (!local_models.models.find((m: any) => OllamaEmbedder.normalizeModelName(m.name) === target)) {
+    if (
+      !local_models.models.find(
+        (m: any) => OllamaEmbedder.normalizeModelName(m.name) === target,
+      )
+    ) {
       logger.info(`Pulling model ${this.model}...`);
       await this.ollama.pull({ model: this.model });
     }

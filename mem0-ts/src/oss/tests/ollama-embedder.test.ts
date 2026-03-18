@@ -115,7 +115,7 @@ describe("OllamaEmbedder (unit)", () => {
     });
 
     await expect(embedder.embed("text")).rejects.toThrow(
-      "Ollama embed() returned no embeddings"
+      "Ollama embed() returned no embeddings",
     );
   });
 });
