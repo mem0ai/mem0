@@ -402,7 +402,6 @@
                       "integrations/autogen",
                       "integrations/agno",
                       "integrations/camel-ai",
-                      "integrations/mirofish",
                       "integrations/openclaw",
                       "integrations/openai-agents-sdk",
                       "integrations/google-ai-adk",
