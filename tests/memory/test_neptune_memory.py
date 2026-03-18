@@ -1,4 +1,5 @@
 import unittest
+from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 import pytest
 from mem0.graphs.neptune.neptunedb import MemoryGraph
@@ -288,6 +289,25 @@ class TestNeptuneMemory(unittest.TestCase):
 
         # Check the result
         self.assertEqual(result, mock_query_result)
+
+    def test_add_new_entities_payloads_use_utc_timestamps(self):
+        """Test that Neptune vector-store payloads use UTC timestamps."""
+        self.memory_graph._add_new_entities_cypher(
+            source="alice",
+            source_embedding=[0.1, 0.2],
+            source_type="person",
+            destination="bob",
+            dest_embedding=[0.3, 0.4],
+            destination_type="person",
+            relationship="KNOWS",
+            user_id=self.user_id,
+        )
+
+        _, kwargs = self.mock_vector_store.insert.call_args
+        for payload in kwargs["payloads"]:
+            parsed = datetime.fromisoformat(payload["created_at"])
+            self.assertEqual(parsed.tzinfo, timezone.utc)
+            self.assertEqual(parsed.utcoffset().total_seconds(), 0)
 
     def test_search_graph_db(self):
         """Test the _search_graph_db method."""
