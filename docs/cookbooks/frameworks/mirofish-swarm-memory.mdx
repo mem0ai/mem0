@@ -69,7 +69,7 @@ replaces Zep with Mem0 OSS Graph Memory, which provides:
 - Automatic entity extraction from text
 - Relationship mining (source → relationship → destination triples)
 - Combined vector + graph search returning memories AND relations
-- Per-agent isolation via agent_id
+- Per-agent isolation via app_id
 - Self-hosted with no node caps
 
 Follows MiroFish's 5-stage pipeline:
@@ -182,7 +182,7 @@ class MiroFishSimulation:
     Uses Mem0 Graph Memory to replace MiroFish's Zep Cloud integration:
     - Entities and relationships are extracted automatically from text
     - search() returns both semantic memories AND graph relations
-    - Per-agent isolation via agent_id (first-class in OSS)
+    - Per-agent isolation via app_id
     - Project isolation via user_id
     """
 
@@ -213,7 +213,7 @@ class MiroFishSimulation:
         print("  Ingesting documents and building knowledge graph...")
         for i, doc in enumerate(documents):
             result = self.memory.add(
-                doc,
+                [{"role": "user", "content": doc}],
                 user_id=self.project_id,
                 metadata={"stage": "graph_building", "source": "seed_document", "chunk_index": i}
             )
@@ -261,16 +261,15 @@ class MiroFishSimulation:
         MiroFish equivalent: ZepGraphMemoryUpdater.add_activity()
         Zep equivalent: graph.add(type="text", data=episode_text)
 
-        Each action is scoped to the agent via agent_id. Graph Memory
-        extracts any new entities/relationships from the action content,
-        enriching the knowledge graph as the simulation progresses.
+        Agent memories use app_id to group by agent (no assistant
+        memories involved). Graph Memory extracts entities/relationships
+        from the action content automatically.
         """
         formatted = f"{agent_name} [{action_type}]: {content}"
 
         self.memory.add(
-            formatted,
-            user_id=self.project_id,
-            agent_id=agent_id,
+            [{"role": "user", "content": formatted}],
+            app_id=agent_id,
             metadata={
                 "action_type": action_type,
                 "platform": platform,
@@ -288,15 +287,14 @@ class MiroFishSimulation:
         self.stats["rounds_completed"] = max(self.stats["rounds_completed"], round_num)
 
     def recall_agent_memory(self, agent_id: str, query: str) -> dict:
-        """Agent recalls its own memories + graph relations mid-simulation.
+        """Agent recalls memories relevant to its role mid-simulation.
 
-        Only returns memories scoped to this agent (via agent_id).
-        Also returns graph relations connected to the query entities.
+        Searches project-wide by user_id — semantic matching naturally
+        surfaces content relevant to the querying agent's context.
         """
         results = self.memory.search(
             query,
             user_id=self.project_id,
-            agent_id=agent_id,
             limit=5
         )
         return {
@@ -337,11 +335,10 @@ class MiroFishSimulation:
         }
 
     def agent_search(self, agent_id: str, query: str, limit: int = 10) -> dict:
-        """Search within a single agent's memory + graph space."""
+        """Search for an agent's activities across the simulation."""
         results = self.memory.search(
             query,
             user_id=self.project_id,
-            agent_id=agent_id,
             limit=limit
         )
         return {
@@ -603,7 +600,7 @@ MiroFish's entire pipeline revolves around a **knowledge graph** — it extracts
 | **Relationship mining** | Graph edges | `(source) --[relationship]--> (destination)` triples |
 | **Semantic + keyword search** | Semantic + BM25 | Vector similarity + graph relation retrieval |
 | **Graph traversal** | Node/edge queries | `relations` array in search results |
-| **Per-agent isolation** | Single shared graph in MiroFish | Native `agent_id` scoping |
+| **Per-agent isolation** | Single shared graph in MiroFish | Native `app_id` scoping |
 | **Self-hosting** | No (cloud only) | Yes — Neo4j, Memgraph, Kuzu, Neptune |
 | **Node/memory limits** | Capped on free tier | Unlimited (self-hosted) |
 
@@ -625,24 +622,30 @@ This is what makes Mem0 Graph Memory a natural replacement for Zep — you get s
 
 ### Per-Agent Memory Isolation
 
-In Mem0 OSS, `user_id` and `agent_id` are stored on the same record. You can combine them freely:
+`user_id` scopes the simulation project. `app_id` tags individual agent actions at storage time (we use `app_id` instead of `agent_id` since no assistant memories are involved). Searches use `user_id` for project-wide retrieval:
 
 ```python
-# Store: project + agent scoped
-memory.add(text, user_id="my_sim", agent_id="mayor_chen")
+# Store project-level memories (seed documents)
+memory.add(
+    [{"role": "user", "content": "Mayor Chen supports the zoning reform."}],
+    user_id="my_sim"
+)
 
-# Search all agents in a simulation
+# Store agent-specific memories (simulation actions)
+memory.add(
+    [{"role": "user", "content": "Mayor Chen [CREATE_POST]: Reform works!"}],
+    app_id="mayor_chen"
+)
+
+# Search across the simulation (project-wide)
 memory.search("housing reform", user_id="my_sim")
-
-# Search one agent's memories only
-memory.search("housing reform", user_id="my_sim", agent_id="mayor_chen")
 
 # Get all memories + graph relations
 memory.get_all(user_id="my_sim")
 ```
 
 <Note>
-  In Mem0 OSS, `user_id` and `agent_id` are stored on the same record, so filtering by both works correctly. Graph nodes also inherit `agent_id` scoping — seed documents (ingested without `agent_id`) create project-wide graph nodes, while agent actions create agent-scoped nodes. Use searches without `agent_id` (just `user_id`) for cross-agent graph queries.
+  Use `user_id` for `add()` when storing project-level data (seed documents). Use `app_id` for `add()` when storing agent actions. For `search()` and `get_all()`, query by `user_id` for project-wide results. Always use the message list format `[{"role": "user", "content": "..."}]` for `add()` — it works on both OSS and Cloud.
 </Note>
 
 ### Stage Mapping
@@ -651,8 +654,8 @@ memory.get_all(user_id="my_sim")
 |---|---|---|
 | **1. Graph Building** | Ingest docs, extract entities | `memory.add(doc, user_id=project)` — entities/relations extracted automatically |
 | **2. Environment Setup** | Enrich agent personas from graph | `memory.search(query, user_id=project)` — returns facts + relations |
-| **3. Simulation** | Track per-agent actions | `memory.add(action, user_id=project, agent_id=agent)` |
-| **3. Simulation** | Mid-round recall | `memory.search(query, user_id=project, agent_id=agent)` |
+| **3. Simulation** | Track per-agent actions | `memory.add(messages, app_id=agent)` |
+| **3. Simulation** | Mid-round recall | `memory.search(query, user_id=project)` |
 | **4. Report Generation** | Targeted analysis | `memory.search(query, user_id=project)` — memories + graph |
 | **4. Report Generation** | Full overview | `memory.get_all(user_id=project)` — all memories + all relations |
 | **5. Deep Interaction** | Follow-up queries | `memory.search(query, user_id=project)` |
@@ -671,7 +674,7 @@ For developers replacing MiroFish's Zep integration. Note that Mem0 Graph Memory
 | ZepEntityReader | `client.graph.node.get_by_graph_id()` | `memory.get_all(user_id=...)` → `relations` | |
 | ZepEntityReader | `client.graph.node.get(uuid)` | `memory.search(entity_name, user_id=...)` | Semantic search, not exact ID lookup |
 | ZepEntityReader | `client.graph.node.get_entity_edges()` | `memory.search(entity_name, user_id=...)` → `relations` | Returns all matching relations, not edges for a specific node |
-| ZepGraphMemoryUpdater | `client.graph.add(type="text")` | `memory.add(text, user_id=..., agent_id=...)` | No batch buffering or retry — implement in your wrapper |
+| ZepGraphMemoryUpdater | `client.graph.add(type="text")` | `memory.add(messages, app_id=...)` | No batch buffering or retry — implement in your wrapper |
 | ZepToolsService | `search_graph(query, scope)` | `memory.search(query, user_id=...)` → memories + relations | |
 | ZepToolsService | `get_entities()` | `memory.get_all(user_id=...)` → `relations` | |
 | ZepToolsService | Panorama (all nodes + edges) | `memory.get_all(user_id=...)` | No temporal fact separation (active vs historical) |
@@ -738,7 +741,7 @@ Exact output varies as Mem0 automatically extracts and deduplicates entities. Th
 ## Best Practices
 
 1. **Unique `user_id` per simulation** — Use timestamps or UUIDs (e.g., `mirofish_housing_1742198400`) to prevent memory collisions between runs
-2. **Always set `agent_id`** — Per-agent isolation is the core value prop. In OSS, `agent_id` is a first-class field stored on each record
+2. **Always set `app_id` for agent actions** — Per-agent isolation prevents memory cross-contamination between agents
 3. **Use `custom_prompt`** — Guide entity extraction to capture domain-specific relationships (people, policies, stances)
 4. **Format actions as natural language** — `"Mayor Chen [CREATE_POST]: content"` extracts better entities than raw JSON
 5. **Query relations for reports** — The `relations` array in search results gives structured `(source, relationship, destination)` triples for building analytical reports
