@@ -1,6 +1,6 @@
 /**
  * Regression tests for per-agent memory isolation helpers and
- * message filtering / deduplication logic.
+ * message filtering logic.
  */
 import { describe, it, expect } from "vitest";
 import {
@@ -14,7 +14,6 @@ import {
   isGenericAssistantMessage,
   stripNoiseFromContent,
   filterMessagesForExtraction,
-  deduplicateByContent,
 } from "./index.ts";
 
 // ---------------------------------------------------------------------------
@@ -488,41 +487,3 @@ What is the deployment plan?`,
   });
 });
 
-// ---------------------------------------------------------------------------
-// deduplicateByContent
-// ---------------------------------------------------------------------------
-describe("deduplicateByContent", () => {
-  it("removes near-duplicate memories (>80% word overlap), keeping higher-scored", () => {
-    const memories = [
-      { id: "1", memory: "User runs Rize Digital LLC focused on tree service contractors in Texas", score: 0.9 },
-      { id: "2", memory: "User runs Rize Digital LLC focused on tree service contractors in Texas and Connecticut", score: 0.85 },
-    ];
-    const result = deduplicateByContent(memories);
-    expect(result).toHaveLength(1);
-    expect(result[0].id).toBe("1"); // keeps the higher-scored
-  });
-
-  it("keeps the higher-scored item even when it appears later in the array", () => {
-    const memories = [
-      { id: "1", memory: "User runs Rize Digital LLC focused on tree service contractors in Texas", score: 0.75 },
-      { id: "2", memory: "User runs Rize Digital LLC focused on tree service contractors in Texas and Connecticut", score: 0.92 },
-    ];
-    const result = deduplicateByContent(memories);
-    expect(result).toHaveLength(1);
-    expect(result[0].id).toBe("2"); // higher score wins regardless of position
-  });
-
-  it("keeps distinct memories", () => {
-    const memories = [
-      { id: "1", memory: "User prefers dark mode", score: 0.9 },
-      { id: "2", memory: "User's Tailscale IP is 100.71.135.41", score: 0.85 },
-    ];
-    const result = deduplicateByContent(memories);
-    expect(result).toHaveLength(2);
-  });
-
-  it("handles empty and single-element lists", () => {
-    expect(deduplicateByContent([])).toHaveLength(0);
-    expect(deduplicateByContent([{ id: "1", memory: "fact" }])).toHaveLength(1);
-  });
-});

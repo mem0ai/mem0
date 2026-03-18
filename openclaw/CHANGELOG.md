@@ -15,13 +15,13 @@ All notable changes to the `@mem0/openclaw-mem0` plugin will be documented in th
 - **SQLite resilience for OSS mode**: Init error recovery with automatic retry (history disabled) when native SQLite bindings fail under jiti
 - **`disableHistory` config option**: New `oss.disableHistory` flag to explicitly skip history DB initialization
 - **Updated minimum package version of mem0ai package**: Updated minimum package version of mem0ai package to ^2.3.0 to force old users to migrate to better-sqlite3
-- 82 unit tests covering all filtering, isolation, deduplication, trigger filtering, subagent detection, and SQLite resilience
+- 78 unit tests covering filtering, isolation, trigger filtering, subagent detection, and SQLite resilience
 
 ### Changed
 - Auto-recall threshold raised from 0.5 to 0.6 for stricter precision during automatic injection (explicit tool searches remain at 0.5)
 - Recall candidate pool increased to `topK * 2` for better filtering headroom
 - Provider init promises now reset on failure, allowing retry on subsequent calls
-- **Removed `userId` from tool parameters** — identity is always derived server-side from `cfg.userId`, preventing LLM prompt injection from accessing other users' namespaces. `agentId` is kept (safe — always namespaced under configured user)
+- Relaxed extraction instructions: related facts are kept together to preserve context (removed atomic memory requirement)
 
 ### Fixed
 - **Concurrent session race condition**: Lifecycle hooks (`before_agent_start`, `agent_end`) now use `ctx.sessionKey` directly from the event context instead of a shared mutable `currentSessionId` variable, preventing cross-session data leaks when multiple sessions run simultaneously
@@ -30,12 +30,11 @@ All notable changes to the `@mem0/openclaw-mem0` plugin will be documented in th
 
 ### Added
 - **Message filtering pipeline**: Multi-stage noise removal before extraction — drops heartbeats, timestamps, single-word acks, system routing metadata, compaction audit logs, and generic assistant acknowledgments
-- **Memory deduplication**: Word-level Jaccard similarity (>80% overlap) removes near-duplicate recalled memories, keeping only the highest-scored variant
 - **Broad recall for new sessions**: Short or new-session prompts trigger a secondary broad search to avoid cold-start blindness
 - **Client-side threshold filtering**: Safety net that drops low-relevance results even if the API doesn't honor the threshold parameter
 - **Temporal anchoring**: Extraction instructions now include current date so memories are prefixed with "As of YYYY-MM-DD, ..."
 - **Summary message inclusion**: Earlier assistant messages containing work summaries are included in extraction context even if outside the recent-message window
-- 55 unit tests covering all filtering, deduplication, and isolation helpers
+- 55 unit tests covering filtering and isolation helpers
 
 ### Changed
 - Default `searchThreshold` remains at 0.5, with client-side filtering as a safety net

@@ -25,10 +25,6 @@ Before extraction, messages pass through a multi-stage filtering pipeline:
 3. **Content stripping** — Removes embedded noise fragments (media boilerplate, routing metadata, compaction blocks) from otherwise useful messages.
 4. **Truncation** — Caps messages at 2000 characters to avoid sending excessive context.
 
-### Memory deduplication
-
-During recall, near-duplicate memories are detected using word-level Jaccard similarity. When two memories have >80% word overlap, only the higher-scoring one is kept. This prevents the agent from seeing the same fact repeated multiple times.
-
 ### Short-term vs long-term memory
 
 Memories are organized into two scopes:
@@ -156,8 +152,6 @@ The agent gets five tools it can call during conversations:
 | `memory_store` | Explicitly save a fact. Optional `agentId` to store under a specific agent's namespace, `longTerm` to choose scope. |
 | `memory_get` | Retrieve a memory by ID. |
 | `memory_forget` | Delete by ID or by query. Optional `agentId` to scope deletion to a specific agent. |
-
-> **Security note:** The `userId` parameter was intentionally removed from all tools to prevent LLM prompt injection from accessing other users' memory namespaces. Identity is always derived server-side from `cfg.userId`. The `agentId` parameter is safe because it is always namespaced under the configured user (e.g. `agentId: "researcher"` → `utkarsh:agent:researcher`).
 
 ## CLI
 

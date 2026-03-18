@@ -30,11 +30,11 @@ import { createProvider } from "./providers.ts";
 import { mem0ConfigSchema } from "./config.ts";
 import {
   filterMessagesForExtraction,
-  deduplicateByContent,
 } from "./filtering.ts";
 import {
   effectiveUserId,
   agentUserId,
+  resolveUserId,
   isNonInteractiveTrigger,
   isSubagentSession,
 } from "./isolation.ts";
@@ -49,7 +49,6 @@ export {
   isGenericAssistantMessage,
   stripNoiseFromContent,
   filterMessagesForExtraction,
-  deduplicateByContent,
 } from "./filtering.ts";
 export { mem0ConfigSchema } from "./config.ts";
 export { createProvider } from "./providers.ts";
@@ -93,6 +92,8 @@ const memoryPlugin = {
     const _effectiveUserId = (sessionKey?: string) =>
       effectiveUserId(cfg.userId, sessionKey);
     const _agentUserId = (id: string) => agentUserId(cfg.userId, id);
+    const _resolveUserId = (opts: { agentId?: string; userId?: string }) =>
+      resolveUserId(cfg.userId, opts, currentSessionId);
 
     api.logger.info(
       `openclaw-mem0: registered (mode: ${cfg.mode}, user: ${cfg.userId}, graph: ${cfg.enableGraph}, autoRecall: ${cfg.autoRecall}, autoCapture: ${cfg.autoCapture})`,
@@ -138,7 +139,7 @@ const memoryPlugin = {
     // Tools
     // ========================================================================
 
-    registerTools(api, provider, cfg, _effectiveUserId, _agentUserId, buildAddOptions, buildSearchOptions, () => currentSessionId);
+    registerTools(api, provider, cfg, _resolveUserId, _effectiveUserId, _agentUserId, buildAddOptions, buildSearchOptions, () => currentSessionId);
 
     // ========================================================================
     // CLI Commands
@@ -180,15 +181,13 @@ function registerTools(
   api: OpenClawPluginApi,
   provider: Mem0Provider,
   cfg: Mem0Config,
+  _resolveUserId: (opts: { agentId?: string; userId?: string }) => string,
   _effectiveUserId: (sessionKey?: string) => string,
   _agentUserId: (id: string) => string,
   buildAddOptions: (userIdOverride?: string, runId?: string, sessionKey?: string) => AddOptions,
   buildSearchOptions: (userIdOverride?: string, limit?: number, runId?: string, sessionKey?: string) => SearchOptions,
   getCurrentSessionId: () => string | undefined,
 ) {
-  // Resolve user_id: agentId → namespaced under cfg.userId; otherwise cfg.userId
-  const resolveUid = (agentId?: string) =>
-    agentId ? _agentUserId(agentId) : cfg.userId;
   api.registerTool(
     {
       name: "memory_search",
@@ -202,10 +201,16 @@ function registerTools(
             description: `Max results (default: ${cfg.topK})`,
           }),
         ),
+        userId: Type.Optional(
+          Type.String({
+            description:
+              "User ID to scope search (default: configured userId)",
+          }),
+        ),
         agentId: Type.Optional(
           Type.String({
             description:
-              "Agent ID to search memories for a specific agent (e.g. \"researcher\").",
+              "Agent ID to search memories for a specific agent (e.g. \"researcher\"). Overrides userId.",
           }),
         ),
         scope: Type.Optional(
@@ -220,16 +225,17 @@ function registerTools(
         ),
       }),
       async execute(_toolCallId, params) {
-        const { query, limit, agentId, scope = "all" } = params as {
+        const { query, limit, userId, agentId, scope = "all" } = params as {
           query: string;
           limit?: number;
+          userId?: string;
           agentId?: string;
           scope?: "session" | "long-term" | "all";
         };
 
         try {
           let results: MemoryItem[] = [];
-          const uid = resolveUid(agentId);
+          const uid = _resolveUserId({ agentId, userId });
           const currentSessionId = getCurrentSessionId();
 
           if (scope === "session") {
@@ -322,10 +328,15 @@ function registerTools(
         "Save important information in long-term memory via Mem0. Use for preferences, facts, decisions, and anything worth remembering.",
       parameters: Type.Object({
         text: Type.String({ description: "Information to remember" }),
+        userId: Type.Optional(
+          Type.String({
+            description: "User ID to scope this memory",
+          }),
+        ),
         agentId: Type.Optional(
           Type.String({
             description:
-              "Agent ID to store memory under a specific agent's namespace (e.g. \"researcher\").",
+              "Agent ID to store memory under a specific agent's namespace (e.g. \"researcher\"). Overrides userId.",
           }),
         ),
         metadata: Type.Optional(
@@ -341,15 +352,16 @@ function registerTools(
         ),
       }),
       async execute(_toolCallId, params) {
-        const { text, agentId, longTerm = true } = params as {
+        const { text, userId, agentId, longTerm = true } = params as {
           text: string;
+          userId?: string;
           agentId?: string;
           metadata?: Record<string, unknown>;
           longTerm?: boolean;
         };
 
         try {
-          const uid = resolveUid(agentId);
+          const uid = _resolveUserId({ agentId, userId });
           const currentSessionId = getCurrentSessionId();
           const runId = !longTerm && currentSessionId ? currentSessionId : undefined;
 
@@ -461,10 +473,16 @@ function registerTools(
       description:
         "List all stored memories for a user or agent. Use this when you want to see everything that's been remembered, rather than searching for something specific.",
       parameters: Type.Object({
+        userId: Type.Optional(
+          Type.String({
+            description:
+              "User ID to list memories for (default: configured userId)",
+          }),
+        ),
         agentId: Type.Optional(
           Type.String({
             description:
-              "Agent ID to list memories for a specific agent (e.g. \"researcher\").",
+              "Agent ID to list memories for a specific agent (e.g. \"researcher\"). Overrides userId.",
           }),
         ),
         scope: Type.Optional(
@@ -479,11 +497,11 @@ function registerTools(
         ),
       }),
       async execute(_toolCallId, params) {
-        const { agentId, scope = "all" } = params as { agentId?: string; scope?: "session" | "long-term" | "all" };
+        const { userId, agentId, scope = "all" } = params as { userId?: string; agentId?: string; scope?: "session" | "long-term" | "all" };
 
         try {
           let memories: MemoryItem[] = [];
-          const uid = resolveUid(agentId);
+          const uid = _resolveUserId({ agentId, userId });
           const currentSessionId = getCurrentSessionId();
 
           if (scope === "session") {
@@ -603,7 +621,7 @@ function registerTools(
           }
 
           if (query) {
-            const uid = resolveUid(agentId);
+            const uid = _resolveUserId({ agentId });
             const results = await provider.search(
               query,
               buildSearchOptions(uid, 5),
@@ -888,10 +906,7 @@ function registerHooks(
           }
         }
 
-        // Remove near-duplicate recalled memories (>80% word overlap)
-        longTermResults = deduplicateByContent(longTermResults);
-
-        // Cap at configured topK after filtering and dedup
+        // Cap at configured topK after filtering
         longTermResults = longTermResults.slice(0, cfg.topK);
 
         // Search session memories (session-scoped) if we have a session ID

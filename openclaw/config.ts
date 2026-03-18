@@ -92,7 +92,8 @@ TEMPORAL ANCHORING (critical):
 - Examples: "As of 2026-02-20, ElevenLabs setup is complete" NOT "ElevenLabs setup is complete"
 
 CONCISENESS:
-- Each memory should be 1-2 sentences, self-contained, and in third person
+- Use third person ("User prefers..." not "I prefer...")
+- Keep related facts together in a single memory to preserve context
 - "User's Tailscale machine 'mac' (IP 100.71.135.41) is configured under beau@rizedigital.io (as of 2026-02-20)"
 - NOT a paragraph retelling the whole conversation
 
