@@ -61,6 +61,7 @@ function createMemory(): Memory {
       config: {
         collectionName: `test-crud-${Date.now()}-${Math.random()}`,
         dimension: 1536,
+        dbPath: ":memory:",
       },
     },
     llm: {
