@@ -26,7 +26,7 @@ export class GoogleLLM implements LLM {
                 : JSON.stringify(msg.content),
           },
         ],
-        role: msg.role === "system" ? "model" : "user",
+        role: msg.role === "system" || msg.role === "assistant" ? "model" : "user",
       })),
 
       model: this.model,
