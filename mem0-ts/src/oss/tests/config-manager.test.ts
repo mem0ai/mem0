@@ -347,6 +347,52 @@ describe("ConfigManager", () => {
       expect(cfg.vectorStore.config.port).toBe(6333);
     });
   });
+
+  describe("mergeConfig - LLM config passthrough", () => {
+    const baseEmbedder = {
+      provider: "openai",
+      config: { apiKey: "test-key" },
+    };
+    const baseVectorStore = {
+      provider: "memory",
+      config: { collectionName: "test" },
+    };
+
+    it("should preserve maxTokens and temperature in LLM config", () => {
+      const config = ConfigManager.mergeConfig({
+        embedder: baseEmbedder,
+        vectorStore: baseVectorStore,
+        llm: {
+          provider: "anthropic",
+          config: {
+            apiKey: "sk-ant-test",
+            model: "claude-sonnet-4-20250514",
+            maxTokens: 8192,
+            temperature: 0.1,
+          },
+        },
+      });
+
+      expect(config.llm.config.maxTokens).toBe(8192);
+      expect(config.llm.config.temperature).toBe(0.1);
+      expect(config.llm.config.model).toBe("claude-sonnet-4-20250514");
+      expect(config.llm.config.apiKey).toBe("sk-ant-test");
+    });
+
+    it("should not include extra keys when none are provided", () => {
+      const config = ConfigManager.mergeConfig({
+        embedder: baseEmbedder,
+        vectorStore: baseVectorStore,
+        llm: {
+          provider: "openai",
+          config: { apiKey: "sk-test" },
+        },
+      });
+
+      expect(config.llm.config.maxTokens).toBeUndefined();
+      expect(config.llm.config.temperature).toBeUndefined();
+    });
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────

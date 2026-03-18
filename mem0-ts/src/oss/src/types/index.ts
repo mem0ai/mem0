@@ -139,13 +139,15 @@ export const MemoryConfigSchema = z.object({
   }),
   llm: z.object({
     provider: z.string(),
-    config: z.object({
-      apiKey: z.string().optional(),
-      model: z.union([z.string(), z.any()]).optional(),
-      modelProperties: z.record(z.string(), z.any()).optional(),
-      baseURL: z.string().optional(),
-      url: z.string().optional(),
-    }),
+    config: z
+      .object({
+        apiKey: z.string().optional(),
+        model: z.union([z.string(), z.any()]).optional(),
+        modelProperties: z.record(z.string(), z.any()).optional(),
+        baseURL: z.string().optional(),
+        url: z.string().optional(),
+      })
+      .passthrough(),
   }),
   historyDbPath: z.string().optional(),
   customPrompt: z.string().optional(),

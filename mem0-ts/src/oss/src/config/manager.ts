@@ -113,6 +113,7 @@ export class ConfigManager {
             defaultConf.baseURL;
 
           return {
+            ...userConf,
             baseURL: llmBaseURL,
             url: userConf?.url,
             apiKey:
