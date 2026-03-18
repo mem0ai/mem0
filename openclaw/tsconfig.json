@@ -15,8 +15,10 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true
   },
-  "include": ["index.ts", "openclaw-plugin-sdk.d.ts"],
+  "include": ["index.ts", "types.ts", "providers.ts", "config.ts", "filtering.ts", "isolation.ts", "openclaw-plugin-sdk.d.ts"],
   "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }

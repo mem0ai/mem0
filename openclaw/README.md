@@ -12,9 +12,18 @@ Your agent forgets everything between sessions. This plugin fixes that. It watch
 
 **Auto-Recall** — Before the agent responds, the plugin searches Mem0 for memories that match the current message and injects them into context.
 
-**Auto-Capture** — After the agent responds, the plugin sends the exchange to Mem0. Mem0 decides what's worth keeping — new facts get stored, stale ones updated, duplicates merged.
+**Auto-Capture** — After the agent responds, the plugin filters the conversation through a noise-removal pipeline, then sends the cleaned exchange to Mem0. Mem0 decides what's worth keeping — new facts get stored, stale ones updated, duplicates merged.
 
 Both run silently. No prompting, no configuration, no manual calls.
+
+### Message filtering
+
+Before extraction, messages pass through a multi-stage filtering pipeline:
+
+1. **Noise detection** — Drops entire messages that are system noise: heartbeats (`HEARTBEAT_OK`, `NO_REPLY`), timestamps, single-word acknowledgments (`ok`, `sure`, `done`), system routing metadata, and compaction audit logs.
+2. **Generic assistant detection** — Drops short assistant messages that are boilerplate acknowledgments with no extractable facts (e.g. "I see you've shared an update. How can I help?").
+3. **Content stripping** — Removes embedded noise fragments (media boilerplate, routing metadata, compaction blocks) from otherwise useful messages.
+4. **Truncation** — Caps messages at 2000 characters to avoid sending excessive context.
 
 ### Short-term vs long-term memory
 
@@ -40,6 +49,13 @@ In multi-agent setups, each agent automatically gets its own memory namespace. S
 - If the key matches `agent:<name>:<uuid>`, memories are stored under `userId:agent:<name>`
 - Different agents never see each other's memories unless explicitly queried
 
+**Subagent handling:**
+
+Ephemeral subagents (session keys like `agent:main:subagent:<uuid>`) are handled specially:
+- **Recall** is routed to the parent (main user) namespace — subagents get the user's long-term context instead of searching their empty ephemeral namespace
+- **Capture** is skipped entirely — the main agent's `agent_end` hook captures the consolidated result including subagent output, preventing orphaned memories
+- A **subagent-specific preamble** is used: "You are a subagent — use these memories for context but do not assume you are this user"
+
 **Explicit cross-agent queries:**
 
 All memory tools (`memory_search`, `memory_store`, `memory_list`, `memory_forget`) accept an optional `agentId` parameter to query another agent's namespace:
@@ -48,7 +64,17 @@ All memory tools (`memory_search`, `memory_store`, `memory_list`, `memory_forget
 memory_search({ query: "user's tech stack", agentId: "researcher" })
 ```
 
-Resolution priority: explicit `agentId` > explicit `userId` > session-derived > configured default.
+The `agentId` is always namespaced under the configured `userId` (e.g. `agentId: "researcher"` → `utkarsh:agent:researcher`), so it cannot be used to access other users' namespaces.
+
+### Concurrency safety
+
+Lifecycle hooks (`before_agent_start`, `agent_end`) use `ctx.sessionKey` directly from the event context rather than shared mutable state. This prevents race conditions when multiple sessions run concurrently (e.g. multiple Telegram users chatting simultaneously).
+
+Tools still read from a best-effort `currentSessionId` variable (since tools don't receive `ctx`), but hooks — where the critical recall and capture logic runs — are fully concurrency-safe.
+
+### Non-interactive trigger filtering
+
+The plugin automatically skips recall and capture for non-interactive triggers: `cron`, `heartbeat`, `automation`, and `schedule`. Detection works via both `ctx.trigger` and session key patterns (`:cron:`, `:heartbeat:`). This prevents system-generated noise from polluting long-term memory.
 
 ## Setup
 
@@ -121,10 +147,10 @@ The agent gets five tools it can call during conversations:
 
 | Tool | Description |
 |------|-------------|
-| `memory_search` | Search memories by natural language. Optional `agentId` to scope to a specific agent. |
-| `memory_list` | List all stored memories for a user. Optional `agentId` to scope to a specific agent. |
-| `memory_store` | Explicitly save a fact. Optional `agentId` to store under a specific agent's namespace. |
-| `memory_get` | Retrieve a memory by ID |
+| `memory_search` | Search memories by natural language. Optional `agentId` to scope to a specific agent, `scope` to filter by session/long-term. |
+| `memory_list` | List all stored memories. Optional `agentId` to scope to a specific agent, `scope` to filter. |
+| `memory_store` | Explicitly save a fact. Optional `agentId` to store under a specific agent's namespace, `longTerm` to choose scope. |
+| `memory_get` | Retrieve a memory by ID. |
 | `memory_forget` | Delete by ID or by query. Optional `agentId` to scope deletion to a specific agent. |
 
 ## CLI
@@ -160,7 +186,7 @@ openclaw mem0 stats --agent researcher
 | `autoRecall` | `boolean` | `true` | Inject memories before each turn |
 | `autoCapture` | `boolean` | `true` | Store facts after each turn |
 | `topK` | `number` | `5` | Max memories per recall |
-| `searchThreshold` | `number` | `0.3` | Min similarity (0–1) |
+| `searchThreshold` | `number` | `0.5` | Min similarity (0–1) |
 
 ### Platform mode
 
@@ -170,7 +196,7 @@ openclaw mem0 stats --agent researcher
 | `orgId` | `string` | — | Organization ID |
 | `projectId` | `string` | — | Project ID |
 | `enableGraph` | `boolean` | `false` | Entity graph for relationships |
-| `customInstructions` | `string` | *(built-in)* | Extraction rules — what to store, how to format |
+| `customInstructions` | `string` | *(built-in)* | Extraction rules — what to store, how to format. Built-in instructions include temporal anchoring, conciseness, outcome-over-intent, deduplication, and language preservation guidelines. |
 | `customCategories` | `object` | *(12 defaults)* | Category name → description map for tagging |
 
 ### Open-source mode
@@ -187,8 +213,11 @@ Works with zero extra config. The `oss` block lets you swap out any component:
 | `oss.llm.provider` | `string` | `"openai"` | LLM provider (`"openai"`, `"anthropic"`, `"ollama"`, `"lmstudio"`, etc.) |
 | `oss.llm.config` | `object` | — | Provider config: `apiKey`, `model`, `baseURL`, `temperature` |
 | `oss.historyDbPath` | `string` | — | SQLite path for memory edit history |
+| `oss.disableHistory` | `boolean` | `false` | Skip history DB initialization (useful when native SQLite bindings fail) |
 
 Everything inside `oss` is optional — defaults use OpenAI embeddings (`text-embedding-3-small`), in-memory vector store, and OpenAI LLM. Override only what you need.
+
+> **SQLite resilience:** If the history DB fails to initialize (e.g. native binding resolution under jiti), the plugin automatically retries with history disabled. Core memory operations (add, search, get, delete) work without the history DB.
 
 ## License
 
