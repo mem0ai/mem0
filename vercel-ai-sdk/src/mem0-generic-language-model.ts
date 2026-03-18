@@ -89,13 +89,13 @@ export class Mem0GenericLanguageModel implements LanguageModelV2 {
       content: memoriesPrompt
     };
 
+    if (isGraphEnabled) {
+      memories = memories?.results;
+    }
+
     // Add the system prompt to the beginning of the messages if there are memories
     if (memories?.length > 0) {
       messagesPrompts.unshift(systemPrompt);
-    }
-
-    if (isGraphEnabled) {
-      memories = memories?.results;
     }
 
     return { memories, messagesPrompts };
