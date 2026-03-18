@@ -155,7 +155,7 @@ export class MemoryGraph {
 
     const bm25 = new BM25(searchOutputsSequence);
     const tokenizedQuery = query.split(" ");
-    const rerankedResults = bm25.search(tokenizedQuery).slice(0, 5);
+    const rerankedResults = bm25.search(tokenizedQuery).slice(0, limit);
 
     const searchResults = rerankedResults.map((item) => ({
       source: item[0],
