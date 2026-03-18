@@ -859,6 +859,70 @@
     {
       "source": "/features/memory-export",
       "destination": "/platform/features/memory-export"
+    },
+    {
+      "source": "/v0x/components/:a/:b/:c",
+      "destination": "/components/:a/:b/:c"
+    },
+    {
+      "source": "/v0x/components/:a/:b",
+      "destination": "/components/:a/:b"
+    },
+    {
+      "source": "/v0x/core-concepts/:a/:b",
+      "destination": "/core-concepts/:a/:b"
+    },
+    {
+      "source": "/v0x/integrations/:slug",
+      "destination": "/integrations/:slug"
+    },
+    {
+      "source": "/v0x/open-source/:slug",
+      "destination": "/open-source/:slug"
+    },
+    {
+      "source": "/v0x/introduction",
+      "destination": "/introduction"
+    },
+    {
+      "source": "/features/async-client",
+      "destination": "/platform/features/async-client"
+    },
+    {
+      "source": "/features/custom-prompts",
+      "destination": "/platform/features/platform-overview"
+    },
+    {
+      "source": "/features/selective-memory",
+      "destination": "/platform/features/platform-overview"
+    },
+    {
+      "source": "/features/custom-categories",
+      "destination": "/platform/features/custom-categories"
+    },
+    {
+      "source": "/components/config",
+      "destination": "/open-source/configuration"
+    },
+    {
+      "source": "/concepts/memory-scoring",
+      "destination": "/core-concepts/memory-types"
+    },
+    {
+      "source": "/cookbooks/research-copilot",
+      "destination": "/cookbooks/operations/deep-research"
+    },
+    {
+      "source": "/platform/features/organizations-projects",
+      "destination": "/api-reference/organizations-projects"
+    },
+    {
+      "source": "/playground",
+      "destination": "/platform/quickstart"
+    },
+    {
+      "source": "/cdn-cgi/l/email-protection",
+      "destination": "/introduction"
     }
   ]
 }
