@@ -375,7 +375,8 @@
                       "cookbooks/frameworks/multimodal-retrieval",
                       "cookbooks/frameworks/eliza-os-character",
                       "cookbooks/frameworks/chrome-extension",
-                      "cookbooks/frameworks/gemini-3-with-mem0-mcp"
+                      "cookbooks/frameworks/gemini-3-with-mem0-mcp",
+                      "cookbooks/frameworks/mirofish-swarm-memory"
                     ]
                   }
                 ]

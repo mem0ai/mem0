@@ -24,8 +24,9 @@ from mem0.exceptions import ValidationError as Mem0ValidationError
 from mem0.memory.base import MemoryBase
 from mem0.memory.setup import mem0_dir, setup_config
 from mem0.memory.storage import SQLiteManager
-from mem0.memory.telemetry import capture_event
+from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
 from mem0.memory.utils import (
+    ensure_json_instruction,
     extract_json,
     get_fact_retrieval_messages,
     parse_messages,
@@ -37,8 +38,8 @@ from mem0.utils.factory import (
     EmbedderFactory,
     GraphStoreFactory,
     LlmFactory,
-    VectorStoreFactory,
     RerankerFactory,
+    VectorStoreFactory,
 )
 
 # Suppress SWIG deprecation warnings globally
@@ -204,32 +205,33 @@ class Memory(MemoryBase):
             self.enable_graph = True
         else:
             self.graph = None
-        # Create telemetry config manually to avoid deepcopy issues with thread locks
-        telemetry_config_dict = {}
-        if hasattr(self.config.vector_store.config, 'model_dump'):
-            # For pydantic models
-            telemetry_config_dict = self.config.vector_store.config.model_dump()
-        else:
-            # For other objects, manually copy common attributes
-            for attr in ['host', 'port', 'path', 'api_key', 'index_name', 'dimension', 'metric']:
-                if hasattr(self.config.vector_store.config, attr):
-                    telemetry_config_dict[attr] = getattr(self.config.vector_store.config, attr)
+        if MEM0_TELEMETRY:
+            # Create telemetry config manually to avoid deepcopy issues with thread locks
+            telemetry_config_dict = {}
+            if hasattr(self.config.vector_store.config, 'model_dump'):
+                # For pydantic models
+                telemetry_config_dict = self.config.vector_store.config.model_dump()
+            else:
+                # For other objects, manually copy common attributes
+                for attr in ['host', 'port', 'path', 'api_key', 'index_name', 'dimension', 'metric']:
+                    if hasattr(self.config.vector_store.config, attr):
+                        telemetry_config_dict[attr] = getattr(self.config.vector_store.config, attr)
 
-        # Override collection name for telemetry
-        telemetry_config_dict['collection_name'] = "mem0migrations"
+            # Override collection name for telemetry
+            telemetry_config_dict['collection_name'] = "mem0migrations"
 
-        # Set path for file-based vector stores
-        telemetry_config = _safe_deepcopy_config(self.config.vector_store.config)
-        if self.config.vector_store.provider in ["faiss", "qdrant"]:
-            provider_path = f"migrations_{self.config.vector_store.provider}"
-            telemetry_config_dict['path'] = os.path.join(mem0_dir, provider_path)
-            os.makedirs(telemetry_config_dict['path'], exist_ok=True)
+            # Set path for file-based vector stores
+            telemetry_config = _safe_deepcopy_config(self.config.vector_store.config)
+            if self.config.vector_store.provider in ["faiss", "qdrant"]:
+                provider_path = f"migrations_{self.config.vector_store.provider}"
+                telemetry_config_dict['path'] = os.path.join(mem0_dir, provider_path)
+                os.makedirs(telemetry_config_dict['path'], exist_ok=True)
 
-        # Create the config object using the same class as the original
-        telemetry_config = self.config.vector_store.config.__class__(**telemetry_config_dict)
-        self._telemetry_vector_store = VectorStoreFactory.create(
-            self.config.vector_store.provider, telemetry_config
-        )
+            # Create the config object using the same class as the original
+            telemetry_config = self.config.vector_store.config.__class__(**telemetry_config_dict)
+            self._telemetry_vector_store = VectorStoreFactory.create(
+                self.config.vector_store.provider, telemetry_config
+            )
         capture_event("mem0.init", self, {"sync_type": "sync"})
 
     @classmethod
@@ -430,6 +432,9 @@ class Memory(MemoryBase):
             # and role types in messages
             is_agent_memory = self._should_use_agent_memory_extraction(messages, metadata)
             system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages, is_agent_memory)
+
+        # Ensure 'json' appears in prompts for json_object response format compatibility
+        system_prompt, user_prompt = ensure_json_instruction(system_prompt, user_prompt)
 
         response = self.llm.generate_response(
             messages=[
@@ -1046,11 +1051,10 @@ class Memory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"})
-        # delete all vector memories and reset the collections
+        # delete matching vector memories individually (do NOT reset the collection)
         memories = self.vector_store.list(filters=filters)[0]
         for memory in memories:
             self._delete_memory(memory.id)
-        self.vector_store.reset()
 
         logger.info(f"Deleted {len(memories)} memories")
 
@@ -1272,14 +1276,14 @@ class AsyncMemory(MemoryBase):
         else:
             self.graph = None
 
-        telemetry_config = _safe_deepcopy_config(self.config.vector_store.config)
-        telemetry_config.collection_name = "mem0migrations"
-        if self.config.vector_store.provider in ["faiss", "qdrant"]:
-            provider_path = f"migrations_{self.config.vector_store.provider}"
-            telemetry_config.path = os.path.join(mem0_dir, provider_path)
-            os.makedirs(telemetry_config.path, exist_ok=True)
-        self._telemetry_vector_store = VectorStoreFactory.create(self.config.vector_store.provider, telemetry_config)
-
+        if MEM0_TELEMETRY:
+            telemetry_config = _safe_deepcopy_config(self.config.vector_store.config)
+            telemetry_config.collection_name = "mem0migrations"
+            if self.config.vector_store.provider in ["faiss", "qdrant"]:
+                provider_path = f"migrations_{self.config.vector_store.provider}"
+                telemetry_config.path = os.path.join(mem0_dir, provider_path)
+                os.makedirs(telemetry_config.path, exist_ok=True)
+            self._telemetry_vector_store = VectorStoreFactory.create(self.config.vector_store.provider, telemetry_config)
         capture_event("mem0.init", self, {"sync_type": "async"})
 
     @classmethod
@@ -1459,6 +1463,9 @@ class AsyncMemory(MemoryBase):
             # and role types in messages
             is_agent_memory = self._should_use_agent_memory_extraction(messages, metadata)
             system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages, is_agent_memory)
+
+        # Ensure 'json' appears in prompts for json_object response format compatibility
+        system_prompt, user_prompt = ensure_json_instruction(system_prompt, user_prompt)
 
         response = await asyncio.to_thread(
             self.llm.generate_response,

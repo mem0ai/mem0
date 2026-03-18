@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "dist",
+    "rootDir": ".",
+    "strict": false,
+    "noImplicitAny": false,
+    "types": ["node"],
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true
+  },
+  "include": ["index.ts", "openclaw-plugin-sdk.d.ts"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+}
