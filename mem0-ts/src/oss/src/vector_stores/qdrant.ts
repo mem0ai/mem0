@@ -199,6 +199,28 @@ export class Qdrant implements VectorStore {
     return [results, response.points.length];
   }
 
+  async findByPayload(
+    filters: Record<string, any>,
+    limit: number = 1,
+  ): Promise<VectorStoreResult[]> {
+    const conditions = Object.entries(filters).map(([key, value]) => ({
+      key,
+      match: { value },
+    }));
+
+    const response = await this.client.scroll(this.collectionName, {
+      filter: { must: conditions },
+      limit,
+      with_payload: true,
+      with_vectors: false,
+    });
+
+    return response.points.map((point) => ({
+      id: String(point.id),
+      payload: (point.payload as Record<string, any>) || {},
+    }));
+  }
+
   private generateUUID(): string {
     return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
       /[xy]/g,

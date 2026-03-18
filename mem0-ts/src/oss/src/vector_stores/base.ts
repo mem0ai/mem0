@@ -23,6 +23,10 @@ export interface VectorStore {
     filters?: SearchFilters,
     limit?: number,
   ): Promise<[VectorStoreResult[], number]>;
+  findByPayload?(
+    filters: Record<string, any>,
+    limit?: number,
+  ): Promise<VectorStoreResult[]>;
   getUserId(): Promise<string>;
   setUserId(userId: string): Promise<void>;
   initialize(): Promise<void>;

@@ -687,6 +687,24 @@ export class Memory {
     existingEmbeddings: Record<string, number[]>,
     metadata: Record<string, any>,
   ): Promise<string> {
+    const dataHash = createHash("md5").update(data).digest("hex");
+
+    // Check if an exact duplicate exists (same text, same user scope)
+    if (this.vectorStore.findByPayload) {
+      try {
+        const hashFilters: Record<string, any> = { hash: dataHash };
+        if (metadata.userId) hashFilters.userId = metadata.userId;
+        if (metadata.agentId) hashFilters.agentId = metadata.agentId;
+
+        const existing = await this.vectorStore.findByPayload(hashFilters, 1);
+        if (existing.length > 0) {
+          return existing[0].id;
+        }
+      } catch {
+        // Hash check failed; proceed with insert (fail-open)
+      }
+    }
+
     const memoryId = uuidv4();
     const embedding =
       existingEmbeddings[data] || (await this.embedder.embed(data));
@@ -694,7 +712,7 @@ export class Memory {
     const memoryMetadata = {
       ...metadata,
       data,
-      hash: createHash("md5").update(data).digest("hex"),
+      hash: dataHash,
       createdAt: new Date().toISOString(),
     };
 
