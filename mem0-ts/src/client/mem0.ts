@@ -674,12 +674,17 @@ export default class MemoryClient {
   async createWebhook(webhook: WebhookPayload): Promise<Webhook> {
     if (this.telemetryId === "") await this.ping();
     this._captureEvent("create_webhook", []);
+    const { eventTypes, projectId, webhookId, ...rest } = webhook;
+    const payload = {
+      ...rest,
+      event_types: eventTypes,
+    };
     const response = await this._fetchWithErrorHandling(
       `${this.host}/api/v1/webhooks/projects/${this.projectId}/`,
       {
         method: "POST",
         headers: this.headers,
-        body: JSON.stringify(webhook),
+        body: JSON.stringify(payload),
       },
     );
     return response;
@@ -688,16 +693,18 @@ export default class MemoryClient {
   async updateWebhook(webhook: WebhookPayload): Promise<{ message: string }> {
     if (this.telemetryId === "") await this.ping();
     this._captureEvent("update_webhook", []);
-    const project_id = webhook.projectId || this.projectId;
+    const { eventTypes, projectId, webhookId, ...rest } = webhook;
+    const payload = {
+      ...rest,
+      event_types: eventTypes,
+      project: projectId || this.projectId,
+    };
     const response = await this._fetchWithErrorHandling(
-      `${this.host}/api/v1/webhooks/${webhook.webhookId}/`,
+      `${this.host}/api/v1/webhooks/${webhookId}/`,
       {
         method: "PUT",
         headers: this.headers,
-        body: JSON.stringify({
-          ...webhook,
-          projectId: project_id,
-        }),
+        body: JSON.stringify(payload),
       },
     );
     return response;
@@ -723,12 +730,15 @@ export default class MemoryClient {
     if (this.telemetryId === "") await this.ping();
     const payloadKeys = Object.keys(data || {});
     this._captureEvent("feedback", [payloadKeys]);
+    const payload: Record<string, any> = { ...data };
+    if (this.organizationId) payload.org_id = String(this.organizationId);
+    if (this.projectId) payload.project_id = String(this.projectId);
     const response = await this._fetchWithErrorHandling(
       `${this.host}/v1/feedback/`,
       {
         method: "POST",
         headers: this.headers,
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       },
     );
     return response;
