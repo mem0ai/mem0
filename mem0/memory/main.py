@@ -29,6 +29,7 @@ from mem0.memory.utils import (
     ensure_json_instruction,
     extract_json,
     get_fact_retrieval_messages,
+    normalize_facts,
     parse_messages,
     parse_vision_messages,
     process_telemetry_filters,
@@ -456,6 +457,7 @@ class Memory(MemoryBase):
                     # Try extracting JSON from response using built-in function
                     extracted_json = extract_json(response)
                     new_retrieved_facts = json.loads(extracted_json)["facts"]
+                new_retrieved_facts = normalize_facts(new_retrieved_facts)
         except Exception as e:
             logger.error(f"Error in new_retrieved_facts: {e}")
             new_retrieved_facts = []
@@ -1484,6 +1486,7 @@ class AsyncMemory(MemoryBase):
                     # Try extracting JSON from response using built-in function
                     extracted_json = extract_json(response)
                     new_retrieved_facts = json.loads(extracted_json)["facts"]
+                new_retrieved_facts = normalize_facts(new_retrieved_facts)
         except Exception as e:
             logger.error(f"Error in new_retrieved_facts: {e}")
             new_retrieved_facts = []
