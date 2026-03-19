@@ -521,11 +521,11 @@ class Memory(MemoryBase):
             else:
                 try:
                     # First try direct JSON parsing
-                    new_retrieved_facts = json.loads(response)["facts"]
+                    new_retrieved_facts = json.loads(response, strict=False)["facts"]
                 except json.JSONDecodeError:
                     # Try extracting JSON from response using built-in function
                     extracted_json = extract_json(response)
-                    new_retrieved_facts = json.loads(extracted_json)["facts"]
+                    new_retrieved_facts = json.loads(extracted_json, strict=False)["facts"]
                 new_retrieved_facts = normalize_facts(new_retrieved_facts)
         except Exception as e:
             logger.error(f"Error in new_retrieved_facts: {e}")
@@ -589,7 +589,7 @@ class Memory(MemoryBase):
                     new_memories_with_actions = {}
                 else:
                     response = remove_code_blocks(response)
-                    new_memories_with_actions = json.loads(response)
+                    new_memories_with_actions = json.loads(response, strict=False)
             except Exception as e:
                 logger.error(f"Invalid JSON response: {e}")
                 new_memories_with_actions = {}
@@ -1553,11 +1553,11 @@ class AsyncMemory(MemoryBase):
             else:
                 try:
                     # First try direct JSON parsing
-                    new_retrieved_facts = json.loads(response)["facts"]
+                    new_retrieved_facts = json.loads(response, strict=False)["facts"]
                 except json.JSONDecodeError:
                     # Try extracting JSON from response using built-in function
                     extracted_json = extract_json(response)
-                    new_retrieved_facts = json.loads(extracted_json)["facts"]
+                    new_retrieved_facts = json.loads(extracted_json, strict=False)["facts"]
                 new_retrieved_facts = normalize_facts(new_retrieved_facts)
         except Exception as e:
             logger.error(f"Error in new_retrieved_facts: {e}")
@@ -1624,7 +1624,7 @@ class AsyncMemory(MemoryBase):
                     new_memories_with_actions = {}
                 else:
                     response = remove_code_blocks(response)
-                    new_memories_with_actions = json.loads(response)
+                    new_memories_with_actions = json.loads(response, strict=False)
             except Exception as e:
                 logger.error(f"Invalid JSON response: {e}")
                 new_memories_with_actions = {}
