@@ -3,6 +3,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+pytest.importorskip("turbopuffer", reason="turbopuffer not installed")
+
 from turbopuffer.types import Row
 
 from mem0.vector_stores.turbopuffer import OutputData, TurbopufferDB
