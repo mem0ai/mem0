@@ -97,9 +97,11 @@ describeIntegration("MemoryClient Integration — Users & Project", () => {
   // ─── Webhooks ──────────────────────────────────────────────
   describe("webhook management", () => {
     let createdWebhookId: string;
+    const hookName = `test-hook-${randomUUID().slice(0, 8)}`;
+    const hookUrl = `https://example.com/webhook/${randomUUID().slice(0, 8)}`;
+    const updatedName = `updated-hook-${randomUUID().slice(0, 8)}`;
 
     afterAll(async () => {
-      // Clean up webhook if it was created
       if (createdWebhookId) {
         try {
           await client.deleteWebhook({ webhookId: createdWebhookId });
@@ -109,10 +111,8 @@ describeIntegration("MemoryClient Integration — Users & Project", () => {
       }
     });
 
-    test("createWebhook creates a webhook with snake_case event_types", async () => {
-      const hookName = `test-hook-${randomUUID().slice(0, 8)}`;
-      const hookUrl = `https://example.com/webhook/${randomUUID().slice(0, 8)}`;
-
+    // ─── Create ────────────────────────────────────────────
+    test("createWebhook returns a webhook_id", async () => {
       const result = await withRetry(() =>
         client.createWebhook({
           name: hookName,
@@ -120,34 +120,50 @@ describeIntegration("MemoryClient Integration — Users & Project", () => {
           eventTypes: [WebhookEvent.MEMORY_ADDED, WebhookEvent.MEMORY_UPDATED],
         }),
       );
-
-      expect(result).toBeDefined();
-      expect(result.webhook_id).toBeDefined();
-      expect(result.name).toBe(hookName);
-      expect(result.url).toBe(hookUrl);
-      expect(result.event_types?.sort()).toStrictEqual(
-        [WebhookEvent.MEMORY_ADDED, WebhookEvent.MEMORY_UPDATED].sort(),
-      );
-
       createdWebhookId = result.webhook_id!;
+      expect(result.webhook_id).toBeDefined();
     });
 
-    test("getWebhooks lists the created webhook", async () => {
-      expect(createdWebhookId).toBeDefined();
-
+    test("createWebhook returns the correct name", async () => {
       const webhooks = await withRetry(() => client.getWebhooks());
+      const wh = webhooks.find((w) => w.webhook_id === createdWebhookId);
+      expect(wh!.name).toBe(hookName);
+    });
 
+    test("createWebhook returns the correct url", async () => {
+      const webhooks = await withRetry(() => client.getWebhooks());
+      const wh = webhooks.find((w) => w.webhook_id === createdWebhookId);
+      expect(wh!.url).toBe(hookUrl);
+    });
+
+    test("createWebhook returns the correct event_types", async () => {
+      const webhooks = await withRetry(() => client.getWebhooks());
+      const wh = webhooks.find((w) => w.webhook_id === createdWebhookId);
+      expect(wh!.event_types?.sort()).toStrictEqual(
+        [WebhookEvent.MEMORY_ADDED, WebhookEvent.MEMORY_UPDATED].sort(),
+      );
+    });
+
+    // ─── List ──────────────────────────────────────────────
+    test("getWebhooks returns an array", async () => {
+      const webhooks = await withRetry(() => client.getWebhooks());
       expect(Array.isArray(webhooks)).toBe(true);
+    });
+
+    test("getWebhooks includes the created webhook", async () => {
+      const webhooks = await withRetry(() => client.getWebhooks());
       const found = webhooks.find((w) => w.webhook_id === createdWebhookId);
       expect(found).toBeDefined();
+    });
+
+    test("getWebhooks shows the webhook as active", async () => {
+      const webhooks = await withRetry(() => client.getWebhooks());
+      const found = webhooks.find((w) => w.webhook_id === createdWebhookId);
       expect(found!.is_active).toBe(true);
     });
 
-    test("updateWebhook updates name and event_types", async () => {
-      expect(createdWebhookId).toBeDefined();
-
-      const updatedName = `updated-hook-${randomUUID().slice(0, 8)}`;
-
+    // ─── Update ────────────────────────────────────────────
+    test("updateWebhook returns a success message", async () => {
       const result = await withRetry(() =>
         client.updateWebhook({
           webhookId: createdWebhookId,
@@ -156,35 +172,35 @@ describeIntegration("MemoryClient Integration — Users & Project", () => {
           eventTypes: [WebhookEvent.MEMORY_DELETED],
         }),
       );
-
-      expect(result).toBeDefined();
       expect(result.message).toBeDefined();
+    });
 
-      // Verify the update took effect
+    test("updateWebhook persists the new name", async () => {
       const webhooks = await withRetry(() => client.getWebhooks());
       const updated = webhooks.find((w) => w.webhook_id === createdWebhookId);
-      expect(updated).toBeDefined();
       expect(updated!.name).toBe(updatedName);
+    });
+
+    test("updateWebhook persists the new event_types", async () => {
+      const webhooks = await withRetry(() => client.getWebhooks());
+      const updated = webhooks.find((w) => w.webhook_id === createdWebhookId);
       expect(updated!.event_types?.sort()).toStrictEqual(
         [WebhookEvent.MEMORY_DELETED].sort(),
       );
     });
 
-    test("deleteWebhook removes the webhook", async () => {
-      expect(createdWebhookId).toBeDefined();
-
+    // ─── Delete ────────────────────────────────────────────
+    test("deleteWebhook returns a response", async () => {
       const result = await withRetry(() =>
         client.deleteWebhook({ webhookId: createdWebhookId }),
       );
-
       expect(result).toBeDefined();
+    });
 
-      // Verify it's gone
+    test("deleteWebhook removes the webhook from the list", async () => {
       const webhooks = await withRetry(() => client.getWebhooks());
       const found = webhooks.find((w) => w.webhook_id === createdWebhookId);
       expect(found).toBeUndefined();
-
-      // Prevent afterAll from trying to delete again
       createdWebhookId = "";
     });
   });
