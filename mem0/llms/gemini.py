@@ -63,7 +63,7 @@ class GeminiLLM(LLMBase):
                 for part in response.candidates[0].content.parts:
                     if hasattr(part, "text") and part.text:
                         return part.text
-            return ""
+            return None
 
     def _reformat_messages(self, messages: List[Dict[str, str]]):
         """

@@ -515,18 +515,22 @@ class Memory(MemoryBase):
         )
 
         try:
-            response = remove_code_blocks(response)
-            if not response.strip():
+            if not response:
+                logger.warning("Empty response from LLM during fact extraction, skipping.")
                 new_retrieved_facts = []
             else:
-                try:
-                    # First try direct JSON parsing
-                    new_retrieved_facts = json.loads(response, strict=False)["facts"]
-                except json.JSONDecodeError:
-                    # Try extracting JSON from response using built-in function
-                    extracted_json = extract_json(response)
-                    new_retrieved_facts = json.loads(extracted_json, strict=False)["facts"]
-                new_retrieved_facts = normalize_facts(new_retrieved_facts)
+                response = remove_code_blocks(response)
+                if not response.strip():
+                    new_retrieved_facts = []
+                else:
+                    try:
+                        # First try direct JSON parsing
+                        new_retrieved_facts = json.loads(response, strict=False)["facts"]
+                    except json.JSONDecodeError:
+                        # Try extracting JSON from response using built-in function
+                        extracted_json = extract_json(response)
+                        new_retrieved_facts = json.loads(extracted_json, strict=False)["facts"]
+                    new_retrieved_facts = normalize_facts(new_retrieved_facts)
         except Exception as e:
             logger.error(f"Error in new_retrieved_facts: {e}")
             new_retrieved_facts = []
@@ -1547,18 +1551,22 @@ class AsyncMemory(MemoryBase):
             response_format={"type": "json_object"},
         )
         try:
-            response = remove_code_blocks(response)
-            if not response.strip():
+            if not response:
+                logger.warning("Empty response from LLM during fact extraction, skipping.")
                 new_retrieved_facts = []
             else:
-                try:
-                    # First try direct JSON parsing
-                    new_retrieved_facts = json.loads(response, strict=False)["facts"]
-                except json.JSONDecodeError:
-                    # Try extracting JSON from response using built-in function
-                    extracted_json = extract_json(response)
-                    new_retrieved_facts = json.loads(extracted_json, strict=False)["facts"]
-                new_retrieved_facts = normalize_facts(new_retrieved_facts)
+                response = remove_code_blocks(response)
+                if not response.strip():
+                    new_retrieved_facts = []
+                else:
+                    try:
+                        # First try direct JSON parsing
+                        new_retrieved_facts = json.loads(response, strict=False)["facts"]
+                    except json.JSONDecodeError:
+                        # Try extracting JSON from response using built-in function
+                        extracted_json = extract_json(response)
+                        new_retrieved_facts = json.loads(extracted_json, strict=False)["facts"]
+                    new_retrieved_facts = normalize_facts(new_retrieved_facts)
         except Exception as e:
             logger.error(f"Error in new_retrieved_facts: {e}")
             new_retrieved_facts = []
