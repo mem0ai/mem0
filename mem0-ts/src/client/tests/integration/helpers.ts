@@ -51,43 +51,56 @@ export async function withRetry<T>(
  * Poll getAll until memories appear for a user.
  * The Mem0 API processes memories asynchronously — after add()
  * we need to wait for them to be available.
+ *
+ * Polls every 15 seconds with a maximum of 4 retries to avoid
+ * hitting rate limits. Throws if results aren't available after
+ * all retries.
  */
 export async function waitForMemories(
   client: MemoryClient,
   userId: string,
   minCount: number,
-  maxWaitMs = 60_000,
+  maxRetries = 4,
 ): Promise<Memory[]> {
-  const start = Date.now();
-  while (Date.now() - start < maxWaitMs) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
     const memories = await withRetry(() => client.getAll({ user_id: userId }));
     if (Array.isArray(memories) && memories.length >= minCount) {
       return memories;
     }
-    await new Promise((r) => setTimeout(r, 3_000));
+    if (attempt < maxRetries) {
+      await new Promise((r) => setTimeout(r, 15_000));
+    }
   }
-  return await client.getAll({ user_id: userId });
+  throw new Error(
+    `waitForMemories: expected at least ${minCount} memories for user "${userId}" but did not get them after ${maxRetries} attempts`,
+  );
 }
 
 /**
  * Poll search until results appear. Only used by search tests —
  * other test files should NOT call this to avoid wasting API credits.
+ *
+ * Polls every 15 seconds with a maximum of 4 retries. Throws if
+ * no results are found after all retries.
  */
 export async function waitForSearchResults(
   client: MemoryClient,
   query: string,
   options: Record<string, any>,
-  maxWaitMs = 60_000,
+  maxRetries = 4,
 ): Promise<Memory[]> {
-  const start = Date.now();
-  while (Date.now() - start < maxWaitMs) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
     const results = await withRetry(() => client.search(query, options));
     if (Array.isArray(results) && results.length > 0) {
       return results;
     }
-    await new Promise((r) => setTimeout(r, 3_000));
+    if (attempt < maxRetries) {
+      await new Promise((r) => setTimeout(r, 15_000));
+    }
   }
-  return await client.search(query, options);
+  throw new Error(
+    `waitForSearchResults: no results for query "${query}" after ${maxRetries} attempts`,
+  );
 }
 
 /**
