@@ -13,6 +13,7 @@ import {
   suppressTelemetryNoise,
   seedTestMemories,
   cleanupTestUser,
+  waitForSearchResults,
 } from "./helpers";
 
 jest.setTimeout(120_000);
@@ -38,9 +39,12 @@ describeIntegration("MemoryClient Integration — Search & History", () => {
   // ─── Search v1 ────────────────────────────────────────────
   describe("search v1", () => {
     test("searches memories by user_id and returns results with scores", async () => {
-      const results = await client.search("What is my favorite color?", {
-        user_id: TEST_USER_ID,
-      });
+      // Search index may lag behind listing index — poll until ready
+      const results = await waitForSearchResults(
+        client,
+        "What is my favorite color?",
+        { user_id: TEST_USER_ID },
+      );
 
       expect(Array.isArray(results)).toBe(true);
       expect(results.length).toBeGreaterThan(0);
@@ -56,12 +60,14 @@ describeIntegration("MemoryClient Integration — Search & History", () => {
   // ─── Search v2 ────────────────────────────────────────────
   describe("search v2", () => {
     test("searches with OR filters and returns results", async () => {
-      const results = await client.search("What do you know about me?", {
-        filters: {
-          OR: [{ user_id: TEST_USER_ID }],
+      const results = await waitForSearchResults(
+        client,
+        "What do you know about me?",
+        {
+          filters: { OR: [{ user_id: TEST_USER_ID }] },
+          api_version: "v2",
         },
-        api_version: "v2",
-      });
+      );
 
       expect(Array.isArray(results)).toBe(true);
       expect(results.length).toBeGreaterThan(0);

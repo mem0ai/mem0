@@ -3,9 +3,13 @@
  *
  * Provides environment gating, client factory, polling helpers,
  * and console suppression for telemetry noise.
+ *
+ * API credit budget: these helpers are designed to minimize API calls.
+ * Each CI run should use ~40 calls total across all test files.
  */
 import { MemoryClient } from "../../mem0";
 import type { Memory } from "../../mem0.types";
+import { NetworkError, RateLimitError } from "../../../common/exceptions";
 
 // ─── Environment gate ────────────────────────────────────
 export const API_KEY = process.env.MEM0_API_KEY;
@@ -15,9 +19,35 @@ export const describeIntegration = API_KEY ? describe : describe.skip;
  * Create a MemoryClient with the real API key.
  * Call this inside beforeAll — not at module scope — so it only
  * runs when the suite is not skipped.
+ *
+ * The returned client retries transient errors (502, 503, 504, 429)
+ * with backoff so CI runs are not flaky.
  */
 export function createTestClient(): MemoryClient {
-  return new MemoryClient({ apiKey: API_KEY! });
+  const client = new MemoryClient({ apiKey: API_KEY! });
+
+  const originalFetch = (client as any)._fetchWithErrorHandling.bind(client);
+  (client as any)._fetchWithErrorHandling = async (
+    url: string,
+    options: any,
+  ) => {
+    const MAX_RETRIES = 2;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        return await originalFetch(url, options);
+      } catch (error: any) {
+        const isTransient =
+          error instanceof NetworkError || error instanceof RateLimitError;
+        if (isTransient && attempt < MAX_RETRIES) {
+          await new Promise((r) => setTimeout(r, 3_000 * attempt));
+          continue;
+        }
+        throw error;
+      }
+    }
+  };
+
+  return client;
 }
 
 /**
@@ -40,6 +70,27 @@ export async function waitForMemories(
     await new Promise((r) => setTimeout(r, 2_000));
   }
   return await client.getAll({ user_id: userId });
+}
+
+/**
+ * Poll search until results appear. Only used by search tests —
+ * other test files should NOT call this to avoid wasting API credits.
+ */
+export async function waitForSearchResults(
+  client: MemoryClient,
+  query: string,
+  options: Record<string, any>,
+  maxWaitMs = 30_000,
+): Promise<Memory[]> {
+  const start = Date.now();
+  while (Date.now() - start < maxWaitMs) {
+    const results = await client.search(query, options);
+    if (Array.isArray(results) && results.length > 0) {
+      return results;
+    }
+    await new Promise((r) => setTimeout(r, 3_000));
+  }
+  return await client.search(query, options);
 }
 
 /**
@@ -69,7 +120,10 @@ export function suppressTelemetryNoise(): () => void {
 
 /**
  * Add test memories and wait for them to be processed.
- * Returns the memory IDs once available.
+ * Returns the memory IDs once available via getAll.
+ *
+ * NOTE: This only waits for the listing index. If your test needs
+ * search results, call waitForSearchResults() separately.
  */
 export async function seedTestMemories(
   client: MemoryClient,
@@ -104,17 +158,7 @@ export async function seedTestMemories(
     { user_id: userId },
   );
 
-  // Wait for async processing (listing index)
   const memories = await waitForMemories(client, userId, 1);
-
-  // Also wait for search index — it can lag behind getAll under load (e.g. CI)
-  const start = Date.now();
-  while (Date.now() - start < 60_000) {
-    const results = await client.search("favorite color", { user_id: userId });
-    if (Array.isArray(results) && results.length > 0) break;
-    await new Promise((r) => setTimeout(r, 3_000));
-  }
-
   return memories.map((m) => m.id);
 }
 
