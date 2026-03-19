@@ -125,11 +125,8 @@ describeIntegration("MemoryClient Integration — Users & Project", () => {
       expect(result.webhook_id).toBeDefined();
       expect(result.name).toBe(hookName);
       expect(result.url).toBe(hookUrl);
-      expect(result.event_types).toEqual(
-        expect.arrayContaining([
-          WebhookEvent.MEMORY_ADDED,
-          WebhookEvent.MEMORY_UPDATED,
-        ]),
+      expect(result.event_types?.sort()).toStrictEqual(
+        [WebhookEvent.MEMORY_ADDED, WebhookEvent.MEMORY_UPDATED].sort(),
       );
 
       createdWebhookId = result.webhook_id!;
@@ -168,8 +165,8 @@ describeIntegration("MemoryClient Integration — Users & Project", () => {
       const updated = webhooks.find((w) => w.webhook_id === createdWebhookId);
       expect(updated).toBeDefined();
       expect(updated!.name).toBe(updatedName);
-      expect(updated!.event_types).toEqual(
-        expect.arrayContaining([WebhookEvent.MEMORY_DELETED]),
+      expect(updated!.event_types?.sort()).toStrictEqual(
+        [WebhookEvent.MEMORY_DELETED].sort(),
       );
     });
 

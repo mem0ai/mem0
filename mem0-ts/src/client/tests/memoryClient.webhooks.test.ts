@@ -79,7 +79,7 @@ describe("MemoryClient - Webhooks", () => {
     const body = getFetchBody(call!);
     expect(body.name).toBe("new-hook");
     expect(body.url).toBe("https://example.com");
-    expect(body.event_types).toEqual([WebhookEvent.MEMORY_ADDED]);
+    expect(body.event_types).toStrictEqual([WebhookEvent.MEMORY_ADDED]);
     expect(body.eventTypes).toBeUndefined();
     expect(body.projectId).toBeUndefined();
     expect(body.webhookId).toBeUndefined();
@@ -132,7 +132,7 @@ describe("MemoryClient - Webhooks", () => {
     const body = getFetchBody(call!);
     expect(body.name).toBe("updated-hook");
     expect(body.url).toBe("https://new-url.com");
-    expect(body.event_types).toEqual([WebhookEvent.MEMORY_ADDED]);
+    expect(body.event_types).toStrictEqual([WebhookEvent.MEMORY_ADDED]);
     expect(body.project_id).toBeUndefined();
     expect(body.eventTypes).toBeUndefined();
     expect(body.projectId).toBeUndefined();
