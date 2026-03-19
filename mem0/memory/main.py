@@ -1287,6 +1287,66 @@ class Memory(MemoryBase):
         )
         return memory_id
 
+    def close(self):
+        """
+        Clean up resources held by this Memory instance.
+
+        Shuts down the telemetry client (which spawns background threads),
+        closes the SQLite database connection, and releases the HTTP client
+        used by the vector store (if applicable).
+
+        Use this method when you create Memory instances in a loop or in
+        request handlers to prevent thread and connection leaks.
+
+        Can also be used as a context manager::
+
+            with Memory.from_config(config) as m:
+                m.add(...)
+        """
+        # Shut down telemetry to stop PostHog background threads
+        if hasattr(self, '_telemetry_vector_store'):
+            try:
+                from mem0.memory.telemetry import client_telemetry
+                client_telemetry.close()
+            except Exception:
+                pass
+
+        # Close SQLite connection
+        if hasattr(self, 'db') and hasattr(self.db, 'connection') and self.db.connection:
+            try:
+                self.db.connection.close()
+            except Exception:
+                pass
+
+        # Close vector store client if it has a close method
+        if hasattr(self, 'vector_store') and hasattr(self.vector_store, 'close'):
+            try:
+                self.vector_store.close()
+            except Exception:
+                pass
+
+        # Close HTTP client used by LLM provider
+        if hasattr(self, 'llm') and hasattr(self.llm, 'client'):
+            client = self.llm.client
+            if hasattr(client, 'close'):
+                try:
+                    client.close()
+                except Exception:
+                    pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
+
+    def __del__(self):
+        try:
+            self.close()
+        except Exception:
+            pass
+
     def reset(self):
         """
         Reset the memory store by:

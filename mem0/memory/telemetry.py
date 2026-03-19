@@ -86,6 +86,7 @@ def capture_event(event_name, memory_instance, additional_data=None):
         event_data.update(additional_data)
 
     oss_telemetry.capture_event(event_name, event_data)
+    oss_telemetry.close()
 
 
 def capture_client_event(event_name, instance, additional_data=None):
