@@ -104,8 +104,17 @@ export async function seedTestMemories(
     { user_id: userId },
   );
 
-  // Wait for async processing
+  // Wait for async processing (listing index)
   const memories = await waitForMemories(client, userId, 1);
+
+  // Also wait for search index — it can lag behind getAll under load (e.g. CI)
+  const start = Date.now();
+  while (Date.now() - start < 60_000) {
+    const results = await client.search("favorite color", { user_id: userId });
+    if (Array.isArray(results) && results.length > 0) break;
+    await new Promise((r) => setTimeout(r, 3_000));
+  }
+
   return memories.map((m) => m.id);
 }
 
