@@ -320,3 +320,66 @@ def test_normalize_facts_mixed():
 
 def test_normalize_facts_filters_empty_strings():
     assert normalize_facts(["", "valid", ""]) == ["valid"]
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_add_rejects_empty_list(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """Test that add() raises ValidationError when messages is an empty list."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.exceptions import ValidationError as Mem0ValidationError
+    from mem0.memory.main import Memory as MemoryClass
+
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    with pytest.raises(Mem0ValidationError, match="messages must not be empty"):
+        memory.add([], user_id="test_user")
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_add_rejects_empty_content_messages(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """Test that add() raises ValidationError when all messages have empty content."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.exceptions import ValidationError as Mem0ValidationError
+    from mem0.memory.main import Memory as MemoryClass
+
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    with pytest.raises(Mem0ValidationError, match="messages must not be empty"):
+        memory.add([{"role": "user", "content": ""}], user_id="test_user")
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_add_rejects_whitespace_only_content(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """Test that add() raises ValidationError when all messages have whitespace-only content."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.exceptions import ValidationError as Mem0ValidationError
+    from mem0.memory.main import Memory as MemoryClass
+
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    with pytest.raises(Mem0ValidationError, match="messages must not be empty"):
+        memory.add([{"role": "user", "content": "   "}], user_id="test_user")
