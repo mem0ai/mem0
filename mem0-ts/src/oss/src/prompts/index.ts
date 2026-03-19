@@ -282,5 +282,8 @@ export function removeCodeBlocks(text: string): string {
   // The old regex /```[^`]*```/g replaced the entire block (including
   // its content) with an empty string, so when an LLM returned JSON
   // wrapped in ```json ... ``` the actual payload was discarded.
-  return text.replace(/```(?:\w+)?\n?([\s\S]*?)```/g, "$1").trim();
+  let result = text.replace(/```(?:\w+)?\n?([\s\S]*?)```/g, "$1").trim();
+  // Handle truncated responses where closing ``` never arrives
+  result = result.replace(/^```(?:\w+)?\n?/, "").replace(/\n?```$/, "").trim();
+  return result;
 }

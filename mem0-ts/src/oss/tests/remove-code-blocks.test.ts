@@ -27,4 +27,20 @@ describe("removeCodeBlocks", () => {
     expect(removeCodeBlocks(input)).toContain('"facts"');
     expect(removeCodeBlocks(input)).not.toContain("```");
   });
+
+  it("handles truncated code blocks (missing closing fence)", () => {
+    // This simulates a truncated LLM response where the closing ``` never arrives
+    const input = '```json\n{"facts": ["hello"]}';
+    expect(removeCodeBlocks(input)).toBe('{"facts": ["hello"]}');
+  });
+
+  it("handles truncated code block with language spec", () => {
+    const input = '```json\n{"key": "value"';
+    expect(removeCodeBlocks(input)).toBe('{"key": "value"}');
+  });
+
+  it("handles truncated code block at end of response", () => {
+    const input = '{"result": true}\n```';
+    expect(removeCodeBlocks(input)).toBe('{"result": true}');
+  });
 });
