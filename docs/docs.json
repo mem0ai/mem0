@@ -923,6 +923,134 @@
     {
       "source": "/cdn-cgi/l/email-protection",
       "destination": "/introduction"
+    },
+    {
+      "source": "/features/online-memory",
+      "destination": "/platform/features/platform-overview"
+    },
+    {
+      "source": "/features/multimodal",
+      "destination": "/platform/features/multimodal-support"
+    },
+    {
+      "source": "/features/inferences",
+      "destination": "/platform/features/platform-overview"
+    },
+    {
+      "source": "/features/graph-memory",
+      "destination": "/platform/features/graph-memory"
+    },
+    {
+      "source": "/features/:slug",
+      "destination": "/platform/features/:slug"
+    },
+    {
+      "source": "/platform/features/online-memory",
+      "destination": "/platform/features/platform-overview"
+    },
+    {
+      "source": "/platform/features/multimodal",
+      "destination": "/platform/features/multimodal-support"
+    },
+    {
+      "source": "/platform/features/inferences",
+      "destination": "/platform/features/platform-overview"
+    },
+    {
+      "source": "/platform/features/custom-prompts",
+      "destination": "/platform/features/custom-instructions"
+    },
+    {
+      "source": "/platform/features/rest-api",
+      "destination": "/open-source/features/rest-api"
+    },
+    {
+      "source": "/components/embedders/models/google_ai",
+      "destination": "/components/embedders/models/google_AI"
+    },
+    {
+      "source": "/components/embedders/models/lm_studio",
+      "destination": "/components/embedders/models/lmstudio"
+    },
+    {
+      "source": "/components/llms/models/xai",
+      "destination": "/components/llms/models/xAI"
+    },
+    {
+      "source": "/components/llms/models/google_ai",
+      "destination": "/components/llms/models/google_AI"
+    },
+    {
+      "source": "/components/llms/models/mistral_ai",
+      "destination": "/components/llms/models/mistral_AI"
+    },
+    {
+      "source": "/components/llms/models/lm_studio",
+      "destination": "/components/llms/models/lmstudio"
+    },
+    {
+      "source": "/components/vectordbs/dbs/neptune-analytics",
+      "destination": "/components/vectordbs/dbs/neptune_analytics"
+    },
+    {
+      "source": "/components/vectordbs/dbs/s3-vectors",
+      "destination": "/components/vectordbs/dbs/s3_vectors"
+    },
+    {
+      "source": "/open-source/python_quickstart",
+      "destination": "/open-source/python-quickstart"
+    },
+    {
+      "source": "/open-source/node_quickstart",
+      "destination": "/open-source/node-quickstart"
+    },
+    {
+      "source": "/open-source/rest-api",
+      "destination": "/open-source/features/rest-api"
+    },
+    {
+      "source": "/cookbooks/deep-research",
+      "destination": "/cookbooks/operations/deep-research"
+    },
+    {
+      "source": "/v0x/overview",
+      "destination": "/platform/overview"
+    },
+    {
+      "source": "/v0x/quickstart",
+      "destination": "/platform/quickstart"
+    },
+    {
+      "source": "/v0x/faqs",
+      "destination": "/platform/faqs"
+    },
+    {
+      "source": "/integrations/multion",
+      "destination": "/integrations"
+    },
+    {
+      "source": "/integrations/composio",
+      "destination": "/integrations"
+    },
+    {
+      "source": "/integrations/qdrant",
+      "destination": "/components/vectordbs/dbs/qdrant"
+    },
+    {
+      "source": "/integrations/anthropic",
+      "destination": "/components/llms/models/anthropic"
+    },
+    {
+      "source": "/llms",
+      "destination": "/components/llms/overview"
+    },
+    {
+      "source": "/open-source/graph-memory",
+      "destination": "/open-source/features/graph-memory"
+    },
+    {
+      "source": "/cookbooks/customer-support-agent",
+      "destination": "/cookbooks/operations/support-inbox"
     }
   ]
 }
