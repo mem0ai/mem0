@@ -34,6 +34,7 @@ import { LangchainLLM } from "../llms/langchain";
 import { LangchainEmbedder } from "../embeddings/langchain";
 import { LangchainVectorStore } from "../vector_stores/langchain";
 import { AzureAISearch } from "../vector_stores/azure_ai_search";
+import { CosVectorsDB } from "../vector_stores/cos_vectors";
 
 export class EmbedderFactory {
   static create(provider: string, config: EmbeddingConfig): Embedder {
@@ -104,6 +105,8 @@ export class VectorStoreFactory {
         return new VectorizeDB(config as any);
       case "azure-ai-search":
         return new AzureAISearch(config as any);
+      case "cos_vectors":
+        return new CosVectorsDB(config as any);
       default:
         throw new Error(`Unsupported vector store provider: ${provider}`);
     }
