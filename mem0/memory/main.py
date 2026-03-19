@@ -50,6 +50,19 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*swigva
 logger = logging.getLogger(__name__)
 
 
+def _normalize_iso_timestamp_to_utc(timestamp: Optional[str]) -> Optional[str]:
+    """Normalize timezone-aware ISO timestamps to UTC without rewriting naive values."""
+    if not timestamp:
+        return timestamp
+    try:
+        parsed = datetime.fromisoformat(timestamp)
+    except ValueError:
+        return timestamp
+    if parsed.tzinfo is None:
+        return timestamp
+    return parsed.astimezone(timezone.utc).isoformat()
+
+
 def _safe_deepcopy_config(config):
     """Safely deepcopy config, falling back to JSON serialization for non-serializable objects."""
     try:
@@ -579,6 +592,9 @@ class Memory(MemoryBase):
                                 updated_metadata["agent_id"] = metadata["agent_id"]
                             if metadata.get("run_id"):
                                 updated_metadata["run_id"] = metadata["run_id"]
+                            updated_metadata["created_at"] = _normalize_iso_timestamp_to_utc(
+                                updated_metadata.get("created_at")
+                            )
                             updated_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
                             self.vector_store.update(
@@ -642,8 +658,8 @@ class Memory(MemoryBase):
             id=memory.id,
             memory=memory.payload.get("data", ""),
             hash=memory.payload.get("hash"),
-            created_at=memory.payload.get("created_at"),
-            updated_at=memory.payload.get("updated_at"),
+            created_at=_normalize_iso_timestamp_to_utc(memory.payload.get("created_at")),
+            updated_at=_normalize_iso_timestamp_to_utc(memory.payload.get("updated_at")),
         ).model_dump()
 
         for key in promoted_payload_keys:
@@ -745,8 +761,8 @@ class Memory(MemoryBase):
                 id=mem.id,
                 memory=mem.payload.get("data", ""),
                 hash=mem.payload.get("hash"),
-                created_at=mem.payload.get("created_at"),
-                updated_at=mem.payload.get("updated_at"),
+                created_at=_normalize_iso_timestamp_to_utc(mem.payload.get("created_at")),
+                updated_at=_normalize_iso_timestamp_to_utc(mem.payload.get("updated_at")),
             ).model_dump(exclude={"score"})
 
             for key in promoted_payload_keys:
@@ -977,8 +993,8 @@ class Memory(MemoryBase):
                 id=mem.id,
                 memory=mem.payload.get("data", ""),
                 hash=mem.payload.get("hash"),
-                created_at=mem.payload.get("created_at"),
-                updated_at=mem.payload.get("updated_at"),
+                created_at=_normalize_iso_timestamp_to_utc(mem.payload.get("created_at")),
+                updated_at=_normalize_iso_timestamp_to_utc(mem.payload.get("updated_at")),
                 score=mem.score,
             ).model_dump()
 
@@ -1159,7 +1175,7 @@ class Memory(MemoryBase):
 
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        new_metadata["created_at"] = existing_memory.payload.get("created_at")
+        new_metadata["created_at"] = _normalize_iso_timestamp_to_utc(existing_memory.payload.get("created_at"))
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         # Preserve session identifiers from existing memory only if not provided in new metadata
@@ -1603,6 +1619,9 @@ class AsyncMemory(MemoryBase):
                                     updated_metadata["agent_id"] = meta["agent_id"]
                                 if meta.get("run_id"):
                                     updated_metadata["run_id"] = meta["run_id"]
+                                updated_metadata["created_at"] = _normalize_iso_timestamp_to_utc(
+                                    updated_metadata.get("created_at")
+                                )
                                 updated_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
                                 await asyncio.to_thread(
@@ -1689,8 +1708,8 @@ class AsyncMemory(MemoryBase):
             id=memory.id,
             memory=memory.payload.get("data", ""),
             hash=memory.payload.get("hash"),
-            created_at=memory.payload.get("created_at"),
-            updated_at=memory.payload.get("updated_at"),
+            created_at=_normalize_iso_timestamp_to_utc(memory.payload.get("created_at")),
+            updated_at=_normalize_iso_timestamp_to_utc(memory.payload.get("updated_at")),
         ).model_dump()
 
         for key in promoted_payload_keys:
@@ -1797,8 +1816,8 @@ class AsyncMemory(MemoryBase):
                 id=mem.id,
                 memory=mem.payload.get("data", ""),
                 hash=mem.payload.get("hash"),
-                created_at=mem.payload.get("created_at"),
-                updated_at=mem.payload.get("updated_at"),
+                created_at=_normalize_iso_timestamp_to_utc(mem.payload.get("created_at")),
+                updated_at=_normalize_iso_timestamp_to_utc(mem.payload.get("updated_at")),
             ).model_dump(exclude={"score"})
 
             for key in promoted_payload_keys:
@@ -2038,8 +2057,8 @@ class AsyncMemory(MemoryBase):
                 id=mem.id,
                 memory=mem.payload.get("data", ""),
                 hash=mem.payload.get("hash"),
-                created_at=mem.payload.get("created_at"),
-                updated_at=mem.payload.get("updated_at"),
+                created_at=_normalize_iso_timestamp_to_utc(mem.payload.get("created_at")),
+                updated_at=_normalize_iso_timestamp_to_utc(mem.payload.get("updated_at")),
                 score=mem.score,
             ).model_dump()
 
@@ -2243,7 +2262,7 @@ class AsyncMemory(MemoryBase):
 
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        new_metadata["created_at"] = existing_memory.payload.get("created_at")
+        new_metadata["created_at"] = _normalize_iso_timestamp_to_utc(existing_memory.payload.get("created_at"))
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         # Preserve session identifiers from existing memory only if not provided in new metadata
