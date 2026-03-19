@@ -43,7 +43,7 @@ SECTION_MAP = {
         "/platform/features/v2-memory-filters",
         "/platform/features/async-client",
         "/platform/features/webhooks",
-        "/platform/features/multimodal",
+        "/platform/features/multimodal-support",
     ],
     "api": [
         "/api-reference/memory/add-memories",
