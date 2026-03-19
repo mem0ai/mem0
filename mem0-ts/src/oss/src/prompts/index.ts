@@ -278,9 +278,7 @@ export function parseMessages(messages: string[]): string {
 }
 
 export function removeCodeBlocks(text: string): string {
-  // Extract content inside code fences instead of deleting it.
-  // The old regex /```[^`]*```/g replaced the entire block (including
-  // its content) with an empty string, so when an LLM returned JSON
-  // wrapped in ```json ... ``` the actual payload was discarded.
-  return text.replace(/```(?:\w+)?\n?([\s\S]*?)```/g, "$1").trim();
+  // Extract content inside code fences, handling both complete and
+  // truncated blocks (where the closing ``` never arrives).
+  return text.replace(/```(?:\w+)?\n?([\s\S]*?)(?:```|$)/g, "$1").trim();
 }
