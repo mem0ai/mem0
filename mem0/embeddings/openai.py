@@ -43,7 +43,12 @@ class OpenAIEmbedding(EmbeddingBase):
         """
         text = text.replace("\n", " ")
         return (
-            self.client.embeddings.create(input=[text], model=self.config.model, dimensions=self.config.embedding_dims)
+            self.client.embeddings.create(
+                input=[text],
+                model=self.config.model,
+                dimensions=self.config.embedding_dims,
+                encoding_format="float",
+            )
             .data[0]
             .embedding
         )

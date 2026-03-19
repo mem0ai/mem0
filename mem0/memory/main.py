@@ -63,18 +63,77 @@ def _normalize_iso_timestamp_to_utc(timestamp: Optional[str]) -> Optional[str]:
     return parsed.astimezone(timezone.utc).isoformat()
 
 
+# Fields that hold runtime auth/connection objects and must be preserved.
+# These are non-serializable objects (e.g. AWSV4SignerAuth, RequestsHttpConnection)
+# needed by clients like OpenSearch — not sensitive strings to redact.
+_RUNTIME_FIELDS = frozenset({
+    "http_auth",
+    "auth",
+    "connection_class",
+    "ssl_context",
+    "use_azure_credential",
+})
+
+# Fields that are known to contain sensitive secrets and must be redacted.
+_SENSITIVE_FIELDS_EXACT = frozenset({
+    "api_key",
+    "secret_key",
+    "private_key",
+    "access_key",
+    "password",
+    "credentials",
+    "credential",
+    "secret",
+    "token",
+    "access_token",
+    "refresh_token",
+    "auth_token",
+    "session_token",
+    "client_secret",
+    "auth_client_secret",
+    "azure_client_secret",
+    "service_account_json",
+    "aws_session_token",
+})
+
+# Suffixes that indicate a field likely holds a secret value.
+_SENSITIVE_SUFFIXES = (
+    "_password",
+    "_secret",
+    "_token",
+    "_credential",
+    "_credentials",
+)
+
+
+def _is_sensitive_field(field_name: str) -> bool:
+    """Check if a field should be redacted for telemetry safety.
+
+    Uses a layered approach:
+    1. Runtime fields (allowlist) — always preserved, highest priority.
+    2. Exact deny list — known secret field names.
+    3. Suffix deny list — catches patterns like db_password, auth_secret, etc.
+    """
+    name = field_name.lower().strip()
+    if name in _RUNTIME_FIELDS:
+        return False
+    if name in _SENSITIVE_FIELDS_EXACT:
+        return True
+    return any(name.endswith(suffix) for suffix in _SENSITIVE_SUFFIXES)
+
+
 def _safe_deepcopy_config(config):
-    """Safely deepcopy config, falling back to JSON serialization for non-serializable objects."""
+    """Safely deepcopy config, falling back to dict-based cloning for non-serializable objects."""
     try:
         return deepcopy(config)
     except Exception as e:
-        logger.debug(f"Deepcopy failed, using JSON serialization: {e}")
-        
+        logger.debug(f"Deepcopy failed, using dict-based cloning: {e}")
+
         config_class = type(config)
-        
+
         if hasattr(config, "model_dump"):
             try:
-                clone_dict = config.model_dump(mode="json")
+                clone_dict = config.model_dump()
             except Exception:
                 clone_dict = {k: v for k, v in config.__dict__.items()}
         elif hasattr(config, "__dataclass_fields__"):
@@ -82,12 +141,11 @@ def _safe_deepcopy_config(config):
             clone_dict = asdict(config)
         else:
             clone_dict = {k: v for k, v in config.__dict__.items()}
-        
-        sensitive_tokens = ("auth", "credential", "password", "token", "secret", "key", "connection_class")
+
         for field_name in list(clone_dict.keys()):
-            if any(token in field_name.lower() for token in sensitive_tokens):
+            if _is_sensitive_field(field_name):
                 clone_dict[field_name] = None
-        
+
         try:
             return config_class(**clone_dict)
         except Exception as reconstruction_error:
@@ -234,7 +292,6 @@ class Memory(MemoryBase):
             telemetry_config_dict['collection_name'] = "mem0migrations"
 
             # Set path for file-based vector stores
-            telemetry_config = _safe_deepcopy_config(self.config.vector_store.config)
             if self.config.vector_store.provider in ["faiss", "qdrant"]:
                 provider_path = f"migrations_{self.config.vector_store.provider}"
                 telemetry_config_dict['path'] = os.path.join(mem0_dir, provider_path)
