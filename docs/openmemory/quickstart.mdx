@@ -182,6 +182,11 @@ You can configure the MCP client using the following command (replace `username`
 npx @openmemory/install local "http://localhost:8765/mcp/cursor/sse/username" --client cursor
 ```
 
+**For Claude Code (CLI):**
+```bash
+claude mcp add -s user -t sse OpenMemory "http://localhost:8765/mcp/openmemory/sse/username"
+```
+
 The OpenMemory dashboard will be available at http://localhost:3000. From here, you can view and manage your memories and check connection status with your MCP clients.
 
 Once set up, OpenMemory runs locally on your machine, ensuring all your AI memories remain private and secure while being accessible across any compatible MCP client.
