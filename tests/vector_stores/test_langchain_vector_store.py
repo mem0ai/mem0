@@ -224,3 +224,29 @@ def test_list_with_exception(langchain_instance):
 
     # Verify that an empty list is returned when an exception occurs
     assert results == []
+
+
+def test_update_wraps_params_in_lists(langchain_instance):
+    """Test that update() wraps vector and payload in lists before calling insert().
+
+    Regression test for https://github.com/mem0ai/mem0/issues/3767
+    The insert() method expects List[List[float]] for vectors and List[Dict]
+    for payloads, but update() was passing unwrapped single values.
+    """
+    vector = [0.1, 0.2, 0.3]
+    payload = {"data": "updated text", "name": "vector1"}
+    vector_id = "id1"
+
+    # Mock delete and add_embeddings
+    langchain_instance.client.delete = Mock()
+    langchain_instance.client.add_embeddings = Mock()
+
+    langchain_instance.update(vector_id=vector_id, vector=vector, payload=payload)
+
+    # Verify delete was called with the correct ID
+    langchain_instance.client.delete.assert_called_once_with(ids=[vector_id])
+
+    # Verify insert received list-wrapped parameters
+    langchain_instance.client.add_embeddings.assert_called_once_with(
+        embeddings=[vector], metadatas=[payload], ids=[vector_id]
+    )
