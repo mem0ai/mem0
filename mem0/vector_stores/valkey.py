@@ -491,8 +491,12 @@ class ValkeyDB(VectorStoreBase):
                 "hash": payload.get("hash", f"hash_{vector_id}"),  # Use a default hash if not provided
                 "memory": payload.get("data", f"data_{vector_id}"),  # Use a default data if not provided
                 "created_at": int(datetime.fromisoformat(payload["created_at"]).timestamp()),
-                "embedding": np.array(vector, dtype=np.float32).tobytes(),
             }
+
+            # Only update embedding if a new vector is provided;
+            # passing None would corrupt the stored embedding (np.array(None) → 4-byte scalar)
+            if vector is not None:
+                hash_data["embedding"] = np.array(vector, dtype=np.float32).tobytes()
 
             # Add updated_at if available
             if "updated_at" in payload:
