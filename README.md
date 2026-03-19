@@ -150,7 +150,7 @@ For detailed integration steps, see the [Quickstart](https://docs.mem0.ai/quicks
 ## 📚 Documentation & Support
 
 - Full docs: https://docs.mem0.ai
-- Community: [Discord](https://mem0.dev/DiG) · [Twitter](https://x.com/mem0ai)
+- Community: [Discord](https://mem0.dev/DiG) · [X (formerly Twitter)](https://x.com/mem0ai)
 - Contact: founders@mem0.ai
 
 ## Citation
