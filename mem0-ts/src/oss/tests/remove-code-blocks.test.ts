@@ -50,8 +50,7 @@ describe("removeCodeBlocks", () => {
   });
 
   it("handles complete block followed by truncated block", () => {
-    const input =
-      '```json\n{"a":1}\n```\nsome text\n```python\nprint("hi")';
+    const input = '```json\n{"a":1}\n```\nsome text\n```python\nprint("hi")';
     const result = removeCodeBlocks(input);
     expect(result).toContain('{"a":1}');
     expect(result).toContain('print("hi")');
