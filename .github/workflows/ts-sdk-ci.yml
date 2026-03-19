@@ -59,7 +59,7 @@ jobs:
 
       - name: Run unit tests
         working-directory: mem0-ts
-        run: pnpm run test:ci -- --testPathIgnorePatterns=integration
+        run: pnpm run test:unit
 
       - name: Run integration tests (with cleanup)
         working-directory: mem0-ts

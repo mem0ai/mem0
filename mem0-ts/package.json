@@ -38,6 +38,7 @@
     "example": "ts-node src/oss/examples/vector-stores/index.ts",
     "test": "jest",
     "test:ci": "jest --coverage --ci",
+    "test:unit": "jest --coverage --ci --testPathIgnorePatterns='/node_modules/' '/dist/' 'integration'",
     "test:integration": "jest --config jest.integration.config.js --forceExit",
     "test:ts": "jest --config jest.config.js",
     "test:watch": "jest --config jest.config.js --watch",
