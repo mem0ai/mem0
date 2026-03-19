@@ -8,10 +8,9 @@ import os
 import uuid
 import warnings
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-import pytz
 from pydantic import ValidationError
 
 from mem0.configs.base import MemoryConfig, MemoryItem
@@ -49,6 +48,19 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*swigva
 
 # Initialize logger early for util functions
 logger = logging.getLogger(__name__)
+
+
+def _normalize_iso_timestamp_to_utc(timestamp: Optional[str]) -> Optional[str]:
+    """Normalize timezone-aware ISO timestamps to UTC without rewriting naive values."""
+    if not timestamp:
+        return timestamp
+    try:
+        parsed = datetime.fromisoformat(timestamp)
+    except ValueError:
+        return timestamp
+    if parsed.tzinfo is None:
+        return timestamp
+    return parsed.astimezone(timezone.utc).isoformat()
 
 
 # Fields that hold runtime auth/connection objects and must be preserved.
@@ -637,7 +649,10 @@ class Memory(MemoryBase):
                                 updated_metadata["agent_id"] = metadata["agent_id"]
                             if metadata.get("run_id"):
                                 updated_metadata["run_id"] = metadata["run_id"]
-                            updated_metadata["updated_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+                            updated_metadata["created_at"] = _normalize_iso_timestamp_to_utc(
+                                updated_metadata.get("created_at")
+                            )
+                            updated_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
                             self.vector_store.update(
                                 vector_id=memory_id,
@@ -700,8 +715,8 @@ class Memory(MemoryBase):
             id=memory.id,
             memory=memory.payload.get("data", ""),
             hash=memory.payload.get("hash"),
-            created_at=memory.payload.get("created_at"),
-            updated_at=memory.payload.get("updated_at"),
+            created_at=_normalize_iso_timestamp_to_utc(memory.payload.get("created_at")),
+            updated_at=_normalize_iso_timestamp_to_utc(memory.payload.get("updated_at")),
         ).model_dump()
 
         for key in promoted_payload_keys:
@@ -803,8 +818,8 @@ class Memory(MemoryBase):
                 id=mem.id,
                 memory=mem.payload.get("data", ""),
                 hash=mem.payload.get("hash"),
-                created_at=mem.payload.get("created_at"),
-                updated_at=mem.payload.get("updated_at"),
+                created_at=_normalize_iso_timestamp_to_utc(mem.payload.get("created_at")),
+                updated_at=_normalize_iso_timestamp_to_utc(mem.payload.get("updated_at")),
             ).model_dump(exclude={"score"})
 
             for key in promoted_payload_keys:
@@ -1035,8 +1050,8 @@ class Memory(MemoryBase):
                 id=mem.id,
                 memory=mem.payload.get("data", ""),
                 hash=mem.payload.get("hash"),
-                created_at=mem.payload.get("created_at"),
-                updated_at=mem.payload.get("updated_at"),
+                created_at=_normalize_iso_timestamp_to_utc(mem.payload.get("created_at")),
+                updated_at=_normalize_iso_timestamp_to_utc(mem.payload.get("updated_at")),
                 score=mem.score,
             ).model_dump()
 
@@ -1145,7 +1160,7 @@ class Memory(MemoryBase):
         metadata = metadata or {}
         metadata["data"] = data
         metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        metadata["created_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+        metadata["created_at"] = datetime.now(timezone.utc).isoformat()
 
         self.vector_store.insert(
             vectors=[embeddings],
@@ -1217,8 +1232,8 @@ class Memory(MemoryBase):
 
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        new_metadata["created_at"] = existing_memory.payload.get("created_at")
-        new_metadata["updated_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+        new_metadata["created_at"] = _normalize_iso_timestamp_to_utc(existing_memory.payload.get("created_at"))
+        new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         # Preserve session identifiers from existing memory only if not provided in new metadata
         if "user_id" not in new_metadata and "user_id" in existing_memory.payload:
@@ -1661,7 +1676,10 @@ class AsyncMemory(MemoryBase):
                                     updated_metadata["agent_id"] = meta["agent_id"]
                                 if meta.get("run_id"):
                                     updated_metadata["run_id"] = meta["run_id"]
-                                updated_metadata["updated_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+                                updated_metadata["created_at"] = _normalize_iso_timestamp_to_utc(
+                                    updated_metadata.get("created_at")
+                                )
+                                updated_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
                                 await asyncio.to_thread(
                                     self.vector_store.update,
@@ -1747,8 +1765,8 @@ class AsyncMemory(MemoryBase):
             id=memory.id,
             memory=memory.payload.get("data", ""),
             hash=memory.payload.get("hash"),
-            created_at=memory.payload.get("created_at"),
-            updated_at=memory.payload.get("updated_at"),
+            created_at=_normalize_iso_timestamp_to_utc(memory.payload.get("created_at")),
+            updated_at=_normalize_iso_timestamp_to_utc(memory.payload.get("updated_at")),
         ).model_dump()
 
         for key in promoted_payload_keys:
@@ -1855,8 +1873,8 @@ class AsyncMemory(MemoryBase):
                 id=mem.id,
                 memory=mem.payload.get("data", ""),
                 hash=mem.payload.get("hash"),
-                created_at=mem.payload.get("created_at"),
-                updated_at=mem.payload.get("updated_at"),
+                created_at=_normalize_iso_timestamp_to_utc(mem.payload.get("created_at")),
+                updated_at=_normalize_iso_timestamp_to_utc(mem.payload.get("updated_at")),
             ).model_dump(exclude={"score"})
 
             for key in promoted_payload_keys:
@@ -2096,8 +2114,8 @@ class AsyncMemory(MemoryBase):
                 id=mem.id,
                 memory=mem.payload.get("data", ""),
                 hash=mem.payload.get("hash"),
-                created_at=mem.payload.get("created_at"),
-                updated_at=mem.payload.get("updated_at"),
+                created_at=_normalize_iso_timestamp_to_utc(mem.payload.get("created_at")),
+                updated_at=_normalize_iso_timestamp_to_utc(mem.payload.get("updated_at")),
                 score=mem.score,
             ).model_dump()
 
@@ -2211,7 +2229,7 @@ class AsyncMemory(MemoryBase):
         metadata = metadata or {}
         metadata["data"] = data
         metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        metadata["created_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+        metadata["created_at"] = datetime.now(timezone.utc).isoformat()
 
         await asyncio.to_thread(
             self.vector_store.insert,
@@ -2301,8 +2319,8 @@ class AsyncMemory(MemoryBase):
 
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        new_metadata["created_at"] = existing_memory.payload.get("created_at")
-        new_metadata["updated_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+        new_metadata["created_at"] = _normalize_iso_timestamp_to_utc(existing_memory.payload.get("created_at"))
+        new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         # Preserve session identifiers from existing memory only if not provided in new metadata
         if "user_id" not in new_metadata and "user_id" in existing_memory.payload:
