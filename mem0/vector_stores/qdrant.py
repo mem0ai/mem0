@@ -204,8 +204,18 @@ class Qdrant(VectorStoreBase):
             vector (list, optional): Updated vector. Defaults to None.
             payload (dict, optional): Updated payload. Defaults to None.
         """
-        point = PointStruct(id=vector_id, vector=vector, payload=payload)
-        self.client.upsert(collection_name=self.collection_name, points=[point])
+        if vector is None:
+            # Only update payload without touching the vector.
+            # Passing vector=None to PointStruct causes a Pydantic validation
+            # error, and would corrupt the stored embedding.
+            self.client.set_payload(
+                collection_name=self.collection_name,
+                payload=payload,
+                points=[vector_id],
+            )
+        else:
+            point = PointStruct(id=vector_id, vector=vector, payload=payload)
+            self.client.upsert(collection_name=self.collection_name, points=[point])
 
     def get(self, vector_id: int) -> dict:
         """
