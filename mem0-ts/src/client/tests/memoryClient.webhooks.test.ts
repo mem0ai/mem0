@@ -51,14 +51,12 @@ describe("MemoryClient - Webhooks", () => {
       name: "new-hook",
       url: "https://example.com",
       eventTypes: [WebhookEvent.MEMORY_ADDED],
-      projectId: TEST_PROJECT_ID,
-      webhookId: "",
     });
 
     expect(findFetchCall(mock, "/api/v1/webhooks/", "POST")).toBeDefined();
   });
 
-  test("createWebhook includes webhook payload in body", async () => {
+  test("createWebhook includes webhook payload in body with snake_case keys", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
     extra.set("/api/v1/webhooks/projects/", {
       status: 200,
@@ -75,14 +73,16 @@ describe("MemoryClient - Webhooks", () => {
       name: "new-hook",
       url: "https://example.com",
       eventTypes: [WebhookEvent.MEMORY_ADDED],
-      projectId: TEST_PROJECT_ID,
-      webhookId: "",
     });
 
     const call = findFetchCall(mock, "/api/v1/webhooks/", "POST");
     const body = getFetchBody(call!);
     expect(body.name).toBe("new-hook");
     expect(body.url).toBe("https://example.com");
+    expect(body.event_types).toEqual([WebhookEvent.MEMORY_ADDED]);
+    expect(body.eventTypes).toBeUndefined();
+    expect(body.projectId).toBeUndefined();
+    expect(body.webhookId).toBeUndefined();
   });
 
   test("updateWebhook sends PUT to /api/v1/webhooks/:id/", async () => {
@@ -103,13 +103,12 @@ describe("MemoryClient - Webhooks", () => {
       name: "updated-hook",
       url: "https://new-url.com",
       eventTypes: [WebhookEvent.MEMORY_ADDED],
-      projectId: TEST_PROJECT_ID,
     });
 
     expect(findFetchCall(mock, "/api/v1/webhooks/wh_1/", "PUT")).toBeDefined();
   });
 
-  test("updateWebhook includes updated fields in body", async () => {
+  test("updateWebhook includes updated fields in body with snake_case keys", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
     extra.set("/api/v1/webhooks/wh_1/", {
       status: 200,
@@ -127,13 +126,17 @@ describe("MemoryClient - Webhooks", () => {
       name: "updated-hook",
       url: "https://new-url.com",
       eventTypes: [WebhookEvent.MEMORY_ADDED],
-      projectId: TEST_PROJECT_ID,
     });
 
     const call = findFetchCall(mock, "/api/v1/webhooks/wh_1/", "PUT");
     const body = getFetchBody(call!);
     expect(body.name).toBe("updated-hook");
     expect(body.url).toBe("https://new-url.com");
+    expect(body.event_types).toEqual([WebhookEvent.MEMORY_ADDED]);
+    expect(body.project_id).toBeUndefined();
+    expect(body.eventTypes).toBeUndefined();
+    expect(body.projectId).toBeUndefined();
+    expect(body.webhookId).toBeUndefined();
   });
 
   test("deleteWebhook sends DELETE to /api/v1/webhooks/:id/", async () => {

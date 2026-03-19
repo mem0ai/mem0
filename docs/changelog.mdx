@@ -745,6 +745,20 @@ mode: "wide"
 
 <Tab title="TypeScript">
 
+<Update label="2026-03-19" description="v2.4.2">
+
+**Bug Fixes:**
+- **Client:** Fixed webhook `createWebhook` and `updateWebhook` API serialization
+- **Client:** Added missing `MEMORY_CATEGORIZED` event type to `WebhookEvent` enum
+- **Types:** Added `WebhookCreatePayload` and `WebhookUpdatePayload` for better type safety
+
+**Tests:**
+- Added end-to-end unit test coverage for the platform client — CRUD, batch, search, webhooks, users, project, and initialization (#4357)
+- Added real API integration tests for memory CRUD, batch operations, search, user management, project configuration, and webhook lifecycle (#4395)
+- Deleted obsolete e2e test files replaced by the new structured test suite (#4419)
+
+</Update>
+
 <Update label="2026-03-16" description="v2.4.1">
 
 **Bug Fixes:**
