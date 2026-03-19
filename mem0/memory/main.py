@@ -52,14 +52,37 @@ logger = logging.getLogger(__name__)
 
 
 def _safe_deepcopy_config(config):
-    """Safely deepcopy config, falling back to JSON serialization for non-serializable objects."""
+    """Safely deepcopy config, falling back to JSON serialization for non-serializable objects.
+
+    Auth-related fields (e.g. http_auth, aws_auth, connection_class) are preserved even when
+    they contain non-picklable objects such as AWS RequestSigner instances. Without this
+    preservation the fallback path would silently drop these fields and break authentication
+    (see https://github.com/mem0ai/mem0/issues/3580).
+    """
+    # Fields that may hold non-picklable auth objects – saved and restored explicitly
+    # so they survive both a failed deepcopy and the JSON-serialisation fallback path.
+    AUTH_FIELDS = {"http_auth", "aws_auth", "connection_class"}
+
+    # Save original auth field values (if present on the config object)
+    if hasattr(config, "__dict__"):
+        saved_auth = {k: getattr(config, k) for k in AUTH_FIELDS if getattr(config, k, None) is not None}
+    else:
+        saved_auth = {}
+
     try:
-        return deepcopy(config)
+        result = deepcopy(config)
+        # Restore auth fields in case deepcopy dropped or mangled them
+        for k, v in saved_auth.items():
+            try:
+                object.__setattr__(result, k, v)
+            except (AttributeError, TypeError):
+                pass
+        return result
     except Exception as e:
         logger.debug(f"Deepcopy failed, using JSON serialization: {e}")
-        
+
         config_class = type(config)
-        
+
         if hasattr(config, "model_dump"):
             try:
                 clone_dict = config.model_dump(mode="json")
@@ -70,12 +93,18 @@ def _safe_deepcopy_config(config):
             clone_dict = asdict(config)
         else:
             clone_dict = {k: v for k, v in config.__dict__.items()}
-        
-        sensitive_tokens = ("auth", "credential", "password", "token", "secret", "key", "connection_class")
+
+        sensitive_tokens = ("credential", "password", "token", "secret", "key")
         for field_name in list(clone_dict.keys()):
+            # Do NOT nullify auth fields – needed for OpenSearch / AWS authentication
+            if field_name in AUTH_FIELDS:
+                continue
             if any(token in field_name.lower() for token in sensitive_tokens):
                 clone_dict[field_name] = None
-        
+
+        # Restore non-serialisable auth objects from the original config
+        clone_dict.update(saved_auth)
+
         try:
             return config_class(**clone_dict)
         except Exception as reconstruction_error:
