@@ -200,7 +200,10 @@ describeIntegration("MemoryClient Integration — CRUD", () => {
       const result = await client.add(
         [
           { role: "user" as const, content: "I prefer dark mode in all apps." },
-          { role: "assistant" as const, content: "Noted, dark mode preference saved!" },
+          {
+            role: "assistant" as const,
+            content: "Noted, dark mode preference saved!",
+          },
         ],
         {
           user_id: TEST_USER_ID,

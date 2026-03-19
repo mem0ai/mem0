@@ -23,79 +23,76 @@ jest.setTimeout(120_000);
 
 const TEST_USER_ID = `integration-mgmt-${randomUUID()}`;
 
-describeIntegration(
-  "MemoryClient Integration — Users & Project",
-  () => {
-    let client: MemoryClient;
-    let cleanup: () => void;
+describeIntegration("MemoryClient Integration — Users & Project", () => {
+  let client: MemoryClient;
+  let cleanup: () => void;
 
-    beforeAll(async () => {
-      cleanup = suppressTelemetryNoise();
-      client = createTestClient();
-      await seedTestMemories(client, TEST_USER_ID);
+  beforeAll(async () => {
+    cleanup = suppressTelemetryNoise();
+    client = createTestClient();
+    await seedTestMemories(client, TEST_USER_ID);
+  });
+
+  afterAll(async () => {
+    await cleanupTestUser(client, TEST_USER_ID);
+    cleanup();
+  });
+
+  // ─── Users ────────────────────────────────────────────────
+  describe("user management", () => {
+    test("lists users and finds test user", async () => {
+      const allUsers = await client.users();
+
+      expect(typeof allUsers.count).toBe("number");
+      expect(Array.isArray(allUsers.results)).toBe(true);
+
+      if (allUsers.results.length > 0) {
+        const user = allUsers.results[0];
+        expect(typeof user.id).toBe("string");
+        expect(typeof user.name).toBe("string");
+        expect(typeof user.type).toBe("string");
+      }
+
+      const testUser = allUsers.results.find((u) => u.name === TEST_USER_ID);
+      expect(testUser).toBeDefined();
     });
+  });
 
-    afterAll(async () => {
-      await cleanupTestUser(client, TEST_USER_ID);
-      cleanup();
-    });
+  // ─── Project ──────────────────────────────────────────────
+  describe("project management", () => {
+    let originalInstructions: string | undefined;
 
-    // ─── Users ────────────────────────────────────────────────
-    describe("user management", () => {
-      test("lists users and finds test user", async () => {
-        const allUsers = await client.users();
-
-        expect(typeof allUsers.count).toBe("number");
-        expect(Array.isArray(allUsers.results)).toBe(true);
-
-        if (allUsers.results.length > 0) {
-          const user = allUsers.results[0];
-          expect(typeof user.id).toBe("string");
-          expect(typeof user.name).toBe("string");
-          expect(typeof user.type).toBe("string");
-        }
-
-        const testUser = allUsers.results.find((u) => u.name === TEST_USER_ID);
-        expect(testUser).toBeDefined();
-      });
-    });
-
-    // ─── Project ──────────────────────────────────────────────
-    describe("project management", () => {
-      let originalInstructions: string | undefined;
-
-      test("gets project with custom_instructions field", async () => {
-        const project = await client.getProject({
-          fields: ["custom_instructions"],
-        });
-
-        expect(project).toBeDefined();
-        expect(typeof project).toBe("object");
-        expect("custom_instructions" in project).toBe(true);
-
-        originalInstructions = project.custom_instructions;
+    test("gets project with custom_instructions field", async () => {
+      const project = await client.getProject({
+        fields: ["custom_instructions"],
       });
 
-      test("updates project custom_instructions via updateProject()", async () => {
-        const testInstruction = `integration-test-${randomUUID().slice(0, 8)}`;
+      expect(project).toBeDefined();
+      expect(typeof project).toBe("object");
+      expect("custom_instructions" in project).toBe(true);
 
-        const result = await client.updateProject({
-          custom_instructions: testInstruction,
-        });
+      originalInstructions = project.custom_instructions;
+    });
 
-        expect(result).toBeDefined();
+    test("updates project custom_instructions via updateProject()", async () => {
+      const testInstruction = `integration-test-${randomUUID().slice(0, 8)}`;
 
-        // Verify the update took effect
-        const project = await client.getProject({
-          fields: ["custom_instructions"],
-        });
-        expect(project.custom_instructions).toBe(testInstruction);
+      const result = await client.updateProject({
+        custom_instructions: testInstruction,
+      });
 
-        // Restore original
-        await client.updateProject({
-          custom_instructions: originalInstructions || "",
-        });
+      expect(result).toBeDefined();
+
+      // Verify the update took effect
+      const project = await client.getProject({
+        fields: ["custom_instructions"],
+      });
+      expect(project.custom_instructions).toBe(testInstruction);
+
+      // Restore original
+      await client.updateProject({
+        custom_instructions: originalInstructions || "",
       });
     });
-  },
-);
+  });
+});

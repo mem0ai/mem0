@@ -60,9 +60,7 @@ export async function waitForMemories(
 ): Promise<Memory[]> {
   const start = Date.now();
   while (Date.now() - start < maxWaitMs) {
-    const memories = await withRetry(() =>
-      client.getAll({ user_id: userId }),
-    );
+    const memories = await withRetry(() => client.getAll({ user_id: userId }));
     if (Array.isArray(memories) && memories.length >= minCount) {
       return memories;
     }
@@ -133,8 +131,7 @@ export async function seedTestMemories(
       [
         {
           role: "user" as const,
-          content:
-            "Hi, I'm integration-test-user. My favorite color is blue.",
+          content: "Hi, I'm integration-test-user. My favorite color is blue.",
         },
         {
           role: "assistant" as const,
@@ -193,9 +190,7 @@ export async function cleanupTestUser(
  * Used as cleanup before and after integration test runs so tests
  * start from a clean slate and don't leave data behind.
  */
-export async function fullProjectCleanup(
-  client: MemoryClient,
-): Promise<void> {
+export async function fullProjectCleanup(client: MemoryClient): Promise<void> {
   // Delete all memories — all four filters set explicitly
   try {
     await client.deleteAll({
