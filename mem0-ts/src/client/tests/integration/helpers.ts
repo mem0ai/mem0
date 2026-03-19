@@ -56,7 +56,7 @@ export async function waitForMemories(
   client: MemoryClient,
   userId: string,
   minCount: number,
-  maxWaitMs = 90_000,
+  maxWaitMs = 60_000,
 ): Promise<Memory[]> {
   const start = Date.now();
   while (Date.now() - start < maxWaitMs) {
@@ -77,7 +77,7 @@ export async function waitForSearchResults(
   client: MemoryClient,
   query: string,
   options: Record<string, any>,
-  maxWaitMs = 90_000,
+  maxWaitMs = 60_000,
 ): Promise<Memory[]> {
   const start = Date.now();
   while (Date.now() - start < maxWaitMs) {
