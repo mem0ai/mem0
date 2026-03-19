@@ -28,7 +28,7 @@ class TurbopufferDB(VectorStoreBase):
         collection_name: str,
         embedding_model_dims: int,
         api_key: Optional[str] = None,
-        region: Optional[str] = None,
+        region: str = "gcp-us-central1",
         distance_metric: str = "cosine_distance",
         batch_size: int = 100,
         extra_params: Optional[Dict[str, Any]] = None,
@@ -40,7 +40,7 @@ class TurbopufferDB(VectorStoreBase):
             collection_name (str): Name of the namespace/collection.
             embedding_model_dims (int): Dimensions of the embedding model.
             api_key (str, optional): API key for Turbopuffer. Defaults to None.
-            region (str, optional): Turbopuffer region. Defaults to None.
+            region (str, optional): Turbopuffer region. Defaults to "gcp-us-central1".
             distance_metric (str, optional): Distance metric for vector similarity.
                 Options: "cosine_distance" or "euclidean_squared". Defaults to "cosine_distance".
             batch_size (int, optional): Batch size for operations. Defaults to 100.
@@ -53,8 +53,7 @@ class TurbopufferDB(VectorStoreBase):
             )
 
         params = extra_params or {}
-        if region:
-            params["region"] = region
+        params["region"] = region
 
         self.client = TurbopufferClient(api_key=api_key, **params)
         self.collection_name = collection_name
@@ -94,12 +93,11 @@ class TurbopufferDB(VectorStoreBase):
             batch_end = i + self.batch_size
             rows = []
             for j in range(i, min(batch_end, len(vectors))):
-                row = {
-                    "id": str(ids[j]),
-                    "vector": vectors[j],
-                }
+                row = {}
                 if payloads and payloads[j]:
                     row.update(payloads[j])
+                row["id"] = str(ids[j])
+                row["vector"] = vectors[j]
                 rows.append(row)
 
             self.namespace.write(
@@ -210,16 +208,18 @@ class TurbopufferDB(VectorStoreBase):
             payload (dict, optional): Updated payload. Defaults to None.
         """
         if vector is not None:
-            row = {"id": str(vector_id), "vector": vector}
+            row = {}
             if payload:
                 row.update(payload)
+            row["id"] = str(vector_id)
+            row["vector"] = vector
             self.namespace.write(
                 upsert_rows=[row],
                 distance_metric=self.distance_metric,
             )
         elif payload is not None:
-            row = {"id": str(vector_id)}
-            row.update(payload)
+            row = dict(payload)
+            row["id"] = str(vector_id)
             self.namespace.write(patch_rows=[row])
 
     def get(self, vector_id: Union[str, int]) -> Optional[OutputData]:

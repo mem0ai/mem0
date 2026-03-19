@@ -8,7 +8,7 @@ class TurbopufferConfig(BaseModel):
     collection_name: str = Field("mem0", description="Name of the namespace/collection")
     embedding_model_dims: int = Field(1536, description="Dimensions of the embedding model")
     api_key: Optional[str] = Field(None, description="API key for Turbopuffer")
-    region: Optional[str] = Field(None, description="Turbopuffer region (e.g., 'gcp-us-central1')")
+    region: str = Field("gcp-us-central1", description="Turbopuffer region (e.g., 'gcp-us-central1', 'aws-us-west-2')")
     distance_metric: str = Field(
         "cosine_distance",
         description="Distance metric for vector similarity ('cosine_distance' or 'euclidean_squared')",

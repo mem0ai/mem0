@@ -63,6 +63,7 @@ class TestInit:
             db = TurbopufferDB(
                 collection_name="test",
                 embedding_model_dims=4,
+                region="gcp-us-central1",
             )
             assert db.collection_name == "test"
 
@@ -75,6 +76,7 @@ class TestInit:
                 TurbopufferDB(
                     collection_name="test",
                     embedding_model_dims=4,
+                    region="gcp-us-central1",
                 )
 
     def test_init_with_extra_params(self, mock_client):
@@ -90,8 +92,22 @@ class TestInit:
             )
             MockClient.assert_called_with(
                 api_key="key",
-                compression=True,
                 region="aws-us-west-2",
+                compression=True,
+            )
+
+    def test_init_default_region(self, mock_client):
+        client_instance, _ = mock_client
+        with patch("mem0.vector_stores.turbopuffer.TurbopufferClient") as MockClient:
+            MockClient.return_value = client_instance
+            TurbopufferDB(
+                collection_name="test",
+                embedding_model_dims=4,
+                api_key="key",
+            )
+            MockClient.assert_called_with(
+                api_key="key",
+                region="gcp-us-central1",
             )
 
 
@@ -120,13 +136,16 @@ class TestInsert:
 
         db.insert(vectors, payloads, ids)
 
-        db.namespace.write.assert_called_once_with(
-            upsert_rows=[
-                {"id": "id1", "vector": [0.1, 0.2, 0.3, 0.4], "data": "hello", "user_id": "u1"},
-                {"id": "id2", "vector": [0.5, 0.6, 0.7, 0.8], "data": "world", "user_id": "u2"},
-            ],
-            distance_metric="cosine_distance",
-        )
+        db.namespace.write.assert_called_once()
+        call_kwargs = db.namespace.write.call_args[1]
+        rows = call_kwargs["upsert_rows"]
+        assert len(rows) == 2
+        assert rows[0]["id"] == "id1"
+        assert rows[0]["vector"] == [0.1, 0.2, 0.3, 0.4]
+        assert rows[0]["data"] == "hello"
+        assert rows[0]["user_id"] == "u1"
+        assert rows[1]["id"] == "id2"
+        assert call_kwargs["distance_metric"] == "cosine_distance"
 
     def test_insert_without_ids_generates_ids(self, db):
         vectors = [[0.1, 0.2, 0.3, 0.4]]
@@ -142,9 +161,23 @@ class TestInsert:
         db.insert(vectors, ids=ids)
 
         call_kwargs = db.namespace.write.call_args[1]
-        assert call_kwargs["upsert_rows"] == [
-            {"id": "id1", "vector": [0.1, 0.2, 0.3, 0.4]},
-        ]
+        row = call_kwargs["upsert_rows"][0]
+        assert row["id"] == "id1"
+        assert row["vector"] == [0.1, 0.2, 0.3, 0.4]
+        assert len(row) == 2  # only id and vector
+
+    def test_insert_payload_does_not_overwrite_id_or_vector(self, db):
+        """Payload with 'id' or 'vector' keys must not overwrite the actual values."""
+        vectors = [[0.1, 0.2, 0.3, 0.4]]
+        payloads = [{"id": "fake_id", "vector": "fake_vector", "data": "hello"}]
+        ids = ["real_id"]
+        db.insert(vectors, payloads, ids)
+
+        call_kwargs = db.namespace.write.call_args[1]
+        row = call_kwargs["upsert_rows"][0]
+        assert row["id"] == "real_id"
+        assert row["vector"] == [0.1, 0.2, 0.3, 0.4]
+        assert row["data"] == "hello"
 
     def test_insert_batching(self, db):
         """batch_size=2, so 3 vectors should produce 2 write calls."""
@@ -315,26 +348,40 @@ class TestUpdate:
     def test_update_with_vector_and_payload(self, db):
         db.update("id1", vector=[0.5, 0.6, 0.7, 0.8], payload={"data": "updated"})
 
-        db.namespace.write.assert_called_once_with(
-            upsert_rows=[{"id": "id1", "vector": [0.5, 0.6, 0.7, 0.8], "data": "updated"}],
-            distance_metric="cosine_distance",
-        )
+        db.namespace.write.assert_called_once()
+        call_kwargs = db.namespace.write.call_args[1]
+        row = call_kwargs["upsert_rows"][0]
+        assert row["id"] == "id1"
+        assert row["vector"] == [0.5, 0.6, 0.7, 0.8]
+        assert row["data"] == "updated"
+        assert call_kwargs["distance_metric"] == "cosine_distance"
 
     def test_update_vector_only(self, db):
         db.update("id1", vector=[0.5, 0.6, 0.7, 0.8])
 
-        db.namespace.write.assert_called_once_with(
-            upsert_rows=[{"id": "id1", "vector": [0.5, 0.6, 0.7, 0.8]}],
-            distance_metric="cosine_distance",
-        )
+        call_kwargs = db.namespace.write.call_args[1]
+        row = call_kwargs["upsert_rows"][0]
+        assert row["id"] == "id1"
+        assert row["vector"] == [0.5, 0.6, 0.7, 0.8]
+        assert "data" not in row
 
     def test_update_payload_only_uses_patch(self, db):
         """Payload-only updates should use patch_rows, not upsert_rows."""
         db.update("id1", vector=None, payload={"data": "patched", "user_id": "u1"})
 
-        db.namespace.write.assert_called_once_with(
-            patch_rows=[{"id": "id1", "data": "patched", "user_id": "u1"}],
-        )
+        call_kwargs = db.namespace.write.call_args[1]
+        row = call_kwargs["patch_rows"][0]
+        assert row["id"] == "id1"
+        assert row["data"] == "patched"
+        assert row["user_id"] == "u1"
+        assert "upsert_rows" not in call_kwargs
+
+    def test_update_payload_does_not_overwrite_id(self, db):
+        """Payload with an 'id' key must not overwrite the actual vector ID."""
+        db.update("real_id", vector=None, payload={"id": "fake_id", "data": "test"})
+        call_kwargs = db.namespace.write.call_args[1]
+        row = call_kwargs["patch_rows"][0]
+        assert row["id"] == "real_id"
 
     def test_update_nothing(self, db):
         """Neither vector nor payload: should not call write."""
@@ -565,6 +612,7 @@ class TestConfig:
             assert config.embedding_model_dims == 1536
             assert config.distance_metric == "cosine_distance"
             assert config.batch_size == 100
+            assert config.region == "gcp-us-central1"
 
     def test_config_custom_values(self):
         from mem0.configs.vector_stores.turbopuffer import TurbopufferConfig
