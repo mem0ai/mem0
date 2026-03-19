@@ -429,6 +429,16 @@ class Memory(MemoryBase):
                 suggestion="Convert your input to a string, dictionary, or list of dictionaries."
             )
 
+        if not messages or all(
+            not msg.get("content", "").strip() for msg in messages if isinstance(msg, dict)
+        ):
+            raise Mem0ValidationError(
+                message="messages must not be empty",
+                error_code="VALIDATION_004",
+                details={"provided_messages": messages},
+                suggestion="Provide at least one message with non-empty content.",
+            )
+
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
             results = self._create_procedural_memory(messages, metadata=processed_metadata, prompt=prompt)
             return results
@@ -1457,6 +1467,16 @@ class AsyncMemory(MemoryBase):
                 error_code="VALIDATION_003",
                 details={"provided_type": type(messages).__name__, "valid_types": ["str", "dict", "list[dict]"]},
                 suggestion="Convert your input to a string, dictionary, or list of dictionaries."
+            )
+
+        if not messages or all(
+            not msg.get("content", "").strip() for msg in messages if isinstance(msg, dict)
+        ):
+            raise Mem0ValidationError(
+                message="messages must not be empty",
+                error_code="VALIDATION_004",
+                details={"provided_messages": messages},
+                suggestion="Provide at least one message with non-empty content.",
             )
 
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
