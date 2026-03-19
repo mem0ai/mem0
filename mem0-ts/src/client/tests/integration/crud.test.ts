@@ -177,23 +177,6 @@ describeIntegration("MemoryClient Integration — CRUD", () => {
     });
   });
 
-  // ─── Delete single ────────────────────────────────────────
-  describe("delete memory", () => {
-    test("deletes a single memory by ID", async () => {
-      const memoryId = memoryIds[0];
-      expect(memoryId).toBeDefined();
-
-      const result = await client.delete(memoryId);
-      expect(result).toBeDefined();
-      expect(typeof result.message).toBe("string");
-    });
-
-    test("getting deleted memory throws MemoryError", async () => {
-      const memoryId = memoryIds[0];
-      await expect(client.get(memoryId)).rejects.toThrow(MemoryError);
-    });
-  });
-
   // ─── Edge cases ──────────────────────────────────────────
   describe("edge cases", () => {
     test("add with metadata attaches metadata to the memory", async () => {
@@ -231,6 +214,25 @@ describeIntegration("MemoryClient Integration — CRUD", () => {
 
       expect(result).toBeDefined();
       expect(typeof result.message).toBe("string");
+    });
+  });
+
+  // ─── Delete single ────────────────────────────────────────
+  // NOTE: Delete tests run last to avoid race conditions with
+  // other tests that depend on the seeded memories.
+  describe("delete memory", () => {
+    test("deletes a single memory by ID", async () => {
+      const memoryId = memoryIds[0];
+      expect(memoryId).toBeDefined();
+
+      const result = await client.delete(memoryId);
+      expect(result).toBeDefined();
+      expect(typeof result.message).toBe("string");
+    });
+
+    test("getting deleted memory throws MemoryError", async () => {
+      const memoryId = memoryIds[0];
+      await expect(client.get(memoryId)).rejects.toThrow(MemoryError);
     });
   });
 
