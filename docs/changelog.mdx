@@ -7,6 +7,23 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-03-19" description="v1.0.7">
+
+**Bug Fixes:**
+- **Core:** Fixed control characters in LLM JSON responses causing parse failures (#4420)
+- **Core:** Replaced hardcoded US/Pacific timezone references with `timezone.utc` (#4404)
+- **Core:** Preserved `http_auth` in `_safe_deepcopy_config` for OpenSearch (#4418)
+- **Core:** Normalized malformed LLM fact output before embedding (#4224)
+- **Embeddings:** Pass `encoding_format='float'` in OpenAI embeddings for proxy compatibility (#4058)
+- **LLMs:** Fixed Ollama to pass tools to `client.chat` and parse `tool_calls` from response (#4176)
+- **Reranker:** Support nested LLM config in `LLMReranker` for non-OpenAI providers (#4405)
+- **Vector Stores:** Cast `vector_distance` to float in Redis search (#4377)
+
+**Improvements:**
+- **Embeddings:** Improved Ollama embedder with model name normalization and error handling (#4403)
+
+</Update>
+
 <Update label="2026-03-16" description="v1.0.6">
 
 **Bug Fixes:**
@@ -744,6 +761,20 @@ mode: "wide"
 </Tab>
 
 <Tab title="TypeScript">
+
+<Update label="2026-03-19" description="v2.4.2">
+
+**Bug Fixes:**
+- **Client:** Fixed webhook `createWebhook` and `updateWebhook` API serialization
+- **Client:** Added missing `MEMORY_CATEGORIZED` event type to `WebhookEvent` enum
+- **Types:** Added `WebhookCreatePayload` and `WebhookUpdatePayload` for better type safety
+
+**Tests:**
+- Added end-to-end unit test coverage for the platform client — CRUD, batch, search, webhooks, users, project, and initialization (#4357)
+- Added real API integration tests for memory CRUD, batch operations, search, user management, project configuration, and webhook lifecycle (#4395)
+- Deleted obsolete e2e test files replaced by the new structured test suite (#4419)
+
+</Update>
 
 <Update label="2026-03-16" description="v2.4.1">
 

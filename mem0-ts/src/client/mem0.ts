@@ -10,7 +10,8 @@ import {
   PromptUpdatePayload,
   SearchOptions,
   Webhook,
-  WebhookPayload,
+  WebhookCreatePayload,
+  WebhookUpdatePayload,
   Message,
   FeedbackPayload,
   CreateMemoryExportPayload,
@@ -671,33 +672,40 @@ export default class MemoryClient {
     return response;
   }
 
-  async createWebhook(webhook: WebhookPayload): Promise<Webhook> {
+  async createWebhook(webhook: WebhookCreatePayload): Promise<Webhook> {
     if (this.telemetryId === "") await this.ping();
     this._captureEvent("create_webhook", []);
+    const body = {
+      name: webhook.name,
+      url: webhook.url,
+      event_types: webhook.eventTypes,
+    };
     const response = await this._fetchWithErrorHandling(
       `${this.host}/api/v1/webhooks/projects/${this.projectId}/`,
       {
         method: "POST",
         headers: this.headers,
-        body: JSON.stringify(webhook),
+        body: JSON.stringify(body),
       },
     );
     return response;
   }
 
-  async updateWebhook(webhook: WebhookPayload): Promise<{ message: string }> {
+  async updateWebhook(
+    webhook: WebhookUpdatePayload,
+  ): Promise<{ message: string }> {
     if (this.telemetryId === "") await this.ping();
     this._captureEvent("update_webhook", []);
-    const project_id = webhook.projectId || this.projectId;
+    const body: Record<string, any> = {};
+    if (webhook.name != null) body.name = webhook.name;
+    if (webhook.url != null) body.url = webhook.url;
+    if (webhook.eventTypes != null) body.event_types = webhook.eventTypes;
     const response = await this._fetchWithErrorHandling(
       `${this.host}/api/v1/webhooks/${webhook.webhookId}/`,
       {
         method: "PUT",
         headers: this.headers,
-        body: JSON.stringify({
-          ...webhook,
-          projectId: project_id,
-        }),
+        body: JSON.stringify(body),
       },
     );
     return response;
