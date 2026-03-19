@@ -278,5 +278,9 @@ export function parseMessages(messages: string[]): string {
 }
 
 export function removeCodeBlocks(text: string): string {
-  return text.replace(/```[^`]*```/g, "");
+  // Handle complete code blocks (opening + closing fence)
+  let result = text.replace(/```(?:\w+)?\n?([\s\S]*?)```/g, "$1").trim();
+  // Handle truncated responses where closing ``` never arrives
+  result = result.replace(/^```(?:\w+)?\n?/, "").replace(/\n?```$/, "").trim();
+  return result;
 }
