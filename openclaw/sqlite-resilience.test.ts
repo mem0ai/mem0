@@ -1,8 +1,11 @@
 /**
  * Tests for SQLite resilience fixes:
  * 1. disableHistory config passthrough
- * 2. initPromise poisoning fix (retry after failure)
- * 3. Graceful SQLite fallback in OSSProvider
+ * 2. disableHistory flows to Memory constructor
+ * 3. graphStore config passthrough
+ * 4. initPromise poisoning fix (retry after failure)
+ * 5. Graceful SQLite fallback in OSSProvider
+ * 6. PlatformProvider initPromise retry
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mem0ConfigSchema, createProvider } from "./index.ts";
@@ -113,7 +116,69 @@ describe("OSSProvider — disableHistory passthrough to Memory", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3. OSSProvider: initPromise is cleared on failure (allows retry)
+// 3. OSSProvider: graphStore config flows to Memory constructor
+// ---------------------------------------------------------------------------
+describe("OSSProvider — graphStore passthrough to Memory", () => {
+  let capturedConfig: Record<string, unknown> | undefined;
+
+  beforeEach(() => {
+    capturedConfig = undefined;
+
+    vi.doMock("mem0ai/oss", () => ({
+      Memory: class MockMemory {
+        constructor(config: Record<string, unknown>) {
+          capturedConfig = { ...config };
+        }
+        async add() { return { results: [] }; }
+        async search() { return { results: [] }; }
+        async get() { return {}; }
+        async getAll() { return []; }
+        async delete() { }
+      },
+    }));
+  });
+
+  it("passes graphStore to Memory when configured", async () => {
+    const graphStore = {
+      provider: "neo4j",
+      config: { url: "bolt://localhost:7687", username: "neo4j", password: "test" },
+    };
+    const { createProvider } = await import("./index.ts");
+    const cfg = mem0ConfigSchema.parse({
+      mode: "open-source",
+      oss: { graphStore },
+    });
+    const api = { resolvePath: (p: string) => p } as any;
+    const provider = createProvider(cfg, api);
+
+    try {
+      await provider.search("test", { user_id: "u1" });
+    } catch { /* provider may fail on mock, that's ok */ }
+
+    expect(capturedConfig).toBeDefined();
+    expect(capturedConfig!.graphStore).toEqual(graphStore);
+  });
+
+  it("does not set graphStore when not configured", async () => {
+    const { createProvider } = await import("./index.ts");
+    const cfg = mem0ConfigSchema.parse({
+      mode: "open-source",
+      oss: {},
+    });
+    const api = { resolvePath: (p: string) => p } as any;
+    const provider = createProvider(cfg, api);
+
+    try {
+      await provider.search("test", { user_id: "u1" });
+    } catch { }
+
+    expect(capturedConfig).toBeDefined();
+    expect(capturedConfig!.graphStore).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 4. OSSProvider: initPromise is cleared on failure (allows retry)
 // ---------------------------------------------------------------------------
 describe("OSSProvider — initPromise retry after failure", () => {
   let callCount: number;
@@ -162,7 +227,7 @@ describe("OSSProvider — initPromise retry after failure", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4. OSSProvider: graceful fallback disables history on init failure
+// 5. OSSProvider: graceful fallback disables history on init failure
 // ---------------------------------------------------------------------------
 describe("OSSProvider — graceful SQLite fallback", () => {
   let capturedConfigs: Record<string, unknown>[];
@@ -241,7 +306,7 @@ describe("OSSProvider — graceful SQLite fallback", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 5. PlatformProvider — initPromise retry after failure
+// 6. PlatformProvider — initPromise retry after failure
 // ---------------------------------------------------------------------------
 describe("PlatformProvider — initPromise retry after failure", () => {
   let callCount: number;
