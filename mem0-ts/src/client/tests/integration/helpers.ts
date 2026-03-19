@@ -4,8 +4,7 @@
  * Provides environment gating, client factory, polling helpers,
  * and console suppression for telemetry noise.
  *
- * API credit budget: these helpers are designed to minimize API calls.
- * Each CI run should use ~40 calls total across all test files.
+ * All helpers use only the SDK's public API — no internal method access.
  */
 import { MemoryClient } from "../../mem0";
 import type { Memory } from "../../mem0.types";
@@ -19,35 +18,33 @@ export const describeIntegration = API_KEY ? describe : describe.skip;
  * Create a MemoryClient with the real API key.
  * Call this inside beforeAll — not at module scope — so it only
  * runs when the suite is not skipped.
- *
- * The returned client retries transient errors (502, 503, 504, 429)
- * with backoff so CI runs are not flaky.
  */
 export function createTestClient(): MemoryClient {
-  const client = new MemoryClient({ apiKey: API_KEY! });
+  return new MemoryClient({ apiKey: API_KEY! });
+}
 
-  const originalFetch = (client as any)._fetchWithErrorHandling.bind(client);
-  (client as any)._fetchWithErrorHandling = async (
-    url: string,
-    options: any,
-  ) => {
-    const MAX_RETRIES = 2;
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      try {
-        return await originalFetch(url, options);
-      } catch (error: any) {
-        const isTransient =
-          error instanceof NetworkError || error instanceof RateLimitError;
-        if (isTransient && attempt < MAX_RETRIES) {
-          await new Promise((r) => setTimeout(r, 3_000 * attempt));
-          continue;
-        }
-        throw error;
+/**
+ * Retry an async SDK call on transient errors (NetworkError, RateLimitError).
+ * Use this to wrap any SDK call that may flake in CI.
+ */
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries = 2,
+): Promise<T> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      const isTransient =
+        error instanceof NetworkError || error instanceof RateLimitError;
+      if (isTransient && attempt < maxRetries) {
+        await new Promise((r) => setTimeout(r, 3_000 * attempt));
+        continue;
       }
+      throw error;
     }
-  };
-
-  return client;
+  }
+  throw new Error("withRetry: unreachable");
 }
 
 /**
@@ -63,7 +60,9 @@ export async function waitForMemories(
 ): Promise<Memory[]> {
   const start = Date.now();
   while (Date.now() - start < maxWaitMs) {
-    const memories = await client.getAll({ user_id: userId });
+    const memories = await withRetry(() =>
+      client.getAll({ user_id: userId }),
+    );
     if (Array.isArray(memories) && memories.length >= minCount) {
       return memories;
     }
@@ -84,7 +83,7 @@ export async function waitForSearchResults(
 ): Promise<Memory[]> {
   const start = Date.now();
   while (Date.now() - start < maxWaitMs) {
-    const results = await client.search(query, options);
+    const results = await withRetry(() => client.search(query, options));
     if (Array.isArray(results) && results.length > 0) {
       return results;
     }
@@ -129,33 +128,38 @@ export async function seedTestMemories(
   client: MemoryClient,
   userId: string,
 ): Promise<string[]> {
-  await client.add(
-    [
-      {
-        role: "user" as const,
-        content: "Hi, I'm integration-test-user. My favorite color is blue.",
-      },
-      {
-        role: "assistant" as const,
-        content:
-          "Nice to meet you! I'll remember that your favorite color is blue.",
-      },
-    ],
-    { user_id: userId },
+  await withRetry(() =>
+    client.add(
+      [
+        {
+          role: "user" as const,
+          content:
+            "Hi, I'm integration-test-user. My favorite color is blue.",
+        },
+        {
+          role: "assistant" as const,
+          content:
+            "Nice to meet you! I'll remember that your favorite color is blue.",
+        },
+      ],
+      { user_id: userId },
+    ),
   );
 
-  await client.add(
-    [
-      {
-        role: "user" as const,
-        content: "I work as a software engineer at Acme Corp.",
-      },
-      {
-        role: "assistant" as const,
-        content: "Got it, you're a software engineer at Acme Corp!",
-      },
-    ],
-    { user_id: userId },
+  await withRetry(() =>
+    client.add(
+      [
+        {
+          role: "user" as const,
+          content: "I work as a software engineer at Acme Corp.",
+        },
+        {
+          role: "assistant" as const,
+          content: "Got it, you're a software engineer at Acme Corp!",
+        },
+      ],
+      { user_id: userId },
+    ),
   );
 
   const memories = await waitForMemories(client, userId, 1);
@@ -178,5 +182,36 @@ export async function cleanupTestUser(
     await client.deleteUsers({ user_id: userId });
   } catch {
     // ignore
+  }
+}
+
+/**
+ * Full project wipe — deletes all memories and all entities.
+ * Equivalent to Python SDK's:
+ *   client.delete_all(user_id="*", agent_id="*", app_id="*", run_id="*")
+ *
+ * Used as cleanup before and after integration test runs so tests
+ * start from a clean slate and don't leave data behind.
+ */
+export async function fullProjectCleanup(
+  client: MemoryClient,
+): Promise<void> {
+  // Delete all memories — all four filters set explicitly
+  try {
+    await client.deleteAll({
+      user_id: "*",
+      agent_id: "*",
+      app_id: "*",
+      run_id: "*",
+    });
+  } catch {
+    // ignore — may 404 if no data exists
+  }
+
+  // Delete all entities (users, agents, apps, runs)
+  try {
+    await client.deleteUsers();
+  } catch {
+    // ignore — may throw "No entities to delete"
   }
 }

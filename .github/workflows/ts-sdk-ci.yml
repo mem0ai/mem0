@@ -57,11 +57,15 @@ jobs:
         working-directory: mem0-ts
         run: pnpm run build
 
-      - name: Run tests
+      - name: Run unit tests
+        working-directory: mem0-ts
+        run: pnpm run test:ci -- --testPathIgnorePatterns=integration
+
+      - name: Run integration tests (with cleanup)
         working-directory: mem0-ts
         env:
           MEM0_API_KEY: ${{ secrets.MEM0_API_KEY }}
-        run: pnpm run test:ci
+        run: pnpm run test:integration
 
       - name: Verify package exports
         working-directory: mem0-ts

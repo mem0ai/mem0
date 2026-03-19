@@ -105,4 +105,27 @@ describeIntegration("MemoryClient Integration — Search & History", () => {
       expect(events).toContain("ADD");
     });
   });
+
+  // ─── Edge cases ─────────────────────────────────────────
+  describe("edge cases", () => {
+    test("search for non-existent user returns empty results", async () => {
+      const results = await client.search("anything", {
+        user_id: `nonexistent-user-${randomUUID()}`,
+      });
+
+      expect(Array.isArray(results)).toBe(true);
+      expect(results.length).toBe(0);
+    });
+
+    test("search with limit returns at most that many results", async () => {
+      const results = await waitForSearchResults(
+        client,
+        "Tell me about integration test user",
+        { user_id: TEST_USER_ID, limit: 1 },
+      );
+
+      expect(Array.isArray(results)).toBe(true);
+      expect(results.length).toBeLessThanOrEqual(1);
+    });
+  });
 });

@@ -1,16 +1,15 @@
 /**
- * Integration tests: User management, project, and webhooks.
+ * Integration tests: User management and project configuration.
  *
- * Tests users(), getProject(), and the full webhook lifecycle
- * (create → list → update → delete) against the real API.
+ * Tests users(), getProject(), and updateProject() against the real API.
  *
- * Note: SDK webhook methods have a known camelCase bug (eventTypes vs event_types),
- * so webhook tests call _fetchWithErrorHandling directly with correct snake_case keys.
+ * Note: Webhook tests (createWebhook, updateWebhook) are excluded because
+ * the SDK has a known bug where it sends camelCase keys (eventTypes) instead
+ * of snake_case (event_types). These will be added once the SDK is fixed.
  *
  * Run: MEM0_API_KEY=your-key npx jest management.test.ts --forceExit
  */
 import { MemoryClient } from "../../mem0";
-import type { Webhook } from "../../mem0.types";
 import { randomUUID } from "crypto";
 import {
   describeIntegration,
@@ -25,11 +24,10 @@ jest.setTimeout(120_000);
 const TEST_USER_ID = `integration-mgmt-${randomUUID()}`;
 
 describeIntegration(
-  "MemoryClient Integration — Users, Project & Webhooks",
+  "MemoryClient Integration — Users & Project",
   () => {
     let client: MemoryClient;
     let cleanup: () => void;
-    let webhookId: string | undefined;
 
     beforeAll(async () => {
       cleanup = suppressTelemetryNoise();
@@ -38,13 +36,6 @@ describeIntegration(
     });
 
     afterAll(async () => {
-      if (webhookId) {
-        try {
-          await client.deleteWebhook({ webhookId });
-        } catch {
-          // ignore
-        }
-      }
       await cleanupTestUser(client, TEST_USER_ID);
       cleanup();
     });
@@ -71,6 +62,8 @@ describeIntegration(
 
     // ─── Project ──────────────────────────────────────────────
     describe("project management", () => {
+      let originalInstructions: string | undefined;
+
       test("gets project with custom_instructions field", async () => {
         const project = await client.getProject({
           fields: ["custom_instructions"],
@@ -79,78 +72,29 @@ describeIntegration(
         expect(project).toBeDefined();
         expect(typeof project).toBe("object");
         expect("custom_instructions" in project).toBe(true);
-      });
-    });
 
-    // ─── Webhooks ─────────────────────────────────────────────
-    // SDK's createWebhook/updateWebhook send camelCase eventTypes but
-    // API expects snake_case event_types, so we call the API directly.
-    describe("webhook lifecycle", () => {
-      const webhookUrl = `https://example.com/webhook-test-${randomUUID()}`;
-
-      test("creates a webhook", async () => {
-        const payload = {
-          name: `integration-test-webhook-${randomUUID().slice(0, 8)}`,
-          url: webhookUrl,
-          event_types: ["memory_add", "memory_update"],
-        };
-
-        const created = await (client as any)._fetchWithErrorHandling(
-          `${client.host}/api/v1/webhooks/projects/${client.projectId}/`,
-          {
-            method: "POST",
-            headers: client.headers,
-            body: JSON.stringify(payload),
-          },
-        );
-
-        expect(created).toBeDefined();
-        expect(typeof created.webhook_id).toBe("string");
-
-        webhookId = created.webhook_id;
+        originalInstructions = project.custom_instructions;
       });
 
-      test("lists webhooks and finds the created one", async () => {
-        const webhooks = await client.getWebhooks();
+      test("updates project custom_instructions via updateProject()", async () => {
+        const testInstruction = `integration-test-${randomUUID().slice(0, 8)}`;
 
-        expect(Array.isArray(webhooks)).toBe(true);
-
-        if (webhookId) {
-          const found = webhooks.find(
-            (w: Webhook) => w.webhook_id === webhookId,
-          );
-          expect(found).toBeDefined();
-        }
-      });
-
-      test("updates a webhook", async () => {
-        if (!webhookId) return;
-
-        const payload = {
-          name: `updated-webhook-${randomUUID().slice(0, 8)}`,
-          url: webhookUrl,
-          event_types: ["memory_add", "memory_update", "memory_delete"],
-        };
-
-        const result = await (client as any)._fetchWithErrorHandling(
-          `${client.host}/api/v1/webhooks/${webhookId}/`,
-          {
-            method: "PUT",
-            headers: client.headers,
-            body: JSON.stringify(payload),
-          },
-        );
+        const result = await client.updateProject({
+          custom_instructions: testInstruction,
+        });
 
         expect(result).toBeDefined();
-      });
 
-      test("deletes the webhook", async () => {
-        if (!webhookId) return;
+        // Verify the update took effect
+        const project = await client.getProject({
+          fields: ["custom_instructions"],
+        });
+        expect(project.custom_instructions).toBe(testInstruction);
 
-        const result = await client.deleteWebhook({ webhookId });
-        expect(result).toBeDefined();
-
-        webhookId = undefined;
+        // Restore original
+        await client.updateProject({
+          custom_instructions: originalInstructions || "",
+        });
       });
     });
   },

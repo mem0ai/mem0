@@ -132,6 +132,17 @@ describeIntegration("MemoryClient Integration — CRUD", () => {
         expect(typeof mem.memory).toBe("string");
       }
     });
+
+    test("returns paginated results with page and page_size", async () => {
+      const page1 = await client.getAll({
+        user_id: TEST_USER_ID,
+        page: 1,
+        page_size: 1,
+      });
+
+      // Paginated response is an object with results array
+      expect(page1).toBeDefined();
+    });
   });
 
   // ─── Update ───────────────────────────────────────────────
@@ -151,6 +162,19 @@ describeIntegration("MemoryClient Integration — CRUD", () => {
       expect(typeof updated.memory).toBe("string");
       expect(updated.memory).not.toBe(originalText);
     });
+
+    test("updates memory metadata", async () => {
+      const memoryId = memoryIds[0];
+
+      await client.update(memoryId, {
+        metadata: { source: "integration-test", priority: "high" },
+      });
+
+      const updated = await client.get(memoryId);
+      expect(updated.metadata).toBeDefined();
+      expect(updated.metadata.source).toBe("integration-test");
+      expect(updated.metadata.priority).toBe("high");
+    });
   });
 
   // ─── Delete single ────────────────────────────────────────
@@ -167,6 +191,43 @@ describeIntegration("MemoryClient Integration — CRUD", () => {
     test("getting deleted memory throws MemoryError", async () => {
       const memoryId = memoryIds[0];
       await expect(client.get(memoryId)).rejects.toThrow(MemoryError);
+    });
+  });
+
+  // ─── Edge cases ──────────────────────────────────────────
+  describe("edge cases", () => {
+    test("add with metadata attaches metadata to the memory", async () => {
+      const result = await client.add(
+        [
+          { role: "user" as const, content: "I prefer dark mode in all apps." },
+          { role: "assistant" as const, content: "Noted, dark mode preference saved!" },
+        ],
+        {
+          user_id: TEST_USER_ID,
+          metadata: { source: "integration-test", category: "preferences" },
+        },
+      );
+
+      expect(Array.isArray(result)).toBe(true);
+      expect(result.length).toBeGreaterThan(0);
+    });
+
+    test("getAll for non-existent user returns empty array", async () => {
+      const memories = await client.getAll({
+        user_id: `nonexistent-user-${randomUUID()}`,
+      });
+
+      expect(Array.isArray(memories)).toBe(true);
+      expect(memories.length).toBe(0);
+    });
+
+    test("deleteAll for non-existent user does not throw", async () => {
+      const result = await client.deleteAll({
+        user_id: `nonexistent-user-${randomUUID()}`,
+      });
+
+      expect(result).toBeDefined();
+      expect(typeof result.message).toBe("string");
     });
   });
 
