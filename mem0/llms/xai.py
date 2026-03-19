@@ -48,5 +48,5 @@ class XAILLM(LLMBase):
         if response_format:
             params["response_format"] = response_format
 
-        response = self.client.chat.completions.create(**params)
+        response = self._retry_with_backoff(self.client.chat.completions.create, **params)
         return response.choices[0].message.content

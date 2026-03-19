@@ -24,6 +24,8 @@ class BaseLlmConfig(ABC):
         enable_vision: bool = False,
         vision_details: Optional[str] = "auto",
         http_client_proxies: Optional[Union[Dict, str]] = None,
+        max_retries: int = 3,
+        retry_delay: float = 1.0,
     ):
         """
         Initialize a base configuration class instance for the LLM.
@@ -50,6 +52,10 @@ class BaseLlmConfig(ABC):
                 Options: "low", "high", "auto". Defaults to "auto"
             http_client_proxies: Proxy settings for HTTP client.
                 Can be a dict or string. Defaults to None
+            max_retries: Maximum number of retry attempts for transient failures
+                (rate limits, timeouts, server errors). Set to 0 to disable. Defaults to 3
+            retry_delay: Base delay in seconds between retries. Uses exponential
+                backoff: delay * 2^attempt. Defaults to 1.0
         """
         self.model = model
         self.temperature = temperature
@@ -60,3 +66,5 @@ class BaseLlmConfig(ABC):
         self.enable_vision = enable_vision
         self.vision_details = vision_details
         self.http_client = httpx.Client(proxies=http_client_proxies) if http_client_proxies else None
+        self.max_retries = max_retries
+        self.retry_delay = retry_delay

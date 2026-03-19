@@ -48,5 +48,5 @@ class OpenAIStructuredLLM(LLMBase):
             params["tools"] = tools
             params["tool_choice"] = tool_choice
 
-        response = self.client.beta.chat.completions.parse(**params)
+        response = self._retry_with_backoff(self.client.beta.chat.completions.parse, **params)
         return response.choices[0].message.content
