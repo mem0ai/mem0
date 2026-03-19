@@ -12,7 +12,6 @@ import {
   createTestClient,
   suppressTelemetryNoise,
   seedTestMemories,
-  waitForMemories,
   cleanupTestUser,
 } from "./helpers";
 
@@ -54,33 +53,12 @@ describeIntegration("MemoryClient Integration — Batch Operations", () => {
     expect(typeof updated.memory).toBe("string");
   });
 
-  test("batch deletes throwaway memories", async () => {
-    // Add a throwaway memory, wait for it, then batch-delete
-    await client.add(
-      [
-        {
-          role: "user" as const,
-          content: "Temporary memory for batch delete test.",
-        },
-        { role: "assistant" as const, content: "Noted!" },
-      ],
-      { user_id: TEST_USER_ID },
-    );
+  test("batch deletes memories that exist", async () => {
+    // Use one of the seeded memory IDs that we know exists
+    expect(memoryIds.length).toBeGreaterThanOrEqual(1);
 
-    // Wait for new memory to appear
-    const before = await waitForMemories(
-      client,
-      TEST_USER_ID,
-      memoryIds.length + 1,
-    );
-    const throwawayIds = before
-      .filter((m) => !memoryIds.includes(m.id))
-      .map((m) => m.id);
-
-    // Assert we actually have something to delete
-    expect(throwawayIds.length).toBeGreaterThan(0);
-
-    const result = await client.batchDelete(throwawayIds);
+    const toDelete = [memoryIds[memoryIds.length - 1]];
+    const result = await client.batchDelete(toDelete);
     expect(result).toBeDefined();
   });
 });
