@@ -181,13 +181,18 @@ class TestGetAll:
         assert results[0]["relationship"] == "KNOWS"
         assert results[0]["target"] == "bob"
 
-    def test_respects_limit(self):
+    def test_passes_limit_to_cypher(self):
+        """Limit is enforced via LIMIT in the Cypher query, not Python slicing."""
         instance = _make_instance()
         instance._exec_cypher = MagicMock(return_value=[
-            {"source": f"n{i}", "relationship": "R", "target": f"m{i}"} for i in range(10)
+            {"source": "n0", "relationship": "R", "target": "m0"},
         ])
-        results = instance.get_all({"user_id": "u1"}, limit=3)
-        assert len(results) == 3
+        instance.get_all({"user_id": "u1"}, limit=3)
+        # Verify limit was passed as a parameter to the query
+        cypher_stmt = instance._exec_cypher.call_args[0][0]
+        assert "LIMIT %s" in cypher_stmt
+        params = instance._exec_cypher.call_args[1].get("params") or instance._exec_cypher.call_args[0][2]
+        assert 3 in params
 
 
 class TestAdd:

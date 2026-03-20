@@ -38,6 +38,34 @@ def _cosine_similarity(vec1, vec2):
     return dot / (norm1 * norm2)
 
 
+def _get_similar_nodes(nodes, query_embedding, filters, threshold):
+    """Find nodes above the similarity threshold from a fetched node list.
+
+    Shared by ``_find_similar_node`` and ``_search_graph_db`` to avoid
+    duplicating the client-side cosine similarity logic.
+    """
+    matches = []
+    for node in nodes:
+        props = node if isinstance(node, dict) else {}
+        stored_emb = props.get("embedding")
+        if not stored_emb:
+            continue
+        if isinstance(stored_emb, str):
+            stored_emb = json.loads(stored_emb)
+
+        if filters.get("agent_id") and props.get("agent_id") != filters["agent_id"]:
+            continue
+        if filters.get("run_id") and props.get("run_id") != filters["run_id"]:
+            continue
+
+        sim = _cosine_similarity(query_embedding, stored_emb)
+        if sim >= threshold:
+            matches.append({"name": props.get("name"), "similarity": sim, "props": props})
+
+    matches.sort(key=lambda x: x["similarity"], reverse=True)
+    return matches
+
+
 class MemoryGraph:
     def __init__(self, config):
         self.config = config
@@ -114,6 +142,13 @@ class MemoryGraph:
                     results.append(val)
         return results
 
+    def _fetch_user_nodes_with_embeddings(self, user_id):
+        """Fetch all nodes with embeddings for a given user_id."""
+        return self._exec_cypher(
+            "MATCH (n {user_id: %s}) WHERE n.embedding IS NOT NULL RETURN n",
+            params=(user_id,),
+        )
+
     def _find_similar_node(self, embedding, filters, threshold=0.9):
         """Find the most similar existing node by cosine similarity.
 
@@ -122,56 +157,41 @@ class MemoryGraph:
         on the client side.  This is adequate for moderate graph sizes; for
         very large graphs consider pairing AGE with pgvector.
         """
-        nodes = self._exec_cypher(
-            "MATCH (n {user_id: %s}) WHERE n.embedding IS NOT NULL RETURN n",
-            params=(filters["user_id"],),
-        )
-
-        best_match = None
-        best_sim = 0.0
-        for node in nodes:
-            props = node if isinstance(node, dict) else {}
-            stored_emb = props.get("embedding")
-            if not stored_emb:
-                continue
-            if isinstance(stored_emb, str):
-                stored_emb = json.loads(stored_emb)
-
-            if filters.get("agent_id") and props.get("agent_id") != filters["agent_id"]:
-                continue
-            if filters.get("run_id") and props.get("run_id") != filters["run_id"]:
-                continue
-
-            sim = _cosine_similarity(embedding, stored_emb)
-            if sim >= threshold and sim > best_sim:
-                best_sim = sim
-                best_match = props
-
-        return best_match
+        nodes = self._fetch_user_nodes_with_embeddings(filters["user_id"])
+        matches = _get_similar_nodes(nodes, embedding, filters, threshold)
+        return matches[0]["props"] if matches else None
 
     def _merge_node(self, user_id, name, embedding, agent_id=None, run_id=None):
         """Create a node if it doesn't exist, or update mentions if it does.
 
         Apache AGE does not support ``ON CREATE SET`` / ``ON MATCH SET``, so
         we use ``MERGE … SET`` which always applies the SET clause.  Embeddings
-        are always refreshed on merge to keep them current.
+        and optional filter properties are set in a single query.
         """
-        self._exec_cypher(
-            "MERGE (n {user_id: %s, name: %s}) SET n.embedding = %s, "
-            "n.mentions = coalesce(n.mentions, 0) + 1, "
+        set_parts = [
+            "n.embedding = %s",
+            "n.mentions = coalesce(n.mentions, 0) + 1",
             "n.created = coalesce(n.created, %s)",
-            params=(user_id, name, json.dumps(embedding), int(time.time() * 1000)),
-        )
+        ]
+        params = [user_id, name, json.dumps(embedding), int(time.time() * 1000)]
+
         if agent_id:
-            self._exec_cypher(
-                "MATCH (n {user_id: %s, name: %s}) SET n.agent_id = %s",
-                params=(user_id, name, agent_id),
-            )
+            set_parts.append("n.agent_id = %s")
+            params.append(agent_id)
         if run_id:
-            self._exec_cypher(
-                "MATCH (n {user_id: %s, name: %s}) SET n.run_id = %s",
-                params=(user_id, name, run_id),
-            )
+            set_parts.append("n.run_id = %s")
+            params.append(run_id)
+
+        set_clause = ", ".join(set_parts)
+        self._exec_cypher(
+            f"MERGE (n {{user_id: %s, name: %s}}) SET {set_clause}",
+            params=tuple(params),
+        )
+
+    def close(self):
+        """Close the underlying database connection."""
+        if self.ag:
+            self.ag.close()
 
     # -- public API ------------------------------------------------------------
 
@@ -203,9 +223,7 @@ class MemoryGraph:
             limit (int): The maximum number of nodes and relationships to retrieve. Defaults to 100.
 
         Returns:
-            dict: A dictionary containing:
-                - "contexts": List of search results from the base data store.
-                - "entities": List of related graph data based on the query.
+            list: A list of dicts with keys "source", "relationship", "destination".
         """
         entity_type_map = self._retrieve_nodes_from_data(query, filters)
         search_output = self._search_graph_db(node_list=list(entity_type_map.keys()), filters=filters)
@@ -230,8 +248,6 @@ class MemoryGraph:
 
     def delete_all(self, filters):
         """Delete all nodes and relationships for a user or specific agent."""
-        # AGE doesn't support compound property maps in MATCH the same way
-        # Neo4j does, so we use a WHERE clause to handle optional filters.
         where_parts = ["n.user_id = %s"]
         params = [filters["user_id"]]
         if filters.get("agent_id"):
@@ -270,16 +286,17 @@ class MemoryGraph:
             where_parts.extend(["n.run_id = %s", "m.run_id = %s"])
             params.extend([filters["run_id"], filters["run_id"]])
         where_clause = " AND ".join(where_parts)
+        params.append(limit)
 
         results = self._exec_cypher(
             f"MATCH (n)-[r]->(m) WHERE {where_clause} "
-            f"RETURN n.name, type(r), m.name",
+            f"RETURN n.name, type(r), m.name LIMIT %s",
             cols=["source", "relationship", "target"],
             params=tuple(params),
         )
 
         final_results = []
-        for result in results[:limit]:
+        for result in results:
             final_results.append(
                 {
                     "source": result["source"],
@@ -376,32 +393,8 @@ class MemoryGraph:
         for node in node_list:
             n_embedding = self.embedding_model.embed(node)
 
-            # Fetch all nodes with embeddings for this user
-            nodes = self._exec_cypher(
-                "MATCH (n {user_id: %s}) WHERE n.embedding IS NOT NULL RETURN n",
-                params=(filters["user_id"],),
-            )
-
-            # Compute cosine similarity client-side and collect similar nodes
-            similar_nodes = []
-            for node_result in nodes:
-                props = node_result if isinstance(node_result, dict) else {}
-                stored_emb = props.get("embedding")
-                if not stored_emb:
-                    continue
-                if isinstance(stored_emb, str):
-                    stored_emb = json.loads(stored_emb)
-
-                if filters.get("agent_id") and props.get("agent_id") != filters["agent_id"]:
-                    continue
-                if filters.get("run_id") and props.get("run_id") != filters["run_id"]:
-                    continue
-
-                sim = _cosine_similarity(n_embedding, stored_emb)
-                if sim >= self.threshold:
-                    similar_nodes.append({"name": props.get("name"), "similarity": sim})
-
-            similar_nodes.sort(key=lambda x: x["similarity"], reverse=True)
+            nodes = self._fetch_user_nodes_with_embeddings(filters["user_id"])
+            similar_nodes = _get_similar_nodes(nodes, n_embedding, filters, self.threshold)
 
             # Build WHERE clause for relationship target filtering
             rel_where_parts = ["m.user_id = %s"]
@@ -482,34 +475,39 @@ class MemoryGraph:
         run_id = filters.get("run_id")
         results = []
 
-        for item in to_be_deleted:
-            source = item["source"]
-            destination = item["destination"]
-            relationship = item["relationship"]
+        try:
+            for item in to_be_deleted:
+                source = item["source"]
+                destination = item["destination"]
+                relationship = item["relationship"]
 
-            where_parts = [
-                "n.user_id = %s", "n.name = %s",
-                "m.user_id = %s", "m.name = %s",
-            ]
-            params = [user_id, source, user_id, destination]
-            if agent_id:
-                where_parts.extend(["n.agent_id = %s", "m.agent_id = %s"])
-                params.extend([agent_id, agent_id])
-            if run_id:
-                where_parts.extend(["n.run_id = %s", "m.run_id = %s"])
-                params.extend([run_id, run_id])
-            where_clause = " AND ".join(where_parts)
+                where_parts = [
+                    "n.user_id = %s", "n.name = %s",
+                    "m.user_id = %s", "m.name = %s",
+                ]
+                params = [user_id, source, user_id, destination]
+                if agent_id:
+                    where_parts.extend(["n.agent_id = %s", "m.agent_id = %s"])
+                    params.extend([agent_id, agent_id])
+                if run_id:
+                    where_parts.extend(["n.run_id = %s", "m.run_id = %s"])
+                    params.extend([run_id, run_id])
+                where_clause = " AND ".join(where_parts)
 
-            result = self._exec_cypher(
-                f"MATCH (n)-[r:{relationship}]->(m) "
-                f"WHERE {where_clause} "
-                f"DELETE r "
-                f"RETURN n.name, type(r), m.name",
-                cols=["source", "relationship", "target"],
-                params=tuple(params),
-            )
-            results.append(result)
+                result = self._exec_cypher(
+                    f"MATCH (n)-[r:{relationship}]->(m) "
+                    f"WHERE {where_clause} "
+                    f"DELETE r "
+                    f"RETURN n.name, type(r), m.name",
+                    cols=["source", "relationship", "target"],
+                    params=tuple(params),
+                )
+                results.append(result)
+
             self.ag.commit()
+        except Exception:
+            self.ag.rollback()
+            raise
 
         return results
 
@@ -525,34 +523,39 @@ class MemoryGraph:
         run_id = filters.get("run_id")
         results = []
 
-        for item in to_be_added:
-            source = item["source"]
-            destination = item["destination"]
-            relationship = item["relationship"]
+        try:
+            for item in to_be_added:
+                source = item["source"]
+                destination = item["destination"]
+                relationship = item["relationship"]
 
-            source_embedding = self.embedding_model.embed(source)
-            dest_embedding = self.embedding_model.embed(destination)
+                source_embedding = self.embedding_model.embed(source)
+                dest_embedding = self.embedding_model.embed(destination)
 
-            source_match = self._find_similar_node(source_embedding, filters, threshold=self.threshold)
-            dest_match = self._find_similar_node(dest_embedding, filters, threshold=self.threshold)
+                source_match = self._find_similar_node(source_embedding, filters, threshold=self.threshold)
+                dest_match = self._find_similar_node(dest_embedding, filters, threshold=self.threshold)
 
-            effective_source = source_match["name"] if source_match else source
-            effective_dest = dest_match["name"] if dest_match else destination
+                effective_source = source_match["name"] if source_match else source
+                effective_dest = dest_match["name"] if dest_match else destination
 
-            # Merge source and destination nodes
-            self._merge_node(user_id, effective_source, source_embedding, agent_id, run_id)
-            self._merge_node(user_id, effective_dest, dest_embedding, agent_id, run_id)
+                # Merge source and destination nodes
+                self._merge_node(user_id, effective_source, source_embedding, agent_id, run_id)
+                self._merge_node(user_id, effective_dest, dest_embedding, agent_id, run_id)
 
-            # Merge relationship
-            result = self._exec_cypher(
-                f"MATCH (s {{user_id: %s, name: %s}}), (d {{user_id: %s, name: %s}}) "
-                f"MERGE (s)-[r:{relationship}]->(d) "
-                f"RETURN s.name, type(r), d.name",
-                cols=["source", "relationship", "target"],
-                params=(user_id, effective_source, user_id, effective_dest),
-            )
+                # Merge relationship
+                result = self._exec_cypher(
+                    f"MATCH (s {{user_id: %s, name: %s}}), (d {{user_id: %s, name: %s}}) "
+                    f"MERGE (s)-[r:{relationship}]->(d) "
+                    f"RETURN s.name, type(r), d.name",
+                    cols=["source", "relationship", "target"],
+                    params=(user_id, effective_source, user_id, effective_dest),
+                )
+                results.append(result)
+
             self.ag.commit()
-            results.append(result)
+        except Exception:
+            self.ag.rollback()
+            raise
 
         return results
 
