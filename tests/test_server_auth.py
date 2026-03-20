@@ -14,6 +14,8 @@ import os
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+fastapi = pytest.importorskip("fastapi", reason="fastapi not installed")
 from fastapi.testclient import TestClient
 
 
