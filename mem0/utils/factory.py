@@ -6,6 +6,7 @@ from mem0.configs.llms.anthropic import AnthropicConfig
 from mem0.configs.llms.azure import AzureOpenAIConfig
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.configs.llms.deepseek import DeepSeekConfig
+from mem0.configs.llms.minimax import MinimaxConfig
 from mem0.configs.llms.lmstudio import LMStudioConfig
 from mem0.configs.llms.ollama import OllamaConfig
 from mem0.configs.llms.openai import OpenAIConfig
@@ -45,6 +46,7 @@ class LlmFactory:
         "azure_openai_structured": ("mem0.llms.azure_openai_structured.AzureOpenAIStructuredLLM", AzureOpenAIConfig),
         "gemini": ("mem0.llms.gemini.GeminiLLM", BaseLlmConfig),
         "deepseek": ("mem0.llms.deepseek.DeepSeekLLM", DeepSeekConfig),
+        "minimax": ("mem0.llms.minimax.MiniMaxLLM", MinimaxConfig),
         "xai": ("mem0.llms.xai.XAILLM", BaseLlmConfig),
         "sarvam": ("mem0.llms.sarvam.SarvamLLM", BaseLlmConfig),
         "lmstudio": ("mem0.llms.lmstudio.LMStudioLLM", LMStudioConfig),
