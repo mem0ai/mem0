@@ -14,7 +14,7 @@ The Mem0 REST API server exposes every OSS memory operation over HTTP. Run it al
 </Info>
 
 <Warning>
-  Add your own authentication and HTTPS before exposing the server to anything beyond your internal network. The default image does not include auth.
+  Enable API key authentication (see below) and HTTPS before exposing the server to anything beyond your internal network.
 </Warning>
 
 ---
@@ -22,6 +22,7 @@ The Mem0 REST API server exposes every OSS memory operation over HTTP. Run it al
 ## Feature
 
 - **CRUD endpoints:** Create, retrieve, search, update, delete, and reset memories by `user_id`, `agent_id`, or `run_id`.
+- **API key authentication:** Optionally secure all endpoints with a shared API key via the `X-API-Key` header.
 - **Status health check:** Access base routes to confirm the server is online.
 - **OpenAPI explorer:** Visit `/docs` for interactive testing and schema reference.
 
@@ -91,6 +92,41 @@ uvicorn main:app --reload
 
 ---
 
+## Authentication
+
+The server supports optional API key authentication. When the `ADMIN_API_KEY` environment variable is set, every endpoint requires a valid `X-API-Key` header. The `/` redirect, `/docs`, and `/openapi.json` routes remain open so you can always reach the interactive API explorer.
+
+| `ADMIN_API_KEY` value | Behavior |
+|---|---|
+| Not set / empty | All endpoints are open (no auth) |
+| Any non-empty string | Requests must include `X-API-Key: <your-key>` |
+
+### Enable authentication
+
+Add the key to your `.env` file:
+
+```bash
+ADMIN_API_KEY=your-secret-api-key
+```
+
+Then include the header in every request:
+
+```bash
+curl -X POST http://localhost:8000/memories \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-secret-api-key" \
+  -d '{
+    "messages": [{"role": "user", "content": "I love pizza."}],
+    "user_id": "alice"
+  }'
+```
+
+<Warning>
+  The server logs a warning at startup when `ADMIN_API_KEY` is not set. Always set it in production.
+</Warning>
+
+---
+
 ## See it in action
 
 ### Create and search memories via HTTP
@@ -137,7 +173,7 @@ curl "http://localhost:8000/memories/search?user_id=alice&query=vegetable"
 
 ## Best practices
 
-1. **Add authentication:** Protect endpoints with API gateways, proxies, or custom FastAPI middleware.
+1. **Enable authentication:** Set `ADMIN_API_KEY` to secure all endpoints, or use an API gateway for more advanced schemes.
 2. **Use HTTPS:** Terminate TLS at your load balancer or reverse proxy.
 3. **Monitor uptime:** Track request rates, latency, and error codes per endpoint.
 4. **Version configs:** Keep environment files and Docker Compose definitions in source control.
