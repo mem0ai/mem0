@@ -87,7 +87,7 @@ class MiniMaxLLM(LLMBase):
 
         Args:
             messages (list): List of message dicts containing 'role' and 'content'.
-            response_format (str or object, optional): Format of the response. Defaults to "text".
+            response_format (str or object, optional): Format of the response. Defaults to None.
             tools (list, optional): List of tools that the model can call. Defaults to None.
             tool_choice (str, optional): Tool choice method. Defaults to "auto".
             **kwargs: Additional MiniMax-specific parameters.
