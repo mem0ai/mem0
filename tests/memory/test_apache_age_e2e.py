@@ -21,7 +21,7 @@ from unittest.mock import MagicMock, patch
 
 import age
 
-from mem0.memory.apache_age_memory import MemoryGraph, _cosine_similarity
+from mem0.memory.apache_age_memory import MemoryGraph  # noqa: E402
 
 # -- E2E test configuration ---------------------------------------------------
 
@@ -507,7 +507,7 @@ class TestAddEntities:
 
         # Now add an entity where source="alice" — should merge to existing
         self.mg.threshold = 0.99  # high threshold, but same embedding = exact match
-        result = self.mg._add_entities(
+        self.mg._add_entities(
             [{"source": "alice", "destination": "carol", "relationship": "LIKES"}],
             {"user_id": "u1"},
             entity_type_map={"alice": "person", "carol": "person"},
