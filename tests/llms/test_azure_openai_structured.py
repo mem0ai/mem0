@@ -1,4 +1,5 @@
 from unittest import mock
+from unittest.mock import Mock
 
 from mem0.llms.azure_openai_structured import SCOPE, AzureOpenAIStructuredLLM
 
@@ -98,3 +99,75 @@ def test_init_with_placeholder_api_key_uses_default_credential(
         args, kwargs = mock_azure_openai.call_args
         assert kwargs["api_key"] is None
         assert kwargs["azure_ad_token_provider"] == "token-provider"
+
+
+@mock.patch("mem0.llms.azure_openai_structured.AzureOpenAI")
+def test_generate_response_without_tools(mock_azure_openai):
+    mock_client = Mock()
+    mock_azure_openai.return_value = mock_client
+
+    config = DummyConfig(model="test-model", azure_kwargs=DummyAzureKwargs(api_key="real-key"))
+    llm = AzureOpenAIStructuredLLM(config)
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Hello there!"))]
+    mock_client.chat.completions.create.return_value = mock_response
+
+    messages = [{"role": "user", "content": "Hi"}]
+    response = llm.generate_response(messages)
+
+    assert response == "Hello there!"
+
+
+@mock.patch("mem0.llms.azure_openai_structured.AzureOpenAI")
+def test_generate_response_with_tools(mock_azure_openai):
+    mock_client = Mock()
+    mock_azure_openai.return_value = mock_client
+
+    config = DummyConfig(model="test-model", azure_kwargs=DummyAzureKwargs(api_key="real-key"))
+    llm = AzureOpenAIStructuredLLM(config)
+
+    mock_tool_call = Mock()
+    mock_tool_call.function.name = "add_memory"
+    mock_tool_call.function.arguments = '{"data": "sunny day"}'
+
+    mock_message = Mock()
+    mock_message.content = "I've added the memory."
+    mock_message.tool_calls = [mock_tool_call]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=mock_message)]
+    mock_client.chat.completions.create.return_value = mock_response
+
+    tools = [{"type": "function", "function": {"name": "add_memory"}}]
+    messages = [{"role": "user", "content": "Remember sunny day"}]
+    response = llm.generate_response(messages, tools=tools)
+
+    assert response["content"] == "I've added the memory."
+    assert len(response["tool_calls"]) == 1
+    assert response["tool_calls"][0]["name"] == "add_memory"
+    assert response["tool_calls"][0]["arguments"] == {"data": "sunny day"}
+
+
+@mock.patch("mem0.llms.azure_openai_structured.AzureOpenAI")
+def test_generate_response_with_tools_no_tool_calls(mock_azure_openai):
+    mock_client = Mock()
+    mock_azure_openai.return_value = mock_client
+
+    config = DummyConfig(model="test-model", azure_kwargs=DummyAzureKwargs(api_key="real-key"))
+    llm = AzureOpenAIStructuredLLM(config)
+
+    mock_message = Mock()
+    mock_message.content = "No tools needed."
+    mock_message.tool_calls = None
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=mock_message)]
+    mock_client.chat.completions.create.return_value = mock_response
+
+    tools = [{"type": "function", "function": {"name": "add_memory"}}]
+    messages = [{"role": "user", "content": "Hello"}]
+    response = llm.generate_response(messages, tools=tools)
+
+    assert response["content"] == "No tools needed."
+    assert response["tool_calls"] == []
