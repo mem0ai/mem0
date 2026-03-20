@@ -7,24 +7,27 @@ when vector is None.
 """
 
 from datetime import datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import numpy as np
 import pytz
 
 
-@patch("mem0.vector_stores.redis.SearchIndex")
-@patch("mem0.vector_stores.redis.redis.from_url")
-def test_update_with_none_vector_preserves_embedding(mock_redis, mock_search_index):
-    """update() with vector=None should not include embedding in the data."""
-    mock_index = MagicMock()
-    mock_search_index.return_value = mock_index
-
+def _make_redis_db():
+    """Create a RedisDB instance with mocked internals, bypassing __init__
+    to avoid the redis module name collision with mem0.vector_stores.redis."""
     from mem0.vector_stores.redis import RedisDB
 
     db = RedisDB.__new__(RedisDB)
+    mock_index = MagicMock()
     db.index = mock_index
     db.schema = {"index": {"prefix": "mem0:test"}}
+    return db, mock_index
+
+
+def test_update_with_none_vector_preserves_embedding():
+    """update() with vector=None should not include embedding in the data."""
+    db, mock_index = _make_redis_db()
 
     payload = {
         "hash": "test_hash",
@@ -45,18 +48,9 @@ def test_update_with_none_vector_preserves_embedding(mock_redis, mock_search_ind
     assert data_dict["memory_id"] == "test_id"
 
 
-@patch("mem0.vector_stores.redis.SearchIndex")
-@patch("mem0.vector_stores.redis.redis.from_url")
-def test_update_with_vector_includes_embedding(mock_redis, mock_search_index):
+def test_update_with_vector_includes_embedding():
     """update() with a real vector should include embedding in the data."""
-    mock_index = MagicMock()
-    mock_search_index.return_value = mock_index
-
-    from mem0.vector_stores.redis import RedisDB
-
-    db = RedisDB.__new__(RedisDB)
-    db.index = mock_index
-    db.schema = {"index": {"prefix": "mem0:test"}}
+    db, mock_index = _make_redis_db()
 
     vector = np.random.rand(1536).tolist()
     payload = {
