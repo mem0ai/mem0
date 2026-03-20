@@ -1,18 +1,26 @@
 import logging
 import os
 import shutil
+from typing import Any
 
-from qdrant_client import QdrantClient
-from qdrant_client.models import (
-    Distance,
-    FieldCondition,
-    Filter,
-    MatchValue,
-    PointIdsList,
-    PointStruct,
-    Range,
-    VectorParams,
-)
+try:
+    from qdrant_client import QdrantClient
+    from qdrant_client.models import (
+        Distance,
+        FieldCondition,
+        Filter,
+        MatchValue,
+        PointIdsList,
+        PointStruct,
+        Range,
+        VectorParams,
+    )
+
+    _QDRANT_IMPORT_ERROR = None
+except ImportError as e:
+    QdrantClient = Any
+    Distance = FieldCondition = Filter = MatchValue = PointIdsList = PointStruct = Range = VectorParams = Any
+    _QDRANT_IMPORT_ERROR = e
 
 from mem0.vector_stores.base import VectorStoreBase
 
@@ -24,7 +32,7 @@ class Qdrant(VectorStoreBase):
         self,
         collection_name: str,
         embedding_model_dims: int,
-        client: QdrantClient = None,
+        client: Any = None,
         host: str = None,
         port: int = None,
         path: str = None,
@@ -46,6 +54,12 @@ class Qdrant(VectorStoreBase):
             api_key (str, optional): API key for Qdrant server. Defaults to None.
             on_disk (bool, optional): Enables persistent storage. Defaults to False.
         """
+        if _QDRANT_IMPORT_ERROR is not None:
+            raise ImportError(
+                "The 'qdrant-client' library is required for the qdrant provider. "
+                'Install it with `pip install "mem0ai[qdrant]"`.'
+            ) from _QDRANT_IMPORT_ERROR
+
         if client:
             self.client = client
             self.is_local = False

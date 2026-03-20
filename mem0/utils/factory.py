@@ -194,7 +194,15 @@ class VectorStoreFactory:
         if class_type:
             if not isinstance(config, dict):
                 config = config.model_dump()
-            vector_store_instance = load_class(class_type)
+            try:
+                vector_store_instance = load_class(class_type)
+            except ModuleNotFoundError as e:
+                if provider_name == "qdrant" and "qdrant_client" in str(e):
+                    raise ImportError(
+                        "The 'qdrant-client' library is required for the qdrant provider. "
+                        'Install it with `pip install "mem0ai[qdrant]"`.'
+                    ) from e
+                raise
             return vector_store_instance(**config)
         else:
             raise ValueError(f"Unsupported VectorStore provider: {provider_name}")

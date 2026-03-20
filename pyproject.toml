@@ -14,16 +14,20 @@ license = "Apache-2.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.9,<4.0"
 dependencies = [
-    "qdrant-client>=1.9.1",
     "pydantic>=2.7.3",
     "openai>=1.90.0",
-    "posthog>=3.5.0",
     "pytz>=2024.1",
     "sqlalchemy>=2.0.31",
     "protobuf>=5.29.6,<7.0.0",
 ]
 
 [project.optional-dependencies]
+qdrant = [
+    "qdrant-client>=1.9.1",
+]
+telemetry = [
+    "posthog>=3.5.0",
+]
 graph = [
     "langchain-neo4j>=0.4.0",
     "langchain-aws>=0.2.23",
@@ -33,6 +37,7 @@ graph = [
     "kuzu>=0.11.0",
 ]
 vector_stores = [
+    "qdrant-client>=1.9.1",
     "vecs>=0.4.0",
     "chromadb>=0.4.24",
     "cassandra-driver>=3.29.0",
@@ -109,6 +114,8 @@ only-include = ["mem0"]
 python = "3.9"
 features = [
   "test",
+  "qdrant",
+  "telemetry",
   "graph",
   "vector_stores",
   "llms",
@@ -119,6 +126,8 @@ features = [
 python = "3.10"
 features = [
   "test",
+  "qdrant",
+  "telemetry",
   "graph",
   "vector_stores",
   "llms",
@@ -129,6 +138,8 @@ features = [
 python = "3.11"
 features = [
   "test",
+  "qdrant",
+  "telemetry",
   "graph",
   "vector_stores",
   "llms",
@@ -139,6 +150,8 @@ features = [
 python = "3.12"
 features = [
   "test",
+  "qdrant",
+  "telemetry",
   "graph",
   "vector_stores",
   "llms",

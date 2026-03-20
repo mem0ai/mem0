@@ -3,14 +3,21 @@ import os
 import platform
 import sys
 
-from posthog import Posthog
-
 import mem0
 from mem0.memory.setup import get_or_create_user_id
+
+try:
+    from posthog import Posthog
+
+    POSTHOG_AVAILABLE = True
+except ImportError:
+    Posthog = None
+    POSTHOG_AVAILABLE = False
 
 MEM0_TELEMETRY = os.environ.get("MEM0_TELEMETRY", "True")
 PROJECT_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX"
 HOST = "https://us.i.posthog.com"
+_POSTHOG_WARNING_EMITTED = False
 
 if isinstance(MEM0_TELEMETRY, str):
     MEM0_TELEMETRY = MEM0_TELEMETRY.lower() in ("true", "1", "yes")
@@ -24,9 +31,21 @@ logging.getLogger("urllib3").setLevel(logging.CRITICAL + 1)
 
 class AnonymousTelemetry:
     def __init__(self, vector_store=None):
+        global _POSTHOG_WARNING_EMITTED
+
         if not MEM0_TELEMETRY:
             self.posthog = None
             self.user_id = None
+            return
+
+        if not POSTHOG_AVAILABLE:
+            self.posthog = None
+            self.user_id = None
+            if not _POSTHOG_WARNING_EMITTED:
+                logging.getLogger(__name__).warning(
+                    "PostHog is not installed. Telemetry is disabled. Install with `pip install \"mem0ai[telemetry]\"`."
+                )
+                _POSTHOG_WARNING_EMITTED = True
             return
 
         self.posthog = Posthog(project_api_key=PROJECT_API_KEY, host=HOST)

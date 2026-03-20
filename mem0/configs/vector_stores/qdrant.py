@@ -2,10 +2,16 @@ from typing import Any, ClassVar, Dict, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-
-class QdrantConfig(BaseModel):
+try:
     from qdrant_client import QdrantClient
 
+    _QDRANT_IMPORT_ERROR = None
+except ImportError as e:
+    QdrantClient = Any
+    _QDRANT_IMPORT_ERROR = e
+
+
+class QdrantConfig(BaseModel):
     QdrantClient: ClassVar[type] = QdrantClient
 
     collection_name: str = Field("mem0", description="Name of the collection")
@@ -21,6 +27,12 @@ class QdrantConfig(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def check_host_port_or_path(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        if _QDRANT_IMPORT_ERROR is not None:
+            raise ImportError(
+                "The 'qdrant-client' library is required for the qdrant provider. "
+                'Install it with `pip install "mem0ai[qdrant]"`.'
+            ) from _QDRANT_IMPORT_ERROR
+
         host, port, path, url, api_key = (
             values.get("host"),
             values.get("port"),

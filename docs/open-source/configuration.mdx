@@ -27,9 +27,18 @@ icon: "sliders"
 pip install mem0ai
 ```
 </Step>
-<Step title="Add provider SDKs (example: Qdrant + OpenAI)">
+<Step title="Install optional extras (examples)">
 ```bash
-pip install qdrant-client openai
+# Qdrant provider support
+pip install "mem0ai[qdrant]"
+
+# PostHog telemetry support
+pip install "mem0ai[telemetry]"
+```
+</Step>
+<Step title="Add provider SDKs (example: OpenAI)">
+```bash
+pip install openai
 ```
 </Step>
 </Steps>
