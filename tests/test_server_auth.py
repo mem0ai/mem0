@@ -487,5 +487,10 @@ class TestStartupLogging:
 
     def test_info_when_auth_enabled(self, caplog):
         with caplog.at_level(logging.INFO):
-            _load_app({"ADMIN_API_KEY": "my-secret"})
+            _load_app({"ADMIN_API_KEY": "a-long-enough-secret-key"})
         assert any("authentication enabled" in r.message for r in caplog.records)
+
+    def test_warning_when_key_too_short(self, caplog):
+        with caplog.at_level(logging.WARNING):
+            _load_app({"ADMIN_API_KEY": "short"})
+        assert any("shorter than" in r.message for r in caplog.records)

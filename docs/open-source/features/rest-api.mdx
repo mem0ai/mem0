@@ -94,7 +94,7 @@ uvicorn main:app --reload
 
 ## Authentication
 
-The server supports optional API key authentication. When the `ADMIN_API_KEY` environment variable is set, every endpoint (except the `/` redirect) requires a valid `X-API-Key` header.
+The server supports optional API key authentication. When the `ADMIN_API_KEY` environment variable is set, every endpoint requires a valid `X-API-Key` header. The `/` redirect, `/docs`, and `/openapi.json` routes remain open so you can always reach the interactive API explorer.
 
 | `ADMIN_API_KEY` value | Behavior |
 |---|---|
