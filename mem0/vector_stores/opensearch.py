@@ -122,8 +122,13 @@ class OpenSearchDB(VectorStoreBase):
             }
             try:
                 self.client.index(index=self.collection_name, body=body)
-                # Force refresh to make documents immediately searchable for tests
-                self.client.indices.refresh(index=self.collection_name)
+                # Force refresh to make documents immediately searchable.
+                # Wrapped in try/except because OpenSearch Serverless does not
+                # support the indices.refresh() API (returns 404).
+                try:
+                    self.client.indices.refresh(index=self.collection_name)
+                except Exception:
+                    pass
                 
                 results.append(OutputData(
                     id=id_,
