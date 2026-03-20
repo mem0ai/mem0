@@ -644,6 +644,9 @@ class Memory(MemoryBase):
                         if memory_id and (metadata.get("agent_id") or metadata.get("run_id")):
                             # Update only the session identifiers, keep content the same
                             existing_memory = self.vector_store.get(vector_id=memory_id)
+                            if existing_memory is None:
+                                logger.warning(f"Memory {memory_id} not found for session ID update, skipping")
+                                continue
                             updated_metadata = deepcopy(existing_memory.payload)
                             if metadata.get("agent_id"):
                                 updated_metadata["agent_id"] = metadata["agent_id"]
@@ -1226,6 +1229,9 @@ class Memory(MemoryBase):
             logger.error(f"Error getting memory with ID {memory_id} during update.")
             raise ValueError(f"Error getting memory with ID {memory_id}. Please provide a valid 'memory_id'")
 
+        if existing_memory is None:
+            raise ValueError(f"Memory with id {memory_id} not found. Please provide a valid 'memory_id'")
+
         prev_value = existing_memory.payload.get("data")
 
         new_metadata = deepcopy(metadata) if metadata is not None else {}
@@ -1673,6 +1679,9 @@ class AsyncMemory(MemoryBase):
                             # Create async task to update only the session identifiers
                             async def update_session_ids(mem_id, meta):
                                 existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=mem_id)
+                                if existing_memory is None:
+                                    logger.warning(f"Memory {mem_id} not found for session ID update, skipping")
+                                    return
                                 updated_metadata = deepcopy(existing_memory.payload)
                                 if meta.get("agent_id"):
                                     updated_metadata["agent_id"] = meta["agent_id"]
@@ -2314,6 +2323,9 @@ class AsyncMemory(MemoryBase):
         except Exception:
             logger.error(f"Error getting memory with ID {memory_id} during update.")
             raise ValueError(f"Error getting memory with ID {memory_id}. Please provide a valid 'memory_id'")
+
+        if existing_memory is None:
+            raise ValueError(f"Memory with id {memory_id} not found. Please provide a valid 'memory_id'")
 
         prev_value = existing_memory.payload.get("data")
 
