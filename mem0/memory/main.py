@@ -1085,6 +1085,11 @@ class Memory(MemoryBase):
         """
         capture_event("mem0.update", self, {"memory_id": memory_id, "sync_type": "sync"})
 
+        if isinstance(data, dict):
+            data = data.get("data") or str(data)
+        if not isinstance(data, str):
+            data = str(data)
+
         existing_embeddings = {data: self.embedding_model.embed(data, "update")}
 
         self._update_memory(memory_id, data, existing_embeddings)
@@ -2148,6 +2153,11 @@ class AsyncMemory(MemoryBase):
             {'message': 'Memory updated successfully!'}
         """
         capture_event("mem0.update", self, {"memory_id": memory_id, "sync_type": "async"})
+
+        if isinstance(data, dict):
+            data = data.get("data") or str(data)
+        if not isinstance(data, str):
+            data = str(data)
 
         embeddings = await asyncio.to_thread(self.embedding_model.embed, data, "update")
         existing_embeddings = {data: embeddings}

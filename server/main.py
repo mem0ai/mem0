@@ -152,16 +152,17 @@ def search_memories(search_req: SearchRequest):
 @app.put("/memories/{memory_id}", summary="Update a memory")
 def update_memory(memory_id: str, updated_memory: Dict[str, Any]):
     """Update an existing memory with new content.
-    
+
     Args:
         memory_id (str): ID of the memory to update
-        updated_memory (str): New content to update the memory with
-        
+        updated_memory (Dict[str, Any]): Request body containing the new memory content
+
     Returns:
         dict: Success message indicating the memory was updated
     """
     try:
-        return MEMORY_INSTANCE.update(memory_id=memory_id, data=updated_memory)
+        data = updated_memory.get("data", "") if isinstance(updated_memory, dict) else updated_memory
+        return MEMORY_INSTANCE.update(memory_id=memory_id, data=data)
     except Exception as e:
         logging.exception("Error in update_memory:")
         raise HTTPException(status_code=500, detail=str(e))
