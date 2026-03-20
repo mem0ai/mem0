@@ -350,6 +350,40 @@ class Memory(MemoryBase):
         # Use agent memory extraction if agent_id is present and there are assistant messages
         return has_agent_id and has_assistant_messages
 
+    def _should_run_vector_store_on_caller_thread(self) -> bool:
+        """Return True when sync vector-store work should avoid worker threads.
+
+        Running sync vector-store operations on the caller thread avoids thread-affinity
+        problems for local backends such as QdrantLocal.
+        """
+        if not self.enable_graph:
+            return True
+
+        if self.config.vector_store.provider != "qdrant":
+            return False
+
+        return bool(getattr(self.vector_store, "is_local", False))
+
+    def _run_sync_vector_and_graph(self, vector_store_call, graph_call=None):
+        """Run sync vector-store work with optional graph work using safe dispatch."""
+        if graph_call is None:
+            return vector_store_call(), None
+
+        if self._should_run_vector_store_on_caller_thread():
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future_graph = executor.submit(graph_call)
+                vector_result = vector_store_call()
+                graph_result = future_graph.result()
+            return vector_result, graph_result
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            future_vector = executor.submit(vector_store_call)
+            future_graph = executor.submit(graph_call)
+            concurrent.futures.wait([future_vector, future_graph])
+            vector_result = future_vector.result()
+            graph_result = future_graph.result()
+        return vector_result, graph_result
+
     def add(
         self,
         messages,
@@ -438,14 +472,15 @@ class Memory(MemoryBase):
         else:
             messages = parse_vision_messages(messages)
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future1 = executor.submit(self._add_to_vector_store, messages, processed_metadata, effective_filters, infer)
-            future2 = executor.submit(self._add_to_graph, messages, effective_filters)
+        def vector_store_call():
+            return self._add_to_vector_store(messages, processed_metadata, effective_filters, infer)
 
-            concurrent.futures.wait([future1, future2])
+        graph_call = None
+        if self.enable_graph:
+            def graph_call():
+                return self._add_to_graph(messages, deepcopy(effective_filters))
 
-            vector_store_result = future1.result()
-            graph_result = future2.result()
+        vector_store_result, graph_result = self._run_sync_vector_and_graph(vector_store_call, graph_call)
 
         if self.enable_graph:
             return {
@@ -769,18 +804,17 @@ class Memory(MemoryBase):
             "mem0.get_all", self, {"limit": limit, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"}
         )
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future_memories = executor.submit(self._get_all_from_vector_store, effective_filters, limit)
-            future_graph_entities = (
-                executor.submit(self.graph.get_all, effective_filters, limit) if self.enable_graph else None
-            )
+        def vector_store_call():
+            return self._get_all_from_vector_store(effective_filters, limit)
 
-            concurrent.futures.wait(
-                [future_memories, future_graph_entities] if future_graph_entities else [future_memories]
-            )
+        graph_call = None
+        if self.enable_graph:
+            def graph_call():
+                return self.graph.get_all(deepcopy(effective_filters), limit)
 
-            all_memories_result = future_memories.result()
-            graph_entities_result = future_graph_entities.result() if future_graph_entities else None
+        all_memories_result, graph_entities_result = self._run_sync_vector_and_graph(
+            vector_store_call, graph_call
+        )
 
         if self.enable_graph:
             return {"results": all_memories_result, "relations": graph_entities_result}
@@ -908,18 +942,15 @@ class Memory(MemoryBase):
             },
         )
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future_memories = executor.submit(self._search_vector_store, query, effective_filters, limit, threshold)
-            future_graph_entities = (
-                executor.submit(self.graph.search, query, effective_filters, limit) if self.enable_graph else None
-            )
+        def vector_store_call():
+            return self._search_vector_store(query, effective_filters, limit, threshold)
 
-            concurrent.futures.wait(
-                [future_memories, future_graph_entities] if future_graph_entities else [future_memories]
-            )
+        graph_call = None
+        if self.enable_graph:
+            def graph_call():
+                return self.graph.search(query, deepcopy(effective_filters), limit)
 
-            original_memories = future_memories.result()
-            graph_entities = future_graph_entities.result() if future_graph_entities else None
+        original_memories, graph_entities = self._run_sync_vector_and_graph(vector_store_call, graph_call)
 
         # Apply reranking if enabled and reranker is available
         if rerank and self.reranker and original_memories:

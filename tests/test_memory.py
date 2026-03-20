@@ -1,4 +1,5 @@
 import json
+import threading
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -75,6 +76,102 @@ def test_list_memories(memory_client):
     memories = memory_client.get_all(user_id="test_user")
     assert data1 in memories
     assert data2 in memories
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_add_runs_vector_store_on_caller_thread_when_graph_disabled(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+    memory.enable_graph = False
+
+    caller_thread_id = threading.get_ident()
+
+    def thread_bound_add(*_args, **_kwargs):
+        assert threading.get_ident() == caller_thread_id, "_add_to_vector_store ran on a worker thread"
+        return []
+
+    memory._add_to_vector_store = MagicMock(side_effect=thread_bound_add)
+    memory._add_to_graph = MagicMock(return_value=[])
+
+    result = memory.add(messages=[{"role": "user", "content": "hello"}], user_id="test-user", infer=False)
+
+    assert result == {"results": []}
+    memory._add_to_vector_store.assert_called_once()
+    memory._add_to_graph.assert_not_called()
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_get_all_runs_vector_store_on_caller_thread_when_graph_disabled(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+    memory.enable_graph = False
+
+    caller_thread_id = threading.get_ident()
+
+    def thread_bound_get_all(*_args, **_kwargs):
+        assert threading.get_ident() == caller_thread_id, "_get_all_from_vector_store ran on a worker thread"
+        return []
+
+    memory._get_all_from_vector_store = MagicMock(side_effect=thread_bound_get_all)
+
+    result = memory.get_all(user_id="test-user", limit=10)
+
+    assert result == {"results": []}
+    memory._get_all_from_vector_store.assert_called_once()
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_search_runs_vector_store_on_caller_thread_when_graph_disabled(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+    memory.enable_graph = False
+    memory.reranker = None
+
+    caller_thread_id = threading.get_ident()
+
+    def thread_bound_search(*_args, **_kwargs):
+        assert threading.get_ident() == caller_thread_id, "_search_vector_store ran on a worker thread"
+        return []
+
+    memory._search_vector_store = MagicMock(side_effect=thread_bound_search)
+
+    result = memory.search(query="hello", user_id="test-user", limit=5)
+
+    assert result == {"results": []}
+    memory._search_vector_store.assert_called_once()
 
 
 @patch('mem0.utils.factory.EmbedderFactory.create')
