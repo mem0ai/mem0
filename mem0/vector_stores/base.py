@@ -14,7 +14,15 @@ class VectorStoreBase(ABC):
 
     @abstractmethod
     def search(self, query, vectors, limit=5, filters=None):
-        """Search for similar vectors."""
+        """Search for similar vectors.
+
+        All implementations must return similarity scores where higher values
+        indicate greater similarity (range [0, 1] preferred). Implementations
+        using distance metrics must convert to similarity before returning:
+        - Cosine distance: score = max(0.0, 1.0 - distance)
+        - L2 distance: score = 1.0 / (1.0 + distance)
+        - Inner product: score = value (already higher = better)
+        """
         pass
 
     @abstractmethod

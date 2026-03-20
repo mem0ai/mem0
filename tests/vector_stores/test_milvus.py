@@ -129,7 +129,7 @@ class TestMilvusDB:
         # Verify results are parsed correctly
         assert len(results) == 1
         assert results[0].id == "mem1"
-        assert results[0].score == 0.8
+        assert results[0].score == 0.8  # COSINE: Milvus returns similarity directly
 
     def test_search_different_user_ids(self, milvus_db, mock_milvus_client):
         """Test that search works with different user_ids (reproduces reported bug)."""
@@ -228,10 +228,10 @@ class TestMilvusDB:
         
         assert len(parsed) == 2
         assert parsed[0].id == "mem1"
-        assert parsed[0].score == 0.9
+        assert parsed[0].score == 0.9  # COSINE: Milvus returns similarity directly
         assert parsed[0].payload == {"user_id": "alice"}
         assert parsed[1].id == "mem2"
-        assert parsed[1].score == 0.85
+        assert parsed[1].score == 0.85  # COSINE: Milvus returns similarity directly
 
     def test_update_with_none_vector_fetches_existing(self, milvus_db, mock_milvus_client):
         """Test that update with vector=None fetches the existing vector (fixes #3708)."""

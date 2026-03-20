@@ -112,7 +112,7 @@ def test_search_vectors(vector_store, mock_vertex_ai):
 
     assert len(results) == 1
     assert results[0].id == "test-id"
-    assert results[0].score == 0.1
+    assert results[0].score == 0.9  # distance 0.1 -> similarity 0.9
     assert results[0].payload == {"user_id": "test_user"}
 
 
