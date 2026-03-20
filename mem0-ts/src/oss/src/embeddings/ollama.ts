@@ -1,16 +1,21 @@
-import { Ollama } from "ollama";
 import { Embedder } from "./base";
 import { EmbeddingConfig } from "../types";
 import { logger } from "../utils/logger";
+import { loadOptionalDependency } from "../utils/optional-deps";
 
 export class OllamaEmbedder implements Embedder {
-  private ollama: Ollama;
+  private ollama: any;
   private model: string;
   private embeddingDims?: number;
   // Using this variable to avoid calling the Ollama server multiple times
   private initialized: boolean = false;
 
   constructor(config: EmbeddingConfig) {
+    const Ollama = loadOptionalDependency<any>(
+      "ollama",
+      "Ollama embedding provider",
+      "Ollama",
+    );
     this.ollama = new Ollama({
       host: config.url || config.baseURL || "http://localhost:11434",
     });

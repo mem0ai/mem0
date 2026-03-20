@@ -1,7 +1,7 @@
-import { VectorStore as LangchainVectorStoreInterface } from "@langchain/core/vectorstores";
-import { Document } from "@langchain/core/documents";
+import type { VectorStore as LangchainVectorStoreInterface } from "@langchain/core/vectorstores";
 import { VectorStore } from "./base"; // mem0's VectorStore interface
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
+import { loadOptionalDependency } from "../utils/optional-deps";
 
 // Config specifically for the Langchain wrapper
 interface LangchainStoreConfig extends VectorStoreConfig {
@@ -75,6 +75,12 @@ export class LangchainVectorStore implements VectorStore {
         }
       });
     }
+
+    const Document = loadOptionalDependency<any>(
+      "@langchain/core/documents",
+      "LangChain vector store provider",
+      "Document",
+    );
 
     // Convert payloads to Langchain Document metadata format
     const documents = payloads.map((payload, i) => {

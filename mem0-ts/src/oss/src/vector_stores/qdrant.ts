@@ -1,10 +1,10 @@
-import { QdrantClient } from "@qdrant/js-client-rest";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 import * as fs from "fs";
+import { loadOptionalDependency } from "../utils/optional-deps";
 
 interface QdrantConfig extends VectorStoreConfig {
-  client?: QdrantClient;
+  client?: any;
   host?: string;
   port?: number;
   path?: string;
@@ -29,7 +29,7 @@ interface QdrantCondition {
 }
 
 export class Qdrant implements VectorStore {
-  private client: QdrantClient;
+  private client: any;
   private readonly collectionName: string;
   private dimension: number;
   private _initPromise?: Promise<void>;
@@ -38,6 +38,11 @@ export class Qdrant implements VectorStore {
     if (config.client) {
       this.client = config.client;
     } else {
+      const QdrantClient = loadOptionalDependency<any>(
+        "@qdrant/js-client-rest",
+        "Qdrant vector store provider",
+        "QdrantClient",
+      );
       const params: Record<string, any> = {};
       if (config.apiKey) {
         params.apiKey = config.apiKey;
@@ -128,7 +133,7 @@ export class Qdrant implements VectorStore {
       limit,
     });
 
-    return results.map((hit) => ({
+    return results.map((hit: any) => ({
       id: String(hit.id),
       payload: (hit.payload as Record<string, any>) || {},
       score: hit.score,
@@ -191,7 +196,7 @@ export class Qdrant implements VectorStore {
       scrollRequest,
     );
 
-    const results = response.points.map((point) => ({
+    const results = response.points.map((point: any) => ({
       id: String(point.id),
       payload: (point.payload as Record<string, any>) || {},
     }));

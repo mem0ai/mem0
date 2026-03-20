@@ -1,7 +1,7 @@
-import Cloudflare from "cloudflare";
-import type { Vectorize, VectorizeVector } from "@cloudflare/workers-types";
+import type { VectorizeVector } from "@cloudflare/workers-types";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
+import { loadOptionalDependency } from "../utils/optional-deps";
 
 interface VectorizeConfig extends VectorStoreConfig {
   apiKey?: string;
@@ -16,13 +16,17 @@ interface CloudflareVector {
 }
 
 export class VectorizeDB implements VectorStore {
-  private client: Cloudflare | null = null;
+  private client: any = null;
   private dimensions: number;
   private indexName: string;
   private accountId: string;
   private _initPromise?: Promise<void>;
 
   constructor(config: VectorizeConfig) {
+    const Cloudflare = loadOptionalDependency<any>(
+      "cloudflare",
+      "Cloudflare Vectorize provider",
+    );
     this.client = new Cloudflare({ apiToken: config.apiKey });
     this.dimensions = config.dimension || 1536;
     this.indexName = config.indexName;
@@ -92,7 +96,7 @@ export class VectorizeDB implements VectorStore {
       );
 
       return (
-        (result?.matches?.map((match) => ({
+        (result?.matches?.map((match: any) => ({
           id: match.id,
           payload: match.metadata,
           score: match.score,
@@ -212,7 +216,7 @@ export class VectorizeDB implements VectorStore {
       );
 
       const matches =
-        (result?.matches?.map((match) => ({
+        (result?.matches?.map((match: any) => ({
           id: match.id,
           payload: match.metadata,
           score: match.score,

@@ -1,13 +1,18 @@
-import { GoogleGenAI } from "@google/genai";
 import { Embedder } from "./base";
 import { EmbeddingConfig } from "../types";
+import { loadOptionalDependency } from "../utils/optional-deps";
 
 export class GoogleEmbedder implements Embedder {
-  private google: GoogleGenAI;
+  private google: any;
   private model: string;
   private embeddingDims?: number;
 
   constructor(config: EmbeddingConfig) {
+    const GoogleGenAI = loadOptionalDependency<any>(
+      "@google/genai",
+      "Google embedding provider",
+      "GoogleGenAI",
+    );
     this.google = new GoogleGenAI({
       apiKey: config.apiKey || process.env.GOOGLE_API_KEY,
     });
@@ -30,6 +35,6 @@ export class GoogleEmbedder implements Embedder {
       contents: texts,
       config: { outputDimensionality: this.embeddingDims },
     });
-    return response.embeddings!.map((item) => item.values!);
+    return response.embeddings!.map((item: any) => item.values!);
   }
 }

@@ -1,10 +1,4 @@
-import { BaseLanguageModel } from "@langchain/core/language_models/base";
-import {
-  AIMessage,
-  HumanMessage,
-  SystemMessage,
-  BaseMessage,
-} from "@langchain/core/messages";
+import type { BaseLanguageModel } from "@langchain/core/language_models/base";
 import { z } from "zod";
 import { LLM, LLMResponse } from "./base";
 import { LLMConfig, Message } from "../types/index";
@@ -16,8 +10,25 @@ import {
   GraphRelationsArgsSchema,
   GraphSimpleRelationshipArgsSchema, // Used for delete tool
 } from "../graphs/tools";
+import { loadOptionalDependency } from "../utils/optional-deps";
 
-const convertToLangchainMessages = (messages: Message[]): BaseMessage[] => {
+const convertToLangchainMessages = (messages: Message[]): any[] => {
+  const SystemMessage = loadOptionalDependency<any>(
+    "@langchain/core/messages",
+    "LangChain LLM provider",
+    "SystemMessage",
+  );
+  const HumanMessage = loadOptionalDependency<any>(
+    "@langchain/core/messages",
+    "LangChain LLM provider",
+    "HumanMessage",
+  );
+  const AIMessage = loadOptionalDependency<any>(
+    "@langchain/core/messages",
+    "LangChain LLM provider",
+    "AIMessage",
+  );
+
   return messages.map((msg) => {
     const content =
       typeof msg.content === "string"
@@ -232,7 +243,7 @@ export class LangchainLLM implements LLM {
       if (response && typeof response.content === "string") {
         return {
           content: response.content,
-          role: (response as BaseMessage).lc_id ? "assistant" : "assistant",
+          role: "assistant",
         };
       } else {
         console.warn(

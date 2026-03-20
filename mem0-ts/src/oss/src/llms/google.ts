@@ -1,12 +1,17 @@
-import { GoogleGenAI } from "@google/genai";
 import { LLM, LLMResponse } from "./base";
 import { LLMConfig, Message } from "../types";
+import { loadOptionalDependency } from "../utils/optional-deps";
 
 export class GoogleLLM implements LLM {
-  private google: GoogleGenAI;
+  private google: any;
   private model: string;
 
   constructor(config: LLMConfig) {
+    const GoogleGenAI = loadOptionalDependency<any>(
+      "@google/genai",
+      "Google LLM provider",
+      "GoogleGenAI",
+    );
     this.google = new GoogleGenAI({ apiKey: config.apiKey });
     this.model = config.model || "gemini-2.0-flash";
   }
@@ -53,7 +58,7 @@ export class GoogleLLM implements LLM {
       return {
         content: completion.text || "",
         role: "assistant",
-        toolCalls: completion.functionCalls.map((call) => ({
+        toolCalls: completion.functionCalls.map((call: any) => ({
           name: call.name!,
           arguments: JSON.stringify(call.args),
         })),

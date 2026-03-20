@@ -1,12 +1,12 @@
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
-import Database from "better-sqlite3";
 import fs from "fs";
 import path from "path";
 import {
   ensureSQLiteDirectory,
   getDefaultVectorStoreDbPath,
 } from "../utils/sqlite";
+import { loadOptionalDependency } from "../utils/optional-deps";
 
 interface MemoryVector {
   id: string;
@@ -15,7 +15,7 @@ interface MemoryVector {
 }
 
 export class MemoryVectorStore implements VectorStore {
-  private db: Database.Database;
+  private db: any;
   private dimension: number;
   private dbPath: string;
 
@@ -34,6 +34,10 @@ export class MemoryVectorStore implements VectorStore {
     }
 
     ensureSQLiteDirectory(this.dbPath);
+    const Database = loadOptionalDependency<any>(
+      "better-sqlite3",
+      "the in-memory sqlite vector store",
+    );
     this.db = new Database(this.dbPath);
     this.init();
   }

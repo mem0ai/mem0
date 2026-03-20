@@ -1,6 +1,7 @@
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
+import { loadOptionalDependency } from "../utils/optional-deps";
 
 interface VectorData {
   id: string;
@@ -89,6 +90,11 @@ export class SupabaseDB implements VectorStore {
   private _initPromise?: Promise<void>;
 
   constructor(config: SupabaseConfig) {
+    const createClient = loadOptionalDependency<any>(
+      "@supabase/supabase-js",
+      "Supabase vector store provider",
+      "createClient",
+    );
     this.client = createClient(config.supabaseUrl, config.supabaseKey);
     this.tableName = config.tableName;
     this.embeddingColumnName = config.embeddingColumnName || "embedding";
