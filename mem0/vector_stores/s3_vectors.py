@@ -123,6 +123,20 @@ class S3Vectors(VectorStoreBase):
 
     def update(self, vector_id, vector=None, payload=None):
         # S3 Vectors uses put_vectors for updates (overwrite)
+        if vector is None:
+            response = self.client.get_vectors(
+                vectorBucketName=self.vector_bucket_name,
+                indexName=self.collection_name,
+                keys=[vector_id],
+                returnData=True,
+                returnMetadata=True,
+            )
+            existing_vectors = response.get("vectors", [])
+            if not existing_vectors:
+                logger.warning(f"Skipping S3 Vectors update for missing vector ID '{vector_id}'.")
+                return
+            existing_vector = existing_vectors[0].get("data", {}).get("float32")
+            vector = existing_vector
         self.insert(vectors=[vector], payloads=[payload], ids=[vector_id])
 
     def get(self, vector_id) -> Optional[OutputData]:

@@ -114,8 +114,11 @@ class Langchain(VectorStoreBase):
         """
         Update a vector and its payload.
         """
+        if vector is None:
+            logger.warning("Skipping LangChain vector update for ID %s because vector is None", vector_id)
+            return
         self.delete(vector_id)
-        self.insert(vector, payload, [vector_id])
+        self.insert([vector], [payload] if payload is not None else None, [vector_id])
 
     def get(self, vector_id):
         """

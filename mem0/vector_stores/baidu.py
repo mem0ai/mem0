@@ -245,7 +245,12 @@ class BaiduDB(VectorStoreBase):
             vector (List[float], optional): Updated vector.
             payload (Dict, optional): Updated payload.
         """
-        row = Row(id=vector_id, vector=vector, metadata=payload)
+        row_kwargs = {"id": vector_id}
+        if vector is not None:
+            row_kwargs["vector"] = vector
+        if payload is not None:
+            row_kwargs["metadata"] = payload
+        row = Row(**row_kwargs)
         self._table.upsert(rows=[row])
 
     def get(self, vector_id):

@@ -175,12 +175,16 @@ class UpstashVector(VectorStoreBase):
             vector (list, optional): Updated vector. Defaults to None.
             payload (dict, optional): Updated payload. Defaults to None.
         """
+        update_kwargs = {
+            "id": str(vector_id),
+            "data": payload.get("data") if payload else None,
+            "metadata": payload,
+            "namespace": self.collection_name,
+        }
+        if vector is not None:
+            update_kwargs["vector"] = vector
         self.client.update(
-            id=str(vector_id),
-            vector=vector,
-            data=payload.get("data") if payload else None,
-            metadata=payload,
-            namespace=self.collection_name,
+            **update_kwargs,
         )
 
     def get(self, vector_id: int) -> Optional[OutputData]:

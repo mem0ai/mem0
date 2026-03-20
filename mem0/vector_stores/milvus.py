@@ -181,7 +181,11 @@ class MilvusDB(VectorStoreBase):
             vector (List[float], optional): Updated vector.
             payload (Dict, optional): Updated payload.
         """
-        schema = {"id": vector_id, "vectors": vector, "metadata": payload}
+        schema = {"id": vector_id}
+        if vector is not None:
+            schema["vectors"] = vector
+        if payload is not None:
+            schema["metadata"] = payload
         self.client.upsert(collection_name=self.collection_name, data=schema)
 
     def get(self, vector_id):

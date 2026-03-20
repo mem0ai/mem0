@@ -340,6 +340,10 @@ class GoogleMatchingEngine(VectorStoreBase):
         if vector is None and payload is None:
             raise ValueError("Either vector or payload must be provided for update")
 
+        if vector is None:
+            logger.warning("Skipping Vertex AI vector update for vector_id %s because vector is None", vector_id)
+            return False
+
         # First check if the vector exists
         try:
             existing = self.get(vector_id)

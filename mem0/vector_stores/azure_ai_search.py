@@ -270,7 +270,7 @@ class AzureAISearch(VectorStoreBase):
             payload (Dict, optional): Updated payload.
         """
         document = {"id": vector_id}
-        if vector:
+        if vector is not None:
             document["vector"] = vector
         if payload:
             json_payload = json.dumps(payload)
