@@ -320,3 +320,63 @@ def test_normalize_facts_mixed():
 
 def test_normalize_facts_filters_empty_strings():
     assert normalize_facts(["", "valid", ""]) == ["valid"]
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_delete_nonexistent_memory_raises_error(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """
+    Test that delete() raises ValueError when memory_id does not exist
+    and does not attempt to delete from the vector store.
+
+    Issue #3849: memory.delete() fails with AttributeError when memory not found.
+    Should raise a clear ValueError instead.
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    mock_vector_store.get.return_value = None
+
+    with pytest.raises(ValueError, match="Memory with id non-existent-id not found"):
+        memory.delete("non-existent-id")
+
+    mock_vector_store.delete.assert_not_called()
+
+
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+async def test_async_delete_nonexistent_memory_raises_error(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """
+    Test that async delete() raises ValueError when memory_id does not exist
+    and does not attempt to delete from the vector store.
+
+    Issue #3849: memory.delete() fails with AttributeError when memory not found.
+    Should raise a clear ValueError instead.
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_store.get.return_value = None
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import AsyncMemory
+    config = MemoryConfig()
+    memory = AsyncMemory(config)
+
+    with pytest.raises(ValueError, match="Memory with id non-existent-id not found"):
+        await memory.delete("non-existent-id")
+
+    mock_vector_store.delete.assert_not_called()

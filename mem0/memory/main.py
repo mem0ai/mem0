@@ -1274,6 +1274,8 @@ class Memory(MemoryBase):
     def _delete_memory(self, memory_id):
         logger.info(f"Deleting memory with {memory_id=}")
         existing_memory = self.vector_store.get(vector_id=memory_id)
+        if existing_memory is None:
+            raise ValueError(f"Memory with id {memory_id} not found")
         prev_value = existing_memory.payload.get("data", "")
         self.vector_store.delete(vector_id=memory_id)
         self.db.add_history(
@@ -2364,6 +2366,8 @@ class AsyncMemory(MemoryBase):
     async def _delete_memory(self, memory_id):
         logger.info(f"Deleting memory with {memory_id=}")
         existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
+        if existing_memory is None:
+            raise ValueError(f"Memory with id {memory_id} not found")
         prev_value = existing_memory.payload.get("data", "")
 
         await asyncio.to_thread(self.vector_store.delete, vector_id=memory_id)
