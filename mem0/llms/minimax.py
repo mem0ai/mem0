@@ -34,13 +34,13 @@ class MiniMaxLLM(LLMBase):
         super().__init__(config)
 
         if not self.config.model:
-            self.config.model = "MiniMax-M2.1"
+            self.config.model = "MiniMax-M2.7"
 
         api_key = self.config.api_key or os.getenv("MINIMAX_API_KEY")
         base_url = (
             self.config.minimax_base_url
             or os.getenv("MINIMAX_API_BASE")
-            or "https://api.minimaxi.io/v1"
+            or "https://api.minimax.io/v1"
         )
         self.client = OpenAI(api_key=api_key, base_url=base_url)
 
@@ -102,6 +102,9 @@ class MiniMaxLLM(LLMBase):
                 "messages": messages,
             }
         )
+
+        if response_format:
+            params["response_format"] = response_format
 
         if tools:
             params["tools"] = tools

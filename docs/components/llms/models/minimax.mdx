@@ -1,0 +1,56 @@
+---
+title: MiniMax
+description: "Configure MiniMax as an LLM provider in Mem0 with API key setup and optional custom endpoint configuration."
+---
+
+To use MiniMax LLM models, you have to set the `MINIMAX_API_KEY` environment variable. You can also optionally set `MINIMAX_API_BASE` if you need to use a different API endpoint (defaults to "https://api.minimax.io/v1").
+
+## Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["MINIMAX_API_KEY"] = "your-api-key"
+os.environ["OPENAI_API_KEY"] = "your-api-key" # for embedder model
+
+config = {
+    "llm": {
+        "provider": "minimax",
+        "config": {
+            "model": "MiniMax-M2.7",  # default model
+            "temperature": 0.2,
+            "max_tokens": 2000,
+            "top_p": 1.0
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+You can also configure the API base URL in the config:
+
+```python
+config = {
+    "llm": {
+        "provider": "minimax",
+        "config": {
+            "model": "MiniMax-M2.7",
+            "minimax_base_url": "https://your-custom-endpoint.com",
+            "api_key": "your-api-key"  # alternatively to using environment variable
+        }
+    }
+}
+```
+
+## Config
+
+All available parameters for the `minimax` config are present in [Master List of All Params in Config](../config).
