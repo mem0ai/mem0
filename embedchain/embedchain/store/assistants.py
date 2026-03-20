@@ -41,7 +41,7 @@ class OpenAIAssistant:
         self.model = model
         self.data_sources = data_sources or []
         self.log_level = log_level
-        self._client = OpenAI()
+        self._client = OpenAI(timeout=60.0)
         self._initialize_assistant(assistant_id)
         self.thread_id = thread_id or self._create_thread()
         self._telemetry_props = {"class": self.__class__.__name__}
