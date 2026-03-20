@@ -227,7 +227,7 @@ def test_list_with_exception(langchain_instance):
 
 
 def test_update_wraps_vector_and_payload_in_lists(langchain_instance):
-    """Regression test to ensure that Langchain.
+    """Regression test for Langchain update() type mismatch.
 
     update() must wrap vector and payload in lists before calling insert(),
     which expects List[List[float]] and List[Dict] respectively.
