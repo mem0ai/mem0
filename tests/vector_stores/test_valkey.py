@@ -204,6 +204,52 @@ def test_update_handles_missing_created_at(valkey_db, mock_valkey_client):
     assert "created_at" in kwargs["mapping"]  # Should be added automatically
 
 
+def test_update_with_none_vector_preserves_embedding(valkey_db, mock_valkey_client):
+    """Test that update with vector=None does not corrupt the stored embedding.
+
+    Regression test for #4336: when vector=None is passed (metadata-only update),
+    np.array(None) silently creates a 4-byte scalar, overwriting the real embedding.
+    The fix skips the embedding field entirely so the existing value is preserved.
+    """
+    payload = {
+        "hash": "test_hash",
+        "data": "updated_data",
+        "created_at": datetime.now(pytz.timezone("UTC")).isoformat(),
+        "user_id": "test_user",
+    }
+
+    valkey_db.update(vector_id="test_id", vector=None, payload=payload)
+
+    mock_valkey_client.hset.assert_called_once()
+    args, kwargs = mock_valkey_client.hset.call_args
+    assert "embedding" not in kwargs["mapping"], (
+        "embedding should not be in hash_data when vector is None"
+    )
+    assert kwargs["mapping"]["memory_id"] == "test_id"
+    assert kwargs["mapping"]["memory"] == "updated_data"
+
+
+def test_update_with_vector_includes_embedding(valkey_db, mock_valkey_client):
+    """Test that update with a real vector includes the embedding in hash_data."""
+    vector = np.random.rand(1536).tolist()
+    payload = {
+        "hash": "test_hash",
+        "data": "updated_data",
+        "created_at": datetime.now(pytz.timezone("UTC")).isoformat(),
+        "user_id": "test_user",
+    }
+
+    valkey_db.update(vector_id="test_id", vector=vector, payload=payload)
+
+    mock_valkey_client.hset.assert_called_once()
+    args, kwargs = mock_valkey_client.hset.call_args
+    assert "embedding" in kwargs["mapping"], (
+        "embedding should be in hash_data when vector is provided"
+    )
+    expected_bytes = np.array(vector, dtype=np.float32).tobytes()
+    assert kwargs["mapping"]["embedding"] == expected_bytes
+
+
 def test_get(valkey_db, mock_valkey_client):
     """Test getting a vector."""
     # Mock hgetall to return a vector
