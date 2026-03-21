@@ -93,34 +93,39 @@ def _vector_store_list_rows(listed):
 # Fields that hold runtime auth/connection objects and must be preserved.
 # These are non-serializable objects (e.g. AWSV4SignerAuth, RequestsHttpConnection)
 # needed by clients like OpenSearch — not sensitive strings to redact.
-_RUNTIME_FIELDS = frozenset({
-    "http_auth",
-    "auth",
-    "connection_class",
-    "ssl_context",
-})
+_RUNTIME_FIELDS = frozenset(
+    {
+        "http_auth",
+        "auth",
+        "connection_class",
+        "ssl_context",
+        "use_azure_credential",
+    }
+)
 
 # Fields that are known to contain sensitive secrets and must be redacted.
-_SENSITIVE_FIELDS_EXACT = frozenset({
-    "api_key",
-    "secret_key",
-    "private_key",
-    "access_key",
-    "password",
-    "credentials",
-    "credential",
-    "secret",
-    "token",
-    "access_token",
-    "refresh_token",
-    "auth_token",
-    "session_token",
-    "client_secret",
-    "auth_client_secret",
-    "azure_client_secret",
-    "service_account_json",
-    "aws_session_token",
-})
+_SENSITIVE_FIELDS_EXACT = frozenset(
+    {
+        "api_key",
+        "secret_key",
+        "private_key",
+        "access_key",
+        "password",
+        "credentials",
+        "credential",
+        "secret",
+        "token",
+        "access_token",
+        "refresh_token",
+        "auth_token",
+        "session_token",
+        "client_secret",
+        "auth_client_secret",
+        "azure_client_secret",
+        "service_account_json",
+        "aws_session_token",
+    }
+)
 
 # Suffixes that indicate a field likely holds a secret value.
 _SENSITIVE_SUFFIXES = (
@@ -281,6 +286,10 @@ def _safe_deepcopy_config(config):
                 clone_dict = config.model_dump()
             except Exception:
                 clone_dict = dict(config.__dict__)
+        elif hasattr(config, "__dataclass_fields__"):
+            from dataclasses import asdict
+
+            clone_dict = asdict(config)
         else:
             clone_dict = dict(config.__dict__)
 
@@ -393,7 +402,7 @@ def _build_filters_and_metadata(
             message="At least one of 'user_id', 'agent_id', or 'run_id' must be provided.",
             error_code="VALIDATION_001",
             details={"provided_ids": {"user_id": user_id, "agent_id": agent_id, "run_id": run_id}},
-            suggestion="Please provide at least one identifier to scope the memory operation."
+            suggestion="Please provide at least one identifier to scope the memory operation.",
         )
 
     # ---------- optional actor filter ----------
@@ -516,24 +525,24 @@ class Memory(MemoryBase):
         if MEM0_TELEMETRY:
             # Create telemetry config manually to avoid deepcopy issues with thread locks
             telemetry_config_dict = {}
-            if hasattr(self.config.vector_store.config, 'model_dump'):
+            if hasattr(self.config.vector_store.config, "model_dump"):
                 # For pydantic models
                 telemetry_config_dict = self.config.vector_store.config.model_dump()
             else:
                 # For other objects, manually copy common attributes
-                for attr in ['host', 'port', 'path', 'api_key', 'index_name', 'dimension', 'metric']:
+                for attr in ["host", "port", "path", "api_key", "index_name", "dimension", "metric"]:
                     if hasattr(self.config.vector_store.config, attr):
                         telemetry_config_dict[attr] = getattr(self.config.vector_store.config, attr)
 
             # Override collection name for telemetry
-            telemetry_config_dict['collection_name'] = "mem0migrations"
+            telemetry_config_dict["collection_name"] = "mem0migrations"
 
             # Set path for file-based vector stores
             telemetry_config = _safe_deepcopy_config(self.config.vector_store.config)
             if self.config.vector_store.provider in ["faiss", "qdrant"]:
                 provider_path = f"migrations_{self.config.vector_store.provider}"
-                telemetry_config_dict['path'] = os.path.join(mem0_dir, provider_path)
-                os.makedirs(telemetry_config_dict['path'], exist_ok=True)
+                telemetry_config_dict["path"] = os.path.join(mem0_dir, provider_path)
+                os.makedirs(telemetry_config_dict["path"], exist_ok=True)
 
             # Create the config object using the same class as the original
             telemetry_config = self.config.vector_store.config.__class__(**telemetry_config_dict)
@@ -833,7 +842,7 @@ class Memory(MemoryBase):
                 message=f"Invalid 'memory_type'. Please pass {MemoryType.PROCEDURAL.value} to create procedural memories.",
                 error_code="VALIDATION_002",
                 details={"provided_type": memory_type, "valid_type": MemoryType.PROCEDURAL.value},
-                suggestion=f"Use '{MemoryType.PROCEDURAL.value}' to create procedural memories."
+                suggestion=f"Use '{MemoryType.PROCEDURAL.value}' to create procedural memories.",
             )
 
         if isinstance(messages, str):
@@ -847,7 +856,7 @@ class Memory(MemoryBase):
                 message="messages must be str, dict, or list[dict]",
                 error_code="VALIDATION_003",
                 details={"provided_type": type(messages).__name__, "valid_types": ["str", "dict", "list[dict]"]},
-                suggestion="Convert your input to a string, dictionary, or list of dictionaries."
+                suggestion="Convert your input to a string, dictionary, or list of dictionaries.",
             )
 
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
@@ -1545,9 +1554,16 @@ class Memory(MemoryBase):
             for operator, value in condition.items():
                 # Map platform operators to universal format that can be translated by each vector store
                 operator_map = {
-                    "eq": "eq", "ne": "ne", "gt": "gt", "gte": "gte",
-                    "lt": "lt", "lte": "lte", "in": "in", "nin": "nin",
-                    "contains": "contains", "icontains": "icontains"
+                    "eq": "eq",
+                    "ne": "ne",
+                    "gt": "gt",
+                    "gte": "gte",
+                    "lt": "lt",
+                    "lte": "lte",
+                    "in": "in",
+                    "nin": "nin",
+                    "contains": "contains",
+                    "icontains": "icontains",
                 }
 
                 if operator in operator_map:
@@ -1601,16 +1617,16 @@ class Memory(MemoryBase):
     def _has_advanced_operators(self, filters: Dict[str, Any]) -> bool:
         """
         Check if filters contain advanced operators that need special processing.
-        
+
         Args:
             filters: Dictionary of filters to check
-            
+
         Returns:
             bool: True if advanced operators are detected
         """
         if not isinstance(filters, dict):
             return False
-            
+
         for key, value in filters.items():
             # Check for platform-style logical operators
             if key in ["AND", "OR", "NOT"]:
@@ -2159,6 +2175,198 @@ class Memory(MemoryBase):
             self.db.close()
             self.db = None
 
+    def export_memories(
+        self,
+        *,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        limit: int = 10000,
+    ) -> Dict[str, Any]:
+        """
+        Export memories to a portable JSON-compatible format.
+
+        Useful for backup, migration between vector store providers, or seeding
+        test environments.
+
+        Args:
+            user_id (str, optional): Filter by user ID. Defaults to None.
+            agent_id (str, optional): Filter by agent ID. Defaults to None.
+            run_id (str, optional): Filter by run ID. Defaults to None.
+            limit (int, optional): Maximum number of memories to export. Defaults to 10000.
+
+        Returns:
+            dict: Export payload with keys "version", "exported_at", "count", and "memories".
+        """
+        _, effective_filters = _build_filters_and_metadata(user_id=user_id, agent_id=agent_id, run_id=run_id)
+
+        if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
+            raise ValueError("At least one of 'user_id', 'agent_id', or 'run_id' must be specified.")
+
+        capture_event("mem0.export_memories", self, {"limit": limit, "sync_type": "sync"})
+
+        memories_result = self.vector_store.list(filters=effective_filters, limit=limit)
+
+        if isinstance(memories_result, (tuple, list)) and len(memories_result) > 0:
+            first_element = memories_result[0]
+            if isinstance(first_element, (list, tuple)):
+                actual_memories = first_element
+            else:
+                actual_memories = memories_result
+        else:
+            actual_memories = memories_result
+
+        exported = []
+        for mem in actual_memories:
+            entry = {
+                "id": mem.id,
+                "data": mem.payload.get("data", ""),
+                "hash": mem.payload.get("hash"),
+                "created_at": _normalize_iso_timestamp_to_utc(mem.payload.get("created_at")),
+                "updated_at": _normalize_iso_timestamp_to_utc(mem.payload.get("updated_at")),
+            }
+            for key in ("user_id", "agent_id", "run_id", "actor_id", "role"):
+                if key in mem.payload:
+                    entry[key] = mem.payload[key]
+            core_keys = {
+                "data",
+                "hash",
+                "created_at",
+                "updated_at",
+                "id",
+                "user_id",
+                "agent_id",
+                "run_id",
+                "actor_id",
+                "role",
+            }
+            extra = {k: v for k, v in mem.payload.items() if k not in core_keys}
+            if extra:
+                entry["metadata"] = extra
+            exported.append(entry)
+
+        return {
+            "version": self.api_version,
+            "exported_at": datetime.now(timezone.utc).isoformat(),
+            "count": len(exported),
+            "memories": exported,
+        }
+
+    def import_memories(
+        self,
+        memories: list,
+        *,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        preserve_ids: bool = False,
+        skip_duplicates: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        Import memories from a previously exported payload.
+
+        Re-embeds each memory using the current embedding model, then inserts
+        into the configured vector store. Optionally deduplicates by content hash.
+
+        Args:
+            memories (list): List of memory dicts, each with at least a "data" key.
+            user_id (str, optional): Override user ID for all imported memories.
+            agent_id (str, optional): Override agent ID for all imported memories.
+            run_id (str, optional): Override run ID for all imported memories.
+            preserve_ids (bool, optional): Keep original memory IDs. Defaults to False.
+            skip_duplicates (bool, optional): Skip memories whose content hash already
+                exists in the store. Defaults to True.
+
+        Returns:
+            dict: Summary with "imported", "skipped", and "errors" counts.
+        """
+        capture_event("mem0.import_memories", self, {"count": len(memories), "sync_type": "sync"})
+
+        existing_hashes = set()
+        if skip_duplicates:
+            scope_filters = {}
+            if user_id:
+                scope_filters["user_id"] = user_id
+            if agent_id:
+                scope_filters["agent_id"] = agent_id
+            if run_id:
+                scope_filters["run_id"] = run_id
+            if scope_filters:
+                existing = self.vector_store.list(filters=scope_filters, limit=10000)
+                if isinstance(existing, (tuple, list)) and len(existing) > 0:
+                    if isinstance(existing[0], (list, tuple)):
+                        existing = existing[0]
+                    for mem in existing:
+                        h = mem.payload.get("hash")
+                        if h:
+                            existing_hashes.add(h)
+
+        imported = 0
+        skipped = 0
+        errors = []
+
+        for entry in memories:
+            data = entry.get("data", "")
+            if not data:
+                errors.append({"id": entry.get("id", "unknown"), "error": "Empty data field"})
+                continue
+
+            content_hash = entry.get("hash") or hashlib.md5(data.encode()).hexdigest()
+            if skip_duplicates and content_hash in existing_hashes:
+                skipped += 1
+                continue
+
+            try:
+                memory_id = entry["id"] if preserve_ids and "id" in entry else str(uuid.uuid4())
+                embeddings = self.embedding_model.embed(data, memory_action="add")
+
+                metadata = {}
+                if user_id:
+                    metadata["user_id"] = user_id
+                elif "user_id" in entry:
+                    metadata["user_id"] = entry["user_id"]
+                if agent_id:
+                    metadata["agent_id"] = agent_id
+                elif "agent_id" in entry:
+                    metadata["agent_id"] = entry["agent_id"]
+                if run_id:
+                    metadata["run_id"] = run_id
+                elif "run_id" in entry:
+                    metadata["run_id"] = entry["run_id"]
+                for key in ("actor_id", "role"):
+                    if key in entry:
+                        metadata[key] = entry[key]
+                if "metadata" in entry and isinstance(entry["metadata"], dict):
+                    metadata.update(entry["metadata"])
+
+                metadata["data"] = data
+                metadata["hash"] = content_hash
+                metadata["created_at"] = entry.get("created_at") or datetime.now(timezone.utc).isoformat()
+                if entry.get("updated_at"):
+                    metadata["updated_at"] = entry["updated_at"]
+
+                self.vector_store.insert(
+                    vectors=[embeddings],
+                    ids=[memory_id],
+                    payloads=[metadata],
+                )
+                self.db.add_history(
+                    memory_id,
+                    None,
+                    data,
+                    "ADD",
+                    created_at=metadata.get("created_at"),
+                    actor_id=metadata.get("actor_id"),
+                    role=metadata.get("role"),
+                )
+
+                existing_hashes.add(content_hash)
+                imported += 1
+            except Exception as e:
+                errors.append({"id": entry.get("id", "unknown"), "error": str(e)})
+
+        return {"imported": imported, "skipped": skipped, "errors": errors}
+
     def chat(self, query):
         raise NotImplementedError("Chat function not implemented yet.")
 
@@ -2493,7 +2701,7 @@ class AsyncMemory(MemoryBase):
                 message="messages must be str, dict, or list[dict]",
                 error_code="VALIDATION_003",
                 details={"provided_type": type(messages).__name__, "valid_types": ["str", "dict", "list[dict]"]},
-                suggestion="Convert your input to a string, dictionary, or list of dictionaries."
+                suggestion="Convert your input to a string, dictionary, or list of dictionaries.",
             )
 
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
@@ -3156,9 +3364,7 @@ class AsyncMemory(MemoryBase):
         if rerank and self.reranker and original_memories:
             try:
                 # Run reranking in thread pool to avoid blocking async loop
-                reranked_memories = await asyncio.to_thread(
-                    self.reranker.rerank, query, original_memories, limit
-                )
+                reranked_memories = await asyncio.to_thread(self.reranker.rerank, query, original_memories, limit)
                 original_memories = reranked_memories
             except Exception as e:
                 logger.warning(f"Reranking failed, using original results: {e}")
@@ -3204,9 +3410,16 @@ class AsyncMemory(MemoryBase):
             for operator, value in condition.items():
                 # Map platform operators to universal format that can be translated by each vector store
                 operator_map = {
-                    "eq": "eq", "ne": "ne", "gt": "gt", "gte": "gte",
-                    "lt": "lt", "lte": "lte", "in": "in", "nin": "nin",
-                    "contains": "contains", "icontains": "icontains"
+                    "eq": "eq",
+                    "ne": "ne",
+                    "gt": "gt",
+                    "gte": "gte",
+                    "lt": "lt",
+                    "lte": "lte",
+                    "in": "in",
+                    "nin": "nin",
+                    "contains": "contains",
+                    "icontains": "icontains",
                 }
 
                 if operator in operator_map:
@@ -3701,7 +3914,7 @@ class AsyncMemory(MemoryBase):
             else:
                 procedural_memory = await asyncio.to_thread(self.llm.generate_response, messages=parsed_messages)
                 procedural_memory = remove_code_blocks(procedural_memory)
-        
+
         except Exception as e:
             logger.error(f"Error generating procedural memory summary: {e}")
             raise
@@ -3851,6 +4064,193 @@ class AsyncMemory(MemoryBase):
         if hasattr(self, "db") and self.db is not None:
             self.db.close()
             self.db = None
+
+    async def export_memories(
+        self,
+        *,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        limit: int = 10000,
+    ) -> Dict[str, Any]:
+        """
+        Export memories to a portable JSON-compatible format (async).
+
+        Args:
+            user_id (str, optional): Filter by user ID. Defaults to None.
+            agent_id (str, optional): Filter by agent ID. Defaults to None.
+            run_id (str, optional): Filter by run ID. Defaults to None.
+            limit (int, optional): Maximum number of memories to export. Defaults to 10000.
+
+        Returns:
+            dict: Export payload with keys "version", "exported_at", "count", and "memories".
+        """
+        _, effective_filters = _build_filters_and_metadata(user_id=user_id, agent_id=agent_id, run_id=run_id)
+
+        if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
+            raise ValueError("At least one of 'user_id', 'agent_id', or 'run_id' must be specified.")
+
+        capture_event("mem0.export_memories", self, {"limit": limit, "sync_type": "async"})
+
+        memories_result = await asyncio.to_thread(self.vector_store.list, filters=effective_filters, limit=limit)
+
+        if isinstance(memories_result, (tuple, list)) and len(memories_result) > 0:
+            first_element = memories_result[0]
+            if isinstance(first_element, (list, tuple)):
+                actual_memories = first_element
+            else:
+                actual_memories = memories_result
+        else:
+            actual_memories = memories_result
+
+        exported = []
+        for mem in actual_memories:
+            entry = {
+                "id": mem.id,
+                "data": mem.payload.get("data", ""),
+                "hash": mem.payload.get("hash"),
+                "created_at": _normalize_iso_timestamp_to_utc(mem.payload.get("created_at")),
+                "updated_at": _normalize_iso_timestamp_to_utc(mem.payload.get("updated_at")),
+            }
+            for key in ("user_id", "agent_id", "run_id", "actor_id", "role"):
+                if key in mem.payload:
+                    entry[key] = mem.payload[key]
+            core_keys = {
+                "data",
+                "hash",
+                "created_at",
+                "updated_at",
+                "id",
+                "user_id",
+                "agent_id",
+                "run_id",
+                "actor_id",
+                "role",
+            }
+            extra = {k: v for k, v in mem.payload.items() if k not in core_keys}
+            if extra:
+                entry["metadata"] = extra
+            exported.append(entry)
+
+        return {
+            "version": self.api_version,
+            "exported_at": datetime.now(timezone.utc).isoformat(),
+            "count": len(exported),
+            "memories": exported,
+        }
+
+    async def import_memories(
+        self,
+        memories: list,
+        *,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        preserve_ids: bool = False,
+        skip_duplicates: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        Import memories from a previously exported payload (async).
+
+        Args:
+            memories (list): List of memory dicts, each with at least a "data" key.
+            user_id (str, optional): Override user ID for all imported memories.
+            agent_id (str, optional): Override agent ID for all imported memories.
+            run_id (str, optional): Override run ID for all imported memories.
+            preserve_ids (bool, optional): Keep original memory IDs. Defaults to False.
+            skip_duplicates (bool, optional): Skip memories with duplicate content hashes. Defaults to True.
+
+        Returns:
+            dict: Summary with "imported", "skipped", and "errors" counts.
+        """
+        capture_event("mem0.import_memories", self, {"count": len(memories), "sync_type": "async"})
+
+        existing_hashes = set()
+        if skip_duplicates:
+            scope_filters = {}
+            if user_id:
+                scope_filters["user_id"] = user_id
+            if agent_id:
+                scope_filters["agent_id"] = agent_id
+            if run_id:
+                scope_filters["run_id"] = run_id
+            if scope_filters:
+                existing = await asyncio.to_thread(self.vector_store.list, filters=scope_filters, limit=10000)
+                if isinstance(existing, (tuple, list)) and len(existing) > 0:
+                    if isinstance(existing[0], (list, tuple)):
+                        existing = existing[0]
+                    for mem in existing:
+                        h = mem.payload.get("hash")
+                        if h:
+                            existing_hashes.add(h)
+
+        imported = 0
+        skipped = 0
+        errors = []
+
+        for entry in memories:
+            data = entry.get("data", "")
+            if not data:
+                errors.append({"id": entry.get("id", "unknown"), "error": "Empty data field"})
+                continue
+
+            content_hash = entry.get("hash") or hashlib.md5(data.encode()).hexdigest()
+            if skip_duplicates and content_hash in existing_hashes:
+                skipped += 1
+                continue
+
+            try:
+                memory_id = entry["id"] if preserve_ids and "id" in entry else str(uuid.uuid4())
+                embeddings = await asyncio.to_thread(self.embedding_model.embed, data, memory_action="add")
+
+                metadata = {}
+                if user_id:
+                    metadata["user_id"] = user_id
+                elif "user_id" in entry:
+                    metadata["user_id"] = entry["user_id"]
+                if agent_id:
+                    metadata["agent_id"] = agent_id
+                elif "agent_id" in entry:
+                    metadata["agent_id"] = entry["agent_id"]
+                if run_id:
+                    metadata["run_id"] = run_id
+                elif "run_id" in entry:
+                    metadata["run_id"] = entry["run_id"]
+                for key in ("actor_id", "role"):
+                    if key in entry:
+                        metadata[key] = entry[key]
+                if "metadata" in entry and isinstance(entry["metadata"], dict):
+                    metadata.update(entry["metadata"])
+
+                metadata["data"] = data
+                metadata["hash"] = content_hash
+                metadata["created_at"] = entry.get("created_at") or datetime.now(timezone.utc).isoformat()
+                if entry.get("updated_at"):
+                    metadata["updated_at"] = entry["updated_at"]
+
+                await asyncio.to_thread(
+                    self.vector_store.insert,
+                    vectors=[embeddings],
+                    ids=[memory_id],
+                    payloads=[metadata],
+                )
+                await asyncio.to_thread(
+                    self.db.add_history,
+                    memory_id,
+                    None,
+                    data,
+                    "ADD",
+                    created_at=metadata.get("created_at"),
+                    actor_id=metadata.get("actor_id"),
+                    role=metadata.get("role"),
+                )
+
+                existing_hashes.add(content_hash)
+                imported += 1
+            except Exception as e:
+                errors.append({"id": entry.get("id", "unknown"), "error": str(e)})
+
+        return {"imported": imported, "skipped": skipped, "errors": errors}
 
     async def chat(self, query):
         raise NotImplementedError("Chat function not implemented yet.")
