@@ -519,7 +519,7 @@ def test_ensure_source_table_uses_dynamic_names(mock_workspace_client):
     """Verify _ensure_source_table_exists uses self.fully_qualified_table_name and
     self.table_name for the PK constraint, not hardcoded values."""
     mock_workspace_client.tables.exists.return_value = SimpleNamespace(table_exists=False)
-    inst = Databricks(
+    Databricks(
         workspace_url="https://test",
         access_token="tok",
         endpoint_name="vs-endpoint",
@@ -834,7 +834,7 @@ def test_e2e_crud_lifecycle_direct_access(mock_workspace_client):
             data_array=[["mem-da-001", "h1", None, None, "u1", "direct memory", None, None, None, [0.1, 0.2, 0.3, 0.4]]]
         )
     )
-    listed = db.list(limit=5)
+    db.list(limit=5)
     list_kwargs = mock_workspace_client.vector_search_indexes.query_index.call_args.kwargs
     assert "query_vector" in list_kwargs
     assert "query_text" not in list_kwargs
