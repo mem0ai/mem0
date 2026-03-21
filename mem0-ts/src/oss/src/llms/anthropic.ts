@@ -11,7 +11,10 @@ export class AnthropicLLM implements LLM {
     if (!apiKey) {
       throw new Error("Anthropic API key is required");
     }
-    this.client = new Anthropic({ apiKey });
+    this.client = new Anthropic({
+      apiKey,
+      ...(config.baseURL ? { baseURL: config.baseURL } : {}),
+    });
     this.model = config.model || "claude-3-sonnet-20240229";
   }
 
@@ -39,9 +42,9 @@ export class AnthropicLLM implements LLM {
       max_tokens: 4096,
     });
 
-    const firstBlock = response.content[0];
-    if (firstBlock.type === "text") {
-      return firstBlock.text;
+    const textBlock = response.content.find((b) => b.type === "text");
+    if (textBlock) {
+      return textBlock.text;
     } else {
       throw new Error("Unexpected response type from Anthropic API");
     }
