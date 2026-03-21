@@ -378,8 +378,9 @@ class ValkeyDB(VectorStoreBase):
         """
         memory_results = []
         for doc in results.docs:
-            # Extract the score
-            score = float(doc.vector_score) if hasattr(doc, "vector_score") else None
+            # Valkey/Redis cosine distance (range [0, 2]): convert to similarity (higher = better)
+            raw = float(doc.vector_score) if hasattr(doc, "vector_score") else None
+            score = max(0.0, 1.0 - raw) if raw is not None else None
 
             # Create the payload
             payload = {
