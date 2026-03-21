@@ -541,5 +541,15 @@ class TestQdrantEnhancedFilters(unittest.TestCase):
             self.qdrant._build_field_condition("field", {"unknown_op": "foo"})
         self.assertIn("Unsupported", str(ctx.exception))
 
+    def test_mixed_range_and_non_range_raises_error(self):
+        """Mixing range ops with non-range ops should raise ValueError."""
+        with self.assertRaises(ValueError):
+            self.qdrant._build_field_condition("priority", {"gte": 5, "ne": 10})
+
+    def test_mixed_range_and_eq_raises_error(self):
+        """Mixing range ops with eq should raise ValueError."""
+        with self.assertRaises(ValueError):
+            self.qdrant._build_field_condition("score", {"gt": 0.5, "eq": 1.0})
+
     def tearDown(self):
         del self.qdrant

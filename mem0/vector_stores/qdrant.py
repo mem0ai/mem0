@@ -161,9 +161,15 @@ class Qdrant(VectorStoreBase):
 
         ops = set(value.keys())
         range_ops = {"gt", "gte", "lt", "lte"}
+        non_range_ops = ops - range_ops
 
         if ops & range_ops:
-            # Any combination of range operators: gt, gte, lt, lte
+            if non_range_ops:
+                raise ValueError(
+                    f"Cannot mix range operators ({ops & range_ops}) with "
+                    f"non-range operators ({non_range_ops}) for field '{key}'. "
+                    f"Use AND to combine them as separate conditions."
+                )
             range_kwargs = {op: value[op] for op in range_ops if op in value}
             return FieldCondition(key=key, range=Range(**range_kwargs))
         elif "eq" in value:
