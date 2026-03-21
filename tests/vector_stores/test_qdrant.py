@@ -757,6 +757,3 @@ class TestQdrantEnhancedFilters(unittest.TestCase):
         self.assertIsNotNone(result.must_not)
         # Deduplicated: NOT wins, $not is skipped — exactly 1 entry
         self.assertEqual(len(result.must_not), 1)
-
-    def tearDown(self):
-        del self.qdrant
