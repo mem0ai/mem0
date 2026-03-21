@@ -1,0 +1,172 @@
+{
+  "name": "Mem0 Upstream Cherry-Pick Sync",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "hours", "hoursInterval": 6 }]
+        }
+      },
+      "id": "trigger",
+      "name": "Every 6 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "command": "cd /home/luka/projects/mem0 && ./scripts/upstream-cherry-pick.sh --dry-run",
+        "timeout": 60
+      },
+      "id": "dry-run",
+      "name": "Dry Run Evaluation",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = JSON.parse($input.first().json.stdout);\n\nif (result.status === 'up_to_date' || result.approved === 0) {\n  return [{ json: { action: 'skip', reason: 'No new relevant commits', ...result } }];\n}\n\n// Split into clear approvals vs borderline for AI review\nconst candidates = result.candidates.filter(c => c.verdict === 'approve');\nconst borderline = result.candidates.filter(c => c.verdict === 'skip' && c.reason === 'no_relevant_files');\n\nreturn [{\n  json: {\n    action: 'review',\n    approved_count: candidates.length,\n    borderline_count: borderline.length,\n    upstream_head: result.upstream_head,\n    since: result.since,\n    candidates,\n    borderline\n  }\n}];"
+      },
+      "id": "parse-results",
+      "name": "Parse Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "has-candidates",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "review",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "id": "check-candidates",
+      "name": "Has Candidates?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [880, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.minimax.io/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.MINIMAX_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'MiniMax-M2.7', temperature: 0, max_tokens: 2000, messages: [ { role: 'system', content: 'You are a commit triage assistant for a private fork of the mem0 repository. Your job is to review cherry-pick candidates and confirm which ones should be applied.\\n\\nThe fork uses these components:\\n- mem0/ (core Python SDK) - ALWAYS relevant\\n- openmemory/ (self-hosted MCP server) - ALWAYS relevant\\n- server/ (REST API server) - relevant\\n- synaptic_memory/ (custom addition) - our code, upstream won\\'t have this\\n\\nFor each candidate, respond with APPROVE or SKIP and a brief reason.\\n\\nPrioritize:\\n- Bug fixes (especially in LLM connectors, vector stores, memory operations)\\n- Security fixes\\n- Feature additions to core SDK or openmemory\\n\\nSkip:\\n- Version bumps with no code changes\\n- Documentation-only changes\\n- CI/CD workflow changes\\n- Changes only to embedchain/ or openclaw/\\n- TypeScript SDK changes (unless they fix shared logic)' }, { role: 'user', content: 'Review these upstream commits for cherry-picking into our private fork:\\n\\nPre-approved by heuristics (' + $json.approved_count + '):\\n' + JSON.stringify($json.candidates, null, 2) + '\\n\\nBorderline - need your judgement (' + $json.borderline_count + '):\\n' + JSON.stringify($json.borderline, null, 2) + '\\n\\nRespond with a JSON array of {sha, verdict: \"approve\"|\"skip\", reason} for ALL commits listed above.' } ] }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "autodetect"
+            }
+          }
+        }
+      },
+      "id": "ai-review",
+      "name": "AI Commit Review (MiniMax)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1100, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json;\nconst aiResponse = body?.choices?.[0]?.message?.content || '{}';\n\n// Parse AI verdicts\nlet verdicts;\ntry {\n  // Extract JSON from response (may be wrapped in markdown)\n  const match = aiResponse.match(/\\[[\\s\\S]*\\]/);\n  verdicts = match ? JSON.parse(match[0]) : [];\n} catch (e) {\n  // If AI response isn't parseable, fall back to heuristic approvals only\n  verdicts = [];\n}\n\nconst previous = $('Parse Results').first().json;\nconst approved = new Set();\n\n// Heuristic approvals that AI confirmed or didn't override\nfor (const c of previous.candidates) {\n  const aiVerdict = verdicts.find(v => v.sha === c.sha);\n  if (!aiVerdict || aiVerdict.verdict === 'approve') {\n    approved.add(c.full_sha);\n  }\n}\n\n// Borderline that AI approved\nfor (const v of verdicts) {\n  if (v.verdict === 'approve') {\n    const borderline = previous.borderline.find(b => b.sha === v.sha);\n    if (borderline) approved.add(borderline.full_sha);\n  }\n}\n\nreturn [{\n  json: {\n    approved_shas: [...approved],\n    approved_count: approved.size,\n    upstream_head: previous.upstream_head,\n    since: previous.since,\n    verdicts\n  }\n}];"
+      },
+      "id": "build-pick-list",
+      "name": "Build Pick List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1320, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "has-approved",
+              "leftValue": "={{ $json.approved_count }}",
+              "rightValue": 0,
+              "operator": { "type": "number", "operation": "gt" }
+            }
+          ]
+        }
+      },
+      "id": "any-approved",
+      "name": "Any Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1540, 200]
+    },
+    {
+      "parameters": {
+        "command": "=cd /home/luka/projects/mem0 && ./scripts/upstream-cherry-pick.sh --auto --since {{ $json.since }}",
+        "timeout": 120
+      },
+      "id": "apply-picks",
+      "name": "Cherry-Pick & Push",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1760, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = JSON.parse($input.first().json.stdout);\nconst applied = result.apply_log?.filter(e => e.status === 'applied') || [];\nconst conflicts = result.apply_log?.filter(e => e.status === 'conflict') || [];\n\nlet summary = `Upstream sync: ${applied.length} applied, ${conflicts.length} conflicts\\n\\n`;\n\nif (applied.length > 0) {\n  summary += 'Applied:\\n';\n  for (const a of applied) summary += `  ${a.sha} ${a.msg}\\n`;\n}\n\nif (conflicts.length > 0) {\n  summary += '\\nConflicts (manual review needed):\\n';\n  for (const c of conflicts) summary += `  ${c.sha} ${c.msg}\\n`;\n}\n\nreturn [{ json: { summary, ...result } }];"
+      },
+      "id": "format-report",
+      "name": "Format Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1980, 200]
+    },
+    {
+      "parameters": {},
+      "id": "no-action",
+      "name": "No Action Needed",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1100, 420]
+    }
+  ],
+  "connections": {
+    "Every 6 Hours": { "main": [[{ "node": "Dry Run Evaluation", "type": "main", "index": 0 }]] },
+    "Dry Run Evaluation": { "main": [[{ "node": "Parse Results", "type": "main", "index": 0 }]] },
+    "Parse Results": { "main": [[{ "node": "Has Candidates?", "type": "main", "index": 0 }]] },
+    "Has Candidates?": {
+      "main": [
+        [{ "node": "AI Commit Review (MiniMax)", "type": "main", "index": 0 }],
+        [{ "node": "No Action Needed", "type": "main", "index": 0 }]
+      ]
+    },
+    "AI Commit Review (MiniMax)": { "main": [[{ "node": "Build Pick List", "type": "main", "index": 0 }]] },
+    "Build Pick List": { "main": [[{ "node": "Any Approved?", "type": "main", "index": 0 }]] },
+    "Any Approved?": {
+      "main": [
+        [{ "node": "Cherry-Pick & Push", "type": "main", "index": 0 }],
+        [{ "node": "No Action Needed", "type": "main", "index": 0 }]
+      ]
+    },
+    "Cherry-Pick & Push": { "main": [[{ "node": "Format Report", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "automation" }, { "name": "mem0" }]
+}
