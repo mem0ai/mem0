@@ -1,0 +1,10 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mem0-synaptic"
+version = "0.1.0"
+description = "Synaptic memory layer for mem0 (citation tracking, strength dynamics, PageRank)"
+requires-python = ">=3.9"
+dependencies = ["aiosqlite>=0.19.0"]
