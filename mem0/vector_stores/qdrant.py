@@ -162,6 +162,9 @@ class Qdrant(VectorStoreBase):
                 # Wildcard: match any value. Qdrant has no direct "field exists"
                 # condition via FieldCondition, so we skip this filter (match all).
                 return None
+            if isinstance(value, list):
+                # List shorthand: {"field": ["a", "b"]} treated as in-operator.
+                return FieldCondition(key=key, match=MatchAny(any=value))
             # Simple equality: {"field": "value"}
             return FieldCondition(key=key, match=MatchValue(value=value))
 
@@ -246,6 +249,12 @@ class Qdrant(VectorStoreBase):
                         f"{key} filter value must be a list of filter dicts, "
                         f"got {type(value).__name__}"
                     )
+                for i, item in enumerate(value):
+                    if not isinstance(item, dict):
+                        raise ValueError(
+                            f"{key} filter list item at index {i} must be a dict, "
+                            f"got {type(item).__name__}: {item!r}"
+                        )
 
             if key == "AND":
                 for sub in value:

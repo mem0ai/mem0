@@ -654,6 +654,32 @@ class TestQdrantEnhancedFilters(unittest.TestCase):
         # Only the user_id sub-filter remains
         self.assertEqual(len(result.must), 1)
 
+    def test_list_value_treated_as_match_any(self):
+        """List value shorthand should be treated as in-operator (MatchAny)."""
+        cond = self.qdrant._build_field_condition("tags", ["a", "b", "c"])
+        self.assertIsInstance(cond.match, MatchAny)
+        self.assertEqual(cond.match.any, ["a", "b", "c"])
+
+    def test_list_value_in_create_filter(self):
+        """List value shorthand should work through _create_filter too."""
+        result = self.qdrant._create_filter({"tags": ["python", "rust"]})
+        self.assertIsInstance(result, Filter)
+        self.assertEqual(len(result.must), 1)
+        self.assertIsInstance(result.must[0].match, MatchAny)
+
+    def test_non_dict_item_in_and_raises_error(self):
+        """Non-dict item inside AND list should raise clear ValueError."""
+        with self.assertRaises(ValueError) as ctx:
+            self.qdrant._create_filter({"AND": ["not_a_dict", {"field": "val"}]})
+        self.assertIn("index 0", str(ctx.exception))
+        self.assertIn("must be a dict", str(ctx.exception))
+
+    def test_non_dict_item_in_or_raises_error(self):
+        """Non-dict item inside OR list should raise clear ValueError."""
+        with self.assertRaises(ValueError) as ctx:
+            self.qdrant._create_filter({"OR": [{"field": "val"}, 42]})
+        self.assertIn("index 1", str(ctx.exception))
+
     def test_empty_dict_value_raises_error(self):
         """Empty dict as filter value should raise ValueError."""
         with self.assertRaises(ValueError):
