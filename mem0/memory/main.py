@@ -276,6 +276,7 @@ class Memory(MemoryBase):
             self.enable_graph = True
         else:
             self.graph = None
+        self._sync_executor = None
         if MEM0_TELEMETRY:
             # Create telemetry config manually to avoid deepcopy issues with thread locks
             telemetry_config_dict = {}
@@ -350,6 +351,26 @@ class Memory(MemoryBase):
         # Use agent memory extraction if agent_id is present and there are assistant messages
         return has_agent_id and has_assistant_messages
 
+    def _get_sync_executor(self):
+        if self._sync_executor is None:
+            self._sync_executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
+        return self._sync_executor
+
+    def _shutdown_sync_executor(self):
+        executor = getattr(self, "_sync_executor", None)
+        self._sync_executor = None
+        if executor is not None:
+            executor.shutdown(wait=True)
+
+    def _get_qdrant_local_status(self) -> Optional[bool]:
+        if self.config.vector_store.provider != "qdrant":
+            return None
+
+        is_local = getattr(self.vector_store, "is_local", None)
+        if isinstance(is_local, bool):
+            return is_local
+        return None
+
     def _should_run_vector_store_on_caller_thread(self) -> bool:
         """Return True when sync vector-store work should avoid worker threads.
 
@@ -359,29 +380,35 @@ class Memory(MemoryBase):
         if not self.enable_graph:
             return True
 
-        if self.config.vector_store.provider != "qdrant":
+        qdrant_local_status = self._get_qdrant_local_status()
+        if qdrant_local_status is None:
+            if self.config.vector_store.provider == "qdrant":
+                logger.warning(
+                    "Qdrant local status is unavailable. "
+                    "Running sync vector-store work on the caller thread for safety."
+                )
+                return True
             return False
 
-        return bool(getattr(self.vector_store, "is_local", False))
+        return qdrant_local_status
 
     def _run_sync_vector_and_graph(self, vector_store_call, graph_call=None):
         """Run sync vector-store work with optional graph work using safe dispatch."""
         if graph_call is None:
             return vector_store_call(), None
 
+        executor = self._get_sync_executor()
         if self._should_run_vector_store_on_caller_thread():
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                future_graph = executor.submit(graph_call)
-                vector_result = vector_store_call()
-                graph_result = future_graph.result()
+            future_graph = executor.submit(graph_call)
+            vector_result = vector_store_call()
+            graph_result = future_graph.result()
             return vector_result, graph_result
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-            future_vector = executor.submit(vector_store_call)
-            future_graph = executor.submit(graph_call)
-            concurrent.futures.wait([future_vector, future_graph])
-            vector_result = future_vector.result()
-            graph_result = future_graph.result()
+        future_vector = executor.submit(vector_store_call)
+        future_graph = executor.submit(graph_call)
+        concurrent.futures.wait([future_vector, future_graph])
+        vector_result = future_vector.result()
+        graph_result = future_graph.result()
         return vector_result, graph_result
 
     def add(
@@ -472,13 +499,17 @@ class Memory(MemoryBase):
         else:
             messages = parse_vision_messages(messages)
 
+        vector_filters = deepcopy(effective_filters)
+
         def vector_store_call():
-            return self._add_to_vector_store(messages, processed_metadata, effective_filters, infer)
+            return self._add_to_vector_store(messages, processed_metadata, vector_filters, infer)
 
         graph_call = None
         if self.enable_graph:
+            graph_filters = deepcopy(effective_filters)
+
             def graph_call():
-                return self._add_to_graph(messages, deepcopy(effective_filters))
+                return self._add_to_graph(messages, graph_filters)
 
         vector_store_result, graph_result = self._run_sync_vector_and_graph(vector_store_call, graph_call)
 
@@ -804,13 +835,17 @@ class Memory(MemoryBase):
             "mem0.get_all", self, {"limit": limit, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"}
         )
 
+        vector_filters = deepcopy(effective_filters)
+
         def vector_store_call():
-            return self._get_all_from_vector_store(effective_filters, limit)
+            return self._get_all_from_vector_store(vector_filters, limit)
 
         graph_call = None
         if self.enable_graph:
+            graph_filters = deepcopy(effective_filters)
+
             def graph_call():
-                return self.graph.get_all(deepcopy(effective_filters), limit)
+                return self.graph.get_all(graph_filters, limit)
 
         all_memories_result, graph_entities_result = self._run_sync_vector_and_graph(
             vector_store_call, graph_call
@@ -942,13 +977,17 @@ class Memory(MemoryBase):
             },
         )
 
+        vector_filters = deepcopy(effective_filters)
+
         def vector_store_call():
-            return self._search_vector_store(query, effective_filters, limit, threshold)
+            return self._search_vector_store(query, vector_filters, limit, threshold)
 
         graph_call = None
         if self.enable_graph:
+            graph_filters = deepcopy(effective_filters)
+
             def graph_call():
-                return self.graph.search(query, deepcopy(effective_filters), limit)
+                return self.graph.search(query, graph_filters, limit)
 
         original_memories, graph_entities = self._run_sync_vector_and_graph(vector_store_call, graph_call)
 
@@ -1318,6 +1357,12 @@ class Memory(MemoryBase):
         )
         return memory_id
 
+    def __del__(self):
+        try:
+            self._shutdown_sync_executor()
+        except Exception:
+            pass
+
     def reset(self):
         """
         Reset the memory store by:
@@ -1326,6 +1371,7 @@ class Memory(MemoryBase):
             Recreates the vector store with a new client
         """
         logger.warning("Resetting all memories")
+        self._shutdown_sync_executor()
 
         if hasattr(self.db, "connection") and self.db.connection:
             self.db.connection.execute("DROP TABLE IF EXISTS history")

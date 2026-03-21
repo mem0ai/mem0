@@ -1,6 +1,6 @@
 import unittest
 import uuid
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
@@ -24,6 +24,52 @@ class TestQdrant(unittest.TestCase):
             path="test_path",
             on_disk=True,
         )
+
+    def test_is_local_false_when_client_is_provided(self):
+        self.assertFalse(self.qdrant.is_local)
+
+    def test_is_local_true_for_path_initialization(self):
+        client = MagicMock(spec=QdrantClient)
+        client.get_collections.return_value = MagicMock(collections=[])
+
+        with patch("mem0.vector_stores.qdrant.QdrantClient", return_value=client):
+            qdrant = Qdrant(
+                collection_name="test_collection",
+                embedding_model_dims=128,
+                path="test_path",
+                on_disk=True,
+            )
+
+        self.assertTrue(qdrant.is_local)
+
+    def test_is_local_false_for_remote_url_initialization(self):
+        client = MagicMock(spec=QdrantClient)
+        client.get_collections.return_value = MagicMock(collections=[])
+
+        with patch("mem0.vector_stores.qdrant.QdrantClient", return_value=client):
+            qdrant = Qdrant(
+                collection_name="test_collection",
+                embedding_model_dims=128,
+                url="http://localhost:6333",
+                on_disk=True,
+            )
+
+        self.assertFalse(qdrant.is_local)
+
+    def test_is_local_false_for_remote_host_port_initialization(self):
+        client = MagicMock(spec=QdrantClient)
+        client.get_collections.return_value = MagicMock(collections=[])
+
+        with patch("mem0.vector_stores.qdrant.QdrantClient", return_value=client):
+            qdrant = Qdrant(
+                collection_name="test_collection",
+                embedding_model_dims=128,
+                host="localhost",
+                port=6333,
+                on_disk=True,
+            )
+
+        self.assertFalse(qdrant.is_local)
 
     def test_create_col(self):
         self.client_mock.get_collections.return_value = MagicMock(collections=[])
