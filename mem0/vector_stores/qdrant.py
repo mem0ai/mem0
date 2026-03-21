@@ -180,8 +180,11 @@ class Qdrant(VectorStoreBase):
             text = value.get("contains") or value.get("icontains")
             return FieldCondition(key=key, match=MatchText(text=text))
         else:
-            # Unknown operator — fall back to equality
-            return FieldCondition(key=key, match=MatchValue(value=value))
+            supported = {"eq", "ne", "gt", "gte", "lt", "lte", "in", "nin", "contains", "icontains"}
+            raise ValueError(
+                f"Unsupported filter operator(s) for field '{key}': {ops}. "
+                f"Supported operators: {supported}"
+            )
 
     def _create_filter(self, filters: dict) -> Filter:
         """

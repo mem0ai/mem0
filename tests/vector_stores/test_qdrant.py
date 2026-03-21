@@ -535,5 +535,11 @@ class TestQdrantEnhancedFilters(unittest.TestCase):
         self.assertEqual(result.must[0].range.gte, 5)
         self.assertEqual(result.must[0].range.lte, 10)
 
+    def test_unknown_operator_raises_error(self):
+        """Unknown operator dict should raise ValueError, not ValidationError."""
+        with self.assertRaises(ValueError) as ctx:
+            self.qdrant._build_field_condition("field", {"unknown_op": "foo"})
+        self.assertIn("Unsupported", str(ctx.exception))
+
     def tearDown(self):
         del self.qdrant
