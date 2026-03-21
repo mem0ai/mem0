@@ -572,13 +572,18 @@ def test_add_runs_vector_store_on_worker_thread_for_graph_enabled_remote_qdrant(
         seen["vector_thread_id"] = threading.get_ident()
         return []
 
+    def graph_side_effect(*_args, **_kwargs):
+        seen["graph_thread_id"] = threading.get_ident()
+        return []
+
     memory._add_to_vector_store = MagicMock(side_effect=vector_side_effect)
-    memory._add_to_graph = MagicMock(return_value=[])
+    memory._add_to_graph = MagicMock(side_effect=graph_side_effect)
 
     result = memory.add(messages=[{"role": "user", "content": "hello"}], user_id="test-user", infer=False)
 
     assert result == {"results": [], "relations": []}
     assert seen["vector_thread_id"] != caller_thread_id
+    assert seen["graph_thread_id"] != caller_thread_id
     memory._shutdown_sync_executor()
 
 
@@ -701,7 +706,32 @@ def test_reset_with_no_cached_executor_is_noop_for_shutdown(
 @patch("mem0.utils.factory.VectorStoreFactory.create")
 @patch("mem0.utils.factory.LlmFactory.create")
 @patch("mem0.memory.storage.SQLiteManager")
-def test_del_swallows_sync_executor_shutdown_errors(
+def test_context_manager_closes_sync_executor_on_exit(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+
+    fake_executor = MagicMock()
+    with patch("mem0.memory.main.concurrent.futures.ThreadPoolExecutor", return_value=fake_executor):
+        with MemoryClass(MemoryConfig()) as memory:
+            executor = memory._get_sync_executor()
+            assert executor is fake_executor
+            assert memory._sync_executor is fake_executor
+
+        fake_executor.shutdown.assert_called_once_with(wait=True)
+        assert memory._sync_executor is None
+
+
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_del_swallows_close_errors(
     mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
 ):
     mock_embedder_factory.return_value = MagicMock()
@@ -712,11 +742,11 @@ def test_del_swallows_sync_executor_shutdown_errors(
     from mem0.memory.main import Memory as MemoryClass
 
     memory = MemoryClass(MemoryConfig())
-    memory._shutdown_sync_executor = MagicMock(side_effect=RuntimeError("boom"))
+    memory.close = MagicMock(side_effect=RuntimeError("boom"))
 
     memory.__del__()
 
-    memory._shutdown_sync_executor.assert_called_once()
+    memory.close.assert_called_once()
 
 
 @patch("mem0.utils.factory.EmbedderFactory.create")

@@ -362,6 +362,16 @@ class Memory(MemoryBase):
         if executor is not None:
             executor.shutdown(wait=True)
 
+    def close(self):
+        self._shutdown_sync_executor()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+        return False
+
     def _get_qdrant_local_status(self) -> Optional[bool]:
         if self.config.vector_store.provider != "qdrant":
             return None
@@ -392,20 +402,20 @@ class Memory(MemoryBase):
 
         return qdrant_local_status
 
-    def _run_sync_vector_and_graph(self, vector_store_call, graph_call=None):
+    def _run_sync_vector_and_graph(self, vector_fn, graph_fn=None):
         """Run sync vector-store work with optional graph work using safe dispatch."""
-        if graph_call is None:
-            return vector_store_call(), None
+        if graph_fn is None:
+            return vector_fn(), None
 
         executor = self._get_sync_executor()
         if self._should_run_vector_store_on_caller_thread():
-            future_graph = executor.submit(graph_call)
-            vector_result = vector_store_call()
+            future_graph = executor.submit(graph_fn)
+            vector_result = vector_fn()
             graph_result = future_graph.result()
             return vector_result, graph_result
 
-        future_vector = executor.submit(vector_store_call)
-        future_graph = executor.submit(graph_call)
+        future_vector = executor.submit(vector_fn)
+        future_graph = executor.submit(graph_fn)
         concurrent.futures.wait([future_vector, future_graph])
         vector_result = future_vector.result()
         graph_result = future_graph.result()
@@ -504,14 +514,14 @@ class Memory(MemoryBase):
         def vector_store_call():
             return self._add_to_vector_store(messages, processed_metadata, vector_filters, infer)
 
-        graph_call = None
+        graph_fn = None
         if self.enable_graph:
             graph_filters = deepcopy(effective_filters)
 
-            def graph_call():
+            def graph_fn():
                 return self._add_to_graph(messages, graph_filters)
 
-        vector_store_result, graph_result = self._run_sync_vector_and_graph(vector_store_call, graph_call)
+        vector_store_result, graph_result = self._run_sync_vector_and_graph(vector_store_call, graph_fn)
 
         if self.enable_graph:
             return {
@@ -840,15 +850,15 @@ class Memory(MemoryBase):
         def vector_store_call():
             return self._get_all_from_vector_store(vector_filters, limit)
 
-        graph_call = None
+        graph_fn = None
         if self.enable_graph:
             graph_filters = deepcopy(effective_filters)
 
-            def graph_call():
+            def graph_fn():
                 return self.graph.get_all(graph_filters, limit)
 
         all_memories_result, graph_entities_result = self._run_sync_vector_and_graph(
-            vector_store_call, graph_call
+            vector_store_call, graph_fn
         )
 
         if self.enable_graph:
@@ -982,14 +992,14 @@ class Memory(MemoryBase):
         def vector_store_call():
             return self._search_vector_store(query, vector_filters, limit, threshold)
 
-        graph_call = None
+        graph_fn = None
         if self.enable_graph:
             graph_filters = deepcopy(effective_filters)
 
-            def graph_call():
+            def graph_fn():
                 return self.graph.search(query, graph_filters, limit)
 
-        original_memories, graph_entities = self._run_sync_vector_and_graph(vector_store_call, graph_call)
+        original_memories, graph_entities = self._run_sync_vector_and_graph(vector_store_call, graph_fn)
 
         # Apply reranking if enabled and reranker is available
         if rerank and self.reranker and original_memories:
@@ -1359,7 +1369,7 @@ class Memory(MemoryBase):
 
     def __del__(self):
         try:
-            self._shutdown_sync_executor()
+            self.close()
         except Exception:
             pass
 
@@ -1371,7 +1381,7 @@ class Memory(MemoryBase):
             Recreates the vector store with a new client
         """
         logger.warning("Resetting all memories")
-        self._shutdown_sync_executor()
+        self.close()
 
         if hasattr(self.db, "connection") and self.db.connection:
             self.db.connection.execute("DROP TABLE IF EXISTS history")
