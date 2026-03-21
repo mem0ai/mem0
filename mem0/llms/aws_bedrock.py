@@ -228,6 +228,12 @@ class AWSBedrockLLM(LLMBase):
 
         return "\n\nHuman: " + "".join(formatted_messages) + "\n\nAssistant:"
 
+    def _merge_optional_top_p(self, target: Dict[str, Any], *, key: str = "top_p") -> None:
+        """Add nucleus sampling to ``target`` only when ``model_config`` has ``top_p`` set."""
+        top_p = self.model_config.get("top_p")
+        if top_p is not None:
+            target[key] = top_p
+
     def _prepare_input(self, prompt: str) -> Dict[str, Any]:
         """
         Prepare input for the current provider's model.
@@ -269,16 +275,14 @@ class AWSBedrockLLM(LLMBase):
                     "max_tokens": self.model_config.get("max_tokens", 5000),
                     "temperature": self.model_config.get("temperature", 0.1),
                 }
-                if self.model_config.get("top_p") is not None:
-                    input_body["top_p"] = self.model_config["top_p"]
+                self._merge_optional_top_p(input_body)
             else:
                 # Legacy Amazon models
                 text_gen_config: Dict[str, Any] = {
                     "maxTokenCount": self.model_config.get("max_tokens", 5000),
                     "temperature": self.model_config.get("temperature", 0.1),
                 }
-                if self.model_config.get("top_p") is not None:
-                    text_gen_config["topP"] = self.model_config["top_p"]
+                self._merge_optional_top_p(text_gen_config, key="topP")
                 input_body = {"inputText": prompt, "textGenerationConfig": text_gen_config}
         elif self.provider == "anthropic":
             input_body = {
@@ -287,24 +291,21 @@ class AWSBedrockLLM(LLMBase):
                 "temperature": self.model_config.get("temperature", 0.1),
                 "anthropic_version": "bedrock-2023-05-31",
             }
-            if self.model_config.get("top_p") is not None:
-                input_body["top_p"] = self.model_config["top_p"]
+            self._merge_optional_top_p(input_body)
         elif self.provider == "meta":
             input_body = {
                 "prompt": prompt,
                 "max_gen_len": self.model_config.get("max_tokens", 5000),
                 "temperature": self.model_config.get("temperature", 0.1),
             }
-            if self.model_config.get("top_p") is not None:
-                input_body["top_p"] = self.model_config["top_p"]
+            self._merge_optional_top_p(input_body)
         elif self.provider == "mistral":
             input_body = {
                 "prompt": prompt,
                 "max_tokens": self.model_config.get("max_tokens", 5000),
                 "temperature": self.model_config.get("temperature", 0.1),
             }
-            if self.model_config.get("top_p") is not None:
-                input_body["top_p"] = self.model_config["top_p"]
+            self._merge_optional_top_p(input_body)
         else:
             # Generic case - add all model config parameters
             input_body.update(self.model_config)
