@@ -9,28 +9,31 @@ See: https://github.com/mem0ai/mem0/issues/4187
 
 from unittest.mock import Mock, patch
 
+# Mock optional deps at module level so the import works across all Python
+# versions without triggering transitive C-extension reloads (numpy via
+# qdrant_client). This matches the pattern in test_memgraph_memory.py.
+_neo4j_mock = Mock()
+patch.dict("sys.modules", {
+    "langchain_neo4j": _neo4j_mock,
+    "rank_bm25": Mock(),
+}).start()
+
+from mem0.memory.graph_memory import MemoryGraph  # noqa: E402
+
 
 def _create_graph_memory():
     """Create a MemoryGraph instance with mocked dependencies."""
-    mock_modules = {
-        "langchain_neo4j": Mock(),
-        "rank_bm25": Mock(),
-    }
-    with patch.dict("sys.modules", mock_modules):
-        from mem0.memory.graph_memory import MemoryGraph
-
-        with patch.object(MemoryGraph, "__init__", lambda self, *a, **kw: None):
-            mg = MemoryGraph.__new__(MemoryGraph)
-            mg.graph = Mock()
-            mg.graph.query = Mock(return_value=[])
-            mg.embedding_model = Mock()
-            mg.embedding_model.embed = Mock(return_value=[0.1] * 128)
-            mg.llm = Mock()
-            mg.node_label = ":Entity"
-            mg.threshold = 0.7
-            mg.llm_provider = "openai"
-
-        return mg
+    with patch.object(MemoryGraph, "__init__", lambda self, *a, **kw: None):
+        mg = MemoryGraph.__new__(MemoryGraph)
+        mg.graph = Mock()
+        mg.graph.query = Mock(return_value=[])
+        mg.embedding_model = Mock()
+        mg.embedding_model.embed = Mock(return_value=[0.1] * 128)
+        mg.llm = Mock()
+        mg.node_label = ":Entity"
+        mg.threshold = 0.7
+        mg.llm_provider = "openai"
+    return mg
 
 
 class TestSoftDelete:
