@@ -187,8 +187,10 @@ class Qdrant(VectorStoreBase):
         elif "nin" in value:
             return FieldCondition(key=key, match=MatchExcept(**{"except": value["nin"]}))
         elif "contains" in value or "icontains" in value:
-            # MatchText performs case-insensitive substring search on full-text indexed fields.
-            # Note: icontains behaves identically to contains for Qdrant keyword payloads.
+            # MatchText: with a full-text index, tokenized matching (all words must appear).
+            # Without a full-text index, exact substring match.
+            # Note: icontains maps to the same MatchText — case sensitivity depends on
+            # the full-text index tokenizer configuration, not on this operator name.
             text = value.get("contains") or value.get("icontains")
             return FieldCondition(key=key, match=MatchText(text=text))
         else:
@@ -220,6 +222,13 @@ class Qdrant(VectorStoreBase):
         must_not = []
 
         for key, value in filters.items():
+            if key in ("AND", "OR", "NOT"):
+                if not isinstance(value, list):
+                    raise ValueError(
+                        f"{key} filter value must be a list of filter dicts, "
+                        f"got {type(value).__name__}"
+                    )
+
             if key == "AND":
                 for sub in value:
                     built = self._create_filter(sub)

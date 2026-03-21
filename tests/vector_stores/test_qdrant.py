@@ -568,5 +568,20 @@ class TestQdrantEnhancedFilters(unittest.TestCase):
         result = self.qdrant._create_filter({"category": "*"})
         self.assertIsNone(result)
 
+    def test_and_with_non_list_raises_error(self):
+        """AND with non-list value should raise ValueError."""
+        with self.assertRaises(ValueError):
+            self.qdrant._create_filter({"AND": "not_a_list"})
+
+    def test_or_with_non_list_raises_error(self):
+        """OR with non-list value should raise ValueError."""
+        with self.assertRaises(ValueError):
+            self.qdrant._create_filter({"OR": {"category": "work"}})
+
+    def test_not_with_non_list_raises_error(self):
+        """NOT with non-list value should raise ValueError."""
+        with self.assertRaises(ValueError):
+            self.qdrant._create_filter({"NOT": "invalid"})
+
     def tearDown(self):
         del self.qdrant
