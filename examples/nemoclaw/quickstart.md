@@ -2,6 +2,8 @@
 
 Add persistent long-term memory to your [NemoClaw](https://docs.nvidia.com/nemoclaw/latest/get-started/quickstart.html) OpenClaw agent using the `@mem0/openclaw-mem0` plugin.
 
+> **Note:** This plugin requires **Mem0 Platform mode** (i.e., a Mem0 API key from [app.mem0.ai](https://app.mem0.ai)). Open-source mode is not supported in NemoClaw sandboxes because the sandbox proxy blocks `/v1/embeddings` requests required by the open-source backend. See [Known Limitations](#known-limitations) for details.
+
 ## Prerequisites
 
 | Resource | Recommended | Minimum |
