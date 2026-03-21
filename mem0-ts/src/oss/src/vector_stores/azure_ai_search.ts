@@ -81,6 +81,7 @@ export class AzureAISearch implements VectorStore {
   private readonly hybridSearch: boolean;
   private readonly vectorFilterMode: string;
   private readonly apiKey: string | undefined;
+  private _initPromise?: Promise<void>;
 
   constructor(config: AzureAISearchConfig) {
     this.serviceName = config.serviceName;
@@ -117,6 +118,13 @@ export class AzureAISearch implements VectorStore {
    * Initialize the Azure AI Search index if it doesn't exist
    */
   async initialize(): Promise<void> {
+    if (!this._initPromise) {
+      this._initPromise = this._doInitialize();
+    }
+    return this._initPromise;
+  }
+
+  private async _doInitialize(): Promise<void> {
     try {
       const collections = await this.listCols();
       if (!collections.includes(this.indexName)) {

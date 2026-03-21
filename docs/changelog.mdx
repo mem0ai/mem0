@@ -1,11 +1,50 @@
 ---
 title: "Product Updates"
+description: "Latest releases, bug fixes, and improvements for the Mem0 Python and TypeScript SDKs."
 mode: "wide"
 ---
 
  
 <Tabs>
 <Tab title="Python">
+
+<Update label="2026-03-19" description="v1.0.7">
+
+**Bug Fixes:**
+- **Core:** Fixed control characters in LLM JSON responses causing parse failures (#4420)
+- **Core:** Replaced hardcoded US/Pacific timezone references with `timezone.utc` (#4404)
+- **Core:** Preserved `http_auth` in `_safe_deepcopy_config` for OpenSearch (#4418)
+- **Core:** Normalized malformed LLM fact output before embedding (#4224)
+- **Embeddings:** Pass `encoding_format='float'` in OpenAI embeddings for proxy compatibility (#4058)
+- **LLMs:** Fixed Ollama to pass tools to `client.chat` and parse `tool_calls` from response (#4176)
+- **Reranker:** Support nested LLM config in `LLMReranker` for non-OpenAI providers (#4405)
+- **Vector Stores:** Cast `vector_distance` to float in Redis search (#4377)
+
+**Improvements:**
+- **Embeddings:** Improved Ollama embedder with model name normalization and error handling (#4403)
+
+</Update>
+
+<Update label="2026-03-16" description="v1.0.6">
+
+**Bug Fixes:**
+- **Telemetry:** Fixed telemetry vector store initialization still running when `MEM0_TELEMETRY` is disabled (#4351)
+- **Core:** Removed destructive `vector_store.reset()` call from `delete_all()` that was wiping the entire vector store instead of deleting only the target memories (#4349)
+- **OSS:** `OllamaLLM` now respects the configured URL instead of always falling back to localhost (#4320)
+- **Core:** Fixed `KeyError` when LLM omits the `entities` key in tool call response (#4313)
+- **Prompts:** Ensured JSON instruction is included in prompts when using `json_object` response format (#4271)
+- **Core:** Fixed incorrect database parameter handling (#3913)
+
+**Dependencies:**
+- Updated LangChain dependencies to v1.0.0 (#4353)
+- Bumped protobuf dependency to 5.29.6 and extended upper bound to `<7.0.0` (#4326)
+
+</Update>
+
+<Update label="2026-03-03" description="v1.0.5">
+- **Telemetry Fix**
+  - Fixed an issue where the PostHog client was initialized even after telemetry was disabled. Although events were not captured, the client was unnecessarily initialized.
+</Update>
 
 <Update label="2026-02-17" description="v1.0.4">
 
@@ -723,6 +762,60 @@ mode: "wide"
 </Tab>
 
 <Tab title="TypeScript">
+
+<Update label="2026-03-19" description="v2.4.2">
+
+**Bug Fixes:**
+- **Client:** Fixed webhook `createWebhook` and `updateWebhook` API serialization
+- **Client:** Added missing `MEMORY_CATEGORIZED` event type to `WebhookEvent` enum
+- **Types:** Added `WebhookCreatePayload` and `WebhookUpdatePayload` for better type safety
+
+**Tests:**
+- Added end-to-end unit test coverage for the platform client — CRUD, batch, search, webhooks, users, project, and initialization (#4357)
+- Added real API integration tests for memory CRUD, batch operations, search, user management, project configuration, and webhook lifecycle (#4395)
+- Deleted obsolete e2e test files replaced by the new structured test suite (#4419)
+
+</Update>
+
+<Update label="2026-03-16" description="v2.4.1">
+
+**Bug Fixes:**
+- **Core:** Fixed code block content extraction — content inside code blocks is now properly extracted instead of being deleted (#4317)
+
+**Improvements:**
+- **Code Quality:** Fixed linting issues across the SDK (#4334)
+
+</Update>
+
+<Update label="2026-03-14" description="v2.4.0">
+
+**Bug Fixes:**
+- **OSS Storage:** Fixed `SQLITE_CANTOPEN` errors when running as a LaunchAgent, systemd service, or in containers where `process.cwd()` is read-only (e.g. `/`). Default `vector_store.db` location changed from `process.cwd()/vector_store.db` to `~/.mem0/vector_store.db`.
+- **OSS Storage:** Fixed `historyDbPath` config being silently ignored — config merging always overwrote it with defaults. Top-level `historyDbPath` is now correctly propagated into `historyStore.config` with proper precedence.
+- **OSS Storage:** Added `ensureSQLiteDirectory()` — parent directories for SQLite database files are now auto-created before opening, preventing `SQLITE_CANTOPEN` when using nested paths.
+
+**Improvements:**
+- **Migration:** Added deprecation warning when an existing `vector_store.db` is found at the old `process.cwd()` location, guiding users to move it or set `vectorStore.config.dbPath` explicitly.
+- **Config:** Limited default SQLite config spreading to only SQLite history providers, preventing config leaking into Supabase or other providers.
+
+</Update>
+
+<Update label="2026-03-09" description="v2.3.0">
+
+**Breaking Changes:**
+- **Dependencies:** Minimum Node.js version for OSS sqlite features is now Node 20+ (due to `better-sqlite3` v12)
+
+**Bug Fixes:**
+- **OSS Storage:** Replaced `sqlite3` with `better-sqlite3` to fix native binding resolution failures under jiti-based loaders (e.g. OpenClaw plugin system). Fixes issues where the `bindings` module walked V8 stack frames with synthetic filenames, failing to locate the native `.node` addon.
+- **OSS Storage:** Fixed async init race condition in `SQLiteManager` — `init()` is now synchronous
+- **OSS Vector Store:** Migrated `MemoryVectorStore` from `sqlite3` to `better-sqlite3` with transactional batch inserts
+
+**Improvements:**
+- **Performance:** Cached prepared statements in `SQLiteManager` for faster history operations
+- **Performance:** Batch `insert()` in `MemoryVectorStore` wrapped in a transaction for atomicity
+- **Build:** Updated `tsup.config.ts` externals from `sqlite3` to `better-sqlite3`
+
+</Update>
 
 <Update label="2026-02-17" description="v2.2.3">
 
