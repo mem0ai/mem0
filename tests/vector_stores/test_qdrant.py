@@ -583,5 +583,92 @@ class TestQdrantEnhancedFilters(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.qdrant._create_filter({"NOT": "invalid"})
 
+    def test_empty_and_list(self):
+        """AND with empty list should return None."""
+        result = self.qdrant._create_filter({"AND": []})
+        self.assertIsNone(result)
+
+    def test_empty_or_list(self):
+        """OR with empty list should return None."""
+        result = self.qdrant._create_filter({"OR": []})
+        self.assertIsNone(result)
+
+    def test_empty_not_list(self):
+        """NOT with empty list should return None."""
+        result = self.qdrant._create_filter({"NOT": []})
+        self.assertIsNone(result)
+
+    def test_deeply_nested_logical(self):
+        """3-level nesting: AND > OR > NOT."""
+        filters = {
+            "AND": [
+                {
+                    "OR": [
+                        {"category": "work"},
+                        {"category": "personal"}
+                    ]
+                },
+                {"priority": {"gte": 5}},
+                {
+                    "NOT": [
+                        {"status": "archived"}
+                    ]
+                }
+            ]
+        }
+        result = self.qdrant._create_filter(filters)
+        self.assertIsInstance(result, Filter)
+        self.assertEqual(len(result.must), 3)
+
+    def test_boolean_equality(self):
+        """Boolean values should work with MatchValue."""
+        cond = self.qdrant._build_field_condition("active", True)
+        self.assertIsInstance(cond.match, MatchValue)
+        self.assertEqual(cond.match.value, True)
+
+    def test_integer_equality(self):
+        """Integer values should work with MatchValue."""
+        cond = self.qdrant._build_field_condition("count", 42)
+        self.assertIsInstance(cond.match, MatchValue)
+        self.assertEqual(cond.match.value, 42)
+
+    def test_eq_with_boolean(self):
+        """eq operator with boolean should work."""
+        cond = self.qdrant._build_field_condition("active", {"eq": False})
+        self.assertIsInstance(cond.match, MatchValue)
+        self.assertEqual(cond.match.value, False)
+
+    def test_in_with_integers(self):
+        """in operator with integer list should use MatchAny."""
+        cond = self.qdrant._build_field_condition("priority", {"in": [1, 2, 3]})
+        self.assertIsInstance(cond.match, MatchAny)
+        self.assertEqual(cond.match.any, [1, 2, 3])
+
+    def test_wildcard_inside_and(self):
+        """Wildcard inside AND should be skipped, other conditions preserved."""
+        result = self.qdrant._create_filter({
+            "AND": [{"category": "*"}, {"user_id": "alice"}]
+        })
+        self.assertIsInstance(result, Filter)
+        # AND produces nested Filters; the wildcard sub-filter returns None and is skipped
+        # Only the user_id sub-filter remains
+        self.assertEqual(len(result.must), 1)
+
+    def test_empty_dict_value_raises_error(self):
+        """Empty dict as filter value should raise ValueError."""
+        with self.assertRaises(ValueError):
+            self.qdrant._build_field_condition("field", {})
+
+    def test_ne_alone_does_not_trigger_mixed_error(self):
+        """ne as sole operator should NOT trigger mixed-operator error (regression guard)."""
+        cond = self.qdrant._build_field_condition("status", {"ne": "deleted"})
+        self.assertIsInstance(cond.match, MatchExcept)
+
+    def test_eq_with_literal_star(self):
+        """eq operator with literal '*' should match the string '*', not wildcard."""
+        cond = self.qdrant._build_field_condition("category", {"eq": "*"})
+        self.assertIsInstance(cond.match, MatchValue)
+        self.assertEqual(cond.match.value, "*")
+
     def tearDown(self):
         del self.qdrant
