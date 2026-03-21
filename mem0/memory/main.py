@@ -8,10 +8,9 @@ import os
 import uuid
 import warnings
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-import pytz
 from pydantic import ValidationError
 
 from mem0.configs.base import MemoryConfig, MemoryItem
@@ -167,6 +166,34 @@ def _build_filters_and_metadata(
 
 setup_config()
 logger = logging.getLogger(__name__)
+
+
+def _normalize_datetime(dt_str: Optional[str]) -> Optional[str]:
+    """Normalize a datetime string to UTC ISO 8601 format (YYYY-MM-DDTHH:MM:SS+00:00).
+
+    This ensures that timestamps stored with different timezone offsets (e.g. US/Pacific
+    ``-07:00`` / ``-08:00``) or in plain-UTC form are returned in a single consistent
+    representation across both ``search()`` and ``get_all()`` code paths, fixing the
+    discrepancy reported in issue #3720.
+
+    Args:
+        dt_str: An ISO 8601 datetime string, or ``None``.
+
+    Returns:
+        The same instant expressed in UTC ISO 8601, or ``None`` when *dt_str* is falsy.
+    """
+    if not dt_str:
+        return dt_str
+    try:
+        # datetime.fromisoformat handles strings like "2023-05-06T02:19:20-07:00"
+        dt = datetime.fromisoformat(dt_str)
+        if dt.tzinfo is None:
+            # Assume UTC for naive datetimes (legacy data)
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc).isoformat()
+    except (ValueError, TypeError):
+        # If parsing fails, return the original value unchanged
+        return dt_str
 
 
 class Memory(MemoryBase):
@@ -573,7 +600,7 @@ class Memory(MemoryBase):
                                 updated_metadata["agent_id"] = metadata["agent_id"]
                             if metadata.get("run_id"):
                                 updated_metadata["run_id"] = metadata["run_id"]
-                            updated_metadata["updated_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+                            updated_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
                             self.vector_store.update(
                                 vector_id=memory_id,
@@ -739,8 +766,8 @@ class Memory(MemoryBase):
                 id=mem.id,
                 memory=mem.payload.get("data", ""),
                 hash=mem.payload.get("hash"),
-                created_at=mem.payload.get("created_at"),
-                updated_at=mem.payload.get("updated_at"),
+                created_at=_normalize_datetime(mem.payload.get("created_at")),
+                updated_at=_normalize_datetime(mem.payload.get("updated_at")),
             ).model_dump(exclude={"score"})
 
             for key in promoted_payload_keys:
@@ -971,8 +998,8 @@ class Memory(MemoryBase):
                 id=mem.id,
                 memory=mem.payload.get("data", ""),
                 hash=mem.payload.get("hash"),
-                created_at=mem.payload.get("created_at"),
-                updated_at=mem.payload.get("updated_at"),
+                created_at=_normalize_datetime(mem.payload.get("created_at")),
+                updated_at=_normalize_datetime(mem.payload.get("updated_at")),
                 score=mem.score,
             ).model_dump()
 
@@ -1082,7 +1109,7 @@ class Memory(MemoryBase):
         metadata = metadata or {}
         metadata["data"] = data
         metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        metadata["created_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+        metadata["created_at"] = datetime.now(timezone.utc).isoformat()
 
         self.vector_store.insert(
             vectors=[embeddings],
@@ -1155,7 +1182,7 @@ class Memory(MemoryBase):
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
-        new_metadata["updated_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+        new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         # Preserve session identifiers from existing memory only if not provided in new metadata
         if "user_id" not in new_metadata and "user_id" in existing_memory.payload:
@@ -1594,7 +1621,7 @@ class AsyncMemory(MemoryBase):
                                     updated_metadata["agent_id"] = meta["agent_id"]
                                 if meta.get("run_id"):
                                     updated_metadata["run_id"] = meta["run_id"]
-                                updated_metadata["updated_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+                                updated_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
                                 await asyncio.to_thread(
                                     self.vector_store.update,
@@ -1788,8 +1815,8 @@ class AsyncMemory(MemoryBase):
                 id=mem.id,
                 memory=mem.payload.get("data", ""),
                 hash=mem.payload.get("hash"),
-                created_at=mem.payload.get("created_at"),
-                updated_at=mem.payload.get("updated_at"),
+                created_at=_normalize_datetime(mem.payload.get("created_at")),
+                updated_at=_normalize_datetime(mem.payload.get("updated_at")),
             ).model_dump(exclude={"score"})
 
             for key in promoted_payload_keys:
@@ -2029,8 +2056,8 @@ class AsyncMemory(MemoryBase):
                 id=mem.id,
                 memory=mem.payload.get("data", ""),
                 hash=mem.payload.get("hash"),
-                created_at=mem.payload.get("created_at"),
-                updated_at=mem.payload.get("updated_at"),
+                created_at=_normalize_datetime(mem.payload.get("created_at")),
+                updated_at=_normalize_datetime(mem.payload.get("updated_at")),
                 score=mem.score,
             ).model_dump()
 
@@ -2144,7 +2171,7 @@ class AsyncMemory(MemoryBase):
         metadata = metadata or {}
         metadata["data"] = data
         metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        metadata["created_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+        metadata["created_at"] = datetime.now(timezone.utc).isoformat()
 
         await asyncio.to_thread(
             self.vector_store.insert,
@@ -2235,7 +2262,7 @@ class AsyncMemory(MemoryBase):
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
-        new_metadata["updated_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+        new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         # Preserve session identifiers from existing memory only if not provided in new metadata
         if "user_id" not in new_metadata and "user_id" in existing_memory.payload:
