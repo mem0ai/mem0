@@ -469,11 +469,16 @@ class MemoryGraph:
                 CALL db.create.setNodeVectorProperty(destination, 'embedding', $destination_embedding)
                 WITH source, destination
                 MERGE (source)-[r:{relationship}]->(destination)
-                ON CREATE SET 
-                    r.created = timestamp(),
-                    r.mentions = 1
+                ON CREATE SET
+                    r.created_at = timestamp(),
+                    r.updated_at = timestamp(),
+                    r.mentions = 1,
+                    r.valid = true
                 ON MATCH SET
-                    r.mentions = coalesce(r.mentions, 0) + 1
+                    r.mentions = coalesce(r.mentions, 0) + 1,
+                    r.valid = true,
+                    r.updated_at = timestamp(),
+                    r.invalidated_at = null
                 RETURN source.name AS source, type(r) AS relationship, destination.name AS target
                 """
 
@@ -513,11 +518,16 @@ class MemoryGraph:
                 CALL db.create.setNodeVectorProperty(source, 'embedding', $source_embedding)
                 WITH source, destination
                 MERGE (source)-[r:{relationship}]->(destination)
-                ON CREATE SET 
-                    r.created = timestamp(),
-                    r.mentions = 1
+                ON CREATE SET
+                    r.created_at = timestamp(),
+                    r.updated_at = timestamp(),
+                    r.mentions = 1,
+                    r.valid = true
                 ON MATCH SET
-                    r.mentions = coalesce(r.mentions, 0) + 1
+                    r.mentions = coalesce(r.mentions, 0) + 1,
+                    r.valid = true,
+                    r.updated_at = timestamp(),
+                    r.invalidated_at = null
                 RETURN source.name AS source, type(r) AS relationship, destination.name AS target
                 """
 
@@ -542,11 +552,16 @@ class MemoryGraph:
                 WHERE elementId(destination) = $destination_id
                 SET destination.mentions = coalesce(destination.mentions, 0) + 1
                 MERGE (source)-[r:{relationship}]->(destination)
-                ON CREATE SET 
+                ON CREATE SET
                     r.created_at = timestamp(),
                     r.updated_at = timestamp(),
-                    r.mentions = 1
-                ON MATCH SET r.mentions = coalesce(r.mentions, 0) + 1
+                    r.mentions = 1,
+                    r.valid = true
+                ON MATCH SET
+                    r.mentions = coalesce(r.mentions, 0) + 1,
+                    r.valid = true,
+                    r.updated_at = timestamp(),
+                    r.invalidated_at = null
                 RETURN source.name AS source, type(r) AS relationship, destination.name AS target
                 """
 
@@ -590,10 +605,18 @@ class MemoryGraph:
                 WITH source, destination
                 CALL db.create.setNodeVectorProperty(destination, 'embedding', $dest_embedding)
                 WITH source, destination
-                MERGE (source)-[rel:{relationship}]->(destination)
-                ON CREATE SET rel.created = timestamp(), rel.mentions = 1
-                ON MATCH SET rel.mentions = coalesce(rel.mentions, 0) + 1
-                RETURN source.name AS source, type(rel) AS relationship, destination.name AS target
+                MERGE (source)-[r:{relationship}]->(destination)
+                ON CREATE SET
+                    r.created_at = timestamp(),
+                    r.updated_at = timestamp(),
+                    r.mentions = 1,
+                    r.valid = true
+                ON MATCH SET
+                    r.mentions = coalesce(r.mentions, 0) + 1,
+                    r.valid = true,
+                    r.updated_at = timestamp(),
+                    r.invalidated_at = null
+                RETURN source.name AS source, type(r) AS relationship, destination.name AS target
                 """
 
                 params = {
