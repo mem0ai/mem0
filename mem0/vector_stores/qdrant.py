@@ -1,12 +1,16 @@
 import logging
 import os
 import shutil
+from typing import Optional
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
     FieldCondition,
     Filter,
+    MatchAny,
+    MatchExcept,
+    MatchText,
     MatchValue,
     PointIdsList,
     PointStruct,
@@ -138,26 +142,148 @@ class Qdrant(VectorStoreBase):
         ]
         self.client.upsert(collection_name=self.collection_name, points=points)
 
-    def _create_filter(self, filters: dict) -> Filter:
+    def _build_field_condition(self, key: str, value) -> Optional[FieldCondition]:
+        """
+        Build a single FieldCondition from a key-value filter pair.
+
+        Supports the enhanced filter syntax documented at
+        https://docs.mem0.ai/open-source/features/metadata-filtering
+
+        Args:
+            key (str): The payload field name.
+            value: A scalar for simple equality, or a dict with one operator key.
+
+        Returns:
+            Optional[FieldCondition]: The Qdrant field condition, or None if the
+            value is the wildcard '*' (match any / field exists — skip filter).
+        """
+        if not isinstance(value, dict):
+            if value == "*":
+                # Wildcard: match any value. Qdrant has no direct "field exists"
+                # condition via FieldCondition, so we skip this filter (match all).
+                return None
+            if isinstance(value, list):
+                # List shorthand: {"field": ["a", "b"]} treated as in-operator.
+                return FieldCondition(key=key, match=MatchAny(any=value))
+            # Simple equality: {"field": "value"}
+            return FieldCondition(key=key, match=MatchValue(value=value))
+
+        ops = set(value.keys())
+        range_ops = {"gt", "gte", "lt", "lte"}
+        non_range_ops = ops - range_ops
+
+        if ops & range_ops:
+            if non_range_ops:
+                raise ValueError(
+                    f"Cannot mix range operators ({ops & range_ops}) with "
+                    f"non-range operators ({non_range_ops}) for field '{key}'. "
+                    f"Use AND to combine them as separate conditions."
+                )
+            range_kwargs = {op: value[op] for op in range_ops if op in value}
+            return FieldCondition(key=key, range=Range(**range_kwargs))
+        elif "eq" in value:
+            return FieldCondition(key=key, match=MatchValue(value=value["eq"]))
+        elif "ne" in value:
+            return FieldCondition(key=key, match=MatchExcept(**{"except": [value["ne"]]}))
+        elif "in" in value:
+            return FieldCondition(key=key, match=MatchAny(any=value["in"]))
+        elif "nin" in value:
+            return FieldCondition(key=key, match=MatchExcept(**{"except": value["nin"]}))
+        elif "contains" in value or "icontains" in value:
+            # MatchText: with a full-text index, tokenized matching (all words must appear).
+            # Without a full-text index, exact substring match.
+            op = "icontains" if "icontains" in value else "contains"
+            text = value[op]
+            if op == "icontains":
+                logger.debug(
+                    "icontains on field '%s': Qdrant MatchText case sensitivity depends on "
+                    "full-text index configuration. Without a full-text index this behaves "
+                    "as a case-sensitive substring match (same as 'contains').",
+                    key,
+                )
+            return FieldCondition(key=key, match=MatchText(text=text))
+        else:
+            supported = {"eq", "ne", "gt", "gte", "lt", "lte", "in", "nin", "contains", "icontains"}
+            raise ValueError(
+                f"Unsupported filter operator(s) for field '{key}': {ops}. "
+                f"Supported operators: {supported}"
+            )
+
+    def _create_filter(self, filters: dict) -> Optional[Filter]:
         """
         Create a Filter object from the provided filters.
+
+        Supports the enhanced filter syntax with comparison operators (eq, ne,
+        gt, gte, lt, lte), list operators (in, nin), string operators (contains,
+        icontains), and logical operators (AND, OR, NOT).
 
         Args:
             filters (dict): Filters to apply.
 
         Returns:
-            Filter: The created Filter object.
+            Filter: The created Filter object, or None if filters is empty.
         """
         if not filters:
             return None
-            
-        conditions = []
+
+        # Normalize $or/$not/$and → OR/NOT/AND and deduplicate.
+        # Memory._process_metadata_filters() renames OR→$or and NOT→$not,
+        # but effective_filters retains the original OR/NOT keys from
+        # deepcopy(input_filters).  Without dedup the same sub-conditions
+        # would be evaluated twice.
+        key_map = {"$or": "OR", "$not": "NOT", "$and": "AND"}
+        normalized = {}
         for key, value in filters.items():
-            if isinstance(value, dict) and "gte" in value and "lte" in value:
-                conditions.append(FieldCondition(key=key, range=Range(gte=value["gte"], lte=value["lte"])))
+            norm_key = key_map.get(key, key)
+            if norm_key not in normalized:
+                normalized[norm_key] = value
+
+        must = []
+        should = []
+        must_not = []
+
+        for key, value in normalized.items():
+            if key in ("AND", "OR", "NOT"):
+                if not isinstance(value, list):
+                    raise ValueError(
+                        f"{key} filter value must be a list of filter dicts, "
+                        f"got {type(value).__name__}"
+                    )
+                for i, item in enumerate(value):
+                    if not isinstance(item, dict):
+                        raise ValueError(
+                            f"{key} filter list item at index {i} must be a dict, "
+                            f"got {type(item).__name__}: {item!r}"
+                        )
+
+            if key == "AND":
+                for sub in value:
+                    built = self._create_filter(sub)
+                    if built:
+                        must.append(built)
+            elif key == "OR":
+                for sub in value:
+                    built = self._create_filter(sub)
+                    if built:
+                        should.append(built)
+            elif key == "NOT":
+                for sub in value:
+                    built = self._create_filter(sub)
+                    if built:
+                        must_not.append(built)
             else:
-                conditions.append(FieldCondition(key=key, match=MatchValue(value=value)))
-        return Filter(must=conditions) if conditions else None
+                condition = self._build_field_condition(key, value)
+                if condition is not None:
+                    must.append(condition)
+
+        if not any([must, should, must_not]):
+            return None
+
+        return Filter(
+            must=must or None,
+            should=should or None,
+            must_not=must_not or None,
+        )
 
     def search(self, query: str, vectors: list, limit: int = 5, filters: dict = None) -> list:
         """
