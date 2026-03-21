@@ -10,6 +10,10 @@ services:
     build: api/
     environment:
       - USER
+      - MEM0_DEFAULT_USER_ID=${USER}
+      - SYNAPTIC_ENABLED=${SYNAPTIC_ENABLED:-}
+      - SYNAPTIC_DB_DIR=/usr/src/openmemory/synaptic_data
+      - PYTHONPATH=/usr/src/synaptic
     env_file:
       - api/.env
     depends_on:
@@ -18,9 +22,11 @@ services:
       - "8765:8765"
     volumes:
       - ./api:/usr/src/openmemory
+      - ../synaptic_memory:/usr/src/synaptic/synaptic_memory
     command: >
       sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --reload --workers 1 --proxy-headers --forwarded-allow-ips=\"*\""
   openmemory-ui:
+    init: true
     build:
       context: ui/
       dockerfile: Dockerfile

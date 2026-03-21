@@ -56,6 +56,20 @@ class MemoryConfig(BaseModel):
         description="The version of the API",
         default="v1.1",
     )
+    default_user_id: Optional[str] = Field(
+        description="Default user_id used when none is passed to add/search/get_all/delete_all. "
+        "Falls back to MEM0_DEFAULT_USER_ID env var.",
+        default_factory=lambda: os.environ.get("MEM0_DEFAULT_USER_ID"),
+    )
+    enable_synaptic: bool = Field(
+        description="Enable synaptic memory (citation tracking, strength dynamics). AsyncMemory only. "
+        "Also activates if SYNAPTIC_ENABLED env var is set.",
+        default_factory=lambda: bool(os.environ.get("SYNAPTIC_ENABLED")),
+    )
+    synaptic_db_dir: Optional[str] = Field(
+        description="Directory for synaptic SQLite databases. Falls back to SYNAPTIC_DB_DIR env var.",
+        default_factory=lambda: os.environ.get("SYNAPTIC_DB_DIR"),
+    )
     custom_fact_extraction_prompt: Optional[str] = Field(
         description="Custom prompt for the fact extraction",
         default=None,

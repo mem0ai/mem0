@@ -1,4 +1,5 @@
 import datetime
+from contextlib import asynccontextmanager
 from uuid import uuid4
 
 from app.config import DEFAULT_APP_ID, USER_ID
@@ -11,7 +12,20 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
 
-app = FastAPI(title="OpenMemory API")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    # Graceful shutdown of synaptic connections
+    from app.mcp_server import _synaptic
+    if _synaptic:
+        try:
+            await _synaptic.close()
+        except Exception:
+            pass
+
+
+app = FastAPI(title="OpenMemory API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

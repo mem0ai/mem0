@@ -15,6 +15,7 @@ Key features:
 - Environment variable parsing for API keys
 """
 
+import asyncio
 import contextvars
 import datetime
 import json
@@ -56,9 +57,33 @@ def get_memory_client_safe():
         logging.warning(f"Failed to get memory client: {e}")
         return None
 
+# Synaptic memory lazy singleton
+_synaptic = None
+_synaptic_lock = asyncio.Lock()
+
+async def _get_synaptic():
+    global _synaptic
+    if not os.environ.get("SYNAPTIC_ENABLED"):
+        return None
+    if _synaptic is not None:
+        return _synaptic
+    async with _synaptic_lock:
+        if _synaptic is None:
+            try:
+                from synaptic_memory.system import SynapticMemorySystem
+                s = SynapticMemorySystem()
+                await s.connect()
+                _synaptic = s
+            except Exception as exc:
+                logging.warning("Synaptic memory unavailable: %s", exc)
+    return _synaptic
+
 # Context variables for user_id and client_name
 user_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("user_id")
 client_name_var: contextvars.ContextVar[str] = contextvars.ContextVar("client_name")
+
+# Default user_id from config (single-user server)
+from app.config import USER_ID as _DEFAULT_USER_ID
 
 # Create a router for MCP endpoints
 mcp_router = APIRouter(prefix="/mcp", dependencies=[Depends(verify_oauth_or_api_key)])
@@ -68,13 +93,8 @@ sse = SseServerTransport("/mcp/messages/")
 
 @mcp.tool(description="Add a new memory. This method is called everytime the user informs anything about themselves, their preferences, or anything that has any relevant information which can be useful in the future conversation. This can also be called when the user asks you to remember something. Set infer to False to store the memory verbatim without LLM fact extraction.")
 async def add_memories(text: str, infer: bool = True) -> str:
-    uid = user_id_var.get(None)
-    client_name = client_name_var.get(None)
-
-    if not uid:
-        return "Error: user_id not provided"
-    if not client_name:
-        return "Error: client_name not provided"
+    uid = user_id_var.get(None) or _DEFAULT_USER_ID
+    client_name = client_name_var.get(None) or "default"
 
     # Get memory client safely
     memory_client = get_memory_client_safe()
@@ -142,6 +162,16 @@ async def add_memories(text: str, infer: bool = True) -> str:
                             db.add(history)
 
                 db.commit()
+
+            # Synaptic memory hooks
+            synaptic = await _get_synaptic()
+            if synaptic:
+                for result in response.get("results", []):
+                    if result.get("event") in ("ADD", "UPDATE"):
+                        try:
+                            await synaptic.add_memory(result["id"], result["memory"])
+                        except Exception as exc:
+                            logging.warning("synaptic add_memory failed: %s", exc)
 
             return json.dumps(response)
         finally:
@@ -220,6 +250,13 @@ async def search_memory(query: str) -> str:
                     )
                     db.add(access_log)
             db.commit()
+
+            synaptic = await _get_synaptic()
+            if synaptic and results:
+                try:
+                    results = await synaptic.on_search(query, results)
+                except Exception as exc:
+                    logging.warning("synaptic on_search failed: %s", exc)
 
             return json.dumps({"results": results}, indent=2)
         finally:
@@ -439,13 +476,60 @@ async def delete_all_memories() -> str:
 
 
 
+@mcp.tool(description="Get synaptic memory statistics: synapse counts, average strength, PageRank, weakening synapses, and citation type breakdown. Only available when SYNAPTIC_ENABLED is set.")
+async def synaptic_stats() -> str:
+    synaptic = await _get_synaptic()
+    if not synaptic:
+        return "Synaptic memory is not enabled. Set SYNAPTIC_ENABLED=true to activate."
+    try:
+        stats = await synaptic.get_stats()
+        return json.dumps(stats, indent=2)
+    except Exception as exc:
+        logging.exception("Error getting synaptic stats: %s", exc)
+        return f"Error getting synaptic stats: {exc}"
+
+
+@mcp.tool(description="View the synaptic network for a specific memory: its importance score, PageRank, inbound/outbound synapses, and strength values. Only available when SYNAPTIC_ENABLED is set.")
+async def synaptic_network(memory_id: str) -> str:
+    synaptic = await _get_synaptic()
+    if not synaptic:
+        return "Synaptic memory is not enabled. Set SYNAPTIC_ENABLED=true to activate."
+    try:
+        network = await synaptic.get_network(memory_id)
+        return json.dumps(network, indent=2, default=str)
+    except Exception as exc:
+        logging.exception("Error getting synaptic network: %s", exc)
+        return f"Error getting synaptic network: {exc}"
+
+
+@mcp.tool(description="Run synaptic maintenance: decay weakening synapses and recalculate PageRank centrality scores. Call periodically to keep the synaptic network healthy. Only available when SYNAPTIC_ENABLED is set.")
+async def synaptic_maintain() -> str:
+    synaptic = await _get_synaptic()
+    if not synaptic:
+        return "Synaptic memory is not enabled. Set SYNAPTIC_ENABLED=true to activate."
+    try:
+        decay_result = await synaptic.run_decay()
+        pagerank_result = await synaptic.run_pagerank()
+        replay_items = await synaptic.run_replay_check()
+        return json.dumps({
+            "decay": decay_result,
+            "pagerank_updated": len(pagerank_result),
+            "due_for_replay": len(replay_items),
+        }, indent=2, default=str)
+    except Exception as exc:
+        logging.exception("Error running synaptic maintenance: %s", exc)
+        return f"Error running synaptic maintenance: {exc}"
+
+
 @mcp_router.get("")
 @mcp_router.get("/")
 async def root_sse(request: Request):
     logging.error(f"SSE ENDPOINT HIT - METHOD: {request.method} PATH: {request.url.path}")
 
-    # Default to claude and default user for the base /mcp endpoint
-    request.scope['path_params'] = {'client_name': 'claude', 'user_id': 'default'}
+    # Default to claude and configured user for the base /mcp endpoint
+    request.scope['path_params'] = {'client_name': 'claude', 'user_id': _DEFAULT_USER_ID}
+    user_id_var.set(_DEFAULT_USER_ID)
+    client_name_var.set("claude")
 
     # We must return an EventSourceResponse so FastAPI properly flushes the stream!
     # Instead of using connect_sse context manager which breaks FastAPI, we use it properly:
@@ -484,7 +568,6 @@ async def root_sse(request: Request):
             await write_stream_reader.aclose()
 
     # Start the server loop in a background task
-    import asyncio
     asyncio.create_task(run_server())
 
     return EventSourceResponse(content=sse_stream_reader, data_sender_callable=sse_writer)
