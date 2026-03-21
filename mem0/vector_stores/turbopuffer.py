@@ -254,10 +254,14 @@ class TurbopufferDB(VectorStoreBase):
         Returns:
             list: List of namespace summaries.
         """
-        result = []
-        for ns in self.client.namespaces():
-            result.append(ns)
-        return result
+        try:
+            result = []
+            for ns in self.client.namespaces():
+                result.append(ns)
+            return result
+        except Exception as e:
+            logger.error(f"Error listing namespaces: {e}")
+            return []
 
     def delete_col(self):
         """Delete the entire namespace."""
@@ -307,8 +311,12 @@ class TurbopufferDB(VectorStoreBase):
         if tpuf_filters is not None:
             query_params["filters"] = tpuf_filters
 
-        response = self.namespace.query(**query_params)
-        results = self._parse_output(response.rows or [])
+        try:
+            response = self.namespace.query(**query_params)
+            results = self._parse_output(response.rows or [])
+        except Exception as e:
+            logger.error(f"Error listing vectors: {e}")
+            results = []
         return [results]
 
     def count(self) -> int:
