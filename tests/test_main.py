@@ -29,7 +29,7 @@ def memory_instance():
         mock_vector_store.create.return_value = Mock()
         mock_vector_store.create.return_value.search.return_value = []
         mock_llm.create.return_value = Mock()
-        
+
         # Create a mock instance that won't try to access config attributes
         mock_graph_instance = Mock()
         mock_graph_store.create.return_value = mock_graph_instance
@@ -53,7 +53,7 @@ def memory_custom_instance():
         mock_vector_store.create.return_value = Mock()
         mock_vector_store.create.return_value.search.return_value = []
         mock_llm.create.return_value = Mock()
-        
+
         # Create a mock instance that won't try to access config attributes
         mock_graph_instance = Mock()
         mock_graph_store.create.return_value = mock_graph_instance
@@ -319,6 +319,165 @@ def test_no_telemetry_vector_store_when_disabled():
 
         # VectorStoreFactory.create should be called exactly once — for user data only, not telemetry
         assert mock_vector_store.create.call_count == 1
+
+
+def test_export_memories(memory_instance):
+    mock_memories = [
+        Mock(
+            id="mem1",
+            payload={
+                "data": "User likes pizza",
+                "hash": "abc123",
+                "user_id": "alice",
+                "created_at": "2024-01-01T00:00:00+00:00",
+                "updated_at": None,
+            },
+        ),
+        Mock(
+            id="mem2",
+            payload={
+                "data": "User prefers dark mode",
+                "hash": "def456",
+                "user_id": "alice",
+                "created_at": "2024-01-02T00:00:00+00:00",
+                "updated_at": "2024-01-03T00:00:00+00:00",
+                "custom_tag": "preference",
+            },
+        ),
+    ]
+    memory_instance.vector_store.list = Mock(return_value=mock_memories)
+
+    result = memory_instance.export_memories(user_id="alice")
+
+    assert result["count"] == 2
+    assert "exported_at" in result
+    assert result["version"] == "v1.1"
+    assert len(result["memories"]) == 2
+    assert result["memories"][0]["id"] == "mem1"
+    assert result["memories"][0]["data"] == "User likes pizza"
+    assert result["memories"][0]["user_id"] == "alice"
+    assert result["memories"][1]["metadata"] == {"custom_tag": "preference"}
+
+    memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "alice"}, limit=10000)
+
+
+def test_export_memories_requires_filter(memory_instance):
+    with pytest.raises(ValueError, match="At least one of"):
+        memory_instance.export_memories()
+
+
+def test_import_memories(memory_instance):
+    memory_instance.vector_store.list = Mock(return_value=[])
+    memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+    memory_instance.vector_store.insert = Mock()
+    memory_instance.db.add_history = Mock()
+
+    memories_to_import = [
+        {
+            "id": "orig-1",
+            "data": "User likes pizza",
+            "hash": "abc123",
+            "user_id": "alice",
+            "created_at": "2024-01-01T00:00:00+00:00",
+        },
+        {
+            "id": "orig-2",
+            "data": "User prefers dark mode",
+            "hash": "def456",
+            "created_at": "2024-01-02T00:00:00+00:00",
+        },
+    ]
+
+    result = memory_instance.import_memories(memories_to_import, user_id="alice")
+
+    assert result["imported"] == 2
+    assert result["skipped"] == 0
+    assert result["errors"] == []
+    assert memory_instance.vector_store.insert.call_count == 2
+    assert memory_instance.db.add_history.call_count == 2
+
+
+def test_import_memories_skip_duplicates(memory_instance):
+    existing_memory = Mock(
+        id="existing",
+        payload={"data": "User likes pizza", "hash": "abc123", "user_id": "alice"},
+    )
+    memory_instance.vector_store.list = Mock(return_value=[existing_memory])
+    memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+    memory_instance.vector_store.insert = Mock()
+    memory_instance.db.add_history = Mock()
+
+    memories_to_import = [
+        {"data": "User likes pizza", "hash": "abc123"},
+        {"data": "User likes hiking", "hash": "ghi789"},
+    ]
+
+    result = memory_instance.import_memories(memories_to_import, user_id="alice")
+
+    assert result["imported"] == 1
+    assert result["skipped"] == 1
+    assert memory_instance.vector_store.insert.call_count == 1
+
+
+def test_import_memories_preserve_ids(memory_instance):
+    memory_instance.vector_store.list = Mock(return_value=[])
+    memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+    memory_instance.vector_store.insert = Mock()
+    memory_instance.db.add_history = Mock()
+
+    memories_to_import = [
+        {"id": "keep-this-id", "data": "Test memory", "hash": "test123"},
+    ]
+
+    result = memory_instance.import_memories(memories_to_import, user_id="alice", preserve_ids=True)
+
+    assert result["imported"] == 1
+    call_args = memory_instance.vector_store.insert.call_args
+    assert call_args.kwargs["ids"] == ["keep-this-id"]
+
+
+def test_import_memories_empty_data_error(memory_instance):
+    memory_instance.vector_store.list = Mock(return_value=[])
+
+    memories_to_import = [{"id": "bad-1", "data": ""}]
+
+    result = memory_instance.import_memories(memories_to_import, user_id="alice")
+
+    assert result["imported"] == 0
+    assert len(result["errors"]) == 1
+    assert result["errors"][0]["id"] == "bad-1"
+
+
+def test_export_import_roundtrip(memory_instance):
+    mock_memories = [
+        Mock(
+            id="mem1",
+            payload={
+                "data": "User likes pizza",
+                "hash": "abc123",
+                "user_id": "alice",
+                "created_at": "2024-01-01T00:00:00+00:00",
+                "updated_at": None,
+            },
+        ),
+    ]
+    memory_instance.vector_store.list = Mock(return_value=mock_memories)
+    memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+    memory_instance.vector_store.insert = Mock()
+    memory_instance.db.add_history = Mock()
+
+    exported = memory_instance.export_memories(user_id="alice")
+
+    # Reset list mock to return empty (simulating import to a fresh store)
+    memory_instance.vector_store.list = Mock(return_value=[])
+
+    result = memory_instance.import_memories(exported["memories"], user_id="bob", skip_duplicates=False)
+
+    assert result["imported"] == 1
+    call_args = memory_instance.vector_store.insert.call_args
+    payload = call_args.kwargs["payloads"][0]
+    assert payload["data"] == "User likes pizza"
+    assert payload["user_id"] == "bob"
 
 
 def test_telemetry_vector_store_created_when_enabled():

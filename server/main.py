@@ -68,7 +68,10 @@ DEFAULT_CONFIG = {
         "provider": "neo4j",
         "config": {"url": NEO4J_URI, "username": NEO4J_USERNAME, "password": NEO4J_PASSWORD},
     },
-    "llm": {"provider": "openai", "config": {"api_key": OPENAI_API_KEY, "temperature": 0.2, "model": "gpt-4.1-nano-2025-04-14"}},
+    "llm": {
+        "provider": "openai",
+        "config": {"api_key": OPENAI_API_KEY, "temperature": 0.2, "model": "gpt-4.1-nano-2025-04-14"},
+    },
     "embedder": {"provider": "openai", "config": {"api_key": OPENAI_API_KEY, "model": "text-embedding-3-small"}},
     "history_db_path": HISTORY_DB_PATH,
 }
@@ -196,11 +199,11 @@ def search_memories(search_req: SearchRequest, _api_key: Optional[str] = Depends
 @app.put("/memories/{memory_id}", summary="Update a memory")
 def update_memory(memory_id: str, updated_memory: Dict[str, Any], _api_key: Optional[str] = Depends(verify_api_key)):
     """Update an existing memory with new content.
-    
+
     Args:
         memory_id (str): ID of the memory to update
         updated_memory (str): New content to update the memory with
-        
+
     Returns:
         dict: Success message indicating the memory was updated
     """
@@ -250,6 +253,60 @@ def delete_all_memories(
         return {"message": "All relevant memories deleted"}
     except Exception as e:
         logging.exception("Error in delete_all_memories:")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class MemoryImportRequest(BaseModel):
+    memories: List[Dict[str, Any]] = Field(..., description="List of memory objects to import.")
+    user_id: Optional[str] = None
+    agent_id: Optional[str] = None
+    run_id: Optional[str] = None
+    preserve_ids: bool = Field(False, description="Keep original memory IDs.")
+    skip_duplicates: bool = Field(True, description="Skip memories with duplicate content hashes.")
+
+
+@app.post("/export", summary="Export memories")
+def export_memories(
+    user_id: Optional[str] = None,
+    agent_id: Optional[str] = None,
+    run_id: Optional[str] = None,
+    limit: int = 10000,
+    _api_key: Optional[str] = Depends(verify_api_key),
+):
+    """Export memories to a portable JSON format for backup or migration."""
+    if not any([user_id, agent_id, run_id]):
+        raise HTTPException(status_code=400, detail="At least one identifier is required.")
+    try:
+        params = {
+            k: v for k, v in {"user_id": user_id, "agent_id": agent_id, "run_id": run_id}.items() if v is not None
+        }
+        return MEMORY_INSTANCE.export_memories(**params, limit=limit)
+    except Exception as e:
+        logging.exception("Error in export_memories:")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/import", summary="Import memories")
+def import_memories(import_req: MemoryImportRequest, _api_key: Optional[str] = Depends(verify_api_key)):
+    """Import memories from a previously exported payload."""
+    try:
+        params = {
+            k: v
+            for k, v in {
+                "user_id": import_req.user_id,
+                "agent_id": import_req.agent_id,
+                "run_id": import_req.run_id,
+            }.items()
+            if v is not None
+        }
+        return MEMORY_INSTANCE.import_memories(
+            import_req.memories,
+            preserve_ids=import_req.preserve_ids,
+            skip_duplicates=import_req.skip_duplicates,
+            **params,
+        )
+    except Exception as e:
+        logging.exception("Error in import_memories:")
         raise HTTPException(status_code=500, detail=str(e))
 
 
