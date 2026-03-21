@@ -222,24 +222,28 @@ class Qdrant(VectorStoreBase):
         must_not = []
 
         for key, value in filters.items():
-            if key in ("AND", "OR", "NOT"):
+            # Normalize $or/$not (injected by Memory._process_metadata_filters)
+            # to OR/NOT so they're handled uniformly.
+            normalized_key = {"$or": "OR", "$not": "NOT", "$and": "AND"}.get(key, key)
+
+            if normalized_key in ("AND", "OR", "NOT"):
                 if not isinstance(value, list):
                     raise ValueError(
-                        f"{key} filter value must be a list of filter dicts, "
+                        f"{normalized_key} filter value must be a list of filter dicts, "
                         f"got {type(value).__name__}"
                     )
 
-            if key == "AND":
+            if normalized_key == "AND":
                 for sub in value:
                     built = self._create_filter(sub)
                     if built:
                         must.append(built)
-            elif key == "OR":
+            elif normalized_key == "OR":
                 for sub in value:
                     built = self._create_filter(sub)
                     if built:
                         should.append(built)
-            elif key == "NOT":
+            elif normalized_key == "NOT":
                 for sub in value:
                     built = self._create_filter(sub)
                     if built:

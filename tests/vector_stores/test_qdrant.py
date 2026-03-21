@@ -670,5 +670,58 @@ class TestQdrantEnhancedFilters(unittest.TestCase):
         self.assertIsInstance(cond.match, MatchValue)
         self.assertEqual(cond.match.value, "*")
 
+    # ------------------------------------------------------------------ #
+    # $or / $not normalization (Memory._process_metadata_filters injects  #
+    # these keys alongside the original OR/NOT)                           #
+    # ------------------------------------------------------------------ #
+
+    def test_dollar_or_handled_as_or(self):
+        """$or injected by Memory middleware should be treated as OR."""
+        filters = {
+            "user_id": "alice",
+            "$or": [{"category": "programming"}, {"category": "data"}],
+        }
+        result = self.qdrant._create_filter(filters)
+        self.assertIsInstance(result, Filter)
+        self.assertIsNotNone(result.should)
+        self.assertEqual(len(result.should), 2)
+
+    def test_dollar_not_handled_as_not(self):
+        """$not injected by Memory middleware should be treated as NOT."""
+        filters = {
+            "user_id": "alice",
+            "$not": [{"category": "spam"}],
+        }
+        result = self.qdrant._create_filter(filters)
+        self.assertIsInstance(result, Filter)
+        self.assertIsNotNone(result.must_not)
+        self.assertEqual(len(result.must_not), 1)
+
+    def test_memory_search_or_shape(self):
+        """Simulate exact shape Memory.search() sends for OR filters."""
+        # Memory.search() preserves original OR AND adds $or
+        filters = {
+            "OR": [{"category": "programming"}, {"category": "data"}],
+            "user_id": "test_user",
+            "$or": [{"category": "programming"}, {"category": "data"}],
+        }
+        result = self.qdrant._create_filter(filters)
+        self.assertIsInstance(result, Filter)
+        # OR and $or both contribute to should — duplicates are harmless
+        self.assertIsNotNone(result.should)
+        self.assertGreaterEqual(len(result.should), 2)
+
+    def test_memory_search_not_shape(self):
+        """Simulate exact shape Memory.search() sends for NOT filters."""
+        filters = {
+            "NOT": [{"category": "spam"}],
+            "user_id": "test_user",
+            "$not": [{"category": "spam"}],
+        }
+        result = self.qdrant._create_filter(filters)
+        self.assertIsInstance(result, Filter)
+        self.assertIsNotNone(result.must_not)
+        self.assertGreaterEqual(len(result.must_not), 1)
+
     def tearDown(self):
         del self.qdrant
