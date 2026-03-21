@@ -45,9 +45,8 @@ export class AnthropicLLM implements LLM {
     const textBlock = response.content.find((b) => b.type === "text");
     if (textBlock) {
       return textBlock.text;
-    } else {
-      throw new Error("Unexpected response type from Anthropic API");
     }
+    throw new Error("Unexpected response type from Anthropic API");
   }
 
   async generateChat(messages: Message[]): Promise<LLMResponse> {
