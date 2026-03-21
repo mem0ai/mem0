@@ -1351,9 +1351,6 @@ class Memory(MemoryBase):
         """
         _, effective_filters = _build_filters_and_metadata(user_id=user_id, agent_id=agent_id, run_id=run_id)
 
-        if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
-            raise ValueError("At least one of 'user_id', 'agent_id', or 'run_id' must be specified.")
-
         capture_event("mem0.export_memories", self, {"limit": limit, "sync_type": "sync"})
 
         memories_result = self.vector_store.list(filters=effective_filters, limit=limit)
@@ -2645,9 +2642,6 @@ class AsyncMemory(MemoryBase):
             dict: Export payload with keys "version", "exported_at", "count", and "memories".
         """
         _, effective_filters = _build_filters_and_metadata(user_id=user_id, agent_id=agent_id, run_id=run_id)
-
-        if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
-            raise ValueError("At least one of 'user_id', 'agent_id', or 'run_id' must be specified.")
 
         capture_event("mem0.export_memories", self, {"limit": limit, "sync_type": "async"})
 

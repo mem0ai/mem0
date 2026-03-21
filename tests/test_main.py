@@ -4,6 +4,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from mem0.configs.base import MemoryConfig
+from mem0.exceptions import ValidationError as Mem0ValidationError
 from mem0.memory.main import Memory
 
 
@@ -362,7 +363,7 @@ def test_export_memories(memory_instance):
 
 
 def test_export_memories_requires_filter(memory_instance):
-    with pytest.raises(ValueError, match="At least one of"):
+    with pytest.raises(Mem0ValidationError):
         memory_instance.export_memories()
 
 
