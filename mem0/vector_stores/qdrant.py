@@ -1,6 +1,7 @@
 import logging
 import os
 import shutil
+from typing import Optional
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
@@ -141,7 +142,7 @@ class Qdrant(VectorStoreBase):
         ]
         self.client.upsert(collection_name=self.collection_name, points=points)
 
-    def _build_field_condition(self, key: str, value) -> FieldCondition:
+    def _build_field_condition(self, key: str, value) -> Optional[FieldCondition]:
         """
         Build a single FieldCondition from a key-value filter pair.
 
@@ -153,9 +154,14 @@ class Qdrant(VectorStoreBase):
             value: A scalar for simple equality, or a dict with one operator key.
 
         Returns:
-            FieldCondition: The Qdrant field condition.
+            Optional[FieldCondition]: The Qdrant field condition, or None if the
+            value is the wildcard '*' (match any / field exists — skip filter).
         """
         if not isinstance(value, dict):
+            if value == "*":
+                # Wildcard: match any value. Qdrant has no direct "field exists"
+                # condition via FieldCondition, so we skip this filter (match all).
+                return None
             # Simple equality: {"field": "value"}
             return FieldCondition(key=key, match=MatchValue(value=value))
 
@@ -192,7 +198,7 @@ class Qdrant(VectorStoreBase):
                 f"Supported operators: {supported}"
             )
 
-    def _create_filter(self, filters: dict) -> Filter:
+    def _create_filter(self, filters: dict) -> Optional[Filter]:
         """
         Create a Filter object from the provided filters.
 
@@ -230,7 +236,9 @@ class Qdrant(VectorStoreBase):
                     if built:
                         must_not.append(built)
             else:
-                must.append(self._build_field_condition(key, value))
+                condition = self._build_field_condition(key, value)
+                if condition is not None:
+                    must.append(condition)
 
         if not any([must, should, must_not]):
             return None

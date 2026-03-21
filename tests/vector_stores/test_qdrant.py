@@ -551,5 +551,22 @@ class TestQdrantEnhancedFilters(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.qdrant._build_field_condition("score", {"gt": 0.5, "eq": 1.0})
 
+    def test_wildcard_returns_none(self):
+        """Wildcard '*' should return None (skip filter — match any)."""
+        result = self.qdrant._build_field_condition("category", "*")
+        self.assertIsNone(result)
+
+    def test_create_filter_with_wildcard_skips_it(self):
+        """Wildcard fields should be skipped in the final filter."""
+        result = self.qdrant._create_filter({"category": "*", "user_id": "alice"})
+        self.assertIsInstance(result, Filter)
+        self.assertEqual(len(result.must), 1)
+        self.assertEqual(result.must[0].key, "user_id")
+
+    def test_create_filter_only_wildcard_returns_none(self):
+        """Filter with only wildcard should return None."""
+        result = self.qdrant._create_filter({"category": "*"})
+        self.assertIsNone(result)
+
     def tearDown(self):
         del self.qdrant
