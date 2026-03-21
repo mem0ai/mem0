@@ -189,9 +189,15 @@ class Qdrant(VectorStoreBase):
         elif "contains" in value or "icontains" in value:
             # MatchText: with a full-text index, tokenized matching (all words must appear).
             # Without a full-text index, exact substring match.
-            # Note: icontains maps to the same MatchText — case sensitivity depends on
-            # the full-text index tokenizer configuration, not on this operator name.
-            text = value.get("contains") or value.get("icontains")
+            op = "icontains" if "icontains" in value else "contains"
+            text = value[op]
+            if op == "icontains":
+                logger.debug(
+                    "icontains on field '%s': Qdrant MatchText case sensitivity depends on "
+                    "full-text index configuration. Without a full-text index this behaves "
+                    "as a case-sensitive substring match (same as 'contains').",
+                    key,
+                )
             return FieldCondition(key=key, match=MatchText(text=text))
         else:
             supported = {"eq", "ne", "gt", "gte", "lt", "lte", "in", "nin", "contains", "icontains"}
@@ -217,33 +223,41 @@ class Qdrant(VectorStoreBase):
         if not filters:
             return None
 
+        # Normalize $or/$not/$and → OR/NOT/AND and deduplicate.
+        # Memory._process_metadata_filters() renames OR→$or and NOT→$not,
+        # but effective_filters retains the original OR/NOT keys from
+        # deepcopy(input_filters).  Without dedup the same sub-conditions
+        # would be evaluated twice.
+        key_map = {"$or": "OR", "$not": "NOT", "$and": "AND"}
+        normalized = {}
+        for key, value in filters.items():
+            norm_key = key_map.get(key, key)
+            if norm_key not in normalized:
+                normalized[norm_key] = value
+
         must = []
         should = []
         must_not = []
 
-        for key, value in filters.items():
-            # Normalize $or/$not (injected by Memory._process_metadata_filters)
-            # to OR/NOT so they're handled uniformly.
-            normalized_key = {"$or": "OR", "$not": "NOT", "$and": "AND"}.get(key, key)
-
-            if normalized_key in ("AND", "OR", "NOT"):
+        for key, value in normalized.items():
+            if key in ("AND", "OR", "NOT"):
                 if not isinstance(value, list):
                     raise ValueError(
-                        f"{normalized_key} filter value must be a list of filter dicts, "
+                        f"{key} filter value must be a list of filter dicts, "
                         f"got {type(value).__name__}"
                     )
 
-            if normalized_key == "AND":
+            if key == "AND":
                 for sub in value:
                     built = self._create_filter(sub)
                     if built:
                         must.append(built)
-            elif normalized_key == "OR":
+            elif key == "OR":
                 for sub in value:
                     built = self._create_filter(sub)
                     if built:
                         should.append(built)
-            elif normalized_key == "NOT":
+            elif key == "NOT":
                 for sub in value:
                     built = self._create_filter(sub)
                     if built:

@@ -698,8 +698,13 @@ class TestQdrantEnhancedFilters(unittest.TestCase):
         self.assertEqual(len(result.must_not), 1)
 
     def test_memory_search_or_shape(self):
-        """Simulate exact shape Memory.search() sends for OR filters."""
-        # Memory.search() preserves original OR AND adds $or
+        """Simulate exact shape Memory.search() sends for OR filters.
+
+        effective_filters keeps the original OR key (via deepcopy of
+        input_filters) and _process_metadata_filters adds $or with the
+        same content.  _create_filter should deduplicate so only the
+        first occurrence (OR) is used — exactly 2 should entries.
+        """
         filters = {
             "OR": [{"category": "programming"}, {"category": "data"}],
             "user_id": "test_user",
@@ -707,12 +712,15 @@ class TestQdrantEnhancedFilters(unittest.TestCase):
         }
         result = self.qdrant._create_filter(filters)
         self.assertIsInstance(result, Filter)
-        # OR and $or both contribute to should — duplicates are harmless
         self.assertIsNotNone(result.should)
-        self.assertGreaterEqual(len(result.should), 2)
+        # Deduplicated: OR wins, $or is skipped — exactly 2 entries
+        self.assertEqual(len(result.should), 2)
 
     def test_memory_search_not_shape(self):
-        """Simulate exact shape Memory.search() sends for NOT filters."""
+        """Simulate exact shape Memory.search() sends for NOT filters.
+
+        Same deduplication as OR: NOT wins, $not is skipped.
+        """
         filters = {
             "NOT": [{"category": "spam"}],
             "user_id": "test_user",
@@ -721,7 +729,8 @@ class TestQdrantEnhancedFilters(unittest.TestCase):
         result = self.qdrant._create_filter(filters)
         self.assertIsInstance(result, Filter)
         self.assertIsNotNone(result.must_not)
-        self.assertGreaterEqual(len(result.must_not), 1)
+        # Deduplicated: NOT wins, $not is skipped — exactly 1 entry
+        self.assertEqual(len(result.must_not), 1)
 
     def tearDown(self):
         del self.qdrant
