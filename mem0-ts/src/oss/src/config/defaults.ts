@@ -34,12 +34,6 @@ export const DEFAULT_MEMORY_CONFIG: MemoryConfig = {
       username: process.env.NEO4J_USERNAME || "neo4j",
       password: process.env.NEO4J_PASSWORD || "password",
     },
-    llm: {
-      provider: "openai",
-      config: {
-        model: "gpt-4-turbo-preview",
-      },
-    },
   },
   historyStore: {
     provider: "sqlite",

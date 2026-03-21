@@ -511,6 +511,137 @@ describe("Prompt construction — all json_object sites include 'json'", () => {
 // 5. Edge cases – malformed entity fields in _removeSpacesFromEntities
 // ═══════════════════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 5a. LLM config propagation — graph store uses correct provider & config
+//     Regression test for https://github.com/mem0ai/mem0/issues/3425
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe("LLM config propagation to graph store (issue #3425)", () => {
+  const { LLMFactory } = require("../src/utils/factory");
+
+  beforeEach(() => {
+    (LLMFactory.create as jest.Mock).mockClear();
+  });
+
+  it("uses root llm config when no graphStore.llm is provided", () => {
+    const config = {
+      graphStore: {
+        config: {
+          url: "bolt://localhost:7687",
+          username: "neo4j",
+          password: "test",
+        },
+      },
+      embedder: { provider: "openai", config: {} },
+      llm: {
+        provider: "anthropic",
+        config: { model: "claude-sonnet-4-20250514", apiKey: "sk-ant-test" },
+      },
+    } as any;
+
+    new MemoryGraph(config);
+
+    expect(LLMFactory.create).toHaveBeenCalledWith("anthropic", {
+      model: "claude-sonnet-4-20250514",
+      apiKey: "sk-ant-test",
+    });
+    // Both llm and structuredLlm should use the same config
+    expect(LLMFactory.create).toHaveBeenCalledTimes(2);
+    expect(LLMFactory.create).toHaveBeenNthCalledWith(1, "anthropic", {
+      model: "claude-sonnet-4-20250514",
+      apiKey: "sk-ant-test",
+    });
+    expect(LLMFactory.create).toHaveBeenNthCalledWith(2, "anthropic", {
+      model: "claude-sonnet-4-20250514",
+      apiKey: "sk-ant-test",
+    });
+  });
+
+  it("uses graphStore.llm config when provided, overriding root llm", () => {
+    const config = {
+      graphStore: {
+        config: {
+          url: "bolt://localhost:7687",
+          username: "neo4j",
+          password: "test",
+        },
+        llm: {
+          provider: "openai",
+          config: { model: "gpt-4o", apiKey: "sk-openai-test" },
+        },
+      },
+      embedder: { provider: "openai", config: {} },
+      llm: {
+        provider: "anthropic",
+        config: { model: "claude-sonnet-4-20250514", apiKey: "sk-ant-test" },
+      },
+    } as any;
+
+    new MemoryGraph(config);
+
+    // Should use graphStore.llm, NOT root llm
+    expect(LLMFactory.create).toHaveBeenNthCalledWith(1, "openai", {
+      model: "gpt-4o",
+      apiKey: "sk-openai-test",
+    });
+    expect(LLMFactory.create).toHaveBeenNthCalledWith(2, "openai", {
+      model: "gpt-4o",
+      apiKey: "sk-openai-test",
+    });
+  });
+
+  it("falls back to root llm config when graphStore.llm.config is undefined", () => {
+    // Note: in practice, Zod schema requires config when graphStore.llm is
+    // present. This tests the defensive fallback in MemoryGraph itself.
+    const config = {
+      graphStore: {
+        config: {
+          url: "bolt://localhost:7687",
+          username: "neo4j",
+          password: "test",
+        },
+        llm: {
+          provider: "openai",
+          // config explicitly undefined
+          config: undefined,
+        },
+      },
+      embedder: { provider: "openai", config: {} },
+      llm: {
+        provider: "anthropic",
+        config: { model: "claude-sonnet-4-20250514" },
+      },
+    } as any;
+
+    new MemoryGraph(config);
+
+    // Provider from graphStore.llm, but config falls back to root llm.config
+    expect(LLMFactory.create).toHaveBeenNthCalledWith(1, "openai", {
+      model: "claude-sonnet-4-20250514",
+    });
+  });
+
+  it("defaults to openai when neither root nor graphStore llm provider is set", () => {
+    const config = {
+      graphStore: {
+        config: {
+          url: "bolt://localhost:7687",
+          username: "neo4j",
+          password: "test",
+        },
+      },
+      embedder: { provider: "openai", config: {} },
+      llm: { config: { model: "gpt-4" } },
+    } as any;
+
+    new MemoryGraph(config);
+
+    expect(LLMFactory.create).toHaveBeenNthCalledWith(1, "openai", {
+      model: "gpt-4",
+    });
+  });
+});
+
 describe("_removeSpacesFromEntities (via _establishNodesRelationsFromData)", () => {
   it("normalises spaces and case in entity source/relationship/destination", async () => {
     mockGenerateResponse.mockResolvedValueOnce({
