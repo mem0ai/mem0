@@ -1,4 +1,6 @@
 import json
+import threading
+from copy import deepcopy
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -75,6 +77,918 @@ def test_list_memories(memory_client):
     memories = memory_client.get_all(user_id="test_user")
     assert data1 in memories
     assert data2 in memories
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_add_runs_vector_store_on_caller_thread_when_graph_disabled(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+    memory.enable_graph = False
+
+    caller_thread_id = threading.get_ident()
+
+    def thread_bound_add(*_args, **_kwargs):
+        assert threading.get_ident() == caller_thread_id, "_add_to_vector_store ran on a worker thread"
+        return []
+
+    memory._add_to_vector_store = MagicMock(side_effect=thread_bound_add)
+    memory._add_to_graph = MagicMock(return_value=[])
+
+    result = memory.add(messages=[{"role": "user", "content": "hello"}], user_id="test-user", infer=False)
+
+    assert result == {"results": []}
+    memory._add_to_vector_store.assert_called_once()
+    memory._add_to_graph.assert_not_called()
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_get_all_runs_vector_store_on_caller_thread_when_graph_disabled(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+    memory.enable_graph = False
+
+    caller_thread_id = threading.get_ident()
+
+    def thread_bound_get_all(*_args, **_kwargs):
+        assert threading.get_ident() == caller_thread_id, "_get_all_from_vector_store ran on a worker thread"
+        return []
+
+    memory._get_all_from_vector_store = MagicMock(side_effect=thread_bound_get_all)
+
+    result = memory.get_all(user_id="test-user", limit=10)
+
+    assert result == {"results": []}
+    memory._get_all_from_vector_store.assert_called_once()
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_search_runs_vector_store_on_caller_thread_when_graph_disabled(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+    memory.enable_graph = False
+    memory.reranker = None
+
+    caller_thread_id = threading.get_ident()
+
+    def thread_bound_search(*_args, **_kwargs):
+        assert threading.get_ident() == caller_thread_id, "_search_vector_store ran on a worker thread"
+        return []
+
+    memory._search_vector_store = MagicMock(side_effect=thread_bound_search)
+
+    result = memory.search(query="hello", user_id="test-user", limit=5)
+
+    assert result == {"results": []}
+    memory._search_vector_store.assert_called_once()
+
+
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_add_runs_vector_store_on_caller_thread_for_graph_enabled_local_qdrant(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+    memory.enable_graph = True
+    memory.config.vector_store.provider = "qdrant"
+    memory.vector_store.is_local = True
+
+    caller_thread_id = threading.get_ident()
+
+    def thread_bound_add(*_args, **_kwargs):
+        assert threading.get_ident() == caller_thread_id, "_add_to_vector_store ran on a worker thread"
+        return []
+
+    memory._add_to_vector_store = MagicMock(side_effect=thread_bound_add)
+    memory._add_to_graph = MagicMock(return_value=[])
+
+    result = memory.add(messages=[{"role": "user", "content": "hello"}], user_id="test-user", infer=False)
+
+    assert result == {"results": [], "relations": []}
+    memory._add_to_vector_store.assert_called_once()
+    memory._add_to_graph.assert_called_once()
+    memory._shutdown_sync_executor()
+
+
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_get_all_runs_vector_store_on_caller_thread_for_graph_enabled_local_qdrant(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+    memory.enable_graph = True
+    memory.config.vector_store.provider = "qdrant"
+    memory.vector_store.is_local = True
+    memory.graph = MagicMock()
+    memory.graph.get_all = MagicMock(return_value=[])
+
+    caller_thread_id = threading.get_ident()
+
+    def thread_bound_get_all(*_args, **_kwargs):
+        assert threading.get_ident() == caller_thread_id, "_get_all_from_vector_store ran on a worker thread"
+        return []
+
+    memory._get_all_from_vector_store = MagicMock(side_effect=thread_bound_get_all)
+
+    result = memory.get_all(user_id="test-user", limit=10)
+
+    assert result == {"results": [], "relations": []}
+    memory._get_all_from_vector_store.assert_called_once()
+    memory.graph.get_all.assert_called_once()
+    memory._shutdown_sync_executor()
+
+
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_search_runs_vector_store_on_caller_thread_for_graph_enabled_local_qdrant(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+    memory.enable_graph = True
+    memory.config.vector_store.provider = "qdrant"
+    memory.vector_store.is_local = True
+    memory.reranker = None
+    memory.graph = MagicMock()
+    memory.graph.search = MagicMock(return_value=[])
+
+    caller_thread_id = threading.get_ident()
+
+    def thread_bound_search(*_args, **_kwargs):
+        assert threading.get_ident() == caller_thread_id, "_search_vector_store ran on a worker thread"
+        return []
+
+    memory._search_vector_store = MagicMock(side_effect=thread_bound_search)
+
+    result = memory.search(query="hello", user_id="test-user", limit=5)
+
+    assert result == {"results": [], "relations": []}
+    memory._search_vector_store.assert_called_once()
+    memory.graph.search.assert_called_once()
+    memory._shutdown_sync_executor()
+
+
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_search_falls_back_to_caller_thread_when_qdrant_local_status_unknown(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory, caplog
+):
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+
+    class DummyVectorStore:
+        pass
+
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+    memory.enable_graph = True
+    memory.config.vector_store.provider = "qdrant"
+    memory.vector_store = DummyVectorStore()
+    memory.reranker = None
+    memory.graph = MagicMock()
+    memory.graph.search = MagicMock(return_value=[])
+
+    caller_thread_id = threading.get_ident()
+
+    def thread_bound_search(*_args, **_kwargs):
+        assert threading.get_ident() == caller_thread_id, "_search_vector_store ran on a worker thread"
+        return []
+
+    memory._search_vector_store = MagicMock(side_effect=thread_bound_search)
+
+    with caplog.at_level("WARNING", logger="mem0.memory.main"):
+        result = memory.search(query="hello", user_id="test-user", limit=5)
+
+    assert result == {"results": [], "relations": []}
+    assert any("local status is unavailable" in record.message for record in caplog.records)
+    memory._shutdown_sync_executor()
+
+
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_add_uses_distinct_filter_dicts_for_vector_and_graph(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+    memory.enable_graph = True
+    memory.config.vector_store.provider = "qdrant"
+    memory.vector_store.is_local = True
+
+    nested_filters = {"user_id": "test-user", "nested": {"topics": ["python"]}}
+    seen = {}
+    marker_set = threading.Event()
+
+    def vector_side_effect(_messages, _metadata, filters, _infer):
+        seen["vector_filter_id"] = id(filters)
+        filters["nested"]["topics"].append("vector")
+        marker_set.set()
+        return []
+
+    def graph_side_effect(_messages, filters):
+        marker_set.wait(timeout=1)
+        seen["graph_filter_id"] = id(filters)
+        seen["graph_nested_topics"] = filters["nested"]["topics"]
+        return []
+
+    memory._add_to_vector_store = MagicMock(side_effect=vector_side_effect)
+    memory._add_to_graph = MagicMock(side_effect=graph_side_effect)
+
+    with patch(
+        "mem0.memory.main._build_filters_and_metadata",
+        return_value=({"user_id": "test-user"}, deepcopy(nested_filters)),
+    ):
+        result = memory.add(messages=[{"role": "user", "content": "hello"}], user_id="test-user", infer=False)
+
+    assert result == {"results": [], "relations": []}
+    assert seen["vector_filter_id"] != seen["graph_filter_id"]
+    assert seen["graph_nested_topics"] == ["python"]
+    memory._shutdown_sync_executor()
+
+
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_get_all_uses_distinct_filter_dicts_for_vector_and_graph(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+    memory.enable_graph = True
+    memory.config.vector_store.provider = "qdrant"
+    memory.vector_store.is_local = True
+    memory.graph = MagicMock()
+
+    nested_filters = {"user_id": "test-user", "nested": {"topics": ["python"]}}
+    seen = {}
+    marker_set = threading.Event()
+
+    def vector_side_effect(filters, _limit):
+        seen["vector_filter_id"] = id(filters)
+        filters["nested"]["topics"].append("vector")
+        marker_set.set()
+        return []
+
+    def graph_side_effect(filters, _limit):
+        marker_set.wait(timeout=1)
+        seen["graph_filter_id"] = id(filters)
+        seen["graph_nested_topics"] = filters["nested"]["topics"]
+        return []
+
+    memory._get_all_from_vector_store = MagicMock(side_effect=vector_side_effect)
+    memory.graph.get_all = MagicMock(side_effect=graph_side_effect)
+
+    with patch(
+        "mem0.memory.main._build_filters_and_metadata",
+        return_value=({}, deepcopy(nested_filters)),
+    ):
+        result = memory.get_all(user_id="test-user", limit=10)
+
+    assert result == {"results": [], "relations": []}
+    assert seen["vector_filter_id"] != seen["graph_filter_id"]
+    assert seen["graph_nested_topics"] == ["python"]
+    memory._shutdown_sync_executor()
+
+
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_search_uses_distinct_filter_dicts_for_vector_and_graph(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+    memory.enable_graph = True
+    memory.config.vector_store.provider = "qdrant"
+    memory.vector_store.is_local = True
+    memory.reranker = None
+    memory.graph = MagicMock()
+
+    nested_filters = {"user_id": "test-user", "nested": {"topics": ["python"]}}
+    seen = {}
+    marker_set = threading.Event()
+
+    def vector_side_effect(_query, filters, _limit, _threshold):
+        seen["vector_filter_id"] = id(filters)
+        filters["nested"]["topics"].append("vector")
+        marker_set.set()
+        return []
+
+    def graph_side_effect(_query, filters, _limit):
+        marker_set.wait(timeout=1)
+        seen["graph_filter_id"] = id(filters)
+        seen["graph_nested_topics"] = filters["nested"]["topics"]
+        return []
+
+    memory._search_vector_store = MagicMock(side_effect=vector_side_effect)
+    memory.graph.search = MagicMock(side_effect=graph_side_effect)
+
+    with patch(
+        "mem0.memory.main._build_filters_and_metadata",
+        return_value=({}, deepcopy(nested_filters)),
+    ):
+        result = memory.search(query="hello", user_id="test-user", limit=5)
+
+    assert result == {"results": [], "relations": []}
+    assert seen["vector_filter_id"] != seen["graph_filter_id"]
+    assert seen["graph_nested_topics"] == ["python"]
+    memory._shutdown_sync_executor()
+
+
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_sync_executor_is_reused_across_repeated_sync_calls(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+    memory.enable_graph = True
+    memory.config.vector_store.provider = "chroma"
+    memory.reranker = None
+    memory.graph = MagicMock()
+    memory.graph.search = MagicMock(return_value=[])
+    memory._search_vector_store = MagicMock(return_value=[])
+
+    memory.search(query="hello", user_id="test-user", limit=5)
+    first_executor = memory._sync_executor
+
+    memory.search(query="hello", user_id="test-user", limit=5)
+
+    assert first_executor is not None
+    assert memory._sync_executor is first_executor
+    memory._shutdown_sync_executor()
+
+
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_reset_shuts_down_sync_executor_and_clears_cached_instance(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+    fake_executor = MagicMock()
+    memory._sync_executor = fake_executor
+
+    memory.reset()
+
+    fake_executor.shutdown.assert_called_once_with(wait=True)
+    assert memory._sync_executor is None
+
+
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_add_runs_vector_store_on_worker_thread_for_graph_enabled_remote_qdrant(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+    memory.enable_graph = True
+    memory.config.vector_store.provider = "qdrant"
+    memory.vector_store.is_local = False
+
+    caller_thread_id = threading.get_ident()
+    seen = {}
+
+    def vector_side_effect(*_args, **_kwargs):
+        seen["vector_thread_id"] = threading.get_ident()
+        return []
+
+    def graph_side_effect(*_args, **_kwargs):
+        seen["graph_thread_id"] = threading.get_ident()
+        return []
+
+    memory._add_to_vector_store = MagicMock(side_effect=vector_side_effect)
+    memory._add_to_graph = MagicMock(side_effect=graph_side_effect)
+
+    result = memory.add(messages=[{"role": "user", "content": "hello"}], user_id="test-user", infer=False)
+
+    assert result == {"results": [], "relations": []}
+    assert seen["vector_thread_id"] != caller_thread_id
+    assert seen["graph_thread_id"] != caller_thread_id
+    memory._shutdown_sync_executor()
+
+
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_search_runs_vector_store_on_worker_thread_for_graph_enabled_non_qdrant_without_warning(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory, caplog
+):
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+
+    class DummyVectorStore:
+        pass
+
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+    memory.enable_graph = True
+    memory.config.vector_store.provider = "chroma"
+    memory.vector_store = DummyVectorStore()
+    memory.reranker = None
+    memory.graph = MagicMock()
+    memory.graph.search = MagicMock(return_value=[])
+
+    caller_thread_id = threading.get_ident()
+    seen = {}
+
+    def thread_bound_search(*_args, **_kwargs):
+        seen["vector_thread_id"] = threading.get_ident()
+        return []
+
+    memory._search_vector_store = MagicMock(side_effect=thread_bound_search)
+
+    with caplog.at_level("WARNING", logger="mem0.memory.main"):
+        result = memory.search(query="hello", user_id="test-user", limit=5)
+
+    assert result == {"results": [], "relations": []}
+    assert seen["vector_thread_id"] != caller_thread_id
+    assert not any("local status is unavailable" in record.message for record in caplog.records)
+    memory._shutdown_sync_executor()
+
+
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_get_sync_executor_lazy_singleton_per_instance(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+
+    memory = MemoryClass(MemoryConfig())
+    assert memory._sync_executor is None
+
+    executor1 = memory._get_sync_executor()
+    executor2 = memory._get_sync_executor()
+
+    assert executor1 is executor2
+    memory._shutdown_sync_executor()
+
+
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_shutdown_sync_executor_is_idempotent(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+
+    memory = MemoryClass(MemoryConfig())
+    fake_executor = MagicMock()
+    memory._sync_executor = fake_executor
+
+    memory._shutdown_sync_executor()
+    memory._shutdown_sync_executor()
+
+    fake_executor.shutdown.assert_called_once_with(wait=True)
+    assert memory._sync_executor is None
+
+
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_reset_with_no_cached_executor_is_noop_for_shutdown(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+
+    memory = MemoryClass(MemoryConfig())
+    memory._sync_executor = None
+
+    memory.reset()
+
+    assert memory._sync_executor is None
+
+
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_context_manager_closes_sync_executor_on_exit(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+
+    fake_executor = MagicMock()
+    with patch("mem0.memory.main.concurrent.futures.ThreadPoolExecutor", return_value=fake_executor):
+        with MemoryClass(MemoryConfig()) as memory:
+            executor = memory._get_sync_executor()
+            assert executor is fake_executor
+            assert memory._sync_executor is fake_executor
+
+        fake_executor.shutdown.assert_called_once_with(wait=True)
+        assert memory._sync_executor is None
+
+
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_del_swallows_close_errors(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+
+    memory = MemoryClass(MemoryConfig())
+    memory.close = MagicMock(side_effect=RuntimeError("boom"))
+
+    memory.__del__()
+
+    memory.close.assert_called_once()
+
+
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_add_nested_filters_are_isolated_for_non_qdrant_parallel_branch(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+
+    nested_filters = {"user_id": "test-user", "nested": {"topics": ["python"]}}
+    memory = MemoryClass(MemoryConfig())
+    memory.enable_graph = True
+    memory.config.vector_store.provider = "chroma"
+
+    seen = {}
+    marker_set = threading.Event()
+
+    def vector_side_effect(_messages, _metadata, filters, _infer):
+        seen["vector_filter_id"] = id(filters)
+        filters["nested"]["topics"].append("vector")
+        marker_set.set()
+        return []
+
+    def graph_side_effect(_messages, filters):
+        marker_set.wait(timeout=1)
+        seen["graph_filter_id"] = id(filters)
+        seen["graph_nested_topics"] = filters["nested"]["topics"]
+        return []
+
+    memory._add_to_vector_store = MagicMock(side_effect=vector_side_effect)
+    memory._add_to_graph = MagicMock(side_effect=graph_side_effect)
+
+    with patch(
+        "mem0.memory.main._build_filters_and_metadata",
+        return_value=({"user_id": "test-user"}, deepcopy(nested_filters)),
+    ):
+        result = memory.add(messages=[{"role": "user", "content": "hello"}], user_id="test-user", infer=False)
+
+    assert result == {"results": [], "relations": []}
+    assert seen["vector_filter_id"] != seen["graph_filter_id"]
+    assert seen["graph_nested_topics"] == ["python"]
+    memory._shutdown_sync_executor()
+
+
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_get_all_nested_filters_are_isolated_for_non_qdrant_parallel_branch(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+
+    nested_filters = {"user_id": "test-user", "nested": {"topics": ["python"]}}
+    memory = MemoryClass(MemoryConfig())
+    memory.enable_graph = True
+    memory.config.vector_store.provider = "chroma"
+    memory.graph = MagicMock()
+
+    seen = {}
+    marker_set = threading.Event()
+
+    def vector_side_effect(filters, _limit):
+        seen["vector_filter_id"] = id(filters)
+        filters["nested"]["topics"].append("vector")
+        marker_set.set()
+        return []
+
+    def graph_side_effect(filters, _limit):
+        marker_set.wait(timeout=1)
+        seen["graph_filter_id"] = id(filters)
+        seen["graph_nested_topics"] = filters["nested"]["topics"]
+        return []
+
+    memory._get_all_from_vector_store = MagicMock(side_effect=vector_side_effect)
+    memory.graph.get_all = MagicMock(side_effect=graph_side_effect)
+
+    with patch(
+        "mem0.memory.main._build_filters_and_metadata",
+        return_value=({}, deepcopy(nested_filters)),
+    ):
+        result = memory.get_all(user_id="test-user", limit=10)
+
+    assert result == {"results": [], "relations": []}
+    assert seen["vector_filter_id"] != seen["graph_filter_id"]
+    assert seen["graph_nested_topics"] == ["python"]
+    memory._shutdown_sync_executor()
+
+
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_search_nested_filters_are_isolated_for_non_qdrant_parallel_branch(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+
+    nested_filters = {"user_id": "test-user", "nested": {"topics": ["python"]}}
+    memory = MemoryClass(MemoryConfig())
+    memory.enable_graph = True
+    memory.config.vector_store.provider = "chroma"
+    memory.reranker = None
+    memory.graph = MagicMock()
+
+    seen = {}
+    marker_set = threading.Event()
+
+    def vector_side_effect(_query, filters, _limit, _threshold):
+        seen["vector_filter_id"] = id(filters)
+        filters["nested"]["topics"].append("vector")
+        marker_set.set()
+        return []
+
+    def graph_side_effect(_query, filters, _limit):
+        marker_set.wait(timeout=1)
+        seen["graph_filter_id"] = id(filters)
+        seen["graph_nested_topics"] = filters["nested"]["topics"]
+        return []
+
+    memory._search_vector_store = MagicMock(side_effect=vector_side_effect)
+    memory.graph.search = MagicMock(side_effect=graph_side_effect)
+
+    with patch(
+        "mem0.memory.main._build_filters_and_metadata",
+        return_value=({}, deepcopy(nested_filters)),
+    ):
+        result = memory.search(query="hello", user_id="test-user", limit=5)
+
+    assert result == {"results": [], "relations": []}
+    assert seen["vector_filter_id"] != seen["graph_filter_id"]
+    assert seen["graph_nested_topics"] == ["python"]
+    memory._shutdown_sync_executor()
+
+
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_run_sync_vector_and_graph_raises_when_vector_callable_fails(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+
+    memory = MemoryClass(MemoryConfig())
+    memory.enable_graph = True
+    memory.config.vector_store.provider = "chroma"
+
+    def vector_fail():
+        raise RuntimeError("vector failed")
+
+    def graph_ok():
+        return []
+
+    try:
+        with pytest.raises(RuntimeError, match="vector failed"):
+            memory._run_sync_vector_and_graph(vector_fail, graph_ok)
+    finally:
+        memory._shutdown_sync_executor()
+
+
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_run_sync_vector_and_graph_raises_when_graph_callable_fails(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+
+    memory = MemoryClass(MemoryConfig())
+    memory.enable_graph = True
+    memory.config.vector_store.provider = "chroma"
+
+    def vector_ok():
+        return []
+
+    def graph_fail():
+        raise RuntimeError("graph failed")
+
+    try:
+        with pytest.raises(RuntimeError, match="graph failed"):
+            memory._run_sync_vector_and_graph(vector_ok, graph_fail)
+    finally:
+        memory._shutdown_sync_executor()
+
+
+@pytest.mark.parametrize("iteration", range(50))
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_repeatability_parallel_search_branch(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory, iteration
+):
+    del iteration
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+
+    memory = MemoryClass(MemoryConfig())
+    memory.enable_graph = True
+    memory.config.vector_store.provider = "chroma"
+    memory.reranker = None
+    memory.graph = MagicMock()
+    memory.graph.search = MagicMock(return_value=[])
+    memory._search_vector_store = MagicMock(return_value=[])
+
+    result = memory.search(query="hello", user_id="test-user", limit=5)
+
+    assert result == {"results": [], "relations": []}
+    memory._shutdown_sync_executor()
 
 
 @patch('mem0.utils.factory.EmbedderFactory.create')
