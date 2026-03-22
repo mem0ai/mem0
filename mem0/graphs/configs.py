@@ -77,12 +77,32 @@ class KuzuConfig(BaseModel):
     db: Optional[str] = Field(":memory:", description="Path to a Kuzu database file")
 
 
+class ApacheAgeConfig(BaseModel):
+    host: Optional[str] = Field("localhost", description="PostgreSQL server hostname")
+    port: Optional[int] = Field(5432, description="PostgreSQL server port")
+    database: Optional[str] = Field(None, description="PostgreSQL database name")
+    username: Optional[str] = Field(None, description="PostgreSQL username")
+    password: Optional[str] = Field(None, description="PostgreSQL password")
+    graph_name: Optional[str] = Field("mem0_graph", description="Name of the Apache AGE graph")
+
+    @model_validator(mode="before")
+    def check_required_fields(cls, values):
+        database, username, password = (
+            values.get("database"),
+            values.get("username"),
+            values.get("password"),
+        )
+        if not database or not username or not password:
+            raise ValueError("Please provide 'database', 'username' and 'password'.")
+        return values
+
+
 class GraphStoreConfig(BaseModel):
     provider: str = Field(
-        description="Provider of the data store (e.g., 'neo4j', 'memgraph', 'neptune', 'kuzu')",
+        description="Provider of the data store (e.g., 'neo4j', 'memgraph', 'neptune', 'kuzu', 'apache_age')",
         default="neo4j",
     )
-    config: Union[Neo4jConfig, MemgraphConfig, NeptuneConfig, KuzuConfig] = Field(
+    config: Union[Neo4jConfig, MemgraphConfig, NeptuneConfig, KuzuConfig, ApacheAgeConfig] = Field(
         description="Configuration for the specific data store", default=None
     )
     llm: Optional[LlmConfig] = Field(description="LLM configuration for querying the graph store", default=None)
@@ -110,5 +130,7 @@ class GraphStoreConfig(BaseModel):
             return NeptuneConfig(**v.model_dump())
         elif provider == "kuzu":
             return KuzuConfig(**v.model_dump())
+        elif provider == "apache_age":
+            return ApacheAgeConfig(**v.model_dump())
         else:
             raise ValueError(f"Unsupported graph store provider: {provider}")
