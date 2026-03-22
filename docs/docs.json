@@ -188,6 +188,7 @@
                               "components/llms/models/google_AI",
                               "components/llms/models/aws_bedrock",
                               "components/llms/models/deepseek",
+                              "components/llms/models/minimax",
                               "components/llms/models/xAI",
                               "components/llms/models/sarvam",
                               "components/llms/models/lmstudio",
@@ -230,7 +231,8 @@
                               "components/vectordbs/dbs/cassandra",
                               "components/vectordbs/dbs/s3_vectors",
                               "components/vectordbs/dbs/databricks",
-                              "components/vectordbs/dbs/neptune_analytics"
+                              "components/vectordbs/dbs/neptune_analytics",
+                              "components/vectordbs/dbs/turbopuffer"
                             ]
                           }
                         ]

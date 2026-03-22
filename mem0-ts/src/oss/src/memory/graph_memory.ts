@@ -80,18 +80,18 @@ export class MemoryGraph {
     );
 
     this.llmProvider = "openai";
+    let llmConfig = this.config.llm.config;
+
     if (this.config.llm?.provider) {
       this.llmProvider = this.config.llm.provider;
     }
     if (this.config.graphStore?.llm?.provider) {
       this.llmProvider = this.config.graphStore.llm.provider;
+      llmConfig = this.config.graphStore.llm.config ?? llmConfig;
     }
 
-    this.llm = LLMFactory.create(this.llmProvider, this.config.llm.config);
-    this.structuredLlm = LLMFactory.create(
-      this.llmProvider,
-      this.config.llm.config,
-    );
+    this.llm = LLMFactory.create(this.llmProvider, llmConfig);
+    this.structuredLlm = LLMFactory.create(this.llmProvider, llmConfig);
     this.threshold = 0.7;
   }
 
