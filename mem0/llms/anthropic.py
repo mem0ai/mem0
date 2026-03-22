@@ -9,6 +9,7 @@ except ImportError:
 from mem0.configs.llms.anthropic import AnthropicConfig
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.llms.base import LLMBase
+from mem0.memory.utils import extract_json
 
 
 class AnthropicLLM(LLMBase):
@@ -83,5 +84,35 @@ class AnthropicLLM(LLMBase):
             params["tools"] = tools
             params["tool_choice"] = tool_choice
 
+        wants_json_prefill = False
+        if response_format and isinstance(response_format, dict):
+            format_type = response_format.get("type")
+            if format_type == "json_schema" and "json_schema" in response_format:
+                # Use Anthropic structured outputs via output_config
+                schema = response_format["json_schema"]
+                if isinstance(schema, dict) and "schema" in schema:
+                    schema = schema["schema"]
+                params["output_config"] = {"format": {"type": "json_schema", "schema": schema}}
+            elif format_type == "json_object":
+                # Use assistant prefill to guide JSON output
+                wants_json_prefill = True
+                json_instruction = (
+                    "\n\nYou must respond with valid JSON only. "
+                    "Do not include any other text, markdown formatting, or code fences."
+                )
+                if params.get("system"):
+                    params["system"] += json_instruction
+                else:
+                    params["system"] = json_instruction.strip()
+                params["messages"] = list(params["messages"]) + [
+                    {"role": "assistant", "content": "{"}
+                ]
+
         response = self.client.messages.create(**params)
-        return response.content[0].text
+        content = response.content[0].text
+
+        if wants_json_prefill:
+            content = "{" + content
+            content = extract_json(content)
+
+        return content
