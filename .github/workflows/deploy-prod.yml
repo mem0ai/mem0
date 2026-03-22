@@ -1,0 +1,109 @@
+# Deploy to Fly.io Production Environment
+# Triggered when the `latest-release` tag is moved
+#
+# ROLLBACK: Simply move the `latest-release` tag to any previous release tag
+#   git tag -f latest-release v1.0.0 && git push origin latest-release --force
+#
+# This will automatically deploy that version to production
+
+name: Deploy to Production
+
+on:
+  push:
+    tags:
+      - 'latest-release'
+
+env:
+  FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+jobs:
+  get-target-release:
+    name: Resolve Target Release
+    runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.resolve.outputs.release_tag }}
+      commit_sha: ${{ steps.resolve.outputs.commit_sha }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve release tag
+        id: resolve
+        run: |
+          # Get the commit that latest-release points to
+          COMMIT=$(git rev-list -n 1 latest-release)
+          echo "commit_sha=${COMMIT}" >> $GITHUB_OUTPUT
+
+          # Find which release tag points to this commit (excluding latest-release)
+          RELEASE_TAG=$(git tag --points-at ${COMMIT} | grep -v "latest-release" | head -1)
+
+          if [ -z "$RELEASE_TAG" ]; then
+            # No release tag, use commit SHA
+            RELEASE_TAG="commit-${COMMIT:0:8}"
+          fi
+
+          echo "release_tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
+          echo "Deploying: ${RELEASE_TAG} (${COMMIT})"
+
+  deploy-production:
+    name: Deploy to Production
+    needs: get-target-release
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://openmemory-prod.fly.dev
+
+    steps:
+      - name: Checkout target commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.get-target-release.outputs.commit_sha }}
+
+      - name: Install Fly CLI
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to Fly.io Production
+        working-directory: deploy-fly-io
+        run: |
+          flyctl deploy \
+            --config fly.toml \
+            --app openmemory-prod \
+            --remote-only \
+            --strategy rolling \
+            --wait-timeout 300
+
+      - name: Health check
+        id: health
+        run: |
+          echo "Waiting for deployment to stabilize..."
+          sleep 30
+
+          for i in {1..15}; do
+            if curl -sf https://openmemory-prod.fly.dev/health; then
+              echo "Health check passed!"
+              exit 0
+            fi
+            echo "Attempt $i/15 - waiting..."
+            sleep 10
+          done
+
+          echo "::error::Health check failed"
+          exit 1
+
+      - name: Deployment summary
+        run: |
+          echo "## Production Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Release:** ${{ needs.get-target-release.outputs.release_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ needs.get-target-release.outputs.commit_sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** https://openmemory-prod.fly.dev" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Rollback" >> $GITHUB_STEP_SUMMARY
+          echo "To rollback, move \`latest-release\` tag to a previous release:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "git tag -f latest-release v1.0.0" >> $GITHUB_STEP_SUMMARY
+          echo "git push origin latest-release --force" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

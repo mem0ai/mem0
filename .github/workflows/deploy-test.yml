@@ -1,0 +1,182 @@
+# Deploy to Fly.io Test Environment
+# Triggered ONLY on push/merge to deploy branch
+# Runs security checks including Claude AI review before deployment
+# NO MANUAL DEPLOYMENTS - must go through git push to deploy branch
+
+name: Deploy to Test
+
+on:
+  push:
+    branches:
+      - deploy
+  # NO workflow_dispatch - manual deploys are not allowed
+
+# Prevent concurrent deployments
+concurrency:
+  group: deploy-test
+  cancel-in-progress: false
+
+env:
+  FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+  ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+jobs:
+  security-check:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    outputs:
+      verdict: ${{ steps.claude-review.outputs.verdict }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for diff
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install security tools
+        run: |
+          pip install anthropic bandit safety
+
+      - name: Run pattern-based security scan
+        id: pattern-scan
+        run: |
+          chmod +x deploy-fly-io/hooks/security-check.sh
+          # Run without Claude (we'll do that separately for better output)
+          ANTHROPIC_API_KEY="" ./deploy-fly-io/hooks/security-check.sh
+        continue-on-error: true
+
+      - name: Run Claude AI security review
+        id: claude-review
+        if: env.ANTHROPIC_API_KEY != ''
+        run: |
+          chmod +x deploy-fly-io/hooks/claude_review.py
+
+          # Get the diff from main to current
+          git diff origin/main...HEAD > /tmp/changes.diff
+
+          if [ -s /tmp/changes.diff ]; then
+            python3 deploy-fly-io/hooks/claude_review.py \
+              --diff-file /tmp/changes.diff \
+              --output /tmp/claude_review.json
+
+            VERDICT=$(python3 -c "import json; print(json.load(open('/tmp/claude_review.json')).get('review',{}).get('verdict','UNKNOWN'))")
+            echo "verdict=${VERDICT}" >> $GITHUB_OUTPUT
+
+            # Upload review as artifact
+            echo "Claude Review Verdict: ${VERDICT}"
+          else
+            echo "No changes to review"
+            echo "verdict=SAFE" >> $GITHUB_OUTPUT
+          fi
+        continue-on-error: true
+
+      - name: Upload Claude review report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-security-review
+          path: /tmp/claude_review.json
+          if-no-files-found: ignore
+
+      - name: Check security results
+        run: |
+          VERDICT="${{ steps.claude-review.outputs.verdict }}"
+
+          if [ "$VERDICT" = "DANGEROUS" ]; then
+            echo "::error::Claude flagged DANGEROUS code patterns. Deployment blocked."
+            exit 1
+          fi
+
+          if [ "${{ steps.pattern-scan.outcome }}" = "failure" ]; then
+            echo "::error::Pattern-based security scan failed. Deployment blocked."
+            exit 1
+          fi
+
+          if [ "$VERDICT" = "SUSPICIOUS" ]; then
+            echo "::warning::Claude flagged SUSPICIOUS code. Review recommended but proceeding with test deployment."
+          fi
+
+          echo "Security checks passed."
+
+  test-deploy:
+    name: Deploy to Test
+    needs: security-check
+    runs-on: ubuntu-latest
+    environment:
+      name: test
+      url: https://openmemory-test.fly.dev
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Fly CLI
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to Fly.io Test
+        working-directory: deploy-fly-io
+        run: |
+          flyctl deploy \
+            --config fly-test.toml \
+            --app openmemory-test \
+            --remote-only \
+            --wait-timeout 300
+
+      - name: Health check
+        run: |
+          echo "Waiting for deployment to stabilize..."
+          sleep 30
+
+          for i in {1..10}; do
+            if curl -sf https://openmemory-test.fly.dev/health; then
+              echo "Health check passed!"
+              exit 0
+            fi
+            echo "Attempt $i/10 - waiting..."
+            sleep 10
+          done
+
+          echo "Health check failed after 10 attempts"
+          exit 1
+
+      - name: Post deployment info
+        run: |
+          echo "## Test Deployment Successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** https://openmemory-test.fly.dev" >> $GITHUB_STEP_SUMMARY
+          echo "**Health:** https://openmemory-test.fly.dev/health" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Security Review" >> $GITHUB_STEP_SUMMARY
+          echo "Claude Verdict: ${{ needs.security-check.outputs.verdict }}" >> $GITHUB_STEP_SUMMARY
+
+  notify-suspicious:
+    name: Notify on Suspicious Code
+    needs: [security-check, test-deploy]
+    if: needs.security-check.outputs.verdict == 'SUSPICIOUS'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Create issue for review
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '⚠️ Security Review Required - Suspicious Code Detected',
+              body: `Claude AI security review flagged **SUSPICIOUS** code patterns in the latest merge to deploy.
+
+            **Commit:** ${context.sha}
+            **Workflow Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}
+
+            Please review the Claude security report artifact and verify the changes are safe before creating a production release.
+
+            Download the security review from the workflow artifacts.`,
+              labels: ['security', 'needs-review']
+            });
+            console.log(`Created issue #${issue.data.number}`);

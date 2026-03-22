@@ -1,0 +1,28 @@
+# Extra dependencies for fly.io deployment
+# PostgreSQL with pgvector (psycopg3 preferred over psycopg2)
+psycopg[binary,pool]>=3.1.0
+pgvector>=0.2.0
+
+# Authentication & Security
+PyJWT>=2.8.0
+cryptography>=42.0.0
+argon2-cffi>=23.1.0
+python-multipart>=0.0.9
+
+# Rate limiting
+slowapi>=0.1.9
+
+# Monitoring & Observability
+prometheus-client>=0.20.0
+structlog>=24.1.0
+
+# HTTP Streaming
+httpx>=0.27.0
+sse-starlette>=2.0.0
+
+# Security scanning (used in pre-commit)
+bandit>=1.7.0
+safety>=3.0.0
+
+# Claude AI Security Review
+anthropic>=0.40.0

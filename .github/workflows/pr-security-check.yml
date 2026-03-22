@@ -1,0 +1,244 @@
+# Security Check for PRs to Deploy Branch
+# BLOCKS merge if Claude flags DANGEROUS or SUSPICIOUS code
+# This is a REQUIRED status check - PRs cannot merge without passing
+
+name: Security Gate
+
+on:
+  pull_request:
+    branches:
+      - deploy
+    types: [opened, synchronize, reopened]
+
+# Prevent concurrent runs on same PR
+concurrency:
+  group: security-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+jobs:
+  claude-security-review:
+    name: Claude Security Review
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install anthropic bandit
+
+      - name: Check Anthropic API Key
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::error::ANTHROPIC_API_KEY secret is not set. Claude security review is REQUIRED."
+            exit 1
+          fi
+
+      - name: Get PR diff
+        run: |
+          # Get the diff between base and head
+          git diff origin/${{ github.base_ref }}...${{ github.head_ref }} > /tmp/pr_changes.diff
+
+          # Show stats
+          echo "Files changed:"
+          git diff --stat origin/${{ github.base_ref }}...${{ github.head_ref }}
+
+      - name: Run Claude Security Review
+        id: claude
+        run: |
+          chmod +x deploy-fly-io/hooks/claude_review.py
+
+          # Run Claude review
+          set +e
+          python3 deploy-fly-io/hooks/claude_review.py \
+            --diff-file /tmp/pr_changes.diff \
+            --output /tmp/claude_review.json
+          EXIT_CODE=$?
+          set -e
+
+          # Parse verdict
+          VERDICT=$(python3 -c "import json; print(json.load(open('/tmp/claude_review.json')).get('review',{}).get('verdict','UNKNOWN'))" 2>/dev/null || echo "ERROR")
+          SUMMARY=$(python3 -c "import json; print(json.load(open('/tmp/claude_review.json')).get('review',{}).get('summary','No summary'))" 2>/dev/null || echo "Review failed")
+
+          echo "verdict=${VERDICT}" >> $GITHUB_OUTPUT
+          echo "summary=${SUMMARY}" >> $GITHUB_OUTPUT
+          echo "exit_code=${EXIT_CODE}" >> $GITHUB_OUTPUT
+
+          # Output for logs
+          echo "Claude Verdict: ${VERDICT}"
+          echo "Summary: ${SUMMARY}"
+
+      - name: Upload Review Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-security-review
+          path: /tmp/claude_review.json
+
+      - name: Post Review Comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            let review;
+            try {
+              review = JSON.parse(fs.readFileSync('/tmp/claude_review.json', 'utf8')).review;
+            } catch (e) {
+              review = { verdict: 'ERROR', summary: 'Could not parse review' };
+            }
+
+            const verdict = review.verdict || 'UNKNOWN';
+            const summary = review.summary || 'No summary available';
+            const criticalIssues = review.critical_issues || [];
+            const warnings = review.warnings || [];
+
+            let emoji, status;
+            if (verdict === 'SAFE') {
+              emoji = '✅';
+              status = 'PASSED';
+            } else if (verdict === 'SUSPICIOUS') {
+              emoji = '⚠️';
+              status = 'BLOCKED - SUSPICIOUS CODE';
+            } else {
+              emoji = '🚫';
+              status = 'BLOCKED - DANGEROUS CODE';
+            }
+
+            let body = `## ${emoji} Claude Security Review: ${status}\n\n`;
+            body += `**Verdict:** ${verdict}\n\n`;
+            body += `**Summary:** ${summary}\n\n`;
+
+            if (criticalIssues.length > 0) {
+              body += `### 🚨 Critical Issues (${criticalIssues.length})\n\n`;
+              for (const issue of criticalIssues.slice(0, 5)) {
+                body += `- **${issue.type}** in \`${issue.file}\`\n`;
+                body += `  - ${issue.explanation}\n`;
+                if (issue.recommendation) {
+                  body += `  - 💡 ${issue.recommendation}\n`;
+                }
+              }
+              if (criticalIssues.length > 5) {
+                body += `\n... and ${criticalIssues.length - 5} more issues. See full report in artifacts.\n`;
+              }
+              body += '\n';
+            }
+
+            if (warnings.length > 0) {
+              body += `### ⚠️ Warnings (${warnings.length})\n\n`;
+              for (const warn of warnings.slice(0, 3)) {
+                body += `- ${warn.description || warn.type}\n`;
+              }
+              if (warnings.length > 3) {
+                body += `\n... and ${warnings.length - 3} more warnings.\n`;
+              }
+              body += '\n';
+            }
+
+            if (verdict !== 'SAFE') {
+              body += `---\n\n`;
+              body += `### ❌ This PR cannot be merged\n\n`;
+              body += `Claude has flagged security concerns that must be addressed before merging to the deploy branch.\n\n`;
+              body += `**To resolve:**\n`;
+              body += `1. Review the issues above\n`;
+              body += `2. Fix the security concerns in your code\n`;
+              body += `3. Push the fixes to update this PR\n`;
+              body += `4. Claude will automatically re-review\n\n`;
+              body += `If you believe this is a false positive, document it in \`deploy-fly-io/docs/SECURITY_EXCEPTIONS.md\` with justification.\n`;
+            }
+
+            body += `\n---\n*Reviewed by Claude (${process.env.CLAUDE_MODEL || 'claude-sonnet-4-20250514'})*`;
+
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(c =>
+              c.user.type === 'Bot' &&
+              c.body.includes('Claude Security Review')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
+
+      - name: Enforce Security Gate
+        run: |
+          VERDICT="${{ steps.claude.outputs.verdict }}"
+
+          if [ "$VERDICT" = "SAFE" ]; then
+            echo "✅ Security review passed - PR can be merged"
+            exit 0
+          elif [ "$VERDICT" = "SUSPICIOUS" ]; then
+            echo "::error::🚫 MERGE BLOCKED: Claude flagged SUSPICIOUS code patterns"
+            echo "::error::Review the security concerns and fix them before merging"
+            exit 1
+          elif [ "$VERDICT" = "DANGEROUS" ]; then
+            echo "::error::🚫 MERGE BLOCKED: Claude flagged DANGEROUS code patterns"
+            echo "::error::Critical security issues must be resolved before merging"
+            exit 1
+          else
+            echo "::error::🚫 MERGE BLOCKED: Security review failed with verdict: $VERDICT"
+            exit 1
+          fi
+
+  pattern-security-scan:
+    name: Pattern Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+
+      - name: Run pattern-based security scan
+        run: |
+          chmod +x deploy-fly-io/hooks/security-check.sh
+          # Run without Claude (separate job handles that)
+          ANTHROPIC_API_KEY="" ./deploy-fly-io/hooks/security-check.sh
+
+  # Summary job that both checks must pass
+  security-gate:
+    name: Security Gate
+    needs: [claude-security-review, pattern-security-scan]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Check results
+        run: |
+          if [ "${{ needs.claude-security-review.result }}" != "success" ]; then
+            echo "::error::Claude security review failed or was not completed"
+            exit 1
+          fi
+
+          if [ "${{ needs.pattern-security-scan.result }}" != "success" ]; then
+            echo "::error::Pattern security scan failed"
+            exit 1
+          fi
+
+          echo "✅ All security checks passed - PR is safe to merge"

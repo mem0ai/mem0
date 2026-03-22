@@ -1,0 +1,48 @@
+# Fly.io Test Environment Configuration
+
+app = "openmemory-test"
+primary_region = "sjc"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8765"
+  ENVIRONMENT = "test"
+  LOG_LEVEL = "debug"
+  MCP_TRANSPORT = "http"
+  MCP_HTTP_STREAMABLE = "true"
+  REQUIRE_AUTH = "true"
+  TOKEN_EXPIRY_HOURS = "24"
+
+[http_service]
+  internal_port = 8765
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 50
+    soft_limit = 25
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+
+# Small volume for cache/temp files (vectors in Neon Postgres)
+[mounts]
+  source = "openmemory_test_data"
+  destination = "/data"
+  initial_size = "1gb"
+
+[[services.http_checks]]
+  interval = "60s"
+  timeout = "10s"
+  grace_period = "30s"
+  method = "GET"
+  path = "/health"
+
+# Secrets: Same NEON_CONNECTION_STRING as prod (shared database)

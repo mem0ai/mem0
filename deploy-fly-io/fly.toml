@@ -1,0 +1,57 @@
+# Fly.io Production Configuration for OpenMemory
+
+app = "openmemory-prod"
+primary_region = "sjc"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8765"
+  ENVIRONMENT = "production"
+  LOG_LEVEL = "info"
+  MCP_TRANSPORT = "http"
+  MCP_HTTP_STREAMABLE = "true"
+  REQUIRE_AUTH = "true"
+  TOKEN_EXPIRY_HOURS = "24"
+
+[http_service]
+  internal_port = 8765
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 250
+    soft_limit = 200
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "1gb"
+
+# Small volume for cache/temp files (vectors in Neon Postgres)
+[mounts]
+  source = "openmemory_data"
+  destination = "/data"
+  initial_size = "1gb"
+
+[[services.http_checks]]
+  interval = "30s"
+  timeout = "5s"
+  grace_period = "10s"
+  method = "GET"
+  path = "/health"
+
+# =============================================================================
+# Secrets (set via: flyctl secrets set -a openmemory-prod)
+# =============================================================================
+# OPENAI_API_KEY          - OpenAI key for embeddings
+# NEON_CONNECTION_STRING  - Neon Postgres connection string (auto-parsed to PG_*)
+# OAUTH_CLIENT_ID         - OAuth client ID (e.g., "openmemory")
+# OAUTH_CLIENT_SECRET     - OAuth secret for Claude Desktop
+# UI_USERNAME             - UI dashboard username
+# UI_PASSWORD             - UI dashboard password
+# SESSION_SECRET          - Session encryption key

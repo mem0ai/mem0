@@ -1,0 +1,35 @@
+# Environment files (contain API keys)
+.env
+.env.local
+.env.*.local
+*.env
+
+# Claude review reports (contain code analysis)
+docs/claude_review_*.json
+
+# Merge review reports (auto-generated)
+docs/merge_review_*.md
+
+# Local test data
+*.db
+*.sqlite
+
+# Archives
+*.tar.gz
+*.tar.gz.enc
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,60 @@
+# Local Development - Uses Neon PostgreSQL
+
+services:
+  openmemory-api:
+    build:
+      context: ..
+      dockerfile: deploy-fly-io/Dockerfile
+    ports:
+      - "8765:8765"
+    environment:
+      PORT: "8765"
+      ENVIRONMENT: "local"
+      LOG_LEVEL: "debug"
+      MCP_TRANSPORT: "http"
+      MCP_HTTP_STREAMABLE: "true"
+      REQUIRE_AUTH: "true"
+      TOKEN_EXPIRY_HOURS: "24"
+      USER: "${USER_ID:-default}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY}"
+      OAUTH_CLIENT_ID: "${OAUTH_CLIENT_ID:-openmemory}"
+      OAUTH_CLIENT_SECRET: "${OAUTH_CLIENT_SECRET}"
+      NEON_CONNECTION_STRING: "${NEON_CONNECTION_STRING}"
+    volumes:
+      - openmemory_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8765/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  openmemory-ui:
+    build:
+      context: ../openmemory/ui
+      dockerfile: Dockerfile
+    expose:
+      - "3000"
+    environment:
+      NEXT_PUBLIC_API_URL: "http://localhost:8765"
+      NEXT_PUBLIC_USER_ID: "${USER_ID:-default}"
+    depends_on:
+      - openmemory-api
+
+  ui-proxy:
+    build:
+      context: ./ui-proxy
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3001"
+    environment:
+      UI_URL: "http://openmemory-ui:3000"
+      REQUIRE_AUTH: "true"
+      UI_USERNAME: "${UI_USERNAME:-admin}"
+      UI_PASSWORD: "${UI_PASSWORD}"
+      SESSION_SECRET: "${SESSION_SECRET:-}"
+    depends_on:
+      - openmemory-ui
+      - openmemory-api
+
+volumes:
+  openmemory_data:
