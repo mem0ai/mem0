@@ -56,6 +56,11 @@ export const constants = {
     icon: <Icon source="/images/augment.png" />,
     iconImage: "/images/augment.png",
   },
+  "kilo-code": {
+    name: "Kilo Code",
+    icon: <Icon source="/images/kilo-code.png" />,
+    iconImage: "/images/kilo-code.png",
+  },
   default: {
     name: "Default",
     icon: <BiEdit size={18} className="ml-1" />,
