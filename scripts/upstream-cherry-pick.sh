@@ -140,6 +140,7 @@ SKIPPED_N=$(echo "$CANDIDATES" | jq '[.[] | select(.verdict=="skip")] | length')
 APPLIED=0
 FAILED=0
 APPLY_LOG="[]"
+PUSH_STATUS="skipped"
 
 if [[ "$AUTO" == "true" && "$APPROVED_N" -gt 0 ]]; then
     CURRENT=$(git branch --show-current)
@@ -171,7 +172,11 @@ if [[ "$AUTO" == "true" && "$APPROVED_N" -gt 0 ]]; then
     done < <(echo "$CANDIDATES" | jq -r '.[] | select(.verdict=="approve") | .full_sha')
 
     if [[ "$APPLIED" -gt 0 ]]; then
-        git push "$FORK_REMOTE" "$FORK_BRANCH" 2>/dev/null
+        if git push "$FORK_REMOTE" "$FORK_BRANCH" 2>/dev/null; then
+            PUSH_STATUS="pushed"
+        else
+            PUSH_STATUS="push_failed"
+        fi
     fi
 
     echo "$UPSTREAM_HEAD" > "$STATE_FILE"
@@ -190,4 +195,5 @@ jq -nc \
     --arg upstream_head "$UPSTREAM_HEAD" \
     --arg since "$SINCE_SHA" \
     --arg dry_run "$DRY_RUN" \
-    '{status: $status, since: $since, upstream_head: $upstream_head, total_new: $total, approved: $approved, skipped: $skipped, applied: $applied, failed: $failed, dry_run: $dry_run, candidates: $candidates, apply_log: $apply_log}'
+    --arg push_status "$PUSH_STATUS" \
+    '{status: $status, since: $since, upstream_head: $upstream_head, total_new: $total, approved: $approved, skipped: $skipped, applied: $applied, failed: $failed, push_status: $push_status, dry_run: $dry_run, candidates: $candidates, apply_log: $apply_log}'
