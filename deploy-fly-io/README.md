@@ -87,7 +87,6 @@ Add to `~/.claude/claude_desktop_config.json`:
   }
 }
 ```
-
 Restart Claude Desktop after saving.
 
 ## Deploy
