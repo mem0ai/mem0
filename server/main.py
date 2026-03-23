@@ -119,6 +119,9 @@ class MemoryCreate(BaseModel):
     agent_id: Optional[str] = None
     run_id: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
+    infer: Optional[bool] = Field(None, description="Whether to extract facts from messages. Defaults to True.")
+    memory_type: Optional[str] = Field(None, description="Type of memory to store (e.g. 'core').")
+    prompt: Optional[str] = Field(None, description="Custom prompt to use for fact extraction.")
 
 
 class SearchRequest(BaseModel):
@@ -127,6 +130,8 @@ class SearchRequest(BaseModel):
     run_id: Optional[str] = None
     agent_id: Optional[str] = None
     filters: Optional[Dict[str, Any]] = None
+    limit: Optional[int] = Field(None, description="Maximum number of results to return.")
+    threshold: Optional[float] = Field(None, description="Minimum similarity score for results.")
 
 
 @app.post("/configure", summary="Configure Mem0")
