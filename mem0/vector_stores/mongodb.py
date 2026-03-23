@@ -140,7 +140,7 @@ class MongoDB(VectorStoreBase):
                     "$vectorSearch": {
                         "index": self.index_name,
                         "limit": limit,
-                        "numCandidates": limit * 20,
+                        "numCandidates": min(limit * 20, 10000),
                         "queryVector": vectors,
                         "path": "embedding",
                     }
