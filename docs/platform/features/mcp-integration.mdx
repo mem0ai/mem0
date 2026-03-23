@@ -83,6 +83,19 @@ Choose the deployment method that fits your workflow:
     ```
   </Accordion>
 
+  <Accordion title="Smithery">
+    One-click setup with managed service:
+
+    Visit [smithery.ai/server/@mem0ai/mem0-memory-mcp](https://smithery.ai/server/@mem0ai/mem0-memory-mcp) and:
+
+    1. Select your AI client (Cursor, Claude Desktop, etc.)
+    2. Configure your Mem0 API key
+    3. Set your default user ID
+    4. Enable graph memory (optional)
+    5. Copy the generated configuration
+
+    Your client connects automatically - no installation required.
+  </Accordion>
 </AccordionGroup>
 
 ## Configuration
@@ -125,6 +138,13 @@ MEM0_MCP_AGENT_MODEL="gpt-4o-mini"        # LLM for bundled examples
       ```bash
       export MEM0_MCP_CONFIG_PATH=example/docker-config.json
       export MEM0_MCP_CONFIG_SERVER=mem0-docker
+      python example/pydantic_ai_repl.py
+      ```
+
+    - **Smithery remote**:
+      ```bash
+      export MEM0_MCP_CONFIG_PATH=example/config-smithery.json
+      export MEM0_MCP_CONFIG_SERVER=mem0-memory-mcp
       python example/pydantic_ai_repl.py
       ```
 
