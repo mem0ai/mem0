@@ -1,11 +1,23 @@
-name: Documentation
-description: Report an issue related to the Embedchain docs.
-title: "DOC: <Please write a comprehensive title after the 'DOC: ' prefix>"
+name: Documentation Issue
+description: Report an issue or suggest an improvement to the mem0 docs
+labels: ["documentation"]
+title: "DOC: "
 
 body:
-- type: textarea
-  attributes:
-    label: "Issue with current documentation:"
-    description: >
-      Please make sure to leave a reference to the document/code you're
-      referring to.
+  - type: textarea
+    id: description
+    attributes:
+      label: Issue with current documentation
+      description: |
+        Describe what's wrong or missing. Please link to the specific page or section.
+      placeholder: "https://docs.mem0.ai/... — this section is missing X / incorrect about Y"
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested fix
+      description: How should the docs be improved?
+    validations:
+      required: false
