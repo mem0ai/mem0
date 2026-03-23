@@ -207,12 +207,6 @@ def test_update(mongo_vector_fixture):
     """
     Test that update() uses dot notation for payload fields instead of replacing
     the entire payload document.
-
-    Fixes #3966 — MongoDB's $set with {"payload": new_dict} replaces the entire
-    payload, losing existing metadata. Using {"payload.key": value} preserves
-    fields not being updated.
-
-    See: https://www.mongodb.com/docs/manual/reference/operator/update/set/
     """
     mongo_vector, mock_collection, _ = mongo_vector_fixture
     vector_id = "id1"
