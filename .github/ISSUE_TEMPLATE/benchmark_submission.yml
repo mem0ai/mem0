@@ -3,86 +3,41 @@ description: Submit evaluation or benchmark results for a model configuration
 labels: ["benchmark"]
 
 body:
-  - type: markdown
-    attributes:
-      value: |
-        Share your benchmark results to help the community compare model configurations. Please include enough detail for others to reproduce your results.
-
-  - type: input
-    id: model-name
-    attributes:
-      label: Model name
-      description: The LLM used for memory extraction.
-      placeholder: "e.g., gpt-4o, claude-3.5-sonnet, llama-3.1-70b"
-    validations:
-      required: true
-
-  - type: textarea
-    id: model-config
-    attributes:
-      label: Model configuration
-      description: |
-        Paste your mem0 config (redact any API keys).
-      placeholder: |
-        ```python
-        config = {
-            "llm": {
-                "provider": "openai",
-                "config": {
-                    "model": "gpt-4o",
-                    "temperature": 0.0,
-                }
-            },
-            "vector_store": {
-                "provider": "qdrant",
-                "config": {
-                    "collection_name": "benchmark",
-                    "embedding_model_dims": 1536,
-                }
-            }
-        }
-        ```
-    validations:
-      required: true
-
-  - type: input
-    id: dataset
-    attributes:
-      label: Dataset / eval suite
-      description: Which dataset or evaluation suite did you use?
-      placeholder: "e.g., LOCOMO, custom dataset (link), internal eval"
-    validations:
-      required: true
-
   - type: textarea
     id: results
     attributes:
       label: Results
-      description: |
-        Paste your results. Use a markdown table if comparing multiple configs.
-      placeholder: |
-        | Metric       | Score  |
-        |--------------|--------|
-        | Precision    | 0.85   |
-        | Recall       | 0.78   |
-        | F1           | 0.81   |
-        | Latency (ms) | 120    |
+      value: |
+        ### Model
+
+        Name and provider (e.g., gpt-4o, claude-3.5-sonnet, llama-3.1-70b)
+
+        ### Configuration
+
+        ```python
+        config = {
+            "llm": {"provider": "...", "config": {"model": "..."}},
+            "vector_store": {"provider": "...", "config": {...}}
+        }
+        ```
+
+        ### Dataset
+
+        Which dataset or eval suite did you use?
+
+        ### Results
+
+        | Metric       | Score |
+        |--------------|-------|
+        | Precision    |       |
+        | Recall       |       |
+        | F1           |       |
+        | Latency (ms) |       |
+
+        ### Environment
+
+        - Hardware:
+        - mem0 version:
+        - Python version:
     validations:
       required: true
-
-  - type: textarea
-    id: hardware
-    attributes:
-      label: Hardware / environment
-      description: What hardware did you run this on?
-      placeholder: "e.g., M2 MacBook Pro 16GB, AWS g5.xlarge, local RTX 4090"
-    validations:
-      required: false
-
-  - type: textarea
-    id: reproduction
-    attributes:
-      label: Reproduction steps
-      description: How can someone reproduce these results?
-    validations:
-      required: false
