@@ -11,7 +11,7 @@ description: >
 license: Apache-2.0
 metadata:
   author: mem0ai
-  version: "1.0.0"
+  version: "0.1.0"
   category: ai-memory
   tags: "memory, personalization, ai, python, typescript, vector-search"
 compatibility: Requires Python 3.10+ or Node.js 18+, pip install mem0ai or npm install mem0ai, MEM0_API_KEY env var, and internet access to api.mem0.ai
