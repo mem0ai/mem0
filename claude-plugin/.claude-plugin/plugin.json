@@ -1,0 +1,8 @@
+{
+  "name": "mem0",
+  "description": "Mem0 memory layer for AI applications. Add persistent memory, personalization, and semantic search to Claude Code workflows using the Mem0 Platform MCP server.",
+  "author": {
+    "name": "Mem0",
+    "url": "https://github.com/mem0ai"
+  }
+}
