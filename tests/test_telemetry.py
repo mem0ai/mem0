@@ -30,9 +30,10 @@ class TestTelemetryDisabled:
         with patch.object(telemetry_module, "MEM0_TELEMETRY", False):
             mock_instance = MagicMock()
             mock_client_telemetry = MagicMock()
-            with patch.object(telemetry_module, "client_telemetry", mock_client_telemetry):
-                telemetry_module.capture_client_event("test.event", mock_instance)
-                mock_client_telemetry.capture_event.assert_not_called()
+            telemetry_module._client_telemetry = mock_client_telemetry
+            telemetry_module.capture_client_event("test.event", mock_instance)
+            mock_client_telemetry.capture_event.assert_not_called()
+            telemetry_module._client_telemetry = None
 
     def test_instance_capture_event_noop_when_posthog_is_none(self):
         """AnonymousTelemetry.capture_event() should be a no-op when posthog is None."""
@@ -69,26 +70,89 @@ class TestTelemetryEnabled:
                     assert at.user_id == "test-user"
 
     def test_capture_event_sends_when_enabled(self):
-        """capture_event() should create AnonymousTelemetry and call capture when enabled."""
+        """capture_event() should use singleton AnonymousTelemetry and call capture when enabled."""
         with patch.object(telemetry_module, "MEM0_TELEMETRY", True):
-            with patch("mem0.memory.telemetry.AnonymousTelemetry") as mock_cls:
-                mock_at = MagicMock()
-                mock_cls.return_value = mock_at
-                mock_memory = MagicMock()
-                mock_memory.config.graph_store.config = None
-                mock_memory.api_version = "v1"
-                telemetry_module.capture_event("test.event", mock_memory)
-                mock_at.capture_event.assert_called_once()
+            mock_at = MagicMock()
+            telemetry_module._oss_telemetry = mock_at
+            mock_memory = MagicMock()
+            mock_memory.config.graph_store.config = None
+            mock_memory.api_version = "v1"
+            telemetry_module.capture_event("test.event", mock_memory)
+            mock_at.capture_event.assert_called_once()
+            telemetry_module._oss_telemetry = None
 
     def test_capture_client_event_sends_when_enabled(self):
         """capture_client_event() should call client_telemetry.capture_event when enabled."""
         with patch.object(telemetry_module, "MEM0_TELEMETRY", True):
             mock_client_telemetry = MagicMock()
-            with patch.object(telemetry_module, "client_telemetry", mock_client_telemetry):
-                mock_instance = MagicMock()
-                mock_instance.user_email = "test@example.com"
-                telemetry_module.capture_client_event("test.event", mock_instance)
-                mock_client_telemetry.capture_event.assert_called_once()
+            telemetry_module._client_telemetry = mock_client_telemetry
+            mock_instance = MagicMock()
+            mock_instance.user_email = "test@example.com"
+            telemetry_module.capture_client_event("test.event", mock_instance)
+            mock_client_telemetry.capture_event.assert_called_once()
+            telemetry_module._client_telemetry = None
+
+    def test_capture_event_reuses_singleton(self):
+        """capture_event() must reuse a single AnonymousTelemetry, not create one per call."""
+        with patch.object(telemetry_module, "MEM0_TELEMETRY", True):
+            with patch("mem0.memory.telemetry.AnonymousTelemetry") as mock_cls:
+                mock_at = MagicMock()
+                mock_cls.return_value = mock_at
+                telemetry_module._oss_telemetry = None
+                mock_memory = MagicMock()
+                mock_memory.config.graph_store.config = None
+                mock_memory.api_version = "v1"
+
+                telemetry_module.capture_event("event1", mock_memory)
+                telemetry_module.capture_event("event2", mock_memory)
+
+                assert mock_cls.call_count == 1
+                assert mock_at.capture_event.call_count == 2
+
+                telemetry_module._oss_telemetry = None
+
+
+class TestTelemetryShutdown:
+    """Verify shutdown_telemetry() cleans up all singleton instances."""
+
+    def test_shutdown_calls_close_on_singletons(self):
+        mock_oss = MagicMock()
+        mock_client = MagicMock()
+        telemetry_module._oss_telemetry = mock_oss
+        telemetry_module._client_telemetry = mock_client
+
+        telemetry_module.shutdown_telemetry()
+
+        mock_oss.close.assert_called_once()
+        mock_client.close.assert_called_once()
+        assert telemetry_module._oss_telemetry is None
+        assert telemetry_module._client_telemetry is None
+
+    def test_shutdown_is_safe_when_no_singletons(self):
+        telemetry_module._oss_telemetry = None
+        telemetry_module._client_telemetry = None
+        telemetry_module.shutdown_telemetry()  # should not raise
+
+
+class TestNoThreadLeak:
+    """Verify capture_event does not leak threads."""
+
+    def test_multiple_capture_events_single_posthog_instance(self):
+        with patch.object(telemetry_module, "MEM0_TELEMETRY", True):
+            with patch("mem0.memory.telemetry.Posthog") as mock_posthog:
+                with patch("mem0.memory.telemetry.get_or_create_user_id", return_value="test"):
+                    telemetry_module._oss_telemetry = None
+
+                    mock_memory = MagicMock()
+                    mock_memory.config.graph_store.config = None
+                    mock_memory.api_version = "v1"
+
+                    for _ in range(10):
+                        telemetry_module.capture_event("test.event", mock_memory)
+
+                    assert mock_posthog.call_count == 1
+
+                    telemetry_module._oss_telemetry = None
 
 
 class TestTelemetryEnvVar:

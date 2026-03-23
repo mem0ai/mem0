@@ -1,7 +1,9 @@
+import atexit
 import logging
 import os
 import platform
 import sys
+import threading
 
 from posthog import Posthog
 
@@ -57,18 +59,62 @@ class AnonymousTelemetry:
             self.posthog.shutdown()
 
 
-client_telemetry = AnonymousTelemetry()
+# Thread-safe lazy singletons
+_telemetry_lock = threading.Lock()
+_oss_telemetry = None
+_client_telemetry = None
+
+
+def _get_oss_telemetry(vector_store=None):
+    """Return the singleton OSS telemetry instance, creating it on first call.
+
+    The vector_store parameter is only used on the first call for
+    get_or_create_user_id(). Subsequent calls reuse the existing instance
+    since the user ID is stable once created.
+    """
+    global _oss_telemetry
+    if _oss_telemetry is None:
+        with _telemetry_lock:
+            if _oss_telemetry is None:
+                _oss_telemetry = AnonymousTelemetry(vector_store=vector_store)
+    return _oss_telemetry
+
+
+def _get_client_telemetry():
+    """Return the singleton client telemetry instance, creating it on first call."""
+    global _client_telemetry
+    if _client_telemetry is None:
+        with _telemetry_lock:
+            if _client_telemetry is None:
+                _client_telemetry = AnonymousTelemetry()
+    return _client_telemetry
+
+
+def shutdown_telemetry():
+    """Shut down all telemetry singletons. Safe to call multiple times.
+
+    Singletons are lazily re-created on next use, so this is safe even
+    when multiple Memory instances exist.
+    """
+    global _oss_telemetry, _client_telemetry
+    with _telemetry_lock:
+        if _oss_telemetry is not None:
+            _oss_telemetry.close()
+            _oss_telemetry = None
+        if _client_telemetry is not None:
+            _client_telemetry.close()
+            _client_telemetry = None
+
+
+atexit.register(shutdown_telemetry)
 
 
 def capture_event(event_name, memory_instance, additional_data=None):
     if not MEM0_TELEMETRY:
         return
 
-    oss_telemetry = AnonymousTelemetry(
-        vector_store=memory_instance._telemetry_vector_store
-        if hasattr(memory_instance, "_telemetry_vector_store")
-        else None,
-    )
+    vector_store = getattr(memory_instance, "_telemetry_vector_store", None)
+    oss_telemetry = _get_oss_telemetry(vector_store=vector_store)
 
     event_data = {
         "collection": memory_instance.collection_name,
@@ -91,6 +137,8 @@ def capture_event(event_name, memory_instance, additional_data=None):
 def capture_client_event(event_name, instance, additional_data=None):
     if not MEM0_TELEMETRY:
         return
+
+    client_telemetry = _get_client_telemetry()
 
     event_data = {
         "function": f"{instance.__class__.__module__}.{instance.__class__.__name__}",

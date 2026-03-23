@@ -1320,6 +1320,47 @@ class Memory(MemoryBase):
             )
         capture_event("mem0.reset", self, {"sync_type": "sync"})
 
+    def close(self):
+        """Release all resources held by this Memory instance.
+
+        Shuts down telemetry background threads, closes the SQLite
+        history-store connection, and closes the vector store client
+        if it exposes a close() method.
+
+        Safe to call multiple times. Use as a context manager for
+        automatic cleanup::
+
+            with Memory.from_config(config) as m:
+                m.add(...)
+        """
+        from mem0.memory.telemetry import shutdown_telemetry
+
+        try:
+            shutdown_telemetry()
+        except Exception:
+            logger.debug("Error shutting down telemetry", exc_info=True)
+
+        if hasattr(self, "db") and self.db is not None:
+            try:
+                self.db.close()
+            except Exception:
+                logger.debug("Error closing database", exc_info=True)
+
+        if hasattr(self, "vector_store") and self.vector_store is not None:
+            _close = getattr(self.vector_store, "close", None)
+            if callable(_close):
+                try:
+                    _close()
+                except Exception:
+                    logger.debug("Error closing vector store", exc_info=True)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
+
     def chat(self, query):
         raise NotImplementedError("Chat function not implemented yet.")
 
@@ -2421,6 +2462,46 @@ class AsyncMemory(MemoryBase):
             self.config.vector_store.provider, self.config.vector_store.config
         )
         capture_event("mem0.reset", self, {"sync_type": "async"})
+
+    def close(self):
+        """Release all resources held by this AsyncMemory instance.
+
+        Shuts down telemetry background threads, closes the SQLite
+        history-store connection, and closes the vector store client
+        if it exposes a close() method.
+
+        Safe to call multiple times. Use as an async context manager::
+
+            async with await AsyncMemory.from_config(config) as m:
+                await m.add(...)
+        """
+        from mem0.memory.telemetry import shutdown_telemetry
+
+        try:
+            shutdown_telemetry()
+        except Exception:
+            logger.debug("Error shutting down telemetry", exc_info=True)
+
+        if hasattr(self, "db") and self.db is not None:
+            try:
+                self.db.close()
+            except Exception:
+                logger.debug("Error closing database", exc_info=True)
+
+        if hasattr(self, "vector_store") and self.vector_store is not None:
+            _close = getattr(self.vector_store, "close", None)
+            if callable(_close):
+                try:
+                    _close()
+                except Exception:
+                    logger.debug("Error closing vector store", exc_info=True)
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
 
     async def chat(self, query):
         raise NotImplementedError("Chat function not implemented yet.")
