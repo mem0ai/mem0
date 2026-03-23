@@ -134,9 +134,9 @@ def chat(user_input: str, user_id: str) -> str:
 For the latest docs beyond what's in the references, use the doc search tool:
 
 ```bash
-python scripts/mem0_doc_search.py --query "topic"
-python scripts/mem0_doc_search.py --page "/platform/features/graph-memory"
-python scripts/mem0_doc_search.py --index
+python ${CLAUDE_SKILL_DIR}/scripts/mem0_doc_search.py --query "topic"
+python ${CLAUDE_SKILL_DIR}/scripts/mem0_doc_search.py --page "/platform/features/graph-memory"
+python ${CLAUDE_SKILL_DIR}/scripts/mem0_doc_search.py --index
 ```
 
 No API key needed — searches docs.mem0.ai directly.
