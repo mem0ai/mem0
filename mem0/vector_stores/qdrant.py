@@ -46,7 +46,8 @@ class Qdrant(VectorStoreBase):
             path (str, optional): Path for local Qdrant database. Defaults to None.
             url (str, optional): Full URL for Qdrant server. Defaults to None.
             api_key (str, optional): API key for Qdrant server. Defaults to None.
-            on_disk (bool, optional): Qdrant ``VectorParams.on_disk``; does not delete ``path``. Defaults to False.
+            on_disk (bool, optional): Enables persistent storage. Vectors are stored on disk (True) or in memory (False).
+                Does not delete the local database path. Defaults to False.
         """
         if client:
             self.client = client
