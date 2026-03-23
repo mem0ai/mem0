@@ -1,13 +1,8 @@
 name: Bug Report
-description: Report a bug to help us fix it
+description: Report a bug in mem0
 labels: ["bug"]
 
 body:
-  - type: markdown
-    attributes:
-      value: |
-        Thanks for taking the time to report a bug! Please search [existing issues](https://github.com/mem0ai/mem0/issues?q=is%3Aissue) first to avoid duplicates.
-
   - type: dropdown
     id: component
     attributes:
@@ -29,76 +24,33 @@ body:
   - type: textarea
     id: description
     attributes:
-      label: Describe the bug
-      description: A clear and concise description of what the bug is.
-      placeholder: What happened?
-    validations:
-      required: true
+      label: Description
+      value: |
+        ### Summary
 
-  - type: textarea
-    id: reproduction
-    attributes:
-      label: Steps to reproduce
-      description: |
-        Provide a minimal code example or steps to reproduce the bug. We will copy-paste your code, so keep it self-contained.
-      placeholder: |
+        A clear summary of the bug.
+
+        ### Steps to Reproduce
+
         ```python
         from mem0 import Memory
 
         m = Memory()
-        # Steps that trigger the bug...
+        # Your code here...
         ```
+
+        ### Expected Behavior
+
+        What you expected to happen.
+
+        ### Actual Behavior
+
+        What actually happened. Paste the full error traceback if applicable.
+
+        ### Environment
+
+        - mem0 version:
+        - Python/Node version:
+        - OS:
     validations:
       required: true
-
-  - type: textarea
-    id: expected
-    attributes:
-      label: Expected behavior
-      description: What did you expect to happen?
-    validations:
-      required: true
-
-  - type: textarea
-    id: actual
-    attributes:
-      label: Actual behavior
-      description: What actually happened? Include the full error traceback if applicable.
-      placeholder: |
-        Paste error output here, including the full traceback.
-    validations:
-      required: true
-
-  - type: input
-    id: mem0-version
-    attributes:
-      label: mem0 version
-      description: "Run `pip show mem0ai` or check your package.json"
-      placeholder: "e.g., 0.1.29"
-    validations:
-      required: true
-
-  - type: input
-    id: python-version
-    attributes:
-      label: Python / Node.js version
-      description: "Run `python --version` or `node --version`"
-      placeholder: "e.g., Python 3.11.5 or Node 20.10.0"
-    validations:
-      required: true
-
-  - type: input
-    id: os
-    attributes:
-      label: Operating system
-      placeholder: "e.g., macOS 14.2, Ubuntu 22.04, Windows 11"
-    validations:
-      required: false
-
-  - type: textarea
-    id: context
-    attributes:
-      label: Additional context
-      description: Any other context — config files, environment variables, related issues, etc.
-    validations:
-      required: false
