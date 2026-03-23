@@ -23,7 +23,6 @@ Choose from three deployment methods:
 
 1. **Python Package (Recommended)** - Install locally with `uvx` for instant setup
 2. **Docker Container** - Isolated deployment with HTTP endpoint
-3. **Smithery** - Remote hosted service for managed deployments
 
 ## Available Tools
 
@@ -172,30 +171,6 @@ curl http://localhost:8080/health
 </Info>
 </Step>
 </Steps>
-
----
-
-## Quickstart with Smithery (Hosted)
-
-For the simplest integration, use Smithery's hosted Mem0 MCP server - no installation required.
-
-**Example: One-click setup in Cursor**
-
-1. Visit [smithery.ai/server/@mem0ai/mem0-memory-mcp](https://smithery.ai/server/@mem0ai/mem0-memory-mcp) and select Cursor as your client
-
-![Smithery Mem0 MCP Configuration](/images/smithery-mem0-mcp.png)
-
-2. Open Cursor → Settings → MCP
-3. Click `mem0-mcp` → Initiate authorization
-4. Configure Smithery with your environment:
-   - `MEM0_API_KEY`: Your Mem0 API key
-   - `MEM0_DEFAULT_USER_ID`: Your user ID
-   - `MEM0_ENABLE_GRAPH_DEFAULT`: Optional, set to `true` for graph memories
-5. Return to Cursor settings and wait for tools to load
-6. Start chatting with Cursor and begin storing preferences
-
-**For other clients:**
-Visit [smithery.ai/server/@mem0ai/mem0-memory-mcp](https://smithery.ai/server/@mem0ai/mem0-memory-mcp) to connect any MCP-compatible client with your Mem0 credentials.
 
 ---
 
