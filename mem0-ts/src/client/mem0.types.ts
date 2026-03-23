@@ -170,10 +170,11 @@ export interface PromptUpdatePayload {
   [key: string]: any;
 }
 
-enum WebhookEvent {
+export enum WebhookEvent {
   MEMORY_ADDED = "memory_add",
   MEMORY_UPDATED = "memory_update",
   MEMORY_DELETED = "memory_delete",
+  MEMORY_CATEGORIZED = "memory_categorize",
 }
 
 export interface Webhook {
@@ -187,12 +188,17 @@ export interface Webhook {
   event_types?: WebhookEvent[];
 }
 
-export interface WebhookPayload {
-  eventTypes: WebhookEvent[];
-  projectId: string;
-  webhookId: string;
+export interface WebhookCreatePayload {
   name: string;
   url: string;
+  eventTypes: WebhookEvent[];
+}
+
+export interface WebhookUpdatePayload {
+  webhookId: string;
+  name?: string;
+  url?: string;
+  eventTypes?: WebhookEvent[];
 }
 
 export interface FeedbackPayload {

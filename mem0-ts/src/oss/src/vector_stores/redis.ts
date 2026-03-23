@@ -139,6 +139,7 @@ export class RedisDB implements VectorStore {
   private readonly indexName: string;
   private readonly indexPrefix: string;
   private readonly schema: RedisSchema;
+  private _initPromise?: Promise<void>;
 
   constructor(config: RedisConfig) {
     this.indexName = config.collectionName;
@@ -240,6 +241,13 @@ export class RedisDB implements VectorStore {
   }
 
   async initialize(): Promise<void> {
+    if (!this._initPromise) {
+      this._initPromise = this._doInitialize();
+    }
+    return this._initPromise;
+  }
+
+  private async _doInitialize(): Promise<void> {
     try {
       await this.client.connect();
       console.log("Connected to Redis");
@@ -514,7 +522,7 @@ export class RedisDB implements VectorStore {
 
       return {
         id: vectorId,
-        payload,
+        payload: toCamelCase(payload),
       };
     } catch (error) {
       console.error("Error getting vector:", error);

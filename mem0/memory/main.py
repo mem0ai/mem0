@@ -8,10 +8,9 @@ import os
 import uuid
 import warnings
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-import pytz
 from pydantic import ValidationError
 
 from mem0.configs.base import MemoryConfig, MemoryItem
@@ -24,10 +23,12 @@ from mem0.exceptions import ValidationError as Mem0ValidationError
 from mem0.memory.base import MemoryBase
 from mem0.memory.setup import mem0_dir, setup_config
 from mem0.memory.storage import SQLiteManager
-from mem0.memory.telemetry import capture_event
+from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
 from mem0.memory.utils import (
+    ensure_json_instruction,
     extract_json,
     get_fact_retrieval_messages,
+    normalize_facts,
     parse_messages,
     parse_vision_messages,
     process_telemetry_filters,
@@ -37,8 +38,8 @@ from mem0.utils.factory import (
     EmbedderFactory,
     GraphStoreFactory,
     LlmFactory,
-    VectorStoreFactory,
     RerankerFactory,
+    VectorStoreFactory,
 )
 
 # Suppress SWIG deprecation warnings globally
@@ -49,18 +50,90 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*swigva
 logger = logging.getLogger(__name__)
 
 
+def _normalize_iso_timestamp_to_utc(timestamp: Optional[str]) -> Optional[str]:
+    """Normalize timezone-aware ISO timestamps to UTC without rewriting naive values."""
+    if not timestamp:
+        return timestamp
+    try:
+        parsed = datetime.fromisoformat(timestamp)
+    except ValueError:
+        return timestamp
+    if parsed.tzinfo is None:
+        return timestamp
+    return parsed.astimezone(timezone.utc).isoformat()
+
+
+# Fields that hold runtime auth/connection objects and must be preserved.
+# These are non-serializable objects (e.g. AWSV4SignerAuth, RequestsHttpConnection)
+# needed by clients like OpenSearch — not sensitive strings to redact.
+_RUNTIME_FIELDS = frozenset({
+    "http_auth",
+    "auth",
+    "connection_class",
+    "ssl_context",
+    "use_azure_credential",
+})
+
+# Fields that are known to contain sensitive secrets and must be redacted.
+_SENSITIVE_FIELDS_EXACT = frozenset({
+    "api_key",
+    "secret_key",
+    "private_key",
+    "access_key",
+    "password",
+    "credentials",
+    "credential",
+    "secret",
+    "token",
+    "access_token",
+    "refresh_token",
+    "auth_token",
+    "session_token",
+    "client_secret",
+    "auth_client_secret",
+    "azure_client_secret",
+    "service_account_json",
+    "aws_session_token",
+})
+
+# Suffixes that indicate a field likely holds a secret value.
+_SENSITIVE_SUFFIXES = (
+    "_password",
+    "_secret",
+    "_token",
+    "_credential",
+    "_credentials",
+)
+
+
+def _is_sensitive_field(field_name: str) -> bool:
+    """Check if a field should be redacted for telemetry safety.
+
+    Uses a layered approach:
+    1. Runtime fields (allowlist) — always preserved, highest priority.
+    2. Exact deny list — known secret field names.
+    3. Suffix deny list — catches patterns like db_password, auth_secret, etc.
+    """
+    name = field_name.lower().strip()
+    if name in _RUNTIME_FIELDS:
+        return False
+    if name in _SENSITIVE_FIELDS_EXACT:
+        return True
+    return any(name.endswith(suffix) for suffix in _SENSITIVE_SUFFIXES)
+
+
 def _safe_deepcopy_config(config):
-    """Safely deepcopy config, falling back to JSON serialization for non-serializable objects."""
+    """Safely deepcopy config, falling back to dict-based cloning for non-serializable objects."""
     try:
         return deepcopy(config)
     except Exception as e:
-        logger.debug(f"Deepcopy failed, using JSON serialization: {e}")
-        
+        logger.debug(f"Deepcopy failed, using dict-based cloning: {e}")
+
         config_class = type(config)
-        
+
         if hasattr(config, "model_dump"):
             try:
-                clone_dict = config.model_dump(mode="json")
+                clone_dict = config.model_dump()
             except Exception:
                 clone_dict = {k: v for k, v in config.__dict__.items()}
         elif hasattr(config, "__dataclass_fields__"):
@@ -68,12 +141,11 @@ def _safe_deepcopy_config(config):
             clone_dict = asdict(config)
         else:
             clone_dict = {k: v for k, v in config.__dict__.items()}
-        
-        sensitive_tokens = ("auth", "credential", "password", "token", "secret", "key", "connection_class")
+
         for field_name in list(clone_dict.keys()):
-            if any(token in field_name.lower() for token in sensitive_tokens):
+            if _is_sensitive_field(field_name):
                 clone_dict[field_name] = None
-        
+
         try:
             return config_class(**clone_dict)
         except Exception as reconstruction_error:
@@ -204,32 +276,32 @@ class Memory(MemoryBase):
             self.enable_graph = True
         else:
             self.graph = None
-        # Create telemetry config manually to avoid deepcopy issues with thread locks
-        telemetry_config_dict = {}
-        if hasattr(self.config.vector_store.config, 'model_dump'):
-            # For pydantic models
-            telemetry_config_dict = self.config.vector_store.config.model_dump()
-        else:
-            # For other objects, manually copy common attributes
-            for attr in ['host', 'port', 'path', 'api_key', 'index_name', 'dimension', 'metric']:
-                if hasattr(self.config.vector_store.config, attr):
-                    telemetry_config_dict[attr] = getattr(self.config.vector_store.config, attr)
+        if MEM0_TELEMETRY:
+            # Create telemetry config manually to avoid deepcopy issues with thread locks
+            telemetry_config_dict = {}
+            if hasattr(self.config.vector_store.config, 'model_dump'):
+                # For pydantic models
+                telemetry_config_dict = self.config.vector_store.config.model_dump()
+            else:
+                # For other objects, manually copy common attributes
+                for attr in ['host', 'port', 'path', 'api_key', 'index_name', 'dimension', 'metric']:
+                    if hasattr(self.config.vector_store.config, attr):
+                        telemetry_config_dict[attr] = getattr(self.config.vector_store.config, attr)
 
-        # Override collection name for telemetry
-        telemetry_config_dict['collection_name'] = "mem0migrations"
+            # Override collection name for telemetry
+            telemetry_config_dict['collection_name'] = "mem0migrations"
 
-        # Set path for file-based vector stores
-        telemetry_config = _safe_deepcopy_config(self.config.vector_store.config)
-        if self.config.vector_store.provider in ["faiss", "qdrant"]:
-            provider_path = f"migrations_{self.config.vector_store.provider}"
-            telemetry_config_dict['path'] = os.path.join(mem0_dir, provider_path)
-            os.makedirs(telemetry_config_dict['path'], exist_ok=True)
+            # Set path for file-based vector stores
+            if self.config.vector_store.provider in ["faiss", "qdrant"]:
+                provider_path = f"migrations_{self.config.vector_store.provider}"
+                telemetry_config_dict['path'] = os.path.join(mem0_dir, provider_path)
+                os.makedirs(telemetry_config_dict['path'], exist_ok=True)
 
-        # Create the config object using the same class as the original
-        telemetry_config = self.config.vector_store.config.__class__(**telemetry_config_dict)
-        self._telemetry_vector_store = VectorStoreFactory.create(
-            self.config.vector_store.provider, telemetry_config
-        )
+            # Create the config object using the same class as the original
+            telemetry_config = self.config.vector_store.config.__class__(**telemetry_config_dict)
+            self._telemetry_vector_store = VectorStoreFactory.create(
+                self.config.vector_store.provider, telemetry_config
+            )
         capture_event("mem0.init", self, {"sync_type": "sync"})
 
     @classmethod
@@ -431,6 +503,9 @@ class Memory(MemoryBase):
             is_agent_memory = self._should_use_agent_memory_extraction(messages, metadata)
             system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages, is_agent_memory)
 
+        # Ensure 'json' appears in prompts for json_object response format compatibility
+        system_prompt, user_prompt = ensure_json_instruction(system_prompt, user_prompt)
+
         response = self.llm.generate_response(
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -446,11 +521,12 @@ class Memory(MemoryBase):
             else:
                 try:
                     # First try direct JSON parsing
-                    new_retrieved_facts = json.loads(response)["facts"]
+                    new_retrieved_facts = json.loads(response, strict=False)["facts"]
                 except json.JSONDecodeError:
                     # Try extracting JSON from response using built-in function
                     extracted_json = extract_json(response)
-                    new_retrieved_facts = json.loads(extracted_json)["facts"]
+                    new_retrieved_facts = json.loads(extracted_json, strict=False)["facts"]
+                new_retrieved_facts = normalize_facts(new_retrieved_facts)
         except Exception as e:
             logger.error(f"Error in new_retrieved_facts: {e}")
             new_retrieved_facts = []
@@ -513,7 +589,7 @@ class Memory(MemoryBase):
                     new_memories_with_actions = {}
                 else:
                     response = remove_code_blocks(response)
-                    new_memories_with_actions = json.loads(response)
+                    new_memories_with_actions = json.loads(response, strict=False)
             except Exception as e:
                 logger.error(f"Invalid JSON response: {e}")
                 new_memories_with_actions = {}
@@ -568,12 +644,18 @@ class Memory(MemoryBase):
                         if memory_id and (metadata.get("agent_id") or metadata.get("run_id")):
                             # Update only the session identifiers, keep content the same
                             existing_memory = self.vector_store.get(vector_id=memory_id)
+                            if existing_memory is None:
+                                logger.warning(f"Memory {memory_id} not found for session ID update, skipping")
+                                continue
                             updated_metadata = deepcopy(existing_memory.payload)
                             if metadata.get("agent_id"):
                                 updated_metadata["agent_id"] = metadata["agent_id"]
                             if metadata.get("run_id"):
                                 updated_metadata["run_id"] = metadata["run_id"]
-                            updated_metadata["updated_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+                            updated_metadata["created_at"] = _normalize_iso_timestamp_to_utc(
+                                updated_metadata.get("created_at")
+                            )
+                            updated_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
                             self.vector_store.update(
                                 vector_id=memory_id,
@@ -636,8 +718,8 @@ class Memory(MemoryBase):
             id=memory.id,
             memory=memory.payload.get("data", ""),
             hash=memory.payload.get("hash"),
-            created_at=memory.payload.get("created_at"),
-            updated_at=memory.payload.get("updated_at"),
+            created_at=_normalize_iso_timestamp_to_utc(memory.payload.get("created_at")),
+            updated_at=_normalize_iso_timestamp_to_utc(memory.payload.get("updated_at")),
         ).model_dump()
 
         for key in promoted_payload_keys:
@@ -739,8 +821,8 @@ class Memory(MemoryBase):
                 id=mem.id,
                 memory=mem.payload.get("data", ""),
                 hash=mem.payload.get("hash"),
-                created_at=mem.payload.get("created_at"),
-                updated_at=mem.payload.get("updated_at"),
+                created_at=_normalize_iso_timestamp_to_utc(mem.payload.get("created_at")),
+                updated_at=_normalize_iso_timestamp_to_utc(mem.payload.get("updated_at")),
             ).model_dump(exclude={"score"})
 
             for key in promoted_payload_keys:
@@ -971,8 +1053,8 @@ class Memory(MemoryBase):
                 id=mem.id,
                 memory=mem.payload.get("data", ""),
                 hash=mem.payload.get("hash"),
-                created_at=mem.payload.get("created_at"),
-                updated_at=mem.payload.get("updated_at"),
+                created_at=_normalize_iso_timestamp_to_utc(mem.payload.get("created_at")),
+                updated_at=_normalize_iso_timestamp_to_utc(mem.payload.get("updated_at")),
                 score=mem.score,
             ).model_dump()
 
@@ -1046,11 +1128,10 @@ class Memory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"})
-        # delete all vector memories and reset the collections
+        # delete matching vector memories individually (do NOT reset the collection)
         memories = self.vector_store.list(filters=filters)[0]
         for memory in memories:
             self._delete_memory(memory.id)
-        self.vector_store.reset()
 
         logger.info(f"Deleted {len(memories)} memories")
 
@@ -1082,7 +1163,7 @@ class Memory(MemoryBase):
         metadata = metadata or {}
         metadata["data"] = data
         metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        metadata["created_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+        metadata["created_at"] = datetime.now(timezone.utc).isoformat()
 
         self.vector_store.insert(
             vectors=[embeddings],
@@ -1148,14 +1229,17 @@ class Memory(MemoryBase):
             logger.error(f"Error getting memory with ID {memory_id} during update.")
             raise ValueError(f"Error getting memory with ID {memory_id}. Please provide a valid 'memory_id'")
 
+        if existing_memory is None:
+            raise ValueError(f"Memory with id {memory_id} not found. Please provide a valid 'memory_id'")
+
         prev_value = existing_memory.payload.get("data")
 
         new_metadata = deepcopy(metadata) if metadata is not None else {}
 
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        new_metadata["created_at"] = existing_memory.payload.get("created_at")
-        new_metadata["updated_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+        new_metadata["created_at"] = _normalize_iso_timestamp_to_utc(existing_memory.payload.get("created_at"))
+        new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         # Preserve session identifiers from existing memory only if not provided in new metadata
         if "user_id" not in new_metadata and "user_id" in existing_memory.payload:
@@ -1196,6 +1280,8 @@ class Memory(MemoryBase):
     def _delete_memory(self, memory_id):
         logger.info(f"Deleting memory with {memory_id=}")
         existing_memory = self.vector_store.get(vector_id=memory_id)
+        if existing_memory is None:
+            raise ValueError(f"Memory with id {memory_id} not found")
         prev_value = existing_memory.payload.get("data", "")
         self.vector_store.delete(vector_id=memory_id)
         self.db.add_history(
@@ -1272,14 +1358,14 @@ class AsyncMemory(MemoryBase):
         else:
             self.graph = None
 
-        telemetry_config = _safe_deepcopy_config(self.config.vector_store.config)
-        telemetry_config.collection_name = "mem0migrations"
-        if self.config.vector_store.provider in ["faiss", "qdrant"]:
-            provider_path = f"migrations_{self.config.vector_store.provider}"
-            telemetry_config.path = os.path.join(mem0_dir, provider_path)
-            os.makedirs(telemetry_config.path, exist_ok=True)
-        self._telemetry_vector_store = VectorStoreFactory.create(self.config.vector_store.provider, telemetry_config)
-
+        if MEM0_TELEMETRY:
+            telemetry_config = _safe_deepcopy_config(self.config.vector_store.config)
+            telemetry_config.collection_name = "mem0migrations"
+            if self.config.vector_store.provider in ["faiss", "qdrant"]:
+                provider_path = f"migrations_{self.config.vector_store.provider}"
+                telemetry_config.path = os.path.join(mem0_dir, provider_path)
+                os.makedirs(telemetry_config.path, exist_ok=True)
+            self._telemetry_vector_store = VectorStoreFactory.create(self.config.vector_store.provider, telemetry_config)
         capture_event("mem0.init", self, {"sync_type": "async"})
 
     @classmethod
@@ -1460,6 +1546,9 @@ class AsyncMemory(MemoryBase):
             is_agent_memory = self._should_use_agent_memory_extraction(messages, metadata)
             system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages, is_agent_memory)
 
+        # Ensure 'json' appears in prompts for json_object response format compatibility
+        system_prompt, user_prompt = ensure_json_instruction(system_prompt, user_prompt)
+
         response = await asyncio.to_thread(
             self.llm.generate_response,
             messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
@@ -1472,11 +1561,12 @@ class AsyncMemory(MemoryBase):
             else:
                 try:
                     # First try direct JSON parsing
-                    new_retrieved_facts = json.loads(response)["facts"]
+                    new_retrieved_facts = json.loads(response, strict=False)["facts"]
                 except json.JSONDecodeError:
                     # Try extracting JSON from response using built-in function
                     extracted_json = extract_json(response)
-                    new_retrieved_facts = json.loads(extracted_json)["facts"]
+                    new_retrieved_facts = json.loads(extracted_json, strict=False)["facts"]
+                new_retrieved_facts = normalize_facts(new_retrieved_facts)
         except Exception as e:
             logger.error(f"Error in new_retrieved_facts: {e}")
             new_retrieved_facts = []
@@ -1542,7 +1632,7 @@ class AsyncMemory(MemoryBase):
                     new_memories_with_actions = {}
                 else:
                     response = remove_code_blocks(response)
-                    new_memories_with_actions = json.loads(response)
+                    new_memories_with_actions = json.loads(response, strict=False)
             except Exception as e:
                 logger.error(f"Invalid JSON response: {e}")
                 new_memories_with_actions = {}
@@ -1589,12 +1679,18 @@ class AsyncMemory(MemoryBase):
                             # Create async task to update only the session identifiers
                             async def update_session_ids(mem_id, meta):
                                 existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=mem_id)
+                                if existing_memory is None:
+                                    logger.warning(f"Memory {mem_id} not found for session ID update, skipping")
+                                    return
                                 updated_metadata = deepcopy(existing_memory.payload)
                                 if meta.get("agent_id"):
                                     updated_metadata["agent_id"] = meta["agent_id"]
                                 if meta.get("run_id"):
                                     updated_metadata["run_id"] = meta["run_id"]
-                                updated_metadata["updated_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+                                updated_metadata["created_at"] = _normalize_iso_timestamp_to_utc(
+                                    updated_metadata.get("created_at")
+                                )
+                                updated_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
                                 await asyncio.to_thread(
                                     self.vector_store.update,
@@ -1680,8 +1776,8 @@ class AsyncMemory(MemoryBase):
             id=memory.id,
             memory=memory.payload.get("data", ""),
             hash=memory.payload.get("hash"),
-            created_at=memory.payload.get("created_at"),
-            updated_at=memory.payload.get("updated_at"),
+            created_at=_normalize_iso_timestamp_to_utc(memory.payload.get("created_at")),
+            updated_at=_normalize_iso_timestamp_to_utc(memory.payload.get("updated_at")),
         ).model_dump()
 
         for key in promoted_payload_keys:
@@ -1788,8 +1884,8 @@ class AsyncMemory(MemoryBase):
                 id=mem.id,
                 memory=mem.payload.get("data", ""),
                 hash=mem.payload.get("hash"),
-                created_at=mem.payload.get("created_at"),
-                updated_at=mem.payload.get("updated_at"),
+                created_at=_normalize_iso_timestamp_to_utc(mem.payload.get("created_at")),
+                updated_at=_normalize_iso_timestamp_to_utc(mem.payload.get("updated_at")),
             ).model_dump(exclude={"score"})
 
             for key in promoted_payload_keys:
@@ -2029,8 +2125,8 @@ class AsyncMemory(MemoryBase):
                 id=mem.id,
                 memory=mem.payload.get("data", ""),
                 hash=mem.payload.get("hash"),
-                created_at=mem.payload.get("created_at"),
-                updated_at=mem.payload.get("updated_at"),
+                created_at=_normalize_iso_timestamp_to_utc(mem.payload.get("created_at")),
+                updated_at=_normalize_iso_timestamp_to_utc(mem.payload.get("updated_at")),
                 score=mem.score,
             ).model_dump()
 
@@ -2144,7 +2240,7 @@ class AsyncMemory(MemoryBase):
         metadata = metadata or {}
         metadata["data"] = data
         metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        metadata["created_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+        metadata["created_at"] = datetime.now(timezone.utc).isoformat()
 
         await asyncio.to_thread(
             self.vector_store.insert,
@@ -2228,14 +2324,17 @@ class AsyncMemory(MemoryBase):
             logger.error(f"Error getting memory with ID {memory_id} during update.")
             raise ValueError(f"Error getting memory with ID {memory_id}. Please provide a valid 'memory_id'")
 
+        if existing_memory is None:
+            raise ValueError(f"Memory with id {memory_id} not found. Please provide a valid 'memory_id'")
+
         prev_value = existing_memory.payload.get("data")
 
         new_metadata = deepcopy(metadata) if metadata is not None else {}
 
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        new_metadata["created_at"] = existing_memory.payload.get("created_at")
-        new_metadata["updated_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+        new_metadata["created_at"] = _normalize_iso_timestamp_to_utc(existing_memory.payload.get("created_at"))
+        new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         # Preserve session identifiers from existing memory only if not provided in new metadata
         if "user_id" not in new_metadata and "user_id" in existing_memory.payload:
@@ -2279,6 +2378,8 @@ class AsyncMemory(MemoryBase):
     async def _delete_memory(self, memory_id):
         logger.info(f"Deleting memory with {memory_id=}")
         existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
+        if existing_memory is None:
+            raise ValueError(f"Memory with id {memory_id} not found")
         prev_value = existing_memory.payload.get("data", "")
 
         await asyncio.to_thread(self.vector_store.delete, vector_id=memory_id)

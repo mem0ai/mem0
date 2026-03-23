@@ -86,6 +86,7 @@ export class SupabaseDB implements VectorStore {
   private readonly tableName: string;
   private readonly embeddingColumnName: string;
   private readonly metadataColumnName: string;
+  private _initPromise?: Promise<void>;
 
   constructor(config: SupabaseConfig) {
     this.client = createClient(config.supabaseUrl, config.supabaseKey);
@@ -100,6 +101,13 @@ export class SupabaseDB implements VectorStore {
   }
 
   async initialize(): Promise<void> {
+    if (!this._initPromise) {
+      this._initPromise = this._doInitialize();
+    }
+    return this._initPromise;
+  }
+
+  private async _doInitialize(): Promise<void> {
     try {
       // Verify table exists and vector operations work by attempting a test insert
       const testVector = Array(1536).fill(0);
