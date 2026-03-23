@@ -1,0 +1,181 @@
+---
+title: "Vibecoding with Mem0"
+sidebarTitle: "Vibecoding"
+description: "Agent skills, starter prompts, and setup for building with Mem0 using AI coding tools."
+icon: "wand-magic-sparkles"
+---
+
+These docs are designed to be easily consumable by LLMs. Each page has a button that lets you copy the page as Markdown or paste directly into ChatGPT, Claude, or any AI coding tool.
+
+We follow the llms.txt standard:
+
+- [llms.txt](https://docs.mem0.ai/llms.txt)
+
+<CardGroup cols={2}>
+  <Card title="Get an API Key" icon="key" href="https://app.mem0.ai">
+    Sign up for Mem0 Platform and start building
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/platform/quickstart">
+    Store your first memory in under 5 minutes
+  </Card>
+</CardGroup>
+
+## Agent Skills
+
+Teach your coding assistant how to build with Mem0:
+
+```bash
+npx skills add https://github.com/mem0ai/mem0 --skill mem0
+```
+
+Works with Claude Code, Cursor, Windsurf, and any assistant that supports skills. Once installed, your assistant understands Mem0's full API, framework integrations, and common patterns.
+
+## Claude Code Plugin
+
+The [OpenMemory plugin](https://github.com/mem0ai/claude-code-plugin) gives Claude Code **persistent memory across sessions, projects, and teams** — automatically.
+
+<Steps>
+<Step title="Get your API key">
+Sign up at [app.openmemory.dev](https://app.openmemory.dev).
+</Step>
+
+<Step title="Install the plugin">
+```bash
+/plugin add mem0ai/claude-code-plugin
+```
+</Step>
+
+<Step title="Set your environment variable">
+```bash
+export OPENMEMORY_API_KEY="your-key-here"
+```
+</Step>
+
+<Step title="Start coding">
+The plugin activates automatically. It captures decisions at session end, preserves context during compaction, and retrieves relevant memories at session start.
+</Step>
+</Steps>
+
+## MCP Server Setup
+
+Connect Cursor, Windsurf, Claude Desktop, or any MCP-compatible client to Mem0.
+
+<Tabs>
+<Tab title="OpenMemory Hosted">
+Sign up at [app.openmemory.dev](https://app.openmemory.dev), then pick your client:
+
+<CodeGroup>
+```bash Claude Desktop
+npx @openmemory/install --client claude --env OPENMEMORY_API_KEY=your-key
+```
+
+```bash Cursor
+npx @openmemory/install --client cursor --env OPENMEMORY_API_KEY=your-key
+```
+
+```bash Windsurf
+npx @openmemory/install --client windsurf --env OPENMEMORY_API_KEY=your-key
+```
+</CodeGroup>
+
+For full setup options, see [OpenMemory Quickstart](/openmemory/quickstart).
+</Tab>
+
+<Tab title="Mem0 Platform MCP">
+Get your API key from [app.mem0.ai](https://app.mem0.ai), then add to your MCP config:
+
+```json
+{
+  "mcpServers": {
+    "mem0": {
+      "command": "uvx",
+      "args": ["mem0-mcp-server"],
+      "env": {
+        "MEM0_API_KEY": "m0-...",
+        "MEM0_DEFAULT_USER_ID": "your-handle"
+      }
+    }
+  }
+}
+```
+
+For Docker, Smithery, and advanced options, see [Mem0 MCP Setup](/platform/mem0-mcp).
+</Tab>
+</Tabs>
+
+## Universal Starter Prompt
+
+Copy this into any AI tool to start building with Mem0:
+
+```text
+I want to start building with Mem0 — a self-improving memory layer for LLM
+applications that gives agents persistent context across sessions.
+
+## Mem0 Resources
+
+**Documentation:**
+- Main docs: https://docs.mem0.ai
+- Platform Quickstart: https://docs.mem0.ai/platform/quickstart
+- OSS Python Quickstart: https://docs.mem0.ai/open-source/python-quickstart
+- OSS Node.js Quickstart: https://docs.mem0.ai/open-source/node-quickstart
+- API Reference: https://docs.mem0.ai/api-reference
+- Full LLM-friendly docs: https://docs.mem0.ai/llms.txt
+
+**Code & Examples:**
+- Core repo: https://github.com/mem0ai/mem0
+- Python SDK: pip install mem0ai
+- TypeScript SDK: npm install mem0ai
+- Cookbooks: https://docs.mem0.ai/cookbooks/overview
+
+**What Mem0 Does:**
+Mem0 is a memory layer for AI apps — managed (Mem0 Platform) or self-hosted
+(Open Source). It stores, retrieves, and manages user memories so agents
+remember preferences, learn from interactions, and personalize over time.
+Sub-50ms retrieval. Dual storage: vector embeddings + graph databases.
+
+**Architecture Overview:**
+- Memory is scoped by user_id, agent_id, or run_id
+- Core operations: add, search, update, delete
+- Memory types: factual (preferences, facts), episodic (past interactions),
+  semantic (concept relationships), working (session state)
+- Integration pattern: retrieve relevant memories → generate response → store
+  new memories
+
+**Quick Usage (Python Platform):**
+  from mem0 import MemoryClient
+  client = MemoryClient(api_key="m0-xxx")
+  client.add("I prefer dark mode and use VS Code.", user_id="user1")
+  results = client.search("What editor do they use?", user_id="user1")
+
+**Quick Usage (JavaScript Platform):**
+  import MemoryClient from 'mem0ai';
+  const client = new MemoryClient({ apiKey: 'm0-xxx' });
+  await client.add([{ role: "user", content: "I prefer dark mode." }], { user_id: "user1" });
+  const results = await client.search("What editor?", { user_id: "user1" });
+
+**Quick Usage (Python Open Source):**
+  from mem0 import Memory
+  m = Memory()
+  m.add("I prefer dark mode and use VS Code.", user_id="user1")
+  results = m.search("What editor do they use?", user_id="user1")
+
+Help me integrate Mem0 into my project. Start by asking what I'm building,
+what language/framework I'm using, and whether I want managed or self-hosted.
+```
+
+## Go Deeper
+
+<CardGroup cols={2}>
+  <Card title="Platform Quickstart" icon="cloud" href="/platform/quickstart">
+    Get started with the managed API
+  </Card>
+  <Card title="Open Source" icon="code-branch" href="/open-source/overview">
+    Self-host with full control
+  </Card>
+  <Card title="Cookbooks" icon="book" href="/cookbooks/overview">
+    Production-ready tutorials and examples
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference">
+    Explore every REST endpoint
+  </Card>
+</CardGroup>
