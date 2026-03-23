@@ -40,6 +40,7 @@
                     "icon": "rocket",
                     "pages": [
                       "platform/overview",
+                      "vibecoding",
                       "platform/mem0-mcp",
                       "platform/platform-vs-oss",
                       "platform/quickstart"
@@ -142,6 +143,7 @@
                     "icon": "rocket",
                     "pages": [
                       "open-source/overview",
+                      "vibecoding",
                       "open-source/python-quickstart",
                       "open-source/node-quickstart"
                     ]
@@ -302,6 +304,7 @@
                     "icon": "square-terminal",
                     "pages": [
                       "openmemory/overview",
+                      "vibecoding",
                       "openmemory/quickstart",
                       "openmemory/integrations"
                     ]
