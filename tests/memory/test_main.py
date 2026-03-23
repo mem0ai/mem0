@@ -236,8 +236,6 @@ async def test_async_update_memory_uses_utc_timestamps(mocker):
 
 def test_create_then_search_and_get_all_return_same_timestamps(mocker):
     """Reproduces issue #3720: created_at must be identical in search() and get_all()."""
-    from mem0.configs.base import MemoryItem
-
     memory = _build_memory_instance(mocker, Memory)
 
     # Step 1: Create a memory — capture the payload stored in the vector store
