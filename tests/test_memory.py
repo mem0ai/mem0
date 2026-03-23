@@ -385,6 +385,81 @@ async def test_async_delete_nonexistent_memory_raises_error(mock_sqlite, mock_ll
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.main.SQLiteManager')
+def test_delete_memory_history_has_timestamps(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """
+    Test that deleting a memory records created_at and updated_at in history.
+
+    Issue #4467: DELETE history records had NULL timestamps, causing incorrect
+    sort order and broken audit trails.
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    existing_memory = MagicMock()
+    existing_memory.payload = {
+        "data": "I like Python.",
+        "created_at": "2024-01-01T00:00:00+00:00",
+        "actor_id": None,
+        "role": None,
+    }
+    mock_vector_store.get.return_value = existing_memory
+
+    memory.delete("mem-123")
+
+    call_kwargs = memory.db.add_history.call_args.kwargs
+    assert call_kwargs["created_at"] == "2024-01-01T00:00:00+00:00"
+    assert call_kwargs["updated_at"] is not None
+
+
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.main.SQLiteManager')
+async def test_async_delete_memory_history_has_timestamps(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """
+    Test that async deleting a memory records created_at and updated_at in history.
+
+    Issue #4467: DELETE history records had NULL timestamps, causing incorrect
+    sort order and broken audit trails.
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import AsyncMemory
+    config = MemoryConfig()
+    memory = AsyncMemory(config)
+
+    existing_memory = MagicMock()
+    existing_memory.payload = {
+        "data": "I like Python.",
+        "created_at": "2024-01-01T00:00:00+00:00",
+        "actor_id": None,
+        "role": None,
+    }
+    mock_vector_store.get.return_value = existing_memory
+
+    await memory.delete("mem-123")
+
+    call_kwargs = memory.db.add_history.call_args.kwargs
+    assert call_kwargs["created_at"] == "2024-01-01T00:00:00+00:00"
+    assert call_kwargs["updated_at"] is not None
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
 @patch('mem0.memory.storage.SQLiteManager')
 def test_update_nonexistent_memory_raises_error(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
     """
