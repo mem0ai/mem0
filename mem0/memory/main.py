@@ -1317,12 +1317,19 @@ class Memory(MemoryBase):
             if existing_memory is None:
                 raise ValueError(f"Memory with id {memory_id} not found")
         prev_value = existing_memory.payload.get("data", "")
+
+        # Preserve original created_at and record deletion time
+        created_at = _normalize_iso_timestamp_to_utc(existing_memory.payload.get("created_at"))
+        updated_at = datetime.now(timezone.utc).isoformat()
+
         self.vector_store.delete(vector_id=memory_id)
         self.db.add_history(
             memory_id,
             prev_value,
             None,
             "DELETE",
+            created_at=created_at,
+            updated_at=updated_at,
             actor_id=existing_memory.payload.get("actor_id"),
             role=existing_memory.payload.get("role"),
             is_deleted=1,
@@ -2454,6 +2461,10 @@ class AsyncMemory(MemoryBase):
                 raise ValueError(f"Memory with id {memory_id} not found")
         prev_value = existing_memory.payload.get("data", "")
 
+        # Preserve original created_at and record deletion time
+        created_at = _normalize_iso_timestamp_to_utc(existing_memory.payload.get("created_at"))
+        updated_at = datetime.now(timezone.utc).isoformat()
+
         await asyncio.to_thread(self.vector_store.delete, vector_id=memory_id)
         await asyncio.to_thread(
             self.db.add_history,
@@ -2461,6 +2472,8 @@ class AsyncMemory(MemoryBase):
             prev_value,
             None,
             "DELETE",
+            created_at=created_at,
+            updated_at=updated_at,
             actor_id=existing_memory.payload.get("actor_id"),
             role=existing_memory.payload.get("role"),
             is_deleted=1,
