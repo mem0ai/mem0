@@ -836,6 +836,11 @@ class Memory(MemoryBase):
                 if created_before is not None:
                     ts_filter["lte"] = _parse_datetime_to_epoch(created_before)
 
+        # Rewrite any datetime string filters from user-provided filters
+        rewritten = _rewrite_datetime_filters(effective_filters)
+        effective_filters.clear()
+        effective_filters.update(rewritten)
+
         keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
             "mem0.get_all", self, {"limit": limit, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"}
@@ -987,6 +992,13 @@ class Memory(MemoryBase):
         elif filters:
             # Simple filters, merge directly
             effective_filters.update(_rewrite_datetime_filters(filters))
+
+        # Remove original datetime string fields that were rewritten to _timestamp fields
+        for dt_field in _DATETIME_FILTER_FIELDS:
+            if f"{dt_field}_timestamp" in effective_filters and dt_field in effective_filters:
+                val = effective_filters[dt_field]
+                if isinstance(val, dict) and val.keys() & {"gt", "gte", "lt", "lte"}:
+                    del effective_filters[dt_field]
 
         keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
