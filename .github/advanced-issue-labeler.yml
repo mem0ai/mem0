@@ -18,5 +18,3 @@ component:
     matcher: "OpenClaw"
   - label: "rest-api"
     matcher: "REST API"
-  - label: "benchmark"
-    matcher: "Benchmarks"
