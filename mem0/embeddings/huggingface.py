@@ -17,7 +17,7 @@ class HuggingFaceEmbedding(EmbeddingBase):
         super().__init__(config)
 
         if config.huggingface_base_url:
-            self.client = OpenAI(base_url=config.huggingface_base_url)
+            self.client = OpenAI(base_url=config.huggingface_base_url, timeout=60.0)
             self.config.model = self.config.model or "tei"
         else:
             self.config.model = self.config.model or "multi-qa-MiniLM-L6-cos-v1"

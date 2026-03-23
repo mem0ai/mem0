@@ -38,7 +38,7 @@ class VllmLLM(LLMBase):
 
         self.config.api_key = self.config.api_key or os.getenv("VLLM_API_KEY") or "vllm-api-key"
         base_url = self.config.vllm_base_url or os.getenv("VLLM_BASE_URL")
-        self.client = OpenAI(api_key=self.config.api_key, base_url=base_url)
+        self.client = OpenAI(api_key=self.config.api_key, base_url=base_url, timeout=60.0)
 
     def _parse_response(self, response, tools):
         """
