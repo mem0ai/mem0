@@ -1287,6 +1287,35 @@ class Memory(MemoryBase):
         )
         return memory_id
 
+    def close(self):
+        """Release resources held by the Memory instance.
+
+        Closes the SQLite connection and shuts down any background threads
+        (e.g. PostHog telemetry). Call this when you're done using the
+        instance, or use Memory as a context manager::
+
+            with Memory.from_config(config) as m:
+                m.add(...)
+        """
+        if hasattr(self, "db") and hasattr(self.db, "connection") and self.db.connection:
+            try:
+                self.db.connection.close()
+            except Exception:
+                pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+        return False
+
+    def __del__(self):
+        try:
+            self.close()
+        except Exception:
+            pass
+
     def reset(self):
         """
         Reset the memory store by:
