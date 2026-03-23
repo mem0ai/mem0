@@ -128,6 +128,19 @@ class Qdrant(VectorStoreBase):
             ids (list, optional): List of IDs corresponding to vectors. Defaults to None.
         """
         logger.info(f"Inserting {len(vectors)} vectors into collection {self.collection_name}")
+        
+        # Issue 4 Fix: Validate list lengths to prevent IndexError during concurrent operations
+        if ids is not None and len(ids) != len(vectors):
+            raise ValueError(
+                f"Length mismatch: {len(ids)} IDs provided for {len(vectors)} vectors. "
+                f"This can occur during concurrent operations. Ensure IDs list matches vectors list length."
+            )
+        if payloads is not None and len(payloads) != len(vectors):
+            raise ValueError(
+                f"Length mismatch: {len(payloads)} payloads provided for {len(vectors)} vectors. "
+                f"Ensure payloads list matches vectors list length."
+            )
+        
         points = [
             PointStruct(
                 id=idx if ids is None else ids[idx],
