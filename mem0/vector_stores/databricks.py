@@ -65,7 +65,7 @@ class Databricks(VectorStoreBase):
             catalog (str): Unity Catalog catalog name.
             schema (str): Unity Catalog schema name.
             table_name (str): Source Delta table name.
-            index_name (str, optional): Vector search index name (default: "mem0").
+            collection_name (str, optional): Vector search index name (default: "mem0").
             index_type (str, optional): Index type, either "DELTA_SYNC" or "DIRECT_ACCESS" (default: "DELTA_SYNC").
             embedding_model_endpoint_name (str, optional): Embedding model endpoint for Databricks-computed embeddings.
             embedding_dimension (int, optional): Vector embedding dimensions (default: 1536).
@@ -85,7 +85,7 @@ class Databricks(VectorStoreBase):
         self.fully_qualified_index_name = f"{self.catalog}.{self.schema}.{self.index_name}"
 
         # Configuration
-        self.index_type = index_type
+        self.index_type = VectorIndexType(index_type) if isinstance(index_type, str) else index_type
         self.embedding_model_endpoint_name = embedding_model_endpoint_name
         self.embedding_dimension = embedding_dimension
         self.endpoint_type = endpoint_type
@@ -261,11 +261,11 @@ class Databricks(VectorStoreBase):
             )
             logger.info(f"Successfully created source table '{self.fully_qualified_table_name}'")
             self.client.table_constraints.create(
-                full_name_arg="logistics_dev.ai.dev_memory",
+                full_name_arg=self.fully_qualified_table_name,
                 constraint=TableConstraint(
                     primary_key_constraint=PrimaryKeyConstraint(
-                        name="pk_dev_memory",  # Name of the primary key constraint
-                        child_columns=["memory_id"],  # Columns that make up the primary key
+                        name=f"pk_{self.table_name}",
+                        child_columns=["memory_id"],
                     )
                 ),
             )
@@ -439,29 +439,29 @@ class Databricks(VectorStoreBase):
         try:
             filters_json = json.dumps(filters) if filters else None
 
-            # Choose query type
-            if self.index_type == VectorIndexType.DELTA_SYNC and query:
-                # Text-based search
-                sdk_results = self.client.vector_search_indexes.query_index(
-                    index_name=self.fully_qualified_index_name,
-                    columns=self.column_names,
-                    query_text=query,
-                    num_results=limit,
-                    query_type=self.query_type,
-                    filters_json=filters_json,
-                )
-            elif self.index_type == VectorIndexType.DIRECT_ACCESS and vectors:
-                # Vector-based search
-                sdk_results = self.client.vector_search_indexes.query_index(
-                    index_name=self.fully_qualified_index_name,
-                    columns=self.column_names,
-                    query_vector=vectors,
-                    num_results=limit,
-                    query_type=self.query_type,
-                    filters_json=filters_json,
-                )
+            # Choose query mode per Databricks SDK contract:
+            # - query_text: for Delta Sync Index with model endpoint
+            # - query_vector: for Direct Access Index and Delta Sync Index with self-managed vectors
+            query_kwargs = {
+                "index_name": self.fully_qualified_index_name,
+                "columns": self.column_names,
+                "num_results": limit,
+                "query_type": self.query_type,
+                "filters_json": filters_json,
+            }
+            uses_model_endpoint = (
+                self.index_type == VectorIndexType.DELTA_SYNC and self.embedding_model_endpoint_name
+            )
+            if uses_model_endpoint:
+                if not query:
+                    raise ValueError("Query text is required for Delta Sync Index with model endpoint.")
+                query_kwargs["query_text"] = query
+            elif vectors:
+                query_kwargs["query_vector"] = vectors
             else:
-                raise ValueError("Must provide query text for DELTA_SYNC or vectors for DIRECT_ACCESS.")
+                raise ValueError("Must provide vectors for search.")
+
+            sdk_results = self.client.vector_search_indexes.query_index(**query_kwargs)
 
             # Parse results
             result_data = sdk_results.result if hasattr(sdk_results, "result") else sdk_results
@@ -572,14 +572,23 @@ class Databricks(VectorStoreBase):
             filters = {"memory_id": vector_id}
             filters_json = json.dumps(filters)
 
-            results = self.client.vector_search_indexes.query_index(
-                index_name=self.fully_qualified_index_name,
-                columns=self.column_names,
-                query_text=" ",  # Empty query, rely on filters
-                num_results=1,
-                query_type=self.query_type,
-                filters_json=filters_json,
+            # Use query_text for Delta Sync with model endpoint, query_vector otherwise
+            query_kwargs = {
+                "index_name": self.fully_qualified_index_name,
+                "columns": self.column_names,
+                "num_results": 1,
+                "query_type": self.query_type,
+                "filters_json": filters_json,
+            }
+            uses_model_endpoint = (
+                self.index_type == VectorIndexType.DELTA_SYNC and self.embedding_model_endpoint_name
             )
+            if uses_model_endpoint:
+                query_kwargs["query_text"] = " "
+            else:
+                query_kwargs["query_vector"] = [0.0] * self.embedding_dimension
+
+            results = self.client.vector_search_indexes.query_index(**query_kwargs)
 
             # Process results
             result_data = results.result if hasattr(results, "result") else results
@@ -589,7 +598,7 @@ class Databricks(VectorStoreBase):
                 raise KeyError(f"Vector with ID {vector_id} not found")
 
             result = data_array[0]
-            columns = columns = [col.name for col in results.manifest.columns] if results.manifest and results.manifest.columns else []
+            columns = [col.name for col in results.manifest.columns] if results.manifest and results.manifest.columns else []
             row_data = dict(zip(columns, result))
 
             # Build payload following the standard schema
@@ -686,14 +695,23 @@ class Databricks(VectorStoreBase):
             filters_json = json.dumps(filters) if filters else None
             num_results = limit or 100
             columns = self.column_names
-            sdk_results = self.client.vector_search_indexes.query_index(
-                index_name=self.fully_qualified_index_name,
-                columns=columns,
-                query_text=" ",
-                num_results=num_results,
-                query_type=self.query_type,
-                filters_json=filters_json,
+            # Use query_text for Delta Sync with model endpoint, query_vector otherwise
+            query_kwargs = {
+                "index_name": self.fully_qualified_index_name,
+                "columns": columns,
+                "num_results": num_results,
+                "query_type": self.query_type,
+                "filters_json": filters_json,
+            }
+            uses_model_endpoint = (
+                self.index_type == VectorIndexType.DELTA_SYNC and self.embedding_model_endpoint_name
             )
+            if uses_model_endpoint:
+                query_kwargs["query_text"] = " "
+            else:
+                query_kwargs["query_vector"] = [0.0] * self.embedding_dimension
+
+            sdk_results = self.client.vector_search_indexes.query_index(**query_kwargs)
             result_data = sdk_results.result if hasattr(sdk_results, "result") else sdk_results
             data_array = result_data.data_array if hasattr(result_data, "data_array") else []
 
