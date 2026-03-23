@@ -438,3 +438,94 @@ async def test_async_update_nonexistent_memory_raises_error(mock_sqlite, mock_ll
         await memory._update_memory("non-existent-id", "new data", {"new data": [0.1, 0.2]})
 
     mock_vector_store.update.assert_not_called()
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.main.SQLiteManager')
+def test_update_memory_preserves_actor_id(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """
+    Test that updating a memory preserves the original actor_id.
+    
+    Ensures multi-actor scenarios maintain memory ownership tracking
+    even when different actors trigger UPDATE operations.
+    """
+    mock_embedder = MagicMock()
+    mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
+    mock_embedder_factory.return_value = mock_embedder
+    
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    existing_memory = MagicMock()
+    existing_memory.payload = {
+        "data": "I am player #1",
+        "created_at": "2024-01-01T00:00:00+00:00",
+        "actor_id": "Alice",
+        "user_id": "team",
+    }
+    mock_vector_store.get.return_value = existing_memory
+
+    memory._update_memory(
+        memory_id="mem-123",
+        data="Player #1 is a good person",
+        existing_embeddings={},
+        metadata={"actor_id": "Bob", "user_id": "team"}
+    )
+
+    call_kwargs = mock_vector_store.update.call_args.kwargs
+    assert call_kwargs["metadata"]["actor_id"] == "Alice"
+    assert call_kwargs["metadata"]["data"] == "Player #1 is a good person"
+
+
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.main.SQLiteManager')
+async def test_async_update_memory_preserves_actor_id(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """
+    Test that async updating a memory preserves the original actor_id.
+    
+    Ensures async UPDATE operations maintain memory ownership tracking
+    in multi-actor shared workspace scenarios.
+    """
+    mock_embedder = MagicMock()
+    mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
+    mock_embedder_factory.return_value = mock_embedder
+    
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import AsyncMemory
+    config = MemoryConfig()
+    memory = AsyncMemory(config)
+
+    existing_memory = MagicMock()
+    existing_memory.payload = {
+        "data": "I am player #1",
+        "created_at": "2024-01-01T00:00:00+00:00",
+        "actor_id": "Alice",
+        "user_id": "team",
+    }
+    mock_vector_store.get.return_value = existing_memory
+
+    await memory._update_memory(
+        memory_id="mem-123",
+        data="Player #1 is a good person",
+        existing_embeddings={},
+        metadata={"actor_id": "Bob", "user_id": "team"}
+    )
+
+    call_kwargs = mock_vector_store.update.call_args.kwargs
+    assert call_kwargs["metadata"]["actor_id"] == "Alice"
+    assert call_kwargs["metadata"]["data"] == "Player #1 is a good person"

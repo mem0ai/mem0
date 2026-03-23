@@ -1248,10 +1248,12 @@ class Memory(MemoryBase):
             new_metadata["agent_id"] = existing_memory.payload["agent_id"]
         if "run_id" not in new_metadata and "run_id" in existing_memory.payload:
             new_metadata["run_id"] = existing_memory.payload["run_id"]
-        if "actor_id" not in new_metadata and "actor_id" in existing_memory.payload:
-            new_metadata["actor_id"] = existing_memory.payload["actor_id"]
         if "role" not in new_metadata and "role" in existing_memory.payload:
             new_metadata["role"] = existing_memory.payload["role"]
+
+        # Always preserve actor_id as memory owner (not last updater)
+        if "actor_id" in existing_memory.payload:
+            new_metadata["actor_id"] = existing_memory.payload["actor_id"]
 
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
@@ -2343,11 +2345,12 @@ class AsyncMemory(MemoryBase):
             new_metadata["agent_id"] = existing_memory.payload["agent_id"]
         if "run_id" not in new_metadata and "run_id" in existing_memory.payload:
             new_metadata["run_id"] = existing_memory.payload["run_id"]
-
-        if "actor_id" not in new_metadata and "actor_id" in existing_memory.payload:
-            new_metadata["actor_id"] = existing_memory.payload["actor_id"]
         if "role" not in new_metadata and "role" in existing_memory.payload:
             new_metadata["role"] = existing_memory.payload["role"]
+
+        # Always preserve actor_id as memory owner (not last updater)
+        if "actor_id" in existing_memory.payload:
+            new_metadata["actor_id"] = existing_memory.payload["actor_id"]
 
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
