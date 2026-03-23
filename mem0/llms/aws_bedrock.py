@@ -78,6 +78,17 @@ class AWSBedrockLLM(LLMBase):
         try:
             aws_config = self.config.get_aws_config()
 
+            # Apply timeout configuration if specified
+            if self.config.read_timeout is not None or self.config.connect_timeout is not None:
+                from botocore.config import Config as BotoConfig
+
+                timeout_kwargs = {}
+                if self.config.read_timeout is not None:
+                    timeout_kwargs["read_timeout"] = self.config.read_timeout
+                if self.config.connect_timeout is not None:
+                    timeout_kwargs["connect_timeout"] = self.config.connect_timeout
+                aws_config["config"] = BotoConfig(**timeout_kwargs)
+
             # Create Bedrock runtime client
             self.client = boto3.client("bedrock-runtime", **aws_config)
 

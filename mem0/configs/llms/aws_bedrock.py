@@ -23,6 +23,8 @@ class AWSBedrockConfig(BaseLlmConfig):
         aws_region: str = "",
         aws_session_token: Optional[str] = None,
         aws_profile: Optional[str] = None,
+        read_timeout: Optional[int] = None,
+        connect_timeout: Optional[int] = None,
         model_kwargs: Optional[Dict[str, Any]] = None,
         **kwargs,
     ):
@@ -40,6 +42,8 @@ class AWSBedrockConfig(BaseLlmConfig):
             aws_region: AWS region for Bedrock service
             aws_session_token: AWS session token for temporary credentials
             aws_profile: AWS profile name for credentials
+            read_timeout: boto3 read timeout in seconds (default: botocore default)
+            connect_timeout: boto3 connect timeout in seconds (default: botocore default)
             model_kwargs: Additional model-specific parameters
             **kwargs: Additional arguments passed to base class
         """
@@ -57,6 +61,8 @@ class AWSBedrockConfig(BaseLlmConfig):
         self.aws_region = aws_region or os.getenv("AWS_REGION", "us-west-2")
         self.aws_session_token = aws_session_token
         self.aws_profile = aws_profile
+        self.read_timeout = read_timeout
+        self.connect_timeout = connect_timeout
         self.model_kwargs = model_kwargs or {}
 
     @property
