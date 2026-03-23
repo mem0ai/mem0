@@ -1,5 +1,48 @@
 import os
+import sys
 from unittest.mock import Mock, patch
+
+# Mock optional dependencies before importing MemoryGraph
+for mod in ("langchain_neo4j", "rank_bm25"):
+    sys.modules.setdefault(mod, Mock())
+
+from mem0.memory.graph_memory import MemoryGraph
+
+
+class TestRemoveSpacesFromEntities:
+    """Test _remove_spaces_from_entities handles malformed input gracefully."""
+
+    def _make_instance(self):
+        """Create a MemoryGraph instance with mocked dependencies."""
+        with patch.dict("sys.modules", {"langchain_neo4j": Mock()}):
+            with patch.object(MemoryGraph, "__init__", lambda self: None):
+                return MemoryGraph.__new__(MemoryGraph)
+
+    def test_filters_out_empty_dicts(self):
+        mg = self._make_instance()
+        result = mg._remove_spaces_from_entities([{}, {"source": "a", "relationship": "knows", "destination": "b"}])
+        assert len(result) == 1
+        assert result[0]["source"] == "a"
+
+    def test_filters_out_incomplete_dicts(self):
+        mg = self._make_instance()
+        result = mg._remove_spaces_from_entities([{"source": "a"}, {"source": "a", "relationship": "r", "destination": "b"}])
+        assert len(result) == 1
+
+    def test_handles_all_empty(self):
+        mg = self._make_instance()
+        result = mg._remove_spaces_from_entities([{}, {}, {}])
+        assert result == []
+
+    def test_normal_entities_unchanged(self):
+        mg = self._make_instance()
+        entities = [
+            {"source": "John Smith", "relationship": "works at", "destination": "Acme Corp"},
+        ]
+        result = mg._remove_spaces_from_entities(entities)
+        assert len(result) == 1
+        assert result[0]["source"] == "john_smith"
+        assert result[0]["destination"] == "acme_corp"
 
 
 class TestNeo4jCypherSyntaxFix:
