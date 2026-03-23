@@ -186,7 +186,9 @@ def test_delete(memory_instance):
 
     result = memory_instance.delete("test_id")
 
-    memory_instance._delete_memory.assert_called_once_with("test_id")
+    # delete() now fetches the memory first and passes it to _delete_memory
+    existing_memory = memory_instance.vector_store.get.return_value
+    memory_instance._delete_memory.assert_called_once_with("test_id", existing_memory)
     assert result["message"] == "Memory deleted successfully!"
 
 
