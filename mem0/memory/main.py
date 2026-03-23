@@ -1248,8 +1248,14 @@ class Memory(MemoryBase):
             new_metadata["agent_id"] = existing_memory.payload["agent_id"]
         if "run_id" not in new_metadata and "run_id" in existing_memory.payload:
             new_metadata["run_id"] = existing_memory.payload["run_id"]
-        if "actor_id" not in new_metadata and "actor_id" in existing_memory.payload:
+
+        # ===== Fixes #4490 START =====
+        # Original code: if "actor_id" not in new_metadata and "actor_id" in existing_memory.payload:
+        # Fixed: unconditionally preserve original actor_id (if exists)
+        if "actor_id" in existing_memory.payload:
             new_metadata["actor_id"] = existing_memory.payload["actor_id"]
+        # ===== Fixes #4490 END =====
+
         if "role" not in new_metadata and "role" in existing_memory.payload:
             new_metadata["role"] = existing_memory.payload["role"]
 
@@ -2344,8 +2350,13 @@ class AsyncMemory(MemoryBase):
         if "run_id" not in new_metadata and "run_id" in existing_memory.payload:
             new_metadata["run_id"] = existing_memory.payload["run_id"]
 
-        if "actor_id" not in new_metadata and "actor_id" in existing_memory.payload:
+        # ===== Fixes #4490 START =====
+        # Original code: if "actor_id" not in new_metadata and "actor_id" in existing_memory.payload:
+        # Fixed: unconditionally preserve original actor_id (if exists)
+        if "actor_id" in existing_memory.payload:
             new_metadata["actor_id"] = existing_memory.payload["actor_id"]
+        # ===== Fixes #4490 END =====
+
         if "role" not in new_metadata and "role" in existing_memory.payload:
             new_metadata["role"] = existing_memory.payload["role"]
 
