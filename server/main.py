@@ -219,6 +219,17 @@ def reset_memory():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/health", summary="Health check", tags=["System"])
+def health_check():
+    """Health check endpoint for container orchestration (Docker, Kubernetes).
+
+    Returns 200 if the server is running and the memory instance is initialized.
+    """
+    if MEMORY_INSTANCE is None:
+        raise HTTPException(status_code=503, detail="Memory instance not initialized")
+    return {"status": "ok"}
+
+
 @app.get("/", summary="Redirect to the OpenAPI documentation", include_in_schema=False)
 def home():
     """Redirect to the OpenAPI documentation."""
