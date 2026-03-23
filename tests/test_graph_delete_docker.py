@@ -89,7 +89,20 @@ def _make_mock_llm(entities, relations):
 # ===========================================================================
 
 
+def _port_open(host, port, timeout=1):
+    """Quick TCP check — avoids slow driver-level timeouts."""
+    import socket
+
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
 def _neo4j_available():
+    if not _port_open("localhost", 7687):
+        return False
     try:
         from langchain_neo4j import Neo4jGraph
 
@@ -254,6 +267,8 @@ class TestNeo4jDeleteE2E:
 
 
 def _memgraph_available():
+    if not _port_open("localhost", 7688):
+        return False
     try:
         from langchain_memgraph.graphs.memgraph import Memgraph
 
@@ -414,6 +429,8 @@ class TestMemgraphDeleteE2E:
 
 
 def _age_available():
+    if not _port_open("localhost", 5432):
+        return False
     try:
         import age
 
@@ -599,6 +616,8 @@ class TestApacheAgeDeleteE2E:
 
 def _neptune_test_available():
     """Neptune uses OpenCypher — we test NeptuneBase.delete() against Neo4j."""
+    if not _port_open("localhost", 7687):
+        return False
     try:
         # Mock langchain_aws so NeptuneBase can be imported without AWS deps
         sys.modules.setdefault("langchain_aws", MagicMock())
