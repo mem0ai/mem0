@@ -1,6 +1,4 @@
 import logging
-import os
-import shutil
 from typing import Optional
 
 from qdrant_client import QdrantClient
@@ -48,7 +46,8 @@ class Qdrant(VectorStoreBase):
             path (str, optional): Path for local Qdrant database. Defaults to None.
             url (str, optional): Full URL for Qdrant server. Defaults to None.
             api_key (str, optional): API key for Qdrant server. Defaults to None.
-            on_disk (bool, optional): Enables persistent storage. Defaults to False.
+            on_disk (bool, optional): Enables persistent storage. Vectors are stored on disk (True) or in memory (False).
+                Does not delete the local database path. Defaults to False.
         """
         if client:
             self.client = client
@@ -66,9 +65,6 @@ class Qdrant(VectorStoreBase):
             if not params:
                 params["path"] = path
                 self.is_local = True
-                if not on_disk:
-                    if os.path.exists(path) and os.path.isdir(path):
-                        shutil.rmtree(path)
             else:
                 self.is_local = False
 
