@@ -1,6 +1,6 @@
-# Mem0 Plugin for Claude Code
+# Mem0 Plugin for Claude
 
-Add persistent memory to your Claude Code workflows. Store, retrieve, and manage memories across sessions using the Mem0 Platform.
+Add persistent memory to your Claude workflows. Store, retrieve, and manage memories across sessions using the Mem0 Platform.
 
 ## Installation
 
