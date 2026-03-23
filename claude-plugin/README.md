@@ -19,7 +19,7 @@ Add the Mem0 marketplace and install the plugin:
 
 ```
 /plugin marketplace add mem0ai/mem0
-/plugin install mem0@mem0
+/plugin install mem0@mem0-plugins
 ```
 
 > **Already have `mem0` configured as an MCP server?** Remove the existing entry from your `.mcp.json` or Claude settings before installing this plugin to avoid duplicate tools.
