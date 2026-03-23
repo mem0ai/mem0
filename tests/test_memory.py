@@ -438,3 +438,256 @@ async def test_async_update_nonexistent_memory_raises_error(mock_sqlite, mock_ll
         await memory._update_memory("non-existent-id", "new data", {"new data": [0.1, 0.2]})
 
     mock_vector_store.update.assert_not_called()
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_update_memory_preserves_custom_metadata(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """
+    Test that _update_memory() preserves all existing payload fields including custom metadata.
+
+    Fixes #3966 — previously only a hardcoded whitelist of fields (user_id, agent_id, run_id,
+    actor_id, role) was preserved; custom fields like bucket_id, category, source were lost.
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    # Simulate existing memory with custom metadata
+    existing_payload = {
+        "data": "User likes chocolate",
+        "hash": "abc123",
+        "user_id": "user_1",
+        "agent_id": "agent_1",
+        "run_id": "run_1",
+        "actor_id": "actor_1",
+        "role": "user",
+        "created_at": "2025-01-01T00:00:00+00:00",
+        "bucket_id": "bucket_42",
+        "category": "preferences",
+        "source": "chat",
+        "context_id": "ctx_789",
+    }
+    mock_vector_store.get.return_value = MockVectorMemory("mem_1", existing_payload)
+
+    mock_embedder = MagicMock()
+    mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
+    memory.embedding_model = mock_embedder
+
+    memory._update_memory("mem_1", "User likes chocolate and vanilla", {"User likes chocolate and vanilla": [0.1, 0.2, 0.3]})
+
+    # Verify vector store was called with payload that preserves custom fields
+    call_args = mock_vector_store.update.call_args
+    updated_payload = call_args.kwargs["payload"]
+
+    # Custom metadata should be preserved
+    assert updated_payload["bucket_id"] == "bucket_42"
+    assert updated_payload["category"] == "preferences"
+    assert updated_payload["source"] == "chat"
+    assert updated_payload["context_id"] == "ctx_789"
+
+    # Session identifiers should be preserved
+    assert updated_payload["user_id"] == "user_1"
+    assert updated_payload["agent_id"] == "agent_1"
+    assert updated_payload["run_id"] == "run_1"
+    assert updated_payload["actor_id"] == "actor_1"
+    assert updated_payload["role"] == "user"
+
+    # Managed fields should be updated
+    assert updated_payload["data"] == "User likes chocolate and vanilla"
+    assert updated_payload["created_at"] == "2025-01-01T00:00:00+00:00"
+    assert "updated_at" in updated_payload
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_update_memory_explicit_metadata_overrides_existing(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """
+    Test that explicitly provided metadata overrides existing fields during update.
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    existing_payload = {
+        "data": "User likes chocolate",
+        "hash": "abc123",
+        "user_id": "user_1",
+        "created_at": "2025-01-01T00:00:00+00:00",
+        "category": "preferences",
+        "source": "chat",
+    }
+    mock_vector_store.get.return_value = MockVectorMemory("mem_1", existing_payload)
+
+    mock_embedder = MagicMock()
+    mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
+    memory.embedding_model = mock_embedder
+
+    # Provide new metadata that overrides 'category' but keeps 'source'
+    new_metadata = {"user_id": "user_1", "category": "food"}
+    memory._update_memory("mem_1", "User likes vanilla", {"User likes vanilla": [0.1, 0.2, 0.3]}, metadata=new_metadata)
+
+    call_args = mock_vector_store.update.call_args
+    updated_payload = call_args.kwargs["payload"]
+
+    # Overridden field
+    assert updated_payload["category"] == "food"
+    # Preserved field
+    assert updated_payload["source"] == "chat"
+    # Managed field updated
+    assert updated_payload["data"] == "User likes vanilla"
+
+
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+async def test_async_update_memory_preserves_custom_metadata(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """
+    Test that async _update_memory() preserves all existing payload fields including custom metadata.
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_store.get.return_value = MockVectorMemory("mem_1", {
+        "data": "User likes chocolate",
+        "hash": "abc123",
+        "user_id": "user_1",
+        "created_at": "2025-01-01T00:00:00+00:00",
+        "bucket_id": "bucket_42",
+        "category": "preferences",
+    })
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import AsyncMemory
+    config = MemoryConfig()
+    memory = AsyncMemory(config)
+
+    mock_embedder = MagicMock()
+    mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
+    memory.embedding_model = mock_embedder
+
+    await memory._update_memory("mem_1", "User likes chocolate and vanilla", {"User likes chocolate and vanilla": [0.1, 0.2, 0.3]})
+
+    call_args = mock_vector_store.update.call_args
+    updated_payload = call_args.kwargs["payload"]
+
+    assert updated_payload["bucket_id"] == "bucket_42"
+    assert updated_payload["category"] == "preferences"
+    assert updated_payload["user_id"] == "user_1"
+    assert updated_payload["data"] == "User likes chocolate and vanilla"
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_public_update_api_preserves_custom_metadata(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """
+    Test that the public memory.update() API preserves custom metadata.
+
+    This is the primary user-facing scenario from #3966 — calling memory.update(memory_id, data=...)
+    passes metadata=None internally, which previously caused all custom metadata to be lost.
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    existing_payload = {
+        "data": "User likes chocolate",
+        "hash": "abc123",
+        "user_id": "user_1",
+        "created_at": "2025-01-01T00:00:00+00:00",
+        "bucket_id": "bucket_42",
+        "category": "preferences",
+        "source": "chat",
+    }
+    mock_vector_store.get.return_value = MockVectorMemory("mem_1", existing_payload)
+
+    mock_embedder = MagicMock()
+    mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
+    memory.embedding_model = mock_embedder
+
+    # Call the public API — this is how end users trigger the bug
+    memory.update("mem_1", data="User likes chocolate and vanilla")
+
+    call_args = mock_vector_store.update.call_args
+    updated_payload = call_args.kwargs["payload"]
+
+    # Custom metadata must survive
+    assert updated_payload["bucket_id"] == "bucket_42"
+    assert updated_payload["category"] == "preferences"
+    assert updated_payload["source"] == "chat"
+    # Session identifiers must survive
+    assert updated_payload["user_id"] == "user_1"
+    # Data must be updated
+    assert updated_payload["data"] == "User likes chocolate and vanilla"
+
+
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+async def test_async_update_memory_explicit_metadata_overrides_existing(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """
+    Test that explicitly provided metadata overrides existing fields during async update.
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_store.get.return_value = MockVectorMemory("mem_1", {
+        "data": "User likes chocolate",
+        "hash": "abc123",
+        "user_id": "user_1",
+        "created_at": "2025-01-01T00:00:00+00:00",
+        "category": "preferences",
+        "source": "chat",
+    })
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import AsyncMemory
+    config = MemoryConfig()
+    memory = AsyncMemory(config)
+
+    mock_embedder = MagicMock()
+    mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
+    memory.embedding_model = mock_embedder
+
+    new_metadata = {"user_id": "user_1", "category": "food"}
+    await memory._update_memory("mem_1", "User likes vanilla", {"User likes vanilla": [0.1, 0.2, 0.3]}, metadata=new_metadata)
+
+    call_args = mock_vector_store.update.call_args
+    updated_payload = call_args.kwargs["payload"]
+
+    # Overridden field
+    assert updated_payload["category"] == "food"
+    # Preserved field
+    assert updated_payload["source"] == "chat"
+    # Managed field
+    assert updated_payload["data"] == "User likes vanilla"
