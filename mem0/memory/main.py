@@ -1163,7 +1163,9 @@ class Memory(MemoryBase):
         metadata = metadata or {}
         metadata["data"] = data
         metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        metadata["created_at"] = datetime.now(timezone.utc).isoformat()
+        if "created_at" not in metadata:
+            metadata["created_at"] = datetime.now(timezone.utc).isoformat()
+        metadata["updated_at"] = metadata["created_at"]
 
         self.vector_store.insert(
             vectors=[embeddings],
@@ -1176,6 +1178,7 @@ class Memory(MemoryBase):
             data,
             "ADD",
             created_at=metadata.get("created_at"),
+            updated_at=metadata.get("updated_at"),
             actor_id=metadata.get("actor_id"),
             role=metadata.get("role"),
         )
@@ -2240,7 +2243,9 @@ class AsyncMemory(MemoryBase):
         metadata = metadata or {}
         metadata["data"] = data
         metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        metadata["created_at"] = datetime.now(timezone.utc).isoformat()
+        if "created_at" not in metadata:
+            metadata["created_at"] = datetime.now(timezone.utc).isoformat()
+        metadata["updated_at"] = metadata["created_at"]
 
         await asyncio.to_thread(
             self.vector_store.insert,
@@ -2256,6 +2261,7 @@ class AsyncMemory(MemoryBase):
             data,
             "ADD",
             created_at=metadata.get("created_at"),
+            updated_at=metadata.get("updated_at"),
             actor_id=metadata.get("actor_id"),
             role=metadata.get("role"),
         )

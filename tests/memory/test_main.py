@@ -157,6 +157,28 @@ def test_create_memory_uses_utc_timestamps(mocker):
     _assert_utc_timestamp(payload["created_at"])
 
 
+def test_create_memory_sets_updated_at(mocker):
+    memory = _build_memory_instance(mocker, Memory)
+    memory._create_memory("new memory", {"new memory": [0.1, 0.2, 0.3]}, metadata={})
+    payload = memory.vector_store.insert.call_args.kwargs["payloads"][0]
+    assert "updated_at" in payload
+    assert payload["updated_at"] == payload["created_at"]
+    _assert_utc_timestamp(payload["updated_at"])
+
+    # History should also receive updated_at
+    history_kwargs = memory.db.add_history.call_args
+    assert history_kwargs.kwargs["updated_at"] == payload["updated_at"]
+
+
+def test_create_memory_preserves_existing_created_at(mocker):
+    memory = _build_memory_instance(mocker, Memory)
+    custom_ts = "2023-05-06T09:19:20+00:00"
+    memory._create_memory("new memory", {"new memory": [0.1, 0.2, 0.3]}, metadata={"created_at": custom_ts})
+    payload = memory.vector_store.insert.call_args.kwargs["payloads"][0]
+    assert payload["created_at"] == custom_ts
+    assert payload["updated_at"] == custom_ts
+
+
 def test_update_memory_uses_utc_timestamps(mocker):
     memory = _build_memory_instance(mocker, Memory)
     memory.vector_store.get.return_value = MagicMock(
@@ -177,6 +199,30 @@ async def test_async_create_memory_uses_utc_timestamps(mocker):
 
 
 @pytest.mark.asyncio
+async def test_async_create_memory_sets_updated_at(mocker):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    await memory._create_memory("new memory", {"new memory": [0.1, 0.2, 0.3]}, metadata={})
+    payload = memory.vector_store.insert.call_args.kwargs["payloads"][0]
+    assert "updated_at" in payload
+    assert payload["updated_at"] == payload["created_at"]
+    _assert_utc_timestamp(payload["updated_at"])
+
+    # History should also receive updated_at
+    history_kwargs = memory.db.add_history.call_args
+    assert history_kwargs.kwargs["updated_at"] == payload["updated_at"]
+
+
+@pytest.mark.asyncio
+async def test_async_create_memory_preserves_existing_created_at(mocker):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    custom_ts = "2023-05-06T09:19:20+00:00"
+    await memory._create_memory("new memory", {"new memory": [0.1, 0.2, 0.3]}, metadata={"created_at": custom_ts})
+    payload = memory.vector_store.insert.call_args.kwargs["payloads"][0]
+    assert payload["created_at"] == custom_ts
+    assert payload["updated_at"] == custom_ts
+
+
+@pytest.mark.asyncio
 async def test_async_update_memory_uses_utc_timestamps(mocker):
     memory = _build_memory_instance(mocker, AsyncMemory)
     memory.vector_store.get.return_value = MagicMock(
@@ -186,6 +232,109 @@ async def test_async_update_memory_uses_utc_timestamps(mocker):
     payload = memory.vector_store.update.call_args.kwargs["payload"]
     assert payload["created_at"] == "2026-03-18T00:00:00+00:00"
     _assert_utc_timestamp(payload["updated_at"])
+
+
+def test_create_then_search_and_get_all_return_same_timestamps(mocker):
+    """Reproduces issue #3720: created_at must be identical in search() and get_all()."""
+    from mem0.configs.base import MemoryItem
+
+    memory = _build_memory_instance(mocker, Memory)
+
+    # Step 1: Create a memory — capture the payload stored in the vector store
+    memory._create_memory("Likes pizza", {"Likes pizza": [0.1, 0.2, 0.3]}, metadata={"user_id": "alice"})
+    stored_payload = memory.vector_store.insert.call_args.kwargs["payloads"][0]
+    stored_id = memory.vector_store.insert.call_args.kwargs["ids"][0]
+
+    # Verify both timestamps were stored
+    assert stored_payload["created_at"] is not None
+    assert stored_payload["updated_at"] is not None
+    assert stored_payload["updated_at"] == stored_payload["created_at"]
+
+    # Step 2: Simulate the vector store returning this memory for both search and get_all
+    mem_result = MagicMock()
+    mem_result.id = stored_id
+    mem_result.payload = stored_payload
+    mem_result.score = 0.95
+
+    memory.vector_store.search.return_value = [mem_result]
+    memory.vector_store.list.return_value = [[mem_result]]
+
+    # Step 3: Call search and get_all, compare timestamps
+    search_results = memory._search_vector_store("pizza", filters={"user_id": "alice"}, limit=10, threshold=None)
+    get_all_results = memory._get_all_from_vector_store(filters={"user_id": "alice"}, limit=100)
+
+    search_item = search_results[0]
+    get_all_item = get_all_results[0]
+
+    # The core assertion from issue #3720: created_at must be the same
+    assert search_item["created_at"] == get_all_item["created_at"], (
+        f"created_at mismatch: search={search_item['created_at']}, get_all={get_all_item['created_at']}"
+    )
+    assert search_item["updated_at"] == get_all_item["updated_at"], (
+        f"updated_at mismatch: search={search_item['updated_at']}, get_all={get_all_item['updated_at']}"
+    )
+
+    # Neither should be None
+    assert search_item["created_at"] is not None
+    assert search_item["updated_at"] is not None
+    assert get_all_item["created_at"] is not None
+    assert get_all_item["updated_at"] is not None
+
+
+def test_update_preserves_created_at_and_updates_updated_at(mocker):
+    """After an update, created_at must stay the same and updated_at must change."""
+    memory = _build_memory_instance(mocker, Memory)
+
+    # Create a memory
+    memory._create_memory("Likes pizza", {"Likes pizza": [0.1, 0.2, 0.3]}, metadata={"user_id": "alice"})
+    created_payload = memory.vector_store.insert.call_args.kwargs["payloads"][0]
+    created_id = memory.vector_store.insert.call_args.kwargs["ids"][0]
+    original_created_at = created_payload["created_at"]
+
+    # Update the memory — simulate existing memory in vector store
+    memory.vector_store.get.return_value = MagicMock(
+        id=created_id,
+        payload=created_payload,
+    )
+    memory._update_memory(created_id, "Loves pizza", {"Loves pizza": [0.2, 0.3, 0.4]}, metadata={})
+    updated_payload = memory.vector_store.update.call_args.kwargs["payload"]
+
+    # created_at must be preserved
+    assert updated_payload["created_at"] == original_created_at
+    # updated_at must be set and different from creation time (or at least present)
+    assert updated_payload["updated_at"] is not None
+    _assert_utc_timestamp(updated_payload["updated_at"])
+
+
+def test_search_and_get_all_consistent_after_update(mocker):
+    """After update, search and get_all must still return the same timestamps."""
+    memory = _build_memory_instance(mocker, Memory)
+
+    # Simulate a memory that was created then updated
+    updated_payload = {
+        "data": "Loves pizza",
+        "hash": "abc123",
+        "user_id": "alice",
+        "created_at": "2023-05-06T09:19:20+00:00",
+        "updated_at": "2026-03-23T10:00:00+00:00",
+    }
+
+    mem_result = MagicMock()
+    mem_result.id = "mem-1"
+    mem_result.payload = updated_payload
+    mem_result.score = 0.9
+
+    memory.vector_store.search.return_value = [mem_result]
+    memory.vector_store.list.return_value = [[mem_result]]
+
+    search_results = memory._search_vector_store("pizza", filters={"user_id": "alice"}, limit=10, threshold=None)
+    get_all_results = memory._get_all_from_vector_store(filters={"user_id": "alice"}, limit=100)
+
+    assert search_results[0]["created_at"] == get_all_results[0]["created_at"]
+    assert search_results[0]["updated_at"] == get_all_results[0]["updated_at"]
+    # created_at should be the original, not the updated time
+    assert search_results[0]["created_at"] == "2023-05-06T09:19:20+00:00"
+    assert search_results[0]["updated_at"] == "2026-03-23T10:00:00+00:00"
 
 
 def test_normalize_iso_timestamp_to_utc_preserves_naive_values():
