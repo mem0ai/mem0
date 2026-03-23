@@ -1242,8 +1242,13 @@ class Memory(MemoryBase):
             new_metadata["agent_id"] = existing_memory.payload["agent_id"]
         if "run_id" not in new_metadata and "run_id" in existing_memory.payload:
             new_metadata["run_id"] = existing_memory.payload["run_id"]
-        if "actor_id" not in new_metadata and "actor_id" in existing_memory.payload:
+        # Always preserve the original actor_id from the existing memory to maintain
+        # ownership attribution. Without this, a different actor triggering an UPDATE
+        # would overwrite the creator's actor_id, breaking actor-level filtering.
+        if "actor_id" in existing_memory.payload:
             new_metadata["actor_id"] = existing_memory.payload["actor_id"]
+        elif "actor_id" not in new_metadata:
+            pass  # No actor_id anywhere, leave it unset
         if "role" not in new_metadata and "role" in existing_memory.payload:
             new_metadata["role"] = existing_memory.payload["role"]
 
@@ -2330,8 +2335,13 @@ class AsyncMemory(MemoryBase):
         if "run_id" not in new_metadata and "run_id" in existing_memory.payload:
             new_metadata["run_id"] = existing_memory.payload["run_id"]
 
-        if "actor_id" not in new_metadata and "actor_id" in existing_memory.payload:
+        # Always preserve the original actor_id from the existing memory to maintain
+        # ownership attribution. Without this, a different actor triggering an UPDATE
+        # would overwrite the creator's actor_id, breaking actor-level filtering.
+        if "actor_id" in existing_memory.payload:
             new_metadata["actor_id"] = existing_memory.payload["actor_id"]
+        elif "actor_id" not in new_metadata:
+            pass  # No actor_id anywhere, leave it unset
         if "role" not in new_metadata and "role" in existing_memory.payload:
             new_metadata["role"] = existing_memory.payload["role"]
 
