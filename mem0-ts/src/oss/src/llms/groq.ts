@@ -1,9 +1,9 @@
-import { Groq } from "groq-sdk";
 import { LLM, LLMResponse } from "./base";
 import { LLMConfig, Message } from "../types";
+import { loadOptionalDependency } from "../utils/optional-deps";
 
 export class GroqLLM implements LLM {
-  private client: Groq;
+  private client: any;
   private model: string;
 
   constructor(config: LLMConfig) {
@@ -11,6 +11,11 @@ export class GroqLLM implements LLM {
     if (!apiKey) {
       throw new Error("Groq API key is required");
     }
+    const Groq = loadOptionalDependency<any>(
+      "groq-sdk",
+      "Groq LLM provider",
+      "Groq",
+    );
     this.client = new Groq({ apiKey });
     this.model = config.model || "llama3-70b-8192";
   }

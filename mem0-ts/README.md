@@ -13,6 +13,52 @@ For the open-source version, you can install the Mem0 package using npm:
 npm i mem0ai
 ```
 
+### Optional Provider Dependencies
+
+`mem0ai/oss` now lazy-loads optional provider SDKs. You only need to install
+the packages for providers you actually configure.
+
+Common optional installs:
+
+```bash
+# SQLite-based memory/history stores
+pnpm add better-sqlite3
+
+# Vector stores
+pnpm add @qdrant/js-client-rest redis @supabase/supabase-js pg cloudflare @cloudflare/workers-types
+
+# LLM/embedding providers
+pnpm add @anthropic-ai/sdk @google/genai groq-sdk ollama @mistralai/mistralai
+
+# Graph and Azure providers
+pnpm add neo4j-driver @azure/identity @azure/search-documents
+
+# LangChain providers
+pnpm add @langchain/core
+```
+
+If a provider package is missing, mem0 throws a provider-specific install hint
+only when that provider is selected.
+
+### PR-Gate Verification for Optional Dependency Lazy-Loading
+
+Run this sequence before opening a PR for optional-dependency lazy-loading work:
+
+```bash
+pnpm run test:optional-deps:lazy
+pnpm run test:optional-deps:utils
+pnpm test -- src/oss/src/tests/sqlite-path-resolution.test.ts
+pnpm test -- src/oss/src/tests/sqlite-backward-compat.test.ts
+pnpm run build
+pnpm run test:optional-deps:smoke
+```
+
+Or run the complete gate in one command:
+
+```bash
+pnpm run test:optional-deps:gate
+```
+
 ## 2. API Key Setup
 
 For the cloud offering, sign in to [Mem0 Platform](https://app.mem0.ai/dashboard/api-keys) to obtain your API Key.

@@ -42,6 +42,10 @@
     "test:integration": "jest --config jest.integration.config.js --forceExit",
     "test:ts": "jest --config jest.config.js",
     "test:watch": "jest --config jest.config.js --watch",
+    "test:optional-deps:lazy": "jest --runInBand src/oss/src/tests/optional-deps-lazy-loading.test.ts",
+    "test:optional-deps:utils": "jest --runInBand src/oss/src/tests/optional-deps-utils.test.ts",
+    "test:optional-deps:smoke": "node scripts/optional-deps-pack-smoke.cjs",
+    "test:optional-deps:gate": "pnpm run test:optional-deps:lazy && pnpm run test:optional-deps:utils && pnpm test -- src/oss/src/tests/sqlite-path-resolution.test.ts && pnpm test -- src/oss/src/tests/sqlite-backward-compat.test.ts && pnpm run build && pnpm run test:optional-deps:smoke",
     "format": "npm run clean && prettier --write .",
     "format:check": "npm run clean && prettier --check ."
   },

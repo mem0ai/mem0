@@ -1,6 +1,7 @@
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { v4 as uuidv4 } from "uuid";
 import { HistoryManager } from "./base";
+import { loadOptionalDependency } from "../utils/optional-deps";
 
 interface HistoryEntry {
   id: string;
@@ -25,6 +26,11 @@ export class SupabaseHistoryManager implements HistoryManager {
 
   constructor(config: SupabaseHistoryConfig) {
     this.tableName = config.tableName || "memory_history";
+    const createClient = loadOptionalDependency<any>(
+      "@supabase/supabase-js",
+      "Supabase history store",
+      "createClient",
+    );
     this.supabase = createClient(config.supabaseUrl, config.supabaseKey);
     this.initializeSupabase().catch(console.error);
   }

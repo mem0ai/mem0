@@ -1,4 +1,3 @@
-import { createClient } from "redis";
 import type {
   RedisClientType,
   RedisDefaultModules,
@@ -8,6 +7,7 @@ import type {
 } from "redis";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
+import { loadOptionalDependency } from "../utils/optional-deps";
 
 interface RedisConfig extends VectorStoreConfig {
   redisUrl: string;
@@ -142,6 +142,11 @@ export class RedisDB implements VectorStore {
   private _initPromise?: Promise<void>;
 
   constructor(config: RedisConfig) {
+    const createClient = loadOptionalDependency<any>(
+      "redis",
+      "Redis vector store provider",
+      "createClient",
+    );
     this.indexName = config.collectionName;
     this.indexPrefix = `mem0:${config.collectionName}`;
 
@@ -169,7 +174,7 @@ export class RedisDB implements VectorStore {
       username: config.username,
       password: config.password,
       socket: {
-        reconnectStrategy: (retries) => {
+        reconnectStrategy: (retries: number) => {
           if (retries > 10) {
             console.error("Max reconnection attempts reached");
             return new Error("Max reconnection attempts reached");

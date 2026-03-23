@@ -1,15 +1,20 @@
-import { Mistral } from "@mistralai/mistralai";
 import { LLM, LLMResponse } from "./base";
 import { LLMConfig, Message } from "../types";
+import { loadOptionalDependency } from "../utils/optional-deps";
 
 export class MistralLLM implements LLM {
-  private client: Mistral;
+  private client: any;
   private model: string;
 
   constructor(config: LLMConfig) {
     if (!config.apiKey) {
       throw new Error("Mistral API key is required");
     }
+    const Mistral = loadOptionalDependency<any>(
+      "@mistralai/mistralai",
+      "Mistral LLM provider",
+      "Mistral",
+    );
     this.client = new Mistral({
       apiKey: config.apiKey,
     });
@@ -68,7 +73,7 @@ export class MistralLLM implements LLM {
       return {
         content: this.contentToString(message.content),
         role: message.role || "assistant",
-        toolCalls: message.toolCalls.map((call) => ({
+        toolCalls: message.toolCalls.map((call: any) => ({
           name: call.function.name,
           arguments:
             typeof call.function.arguments === "string"

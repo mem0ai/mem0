@@ -1,15 +1,20 @@
-import { Ollama } from "ollama";
 import { LLM, LLMResponse } from "./base";
 import { LLMConfig, Message } from "../types";
 import { logger } from "../utils/logger";
+import { loadOptionalDependency } from "../utils/optional-deps";
 
 export class OllamaLLM implements LLM {
-  private ollama: Ollama;
+  private ollama: any;
   private model: string;
   // Using this variable to avoid calling the Ollama server multiple times
   private initialized: boolean = false;
 
   constructor(config: LLMConfig) {
+    const Ollama = loadOptionalDependency<any>(
+      "ollama",
+      "Ollama LLM provider",
+      "Ollama",
+    );
     this.ollama = new Ollama({
       host: config.url || config.baseURL || "http://localhost:11434",
     });
@@ -52,7 +57,7 @@ export class OllamaLLM implements LLM {
       return {
         content: response.content || "",
         role: response.role,
-        toolCalls: response.tool_calls.map((call) => ({
+        toolCalls: response.tool_calls.map((call: any) => ({
           name: call.function.name,
           arguments: JSON.stringify(call.function.arguments),
         })),

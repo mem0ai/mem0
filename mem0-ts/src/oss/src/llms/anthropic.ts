@@ -1,9 +1,9 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { LLM, LLMResponse } from "./base";
 import { LLMConfig, Message } from "../types";
+import { loadOptionalDependency } from "../utils/optional-deps";
 
 export class AnthropicLLM implements LLM {
-  private client: Anthropic;
+  private client: any;
   private model: string;
 
   constructor(config: LLMConfig) {
@@ -11,6 +11,10 @@ export class AnthropicLLM implements LLM {
     if (!apiKey) {
       throw new Error("Anthropic API key is required");
     }
+    const Anthropic = loadOptionalDependency<any>(
+      "@anthropic-ai/sdk",
+      "Anthropic LLM provider",
+    );
     this.client = new Anthropic({ apiKey });
     this.model = config.model || "claude-3-sonnet-20240229";
   }

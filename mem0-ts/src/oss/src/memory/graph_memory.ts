@@ -1,4 +1,4 @@
-import neo4j, { Driver } from "neo4j-driver";
+import type { Driver } from "neo4j-driver";
 import { BM25 } from "../utils/bm25";
 import { GraphStoreConfig } from "../graphs/configs";
 import { MemoryConfig } from "../types";
@@ -12,6 +12,7 @@ import {
 } from "../graphs/tools";
 import { EXTRACT_RELATIONS_PROMPT, getDeleteMessages } from "../graphs/utils";
 import { logger } from "../utils/logger";
+import { loadOptionalDependency } from "../utils/optional-deps";
 
 interface SearchOutput {
   source: string;
@@ -65,6 +66,11 @@ export class MemoryGraph {
     ) {
       throw new Error("Neo4j configuration is incomplete");
     }
+
+    const neo4j = loadOptionalDependency<any>(
+      "neo4j-driver",
+      "Neo4j graph memory provider",
+    );
 
     this.graph = neo4j.driver(
       config.graphStore.config.url,

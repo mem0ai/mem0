@@ -1,21 +1,20 @@
 import {
-  SearchClient,
-  SearchIndexClient,
-  AzureKeyCredential,
-  SearchIndex,
-  SearchField,
-  SearchFieldDataType,
-  SimpleField,
-  VectorSearch,
-  VectorSearchProfile,
-  HnswAlgorithmConfiguration,
-  ScalarQuantizationCompression,
-  BinaryQuantizationCompression,
-  VectorizedQuery,
+  type SearchClient,
+  type SearchIndexClient,
+  type SearchIndex,
+  type SearchField,
+  type SearchFieldDataType,
+  type SimpleField,
+  type VectorSearch,
+  type VectorSearchProfile,
+  type HnswAlgorithmConfiguration,
+  type ScalarQuantizationCompression,
+  type BinaryQuantizationCompression,
+  type VectorizedQuery,
 } from "@azure/search-documents";
-import { DefaultAzureCredential } from "@azure/identity";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
+import { loadOptionalDependency } from "../utils/optional-deps";
 
 /**
  * Configuration interface for Azure AI Search vector store
@@ -94,21 +93,41 @@ export class AzureAISearch implements VectorStore {
     this.apiKey = config.apiKey;
 
     const serviceEndpoint = `https://${this.serviceName}.search.windows.net`;
+    const SearchClientCtor = loadOptionalDependency<any>(
+      "@azure/search-documents",
+      "Azure AI Search vector store provider",
+      "SearchClient",
+    );
+    const SearchIndexClientCtor = loadOptionalDependency<any>(
+      "@azure/search-documents",
+      "Azure AI Search vector store provider",
+      "SearchIndexClient",
+    );
+    const AzureKeyCredentialCtor = loadOptionalDependency<any>(
+      "@azure/search-documents",
+      "Azure AI Search vector store provider",
+      "AzureKeyCredential",
+    );
+    const DefaultAzureCredentialCtor = loadOptionalDependency<any>(
+      "@azure/identity",
+      "Azure AI Search vector store provider",
+      "DefaultAzureCredential",
+    );
 
     // Determine authentication: API key or DefaultAzureCredential
     const credential =
       this.apiKey && this.apiKey !== "" && this.apiKey !== "your-api-key"
-        ? new AzureKeyCredential(this.apiKey)
-        : new DefaultAzureCredential();
+        ? new AzureKeyCredentialCtor(this.apiKey)
+        : new DefaultAzureCredentialCtor();
 
     // Initialize clients
-    this.searchClient = new SearchClient(
+    this.searchClient = new SearchClientCtor(
       serviceEndpoint,
       this.indexName,
       credential,
     );
 
-    this.indexClient = new SearchIndexClient(serviceEndpoint, credential);
+    this.indexClient = new SearchIndexClientCtor(serviceEndpoint, credential);
 
     // Initialize the index
     this.initialize().catch(console.error);

@@ -1,6 +1,6 @@
-import { Client, Pool } from "pg";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
+import { loadOptionalDependency } from "../utils/optional-deps";
 
 interface PGVectorConfig extends VectorStoreConfig {
   dbname?: string;
@@ -14,7 +14,8 @@ interface PGVectorConfig extends VectorStoreConfig {
 }
 
 export class PGVector implements VectorStore {
-  private client: Client;
+  private client: any;
+  private ClientCtor: any;
   private collectionName: string;
   private useDiskann: boolean;
   private useHnsw: boolean;
@@ -22,13 +23,18 @@ export class PGVector implements VectorStore {
   private config: PGVectorConfig;
 
   constructor(config: PGVectorConfig) {
+    this.ClientCtor = loadOptionalDependency<any>(
+      "pg",
+      "Postgres pgvector provider",
+      "Client",
+    );
     this.collectionName = config.collectionName || "memories";
     this.useDiskann = config.diskann || false;
     this.useHnsw = config.hnsw || false;
     this.dbName = config.dbname || "vector_store";
     this.config = config;
 
-    this.client = new Client({
+    this.client = new this.ClientCtor({
       database: "postgres", // Initially connect to default postgres database
       user: config.user,
       password: config.password,
@@ -51,7 +57,7 @@ export class PGVector implements VectorStore {
       await this.client.end();
 
       // Connect to the target database
-      this.client = new Client({
+      this.client = new this.ClientCtor({
         database: this.dbName,
         user: this.config.user,
         password: this.config.password,
@@ -192,7 +198,7 @@ export class PGVector implements VectorStore {
 
     const result = await this.client.query(searchQuery, filterValues);
 
-    return result.rows.map((row) => ({
+    return result.rows.map((row: any) => ({
       id: row.id,
       payload: row.payload,
       score: row.distance,
@@ -246,7 +252,7 @@ export class PGVector implements VectorStore {
       FROM information_schema.tables
       WHERE table_schema = 'public'
     `);
-    return result.rows.map((row) => row.table_name);
+    return result.rows.map((row: any) => row.table_name);
   }
 
   async list(
@@ -290,7 +296,7 @@ export class PGVector implements VectorStore {
       this.client.query(countQuery, filterValues.slice(0, -1)), // Remove limit parameter for count query
     ]);
 
-    const results = listResult.rows.map((row) => ({
+    const results = listResult.rows.map((row: any) => ({
       id: row.id,
       payload: row.payload,
     }));

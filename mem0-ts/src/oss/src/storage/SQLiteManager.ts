@@ -1,14 +1,18 @@
-import Database from "better-sqlite3";
 import { HistoryManager } from "./base";
 import { ensureSQLiteDirectory } from "../utils/sqlite";
+import { loadOptionalDependency } from "../utils/optional-deps";
 
 export class SQLiteManager implements HistoryManager {
-  private db: Database.Database;
-  private stmtInsert!: Database.Statement;
-  private stmtSelect!: Database.Statement;
+  private db: any;
+  private stmtInsert!: any;
+  private stmtSelect!: any;
 
   constructor(dbPath: string) {
     ensureSQLiteDirectory(dbPath);
+    const Database = loadOptionalDependency<any>(
+      "better-sqlite3",
+      "sqlite history store",
+    );
     this.db = new Database(dbPath);
     this.init();
   }
