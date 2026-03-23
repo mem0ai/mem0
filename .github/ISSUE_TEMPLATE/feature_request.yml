@@ -3,11 +3,6 @@ description: Suggest a new feature or improvement for mem0
 labels: ["enhancement"]
 
 body:
-  - type: markdown
-    attributes:
-      value: |
-        Thanks for suggesting a feature! Please search [existing issues](https://github.com/mem0ai/mem0/issues?q=is%3Aissue+label%3Aenhancement) first to avoid duplicates.
-
   - type: dropdown
     id: component
     attributes:
@@ -28,35 +23,20 @@ body:
       required: true
 
   - type: textarea
-    id: use-case
+    id: description
     attributes:
-      label: Use case
-      description: |
-        What problem are you trying to solve? Describe the situation where you need this feature.
-      placeholder: "I'm building X and need Y because..."
+      label: Description
+      value: |
+        ### Use Case
+
+        What problem are you trying to solve?
+
+        ### Proposed Solution
+
+        How should this work? Include API examples or pseudocode if helpful.
+
+        ### Alternatives Considered
+
+        Any workarounds you've tried or other approaches considered.
     validations:
       required: true
-
-  - type: textarea
-    id: proposed-solution
-    attributes:
-      label: Proposed solution
-      description: How do you think this should work? Include API examples or pseudocode if helpful.
-    validations:
-      required: true
-
-  - type: textarea
-    id: alternatives
-    attributes:
-      label: Alternatives considered
-      description: Have you tried any workarounds? Are there other approaches you've considered?
-    validations:
-      required: false
-
-  - type: textarea
-    id: context
-    attributes:
-      label: Additional context
-      description: Any other context, screenshots, or references.
-    validations:
-      required: false
