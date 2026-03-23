@@ -1101,7 +1101,27 @@ class Memory(MemoryBase):
             memory_id (str): ID of the memory to delete.
         """
         capture_event("mem0.delete", self, {"memory_id": memory_id, "sync_type": "sync"})
-        self._delete_memory(memory_id)
+
+        existing_memory = self.vector_store.get(vector_id=memory_id)
+        if existing_memory is None:
+            raise ValueError(f"Memory with id {memory_id} not found")
+
+        # Clean up graph entities before deleting from vector store
+        if self.enable_graph:
+            try:
+                memory_text = existing_memory.payload.get("data", "")
+                if memory_text:
+                    filters = {}
+                    for key in ("user_id", "agent_id", "run_id"):
+                        val = existing_memory.payload.get(key)
+                        if val:
+                            filters[key] = val
+                    if filters.get("user_id"):
+                        self.graph.delete(memory_text, filters)
+            except Exception as e:
+                logger.error(f"Error cleaning up graph for memory {memory_id}: {e}")
+
+        self._delete_memory(memory_id, existing_memory)
         return {"message": "Memory deleted successfully!"}
 
     def delete_all(self, user_id: Optional[str] = None, agent_id: Optional[str] = None, run_id: Optional[str] = None):
@@ -1277,11 +1297,12 @@ class Memory(MemoryBase):
         )
         return memory_id
 
-    def _delete_memory(self, memory_id):
+    def _delete_memory(self, memory_id, existing_memory=None):
         logger.info(f"Deleting memory with {memory_id=}")
-        existing_memory = self.vector_store.get(vector_id=memory_id)
         if existing_memory is None:
-            raise ValueError(f"Memory with id {memory_id} not found")
+            existing_memory = self.vector_store.get(vector_id=memory_id)
+            if existing_memory is None:
+                raise ValueError(f"Memory with id {memory_id} not found")
         prev_value = existing_memory.payload.get("data", "")
         self.vector_store.delete(vector_id=memory_id)
         self.db.add_history(
@@ -2174,7 +2195,27 @@ class AsyncMemory(MemoryBase):
             memory_id (str): ID of the memory to delete.
         """
         capture_event("mem0.delete", self, {"memory_id": memory_id, "sync_type": "async"})
-        await self._delete_memory(memory_id)
+
+        existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
+        if existing_memory is None:
+            raise ValueError(f"Memory with id {memory_id} not found")
+
+        # Clean up graph entities before deleting from vector store
+        if self.enable_graph:
+            try:
+                memory_text = existing_memory.payload.get("data", "")
+                if memory_text:
+                    filters = {}
+                    for key in ("user_id", "agent_id", "run_id"):
+                        val = existing_memory.payload.get(key)
+                        if val:
+                            filters[key] = val
+                    if filters.get("user_id"):
+                        await asyncio.to_thread(self.graph.delete, memory_text, filters)
+            except Exception as e:
+                logger.error(f"Error cleaning up graph for memory {memory_id}: {e}")
+
+        await self._delete_memory(memory_id, existing_memory)
         return {"message": "Memory deleted successfully!"}
 
     async def delete_all(self, user_id=None, agent_id=None, run_id=None):
@@ -2375,11 +2416,12 @@ class AsyncMemory(MemoryBase):
         )
         return memory_id
 
-    async def _delete_memory(self, memory_id):
+    async def _delete_memory(self, memory_id, existing_memory=None):
         logger.info(f"Deleting memory with {memory_id=}")
-        existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
         if existing_memory is None:
-            raise ValueError(f"Memory with id {memory_id} not found")
+            existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
+            if existing_memory is None:
+                raise ValueError(f"Memory with id {memory_id} not found")
         prev_value = existing_memory.payload.get("data", "")
 
         await asyncio.to_thread(self.vector_store.delete, vector_id=memory_id)
