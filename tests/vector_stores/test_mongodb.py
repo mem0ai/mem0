@@ -48,17 +48,16 @@ def test_initalize_create_col(mongo_vector_fixture):
     search_index_model = args[0].document
     assert search_index_model == {
         "name": "test_collection_vector_index",
+        "type": "vectorSearch",
         "definition": {
-            "mappings": {
-                "dynamic": False,
-                "fields": {
-                    "embedding": {
-                        "type": "knnVector",
-                        "dimensions": 1536,
-                        "similarity": "cosine",
-                    }
-                },
-            }
+            "fields": [
+                {
+                    "type": "vector",
+                    "path": "embedding",
+                    "numDimensions": 1536,
+                    "similarity": "cosine",
+                }
+            ]
         },
     }
     assert mongo_vector.collection == mock_collection
@@ -95,7 +94,7 @@ def test_search(mongo_vector_fixture):
                 "$vectorSearch": {
                     "index": "test_collection_vector_index",
                     "limit": 2,
-                    "numCandidates": 2,
+                    "numCandidates": 40,
                     "queryVector": query_vector,
                     "path": "embedding",
                 },
