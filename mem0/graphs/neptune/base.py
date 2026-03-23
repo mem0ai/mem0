@@ -1,7 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 
-from mem0.memory.utils import format_entities
+from mem0.memory.utils import format_entities, remove_spaces_from_entities
 
 try:
     from rank_bm25 import BM25Okapi
@@ -151,11 +151,7 @@ class NeptuneBase(ABC):
         return entities
 
     def _remove_spaces_from_entities(self, entity_list):
-        for item in entity_list:
-            item["source"] = item["source"].lower().replace(" ", "_")
-            item["relationship"] = item["relationship"].lower().replace(" ", "_")
-            item["destination"] = item["destination"].lower().replace(" ", "_")
-        return entity_list
+        return remove_spaces_from_entities(entity_list, sanitize_relationship=False)
 
     def _get_delete_entities_from_search_output(self, search_output, data, filters):
         """

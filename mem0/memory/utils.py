@@ -1,6 +1,7 @@
 import hashlib
 import logging
 import re
+from typing import Any, Dict, List
 
 from mem0.configs.prompts import (
     AGENT_MEMORY_EXTRACTION_PROMPT,
@@ -257,4 +258,31 @@ def sanitize_relationship_for_cypher(relationship) -> str:
         sanitized = sanitized.replace(old, new)
 
     return re.sub(r"_+", "_", sanitized).strip("_")
+
+
+def remove_spaces_from_entities(
+    entity_list: List[Any],
+    *,
+    sanitize_relationship: bool = True,
+) -> List[Dict[str, Any]]:
+    """
+    Normalize entity relation dicts from LLM/tool output: lowercase, spaces to underscores.
+
+    Skips entries that are not non-empty dicts or that lack any of
+    ``source``, ``relationship``, or ``destination`` (avoids KeyError on ``[{}]``
+    or partial dicts).
+    """
+    required = ("source", "relationship", "destination")
+    cleaned: List[Dict[str, Any]] = []
+    for item in entity_list:
+        if not isinstance(item, dict) or not item:
+            continue
+        if not all(key in item for key in required):
+            continue
+        item["source"] = item["source"].lower().replace(" ", "_")
+        rel = item["relationship"].lower().replace(" ", "_")
+        item["relationship"] = sanitize_relationship_for_cypher(rel) if sanitize_relationship else rel
+        item["destination"] = item["destination"].lower().replace(" ", "_")
+        cleaned.append(item)
+    return cleaned
 
