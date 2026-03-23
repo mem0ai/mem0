@@ -118,6 +118,11 @@ jest.mock("../src/vector_stores/azure_ai_search", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "azure-ai-search", config })),
 }));
+jest.mock("../src/vector_stores/pgvector", () => ({
+  PGVector: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "pgvector", config })),
+}));
 jest.mock("../src/storage/SupabaseHistoryManager", () => ({
   SupabaseHistoryManager: jest
     .fn()
@@ -236,6 +241,7 @@ describe("VectorStoreFactory", () => {
     ["langchain"],
     ["vectorize"],
     ["azure-ai-search"],
+    ["pgvector"],
   ])("creates vector store for provider '%s'", (provider) => {
     expect(() =>
       VectorStoreFactory.create(provider, dummyVSConfig),
