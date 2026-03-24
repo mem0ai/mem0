@@ -52,6 +52,18 @@
         ]
       }
     ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on_user_prompt.sh",
+            "statusMessage": "Searching mem0 memories...",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "TaskCompleted": [
       {
         "hooks": [
