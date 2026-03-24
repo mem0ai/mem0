@@ -1,11 +1,14 @@
 import hashlib
+import logging
 import re
 
 from mem0.configs.prompts import (
+    AGENT_MEMORY_EXTRACTION_PROMPT,
     FACT_RETRIEVAL_PROMPT,
     USER_MEMORY_EXTRACTION_PROMPT,
-    AGENT_MEMORY_EXTRACTION_PROMPT,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def get_fact_retrieval_messages(message, is_agent_memory=False):
@@ -27,6 +30,31 @@ def get_fact_retrieval_messages(message, is_agent_memory=False):
 def get_fact_retrieval_messages_legacy(message):
     """Legacy function for backward compatibility."""
     return FACT_RETRIEVAL_PROMPT, f"Input:\n{message}"
+
+
+def ensure_json_instruction(system_prompt, user_prompt):
+    """Ensure the word 'json' appears in the prompts when using json_object response format.
+
+    OpenAI's API requires the word 'json' to appear in the messages when
+    response_format is set to {"type": "json_object"}. When users provide a
+    custom_fact_extraction_prompt that doesn't include 'json', this causes a
+    400 error. This function appends a JSON format instruction to the system
+    prompt if 'json' is not already present in either prompt.
+
+    Args:
+        system_prompt: The system prompt string
+        user_prompt: The user prompt string
+
+    Returns:
+        tuple: (system_prompt, user_prompt) with JSON instruction added if needed
+    """
+    combined = (system_prompt + user_prompt).lower()
+    if "json" not in combined:
+        system_prompt += (
+            "\n\nYou must return your response in valid JSON format "
+            "with a 'facts' key containing an array of strings."
+        )
+    return system_prompt, user_prompt
 
 
 def parse_messages(messages):
@@ -51,6 +79,30 @@ def format_entities(entities):
         formatted_lines.append(simplified)
 
     return "\n".join(formatted_lines)
+
+def normalize_facts(raw_facts):
+    """Normalize LLM-extracted facts to a list of strings.
+
+    Smaller LLMs (e.g. llama3.1:8b) sometimes return facts as objects
+    like {"fact": "..."} or {"text": "..."} instead of plain strings.
+    This mirrors the TypeScript FactRetrievalSchema validation.
+    """
+    if not raw_facts:
+        return []
+    normalized = []
+    for item in raw_facts:
+        if isinstance(item, str):
+            fact = item
+        elif isinstance(item, dict):
+            fact = item.get("fact") or item.get("text")
+            if fact is None:
+                logger.warning("Unexpected fact shape from LLM, skipping: %s", item)
+                continue
+        else:
+            fact = str(item)
+        if fact:
+            normalized.append(fact)
+    return normalized
 
 
 def remove_code_blocks(content: str) -> str:

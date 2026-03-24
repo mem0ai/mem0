@@ -7,6 +7,8 @@ on:
       - 'mem0/**'
       - 'tests/**'
       - 'embedchain/**'
+      - '.github/workflows/**'
+      - 'pyproject.toml'
   pull_request:
     paths:
       - 'mem0/**'
@@ -28,6 +30,8 @@ jobs:
           mem0:
             - 'mem0/**'
             - 'tests/**'
+            - '.github/workflows/**'
+            - 'pyproject.toml'
           embedchain:
             - 'embedchain/**'
 
@@ -44,6 +48,13 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Clean up disk space
+        run: |
+          df -h
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          sudo docker builder prune -a
+          df -h
       - name: Install Hatch
         run: pip install hatch
       - name: Load cached venv

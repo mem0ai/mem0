@@ -1,5 +1,6 @@
 ---
 title: 'Add Memories'
+description: "Add facts, messages, or metadata to a user memory store with support for async processing and event tracking."
 openapi: post /v1/memories/
 ---
 
@@ -17,7 +18,7 @@ Memories are processed asynchronously by default. The response contains queued e
 
 | Header | Required | Description |
 | --- | --- | --- |
-| `Authorization: Bearer <MEM0_API_KEY>` | Yes | API key scoped to your workspace. |
+| `Authorization: Token <MEM0_API_KEY>` | Yes | API key scoped to your workspace. |
 | `Accept: application/json` | Yes | Ensures a JSON response. |
 
 ## Request body

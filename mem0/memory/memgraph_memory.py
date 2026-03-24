@@ -134,6 +134,28 @@ class MemoryGraph:
 
         return search_results
 
+    def delete(self, data, filters):
+        """
+        Delete graph entities associated with the given memory text.
+
+        Extracts entities and relationships from the memory text using the same
+        pipeline as add(), then deletes the matching relationships in the graph.
+
+        Args:
+            data (str): The memory text whose graph entities should be removed.
+            filters (dict): Scope filters (user_id, agent_id).
+        """
+        try:
+            entity_type_map = self._retrieve_nodes_from_data(data, filters)
+            if not entity_type_map:
+                logger.debug("No entities found in memory text, skipping graph cleanup")
+                return
+            to_be_deleted = self._establish_nodes_relations_from_data(data, filters, entity_type_map)
+            if to_be_deleted:
+                self._delete_entities(to_be_deleted, filters)
+        except Exception as e:
+            logger.error(f"Error during graph cleanup for memory delete: {e}")
+
     def delete_all(self, filters):
         """Delete all nodes and relationships for a user or specific agent."""
         if filters.get("agent_id"):
@@ -218,8 +240,9 @@ class MemoryGraph:
             for tool_call in search_results["tool_calls"]:
                 if tool_call["name"] != "extract_entities":
                     continue
-                for item in tool_call["arguments"]["entities"]:
-                    entity_type_map[item["entity"]] = item["entity_type"]
+                for item in tool_call.get("arguments", {}).get("entities", []):
+                    if "entity" in item and "entity_type" in item:
+                        entity_type_map[item["entity"]] = item["entity_type"]
         except Exception as e:
             logger.exception(
                 f"Error in search tool: {e}, llm_provider={self.llm_provider}, search_results={search_results}"
@@ -263,8 +286,8 @@ class MemoryGraph:
         )
 
         entities = []
-        if extracted_entities["tool_calls"]:
-            entities = extracted_entities["tool_calls"][0]["arguments"]["entities"]
+        if extracted_entities and extracted_entities.get("tool_calls"):
+            entities = extracted_entities["tool_calls"][0].get("arguments", {}).get("entities", [])
 
         entities = self._remove_spaces_from_entities(entities)
         logger.debug(f"Extracted entities: {entities}")
