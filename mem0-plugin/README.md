@@ -1,16 +1,15 @@
-# Mem0 Plugin for Claude
+# Mem0 Plugin for Claude & Cursor
 
-Add persistent memory to your Claude workflows. Store, retrieve, and manage memories across sessions using the Mem0 Platform.
+Add persistent memory to your AI coding workflows. Store, retrieve, and manage memories across sessions using the Mem0 Platform. Works with both **Claude Code** and **Cursor**.
 
-## Prerequisites
+## Step 1: Set your API key
 
-- A Mem0 Platform account — [sign up at mem0.ai](https://app.mem0.ai)
+> **You must complete this step before installing the plugin for either Claude Code or Cursor.**
 
-### Set up your API key
-
-1. Go to [app.mem0.ai/dashboard/api-keys](https://app.mem0.ai/dashboard/api-keys)
-2. Click **Create API Key** and copy the key (starts with `m0-`)
-3. Add it to your shell profile:
+1. Sign up at [app.mem0.ai](https://app.mem0.ai) if you haven't already
+2. Go to [app.mem0.ai/dashboard/api-keys](https://app.mem0.ai/dashboard/api-keys)
+3. Click **Create API Key** and copy the key (starts with `m0-`)
+4. Add it to your shell profile:
 
    ```bash
    # For zsh (default on macOS)
@@ -22,30 +21,38 @@ Add persistent memory to your Claude workflows. Store, retrieve, and manage memo
    source ~/.bashrc
    ```
 
-4. Confirm it's set:
+5. Confirm it's set:
 
    ```bash
    echo $MEM0_API_KEY
    # Should print: m0-your-api-key
    ```
 
-## Installation
+## Step 2: Install the plugin
 
-Add the Mem0 marketplace and install the plugin:
+Choose one of the options below. Both require `MEM0_API_KEY` to be set first (see above).
+
+### Claude Code
 
 ```
 /plugin marketplace add mem0ai/mem0
 /plugin install mem0@mem0-plugins
 ```
 
-> **Already have `mem0` configured as an MCP server?** Remove the existing entry from your `.mcp.json` or Claude settings before installing this plugin to avoid duplicate tools.
+### Cursor
+
+Install from the Cursor Marketplace by searching for **mem0**, or use the one-click deeplink below.
+
+[Install Mem0 MCP in Cursor](cursor://anysphere.cursor-deeplink/mcp/install?name=mem0&config=eyJtY3BTZXJ2ZXJzIjp7Im1lbTAiOnsidHlwZSI6Imh0dHAiLCJ1cmwiOiJodHRwczovL21jcC5tZW0wLmFpL21jcC8iLCJoZWFkZXJzIjp7IkF1dGhvcml6YXRpb24iOiJUb2tlbiAke01FTTBfQVBJX0tFWX0ifX19fQ==)
+
+> **Already have `mem0` configured as an MCP server?** Remove the existing entry from your `.mcp.json` or settings before installing this plugin to avoid duplicate tools.
 
 ## Verify it works
 
 After installing, confirm the MCP server is connected:
 
-1. Start a new Claude Code session (or restart your current one)
-2. Ask Claude: *"List my mem0 entities"* or *"Search my memories for hello"*
+1. Start a new session (or restart your current one)
+2. Ask: *"List my mem0 entities"* or *"Search my memories for hello"*
 3. If the `mem0` tools appear and respond, you're all set
 
 ## What's included
@@ -55,7 +62,7 @@ After installing, confirm the MCP server is connected:
 
 ## MCP Tools
 
-Once installed, the following tools are available in Claude:
+Once installed, the following tools are available:
 
 | Tool | Description |
 |------|-------------|
