@@ -116,6 +116,21 @@ class AWSBedrockLLM(LLMBase):
             logger.warning(f"Could not verify model availability: {e}")
             self.available_models = []
 
+    def _build_inference_config(self, max_tokens=None):
+        """Build inferenceConfig for the Converse API, omitting topP when not set.
+
+        Claude Sonnet 4.5+ models reject requests that include both temperature
+        and topP simultaneously. By only including topP when explicitly configured,
+        we avoid this conflict while remaining backward-compatible.
+        """
+        config = {
+            "maxTokens": max_tokens or self.model_config.get("max_tokens", 2000),
+            "temperature": self.model_config.get("temperature", 0.1),
+        }
+        if "top_p" in self.model_config:
+            config["topP"] = self.model_config["top_p"]
+        return config
+
     def _initialize_provider_settings(self):
         """Initialize provider-specific settings and capabilities."""
         # Determine capabilities based on provider and model
@@ -501,11 +516,7 @@ class AWSBedrockLLM(LLMBase):
         converse_params = {
             "modelId": self.config.model,
             "messages": formatted_messages,
-            "inferenceConfig": {
-                "maxTokens": self.model_config.get("max_tokens", 2000),
-                "temperature": self.model_config.get("temperature", 0.1),
-                "topP": self.model_config.get("top_p", 0.9),
-            }
+            "inferenceConfig": self._build_inference_config(),
         }
 
         # Add system message if present (for Anthropic)
@@ -531,11 +542,7 @@ class AWSBedrockLLM(LLMBase):
             converse_params = {
                 "modelId": self.config.model,
                 "messages": formatted_messages,
-                "inferenceConfig": {
-                    "maxTokens": self.model_config.get("max_tokens", 2000),
-                    "temperature": self.model_config.get("temperature", 0.1),
-                    "topP": self.model_config.get("top_p", 0.9),
-                }
+                "inferenceConfig": self._build_inference_config(),
             }
 
             # Add system message if present
@@ -556,22 +563,11 @@ class AWSBedrockLLM(LLMBase):
         elif self.provider == "amazon" and "nova" in self.config.model.lower():
             # Nova models use converse API even without tools
             formatted_messages = self._format_messages_amazon(messages)
-            input_body = {
-                "messages": formatted_messages,
-                "max_tokens": self.model_config.get("max_tokens", 5000),
-                "temperature": self.model_config.get("temperature", 0.1),
-                "top_p": self.model_config.get("top_p", 0.9),
-            }
-            
             # Use converse API for Nova models
             response = self.client.converse(
                 modelId=self.config.model,
-                messages=input_body["messages"],
-                inferenceConfig={
-                    "maxTokens": input_body["max_tokens"],
-                    "temperature": input_body["temperature"],
-                    "topP": input_body["top_p"],
-                }
+                messages=formatted_messages,
+                inferenceConfig=self._build_inference_config(max_tokens=self.model_config.get("max_tokens", 5000)),
             )
             
             return self._parse_response(response)
