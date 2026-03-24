@@ -790,21 +790,24 @@ class Memory(MemoryBase):
 
         return {"results": all_memories_result}
 
-    def _get_all_from_vector_store(self, filters, limit):
-        memories_result = self.vector_store.list(filters=filters, limit=limit)
+    def _unwrap_list_results(self, memories_result):
+        """Normalize vector_store.list() outputs across providers.
 
-        # Handle different vector store return formats by inspecting first element
+        Providers may return:
+        - [mem1, mem2]
+        - [[mem1, mem2]]
+        - ([mem1, mem2], count)
+        """
         if isinstance(memories_result, (tuple, list)) and len(memories_result) > 0:
             first_element = memories_result[0]
-
-            # If first element is a container, unwrap one level
             if isinstance(first_element, (list, tuple)):
-                actual_memories = first_element
-            else:
-                # First element is a memory object, structure is already flat
-                actual_memories = memories_result
-        else:
-            actual_memories = memories_result
+                return first_element
+            return memories_result
+        return memories_result
+
+    def _get_all_from_vector_store(self, filters, limit):
+        memories_result = self.vector_store.list(filters=filters, limit=limit)
+        actual_memories = self._unwrap_list_results(memories_result)
 
         promoted_payload_keys = [
             "user_id",
@@ -1149,7 +1152,7 @@ class Memory(MemoryBase):
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"})
         # delete matching vector memories individually (do NOT reset the collection)
-        memories = self.vector_store.list(filters=filters)[0]
+        memories = self._unwrap_list_results(self.vector_store.list(filters=filters))
         for memory in memories:
             self._delete_memory(memory.id)
 
@@ -1874,21 +1877,24 @@ class AsyncMemory(MemoryBase):
 
         return results_dict
 
-    async def _get_all_from_vector_store(self, filters, limit):
-        memories_result = await asyncio.to_thread(self.vector_store.list, filters=filters, limit=limit)
+    def _unwrap_list_results(self, memories_result):
+        """Normalize vector_store.list() outputs across providers.
 
-        # Handle different vector store return formats by inspecting first element
+        Providers may return:
+        - [mem1, mem2]
+        - [[mem1, mem2]]
+        - ([mem1, mem2], count)
+        """
         if isinstance(memories_result, (tuple, list)) and len(memories_result) > 0:
             first_element = memories_result[0]
-
-            # If first element is a container, unwrap one level
             if isinstance(first_element, (list, tuple)):
-                actual_memories = first_element
-            else:
-                # First element is a memory object, structure is already flat
-                actual_memories = memories_result
-        else:
-            actual_memories = memories_result
+                return first_element
+            return memories_result
+        return memories_result
+
+    async def _get_all_from_vector_store(self, filters, limit):
+        memories_result = await asyncio.to_thread(self.vector_store.list, filters=filters, limit=limit)
+        actual_memories = self._unwrap_list_results(memories_result)
 
         promoted_payload_keys = [
             "user_id",
@@ -2242,15 +2248,15 @@ class AsyncMemory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"})
-        memories = await asyncio.to_thread(self.vector_store.list, filters=filters)
+        memories = self._unwrap_list_results(await asyncio.to_thread(self.vector_store.list, filters=filters))
 
         delete_tasks = []
-        for memory in memories[0]:
+        for memory in memories:
             delete_tasks.append(self._delete_memory(memory.id))
 
         await asyncio.gather(*delete_tasks)
 
-        logger.info(f"Deleted {len(memories[0])} memories")
+        logger.info(f"Deleted {len(memories)} memories")
 
         if self.enable_graph:
             await asyncio.to_thread(self.graph.delete_all, filters)
