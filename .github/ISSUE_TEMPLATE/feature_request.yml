@@ -14,7 +14,6 @@ body:
         - Vector Store (Qdrant, PGVector, Redis, Chroma, etc.)
         - Graph Memory (Neo4j, Memgraph, etc.)
         - Ollama / Local Models
-        - OpenMemory (MCP Server)
         - OpenClaw
         - REST API
         - Benchmarks / Evals

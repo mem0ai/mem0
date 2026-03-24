@@ -213,4 +213,3 @@ Key differentiators:
 - [FAQs](https://docs.mem0.ai/platform/faqs): Frequently asked questions about Mem0's Platform capabilities and implementation details
 - [Changelog](https://docs.mem0.ai/changelog): Detailed product updates and version history for tracking new features and improvements
 - [Contributing Guide](https://docs.mem0.ai/contributing/development): Guidelines for contributing to Mem0's open-source development
-- [OpenMemory](https://docs.mem0.ai/openmemory/overview): Open-source memory infrastructure for research and experimentation

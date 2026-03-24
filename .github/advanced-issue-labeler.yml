@@ -12,8 +12,6 @@ component:
     matcher: "Graph Memory"
   - label: "ollama"
     matcher: "Ollama"
-  - label: "openmemory"
-    matcher: "OpenMemory"
   - label: "openclaw"
     matcher: "OpenClaw"
   - label: "rest-api"

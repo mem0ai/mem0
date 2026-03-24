@@ -297,21 +297,6 @@
                 ]
               },
               {
-                "tab": "OpenMemory",
-                "groups": [
-                  {
-                    "group": "Overview & Quickstart",
-                    "icon": "square-terminal",
-                    "pages": [
-                      "openmemory/overview",
-                      "vibecoding",
-                      "openmemory/quickstart",
-                      "openmemory/integrations"
-                    ]
-                  }
-                ]
-              },
-              {
                 "tab": "Cookbooks",
                 "groups": [
                   {
@@ -1056,6 +1041,18 @@
     {
       "source": "/cookbooks/customer-support-agent",
       "destination": "/cookbooks/operations/support-inbox"
+    },
+    {
+      "source": "/openmemory/overview",
+      "destination": "/introduction"
+    },
+    {
+      "source": "/openmemory/quickstart",
+      "destination": "/introduction"
+    },
+    {
+      "source": "/openmemory/integrations",
+      "destination": "/introduction"
     }
   ]
 }
