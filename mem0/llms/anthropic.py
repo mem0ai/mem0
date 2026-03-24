@@ -30,6 +30,7 @@ class AnthropicLLM(LLMBase):
                 enable_vision=config.enable_vision,
                 vision_details=config.vision_details,
                 http_client_proxies=config.http_client,
+                extra_headers=config.extra_headers,
             )
 
         super().__init__(config)

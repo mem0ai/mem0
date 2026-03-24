@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Dict, Optional
 
 from mem0.configs.llms.base import BaseLlmConfig
 
@@ -21,6 +21,7 @@ class DeepSeekConfig(BaseLlmConfig):
         enable_vision: bool = False,
         vision_details: Optional[str] = "auto",
         http_client_proxies: Optional[dict] = None,
+        extra_headers: Optional[Dict[str, str]] = None,
         # DeepSeek-specific parameters
         deepseek_base_url: Optional[str] = None,
     ):
@@ -37,6 +38,7 @@ class DeepSeekConfig(BaseLlmConfig):
             enable_vision: Enable vision capabilities, defaults to False
             vision_details: Vision detail level, defaults to "auto"
             http_client_proxies: HTTP client proxy settings, defaults to None
+            extra_headers: Custom HTTP headers for API requests, defaults to None
             deepseek_base_url: DeepSeek API base URL, defaults to None
         """
         # Initialize base parameters
@@ -50,6 +52,7 @@ class DeepSeekConfig(BaseLlmConfig):
             enable_vision=enable_vision,
             vision_details=vision_details,
             http_client_proxies=http_client_proxies,
+            extra_headers=extra_headers,
         )
 
         # DeepSeek-specific parameters
