@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, Mock
@@ -124,7 +123,7 @@ class TestAsyncUpdate:
         mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
         mock_async_memory._update_memory = mocker.AsyncMock()
 
-        result = await mock_async_memory.update("test_id", "Updated memory", metadata={})
+        await mock_async_memory.update("test_id", "Updated memory", metadata={})
 
         mock_async_memory._update_memory.assert_called_once_with(
             "test_id", "Updated memory", {"Updated memory": [0.1, 0.2, 0.3]}, {}

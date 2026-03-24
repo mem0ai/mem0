@@ -203,7 +203,7 @@ def test_update_with_empty_metadata(memory_instance):
 
     memory_instance._update_memory = Mock()
 
-    result = memory_instance.update("test_id", "Updated memory", metadata={})
+    memory_instance.update("test_id", "Updated memory", metadata={})
 
     memory_instance._update_memory.assert_called_once_with(
         "test_id", "Updated memory", {"Updated memory": [0.1, 0.2, 0.3]}, {}
