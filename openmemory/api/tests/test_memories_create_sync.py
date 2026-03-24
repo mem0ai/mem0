@@ -1,8 +1,7 @@
-"""
-Integration-style tests: POST /api/v1/memories/ with mocked Mem0 client.
+"""Tests for POST /api/v1/memories/ using a mocked Mem0 memory client.
 
-Validates that ADD and UPDATE events from memory_client.add() are persisted to
-the SQL DB (same code path as production #3841 fix). No separate sync module.
+Exercises persistence of ADD and UPDATE events returned by memory_client.add()
+into the SQL-backed Memory model.
 """
 
 from __future__ import annotations
@@ -68,6 +67,7 @@ def seeded_user_app(session):
 
 
 def test_post_memories_update_event_updates_sql_row(session, seeded_user_app):
+    """When Mem0 returns UPDATE, the existing memory row content is updated in SQL."""
     user, app_row = seeded_user_app
     mid = uuid4()
     session.add(
@@ -120,6 +120,7 @@ def test_post_memories_update_event_updates_sql_row(session, seeded_user_app):
 
 
 def test_post_memories_add_event_inserts_sql_row(session, seeded_user_app):
+    """When Mem0 returns ADD, a new memory row is inserted in SQL."""
     user, app_row = seeded_user_app
     new_id = uuid4()
     mock_mc = MagicMock()
