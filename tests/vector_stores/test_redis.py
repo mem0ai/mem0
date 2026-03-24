@@ -71,3 +71,35 @@ def test_update_with_vector_includes_embedding():
     )
     expected_bytes = np.array(vector, dtype=np.float32).tobytes()
     assert data_dict["embedding"] == expected_bytes
+
+
+def test_search_without_filters_does_not_build_invalid_reduce_chain():
+    db, mock_index = _make_redis_db()
+    mock_index.query.return_value = []
+
+    results = db.search(query="test", vectors=[0.1, 0.2, 0.3], limit=3, filters=None)
+
+    assert results == []
+    mock_index.query.assert_called_once()
+
+
+
+def test_search_with_empty_filters_does_not_build_filter_expression():
+    db, mock_index = _make_redis_db()
+    mock_index.query.return_value = []
+
+    results = db.search(query="test", vectors=[0.1, 0.2, 0.3], limit=3, filters={})
+
+    assert results == []
+    mock_index.query.assert_called_once()
+
+
+
+def test_search_with_all_none_filter_values_does_not_build_filter_expression():
+    db, mock_index = _make_redis_db()
+    mock_index.query.return_value = []
+
+    results = db.search(query="test", vectors=[0.1, 0.2, 0.3], limit=3, filters={"user_id": None})
+
+    assert results == []
+    mock_index.query.assert_called_once()
