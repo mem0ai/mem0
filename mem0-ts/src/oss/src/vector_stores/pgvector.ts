@@ -1,4 +1,5 @@
-import { Client, Pool } from "pg";
+import pkg from "pg";
+const { Client, Pool } = pkg;
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 
