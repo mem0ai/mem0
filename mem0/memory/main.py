@@ -588,8 +588,11 @@ class Memory(MemoryBase):
                     logger.warning("Empty response from LLM, no memories to extract")
                     new_memories_with_actions = {}
                 else:
-                    response = remove_code_blocks(response)
-                    new_memories_with_actions = json.loads(response, strict=False)
+                    try:
+                        new_memories_with_actions = json.loads(remove_code_blocks(response), strict=False)
+                    except json.JSONDecodeError:
+                        extracted_json = extract_json(response)
+                        new_memories_with_actions = json.loads(extracted_json, strict=False)
             except Exception as e:
                 logger.error(f"Invalid JSON response: {e}")
                 new_memories_with_actions = {}
@@ -1652,8 +1655,11 @@ class AsyncMemory(MemoryBase):
                     logger.warning("Empty response from LLM, no memories to extract")
                     new_memories_with_actions = {}
                 else:
-                    response = remove_code_blocks(response)
-                    new_memories_with_actions = json.loads(response, strict=False)
+                    try:
+                        new_memories_with_actions = json.loads(remove_code_blocks(response), strict=False)
+                    except json.JSONDecodeError:
+                        extracted_json = extract_json(response)
+                        new_memories_with_actions = json.loads(extracted_json, strict=False)
             except Exception as e:
                 logger.error(f"Invalid JSON response: {e}")
                 new_memories_with_actions = {}
