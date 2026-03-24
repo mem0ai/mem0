@@ -27,6 +27,7 @@ from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
 from mem0.memory.utils import (
     ensure_json_instruction,
     extract_json,
+    extract_json_from_chatty_response,
     get_fact_retrieval_messages,
     normalize_facts,
     parse_messages,
@@ -591,7 +592,7 @@ class Memory(MemoryBase):
                     try:
                         new_memories_with_actions = json.loads(remove_code_blocks(response), strict=False)
                     except json.JSONDecodeError:
-                        extracted_json = extract_json(response)
+                        extracted_json = extract_json_from_chatty_response(response)
                         new_memories_with_actions = json.loads(extracted_json, strict=False)
             except Exception as e:
                 logger.error(f"Invalid JSON response: {e}")
@@ -1658,7 +1659,7 @@ class AsyncMemory(MemoryBase):
                     try:
                         new_memories_with_actions = json.loads(remove_code_blocks(response), strict=False)
                     except json.JSONDecodeError:
-                        extracted_json = extract_json(response)
+                        extracted_json = extract_json_from_chatty_response(response)
                         new_memories_with_actions = json.loads(extracted_json, strict=False)
             except Exception as e:
                 logger.error(f"Invalid JSON response: {e}")

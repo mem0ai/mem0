@@ -1,21 +1,21 @@
 """Tests for chatty LLM JSON parsing robustness.
 
-Validates that both extract_json and remove_code_blocks correctly handle
-responses from local LLMs (LM Studio, Ollama) that wrap JSON in
-conversational text, markdown code blocks, or both.
+Validates that extract_json_from_chatty_response and the full fallback chain
+correctly handle responses from local LLMs (LM Studio, Ollama) that wrap JSON
+in conversational text, markdown code blocks, or both.
 """
 
 import json
 
 import pytest
 
-from mem0.memory.utils import extract_json, remove_code_blocks
+from mem0.memory.utils import extract_json, extract_json_from_chatty_response, remove_code_blocks
 
 
-# --- Test extract_json ---
+# --- Test extract_json (unchanged, for regression) ---
 
 class TestExtractJson:
-    """Tests for extract_json utility."""
+    """Regression tests for extract_json — must stay unchanged."""
 
     def test_pure_json(self):
         text = '{"memory": [{"id": "0", "text": "likes basketball", "event": "ADD"}]}'
@@ -36,7 +36,7 @@ class TestExtractJson:
         assert parsed["memory"][0]["text"] == "likes basketball"
 
     def test_chatty_with_markdown(self):
-        """LLM wraps JSON in conversational text AND markdown."""
+        """extract_json can handle embedded code blocks via re.search."""
         text = """Here is the extracted memory:
 ```json
 {"memory": [{"id": "0", "text": "likes basketball", "event": "ADD"}]}
@@ -46,12 +46,47 @@ I hope this helps!"""
         parsed = json.loads(result)
         assert parsed["memory"][0]["text"] == "likes basketball"
 
+    def test_no_code_block_returns_as_is(self):
+        """Without code blocks, extract_json returns text as-is (no {/} heuristic)."""
+        text = 'Here is the result: {"memory": []}'
+        result = extract_json(text)
+        assert result == text  # returned as-is, NOT extracted
+
+
+# --- Test extract_json_from_chatty_response (new function) ---
+
+class TestExtractJsonFromChattyResponse:
+    """Tests for the new chatty-response-aware JSON extractor."""
+
+    def test_pure_json(self):
+        text = '{"memory": [{"id": "0", "text": "likes basketball", "event": "ADD"}]}'
+        result = extract_json_from_chatty_response(text)
+        parsed = json.loads(result)
+        assert parsed["memory"][0]["text"] == "likes basketball"
+
+    def test_json_in_markdown_code_block(self):
+        text = '```json\n{"memory": [{"id": "0", "text": "likes basketball", "event": "ADD"}]}\n```'
+        result = extract_json_from_chatty_response(text)
+        parsed = json.loads(result)
+        assert parsed["memory"][0]["text"] == "likes basketball"
+
+    def test_chatty_with_markdown(self):
+        """LLM wraps JSON in conversational text AND markdown."""
+        text = """Here is the extracted memory:
+```json
+{"memory": [{"id": "0", "text": "likes basketball", "event": "ADD"}]}
+```
+I hope this helps!"""
+        result = extract_json_from_chatty_response(text)
+        parsed = json.loads(result)
+        assert parsed["memory"][0]["text"] == "likes basketball"
+
     def test_chatty_without_markdown(self):
         """LLM wraps JSON in conversational text without markdown."""
         text = """Here is the memory update you requested:
 {"memory": [{"id": "0", "text": "likes gaming", "event": "ADD"}]}
 That's the result."""
-        result = extract_json(text)
+        result = extract_json_from_chatty_response(text)
         parsed = json.loads(result)
         assert parsed["memory"][0]["text"] == "likes gaming"
 
@@ -68,26 +103,26 @@ That's the result."""
   ]
 }
 """
-        result = extract_json(text)
+        result = extract_json_from_chatty_response(text)
         parsed = json.loads(result)
         assert parsed["memory"][0]["text"] == "User likes gaming"
 
     def test_no_json_at_all(self):
         """No JSON in the text — should return as-is."""
         text = "I don't have any memory updates."
-        result = extract_json(text)
+        result = extract_json_from_chatty_response(text)
         assert result == text
 
     def test_whitespace_padding(self):
         text = '  \n  {"memory": []}  \n  '
-        result = extract_json(text)
+        result = extract_json_from_chatty_response(text)
         parsed = json.loads(result)
         assert parsed == {"memory": []}
 
     def test_nested_json_objects(self):
         """JSON with nested objects should find outermost braces."""
         text = 'Sure! {"memory": [{"id": "0", "text": "test", "event": "ADD"}]} Done.'
-        result = extract_json(text)
+        result = extract_json_from_chatty_response(text)
         parsed = json.loads(result)
         assert parsed["memory"][0]["id"] == "0"
 
@@ -124,21 +159,20 @@ class TestRemoveCodeBlocks:
         This is a known limitation of remove_code_blocks: it matches the code
         block regex first, and only strips think tags from the result. When
         think tags come before the code block, the regex fails entirely.
-        The fallback chain (extract_json) handles this case.
+        The fallback chain (extract_json_from_chatty_response) handles this.
         """
         text = '<think>reasoning here</think>\n```json\n{"memory": []}\n```'
         result = remove_code_blocks(text)
-        # remove_code_blocks cannot parse this — code block markers remain
         with pytest.raises(json.JSONDecodeError):
             json.loads(result)
 
 
-# --- Test the full fallback chain (remove_code_blocks -> extract_json) ---
+# --- Test the full fallback chain (remove_code_blocks -> extract_json_from_chatty_response) ---
 
 class TestFallbackChain:
-    """Tests the actual fallback pattern used in main.py:
+    """Tests the actual fallback pattern used in _add_to_vector_store:
     try json.loads(remove_code_blocks(response))
-    except JSONDecodeError: json.loads(extract_json(response))
+    except JSONDecodeError: json.loads(extract_json_from_chatty_response(response))
     """
 
     def _parse_with_fallback(self, response):
@@ -146,7 +180,7 @@ class TestFallbackChain:
         try:
             return json.loads(remove_code_blocks(response), strict=False)
         except json.JSONDecodeError:
-            extracted = extract_json(response)
+            extracted = extract_json_from_chatty_response(response)
             return json.loads(extracted, strict=False)
 
     def test_clean_json(self):

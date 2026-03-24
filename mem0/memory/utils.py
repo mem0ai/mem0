@@ -124,21 +124,36 @@ def remove_code_blocks(content: str) -> str:
 def extract_json(text):
     """
     Extracts JSON content from a string, removing enclosing triple backticks and optional 'json' tag if present.
-    If no code block is found, attempts to locate JSON by finding the first '{' and last '}'.
-    If that also fails, returns the text as-is.
+    If no code block is found, returns the text as-is.
     """
     text = text.strip()
     match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
     if match:
         json_str = match.group(1)
     else:
-        start_idx = text.find("{")
-        end_idx = text.rfind("}")
-        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
-            json_str = text[start_idx : end_idx + 1]
-        else:
-            json_str = text
+        json_str = text  # assume it's raw JSON
     return json_str
+
+
+def extract_json_from_chatty_response(text):
+    """
+    Extracts JSON content from an LLM response that may contain conversational
+    text around the actual JSON payload.
+
+    Tries three strategies in order:
+    1. Find JSON inside triple-backtick code blocks
+    2. Locate JSON by finding the first '{' and last '}'
+    3. Return the text as-is
+    """
+    text = text.strip()
+    match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
+    if match:
+        return match.group(1)
+    start_idx = text.find("{")
+    end_idx = text.rfind("}")
+    if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+        return text[start_idx : end_idx + 1]
+    return text
 
 
 def get_image_description(image_obj, llm, vision_details):
