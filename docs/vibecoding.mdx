@@ -32,26 +32,19 @@ Works with Claude Code, Cursor, Windsurf, and any assistant that supports skills
 
 ## MCP Server Setup
 
-Connect Cursor, Windsurf, Claude Desktop, or any MCP-compatible client to Mem0.
+Connect Claude, Claude Code, Cursor, Windsurf, VS Code, OpenCode, or any MCP-compatible client to Mem0.
 
-Get your API key from [app.mem0.ai](https://app.mem0.ai), then add to your MCP config:
+Get your API key from [app.mem0.ai](https://app.mem0.ai), then add Mem0 MCP with a single command:
 
-```json
-{
-  "mcpServers": {
-    "mem0": {
-      "command": "uvx",
-      "args": ["mem0-mcp-server"],
-      "env": {
-        "MEM0_API_KEY": "m0-...",
-        "MEM0_DEFAULT_USER_ID": "your-handle"
-      }
-    }
-  }
-}
+```bash
+npx mcp-add \
+  --name mem0-mcp \
+  --type http \
+  --url "https://mcp.mem0.ai/mcp" \
+  --clients "claude,claude code,cursor,windsurf,vscode,opencode"
 ```
 
-For Docker, Smithery, and advanced options, see [Mem0 MCP Setup](/platform/mem0-mcp).
+For per-client setup and advanced options, see [Mem0 MCP Setup](/platform/mem0-mcp).
 
 ## Universal Starter Prompt
 

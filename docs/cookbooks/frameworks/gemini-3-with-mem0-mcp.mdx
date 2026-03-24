@@ -3,7 +3,7 @@ title: "Gemini 3 with Mem0 MCP"
 description: "Create snappy, smart, memory-aware agents by pairing Gemini 3 with Mem0 MCP server."
 ---
 
-Gemini 3, when paired with mem0-mcp-server, works in synergy to create snappy, smart, memory-aware agents.
+Gemini 3, when paired with Mem0's cloud MCP server, works in synergy to create snappy, smart, memory-aware agents.
 
 <Callout type="info" icon="sparkles" color="#8B5CF6">
   This is the primary example of MCP integration - the same patterns work with Claude Desktop, Cursor, or any MCP-compatible client.
@@ -27,10 +27,22 @@ The Mem0 MCP server provides these tools to Gemini:
 
 ## Setup
 
+### Configure Mem0 MCP
+
+Add Mem0 MCP to your MCP client:
+
+```bash
+npx mcp-add \
+  --name mem0-mcp \
+  --type http \
+  --url "https://mcp.mem0.ai/mcp" \
+  --clients "claude,claude code,cursor,windsurf,vscode,opencode"
+```
+
 ### Install dependencies
 
 ```bash
-pip install pydantic-ai nest-asyncio python-dotenv uv google-genai
+pip install pydantic-ai nest-asyncio python-dotenv google-genai
 ```
 
 ### Environment Setup
@@ -40,7 +52,6 @@ Create a file named `.env`:
 ```bash
 MEM0_API_KEY=m0-xxxxxxxxxxxxxxxxx
 GEMINI_API_KEY=your-gemini-api-key-here
-MEM0_DEFAULT_USER_ID=demo-user
 ```
 
 <Note>
@@ -60,7 +71,7 @@ import asyncio
 import os
 from dotenv import load_dotenv
 from pydantic_ai import Agent
-from pydantic_ai.mcp import MCPServerStdio
+from pydantic_ai.mcp import MCPServerHTTP
 
 # Load environment variables
 load_dotenv()
@@ -75,11 +86,9 @@ class MemoryAgent:
 
     def _setup(self):
         """Initialize the agent with MCP tools"""
-        # Create MCP server directly
-        self.server = MCPServerStdio(
-            command="uvx",
-            args=["mem0-mcp-server"],
-            env=os.environ
+        # Connect to Mem0's cloud MCP server
+        self.server = MCPServerHTTP(
+            url="https://mcp.mem0.ai/mcp"
         )
 
         # Create agent with Gemini and memory tools

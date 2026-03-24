@@ -9,10 +9,47 @@ description: "Connect any AI client to Mem0 using Model Context Protocol for uni
 
 When building AI applications, memory management often requires manual integration. MCP eliminates this complexity by:
 
-- **Universal compatibility**: Works with any MCP-compatible client (Claude Desktop, Cursor, custom agents)
+- **Universal compatibility**: Works with any MCP-compatible client (Claude, Claude Code, Cursor, Windsurf, VS Code, OpenCode)
 - **Agent autonomy**: AI agents decide when to save, search, or update memories
-- **Zero infrastructure**: No servers to maintain - Mem0 handles everything
+- **Zero infrastructure**: No servers to maintain - Mem0's cloud MCP handles everything
 - **Standardized protocol**: One integration works across all your AI tools
+
+## Setup
+
+Add Mem0 MCP to all supported clients with a single command:
+
+```bash
+npx mcp-add \
+  --name mem0-mcp \
+  --type http \
+  --url "https://mcp.mem0.ai/mcp" \
+  --clients "claude,claude code,cursor,windsurf,vscode,opencode"
+```
+
+Or configure a specific client:
+
+```bash
+npx mcp-add \
+  --name mem0-mcp \
+  --type http \
+  --url "https://mcp.mem0.ai/mcp" \
+  --clients "cursor"
+```
+
+For manual configuration, add this to your MCP client config:
+
+```json
+{
+  "mcpServers": {
+    "mem0-mcp": {
+      "type": "http",
+      "url": "https://mcp.mem0.ai/mcp"
+    }
+  }
+}
+```
+
+For detailed per-client instructions, see the [Mem0 MCP Quickstart](/platform/mem0-mcp).
 
 ## Available tools
 
@@ -30,139 +67,12 @@ The MCP server exposes 9 memory tools to your AI client:
 | `get_memory` | Retrieve single memory by ID |
 | `list_entities` | View stored entities |
 
-## Deployment options
+## How it works
 
-Choose the deployment method that fits your workflow:
-
-<AccordionGroup>
-  <Accordion title="Python package (recommended)">
-    Install and run locally with uvx:
-
-    ```bash
-    uv pip install mem0-mcp-server
-    ```
-
-    Configure your client:
-    ```json
-    {
-      "mcpServers": {
-        "mem0": {
-          "command": "uvx",
-          "args": ["mem0-mcp-server"],
-          "env": {
-            "MEM0_API_KEY": "m0-...",
-            "MEM0_DEFAULT_USER_ID": "your-handle"
-          }
-        }
-      }
-    }
-    ```
-  </Accordion>
-
-  <Accordion title="Docker container">
-    Containerized deployment with HTTP endpoint:
-
-    ```bash
-    docker build -t mem0-mcp-server https://github.com/mem0ai/mem0-mcp.git
-    docker run --rm -d -e MEM0_API_KEY="m0-..." -p 8080:8081 mem0-mcp-server
-    ```
-
-    Configure for HTTP:
-    ```json
-    {
-      "mcpServers": {
-        "mem0-docker": {
-          "command": "curl",
-          "args": ["-X", "POST", "http://localhost:8080/mcp", "--data-binary", "@"],
-          "env": {
-            "MEM0_API_KEY": "m0-..."
-          }
-        }
-      }
-    }
-    ```
-  </Accordion>
-
-  <Accordion title="Smithery">
-    One-click setup with managed service:
-
-    Visit [smithery.ai/server/@mem0ai/mem0-memory-mcp](https://smithery.ai/server/@mem0ai/mem0-memory-mcp) and:
-
-    1. Select your AI client (Cursor, Claude Desktop, etc.)
-    2. Configure your Mem0 API key
-    3. Set your default user ID
-    4. Enable graph memory (optional)
-    5. Copy the generated configuration
-
-    Your client connects automatically - no installation required.
-  </Accordion>
-</AccordionGroup>
-
-## Configuration
-
-### Required environment variables
-```bash
-MEM0_API_KEY="m0-..."                    # Your Mem0 API key
-MEM0_DEFAULT_USER_ID="your-handle"        # Default user ID
-```
-
-### Optional variables
-```bash
-MEM0_ENABLE_GRAPH_DEFAULT="true"          # Enable graph memories
-MEM0_MCP_AGENT_MODEL="gpt-4o-mini"        # LLM for bundled examples
-```
-
-<AccordionGroup>
-  <Accordion title="Test your setup with the Python agent">
-    The included Pydantic AI agent provides an interactive REPL to test memory operations:
-
-    ```bash
-    # Install the package
-    pip install mem0-mcp-server
-
-    # Set your API keys
-    export MEM0_API_KEY="m0-..."
-    export OPENAI_API_KEY="sk-openai-..."
-
-    # Clone and test with the agent
-    git clone https://github.com/mem0ai/mem0-mcp.git
-    cd mem0-mcp-server
-    python example/pydantic_ai_repl.py
-    ```
-
-    **Testing different server configurations:**
-
-    - **Local server** (default): `python example/pydantic_ai_repl.py`
-
-    - **Docker container**:
-      ```bash
-      export MEM0_MCP_CONFIG_PATH=example/docker-config.json
-      export MEM0_MCP_CONFIG_SERVER=mem0-docker
-      python example/pydantic_ai_repl.py
-      ```
-
-    - **Smithery remote**:
-      ```bash
-      export MEM0_MCP_CONFIG_PATH=example/config-smithery.json
-      export MEM0_MCP_CONFIG_SERVER=mem0-memory-mcp
-      python example/pydantic_ai_repl.py
-      ```
-
-    Try these test prompts:
-    - "Remember that I love tiramisu"
-    - "Search for my food preferences"
-    - "Update my project: the mobile app is now 80% complete"
-    - "Show me all memories about project Phoenix"
-    - "Delete memories from 2023"
-  </Accordion>
-</AccordionGroup>
-
-## How the testing works
-
-1. **Configuration loads** - Reads from `example/config.json` by default
-2. **Server starts** - Launches or connects to the Mem0 MCP server
-3. **Agent connects** - Pydantic AI agent (Mem0Guide) attaches to the server
-4. **Interactive REPL** - You get a chat interface to test all memory operations
+1. **Configure the MCP server** - Add Mem0 MCP to your AI client using the setup command above
+2. **Agent connects** - Your AI client connects to Mem0's cloud MCP server over HTTP
+3. **Autonomous memory** - The agent decides when to store/retrieve memories as part of its reasoning
+4. **No manual API calls** - The agent manages memory automatically through MCP tools
 
 ## Example interactions
 
@@ -225,13 +135,10 @@ The Mem0 MCP server enables powerful memory capabilities for your AI application
 
 ## Best practices
 
-- **Start simple**: Use the Python package for development
+- **Use the cloud MCP**: The hosted MCP server at `https://mcp.mem0.ai/mcp` handles infrastructure for you
 - **Use wildcards**: `user_id: "*"` to search across all users
-- **Test locally**: Use the bundled Python agent to verify setup
 - **Monitor usage**: Track memory operations in the dashboard
 - **Document patterns**: Share successful prompt patterns with your team
-
-{/* DEBUG: verify CTA targets */}
 
 <CardGroup cols={2}>
   <Card
