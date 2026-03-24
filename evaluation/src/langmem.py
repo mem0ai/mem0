@@ -17,7 +17,7 @@ from tqdm import tqdm
 
 load_dotenv()
 
-client = OpenAI()
+client = OpenAI(timeout=60.0, max_retries=3)
 
 ANSWER_PROMPT_TEMPLATE = Template(ANSWER_PROMPT)
 

@@ -7,7 +7,7 @@ from openai import OpenAI
 
 from mem0.memory.utils import extract_json
 
-client = OpenAI()
+client = OpenAI(timeout=60.0, max_retries=3)
 
 ACCURACY_PROMPT = """
 Your task is to label an answer to a question as ’CORRECT’ or ’WRONG’. You will be given the following data:

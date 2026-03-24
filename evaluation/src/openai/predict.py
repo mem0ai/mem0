@@ -55,7 +55,7 @@ ANSWER_PROMPT = """
 class OpenAIPredict:
     def __init__(self, model="gpt-4o-mini"):
         self.model = model
-        self.openai_client = OpenAI()
+        self.openai_client = OpenAI(timeout=60.0, max_retries=3)
         self.results = defaultdict(list)
 
     def search_memory(self, idx):
