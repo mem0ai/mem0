@@ -7,9 +7,19 @@ const external = [
   "uuid",
   "pg",
   "zod",
-  "sqlite3",
+  "better-sqlite3",
   "@qdrant/js-client-rest",
   "redis",
+  "ollama",
+  "@google/genai",
+  "@mistralai/mistralai",
+  "neo4j-driver",
+  "@supabase/supabase-js",
+  "@azure/search-documents",
+  "@azure/identity",
+  "cloudflare",
+  "@cloudflare/workers-types",
+  "@langchain/core",
 ];
 
 export default defineConfig([

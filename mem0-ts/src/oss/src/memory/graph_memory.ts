@@ -80,18 +80,18 @@ export class MemoryGraph {
     );
 
     this.llmProvider = "openai";
+    let llmConfig = this.config.llm.config;
+
     if (this.config.llm?.provider) {
       this.llmProvider = this.config.llm.provider;
     }
     if (this.config.graphStore?.llm?.provider) {
       this.llmProvider = this.config.graphStore.llm.provider;
+      llmConfig = this.config.graphStore.llm.config ?? llmConfig;
     }
 
-    this.llm = LLMFactory.create(this.llmProvider, this.config.llm.config);
-    this.structuredLlm = LLMFactory.create(
-      this.llmProvider,
-      this.config.llm.config,
-    );
+    this.llm = LLMFactory.create(this.llmProvider, llmConfig);
+    this.structuredLlm = LLMFactory.create(this.llmProvider, llmConfig);
     this.threshold = 0.7;
   }
 
@@ -212,7 +212,7 @@ export class MemoryGraph {
       [
         {
           role: "system",
-          content: `You are a smart assistant who understands entities and their types in a given text. If user message contains self reference such as 'I', 'me', 'my' etc. then use ${filters["userId"]} as the source entity. Extract all the entities from the text. ***DO NOT*** answer the question itself if the given text is a question.`,
+          content: `You are a smart assistant who understands entities and their types in a given text. If user message contains self reference such as 'I', 'me', 'my' etc. then use ${filters["userId"]} as the source entity. Extract all the entities from the text. ***DO NOT*** answer the question itself if the given text is a question. Respond in JSON format.`,
         },
         { role: "user", content: data },
       ],

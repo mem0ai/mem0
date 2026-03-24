@@ -1,6 +1,6 @@
 {
   "name": "mem0ai",
-  "version": "2.1.38",
+  "version": "2.4.2",
   "description": "The Memory Layer For Your AI Apps",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -37,6 +37,9 @@
     "start": "pnpm run example memory",
     "example": "ts-node src/oss/examples/vector-stores/index.ts",
     "test": "jest",
+    "test:ci": "jest --coverage --ci",
+    "test:unit": "jest --coverage --ci --testPathIgnorePatterns='/node_modules/' '/dist/' 'integration'",
+    "test:integration": "jest --config jest.integration.config.js --forceExit",
     "test:ts": "jest --config jest.config.js",
     "test:watch": "jest --config jest.config.js --watch",
     "format": "npm run clean && prettier --write .",
@@ -77,6 +80,7 @@
   "author": "Deshraj Yadav",
   "license": "Apache-2.0",
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.7.6",
     "@types/uuid": "^9.0.8",
     "dotenv": "^16.4.5",
@@ -91,7 +95,7 @@
     "typescript": "5.5.4"
   },
   "dependencies": {
-    "axios": "1.7.7",
+    "axios": "1.13.6",
     "openai": "^4.93.0",
     "uuid": "9.0.1",
     "zod": "^3.24.1"
@@ -102,20 +106,19 @@
     "@azure/search-documents": "^12.0.0",
     "@cloudflare/workers-types": "^4.20250504.0",
     "@google/genai": "^1.2.0",
-    "@langchain/core": "^0.3.44",
+    "@langchain/core": "^1.0.0",
     "@mistralai/mistralai": "^1.5.2",
     "@qdrant/js-client-rest": "1.13.0",
     "@supabase/supabase-js": "^2.49.1",
     "@types/jest": "29.5.14",
     "@types/pg": "8.11.0",
-    "@types/sqlite3": "3.1.11",
+    "better-sqlite3": "^12.6.2",
     "cloudflare": "^4.2.0",
     "groq-sdk": "0.3.0",
     "neo4j-driver": "^5.28.1",
     "ollama": "^0.5.14",
     "pg": "8.11.3",
-    "redis": "^4.6.13",
-    "sqlite3": "5.1.7"
+    "redis": "^4.6.13"
   },
   "engines": {
     "node": ">=18"
@@ -127,7 +130,7 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild",
-      "sqlite3"
+      "better-sqlite3"
     ]
   }
 }

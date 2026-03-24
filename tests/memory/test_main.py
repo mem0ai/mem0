@@ -1,10 +1,11 @@
 import asyncio
 import logging
+from datetime import datetime, timezone
 from unittest.mock import MagicMock, Mock
 
 import pytest
 
-from mem0.memory.main import AsyncMemory, Memory
+from mem0.memory.main import AsyncMemory, Memory, _normalize_iso_timestamp_to_utc
 
 
 def _setup_mocks(mocker):
@@ -179,3 +180,78 @@ class TestAsyncAddToVectorStoreErrors:
         assert result == []
         assert "Empty response from LLM, no memories to extract" in caplog.text
         assert mock_capture_event.call_count == 1
+
+
+def _build_memory_instance(mocker, memory_cls):
+    _setup_mocks(mocker)
+    mocker.patch("mem0.memory.main.SQLiteManager", mocker.MagicMock())
+    mocker.patch("mem0.memory.main.MEM0_TELEMETRY", False)
+    memory = memory_cls()
+    memory.config = mocker.MagicMock()
+    memory.config.custom_fact_extraction_prompt = None
+    memory.config.custom_update_memory_prompt = None
+    memory.api_version = "v1.1"
+    memory.vector_store = mocker.MagicMock()
+    memory.db = mocker.MagicMock()
+    return memory
+
+
+def _assert_utc_timestamp(timestamp: str):
+    parsed = datetime.fromisoformat(timestamp)
+    assert parsed.tzinfo == timezone.utc
+    assert parsed.utcoffset().total_seconds() == 0
+
+
+def test_create_memory_uses_utc_timestamps(mocker):
+    memory = _build_memory_instance(mocker, Memory)
+    memory._create_memory("new memory", {"new memory": [0.1, 0.2, 0.3]}, metadata={})
+    payload = memory.vector_store.insert.call_args.kwargs["payloads"][0]
+    _assert_utc_timestamp(payload["created_at"])
+
+
+def test_update_memory_uses_utc_timestamps(mocker):
+    memory = _build_memory_instance(mocker, Memory)
+    memory.vector_store.get.return_value = MagicMock(
+        payload={"data": "old memory", "created_at": "2026-03-17T17:00:00-07:00"}
+    )
+    memory._update_memory("memory-id", "new memory", {"new memory": [0.1, 0.2, 0.3]}, metadata={})
+    payload = memory.vector_store.update.call_args.kwargs["payload"]
+    assert payload["created_at"] == "2026-03-18T00:00:00+00:00"
+    _assert_utc_timestamp(payload["updated_at"])
+
+
+@pytest.mark.asyncio
+async def test_async_create_memory_uses_utc_timestamps(mocker):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    await memory._create_memory("new memory", {"new memory": [0.1, 0.2, 0.3]}, metadata={})
+    payload = memory.vector_store.insert.call_args.kwargs["payloads"][0]
+    _assert_utc_timestamp(payload["created_at"])
+
+
+@pytest.mark.asyncio
+async def test_async_update_memory_uses_utc_timestamps(mocker):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    memory.vector_store.get.return_value = MagicMock(
+        payload={"data": "old memory", "created_at": "2026-03-17T17:00:00-07:00"}
+    )
+    await memory._update_memory("memory-id", "new memory", {"new memory": [0.1, 0.2, 0.3]}, metadata={})
+    payload = memory.vector_store.update.call_args.kwargs["payload"]
+    assert payload["created_at"] == "2026-03-18T00:00:00+00:00"
+    _assert_utc_timestamp(payload["updated_at"])
+
+
+def test_normalize_iso_timestamp_to_utc_preserves_naive_values():
+    assert _normalize_iso_timestamp_to_utc("2026-03-18T00:00:00") == "2026-03-18T00:00:00"
+
+
+def test_normalize_iso_timestamp_to_utc_converts_pacific():
+    result = _normalize_iso_timestamp_to_utc("2026-03-17T17:00:00-07:00")
+    assert result == "2026-03-18T00:00:00+00:00"
+
+
+def test_normalize_iso_timestamp_to_utc_handles_none():
+    assert _normalize_iso_timestamp_to_utc(None) is None
+
+
+def test_normalize_iso_timestamp_to_utc_handles_empty():
+    assert _normalize_iso_timestamp_to_utc("") == ""

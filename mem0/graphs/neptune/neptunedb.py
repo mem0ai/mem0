@@ -1,7 +1,6 @@
 import logging
 import uuid
-from datetime import datetime
-import pytz
+from datetime import datetime, timezone
 
 from .base import NeptuneBase
 
@@ -114,7 +113,7 @@ class MemoryGraph(NeptuneBase):
             "name": destination,
             "type": destination_type,
             "user_id": user_id,
-            "created_at": datetime.now(pytz.timezone("US/Pacific")).isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
         }
         self.vector_store.insert(
             vectors=[dest_embedding],
@@ -189,7 +188,7 @@ class MemoryGraph(NeptuneBase):
             "name": source,
             "type": source_type,
             "user_id": user_id,
-            "created_at": datetime.now(pytz.timezone("US/Pacific")).isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
         }
         self.vector_store.insert(
             vectors=[source_embedding],
@@ -316,14 +315,14 @@ class MemoryGraph(NeptuneBase):
             "name": source,
             "type": source_type,
             "user_id": user_id,
-            "created_at": datetime.now(pytz.timezone("US/Pacific")).isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
         }
         destination_id = str(uuid.uuid4())
         destination_payload = {
             "name": destination,
             "type": destination_type,
             "user_id": user_id,
-            "created_at": datetime.now(pytz.timezone("US/Pacific")).isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
         }
         self.vector_store.insert(
             vectors=[source_embedding, dest_embedding],

@@ -1,0 +1,246 @@
+---
+title: "Gemini 3 with Mem0 MCP"
+description: "Create snappy, smart, memory-aware agents by pairing Gemini 3 with Mem0 MCP server."
+---
+
+Gemini 3, when paired with mem0-mcp-server, works in synergy to create snappy, smart, memory-aware agents.
+
+<Callout type="info" icon="sparkles" color="#8B5CF6">
+  This is the primary example of MCP integration - the same patterns work with Claude Desktop, Cursor, or any MCP-compatible client.
+</Callout>
+
+## MCP Server Tools
+
+The Mem0 MCP server provides these tools to Gemini:
+
+| Tool                  | Description                              |
+| --------------------- | ---------------------------------------- |
+| `add_memory`          | Store new information in memory          |
+| `search_memories`     | Find relevant memories                   |
+| `get_memories`        | Retrieve specific memories by ID         |
+| `get_memory`          | Retrieve one memory by its `memory_id`   |
+| `update_memory`       | Modify existing memory content           |
+| `delete_memory`       | Remove specific memories                 |
+| `delete_all_memories` | Clear all memories for a user            |
+| `delete_entities`     | Delete all memories related to an entity |
+| `list_entities`       | Enumerate users/agents/apps/runs stored  |
+
+## Setup
+
+### Install dependencies
+
+```bash
+pip install pydantic-ai nest-asyncio python-dotenv uv google-genai
+```
+
+### Environment Setup
+
+Create a file named `.env`:
+
+```bash
+MEM0_API_KEY=m0-xxxxxxxxxxxxxxxxx
+GEMINI_API_KEY=your-gemini-api-key-here
+MEM0_DEFAULT_USER_ID=demo-user
+```
+
+<Note>
+Ensure you have your Mem0 API key from the [Mem0 Dashboard](https://app.mem0.ai) and your Gemini API key from the [Google AI Studio](https://ai.studio/app/api-keys).
+</Note>
+
+## Gemini Memory Agent
+
+This example shows how to create a memory-augmented agent using Gemini 3 through an agent loop.
+
+<Info icon="document">
+Save this as <strong>gemini_agent.py</strong>:
+</Info>
+
+```python
+import asyncio
+import os
+from dotenv import load_dotenv
+from pydantic_ai import Agent
+from pydantic_ai.mcp import MCPServerStdio
+
+# Load environment variables
+load_dotenv()
+
+
+class MemoryAgent:
+    def __init__(self, model="gemini-3-pro-preview"):
+        self.agent = None
+        self.server = None
+        self.model = model
+        self._setup()
+
+    def _setup(self):
+        """Initialize the agent with MCP tools"""
+        # Create MCP server directly
+        self.server = MCPServerStdio(
+            command="uvx",
+            args=["mem0-mcp-server"],
+            env=os.environ
+        )
+
+        # Create agent with Gemini and memory tools
+        self.agent = Agent(
+            f"google-gla:{self.model}",
+            toolsets=[self.server],
+            system_prompt=(
+                "You are an assistant with memory capabilities. "
+                "Automatically remember important details about users, "
+                "preferences, and facts. Search memories before answering "
+                "questions about past information."
+            ),
+        )
+        print(f"Agent initialized with {self.model}")
+
+    async def chat(self, message):
+        """Send message and get response"""
+        async with self.server:
+            result = await self.agent.run(message)
+            return result.output
+
+    async def interactive_chat(self):
+        """Run interactive chat session"""
+        print("\nMemory Agent Ready! (Type 'quit' to exit)")
+
+        while True:
+            try:
+                user_input = input("\nYou: ").strip()
+                if user_input.lower() in ["quit", "exit"]:
+                    print("Goodbye!")
+                    break
+
+                if not user_input:
+                    continue
+
+                response = await self.chat(user_input)
+                print(f"\nAgent: {response}")
+
+            except KeyboardInterrupt:
+                print("\nGoodbye!")
+                break
+            except Exception as e:
+                print(f"\nError: {e}")
+
+
+async def main():
+    """Main entry point"""
+    agent = MemoryAgent()
+    await agent.interactive_chat()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+## Running the Agent
+
+To run the interactive agent:
+
+```bash
+python gemini_agent.py
+```
+
+## Example Interactions
+
+### Multi-Tool Capabilities
+*Shows Gemini generating synthetic data while simultaneously storing and searching in one request*
+
+**Prompt:**
+```
+I need player statistics for a basketball team dashboard demo. Generate 5 synthetic player profiles with different positions, ages, and performance metrics, then store all of them. Also check if we have any existing player data in memory.
+```
+
+**Response:**
+```
+I've created and stored 5 synthetic player profiles for your basketball team dashboard demo:
+- Marcus Chen (32, Point Guard) - 12.5 PPG, 8.2 APG, 45% FG, 3 seasons with team
+- Jamal Williams (28, Center) - 18.7 PPG, 10.5 RPG, 2.3 BPG, rookie season
+- Carlos Rodriguez (35, Small Forward) - 15.3 PPG, 6.8 RPG, 38% 3PT, team captain
+- Tito Kawaguchi (24, Shooting Guard) - 22.1 PPG, 4.1 APG, 42% 3PT, 6th man of the year candidate
+- Viktor Petrov (30, Power Forward) - 14.8 PPG, 9.2 RPG, 52% FG, defensive specialist
+
+I searched for existing player data in your memory but found none. All synthetic player profiles have been stored with appropriate basketball statistics for demo purposes.
+```
+
+### Smart Query Generation
+*Demonstrates how Gemini transforms vague human input into optimal search queries*
+
+**Prompt:**
+```
+Anything about my health I should know about?
+```
+
+**Response:**
+```
+Based on your memory history, I searched for health-related information using these queries: "medical", "allergies", "dietary restrictions", "exercise", "wellness", "doctor visits", "health conditions".
+
+**Health Information Found:**
+- Allergies: Shellfish allergy
+- Dietary preferences: Weekday vegetarian, flexible weekends, dislikes kiwi
+- Exercise routine: 5km runs on weekday mornings
+- Diet: Oat milk cappuccino with one sugar (monitoring sugar intake recommended)
+
+I don't see any medical conditions or recent doctor visits in your stored information.
+```
+
+### Memory Attribution
+*Shows how Gemini distinguishes between stored memories and general knowledge*
+
+**Prompt:**
+```
+What's my coffee order again?
+```
+
+**Response:**
+```
+Based on your stored memories, your coffee order is an oat milk cappuccino with one sugar.
+
+This information was retrieved from your memory history where you previously mentioned this preference. I don't have any information about whether you've changed this preference recently.
+```
+
+## Why Use Gemini with Mem0 MCP?
+
+### How Mem0 Enhances Your Application
+
+- **Smart Memory Management** - Organizes memories into searchable information *without setting up vector databases*
+- **Fast Retrieval** - Instant lookups with *sub-millisecond ping*, handles large datasets
+- **Graph Capabilities** - Builds knowledge *automatically* as you push information
+- **Simple Integration** - Uses Mem0 API in the backend, works with *any MCP client* with just a few lines of code
+
+### Gemini 3 + Mem0 Benefits
+
+- **Native function calling**: Built-in support for Mem0's memory tools
+- **Large context window**: Supports up to 1M tokens for extensive memory context
+- **Parallel execution**: Can call multiple memory tools simultaneously
+- **Cost-effective**: Competitive pricing for memory-intensive applications
+
+## What You Built
+
+- **Memory-augmented AI agent** - Gemini with persistent memory across sessions
+- **Automatic context management** - Agent automatically stores and retrieves relevant information
+- **Multi-tool parallel execution** - Simultaneous memory operations for efficiency
+- **Natural memory interface** - Users interact normally while agent manages memory behind the scenes
+
+## Conclusion
+
+You've successfully built a Gemini 3 agent with persistent memory using Mem0's MCP server. The agent can now remember user preferences, maintain context across sessions, and provide more personalized interactions.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="MCP Integration Feature"
+    description="Learn about MCP configuration options and deployment methods"
+    icon="plug"
+    href="/platform/features/mcp-integration"
+  />
+  <Card
+    title="MCP Quickstart"
+    description="Get started with MCP for any AI client in minutes"
+    icon="rocket"
+    href="/platform/mem0-mcp"
+  />
+</CardGroup>

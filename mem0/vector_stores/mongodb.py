@@ -1,10 +1,12 @@
 import logging
+from importlib.metadata import version
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
 try:
     from pymongo import MongoClient
+    from pymongo.driver_info import DriverInfo
     from pymongo.errors import PyMongoError
     from pymongo.operations import SearchIndexModel
 except ImportError:
@@ -15,6 +17,7 @@ from mem0.vector_stores.base import VectorStoreBase
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
+_DRIVER_METADATA = DriverInfo(name="Mem0", version=version("mem0ai"))
 
 class OutputData(BaseModel):
     id: Optional[str]
@@ -23,7 +26,7 @@ class OutputData(BaseModel):
 
 
 class MongoDB(VectorStoreBase):
-    VECTOR_TYPE = "knnVector"
+    VECTOR_TYPE = "vector"
     SIMILARITY_METRIC = "cosine"
 
     def __init__(self, db_name: str, collection_name: str, embedding_model_dims: int, mongo_uri: str):
@@ -40,7 +43,7 @@ class MongoDB(VectorStoreBase):
         self.embedding_model_dims = embedding_model_dims
         self.db_name = db_name
 
-        self.client = MongoClient(mongo_uri)
+        self.client = MongoClient(mongo_uri, driver=_DRIVER_METADATA)
         self.db = self.client[db_name]
         self.collection = self.create_col()
 
@@ -66,17 +69,16 @@ class MongoDB(VectorStoreBase):
             else:
                 search_index_model = SearchIndexModel(
                     name=self.index_name,
+                    type="vectorSearch",
                     definition={
-                        "mappings": {
-                            "dynamic": False,
-                            "fields": {
-                                "embedding": {
-                                    "type": self.VECTOR_TYPE,
-                                    "dimensions": self.embedding_model_dims,
-                                    "similarity": self.SIMILARITY_METRIC,
-                                }
-                            },
-                        }
+                        "fields": [
+                            {
+                                "type": self.VECTOR_TYPE,
+                                "path": "embedding",
+                                "numDimensions": self.embedding_model_dims,
+                                "similarity": self.SIMILARITY_METRIC,
+                            }
+                        ]
                     },
                 )
                 collection.create_search_index(search_index_model)
@@ -138,7 +140,7 @@ class MongoDB(VectorStoreBase):
                     "$vectorSearch": {
                         "index": self.index_name,
                         "limit": limit,
-                        "numCandidates": limit,
+                        "numCandidates": min(limit * 20, 10000),
                         "queryVector": vectors,
                         "path": "embedding",
                     }
@@ -195,7 +197,8 @@ class MongoDB(VectorStoreBase):
         if vector is not None:
             update_fields["embedding"] = vector
         if payload is not None:
-            update_fields["payload"] = payload
+            for key, value in payload.items():
+                update_fields[f"payload.{key}"] = value
 
         if update_fields:
             try:

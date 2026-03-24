@@ -35,7 +35,7 @@ graph LR
 Mem0’s extraction LLM identifies entities, relationships, and timestamps from the conversation payload you send to `memory.add`.
 </Step>
 <Step title="Store vectors and edges together">
-Embeddings land in your configured vector database while nodes and edges flow into a Bolt-compatible graph backend (Neo4j, Memgraph, Neptune, or Kuzu).
+Embeddings land in your configured vector database while nodes and edges flow into a graph backend (Neo4j, Memgraph, Neptune, Kuzu, or Apache AGE).
 </Step>
 <Step title="Expose graph context at search time">
 `memory.search` performs vector similarity (optionally reranked by your configured reranker) and returns the results list. Graph Memory runs in parallel and adds related entities in the `relations` array—it does not reorder the vector hits automatically.
@@ -264,7 +264,7 @@ Monitor graph growth, especially on free tiers, by periodically cleaning dormant
 
 ## Decision Points
 
-- Select the graph store that fits your deployment (managed Aura vs. self-hosted Neo4j vs. AWS Neptune vs. local Kuzu).
+- Select the graph store that fits your deployment (managed Aura vs. self-hosted Neo4j vs. AWS Neptune vs. local Kuzu vs. Apache AGE on PostgreSQL).
 - Decide when to enable graph writes per request; routine conversations may stay vector-only to save latency.
 - Set a policy for pruning stale relationships so your graph stays fast and affordable.
 
@@ -380,6 +380,42 @@ config = {
 ```
 
 Kuzu will clear its state when using `:memory:` once the process exits. See the [Kuzu documentation](https://kuzudb.com/docs/) for advanced settings.
+  </Accordion>
+  <Accordion title="Apache AGE (PostgreSQL extension)">
+    [Apache AGE](https://age.apache.org/) adds graph database capabilities to PostgreSQL, letting you run Cypher queries alongside SQL on the same server. Start AGE via Docker, then configure Mem0:
+
+```bash
+docker run --name age-postgres \
+  -e POSTGRES_DB=mem0_db \
+  -e POSTGRES_USER=mem0_user \
+  -e POSTGRES_PASSWORD=mem0_pass \
+  -p 5432:5432 \
+  -d apache/age
+```
+
+```python
+from mem0 import Memory
+
+config = {
+    "graph_store": {
+        "provider": "apache_age",
+        "config": {
+            "host": "localhost",
+            "port": 5432,
+            "database": "mem0_db",
+            "username": "mem0_user",
+            "password": "mem0_pass",
+            "graph_name": "mem0_graph",
+        },
+    },
+}
+
+m = Memory.from_config(config_dict=config)
+```
+
+Apache AGE does not have a built-in vector index, so similarity search is computed client-side. This works well for moderate graph sizes; for very large graphs consider pairing AGE with pgvector for the vector store.
+
+Reference: [Apache AGE documentation](https://age.apache.org/age-manual/master/index.html).
   </Accordion>
 </AccordionGroup>
 

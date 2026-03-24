@@ -73,6 +73,10 @@ client.add(
 
 The response will include one or more memory IDs. Check the dashboard → Memories to confirm the entry appears under the correct user, agent, app, and run.
 
+<Warning>
+Platform writes that include both `user_id` and `agent_id` (or other combinations) are persisted as separate records per entity so we can enforce privacy boundaries. Each record carries exactly one primary entity, which is why `{"AND": [{"user_id": ...}, {"agent_id": ...}]}` never returns results. Plan searches per entity scope or combine scopes with `OR`.
+</Warning>
+
 The HTTP equivalent uses `POST /v1/memories/` with the same identifiers in the JSON body. See the Add Memories API reference for REST details.
 
 ## See it in action
@@ -133,7 +137,9 @@ Want to experiment with AND/OR logic, nested operators, or wildcards? The <Link 
 ```python
 app_scope = {
     "AND": [
-        {"app_id": "concierge_portal"},
+        {"app_id": "concierge_portal"}
+    ],
+    "OR": [
         {"user_id": "*"},
         {"agent_id": "*"}
     ]

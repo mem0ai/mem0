@@ -1,4 +1,4 @@
-import { Client, Pool } from "pg";
+import { Client } from "pg";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 
@@ -35,6 +35,7 @@ export class PGVector implements VectorStore {
       host: config.host,
       port: config.port,
     });
+    this.initialize().catch(console.error);
   }
 
   async initialize(): Promise<void> {
