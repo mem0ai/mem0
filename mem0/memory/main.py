@@ -27,7 +27,6 @@ from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
 from mem0.memory.utils import (
     ensure_json_instruction,
     extract_json,
-    extract_json_from_chatty_response,
     get_fact_retrieval_messages,
     normalize_facts,
     parse_messages,
@@ -516,15 +515,15 @@ class Memory(MemoryBase):
         )
 
         try:
-            response = remove_code_blocks(response)
-            if not response.strip():
+            cleaned_response = remove_code_blocks(response)
+            if not cleaned_response.strip():
                 new_retrieved_facts = []
             else:
                 try:
                     # First try direct JSON parsing
-                    new_retrieved_facts = json.loads(response, strict=False)["facts"]
+                    new_retrieved_facts = json.loads(cleaned_response, strict=False)["facts"]
                 except json.JSONDecodeError:
-                    # Try extracting JSON from response using built-in function
+                    # Try extracting JSON from response (handles chatty LLM output)
                     extracted_json = extract_json(response)
                     new_retrieved_facts = json.loads(extracted_json, strict=False)["facts"]
                 new_retrieved_facts = normalize_facts(new_retrieved_facts)
@@ -592,7 +591,7 @@ class Memory(MemoryBase):
                     try:
                         new_memories_with_actions = json.loads(remove_code_blocks(response), strict=False)
                     except json.JSONDecodeError:
-                        extracted_json = extract_json_from_chatty_response(response)
+                        extracted_json = extract_json(response)
                         new_memories_with_actions = json.loads(extracted_json, strict=False)
             except Exception as e:
                 logger.error(f"Invalid JSON response: {e}")
@@ -1580,15 +1579,15 @@ class AsyncMemory(MemoryBase):
             response_format={"type": "json_object"},
         )
         try:
-            response = remove_code_blocks(response)
-            if not response.strip():
+            cleaned_response = remove_code_blocks(response)
+            if not cleaned_response.strip():
                 new_retrieved_facts = []
             else:
                 try:
                     # First try direct JSON parsing
-                    new_retrieved_facts = json.loads(response, strict=False)["facts"]
+                    new_retrieved_facts = json.loads(cleaned_response, strict=False)["facts"]
                 except json.JSONDecodeError:
-                    # Try extracting JSON from response using built-in function
+                    # Try extracting JSON from response (handles chatty LLM output)
                     extracted_json = extract_json(response)
                     new_retrieved_facts = json.loads(extracted_json, strict=False)["facts"]
                 new_retrieved_facts = normalize_facts(new_retrieved_facts)
@@ -1659,7 +1658,7 @@ class AsyncMemory(MemoryBase):
                     try:
                         new_memories_with_actions = json.loads(remove_code_blocks(response), strict=False)
                     except json.JSONDecodeError:
-                        extracted_json = extract_json_from_chatty_response(response)
+                        extracted_json = extract_json(response)
                         new_memories_with_actions = json.loads(extracted_json, strict=False)
             except Exception as e:
                 logger.error(f"Invalid JSON response: {e}")
