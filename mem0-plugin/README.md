@@ -41,7 +41,7 @@ Choose one of the options below. Both require `MEM0_API_KEY` to be set first (se
 
 ### Cursor
 
-Install from the Cursor Marketplace by searching for **mem0**, or use the one-click deeplink below.
+Click the deeplink below to install the Mem0 MCP server in Cursor:
 
 [Install Mem0 MCP in Cursor](cursor://anysphere.cursor-deeplink/mcp/install?name=mem0&config=eyJtY3BTZXJ2ZXJzIjp7Im1lbTAiOnsidHlwZSI6Imh0dHAiLCJ1cmwiOiJodHRwczovL21jcC5tZW0wLmFpL21jcC8iLCJoZWFkZXJzIjp7IkF1dGhvcml6YXRpb24iOiJUb2tlbiAke01FTTBfQVBJX0tFWX0ifX19fQ==)
 
