@@ -1,6 +1,9 @@
 import importlib.metadata
 
-__version__ = importlib.metadata.version("mem0ai")
+try:
+    __version__ = importlib.metadata.version("mem0ai")
+except importlib.metadata.PackageNotFoundError:
+    __version__ = "unknown"
 
 from mem0.client.main import AsyncMemoryClient, MemoryClient  # noqa
 from mem0.memory.main import AsyncMemory, Memory  # noqa

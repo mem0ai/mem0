@@ -22,6 +22,7 @@ Adding memory is how Mem0 captures useful details from a conversation so your ag
 - **Infer** – Controls whether Mem0 extracts structured memories (`infer=True`, default) or stores raw messages.
 - **Metadata** – Optional filters (e.g., `{"category": "movie_recommendations"}`) that improve retrieval later.
 - **User / Session identifiers** – `user_id`, `session_id`, or `run_id` that scope the memory for future searches.
+- **Entry Mode** – Controls memory granularity. Use `"fact"` (default) for atomic extraction or `"chunk"` for preserving larger semantic segments.
 
 ## How does it work?
 
@@ -114,6 +115,9 @@ messages = [
 
 # Store inferred memories (default behavior)
 result = m.add(messages, user_id="alice", metadata={"category": "movie_recommendations"})
+
+# Store using semantic chunks (ideal for long documents)
+result = m.add(messages, user_id="alice", entry_mode="chunk")
 
 # Optionally store raw messages without inference
 result = m.add(messages, user_id="alice", metadata={"category": "movie_recommendations"}, infer=False)
