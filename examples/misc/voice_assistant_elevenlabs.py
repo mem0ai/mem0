@@ -32,7 +32,7 @@ from mem0 import MemoryClient
 
 # ------------------ SETUP ------------------
 USER_ID = "Alex"
-openai_client = OpenAI()
+openai_client = OpenAI(timeout=60.0, max_retries=3)
 tts_client = ElevenLabs()
 memory_client = MemoryClient()
 

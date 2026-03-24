@@ -23,7 +23,7 @@ class MemorySearch:
             project_id=os.getenv("MEM0_PROJECT_ID"),
         )
         self.top_k = top_k
-        self.openai_client = OpenAI()
+        self.openai_client = OpenAI(timeout=60.0, max_retries=3)
         self.results = defaultdict(list)
         self.output_path = output_path
         self.filter_memories = filter_memories
