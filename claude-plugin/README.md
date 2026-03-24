@@ -4,14 +4,30 @@ Add persistent memory to your Claude workflows. Store, retrieve, and manage memo
 
 ## Prerequisites
 
-- [uv](https://docs.astral.sh/uv/getting-started/installation/) (the MCP server runs via `uvx`)
 - A Mem0 Platform account — [sign up at mem0.ai](https://app.mem0.ai)
-- A Mem0 API key — go to [app.mem0.ai/dashboard/api-keys](https://app.mem0.ai/dashboard/api-keys), click **Create API Key**, and copy the `m0-...` value
-- Add the key to your shell profile (`~/.zshrc` or `~/.bashrc`):
-  ```bash
-  echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.zshrc
-  source ~/.zshrc
-  ```
+
+### Set up your API key
+
+1. Go to [app.mem0.ai/dashboard/api-keys](https://app.mem0.ai/dashboard/api-keys)
+2. Click **Create API Key** and copy the key (starts with `m0-`)
+3. Add it to your shell profile:
+
+   ```bash
+   # For zsh (default on macOS)
+   echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.zshrc
+   source ~/.zshrc
+
+   # For bash
+   echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.bashrc
+   source ~/.bashrc
+   ```
+
+4. Confirm it's set:
+
+   ```bash
+   echo $MEM0_API_KEY
+   # Should print: m0-your-api-key
+   ```
 
 ## Installation
 
@@ -24,9 +40,17 @@ Add the Mem0 marketplace and install the plugin:
 
 > **Already have `mem0` configured as an MCP server?** Remove the existing entry from your `.mcp.json` or Claude settings before installing this plugin to avoid duplicate tools.
 
+## Verify it works
+
+After installing, confirm the MCP server is connected:
+
+1. Start a new Claude Code session (or restart your current one)
+2. Ask Claude: *"List my mem0 entities"* or *"Search my memories for hello"*
+3. If the `mem0` tools appear and respond, you're all set
+
 ## What's included
 
-- **MCP Server** — Connects to `mem0-mcp-server` via `uvx`, providing tools to add, search, update, and delete memories
+- **MCP Server** — Connects to the Mem0 remote MCP server (`mcp.mem0.ai`), providing tools to add, search, update, and delete memories. No local dependencies required.
 - **Mem0 Skill** — Guides Claude on how to integrate the Mem0 SDK (Python & TypeScript) into your applications
 
 ## MCP Tools

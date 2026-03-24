@@ -13,26 +13,14 @@ When installed, Claude can:
 
 ## Installation
 
-### CLI (Claude Code, OpenCode, OpenClaw, or any tool that supports skills)
+This skill is included automatically when you install the Mem0 plugin:
 
-```bash
-npx skills add https://github.com/mem0ai/mem0 --skill mem0
+```
+/plugin marketplace add mem0ai/mem0
+/plugin install mem0@mem0-plugins
 ```
 
-### Claude.ai
-
-1. Download this `skills/mem0` folder as a ZIP
-2. Go to **Settings > Capabilities > Skills**
-3. Click **Upload skill** and select the ZIP
-
-### Claude API (Skills API)
-
-```bash
-curl -X POST https://api.anthropic.com/v1/skills \
-  -H "x-api-key: $ANTHROPIC_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "mem0", "source": "https://github.com/mem0ai/mem0/tree/main/skills/mem0"}'
-```
+See the [plugin README](../../README.md) for full setup instructions.
 
 ### Prerequisites
 
