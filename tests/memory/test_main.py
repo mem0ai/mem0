@@ -188,6 +188,21 @@ async def test_async_update_memory_uses_utc_timestamps(mocker):
     _assert_utc_timestamp(payload["updated_at"])
 
 
+@pytest.mark.asyncio
+async def test_async_delete_all_handles_flat_list_from_vector_store(mocker):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    memory.enable_graph = False
+    memory.vector_store.list.return_value = [MagicMock(id="1"), MagicMock(id="2")]
+    memory._delete_memory = mocker.AsyncMock()
+
+    result = await memory.delete_all(user_id="test_user")
+
+    assert result == {"message": "Memories deleted successfully!"}
+    assert memory._delete_memory.await_count == 2
+    memory._delete_memory.assert_any_await("1")
+    memory._delete_memory.assert_any_await("2")
+
+
 def test_normalize_iso_timestamp_to_utc_preserves_naive_values():
     assert _normalize_iso_timestamp_to_utc("2026-03-18T00:00:00") == "2026-03-18T00:00:00"
 
