@@ -274,40 +274,38 @@ async def create_memory(
             created_memories = []
             
             for result in qdrant_response['results']:
-                if result['event'] == 'ADD':
-                    # Get the Qdrant-generated ID
-                    memory_id = UUID(result['id'])
-                    
-                    # Check if memory already exists
-                    existing_memory = db.query(Memory).filter(Memory.id == memory_id).first()
-                    
-                    if existing_memory:
-                        # Update existing memory
-                        existing_memory.state = MemoryState.active
-                        existing_memory.content = result['memory']
-                        memory = existing_memory
-                    else:
-                        # Create memory with the EXACT SAME ID from Qdrant
-                        memory = Memory(
-                            id=memory_id,  # Use the same ID that Qdrant generated
-                            user_id=user.id,
-                            app_id=app_obj.id,
-                            content=result['memory'],
-                            metadata_=request.metadata,
-                            state=MemoryState.active
-                        )
-                        db.add(memory)
-                    
-                    # Create history entry
-                    history = MemoryStatusHistory(
+                event = result.get("event")
+                if event not in ("ADD", "UPDATE"):
+                    continue
+
+                memory_id = UUID(result["id"])
+                existing_memory = db.query(Memory).filter(Memory.id == memory_id).first()
+                previous_state = existing_memory.state if existing_memory else MemoryState.deleted
+
+                if existing_memory:
+                    existing_memory.state = MemoryState.active
+                    existing_memory.content = result["memory"]
+                    memory = existing_memory
+                else:
+                    memory = Memory(
+                        id=memory_id,
+                        user_id=user.id,
+                        app_id=app_obj.id,
+                        content=result["memory"],
+                        metadata_=request.metadata,
+                        state=MemoryState.active,
+                    )
+                    db.add(memory)
+
+                db.add(
+                    MemoryStatusHistory(
                         memory_id=memory_id,
                         changed_by=user.id,
-                        old_state=MemoryState.deleted if existing_memory else MemoryState.deleted,
-                        new_state=MemoryState.active
+                        old_state=previous_state,
+                        new_state=MemoryState.active,
                     )
-                    db.add(history)
-                    
-                    created_memories.append(memory)
+                )
+                created_memories.append(memory)
             
             # Commit all changes at once
             if created_memories:

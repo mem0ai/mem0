@@ -92,10 +92,12 @@ async def add_memories(text: str) -> str:
             # Process the response and update database
             if isinstance(response, dict) and 'results' in response:
                 for result in response['results']:
+                    event = result.get("event")
                     memory_id = uuid.UUID(result['id'])
                     memory = db.query(Memory).filter(Memory.id == memory_id).first()
 
-                    if result['event'] == 'ADD':
+                    if event in ("ADD", "UPDATE"):
+                        previous_state = memory.state if memory else MemoryState.deleted
                         if not memory:
                             memory = Memory(
                                 id=memory_id,
@@ -109,24 +111,23 @@ async def add_memories(text: str) -> str:
                             memory.state = MemoryState.active
                             memory.content = result['memory']
 
-                        # Create history entry
                         history = MemoryStatusHistory(
                             memory_id=memory_id,
                             changed_by=user.id,
-                            old_state=MemoryState.deleted if memory else None,
+                            old_state=previous_state,
                             new_state=MemoryState.active
                         )
                         db.add(history)
 
-                    elif result['event'] == 'DELETE':
+                    elif event == 'DELETE':
                         if memory:
+                            previous_state = memory.state
                             memory.state = MemoryState.deleted
                             memory.deleted_at = datetime.datetime.now(datetime.UTC)
-                            # Create history entry
                             history = MemoryStatusHistory(
                                 memory_id=memory_id,
                                 changed_by=user.id,
-                                old_state=MemoryState.active,
+                                old_state=previous_state,
                                 new_state=MemoryState.deleted
                             )
                             db.add(history)
