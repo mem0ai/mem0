@@ -66,6 +66,7 @@ class AzureOpenAILLM(LLMBase):
             http_client=self.config.http_client,
             default_headers=default_headers,
             timeout=60.0,
+            max_retries=3,
         )
 
     def _parse_response(self, response, tools):

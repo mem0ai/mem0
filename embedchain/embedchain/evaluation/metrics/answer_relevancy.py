@@ -26,7 +26,7 @@ class AnswerRelevance(BaseMetric):
         api_key = self.config.api_key or os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise ValueError("API key not found. Set 'OPENAI_API_KEY' or pass it in the config.")
-        self.client = OpenAI(api_key=api_key)
+        self.client = OpenAI(api_key=api_key, timeout=60.0, max_retries=3)
 
     def _generate_prompt(self, data: EvalData) -> str:
         """

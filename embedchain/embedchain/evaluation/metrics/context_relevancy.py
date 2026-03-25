@@ -24,7 +24,7 @@ class ContextRelevance(BaseMetric):
         api_key = self.config.api_key or os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise ValueError("API key not found. Set 'OPENAI_API_KEY' or pass it in the config.")
-        self.client = OpenAI(api_key=api_key)
+        self.client = OpenAI(api_key=api_key, timeout=60.0, max_retries=3)
         self._sbd = pysbd.Segmenter(language=self.config.language, clean=False)
 
     def _sentence_segmenter(self, text: str) -> list[str]:

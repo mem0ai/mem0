@@ -18,7 +18,7 @@ class ImageLoader(BaseLoader):
         self.custom_prompt = prompt or DESCRIBE_IMAGE_PROMPT
         self.max_tokens = max_tokens
         self.api_key = api_key or os.environ["OPENAI_API_KEY"]
-        self.client = OpenAI(api_key=self.api_key)
+        self.client = OpenAI(api_key=self.api_key, timeout=60.0, max_retries=3)
 
     @staticmethod
     def _encode_image(image_path: str):

@@ -29,7 +29,7 @@ class OpenAIEmbedding(EmbeddingBase):
                 DeprecationWarning,
             )
 
-        self.client = OpenAI(api_key=api_key, base_url=base_url, timeout=60.0)
+        self.client = OpenAI(api_key=api_key, base_url=base_url, timeout=60.0, max_retries=3)
 
     def embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
         """

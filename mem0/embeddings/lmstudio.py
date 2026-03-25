@@ -14,7 +14,7 @@ class LMStudioEmbedding(EmbeddingBase):
         self.config.embedding_dims = self.config.embedding_dims or 1536
         self.config.api_key = self.config.api_key or "lm-studio"
 
-        self.client = OpenAI(base_url=self.config.lmstudio_base_url, api_key=self.config.api_key, timeout=60.0)
+        self.client = OpenAI(base_url=self.config.lmstudio_base_url, api_key=self.config.api_key, timeout=60.0, max_retries=3)
 
     def embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
         """

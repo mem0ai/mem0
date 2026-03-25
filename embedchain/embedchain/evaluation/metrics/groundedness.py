@@ -26,7 +26,7 @@ class Groundedness(BaseMetric):
         api_key = self.config.api_key or os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise ValueError("Please set the OPENAI_API_KEY environment variable or pass the `api_key` in config.")
-        self.client = OpenAI(api_key=api_key)
+        self.client = OpenAI(api_key=api_key, timeout=60.0, max_retries=3)
 
     def _generate_answer_claim_prompt(self, data: EvalData) -> str:
         """

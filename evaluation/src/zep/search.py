@@ -35,7 +35,7 @@ class ZepSearch:
     def __init__(self):
         self.zep_client = Zep(api_key=os.getenv("ZEP_API_KEY"))
         self.results = defaultdict(list)
-        self.openai_client = OpenAI()
+        self.openai_client = OpenAI(timeout=60.0, max_retries=3)
 
     def format_edge_date_range(self, edge: EntityEdge) -> str:
         # return f"{datetime(edge.valid_at).strftime('%Y-%m-%d %H:%M:%S') if edge.valid_at else 'date unknown'} - {(edge.invalid_at.strftime('%Y-%m-%d %H:%M:%S') if edge.invalid_at else 'present')}"

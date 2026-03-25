@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 load_dotenv()
-openai_client = OpenAI()
+openai_client = OpenAI(timeout=60.0, max_retries=3)
 
 
 class MemoryCategories(BaseModel):

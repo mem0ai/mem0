@@ -40,6 +40,7 @@ class AzureOpenAIEmbedding(EmbeddingBase):
             http_client=self.config.http_client,
             default_headers=default_headers,
             timeout=60.0,
+            max_retries=3,
         )
 
     def embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):

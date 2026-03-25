@@ -26,7 +26,7 @@ PROMPT = """
 class RAGManager:
     def __init__(self, data_path="dataset/locomo10_rag.json", chunk_size=500, k=1):
         self.model = os.getenv("MODEL")
-        self.client = OpenAI()
+        self.client = OpenAI(timeout=60.0, max_retries=3)
         self.data_path = data_path
         self.chunk_size = chunk_size
         self.k = k

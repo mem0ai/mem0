@@ -47,6 +47,7 @@ class AzureOpenAIStructuredLLM(LLMBase):
             http_client=self.config.http_client,
             default_headers=default_headers,
             timeout=60.0,
+            max_retries=3,
         )
 
     def generate_response(

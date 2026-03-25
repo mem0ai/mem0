@@ -42,7 +42,7 @@ class MiniMaxLLM(LLMBase):
             or os.getenv("MINIMAX_API_BASE")
             or "https://api.minimax.io/v1"
         )
-        self.client = OpenAI(api_key=api_key, base_url=base_url, timeout=60.0)
+        self.client = OpenAI(api_key=api_key, base_url=base_url, timeout=60.0, max_retries=3)
 
     def _parse_response(self, response, tools):
         """

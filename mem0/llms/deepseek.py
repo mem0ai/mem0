@@ -38,7 +38,7 @@ class DeepSeekLLM(LLMBase):
 
         api_key = self.config.api_key or os.getenv("DEEPSEEK_API_KEY")
         base_url = self.config.deepseek_base_url or os.getenv("DEEPSEEK_API_BASE") or "https://api.deepseek.com"
-        self.client = OpenAI(api_key=api_key, base_url=base_url, timeout=60.0)
+        self.client = OpenAI(api_key=api_key, base_url=base_url, timeout=60.0, max_retries=3)
 
     def _parse_response(self, response, tools):
         """
