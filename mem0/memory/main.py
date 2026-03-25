@@ -9,7 +9,7 @@ import uuid
 import warnings
 from copy import deepcopy
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import ValidationError
 
@@ -1160,12 +1160,12 @@ class Memory(MemoryBase):
         capture_event("mem0.history", self, {"memory_id": memory_id, "sync_type": "sync"})
         return self.db.get_history(memory_id)
 
-    def _create_memory(self, data, existing_embeddings, metadata=None):
+    def _create_memory(self, data: str, existing_embeddings: Union[Dict[str, List[float]], List[float]], metadata=None):
         logger.debug(f"Creating memory with {data=}")
         # existing_embeddings may be a dict (preferred) or a precomputed vector
         if isinstance(existing_embeddings, dict) and data in existing_embeddings:
             embeddings = existing_embeddings[data]
-        elif isinstance(existing_embeddings, list):
+        elif not isinstance(existing_embeddings, dict):
             embeddings = existing_embeddings
         else:
             embeddings = self.embedding_model.embed(data, memory_action="add")
@@ -1230,7 +1230,7 @@ class Memory(MemoryBase):
 
         return result
 
-    def _update_memory(self, memory_id, data, existing_embeddings, metadata=None):
+    def _update_memory(self, memory_id, data: str, existing_embeddings: Union[Dict[str, List[float]], List[float]], metadata=None):
         logger.info(f"Updating memory with {data=}")
 
         try:
@@ -1265,7 +1265,7 @@ class Memory(MemoryBase):
 
         if isinstance(existing_embeddings, dict) and data in existing_embeddings:
             embeddings = existing_embeddings[data]
-        elif isinstance(existing_embeddings, list):
+        elif not isinstance(existing_embeddings, dict):
             embeddings = existing_embeddings
         else:
             embeddings = self.embedding_model.embed(data, "update")
@@ -2252,12 +2252,12 @@ class AsyncMemory(MemoryBase):
         capture_event("mem0.history", self, {"memory_id": memory_id, "sync_type": "async"})
         return await asyncio.to_thread(self.db.get_history, memory_id)
 
-    async def _create_memory(self, data, existing_embeddings, metadata=None):
+    async def _create_memory(self, data: str, existing_embeddings: Union[Dict[str, List[float]], List[float]], metadata=None):
         logger.debug(f"Creating memory with {data=}")
         # existing_embeddings may be a dict (preferred) or a precomputed vector
         if isinstance(existing_embeddings, dict) and data in existing_embeddings:
             embeddings = existing_embeddings[data]
-        elif isinstance(existing_embeddings, list):
+        elif not isinstance(existing_embeddings, dict):
             embeddings = existing_embeddings
         else:
             embeddings = await asyncio.to_thread(self.embedding_model.embed, data, memory_action="add")
@@ -2341,7 +2341,7 @@ class AsyncMemory(MemoryBase):
 
         return result
 
-    async def _update_memory(self, memory_id, data, existing_embeddings, metadata=None):
+    async def _update_memory(self, memory_id, data: str, existing_embeddings: Union[Dict[str, List[float]], List[float]], metadata=None):
         logger.info(f"Updating memory with {data=}")
 
         try:
@@ -2377,7 +2377,7 @@ class AsyncMemory(MemoryBase):
 
         if isinstance(existing_embeddings, dict) and data in existing_embeddings:
             embeddings = existing_embeddings[data]
-        elif isinstance(existing_embeddings, list):
+        elif not isinstance(existing_embeddings, dict):
             embeddings = existing_embeddings
         else:
             embeddings = await asyncio.to_thread(self.embedding_model.embed, data, "update")

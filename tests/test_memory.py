@@ -517,3 +517,58 @@ def test_add_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm_fa
     # It should NOT be called a 3rd time inside _create_memory
     assert embedder.embed.call_count == 2
     mock_vector_store.insert.assert_called_once()
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_update_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """
+    Regression test for issue #3723 (infer=True UPDATE path): when the LLM rewrites a fact during
+    an UPDATE action, the embedding should be computed once and cached, not computed again inside _update_memory.
+    """
+    embedder = MagicMock()
+    embedder.embed.return_value = [0.1, 0.2, 0.3]
+    embedder.config = MagicMock(embedding_dims=3)
+    mock_embedder_factory.return_value = embedder
+
+    # Existing memory that will be matched for update
+    existing_memory = MockVectorMemory(
+        memory_id="existing-mem-id",
+        payload={
+            "data": "User likes Python",
+            "hash": "abc123",
+            "created_at": "2025-01-01T00:00:00+00:00",
+        },
+    )
+
+    mock_vector_store = MagicMock()
+    mock_vector_store.search.return_value = [existing_memory]
+    mock_vector_store.get.return_value = existing_memory
+    mock_vector_store.insert.return_value = None
+    mock_vector_store.update.return_value = None
+    telemetry_vector_store = MagicMock()
+    mock_vector_factory.side_effect = [mock_vector_store, telemetry_vector_store]
+
+    # LLM extracts fact "User loves Python now", then UPDATE action rewrites to "The user loves Python"
+    mock_llm = MagicMock()
+    mock_llm.generate_response.side_effect = [
+        json.dumps({"facts": ["User loves Python now"]}),
+        json.dumps({"memory": [{"id": "0", "text": "The user loves Python", "event": "UPDATE", "old_memory": "User likes Python"}]}),
+    ]
+    mock_llm_factory.return_value = mock_llm
+
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    memory = MemoryClass(MemoryConfig())
+
+    memory.add("I love Python now", user_id="test_user", infer=True)
+
+    # embed should be called exactly twice:
+    # 1. For the extracted fact "User loves Python now" (search)
+    # 2. For the rewritten text "The user loves Python" (pre-cached before _update_memory)
+    # It should NOT be called a 3rd time inside _update_memory
+    assert embedder.embed.call_count == 2
+    mock_vector_store.update.assert_called_once()
