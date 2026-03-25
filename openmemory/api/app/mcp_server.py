@@ -57,8 +57,8 @@ mcp_router = APIRouter(prefix="/mcp")
 # Initialize SSE transport
 sse = SseServerTransport("/mcp/messages/")
 
-@mcp.tool(description="Add a new memory. This method is called everytime the user informs anything about themselves, their preferences, or anything that has any relevant information which can be useful in the future conversation. This can also be called when the user asks you to remember something.")
-async def add_memories(text: str) -> str:
+@mcp.tool(description="Add a new memory. This method is called everytime the user informs anything about themselves, their preferences, or anything that has any relevant information which can be useful in the future conversation. This can also be called when the user asks you to remember something. Set infer to False to store the memory verbatim without LLM fact extraction.")
+async def add_memories(text: str, infer: bool = True) -> str:
     uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
 
@@ -87,7 +87,8 @@ async def add_memories(text: str) -> str:
                                          metadata={
                                             "source_app": "openmemory",
                                             "mcp_client": client_name,
-                                        })
+                                         },
+                                         infer=infer)
 
             # Process the response and update database
             if isinstance(response, dict) and 'results' in response:
