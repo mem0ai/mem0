@@ -69,11 +69,11 @@ def test_search_vectors(upstash_instance, mock_index):
             {
                 "vector": vectors[0],
                 "top_k": 2,
-                "namespace": "ns",
                 "include_metadata": True,
                 "filter": 'age = 30 AND name = "John"',
             }
-        ]
+        ],
+        namespace="ns",
     )
 
     assert len(results) == 2
@@ -311,11 +311,11 @@ def test_search_vectors_empty_filters(upstash_instance):
             {
                 "vector": vectors[0],
                 "top_k": 1,
-                "namespace": "ns",
                 "include_metadata": True,
                 "filter": "",
             }
-        ]
+        ],
+        namespace="ns",
     )
 
     assert len(results) == 1
@@ -350,3 +350,127 @@ def test_insert_vectors_no_ids(upstash_instance):
         ],
         namespace="ns",
     )
+
+
+def test_search_vectors_multi_query_regression(upstash_instance):
+    """
+    Regression test for PR #4252: namespace kwarg passed to query_many().
+    
+    Exercises the multi-query branch (enable_embeddings=False) to verify:
+    1. Multiple vectors generate multiple queries
+    2. query_many is called with namespace as top-level kwarg (not in query dicts)
+    3. Results from multiple queries are properly flattened
+    """
+    # Mock results for two separate vector queries
+    results_query_1 = [
+        QueryResult(id="id1", score=0.9, vector=None, metadata={"content": "doc1"}, data=None),
+        QueryResult(id="id2", score=0.8, vector=None, metadata={"content": "doc2"}, data=None),
+    ]
+    results_query_2 = [
+        QueryResult(id="id3", score=0.7, vector=None, metadata={"content": "doc3"}, data=None),
+        QueryResult(id="id4", score=0.6, vector=None, metadata={"content": "doc4"}, data=None),
+    ]
+    
+    # query_many returns a list of lists (one per query)
+    upstash_instance.client.query_many.return_value = [results_query_1, results_query_2]
+
+    # Search with two vectors and filters
+    vectors = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+    results = upstash_instance.search(
+        query="test query",
+        vectors=vectors,
+        limit=2,
+        filters={"type": "document"},
+    )
+
+    # Verify namespace was passed as top-level kwarg, not in query dicts
+    upstash_instance.client.query_many.assert_called_once_with(
+        queries=[
+            {
+                "vector": vectors[0],
+                "top_k": 2,
+                "include_metadata": True,
+                "filter": 'type = "document"',
+            },
+            {
+                "vector": vectors[1],
+                "top_k": 2,
+                "include_metadata": True,
+                "filter": 'type = "document"',
+            },
+        ],
+        namespace="ns",
+    )
+
+    # Verify results are properly flattened from multiple queries
+    assert len(results) == 4
+    assert results[0].id == "id1"
+    assert results[0].score == 0.9
+    assert results[0].payload == {"content": "doc1"}
+    assert results[1].id == "id2"
+    assert results[1].score == 0.8
+    assert results[2].id == "id3"
+    assert results[2].score == 0.7
+    assert results[3].id == "id4"
+    assert results[3].score == 0.6
+
+
+def test_search_e2e_no_embeddings_multi_query_flattened(mock_index):
+    """
+    Regression for #4207: search() with enable_embeddings=False and multiple
+    query vectors must pass namespace as a top-level kwarg to query_many()
+    and return a single flat list of OutputData across all queries.
+
+    Before the fix the namespace was placed inside each per-vector query dict,
+    which the Upstash client silently ignores, causing the search to hit the
+    wrong (default) namespace.
+    """
+    instance = UpstashVector(
+        client=mock_index.return_value,
+        collection_name="test-ns",
+        enable_embeddings=False,
+    )
+
+    # Simulate query_many returning separate result lists per vector query
+    instance.client.query_many.return_value = [
+        [
+            QueryResult(id="a1", score=0.95, metadata={"topic": "ai"}),
+            QueryResult(id="a2", score=0.80, metadata={"topic": "ml"}),
+        ],
+        [
+            QueryResult(id="b1", score=0.75, metadata={"topic": "nlp"}),
+        ],
+        [
+            QueryResult(id="c1", score=0.60, metadata={"topic": "cv"}),
+            QueryResult(id="c2", score=0.55, metadata={"topic": "rl"}),
+        ],
+    ]
+
+    results = instance.search(
+        query="unused when embeddings disabled",
+        vectors=[[0.1, 0.2], [0.3, 0.4], [0.5, 0.6]],
+        limit=5,
+        filters={"topic": "ai"},
+    )
+
+    # Results must be a single flat list, not nested per-query
+    assert isinstance(results, list)
+    assert len(results) == 5
+
+    expected = [
+        ("a1", 0.95, {"topic": "ai"}),
+        ("a2", 0.80, {"topic": "ml"}),
+        ("b1", 0.75, {"topic": "nlp"}),
+        ("c1", 0.60, {"topic": "cv"}),
+        ("c2", 0.55, {"topic": "rl"}),
+    ]
+    for result, (exp_id, exp_score, exp_payload) in zip(results, expected):
+        assert result.id == exp_id
+        assert result.score == exp_score
+        assert result.payload == exp_payload
+
+    # Namespace must be a top-level kwarg, not inside individual query dicts
+    call_kwargs = instance.client.query_many.call_args
+    assert call_kwargs.kwargs["namespace"] == "test-ns"
+    for q in call_kwargs.kwargs["queries"]:
+        assert "namespace" not in q
