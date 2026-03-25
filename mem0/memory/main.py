@@ -1180,24 +1180,24 @@ class Memory(MemoryBase):
         else:
             embeddings = self.embedding_model.embed(data, memory_action="add")
         memory_id = str(uuid.uuid4())
-        metadata = metadata or {}
-        metadata["data"] = data
-        metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        metadata["created_at"] = datetime.now(timezone.utc).isoformat()
+        new_metadata = deepcopy(metadata) if metadata is not None else {}
+        new_metadata["data"] = data
+        new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
+        new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
 
         self.vector_store.insert(
             vectors=[embeddings],
             ids=[memory_id],
-            payloads=[metadata],
+            payloads=[new_metadata],
         )
         self.db.add_history(
             memory_id,
             None,
             data,
             "ADD",
-            created_at=metadata.get("created_at"),
-            actor_id=metadata.get("actor_id"),
-            role=metadata.get("role"),
+            created_at=new_metadata.get("created_at"),
+            actor_id=new_metadata.get("actor_id"),
+            role=new_metadata.get("role"),
         )
         return memory_id
 
@@ -1231,9 +1231,10 @@ class Memory(MemoryBase):
         if metadata is None:
             raise ValueError("Metadata cannot be done for procedural memory.")
 
-        metadata["memory_type"] = MemoryType.PROCEDURAL.value
+        new_metadata = deepcopy(metadata)
+        new_metadata["memory_type"] = MemoryType.PROCEDURAL.value
         embeddings = self.embedding_model.embed(procedural_memory, memory_action="add")
-        memory_id = self._create_memory(procedural_memory, {procedural_memory: embeddings}, metadata=metadata)
+        memory_id = self._create_memory(procedural_memory, {procedural_memory: embeddings}, metadata=new_metadata)
         capture_event("mem0._create_procedural_memory", self, {"memory_id": memory_id, "sync_type": "sync"})
 
         result = {"results": [{"id": memory_id, "memory": procedural_memory, "event": "ADD"}]}
@@ -2278,16 +2279,16 @@ class AsyncMemory(MemoryBase):
             embeddings = await asyncio.to_thread(self.embedding_model.embed, data, memory_action="add")
 
         memory_id = str(uuid.uuid4())
-        metadata = metadata or {}
-        metadata["data"] = data
-        metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        metadata["created_at"] = datetime.now(timezone.utc).isoformat()
+        new_metadata = deepcopy(metadata) if metadata is not None else {}
+        new_metadata["data"] = data
+        new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
+        new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
 
         await asyncio.to_thread(
             self.vector_store.insert,
             vectors=[embeddings],
             ids=[memory_id],
-            payloads=[metadata],
+            payloads=[new_metadata],
         )
 
         await asyncio.to_thread(
@@ -2296,9 +2297,9 @@ class AsyncMemory(MemoryBase):
             None,
             data,
             "ADD",
-            created_at=metadata.get("created_at"),
-            actor_id=metadata.get("actor_id"),
-            role=metadata.get("role"),
+            created_at=new_metadata.get("created_at"),
+            actor_id=new_metadata.get("actor_id"),
+            role=new_metadata.get("role"),
         )
 
         return memory_id
@@ -2347,9 +2348,10 @@ class AsyncMemory(MemoryBase):
         if metadata is None:
             raise ValueError("Metadata cannot be done for procedural memory.")
 
-        metadata["memory_type"] = MemoryType.PROCEDURAL.value
+        new_metadata = deepcopy(metadata)
+        new_metadata["memory_type"] = MemoryType.PROCEDURAL.value
         embeddings = await asyncio.to_thread(self.embedding_model.embed, procedural_memory, memory_action="add")
-        memory_id = await self._create_memory(procedural_memory, {procedural_memory: embeddings}, metadata=metadata)
+        memory_id = await self._create_memory(procedural_memory, {procedural_memory: embeddings}, metadata=new_metadata)
         capture_event("mem0._create_procedural_memory", self, {"memory_id": memory_id, "sync_type": "async"})
 
         result = {"results": [{"id": memory_id, "memory": procedural_memory, "event": "ADD"}]}
