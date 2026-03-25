@@ -5,6 +5,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import uuid
 import warnings
 from copy import deepcopy
@@ -507,30 +508,32 @@ class Memory(MemoryBase):
         # Ensure 'json' appears in prompts for json_object response format compatibility
         system_prompt, user_prompt = ensure_json_instruction(system_prompt, user_prompt)
 
-        response = self.llm.generate_response(
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            response_format={"type": "json_object"},
-        )
-
-        try:
-            response = remove_code_blocks(response)
-            if not response.strip():
-                new_retrieved_facts = []
-            else:
+        new_retrieved_facts = []
+        _fact_messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}]
+        for _attempt in range(3):
+            try:
+                response = self.llm.generate_response(
+                    messages=_fact_messages,
+                    response_format={"type": "json_object"},
+                )
+                response = remove_code_blocks(response)
+                # Clean invalid surrogate pair escapes (common with Qwen3 and other non-OpenAI LLMs)
+                response = re.sub(r'\\u[dD][89a-fA-F][0-9a-fA-F]{2}', '', response)
+                if not response.strip():
+                    new_retrieved_facts = []
+                    break
                 try:
-                    # First try direct JSON parsing
                     new_retrieved_facts = json.loads(response, strict=False)["facts"]
                 except json.JSONDecodeError:
-                    # Try extracting JSON from response using built-in function
                     extracted_json = extract_json(response)
                     new_retrieved_facts = json.loads(extracted_json, strict=False)["facts"]
                 new_retrieved_facts = normalize_facts(new_retrieved_facts)
-        except Exception as e:
-            logger.error(f"Error in new_retrieved_facts: {e}")
-            new_retrieved_facts = []
+                break  # Success
+            except Exception as e:
+                logger.warning(f"Fact extraction attempt {_attempt + 1}/3 failed: {e}")
+                if _attempt == 2:
+                    logger.error("Fact extraction failed after 3 attempts, skipping")
+                    new_retrieved_facts = []
 
         if not new_retrieved_facts:
             logger.debug("No new facts retrieved from input. Skipping memory update LLM call.")
@@ -1584,27 +1587,33 @@ class AsyncMemory(MemoryBase):
         # Ensure 'json' appears in prompts for json_object response format compatibility
         system_prompt, user_prompt = ensure_json_instruction(system_prompt, user_prompt)
 
-        response = await asyncio.to_thread(
-            self.llm.generate_response,
-            messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
-            response_format={"type": "json_object"},
-        )
-        try:
-            response = remove_code_blocks(response)
-            if not response.strip():
-                new_retrieved_facts = []
-            else:
+        new_retrieved_facts = []
+        _fact_messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}]
+        for _attempt in range(3):
+            try:
+                response = await asyncio.to_thread(
+                    self.llm.generate_response,
+                    messages=_fact_messages,
+                    response_format={"type": "json_object"},
+                )
+                response = remove_code_blocks(response)
+                # Clean invalid surrogate pair escapes (common with Qwen3 and other non-OpenAI LLMs)
+                response = re.sub(r'\\u[dD][89a-fA-F][0-9a-fA-F]{2}', '', response)
+                if not response.strip():
+                    new_retrieved_facts = []
+                    break
                 try:
-                    # First try direct JSON parsing
                     new_retrieved_facts = json.loads(response, strict=False)["facts"]
                 except json.JSONDecodeError:
-                    # Try extracting JSON from response using built-in function
                     extracted_json = extract_json(response)
                     new_retrieved_facts = json.loads(extracted_json, strict=False)["facts"]
                 new_retrieved_facts = normalize_facts(new_retrieved_facts)
-        except Exception as e:
-            logger.error(f"Error in new_retrieved_facts: {e}")
-            new_retrieved_facts = []
+                break  # Success
+            except Exception as e:
+                logger.warning(f"Fact extraction attempt {_attempt + 1}/3 failed: {e}")
+                if _attempt == 2:
+                    logger.error("Fact extraction failed after 3 attempts, skipping")
+                    new_retrieved_facts = []
 
         if not new_retrieved_facts:
             logger.debug("No new facts retrieved from input. Skipping memory update LLM call.")
