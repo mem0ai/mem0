@@ -1,0 +1,243 @@
+/**
+ * Configuration parsing, env var resolution, and default instructions/categories.
+ */
+
+import type { Mem0Config, Mem0Mode } from "./types.ts";
+
+// ============================================================================
+// Env Var Resolution
+// ============================================================================
+
+function resolveEnvVars(value: string): string {
+  return value.replace(/\$\{([^}]+)\}/g, (_, envVar) => {
+    const envValue = process.env[envVar];
+    if (!envValue) {
+      throw new Error(`Environment variable ${envVar} is not set`);
+    }
+    return envValue;
+  });
+}
+
+function resolveEnvVarsDeep(obj: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (typeof value === "string") {
+      result[key] = resolveEnvVars(value);
+    } else if (value && typeof value === "object" && !Array.isArray(value)) {
+      result[key] = resolveEnvVarsDeep(value as Record<string, unknown>);
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
+// ============================================================================
+// Default Custom Instructions & Categories
+// ============================================================================
+
+export const DEFAULT_CUSTOM_INSTRUCTIONS = `Your Task: Extract durable, actionable facts from conversations between a user and an AI assistant. Only store information that would be useful to an agent in a FUTURE session, days or weeks later.
+
+Before storing any fact, ask: "Would a new agent — with no prior context — benefit from knowing this?" If the answer is no, do not store it.
+
+Information to Extract (in priority order):
+
+1. Configuration & System State Changes:
+   - Tools/services configured, installed, or removed (with versions/dates)
+   - Model assignments for agents, API keys configured (NEVER the key itself — see Exclude)
+   - Cron schedules, automation pipelines, deployment configurations
+   - Architecture decisions (agent hierarchy, system design, deployment strategy)
+   - Specific identifiers: file paths, sheet IDs, channel IDs, user IDs, folder IDs
+
+2. Standing Rules & Policies:
+   - Explicit user directives about behavior ("never create accounts without consent")
+   - Workflow policies ("each agent must review model selection before completing a task")
+   - Security constraints, permission boundaries, access patterns
+
+3. Identity & Demographics:
+   - Name, location, timezone, language preferences
+   - Occupation, employer, job role, industry
+
+4. Preferences & Opinions:
+   - Communication style preferences
+   - Tool and technology preferences (with specifics: versions, configs)
+   - Strong opinions or values explicitly stated
+   - The WHY behind preferences when stated
+
+5. Goals, Projects & Milestones:
+   - Active projects (name, description, current status)
+   - Completed setup milestones ("ElevenLabs fully configured as of 2026-02-20")
+   - Deadlines, roadmaps, and progress tracking
+   - Problems actively being solved
+
+6. Technical Context:
+   - Tech stack, tools, development environment
+   - Agent ecosystem structure (names, roles, relationships)
+   - Skill levels in different areas
+
+7. Relationships & People:
+   - Names and roles of people mentioned (colleagues, family, clients)
+   - Team structure, key contacts
+
+8. Decisions & Lessons:
+   - Important decisions made and their reasoning
+   - Lessons learned, strategies that worked or failed
+
+Guidelines:
+
+TEMPORAL ANCHORING (critical):
+- ALWAYS include temporal context for time-sensitive facts using "As of YYYY-MM-DD, ..."
+- Extract dates from message timestamps, dates mentioned in the text, or the system-provided current date
+- If no date is available, note "date unknown" rather than omitting temporal context
+- Examples: "As of 2026-02-20, ElevenLabs setup is complete" NOT "ElevenLabs setup is complete"
+
+CONCISENESS:
+- Use third person ("User prefers..." not "I prefer...")
+- Keep related facts together in a single memory to preserve context
+- "User's Tailscale machine 'mac' (IP 100.71.135.41) is configured under beau@rizedigital.io (as of 2026-02-20)"
+- NOT a paragraph retelling the whole conversation
+
+OUTCOMES OVER INTENT:
+- When an assistant message summarizes completed work, extract the durable OUTCOMES
+- "Call scripts sheet (ID: 146Qbb...) was updated with truth-based templates" NOT "User wants to update call scripts"
+- Extract what WAS DONE, not what was requested
+
+DEDUPLICATION:
+- Before creating a new memory, check if a substantially similar fact already exists
+- If so, UPDATE the existing memory with any new details rather than creating a duplicate
+
+LANGUAGE:
+- ALWAYS preserve the original language of the conversation
+- If the user speaks Spanish, store the memory in Spanish; do not translate
+
+Exclude (NEVER store):
+- Passwords, API keys, tokens, secrets, or any credentials — even if shared in conversation. Instead store: "Tavily API key was configured and saved to .env (as of 2026-02-20)"
+- One-time commands or instructions ("stop the script", "continue where you left off")
+- Acknowledgments or emotional reactions ("ok", "sounds good", "you're right", "sir")
+- Transient UI/navigation states ("user is in the admin panel", "relay is attached")
+- Ephemeral process status ("download at 50%", "daemon not running", "still syncing")
+- Cron heartbeat outputs, NO_REPLY responses, compaction flush directives
+- System routing metadata (message IDs, sender IDs, channel routing info)
+- Generic small talk with no informational content
+- Raw code snippets (capture the intent/decision, not the code itself)
+- Information the user explicitly asks not to remember`;
+
+export const DEFAULT_CUSTOM_CATEGORIES: Record<string, string> = {
+  identity:
+    "Personal identity information: name, age, location, timezone, occupation, employer, education, demographics",
+  preferences:
+    "Explicitly stated likes, dislikes, preferences, opinions, and values across any domain",
+  goals:
+    "Current and future goals, aspirations, objectives, targets the user is working toward",
+  projects:
+    "Specific projects, initiatives, or endeavors the user is working on, including status and details",
+  technical:
+    "Technical skills, tools, tech stack, development environment, programming languages, frameworks",
+  decisions:
+    "Important decisions made, reasoning behind choices, strategy changes, and their outcomes",
+  relationships:
+    "People mentioned by the user: colleagues, family, friends, their roles and relevance",
+  routines:
+    "Daily habits, work patterns, schedules, productivity routines, health and wellness habits",
+  life_events:
+    "Significant life events, milestones, transitions, upcoming plans and changes",
+  lessons:
+    "Lessons learned, insights gained, mistakes acknowledged, changed opinions or beliefs",
+  work:
+    "Work-related context: job responsibilities, workplace dynamics, career progression, professional challenges",
+  health:
+    "Health-related information voluntarily shared: conditions, medications, fitness, wellness goals",
+};
+
+// ============================================================================
+// Config Schema
+// ============================================================================
+
+const ALLOWED_KEYS = [
+  "mode",
+  "apiKey",
+  "userId",
+  "orgId",
+  "projectId",
+  "autoCapture",
+  "autoRecall",
+  "customInstructions",
+  "customCategories",
+  "customPrompt",
+  "enableGraph",
+  "searchThreshold",
+  "topK",
+  "oss",
+];
+
+function assertAllowedKeys(
+  value: Record<string, unknown>,
+  allowed: string[],
+  label: string,
+) {
+  const unknown = Object.keys(value).filter((key) => !allowed.includes(key));
+  if (unknown.length === 0) return;
+  throw new Error(`${label} has unknown keys: ${unknown.join(", ")}`);
+}
+
+export const mem0ConfigSchema = {
+  parse(value: unknown): Mem0Config {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      throw new Error("openclaw-mem0 config required");
+    }
+    const cfg = value as Record<string, unknown>;
+    assertAllowedKeys(cfg, ALLOWED_KEYS, "openclaw-mem0 config");
+
+    // Accept both "open-source" and legacy "oss" as open-source mode; everything else is platform
+    const mode: Mem0Mode =
+      cfg.mode === "oss" || cfg.mode === "open-source" ? "open-source" : "platform";
+
+    // Platform mode requires apiKey
+    if (mode === "platform") {
+      if (typeof cfg.apiKey !== "string" || !cfg.apiKey) {
+        throw new Error(
+          "apiKey is required for platform mode (set mode: \"open-source\" for self-hosted)",
+        );
+      }
+    }
+
+    // Resolve env vars in oss config
+    let ossConfig: Mem0Config["oss"];
+    if (cfg.oss && typeof cfg.oss === "object" && !Array.isArray(cfg.oss)) {
+      ossConfig = resolveEnvVarsDeep(
+        cfg.oss as Record<string, unknown>,
+      ) as unknown as Mem0Config["oss"];
+    }
+
+    return {
+      mode,
+      apiKey:
+        typeof cfg.apiKey === "string" ? resolveEnvVars(cfg.apiKey) : undefined,
+      userId:
+        typeof cfg.userId === "string" && cfg.userId ? cfg.userId : "default",
+      orgId: typeof cfg.orgId === "string" ? cfg.orgId : undefined,
+      projectId: typeof cfg.projectId === "string" ? cfg.projectId : undefined,
+      autoCapture: cfg.autoCapture !== false,
+      autoRecall: cfg.autoRecall !== false,
+      customInstructions:
+        typeof cfg.customInstructions === "string"
+          ? cfg.customInstructions
+          : DEFAULT_CUSTOM_INSTRUCTIONS,
+      customCategories:
+        cfg.customCategories &&
+          typeof cfg.customCategories === "object" &&
+          !Array.isArray(cfg.customCategories)
+          ? (cfg.customCategories as Record<string, string>)
+          : DEFAULT_CUSTOM_CATEGORIES,
+      customPrompt:
+        typeof cfg.customPrompt === "string"
+          ? cfg.customPrompt
+          : DEFAULT_CUSTOM_INSTRUCTIONS,
+      enableGraph: cfg.enableGraph === true,
+      searchThreshold:
+        typeof cfg.searchThreshold === "number" ? cfg.searchThreshold : 0.5,
+      topK: typeof cfg.topK === "number" ? cfg.topK : 5,
+      oss: ossConfig,
+    };
+  },
+};

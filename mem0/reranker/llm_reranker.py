@@ -1,10 +1,10 @@
 import re
-from typing import List, Dict, Any, Union
+from typing import Any, Dict, List, Union
 
-from mem0.reranker.base import BaseReranker
-from mem0.utils.factory import LlmFactory
 from mem0.configs.rerankers.base import BaseRerankerConfig
 from mem0.configs.rerankers.llm import LLMRerankerConfig
+from mem0.reranker.base import BaseReranker
+from mem0.utils.factory import LlmFactory
 
 
 class LLMReranker(BaseReranker):
@@ -33,19 +33,30 @@ class LLMReranker(BaseReranker):
 
         self.config = config
 
-        # Create LLM configuration for the factory
-        llm_config = {
-            "model": self.config.model,
-            "temperature": self.config.temperature,
-            "max_tokens": self.config.max_tokens,
-        }
-
-        # Add API key if provided
-        if self.config.api_key:
-            llm_config["api_key"] = self.config.api_key
+        # If a nested ``llm`` dict is provided (e.g. for non-OpenAI providers
+        # like Ollama that need provider-specific fields such as
+        # ``ollama_base_url``), use it to configure the LLM factory.
+        if self.config.llm:
+            nested = self.config.llm
+            llm_provider = nested.get("provider", self.config.provider)
+            llm_config: dict = dict(nested.get("config") or {})
+            llm_config.setdefault("model", self.config.model)
+            llm_config.setdefault("temperature", self.config.temperature)
+            llm_config.setdefault("max_tokens", self.config.max_tokens)
+            if self.config.api_key:
+                llm_config.setdefault("api_key", self.config.api_key)
+        else:
+            llm_provider = self.config.provider
+            llm_config = {
+                "model": self.config.model,
+                "temperature": self.config.temperature,
+                "max_tokens": self.config.max_tokens,
+            }
+            if self.config.api_key:
+                llm_config["api_key"] = self.config.api_key
 
         # Initialize LLM using the factory
-        self.llm = LlmFactory.create(self.config.provider, llm_config)
+        self.llm = LlmFactory.create(llm_provider, llm_config)
 
         # Default scoring prompt
         self.scoring_prompt = getattr(self.config, 'scoring_prompt', None) or self._get_default_prompt()

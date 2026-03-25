@@ -23,8 +23,8 @@ importers:
         specifier: ^1.2.0
         version: 1.2.0(@modelcontextprotocol/sdk@1.12.1)(encoding@0.1.13)
       "@langchain/core":
-        specifier: ^0.3.44
-        version: 0.3.44(openai@4.93.0(encoding@0.1.13)(ws@8.18.1)(zod@3.24.2))
+        specifier: ^1.0.0
+        version: 1.1.32(openai@4.93.0(encoding@0.1.13)(ws@8.18.1)(zod@3.24.2))(ws@8.18.1)
       "@mistralai/mistralai":
         specifier: ^1.5.2
         version: 1.5.2(zod@3.24.2)
@@ -917,12 +917,12 @@ packages:
         integrity: sha512-3Belt6tdc8bPgAtbcmdtNJlirVoTmEb5e2gC94PnkwEW9jI6CAHUeoG85tjWP5WquqfavoMtMwiG4P926ZKKuQ==,
       }
 
-  "@langchain/core@0.3.44":
+  "@langchain/core@1.1.32":
     resolution:
       {
-        integrity: sha512-3BsSFf7STvPPZyl2kMANgtVnCUvDdyP4k+koP+nY2Tczd5V+RFkuazIn/JOj/xxy/neZjr4PxFU4BFyF1aKXOA==,
+        integrity: sha512-ZZNiER5tceFXqZOghfrxNHzM60gcQL5XK/8Ow5+o4OuKHrP1p/RUQBDM9Y1nddi/VmKQj+ncaXXM5KovXTEGGQ==,
       }
-    engines: { node: ">=18" }
+    engines: { node: ">=20" }
 
   "@mistralai/mistralai@1.5.2":
     resolution:
@@ -1214,6 +1214,12 @@ packages:
         integrity: sha512-V4BG07kuYSUkTCSBHG8G8TNhM+F19jXFWnQtzj+we8DrkpSBCee9Z3Ms8yiGer/dlmhe35/Xdgyo3/0rQKg7YA==,
       }
 
+  "@standard-schema/spec@1.1.0":
+    resolution:
+      {
+        integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==,
+      }
+
   "@supabase/auth-js@2.68.0":
     resolution:
       {
@@ -1381,12 +1387,6 @@ packages:
     resolution:
       {
         integrity: sha512-PIzZZlEppgrpoT2QgbnDU+MMzuR6BbCjllj0bM70lWoejMeNJAxCchxnv7J3XFkI8MpygtRpzXrIlmWUBclP5A==,
-      }
-
-  "@types/retry@0.12.0":
-    resolution:
-      {
-        integrity: sha512-wWKOClTTiizcZhXnPY4wikVAwmdYHp8q6DmC+EJUzAMsycb7HB32Kh9RN4+0gExjmPmZSAQjgURXIGATPegAvA==,
       }
 
   "@types/stack-utils@2.0.3":
@@ -1812,6 +1812,13 @@ packages:
         integrity: sha512-oKnbhFyRIXpUuez8iBMmyEa4nbj4IOQyuhc/wy9kY7/WVPcwIO9VA668Pu8RkO7+0G76SLROeyw9CpQ061i4mA==,
       }
     engines: { node: ">=10" }
+
+  chalk@5.6.2:
+    resolution:
+      {
+        integrity: sha512-7NzBL0rN6fMUW+f7A6Io4h40qQlG+xGmtMxfbnH/K7TAtt8JQWVQK+6g0UXKMeVJoyV5EkkNsErQ8pVD3bLHbA==,
+      }
+    engines: { node: ^12.17.0 || ^14.13 || >=16.0.0 }
 
   char-regex@1.0.2:
     resolution:
@@ -3295,15 +3302,27 @@ packages:
         integrity: sha512-Y+60/zizpJ3HRH8DCss+q95yr6145JXZo46OTpFvDZWLfRCE4qChOyk1b26nMaNpfHHgxagk9dXT5OP0Tfe+dQ==,
       }
 
-  langsmith@0.3.15:
+  langsmith@0.5.10:
     resolution:
       {
-        integrity: sha512-cv3ebg0Hh0gRbl72cv/uzaZ+KOdfa2mGF1s74vmB2vlNVO/Ap/O9RYaHV+tpR8nwhGZ50R3ILnTOwSwGP+XQxw==,
+        integrity: sha512-unBdaaD/CqAOLIYjd9kT33FgHUMvHSsyBIPbQa+p/rE/Sv/l4pAC5ISEE79zphxi+vV4qxHqEgqahVXj2Xvz7A==,
       }
     peerDependencies:
+      "@opentelemetry/api": "*"
+      "@opentelemetry/exporter-trace-otlp-proto": "*"
+      "@opentelemetry/sdk-trace-base": "*"
       openai: "*"
+      ws: ">=7"
     peerDependenciesMeta:
+      "@opentelemetry/api":
+        optional: true
+      "@opentelemetry/exporter-trace-otlp-proto":
+        optional: true
+      "@opentelemetry/sdk-trace-base":
+        optional: true
       openai:
+        optional: true
+      ws:
         optional: true
 
   leven@3.1.0:
@@ -3794,13 +3813,6 @@ packages:
       }
     engines: { node: ">=8" }
 
-  p-retry@4.6.2:
-    resolution:
-      {
-        integrity: sha512-312Id396EbJdvRONlngUx0NydfrIQ5lsYu0znKVUzVvArzEIt08V1qhtyESbGVd1FGX7UKtiFp5uwKZdM8wIuQ==,
-      }
-    engines: { node: ">=8" }
-
   p-timeout@3.2.0:
     resolution:
       {
@@ -4270,13 +4282,6 @@ packages:
       }
     engines: { node: ">= 0.4" }
     hasBin: true
-
-  retry@0.13.1:
-    resolution:
-      {
-        integrity: sha512-XQBQ3I8W1Cge0Seh+6gjj03LbmRFWuoszgK9ooCpwYIrhhoO80pfq4cUkU5DkknwfOfFteRwlZ56PYOGYyFWdg==,
-      }
-    engines: { node: ">= 4" }
 
   reusify@1.1.0:
     resolution:
@@ -4928,6 +4933,13 @@ packages:
       }
     hasBin: true
 
+  uuid@11.1.0:
+    resolution:
+      {
+        integrity: sha512-0/A9rDy9P7cJ+8w1c9WD9V//9Wj15Ce2MPz8Ri6032usz+NfePxx5AcN3bN+r6ZL6jEo066/yNYB3tn4pQEx+A==,
+      }
+    hasBin: true
+
   uuid@8.3.2:
     resolution:
       {
@@ -5141,6 +5153,12 @@ packages:
     resolution:
       {
         integrity: sha512-lY7CDW43ECgW9u1TcT3IoXHflywfVqDYze4waEz812jR/bZ8FHDsl7pFQoSZTz5N+2NqRXs8GBwnAwo3ZNxqhQ==,
+      }
+
+  zod@3.25.76:
+    resolution:
+      {
+        integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==,
       }
 
 snapshots:
@@ -5759,22 +5777,25 @@ snapshots:
       "@jridgewell/resolve-uri": 3.1.2
       "@jridgewell/sourcemap-codec": 1.5.0
 
-  "@langchain/core@0.3.44(openai@4.93.0(encoding@0.1.13)(ws@8.18.1)(zod@3.24.2))":
+  "@langchain/core@1.1.32(openai@4.93.0(encoding@0.1.13)(ws@8.18.1)(zod@3.24.2))(ws@8.18.1)":
     dependencies:
       "@cfworker/json-schema": 4.1.1
+      "@standard-schema/spec": 1.1.0
       ansi-styles: 5.2.0
       camelcase: 6.3.0
       decamelize: 1.2.0
       js-tiktoken: 1.0.19
-      langsmith: 0.3.15(openai@4.93.0(encoding@0.1.13)(ws@8.18.1)(zod@3.24.2))
+      langsmith: 0.5.10(openai@4.93.0(encoding@0.1.13)(ws@8.18.1)(zod@3.24.2))(ws@8.18.1)
       mustache: 4.2.0
       p-queue: 6.6.2
-      p-retry: 4.6.2
-      uuid: 10.0.0
-      zod: 3.24.2
-      zod-to-json-schema: 3.24.5(zod@3.24.2)
+      uuid: 11.1.0
+      zod: 3.25.76
     transitivePeerDependencies:
+      - "@opentelemetry/api"
+      - "@opentelemetry/exporter-trace-otlp-proto"
+      - "@opentelemetry/sdk-trace-base"
       - openai
+      - ws
 
   "@mistralai/mistralai@1.5.2(zod@3.24.2)":
     dependencies:
@@ -5919,6 +5940,8 @@ snapshots:
     dependencies:
       "@sinonjs/commons": 3.0.1
 
+  "@standard-schema/spec@1.1.0": {}
+
   "@supabase/auth-js@2.68.0":
     dependencies:
       "@supabase/node-fetch": 2.6.15
@@ -6037,8 +6060,6 @@ snapshots:
       pg-types: 4.0.2
 
   "@types/phoenix@1.6.6": {}
-
-  "@types/retry@0.12.0": {}
 
   "@types/stack-utils@2.0.3": {}
 
@@ -6306,6 +6327,8 @@ snapshots:
     dependencies:
       ansi-styles: 4.3.0
       supports-color: 7.2.0
+
+  chalk@5.6.2: {}
 
   char-regex@1.0.2: {}
 
@@ -7389,17 +7412,17 @@ snapshots:
 
   kolorist@1.8.0: {}
 
-  langsmith@0.3.15(openai@4.93.0(encoding@0.1.13)(ws@8.18.1)(zod@3.24.2)):
+  langsmith@0.5.10(openai@4.93.0(encoding@0.1.13)(ws@8.18.1)(zod@3.24.2))(ws@8.18.1):
     dependencies:
       "@types/uuid": 10.0.0
-      chalk: 4.1.2
+      chalk: 5.6.2
       console-table-printer: 2.12.1
       p-queue: 6.6.2
-      p-retry: 4.6.2
       semver: 7.7.1
       uuid: 10.0.0
     optionalDependencies:
       openai: 4.93.0(encoding@0.1.13)(ws@8.18.1)(zod@3.24.2)
+      ws: 8.18.1
 
   leven@3.1.0: {}
 
@@ -7640,11 +7663,6 @@ snapshots:
     dependencies:
       eventemitter3: 4.0.7
       p-timeout: 3.2.0
-
-  p-retry@4.6.2:
-    dependencies:
-      "@types/retry": 0.12.0
-      retry: 0.13.1
 
   p-timeout@3.2.0:
     dependencies:
@@ -7899,8 +7917,6 @@ snapshots:
       is-core-module: 2.16.1
       path-parse: 1.0.7
       supports-preserve-symlinks-flag: 1.0.0
-
-  retry@0.13.1: {}
 
   reusify@1.1.0: {}
 
@@ -8313,6 +8329,8 @@ snapshots:
 
   uuid@10.0.0: {}
 
+  uuid@11.1.0: {}
+
   uuid@8.3.2: {}
 
   uuid@9.0.1: {}
@@ -8415,3 +8433,5 @@ snapshots:
       zod: 3.24.2
 
   zod@3.24.2: {}
+
+  zod@3.25.76: {}

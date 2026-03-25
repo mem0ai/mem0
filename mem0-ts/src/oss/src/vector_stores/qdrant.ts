@@ -282,7 +282,11 @@ export class Qdrant implements VectorStore {
         },
       });
     } catch (error: any) {
-      if (error?.status === 409) {
+      if (
+        error?.status === 409 ||
+        error?.status === 401 ||
+        error?.status === 403
+      ) {
         // Collection already exists — verify configuration for the main collection
         if (name === this.collectionName) {
           try {

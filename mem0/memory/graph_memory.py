@@ -129,6 +129,28 @@ class MemoryGraph:
 
         return search_results
 
+    def delete(self, data, filters):
+        """
+        Delete graph entities associated with the given memory text.
+
+        Extracts entities and relationships from the memory text using the same
+        pipeline as add(), then soft-deletes the matching relationships in the graph.
+
+        Args:
+            data (str): The memory text whose graph entities should be removed.
+            filters (dict): Scope filters (user_id, agent_id, run_id).
+        """
+        try:
+            entity_type_map = self._retrieve_nodes_from_data(data, filters)
+            if not entity_type_map:
+                logger.debug("No entities found in memory text, skipping graph cleanup")
+                return
+            to_be_deleted = self._establish_nodes_relations_from_data(data, filters, entity_type_map)
+            if to_be_deleted:
+                self._delete_entities(to_be_deleted, filters)
+        except Exception as e:
+            logger.error(f"Error during graph cleanup for memory delete: {e}")
+
     def delete_all(self, filters):
         # Build node properties for filtering
         node_props = ["user_id: $user_id"]
@@ -174,6 +196,7 @@ class MemoryGraph:
 
         query = f"""
         MATCH (n {self.node_label} {{{node_props_str}}})-[r]->(m {self.node_label} {{{node_props_str}}})
+        WHERE r.valid IS NULL OR r.valid = true
         RETURN n.name AS source, type(r) AS relationship, m.name AS target
         LIMIT $limit
         """
@@ -215,7 +238,7 @@ class MemoryGraph:
             for tool_call in search_results["tool_calls"]:
                 if tool_call["name"] != "extract_entities":
                     continue
-                for item in tool_call["arguments"]["entities"]:
+                for item in tool_call.get("arguments", {}).get("entities", []):
                     entity_type_map[item["entity"]] = item["entity_type"]
         except Exception as e:
             logger.exception(
@@ -291,10 +314,12 @@ class MemoryGraph:
             CALL {{
                 WITH n
                 MATCH (n)-[r]->(m {self.node_label} {{{node_props_str}}})
+                WHERE r.valid IS NULL OR r.valid = true
                 RETURN n.name AS source, elementId(n) AS source_id, type(r) AS relationship, elementId(r) AS relation_id, m.name AS destination, elementId(m) AS destination_id
                 UNION
                 WITH n  
                 MATCH (n)<-[r]-(m {self.node_label} {{{node_props_str}}})
+                WHERE r.valid IS NULL OR r.valid = true
                 RETURN m.name AS source, elementId(m) AS source_id, type(r) AS relationship, elementId(r) AS relation_id, n.name AS destination, elementId(n) AS destination_id
             }}
             WITH distinct source, source_id, relationship, relation_id, destination, destination_id, similarity
@@ -392,13 +417,15 @@ class MemoryGraph:
             source_props_str = ", ".join(source_props)
             dest_props_str = ", ".join(dest_props)
 
-            # Delete the specific relationship between nodes
+            # Soft-delete: mark relationship as invalid instead of removing it,
+            # enabling temporal reasoning over historical graph state.
+            # See: https://github.com/mem0ai/mem0/issues/4187
             cypher = f"""
             MATCH (n {self.node_label} {{{source_props_str}}})
             -[r:{relationship}]->
             (m {self.node_label} {{{dest_props_str}}})
-            
-            DELETE r
+            WHERE r.valid IS NULL OR r.valid = true
+            SET r.valid = false, r.invalidated_at = datetime()
             RETURN 
                 n.name AS source,
                 m.name AS target,
@@ -464,11 +491,16 @@ class MemoryGraph:
                 CALL db.create.setNodeVectorProperty(destination, 'embedding', $destination_embedding)
                 WITH source, destination
                 MERGE (source)-[r:{relationship}]->(destination)
-                ON CREATE SET 
-                    r.created = timestamp(),
-                    r.mentions = 1
+                ON CREATE SET
+                    r.created_at = timestamp(),
+                    r.updated_at = timestamp(),
+                    r.mentions = 1,
+                    r.valid = true
                 ON MATCH SET
-                    r.mentions = coalesce(r.mentions, 0) + 1
+                    r.mentions = coalesce(r.mentions, 0) + 1,
+                    r.valid = true,
+                    r.updated_at = timestamp(),
+                    r.invalidated_at = null
                 RETURN source.name AS source, type(r) AS relationship, destination.name AS target
                 """
 
@@ -508,11 +540,16 @@ class MemoryGraph:
                 CALL db.create.setNodeVectorProperty(source, 'embedding', $source_embedding)
                 WITH source, destination
                 MERGE (source)-[r:{relationship}]->(destination)
-                ON CREATE SET 
-                    r.created = timestamp(),
-                    r.mentions = 1
+                ON CREATE SET
+                    r.created_at = timestamp(),
+                    r.updated_at = timestamp(),
+                    r.mentions = 1,
+                    r.valid = true
                 ON MATCH SET
-                    r.mentions = coalesce(r.mentions, 0) + 1
+                    r.mentions = coalesce(r.mentions, 0) + 1,
+                    r.valid = true,
+                    r.updated_at = timestamp(),
+                    r.invalidated_at = null
                 RETURN source.name AS source, type(r) AS relationship, destination.name AS target
                 """
 
@@ -537,11 +574,16 @@ class MemoryGraph:
                 WHERE elementId(destination) = $destination_id
                 SET destination.mentions = coalesce(destination.mentions, 0) + 1
                 MERGE (source)-[r:{relationship}]->(destination)
-                ON CREATE SET 
+                ON CREATE SET
                     r.created_at = timestamp(),
                     r.updated_at = timestamp(),
-                    r.mentions = 1
-                ON MATCH SET r.mentions = coalesce(r.mentions, 0) + 1
+                    r.mentions = 1,
+                    r.valid = true
+                ON MATCH SET
+                    r.mentions = coalesce(r.mentions, 0) + 1,
+                    r.valid = true,
+                    r.updated_at = timestamp(),
+                    r.invalidated_at = null
                 RETURN source.name AS source, type(r) AS relationship, destination.name AS target
                 """
 
@@ -585,10 +627,18 @@ class MemoryGraph:
                 WITH source, destination
                 CALL db.create.setNodeVectorProperty(destination, 'embedding', $dest_embedding)
                 WITH source, destination
-                MERGE (source)-[rel:{relationship}]->(destination)
-                ON CREATE SET rel.created = timestamp(), rel.mentions = 1
-                ON MATCH SET rel.mentions = coalesce(rel.mentions, 0) + 1
-                RETURN source.name AS source, type(rel) AS relationship, destination.name AS target
+                MERGE (source)-[r:{relationship}]->(destination)
+                ON CREATE SET
+                    r.created_at = timestamp(),
+                    r.updated_at = timestamp(),
+                    r.mentions = 1,
+                    r.valid = true
+                ON MATCH SET
+                    r.mentions = coalesce(r.mentions, 0) + 1,
+                    r.valid = true,
+                    r.updated_at = timestamp(),
+                    r.invalidated_at = null
+                RETURN source.name AS source, type(r) AS relationship, destination.name AS target
                 """
 
                 params = {

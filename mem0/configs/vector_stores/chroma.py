@@ -32,8 +32,8 @@ class ChromaDbConfig(BaseModel):
             values.pop("path", None)
             return values
         
-        # Check if local/server configuration is provided (excluding default tmp path for cloud config)
-        local_config = bool(path and path != "/tmp/chroma") or bool(host and port)
+        # Check if local/server configuration is provided
+        local_config = bool(path) or bool(host and port)
         
         if not cloud_config and not local_config:
             raise ValueError("Either ChromaDB Cloud configuration (api_key, tenant) or local configuration (path or host/port) must be provided.")

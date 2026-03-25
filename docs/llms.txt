@@ -104,7 +104,7 @@ Key differentiators:
 - [Together](https://docs.mem0.ai/components/llms/models/together): Open-source model inference platform
 - [DeepSeek](https://docs.mem0.ai/components/llms/models/deepseek): Advanced reasoning models
 - [Sarvam](https://docs.mem0.ai/components/llms/models/sarvam): Indian language models
-- [XAI](https://docs.mem0.ai/components/llms/models/xai): xAI models integration
+- [XAI](https://docs.mem0.ai/components/llms/models/xAI): xAI models integration
 - [LiteLLM](https://docs.mem0.ai/components/llms/models/litellm): Unified LLM interface and proxy
 - [LangChain](https://docs.mem0.ai/components/llms/models/langchain): LangChain LLM integration
 - [OpenAI Structured](https://docs.mem0.ai/components/llms/models/openai_structured): OpenAI with structured output support
@@ -120,7 +120,7 @@ Key differentiators:
 - [Milvus](https://docs.mem0.ai/components/vectordbs/dbs/milvus): Open-source vector database for AI applications at scale
 - [Redis](https://docs.mem0.ai/components/vectordbs/dbs/redis): Real-time vector storage and search with Redis Stack
 - [Supabase](https://docs.mem0.ai/components/vectordbs/dbs/supabase): Open-source Firebase alternative with vector support
-- [Upstash Vector](https://docs.mem0.ai/components/vectordbs/dbs/upstash_vector): Serverless vector database
+- [Upstash Vector](https://docs.mem0.ai/components/vectordbs/dbs/upstash-vector): Serverless vector database
 - [Elasticsearch](https://docs.mem0.ai/components/vectordbs/dbs/elasticsearch): Distributed search and analytics engine
 - [OpenSearch](https://docs.mem0.ai/components/vectordbs/dbs/opensearch): Open-source search and analytics platform
 - [FAISS](https://docs.mem0.ai/components/vectordbs/dbs/faiss): Facebook AI Similarity Search library
@@ -136,9 +136,9 @@ Key differentiators:
 
 - [OpenAI Embeddings](https://docs.mem0.ai/components/embedders/models/openai): High-quality text embeddings with customizable dimensions
 - [Azure OpenAI Embeddings](https://docs.mem0.ai/components/embedders/models/azure_openai): Enterprise Azure-hosted embedding models
-- [Google AI](https://docs.mem0.ai/components/embedders/models/google_ai): Gemini embedding models
+- [Google AI](https://docs.mem0.ai/components/embedders/models/google_AI): Gemini embedding models
 - [AWS Bedrock](https://docs.mem0.ai/components/embedders/models/aws_bedrock): Amazon embedding models through Bedrock
-- [Hugging Face](https://docs.mem0.ai/components/embedders/models/hugging_face): Open-source embedding models for local deployment
+- [Hugging Face](https://docs.mem0.ai/components/embedders/models/huggingface): Open-source embedding models for local deployment
 - [Vertex AI](https://docs.mem0.ai/components/embedders/models/vertexai): Google Cloud's enterprise embedding models
 - [Ollama](https://docs.mem0.ai/components/embedders/models/ollama): Local embedding models for privacy-focused applications
 - [Together](https://docs.mem0.ai/components/embedders/models/together): Open-source model embeddings
@@ -213,4 +213,3 @@ Key differentiators:
 - [FAQs](https://docs.mem0.ai/platform/faqs): Frequently asked questions about Mem0's Platform capabilities and implementation details
 - [Changelog](https://docs.mem0.ai/changelog): Detailed product updates and version history for tracking new features and improvements
 - [Contributing Guide](https://docs.mem0.ai/contributing/development): Guidelines for contributing to Mem0's open-source development
-- [OpenMemory](https://docs.mem0.ai/openmemory/overview): Open-source memory infrastructure for research and experimentation

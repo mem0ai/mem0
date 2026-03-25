@@ -32,7 +32,7 @@ describe("backward compat: ConfigManager.mergeConfig", () => {
     expect(cfg.embedder.provider).toBe("openai");
     expect(cfg.vectorStore.provider).toBe("memory");
     expect(cfg.vectorStore.config.collectionName).toBe("memories");
-    expect(cfg.vectorStore.config.dimension).toBe(1536);
+    expect(cfg.vectorStore.config.dimension).toBeUndefined();
     expect(cfg.llm.provider).toBe("openai");
     expect(cfg.historyStore).toBeDefined();
     expect(cfg.historyStore!.provider).toBe("sqlite");

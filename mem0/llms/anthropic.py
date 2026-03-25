@@ -40,6 +40,31 @@ class AnthropicLLM(LLMBase):
         api_key = self.config.api_key or os.getenv("ANTHROPIC_API_KEY")
         self.client = anthropic.Anthropic(api_key=api_key)
 
+    def _get_common_params(self, **kwargs) -> Dict:
+        """Get common parameters, avoiding sending both temperature and top_p together.
+
+        Anthropic rejects requests that include both temperature and top_p.
+        When both are set, we keep temperature and drop top_p.
+        """
+        params = {}
+
+        if self.config.max_tokens is not None:
+            params["max_tokens"] = self.config.max_tokens
+
+        has_temperature = self.config.temperature is not None
+        has_top_p = self.config.top_p is not None
+
+        if has_temperature and has_top_p:
+            # Anthropic forbids both; prefer temperature
+            params["temperature"] = self.config.temperature
+        elif has_temperature:
+            params["temperature"] = self.config.temperature
+        elif has_top_p:
+            params["top_p"] = self.config.top_p
+
+        params.update(kwargs)
+        return params
+
     def generate_response(
         self,
         messages: List[Dict[str, str]],

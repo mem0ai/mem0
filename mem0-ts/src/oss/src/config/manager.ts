@@ -20,15 +20,28 @@ export class ConfigManager {
             finalModel = userConf.model;
           }
 
+          // Normalize snake_case keys from Python SDK / OpenClaw configs
+          const baseURL =
+            userConf?.baseURL ??
+            ((userConf as Record<string, unknown>)?.lmstudio_base_url as
+              | string
+              | undefined) ??
+            userConf?.url;
+          const embeddingDims =
+            userConf?.embeddingDims ??
+            ((userConf as Record<string, unknown>)?.embedding_dims as
+              | number
+              | undefined);
+
           return {
             apiKey:
               userConf?.apiKey !== undefined
                 ? userConf.apiKey
                 : defaultConf.apiKey,
             model: finalModel,
-            baseURL: userConf?.baseURL,
+            baseURL,
             url: userConf?.url,
-            embeddingDims: userConf?.embeddingDims,
+            embeddingDims,
             modelProperties:
               userConf?.modelProperties !== undefined
                 ? userConf.modelProperties
@@ -91,8 +104,17 @@ export class ConfigManager {
             finalModel = userConf.model;
           }
 
+          // Normalize snake_case keys from Python SDK / OpenClaw configs
+          const llmBaseURL =
+            userConf?.baseURL ??
+            ((userConf as Record<string, unknown>)?.lmstudio_base_url as
+              | string
+              | undefined) ??
+            defaultConf.baseURL;
+
           return {
-            baseURL: userConf?.baseURL || defaultConf.baseURL,
+            baseURL: llmBaseURL,
+            url: userConf?.url,
             apiKey:
               userConf?.apiKey !== undefined
                 ? userConf.apiKey

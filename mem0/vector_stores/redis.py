@@ -1,10 +1,9 @@
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import reduce
 
 import numpy as np
-import pytz
 import redis
 from redis.commands.search.query import Query
 from redisvl.index import SearchIndex
@@ -159,17 +158,17 @@ class RedisDB(VectorStoreBase):
         return [
             MemoryResult(
                 id=result["memory_id"],
-                score=result["vector_distance"],
+                score=float(result["vector_distance"]),
                 payload={
                     "hash": result["hash"],
                     "data": result["memory"],
                     "created_at": datetime.fromtimestamp(
-                        int(result["created_at"]), tz=pytz.timezone("US/Pacific")
+                        int(result["created_at"]), tz=timezone.utc
                     ).isoformat(timespec="microseconds"),
                     **(
                         {
                             "updated_at": datetime.fromtimestamp(
-                                int(result["updated_at"]), tz=pytz.timezone("US/Pacific")
+                                int(result["updated_at"]), tz=timezone.utc
                             ).isoformat(timespec="microseconds")
                         }
                         if "updated_at" in result
@@ -192,8 +191,11 @@ class RedisDB(VectorStoreBase):
             "memory": payload["data"],
             "created_at": int(datetime.fromisoformat(payload["created_at"]).timestamp()),
             "updated_at": int(datetime.fromisoformat(payload["updated_at"]).timestamp()),
-            "embedding": np.array(vector, dtype=np.float32).tobytes(),
         }
+
+        # Only update embedding if vector is provided
+        if vector is not None:
+            data["embedding"] = np.array(vector, dtype=np.float32).tobytes()
 
         for field in ["agent_id", "run_id", "user_id"]:
             if field in payload:
@@ -207,13 +209,13 @@ class RedisDB(VectorStoreBase):
         payload = {
             "hash": result["hash"],
             "data": result["memory"],
-            "created_at": datetime.fromtimestamp(int(result["created_at"]), tz=pytz.timezone("US/Pacific")).isoformat(
+            "created_at": datetime.fromtimestamp(int(result["created_at"]), tz=timezone.utc).isoformat(
                 timespec="microseconds"
             ),
             **(
                 {
                     "updated_at": datetime.fromtimestamp(
-                        int(result["updated_at"]), tz=pytz.timezone("US/Pacific")
+                        int(result["updated_at"]), tz=timezone.utc
                     ).isoformat(timespec="microseconds")
                 }
                 if "updated_at" in result
@@ -271,12 +273,12 @@ class RedisDB(VectorStoreBase):
                         "hash": result["hash"],
                         "data": result["memory"],
                         "created_at": datetime.fromtimestamp(
-                            int(result["created_at"]), tz=pytz.timezone("US/Pacific")
+                            int(result["created_at"]), tz=timezone.utc
                         ).isoformat(timespec="microseconds"),
                         **(
                             {
                                 "updated_at": datetime.fromtimestamp(
-                                    int(result["updated_at"]), tz=pytz.timezone("US/Pacific")
+                                    int(result["updated_at"]), tz=timezone.utc
                                 ).isoformat(timespec="microseconds")
                             }
                             if result.__dict__.get("updated_at")
