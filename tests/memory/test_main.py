@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timezone
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, Mock
 
 import pytest
 
@@ -77,6 +77,57 @@ class TestAddToVectorStoreErrors:
         assert mock_memory.llm.generate_response.call_count == 2
         assert result == []  # Should return empty list when no memories processed
         assert "Empty response from LLM, no memories to extract" in caplog.text
+
+
+class TestAsyncUpdate:
+    @pytest.fixture
+    def mock_async_memory(self, mocker):
+        """Fixture for AsyncMemory with mocker-based mocks"""
+        _setup_mocks(mocker)
+        memory = AsyncMemory()
+        return memory
+
+    @pytest.mark.asyncio
+    async def test_async_update_without_metadata(self, mock_async_memory, mocker):
+        """Test async update passes None metadata by default"""
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+        mock_async_memory._update_memory = mocker.AsyncMock()
+
+        result = await mock_async_memory.update("test_id", "Updated memory")
+
+        mock_async_memory._update_memory.assert_called_once_with(
+            "test_id", "Updated memory", {"Updated memory": [0.1, 0.2, 0.3]}, None
+        )
+        assert result["message"] == "Memory updated successfully!"
+
+    @pytest.mark.asyncio
+    async def test_async_update_with_metadata(self, mock_async_memory, mocker):
+        """Test async update correctly forwards metadata"""
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+        mock_async_memory._update_memory = mocker.AsyncMock()
+        metadata = {"category": "sports", "priority": "high"}
+
+        result = await mock_async_memory.update("test_id", "Updated memory", metadata=metadata)
+
+        mock_async_memory._update_memory.assert_called_once_with(
+            "test_id", "Updated memory", {"Updated memory": [0.1, 0.2, 0.3]}, metadata
+        )
+        assert result["message"] == "Memory updated successfully!"
+
+    @pytest.mark.asyncio
+    async def test_async_update_with_empty_metadata(self, mock_async_memory, mocker):
+        """Test async update with empty metadata dict"""
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+        mock_async_memory._update_memory = mocker.AsyncMock()
+
+        await mock_async_memory.update("test_id", "Updated memory", metadata={})
+
+        mock_async_memory._update_memory.assert_called_once_with(
+            "test_id", "Updated memory", {"Updated memory": [0.1, 0.2, 0.3]}, {}
+        )
 
 
 @pytest.mark.asyncio
