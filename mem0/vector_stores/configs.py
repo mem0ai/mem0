@@ -1,9 +1,32 @@
+import logging
 import os
-
 from pathlib import Path
 from typing import Dict, Optional
 
 from pydantic import BaseModel, Field, model_validator
+
+logger = logging.getLogger(__name__)
+
+
+def get_default_vector_store_path(provider: str) -> str:
+    """Return a platform-appropriate default path for a vector store provider.
+
+    Preference order: MEM0_DATA_DIR → XDG_DATA_HOME (Linux) → APPDATA (Windows) → ~/.local/share
+    """
+    mem0_data_dir = os.environ.get("MEM0_DATA_DIR")
+    if mem0_data_dir:
+        base = Path(mem0_data_dir)
+    else:
+        xdg = os.environ.get("XDG_DATA_HOME")
+        app_data = os.environ.get("APPDATA")
+        if xdg:
+            base = Path(xdg)
+        elif app_data:
+            base = Path(app_data)
+        else:
+            base = Path.home() / ".local" / "share"
+        base = base / "mem0"
+    return str(base / provider)
 
 
 class VectorStoreConfig(BaseModel):
@@ -64,18 +87,16 @@ class VectorStoreConfig(BaseModel):
 
         # also check if path in allowed kays for pydantic model, and whether config extra fields are allowed
         if "path" not in config and "path" in config_class.__annotations__:
-            # Use a platform-appropriate user data directory instead of /tmp, which is
-            # ephemeral on many systems and may be unwritable in service/restricted environments.
-            # Preference order: XDG_DATA_HOME (Linux) → APPDATA (Windows) → ~/.local/share
-            xdg = os.environ.get("XDG_DATA_HOME")
-            app_data = os.environ.get("APPDATA")
-            if xdg:
-                base = Path(xdg)
-            elif app_data:
-                base = Path(app_data)
-            else:
-                base = Path.home() / ".local" / "share"
-            config["path"] = str(base / "mem0" / provider)
+            config["path"] = get_default_vector_store_path(provider)
+
+            legacy_path = Path(f"/tmp/{provider}")
+            if legacy_path.exists() and any(legacy_path.iterdir()):
+                logger.warning(
+                    f"Found existing data at legacy path '{legacy_path}'. "
+                    f"mem0 now defaults to '{config['path']}'. "
+                    f"To keep using the old location, set path='/tmp/{provider}' in your config, "
+                    f"or move the data to the new path."
+                )
 
         self.config = config_class(**config)
         return self

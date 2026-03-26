@@ -8,6 +8,8 @@ from typing import Dict, List, Optional
 import numpy as np
 from pydantic import BaseModel
 
+from mem0.vector_stores.configs import get_default_vector_store_path
+
 import warnings
 
 try:
@@ -58,7 +60,7 @@ class FAISS(VectorStoreBase):
                 Defaults to False.
         """
         self.collection_name = collection_name
-        self.path = path or f"/tmp/faiss/{collection_name}"
+        self.path = path or f"{get_default_vector_store_path('faiss')}/{collection_name}"
         self.distance_strategy = distance_strategy
         self.normalize_L2 = normalize_L2
         self.embedding_model_dims = embedding_model_dims
