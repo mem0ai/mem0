@@ -17,7 +17,7 @@ import {
   cleanupTestUser,
 } from "./helpers";
 
-jest.setTimeout(120_000);
+jest.setTimeout(180_000);
 
 const TEST_USER_ID = `integration-crud-${randomUUID()}`;
 

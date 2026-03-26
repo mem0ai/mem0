@@ -52,7 +52,7 @@ export async function withRetry<T>(
  * The Mem0 API processes memories asynchronously — after add()
  * we need to wait for them to be available.
  *
- * Polls every 15 seconds with a maximum of 4 retries to avoid
+ * Polls every 15 seconds with a maximum of 8 retries to avoid
  * hitting rate limits. Throws if results aren't available after
  * all retries.
  */
@@ -60,7 +60,7 @@ export async function waitForMemories(
   client: MemoryClient,
   userId: string,
   minCount: number,
-  maxRetries = 4,
+  maxRetries = 8,
 ): Promise<Memory[]> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     const memories = await withRetry(() => client.getAll({ user_id: userId }));
@@ -178,6 +178,8 @@ export async function seedTestMemories(
 
 /**
  * Clean up all test data for a user. Best-effort — ignores errors.
+ * Includes a settling delay so the API finishes processing deletes
+ * before the next test suite starts seeding new data.
  */
 export async function cleanupTestUser(
   client: MemoryClient,
@@ -193,6 +195,8 @@ export async function cleanupTestUser(
   } catch {
     // ignore
   }
+  // Allow the API to finish async delete processing before the next suite seeds
+  await new Promise((r) => setTimeout(r, 10_000));
 }
 
 /**
@@ -222,4 +226,6 @@ export async function fullProjectCleanup(client: MemoryClient): Promise<void> {
   } catch {
     // ignore — may throw "No entities to delete"
   }
+  // Allow the API to finish async delete processing
+  await new Promise((r) => setTimeout(r, 10_000));
 }
