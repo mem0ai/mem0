@@ -40,6 +40,7 @@
                     "icon": "rocket",
                     "pages": [
                       "platform/overview",
+                      "vibecoding",
                       "platform/mem0-mcp",
                       "platform/platform-vs-oss",
                       "platform/quickstart"
@@ -142,6 +143,7 @@
                     "icon": "rocket",
                     "pages": [
                       "open-source/overview",
+                      "vibecoding",
                       "open-source/python-quickstart",
                       "open-source/node-quickstart"
                     ]
@@ -290,20 +292,6 @@
                     "pages": [
                       "contributing/development",
                       "contributing/documentation"
-                    ]
-                  }
-                ]
-              },
-              {
-                "tab": "OpenMemory",
-                "groups": [
-                  {
-                    "group": "Overview & Quickstart",
-                    "icon": "square-terminal",
-                    "pages": [
-                      "openmemory/overview",
-                      "openmemory/quickstart",
-                      "openmemory/integrations"
                     ]
                   }
                 ]
@@ -1053,6 +1041,18 @@
     {
       "source": "/cookbooks/customer-support-agent",
       "destination": "/cookbooks/operations/support-inbox"
+    },
+    {
+      "source": "/openmemory/overview",
+      "destination": "/introduction"
+    },
+    {
+      "source": "/openmemory/quickstart",
+      "destination": "/introduction"
+    },
+    {
+      "source": "/openmemory/integrations",
+      "destination": "/introduction"
     }
   ]
 }

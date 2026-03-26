@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timezone
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, Mock
 
 import pytest
 
@@ -77,6 +77,57 @@ class TestAddToVectorStoreErrors:
         assert mock_memory.llm.generate_response.call_count == 2
         assert result == []  # Should return empty list when no memories processed
         assert "Empty response from LLM, no memories to extract" in caplog.text
+
+
+class TestAsyncUpdate:
+    @pytest.fixture
+    def mock_async_memory(self, mocker):
+        """Fixture for AsyncMemory with mocker-based mocks"""
+        _setup_mocks(mocker)
+        memory = AsyncMemory()
+        return memory
+
+    @pytest.mark.asyncio
+    async def test_async_update_without_metadata(self, mock_async_memory, mocker):
+        """Test async update passes None metadata by default"""
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+        mock_async_memory._update_memory = mocker.AsyncMock()
+
+        result = await mock_async_memory.update("test_id", "Updated memory")
+
+        mock_async_memory._update_memory.assert_called_once_with(
+            "test_id", "Updated memory", {"Updated memory": [0.1, 0.2, 0.3]}, None
+        )
+        assert result["message"] == "Memory updated successfully!"
+
+    @pytest.mark.asyncio
+    async def test_async_update_with_metadata(self, mock_async_memory, mocker):
+        """Test async update correctly forwards metadata"""
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+        mock_async_memory._update_memory = mocker.AsyncMock()
+        metadata = {"category": "sports", "priority": "high"}
+
+        result = await mock_async_memory.update("test_id", "Updated memory", metadata=metadata)
+
+        mock_async_memory._update_memory.assert_called_once_with(
+            "test_id", "Updated memory", {"Updated memory": [0.1, 0.2, 0.3]}, metadata
+        )
+        assert result["message"] == "Memory updated successfully!"
+
+    @pytest.mark.asyncio
+    async def test_async_update_with_empty_metadata(self, mock_async_memory, mocker):
+        """Test async update with empty metadata dict"""
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+        mock_async_memory._update_memory = mocker.AsyncMock()
+
+        await mock_async_memory.update("test_id", "Updated memory", metadata={})
+
+        mock_async_memory._update_memory.assert_called_once_with(
+            "test_id", "Updated memory", {"Updated memory": [0.1, 0.2, 0.3]}, {}
+        )
 
 
 @pytest.mark.asyncio
@@ -333,6 +384,201 @@ def test_search_and_get_all_consistent_after_update(mocker):
     # created_at should be the original, not the updated time
     assert search_results[0]["created_at"] == "2023-05-06T09:19:20+00:00"
     assert search_results[0]["updated_at"] == "2026-03-23T10:00:00+00:00"
+
+
+class TestMetadataNotMutated:
+    """Tests that metadata dicts passed to memory methods are not mutated in-place (issue #2648)."""
+
+    def test_create_memory_does_not_mutate_metadata(self, mocker):
+        memory = _build_memory_instance(mocker, Memory)
+        original_metadata = {"user_id": "test_user", "category": "sports"}
+        metadata_copy = original_metadata.copy()
+
+        memory._create_memory("test data", {"test data": [0.1, 0.2, 0.3]}, metadata=original_metadata)
+
+        assert original_metadata == metadata_copy, (
+            f"_create_memory mutated the caller's metadata dict: {original_metadata} != {metadata_copy}"
+        )
+
+    def test_create_memory_stores_correct_payload(self, mocker):
+        memory = _build_memory_instance(mocker, Memory)
+        metadata = {"user_id": "test_user", "category": "sports"}
+
+        memory._create_memory("test data", {"test data": [0.1, 0.2, 0.3]}, metadata=metadata)
+
+        payload = memory.vector_store.insert.call_args.kwargs["payloads"][0]
+        assert payload["data"] == "test data"
+        assert payload["user_id"] == "test_user"
+        assert payload["category"] == "sports"
+        assert "hash" in payload
+        assert "created_at" in payload
+
+    def test_create_memory_with_none_metadata(self, mocker):
+        memory = _build_memory_instance(mocker, Memory)
+
+        memory._create_memory("test data", {"test data": [0.1, 0.2, 0.3]}, metadata=None)
+
+        payload = memory.vector_store.insert.call_args.kwargs["payloads"][0]
+        assert payload["data"] == "test data"
+        assert "hash" in payload
+
+    def test_create_memory_shared_metadata_across_calls(self, mocker):
+        """Verify that sharing a metadata dict between multiple _create_memory calls is safe."""
+        memory = _build_memory_instance(mocker, Memory)
+        shared_metadata = {"user_id": "test_user"}
+
+        memory._create_memory("first memory", {"first memory": [0.1, 0.2, 0.3]}, metadata=shared_metadata)
+        memory._create_memory("second memory", {"second memory": [0.4, 0.5, 0.6]}, metadata=shared_metadata)
+
+        assert shared_metadata == {"user_id": "test_user"}, "shared metadata was mutated across calls"
+
+        # Verify each call got the correct data
+        first_payload = memory.vector_store.insert.call_args_list[0].kwargs["payloads"][0]
+        second_payload = memory.vector_store.insert.call_args_list[1].kwargs["payloads"][0]
+        assert first_payload["data"] == "first memory"
+        assert second_payload["data"] == "second memory"
+
+    def test_create_memory_preserves_role_and_actor_id_in_history(self, mocker):
+        """Verify that role and actor_id from metadata flow through to add_history after deepcopy."""
+        memory = _build_memory_instance(mocker, Memory)
+        metadata = {"user_id": "test_user", "role": "assistant", "actor_id": "bot-1"}
+
+        memory._create_memory("test data", {"test data": [0.1, 0.2, 0.3]}, metadata=metadata)
+
+        # Verify the payload stored in vector store has all fields
+        payload = memory.vector_store.insert.call_args.kwargs["payloads"][0]
+        assert payload["role"] == "assistant"
+        assert payload["actor_id"] == "bot-1"
+        assert payload["user_id"] == "test_user"
+        assert payload["data"] == "test data"
+
+        # Verify add_history received the correct role and actor_id
+        history_call = memory.db.add_history.call_args
+        assert history_call.kwargs["role"] == "assistant"
+        assert history_call.kwargs["actor_id"] == "bot-1"
+
+        # And the original metadata is still untouched
+        assert metadata == {"user_id": "test_user", "role": "assistant", "actor_id": "bot-1"}
+
+    def test_create_memory_with_nested_metadata_not_mutated(self, mocker):
+        """Verify deepcopy protects nested structures in metadata."""
+        memory = _build_memory_instance(mocker, Memory)
+        metadata = {"user_id": "test_user", "tags": ["important", "urgent"], "config": {"key": "val"}}
+        import copy
+        metadata_snapshot = copy.deepcopy(metadata)
+
+        memory._create_memory("test data", {"test data": [0.1, 0.2, 0.3]}, metadata=metadata)
+
+        assert metadata == metadata_snapshot, "Nested metadata structures were mutated"
+
+    def test_update_memory_does_not_mutate_metadata(self, mocker):
+        memory = _build_memory_instance(mocker, Memory)
+        memory.vector_store.get.return_value = MagicMock(
+            payload={"data": "old data", "user_id": "test_user", "created_at": "2026-01-01T00:00:00+00:00"}
+        )
+        original_metadata = {"category": "updated"}
+        metadata_copy = original_metadata.copy()
+
+        memory._update_memory("mem-id", "new data", {"new data": [0.1, 0.2, 0.3]}, metadata=original_metadata)
+
+        assert original_metadata == metadata_copy, (
+            f"_update_memory mutated the caller's metadata dict: {original_metadata} != {metadata_copy}"
+        )
+
+    def test_add_to_vector_store_no_infer_does_not_mutate_metadata(self, mocker):
+        """Verify _add_to_vector_store with infer=False doesn't leak metadata between messages."""
+        memory = _build_memory_instance(mocker, Memory)
+        memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+
+        original_metadata = {"user_id": "test_user"}
+        metadata_copy = original_metadata.copy()
+
+        messages = [
+            {"role": "user", "content": "Hello"},
+            {"role": "assistant", "content": "Hi there", "name": "bot-1"},
+        ]
+
+        result = memory._add_to_vector_store(messages, original_metadata, filters={}, infer=False)
+
+        # Metadata should not be mutated
+        assert original_metadata == metadata_copy, (
+            f"_add_to_vector_store mutated the caller's metadata: {original_metadata}"
+        )
+
+        # Should have created 2 memories
+        assert len(result) == 2
+        assert result[0]["role"] == "user"
+        assert result[1]["role"] == "assistant"
+        assert result[1]["actor_id"] == "bot-1"
+
+        # Verify each insert got distinct payloads with correct roles
+        insert_calls = memory.vector_store.insert.call_args_list
+        first_payload = insert_calls[0].kwargs["payloads"][0]
+        second_payload = insert_calls[1].kwargs["payloads"][0]
+        assert first_payload["role"] == "user"
+        assert "actor_id" not in first_payload  # user message has no name
+        assert second_payload["role"] == "assistant"
+        assert second_payload["actor_id"] == "bot-1"
+
+    @pytest.mark.asyncio
+    async def test_async_create_memory_does_not_mutate_metadata(self, mocker):
+        memory = _build_memory_instance(mocker, AsyncMemory)
+        original_metadata = {"user_id": "test_user", "category": "sports"}
+        metadata_copy = original_metadata.copy()
+
+        await memory._create_memory("test data", {"test data": [0.1, 0.2, 0.3]}, metadata=original_metadata)
+
+        assert original_metadata == metadata_copy, (
+            f"async _create_memory mutated the caller's metadata dict: {original_metadata} != {metadata_copy}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_async_create_memory_shared_metadata_across_calls(self, mocker):
+        memory = _build_memory_instance(mocker, AsyncMemory)
+        shared_metadata = {"user_id": "test_user"}
+
+        await memory._create_memory("first memory", {"first memory": [0.1, 0.2, 0.3]}, metadata=shared_metadata)
+        await memory._create_memory("second memory", {"second memory": [0.4, 0.5, 0.6]}, metadata=shared_metadata)
+
+        assert shared_metadata == {"user_id": "test_user"}, "shared metadata was mutated across async calls"
+
+    @pytest.mark.asyncio
+    async def test_async_add_to_vector_store_no_infer_does_not_mutate_metadata(self, mocker):
+        """Verify async _add_to_vector_store with infer=False doesn't leak metadata between messages."""
+        memory = _build_memory_instance(mocker, AsyncMemory)
+        memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+
+        original_metadata = {"user_id": "test_user"}
+        metadata_copy = original_metadata.copy()
+
+        messages = [
+            {"role": "user", "content": "Hello"},
+            {"role": "assistant", "content": "Hi there", "name": "bot-1"},
+        ]
+
+        result = await memory._add_to_vector_store(messages, original_metadata, effective_filters={}, infer=False)
+
+        assert original_metadata == metadata_copy, (
+            f"async _add_to_vector_store mutated the caller's metadata: {original_metadata}"
+        )
+        assert len(result) == 2
+        assert result[0]["role"] == "user"
+        assert result[1]["role"] == "assistant"
+
+    @pytest.mark.asyncio
+    async def test_async_update_memory_does_not_mutate_metadata(self, mocker):
+        memory = _build_memory_instance(mocker, AsyncMemory)
+        memory.vector_store.get.return_value = MagicMock(
+            payload={"data": "old data", "user_id": "test_user", "created_at": "2026-01-01T00:00:00+00:00"}
+        )
+        original_metadata = {"category": "updated"}
+        metadata_copy = original_metadata.copy()
+
+        await memory._update_memory("mem-id", "new data", {"new data": [0.1, 0.2, 0.3]}, metadata=original_metadata)
+
+        assert original_metadata == metadata_copy, (
+            f"async _update_memory mutated the caller's metadata dict: {original_metadata} != {metadata_copy}"
+        )
 
 
 def test_normalize_iso_timestamp_to_utc_preserves_naive_values():

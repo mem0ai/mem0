@@ -48,7 +48,7 @@ const config = {
       password: '123',
       host: '127.0.0.1',
       port: 5432,
-      dbname: 'vector_store', // Optional, defaults to 'postgres'
+      dbname: 'vector_store', // Optional; TypeScript OSS defaults to `vector_store` when omitted
       diskann: false, // Optional, requires pgvectorscale extension
       hnsw: false, // Optional, for HNSW indexing
     },
@@ -84,6 +84,8 @@ Here are the parameters available for configuring pgvector:
 | `sslmode` | SSL mode for PostgreSQL connection (e.g., 'require', 'prefer', 'disable') | `None` |
 | `connection_string` | PostgreSQL connection string (overrides individual connection parameters) | `None` |
 | `connection_pool` | psycopg2 connection pool object (overrides connection string and individual parameters) | `None` |
+
+**Note (TypeScript OSS):** If you omit `dbname`, the TypeScript client uses the database name `vector_store`. Python defaults to `postgres` for `dbname`, as in the table above.
 
 **Note**: The connection parameters have the following priority:
 1. `connection_pool` (highest priority)

@@ -349,23 +349,18 @@ Use the `name` field in messages to identify speakers. Mem0 maps names to entity
 
 ## MCP Integration
 
-Model Context Protocol integration enables AI clients (Claude Desktop, Cursor, custom agents) to manage Mem0 memory autonomously.
+Model Context Protocol integration enables AI clients (Claude, Claude Code, Cursor, Windsurf, VS Code, OpenCode) to manage Mem0 memory autonomously.
 
-### Configuration
+### Setup
 
-```json
-{
-  "mcpServers": {
-    "mem0": {
-      "command": "uvx",
-      "args": ["mem0-mcp-server"],
-      "env": {
-        "MEM0_API_KEY": "m0-your-api-key",
-        "MEM0_DEFAULT_USER_ID": "your-user-id"
-      }
-    }
-  }
-}
+Add Mem0 MCP to your clients with a single command:
+
+```bash
+npx mcp-add \
+  --name mem0-mcp \
+  --type http \
+  --url "https://mcp.mem0.ai/mcp" \
+  --clients "claude,claude code,cursor,windsurf,vscode,opencode"
 ```
 
 ### Available MCP Tools
@@ -377,7 +372,7 @@ The MCP server exposes 9 memory tools that AI agents can use autonomously:
 
 ### How It Works
 
-1. Configure the MCP server in your AI client
+1. Add Mem0 MCP to your AI client using the setup command above
 2. The agent autonomously decides when to store/retrieve memories
 3. No manual API calls needed — the agent manages memory as part of its reasoning
 

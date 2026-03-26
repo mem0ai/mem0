@@ -1,6 +1,8 @@
+import os
+import tempfile
 import unittest
 import uuid
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
@@ -30,6 +32,23 @@ class TestQdrant(unittest.TestCase):
             path="test_path",
             on_disk=True,
         )
+
+    def test_local_path_on_disk_false_preserves_existing_directory(self):
+        """#4473: local path must not be removed when on_disk is False."""
+        with tempfile.TemporaryDirectory() as tmp:
+            sentinel = os.path.join(tmp, "sentinel")
+            with open(sentinel, "w", encoding="utf-8") as f:
+                f.write("keep")
+            mock_client = MagicMock()
+            mock_client.get_collections.return_value = MagicMock(collections=[])
+            with patch("mem0.vector_stores.qdrant.QdrantClient", return_value=mock_client):
+                Qdrant(
+                    collection_name="c",
+                    embedding_model_dims=128,
+                    path=tmp,
+                    on_disk=False,
+                )
+            self.assertTrue(os.path.isfile(sentinel))
 
     def test_create_col(self):
         self.client_mock.get_collections.return_value = MagicMock(collections=[])

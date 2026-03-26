@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -10,7 +11,7 @@ from mem0.memory.utils import normalize_facts
 
 class MockVectorMemory:
     """Mock memory object for testing incomplete payloads."""
-    
+
     def __init__(self, memory_id: str, payload: dict, score: float = 0.8):
         self.id = memory_id
         self.payload = payload
@@ -104,7 +105,7 @@ def test_collection_name_preserved_after_reset(mock_sqlite, mock_llm_factory, mo
 
     reset_calls = [call for call in mock_vector_factory.call_args_list if len(mock_vector_factory.call_args_list) > 2]
     if reset_calls:
-        reset_config = reset_calls[-1][0][1]  
+        reset_config = reset_calls[-1][0][1]
         assert reset_config.collection_name == test_collection_name, f"Reset used wrong collection name: {reset_config.collection_name}"
 
 
@@ -129,13 +130,13 @@ def test_search_handles_incomplete_payloads(mock_sqlite, mock_llm_factory, mock_
     complete_memory = MockVectorMemory("mem_2", {"data": "content", "hash": "def456"})
 
     mock_vector_store.search.return_value = [incomplete_memory, complete_memory]
-    
+
     mock_embedder = MagicMock()
     mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
     memory.embedding_model = mock_embedder
 
     result = memory._search_vector_store("test", {"user_id": "test"}, 10)
-    
+
     assert len(result) == 2
     memories_by_id = {mem["id"]: mem for mem in result}
 
@@ -438,3 +439,321 @@ async def test_async_update_nonexistent_memory_raises_error(mock_sqlite, mock_ll
         await memory._update_memory("non-existent-id", "new data", {"new data": [0.1, 0.2]})
 
     mock_vector_store.update.assert_not_called()
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_add_infer_false_embeds_once(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """
+    Regression test for issue #3723: adding with infer=False should not trigger duplicate embedding calls.
+
+    Root cause: _create_memory expected a dict for existing_embeddings but received a raw list[float],
+    causing the cache check `data in existing_embeddings` to always fail and trigger a redundant embed.
+    """
+    embedder = MagicMock()
+    embedder.embed.return_value = [0.1, 0.2, 0.3]
+    embedder.config = MagicMock(embedding_dims=3)
+    mock_embedder_factory.return_value = embedder
+
+    mock_vector_store = MagicMock()
+    mock_vector_store.search.return_value = []
+    mock_vector_store.insert.return_value = None
+    mock_vector_store.get.return_value = None
+    telemetry_vector_store = MagicMock()
+    mock_vector_factory.side_effect = [mock_vector_store, telemetry_vector_store]
+
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    memory = MemoryClass(MemoryConfig())
+
+    memory.add("foo", user_id="test_user", infer=False)
+
+    assert embedder.embed.call_count == 1
+    mock_vector_store.insert.assert_called_once()
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_add_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """
+    Regression test for issue #3723 (infer=True path): when the LLM rewrites a fact during the
+    ADD action, the embedding should be computed once and cached, not computed again inside _create_memory.
+    """
+    embedder = MagicMock()
+    embedder.embed.return_value = [0.1, 0.2, 0.3]
+    embedder.config = MagicMock(embedding_dims=3)
+    mock_embedder_factory.return_value = embedder
+
+    mock_vector_store = MagicMock()
+    mock_vector_store.search.return_value = []
+    mock_vector_store.insert.return_value = None
+    mock_vector_store.get.return_value = None
+    telemetry_vector_store = MagicMock()
+    mock_vector_factory.side_effect = [mock_vector_store, telemetry_vector_store]
+
+    # LLM extracts fact "User likes Python", then ADD action rewrites to "The user enjoys Python"
+    mock_llm = MagicMock()
+    mock_llm.generate_response.side_effect = [
+        json.dumps({"facts": ["User likes Python"]}),
+        json.dumps({"memory": [{"id": "0", "text": "The user enjoys Python", "event": "ADD", "old_memory": None}]}),
+    ]
+    mock_llm_factory.return_value = mock_llm
+
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    memory = MemoryClass(MemoryConfig())
+
+    memory.add("I like Python", user_id="test_user", infer=True)
+
+    # embed should be called exactly twice:
+    # 1. For the extracted fact "User likes Python" (search)
+    # 2. For the rewritten text "The user enjoys Python" (pre-cached before _create_memory)
+    # It should NOT be called a 3rd time inside _create_memory
+    assert embedder.embed.call_count == 2
+    mock_vector_store.insert.assert_called_once()
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_update_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """
+    Regression test for issue #3723 (infer=True UPDATE path): when the LLM rewrites a fact during
+    an UPDATE action, the embedding should be computed once and cached, not computed again inside _update_memory.
+    """
+    embedder = MagicMock()
+    embedder.embed.return_value = [0.1, 0.2, 0.3]
+    embedder.config = MagicMock(embedding_dims=3)
+    mock_embedder_factory.return_value = embedder
+
+    # Existing memory that will be matched for update
+    existing_memory = MockVectorMemory(
+        memory_id="existing-mem-id",
+        payload={
+            "data": "User likes Python",
+            "hash": "abc123",
+            "created_at": "2025-01-01T00:00:00+00:00",
+        },
+    )
+
+    mock_vector_store = MagicMock()
+    mock_vector_store.search.return_value = [existing_memory]
+    mock_vector_store.get.return_value = existing_memory
+    mock_vector_store.insert.return_value = None
+    mock_vector_store.update.return_value = None
+    telemetry_vector_store = MagicMock()
+    mock_vector_factory.side_effect = [mock_vector_store, telemetry_vector_store]
+
+    # LLM extracts fact "User loves Python now", then UPDATE action rewrites to "The user loves Python"
+    mock_llm = MagicMock()
+    mock_llm.generate_response.side_effect = [
+        json.dumps({"facts": ["User loves Python now"]}),
+        json.dumps({"memory": [{"id": "0", "text": "The user loves Python", "event": "UPDATE", "old_memory": "User likes Python"}]}),
+    ]
+    mock_llm_factory.return_value = mock_llm
+
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    memory = MemoryClass(MemoryConfig())
+
+    memory.add("I love Python now", user_id="test_user", infer=True)
+
+    # embed should be called exactly twice:
+    # 1. For the extracted fact "User loves Python now" (search)
+    # 2. For the rewritten text "The user loves Python" (pre-cached before _update_memory)
+    # It should NOT be called a 3rd time inside _update_memory
+    assert embedder.embed.call_count == 2
+    mock_vector_store.update.assert_called_once()
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.main.SQLiteManager')
+def test_delete_memory_history_has_timestamps(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """
+    Test that deleting a memory records created_at and updated_at in history.
+
+    Ensures DELETE operations preserve the original creation timestamp
+    and record the deletion time for proper audit trails.
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    existing_memory = MagicMock()
+    existing_memory.payload = {
+        "data": "I like Python.",
+        "created_at": "2024-01-01T00:00:00+00:00",
+        "actor_id": None,
+        "role": None,
+    }
+    mock_vector_store.get.return_value = existing_memory
+
+    memory.delete("mem-123")
+
+    call_kwargs = memory.db.add_history.call_args.kwargs
+    assert call_kwargs["created_at"] == "2024-01-01T00:00:00+00:00"
+    assert call_kwargs["updated_at"] is not None
+    datetime.fromisoformat(call_kwargs["updated_at"])  # verify valid ISO timestamp
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.main.SQLiteManager')
+def test_delete_memory_normalizes_non_utc_created_at(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """Test that non-UTC created_at timestamps are normalized to UTC on delete."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    existing_memory = MagicMock()
+    existing_memory.payload = {
+        "data": "I like Python.",
+        "created_at": "2024-01-01T05:00:00+05:00",  # UTC+5
+        "actor_id": None,
+        "role": None,
+    }
+    mock_vector_store.get.return_value = existing_memory
+
+    memory.delete("mem-123")
+
+    call_kwargs = memory.db.add_history.call_args.kwargs
+    assert call_kwargs["created_at"] == "2024-01-01T00:00:00+00:00"  # normalized to UTC
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.main.SQLiteManager')
+def test_delete_memory_missing_created_at(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """Test that delete works when created_at is absent from the payload (pre-existing memories)."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    existing_memory = MagicMock()
+    existing_memory.payload = {
+        "data": "I like Python.",
+        "actor_id": None,
+        "role": None,
+    }
+    mock_vector_store.get.return_value = existing_memory
+
+    memory.delete("mem-123")
+
+    call_kwargs = memory.db.add_history.call_args.kwargs
+    assert call_kwargs["created_at"] is None
+    assert call_kwargs["updated_at"] is not None
+    datetime.fromisoformat(call_kwargs["updated_at"])  # verify valid ISO timestamp
+
+
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.main.SQLiteManager')
+async def test_async_delete_memory_history_has_timestamps(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """
+    Test that async deleting a memory records created_at and updated_at in history.
+
+    Ensures async DELETE operations preserve the original creation timestamp
+    and record the deletion time for proper audit trails.
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import AsyncMemory
+    config = MemoryConfig()
+    memory = AsyncMemory(config)
+
+    existing_memory = MagicMock()
+    existing_memory.payload = {
+        "data": "I like Python.",
+        "created_at": "2024-01-01T00:00:00+00:00",
+        "actor_id": None,
+        "role": None,
+    }
+    mock_vector_store.get.return_value = existing_memory
+
+    await memory.delete("mem-123")
+
+    call_kwargs = memory.db.add_history.call_args.kwargs
+    assert call_kwargs["created_at"] == "2024-01-01T00:00:00+00:00"
+    assert call_kwargs["updated_at"] is not None
+    datetime.fromisoformat(call_kwargs["updated_at"])  # verify valid ISO timestamp
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+class TestProcessMetadataFiltersMerge:
+    """Regression tests for issue #3952: multiple operators on the same key must be merged."""
+
+    def _make_memory(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        mock_embedder_factory.return_value = MagicMock()
+        mock_vector_factory.return_value = MagicMock()
+        mock_llm_factory.return_value = MagicMock()
+        mock_sqlite.return_value = MagicMock()
+        from mem0.memory.main import Memory as MemoryClass
+        return MemoryClass(MemoryConfig())
+
+    def test_multiple_operators_same_key_merged(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        """Filters like created_at: {gte: X, lte: Y} must preserve both operators."""
+        memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
+        result = memory._process_metadata_filters({
+            "created_at": {"gte": 1000, "lte": 2000}
+        })
+        assert result == {"created_at": {"gte": 1000, "lte": 2000}}
+
+    def test_single_operator_still_works(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        """Single operator filters must continue to work."""
+        memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
+        result = memory._process_metadata_filters({
+            "created_at": {"gte": 1000}
+        })
+        assert result == {"created_at": {"gte": 1000}}
+
+    def test_multiple_keys_with_multiple_operators(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        """Multiple keys each with multiple operators."""
+        memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
+        result = memory._process_metadata_filters({
+            "created_at": {"gte": 1000, "lte": 2000},
+            "score": {"gt": 0.5, "lt": 0.9},
+        })
+        assert result == {
+            "created_at": {"gte": 1000, "lte": 2000},
+            "score": {"gt": 0.5, "lt": 0.9},
+        }
