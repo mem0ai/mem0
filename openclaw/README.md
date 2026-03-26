@@ -82,6 +82,18 @@ The plugin automatically skips recall and capture for non-interactive triggers: 
 openclaw plugins install @mem0/openclaw-mem0
 ```
 
+Then select this plugin as the active memory backend in your `openclaw.json`:
+
+```json5
+{
+  "plugins": {
+    "slots": {
+      "memory": "openclaw-mem0"
+    }
+  }
+}
+```
+
 ### Understanding `userId`
 
 The `userId` field is a **string you choose** to uniquely identify the user whose memories are being stored. It is **not** something you look up in the Mem0 dashboard — you define it yourself.
@@ -101,12 +113,20 @@ All memories are scoped to this `userId` — different values create separate me
 Get an API key from [app.mem0.ai](https://app.mem0.ai), then add to your `openclaw.json`:
 
 ```json5
-// plugins.entries
-"openclaw-mem0": {
-  "enabled": true,
-  "config": {
-    "apiKey": "${MEM0_API_KEY}",
-    "userId": "alice"  // any unique identifier you choose for this user
+{
+  "plugins": {
+    "slots": {
+      "memory": "openclaw-mem0"
+    },
+    "entries": {
+      "openclaw-mem0": {
+        "enabled": true,
+        "config": {
+          "apiKey": "${MEM0_API_KEY}",
+          "userId": "alice"  // any unique identifier you choose for this user
+        }
+      }
+    }
   }
 }
 ```
@@ -116,11 +136,20 @@ Get an API key from [app.mem0.ai](https://app.mem0.ai), then add to your `opencl
 No Mem0 key needed. Requires `OPENAI_API_KEY` for default embeddings/LLM.
 
 ```json5
-"openclaw-mem0": {
-  "enabled": true,
-  "config": {
-    "mode": "open-source",
-    "userId": "alice"  // any unique identifier you choose for this user
+{
+  "plugins": {
+    "slots": {
+      "memory": "openclaw-mem0"
+    },
+    "entries": {
+      "openclaw-mem0": {
+        "enabled": true,
+        "config": {
+          "mode": "open-source",
+          "userId": "alice"  // any unique identifier you choose for this user
+        }
+      }
+    }
   }
 }
 ```
