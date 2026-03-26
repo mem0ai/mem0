@@ -853,9 +853,12 @@ function registerHooks(
     setCurrentSessionId: (id: string) => void;
   },
 ) {
-  // Auto-recall: inject relevant memories before agent starts
+  // Auto-recall: inject relevant memories while the prompt is being built.
+  // This hook is the documented post-session prompt-mutation point and matches
+  // the plugin's needs: we only inject per-turn context and do not override
+  // model/provider selection.
   if (cfg.autoRecall) {
-    api.on("before_agent_start", async (event, ctx) => {
+    api.on("before_prompt_build", async (event, ctx) => {
       if (!event.prompt || event.prompt.length < 5) return;
 
       // Skip non-interactive triggers (cron, heartbeat, automation)

@@ -68,7 +68,7 @@ The `agentId` is always namespaced under the configured `userId` (e.g. `agentId:
 
 ### Concurrency safety
 
-Lifecycle hooks (`before_agent_start`, `agent_end`) use `ctx.sessionKey` directly from the event context rather than shared mutable state. This prevents race conditions when multiple sessions run concurrently (e.g. multiple Telegram users chatting simultaneously).
+Lifecycle hooks (`before_prompt_build`, `agent_end`) use `ctx.sessionKey` directly from the event context rather than shared mutable state. This prevents race conditions when multiple sessions run concurrently (e.g. multiple Telegram users chatting simultaneously).
 
 Agent tools are registered via OpenClaw's tool factory context and use `ctx.sessionKey` directly, so session-scoped tool calls stay isolated across concurrent sessions as well.
 
