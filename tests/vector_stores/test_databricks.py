@@ -5,7 +5,6 @@ import pytest
 
 pytest.importorskip("databricks", reason="databricks-sdk package not installed")
 
-from databricks.sdk.service.sql import StatementParameterListItem
 from databricks.sdk.service.vectorsearch import VectorIndexType, QueryVectorIndexResponse, ResultManifest, ResultData, ColumnInfo
 from mem0.vector_stores.databricks import Databricks
 
