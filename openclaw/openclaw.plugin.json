@@ -159,6 +159,9 @@
           },
           "historyDbPath": {
             "type": "string"
+          },
+          "disableHistory": {
+            "type": "boolean"
           }
         }
       }

@@ -5,6 +5,7 @@
  * 3. Graceful SQLite fallback in OSSProvider
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { readFileSync } from "node:fs";
 import { mem0ConfigSchema, createProvider } from "./index.ts";
 
 // ---------------------------------------------------------------------------
@@ -47,6 +48,16 @@ describe("mem0ConfigSchema — disableHistory", () => {
         oss: { ...baseConfig.oss, disableHistory: true },
       }),
     ).not.toThrow();
+  });
+
+  it("declares oss.disableHistory in the plugin manifest schema", () => {
+    const manifest = JSON.parse(
+      readFileSync(new URL("./openclaw.plugin.json", import.meta.url), "utf8"),
+    );
+
+    expect(manifest.configSchema.properties.oss.properties.disableHistory).toEqual({
+      type: "boolean",
+    });
   });
 });
 
