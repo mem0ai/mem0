@@ -14,6 +14,10 @@ The Mem0 REST API server exposes every OSS memory operation over HTTP. Run it al
 </Info>
 
 <Warning>
+  **OSS vs Platform API paths:** The self-hosted OSS server does **not** use the `/v1/` prefix. For example, the endpoint is `POST /memories`, not `POST /v1/memories/`. The [API Reference](/api-reference) documents the hosted platform at `api.mem0.ai` which uses `/v1/` paths — those do not apply to the OSS server.
+</Warning>
+
+<Warning>
   Enable API key authentication (see below) and HTTPS before exposing the server to anything beyond your internal network.
 </Warning>
 
@@ -147,18 +151,42 @@ curl -X POST http://localhost:8000/memories \
 </Info>
 
 ```bash
-curl "http://localhost:8000/memories/search?user_id=alice&query=vegetable"
+curl -X POST http://localhost:8000/search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "vegetable",
+    "user_id": "alice"
+  }'
 ```
 
 ### Explore with OpenAPI docs
 
-1. Navigate to `http://localhost:8000/docs`.  
-2. Pick an endpoint (e.g., `POST /memories/search`).  
+1. Navigate to `http://localhost:8000/docs`.
+2. Pick an endpoint (e.g., `POST /search`).  
 3. Fill in parameters and click **Execute** to try requests in-browser.
 
 <Tip>
   Export the generated `curl` snippets from the OpenAPI UI to bootstrap integration tests.
 </Tip>
+
+---
+
+## Endpoint reference
+
+The OSS REST server exposes the following endpoints. None use the `/v1/` prefix.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/configure` | Set memory configuration |
+| `POST` | `/memories` | Create memories |
+| `GET` | `/memories` | Get all memories (filter by `user_id`, `agent_id`, or `run_id`) |
+| `GET` | `/memories/{memory_id}` | Get a specific memory |
+| `PUT` | `/memories/{memory_id}` | Update a memory |
+| `DELETE` | `/memories/{memory_id}` | Delete a specific memory |
+| `DELETE` | `/memories` | Delete all memories for an identifier |
+| `GET` | `/memories/{memory_id}/history` | Get memory history |
+| `POST` | `/search` | Search memories |
+| `POST` | `/reset` | Reset all memories |
 
 ---
 
