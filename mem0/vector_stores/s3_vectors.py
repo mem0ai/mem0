@@ -100,21 +100,20 @@ class S3Vectors(VectorStoreBase):
         )
 
     def _convert_filters(self, filters: dict) -> dict:
-        """Convert mem0 filter dict to S3Vectors filter format."""
+        """Convert mem0 filter dict to S3Vectors metadata filter format.
+
+        S3Vectors uses MongoDB-style operators: {"field": {"$eq": "value"}}
+        Multiple conditions are combined with $and.
+        """
         if not filters:
             return None
         conditions = []
         for key, value in filters.items():
-            if isinstance(value, bool):
-                conditions.append({"equals": {"key": key, "value": {"booleanValue": value}}})
-            elif isinstance(value, str):
-                conditions.append({"equals": {"key": key, "value": {"stringValue": value}}})
-            elif isinstance(value, (int, float)):
-                conditions.append({"equals": {"key": key, "value": {"numericValue": value}}})
+            conditions.append({key: {"$eq": value}})
         if len(conditions) == 1:
             return conditions[0]
         elif len(conditions) > 1:
-            return {"and": conditions}
+            return {"$and": conditions}
         return None
 
     def search(self, query, vectors, limit=5, filters=None):
