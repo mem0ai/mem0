@@ -17,7 +17,7 @@ import {
   withRetry,
 } from "./helpers";
 
-jest.setTimeout(180_000);
+jest.setTimeout(120_000);
 
 const TEST_USER_ID = `integration-mgmt-${randomUUID()}`;
 
