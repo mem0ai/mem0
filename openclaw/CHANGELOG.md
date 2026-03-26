@@ -2,6 +2,15 @@
 
 All notable changes to the `@mem0/openclaw-mem0` plugin will be documented in this file.
 
+## [0.4.1] - 2026-03-26
+
+### Added
+- **Improved extraction quality**: Enhanced noise filtering, deduplication, and better extraction instructions for higher-quality memory capture (#4302)
+
+### Fixed
+- **Credential detection in extraction**: Improved detection of credentials, API keys, and secrets in extraction instructions to prevent them from being stored as memories (#4552)
+- **Standalone timestamp extraction**: Prevented extraction of standalone timestamps as memories when no meaningful content accompanies them (#4550)
+
 ## [0.4.0] - 2026-03-16
 
 ### Added
