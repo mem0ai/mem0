@@ -5,8 +5,6 @@ instead of /tmp, which is ephemeral and may be inaccessible in restricted enviro
 """
 
 import logging
-import os
-import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -256,33 +254,13 @@ class TestLegacyPathWarning:
         for var in ("MEM0_DATA_DIR", "XDG_DATA_HOME", "APPDATA"):
             monkeypatch.delenv(var, raising=False)
 
-    def test_warning_when_legacy_path_has_data(self, monkeypatch, tmp_path, caplog):
+    def test_warning_when_legacy_path_has_data(self, monkeypatch, caplog):
         """Should warn when /tmp/{provider} contains data."""
         self._clean_env(monkeypatch)
-        # Create a fake legacy directory with data
-        legacy_dir = tmp_path / "qdrant"
-        legacy_dir.mkdir()
-        (legacy_dir / "some_data.bin").write_text("fake data")
-
-        with patch("mem0.vector_stores.configs.Path") as MockPath:
-            # Make the default path resolution work normally for the new path
-            real_path = Path
-            def path_side_effect(*args):
-                if args and args[0] == f"/tmp/qdrant":
-                    return real_path(str(legacy_dir))
-                return real_path(*args)
-            MockPath.side_effect = path_side_effect
-            MockPath.home = real_path.home
-
-            # Instead of mocking Path, let's directly test the warning logic
-            # by creating a real /tmp-like structure
-
-        # Simpler approach: directly test the warning path in VectorStoreConfig
-        legacy_path = Path(f"/tmp/qdrant")
         with patch.object(Path, "exists", return_value=True):
             with patch.object(Path, "iterdir", return_value=iter(["somefile"])):
                 with caplog.at_level(logging.WARNING, logger="mem0.vector_stores.configs"):
-                    vc = VectorStoreConfig(provider="qdrant", config={})
+                    VectorStoreConfig(provider="qdrant", config={})
 
         assert "legacy path" in caplog.text.lower() or "Found existing data" in caplog.text
 
@@ -291,7 +269,7 @@ class TestLegacyPathWarning:
         self._clean_env(monkeypatch)
         with patch.object(Path, "exists", return_value=False):
             with caplog.at_level(logging.WARNING, logger="mem0.vector_stores.configs"):
-                vc = VectorStoreConfig(provider="qdrant", config={})
+                VectorStoreConfig(provider="qdrant", config={})
 
         assert "legacy path" not in caplog.text.lower()
         assert "Found existing data" not in caplog.text
@@ -300,7 +278,7 @@ class TestLegacyPathWarning:
         """Should not warn when user provides an explicit path."""
         self._clean_env(monkeypatch)
         with caplog.at_level(logging.WARNING, logger="mem0.vector_stores.configs"):
-            vc = VectorStoreConfig(provider="qdrant", config={"path": "/my/path"})
+            VectorStoreConfig(provider="qdrant", config={"path": "/my/path"})
 
         assert "legacy path" not in caplog.text.lower()
         assert "Found existing data" not in caplog.text
