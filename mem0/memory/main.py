@@ -7,6 +7,12 @@ import logging
 import os
 import uuid
 import warnings
+
+try:
+    import json_repair
+    _JSON_REPAIR_AVAILABLE = True
+except ImportError:
+    _JSON_REPAIR_AVAILABLE = False
 from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Union
@@ -521,12 +527,36 @@ class Memory(MemoryBase):
                 new_retrieved_facts = []
             else:
                 try:
-                    # First try direct JSON parsing
+                    # Level 1: direct JSON parsing
                     new_retrieved_facts = json.loads(response, strict=False)["facts"]
                 except json.JSONDecodeError:
-                    # Try extracting JSON from response using built-in function
-                    extracted_json = extract_json(response)
-                    new_retrieved_facts = json.loads(extracted_json, strict=False)["facts"]
+                    try:
+                        # Level 2: extract JSON substring from response
+                        extracted_json = extract_json(response)
+                        new_retrieved_facts = json.loads(extracted_json, strict=False)["facts"]
+                        warnings.warn(
+                            "JSON extraction fallback (level 2) triggered for fact retrieval. "
+                            "The LLM returned malformed JSON that required post-processing.",
+                            stacklevel=2,
+                        )
+                    except Exception:
+                        if _JSON_REPAIR_AVAILABLE:
+                            # Level 3: repair malformed JSON (handles Gemini and other models
+                            # that produce slightly invalid JSON)
+                            repaired = json_repair.loads(response)
+                            if isinstance(repaired, dict) and "facts" in repaired:
+                                new_retrieved_facts = repaired["facts"]
+                            elif isinstance(repaired, list):
+                                new_retrieved_facts = repaired
+                            else:
+                                new_retrieved_facts = []
+                            warnings.warn(
+                                "JSON repair fallback (level 3) triggered for fact retrieval. "
+                                "The LLM returned malformed JSON that required json_repair.",
+                                stacklevel=2,
+                            )
+                        else:
+                            raise
                 new_retrieved_facts = normalize_facts(new_retrieved_facts)
         except Exception as e:
             logger.error(f"Error in new_retrieved_facts: {e}")
@@ -1595,12 +1625,36 @@ class AsyncMemory(MemoryBase):
                 new_retrieved_facts = []
             else:
                 try:
-                    # First try direct JSON parsing
+                    # Level 1: direct JSON parsing
                     new_retrieved_facts = json.loads(response, strict=False)["facts"]
                 except json.JSONDecodeError:
-                    # Try extracting JSON from response using built-in function
-                    extracted_json = extract_json(response)
-                    new_retrieved_facts = json.loads(extracted_json, strict=False)["facts"]
+                    try:
+                        # Level 2: extract JSON substring from response
+                        extracted_json = extract_json(response)
+                        new_retrieved_facts = json.loads(extracted_json, strict=False)["facts"]
+                        warnings.warn(
+                            "JSON extraction fallback (level 2) triggered for fact retrieval. "
+                            "The LLM returned malformed JSON that required post-processing.",
+                            stacklevel=2,
+                        )
+                    except Exception:
+                        if _JSON_REPAIR_AVAILABLE:
+                            # Level 3: repair malformed JSON (handles Gemini and other models
+                            # that produce slightly invalid JSON)
+                            repaired = json_repair.loads(response)
+                            if isinstance(repaired, dict) and "facts" in repaired:
+                                new_retrieved_facts = repaired["facts"]
+                            elif isinstance(repaired, list):
+                                new_retrieved_facts = repaired
+                            else:
+                                new_retrieved_facts = []
+                            warnings.warn(
+                                "JSON repair fallback (level 3) triggered for fact retrieval. "
+                                "The LLM returned malformed JSON that required json_repair.",
+                                stacklevel=2,
+                            )
+                        else:
+                            raise
                 new_retrieved_facts = normalize_facts(new_retrieved_facts)
         except Exception as e:
             logger.error(f"Error in new_retrieved_facts: {e}")
