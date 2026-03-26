@@ -1,4 +1,25 @@
 declare module "openclaw/plugin-sdk" {
+  export interface OpenClawPluginToolContext {
+    config?: Record<string, unknown>;
+    workspaceDir?: string;
+    agentDir?: string;
+    agentId?: string;
+    sessionKey?: string;
+    sessionId?: string;
+    messageChannel?: string;
+    agentAccountId?: string;
+    requesterSenderId?: string;
+    senderIsOwner?: boolean;
+    sandboxed?: boolean;
+  }
+
+  export type OpenClawPluginToolFactory =
+    (ctx: OpenClawPluginToolContext) =>
+      | Record<string, unknown>
+      | Record<string, unknown>[]
+      | null
+      | undefined;
+
   export interface OpenClawPluginApi {
     pluginConfig: Record<string, unknown>;
     logger: {
@@ -9,7 +30,7 @@ declare module "openclaw/plugin-sdk" {
     };
     resolvePath(p: string): string;
     registerTool(
-      definition: Record<string, unknown>,
+      definition: Record<string, unknown> | OpenClawPluginToolFactory,
       metadata?: Record<string, unknown>,
     ): void;
     on(

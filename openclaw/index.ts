@@ -80,10 +80,9 @@ const memoryPlugin = {
     const cfg = mem0ConfigSchema.parse(api.pluginConfig);
     const provider = createProvider(cfg, api);
 
-    // Track current session ID for tool-level session scoping.
-    // NOTE: This is shared mutable state — tools don't receive ctx, so they
-    // read this as a best-effort fallback. Hooks should use ctx.sessionKey
-    // directly and avoid relying on this variable.
+    // Track the last active session ID for CLI session-scoped commands.
+    // Agent tools use OpenClaw's per-tool ctx.sessionKey instead of this
+    // mutable fallback so concurrent sessions stay isolated.
     let currentSessionId: string | undefined;
 
     // ========================================================================
@@ -92,8 +91,10 @@ const memoryPlugin = {
     const _effectiveUserId = (sessionKey?: string) =>
       effectiveUserId(cfg.userId, sessionKey);
     const _agentUserId = (id: string) => agentUserId(cfg.userId, id);
-    const _resolveUserId = (opts: { agentId?: string; userId?: string }) =>
-      resolveUserId(cfg.userId, opts, currentSessionId);
+    const _resolveUserId = (
+      opts: { agentId?: string; userId?: string },
+      sessionKey?: string,
+    ) => resolveUserId(cfg.userId, opts, sessionKey);
 
     api.logger.info(
       `openclaw-mem0: registered (mode: ${cfg.mode}, user: ${cfg.userId}, graph: ${cfg.enableGraph}, autoRecall: ${cfg.autoRecall}, autoCapture: ${cfg.autoCapture})`,
@@ -139,7 +140,7 @@ const memoryPlugin = {
     // Tools
     // ========================================================================
 
-    registerTools(api, provider, cfg, _resolveUserId, _effectiveUserId, _agentUserId, buildAddOptions, buildSearchOptions, () => currentSessionId);
+    registerTools(api, provider, cfg, _resolveUserId, _effectiveUserId, _agentUserId, buildAddOptions, buildSearchOptions);
 
     // ========================================================================
     // CLI Commands
@@ -181,248 +182,257 @@ function registerTools(
   api: OpenClawPluginApi,
   provider: Mem0Provider,
   cfg: Mem0Config,
-  _resolveUserId: (opts: { agentId?: string; userId?: string }) => string,
+  _resolveUserId: (opts: { agentId?: string; userId?: string }, sessionKey?: string) => string,
   _effectiveUserId: (sessionKey?: string) => string,
   _agentUserId: (id: string) => string,
   buildAddOptions: (userIdOverride?: string, runId?: string, sessionKey?: string) => AddOptions,
   buildSearchOptions: (userIdOverride?: string, limit?: number, runId?: string, sessionKey?: string) => SearchOptions,
-  getCurrentSessionId: () => string | undefined,
 ) {
+  type ToolContext = {
+    sessionKey?: string;
+  };
+
   api.registerTool(
-    {
-      name: "memory_search",
-      label: "Memory Search",
-      description:
-        "Search through long-term memories stored in Mem0. Use when you need context about user preferences, past decisions, or previously discussed topics.",
-      parameters: Type.Object({
-        query: Type.String({ description: "Search query" }),
-        limit: Type.Optional(
-          Type.Number({
-            description: `Max results (default: ${cfg.topK})`,
-          }),
-        ),
-        userId: Type.Optional(
-          Type.String({
-            description:
-              "User ID to scope search (default: configured userId)",
-          }),
-        ),
-        agentId: Type.Optional(
-          Type.String({
-            description:
-              "Agent ID to search memories for a specific agent (e.g. \"researcher\"). Overrides userId.",
-          }),
-        ),
-        scope: Type.Optional(
-          Type.Union([
-            Type.Literal("session"),
-            Type.Literal("long-term"),
-            Type.Literal("all"),
-          ], {
-            description:
-              'Memory scope: "session" (current session only), "long-term" (user-scoped only), or "all" (both). Default: "all"',
-          }),
-        ),
-      }),
-      async execute(_toolCallId, params) {
-        const { query, limit, userId, agentId, scope = "all" } = params as {
-          query: string;
-          limit?: number;
-          userId?: string;
-          agentId?: string;
-          scope?: "session" | "long-term" | "all";
-        };
+    (ctx: ToolContext) => {
+      const sessionKey = ctx?.sessionKey;
 
-        try {
-          let results: MemoryItem[] = [];
-          const uid = _resolveUserId({ agentId, userId });
-          const currentSessionId = getCurrentSessionId();
+      return {
+        name: "memory_search",
+        label: "Memory Search",
+        description:
+          "Search through long-term memories stored in Mem0. Use when you need context about user preferences, past decisions, or previously discussed topics.",
+        parameters: Type.Object({
+          query: Type.String({ description: "Search query" }),
+          limit: Type.Optional(
+            Type.Number({
+              description: `Max results (default: ${cfg.topK})`,
+            }),
+          ),
+          userId: Type.Optional(
+            Type.String({
+              description:
+                "User ID to scope search (default: configured userId)",
+            }),
+          ),
+          agentId: Type.Optional(
+            Type.String({
+              description:
+                "Agent ID to search memories for a specific agent (e.g. \"researcher\"). Overrides userId.",
+            }),
+          ),
+          scope: Type.Optional(
+            Type.Union([
+              Type.Literal("session"),
+              Type.Literal("long-term"),
+              Type.Literal("all"),
+            ], {
+              description:
+                'Memory scope: "session" (current session only), "long-term" (user-scoped only), or "all" (both). Default: "all"',
+            }),
+          ),
+        }),
+        async execute(_toolCallId, params) {
+          const { query, limit, userId, agentId, scope = "all" } = params as {
+            query: string;
+            limit?: number;
+            userId?: string;
+            agentId?: string;
+            scope?: "session" | "long-term" | "all";
+          };
 
-          if (scope === "session") {
-            if (currentSessionId) {
+          try {
+            let results: MemoryItem[] = [];
+            const uid = _resolveUserId({ agentId, userId }, sessionKey);
+
+            if (scope === "session") {
+              if (sessionKey) {
+                results = await provider.search(
+                  query,
+                  buildSearchOptions(uid, limit, sessionKey),
+                );
+              }
+            } else if (scope === "long-term") {
               results = await provider.search(
                 query,
-                buildSearchOptions(uid, limit, currentSessionId),
+                buildSearchOptions(uid, limit),
               );
-            }
-          } else if (scope === "long-term") {
-            results = await provider.search(
-              query,
-              buildSearchOptions(uid, limit),
-            );
-          } else {
-            // "all" — search both scopes and combine
-            const longTermResults = await provider.search(
-              query,
-              buildSearchOptions(uid, limit),
-            );
-            let sessionResults: MemoryItem[] = [];
-            if (currentSessionId) {
-              sessionResults = await provider.search(
+            } else {
+              // "all" — search both scopes and combine
+              const longTermResults = await provider.search(
                 query,
-                buildSearchOptions(uid, limit, currentSessionId),
+                buildSearchOptions(uid, limit),
               );
+              let sessionResults: MemoryItem[] = [];
+              if (sessionKey) {
+                sessionResults = await provider.search(
+                  query,
+                  buildSearchOptions(uid, limit, sessionKey),
+                );
+              }
+              // Deduplicate by ID, preferring long-term
+              const seen = new Set(longTermResults.map((r) => r.id));
+              results = [
+                ...longTermResults,
+                ...sessionResults.filter((r) => !seen.has(r.id)),
+              ];
             }
-            // Deduplicate by ID, preferring long-term
-            const seen = new Set(longTermResults.map((r) => r.id));
-            results = [
-              ...longTermResults,
-              ...sessionResults.filter((r) => !seen.has(r.id)),
-            ];
-          }
 
-          if (!results || results.length === 0) {
+            if (!results || results.length === 0) {
+              return {
+                content: [
+                  { type: "text", text: "No relevant memories found." },
+                ],
+                details: { count: 0 },
+              };
+            }
+
+            const text = results
+              .map(
+                (r, i) =>
+                  `${i + 1}. ${r.memory} (score: ${((r.score ?? 0) * 100).toFixed(0)}%, id: ${r.id})`,
+              )
+              .join("\n");
+
+            const sanitized = results.map((r) => ({
+              id: r.id,
+              memory: r.memory,
+              score: r.score,
+              categories: r.categories,
+              created_at: r.created_at,
+            }));
+
             return {
               content: [
-                { type: "text", text: "No relevant memories found." },
+                {
+                  type: "text",
+                  text: `Found ${results.length} memories:\n\n${text}`,
+                },
               ],
-              details: { count: 0 },
+              details: { count: results.length, memories: sanitized },
+            };
+          } catch (err) {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `Memory search failed: ${String(err)}`,
+                },
+              ],
+              details: { error: String(err) },
             };
           }
-
-          const text = results
-            .map(
-              (r, i) =>
-                `${i + 1}. ${r.memory} (score: ${((r.score ?? 0) * 100).toFixed(0)}%, id: ${r.id})`,
-            )
-            .join("\n");
-
-          const sanitized = results.map((r) => ({
-            id: r.id,
-            memory: r.memory,
-            score: r.score,
-            categories: r.categories,
-            created_at: r.created_at,
-          }));
-
-          return {
-            content: [
-              {
-                type: "text",
-                text: `Found ${results.length} memories:\n\n${text}`,
-              },
-            ],
-            details: { count: results.length, memories: sanitized },
-          };
-        } catch (err) {
-          return {
-            content: [
-              {
-                type: "text",
-                text: `Memory search failed: ${String(err)}`,
-              },
-            ],
-            details: { error: String(err) },
-          };
-        }
-      },
+        },
+      };
     },
     { name: "memory_search" },
   );
 
   api.registerTool(
-    {
-      name: "memory_store",
-      label: "Memory Store",
-      description:
-        "Save important information in long-term memory via Mem0. Use for preferences, facts, decisions, and anything worth remembering.",
-      parameters: Type.Object({
-        text: Type.String({ description: "Information to remember" }),
-        userId: Type.Optional(
-          Type.String({
-            description: "User ID to scope this memory",
-          }),
-        ),
-        agentId: Type.Optional(
-          Type.String({
-            description:
-              "Agent ID to store memory under a specific agent's namespace (e.g. \"researcher\"). Overrides userId.",
-          }),
-        ),
-        metadata: Type.Optional(
-          Type.Record(Type.String(), Type.Unknown(), {
-            description: "Optional metadata to attach to this memory",
-          }),
-        ),
-        longTerm: Type.Optional(
-          Type.Boolean({
-            description:
-              "Store as long-term (user-scoped) memory. Default: true. Set to false for session-scoped memory.",
-          }),
-        ),
-      }),
-      async execute(_toolCallId, params) {
-        const { text, userId, agentId, longTerm = true } = params as {
-          text: string;
-          userId?: string;
-          agentId?: string;
-          metadata?: Record<string, unknown>;
-          longTerm?: boolean;
-        };
+    (ctx: ToolContext) => {
+      const sessionKey = ctx?.sessionKey;
 
-        try {
-          const uid = _resolveUserId({ agentId, userId });
-          const currentSessionId = getCurrentSessionId();
-          const runId = !longTerm && currentSessionId ? currentSessionId : undefined;
+      return {
+        name: "memory_store",
+        label: "Memory Store",
+        description:
+          "Save important information in long-term memory via Mem0. Use for preferences, facts, decisions, and anything worth remembering.",
+        parameters: Type.Object({
+          text: Type.String({ description: "Information to remember" }),
+          userId: Type.Optional(
+            Type.String({
+              description: "User ID to scope this memory",
+            }),
+          ),
+          agentId: Type.Optional(
+            Type.String({
+              description:
+                "Agent ID to store memory under a specific agent's namespace (e.g. \"researcher\"). Overrides userId.",
+            }),
+          ),
+          metadata: Type.Optional(
+            Type.Record(Type.String(), Type.Unknown(), {
+              description: "Optional metadata to attach to this memory",
+            }),
+          ),
+          longTerm: Type.Optional(
+            Type.Boolean({
+              description:
+                "Store as long-term (user-scoped) memory. Default: true. Set to false for session-scoped memory.",
+            }),
+          ),
+        }),
+        async execute(_toolCallId, params) {
+          const { text, userId, agentId, longTerm = true } = params as {
+            text: string;
+            userId?: string;
+            agentId?: string;
+            metadata?: Record<string, unknown>;
+            longTerm?: boolean;
+          };
 
-          // Pre-check for near-duplicates so the extraction model has
-          // context about existing memories and can UPDATE rather than ADD
-          const preview = text.slice(0, 200);
-          const dedupOpts = buildSearchOptions(uid, 3);
-          dedupOpts.threshold = 0.85;
-          const existing = await provider.search(preview, dedupOpts);
-          if (existing.length > 0) {
-            api.logger.info(
-              `openclaw-mem0: found ${existing.length} similar existing memories — mem0 may update instead of add`,
+          try {
+            const uid = _resolveUserId({ agentId, userId }, sessionKey);
+            const runId = !longTerm && sessionKey ? sessionKey : undefined;
+
+            // Pre-check for near-duplicates so the extraction model has
+            // context about existing memories and can UPDATE rather than ADD
+            const preview = text.slice(0, 200);
+            const dedupOpts = buildSearchOptions(uid, 3);
+            dedupOpts.threshold = 0.85;
+            const existing = await provider.search(preview, dedupOpts);
+            if (existing.length > 0) {
+              api.logger.info(
+                `openclaw-mem0: found ${existing.length} similar existing memories — mem0 may update instead of add`,
+              );
+            }
+
+            const result = await provider.add(
+              [{ role: "user", content: text }],
+              buildAddOptions(uid, runId, sessionKey),
             );
+
+            const added =
+              result.results?.filter((r) => r.event === "ADD") ?? [];
+            const updated =
+              result.results?.filter((r) => r.event === "UPDATE") ?? [];
+
+            const summary = [];
+            if (added.length > 0)
+              summary.push(
+                `${added.length} new memor${added.length === 1 ? "y" : "ies"} added`,
+              );
+            if (updated.length > 0)
+              summary.push(
+                `${updated.length} memor${updated.length === 1 ? "y" : "ies"} updated`,
+              );
+            if (summary.length === 0)
+              summary.push("No new memories extracted");
+
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `Stored: ${summary.join(", ")}. ${result.results?.map((r) => `[${r.event}] ${r.memory}`).join("; ") ?? ""}`,
+                },
+              ],
+              details: {
+                action: "stored",
+                results: result.results,
+              },
+            };
+          } catch (err) {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `Memory store failed: ${String(err)}`,
+                },
+              ],
+              details: { error: String(err) },
+            };
           }
-
-          const result = await provider.add(
-            [{ role: "user", content: text }],
-            buildAddOptions(uid, runId, currentSessionId),
-          );
-
-          const added =
-            result.results?.filter((r) => r.event === "ADD") ?? [];
-          const updated =
-            result.results?.filter((r) => r.event === "UPDATE") ?? [];
-
-          const summary = [];
-          if (added.length > 0)
-            summary.push(
-              `${added.length} new memor${added.length === 1 ? "y" : "ies"} added`,
-            );
-          if (updated.length > 0)
-            summary.push(
-              `${updated.length} memor${updated.length === 1 ? "y" : "ies"} updated`,
-            );
-          if (summary.length === 0)
-            summary.push("No new memories extracted");
-
-          return {
-            content: [
-              {
-                type: "text",
-                text: `Stored: ${summary.join(", ")}. ${result.results?.map((r) => `[${r.event}] ${r.memory}`).join("; ") ?? ""}`,
-              },
-            ],
-            details: {
-              action: "stored",
-              results: result.results,
-            },
-          };
-        } catch (err) {
-          return {
-            content: [
-              {
-                type: "text",
-                text: `Memory store failed: ${String(err)}`,
-              },
-            ],
-            details: { error: String(err) },
-          };
-        }
-      },
+        },
+      };
     },
     { name: "memory_store" },
   );
@@ -467,234 +477,241 @@ function registerTools(
   );
 
   api.registerTool(
-    {
-      name: "memory_list",
-      label: "Memory List",
-      description:
-        "List all stored memories for a user or agent. Use this when you want to see everything that's been remembered, rather than searching for something specific.",
-      parameters: Type.Object({
-        userId: Type.Optional(
-          Type.String({
-            description:
-              "User ID to list memories for (default: configured userId)",
-          }),
-        ),
-        agentId: Type.Optional(
-          Type.String({
-            description:
-              "Agent ID to list memories for a specific agent (e.g. \"researcher\"). Overrides userId.",
-          }),
-        ),
-        scope: Type.Optional(
-          Type.Union([
-            Type.Literal("session"),
-            Type.Literal("long-term"),
-            Type.Literal("all"),
-          ], {
-            description:
-              'Memory scope: "session" (current session only), "long-term" (user-scoped only), or "all" (both). Default: "all"',
-          }),
-        ),
-      }),
-      async execute(_toolCallId, params) {
-        const { userId, agentId, scope = "all" } = params as { userId?: string; agentId?: string; scope?: "session" | "long-term" | "all" };
+    (ctx: ToolContext) => {
+      const sessionKey = ctx?.sessionKey;
 
-        try {
-          let memories: MemoryItem[] = [];
-          const uid = _resolveUserId({ agentId, userId });
-          const currentSessionId = getCurrentSessionId();
+      return {
+        name: "memory_list",
+        label: "Memory List",
+        description:
+          "List all stored memories for a user or agent. Use this when you want to see everything that's been remembered, rather than searching for something specific.",
+        parameters: Type.Object({
+          userId: Type.Optional(
+            Type.String({
+              description:
+                "User ID to list memories for (default: configured userId)",
+            }),
+          ),
+          agentId: Type.Optional(
+            Type.String({
+              description:
+                "Agent ID to list memories for a specific agent (e.g. \"researcher\"). Overrides userId.",
+            }),
+          ),
+          scope: Type.Optional(
+            Type.Union([
+              Type.Literal("session"),
+              Type.Literal("long-term"),
+              Type.Literal("all"),
+            ], {
+              description:
+                'Memory scope: "session" (current session only), "long-term" (user-scoped only), or "all" (both). Default: "all"',
+            }),
+          ),
+        }),
+        async execute(_toolCallId, params) {
+          const { userId, agentId, scope = "all" } = params as { userId?: string; agentId?: string; scope?: "session" | "long-term" | "all" };
 
-          if (scope === "session") {
-            if (currentSessionId) {
-              memories = await provider.getAll({
-                user_id: uid,
-                run_id: currentSessionId,
-                source: "OPENCLAW",
-              });
+          try {
+            let memories: MemoryItem[] = [];
+            const uid = _resolveUserId({ agentId, userId }, sessionKey);
+
+            if (scope === "session") {
+              if (sessionKey) {
+                memories = await provider.getAll({
+                  user_id: uid,
+                  run_id: sessionKey,
+                  source: "OPENCLAW",
+                });
+              }
+            } else if (scope === "long-term") {
+              memories = await provider.getAll({ user_id: uid, source: "OPENCLAW" });
+            } else {
+              // "all" — combine both scopes
+              const longTerm = await provider.getAll({ user_id: uid, source: "OPENCLAW" });
+              let session: MemoryItem[] = [];
+              if (sessionKey) {
+                session = await provider.getAll({
+                  user_id: uid,
+                  run_id: sessionKey,
+                  source: "OPENCLAW",
+                });
+              }
+              const seen = new Set(longTerm.map((r) => r.id));
+              memories = [
+                ...longTerm,
+                ...session.filter((r) => !seen.has(r.id)),
+              ];
             }
-          } else if (scope === "long-term") {
-            memories = await provider.getAll({ user_id: uid, source: "OPENCLAW" });
-          } else {
-            // "all" — combine both scopes
-            const longTerm = await provider.getAll({ user_id: uid, source: "OPENCLAW" });
-            let session: MemoryItem[] = [];
-            if (currentSessionId) {
-              session = await provider.getAll({
-                user_id: uid,
-                run_id: currentSessionId,
-                source: "OPENCLAW",
-              });
-            }
-            const seen = new Set(longTerm.map((r) => r.id));
-            memories = [
-              ...longTerm,
-              ...session.filter((r) => !seen.has(r.id)),
-            ];
-          }
 
-          if (!memories || memories.length === 0) {
-            return {
-              content: [
-                { type: "text", text: "No memories stored yet." },
-              ],
-              details: { count: 0 },
-            };
-          }
-
-          const text = memories
-            .map(
-              (r, i) =>
-                `${i + 1}. ${r.memory} (id: ${r.id})`,
-            )
-            .join("\n");
-
-          const sanitized = memories.map((r) => ({
-            id: r.id,
-            memory: r.memory,
-            categories: r.categories,
-            created_at: r.created_at,
-          }));
-
-          return {
-            content: [
-              {
-                type: "text",
-                text: `${memories.length} memories:\n\n${text}`,
-              },
-            ],
-            details: { count: memories.length, memories: sanitized },
-          };
-        } catch (err) {
-          return {
-            content: [
-              {
-                type: "text",
-                text: `Memory list failed: ${String(err)}`,
-              },
-            ],
-            details: { error: String(err) },
-          };
-        }
-      },
-    },
-    { name: "memory_list" },
-  );
-
-  api.registerTool(
-    {
-      name: "memory_forget",
-      label: "Memory Forget",
-      description:
-        "Delete memories from Mem0. Provide a specific memoryId to delete directly, or a query to search and delete matching memories. Supports agent-scoped deletion. GDPR-compliant.",
-      parameters: Type.Object({
-        query: Type.Optional(
-          Type.String({
-            description: "Search query to find memory to delete",
-          }),
-        ),
-        memoryId: Type.Optional(
-          Type.String({ description: "Specific memory ID to delete" }),
-        ),
-        agentId: Type.Optional(
-          Type.String({
-            description:
-              "Agent ID to scope deletion to a specific agent's memories (e.g. \"researcher\").",
-          }),
-        ),
-      }),
-      async execute(_toolCallId, params) {
-        const { query, memoryId, agentId } = params as {
-          query?: string;
-          memoryId?: string;
-          agentId?: string;
-        };
-
-        try {
-          if (memoryId) {
-            await provider.delete(memoryId);
-            return {
-              content: [
-                { type: "text", text: `Memory ${memoryId} forgotten.` },
-              ],
-              details: { action: "deleted", id: memoryId },
-            };
-          }
-
-          if (query) {
-            const uid = _resolveUserId({ agentId });
-            const results = await provider.search(
-              query,
-              buildSearchOptions(uid, 5),
-            );
-
-            if (!results || results.length === 0) {
+            if (!memories || memories.length === 0) {
               return {
                 content: [
-                  { type: "text", text: "No matching memories found." },
+                  { type: "text", text: "No memories stored yet." },
                 ],
-                details: { found: 0 },
+                details: { count: 0 },
               };
             }
 
-            // If single high-confidence match, delete directly
-            if (
-              results.length === 1 ||
-              (results[0].score ?? 0) > 0.9
-            ) {
-              await provider.delete(results[0].id);
-              return {
-                content: [
-                  {
-                    type: "text",
-                    text: `Forgotten: "${results[0].memory}"`,
-                  },
-                ],
-                details: { action: "deleted", id: results[0].id },
-              };
-            }
-
-            const list = results
+            const text = memories
               .map(
-                (r) =>
-                  `- [${r.id}] ${r.memory.slice(0, 80)}${r.memory.length > 80 ? "..." : ""} (score: ${((r.score ?? 0) * 100).toFixed(0)}%)`,
+                (r, i) =>
+                  `${i + 1}. ${r.memory} (id: ${r.id})`,
               )
               .join("\n");
 
-            const candidates = results.map((r) => ({
+            const sanitized = memories.map((r) => ({
               id: r.id,
               memory: r.memory,
-              score: r.score,
+              categories: r.categories,
+              created_at: r.created_at,
             }));
 
             return {
               content: [
                 {
                   type: "text",
-                  text: `Found ${results.length} candidates. Specify memoryId to delete:\n${list}`,
+                  text: `${memories.length} memories:\n\n${text}`,
                 },
               ],
-              details: { action: "candidates", candidates },
+              details: { count: memories.length, memories: sanitized },
+            };
+          } catch (err) {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `Memory list failed: ${String(err)}`,
+                },
+              ],
+              details: { error: String(err) },
             };
           }
+        },
+      };
+    },
+    { name: "memory_list" },
+  );
 
-          return {
-            content: [
-              { type: "text", text: "Provide a query or memoryId." },
-            ],
-            details: { error: "missing_param" },
+  api.registerTool(
+    (ctx: ToolContext) => {
+      const sessionKey = ctx?.sessionKey;
+
+      return {
+        name: "memory_forget",
+        label: "Memory Forget",
+        description:
+          "Delete memories from Mem0. Provide a specific memoryId to delete directly, or a query to search and delete matching memories. Supports agent-scoped deletion. GDPR-compliant.",
+        parameters: Type.Object({
+          query: Type.Optional(
+            Type.String({
+              description: "Search query to find memory to delete",
+            }),
+          ),
+          memoryId: Type.Optional(
+            Type.String({ description: "Specific memory ID to delete" }),
+          ),
+          agentId: Type.Optional(
+            Type.String({
+              description:
+                "Agent ID to scope deletion to a specific agent's memories (e.g. \"researcher\").",
+            }),
+          ),
+        }),
+        async execute(_toolCallId, params) {
+          const { query, memoryId, agentId } = params as {
+            query?: string;
+            memoryId?: string;
+            agentId?: string;
           };
-        } catch (err) {
-          return {
-            content: [
-              {
-                type: "text",
-                text: `Memory forget failed: ${String(err)}`,
-              },
-            ],
-            details: { error: String(err) },
-          };
-        }
-      },
+
+          try {
+            if (memoryId) {
+              await provider.delete(memoryId);
+              return {
+                content: [
+                  { type: "text", text: `Memory ${memoryId} forgotten.` },
+                ],
+                details: { action: "deleted", id: memoryId },
+              };
+            }
+
+            if (query) {
+              const uid = _resolveUserId({ agentId }, sessionKey);
+              const results = await provider.search(
+                query,
+                buildSearchOptions(uid, 5),
+              );
+
+              if (!results || results.length === 0) {
+                return {
+                  content: [
+                    { type: "text", text: "No matching memories found." },
+                  ],
+                  details: { found: 0 },
+                };
+              }
+
+              // If single high-confidence match, delete directly
+              if (
+                results.length === 1 ||
+                (results[0].score ?? 0) > 0.9
+              ) {
+                await provider.delete(results[0].id);
+                return {
+                  content: [
+                    {
+                      type: "text",
+                      text: `Forgotten: "${results[0].memory}"`,
+                    },
+                  ],
+                  details: { action: "deleted", id: results[0].id },
+                };
+              }
+
+              const list = results
+                .map(
+                  (r) =>
+                    `- [${r.id}] ${r.memory.slice(0, 80)}${r.memory.length > 80 ? "..." : ""} (score: ${((r.score ?? 0) * 100).toFixed(0)}%)`,
+                )
+                .join("\n");
+
+              const candidates = results.map((r) => ({
+                id: r.id,
+                memory: r.memory,
+                score: r.score,
+              }));
+
+              return {
+                content: [
+                  {
+                    type: "text",
+                    text: `Found ${results.length} candidates. Specify memoryId to delete:\n${list}`,
+                  },
+                ],
+                details: { action: "candidates", candidates },
+              };
+            }
+
+            return {
+              content: [
+                { type: "text", text: "Provide a query or memoryId." },
+              ],
+              details: { error: "missing_param" },
+            };
+          } catch (err) {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `Memory forget failed: ${String(err)}`,
+                },
+              ],
+              details: { error: String(err) },
+            };
+          }
+        },
+      };
     },
     { name: "memory_forget" },
   );
@@ -846,7 +863,7 @@ function registerHooks(
         return;
       }
 
-      // Update shared state for tools (best-effort — tools don't have ctx)
+      // Update shared state for CLI session-scoped commands
       if (sessionId) session.setCurrentSessionId(sessionId);
 
       // Detect new session for cold-start broadening
@@ -988,7 +1005,7 @@ function registerHooks(
         return;
       }
 
-      // Update shared state for tools (best-effort — tools don't have ctx)
+      // Update shared state for CLI session-scoped commands
       if (sessionId) session.setCurrentSessionId(sessionId);
 
       try {

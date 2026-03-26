@@ -70,7 +70,9 @@ The `agentId` is always namespaced under the configured `userId` (e.g. `agentId:
 
 Lifecycle hooks (`before_agent_start`, `agent_end`) use `ctx.sessionKey` directly from the event context rather than shared mutable state. This prevents race conditions when multiple sessions run concurrently (e.g. multiple Telegram users chatting simultaneously).
 
-Tools still read from a best-effort `currentSessionId` variable (since tools don't receive `ctx`), but hooks — where the critical recall and capture logic runs — are fully concurrency-safe.
+Agent tools are registered via OpenClaw's tool factory context and use `ctx.sessionKey` directly, so session-scoped tool calls stay isolated across concurrent sessions as well.
+
+The CLI's `openclaw mem0 search --scope session` helper still relies on the process-local last active session ID, so treat session-scoped CLI inspection as best-effort rather than authoritative across concurrent gateway activity.
 
 ### Non-interactive trigger filtering
 
