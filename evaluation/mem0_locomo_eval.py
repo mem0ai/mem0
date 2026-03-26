@@ -33,10 +33,10 @@ RESULTS_PATH   = "./results/mem0_results.json"
 CHECKPOINT_DIR = "./checkpoints"
 SLEEP_SECONDS  = 4    # 15 RPM for gemini-2.5-flash-lite
 ERROR_SLEEP    = 30
-MODEL_NAME      = "gemini-2.5-flash"  # "gemini-3.1-flash-lite-preview"
+MODEL_NAME      ="gemini-3.1-flash-lite-preview" # "gemini-2.5-flash"   
 
 # Set True to process only 1 session + 2 questions — quick sanity check
-TEST_MODE      = True
+TEST_MODE      = False
 CHUNK_SIZE     = 15   # turns per m.add() call — keeps JSON response within token budget
 EVAL_LIMIT     = 0    # max questions to evaluate (0 = all)
 

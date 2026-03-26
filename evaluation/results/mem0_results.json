@@ -1,0 +1,42 @@
+{
+  "conv_0": [
+    {
+      "question": "When did Caroline go to the LGBTQ support group?",
+      "answer": "7 May 2023",
+      "response": "7 May 2023",
+      "category": 2,
+      "memories": [
+        "1:56 pm on 8 May, 2023: Went to an LGBTQ support group yesterday",
+        "1:56 pm on 8 May, 2023: Caroline is going to do some research",
+        "1:56 pm on 8 May, 2023: The support group has made her feel accepted and given her courage to embrace herself",
+        "1:56 pm on 8 May, 2023: Found transgender stories inspiring",
+        "1:56 pm on 8 May, 2023: Would love to support those with similar issues",
+        "1:56 pm on 8 May, 2023: Plans to continue her education and check out career options",
+        "1:56 pm on 8 May, 2023: Melanie finds painting a great way to relax after a long day",
+        "1:56 pm on 8 May, 2023: Melanie finds painting a fun way to express her feelings and get creative",
+        "1:56 pm on 8 May, 2023: Melanie is going swimming with the kids",
+        "1:56 pm on 8 May, 2023: Is keen on counseling or working in mental health"
+      ],
+      "conv_id": 0
+    },
+    {
+      "question": "When did Melanie paint a sunrise?",
+      "answer": 2022,
+      "response": "No mention in memories.",
+      "category": 2,
+      "memories": [
+        "1:56 pm on 8 May, 2023: Melanie finds painting a great way to relax after a long day",
+        "1:56 pm on 8 May, 2023: Melanie finds painting a fun way to express her feelings and get creative",
+        "1:56 pm on 8 May, 2023: Melanie is going swimming with the kids",
+        "1:56 pm on 8 May, 2023: Caroline is going to do some research",
+        "1:56 pm on 8 May, 2023: Plans to continue her education and check out career options",
+        "1:56 pm on 8 May, 2023: The support group has made her feel accepted and given her courage to embrace herself",
+        "1:56 pm on 8 May, 2023: Is keen on counseling or working in mental health",
+        "1:56 pm on 8 May, 2023: Found transgender stories inspiring",
+        "1:56 pm on 8 May, 2023: Went to an LGBTQ support group yesterday",
+        "1:56 pm on 8 May, 2023: Would love to support those with similar issues"
+      ],
+      "conv_id": 0
+    }
+  ]
+}
