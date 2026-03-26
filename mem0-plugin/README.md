@@ -1,10 +1,10 @@
-# Mem0 Plugin for Claude Code & Cursor
+# Mem0 Plugin for Claude Code, Claude Cowork & Cursor
 
-Add persistent memory to your AI coding workflows. Store, retrieve, and manage memories across sessions using the Mem0 Platform. Works with both **Claude Code** and **Cursor**.
+Add persistent memory to your AI workflows. Store, retrieve, and manage memories across sessions using the Mem0 Platform. Works with **Claude Code** (CLI), **Claude Cowork** (desktop app), and **Cursor**.
 
 ## Step 1: Set your API key
 
-> **You must complete this step before installing the plugin for either Claude Code or Cursor.**
+> **You must complete this step before installing the plugin.**
 
 1. Sign up at [app.mem0.ai](https://app.mem0.ai) if you haven't already
 2. Go to [app.mem0.ai/dashboard/api-keys](https://app.mem0.ai/dashboard/api-keys)
@@ -30,14 +30,20 @@ Add persistent memory to your AI coding workflows. Store, retrieve, and manage m
 
 ## Step 2: Install the plugin
 
-Choose one of the options below. Both require `MEM0_API_KEY` to be set first (see above).
+Choose one of the options below. All require `MEM0_API_KEY` to be set first (see above).
 
-### Claude Code
+### Claude Code (CLI) / Claude Cowork (Desktop)
+
+Claude Code and Claude Cowork share the same plugin system.
+
+**CLI:**
 
 ```
 /plugin marketplace add mem0ai/mem0
 /plugin install mem0@mem0-plugins
 ```
+
+**Cowork desktop app:** Open the Cowork tab, click **Customize** in the sidebar, click **Browse plugins**, and install Mem0.
 
 This installs the full plugin including the MCP server, lifecycle hooks (automatic memory capture), and the Mem0 SDK skill.
 
@@ -80,8 +86,8 @@ After installing, confirm the MCP server is connected:
 
 ## What's included
 
-| Component | Claude Code | Cursor (Marketplace) | Cursor (Deeplink/Manual) |
-|-----------|:-----------:|:--------------------:|:------------------------:|
+| Component | Claude Code / Cowork | Cursor (Marketplace) | Cursor (Deeplink/Manual) |
+|-----------|:--------------------:|:--------------------:|:------------------------:|
 | MCP Server | Yes | Yes | Yes |
 | Lifecycle Hooks | Yes | Yes | No |
 | Mem0 SDK Skill | Yes | Yes | No |
