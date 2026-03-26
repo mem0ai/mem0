@@ -117,6 +117,7 @@ Exclude (NEVER store):
 - Transient UI/navigation states ("user is in the admin panel", "relay is attached")
 - Ephemeral process status ("download at 50%", "daemon not running", "still syncing")
 - Cron heartbeat outputs, NO_REPLY responses, compaction flush directives
+- The current date/time as a standalone fact — timestamps are conversation context, not durable knowledge. "User indicates current time is 3:25 PM" is NEVER worth storing. However, DO use timestamps to anchor other facts: "User installed Ollama on 2026-03-21" is correct.
 - System routing metadata (message IDs, sender IDs, channel routing info)
 - Generic small talk with no informational content
 - Raw code snippets (capture the intent/decision, not the code itself)
