@@ -25,7 +25,7 @@ import time
 import argparse
 from mem0 import Memory
 
-os.environ["GEMINI_API_KEY"] = "AIzaSyAgKhtypq2sSjE8AuLD5-H6eaM6FphQbfs"
+os.environ["GEMINI_API_KEY"] = "YOUR_GEMINI_API_KEY_HERE"
 
 CONV_ID        = 0
 DATASET_PATH   = "./dataset/locomo10.json"
