@@ -99,6 +99,24 @@ class S3Vectors(VectorStoreBase):
             vectors=vectors_to_put,
         )
 
+    def _convert_filters(self, filters: dict) -> dict:
+        """Convert mem0 filter dict to S3Vectors filter format."""
+        if not filters:
+            return None
+        conditions = []
+        for key, value in filters.items():
+            if isinstance(value, bool):
+                conditions.append({"equals": {"key": key, "value": {"booleanValue": value}}})
+            elif isinstance(value, str):
+                conditions.append({"equals": {"key": key, "value": {"stringValue": value}}})
+            elif isinstance(value, (int, float)):
+                conditions.append({"equals": {"key": key, "value": {"numericValue": value}}})
+        if len(conditions) == 1:
+            return conditions[0]
+        elif len(conditions) > 1:
+            return {"and": conditions}
+        return None
+
     def search(self, query, vectors, limit=5, filters=None):
         params = {
             "vectorBucketName": self.vector_bucket_name,
@@ -109,7 +127,9 @@ class S3Vectors(VectorStoreBase):
             "returnDistance": True,
         }
         if filters:
-            params["filter"] = filters
+            converted = self._convert_filters(filters)
+            if converted:
+                params["filter"] = converted
 
         response = self.client.query_vectors(**params)
         return self._parse_output(response.get("vectors", []))
