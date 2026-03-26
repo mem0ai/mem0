@@ -1,10 +1,10 @@
-# Mem0 Plugin for Claude & Cursor
+# Mem0 Plugin for Claude Code, Claude Cowork & Cursor
 
-Add persistent memory to your AI coding workflows. Store, retrieve, and manage memories across sessions using the Mem0 Platform. Works with both **Claude Code** and **Cursor**.
+Add persistent memory to your AI workflows. Store, retrieve, and manage memories across sessions using the Mem0 Platform. Works with **Claude Code** (CLI), **Claude Cowork** (desktop app), and **Cursor**.
 
 ## Step 1: Set your API key
 
-> **You must complete this step before installing the plugin for either Claude Code or Cursor.**
+> **You must complete this step before installing the plugin.**
 
 1. Sign up at [app.mem0.ai](https://app.mem0.ai) if you haven't already
 2. Go to [app.mem0.ai/dashboard/api-keys](https://app.mem0.ai/dashboard/api-keys)
@@ -30,22 +30,51 @@ Add persistent memory to your AI coding workflows. Store, retrieve, and manage m
 
 ## Step 2: Install the plugin
 
-Choose one of the options below. Both require `MEM0_API_KEY` to be set first (see above).
+Choose one of the options below. All require `MEM0_API_KEY` to be set first (see above).
 
-### Claude Code
+### Claude Code (CLI) / Claude Cowork (Desktop)
+
+Claude Code and Claude Cowork share the same plugin system.
+
+**CLI:**
 
 ```
 /plugin marketplace add mem0ai/mem0
 /plugin install mem0@mem0-plugins
 ```
 
+**Cowork desktop app:** Open the Cowork tab, click **Customize** in the sidebar, click **Browse plugins**, and install Mem0.
+
+This installs the full plugin including the MCP server, lifecycle hooks (automatic memory capture), and the Mem0 SDK skill.
+
 ### Cursor
 
-Click the deeplink below to install the Mem0 MCP server in Cursor:
+> **Already have `mem0` configured as an MCP server?** Remove the existing entry from your Cursor MCP settings before installing to avoid duplicate tools.
 
-[Install Mem0 MCP in Cursor](cursor://anysphere.cursor-deeplink/mcp/install?name=mem0&config=eyJtY3BTZXJ2ZXJzIjp7Im1lbTAiOnsidHlwZSI6Imh0dHAiLCJ1cmwiOiJodHRwczovL21jcC5tZW0wLmFpL21jcC8iLCJoZWFkZXJzIjp7IkF1dGhvcml6YXRpb24iOiJUb2tlbiAke01FTTBfQVBJX0tFWX0ifX19fQ==)
+**Option A — One-click deeplink** (installs MCP server only):
 
-> **Already have `mem0` configured as an MCP server?** Remove the existing entry from your `.mcp.json` or settings before installing this plugin to avoid duplicate tools.
+[Install Mem0 MCP in Cursor](cursor://anysphere.cursor-deeplink/mcp/install?name=mem0&config=eyJtY3BTZXJ2ZXJzIjp7Im1lbTAiOnsidXJsIjoiaHR0cHM6Ly9tY3AubWVtMC5haS9tY3AvIiwiaGVhZGVycyI6eyJBdXRob3JpemF0aW9uIjoiVG9rZW4gJHtlbnY6TUVNMF9BUElfS0VZfSJ9fX19)
+
+**Option B — Manual configuration** (MCP server only):
+
+Add the following to your `.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "mem0": {
+      "url": "https://mcp.mem0.ai/mcp/",
+      "headers": {
+        "Authorization": "Token ${env:MEM0_API_KEY}"
+      }
+    }
+  }
+}
+```
+
+**Option C — Cursor Marketplace** (full plugin with hooks and skills):
+
+Install from the [Cursor Marketplace](https://cursor.com/marketplace) for the complete experience including lifecycle hooks and the Mem0 SDK skill.
 
 ## Verify it works
 
@@ -57,8 +86,15 @@ After installing, confirm the MCP server is connected:
 
 ## What's included
 
+| Component | Claude Code / Cowork | Cursor (Marketplace) | Cursor (Deeplink/Manual) |
+|-----------|:--------------------:|:--------------------:|:------------------------:|
+| MCP Server | Yes | Yes | Yes |
+| Lifecycle Hooks | Yes | Yes | No |
+| Mem0 SDK Skill | Yes | Yes | No |
+
 - **MCP Server** — Connects to the Mem0 remote MCP server (`mcp.mem0.ai`), providing tools to add, search, update, and delete memories. No local dependencies required.
-- **Mem0 Skill** — Guides Claude on how to integrate the Mem0 SDK (Python & TypeScript) into your applications
+- **Lifecycle Hooks** — Automatic memory capture at key points: session start, context compaction, task completion, and session end.
+- **Mem0 SDK Skill** — Guides the AI on how to integrate the Mem0 SDK (Python & TypeScript) into your applications.
 
 ## MCP Tools
 
