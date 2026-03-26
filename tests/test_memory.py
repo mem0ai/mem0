@@ -713,3 +713,47 @@ async def test_async_delete_memory_history_has_timestamps(mock_sqlite, mock_llm_
     assert call_kwargs["created_at"] == "2024-01-01T00:00:00+00:00"
     assert call_kwargs["updated_at"] is not None
     datetime.fromisoformat(call_kwargs["updated_at"])  # verify valid ISO timestamp
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+class TestProcessMetadataFiltersMerge:
+    """Regression tests for issue #3952: multiple operators on the same key must be merged."""
+
+    def _make_memory(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        mock_embedder_factory.return_value = MagicMock()
+        mock_vector_factory.return_value = MagicMock()
+        mock_llm_factory.return_value = MagicMock()
+        mock_sqlite.return_value = MagicMock()
+        from mem0.memory.main import Memory as MemoryClass
+        return MemoryClass(MemoryConfig())
+
+    def test_multiple_operators_same_key_merged(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        """Filters like created_at: {gte: X, lte: Y} must preserve both operators."""
+        memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
+        result = memory._process_metadata_filters({
+            "created_at": {"gte": 1000, "lte": 2000}
+        })
+        assert result == {"created_at": {"gte": 1000, "lte": 2000}}
+
+    def test_single_operator_still_works(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        """Single operator filters must continue to work."""
+        memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
+        result = memory._process_metadata_filters({
+            "created_at": {"gte": 1000}
+        })
+        assert result == {"created_at": {"gte": 1000}}
+
+    def test_multiple_keys_with_multiple_operators(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        """Multiple keys each with multiple operators."""
+        memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
+        result = memory._process_metadata_filters({
+            "created_at": {"gte": 1000, "lte": 2000},
+            "score": {"gt": 0.5, "lt": 0.9},
+        })
+        assert result == {
+            "created_at": {"gte": 1000, "lte": 2000},
+            "score": {"gt": 0.5, "lt": 0.9},
+        }
