@@ -1,6 +1,5 @@
 {
   "name": "mem0",
-  "displayName": "Mem0",
   "version": "0.1.0",
   "description": "Mem0 memory layer for AI applications. Add persistent memory, personalization, and semantic search using the Mem0 Platform MCP server.",
   "author": {
