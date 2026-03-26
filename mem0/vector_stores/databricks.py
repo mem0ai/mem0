@@ -418,7 +418,10 @@ class Databricks(VectorStoreBase):
                     placeholders.append(f":{param_name}")
                     if isinstance(val, dict):
                         val = json.dumps(val)
-                    params.append(StatementParameterListItem(name=param_name, value=str(val)))
+                    # Use explicit type for TIMESTAMP columns so Databricks doesn't
+                    # rely on implicit STRING→TIMESTAMP casting.
+                    param_type = "TIMESTAMP" if col.type_name == ColumnTypeName.TIMESTAMP else None
+                    params.append(StatementParameterListItem(name=param_name, value=str(val), type=param_type))
             value_tuples.append(f"({', '.join(placeholders)})")
 
         insert_sql = f"INSERT INTO {self.fully_qualified_table_name} ({', '.join(self.column_names)}) VALUES {', '.join(value_tuples)}"
@@ -553,7 +556,8 @@ class Databricks(VectorStoreBase):
                 return
             # Vectors are numeric arrays — safe to inline since StatementParameterListItem
             # doesn't support ARRAY types, and values are validated as list of floats above.
-            set_clauses.append(f"embedding = {vector}")
+            # Use array() SQL syntax, not Python list repr which is invalid Databricks SQL.
+            set_clauses.append(f"embedding = {self._format_sql_value(vector)}")
         if payload:
             if not isinstance(payload, dict):
                 logger.error("payload must be a dictionary")

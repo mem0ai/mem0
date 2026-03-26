@@ -275,7 +275,7 @@ def test_update_vector(db_instance_direct, mock_workspace_client):
     args, kwargs = mock_workspace_client.statement_execution.execute_statement.call_args
     sql = kwargs.get("statement") or args[0]
     assert "UPDATE" in sql
-    assert "embedding = [0.4, 0.5, 0.6, 0.7]" in sql
+    assert "embedding = array(0.4, 0.5, 0.6, 0.7)" in sql
     assert "custom = :payload_custom" in sql
     assert ":vector_id" in sql
     assert "id-upd" not in sql  # value should be in params, not in SQL
@@ -1030,8 +1030,33 @@ def test_update_vector_only(db_instance_direct, mock_workspace_client):
     kwargs = mock_workspace_client.statement_execution.execute_statement.call_args.kwargs
     sql = kwargs["statement"]
     assert "UPDATE" in sql
-    assert "embedding = [0.1, 0.2, 0.3, 0.4]" in sql
+    assert "embedding = array(0.1, 0.2, 0.3, 0.4)" in sql
     assert ":vector_id" in sql
     param_map = {p.name: p.value for p in kwargs["parameters"]}
     assert param_map["vector_id"] == "id-1"
     assert len(kwargs["parameters"]) == 1  # only vector_id param
+
+
+def test_insert_timestamp_params_have_explicit_type(db_instance_delta, mock_workspace_client):
+    """Verify insert() sets type='TIMESTAMP' on created_at/updated_at parameters
+    so Databricks doesn't rely on implicit STRING->TIMESTAMP casting."""
+    db_instance_delta.insert(
+        vectors=[[0.1, 0.2]],
+        payloads=[{
+            "data": "test",
+            "hash": "h1",
+            "created_at": "2024-01-01T00:00:00+00:00",
+            "updated_at": "2024-01-02T00:00:00+00:00",
+        }],
+        ids=["id-1"],
+    )
+    kwargs = mock_workspace_client.statement_execution.execute_statement.call_args.kwargs
+    params = kwargs["parameters"]
+    ts_params = [p for p in params if "created_at" in p.name or "updated_at" in p.name]
+    assert len(ts_params) == 2
+    for p in ts_params:
+        assert p.type == "TIMESTAMP", f"Parameter {p.name} should have type=TIMESTAMP, got {p.type}"
+    # Non-timestamp params should not have a type set (defaults to STRING)
+    non_ts_params = [p for p in params if "created_at" not in p.name and "updated_at" not in p.name]
+    for p in non_ts_params:
+        assert p.type is None, f"Parameter {p.name} should not have explicit type, got {p.type}"
