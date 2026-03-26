@@ -2,7 +2,7 @@
  * Mem0 provider implementations: Platform (cloud) and OSS (self-hosted).
  */
 
-import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
+import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import type {
   Mem0Config,
   Mem0Provider,

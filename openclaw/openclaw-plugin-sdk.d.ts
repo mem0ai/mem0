@@ -1,4 +1,4 @@
-declare module "openclaw/plugin-sdk" {
+declare module "openclaw/plugin-sdk/plugin-entry" {
   export interface OpenClawPluginToolContext {
     config?: Record<string, unknown>;
     workspaceDir?: string;
@@ -48,4 +48,17 @@ declare module "openclaw/plugin-sdk" {
     }): void;
     [key: string]: unknown;
   }
+
+  export interface OpenClawPluginDefinition {
+    id: string;
+    name: string;
+    description: string;
+    kind?: "memory" | "context-engine";
+    configSchema?: Record<string, unknown>;
+    register(api: OpenClawPluginApi): void;
+  }
+
+  export function definePluginEntry(
+    definition: OpenClawPluginDefinition,
+  ): OpenClawPluginDefinition;
 }

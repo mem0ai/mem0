@@ -17,7 +17,10 @@
  */
 
 import { Type } from "@sinclair/typebox";
-import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
+import {
+  definePluginEntry,
+  type OpenClawPluginApi,
+} from "openclaw/plugin-sdk/plugin-entry";
 
 import type {
   Mem0Config,
@@ -68,7 +71,7 @@ function categoriesToArray(
 // Plugin Definition
 // ============================================================================
 
-const memoryPlugin = {
+const memoryPlugin = definePluginEntry({
   id: "openclaw-mem0",
   name: "Memory (Mem0)",
   description:
@@ -172,7 +175,7 @@ const memoryPlugin = {
       },
     });
   },
-};
+});
 
 // ============================================================================
 // Tool Registration
