@@ -1,0 +1,230 @@
+/**
+ * Output formatting for mem0 CLI — text, JSON, table, quiet modes.
+ */
+
+import Table from "cli-table3";
+import boxen from "boxen";
+import { colors, sym } from "./branding.js";
+
+const { brand, accent, success, error: errorColor, dim } = colors;
+
+function formatDate(dtStr?: string): string | undefined {
+  if (!dtStr) return undefined;
+  try {
+    const dt = new Date(dtStr.replace("Z", "+00:00"));
+    return dt.toISOString().slice(0, 10);
+  } catch {
+    return dtStr?.slice(0, 10);
+  }
+}
+
+export function formatMemoriesText(
+  memories: Record<string, unknown>[],
+  title = "memories",
+): void {
+  const count = memories.length;
+  console.log(`\n${brand(`Found ${count} ${title}:`)}\n`);
+
+  for (let i = 0; i < memories.length; i++) {
+    const mem = memories[i];
+    const memoryText = (mem.memory ?? mem.text ?? "") as string;
+    const memId = ((mem.id as string) ?? "").slice(0, 8);
+    const score = mem.score as number | undefined;
+    const created = formatDate(mem.created_at as string | undefined);
+    let category: string | undefined;
+    const cats = mem.categories;
+    if (Array.isArray(cats)) {
+      category = cats[0] as string | undefined;
+    }
+
+    console.log(`  ${i + 1}. ${memoryText}`);
+
+    const details: string[] = [];
+    if (score !== undefined) details.push(`Score: ${score.toFixed(2)}`);
+    if (memId) details.push(`ID: ${memId}`);
+    if (created) details.push(`Created: ${created}`);
+    if (category) details.push(`Category: ${category}`);
+
+    if (details.length > 0) {
+      console.log(`     ${dim(details.join(" · "))}`);
+    }
+    console.log();
+  }
+}
+
+export function formatMemoriesTable(memories: Record<string, unknown>[]): void {
+  const table = new Table({
+    head: [accent("ID"), accent("Memory"), accent("Category"), accent("Created")],
+    colWidths: [12, 52, 16, 14],
+    wordWrap: true,
+    style: { head: [], border: [] },
+  });
+
+  for (const mem of memories) {
+    const memId = ((mem.id as string) ?? "").slice(0, 8);
+    let memoryText = (mem.memory ?? mem.text ?? "") as string;
+    if (memoryText.length > 60) {
+      memoryText = memoryText.slice(0, 57) + "...";
+    }
+    const categories = mem.categories;
+    const cat =
+      Array.isArray(categories) && categories.length > 0
+        ? (categories[0] as string)
+        : "—";
+    const created = formatDate(mem.created_at as string | undefined) ?? "—";
+    table.push([dim(memId), memoryText, cat, created]);
+  }
+
+  console.log();
+  console.log(table.toString());
+  console.log();
+}
+
+export function formatJson(data: unknown): void {
+  console.log(JSON.stringify(data, null, 2));
+}
+
+export function formatSingleMemory(
+  mem: Record<string, unknown>,
+  output = "text",
+): void {
+  if (output === "json") {
+    formatJson(mem);
+    return;
+  }
+
+  const memoryText = (mem.memory ?? mem.text ?? "") as string;
+  const memId = (mem.id ?? "") as string;
+
+  const lines: string[] = [];
+  lines.push(`  ${memoryText}`);
+  lines.push("");
+
+  if (memId) lines.push(`  ${dim("ID:")}         ${memId}`);
+  const created = formatDate(mem.created_at as string | undefined);
+  if (created) lines.push(`  ${dim("Created:")}    ${created}`);
+  const updated = formatDate(mem.updated_at as string | undefined);
+  if (updated) lines.push(`  ${dim("Updated:")}    ${updated}`);
+  const meta = mem.metadata;
+  if (meta) lines.push(`  ${dim("Metadata:")}   ${JSON.stringify(meta)}`);
+  const categories = mem.categories;
+  if (categories) {
+    const catStr = Array.isArray(categories) ? categories.join(", ") : String(categories);
+    lines.push(`  ${dim("Categories:")} ${catStr}`);
+  }
+
+  const content = lines.join("\n");
+  console.log();
+  console.log(
+    boxen(content, {
+      title: brand("Memory"),
+      titleAlignment: "left",
+      borderColor: "magenta",
+      padding: 1,
+    }),
+  );
+  console.log();
+}
+
+export function formatAddResult(
+  result: Record<string, unknown> | Record<string, unknown>[],
+  output = "text",
+): void {
+  if (output === "json") {
+    formatJson(result);
+    return;
+  }
+  if (output === "quiet") return;
+
+  const results: Record<string, unknown>[] = Array.isArray(result)
+    ? result
+    : ((result.results as Record<string, unknown>[]) ?? [result]);
+
+  if (!results.length) {
+    console.log(`  ${dim("No memories extracted.")}`);
+    return;
+  }
+
+  console.log();
+  for (const r of results) {
+    // Detect async PENDING response
+    if (r.status === "PENDING") {
+      const eventId = ((r.event_id as string) ?? "").slice(0, 8);
+      const icon = accent(sym("⧗", "..."));
+      const parts = [`  ${icon} ${dim("Queued".padEnd(10))}`, "Processing in background"];
+      if (eventId) parts.push(dim(`(event ${eventId})`));
+      console.log(parts.join("  "));
+      continue;
+    }
+
+    const event = (r.event ?? "ADD") as string;
+    const memory = (r.memory ?? r.text ?? r.content ?? r.data ?? "") as string;
+    const memId = ((r.id as string) ?? (r.memory_id as string) ?? "").slice(0, 8);
+
+    let icon: string;
+    let label: string;
+    if (event === "ADD") {
+      icon = success("+");
+      label = "Added";
+    } else if (event === "UPDATE") {
+      icon = accent("~");
+      label = "Updated";
+    } else if (event === "DELETE") {
+      icon = errorColor("-");
+      label = "Deleted";
+    } else if (event === "NOOP") {
+      icon = dim("·");
+      label = "No change";
+    } else {
+      icon = dim("?");
+      label = event;
+    }
+
+    const parts = [`  ${icon} ${dim(label.padEnd(10))}`];
+    if (memory) parts.push(memory);
+    if (memId) parts.push(dim(`(${memId})`));
+    console.log(parts.join("  "));
+  }
+  console.log();
+}
+
+export function formatJsonEnvelope(opts: {
+  command: string;
+  data: unknown;
+  durationMs?: number;
+  scope?: Record<string, string | undefined>;
+  count?: number;
+  status?: string;
+  error?: string;
+}): void {
+  const envelope: Record<string, unknown> = {
+    status: opts.status ?? "success",
+    command: opts.command,
+  };
+  if (opts.durationMs !== undefined) envelope.duration_ms = opts.durationMs;
+  if (opts.scope !== undefined) envelope.scope = opts.scope;
+  if (opts.count !== undefined) envelope.count = opts.count;
+  if (opts.error) envelope.error = opts.error;
+  envelope.data = opts.data;
+  console.log(JSON.stringify(envelope, null, 2));
+}
+
+export function printResultSummary(opts: {
+  count: number;
+  durationSecs?: number;
+  page?: number;
+  scopeIds?: Record<string, string | undefined>;
+}): void {
+  const parts = [`${opts.count} result${opts.count !== 1 ? "s" : ""}`];
+  if (opts.page !== undefined) parts.push(`page ${opts.page}`);
+  if (opts.scopeIds) {
+    const scopeParts = Object.entries(opts.scopeIds)
+      .filter(([, v]) => v)
+      .map(([k, v]) => `${k.replace(/_/g, " ")}=${v}`);
+    if (scopeParts.length > 0) parts.push(scopeParts.join(", "));
+  }
+  if (opts.durationSecs !== undefined) parts.push(`${opts.durationSecs.toFixed(2)}s`);
+
+  console.log(`  ${dim(parts.join(" · "))}`);
+  console.log();
+}

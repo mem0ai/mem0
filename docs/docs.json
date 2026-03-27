@@ -42,6 +42,7 @@
                       "platform/overview",
                       "vibecoding",
                       "platform/mem0-mcp",
+                      "platform/cli",
                       "platform/platform-vs-oss",
                       "platform/quickstart"
                     ]

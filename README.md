@@ -93,6 +93,20 @@ Install sdk via npm:
 npm install mem0ai
 ```
 
+### CLI
+
+Manage memories from your terminal:
+
+```bash
+pip install mem0-cli   # or: npm install -g @mem0/cli
+
+mem0 init
+mem0 add "Prefers dark mode and vim keybindings" --user-id alice
+mem0 search "What does Alice prefer?" --user-id alice
+```
+
+See the [CLI documentation](https://docs.mem0.ai/platform/cli) for the full command reference.
+
 ### Basic Usage
 
 Mem0 requires an LLM to function, with `gpt-4.1-nano-2025-04-14 from OpenAI as the default. However, it supports a variety of LLMs; for details, refer to our [Supported LLMs documentation](https://docs.mem0.ai/components/llms/overview).
