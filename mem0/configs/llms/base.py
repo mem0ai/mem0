@@ -23,6 +23,7 @@ class BaseLlmConfig(ABC):
         top_k: int = 1,
         enable_vision: bool = False,
         vision_details: Optional[str] = "auto",
+        reasoning_effort: Optional[str] = None,
         http_client_proxies: Optional[Union[Dict, str]] = None,
     ):
         """
@@ -48,6 +49,9 @@ class BaseLlmConfig(ABC):
                 Only applicable to vision-enabled models. Defaults to False
             vision_details: Level of detail for vision processing.
                 Options: "low", "high", "auto". Defaults to "auto"
+            reasoning_effort: Effort level for reasoning models (e.g., o1, o3, gpt-5).
+                Options: "low", "medium", "high". Only applicable to reasoning models.
+                Defaults to None (uses the model's default reasoning effort)
             http_client_proxies: Proxy settings for HTTP client.
                 Can be a dict or string. Defaults to None
         """
@@ -59,4 +63,5 @@ class BaseLlmConfig(ABC):
         self.top_k = top_k
         self.enable_vision = enable_vision
         self.vision_details = vision_details
+        self.reasoning_effort = reasoning_effort
         self.http_client = httpx.Client(proxies=http_client_proxies) if http_client_proxies else None

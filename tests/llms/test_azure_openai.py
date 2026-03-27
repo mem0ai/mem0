@@ -91,6 +91,57 @@ def test_generate_response_with_tools(mock_openai_client):
     assert response["tool_calls"][0]["arguments"] == {"data": "Today is a sunny day."}
 
 
+def test_reasoning_model_with_reasoning_effort(mock_openai_client):
+    """Test that reasoning_effort is passed to the API for Azure reasoning models."""
+    config = AzureOpenAIConfig(model="o3-mini", reasoning_effort="low")
+    llm = AzureOpenAILLM(config)
+    messages = [
+        {"role": "system", "content": "You are a helpful ai."},
+        {"role": "user", "content": "Hello"},
+    ]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Response from o3-mini"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args
+    assert call_kwargs[1]["reasoning_effort"] == "low"
+    assert "temperature" not in call_kwargs[1]
+    assert response == "Response from o3-mini"
+
+
+def test_azure_reasoning_effort_not_passed_when_none(mock_openai_client):
+    """Test that reasoning_effort is not passed when not configured on Azure."""
+    config = AzureOpenAIConfig(model="o3-mini")
+    llm = AzureOpenAILLM(config)
+    messages = [
+        {"role": "system", "content": "You are a helpful ai."},
+        {"role": "user", "content": "Hello"},
+    ]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Response"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args
+    assert "reasoning_effort" not in call_kwargs[1]
+
+
+def test_azure_config_accepts_reasoning_effort():
+    """Test that AzureOpenAIConfig accepts reasoning_effort without TypeError (issue #3651)."""
+    config = AzureOpenAIConfig(
+        model="o3-mini",
+        reasoning_effort="low",
+        azure_kwargs={"api_key": "test"},
+    )
+    assert config.reasoning_effort == "low"
+    assert config.model == "o3-mini"
+
+
 @pytest.mark.parametrize(
     "default_headers",
     [None, {"Firstkey": "FirstVal", "SecondKey": "SecondVal"}],
