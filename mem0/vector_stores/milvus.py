@@ -181,6 +181,17 @@ class MilvusDB(VectorStoreBase):
             vector (List[float], optional): Updated vector.
             payload (Dict, optional): Updated payload.
         """
+        if vector is None or payload is None:
+            existing = self.client.get(collection_name=self.collection_name, ids=vector_id)
+            if not existing:
+                raise ValueError(f"Vector with id {vector_id} not found in collection {self.collection_name}")
+            if vector is None:
+                vector = existing[0].get("vectors")
+                if vector is None:
+                    raise ValueError(f"Existing record {vector_id} has no vector data")
+            if payload is None:
+                payload = existing[0].get("metadata")
+
         schema = {"id": vector_id, "vectors": vector, "metadata": payload}
         self.client.upsert(collection_name=self.collection_name, data=schema)
 
