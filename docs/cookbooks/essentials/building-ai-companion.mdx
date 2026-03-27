@@ -16,7 +16,23 @@ The solution: Mem0. It extracts and stores what matters from conversations, then
   <Tab title="Open Source">
     Here we use **Mem0 open source** (`Memory`): all local, no API keys needed for memory. Vectors in **Qdrant**, LLM and embeddings via **Ollama**. The **OpenAI** Python SDK calls Ollama's **OpenAI-compatible** `/v1` endpoint for Ray's chat replies.
 
-    <Note>**Setup:** `pip install mem0ai qdrant-client openai ollama` · Run Qdrant on `localhost:6333` (`docker run -p 6333:6333 qdrant/qdrant`) · Install [Ollama](https://ollama.com) and pull `llama3.1:latest` + `nomic-embed-text:latest` · use `embedding_model_dims` **768** for that embedder.</Note>
+    ## Installation
+
+    Install the required dependencies:
+
+    ```bash
+    pip install mem0ai qdrant-client openai ollama
+    ```
+
+    Then start Qdrant and pull the Ollama models:
+
+    ```bash
+    docker run -d -p 6333:6333 qdrant/qdrant
+    ollama pull llama3.1:latest
+    ollama pull nomic-embed-text:latest
+    ```
+
+    <Note>You can swap `nomic-embed-text` for any Ollama-supported embedding model (e.g., `snowflake-arctic-embed`, `mxbai-embed-large`). Just update the `model` in the `embedder` config and set `embedding_model_dims` in the Qdrant config to match the model's output dimensions (768 for `nomic-embed-text`).</Note>
   </Tab>
 </Tabs>
 
